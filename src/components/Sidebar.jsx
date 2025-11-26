@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { Plus, Search, Compass, LayoutGrid, User, Globe, Map, BookOpen, Code, Film, Cpu, Wallet, ChevronRight } from 'lucide-react';
+import { Plus, Search, Compass, LayoutGrid, User, Globe, Map, BookOpen, Code, Film, Cpu, Wallet, ChevronRight, Settings } from 'lucide-react';
 import clsx from 'clsx';
 
-const Sidebar = () => {
+const Sidebar = ({ onOpenSettings }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [activeTab, setActiveTab] = useState('home'); // 'home', 'discover', 'spaces'
 
@@ -22,8 +22,8 @@ const Sidebar = () => {
   ];
 
   const navItems = [
-    { id: 'home', icon: Search, label: 'Home' },
-    { id: 'discover', icon: Compass, label: 'Discover' },
+    { id: 'library', icon: Search, label: 'Library' },
+    // { id: 'discover', icon: Compass, label: 'Discover' },
     { id: 'spaces', icon: LayoutGrid, label: 'Spaces' },
   ];
 
@@ -34,7 +34,7 @@ const Sidebar = () => {
       onMouseLeave={() => setIsHovered(false)}
     >
       {/* 1. Fixed Icon Strip */}
-      <div className="w-16 h-full bg-sidebar  flex flex-col items-center py-4 z-20 relative">
+      <div className="w-18 h-full bg-sidebar  flex flex-col items-center py-4 z-20 relative">
         {/* Logo */}
         <div className="mb-6">
           <div className="w-8 h-8 bg-cyan-500 rounded-full flex items-center justify-center text-white font-bold text-xl">
@@ -56,15 +56,14 @@ const Sidebar = () => {
               key={item.id}
               onClick={() => setActiveTab(item.id)}
               className={clsx(
-                "w-full h-10 flex items-center justify-center relative transition-colors",
-                activeTab === item.id ? "text-cyan-500" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                "flex flex-col items-center justify-center gap-1 py-2 mx-2 rounded-xl transition-all duration-200",
+                activeTab === item.id 
+                  ? "bg-gray-100 dark:bg-zinc-700 text-cyan-500 dark:text-white" 
+                  : "text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-zinc-800/50 hover:text-gray-700 dark:hover:text-gray-200"
               )}
             >
               <item.icon size={24} />
-              {/* Active Indicator */}
-              {activeTab === item.id && (
-                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-cyan-500 rounded-r-full" />
-              )}
+               <span className="text-xs  font-medium">{item.label}</span>
             </button>
           ))}
         </div>
@@ -72,10 +71,13 @@ const Sidebar = () => {
         {/* Spacer */}
         <div className="flex-1" />
 
-        {/* User Profile (Icon Only) */}
+        {/* Settings Button (Icon Only) */}
         <div className="mb-2">
-           <button className="w-10 h-10 rounded-full bg-teal-600 flex items-center justify-center text-white font-bold text-xs hover:opacity-90 transition-opacity">
-             U
+           <button 
+             onClick={onOpenSettings}
+             className="w-10 h-10 rounded-full bg-gray-100 dark:bg-zinc-800 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-zinc-700 transition-colors"
+           >
+             <Settings size={20} />
            </button>
         </div>
       </div>
@@ -102,7 +104,7 @@ const Sidebar = () => {
           </div>
 
           {/* HOME TAB CONTENT: History */}
-          {activeTab === 'home' && (
+          {activeTab === 'library' && (
             <div className="flex flex-col gap-6 overflow-y-auto h-[calc(100vh-100px)] pr-2 scrollbar-thin">
                {historyData.map((section, idx) => (
                  <div key={idx}>

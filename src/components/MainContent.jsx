@@ -26,7 +26,8 @@ const MainContent = ({ isDarkMode, toggleTheme }) => {
       <div className="w-full max-w-3xl flex flex-col items-center gap-8">
         
         {/* Title */}
-        <h1 className="text-4xl md:text-5xl font-serif font-medium text-center mb-4 opacity-90">
+        {/* Title */}
+        <h1 className="text-4xl md:text-5xl font-serif font-medium text-center mb-8 text-[#1f2937] dark:text-white">
           Where knowledge begins
         </h1>
 
@@ -62,8 +63,8 @@ const MainContent = ({ isDarkMode, toggleTheme }) => {
           </div>
         </div>
 
-        {/* Suggestions Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 w-full mt-8">
+        {/* Suggestions Grid - Hidden for now to match reference */}
+        {/* <div className="grid grid-cols-2 md:grid-cols-3 gap-4 w-full mt-8">
           {suggestions.map((item, index) => (
             <div 
               key={index}
@@ -78,7 +79,7 @@ const MainContent = ({ isDarkMode, toggleTheme }) => {
               </div>
             </div>
           ))}
-        </div>
+        </div> */}
 
       </div>
       
@@ -89,6 +90,7 @@ const MainContent = ({ isDarkMode, toggleTheme }) => {
         <a href="#" className="hover:underline">Store</a>
         <a href="#" className="hover:underline">Blog</a>
         <a href="#" className="hover:underline">Careers</a>
+        <a href="#" className="hover:underline">English (English)</a>
       </div>
     </div>
   );

@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import MainContent from './components/MainContent';
+import SettingsModal from './components/SettingsModal';
 
 function App() {
   // Initialize theme based on system preference or default to dark
   const [isDarkMode, setIsDarkMode] = useState(true);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   useEffect(() => {
     if (isDarkMode) {
@@ -20,8 +22,9 @@ function App() {
 
   return (
     <div className="flex min-h-screen bg-background text-foreground font-sans selection:bg-cyan-500/30">
-      <Sidebar />
+      <Sidebar onOpenSettings={() => setIsSettingsOpen(true)} />
       <MainContent isDarkMode={isDarkMode} toggleTheme={toggleTheme} />
+      <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
     </div>
   );
 }

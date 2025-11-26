@@ -1,5 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 @import "tailwindcss";
+@variant dark (&:where(.dark, .dark *));
 
 @theme {
   --color-background: var(--background);
@@ -10,10 +11,10 @@
 }
 
 :root {
-  --background: #ffffff;
+  --background: #f9f9f9;
   --foreground: #1f2937;
   /* gray-800 */
-  --sidebar: #f3f4f6;
+  --sidebar: #f9f9f9;
   /* gray-100 */
   --sidebar-foreground: #4b5563;
   /* gray-600 */

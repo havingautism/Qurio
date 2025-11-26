@@ -84,14 +84,14 @@ const MainContent = ({ isDarkMode, toggleTheme }) => {
       </div>
       
       {/* Footer */}
-      <div className="absolute bottom-4 text-xs text-gray-400 dark:text-gray-600 flex gap-4">
+      {/* <div className="absolute bottom-4 text-xs text-gray-400 dark:text-gray-600 flex gap-4">
         <a href="#" className="hover:underline">Pro</a>
         <a href="#" className="hover:underline">Enterprise</a>
         <a href="#" className="hover:underline">Store</a>
         <a href="#" className="hover:underline">Blog</a>
         <a href="#" className="hover:underline">Careers</a>
         <a href="#" className="hover:underline">English (English)</a>
-      </div>
+      </div> */}
     </div>
   );
 };

@@ -4,7 +4,10 @@ import clsx from 'clsx';
 
 const Sidebar = ({ onOpenSettings }) => {
   const [isHovered, setIsHovered] = useState(false);
-  const [activeTab, setActiveTab] = useState('home'); // 'home', 'discover', 'spaces'
+  const [activeTab, setActiveTab] = useState('library'); // 'library', 'discover', 'spaces'
+  const [hoveredTab, setHoveredTab] = useState(null);
+
+  const displayTab = hoveredTab || activeTab;
 
   // Mock Data
   const historyData = [
@@ -31,7 +34,10 @@ const Sidebar = ({ onOpenSettings }) => {
     <div 
       className="fixed left-0 top-0 h-full z-50 flex"
       onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      onMouseLeave={() => {
+        setIsHovered(false);
+        setHoveredTab(null);
+      }}
     >
       {/* 1. Fixed Icon Strip */}
       <div className="w-18 h-full bg-sidebar  flex flex-col items-center py-4 z-20 relative">
@@ -55,6 +61,7 @@ const Sidebar = ({ onOpenSettings }) => {
             <button
               key={item.id}
               onClick={() => setActiveTab(item.id)}
+              onMouseEnter={() => setHoveredTab(item.id)}
               className={clsx(
                 "flex flex-col items-center justify-center gap-1 py-2 mx-2 rounded-xl transition-all duration-200",
                 activeTab === item.id 
@@ -86,7 +93,7 @@ const Sidebar = ({ onOpenSettings }) => {
       <div 
         className={clsx(
           "h-full bg-sidebar  transition-all duration-300 ease-in-out overflow-hidden flex flex-col",
-          isHovered && activeTab !== 'discover' ? "w-64 opacity-100 translate-x-0 shadow-2xl" : "w-0 opacity-0 -translate-x-4"
+          isHovered && displayTab !== 'discover' ? "w-64 opacity-100 translate-x-0 shadow-2xl" : "w-0 opacity-0 -translate-x-4"
         )}
       >
         <div className="p-4 min-w-[256px]"> {/* min-w ensures content doesn't squash during transition */}
@@ -94,9 +101,9 @@ const Sidebar = ({ onOpenSettings }) => {
           {/* Header based on Tab */}
           <div className="mb-4 flex items-center justify-between">
             <h2 className="font-semibold text-lg text-foreground">
-              {activeTab === 'home' ? 'Library' : activeTab === 'spaces' ? 'Spaces' : ''}
+              {displayTab === 'library' ? 'Library' : displayTab === 'spaces' ? 'Spaces' : ''}
             </h2>
-            {activeTab === 'spaces' && (
+            {displayTab === 'spaces' && (
                <button className="p-1 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded text-gray-500">
                  <Plus size={16} />
                </button>
@@ -104,7 +111,7 @@ const Sidebar = ({ onOpenSettings }) => {
           </div>
 
           {/* HOME TAB CONTENT: History */}
-          {activeTab === 'library' && (
+          {displayTab === 'library' && (
             <div className="flex flex-col gap-6 overflow-y-auto h-[calc(100vh-100px)] pr-2 scrollbar-thin">
                {historyData.map((section, idx) => (
                  <div key={idx}>
@@ -122,7 +129,7 @@ const Sidebar = ({ onOpenSettings }) => {
           )}
 
           {/* SPACES TAB CONTENT */}
-          {activeTab === 'spaces' && (
+          {displayTab === 'spaces' && (
             <div className="flex flex-col gap-2">
                {/* Create New Space */}
                <button className="flex items-center gap-3 p-2 rounded hover:bg-gray-200 dark:hover:bg-zinc-800 text-gray-700 dark:text-gray-300 transition-colors mb-2">

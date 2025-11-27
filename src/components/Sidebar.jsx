@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, Search, Compass, LayoutGrid, User, Globe, Map, BookOpen, Code, Film, Cpu, Wallet, ChevronRight, Settings, Sun, Moon, Laptop } from 'lucide-react';
 import clsx from 'clsx';
+import ClarityLogo from './Logo';
 
 const Sidebar = ({ onOpenSettings, onNavigate, onCreateSpace, onEditSpace, spaces, theme, onToggleTheme }) => {
   const [isHovered, setIsHovered] = useState(false);
@@ -42,16 +43,17 @@ const Sidebar = ({ onOpenSettings, onNavigate, onCreateSpace, onEditSpace, space
     >
       {/* 1. Fixed Icon Strip */}
       <div className="w-18 h-full bg-sidebar  flex flex-col items-center py-4 z-20 relative">
+
         {/* Logo */}
         <div className="mb-6">
-          <div className="w-8 h-8 bg-cyan-500 rounded-full flex items-center justify-center text-white font-bold text-xl">
-            <Globe size={20} />
+          <div className="w-8 h-8 flex items-center justify-center text-gray-900 dark:text-white font-bold text-xl">
+            <ClarityLogo size={32} />
           </div>
         </div>
 
         {/* New Thread Button (Icon Only) */}
         <div className="mb-6">
-          <button className="w-10 h-10 flex items-center justify-center rounded-full bg-[#9c9d8a29] dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-transform duration-200 hover:scale-110 active:scale-95">
+          <button className="w-10 h-10 flex items-center justify-center rounded-full bg-[#9c9d8a29] dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-transform duration-200 hover:scale-110 active:scale-95 cursor-pointer">
             <Plus size={20} />
           </button>
         </div>
@@ -64,7 +66,7 @@ const Sidebar = ({ onOpenSettings, onNavigate, onCreateSpace, onEditSpace, space
               onClick={() => setActiveTab(item.id)}
               onMouseEnter={() => setHoveredTab(item.id)}
               className={clsx(
-                "flex flex-col items-center justify-center gap-1 py-2 mx-2 rounded-xl transition-all duration-200",
+                "flex flex-col items-center justify-center gap-1 py-2 mx-2 rounded-xl transition-all duration-200 cursor-pointer",
                 activeTab === item.id
                   ? "bg-[#9c9d8a29] dark:bg-zinc-700 text-[#13343bbf] dark:text-white"
                   : "text-[#13343bbf] dark:text-gray-400 hover:bg-[#9c9d8a29] dark:hover:bg-zinc-800/50 hover:text-gray-700 dark:hover:text-gray-200"
@@ -83,7 +85,7 @@ const Sidebar = ({ onOpenSettings, onNavigate, onCreateSpace, onEditSpace, space
         <div className="mb-2">
           <button
             onClick={onToggleTheme}
-            className="w-10 h-10 flex items-center justify-center rounded-full bg-[#9c9d8a29] dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-transform duration-200 hover:scale-110 active:scale-95"
+            className="w-10 h-10 flex items-center justify-center rounded-full bg-[#9c9d8a29] dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-transform duration-200 hover:scale-110 active:scale-95 cursor-pointer"
           //  title={`Current theme: ${theme}`}
           >
             {getThemeIcon()}
@@ -94,7 +96,7 @@ const Sidebar = ({ onOpenSettings, onNavigate, onCreateSpace, onEditSpace, space
         <div className="mb-2">
           <button
             onClick={onOpenSettings}
-            className="w-10 h-10 flex items-center justify-center rounded-full bg-[#9c9d8a29] dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-transform duration-200 hover:scale-110 active:scale-95"
+            className="w-10 h-10 flex items-center justify-center rounded-full bg-[#9c9d8a29] dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-transform duration-200 hover:scale-110 active:scale-95 cursor-pointer"
           >
             <Settings size={20} />
           </button>
@@ -149,7 +151,7 @@ const Sidebar = ({ onOpenSettings, onNavigate, onCreateSpace, onEditSpace, space
               {/* Create New Space */}
               <button
                 onClick={onCreateSpace}
-                className="flex items-center gap-3 p-2 rounded hover:bg-gray-200 dark:hover:bg-zinc-800 text-gray-700 dark:text-gray-300 transition-colors mb-2 w-full text-left"
+                className="flex items-center gap-3 p-2 rounded hover:bg-gray-200 dark:hover:bg-zinc-800 text-gray-700 dark:text-gray-300 transition-colors mb-2 w-full text-left cursor-pointer"
               >
                 <div className="w-8 h-8 rounded bg-gray-200 dark:bg-zinc-700 flex items-center justify-center">
                   <Plus size={16} />

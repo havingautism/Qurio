@@ -14,7 +14,7 @@
   --background: #f9f9f9;
   --foreground: #1f2937;
   /* gray-800 */
-  --sidebar: #f9f9f9;
+  --sidebar: rgb(243 243 238);
   /* gray-100 */
   --sidebar-foreground: #4b5563;
   /* gray-600 */

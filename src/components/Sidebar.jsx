@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { Plus, Search, Compass, LayoutGrid, User, Globe, Map, BookOpen, Code, Film, Cpu, Wallet, ChevronRight, Settings } from 'lucide-react';
+import { Plus, Search, Compass, LayoutGrid, User, Globe, Map, BookOpen, Code, Film, Cpu, Wallet, ChevronRight, Settings, Sun, Moon, Laptop } from 'lucide-react';
 import clsx from 'clsx';
 
-const Sidebar = ({ onOpenSettings, onNavigate, onCreateSpace, onEditSpace }) => {
+const Sidebar = ({ onOpenSettings, onNavigate, onCreateSpace, onEditSpace, spaces, theme, onToggleTheme }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [activeTab, setActiveTab] = useState('library'); // 'library', 'discover', 'spaces'
   const [hoveredTab, setHoveredTab] = useState(null);
@@ -16,19 +16,20 @@ const Sidebar = ({ onOpenSettings, onNavigate, onCreateSpace, onEditSpace }) => 
     { label: 'Previous 7 Days', items: ['Docker Containers', 'Linux Commands', 'Rust Basics'] },
   ];
 
-  const spacesData = [
-    { icon: Globe, label: 'Daily Life', color: 'text-pink-500' },
-    { icon: Code, label: 'Development', color: 'text-blue-500' },
-    { icon: Cpu, label: 'LLM Research', color: 'text-purple-500' },
-    { icon: Film, label: 'Movies', color: 'text-indigo-500' },
-    { icon: Wallet, label: 'Finance', color: 'text-green-500' },
-  ];
-
   const navItems = [
     { id: 'library', icon: Search, label: 'Library' },
     // { id: 'discover', icon: Compass, label: 'Discover' },
     { id: 'spaces', icon: LayoutGrid, label: 'Spaces' },
   ];
+
+  const getThemeIcon = () => {
+    switch (theme) {
+      case 'light': return <Sun size={20} />;
+      case 'dark': return <Moon size={20} />;
+      case 'system': return <Laptop size={20} />;
+      default: return <Laptop size={20} />;
+    }
+  };
 
   return (
     <div 
@@ -50,7 +51,7 @@ const Sidebar = ({ onOpenSettings, onNavigate, onCreateSpace, onEditSpace }) => 
 
         {/* New Thread Button (Icon Only) */}
         <div className="mb-6">
-          <button className="w-10 h-10 flex items-center justify-center rounded-full bg-[#9c9d8a29] dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 text-gray-600 dark:text-gray-300 transition-colors">
+          <button className="w-10 h-10 flex items-center justify-center rounded-full bg-[#9c9d8a29] dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-transform duration-200 hover:scale-110 active:scale-95">
             <Plus size={20} />
           </button>
         </div>
@@ -78,11 +79,22 @@ const Sidebar = ({ onOpenSettings, onNavigate, onCreateSpace, onEditSpace }) => 
         {/* Spacer */}
         <div className="flex-1" />
 
+        {/* Theme Toggle Button */}
+        <div className="mb-2">
+           <button 
+             onClick={onToggleTheme}
+             className="w-10 h-10 flex items-center justify-center rounded-full bg-[#9c9d8a29] dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-transform duration-200 hover:scale-110 active:scale-95"
+             title={`Current theme: ${theme}`}
+           >
+             {getThemeIcon()}
+           </button>
+        </div>
+
         {/* Settings Button (Icon Only) */}
         <div className="mb-2">
            <button 
              onClick={onOpenSettings}
-             className="w-10 h-10 rounded-full bg-gray-100 dark:bg-zinc-800 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-zinc-700 transition-colors"
+             className="w-10 h-10 flex items-center justify-center rounded-full bg-[#9c9d8a29] dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-transform duration-200 hover:scale-110 active:scale-95"
            >
              <Settings size={20} />
            </button>
@@ -105,7 +117,6 @@ const Sidebar = ({ onOpenSettings, onNavigate, onCreateSpace, onEditSpace }) => 
             </h2>
             {displayTab === 'spaces' && (
                <button className="p-1 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded text-gray-500">
-                 <Plus size={16} />
                </button>
             )}
           </div>
@@ -149,11 +160,11 @@ const Sidebar = ({ onOpenSettings, onNavigate, onCreateSpace, onEditSpace }) => 
                <div className="h-px bg-border my-2" />
 
                {/* Spaces List */}
-               {spacesData.map((space, idx) => (
+               {spaces.map((space, idx) => (
                  <div key={idx} className="flex items-center justify-between p-2 rounded hover:bg-gray-200 dark:hover:bg-zinc-800 cursor-pointer transition-colors group">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded bg-gray-100 dark:bg-zinc-800 border border-border flex items-center justify-center group-hover:border-gray-300 dark:group-hover:border-zinc-600">
-                        <space.icon size={16} className={space.color} />
+                      <div className="w-8 h-8 rounded bg-gray-100 dark:bg-zinc-800 border border-border flex items-center justify-center group-hover:border-gray-300 dark:group-hover:border-zinc-600 text-lg">
+                        {space.emoji}
                       </div>
                       <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{space.label}</span>
                     </div>

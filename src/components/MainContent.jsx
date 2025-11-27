@@ -1,8 +1,8 @@
 import React from 'react';
-import { Search, Paperclip, Mic, ArrowRight, Sun, Moon, Clock, Cloud, Github, Youtube, Coffee } from 'lucide-react';
+import { Search, Paperclip, Mic, ArrowRight, Sun, Moon, Clock, Cloud, Github, Youtube, Coffee, Globe, Layers } from 'lucide-react';
 import ChatInterface from './ChatInterface';
 
-const MainContent = ({ isDarkMode, toggleTheme, currentView }) => {
+const MainContent = ({ currentView, spaces }) => {
   const suggestions = [
     { icon: Clock, title: 'Time in Tokyo', subtitle: 'Current local time' },
     { icon: Cloud, title: 'Weather', subtitle: 'San Francisco, CA' },
@@ -14,16 +14,10 @@ const MainContent = ({ isDarkMode, toggleTheme, currentView }) => {
 
   return (
     <div className="flex-1 min-h-screen bg-background text-foreground transition-colors duration-300 relative">
-      {/* Theme Toggle (Absolute Top Right) */}
-      <button 
-        onClick={toggleTheme}
-        className="fixed top-6 right-6 z-50 p-2 rounded-full hover:bg-gray-200 dark:hover:bg-zinc-800 transition-colors text-gray-500 dark:text-gray-400"
-      >
-        {isDarkMode ? <Sun size={24} /> : <Moon size={24} />}
-      </button>
+      {/* Theme Toggle (Removed) */}
 
       {currentView === 'chat' ? (
-        <ChatInterface />
+        <ChatInterface spaces={spaces} />
       ) : (
         <div className="flex flex-col items-center justify-center min-h-screen p-4 ml-16">
           {/* Main Container */}
@@ -46,20 +40,22 @@ const MainContent = ({ isDarkMode, toggleTheme, currentView }) => {
                 
                 <div className="flex justify-between items-center mt-2">
                   <div className="flex gap-2">
-                    <button className="p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg text-gray-500 transition-colors flex items-center gap-2 text-sm font-medium">
-                       <span className="bg-gray-200 dark:bg-zinc-700 px-1.5 py-0.5 rounded text-xs">Focus</span>
+                    <button className="p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg text-gray-500 dark:text-gray-400 transition-colors flex items-center gap-2 text-xs font-medium">
+                      <Paperclip size={18} />
                     </button>
-                    <button className="p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg text-gray-500 transition-colors">
-                      <Paperclip size={20} />
+                     <button className="p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg text-gray-500 dark:text-gray-400 transition-colors flex items-center gap-2 text-xs font-medium">
+                      <Globe size={18} />
+                      <span>Search</span>
+                    </button>
+                     <button className="p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg text-gray-500 dark:text-gray-400 transition-colors flex items-center gap-2 text-xs font-medium">
+                      <Layers size={18} />
+                      <span>Think</span>
                     </button>
                   </div>
                   
                   <div className="flex gap-2">
-                     <button className="p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-full text-gray-500 transition-colors">
-                      <Mic size={20} />
-                    </button>
                     <button className="p-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-full transition-colors disabled:opacity-50">
-                      <ArrowRight size={20} />
+                      <ArrowRight size={18} />
                     </button>
                   </div>
                 </div>

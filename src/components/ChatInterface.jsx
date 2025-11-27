@@ -1,9 +1,45 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import MessageList from './MessageList';
-import { Paperclip, ArrowRight, Mic, Globe, Layers } from 'lucide-react';
+import { Paperclip, ArrowRight, Mic, Globe, Layers, ChevronDown, Check } from 'lucide-react';
 
-const ChatInterface = () => {
+const ChatInterface = ({ spaces = [] }) => {
   const [input, setInput] = useState('');
+  const [selectedSpaces, setSelectedSpaces] = useState([]);
+  const [isSelectorOpen, setIsSelectorOpen] = useState(false);
+  const selectorRef = useRef(null);
+
+  // Initialize selectedSpaces with the first space if available, or none
+  useEffect(() => {
+    if (spaces.length > 0 && selectedSpaces.length === 0) {
+      // Optional: Default to first space or keep empty
+      // setSelectedSpaces([spaces[0]]); 
+    }
+  }, [spaces]);
+
+  // Handle click outside to close selector
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (selectorRef.current && !selectorRef.current.contains(event.target)) {
+        setIsSelectorOpen(false);
+      }
+    };
+
+    if (isSelectorOpen) {
+      document.addEventListener('click', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, [isSelectorOpen]);
+
+  const toggleSpaceSelection = (space) => {
+    if (selectedSpaces.find(s => s.label === space.label)) {
+      setSelectedSpaces(selectedSpaces.filter(s => s.label !== space.label));
+    } else {
+      setSelectedSpaces([...selectedSpaces, space]);
+    }
+  };
 
   // Hardcoded data matching the image
   const [messages] = useState([
@@ -88,8 +124,54 @@ const ChatInterface = () => {
     <div className="flex-1 min-h-screen bg-background text-foreground flex flex-col items-center relative p-4 ml-16">
       
       {/* Title Bar */}
-      <div className="sticky top-0 z-20 w-full max-w-3xl bg-background/80 backdrop-blur-md py-4 mb-4 border-b border-transparent transition-all">
-        <h1 className="text-xl font-medium text-gray-800 dark:text-gray-100 truncate">
+      <div className="sticky top-0 z-20 w-full max-w-3xl bg-background/80 backdrop-blur-md py-4 mb-4 border-b border-transparent transition-all flex items-center gap-4">
+        
+        {/* Space Selector */}
+        <div className="relative" ref={selectorRef}>
+          <button 
+            onClick={() => setIsSelectorOpen(!isSelectorOpen)}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors text-sm font-medium text-gray-700 dark:text-gray-300"
+          >
+            {selectedSpaces.length > 0 ? (
+              <div className="flex items-center gap-2">
+                 <span className="text-lg">{selectedSpaces[0].emoji}</span>
+                 <span className="truncate max-w-[100px]">{selectedSpaces[0].label}</span>
+                 {selectedSpaces.length > 1 && (
+                   <span className="text-xs text-gray-500">+{selectedSpaces.length - 1}</span>
+                 )}
+              </div>
+            ) : (
+              <span className="text-gray-500">Select Space</span>
+            )}
+            <ChevronDown size={14} className="text-gray-400" />
+          </button>
+
+          {/* Dropdown */}
+          {isSelectorOpen && (
+            <div className="absolute top-full left-0 mt-2 w-56 bg-white dark:bg-[#202222] border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl z-30 overflow-hidden">
+              <div className="p-2 flex flex-col gap-1">
+                {spaces.map((space, idx) => {
+                  const isSelected = selectedSpaces.some(s => s.label === space.label);
+                  return (
+                    <button
+                      key={idx}
+                      onClick={() => toggleSpaceSelection(space)}
+                      className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="text-lg">{space.emoji}</span>
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-200">{space.label}</span>
+                      </div>
+                      {isSelected && <Check size={14} className="text-cyan-500" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <h1 className="text-xl font-medium text-gray-800 dark:text-gray-100 truncate flex-1">
           服务器 df -h 没反应
         </h1>
       </div>

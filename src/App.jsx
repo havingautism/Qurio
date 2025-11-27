@@ -6,7 +6,7 @@ import SpaceModal from './components/SpaceModal';
 
 function App() {
   // Initialize theme based on system preference or default to dark
-  const [isDarkMode, setIsDarkMode] = useState(true);
+  const [theme, setTheme] = useState('system'); // 'light' | 'dark' | 'system'
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [currentView, setCurrentView] = useState('home'); // 'home' | 'chat'
   
@@ -14,16 +14,47 @@ function App() {
   const [isSpaceModalOpen, setIsSpaceModalOpen] = useState(false);
   const [editingSpace, setEditingSpace] = useState(null);
 
-  useEffect(() => {
-    if (isDarkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, [isDarkMode]);
+  // Spaces Data
+  const [spaces, setSpaces] = useState([
+    { emoji: '🌍', label: 'Daily Life' },
+    { emoji: '💻', label: 'Development' },
+    { emoji: '🤖', label: 'LLM Research' },
+    { emoji: '🎬', label: 'Movies' },
+    { emoji: '💸', label: 'Finance' },
+  ]);
 
-  const toggleTheme = () => {
-    setIsDarkMode(!isDarkMode);
+  useEffect(() => {
+    const root = document.documentElement;
+    const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    
+    const applyTheme = (t) => {
+      if (t === 'dark' || (t === 'system' && systemTheme === 'dark')) {
+        root.classList.add('dark');
+      } else {
+        root.classList.remove('dark');
+      }
+    };
+
+    applyTheme(theme);
+
+    // Listener for system theme changes if in system mode
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleChange = () => {
+      if (theme === 'system') {
+        applyTheme('system');
+      }
+    };
+
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, [theme]);
+
+  const cycleTheme = () => {
+    setTheme(prev => {
+      if (prev === 'light') return 'dark';
+      if (prev === 'dark') return 'system';
+      return 'light';
+    });
   };
 
   const handleNavigate = (view) => {
@@ -47,8 +78,14 @@ function App() {
         onNavigate={handleNavigate}
         onCreateSpace={handleCreateSpace}
         onEditSpace={handleEditSpace}
+        spaces={spaces}
+        theme={theme}
+        onToggleTheme={cycleTheme}
       />
-      <MainContent isDarkMode={isDarkMode} toggleTheme={toggleTheme} currentView={currentView} />
+      <MainContent 
+        currentView={currentView} 
+        spaces={spaces}
+      />
       <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
       <SpaceModal 
         isOpen={isSpaceModalOpen} 

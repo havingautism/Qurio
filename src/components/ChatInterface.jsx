@@ -50,7 +50,7 @@ const ChatInterface = ({ spaces = [] }) => {
     // 1. Add user message to state
     // const userMessage = { role: 'user', content: input };
     // setMessages(prev => [...prev, userMessage]);
-    
+
     // 2. Save user message to Supabase
     // await saveMessage(currentConversationId, userMessage);
 
@@ -168,23 +168,23 @@ const ChatInterface = ({ spaces = [] }) => {
 
   return (
     <div className="flex-1 min-h-screen bg-background text-foreground flex flex-col items-center relative p-4 ml-16">
-      
+
       {/* Title Bar */}
       <div className="sticky top-0 z-20 w-full max-w-3xl bg-background/80 backdrop-blur-md py-4 mb-4 border-b border-transparent transition-all flex items-center gap-4">
-        
+
         {/* Space Selector */}
         <div className="relative" ref={selectorRef}>
-          <button 
+          <button
             onClick={() => setIsSelectorOpen(!isSelectorOpen)}
             className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors text-sm font-medium text-gray-700 dark:text-gray-300"
           >
             {selectedSpaces.length > 0 ? (
               <div className="flex items-center gap-2">
-                 <span className="text-lg">{selectedSpaces[0].emoji}</span>
-                 <span className="truncate max-w-[100px]">{selectedSpaces[0].label}</span>
-                 {selectedSpaces.length > 1 && (
-                   <span className="text-xs text-gray-500">+{selectedSpaces.length - 1}</span>
-                 )}
+                <span className="text-lg">{selectedSpaces[0].emoji}</span>
+                <span className="truncate max-w-[100px]">{selectedSpaces[0].label}</span>
+                {selectedSpaces.length > 1 && (
+                  <span className="text-xs text-gray-500">+{selectedSpaces.length - 1}</span>
+                )}
               </div>
             ) : (
               <span className="text-gray-500">Select Space</span>
@@ -231,24 +231,24 @@ const ChatInterface = ({ spaces = [] }) => {
       <div className="fixed bottom-0 left-16 right-0 bg-gradient-to-t from-background via-background to-transparent pb-6 pt-10 px-4 flex justify-center z-10">
         <div className="w-full max-w-3xl relative">
           <div className="relative bg-gray-100 dark:bg-zinc-800 border border-transparent focus-within:border-gray-300 dark:focus-within:border-zinc-600 rounded-xl transition-all duration-300 p-3">
-            <textarea 
+            <textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask follow-up..." 
+              placeholder="Ask follow-up..."
               className="w-full bg-transparent border-none outline-none resize-none text-base placeholder-gray-500 dark:placeholder-gray-400 min-h-[44px] max-h-[200px] py-2"
               rows={1}
             />
-            
+
             <div className="flex justify-between items-center mt-2">
-               <div className="flex gap-2">
+              <div className="flex gap-2">
                 <button className="p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg text-gray-500 dark:text-gray-400 transition-colors flex items-center gap-2 text-xs font-medium">
                   <Paperclip size={18} />
                 </button>
-                 <button className="p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg text-gray-500 dark:text-gray-400 transition-colors flex items-center gap-2 text-xs font-medium">
+                <button className="p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg text-gray-500 dark:text-gray-400 transition-colors flex items-center gap-2 text-xs font-medium">
                   <Globe size={18} />
                   <span>Search</span>
                 </button>
-                 <button className="p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg text-gray-500 dark:text-gray-400 transition-colors flex items-center gap-2 text-xs font-medium">
+                <button className="p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg text-gray-500 dark:text-gray-400 transition-colors flex items-center gap-2 text-xs font-medium">
                   <Layers size={18} />
                   <span>Think</span>
                 </button>

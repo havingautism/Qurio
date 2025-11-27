@@ -32,7 +32,7 @@ const Sidebar = ({ onOpenSettings, onNavigate, onCreateSpace, onEditSpace, space
   };
 
   return (
-    <div 
+    <div
       className="fixed left-0 top-0 h-full z-50 flex"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => {
@@ -45,7 +45,7 @@ const Sidebar = ({ onOpenSettings, onNavigate, onCreateSpace, onEditSpace, space
         {/* Logo */}
         <div className="mb-6">
           <div className="w-8 h-8 bg-cyan-500 rounded-full flex items-center justify-center text-white font-bold text-xl">
-             <Globe size={20} />
+            <Globe size={20} />
           </div>
         </div>
 
@@ -65,13 +65,13 @@ const Sidebar = ({ onOpenSettings, onNavigate, onCreateSpace, onEditSpace, space
               onMouseEnter={() => setHoveredTab(item.id)}
               className={clsx(
                 "flex flex-col items-center justify-center gap-1 py-2 mx-2 rounded-xl transition-all duration-200",
-                activeTab === item.id 
-                  ? "bg-[#9c9d8a29] dark:bg-zinc-700 text-[#13343bbf] dark:text-white" 
+                activeTab === item.id
+                  ? "bg-[#9c9d8a29] dark:bg-zinc-700 text-[#13343bbf] dark:text-white"
                   : "text-[#13343bbf] dark:text-gray-400 hover:bg-[#9c9d8a29] dark:hover:bg-zinc-800/50 hover:text-gray-700 dark:hover:text-gray-200"
               )}
             >
               <item.icon size={24} />
-               <span className="text-xs  font-medium">{item.label}</span>
+              <span className="text-xs  font-medium">{item.label}</span>
             </button>
           ))}
         </div>
@@ -81,106 +81,106 @@ const Sidebar = ({ onOpenSettings, onNavigate, onCreateSpace, onEditSpace, space
 
         {/* Theme Toggle Button */}
         <div className="mb-2">
-           <button 
-             onClick={onToggleTheme}
-             className="w-10 h-10 flex items-center justify-center rounded-full bg-[#9c9d8a29] dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-transform duration-200 hover:scale-110 active:scale-95"
-             title={`Current theme: ${theme}`}
-           >
-             {getThemeIcon()}
-           </button>
+          <button
+            onClick={onToggleTheme}
+            className="w-10 h-10 flex items-center justify-center rounded-full bg-[#9c9d8a29] dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-transform duration-200 hover:scale-110 active:scale-95"
+          //  title={`Current theme: ${theme}`}
+          >
+            {getThemeIcon()}
+          </button>
         </div>
 
         {/* Settings Button (Icon Only) */}
         <div className="mb-2">
-           <button 
-             onClick={onOpenSettings}
-             className="w-10 h-10 flex items-center justify-center rounded-full bg-[#9c9d8a29] dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-transform duration-200 hover:scale-110 active:scale-95"
-           >
-             <Settings size={20} />
-           </button>
+          <button
+            onClick={onOpenSettings}
+            className="w-10 h-10 flex items-center justify-center rounded-full bg-[#9c9d8a29] dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-transform duration-200 hover:scale-110 active:scale-95"
+          >
+            <Settings size={20} />
+          </button>
         </div>
       </div>
 
       {/* 2. Expanded Content Panel */}
-      <div 
+      <div
         className={clsx(
           "h-full bg-sidebar  transition-all duration-300 ease-in-out overflow-hidden flex flex-col",
           isHovered && displayTab !== 'discover' ? "w-64 opacity-100 translate-x-0 shadow-2xl" : "w-0 opacity-0 -translate-x-4"
         )}
       >
         <div className="p-4 min-w-[256px]"> {/* min-w ensures content doesn't squash during transition */}
-          
+
           {/* Header based on Tab */}
           <div className="mb-4 flex items-center justify-between">
             <h2 className="font-semibold text-lg text-foreground">
               {displayTab === 'library' ? 'Library' : displayTab === 'spaces' ? 'Spaces' : ''}
             </h2>
             {displayTab === 'spaces' && (
-               <button className="p-1 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded text-gray-500">
-               </button>
+              <button className="p-1 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded text-gray-500">
+              </button>
             )}
           </div>
 
           {/* HOME TAB CONTENT: History */}
           {displayTab === 'library' && (
             <div className="flex flex-col gap-6 overflow-y-auto h-[calc(100vh-100px)] pr-2 scrollbar-thin">
-               {historyData.map((section, idx) => (
-                 <div key={idx}>
-                   <h3 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wider">{section.label}</h3>
-                   <div className="flex flex-col gap-1">
-                     {section.items.map((item, i) => (
-                       <div 
-                         key={i} 
-                         onClick={() => onNavigate('chat')}
-                         className="text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-zinc-800 p-2 rounded cursor-pointer truncate transition-colors"
-                       >
-                         {item}
-                       </div>
-                     ))}
-                   </div>
-                 </div>
-               ))}
+              {historyData.map((section, idx) => (
+                <div key={idx}>
+                  <h3 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wider">{section.label}</h3>
+                  <div className="flex flex-col gap-1">
+                    {section.items.map((item, i) => (
+                      <div
+                        key={i}
+                        onClick={() => onNavigate('chat')}
+                        className="text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-zinc-800 p-2 rounded cursor-pointer truncate transition-colors"
+                      >
+                        {item}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
 
           {/* SPACES TAB CONTENT */}
           {displayTab === 'spaces' && (
             <div className="flex flex-col gap-2">
-               {/* Create New Space */}
-               <button 
-                 onClick={onCreateSpace}
-                 className="flex items-center gap-3 p-2 rounded hover:bg-gray-200 dark:hover:bg-zinc-800 text-gray-700 dark:text-gray-300 transition-colors mb-2 w-full text-left"
-               >
-                  <div className="w-8 h-8 rounded bg-gray-200 dark:bg-zinc-700 flex items-center justify-center">
-                    <Plus size={16} />
-                  </div>
-                  <span className="text-sm font-medium">Create New Space</span>
-               </button>
+              {/* Create New Space */}
+              <button
+                onClick={onCreateSpace}
+                className="flex items-center gap-3 p-2 rounded hover:bg-gray-200 dark:hover:bg-zinc-800 text-gray-700 dark:text-gray-300 transition-colors mb-2 w-full text-left"
+              >
+                <div className="w-8 h-8 rounded bg-gray-200 dark:bg-zinc-700 flex items-center justify-center">
+                  <Plus size={16} />
+                </div>
+                <span className="text-sm font-medium">Create New Space</span>
+              </button>
 
-               <div className="h-px bg-border my-2" />
+              <div className="h-px bg-border my-2" />
 
-               {/* Spaces List */}
-               {spaces.map((space, idx) => (
-                 <div key={idx} className="flex items-center justify-between p-2 rounded hover:bg-gray-200 dark:hover:bg-zinc-800 cursor-pointer transition-colors group">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded bg-gray-100 dark:bg-zinc-800 border border-border flex items-center justify-center group-hover:border-gray-300 dark:group-hover:border-zinc-600 text-lg">
-                        {space.emoji}
-                      </div>
-                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{space.label}</span>
+              {/* Spaces List */}
+              {spaces.map((space, idx) => (
+                <div key={idx} className="flex items-center justify-between p-2 rounded hover:bg-gray-200 dark:hover:bg-zinc-800 cursor-pointer transition-colors group">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded bg-gray-100 dark:bg-zinc-800 border border-border flex items-center justify-center group-hover:border-gray-300 dark:group-hover:border-zinc-600 text-lg">
+                      {space.emoji}
                     </div>
-                    
-                    {/* Edit Button (Visible on Hover) */}
-                    <button 
-                       onClick={(e) => {
-                         e.stopPropagation();
-                         onEditSpace(space);
-                       }}
-                       className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md hover:bg-gray-300 dark:hover:bg-zinc-700 text-gray-500 dark:text-gray-400 transition-all"
-                    >
-                      <Settings size={14} />
-                    </button>
-                 </div>
-               ))}
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{space.label}</span>
+                  </div>
+
+                  {/* Edit Button (Visible on Hover) */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEditSpace(space);
+                    }}
+                    className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md hover:bg-gray-300 dark:hover:bg-zinc-700 text-gray-500 dark:text-gray-400 transition-all"
+                  >
+                    <Settings size={14} />
+                  </button>
+                </div>
+              ))}
             </div>
           )}
 

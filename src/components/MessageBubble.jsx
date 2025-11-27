@@ -26,7 +26,7 @@ const MessageBubble = ({ message }) => {
       {message.sources && message.sources.length > 0 && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {message.sources.map((source, index) => (
-            <div 
+            <div
               key={index}
               className="bg-gray-50 dark:bg-zinc-800/50 hover:bg-gray-100 dark:hover:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-xl p-3 cursor-pointer transition-colors flex flex-col justify-between h-24"
             >
@@ -45,7 +45,7 @@ const MessageBubble = ({ message }) => {
           ))}
           {/* View more sources placeholder */}
           <div className="bg-gray-50 dark:bg-zinc-800/50 hover:bg-gray-100 dark:hover:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-xl p-3 cursor-pointer transition-colors flex items-center justify-center h-24">
-             <span className="text-xs text-gray-500 dark:text-gray-400">View 2 more</span>
+            <span className="text-xs text-gray-500 dark:text-gray-400">View 2 more</span>
           </div>
         </div>
       )}
@@ -54,9 +54,9 @@ const MessageBubble = ({ message }) => {
       <div className="prose dark:prose-invert max-w-none text-gray-800 dark:text-gray-200 leading-relaxed">
         {/* We'll render the content directly here. For the hardcoded demo, we can pass JSX or HTML string */}
         {typeof message.content === 'string' ? (
-            <div dangerouslySetInnerHTML={{ __html: message.content }} />
+          <div dangerouslySetInnerHTML={{ __html: message.content }} />
         ) : (
-            message.content
+          message.content
         )}
       </div>
 
@@ -69,13 +69,13 @@ const MessageBubble = ({ message }) => {
           </div>
           <div className="flex flex-col gap-2">
             {message.related.map((question, index) => (
-              <div 
+              <div
                 key={index}
                 className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-zinc-800/50 cursor-pointer transition-colors group"
               >
                 <span className="text-gray-700 dark:text-gray-300 font-medium">{question}</span>
                 <div className="opacity-0 group-hover:opacity-100 text-gray-400 dark:text-gray-500">
-                   <PlusIcon />
+                  <PlusIcon />
                 </div>
               </div>
             ))}
@@ -109,10 +109,10 @@ const MessageBubble = ({ message }) => {
 };
 
 const PlusIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M5 12h14" />
-        <path d="M12 5v14" />
-    </svg>
+  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M5 12h14" />
+    <path d="M12 5v14" />
+  </svg>
 )
 
 export default MessageBubble;

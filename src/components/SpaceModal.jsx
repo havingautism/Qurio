@@ -18,7 +18,7 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null }) => {
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (
-        pickerRef.current && 
+        pickerRef.current &&
         !pickerRef.current.contains(event.target) &&
         buttonRef.current &&
         !buttonRef.current.contains(event.target)
@@ -44,7 +44,7 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null }) => {
         setDescription(editingSpace.description || '');
         // Assuming editingSpace might have an emoji field in the future, 
         // or we map the icon to an emoji. For now, keep default or existing logic.
-        setEmoji('🌍'); 
+        setEmoji('🌍');
       } else {
         setName('');
         setDescription('');
@@ -59,13 +59,13 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null }) => {
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
       <div className="w-full max-w-md bg-white dark:bg-[#191a1a] rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-gray-200 dark:border-zinc-800">
-        
+
         {/* Header */}
         <div className="h-14 border-b border-gray-200 dark:border-zinc-800 flex items-center justify-between px-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
             {editingSpace ? 'Edit Space' : 'Create New Space'}
           </h3>
-          <button 
+          <button
             onClick={onClose}
             className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-500 transition-colors"
           >
@@ -75,11 +75,11 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null }) => {
 
         {/* Content */}
         <div className="p-6 flex flex-col gap-6">
-          
+
           {/* Emoji Picker */}
           <div className="flex flex-col gap-2 relative">
             <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Icon</label>
-            <button 
+            <button
               ref={buttonRef}
               onClick={() => setShowEmojiPicker(!showEmojiPicker)}
               className="w-12 h-12 rounded-xl bg-gray-100 dark:bg-zinc-800 flex items-center justify-center text-2xl hover:bg-gray-200 dark:hover:bg-zinc-700 transition-colors border border-transparent focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 outline-none"
@@ -89,7 +89,7 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null }) => {
 
             {/* Picker Popover */}
             {showEmojiPicker && (
-              <div 
+              <div
                 ref={pickerRef}
                 className="absolute top-full left-0 mt-2 p-2 bg-white dark:bg-[#202222] border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl z-10 grid grid-cols-6 gap-1 w-64"
               >
@@ -112,8 +112,8 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null }) => {
           {/* Name Input */}
           <div className="flex flex-col gap-2">
             <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Name</label>
-            <input 
-              type="text" 
+            <input
+              type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g., Daily Life, Research..."
@@ -124,7 +124,7 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null }) => {
           {/* Description Input */}
           <div className="flex flex-col gap-2">
             <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Description <span className="text-gray-400 font-normal">(Optional)</span></label>
-            <textarea 
+            <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="What is this space for?"
@@ -137,13 +137,13 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null }) => {
 
         {/* Footer */}
         <div className="h-16 border-t border-gray-200 dark:border-zinc-800 flex items-center justify-end px-6 gap-3 bg-gray-50/50 dark:bg-[#191a1a]">
-          <button 
+          <button
             onClick={onClose}
             className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-zinc-800 transition-colors"
           >
             Cancel
           </button>
-          <button 
+          <button
             onClick={onClose} // Just close for now, logic to be added later
             className="px-4 py-2 rounded-lg text-sm font-medium bg-black dark:bg-white text-white dark:text-black hover:opacity-90 transition-opacity"
           >

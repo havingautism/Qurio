@@ -9,7 +9,7 @@ function App() {
   const [theme, setTheme] = useState('system'); // 'light' | 'dark' | 'system'
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [currentView, setCurrentView] = useState('home'); // 'home' | 'chat'
-  
+
   // Space Modal State
   const [isSpaceModalOpen, setIsSpaceModalOpen] = useState(false);
   const [editingSpace, setEditingSpace] = useState(null);
@@ -26,7 +26,7 @@ function App() {
   useEffect(() => {
     const root = document.documentElement;
     const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-    
+
     const applyTheme = (t) => {
       if (t === 'dark' || (t === 'system' && systemTheme === 'dark')) {
         root.classList.add('dark');
@@ -73,8 +73,8 @@ function App() {
 
   return (
     <div className="flex min-h-screen bg-background text-foreground font-sans selection:bg-cyan-500/30">
-      <Sidebar 
-        onOpenSettings={() => setIsSettingsOpen(true)} 
+      <Sidebar
+        onOpenSettings={() => setIsSettingsOpen(true)}
         onNavigate={handleNavigate}
         onCreateSpace={handleCreateSpace}
         onEditSpace={handleEditSpace}
@@ -82,14 +82,14 @@ function App() {
         theme={theme}
         onToggleTheme={cycleTheme}
       />
-      <MainContent 
-        currentView={currentView} 
+      <MainContent
+        currentView={currentView}
         spaces={spaces}
       />
       <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
-      <SpaceModal 
-        isOpen={isSpaceModalOpen} 
-        onClose={() => setIsSpaceModalOpen(false)} 
+      <SpaceModal
+        isOpen={isSpaceModalOpen}
+        onClose={() => setIsSpaceModalOpen(false)}
         editingSpace={editingSpace}
       />
     </div>

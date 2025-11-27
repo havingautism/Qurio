@@ -41,6 +41,52 @@ const ChatInterface = ({ spaces = [] }) => {
     }
   };
 
+  // TODO: Import streamChatCompletion from '../lib/openai'
+  // TODO: Import saveMessage from '../lib/supabase'
+
+  const handleSendMessage = async () => {
+    if (!input.trim()) return;
+
+    // 1. Add user message to state
+    // const userMessage = { role: 'user', content: input };
+    // setMessages(prev => [...prev, userMessage]);
+    
+    // 2. Save user message to Supabase
+    // await saveMessage(currentConversationId, userMessage);
+
+    // 3. Prepare for streaming response
+    // const aiMessagePlaceholder = { role: 'ai', content: '' };
+    // setMessages(prev => [...prev, aiMessagePlaceholder]);
+
+    // 4. Call OpenAI API
+    /*
+    await streamChatCompletion({
+      apiKey: userSettings.apiKey,
+      baseUrl: userSettings.baseUrl,
+      model: userSettings.model,
+      messages: [...messages, userMessage],
+      useSearch: true, // Based on user toggle
+      useReasoning: false, // Based on model capability
+      onChunk: (chunk) => {
+        // Update last message content with chunk
+        setMessages(prev => {
+          const newMessages = [...prev];
+          const lastMsg = newMessages[newMessages.length - 1];
+          lastMsg.content += chunk;
+          return newMessages;
+        });
+      },
+      onFinish: () => {
+        // Save full AI message to Supabase
+        // saveMessage(currentConversationId, fullAiMessage);
+      },
+      onError: (err) => {
+        console.error(err);
+      }
+    });
+    */
+  };
+
   // Hardcoded data matching the image
   const [messages] = useState([
     {

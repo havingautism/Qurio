@@ -7,8 +7,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
   const [geminiKey, setGeminiKey] = useState('');
   const [supabaseUrl, setSupabaseUrl] = useState('');
   const [supabaseKey, setSupabaseKey] = useState('');
-
-  if (!isOpen) return null;
+ if (!isOpen) return null;
 
   const menuItems = [
     { id: 'general', label: 'General', icon: Settings },
@@ -19,6 +18,32 @@ const SettingsModal = ({ isOpen, onClose }) => {
     { id: 'account', label: 'Account', icon: User },
     { id: 'about', label: 'About', icon: Info },
   ];
+  // TODO: Import saveSettings from '../lib/supabase'
+
+  // TODO: useEffect to load settings from Supabase/LocalStorage on mount
+  /*
+  useEffect(() => {
+    // const settings = loadSettings();
+    // setGeminiKey(settings.geminiKey);
+    // setSupabaseUrl(settings.supabaseUrl);
+    // ...
+  }, []);
+  */
+
+  const handleSave = async () => {
+    // TODO: Validate inputs
+    
+    // TODO: Save settings
+    /*
+    await saveSettings({
+      geminiKey,
+      supabaseUrl,
+      supabaseKey
+    });
+    */
+    
+    onClose();
+  };
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
@@ -147,6 +172,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
               Cancel
             </button>
             <button 
+              onClick={handleSave}
               className="px-4 py-2 rounded-lg text-sm font-medium bg-black dark:bg-white text-white dark:text-black hover:opacity-90 transition-opacity"
             >
               Save Changes

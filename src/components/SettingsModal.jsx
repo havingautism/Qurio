@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Settings, MessageSquare, Monitor, Box, Palette, User, Info, Key, Link, Database } from 'lucide-react';
 import clsx from 'clsx';
+import { saveSettings, loadSettings } from '../lib/settings';
 
 const SettingsModal = ({ isOpen, onClose }) => {
   const [activeTab, setActiveTab] = useState('general');
@@ -19,29 +20,27 @@ const SettingsModal = ({ isOpen, onClose }) => {
     { id: 'account', label: 'Account', icon: User },
     { id: 'about', label: 'About', icon: Info },
   ];
-  // TODO: Import saveSettings from '../lib/supabase'
+
+  
 
   // TODO: useEffect to load settings from Supabase/LocalStorage on mount
-  /*
   useEffect(() => {
-    // const settings = loadSettings();
-    // setOpenAICompatibilityKey(settings.OpenAICompatibilityKey);
-    // setSupabaseUrl(settings.supabaseUrl);
-    // ...
+    const settings = loadSettings();
+    if (settings.supabaseUrl) setSupabaseUrl(settings.supabaseUrl);
+    if (settings.supabaseKey) setSupabaseKey(settings.supabaseKey);
+    if (settings.OpenAICompatibilityKey) setOpenAICompatibilityKey(settings.OpenAICompatibilityKey);
+    if (settings.OpenAICompatibilityUrl) setOpenAICompatibilityUrl(settings.OpenAICompatibilityUrl);
   }, []);
-  */
 
   const handleSave = async () => {
     // TODO: Validate inputs
 
-    // TODO: Save settings
-    /*
     await saveSettings({
       OpenAICompatibilityKey,
+      OpenAICompatibilityUrl,
       supabaseUrl,
       supabaseKey
     });
-    */
 
     onClose();
   };

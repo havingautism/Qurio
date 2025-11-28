@@ -1,16 +1,37 @@
-# React + Vite
+# Perplexity Chat Startup
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A React-based chat application with Supabase integration for data persistence.
 
-Currently, two official plugins are available:
+## Features
+- **Chat Interface**: A modern, responsive chat UI.
+- **Supabase Integration**: Stores conversations and messages in Supabase.
+- **Settings**: Configurable API keys and Supabase credentials.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Setup
 
-## React Compiler
+### Prerequisites
+- Node.js
+- Supabase Account
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### Installation
+1. Clone the repository.
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
 
-## Expanding the ESLint configuration
+### Configuration
+You can configure Supabase credentials in three ways (in order of priority):
+1. **Environment Variables**: Create a `.env` file with:
+   ```
+   VITE_SUPABASE_URL=your_url
+   VITE_SUPABASE_KEY=your_key
+   ```
+2. **LocalStorage**: The app will check `localStorage` for `supabaseUrl` and `supabaseKey`.
+3. **Settings Modal**: Enter your credentials directly in the application settings.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Development
+Run the development server:
+```bash
+npm run dev
+```

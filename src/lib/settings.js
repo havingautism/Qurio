@@ -1,0 +1,75 @@
+/**
+ * Centralized Settings Management
+ *
+ * Handles loading and saving of application configuration including:
+ * - Supabase credentials
+ * - OpenAI compatibility settings
+ */
+
+/**
+ * Load settings from various sources (Env -> LocalStorage -> Args)
+ * @param {Object} [overrides={}] - Optional overrides
+ * @returns {Object} The consolidated settings object
+ */
+export const loadSettings = (overrides = {}) => {
+  // Supabase Env Vars
+  const envSupabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const envSupabaseKey = import.meta.env.VITE_SUPABASE_KEY;
+
+  // OpenAI Env Vars
+  const envOpenAIKey = import.meta.env.VITE_OPENAI_API_KEY;
+  const envOpenAIBaseUrl = import.meta.env.VITE_OPENAI_BASE_URL;
+
+  // LocalStorage
+  const localSupabaseUrl = localStorage.getItem("supabaseUrl");
+  const localSupabaseKey = localStorage.getItem("supabaseKey");
+  const localOpenAIKey = localStorage.getItem("OpenAICompatibilityKey");
+  const localOpenAIUrl = localStorage.getItem("OpenAICompatibilityUrl");
+
+  return {
+    // Supabase
+    supabaseUrl:
+      envSupabaseUrl || localSupabaseUrl || overrides.supabaseUrl || "",
+    supabaseKey:
+      envSupabaseKey || localSupabaseKey || overrides.supabaseKey || "",
+
+    // OpenAI
+    OpenAICompatibilityKey:
+      envOpenAIKey || localOpenAIKey || overrides.OpenAICompatibilityKey || "",
+    OpenAICompatibilityUrl:
+      envOpenAIBaseUrl ||
+      localOpenAIUrl ||
+      overrides.OpenAICompatibilityUrl ||
+      "",
+
+    ...overrides,
+  };
+};
+
+/**
+ * Save user settings to LocalStorage
+ *
+ * @param {Object} settings - The settings object.
+ */
+export const saveSettings = async (settings) => {
+  if (settings.supabaseUrl !== undefined) {
+    localStorage.setItem("supabaseUrl", settings.supabaseUrl);
+  }
+  if (settings.supabaseKey !== undefined) {
+    localStorage.setItem("supabaseKey", settings.supabaseKey);
+  }
+  if (settings.OpenAICompatibilityKey !== undefined) {
+    localStorage.setItem(
+      "OpenAICompatibilityKey",
+      settings.OpenAICompatibilityKey
+    );
+  }
+  if (settings.OpenAICompatibilityUrl !== undefined) {
+    localStorage.setItem(
+      "OpenAICompatibilityUrl",
+      settings.OpenAICompatibilityUrl
+    );
+  }
+
+  console.log("Settings saved:", settings);
+};

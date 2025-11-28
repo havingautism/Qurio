@@ -85,6 +85,7 @@ function App() {
       <MainContent
         currentView={currentView}
         spaces={spaces}
+        onChatStart={() => setCurrentView('chat')}
       />
       <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
       <SpaceModal

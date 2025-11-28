@@ -1,12 +1,36 @@
 import React, { useState, useRef, useEffect } from 'react';
 import MessageList from './MessageList';
 import { Paperclip, ArrowRight, Mic, Globe, Layers, ChevronDown, Check } from 'lucide-react';
+import { streamChatCompletion } from '../lib/openai';
 
-const ChatInterface = ({ spaces = [] }) => {
+const ChatInterface = ({ spaces = [], initialMessage = '', initialAttachments = [], initialToggles = {}, onTitleAndSpaceGenerated }) => {
   const [input, setInput] = useState('');
   const [selectedSpaces, setSelectedSpaces] = useState([]);
   const [isSelectorOpen, setIsSelectorOpen] = useState(false);
   const selectorRef = useRef(null);
+
+  // New state for toggles and attachments
+  const [isSearchActive, setIsSearchActive] = useState(false);
+  const [isThinkingActive, setIsThinkingActive] = useState(false);
+  const [attachments, setAttachments] = useState([]);
+  const [messages, setMessages] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [conversationTitle, setConversationTitle] = useState('');
+
+  // Effect to handle initial message from homepage
+  const hasInitialized = useRef(false);
+
+  useEffect(() => {
+    if (!hasInitialized.current && (initialMessage || initialAttachments.length > 0)) {
+      hasInitialized.current = true;
+      // Set initial state
+      if (initialToggles.search) setIsSearchActive(true);
+      if (initialToggles.thinking) setIsThinkingActive(true);
+
+      // Trigger send immediately
+      handleSendMessage(initialMessage, initialAttachments, initialToggles);
+    }
+  }, [initialMessage, initialAttachments, initialToggles]);
 
   // Initialize selectedSpaces with the first space if available, or none
   useEffect(() => {
@@ -41,130 +65,149 @@ const ChatInterface = ({ spaces = [] }) => {
     }
   };
 
-  // TODO: Import streamChatCompletion from '../lib/openai'
-  // TODO: Import saveMessage from '../lib/supabase'
-
-  const handleSendMessage = async () => {
-    if (!input.trim()) return;
-
-    // 1. Add user message to state
-    // const userMessage = { role: 'user', content: input };
-    // setMessages(prev => [...prev, userMessage]);
-
-    // 2. Save user message to Supabase
-    // await saveMessage(currentConversationId, userMessage);
-
-    // 3. Prepare for streaming response
-    // const aiMessagePlaceholder = { role: 'ai', content: '' };
-    // setMessages(prev => [...prev, aiMessagePlaceholder]);
-
-    // 4. Call OpenAI API
-    /*
-    await streamChatCompletion({
-      apiKey: userSettings.apiKey,
-      baseUrl: userSettings.baseUrl,
-      model: userSettings.model,
-      messages: [...messages, userMessage],
-      useSearch: true, // Based on user toggle
-      useReasoning: false, // Based on model capability
-      onChunk: (chunk) => {
-        // Update last message content with chunk
-        setMessages(prev => {
-          const newMessages = [...prev];
-          const lastMsg = newMessages[newMessages.length - 1];
-          lastMsg.content += chunk;
-          return newMessages;
-        });
-      },
-      onFinish: () => {
-        // Save full AI message to Supabase
-        // saveMessage(currentConversationId, fullAiMessage);
-      },
-      onError: (err) => {
-        console.error(err);
-      }
-    });
-    */
+  const handleFileUpload = () => {
+    const url = prompt("Enter image URL for testing:");
+    if (url) {
+      setAttachments(prev => [...prev, { type: 'image_url', image_url: { url } }]);
+    }
   };
 
-  // Hardcoded data matching the image
-  const [messages] = useState([
-    {
-      role: 'user',
-      content: '服务器 df -h 没反应，是不是挂载出现问题了'
-    },
-    {
-      role: 'ai',
-      sources: [
-        { title: 'Linux df命令卡死解决办法', domain: 'cnblogs.com' },
-        { title: 'df -h 命令卡死解决办法', domain: 'csdn.net' },
-        { title: 'Linux下df -h命令卡死解决方法', domain: 'huaweicloud.com' },
-      ],
-      content: `
-        <p class="mb-4">是的，你的直觉非常准。<code>df -h</code> 命令卡住没反应 (Hanging)，绝大多数情况下就是因为挂载点 (Mount Point) 出现了问题，尤其是网络挂载 (如 NFS, SMB/CIFS) 连接中断或服务端不可达导致的。</p>
-        
-        <p class="mb-4">这是因为 <code>df</code> 命令默认会遍历所有挂载的文件系统去读取状态 (调用 <code>statfs</code> )，如果其中某个网络挂载点“死了” (例如网断了、存储服务器宕机)，<code>df</code> 就会一直等待响应，导致命令卡死。</p>
+  const handleSendMessage = async (msgOverride = null, attOverride = null, togglesOverride = null) => {
+    const textToSend = msgOverride !== null ? msgOverride : input;
+    const attToSend = attOverride !== null ? attOverride : attachments;
+    const searchActive = togglesOverride ? togglesOverride.search : isSearchActive;
+    const thinkingActive = togglesOverride ? togglesOverride.thinking : isThinkingActive;
 
-        <p class="mb-4 font-medium">以下是快速排查和解决的方法：</p>
+    if (!textToSend.trim() && attToSend.length === 0) return;
+    if (isLoading) return;
 
-        <h3 class="text-lg font-medium mb-2 mt-6">1. 快速验证：排除本地磁盘问题</h3>
-        <p class="mb-4">使用 <code>-l</code> (local) 参数只看本地磁盘。如果这个命令能瞬间出结果，那就 100% 确定是网络挂载出的问题。</p>
-        
-        <div class="my-4 rounded-lg overflow-hidden border border-gray-200 dark:border-zinc-700">
-          <div class="bg-gray-100 dark:bg-zinc-800 px-4 py-2 flex justify-between items-center">
-            <span class="text-xs text-gray-500 dark:text-gray-400 font-mono">bash</span>
-            <button class="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-            </button>
-          </div>
-          <div class="bg-gray-50 dark:bg-[#1e1e1e] p-4 overflow-x-auto">
-            <code class="text-sm font-mono text-gray-800 dark:text-gray-200">df -hl</code>
-          </div>
-        </div>
+    setIsLoading(true);
 
-        <h3 class="text-lg font-medium mb-2 mt-6">2. 定位凶手：找出是哪个挂载点卡住了</h3>
-        <p class="mb-4">如果 <code>df</code> 完全没反应，可以用 <code>strace</code> 追踪它卡在哪里。</p>
-        
-        <div class="my-4 rounded-lg overflow-hidden border border-gray-200 dark:border-zinc-700">
-          <div class="bg-gray-100 dark:bg-zinc-800 px-4 py-2 flex justify-between items-center">
-            <span class="text-xs text-gray-500 dark:text-gray-400 font-mono">bash</span>
-            <button class="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-            </button>
-          </div>
-          <div class="bg-gray-50 dark:bg-[#1e1e1e] p-4 overflow-x-auto">
-            <code class="text-sm font-mono text-gray-800 dark:text-gray-200">strace df -h</code>
-          </div>
-        </div>
-        
-        <p class="mb-2 font-medium">如何看结果：</p>
-        <p class="mb-4">屏幕会飞速滚动很多行，最后会停在某一行不动。停住的那一行通常是一个 <code>statfs</code> 或 <code>stat</code> 调用，括号里的路径就是出问题的挂载点。</p>
-        
-        <p class="mb-2">例如，如果最后卡在：</p>
-        <div class="my-4 rounded-lg overflow-hidden border border-gray-200 dark:border-zinc-700">
-          <div class="bg-gray-100 dark:bg-zinc-800 px-4 py-2 flex justify-between items-center">
-            <span class="text-xs text-gray-500 dark:text-gray-400 font-mono">text</span>
-             <button class="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-            </button>
-          </div>
-          <div class="bg-gray-50 dark:bg-[#1e1e1e] p-4 overflow-x-auto">
-            <code class="text-sm font-mono text-gray-800 dark:text-gray-200">statfs("/mnt/nfs_share", ...</code>
-          </div>
-        </div>
-        
-        <p class="mb-4">那就说明 <code>/mnt/nfs_share</code> 这个 NFS 挂载出问题了。</p>
-
-        <h3 class="text-lg font-medium mb-2 mt-6">3. 紧急解决：强制卸载 (Lazy Unmount)</h3>
-        <p class="mb-4">通常直接 <code>umount</code> 也会卡住，这时候需要用 "Lazy Unmount" (懒卸载)。它会立即把挂载点从文件系统层级中剥离，让 <code>df</code> 恢复正常，后台再慢慢清理连接。</p>
-      `,
-      related: [
-        '如何定位导致 df 卡住的挂载点',
-        '怎样在不影响系统的情况下卸载无响应挂载',
-        '如何用命令检测并恢复失联的网络文件系统挂载'
-      ]
+    // Clear input immediately if manual send
+    if (msgOverride === null) {
+      setInput('');
+      setAttachments([]);
     }
-  ]);
+
+    // 1. Construct User Message
+    let content = textToSend;
+    if (attToSend.length > 0) {
+      content = [
+        { type: 'text', text: textToSend },
+        ...attToSend
+      ];
+    }
+
+    const userMessage = { role: 'user', content };
+    const newMessages = [...messages, userMessage];
+    setMessages(newMessages);
+
+    // 2. Prepare AI Placeholder
+    const aiMessagePlaceholder = { role: 'ai', content: '' };
+    setMessages(prev => [...prev, aiMessagePlaceholder]);
+
+    try {
+      const apiKey = localStorage.getItem('openai_api_key') || import.meta.env.VITE_OPENAI_API_KEY || '';
+      // FORCE PROXY: Use absolute local URL to satisfy OpenAI SDK validation
+      const baseUrl = `${window.location.origin}/api/gemini/`;
+      const model = 'gemini-2.5-flash'; // Reverting to known working model, user had 2.5 which might be invalid
+
+      await streamChatCompletion({
+        apiKey,
+        baseUrl,
+        model: model,
+        messages: newMessages.map(m => ({
+          role: m.role === 'ai' ? 'assistant' : m.role,
+          content: m.content,
+          // Only include standard OpenAI fields
+          ...(m.tool_calls && { tool_calls: m.tool_calls }),
+          ...(m.tool_call_id && { tool_call_id: m.tool_call_id }),
+          ...(m.name && { name: m.name })
+        })),
+        tools: searchActive ? [{ type: 'function', function: { name: 'google_search', description: 'Search the web', parameters: { type: 'object', properties: { query: { type: 'string' } } } } }] : undefined,
+        thinking: thinkingActive ? {
+          extra_body: {
+            "google": {
+              "thinking_config": {
+                "thinking_budget": 1024, // Using standard token count field
+                "include_thoughts": true
+              }
+            }
+          }
+        } : undefined,
+        onChunk: (chunk) => {
+          setMessages(prev => {
+            const updated = [...prev];
+            const lastMsgIndex = updated.length - 1;
+            const lastMsg = { ...updated[lastMsgIndex] };
+            lastMsg.content += chunk;
+            updated[lastMsgIndex] = lastMsg;
+            return updated;
+          });
+        },
+        onFinish: async (result) => {
+          setIsLoading(false);
+
+          // Generate Title and Space if first message
+          if (messages.length === 0) {
+            if (onTitleAndSpaceGenerated) {
+              const { title, space } = await onTitleAndSpaceGenerated(textToSend, apiKey, baseUrl);
+              setConversationTitle(title);
+              if (space) {
+                setSelectedSpaces([space]);
+              }
+            } else {
+              // Fallback if prop not provided
+              import('../lib/openai').then(async ({ generateTitle }) => {
+                const title = await generateTitle(textToSend, apiKey, baseUrl);
+                setConversationTitle(title);
+              });
+            }
+          }
+
+          // Generate Related Questions
+          import('../lib/openai').then(async ({ generateRelatedQuestions }) => {
+            const sanitizedMessages = newMessages.map(m => ({
+              role: m.role === 'ai' ? 'assistant' : m.role,
+              content: m.content
+            }));
+            const related = await generateRelatedQuestions([...sanitizedMessages, { role: 'assistant', content: result.content }], apiKey, baseUrl);
+            if (related && related.length > 0) {
+              setMessages(prev => {
+                const updated = [...prev];
+                const lastMsgIndex = updated.length - 1;
+                const lastMsg = { ...updated[lastMsgIndex] };
+                lastMsg.related = related;
+                updated[lastMsgIndex] = lastMsg;
+                return updated;
+              });
+            }
+          });
+        },
+        onError: (err) => {
+          console.error("Chat error:", err);
+          setIsLoading(false);
+          setMessages(prev => {
+            const updated = [...prev];
+            const lastMsgIndex = updated.length - 1;
+            // Check if the last message is the AI placeholder (empty or partial)
+            if (updated[lastMsgIndex].role === 'ai') {
+              const lastMsg = { ...updated[lastMsgIndex] };
+              lastMsg.content += `\n\n**Error:** ${err.message}`;
+              lastMsg.isError = true;
+              updated[lastMsgIndex] = lastMsg;
+              return updated;
+            }
+            // Fallback if something weird happened
+            return [...prev, { role: 'system', content: `Error: ${err.message}` }];
+          });
+        }
+      });
+    } catch (error) {
+      console.error("Setup error:", error);
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="flex-1 min-h-screen bg-background text-foreground flex flex-col items-center relative p-4 ml-16">
@@ -218,7 +261,7 @@ const ChatInterface = ({ spaces = [] }) => {
         </div>
 
         <h1 className="text-xl font-medium text-gray-800 dark:text-gray-100 truncate flex-1">
-          服务器 df -h 没反应
+          {conversationTitle || 'New Conversation'}
         </h1>
       </div>
 
@@ -231,9 +274,24 @@ const ChatInterface = ({ spaces = [] }) => {
       <div className="fixed bottom-0 left-16 right-0 bg-gradient-to-t from-background via-background to-transparent pb-6 pt-10 px-4 flex justify-center z-10">
         <div className="w-full max-w-3xl relative">
           <div className="relative bg-gray-100 dark:bg-zinc-800 border border-transparent focus-within:border-gray-300 dark:focus-within:border-zinc-600 rounded-xl transition-all duration-300 p-3">
+            {attachments.length > 0 && (
+              <div className="flex gap-2 mb-2 overflow-x-auto">
+                {attachments.map((att, idx) => (
+                  <div key={idx} className="relative w-16 h-16 rounded overflow-hidden border border-gray-300">
+                    <img src={att.image_url.url} alt="attachment" className="w-full h-full object-cover" />
+                  </div>
+                ))}
+              </div>
+            )}
             <textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSendMessage();
+                }
+              }}
               placeholder="Ask follow-up..."
               className="w-full bg-transparent border-none outline-none resize-none text-base placeholder-gray-500 dark:placeholder-gray-400 min-h-[44px] max-h-[200px] py-2"
               rows={1}
@@ -241,21 +299,34 @@ const ChatInterface = ({ spaces = [] }) => {
 
             <div className="flex justify-between items-center mt-2">
               <div className="flex gap-2">
-                <button className="p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg text-gray-500 dark:text-gray-400 transition-colors flex items-center gap-2 text-xs font-medium">
+                <button
+                  onClick={handleFileUpload}
+                  className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${attachments.length > 0 ? 'text-cyan-500' : 'text-gray-500 dark:text-gray-400'}`}
+                >
                   <Paperclip size={18} />
                 </button>
-                <button className="p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg text-gray-500 dark:text-gray-400 transition-colors flex items-center gap-2 text-xs font-medium">
+                <button
+                  onClick={() => setIsSearchActive(!isSearchActive)}
+                  className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${isSearchActive ? 'text-cyan-500 bg-gray-200 dark:bg-zinc-700' : 'text-gray-500 dark:text-gray-400'}`}
+                >
                   <Globe size={18} />
                   <span>Search</span>
                 </button>
-                <button className="p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg text-gray-500 dark:text-gray-400 transition-colors flex items-center gap-2 text-xs font-medium">
+                <button
+                  onClick={() => setIsThinkingActive(!isThinkingActive)}
+                  className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${isThinkingActive ? 'text-cyan-500 bg-gray-200 dark:bg-zinc-700' : 'text-gray-500 dark:text-gray-400'}`}
+                >
                   <Layers size={18} />
                   <span>Think</span>
                 </button>
               </div>
 
               <div className="flex gap-2">
-                <button className="p-2 bg-gray-200 dark:bg-zinc-700 hover:bg-gray-300 dark:hover:bg-zinc-600 text-gray-500 dark:text-gray-300 rounded-full transition-colors disabled:opacity-50">
+                <button
+                  onClick={() => handleSendMessage()}
+                  disabled={isLoading || (!input.trim() && attachments.length === 0)}
+                  className="p-2 bg-gray-200 dark:bg-zinc-700 hover:bg-gray-300 dark:hover:bg-zinc-600 text-gray-500 dark:text-gray-300 rounded-full transition-colors disabled:opacity-50"
+                >
                   <ArrowRight size={18} />
                 </button>
               </div>

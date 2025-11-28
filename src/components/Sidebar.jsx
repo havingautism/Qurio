@@ -53,7 +53,10 @@ const Sidebar = ({ onOpenSettings, onNavigate, onCreateSpace, onEditSpace, space
 
         {/* New Thread Button (Icon Only) */}
         <div className="mb-6">
-          <button className="w-10 h-10 flex items-center justify-center rounded-full bg-[#9c9d8a29] dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-transform duration-200 hover:scale-110 active:scale-95 cursor-pointer">
+          <button
+            onClick={() => onNavigate('home')}
+            className="w-10 h-10 flex items-center justify-center rounded-full bg-[#9c9d8a29] dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-transform duration-200 hover:scale-110 active:scale-95 cursor-pointer"
+          >
             <Plus size={20} />
           </button>
         </div>

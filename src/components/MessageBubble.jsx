@@ -1,5 +1,7 @@
-import React from 'react';
-import { Copy, ThumbsUp, ThumbsDown, Share2, MoreHorizontal, FileText, List, AlignLeft, Layers } from 'lucide-react';
+import React, { useState } from 'react';
+import { Copy, ThumbsUp, ThumbsDown, Share2, MoreHorizontal, FileText, List, AlignLeft, Layers, Brain, ChevronRight, ChevronDown } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 const MessageBubble = ({ message }) => {
   const isUser = message.role === 'user';
@@ -14,6 +16,20 @@ const MessageBubble = ({ message }) => {
     );
   }
 
+  const [isThoughtExpanded, setIsThoughtExpanded] = useState(true);
+
+  // Parse content for <thought> tags
+  let thoughtContent = null;
+  let mainContent = message.content;
+
+  if (typeof message.content === 'string') {
+    const thoughtMatch = /<thought>([\s\S]*?)(?:<\/thought>|$)/.exec(message.content);
+    if (thoughtMatch) {
+      thoughtContent = thoughtMatch[1];
+      mainContent = message.content.replace(/<thought>[\s\S]*?(?:<\/thought>|$)/, '').trim();
+    }
+  }
+
   return (
     <div className="w-full max-w-3xl mb-12 flex flex-col gap-6">
       {/* Answer Header */}
@@ -21,6 +37,52 @@ const MessageBubble = ({ message }) => {
         <AlignLeft size={24} className="text-cyan-500" />
         <h2 className="text-lg font-medium">Answer</h2>
       </div>
+
+      {/* Thinking Process Section */}
+      {thoughtContent && (
+        <div className="border border-gray-200 dark:border-zinc-700 rounded-xl overflow-hidden">
+          <button
+            onClick={() => setIsThoughtExpanded(!isThoughtExpanded)}
+            className="w-full flex items-center justify-between p-3 bg-gray-50 dark:bg-zinc-800/50 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
+          >
+            <div className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+              <Brain size={16} className="text-purple-500" />
+              <span>Thinking Process</span>
+            </div>
+            {isThoughtExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+          </button>
+
+          {isThoughtExpanded && (
+            <div className="p-4 bg-gray-50/50 dark:bg-zinc-800/30 border-t border-gray-200 dark:border-zinc-700 text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  p: ({ node, ...props }) => <p className="mb-2 last:mb-0" {...props} />,
+                  code({ node, inline, className, children, ...props }) {
+                    const match = /language-(\w+)/.exec(className || '')
+                    return !inline && match ? (
+                      <div className="relative group my-2">
+                        <div className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button className="p-1 bg-gray-700 text-white rounded text-xs">Copy</button>
+                        </div>
+                        <pre className={`${className} rounded-lg p-3 overflow-x-auto`} {...props}>
+                          <code>{children}</code>
+                        </pre>
+                      </div>
+                    ) : (
+                      <code className={`${className} bg-gray-200 dark:bg-zinc-700 px-1 py-0.5 rounded text-sm`} {...props}>
+                        {children}
+                      </code>
+                    )
+                  }
+                }}
+              >
+                {thoughtContent}
+              </ReactMarkdown>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Sources Section */}
       {message.sources && message.sources.length > 0 && (
@@ -52,11 +114,55 @@ const MessageBubble = ({ message }) => {
 
       {/* Main Content */}
       <div className="prose dark:prose-invert max-w-none text-gray-800 dark:text-gray-200 leading-relaxed">
-        {/* We'll render the content directly here. For the hardcoded demo, we can pass JSX or HTML string */}
-        {typeof message.content === 'string' ? (
-          <div dangerouslySetInnerHTML={{ __html: message.content }} />
+        {!message.content && !thoughtContent ? (
+          <div className="flex flex-col gap-2 animate-pulse">
+            <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-3/4"></div>
+            <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-1/2"></div>
+            <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-5/6"></div>
+          </div>
         ) : (
-          message.content
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={{
+              p: ({ node, ...props }) => <p className="mb-4 last:mb-0" {...props} />,
+              h1: ({ node, ...props }) => <h1 className="text-2xl font-bold mb-4 mt-6" {...props} />,
+              h2: ({ node, ...props }) => <h2 className="text-xl font-bold mb-3 mt-5" {...props} />,
+              h3: ({ node, ...props }) => <h3 className="text-lg font-bold mb-2 mt-4" {...props} />,
+              ul: ({ node, ...props }) => <ul className="list-disc pl-5 mb-4 space-y-1" {...props} />,
+              ol: ({ node, ...props }) => <ol className="list-decimal pl-5 mb-4 space-y-1" {...props} />,
+              li: ({ node, ...props }) => <li className="mb-1" {...props} />,
+              blockquote: ({ node, ...props }) => <blockquote className="border-l-4 border-gray-300 dark:border-zinc-600 pl-4 italic my-4 text-gray-600 dark:text-gray-400" {...props} />,
+              table: ({ node, ...props }) => (
+                <div className="overflow-x-auto my-4 rounded-lg border border-gray-200 dark:border-zinc-700 table-scrollbar">
+                  <table className="min-w-full divide-y divide-gray-200 dark:divide-zinc-700" {...props} />
+                </div>
+              ),
+              thead: ({ node, ...props }) => <thead className="bg-gray-50 dark:bg-zinc-800" {...props} />,
+              tbody: ({ node, ...props }) => <tbody className="bg-white dark:bg-zinc-900 divide-y divide-gray-200 dark:divide-zinc-700" {...props} />,
+              tr: ({ node, ...props }) => <tr {...props} />,
+              th: ({ node, ...props }) => <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider" {...props} />,
+              td: ({ node, ...props }) => <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap" {...props} />,
+              code({ node, inline, className, children, ...props }) {
+                const match = /language-(\w+)/.exec(className || '')
+                return !inline && match ? (
+                  <div className="relative group my-4">
+                    <div className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button className="p-1 bg-gray-700 text-white rounded text-xs">Copy</button>
+                    </div>
+                    <pre className={`${className} rounded-lg p-4 overflow-x-auto bg-gray-100 dark:bg-zinc-900`} {...props}>
+                      <code>{children}</code>
+                    </pre>
+                  </div>
+                ) : (
+                  <code className={`${className} bg-gray-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded text-sm font-mono text-pink-500 dark:text-pink-400`} {...props}>
+                    {children}
+                  </code>
+                )
+              }
+            }}
+          >
+            {mainContent}
+          </ReactMarkdown>
         )}
       </div>
 

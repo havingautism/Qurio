@@ -45,3 +45,34 @@ h5,
 h6 {
   @apply font-display;
 }
+
+/* Custom Scrollbar for Tables */
+.table-scrollbar::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
+}
+
+.table-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.table-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #e5e7eb;
+  /* gray-200 */
+  border-radius: 4px;
+}
+
+.dark .table-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #3f3f46;
+  /* zinc-700 */
+}
+
+.table-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: #d1d5db;
+  /* gray-300 */
+}
+
+.dark .table-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: #52525b;
+  /* zinc-600 */
+}

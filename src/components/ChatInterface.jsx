@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import MessageList from './MessageList';
-import { Paperclip, ArrowRight, Mic, Globe, Layers, ChevronDown, Check } from 'lucide-react';
+import { Paperclip, ArrowRight, Mic, Globe, Layers, ChevronDown, Check, X } from 'lucide-react';
 import { getProvider } from '../lib/providers';
 import { loadSettings } from '../lib/settings';
 
@@ -81,11 +81,31 @@ const ChatInterface = ({ spaces = [], initialMessage = '', initialAttachments = 
     }
   };
 
+  const fileInputRef = useRef(null);
+
+  const handleFileChange = (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length === 0) return;
+
+    files.forEach(file => {
+      if (!file.type.startsWith('image/')) return;
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setAttachments(prev => [...prev, {
+          type: 'image_url',
+          image_url: { url: e.target.result }
+        }]);
+      };
+      reader.readAsDataURL(file);
+    });
+
+    // Reset input
+    e.target.value = '';
+  };
+
   const handleFileUpload = () => {
-    const url = prompt("Enter image URL for testing:");
-    if (url) {
-      setAttachments(prev => [...prev, { type: 'image_url', image_url: { url } }]);
-    }
+    fileInputRef.current?.click();
   };
 
   const handleSendMessage = async (msgOverride = null, attOverride = null, togglesOverride = null) => {
@@ -278,10 +298,18 @@ const ChatInterface = ({ spaces = [], initialMessage = '', initialAttachments = 
         <div className="w-full max-w-3xl relative">
           <div className="relative bg-gray-100 dark:bg-zinc-800 border border-transparent focus-within:border-gray-300 dark:focus-within:border-zinc-600 rounded-xl transition-all duration-300 p-3">
             {attachments.length > 0 && (
-              <div className="flex gap-2 mb-2 overflow-x-auto">
+              <div className="flex gap-2 mb-3 px-1 overflow-x-auto py-1">
                 {attachments.map((att, idx) => (
-                  <div key={idx} className="relative w-16 h-16 rounded overflow-hidden border border-gray-300">
-                    <img src={att.image_url.url} alt="attachment" className="w-full h-full object-cover" />
+                  <div key={idx} className="relative group shrink-0">
+                    <div className="w-16 h-16 rounded-xl overflow-hidden border border-gray-200 dark:border-zinc-700 shadow-sm">
+                      <img src={att.image_url.url} alt="attachment" className="w-full h-full object-cover" />
+                    </div>
+                    <button
+                      onClick={() => setAttachments(attachments.filter((_, i) => i !== idx))}
+                      className="absolute -top-1.5 -right-1.5 bg-gray-900 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity shadow-md"
+                    >
+                      <X size={12} />
+                    </button>
                   </div>
                 ))}
               </div>
@@ -302,6 +330,14 @@ const ChatInterface = ({ spaces = [], initialMessage = '', initialAttachments = 
 
             <div className="flex justify-between items-center mt-2">
               <div className="flex gap-2">
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileChange}
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                />
                 <button
                   onClick={handleFileUpload}
                   className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${attachments.length > 0 ? 'text-cyan-500' : 'text-gray-500 dark:text-gray-400'}`}

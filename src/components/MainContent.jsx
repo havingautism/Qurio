@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Search, Paperclip, Mic, ArrowRight, Sun, Moon, Clock, Cloud, Github, Youtube, Coffee, Globe, Layers } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Search, Paperclip, Mic, ArrowRight, Sun, Moon, Clock, Cloud, Github, Youtube, Coffee, Globe, Layers, X } from 'lucide-react';
 import ChatInterface from './ChatInterface';
 import { loadSettings } from '../lib/settings';
 
@@ -9,6 +9,7 @@ const MainContent = ({ currentView, spaces, onChatStart }) => {
   const [initialAttachments, setInitialAttachments] = useState([]);
   const [initialToggles, setInitialToggles] = useState({ search: false, thinking: false });
   const [settings, setSettings] = useState(loadSettings());
+  const fileInputRef = useRef(null);
 
   // Sync prop change to local state if needed (e.g. sidebar navigation)
   useEffect(() => {
@@ -46,11 +47,29 @@ const MainContent = ({ currentView, spaces, onChatStart }) => {
   const [isHomeThinkingActive, setIsHomeThinkingActive] = useState(false);
   const [homeAttachments, setHomeAttachments] = useState([]);
 
+  const handleFileChange = (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length === 0) return;
+
+    files.forEach(file => {
+      if (!file.type.startsWith('image/')) return;
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setHomeAttachments(prev => [...prev, {
+          type: 'image_url',
+          image_url: { url: e.target.result }
+        }]);
+      };
+      reader.readAsDataURL(file);
+    });
+
+    // Reset input
+    e.target.value = '';
+  };
+
   const handleHomeFileUpload = () => {
-    const url = prompt("Enter image URL for testing:");
-    if (url) {
-      setHomeAttachments(prev => [...prev, { type: 'image_url', image_url: { url } }]);
-    }
+    fileInputRef.current?.click();
   };
 
   const handleStartChat = async () => {
@@ -96,10 +115,18 @@ const MainContent = ({ currentView, spaces, onChatStart }) => {
               <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/20 to-blue-500/20 rounded-xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
               <div className="relative bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-xl shadow-sm hover:shadow-md transition-all duration-300 p-4">
                 {homeAttachments.length > 0 && (
-                  <div className="flex gap-2 mb-2 overflow-x-auto">
+                  <div className="flex gap-2 mb-3 px-1 overflow-x-auto py-1">
                     {homeAttachments.map((att, idx) => (
-                      <div key={idx} className="relative w-16 h-16 rounded overflow-hidden border border-gray-300">
-                        <img src={att.image_url.url} alt="attachment" className="w-full h-full object-cover" />
+                      <div key={idx} className="relative group shrink-0">
+                        <div className="w-16 h-16 rounded-xl overflow-hidden border border-gray-200 dark:border-zinc-700 shadow-sm">
+                          <img src={att.image_url.url} alt="attachment" className="w-full h-full object-cover" />
+                        </div>
+                        <button
+                          onClick={() => setHomeAttachments(homeAttachments.filter((_, i) => i !== idx))}
+                          className="absolute -top-1.5 -right-1.5 bg-gray-900 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity shadow-md"
+                        >
+                          <X size={12} />
+                        </button>
                       </div>
                     ))}
                   </div>
@@ -120,6 +147,14 @@ const MainContent = ({ currentView, spaces, onChatStart }) => {
 
                 <div className="flex justify-between items-center mt-2">
                   <div className="flex gap-2">
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleFileChange}
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                    />
                     <button
                       onClick={handleHomeFileUpload}
                       className={`p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${homeAttachments.length > 0 ? 'text-cyan-500' : 'text-gray-500 dark:text-gray-400'}`}

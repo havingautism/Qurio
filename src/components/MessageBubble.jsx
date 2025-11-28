@@ -9,10 +9,30 @@ const MessageBubble = ({ message, apiProvider }) => {
   const isUser = message.role === 'user';
 
   if (isUser) {
+    let contentToRender = message.content;
+    let imagesToRender = [];
+
+    if (Array.isArray(message.content)) {
+      const textPart = message.content.find(c => c.type === 'text');
+      contentToRender = textPart ? textPart.text : '';
+      imagesToRender = message.content.filter(c => c.type === 'image_url');
+    }
+
     return (
       <div className="flex justify-end w-full mb-8">
-        <div className="bg-gray-100 dark:bg-zinc-800 text-gray-800 dark:text-gray-100 px-5 py-3 rounded-3xl rounded-tr-sm max-w-2xl text-base leading-relaxed">
-          {message.content}
+        <div className="flex flex-col items-end gap-2 max-w-2xl">
+          {imagesToRender.length > 0 && (
+            <div className="flex gap-2 mb-1 flex-wrap justify-end">
+              {imagesToRender.map((img, idx) => (
+                <div key={idx} className="w-24 h-24 rounded-xl overflow-hidden border border-gray-200 dark:border-zinc-700 shadow-sm">
+                  <img src={img.image_url.url} alt="attachment" className="w-full h-full object-cover" />
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="bg-gray-100 dark:bg-zinc-800 text-gray-800 dark:text-gray-100 px-5 py-3 rounded-3xl rounded-tr-sm text-base leading-relaxed">
+            {contentToRender}
+          </div>
         </div>
       </div>
     );
@@ -40,7 +60,7 @@ const MessageBubble = ({ message, apiProvider }) => {
             className="w-full flex items-center justify-between p-3 bg-gray-50 dark:bg-zinc-800/50 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
           >
             <div className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-              <Brain size={16} className="text-purple-500" />
+              <Brain size={16} className="text-cyan-500 dark:text-cyan-400" />
               <span>Thinking Process</span>
             </div>
             {isThoughtExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}

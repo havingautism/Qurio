@@ -41,6 +41,10 @@ export const loadSettings = (overrides = {}) => {
       localOpenAIUrl ||
       overrides.OpenAICompatibilityUrl ||
       "",
+    
+    // API Provider
+    apiProvider: localStorage.getItem("apiProvider") || overrides.apiProvider || "gemini",
+    googleApiKey: import.meta.env.VITE_GOOGLE_API_KEY || localStorage.getItem("googleApiKey") || overrides.googleApiKey || "",
 
     ...overrides,
   };
@@ -70,6 +74,13 @@ export const saveSettings = async (settings) => {
       settings.OpenAICompatibilityUrl
     );
   }
+  if (settings.apiProvider !== undefined) {
+    localStorage.setItem("apiProvider", settings.apiProvider);
+  }
+  if (settings.googleApiKey !== undefined) {
+    localStorage.setItem("googleApiKey", settings.googleApiKey);
+  }
 
+  window.dispatchEvent(new Event('settings-changed'));
   console.log("Settings saved:", settings);
 };

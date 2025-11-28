@@ -3,7 +3,9 @@ import { Copy, ThumbsUp, ThumbsDown, Share2, MoreHorizontal, FileText, List, Ali
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
-const MessageBubble = ({ message }) => {
+import { getProvider } from '../lib/providers';
+
+const MessageBubble = ({ message, apiProvider }) => {
   const isUser = message.role === 'user';
 
   if (isUser) {
@@ -18,17 +20,9 @@ const MessageBubble = ({ message }) => {
 
   const [isThoughtExpanded, setIsThoughtExpanded] = useState(true);
 
-  // Parse content for <thought> tags
-  let thoughtContent = null;
-  let mainContent = message.content;
-
-  if (typeof message.content === 'string') {
-    const thoughtMatch = /<thought>([\s\S]*?)(?:<\/thought>|$)/.exec(message.content);
-    if (thoughtMatch) {
-      thoughtContent = thoughtMatch[1];
-      mainContent = message.content.replace(/<thought>[\s\S]*?(?:<\/thought>|$)/, '').trim();
-    }
-  }
+  // Parse content using provider-specific logic
+  const provider = getProvider(apiProvider);
+  const { content: mainContent, thought: thoughtContent } = provider.parseMessage(message.content);
 
   return (
     <div className="w-full max-w-3xl mb-12 flex flex-col gap-6">

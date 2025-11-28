@@ -1,7 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import MessageList from './MessageList';
 import { Paperclip, ArrowRight, Mic, Globe, Layers, ChevronDown, Check } from 'lucide-react';
-import { streamChatCompletion } from '../lib/openai';
+import { getProvider } from '../lib/providers';
+import { loadSettings } from '../lib/settings';
+
 
 const ChatInterface = ({ spaces = [], initialMessage = '', initialAttachments = [], initialToggles = {}, onTitleAndSpaceGenerated }) => {
   const [input, setInput] = useState('');
@@ -15,10 +17,24 @@ const ChatInterface = ({ spaces = [], initialMessage = '', initialAttachments = 
   const [attachments, setAttachments] = useState([]);
   const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [settings, setSettings] = useState(loadSettings());
   const [conversationTitle, setConversationTitle] = useState('');
 
   // Effect to handle initial message from homepage
   const hasInitialized = useRef(false);
+
+  useEffect(() => {
+    const handleSettingsChange = () => {
+      setSettings(loadSettings());
+      if (settings.apiProvider === 'openai_compatibility') {
+        setIsSearchActive(false);
+      }
+    };
+
+    window.addEventListener('settings-changed', handleSettingsChange);
+    return () => window.removeEventListener('settings-changed', handleSettingsChange);
+  }, []);
+
 
   useEffect(() => {
     if (!hasInitialized.current && (initialMessage || initialAttachments.length > 0)) {
@@ -107,34 +123,25 @@ const ChatInterface = ({ spaces = [], initialMessage = '', initialAttachments = 
     setMessages(prev => [...prev, aiMessagePlaceholder]);
 
     try {
-      const apiKey = localStorage.getItem('openai_api_key') || import.meta.env.VITE_OPENAI_API_KEY || '';
-      // FORCE PROXY: Use absolute local URL to satisfy OpenAI SDK validation
-      const baseUrl = `${window.location.origin}/api/gemini/`;
-      const model = 'gemini-2.5-flash'; // Reverting to known working model, user had 2.5 which might be invalid
+      const settings = loadSettings();
+      const provider = getProvider(settings.apiProvider);
+      const credentials = provider.getCredentials(settings);
 
-      await streamChatCompletion({
-        apiKey,
-        baseUrl,
-        model: model,
+      const model = 'gemini-2.5-flash';
+
+      // Construct params using provider helpers
+      const params = {
+        ...credentials,
+        model,
         messages: newMessages.map(m => ({
           role: m.role === 'ai' ? 'assistant' : m.role,
           content: m.content,
-          // Only include standard OpenAI fields
           ...(m.tool_calls && { tool_calls: m.tool_calls }),
           ...(m.tool_call_id && { tool_call_id: m.tool_call_id }),
           ...(m.name && { name: m.name })
         })),
-        tools: searchActive ? [{ type: 'function', function: { name: 'google_search', description: 'Search the web', parameters: { type: 'object', properties: { query: { type: 'string' } } } } }] : undefined,
-        thinking: thinkingActive ? {
-          extra_body: {
-            "google": {
-              "thinking_config": {
-                "thinking_budget": 1024, // Using standard token count field
-                "include_thoughts": true
-              }
-            }
-          }
-        } : undefined,
+        tools: provider.getTools(searchActive),
+        thinking: provider.getThinking(thinkingActive),
         onChunk: (chunk) => {
           setMessages(prev => {
             const updated = [...prev];
@@ -148,41 +155,36 @@ const ChatInterface = ({ spaces = [], initialMessage = '', initialAttachments = 
         onFinish: async (result) => {
           setIsLoading(false);
 
-          // Generate Title and Space if first message
+          // Generate Title and Space
           if (messages.length === 0) {
             if (onTitleAndSpaceGenerated) {
-              const { title, space } = await onTitleAndSpaceGenerated(textToSend, apiKey, baseUrl);
+              const { title, space } = await onTitleAndSpaceGenerated(textToSend, credentials.apiKey, credentials.baseUrl);
               setConversationTitle(title);
-              if (space) {
-                setSelectedSpaces([space]);
-              }
+              if (space) setSelectedSpaces([space]);
             } else {
-              // Fallback if prop not provided
-              import('../lib/openai').then(async ({ generateTitle }) => {
-                const title = await generateTitle(textToSend, apiKey, baseUrl);
-                setConversationTitle(title);
-              });
+              const { title, space } = await provider.generateTitleAndSpace(textToSend, spaces, credentials.apiKey, credentials.baseUrl);
+              setConversationTitle(title);
+              if (space) setSelectedSpaces([space]);
             }
           }
 
           // Generate Related Questions
-          import('../lib/openai').then(async ({ generateRelatedQuestions }) => {
-            const sanitizedMessages = newMessages.map(m => ({
-              role: m.role === 'ai' ? 'assistant' : m.role,
-              content: m.content
-            }));
-            const related = await generateRelatedQuestions([...sanitizedMessages, { role: 'assistant', content: result.content }], apiKey, baseUrl);
-            if (related && related.length > 0) {
-              setMessages(prev => {
-                const updated = [...prev];
-                const lastMsgIndex = updated.length - 1;
-                const lastMsg = { ...updated[lastMsgIndex] };
-                lastMsg.related = related;
-                updated[lastMsgIndex] = lastMsg;
-                return updated;
-              });
-            }
-          });
+          const sanitizedMessages = newMessages.map(m => ({
+            role: m.role === 'ai' ? 'assistant' : m.role,
+            content: m.content
+          }));
+          const related = await provider.generateRelatedQuestions([...sanitizedMessages, { role: 'assistant', content: result.content }], credentials.apiKey, credentials.baseUrl);
+
+          if (related && related.length > 0) {
+            setMessages(prev => {
+              const updated = [...prev];
+              const lastMsgIndex = updated.length - 1;
+              const lastMsg = { ...updated[lastMsgIndex] };
+              lastMsg.related = related;
+              updated[lastMsgIndex] = lastMsg;
+              return updated;
+            });
+          }
         },
         onError: (err) => {
           console.error("Chat error:", err);
@@ -190,7 +192,6 @@ const ChatInterface = ({ spaces = [], initialMessage = '', initialAttachments = 
           setMessages(prev => {
             const updated = [...prev];
             const lastMsgIndex = updated.length - 1;
-            // Check if the last message is the AI placeholder (empty or partial)
             if (updated[lastMsgIndex].role === 'ai') {
               const lastMsg = { ...updated[lastMsgIndex] };
               lastMsg.content += `\n\n**Error:** ${err.message}`;
@@ -198,11 +199,13 @@ const ChatInterface = ({ spaces = [], initialMessage = '', initialAttachments = 
               updated[lastMsgIndex] = lastMsg;
               return updated;
             }
-            // Fallback if something weird happened
             return [...prev, { role: 'system', content: `Error: ${err.message}` }];
           });
         }
-      });
+      };
+
+      await provider.streamChatCompletion(params);
+
     } catch (error) {
       console.error("Setup error:", error);
       setIsLoading(false);
@@ -267,7 +270,7 @@ const ChatInterface = ({ spaces = [], initialMessage = '', initialAttachments = 
 
       {/* Messages Area */}
       <div className="w-full max-w-3xl flex-1 pb-32">
-        <MessageList messages={messages} />
+        <MessageList messages={messages} apiProvider={settings.apiProvider} />
       </div>
 
       {/* Sticky Input Area */}
@@ -306,6 +309,7 @@ const ChatInterface = ({ spaces = [], initialMessage = '', initialAttachments = 
                   <Paperclip size={18} />
                 </button>
                 <button
+                  disabled={settings.apiProvider === 'openai_compatibility'}
                   onClick={() => setIsSearchActive(!isSearchActive)}
                   className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${isSearchActive ? 'text-cyan-500 bg-gray-200 dark:bg-zinc-700' : 'text-gray-500 dark:text-gray-400'}`}
                 >

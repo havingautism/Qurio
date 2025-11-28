@@ -11,7 +11,17 @@ export const createOpenAIClient = ({ apiKey, baseUrl }) => {
   return new OpenAI({
     apiKey,
     baseURL: baseUrl,
-    dangerouslyAllowBrowser: true // Required for client-side usage
+    dangerouslyAllowBrowser: true, // Required for client-side usage
+    defaultHeaders: {
+      'x-stainless-arch': null,
+      'x-stainless-lang': null,
+      'x-stainless-os': null,
+      'x-stainless-package-version': null,
+      'x-stainless-retry-count': null,
+      'x-stainless-runtime': null,
+      'x-stainless-runtime-version': null,
+      'x-stainless-timeout': null,
+    }
   });
 };
 
@@ -54,7 +64,7 @@ export const streamChatCompletion = async ({
   signal
 }) => {
   try {
-    const client = createOpenAIClient({ apiKey, baseUrl });
+    const client = createOpenAIClient({ apiKey, baseUrl})
 
     // Construct the request options
     const options = {
@@ -66,9 +76,7 @@ export const streamChatCompletion = async ({
     // Optional splicing of features
     if (tools && tools.length > 0) {
       options.tools = tools;
-      if (toolChoice) {
-        options.tool_choice = toolChoice;
-      }
+      // options.tool_choice = 'auto'; 
     }
 
     if (responseFormat) {

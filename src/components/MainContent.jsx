@@ -1,18 +1,35 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Paperclip, Mic, ArrowRight, Sun, Moon, Clock, Cloud, Github, Youtube, Coffee, Globe, Layers } from 'lucide-react';
 import ChatInterface from './ChatInterface';
-import { generateTitleAndSpace } from '../lib/openai';
+import { loadSettings } from '../lib/settings';
 
 const MainContent = ({ currentView, spaces, onChatStart }) => {
   const [activeView, setActiveView] = useState(currentView); // Local state to manage view transition
   const [initialMessage, setInitialMessage] = useState('');
   const [initialAttachments, setInitialAttachments] = useState([]);
   const [initialToggles, setInitialToggles] = useState({ search: false, thinking: false });
+  const [settings, setSettings] = useState(loadSettings());
 
   // Sync prop change to local state if needed (e.g. sidebar navigation)
   useEffect(() => {
     setActiveView(currentView);
   }, [currentView]);
+
+  useEffect(() => {
+    const handleSettingsChange = () => {
+      setSettings(loadSettings());
+      if (settings.apiProvider === 'openai_compatibility') {
+        setIsHomeSearchActive(false);
+      }
+    };
+
+    window.addEventListener('settings-changed', handleSettingsChange);
+    return () => window.removeEventListener('settings-changed', handleSettingsChange);
+  }, []);
+
+  // ... (rest of the component)
+
+
 
   const suggestions = [
     { icon: Clock, title: 'Time in Tokyo', subtitle: 'Current local time' },
@@ -63,9 +80,6 @@ const MainContent = ({ currentView, spaces, onChatStart }) => {
           initialMessage={initialMessage}
           initialAttachments={initialAttachments}
           initialToggles={initialToggles}
-          onTitleAndSpaceGenerated={async (msg, apiKey, baseUrl) => {
-            return await generateTitleAndSpace(msg, spaces, apiKey, baseUrl);
-          }}
         />
       ) : (
         <div className="flex flex-col items-center justify-center min-h-screen p-4 ml-16">
@@ -113,6 +127,8 @@ const MainContent = ({ currentView, spaces, onChatStart }) => {
                       <Paperclip size={18} />
                     </button>
                     <button
+                      disabled={settings.apiProvider === 'openai_compatibility'}
+                      value={isHomeSearchActive}
                       onClick={() => setIsHomeSearchActive(!isHomeSearchActive)}
                       className={`p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${isHomeSearchActive ? 'text-cyan-500 bg-gray-100 dark:bg-zinc-800' : 'text-gray-500 dark:text-gray-400'}`}
                     >
@@ -120,6 +136,7 @@ const MainContent = ({ currentView, spaces, onChatStart }) => {
                       <span>Search</span>
                     </button>
                     <button
+
                       onClick={() => setIsHomeThinkingActive(!isHomeThinkingActive)}
                       className={`p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${isHomeThinkingActive ? 'text-cyan-500 bg-gray-100 dark:bg-zinc-800' : 'text-gray-500 dark:text-gray-400'}`}
                     >

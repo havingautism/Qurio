@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { X, Settings, MessageSquare, Monitor, Box, Palette, User, Info, Key, Link, Database, ChevronDown } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, Settings, MessageSquare, Monitor, Box, Palette, User, Info, Key, Link, Database, ChevronDown, Check } from 'lucide-react';
 import clsx from 'clsx';
 import { saveSettings, loadSettings } from '../lib/settings';
 import { testConnection } from '../lib/supabase';
@@ -14,6 +14,26 @@ const SettingsModal = ({ isOpen, onClose }) => {
   const [supabaseKey, setSupabaseKey] = useState('');
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState(null);
+  const [isProviderDropdownOpen, setIsProviderDropdownOpen] = useState(false);
+  const providerDropdownRef = useRef(null);
+  const [systemPrompt, setSystemPrompt] = useState('');
+  const [modelId, setModelId] = useState('');
+
+  // Handle click outside provider dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (providerDropdownRef.current && !providerDropdownRef.current.contains(event.target)) {
+        setIsProviderDropdownOpen(false);
+      }
+    };
+
+    if (isProviderDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isProviderDropdownOpen]);
 
   const menuItems = [
     { id: 'general', label: 'General', icon: Settings },
@@ -108,7 +128,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
           <div className="flex-1 overflow-y-auto p-8">
             {activeTab === 'general' && (
               <div className="flex flex-col gap-8 max-w-2xl">
-
+                {/* ... existing general settings ... */}
                 {/* API Provider Selection */}
                 <div className="flex flex-col gap-6">
                   <div className="flex flex-col gap-1">
@@ -116,22 +136,38 @@ const SettingsModal = ({ isOpen, onClose }) => {
                     <p className="text-xs text-gray-500 dark:text-gray-400">Choose your preferred AI provider.</p>
                   </div>
 
-                  <div className="relative group">
-                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none z-10">
-                      <Box size={16} />
-                    </div>
-                    <select
-                      defaultValue={loadSettings().apiProvider}
-                      value={apiProvider}
-                      onChange={(e) => setApiProvider(e.target.value)}
-                      className="w-full pl-10 pr-10 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all text-gray-900 dark:text-gray-100 appearance-none cursor-pointer hover:bg-gray-100 dark:hover:bg-zinc-800"
+                  <div className="relative" ref={providerDropdownRef}>
+                    <button
+                      onClick={() => setIsProviderDropdownOpen(!isProviderDropdownOpen)}
+                      className="w-full flex items-center justify-between pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-zinc-800"
                     >
-                      <option value="gemini">Google Gemini</option>
-                      <option value="openai_compatibility">OpenAI Compatible</option>
-                    </select>
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none transition-transform group-hover:rotate-180 duration-200">
-                      <ChevronDown size={16} />
-                    </div>
+                      <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                        <Box size={16} />
+                      </div>
+                      <span>
+                        {apiProvider === 'gemini' ? 'Google Gemini' : 'OpenAI Compatible'}
+                      </span>
+                      <ChevronDown size={16} className={clsx("text-gray-400 transition-transform duration-200", isProviderDropdownOpen && "rotate-180")} />
+                    </button>
+
+                    {isProviderDropdownOpen && (
+                      <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg shadow-xl z-20 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+                        <button
+                          onClick={() => { setApiProvider('gemini'); setIsProviderDropdownOpen(false); }}
+                          className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
+                        >
+                          <span>Google Gemini</span>
+                          {apiProvider === 'gemini' && <Check size={14} className="text-cyan-500" />}
+                        </button>
+                        <button
+                          onClick={() => { setApiProvider('openai_compatibility'); setIsProviderDropdownOpen(false); }}
+                          className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
+                        >
+                          <span>OpenAI Compatible</span>
+                          {apiProvider === 'openai_compatibility' && <Check size={14} className="text-cyan-500" />}
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   {/* Google Settings */}
@@ -278,7 +314,54 @@ const SettingsModal = ({ isOpen, onClose }) => {
                     )}
                   </div>
                 </div>
+              </div>
+            )}
 
+            {activeTab === 'chat' && (
+              <div className="flex flex-col gap-8 max-w-2xl">
+                <div className="flex flex-col gap-1">
+                  <label className="text-sm font-medium text-gray-900 dark:text-white">System Prompt</label>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Customize the behavior and personality of the AI.</p>
+                </div>
+                <div className="relative">
+                  <textarea
+                    value={systemPrompt}
+                    onChange={(e) => setSystemPrompt(e.target.value)}
+                    placeholder="You are a helpful AI assistant..."
+                    rows={6}
+                    className="w-full p-4 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600 resize-none"
+                  />
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'model' && (
+              <div className="flex flex-col gap-8 max-w-2xl">
+                <div className="flex flex-col gap-1">
+                  <label className="text-sm font-medium text-gray-900 dark:text-white">Model Configuration</label>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Configure the specific model ID for your selected provider.</p>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                    {apiProvider === 'gemini' ? 'Gemini Model ID' : 'OpenAI Model ID'}
+                  </label>
+                  <div className="relative">
+                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                      <Box size={16} />
+                    </div>
+                    <input
+                      type="text"
+                      value={modelId}
+                      onChange={(e) => setModelId(e.target.value)}
+                      placeholder={apiProvider === 'gemini' ? 'gemini-2.0-flash-exp' : 'gpt-4o'}
+                      className="w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600"
+                    />
+                  </div>
+                  <p className="text-[10px] text-gray-400">
+                    Enter the specific model identifier you wish to use (e.g., {apiProvider === 'gemini' ? 'gemini-1.5-pro' : 'gpt-3.5-turbo'}).
+                  </p>
+                </div>
               </div>
             )}
           </div>

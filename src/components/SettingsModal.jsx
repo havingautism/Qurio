@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Settings, MessageSquare, Monitor, Box, Palette, User, Info, Key, Link, Database } from 'lucide-react';
 import clsx from 'clsx';
 import { saveSettings, loadSettings } from '../lib/settings';
+import { testConnection } from '../lib/supabase';
 
 const SettingsModal = ({ isOpen, onClose }) => {
   const [activeTab, setActiveTab] = useState('general');
@@ -9,7 +10,8 @@ const SettingsModal = ({ isOpen, onClose }) => {
   const [OpenAICompatibilityUrl, setOpenAICompatibilityUrl] = useState('');
   const [supabaseUrl, setSupabaseUrl] = useState('');
   const [supabaseKey, setSupabaseKey] = useState('');
-  if (!isOpen) return null;
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState(null);
 
   const menuItems = [
     { id: 'general', label: 'General', icon: Settings },
@@ -21,8 +23,6 @@ const SettingsModal = ({ isOpen, onClose }) => {
     { id: 'about', label: 'About', icon: Info },
   ];
 
-  
-
   // TODO: useEffect to load settings from Supabase/LocalStorage on mount
   useEffect(() => {
     const settings = loadSettings();
@@ -31,6 +31,17 @@ const SettingsModal = ({ isOpen, onClose }) => {
     if (settings.OpenAICompatibilityKey) setOpenAICompatibilityKey(settings.OpenAICompatibilityKey);
     if (settings.OpenAICompatibilityUrl) setOpenAICompatibilityUrl(settings.OpenAICompatibilityUrl);
   }, []);
+
+  if (!isOpen) return null;
+
+  const handleTestConnection = async () => {
+    setTesting(true);
+    setTestResult(null);
+    
+    const result = await testConnection(supabaseUrl, supabaseKey);
+    setTestResult(result);
+    setTesting(false);
+  };
 
   const handleSave = async () => {
     // TODO: Validate inputs
@@ -172,10 +183,46 @@ const SettingsModal = ({ isOpen, onClose }) => {
                     </div>
                   </div>
 
-                  <div className="flex justify-end">
-                    <button className="text-xs text-cyan-600 dark:text-cyan-400 hover:underline">
-                      Test Connection & Database Tables
+                  <div className="flex flex-col gap-3">
+                    <button 
+                      onClick={handleTestConnection}
+                      disabled={testing || !supabaseUrl || !supabaseKey}
+                      className="self-end px-4 py-2 text-xs font-medium text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-900/20 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {testing ? 'Testing...' : 'Test Connection & Database Tables'}
                     </button>
+
+                    {testResult && (
+                      <div className={clsx(
+                        "p-4 rounded-lg border",
+                        testResult.success 
+                          ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800" 
+                          : testResult.connection
+                          ? "bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800"
+                          : "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800"
+                      )}>
+                        <div className="text-sm font-medium mb-2 text-gray-900 dark:text-white">
+                          {testResult.message}
+                        </div>
+                        
+                        {testResult.connection && (
+                          <div className="space-y-1 text-xs">
+                            <div className="flex items-center gap-2">
+                              <span>{testResult.tables.spaces ? '✅' : '❌'}</span>
+                              <span className="text-gray-700 dark:text-gray-300">spaces table</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span>{testResult.tables.chat_sessions ? '✅' : '❌'}</span>
+                              <span className="text-gray-700 dark:text-gray-300">chat_sessions table</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span>{testResult.tables.messages ? '✅' : '❌'}</span>
+                              <span className="text-gray-700 dark:text-gray-300">messages table</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
 

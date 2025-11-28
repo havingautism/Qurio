@@ -24,9 +24,72 @@ export const initSupabase = (supabaseUrl, supabaseKey) => {
   const settings = loadSettings({ supabaseUrl, supabaseKey });
 
   if (settings.supabaseUrl && settings.supabaseKey) {
-    return createClient(settings.supabaseUrl, settings.supabaseKey);
+    return createClient(settings.supabaseUrl, settings.supabaseKey, {
+      global: {
+        headers: {
+          "client-id": "default-client-id",
+        },
+      },
+    });
   }
+
   return null;
+};
+
+/**
+ * Test Supabase connection and verify database tables
+ * @param {string} supabaseUrl
+ * @param {string} supabaseKey
+ * @returns {Promise<Object>} Test results with connection status and table availability
+ */
+export const testConnection = async (supabaseUrl, supabaseKey) => {
+  try {
+    // Initialize Supabase client
+    const supabase = initSupabase(supabaseUrl, supabaseKey);
+    if (!supabase) {
+      return {
+        success: false,
+        connection: false,
+        message:
+          "❌ Unable to initialize Supabase client. Please check your credentials.",
+        tables: {},
+      };
+    }
+
+    // Test each required table
+    const tables = ["spaces", "chat_sessions", "messages"];
+    const results = {};
+
+    for (const table of tables) {
+      const { data, error } = await supabase.from(table).select("id").limit(1);
+
+      results[table] = !error;
+    }
+
+    // Check if all tables exist
+    const allTablesExist = Object.values(results).every((v) => v === true);
+    const missingTables = Object.keys(results).filter(
+      (table) => !results[table]
+    );
+
+    return {
+      success: allTablesExist,
+      connection: true,
+      tables: results,
+      message: allTablesExist
+        ? "✅ Connection successful! All database tables are ready."
+        : `⚠️ Connection successful, but missing tables: ${missingTables.join(
+            ", "
+          )}. Please run supabase/schema.sql in your Supabase Dashboard.`,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      connection: false,
+      message: `❌ Connection failed: ${error.message}`,
+      tables: {},
+    };
+  }
 };
 
 /**

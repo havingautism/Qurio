@@ -6,6 +6,7 @@ const SpaceView = ({
   conversations = [],
   conversationsLoading = false,
   onEditSpace,
+  onOpenConversation,
 }) => {
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-4 ml-16 bg-background text-foreground">
@@ -66,7 +67,11 @@ const SpaceView = ({
               </div>
             )}
             {conversations.map((conv, i) => (
-              <div key={conv.id || i} className="group cursor-pointer">
+              <div
+                key={conv.id || i}
+                className="group cursor-pointer"
+                onClick={() => onOpenConversation && onOpenConversation(conv)}
+              >
                 <div className="flex items-start gap-3">
                   {/* <div className="w-8 h-8 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center text-orange-600 dark:text-orange-400 shrink-0 mt-1">
                                         <span className="text-xs font-bold">{conv.title?.[0]?.toUpperCase() || "T"}</span>
@@ -85,7 +90,12 @@ const SpaceView = ({
                     </div>
                   </div>
                   <button className="opacity-0 group-hover:opacity-100 p-1 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded text-gray-400 transition-all">
-                    <MoreHorizontal size={16} />
+                    <MoreHorizontal
+                      size={16}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                      }}
+                    />
                   </button>
                 </div>
                 {i < conversations.length - 1 && (

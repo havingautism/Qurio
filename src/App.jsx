@@ -219,6 +219,7 @@ const handleOpenConversation = (conversation) => {
         onChatStart={() => setCurrentView('chat')}
         onEditSpace={handleEditSpace}
         spacesLoading={spacesLoading}
+        onOpenConversation={handleOpenConversation}
       />
       <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
       <SpaceModal

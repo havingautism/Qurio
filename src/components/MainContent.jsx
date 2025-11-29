@@ -28,6 +28,7 @@ const MainContent = ({
   spacesLoading = false,
   onChatStart,
   onEditSpace,
+  onOpenConversation,
 }) => {
   const [activeView, setActiveView] = useState(currentView); // Local state to manage view transition
   const [initialMessage, setInitialMessage] = useState("");
@@ -206,6 +207,7 @@ const MainContent = ({
           conversations={spaceConversations}
           conversationsLoading={spaceConversationsLoading}
           onEditSpace={onEditSpace}
+          onOpenConversation={onOpenConversation}
         />
       ) : (
         <div className="flex flex-col items-center justify-center min-h-screen p-4 ml-16">

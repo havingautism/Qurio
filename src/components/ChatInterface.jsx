@@ -1,16 +1,42 @@
-import React, { useState, useRef, useEffect } from 'react';
-import MessageList from './MessageList';
-import { Paperclip, ArrowRight, Globe, Layers, ChevronDown, Check, X, LayoutGrid } from 'lucide-react';
-import { getProvider } from '../lib/providers';
-import { loadSettings } from '../lib/settings';
+import React, { useState, useRef, useEffect } from "react";
+import MessageList from "./MessageList";
+import {
+  Paperclip,
+  ArrowRight,
+  Globe,
+  Layers,
+  ChevronDown,
+  Check,
+  X,
+  LayoutGrid,
+} from "lucide-react";
+import { getProvider } from "../lib/providers";
+import { loadSettings } from "../lib/settings";
+import {
+  createConversation,
+  addMessage,
+  updateConversation,
+  listMessages,
+} from "../lib/conversationsService";
 
-
-const ChatInterface = ({ spaces = [], initialMessage = '', initialAttachments = [], initialToggles = {}, initialSpaceSelection = { mode: 'auto', space: null }, onTitleAndSpaceGenerated }) => {
-  const [input, setInput] = useState('');
-  const [selectedSpace, setSelectedSpace] = useState(initialSpaceSelection.mode === 'manual' ? initialSpaceSelection.space : null);
+const ChatInterface = ({
+  spaces = [],
+  activeConversation = null,
+  initialMessage = "",
+  initialAttachments = [],
+  initialToggles = {},
+  initialSpaceSelection = { mode: "auto", space: null },
+  onTitleAndSpaceGenerated,
+}) => {
+  const [input, setInput] = useState("");
+  const [selectedSpace, setSelectedSpace] = useState(
+    initialSpaceSelection.mode === "manual" ? initialSpaceSelection.space : null
+  );
   const [isSelectorOpen, setIsSelectorOpen] = useState(false);
   const selectorRef = useRef(null);
-  const [isManualSpaceSelection, setIsManualSpaceSelection] = useState(initialSpaceSelection.mode === 'manual' && !!initialSpaceSelection.space);
+  const [isManualSpaceSelection, setIsManualSpaceSelection] = useState(
+    initialSpaceSelection.mode === "manual" && !!initialSpaceSelection.space
+  );
 
   // New state for toggles and attachments
   const [isSearchActive, setIsSearchActive] = useState(false);
@@ -19,7 +45,16 @@ const ChatInterface = ({ spaces = [], initialMessage = '', initialAttachments = 
   const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [settings, setSettings] = useState(loadSettings());
-  const [conversationTitle, setConversationTitle] = useState('');
+  const [conversationTitle, setConversationTitle] = useState("");
+  const [conversationId, setConversationId] = useState(null);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const hasPushedConversation = useRef(false);
+  const conversationSpace = React.useMemo(() => {
+    if (!activeConversation?.space_id) return null;
+    const sid = String(activeConversation.space_id);
+    return spaces.find((s) => String(s.id) === sid) || null;
+  }, [activeConversation?.space_id, spaces]);
+  const displaySpace = selectedSpace || conversationSpace || null;
 
   // Effect to handle initial message from homepage
   const hasInitialized = useRef(false);
@@ -27,18 +62,21 @@ const ChatInterface = ({ spaces = [], initialMessage = '', initialAttachments = 
   useEffect(() => {
     const handleSettingsChange = () => {
       setSettings(loadSettings());
-      if (settings.apiProvider === 'openai_compatibility') {
+      if (settings.apiProvider === "openai_compatibility") {
         setIsSearchActive(false);
       }
     };
 
-    window.addEventListener('settings-changed', handleSettingsChange);
-    return () => window.removeEventListener('settings-changed', handleSettingsChange);
+    window.addEventListener("settings-changed", handleSettingsChange);
+    return () =>
+      window.removeEventListener("settings-changed", handleSettingsChange);
   }, []);
 
-
   useEffect(() => {
-    if (!hasInitialized.current && (initialMessage || initialAttachments.length > 0)) {
+    if (
+      !hasInitialized.current &&
+      (initialMessage || initialAttachments.length > 0)
+    ) {
       hasInitialized.current = true;
       // Set initial state
       if (initialToggles.search) setIsSearchActive(true);
@@ -49,11 +87,59 @@ const ChatInterface = ({ spaces = [], initialMessage = '', initialAttachments = 
     }
   }, [initialMessage, initialAttachments, initialToggles]);
 
+  // Load existing conversation messages when switching conversations
   useEffect(() => {
-    if (initialSpaceSelection?.mode === 'manual' && initialSpaceSelection.space) {
+    const loadHistory = async () => {
+      if (!activeConversation?.id) {
+        setConversationId(null);
+        setConversationTitle("");
+        setMessages([]);
+        setSelectedSpace(null);
+        setIsManualSpaceSelection(false);
+        return;
+      }
+      setIsLoadingHistory(true);
+      setConversationId(activeConversation.id);
+      setConversationTitle(activeConversation.title || "New Conversation");
+      setSelectedSpace(conversationSpace);
+      setIsManualSpaceSelection(!!conversationSpace);
+      const { data, error } = await listMessages(activeConversation.id);
+      if (!error && data) {
+        const mapped = data.map((m) => ({
+          role: m.role === "assistant" ? "ai" : m.role,
+          content: m.content,
+          related: m.related_questions || undefined,
+          tool_calls: m.tool_calls || undefined,
+        }));
+        setMessages(mapped);
+      } else {
+        console.error("Failed to load conversation messages:", error);
+        setMessages([]);
+      }
+      setIsLoadingHistory(false);
+    };
+    loadHistory();
+  }, [activeConversation, conversationSpace]);
+
+  useEffect(() => {
+    if (
+      conversationId &&
+      !activeConversation?.id &&
+      !hasPushedConversation.current
+    ) {
+      window.history.pushState(null, "", `/conversation/${conversationId}`);
+      hasPushedConversation.current = true;
+    }
+  }, [conversationId, activeConversation]);
+
+  useEffect(() => {
+    if (
+      initialSpaceSelection?.mode === "manual" &&
+      initialSpaceSelection.space
+    ) {
       setSelectedSpace(initialSpaceSelection.space);
       setIsManualSpaceSelection(true);
-    } else if (initialSpaceSelection?.mode === 'auto') {
+    } else if (initialSpaceSelection?.mode === "auto") {
       setSelectedSpace(null);
       setIsManualSpaceSelection(false);
     }
@@ -68,11 +154,11 @@ const ChatInterface = ({ spaces = [], initialMessage = '', initialAttachments = 
     };
 
     if (isSelectorOpen) {
-      document.addEventListener('click', handleClickOutside);
+      document.addEventListener("click", handleClickOutside);
     }
 
     return () => {
-      document.removeEventListener('click', handleClickOutside);
+      document.removeEventListener("click", handleClickOutside);
     };
   }, [isSelectorOpen]);
 
@@ -80,12 +166,26 @@ const ChatInterface = ({ spaces = [], initialMessage = '', initialAttachments = 
     setSelectedSpace(space);
     setIsManualSpaceSelection(true);
     setIsSelectorOpen(false);
+    if (conversationId || activeConversation?.id) {
+      updateConversation(conversationId || activeConversation.id, {
+        space_id: space?.id || null,
+      }).catch((err) =>
+        console.error("Failed to update conversation space:", err)
+      );
+    }
   };
 
   const handleClearSpaceSelection = () => {
     setSelectedSpace(null);
     setIsManualSpaceSelection(false);
     setIsSelectorOpen(false);
+    if (conversationId || activeConversation?.id) {
+      updateConversation(conversationId || activeConversation.id, {
+        space_id: null,
+      }).catch((err) =>
+        console.error("Failed to clear conversation space:", err)
+      );
+    }
   };
 
   const fileInputRef = useRef(null);
@@ -94,32 +194,43 @@ const ChatInterface = ({ spaces = [], initialMessage = '', initialAttachments = 
     const files = Array.from(e.target.files);
     if (files.length === 0) return;
 
-    files.forEach(file => {
-      if (!file.type.startsWith('image/')) return;
+    files.forEach((file) => {
+      if (!file.type.startsWith("image/")) return;
 
       const reader = new FileReader();
       reader.onload = (e) => {
-        setAttachments(prev => [...prev, {
-          type: 'image_url',
-          image_url: { url: e.target.result }
-        }]);
+        setAttachments((prev) => [
+          ...prev,
+          {
+            type: "image_url",
+            image_url: { url: e.target.result },
+          },
+        ]);
       };
       reader.readAsDataURL(file);
     });
 
     // Reset input
-    e.target.value = '';
+    e.target.value = "";
   };
 
   const handleFileUpload = () => {
     fileInputRef.current?.click();
   };
 
-  const handleSendMessage = async (msgOverride = null, attOverride = null, togglesOverride = null) => {
+  const handleSendMessage = async (
+    msgOverride = null,
+    attOverride = null,
+    togglesOverride = null
+  ) => {
     const textToSend = msgOverride !== null ? msgOverride : input;
     const attToSend = attOverride !== null ? attOverride : attachments;
-    const searchActive = togglesOverride ? togglesOverride.search : isSearchActive;
-    const thinkingActive = togglesOverride ? togglesOverride.thinking : isThinkingActive;
+    const searchActive = togglesOverride
+      ? togglesOverride.search
+      : isSearchActive;
+    const thinkingActive = togglesOverride
+      ? togglesOverride.thinking
+      : isThinkingActive;
 
     if (!textToSend.trim() && attToSend.length === 0) return;
     if (isLoading) return;
@@ -128,52 +239,80 @@ const ChatInterface = ({ spaces = [], initialMessage = '', initialAttachments = 
 
     // Clear input immediately if manual send
     if (msgOverride === null) {
-      setInput('');
+      setInput("");
       setAttachments([]);
     }
 
     // 1. Construct User Message
     let content = textToSend;
     if (attToSend.length > 0) {
-      content = [
-        { type: 'text', text: textToSend },
-        ...attToSend
-      ];
+      content = [{ type: "text", text: textToSend }, ...attToSend];
     }
 
-    const userMessage = { role: 'user', content };
+    const userMessage = { role: "user", content };
     const newMessages = [...messages, userMessage];
     setMessages(newMessages);
-    const conversationMessages = selectedSpace?.prompt
-      ? [{ role: 'system', content: selectedSpace.prompt }, ...newMessages]
+
+    // Ensure conversation exists
+    let convId = conversationId;
+    if (!convId) {
+      const creationPayload = {
+        space_id:
+          isManualSpaceSelection && selectedSpace ? selectedSpace.id : null,
+        title: "New Conversation",
+        api_provider: settings.apiProvider,
+        is_search_enabled: searchActive,
+        is_thinking_enabled: thinkingActive,
+      };
+      const { data, error } = await createConversation(creationPayload);
+      if (!error && data) {
+        convId = data.id;
+        setConversationId(data.id);
+      } else {
+        console.error("Create conversation failed:", error);
+      }
+    }
+
+    // Persist user message
+    if (convId) {
+      await addMessage({
+        conversation_id: convId,
+        role: "user",
+        content,
+        created_at: new Date().toISOString(),
+      });
+    }
+
+    const conversationMessages = displaySpace?.prompt
+      ? [{ role: "system", content: displaySpace.prompt }, ...newMessages]
       : newMessages;
 
     // 2. Prepare AI Placeholder
-    const aiMessagePlaceholder = { role: 'ai', content: '' };
-    setMessages(prev => [...prev, aiMessagePlaceholder]);
+    const aiMessagePlaceholder = { role: "ai", content: "" };
+    setMessages((prev) => [...prev, aiMessagePlaceholder]);
 
     try {
       const settings = loadSettings();
       const provider = getProvider(settings.apiProvider);
       const credentials = provider.getCredentials(settings);
 
-      const model = 'gemini-2.5-flash';
+      const model = "gemini-2.5-flash";
 
       // Construct params using provider helpers
       const params = {
         ...credentials,
         model,
-        messages: conversationMessages.map(m => ({
-          role: m.role === 'ai' ? 'assistant' : m.role,
+        messages: conversationMessages.map((m) => ({
+          role: m.role === "ai" ? "assistant" : m.role,
           content: m.content,
           ...(m.tool_calls && { tool_calls: m.tool_calls }),
           ...(m.tool_call_id && { tool_call_id: m.tool_call_id }),
-          ...(m.name && { name: m.name })
+          ...(m.name && { name: m.name }),
         })),
         tools: provider.getTools(searchActive),
         thinking: provider.getThinking(thinkingActive),
         onChunk: (chunk) => {
-          setMessages(prev => {
+          setMessages((prev) => {
             const updated = [...prev];
             const lastMsgIndex = updated.length - 1;
             const lastMsg = { ...updated[lastMsgIndex] };
@@ -185,43 +324,62 @@ const ChatInterface = ({ spaces = [], initialMessage = '', initialAttachments = 
         onFinish: async (result) => {
           setIsLoading(false);
 
+          let resolvedTitle = conversationTitle;
+          let resolvedSpace = selectedSpace;
+
           // Generate Title (and Space if auto)
           if (messages.length === 0) {
             if (isManualSpaceSelection && selectedSpace) {
-              const title = await provider.generateTitle(textToSend, credentials.apiKey, credentials.baseUrl);
-              setConversationTitle(title);
+              resolvedTitle = await provider.generateTitle(
+                textToSend,
+                credentials.apiKey,
+                credentials.baseUrl
+              );
+              setConversationTitle(resolvedTitle);
             } else {
               if (onTitleAndSpaceGenerated) {
-                const { title, space } = await onTitleAndSpaceGenerated(textToSend, credentials.apiKey, credentials.baseUrl);
+                const { title, space } = await onTitleAndSpaceGenerated(
+                  textToSend,
+                  credentials.apiKey,
+                  credentials.baseUrl
+                );
+                resolvedTitle = title;
                 setConversationTitle(title);
-                if (space) {
-                  setSelectedSpace(space);
-                } else {
-                  setSelectedSpace(null);
-                }
+                resolvedSpace = space || null;
+                setSelectedSpace(space || null);
                 setIsManualSpaceSelection(false);
               } else {
-                const { title, space } = await provider.generateTitleAndSpace(textToSend, spaces, credentials.apiKey, credentials.baseUrl);
+                const { title, space } = await provider.generateTitleAndSpace(
+                  textToSend,
+                  spaces,
+                  credentials.apiKey,
+                  credentials.baseUrl
+                );
+                resolvedTitle = title;
                 setConversationTitle(title);
-                if (space) {
-                  setSelectedSpace(space);
-                } else {
-                  setSelectedSpace(null);
-                }
+                resolvedSpace = space || null;
+                setSelectedSpace(space || null);
                 setIsManualSpaceSelection(false);
               }
             }
           }
 
           // Generate Related Questions
-          const sanitizedMessages = newMessages.map(m => ({
-            role: m.role === 'ai' ? 'assistant' : m.role,
-            content: m.content
+          const sanitizedMessages = newMessages.map((m) => ({
+            role: m.role === "ai" ? "assistant" : m.role,
+            content: m.content,
           }));
-          const related = await provider.generateRelatedQuestions([...sanitizedMessages, { role: 'assistant', content: result.content }], credentials.apiKey, credentials.baseUrl);
+          const related = await provider.generateRelatedQuestions(
+            [
+              ...sanitizedMessages,
+              { role: "assistant", content: result.content },
+            ],
+            credentials.apiKey,
+            credentials.baseUrl
+          );
 
           if (related && related.length > 0) {
-            setMessages(prev => {
+            setMessages((prev) => {
               const updated = [...prev];
               const lastMsgIndex = updated.length - 1;
               const lastMsg = { ...updated[lastMsgIndex] };
@@ -230,27 +388,49 @@ const ChatInterface = ({ spaces = [], initialMessage = '', initialAttachments = 
               return updated;
             });
           }
+
+          // Persist assistant message
+          if (conversationId || convId) {
+            await addMessage({
+              conversation_id: convId || conversationId,
+              role: "assistant",
+              content: result.content,
+              tool_calls: result.toolCalls || null,
+              related_questions: related || null,
+              created_at: new Date().toISOString(),
+            });
+          }
+
+          // Update conversation title/space
+          if ((convId || conversationId) && resolvedTitle) {
+            await updateConversation(convId || conversationId, {
+              title: resolvedTitle,
+              space_id: resolvedSpace ? resolvedSpace.id : null,
+            });
+          }
         },
         onError: (err) => {
           console.error("Chat error:", err);
           setIsLoading(false);
-          setMessages(prev => {
+          setMessages((prev) => {
             const updated = [...prev];
             const lastMsgIndex = updated.length - 1;
-            if (updated[lastMsgIndex].role === 'ai') {
+            if (updated[lastMsgIndex].role === "ai") {
               const lastMsg = { ...updated[lastMsgIndex] };
               lastMsg.content += `\n\n**Error:** ${err.message}`;
               lastMsg.isError = true;
               updated[lastMsgIndex] = lastMsg;
               return updated;
             }
-            return [...prev, { role: 'system', content: `Error: ${err.message}` }];
+            return [
+              ...prev,
+              { role: "system", content: `Error: ${err.message}` },
+            ];
           });
-        }
+        },
       };
 
       await provider.streamChatCompletion(params);
-
     } catch (error) {
       console.error("Setup error:", error);
       setIsLoading(false);
@@ -259,10 +439,8 @@ const ChatInterface = ({ spaces = [], initialMessage = '', initialAttachments = 
 
   return (
     <div className="flex-1 min-h-screen bg-background text-foreground flex flex-col items-center relative p-4 ml-16">
-
       {/* Title Bar */}
       <div className="sticky top-0 z-20 w-full max-w-3xl bg-background/80 backdrop-blur-md py-4 mb-4 border-b border-transparent transition-all flex items-center gap-4">
-
         {/* Space Selector */}
         <div className="relative" ref={selectorRef}>
           <button
@@ -270,10 +448,12 @@ const ChatInterface = ({ spaces = [], initialMessage = '', initialAttachments = 
             className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors text-sm font-medium text-gray-700 dark:text-gray-300"
           >
             <LayoutGrid size={16} className="text-gray-400" />
-            {selectedSpace ? (
+            {displaySpace ? (
               <div className="flex items-center gap-2">
-                <span className="text-lg">{selectedSpace.emoji}</span>
-                <span className="truncate max-w-[120px]">{selectedSpace.label}</span>
+                <span className="text-lg">{displaySpace.emoji}</span>
+                <span className="truncate max-w-[120px]">
+                  {displaySpace.label}
+                </span>
               </div>
             ) : (
               <span className="text-gray-500">Spaces: None</span>
@@ -287,10 +467,16 @@ const ChatInterface = ({ spaces = [], initialMessage = '', initialAttachments = 
               <div className="p-2 flex flex-col gap-1">
                 <button
                   onClick={handleClearSpaceSelection}
-                  className={`flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left ${!selectedSpace ? 'text-cyan-500' : 'text-gray-700 dark:text-gray-200'}`}
+                  className={`flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left ${
+                    !displaySpace
+                      ? "text-cyan-500"
+                      : "text-gray-700 dark:text-gray-200"
+                  }`}
                 >
                   <span className="text-sm font-medium">None</span>
-                  {!selectedSpace && <Check size={14} className="text-cyan-500" />}
+                  {!displaySpace && (
+                    <Check size={14} className="text-cyan-500" />
+                  )}
                 </button>
                 <div className="h-px bg-gray-100 dark:bg-zinc-800 my-1" />
                 {spaces.map((space, idx) => {
@@ -303,9 +489,13 @@ const ChatInterface = ({ spaces = [], initialMessage = '', initialAttachments = 
                     >
                       <div className="flex items-center gap-3">
                         <span className="text-lg">{space.emoji}</span>
-                        <span className="text-sm font-medium text-gray-700 dark:text-gray-200">{space.label}</span>
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                          {space.label}
+                        </span>
                       </div>
-                      {isSelected && <Check size={14} className="text-cyan-500" />}
+                      {isSelected && (
+                        <Check size={14} className="text-cyan-500" />
+                      )}
                     </button>
                   );
                 })}
@@ -315,7 +505,7 @@ const ChatInterface = ({ spaces = [], initialMessage = '', initialAttachments = 
         </div>
 
         <h1 className="text-xl font-medium text-gray-800 dark:text-gray-100 truncate flex-1">
-          {conversationTitle || 'New Conversation'}
+          {conversationTitle || "New Conversation"}
         </h1>
       </div>
 
@@ -333,10 +523,16 @@ const ChatInterface = ({ spaces = [], initialMessage = '', initialAttachments = 
                 {attachments.map((att, idx) => (
                   <div key={idx} className="relative group shrink-0">
                     <div className="w-16 h-16 rounded-xl overflow-hidden border border-gray-200 dark:border-zinc-700 shadow-sm">
-                      <img src={att.image_url.url} alt="attachment" className="w-full h-full object-cover" />
+                      <img
+                        src={att.image_url.url}
+                        alt="attachment"
+                        className="w-full h-full object-cover"
+                      />
                     </div>
                     <button
-                      onClick={() => setAttachments(attachments.filter((_, i) => i !== idx))}
+                      onClick={() =>
+                        setAttachments(attachments.filter((_, i) => i !== idx))
+                      }
                       className="absolute -top-1.5 -right-1.5 bg-gray-900 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity shadow-md"
                     >
                       <X size={12} />
@@ -349,7 +545,7 @@ const ChatInterface = ({ spaces = [], initialMessage = '', initialAttachments = 
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
+                if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
                   handleSendMessage();
                 }
@@ -371,21 +567,33 @@ const ChatInterface = ({ spaces = [], initialMessage = '', initialAttachments = 
                 />
                 <button
                   onClick={handleFileUpload}
-                  className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${attachments.length > 0 ? 'text-cyan-500' : 'text-gray-500 dark:text-gray-400'}`}
+                  className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
+                    attachments.length > 0
+                      ? "text-cyan-500"
+                      : "text-gray-500 dark:text-gray-400"
+                  }`}
                 >
                   <Paperclip size={18} />
                 </button>
                 <button
-                  disabled={settings.apiProvider === 'openai_compatibility'}
+                  disabled={settings.apiProvider === "openai_compatibility"}
                   onClick={() => setIsSearchActive(!isSearchActive)}
-                  className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${isSearchActive ? 'text-cyan-500 bg-gray-200 dark:bg-zinc-700' : 'text-gray-500 dark:text-gray-400'}`}
+                  className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
+                    isSearchActive
+                      ? "text-cyan-500 bg-gray-200 dark:bg-zinc-700"
+                      : "text-gray-500 dark:text-gray-400"
+                  }`}
                 >
                   <Globe size={18} />
                   <span>Search</span>
                 </button>
                 <button
                   onClick={() => setIsThinkingActive(!isThinkingActive)}
-                  className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${isThinkingActive ? 'text-cyan-500 bg-gray-200 dark:bg-zinc-700' : 'text-gray-500 dark:text-gray-400'}`}
+                  className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
+                    isThinkingActive
+                      ? "text-cyan-500 bg-gray-200 dark:bg-zinc-700"
+                      : "text-gray-500 dark:text-gray-400"
+                  }`}
                 >
                   <Layers size={18} />
                   <span>Think</span>
@@ -395,7 +603,9 @@ const ChatInterface = ({ spaces = [], initialMessage = '', initialAttachments = 
               <div className="flex gap-2">
                 <button
                   onClick={() => handleSendMessage()}
-                  disabled={isLoading || (!input.trim() && attachments.length === 0)}
+                  disabled={
+                    isLoading || (!input.trim() && attachments.length === 0)
+                  }
                   className="p-2 bg-gray-200 dark:bg-zinc-700 hover:bg-gray-300 dark:hover:bg-zinc-600 text-gray-500 dark:text-gray-300 rounded-full transition-colors disabled:opacity-50"
                 >
                   <ArrowRight size={18} />
@@ -408,7 +618,6 @@ const ChatInterface = ({ spaces = [], initialMessage = '', initialAttachments = 
           </div>
         </div>
       </div>
-
     </div>
   );
 };

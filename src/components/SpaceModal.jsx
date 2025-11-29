@@ -1,21 +1,23 @@
-import React, { useState, useEffect } from 'react';
-import { X, Smile } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { X } from 'lucide-react';
 
-const SpaceModal = ({ isOpen, onClose, editingSpace = null }) => {
+const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) => {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [prompt, setPrompt] = useState('');
   const [emoji, setEmoji] = useState('🌍'); // Default emoji
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const pickerRef = React.useRef(null);
-  const buttonRef = React.useRef(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState('');
+  const pickerRef = useRef(null);
+  const buttonRef = useRef(null);
 
   const emojis = [
-    '🌍', '💻', '🎥', '💸', '🎨', '📚', '🎮', '🎵', '🍔', '⚽', '🚗', '🚀',
-    '💡', '📷', '🎤', '🎧', '📱', '⌚', '🧱', '🧸', '🧵', '🧶', '🛒', '👓'
+    '🌍', '💻', '📚', '🧠', '🎬', '📈', '🧪', '🎧', '📸', '🗺️', '📝', '🧩',
+    '🪴', '🎨', '⚡', '🚀', '📖', '🔬', '🎮', '🧘', '🧭', '🪐', '📊'
   ];
 
-  // Handle click outside to close picker
+  // Close picker when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (
@@ -31,31 +33,59 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null }) => {
     if (showEmojiPicker) {
       document.addEventListener('click', handleClickOutside);
     }
-
-    return () => {
-      document.removeEventListener('click', handleClickOutside);
-    };
+    return () => document.removeEventListener('click', handleClickOutside);
   }, [showEmojiPicker]);
 
-  // Reset or populate form when modal opens/changes
+  // Populate form when modal opens/changes
   useEffect(() => {
     if (isOpen) {
       if (editingSpace) {
-        setName(editingSpace.label);
+        setName(editingSpace.label || '');
         setDescription(editingSpace.description || '');
-        // Assuming editingSpace might have an emoji field in the future, 
-        // or we map the icon to an emoji. For now, keep default or existing logic.
-        setEmoji(editingSpace.emoji || '🌍');
         setPrompt(editingSpace.prompt || '');
+        setEmoji(editingSpace.emoji || '🌍');
       } else {
         setName('');
         setDescription('');
-        setEmoji('🌍');
         setPrompt('');
+        setEmoji('🌍');
       }
       setShowEmojiPicker(false);
+      setError('');
+      setIsSaving(false);
     }
   }, [isOpen, editingSpace]);
+
+  const handleSave = async () => {
+    if (!name.trim()) {
+      setError('Name is required');
+      return;
+    }
+    setIsSaving(true);
+    setError('');
+    try {
+      await onSave?.({
+        emoji,
+        label: name.trim(),
+        description: description.trim(),
+        prompt: prompt.trim(),
+      });
+    } catch (err) {
+      setError(err.message || 'Failed to save space');
+      setIsSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!editingSpace?.id) return;
+    const confirmed = window.confirm('Delete this space? This cannot be undone.');
+    if (!confirmed) return;
+    try {
+      await onDelete?.(editingSpace.id);
+    } catch (err) {
+      setError(err.message || 'Failed to delete space');
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -151,22 +181,40 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null }) => {
             />
           </div>
 
+          {error && (
+            <div className="text-sm text-red-500">{error}</div>
+          )}
+
         </div>
 
         {/* Footer */}
-        <div className="h-16 border-t border-gray-200 dark:border-zinc-800 flex items-center justify-end px-6 gap-3 bg-gray-50/50 dark:bg-[#191a1a]">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-zinc-800 transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={onClose} // Just close for now, logic to be added later
-            className="px-4 py-2 rounded-lg text-sm font-medium bg-black dark:bg-white text-white dark:text-black hover:opacity-90 transition-opacity"
-          >
-            {editingSpace ? 'Save Changes' : 'Create Space'}
-          </button>
+        <div className="h-16 border-t border-gray-200 dark:border-zinc-800 flex items-center justify-between px-6 gap-3 bg-gray-50/50 dark:bg-[#191a1a]">
+          <div className="flex items-center gap-2">
+            {editingSpace && (
+              <button
+                onClick={handleDelete}
+                className="px-4 py-2 rounded-lg text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+              >
+                Delete
+              </button>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onClose}
+              disabled={isSaving}
+              className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={isSaving}
+              className="px-4 py-2 rounded-lg text-sm font-medium bg-black dark:bg-white text-white dark:text-black hover:opacity-90 transition-opacity disabled:opacity-50"
+            >
+              {isSaving ? 'Saving...' : editingSpace ? 'Save Changes' : 'Create Space'}
+            </button>
+          </div>
         </div>
 
       </div>

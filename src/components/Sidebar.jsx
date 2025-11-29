@@ -1,21 +1,31 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, Search, Compass, LayoutGrid, User, Globe, Map, BookOpen, Code, Film, Cpu, Wallet, ChevronRight, Settings, Sun, Moon, Laptop } from 'lucide-react';
 import clsx from 'clsx';
 import ClarityLogo from './Logo';
+import { listConversations } from '../lib/conversationsService';
 
-const Sidebar = ({ onOpenSettings, onNavigate, onNavigateToSpace, onCreateSpace, onEditSpace, spaces, theme, onToggleTheme }) => {
+const Sidebar = ({ onOpenSettings, onNavigate, onNavigateToSpace, onCreateSpace, onEditSpace, onOpenConversation, spaces, spacesLoading = false, theme, onToggleTheme }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [activeTab, setActiveTab] = useState('library'); // 'library', 'discover', 'spaces'
   const [hoveredTab, setHoveredTab] = useState(null);
+  const [conversations, setConversations] = useState([]);
+  const [isConversationsLoading, setIsConversationsLoading] = useState(false);
 
   const displayTab = hoveredTab || activeTab;
 
-  // Mock Data
-  const historyData = [
-    { label: 'Today', items: ['React 19 Features', 'Tailwind v4 Migration', 'Vite Config Setup'] },
-    { label: 'Yesterday', items: ['AI Model Comparison', 'Next.js Routing', 'Supabase Auth'] },
-    { label: 'Previous 7 Days', items: ['Docker Containers', 'Linux Commands', 'Rust Basics'] },
-  ];
+  useEffect(() => {
+    const fetchData = async () => {
+      setIsConversationsLoading(true);
+      const { data, error } = await listConversations();
+      if (!error && data) {
+        setConversations(data);
+      } else {
+        console.error('Failed to load conversations:', error);
+      }
+      setIsConversationsLoading(false);
+    };
+    fetchData();
+  }, []);
 
   const navItems = [
     { id: 'library', icon: Search, label: 'Library' },
@@ -128,21 +138,22 @@ const Sidebar = ({ onOpenSettings, onNavigate, onNavigateToSpace, onCreateSpace,
 
           {/* HOME TAB CONTENT: History */}
           {displayTab === 'library' && (
-            <div className="flex flex-col gap-6 overflow-y-auto h-[calc(100vh-100px)] pr-2 scrollbar-thin">
-              {historyData.map((section, idx) => (
-                <div key={idx}>
-                  <h3 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wider">{section.label}</h3>
-                  <div className="flex flex-col gap-1">
-                    {section.items.map((item, i) => (
-                      <div
-                        key={i}
-                        onClick={() => onNavigate('chat')}
-                        className="text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-zinc-800 p-2 rounded cursor-pointer truncate transition-colors"
-                      >
-                        {item}
-                      </div>
-                    ))}
-                  </div>
+            <div className="flex flex-col gap-2 overflow-y-auto h-[calc(100vh-100px)] pr-2 scrollbar-thin">
+              {isConversationsLoading && (
+                <div className="text-xs text-gray-500 dark:text-gray-400 px-2 py-1">Loading conversations...</div>
+              )}
+              {!isConversationsLoading && conversations.length === 0 && (
+                <div className="text-xs text-gray-500 dark:text-gray-400 px-2 py-1">No conversations yet.</div>
+              )}
+              {conversations.map((conv) => (
+                <div
+                  key={conv.id}
+                  onClick={() => onOpenConversation && onOpenConversation(conv)}
+                  className="text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-zinc-800 p-2 rounded cursor-pointer truncate transition-colors flex items-center justify-between"
+                  title={conv.title}
+                >
+                  <span className="truncate">{conv.title}</span>
+                  <span className="text-[10px] text-gray-400 ml-2">{new Date(conv.created_at).toLocaleDateString()}</span>
                 </div>
               ))}
             </div>
@@ -165,9 +176,15 @@ const Sidebar = ({ onOpenSettings, onNavigate, onNavigateToSpace, onCreateSpace,
               <div className="h-px bg-border my-2" />
 
               {/* Spaces List */}
-              {spaces.map((space, idx) => (
+              {spacesLoading && (
+                <div className="text-xs text-gray-500 dark:text-gray-400 px-2 py-1">Loading spaces...</div>
+              )}
+              {!spacesLoading && spaces.length === 0 && (
+                <div className="text-xs text-gray-500 dark:text-gray-400 px-2 py-1">No spaces yet.</div>
+              )}
+              {spaces.map((space) => (
                 <div
-                  key={idx}
+                  key={space.id || space.label}
                   onClick={() => onNavigateToSpace(space)}
                   className="flex items-center justify-between p-2 rounded hover:bg-gray-200 dark:hover:bg-zinc-800 cursor-pointer transition-colors group"
                 >

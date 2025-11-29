@@ -1,8 +1,11 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import MainContent from './components/MainContent';
 import SettingsModal from './components/SettingsModal';
 import SpaceModal from './components/SpaceModal';
+import { initSupabase } from './lib/supabase';
+import { listSpaces, createSpace, updateSpace, deleteSpace } from './lib/spacesService';
+import { getConversation } from './lib/conversationsService';
 
 function App() {
   // Initialize theme based on system preference or default to dark
@@ -14,15 +17,11 @@ function App() {
   const [isSpaceModalOpen, setIsSpaceModalOpen] = useState(false);
   const [editingSpace, setEditingSpace] = useState(null);
   const [activeSpace, setActiveSpace] = useState(null);
+  const [activeConversation, setActiveConversation] = useState(null);
 
   // Spaces Data
-  const [spaces, setSpaces] = useState([
-    { emoji: '🌍', label: 'Daily Life', description: 'Daily life search records', prompt: 'Focus on everyday habits, wellness, and personal productivity tips.' },
-    { emoji: '💻', label: 'Development', description: 'Coding and development resources', prompt: 'Respond with concise engineering insights, including short snippets when useful.' },
-    { emoji: '🤖', label: 'LLM Research', description: 'Large Language Model papers and news', prompt: 'Summarize the latest LLM updates highlighting key findings and limitations.' },
-    { emoji: '🎬', label: 'Movies', description: 'Movie reviews and recommendations', prompt: 'Recommend films with brief plot context and why they match the question.' },
-    { emoji: '💸', label: 'Finance', description: 'Market analysis and financial news', prompt: 'Deliver balanced market commentary with clear risks and next steps.' },
-  ]);
+  const [spaces, setSpaces] = useState([]);
+  const [spacesLoading, setSpacesLoading] = useState(false);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -58,17 +57,18 @@ function App() {
     });
   };
 
-  const handleNavigate = (view) => {
-    setCurrentView(view);
-    if (view !== 'space') {
-      setActiveSpace(null);
-    }
-  };
+const handleNavigate = (view) => {
+  setCurrentView(view);
+  if (view !== 'space') {
+    setActiveSpace(null);
+  }
+};
 
-  const handleNavigateToSpace = (space) => {
-    setActiveSpace(space);
-    setCurrentView('space');
-  };
+const handleNavigateToSpace = (space) => {
+  setActiveSpace(space);
+  setCurrentView('space');
+  setActiveConversation(null);
+};
 
   const handleCreateSpace = () => {
     setEditingSpace(null);
@@ -80,6 +80,108 @@ function App() {
     setIsSpaceModalOpen(true);
   };
 
+const handleOpenConversation = (conversation) => {
+  setActiveConversation(conversation);
+  if (conversation?.space_id) {
+    const space = spaces.find((s) => s.id === conversation.space_id);
+    setActiveSpace(space || null);
+  }
+  setCurrentView('chat');
+  if (conversation?.id) {
+    window.history.pushState(null, '', `/conversation/${conversation.id}`);
+  }
+};
+
+  // Load spaces from Supabase on mount
+  useEffect(() => {
+    const load = async () => {
+      setSpacesLoading(true);
+      try {
+        initSupabase();
+        const { data, error } = await listSpaces();
+        if (!error && data) {
+          setSpaces(data);
+        } else {
+          console.error('Failed to fetch spaces:', error);
+        }
+      } catch (err) {
+        console.error('Unexpected error fetching spaces:', err);
+      } finally {
+        setSpacesLoading(false);
+      }
+    };
+    load();
+  }, []);
+
+  const handleSaveSpace = async (payload) => {
+    if (editingSpace) {
+      const { data, error } = await updateSpace(editingSpace.id, payload);
+      if (!error && data) {
+        setSpaces(prev => prev.map(s => s.id === data.id ? data : s));
+        if (activeSpace?.id === data.id) setActiveSpace(data);
+      } else {
+        console.error('Update space failed:', error);
+      }
+    } else {
+      const { data, error } = await createSpace(payload);
+      if (!error && data) {
+        setSpaces(prev => [...prev, data]);
+      } else {
+        console.error('Create space failed:', error);
+      }
+    }
+    setIsSpaceModalOpen(false);
+    setEditingSpace(null);
+  };
+
+  const handleDeleteSpace = async (id) => {
+    const { error } = await deleteSpace(id);
+    if (!error) {
+      setSpaces(prev => prev.filter(s => s.id !== id));
+      if (activeSpace?.id === id) {
+        setActiveSpace(null);
+        setCurrentView('home');
+      }
+    } else {
+      console.error('Delete space failed:', error);
+    }
+    setIsSpaceModalOpen(false);
+    setEditingSpace(null);
+  };
+
+  // Route sync on load / refresh
+  useEffect(() => {
+    const syncFromPath = async () => {
+      const path = window.location.pathname;
+      if (path.startsWith('/conversation/')) {
+        const convoId = path.split('/conversation/')[1];
+        if (convoId) {
+          const { data } = await getConversation(convoId);
+          if (data) {
+            setActiveConversation(data);
+            if (data.space_id) {
+              const space = spaces.find((s) => s.id === data.space_id);
+              setActiveSpace(space || null);
+            }
+            setCurrentView('chat');
+            return;
+          }
+        }
+      }
+      // default
+      setActiveConversation(null);
+      setActiveSpace(null);
+      setCurrentView('home');
+      window.history.replaceState(null, '', '/new_chat');
+    };
+
+    syncFromPath();
+
+    const onPop = () => syncFromPath();
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, [spaces]);
+
   return (
     <div className="flex min-h-screen bg-background text-foreground font-sans selection:bg-cyan-500/30">
       <Sidebar
@@ -88,25 +190,33 @@ function App() {
         onNavigateToSpace={handleNavigateToSpace}
         onCreateSpace={handleCreateSpace}
         onEditSpace={handleEditSpace}
+        onOpenConversation={handleOpenConversation}
         spaces={spaces}
+        spacesLoading={spacesLoading}
         theme={theme}
         onToggleTheme={cycleTheme}
       />
       <MainContent
         currentView={currentView}
         activeSpace={activeSpace}
+        activeConversation={activeConversation}
         spaces={spaces}
         onChatStart={() => setCurrentView('chat')}
         onEditSpace={handleEditSpace}
+        spacesLoading={spacesLoading}
       />
       <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
       <SpaceModal
         isOpen={isSpaceModalOpen}
         onClose={() => setIsSpaceModalOpen(false)}
         editingSpace={editingSpace}
+        onSave={handleSaveSpace}
+        onDelete={handleDeleteSpace}
       />
     </div>
   );
 }
 
 export default App;
+
+

@@ -24,7 +24,14 @@ const Sidebar = ({ onOpenSettings, onNavigate, onNavigateToSpace, onCreateSpace,
       }
       setIsConversationsLoading(false);
     };
+
     fetchData();
+
+    const handleConversationsChanged = () => fetchData();
+    window.addEventListener('conversations-changed', handleConversationsChanged);
+    return () => {
+      window.removeEventListener('conversations-changed', handleConversationsChanged);
+    };
   }, []);
 
   const navItems = [

@@ -274,6 +274,7 @@ const ChatInterface = ({
       if (!error && data) {
         convId = data.id;
         setConversationId(data.id);
+        window.dispatchEvent(new Event("conversations-changed"));
       } else {
         console.error("Create conversation failed:", error);
       }
@@ -413,6 +414,7 @@ const ChatInterface = ({
               title: resolvedTitle,
               space_id: resolvedSpace ? resolvedSpace.id : null,
             });
+            window.dispatchEvent(new Event("conversations-changed"));
           }
         },
         onError: (err) => {

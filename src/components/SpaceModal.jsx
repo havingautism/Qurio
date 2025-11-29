@@ -4,6 +4,7 @@ import { X, Smile } from 'lucide-react';
 const SpaceModal = ({ isOpen, onClose, editingSpace = null }) => {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [prompt, setPrompt] = useState('');
   const [emoji, setEmoji] = useState('🌍'); // Default emoji
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const pickerRef = React.useRef(null);
@@ -45,10 +46,12 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null }) => {
         // Assuming editingSpace might have an emoji field in the future, 
         // or we map the icon to an emoji. For now, keep default or existing logic.
         setEmoji(editingSpace.emoji || '🌍');
+        setPrompt(editingSpace.prompt || '');
       } else {
         setName('');
         setDescription('');
         setEmoji('🌍');
+        setPrompt('');
       }
       setShowEmojiPicker(false);
     }
@@ -131,6 +134,18 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null }) => {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="What is this space for?"
+              rows={3}
+              className="w-full px-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600 resize-none"
+            />
+          </div>
+
+          {/* Prompt Input */}
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Space Prompt <span className="text-gray-400 font-normal">(Optional)</span></label>
+            <textarea
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              placeholder="Provide guidance the assistant should follow inside this space."
               rows={3}
               className="w-full px-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600 resize-none"
             />

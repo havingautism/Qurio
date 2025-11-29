@@ -166,7 +166,7 @@ export const generateTitle = async (firstMessage, apiKey, baseUrl) => {
         { role: "system", content: "Generate a short, concise title (max 5 words) for this conversation based on the user's first message. Do not use quotes." },
         { role: "user", content: firstMessage }
       ],
-      max_tokens: 15
+      // max_tokens: 15
     });
     return response.choices[0]?.message?.content?.trim() || "New Conversation";
   } catch (error) {

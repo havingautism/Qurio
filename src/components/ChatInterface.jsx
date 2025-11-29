@@ -5,12 +5,12 @@ import { getProvider } from '../lib/providers';
 import { loadSettings } from '../lib/settings';
 
 
-const ChatInterface = ({ spaces = [], initialMessage = '', initialAttachments = [], initialToggles = {}, initialSpaceSelection = { mode: 'auto', spaces: [] }, onTitleAndSpaceGenerated }) => {
+const ChatInterface = ({ spaces = [], initialMessage = '', initialAttachments = [], initialToggles = {}, initialSpaceSelection = { mode: 'auto', space: null }, onTitleAndSpaceGenerated }) => {
   const [input, setInput] = useState('');
-  const [selectedSpaces, setSelectedSpaces] = useState(initialSpaceSelection.mode === 'manual' ? initialSpaceSelection.spaces : []);
+  const [selectedSpace, setSelectedSpace] = useState(initialSpaceSelection.mode === 'manual' ? initialSpaceSelection.space : null);
   const [isSelectorOpen, setIsSelectorOpen] = useState(false);
   const selectorRef = useRef(null);
-  const [isManualSpaceSelection, setIsManualSpaceSelection] = useState(initialSpaceSelection.mode === 'manual' && (initialSpaceSelection.spaces?.length || 0) > 0);
+  const [isManualSpaceSelection, setIsManualSpaceSelection] = useState(initialSpaceSelection.mode === 'manual' && !!initialSpaceSelection.space);
 
   // New state for toggles and attachments
   const [isSearchActive, setIsSearchActive] = useState(false);
@@ -49,20 +49,12 @@ const ChatInterface = ({ spaces = [], initialMessage = '', initialAttachments = 
     }
   }, [initialMessage, initialAttachments, initialToggles]);
 
-  // Initialize selectedSpaces with the first space if available, or none
   useEffect(() => {
-    if (spaces.length > 0 && selectedSpaces.length === 0) {
-      // Optional: Default to first space or keep empty
-      // setSelectedSpaces([spaces[0]]); 
-    }
-  }, [spaces]);
-
-  useEffect(() => {
-    if (initialSpaceSelection?.mode === 'manual' && (initialSpaceSelection.spaces?.length || 0) > 0) {
-      setSelectedSpaces(initialSpaceSelection.spaces);
+    if (initialSpaceSelection?.mode === 'manual' && initialSpaceSelection.space) {
+      setSelectedSpace(initialSpaceSelection.space);
       setIsManualSpaceSelection(true);
     } else if (initialSpaceSelection?.mode === 'auto') {
-      setSelectedSpaces([]);
+      setSelectedSpace(null);
       setIsManualSpaceSelection(false);
     }
   }, [initialSpaceSelection]);
@@ -84,18 +76,16 @@ const ChatInterface = ({ spaces = [], initialMessage = '', initialAttachments = 
     };
   }, [isSelectorOpen]);
 
-  const toggleSpaceSelection = (space) => {
-    setSelectedSpaces(prev => {
-      const exists = prev.find(s => s.label === space.label);
-      const updated = exists ? prev.filter(s => s.label !== space.label) : [...prev, space];
-      setIsManualSpaceSelection(updated.length > 0);
-      return updated;
-    });
+  const handleSelectSpace = (space) => {
+    setSelectedSpace(space);
+    setIsManualSpaceSelection(true);
+    setIsSelectorOpen(false);
   };
 
-  const handleAutoSpaceSelection = () => {
-    setSelectedSpaces([]);
+  const handleClearSpaceSelection = () => {
+    setSelectedSpace(null);
     setIsManualSpaceSelection(false);
+    setIsSelectorOpen(false);
   };
 
   const fileInputRef = useRef(null);
@@ -194,7 +184,7 @@ const ChatInterface = ({ spaces = [], initialMessage = '', initialAttachments = 
 
           // Generate Title (and Space if auto)
           if (messages.length === 0) {
-            if (isManualSpaceSelection && selectedSpaces.length > 0) {
+            if (isManualSpaceSelection && selectedSpace) {
               const title = await provider.generateTitle(textToSend, credentials.apiKey, credentials.baseUrl);
               setConversationTitle(title);
             } else {
@@ -202,18 +192,18 @@ const ChatInterface = ({ spaces = [], initialMessage = '', initialAttachments = 
                 const { title, space } = await onTitleAndSpaceGenerated(textToSend, credentials.apiKey, credentials.baseUrl);
                 setConversationTitle(title);
                 if (space) {
-                  setSelectedSpaces([space]);
+                  setSelectedSpace(space);
                 } else {
-                  setSelectedSpaces([]);
+                  setSelectedSpace(null);
                 }
                 setIsManualSpaceSelection(false);
               } else {
                 const { title, space } = await provider.generateTitleAndSpace(textToSend, spaces, credentials.apiKey, credentials.baseUrl);
                 setConversationTitle(title);
                 if (space) {
-                  setSelectedSpaces([space]);
+                  setSelectedSpace(space);
                 } else {
-                  setSelectedSpaces([]);
+                  setSelectedSpace(null);
                 }
                 setIsManualSpaceSelection(false);
               }
@@ -276,18 +266,14 @@ const ChatInterface = ({ spaces = [], initialMessage = '', initialAttachments = 
             onClick={() => setIsSelectorOpen(!isSelectorOpen)}
             className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors text-sm font-medium text-gray-700 dark:text-gray-300"
           >
-            {!isManualSpaceSelection && selectedSpaces.length === 0 ? (
-              <span className="text-gray-500">Spaces: Auto</span>
-            ) : selectedSpaces.length > 0 ? (
+            <LayoutGrid size={16} className="text-gray-400" />
+            {selectedSpace ? (
               <div className="flex items-center gap-2">
-                <span className="text-lg">{selectedSpaces[0].emoji}</span>
-                <span className="truncate max-w-[100px]">{selectedSpaces[0].label}</span>
-                {selectedSpaces.length > 1 && (
-                  <span className="text-xs text-gray-500">+{selectedSpaces.length - 1}</span>
-                )}
+                <span className="text-lg">{selectedSpace.emoji}</span>
+                <span className="truncate max-w-[120px]">{selectedSpace.label}</span>
               </div>
             ) : (
-              <span className="text-gray-500">Select Space</span>
+              <span className="text-gray-500">Spaces: None</span>
             )}
             <ChevronDown size={14} className="text-gray-400" />
           </button>
@@ -297,22 +283,19 @@ const ChatInterface = ({ spaces = [], initialMessage = '', initialAttachments = 
             <div className="absolute top-full left-0 mt-2 w-56 bg-white dark:bg-[#202222] border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl z-30 overflow-hidden">
               <div className="p-2 flex flex-col gap-1">
                 <button
-                  onClick={() => {
-                    handleAutoSpaceSelection();
-                    setIsSelectorOpen(false);
-                  }}
-                  className={`flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left ${!isManualSpaceSelection ? 'text-cyan-500' : 'text-gray-700 dark:text-gray-200'}`}
+                  onClick={handleClearSpaceSelection}
+                  className={`flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left ${!selectedSpace ? 'text-cyan-500' : 'text-gray-700 dark:text-gray-200'}`}
                 >
-                  <span className="text-sm font-medium">Auto (let AI choose)</span>
-                  {!isManualSpaceSelection && <Check size={14} className="text-cyan-500" />}
+                  <span className="text-sm font-medium">None</span>
+                  {!selectedSpace && <Check size={14} className="text-cyan-500" />}
                 </button>
                 <div className="h-px bg-gray-100 dark:bg-zinc-800 my-1" />
                 {spaces.map((space, idx) => {
-                  const isSelected = selectedSpaces.some(s => s.label === space.label);
+                  const isSelected = selectedSpace?.label === space.label;
                   return (
                     <button
                       key={idx}
-                      onClick={() => toggleSpaceSelection(space)}
+                      onClick={() => handleSelectSpace(space)}
                       className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left"
                     >
                       <div className="flex items-center gap-3">
@@ -418,7 +401,7 @@ const ChatInterface = ({ spaces = [], initialMessage = '', initialAttachments = 
             </div>
           </div>
           <div className="text-center mt-2 text-xs text-gray-400 dark:text-gray-500">
-            Perplexity can make mistakes. Please use with caution.
+            Limpidity can make mistakes. Please use with caution.
           </div>
         </div>
       </div>

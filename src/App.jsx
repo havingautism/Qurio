@@ -17,11 +17,11 @@ function App() {
 
   // Spaces Data
   const [spaces, setSpaces] = useState([
-    { emoji: '🌍', label: 'Daily Life', description: 'Daily life search records' },
-    { emoji: '💻', label: 'Development', description: 'Coding and development resources' },
-    { emoji: '🤖', label: 'LLM Research', description: 'Large Language Model papers and news' },
-    { emoji: '🎬', label: 'Movies', description: 'Movie reviews and recommendations' },
-    { emoji: '💸', label: 'Finance', description: 'Market analysis and financial news' },
+    { emoji: '🌍', label: 'Daily Life', description: 'Daily life search records', prompt: 'Focus on everyday habits, wellness, and personal productivity tips.' },
+    { emoji: '💻', label: 'Development', description: 'Coding and development resources', prompt: 'Respond with concise engineering insights, including short snippets when useful.' },
+    { emoji: '🤖', label: 'LLM Research', description: 'Large Language Model papers and news', prompt: 'Summarize the latest LLM updates highlighting key findings and limitations.' },
+    { emoji: '🎬', label: 'Movies', description: 'Movie reviews and recommendations', prompt: 'Recommend films with brief plot context and why they match the question.' },
+    { emoji: '💸', label: 'Finance', description: 'Market analysis and financial news', prompt: 'Deliver balanced market commentary with clear risks and next steps.' },
   ]);
 
   useEffect(() => {

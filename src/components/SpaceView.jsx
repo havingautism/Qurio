@@ -30,6 +30,17 @@ const SpaceView = ({ space, onEditSpace }) => {
                     </div>
                 </div>
 
+                {space.prompt && (
+                    <div className="w-full bg-gray-50 dark:bg-zinc-900 border border-dashed border-gray-300 dark:border-zinc-700 rounded-xl p-4">
+                        <div className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+                            Space Prompt
+                        </div>
+                        <p className="text-sm text-gray-700 dark:text-gray-200 leading-relaxed whitespace-pre-line">
+                            {space.prompt}
+                        </p>
+                    </div>
+                )}
+
                 {/* Section: My Topics (Mock Data) */}
                 <div className="flex flex-col gap-4">
                     <div className="flex items-center gap-2 text-gray-900 dark:text-white font-medium">

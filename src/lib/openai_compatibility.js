@@ -161,7 +161,7 @@ export const generateTitle = async (firstMessage, apiKey, baseUrl) => {
   try {
     const client = createOpenAIClient({ apiKey, baseUrl });
     const response = await client.chat.completions.create({
-      model: "gemini-1.5-flash", // Use a fast model
+      model: "gemini-2.5-flash", // Use a fast model
       messages: [
         { role: "system", content: "Generate a short, concise title (max 5 words) for this conversation based on the user's first message. Do not use quotes." },
         { role: "user", content: firstMessage }

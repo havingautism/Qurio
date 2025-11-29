@@ -3,7 +3,7 @@ import { Plus, Search, Compass, LayoutGrid, User, Globe, Map, BookOpen, Code, Fi
 import clsx from 'clsx';
 import ClarityLogo from './Logo';
 
-const Sidebar = ({ onOpenSettings, onNavigate, onCreateSpace, onEditSpace, spaces, theme, onToggleTheme }) => {
+const Sidebar = ({ onOpenSettings, onNavigate, onNavigateToSpace, onCreateSpace, onEditSpace, spaces, theme, onToggleTheme }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [activeTab, setActiveTab] = useState('library'); // 'library', 'discover', 'spaces'
   const [hoveredTab, setHoveredTab] = useState(null);
@@ -166,9 +166,13 @@ const Sidebar = ({ onOpenSettings, onNavigate, onCreateSpace, onEditSpace, space
 
               {/* Spaces List */}
               {spaces.map((space, idx) => (
-                <div key={idx} className="flex items-center justify-between p-2 rounded hover:bg-gray-200 dark:hover:bg-zinc-800 cursor-pointer transition-colors group">
+                <div
+                  key={idx}
+                  onClick={() => onNavigateToSpace(space)}
+                  className="flex items-center justify-between p-2 rounded hover:bg-gray-200 dark:hover:bg-zinc-800 cursor-pointer transition-colors group"
+                >
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded bg-gray-100 dark:bg-zinc-800 border border-border flex items-center justify-center group-hover:border-gray-300 dark:group-hover:border-zinc-600 text-lg">
+                    <div className="w-8 h-8 rounded bg-gray-100 dark:bg-zinc-800  flex items-center justify-center group-hover:border-gray-300 dark:group-hover:border-zinc-600 text-lg">
                       {space.emoji}
                     </div>
                     <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{space.label}</span>

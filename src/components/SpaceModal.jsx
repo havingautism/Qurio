@@ -44,7 +44,7 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null }) => {
         setDescription(editingSpace.description || '');
         // Assuming editingSpace might have an emoji field in the future, 
         // or we map the icon to an emoji. For now, keep default or existing logic.
-        setEmoji('🌍');
+        setEmoji(editingSpace.emoji || '🌍');
       } else {
         setName('');
         setDescription('');
@@ -74,51 +74,54 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null }) => {
         </div>
 
         {/* Content */}
-        <div className="p-6 flex flex-col gap-6">
+        <div className="p-6 flex flex-col gap-4">
 
-          {/* Emoji Picker */}
-          <div className="flex flex-col gap-2 relative">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Icon</label>
-            <button
-              ref={buttonRef}
-              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-              className="w-12 h-12 rounded-xl bg-gray-100 dark:bg-zinc-800 flex items-center justify-center text-2xl hover:bg-gray-200 dark:hover:bg-zinc-700 transition-colors border border-transparent focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 outline-none"
-            >
-              {emoji}
-            </button>
-
-            {/* Picker Popover */}
-            {showEmojiPicker && (
-              <div
-                ref={pickerRef}
-                className="absolute top-full left-0 mt-2 p-2 bg-white dark:bg-[#202222] border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl z-10 grid grid-cols-6 gap-1 w-64"
+          {/* Icon and Name Row */}
+          <div className="flex gap-4">
+            {/* Emoji Picker */}
+            <div className="flex flex-col gap-2 relative">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Icon</label>
+              <button
+                ref={buttonRef}
+                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                className="w-12 h-12 rounded-xl bg-gray-100 dark:bg-zinc-800 flex items-center justify-center text-2xl hover:bg-gray-200 dark:hover:bg-zinc-700 transition-colors border border-transparent focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 outline-none"
               >
-                {emojis.map((e) => (
-                  <button
-                    key={e}
-                    onClick={() => {
-                      setEmoji(e);
-                      setShowEmojiPicker(false);
-                    }}
-                    className="w-9 h-9 flex items-center justify-center text-xl rounded hover:bg-gray-100 dark:hover:bg-zinc-700 transition-colors"
-                  >
-                    {e}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+                {emoji}
+              </button>
 
-          {/* Name Input */}
-          <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Name</label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g., Daily Life, Research..."
-              className="w-full px-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600"
-            />
+              {/* Picker Popover */}
+              {showEmojiPicker && (
+                <div
+                  ref={pickerRef}
+                  className="absolute top-full left-0 mt-2 p-2 bg-white dark:bg-[#202222] border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl z-10 grid grid-cols-6 gap-1 w-64"
+                >
+                  {emojis.map((e) => (
+                    <button
+                      key={e}
+                      onClick={() => {
+                        setEmoji(e);
+                        setShowEmojiPicker(false);
+                      }}
+                      className="w-9 h-9 flex items-center justify-center text-xl rounded hover:bg-gray-100 dark:hover:bg-zinc-700 transition-colors"
+                    >
+                      {e}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Name Input */}
+            <div className="flex flex-col gap-2 flex-1">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Name</label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g., Daily Life, Research..."
+                className="w-full h-12 px-4 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600"
+              />
+            </div>
           </div>
 
           {/* Description Input */}

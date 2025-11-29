@@ -13,14 +13,15 @@ function App() {
   // Space Modal State
   const [isSpaceModalOpen, setIsSpaceModalOpen] = useState(false);
   const [editingSpace, setEditingSpace] = useState(null);
+  const [activeSpace, setActiveSpace] = useState(null);
 
   // Spaces Data
   const [spaces, setSpaces] = useState([
-    { emoji: '🌍', label: 'Daily Life' },
-    { emoji: '💻', label: 'Development' },
-    { emoji: '🤖', label: 'LLM Research' },
-    { emoji: '🎬', label: 'Movies' },
-    { emoji: '💸', label: 'Finance' },
+    { emoji: '🌍', label: 'Daily Life', description: 'Daily life search records' },
+    { emoji: '💻', label: 'Development', description: 'Coding and development resources' },
+    { emoji: '🤖', label: 'LLM Research', description: 'Large Language Model papers and news' },
+    { emoji: '🎬', label: 'Movies', description: 'Movie reviews and recommendations' },
+    { emoji: '💸', label: 'Finance', description: 'Market analysis and financial news' },
   ]);
 
   useEffect(() => {
@@ -59,6 +60,14 @@ function App() {
 
   const handleNavigate = (view) => {
     setCurrentView(view);
+    if (view !== 'space') {
+      setActiveSpace(null);
+    }
+  };
+
+  const handleNavigateToSpace = (space) => {
+    setActiveSpace(space);
+    setCurrentView('space');
   };
 
   const handleCreateSpace = () => {
@@ -76,6 +85,7 @@ function App() {
       <Sidebar
         onOpenSettings={() => setIsSettingsOpen(true)}
         onNavigate={handleNavigate}
+        onNavigateToSpace={handleNavigateToSpace}
         onCreateSpace={handleCreateSpace}
         onEditSpace={handleEditSpace}
         spaces={spaces}
@@ -84,8 +94,10 @@ function App() {
       />
       <MainContent
         currentView={currentView}
+        activeSpace={activeSpace}
         spaces={spaces}
         onChatStart={() => setCurrentView('chat')}
+        onEditSpace={handleEditSpace}
       />
       <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
       <SpaceModal

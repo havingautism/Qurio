@@ -1,13 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, Paperclip, Mic, ArrowRight, Sun, Moon, Clock, Cloud, Github, Youtube, Coffee, Globe, Layers, X } from 'lucide-react';
+import { Search, Paperclip, ArrowRight, Clock, Cloud, Github, Youtube, Coffee, Globe, Layers, X, Check, ChevronDown, LayoutGrid } from 'lucide-react';
 import ChatInterface from './ChatInterface';
+import SpaceView from './SpaceView';
 import { loadSettings } from '../lib/settings';
 
-const MainContent = ({ currentView, spaces, onChatStart }) => {
+const MainContent = ({ currentView, activeSpace, spaces, onChatStart, onEditSpace }) => {
   const [activeView, setActiveView] = useState(currentView); // Local state to manage view transition
   const [initialMessage, setInitialMessage] = useState('');
   const [initialAttachments, setInitialAttachments] = useState([]);
   const [initialToggles, setInitialToggles] = useState({ search: false, thinking: false });
+  const [initialSpaceSelection, setInitialSpaceSelection] = useState({ mode: 'auto', spaces: [] });
   const [settings, setSettings] = useState(loadSettings());
   const fileInputRef = useRef(null);
 
@@ -46,6 +48,24 @@ const MainContent = ({ currentView, spaces, onChatStart }) => {
   const [isHomeSearchActive, setIsHomeSearchActive] = useState(false);
   const [isHomeThinkingActive, setIsHomeThinkingActive] = useState(false);
   const [homeAttachments, setHomeAttachments] = useState([]);
+  const [isHomeSpaceAuto, setIsHomeSpaceAuto] = useState(true);
+  const [homeSelectedSpaces, setHomeSelectedSpaces] = useState([]);
+  const homeSpaceSelectorRef = useRef(null);
+  const [isHomeSpaceSelectorOpen, setIsHomeSpaceSelectorOpen] = useState(false);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (homeSpaceSelectorRef.current && !homeSpaceSelectorRef.current.contains(event.target)) {
+        setIsHomeSpaceSelectorOpen(false);
+      }
+    };
+
+    if (isHomeSpaceSelectorOpen) {
+      document.addEventListener('click', handleClickOutside);
+    }
+
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [isHomeSpaceSelectorOpen]);
 
   const handleFileChange = (e) => {
     const files = Array.from(e.target.files);
@@ -72,6 +92,15 @@ const MainContent = ({ currentView, spaces, onChatStart }) => {
     fileInputRef.current?.click();
   };
 
+  const handleToggleHomeSpace = (space) => {
+    setHomeSelectedSpaces(prev => {
+      const exists = prev.some(s => s.label === space.label);
+      const updated = exists ? prev.filter(s => s.label !== space.label) : [...prev, space];
+      setIsHomeSpaceAuto(updated.length === 0);
+      return updated;
+    });
+  };
+
   const handleStartChat = async () => {
     if (!homeInput.trim() && homeAttachments.length === 0) return;
 
@@ -79,6 +108,11 @@ const MainContent = ({ currentView, spaces, onChatStart }) => {
     setInitialMessage(homeInput);
     setInitialAttachments(homeAttachments);
     setInitialToggles({ search: isHomeSearchActive, thinking: isHomeThinkingActive });
+    const isManualSpaceSelection = !isHomeSpaceAuto && homeSelectedSpaces.length > 0;
+    setInitialSpaceSelection({
+      mode: isManualSpaceSelection ? 'manual' : 'auto',
+      spaces: isManualSpaceSelection ? homeSelectedSpaces : []
+    });
 
     // Switch to chat view
     setActiveView('chat');
@@ -99,6 +133,12 @@ const MainContent = ({ currentView, spaces, onChatStart }) => {
           initialMessage={initialMessage}
           initialAttachments={initialAttachments}
           initialToggles={initialToggles}
+          initialSpaceSelection={initialSpaceSelection}
+        />
+      ) : activeView === 'space' && activeSpace ? (
+        <SpaceView
+          space={activeSpace}
+          onEditSpace={onEditSpace}
         />
       ) : (
         <div className="flex flex-col items-center justify-center min-h-screen p-4 ml-16">
@@ -178,6 +218,56 @@ const MainContent = ({ currentView, spaces, onChatStart }) => {
                       <Layers size={18} />
                       <span>Think</span>
                     </button>
+                    <div className="relative" ref={homeSpaceSelectorRef}>
+                      <button
+                        onClick={() => setIsHomeSpaceSelectorOpen(!isHomeSpaceSelectorOpen)}
+                        className={`px-3 py-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${isHomeSpaceAuto ? 'text-gray-500 dark:text-gray-400' : 'text-cyan-500 bg-gray-100 dark:bg-zinc-800'}`}
+                      >
+                        <LayoutGrid size={18} />
+                        <span>
+                          {isHomeSpaceAuto || homeSelectedSpaces.length === 0
+                            ? 'Spaces: Auto'
+                            : homeSelectedSpaces.length === 1
+                              ? `Spaces: ${homeSelectedSpaces[0].label}`
+                              : `Spaces: ${homeSelectedSpaces[0].label} +${homeSelectedSpaces.length - 1}`}
+                        </span>
+                        <ChevronDown size={14} />
+                      </button>
+                      {isHomeSpaceSelectorOpen && (
+                        <div className="absolute top-full left-0 mt-2 w-60 bg-white dark:bg-[#202222] border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl z-30">
+                          <div className="p-2 flex flex-col gap-1">
+                            <button
+                              onClick={() => {
+                                setHomeSelectedSpaces([]);
+                                setIsHomeSpaceAuto(true);
+                                setIsHomeSpaceSelectorOpen(false);
+                              }}
+                              className={`flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left ${isHomeSpaceAuto ? 'text-cyan-500' : 'text-gray-700 dark:text-gray-200'}`}
+                            >
+                              <span className="text-sm font-medium">Auto (let AI choose)</span>
+                              {isHomeSpaceAuto && <Check size={14} className="text-cyan-500" />}
+                            </button>
+                            <div className="h-px bg-gray-100 dark:bg-zinc-800 my-1" />
+                            {spaces.map((space, idx) => {
+                              const isSelected = homeSelectedSpaces.some(s => s.label === space.label);
+                              return (
+                                <button
+                                  key={idx}
+                                  onClick={() => handleToggleHomeSpace(space)}
+                                  className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left"
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <span className="text-lg">{space.emoji}</span>
+                                    <span className="text-sm font-medium text-gray-700 dark:text-gray-200">{space.label}</span>
+                                  </div>
+                                  {isSelected && <Check size={14} className="text-cyan-500" />}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   <div className="flex gap-2">

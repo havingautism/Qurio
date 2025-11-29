@@ -144,6 +144,9 @@ const ChatInterface = ({ spaces = [], initialMessage = '', initialAttachments = 
     const userMessage = { role: 'user', content };
     const newMessages = [...messages, userMessage];
     setMessages(newMessages);
+    const conversationMessages = selectedSpace?.prompt
+      ? [{ role: 'system', content: selectedSpace.prompt }, ...newMessages]
+      : newMessages;
 
     // 2. Prepare AI Placeholder
     const aiMessagePlaceholder = { role: 'ai', content: '' };
@@ -160,7 +163,7 @@ const ChatInterface = ({ spaces = [], initialMessage = '', initialAttachments = 
       const params = {
         ...credentials,
         model,
-        messages: newMessages.map(m => ({
+        messages: conversationMessages.map(m => ({
           role: m.role === 'ai' ? 'assistant' : m.role,
           content: m.content,
           ...(m.tool_calls && { tool_calls: m.tool_calls }),

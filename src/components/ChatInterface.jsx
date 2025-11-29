@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+﻿import React, { useState, useRef, useEffect } from "react";
 import MessageList from "./MessageList";
 import {
   Paperclip,
@@ -91,6 +91,11 @@ const ChatInterface = ({
   useEffect(() => {
     const loadHistory = async () => {
       if (!activeConversation?.id) {
+        // If we're in a brand new chat kicked off from the home input, avoid clearing the
+        // just-added first message bubble.
+        if (hasInitialized.current || initialMessage || initialAttachments.length > 0) {
+          return;
+        }
         setConversationId(null);
         setConversationTitle("");
         setMessages([]);
@@ -221,7 +226,8 @@ const ChatInterface = ({
   const handleSendMessage = async (
     msgOverride = null,
     attOverride = null,
-    togglesOverride = null
+    togglesOverride = null,
+    { skipMeta = false } = {}
   ) => {
     const textToSend = msgOverride !== null ? msgOverride : input;
     const attToSend = attOverride !== null ? attOverride : attachments;
@@ -328,7 +334,7 @@ const ChatInterface = ({
           let resolvedSpace = selectedSpace;
 
           // Generate Title (and Space if auto)
-          if (messages.length === 0) {
+          if (messages.length === 0 && !skipMeta) {
             if (isManualSpaceSelection && selectedSpace) {
               resolvedTitle = await provider.generateTitle(
                 textToSend,
@@ -511,7 +517,11 @@ const ChatInterface = ({
 
       {/* Messages Area */}
       <div className="w-full max-w-3xl flex-1 pb-32">
-        <MessageList messages={messages} apiProvider={settings.apiProvider} />
+        <MessageList
+          messages={messages}
+          apiProvider={settings.apiProvider}
+          onRelatedClick={(q) => handleSendMessage(q, null, null, { skipMeta: true })}
+        />
       </div>
 
       {/* Sticky Input Area */}
@@ -623,3 +633,5 @@ const ChatInterface = ({
 };
 
 export default ChatInterface;
+
+

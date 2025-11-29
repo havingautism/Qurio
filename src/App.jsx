@@ -18,6 +18,7 @@ function App() {
   const [editingSpace, setEditingSpace] = useState(null);
   const [activeSpace, setActiveSpace] = useState(null);
   const [activeConversation, setActiveConversation] = useState(null);
+  const [hasSyncedPath, setHasSyncedPath] = useState(false);
 
   // Spaces Data
   const [spaces, setSpaces] = useState([]);
@@ -57,12 +58,16 @@ function App() {
     });
   };
 
-const handleNavigate = (view) => {
-  setCurrentView(view);
-  if (view !== 'space') {
-    setActiveSpace(null);
-  }
-};
+  const handleNavigate = (view) => {
+    setCurrentView(view);
+    if (view !== 'space') {
+      setActiveSpace(null);
+    }
+    if (view === 'home') {
+      setActiveConversation(null);
+      window.history.replaceState(null, '', '/new_chat');
+    }
+  };
 
 const handleNavigateToSpace = (space) => {
   setActiveSpace(space);
@@ -164,6 +169,7 @@ const handleOpenConversation = (conversation) => {
               setActiveSpace(space || null);
             }
             setCurrentView('chat');
+            setHasSyncedPath(true);
             return;
           }
         }
@@ -173,6 +179,7 @@ const handleOpenConversation = (conversation) => {
       setActiveSpace(null);
       setCurrentView('home');
       window.history.replaceState(null, '', '/new_chat');
+      setHasSyncedPath(true);
     };
 
     syncFromPath();
@@ -181,6 +188,14 @@ const handleOpenConversation = (conversation) => {
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
   }, [spaces]);
+
+  useEffect(() => {
+    // Ensure URL reflects new chat whenever we return home after initial path sync
+    if (!hasSyncedPath) return;
+    if (currentView === 'home') {
+      window.history.replaceState(null, '', '/new_chat');
+    }
+  }, [currentView, hasSyncedPath]);
 
   return (
     <div className="flex min-h-screen bg-background text-foreground font-sans selection:bg-cyan-500/30">

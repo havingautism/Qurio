@@ -1,21 +1,55 @@
-import React, { useState } from 'react';
-import { Copy, ThumbsUp, ThumbsDown, Share2, MoreHorizontal, FileText, List, AlignLeft, Layers, Brain, ChevronRight, ChevronDown } from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import React, { useState, useEffect } from "react";
+import {
+  Copy,
+  ThumbsUp,
+  ThumbsDown,
+  Share2,
+  MoreHorizontal,
+  FileText,
+  List,
+  AlignLeft,
+  Layers,
+  Brain,
+  ChevronRight,
+  ChevronDown,
+} from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import {
+  oneDark,
+  oneLight,
+} from "react-syntax-highlighter/dist/esm/styles/prism";
 
-import { getProvider } from '../lib/providers';
+import { getProvider } from "../lib/providers";
 
-const MessageBubble = ({ message, apiProvider }) => {
-  const isUser = message.role === 'user';
+const MessageBubble = ({ message, apiProvider, onRelatedClick }) => {
+  const [isDark, setIsDark] = useState(
+    document.documentElement.classList.contains("dark")
+  );
+
+  useEffect(() => {
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.attributeName === "class") {
+          setIsDark(document.documentElement.classList.contains("dark"));
+        }
+      });
+    });
+    observer.observe(document.documentElement, { attributes: true });
+    return () => observer.disconnect();
+  }, []);
+
+  const isUser = message.role === "user";
 
   if (isUser) {
     let contentToRender = message.content;
     let imagesToRender = [];
 
     if (Array.isArray(message.content)) {
-      const textPart = message.content.find(c => c.type === 'text');
-      contentToRender = textPart ? textPart.text : '';
-      imagesToRender = message.content.filter(c => c.type === 'image_url');
+      const textPart = message.content.find((c) => c.type === "text");
+      contentToRender = textPart ? textPart.text : "";
+      imagesToRender = message.content.filter((c) => c.type === "image_url");
     }
 
     return (
@@ -24,13 +58,20 @@ const MessageBubble = ({ message, apiProvider }) => {
           {imagesToRender.length > 0 && (
             <div className="flex gap-2 mb-1 flex-wrap justify-end">
               {imagesToRender.map((img, idx) => (
-                <div key={idx} className="w-24 h-24 rounded-xl overflow-hidden border border-gray-200 dark:border-zinc-700 shadow-sm">
-                  <img src={img.image_url.url} alt="attachment" className="w-full h-full object-cover" />
+                <div
+                  key={idx}
+                  className="w-24 h-24 rounded-xl overflow-hidden border border-gray-200 dark:border-zinc-700 shadow-sm"
+                >
+                  <img
+                    src={img.image_url.url}
+                    alt="attachment"
+                    className="w-full h-full object-cover"
+                  />
                 </div>
               ))}
             </div>
           )}
-          <div className="bg-gray-100 dark:bg-zinc-800 text-gray-800 dark:text-gray-100 px-5 py-3 rounded-3xl rounded-tr-sm text-base leading-relaxed">
+          <div className="bg-[#f7f1f2] dark:bg-zinc-800 text-gray-800 dark:text-gray-100 px-5 py-3 rounded-3xl rounded-tr-sm text-base leading-relaxed">
             {contentToRender}
           </div>
         </div>
@@ -42,7 +83,54 @@ const MessageBubble = ({ message, apiProvider }) => {
 
   // Parse content using provider-specific logic
   const provider = getProvider(apiProvider);
-  const { content: mainContent, thought: thoughtContent } = provider.parseMessage(message.content);
+  const { content: mainContent, thought: thoughtContent } =
+    provider.parseMessage(message.content);
+
+  const CodeBlock = ({ inline, className, children, ...props }) => {
+    const match = /language-(\w+)/.exec(className || "");
+    const langLabel = match ? match[1].toUpperCase() : "CODE";
+
+    if (!inline && match) {
+      return (
+        <div className="relative group my-4 border border-gray-200 dark:border-zinc-700 rounded-xl overflow-hidden bg-gray-50 dark:bg-[#202222]">
+          <div className="flex items-center justify-between px-3 py-2 text-[11px] font-semibold bg-gray-100 dark:bg-[#2a2a2a] text-gray-600 dark:text-gray-300 border-b border-gray-200 dark:border-zinc-700">
+            <span>{langLabel}</span>
+            <button className="px-2 py-1 rounded bg-gray-200 dark:bg-zinc-700 text-gray-700 dark:text-gray-200 text-[11px] opacity-0 group-hover:opacity-100 transition-opacity">
+              Copy
+            </button>
+          </div>
+          <SyntaxHighlighter
+            style={isDark ? oneDark : oneLight}
+            language={match[1]}
+            PreTag="div"
+            className="code-scrollbar text-sm"
+            customStyle={{
+              margin: 0,
+              padding: "1rem",
+              background: "transparent", // Let the container handle bg if needed, or use theme's bg
+            }}
+            codeTagProps={{
+              style: {
+                backgroundColor: "transparent",
+              },
+            }}
+            {...props}
+          >
+            {String(children).replace(/\n$/, "")}
+          </SyntaxHighlighter>
+        </div>
+      );
+    }
+
+    return (
+      <code
+        className={`${className} bg-gray-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded text-sm font-mono text-pink-500 dark:text-pink-400`}
+        {...props}
+      >
+        {children}
+      </code>
+    );
+  };
 
   return (
     <div className="w-full max-w-3xl mb-12 flex flex-col gap-6">
@@ -63,7 +151,11 @@ const MessageBubble = ({ message, apiProvider }) => {
               <Brain size={16} className="text-cyan-500 dark:text-cyan-400" />
               <span>Thinking Process</span>
             </div>
-            {isThoughtExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+            {isThoughtExpanded ? (
+              <ChevronDown size={16} />
+            ) : (
+              <ChevronRight size={16} />
+            )}
           </button>
 
           {isThoughtExpanded && (
@@ -71,24 +163,10 @@ const MessageBubble = ({ message, apiProvider }) => {
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 components={{
-                  p: ({ node, ...props }) => <p className="mb-2 last:mb-0" {...props} />,
-                  code({ node, inline, className, children, ...props }) {
-                    const match = /language-(\w+)/.exec(className || '')
-                    return !inline && match ? (
-                      <div className="relative group my-2">
-                        <div className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button className="p-1 bg-gray-700 text-white rounded text-xs">Copy</button>
-                        </div>
-                        <pre className={`${className} rounded-lg p-3 overflow-x-auto`} {...props}>
-                          <code>{children}</code>
-                        </pre>
-                      </div>
-                    ) : (
-                      <code className={`${className} bg-gray-200 dark:bg-zinc-700 px-1 py-0.5 rounded text-sm`} {...props}>
-                        {children}
-                      </code>
-                    )
-                  }
+                  p: ({ node, ...props }) => (
+                    <p className="mb-2 last:mb-0" {...props} />
+                  ),
+                  code: CodeBlock,
                 }}
               >
                 {thoughtContent}
@@ -121,7 +199,9 @@ const MessageBubble = ({ message, apiProvider }) => {
           ))}
           {/* View more sources placeholder */}
           <div className="bg-gray-50 dark:bg-zinc-800/50 hover:bg-gray-100 dark:hover:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-xl p-3 cursor-pointer transition-colors flex items-center justify-center h-24">
-            <span className="text-xs text-gray-500 dark:text-gray-400">View 2 more</span>
+            <span className="text-xs text-gray-500 dark:text-gray-400">
+              View 2 more
+            </span>
           </div>
         </div>
       )}
@@ -138,41 +218,62 @@ const MessageBubble = ({ message, apiProvider }) => {
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
             components={{
-              p: ({ node, ...props }) => <p className="mb-4 last:mb-0" {...props} />,
-              h1: ({ node, ...props }) => <h1 className="text-2xl font-bold mb-4 mt-6" {...props} />,
-              h2: ({ node, ...props }) => <h2 className="text-xl font-bold mb-3 mt-5" {...props} />,
-              h3: ({ node, ...props }) => <h3 className="text-lg font-bold mb-2 mt-4" {...props} />,
-              ul: ({ node, ...props }) => <ul className="list-disc pl-5 mb-4 space-y-1" {...props} />,
-              ol: ({ node, ...props }) => <ol className="list-decimal pl-5 mb-4 space-y-1" {...props} />,
+              p: ({ node, ...props }) => (
+                <p className="mb-4 last:mb-0" {...props} />
+              ),
+              h1: ({ node, ...props }) => (
+                <h1 className="text-2xl font-bold mb-4 mt-6" {...props} />
+              ),
+              h2: ({ node, ...props }) => (
+                <h2 className="text-xl font-bold mb-3 mt-5" {...props} />
+              ),
+              h3: ({ node, ...props }) => (
+                <h3 className="text-lg font-bold mb-2 mt-4" {...props} />
+              ),
+              ul: ({ node, ...props }) => (
+                <ul className="list-disc pl-5 mb-4 space-y-1" {...props} />
+              ),
+              ol: ({ node, ...props }) => (
+                <ol className="list-decimal pl-5 mb-4 space-y-1" {...props} />
+              ),
               li: ({ node, ...props }) => <li className="mb-1" {...props} />,
-              blockquote: ({ node, ...props }) => <blockquote className="border-l-4 border-gray-300 dark:border-zinc-600 pl-4 italic my-4 text-gray-600 dark:text-gray-400" {...props} />,
+              blockquote: ({ node, ...props }) => (
+                <blockquote
+                  className="border-l-4 border-gray-300 dark:border-zinc-600 pl-4 italic my-4 text-gray-600 dark:text-gray-400"
+                  {...props}
+                />
+              ),
               table: ({ node, ...props }) => (
-                <div className="overflow-x-auto my-4 rounded-lg border border-gray-200 dark:border-zinc-700 table-scrollbar">
-                  <table className="min-w-full divide-y divide-gray-200 dark:divide-zinc-700" {...props} />
+                <div className="overflow-x-auto my-4 rounded-lg border border-gray-200 dark:border-zinc-700 table-scrollbar code-scrollbar">
+                  <table
+                    className="min-w-full divide-y divide-gray-200 dark:divide-zinc-700"
+                    {...props}
+                  />
                 </div>
               ),
-              thead: ({ node, ...props }) => <thead className="bg-gray-50 dark:bg-zinc-800" {...props} />,
-              tbody: ({ node, ...props }) => <tbody className="bg-white dark:bg-zinc-900 divide-y divide-gray-200 dark:divide-zinc-700" {...props} />,
+              thead: ({ node, ...props }) => (
+                <thead className="bg-gray-50 dark:bg-zinc-800" {...props} />
+              ),
+              tbody: ({ node, ...props }) => (
+                <tbody
+                  className="bg-white dark:bg-zinc-900 divide-y divide-gray-200 dark:divide-zinc-700"
+                  {...props}
+                />
+              ),
               tr: ({ node, ...props }) => <tr {...props} />,
-              th: ({ node, ...props }) => <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider" {...props} />,
-              td: ({ node, ...props }) => <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap" {...props} />,
-              code({ node, inline, className, children, ...props }) {
-                const match = /language-(\w+)/.exec(className || '')
-                return !inline && match ? (
-                  <div className="relative group my-4">
-                    <div className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button className="p-1 bg-gray-700 text-white rounded text-xs">Copy</button>
-                    </div>
-                    <pre className={`${className} rounded-lg p-4 overflow-x-auto bg-gray-100 dark:bg-zinc-900`} {...props}>
-                      <code>{children}</code>
-                    </pre>
-                  </div>
-                ) : (
-                  <code className={`${className} bg-gray-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded text-sm font-mono text-pink-500 dark:text-pink-400`} {...props}>
-                    {children}
-                  </code>
-                )
-              }
+              th: ({ node, ...props }) => (
+                <th
+                  className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
+                  {...props}
+                />
+              ),
+              td: ({ node, ...props }) => (
+                <td
+                  className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap"
+                  {...props}
+                />
+              ),
+              code: CodeBlock,
             }}
           >
             {mainContent}
@@ -191,9 +292,12 @@ const MessageBubble = ({ message, apiProvider }) => {
             {message.related.map((question, index) => (
               <div
                 key={index}
-                className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-zinc-800/50 cursor-pointer transition-colors group"
+                onClick={() => onRelatedClick && onRelatedClick(question)}
+                className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800/50 cursor-pointer transition-colors group"
               >
-                <span className="text-gray-700 dark:text-gray-300 font-medium">{question}</span>
+                <span className="text-gray-700 dark:text-gray-300 font-medium">
+                  {question}
+                </span>
                 <div className="opacity-0 group-hover:opacity-100 text-gray-400 dark:text-gray-500">
                   <PlusIcon />
                 </div>
@@ -229,10 +333,20 @@ const MessageBubble = ({ message, apiProvider }) => {
 };
 
 const PlusIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="20"
+    height="20"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
     <path d="M5 12h14" />
     <path d="M12 5v14" />
   </svg>
-)
+);
 
 export default MessageBubble;

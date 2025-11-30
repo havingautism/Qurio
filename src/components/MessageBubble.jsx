@@ -24,7 +24,13 @@ import {
 
 import { getProvider } from "../lib/providers";
 
-const MessageBubble = ({ message, apiProvider, onRelatedClick }) => {
+const MessageBubble = ({
+  message,
+  apiProvider,
+  onRelatedClick,
+  messageId,
+  bubbleRef,
+}) => {
   const [isDark, setIsDark] = useState(
     document.documentElement.classList.contains("dark")
   );
@@ -92,7 +98,11 @@ const MessageBubble = ({ message, apiProvider, onRelatedClick }) => {
     }
 
     return (
-      <div className="flex justify-end w-full mb-8">
+      <div
+        id={messageId}
+        ref={bubbleRef}
+        className="flex justify-end w-full mb-8"
+      >
         <div className="flex flex-col items-end gap-2 max-w-2xl">
           {imagesToRender.length > 0 && (
             <div className="flex gap-2 mb-1 flex-wrap justify-end">
@@ -110,7 +120,7 @@ const MessageBubble = ({ message, apiProvider, onRelatedClick }) => {
               ))}
             </div>
           )}
-          <div className="bg-[#f7f1f2] dark:bg-zinc-800 text-gray-800 dark:text-gray-100 px-5 py-3 rounded-3xl rounded-tr-sm text-base leading-relaxed">
+          <div className="bg-[#f7f1f2] dark:bg-zinc-800 text-gray-800 dark:text-gray-100 px-5 py-3 rounded-3xl rounded-tr-sm text-base leading-relaxed font-serif">
             {contentToRender}
           </div>
         </div>
@@ -151,6 +161,7 @@ const MessageBubble = ({ message, apiProvider, onRelatedClick }) => {
             codeTagProps={{
               style: {
                 backgroundColor: "transparent",
+                fontFamily: '"Google Sans Code", monospace',
               },
             }}
             {...props}
@@ -163,7 +174,7 @@ const MessageBubble = ({ message, apiProvider, onRelatedClick }) => {
 
     return (
       <code
-        className={`${className} bg-gray-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded text-sm font-mono text-pink-500 dark:text-pink-400`}
+        className={`${className} bg-gray-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded text-sm font-['Google_Sans_Code'] text-pink-500 dark:text-pink-400`}
         {...props}
       >
         {children}
@@ -172,7 +183,11 @@ const MessageBubble = ({ message, apiProvider, onRelatedClick }) => {
   };
 
   return (
-    <div className="w-full max-w-3xl mb-12 flex flex-col gap-6">
+    <div
+      id={messageId}
+      ref={bubbleRef}
+      className="w-full max-w-3xl mb-12 flex flex-col gap-6"
+    >
       {/* Answer Header */}
       <div className="flex items-center gap-3 text-gray-900 dark:text-gray-100">
         <AlignLeft size={24} className="text-cyan-500" />
@@ -248,7 +263,7 @@ const MessageBubble = ({ message, apiProvider, onRelatedClick }) => {
       {/* Main Content */}
       <div
         ref={mainContentRef}
-        className="prose dark:prose-invert max-w-none text-gray-800 dark:text-gray-200 leading-relaxed"
+        className="prose dark:prose-invert max-w-none text-gray-800 dark:text-gray-200 leading-relaxed font-serif"
       >
         {!message.content && !thoughtContent ? (
           <div className="flex flex-col gap-2 animate-pulse">

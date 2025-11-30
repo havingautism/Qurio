@@ -1,5 +1,6 @@
 ﻿import React, { useState, useRef, useEffect } from "react";
 import MessageList from "./MessageList";
+import QuestionNavigator from "./QuestionNavigator";
 import {
   Paperclip,
   ArrowRight,
@@ -49,6 +50,7 @@ const ChatInterface = ({
   const [conversationId, setConversationId] = useState(null);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const hasPushedConversation = useRef(false);
+  const messageRefs = useRef({});
   const conversationSpace = React.useMemo(() => {
     if (!activeConversation?.space_id) return null;
     const sid = String(activeConversation.space_id);
@@ -252,6 +254,102 @@ const ChatInterface = ({
   const handleFileUpload = () => {
     fileInputRef.current?.click();
   };
+
+  const registerMessageRef = (id, msg, el) => {
+    if (el) {
+      messageRefs.current[id] = el;
+    } else {
+      delete messageRefs.current[id];
+    }
+  };
+
+  const jumpToMessage = (id) => {
+    const node = messageRefs.current[id];
+    if (!node) return;
+
+    // Calculate position with offset for sticky header
+    const yOffset = -100; // Adjust based on your header height
+    const y = node.getBoundingClientRect().top + window.pageYOffset + yOffset;
+
+    window.scrollTo({ top: y, behavior: 'smooth' });
+  };
+
+  const extractUserQuestion = (msg) => {
+    if (!msg) return "";
+    if (typeof msg.content === "string") return msg.content;
+    if (Array.isArray(msg.content)) {
+      const textPart = msg.content.find((c) => c.type === "text");
+      return textPart?.text || "";
+    }
+    return "";
+  };
+
+  const [activeQuestionId, setActiveQuestionId] = useState(null);
+
+  useEffect(() => {
+    const observerCallback = (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting && entry.intersectionRatio > 0.1) {
+          // When a message comes into view, check if it's a user message (question)
+          // or if it belongs to a question block.
+          // Since we want to highlight the question even when reading the answer,
+          // we need to find the closest preceding question.
+
+          const id = entry.target.id; // message-0, message-1, etc.
+          if (!id) return;
+
+          const index = parseInt(id.replace('message-', ''), 10);
+          if (isNaN(index)) return;
+
+          // Find the question for this message
+          // If this message is a user message, it IS the question.
+          // If it's an AI message, the question is likely index - 1.
+          const message = messages[index];
+          if (!message) return;
+
+          let targetQuestionId = null;
+          if (message.role === 'user') {
+            targetQuestionId = id;
+          } else if (index > 0 && messages[index - 1].role === 'user') {
+            targetQuestionId = `message-${index - 1}`;
+          }
+
+          if (targetQuestionId) {
+            setActiveQuestionId(targetQuestionId);
+          }
+        }
+      });
+    };
+
+    const observer = new IntersectionObserver(observerCallback, {
+      root: null,
+      rootMargin: '-10% 0px -60% 0px', // Trigger when element is near the top
+      threshold: [0.1]
+    });
+
+    Object.values(messageRefs.current).forEach((el) => {
+      if (el) observer.observe(el);
+    });
+
+    return () => observer.disconnect();
+  }, [messages]);
+
+  const questionNavItems = React.useMemo(
+    () =>
+      messages
+        .map((msg, idx) => {
+          if (msg.role !== "user") return null;
+          const text = extractUserQuestion(msg).trim();
+          if (!text) return null;
+          return {
+            id: `message-${idx}`,
+            index: idx + 1,
+            label: text.length > 120 ? `${text.slice(0, 117)}...` : text,
+          };
+        })
+        .filter(Boolean),
+    [messages]
+  );
 
   const handleSendMessage = async (
     msgOverride = null,
@@ -479,83 +577,99 @@ const ChatInterface = ({
   };
 
   return (
-    <div className="flex-1 min-h-screen bg-background text-foreground flex flex-col items-center relative p-4 ml-16">
-      {/* Title Bar */}
-      <div className="sticky top-0 z-20 w-full max-w-3xl bg-background/80 backdrop-blur-md py-4 mb-4 border-b border-transparent transition-all flex items-center gap-4">
-        {/* Space Selector */}
-        <div className="relative" ref={selectorRef}>
-          <button
-            onClick={() => setIsSelectorOpen(!isSelectorOpen)}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors text-sm font-medium text-gray-700 dark:text-gray-300"
-          >
-            <LayoutGrid size={16} className="text-gray-400" />
-            {displaySpace ? (
-              <div className="flex items-center gap-2">
-                <span className="text-lg">{displaySpace.emoji}</span>
-                <span className="truncate max-w-[120px]">
-                  {displaySpace.label}
-                </span>
-              </div>
-            ) : (
-              <span className="text-gray-500">Spaces: None</span>
-            )}
-            <ChevronDown size={14} className="text-gray-400" />
-          </button>
+    <div className="flex-1 min-h-screen bg-background text-foreground relative p-4 ml-16">
+      <div className="w-full max-w-6xl mx-auto flex flex-col xl:flex-row gap-6 xl:gap-8 items-start">
+        <div className="flex-1 min-w-0 flex flex-col items-center">
+          {/* Title Bar */}
+          <div className="sticky top-0 z-20 w-full max-w-3xl bg-background/80 backdrop-blur-md py-4 mb-4 border-b border-transparent transition-all flex items-center gap-4">
+            {/* Space Selector */}
+            <div className="relative" ref={selectorRef}>
+              <button
+                onClick={() => setIsSelectorOpen(!isSelectorOpen)}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors text-sm font-medium text-gray-700 dark:text-gray-300"
+              >
+                <LayoutGrid size={16} className="text-gray-400" />
+                {displaySpace ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">{displaySpace.emoji}</span>
+                    <span className="truncate max-w-[120px]">
+                      {displaySpace.label}
+                    </span>
+                  </div>
+                ) : (
+                  <span className="text-gray-500">Spaces: None</span>
+                )}
+                <ChevronDown size={14} className="text-gray-400" />
+              </button>
 
-          {/* Dropdown */}
-          {isSelectorOpen && (
-            <div className="absolute top-full left-0 mt-2 w-56 bg-white dark:bg-[#202222] border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl z-30 overflow-hidden">
-              <div className="p-2 flex flex-col gap-1">
-                <button
-                  onClick={handleClearSpaceSelection}
-                  className={`flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left ${!displaySpace
-                      ? "text-cyan-500"
-                      : "text-gray-700 dark:text-gray-200"
-                    }`}
-                >
-                  <span className="text-sm font-medium">None</span>
-                  {!displaySpace && (
-                    <Check size={14} className="text-cyan-500" />
-                  )}
-                </button>
-                <div className="h-px bg-gray-100 dark:bg-zinc-800 my-1" />
-                {spaces.map((space, idx) => {
-                  const isSelected = selectedSpace?.label === space.label;
-                  return (
+              {/* Dropdown */}
+              {isSelectorOpen && (
+                <div className="absolute top-full left-0 mt-2 w-56 bg-white dark:bg-[#202222] border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl z-30 overflow-hidden">
+                  <div className="p-2 flex flex-col gap-1">
                     <button
-                      key={idx}
-                      onClick={() => handleSelectSpace(space)}
-                      className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left"
+                      onClick={handleClearSpaceSelection}
+                      className={`flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left ${!displaySpace
+                        ? "text-cyan-500"
+                        : "text-gray-700 dark:text-gray-200"
+                        }`}
                     >
-                      <div className="flex items-center gap-3">
-                        <span className="text-lg">{space.emoji}</span>
-                        <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
-                          {space.label}
-                        </span>
-                      </div>
-                      {isSelected && (
+                      <span className="text-sm font-medium">None</span>
+                      {!displaySpace && (
                         <Check size={14} className="text-cyan-500" />
                       )}
                     </button>
-                  );
-                })}
-              </div>
+                    <div className="h-px bg-gray-100 dark:bg-zinc-800 my-1" />
+                    {spaces.map((space, idx) => {
+                      const isSelected = selectedSpace?.label === space.label;
+                      return (
+                        <button
+                          key={idx}
+                          onClick={() => handleSelectSpace(space)}
+                          className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left"
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className="text-lg">{space.emoji}</span>
+                            <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                              {space.label}
+                            </span>
+                          </div>
+                          {isSelected && (
+                            <Check size={14} className="text-cyan-500" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
-          )}
+
+            <h1 className="text-xl font-medium text-gray-800 dark:text-gray-100 truncate flex-1">
+              {conversationTitle || "New Conversation"}
+            </h1>
+          </div>
+
+          {/* Messages Area */}
+          <div className="w-full max-w-3xl flex-1 pb-32 relative">
+            <MessageList
+              messages={messages}
+              apiProvider={settings.apiProvider}
+              onRelatedClick={(q) =>
+                handleSendMessage(q, null, null, { skipMeta: true })
+              }
+              onMessageRef={registerMessageRef}
+            />
+
+            {/* Absolute positioned navigator */}
+            <div className="absolute top-0 left-full h-full">
+              <QuestionNavigator
+                items={questionNavItems}
+                onJump={jumpToMessage}
+                activeId={activeQuestionId}
+              />
+            </div>
+          </div>
         </div>
-
-        <h1 className="text-xl font-medium text-gray-800 dark:text-gray-100 truncate flex-1">
-          {conversationTitle || "New Conversation"}
-        </h1>
-      </div>
-
-      {/* Messages Area */}
-      <div className="w-full max-w-3xl flex-1 pb-32">
-        <MessageList
-          messages={messages}
-          apiProvider={settings.apiProvider}
-          onRelatedClick={(q) => handleSendMessage(q, null, null, { skipMeta: true })}
-        />
       </div>
 
       {/* Sticky Input Area */}
@@ -613,8 +727,8 @@ const ChatInterface = ({
                 <button
                   onClick={handleFileUpload}
                   className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${attachments.length > 0
-                      ? "text-cyan-500"
-                      : "text-gray-500 dark:text-gray-400"
+                    ? "text-cyan-500"
+                    : "text-gray-500 dark:text-gray-400"
                     }`}
                 >
                   <Paperclip size={18} />
@@ -623,8 +737,8 @@ const ChatInterface = ({
                   disabled={settings.apiProvider === "openai_compatibility"}
                   onClick={() => setIsSearchActive(!isSearchActive)}
                   className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${isSearchActive
-                      ? "text-cyan-500 bg-gray-200 dark:bg-zinc-700"
-                      : "text-gray-500 dark:text-gray-400"
+                    ? "text-cyan-500 bg-gray-200 dark:bg-zinc-700"
+                    : "text-gray-500 dark:text-gray-400"
                     }`}
                 >
                   <Globe size={18} />
@@ -633,8 +747,8 @@ const ChatInterface = ({
                 <button
                   onClick={() => setIsThinkingActive(!isThinkingActive)}
                   className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${isThinkingActive
-                      ? "text-cyan-500 bg-gray-200 dark:bg-zinc-700"
-                      : "text-gray-500 dark:text-gray-400"
+                    ? "text-cyan-500 bg-gray-200 dark:bg-zinc-700"
+                    : "text-gray-500 dark:text-gray-400"
                     }`}
                 >
                   <Layers size={18} />

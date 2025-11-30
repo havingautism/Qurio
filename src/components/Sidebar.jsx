@@ -193,11 +193,20 @@ const Sidebar = ({ onOpenSettings, onNavigate, onNavigateToSpace, onCreateSpace,
               className={clsx(
                 "flex flex-col items-center justify-center gap-1 py-2 mx-2 rounded-xl transition-all duration-200 cursor-pointer",
                 activeTab === item.id
-                  ? "bg-[#9c9d8a29] dark:bg-zinc-700 text-[#13343bbf] dark:text-white"
-                  : "text-[#13343bbf] dark:text-gray-400 hover:bg-[#9c9d8a29] dark:hover:bg-zinc-800/50 hover:text-gray-700 dark:hover:text-gray-200"
+                  ? "text-[#13343bbf] dark:text-white"
+                  : "text-[#13343bbf] dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
               )}
             >
-              <item.icon size={24} />
+              <div
+                className={clsx(
+                  "p-3 rounded-lg transition-all",
+                  activeTab === item.id
+                    ? "bg-[#9c9d8a29] dark:bg-zinc-700"
+                    : "group-hover:bg-[#9c9d8a29] dark:group-hover:bg-zinc-800/50"
+                )}
+              >
+                <item.icon size={20} />
+              </div>
               <span className="text-[10px] font-medium">{item.label}</span>
             </button>
           ))}

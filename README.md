@@ -4,9 +4,14 @@ A React-based chat application with Supabase integration for data persistence.
 
 ## Features
 - **Chat Interface**: A modern, responsive chat UI
+- **Message Copy**: One-click copy functionality for AI responses including sources and related questions
 - **Supabase Integration**: Stores conversations and messages in Supabase
 - **Spaces**: Organize conversations into workspaces
 - **Settings**: Configurable API keys and Supabase credentials
+- **Dark/Light Theme**: System theme support with manual toggle options
+- **Conversation Management**: Bookmark, delete, and organize conversations
+- **Code Syntax Highlighting**: Beautiful code blocks with syntax highlighting
+- **Image Support**: Upload and display images in conversations
 
 ## Setup
 
@@ -57,6 +62,29 @@ npm run dev
 ```
 
 Open [http://localhost:5173](http://localhost:5173) in your browser.
+
+## Usage
+
+### Chat Features
+- **Start Conversation**: Type your message and press Enter or click the arrow button
+- **Copy Messages**: Click the "Copy" button on any AI response to copy the complete content
+- **Image Upload**: Click the paperclip icon to upload images
+- **Search Toggle**: Enable web search for real-time information
+- **Thinking Mode**: View AI reasoning process before getting the final answer
+
+### Organization
+- **Spaces**: Create dedicated workspaces for different topics
+- **Bookmarks**: Mark important conversations for quick access
+- **Conversation History**: All conversations are automatically saved and organized by date
+
+### Settings
+- **API Provider**: Choose between different AI providers
+- **Theme**: Light, dark, or system theme
+- **Supabase Configuration**: Set up your database credentials
+
+### Keyboard Shortcuts
+- `Enter`: Send message
+- `Shift + Enter`: New line in message input
 
 ## Database Schema
 

@@ -202,10 +202,10 @@ const MainContent = ({
 
   useEffect(() => {
     const fetchSpaceConversations = async () => {
-      // if (!activeSpace?.id) {
-      //   setSpaceConversations([]);
-      //   return;
-      // }
+      if (!activeSpace?.id) {
+        setSpaceConversations([]);
+        return;
+      }
       setSpaceConversations([]);
       setSpaceConversationsLoading(true);
       const { data, error } = await listConversationsBySpace(activeSpace.id);

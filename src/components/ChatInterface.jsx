@@ -61,7 +61,6 @@ const ChatInterface = ({
   // Effect to handle initial message from homepage
   const hasInitialized = useRef(false);
   const isProcessingInitial = useRef(false);
-  const isCreatingConversation = useRef(false);
 
   useEffect(() => {
     const handleSettingsChange = () => {
@@ -292,8 +291,8 @@ const ChatInterface = ({
 
     // Ensure conversation exists
     let convId = conversationId;
-    if (!convId && !isCreatingConversation.current) {
-      isCreatingConversation.current = true;
+    if (!convId) {
+      // Create a new conversation
       const creationPayload = {
         space_id:
           isManualSpaceSelection && selectedSpace ? selectedSpace.id : null,
@@ -303,21 +302,14 @@ const ChatInterface = ({
         is_thinking_enabled: thinkingActive,
       };
       const { data, error } = await createConversation(creationPayload);
-      isCreatingConversation.current = false;
       if (!error && data) {
         convId = data.id;
         setConversationId(data.id);
         window.dispatchEvent(new Event("conversations-changed"));
       } else {
         console.error("Create conversation failed:", error);
-      }
-    } else if (!convId && isCreatingConversation.current) {
-      // If another creation is in progress, wait for it to complete
-      let attempts = 0;
-      while (!convId && attempts < 50 && isCreatingConversation.current) {
-        await new Promise(resolve => setTimeout(resolve, 100));
-        convId = conversationId;
-        attempts++;
+        setIsLoading(false);
+        return; // Stop execution if conversation creation failed
       }
     }
 

@@ -12,6 +12,7 @@ import {
   Brain,
   ChevronRight,
   ChevronDown,
+  CornerRightDown,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -27,6 +28,7 @@ const MessageBubble = ({ message, apiProvider, onRelatedClick }) => {
   const [isDark, setIsDark] = useState(
     document.documentElement.classList.contains("dark")
   );
+  const mainContentRef = useRef(null);
 
   // State to track copy success
   const [isCopied, setIsCopied] = useState(false);
@@ -34,9 +36,20 @@ const MessageBubble = ({ message, apiProvider, onRelatedClick }) => {
   // Utility function to copy text to clipboard
   const copyToClipboard = async (text) => {
     try {
-      await navigator.clipboard.writeText(text);
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const textarea = document.createElement("textarea");
+        textarea.value = text;
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+      }
       // Show a brief success indication
-      console.log("✓ Text copied to clipboard");
+      console.log("Text copied to clipboard");
     } catch (err) {
       console.error("Failed to copy text: ", err);
     }
@@ -48,7 +61,7 @@ const MessageBubble = ({ message, apiProvider, onRelatedClick }) => {
       const timer = setTimeout(() => {
         setIsCopied(false);
       }, 2000);
-      
+
       // Cleanup function to clear timeout if component unmounts
       return () => clearTimeout(timer);
     }
@@ -233,7 +246,10 @@ const MessageBubble = ({ message, apiProvider, onRelatedClick }) => {
       )}
 
       {/* Main Content */}
-      <div className="prose dark:prose-invert max-w-none text-gray-800 dark:text-gray-200 leading-relaxed">
+      <div
+        ref={mainContentRef}
+        className="prose dark:prose-invert max-w-none text-gray-800 dark:text-gray-200 leading-relaxed"
+      >
         {!message.content && !thoughtContent ? (
           <div className="flex flex-col gap-2 animate-pulse">
             <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-3/4"></div>
@@ -325,7 +341,7 @@ const MessageBubble = ({ message, apiProvider, onRelatedClick }) => {
                   {question}
                 </span>
                 <div className="opacity-0 group-hover:opacity-100 text-gray-400 dark:text-gray-500">
-                  <PlusIcon />
+                  <CornerRightDown />
                 </div>
               </div>
             ))}
@@ -342,18 +358,11 @@ const MessageBubble = ({ message, apiProvider, onRelatedClick }) => {
         <button
           className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
           onClick={() => {
-            // Copy the complete AI response including related questions
-            const parsed = provider.parseMessage(message.content);
-            const mainContent = parsed.content || parsed.mainContent || "";
-            const relatedContent =
-              message.related && message.related.length > 0
-                ? `\n\n**相关问题：**\n${message.related
-                    .map((q) => `• ${q}`)
-                    .join("\n")}`
-                : "";
-
-            const contentToCopy = mainContent + relatedContent;
-            copyToClipboard(contentToCopy);
+            // Copy only the rendered markdown text (no extra metadata/sections)
+            const renderedText =
+              mainContentRef.current?.innerText?.trim() || "";
+            const fallbackText = mainContent || "";
+            copyToClipboard(renderedText || fallbackText);
             setIsCopied(true);
           }}
         >

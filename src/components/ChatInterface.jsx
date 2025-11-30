@@ -11,6 +11,7 @@ import {
   X,
   LayoutGrid,
 } from "lucide-react";
+import { deleteMessagesAfterTimestamp } from "../lib/supabase";
 import { getProvider } from "../lib/providers";
 import { loadSettings } from "../lib/settings";
 import {
@@ -351,6 +352,33 @@ const ChatInterface = ({
     [messages]
   );
 
+  // State to track if we are editing a message
+  const [editingIndex, setEditingIndex] = useState(null);
+
+  const handleEdit = (index) => {
+    const msg = messages[index];
+    if (!msg) return;
+
+    // Extract content and attachments
+    const text = extractUserQuestion(msg);
+
+    let msgAttachments = [];
+    if (Array.isArray(msg.content)) {
+      msgAttachments = msg.content.filter(c => c.type === 'image_url');
+    }
+
+    setInput(text);
+    setAttachments(msgAttachments);
+    setEditingIndex(index);
+
+    // Focus input
+    // We can't directly focus the textarea from here easily without a ref, 
+    // but the user will likely click it anyway. 
+    // Ideally we should focus it.
+    const textarea = document.querySelector('textarea');
+    if (textarea) textarea.focus();
+  };
+
   const handleSendMessage = async (
     msgOverride = null,
     attOverride = null,
@@ -383,8 +411,19 @@ const ChatInterface = ({
       content = [{ type: "text", text: textToSend }, ...attToSend];
     }
 
-    const userMessage = { role: "user", content };
-    const newMessages = [...messages, userMessage];
+    const now = new Date().toISOString();
+    const userMessage = { role: "user", content, created_at: now };
+
+    let currentMessages = messages;
+    if (editingIndex !== null) {
+      // If editing AND sending from input (no override), we overwrite
+      if (msgOverride === null) {
+        currentMessages = messages.slice(0, editingIndex);
+      }
+      setEditingIndex(null); // Always reset editing state after a send
+    }
+
+    const newMessages = [...currentMessages, userMessage];
     setMessages(newMessages);
 
     // Ensure conversation exists
@@ -413,6 +452,33 @@ const ChatInterface = ({
 
     // Persist user message
     if (convId) {
+      // If we were editing, we need to clean up the old future messages from the DB
+      if (editingIndex !== null && msgOverride === null) {
+        // We need to find the timestamp of the message BEFORE the one we are editing.
+        // If editingIndex is 0, we delete everything for this conversation (or just delete all > some old date).
+        // Actually, if editingIndex is 0, we are replacing the start. We should delete ALL messages for this conv?
+        // Or better, delete messages with created_at >= the created_at of the message we are replacing?
+        // But we don't have the exact timestamp of the message we are replacing readily available if we just sliced it out.
+
+        // Alternative: If editingIndex > 0, get messages[editingIndex-1].created_at.
+        // Delete all messages > that timestamp.
+
+        // If editingIndex === 0, we can delete all messages for this conversation.
+
+        // Wait, 'messages' here is the OLD list before we sliced it? 
+        // No, we sliced it above: 'currentMessages = messages.slice(0, editingIndex)'.
+        // So 'currentMessages' contains the history we want to KEEP.
+
+        if (currentMessages.length > 0) {
+          const lastKeptMessage = currentMessages[currentMessages.length - 1];
+          if (lastKeptMessage.created_at) {
+            await deleteMessagesAfterTimestamp(convId, lastKeptMessage.created_at);
+          }
+        } else {
+          await deleteMessagesAfterTimestamp(convId, '1970-01-01T00:00:00.000Z');
+        }
+      }
+
       await addMessage({
         conversation_id: convId,
         role: "user",
@@ -658,6 +724,7 @@ const ChatInterface = ({
                 handleSendMessage(q, null, null, { skipMeta: true })
               }
               onMessageRef={registerMessageRef}
+              onEdit={handleEdit}
             />
 
             {/* Absolute positioned navigator */}
@@ -677,6 +744,28 @@ const ChatInterface = ({
         <div className="w-full max-w-3xl relative group">
           <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/20 via-blue-500/15 to-purple-500/20 rounded-xl blur-2xl opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-500 pointer-events-none" />
           <div className="relative bg-gray-100 dark:bg-zinc-800 border border-transparent focus-within:border-gray-300 dark:focus-within:border-zinc-600 rounded-xl transition-all duration-300 p-3 shadow-sm hover:shadow-lg group-hover:shadow-lg focus-within:shadow-xl">
+            {/* Edit Context Banner */}
+            {editingIndex !== null && messages[editingIndex] && (
+              <div className="flex items-center justify-between bg-gray-200 dark:bg-zinc-700/50 rounded-lg px-3 py-2 mb-2 ">
+                <div className="flex items-center gap-3 overflow-hidden">
+                  <div className="flex flex-col">
+                    <span className="text-xs font-semibold text-cyan-600 dark:text-cyan-400 uppercase tracking-wide">
+                      Editing
+                    </span>
+                    <span className="text-sm text-gray-600 dark:text-gray-300 truncate max-w-[200px] md:max-w-md">
+                      {extractUserQuestion(messages[editingIndex])}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setEditingIndex(null)}
+                  className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors rounded-full hover:bg-gray-300 dark:hover:bg-zinc-600"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            )}
+
             {attachments.length > 0 && (
               <div className="flex gap-2 mb-3 px-1 overflow-x-auto py-1">
                 {attachments.map((att, idx) => (

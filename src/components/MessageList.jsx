@@ -6,6 +6,7 @@ const MessageList = ({
   apiProvider,
   onRelatedClick,
   onMessageRef,
+  onEdit,
 }) => {
   return (
     <div className="flex flex-col w-full max-w-3xl mx-auto pb-32">
@@ -21,6 +22,7 @@ const MessageList = ({
           message={msg}
           apiProvider={apiProvider}
           onRelatedClick={onRelatedClick}
+          onEdit={() => onEdit && onEdit(index)}
         />
       ))}
     </div>

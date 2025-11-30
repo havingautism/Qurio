@@ -229,3 +229,17 @@ export const getHistory = async (conversationId) => {
     .order("created_at", { ascending: true });
   return { data: data || [], error };
 };
+
+export const deleteMessagesAfterTimestamp = async (conversationId, timestamp) => {
+  const supabase = getSupabaseClient();
+  if (!supabase)
+    return { data: null, error: new Error("Supabase not configured") };
+  
+  const { data, error } = await supabase
+    .from("conversation_messages")
+    .delete()
+    .eq("conversation_id", conversationId)
+    .gt("created_at", timestamp);
+    
+  return { data, error };
+};

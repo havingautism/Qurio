@@ -13,6 +13,8 @@ import {
   ChevronRight,
   ChevronDown,
   CornerRightDown,
+  Pencil,
+  Check,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -30,6 +32,7 @@ const MessageBubble = ({
   onRelatedClick,
   messageId,
   bubbleRef,
+  onEdit,
 }) => {
   const [isDark, setIsDark] = useState(
     document.documentElement.classList.contains("dark")
@@ -101,27 +104,50 @@ const MessageBubble = ({
       <div
         id={messageId}
         ref={bubbleRef}
-        className="flex justify-end w-full mb-8"
+        className="flex justify-end w-full mb-8 group"
       >
-        <div className="flex flex-col items-end gap-2 max-w-2xl">
-          {imagesToRender.length > 0 && (
-            <div className="flex gap-2 mb-1 flex-wrap justify-end">
-              {imagesToRender.map((img, idx) => (
-                <div
-                  key={idx}
-                  className="w-24 h-24 rounded-xl overflow-hidden border border-gray-200 dark:border-zinc-700 shadow-sm"
-                >
-                  <img
-                    src={img.image_url.url}
-                    alt="attachment"
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              ))}
+        <div className="flex items-end gap-3">
+          {/* Action Buttons */}
+          <div className="opacity-0 group-hover:opacity-100 flex  gap-1 transition-opacity duration-200">
+            <button
+              onClick={() => onEdit && onEdit()}
+              className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 bg-gray-100 dark:bg-zinc-800/50 rounded-lg transition-colors"
+              title="Edit"
+            >
+              <Pencil size={14} />
+            </button>
+            <button
+              onClick={() => {
+                copyToClipboard(contentToRender);
+                setIsCopied(true);
+              }}
+              className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 bg-gray-100 dark:bg-zinc-800/50 rounded-lg transition-colors"
+              title="Copy"
+            >
+              {isCopied ? <Check size={14} /> : <Copy size={14} />}
+            </button>
+          </div>
+
+          <div className="flex flex-col items-end gap-2 max-w-2xl">
+            {imagesToRender.length > 0 && (
+              <div className="flex gap-2 mb-1 flex-wrap justify-end">
+                {imagesToRender.map((img, idx) => (
+                  <div
+                    key={idx}
+                    className="w-24 h-24 rounded-xl overflow-hidden border border-gray-200 dark:border-zinc-700 shadow-sm"
+                  >
+                    <img
+                      src={img.image_url.url}
+                      alt="attachment"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="bg-[#f7f1f2] dark:bg-zinc-800 text-gray-800 dark:text-gray-100 px-5 py-3 rounded-3xl rounded-tr-sm text-base leading-relaxed font-serif">
+              {contentToRender}
             </div>
-          )}
-          <div className="bg-[#f7f1f2] dark:bg-zinc-800 text-gray-800 dark:text-gray-100 px-5 py-3 rounded-3xl rounded-tr-sm text-base leading-relaxed font-serif">
-            {contentToRender}
           </div>
         </div>
       </div>

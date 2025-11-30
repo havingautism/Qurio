@@ -1,15 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Compass, LayoutGrid, User, Globe, Map, BookOpen, Code, Film, Cpu, Wallet, ChevronRight, Settings, Sun, Moon, Laptop } from 'lucide-react';
+import { Plus, Search, Compass, LayoutGrid, User, Globe, Map, BookOpen, Code, Film, Cpu, Wallet, ChevronRight, Settings, Sun, Moon, Laptop, Trash2 } from 'lucide-react';
 import clsx from 'clsx';
 import ClarityLogo from './Logo';
 import { listConversations } from '../lib/conversationsService';
+import { deleteConversation } from '../lib/supabase';
+import ConfirmationModal from './ConfirmationModal';
+import { useToast } from '../contexts/ToastContext';
 
-const Sidebar = ({ onOpenSettings, onNavigate, onNavigateToSpace, onCreateSpace, onEditSpace, onOpenConversation, spaces, spacesLoading = false, theme, onToggleTheme }) => {
+const Sidebar = ({ onOpenSettings, onNavigate, onNavigateToSpace, onCreateSpace, onEditSpace, onOpenConversation, spaces, spacesLoading = false, theme, onToggleTheme, activeConversationId }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [activeTab, setActiveTab] = useState('library'); // 'library', 'discover', 'spaces'
   const [hoveredTab, setHoveredTab] = useState(null);
   const [conversations, setConversations] = useState([]);
   const [isConversationsLoading, setIsConversationsLoading] = useState(false);
+  const [conversationToDelete, setConversationToDelete] = useState(null);
+  const toast = useToast();
 
   const displayTab = hoveredTab || activeTab;
 
@@ -47,6 +52,28 @@ const Sidebar = ({ onOpenSettings, onNavigate, onNavigateToSpace, onCreateSpace,
       case 'system': return <Laptop size={20} />;
       default: return <Laptop size={20} />;
     }
+  };
+
+  const handleDeleteConversation = async () => {
+    if (!conversationToDelete) return;
+
+    const { success, error } = await deleteConversation(conversationToDelete.id);
+    
+    if (success) {
+      // Refresh list
+      const { data } = await listConversations();
+      if (data) setConversations(data);
+      
+      // Only navigate home if we deleted the currently active conversation
+      if (conversationToDelete.id === activeConversationId) {
+        onNavigate('home');
+      }
+    } else {
+      console.error("Failed to delete conversation:", error);
+      toast.error("Failed to delete conversation");
+    }
+    
+    setConversationToDelete(null);
   };
 
   return (
@@ -152,17 +179,44 @@ const Sidebar = ({ onOpenSettings, onNavigate, onNavigateToSpace, onCreateSpace,
               {!isConversationsLoading && conversations.length === 0 && (
                 <div className="text-xs text-gray-500 dark:text-gray-400 px-2 py-1">No conversations yet.</div>
               )}
-              {conversations.map((conv) => (
-                <div
-                  key={conv.id}
-                  onClick={() => onOpenConversation && onOpenConversation(conv)}
-                  className="text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-zinc-800 p-2 rounded cursor-pointer truncate transition-colors flex items-center justify-between"
-                  title={conv.title}
-                >
-                  <span className="truncate">{conv.title}</span>
-                  <span className="text-[10px] text-gray-400 ml-2">{new Date(conv.created_at).toLocaleDateString()}</span>
-                </div>
-              ))}
+              {conversations.map((conv) => {
+                const isActive = conv.id === activeConversationId;
+                return (
+                  <div
+                    key={conv.id}
+                    onClick={() => onOpenConversation && onOpenConversation(conv)}
+                    className={clsx(
+                      "text-sm p-2 rounded cursor-pointer truncate transition-colors group",
+                      isActive
+                        ? "bg-cyan-500/10 dark:bg-cyan-500/20 border border-cyan-500/30 text-cyan-700 dark:text-cyan-300"
+                        : "text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-zinc-800"
+                    )}
+                    title={conv.title}
+                  >
+                    <div className="flex items-center justify-between w-full overflow-hidden">
+                      <div className="flex flex-col overflow-hidden">
+                        <span className="truncate">{conv.title}</span>
+                        <span className={clsx(
+                          "text-[10px]",
+                          isActive ? "text-cyan-600 dark:text-cyan-400" : "text-gray-400"
+                        )}>
+                          {new Date(conv.created_at).toLocaleDateString()}
+                        </span>
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setConversationToDelete(conv);
+                        }}
+                        className="opacity-100 md:opacity-0 md:group-hover:opacity-100 p-1.5 rounded-md hover:bg-gray-300 dark:hover:bg-zinc-700 text-gray-500 dark:text-gray-400 transition-all ml-2 hover:scale-110 hover:text-red-500"
+                        title="Delete conversation"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
 
@@ -219,6 +273,16 @@ const Sidebar = ({ onOpenSettings, onNavigate, onNavigateToSpace, onCreateSpace,
 
         </div>
       </div>
+      
+      <ConfirmationModal
+        isOpen={!!conversationToDelete}
+        onClose={() => setConversationToDelete(null)}
+        onConfirm={handleDeleteConversation}
+        title="Delete Conversation"
+        message={`Are you sure you want to delete "${conversationToDelete?.title}"? This action cannot be undone.`}
+        confirmText="Delete"
+        isDangerous={true}
+      />
     </div>
   );
 };

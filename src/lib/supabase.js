@@ -74,7 +74,9 @@ export const testConnection = async (supabaseUrl, supabaseKey) => {
       tables: results,
       message: allTablesExist
         ? "Connection successful; required tables are present."
-        : `Connection OK, but missing tables: ${missing.join(", ")}. Run supabase/init.sql.`,
+        : `Connection OK, but missing tables: ${missing.join(
+            ", "
+          )}. Run supabase/init.sql.`,
     };
   } catch (error) {
     return {
@@ -94,7 +96,8 @@ const spacesTable = "spaces";
 
 export const fetchSpaces = async () => {
   const supabase = getSupabaseClient();
-  if (!supabase) return { data: [], error: new Error("Supabase not configured") };
+  if (!supabase)
+    return { data: [], error: new Error("Supabase not configured") };
 
   const { data, error } = await supabase
     .from(spacesTable)
@@ -104,9 +107,15 @@ export const fetchSpaces = async () => {
   return { data: data || [], error };
 };
 
-export const createSpace = async ({ emoji = "", label, description = "", prompt = "" }) => {
+export const createSpace = async ({
+  emoji = "",
+  label,
+  description = "",
+  prompt = "",
+}) => {
   const supabase = getSupabaseClient();
-  if (!supabase) return { data: null, error: new Error("Supabase not configured") };
+  if (!supabase)
+    return { data: null, error: new Error("Supabase not configured") };
   if (!label) return { data: null, error: new Error("Label is required") };
 
   const { data, error } = await supabase
@@ -118,9 +127,13 @@ export const createSpace = async ({ emoji = "", label, description = "", prompt 
   return { data, error };
 };
 
-export const updateSpace = async (id, { emoji, label, description, prompt }) => {
+export const updateSpace = async (
+  id,
+  { emoji, label, description, prompt }
+) => {
   const supabase = getSupabaseClient();
-  if (!supabase) return { data: null, error: new Error("Supabase not configured") };
+  if (!supabase)
+    return { data: null, error: new Error("Supabase not configured") };
   if (!id) return { data: null, error: new Error("Space id is required") };
 
   const updatePayload = {};
@@ -141,7 +154,8 @@ export const updateSpace = async (id, { emoji, label, description, prompt }) => 
 
 export const deleteSpace = async (id) => {
   const supabase = getSupabaseClient();
-  if (!supabase) return { success: false, error: new Error("Supabase not configured") };
+  if (!supabase)
+    return { success: false, error: new Error("Supabase not configured") };
   if (!id) return { success: false, error: new Error("Space id is required") };
 
   const { error } = await supabase.from(spacesTable).delete().eq("id", id);
@@ -154,7 +168,8 @@ export const deleteSpace = async (id) => {
 
 export const createConversation = async (payload) => {
   const supabase = getSupabaseClient();
-  if (!supabase) return { data: null, error: new Error("Supabase not configured") };
+  if (!supabase)
+    return { data: null, error: new Error("Supabase not configured") };
   const { data, error } = await supabase
     .from("conversations")
     .insert([payload])
@@ -163,9 +178,38 @@ export const createConversation = async (payload) => {
   return { data, error };
 };
 
+export const deleteConversation = async (id) => {
+  const supabase = getSupabaseClient();
+  if (!supabase)
+    return { success: false, error: new Error("Supabase not configured") };
+  if (!id)
+    return { success: false, error: new Error("Conversation id is required") };
+
+  const { error } = await supabase.from("conversations").delete().eq("id", id);
+  return { success: !error, error };
+};
+
+export const removeConversationFromSpace = async (id) => {
+  const supabase = getSupabaseClient();
+  if (!supabase)
+    return { data: null, error: new Error("Supabase not configured") };
+  if (!id)
+    return { data: null, error: new Error("Conversation id is required") };
+
+  const { data, error } = await supabase
+    .from("conversations")
+    .update({ space_id: null })
+    .eq("id", id)
+    .select()
+    .single();
+
+  return { data, error };
+};
+
 export const saveMessage = async (message) => {
   const supabase = getSupabaseClient();
-  if (!supabase) return { data: null, error: new Error("Supabase not configured") };
+  if (!supabase)
+    return { data: null, error: new Error("Supabase not configured") };
   const { data, error } = await supabase
     .from("conversation_messages")
     .insert([message])
@@ -176,7 +220,8 @@ export const saveMessage = async (message) => {
 
 export const getHistory = async (conversationId) => {
   const supabase = getSupabaseClient();
-  if (!supabase) return { data: [], error: new Error("Supabase not configured") };
+  if (!supabase)
+    return { data: [], error: new Error("Supabase not configured") };
   const { data, error } = await supabase
     .from("conversation_messages")
     .select("*")

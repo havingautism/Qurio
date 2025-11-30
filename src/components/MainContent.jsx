@@ -187,7 +187,16 @@ const MainContent = ({
       }
       setSpaceConversationsLoading(false);
     };
+    
     fetchSpaceConversations();
+    
+    // Listen for conversation changes to refresh space list
+    const handleConversationsChanged = () => fetchSpaceConversations();
+    window.addEventListener('conversations-changed', handleConversationsChanged);
+    
+    return () => {
+      window.removeEventListener('conversations-changed', handleConversationsChanged);
+    };
   }, [activeSpace]);
 
   return (
@@ -208,6 +217,10 @@ const MainContent = ({
           conversationsLoading={spaceConversationsLoading}
           onEditSpace={onEditSpace}
           onOpenConversation={onOpenConversation}
+          activeConversationId={activeConversation?.id}
+          onConversationDeleted={(deletedId) => {
+            setSpaceConversations(prev => prev.filter(c => c.id !== deletedId));
+          }}
         />
       ) : (
         <div className="flex flex-col items-center justify-center min-h-screen p-4 ml-16">

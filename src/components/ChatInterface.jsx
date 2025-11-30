@@ -54,7 +54,9 @@ const ChatInterface = ({
     const sid = String(activeConversation.space_id);
     return spaces.find((s) => String(s.id) === sid) || null;
   }, [activeConversation?.space_id, spaces]);
-  const displaySpace = selectedSpace || conversationSpace || null;
+  
+  // If user has manually selected a space (or None), use that; otherwise use conversation's space
+  const displaySpace = isManualSpaceSelection ? selectedSpace : (selectedSpace || conversationSpace || null);
 
   // Effect to handle initial message from homepage
   const hasInitialized = useRef(false);
@@ -103,6 +105,10 @@ const ChatInterface = ({
         setIsManualSpaceSelection(false);
         return;
       }
+      
+      // Reset hasInitialized when loading an existing conversation
+      hasInitialized.current = false;
+      
       setIsLoadingHistory(true);
       setConversationId(activeConversation.id);
       setConversationTitle(activeConversation.title || "New Conversation");
@@ -174,22 +180,32 @@ const ChatInterface = ({
     if (conversationId || activeConversation?.id) {
       updateConversation(conversationId || activeConversation.id, {
         space_id: space?.id || null,
-      }).catch((err) =>
-        console.error("Failed to update conversation space:", err)
-      );
+      })
+        .then(() => {
+          // Trigger event to refresh sidebar
+          window.dispatchEvent(new Event('conversations-changed'));
+        })
+        .catch((err) =>
+          console.error("Failed to update conversation space:", err)
+        );
     }
   };
 
   const handleClearSpaceSelection = () => {
     setSelectedSpace(null);
-    setIsManualSpaceSelection(false);
+    setIsManualSpaceSelection(true); // Keep as true because selecting "None" is a manual action
     setIsSelectorOpen(false);
     if (conversationId || activeConversation?.id) {
       updateConversation(conversationId || activeConversation.id, {
         space_id: null,
-      }).catch((err) =>
-        console.error("Failed to clear conversation space:", err)
-      );
+      })
+        .then(() => {
+          // Trigger event to refresh sidebar
+          window.dispatchEvent(new Event('conversations-changed'));
+        })
+        .catch((err) =>
+          console.error("Failed to clear conversation space:", err)
+        );
     }
   };
 

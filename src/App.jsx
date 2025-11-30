@@ -6,6 +6,7 @@ import SpaceModal from './components/SpaceModal';
 import { initSupabase } from './lib/supabase';
 import { listSpaces, createSpace, updateSpace, deleteSpace } from './lib/spacesService';
 import { getConversation } from './lib/conversationsService';
+import { ToastProvider } from './contexts/ToastContext';
 
 function App() {
   // Initialize theme based on system preference or default to dark
@@ -198,38 +199,41 @@ const handleOpenConversation = (conversation) => {
   }, [currentView, hasSyncedPath]);
 
   return (
-    <div className="flex min-h-screen bg-background text-foreground font-sans selection:bg-cyan-500/30">
-      <Sidebar
-        onOpenSettings={() => setIsSettingsOpen(true)}
-        onNavigate={handleNavigate}
-        onNavigateToSpace={handleNavigateToSpace}
-        onCreateSpace={handleCreateSpace}
-        onEditSpace={handleEditSpace}
-        onOpenConversation={handleOpenConversation}
-        spaces={spaces}
-        spacesLoading={spacesLoading}
-        theme={theme}
-        onToggleTheme={cycleTheme}
-      />
-      <MainContent
-        currentView={currentView}
-        activeSpace={activeSpace}
-        activeConversation={activeConversation}
-        spaces={spaces}
-        onChatStart={() => setCurrentView('chat')}
-        onEditSpace={handleEditSpace}
-        spacesLoading={spacesLoading}
-        onOpenConversation={handleOpenConversation}
-      />
-      <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
-      <SpaceModal
-        isOpen={isSpaceModalOpen}
-        onClose={() => setIsSpaceModalOpen(false)}
-        editingSpace={editingSpace}
-        onSave={handleSaveSpace}
-        onDelete={handleDeleteSpace}
-      />
-    </div>
+    <ToastProvider>
+      <div className="flex min-h-screen bg-background text-foreground font-sans selection:bg-cyan-500/30">
+        <Sidebar
+          onOpenSettings={() => setIsSettingsOpen(true)}
+          onNavigate={handleNavigate}
+          onNavigateToSpace={handleNavigateToSpace}
+          onCreateSpace={handleCreateSpace}
+          onEditSpace={handleEditSpace}
+          onOpenConversation={handleOpenConversation}
+          spaces={spaces}
+          spacesLoading={spacesLoading}
+          theme={theme}
+          onToggleTheme={cycleTheme}
+          activeConversationId={activeConversation?.id}
+        />
+        <MainContent
+          currentView={currentView}
+          activeSpace={activeSpace}
+          activeConversation={activeConversation}
+          spaces={spaces}
+          onChatStart={() => setCurrentView('chat')}
+          onEditSpace={handleEditSpace}
+          spacesLoading={spacesLoading}
+          onOpenConversation={handleOpenConversation}
+        />
+        <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+        <SpaceModal
+          isOpen={isSpaceModalOpen}
+          onClose={() => setIsSpaceModalOpen(false)}
+          editingSpace={editingSpace}
+          onSave={handleSaveSpace}
+          onDelete={handleDeleteSpace}
+        />
+      </div>
+    </ToastProvider>
   );
 }
 

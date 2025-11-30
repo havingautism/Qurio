@@ -1,5 +1,9 @@
-import React from "react";
-import { Layers, MoreHorizontal, Pencil } from "lucide-react";
+import React, { useState } from "react";
+import { Layers, MoreHorizontal, Pencil, Trash2, LogOut } from "lucide-react";
+import DropdownMenu from './DropdownMenu';
+import ConfirmationModal from './ConfirmationModal';
+import { deleteConversation, removeConversationFromSpace } from '../lib/supabase';
+import { useToast } from '../contexts/ToastContext';
 
 const SpaceView = ({
   space,
@@ -7,7 +11,48 @@ const SpaceView = ({
   conversationsLoading = false,
   onEditSpace,
   onOpenConversation,
+  activeConversationId,
+  onConversationDeleted,
 }) => {
+  const [openMenuId, setOpenMenuId] = useState(null);
+  const [conversationToDelete, setConversationToDelete] = useState(null);
+  const toast = useToast();
+
+  const handleDeleteConversation = async () => {
+    if (!conversationToDelete) return;
+
+    const { success, error } = await deleteConversation(conversationToDelete.id);
+    
+    if (success) {
+      toast.success('Conversation deleted successfully');
+      if (onConversationDeleted) {
+        onConversationDeleted(conversationToDelete.id);
+      }
+      // Notify Sidebar to refresh its conversation list
+      window.dispatchEvent(new Event('conversations-changed'));
+    } else {
+      console.error("Failed to delete conversation:", error);
+      toast.error("Failed to delete conversation");
+    }
+    
+    setConversationToDelete(null);
+  };
+
+  const handleRemoveFromSpace = async (conversation) => {
+    const { data, error } = await removeConversationFromSpace(conversation.id);
+    
+    if (!error && data) {
+      toast.success('Conversation removed from space');
+      if (onConversationDeleted) {
+        onConversationDeleted(conversation.id);
+      }
+      // Notify Sidebar to refresh its conversation list
+      window.dispatchEvent(new Event('conversations-changed'));
+    } else {
+      console.error("Failed to remove conversation from space:", error);
+      toast.error("Failed to remove conversation from space");
+    }
+  };
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-4 ml-16 bg-background text-foreground">
       <div className="w-full max-w-3xl flex flex-col gap-8">
@@ -89,14 +134,34 @@ const SpaceView = ({
                       </span>
                     </div>
                   </div>
-                  <button className="opacity-0 group-hover:opacity-100 p-1 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded text-gray-400 transition-all">
-                    <MoreHorizontal
-                      size={16}
+                  <div className="relative">
+                    <button 
+                      className="opacity-0 group-hover:opacity-100 md:opacity-100 p-1 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded text-gray-400 transition-all"
                       onClick={(e) => {
                         e.stopPropagation();
+                        setOpenMenuId(openMenuId === conv.id ? null : conv.id);
                       }}
+                    >
+                      <MoreHorizontal size={16} />
+                    </button>
+                    <DropdownMenu
+                      isOpen={openMenuId === conv.id}
+                      onClose={() => setOpenMenuId(null)}
+                      items={[
+                        {
+                          label: 'Remove from space',
+                          icon: <LogOut size={14} />,
+                          onClick: () => handleRemoveFromSpace(conv),
+                        },
+                        {
+                          label: 'Delete conversation',
+                          icon: <Trash2 size={14} />,
+                          danger: true,
+                          onClick: () => setConversationToDelete(conv),
+                        },
+                      ]}
                     />
-                  </button>
+                  </div>
                 </div>
                 {i < conversations.length - 1 && (
                   <div className="h-px bg-gray-100 dark:bg-zinc-800 mt-4" />
@@ -106,6 +171,16 @@ const SpaceView = ({
           </div>
         </div>
       </div>
+      
+      <ConfirmationModal
+        isOpen={!!conversationToDelete}
+        onClose={() => setConversationToDelete(null)}
+        onConfirm={handleDeleteConversation}
+        title="Delete Conversation"
+        message={`Are you sure you want to delete "${conversationToDelete?.title}"? This action cannot be undone.`}
+        confirmText="Delete"
+        isDangerous={true}
+      />
     </div>
   );
 };

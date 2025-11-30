@@ -83,7 +83,8 @@ const ChatInterface = ({
         hasInitialized.current ||
         isProcessingInitial.current ||
         (!initialMessage && initialAttachments.length === 0) ||
-        conversationId // Already have a conversation, don't create new one
+        conversationId || // Already have a conversation, don't create new one
+        activeConversation?.id // If an existing conversation is provided, skip auto-send
       ) {
         return;
       }
@@ -101,7 +102,7 @@ const ChatInterface = ({
     };
 
     processInitialMessage();
-  }, [initialMessage, initialAttachments, initialToggles, conversationId]);
+  }, [initialMessage, initialAttachments, initialToggles, conversationId, activeConversation?.id]);
 
   // Load existing conversation messages when switching conversations
   useEffect(() => {

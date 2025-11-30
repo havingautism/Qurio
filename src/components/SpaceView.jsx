@@ -4,6 +4,7 @@ import DropdownMenu from './DropdownMenu';
 import ConfirmationModal from './ConfirmationModal';
 import { deleteConversation, removeConversationFromSpace } from '../lib/supabase';
 import { useToast } from '../contexts/ToastContext';
+import FancyLoader from './FancyLoader';
 
 const SpaceView = ({
   space,
@@ -22,7 +23,7 @@ const SpaceView = ({
     if (!conversationToDelete) return;
 
     const { success, error } = await deleteConversation(conversationToDelete.id);
-    
+
     if (success) {
       toast.success('Conversation deleted successfully');
       if (onConversationDeleted) {
@@ -34,13 +35,13 @@ const SpaceView = ({
       console.error("Failed to delete conversation:", error);
       toast.error("Failed to delete conversation");
     }
-    
+
     setConversationToDelete(null);
   };
 
   const handleRemoveFromSpace = async (conversation) => {
     const { data, error } = await removeConversationFromSpace(conversation.id);
-    
+
     if (!error && data) {
       toast.success('Conversation removed from space');
       if (onConversationDeleted) {
@@ -102,8 +103,11 @@ const SpaceView = ({
           {/* Topics List */}
           <div className="flex flex-col gap-4">
             {conversationsLoading && (
-              <div className="text-sm text-gray-500 dark:text-gray-400">
-                Loading...
+              // <div className="text-sm text-gray-500 dark:text-gray-400">
+              //   Loading...
+              // </div>
+              <div className="flex items-center justify-center">
+                <FancyLoader />
               </div>
             )}
             {!conversationsLoading && conversations.length === 0 && (
@@ -135,7 +139,7 @@ const SpaceView = ({
                     </div>
                   </div>
                   <div className="relative">
-                    <button 
+                    <button
                       className="opacity-0 group-hover:opacity-100 md:opacity-100 p-1 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded text-gray-400 transition-all"
                       onClick={(e) => {
                         e.stopPropagation();
@@ -171,7 +175,7 @@ const SpaceView = ({
           </div>
         </div>
       </div>
-      
+
       <ConfirmationModal
         isOpen={!!conversationToDelete}
         onClose={() => setConversationToDelete(null)}

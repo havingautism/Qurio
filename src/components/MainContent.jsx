@@ -65,9 +65,9 @@ const MainContent = ({
     // Only clear initial states if we're switching to a DIFFERENT conversation
     // and we have initial states that were set for a new conversation
     if (activeConversation &&
-        activeView === "chat" &&
-        (initialMessage || initialAttachments.length > 0) &&
-        activeConversation.id !== undefined) {
+      activeView === "chat" &&
+      (initialMessage || initialAttachments.length > 0) &&
+      activeConversation.id !== undefined) {
       // Check if this conversation already exists by having a proper created_at timestamp
       // This prevents clearing states for the just-created conversation
       if (activeConversation.created_at && activeConversation.title !== "New Conversation") {
@@ -202,10 +202,11 @@ const MainContent = ({
 
   useEffect(() => {
     const fetchSpaceConversations = async () => {
-      if (!activeSpace?.id) {
-        setSpaceConversations([]);
-        return;
-      }
+      // if (!activeSpace?.id) {
+      //   setSpaceConversations([]);
+      //   return;
+      // }
+      setSpaceConversations([]);
       setSpaceConversationsLoading(true);
       const { data, error } = await listConversationsBySpace(activeSpace.id);
       if (!error && data) {
@@ -216,13 +217,13 @@ const MainContent = ({
       }
       setSpaceConversationsLoading(false);
     };
-    
+
     fetchSpaceConversations();
-    
+
     // Listen for conversation changes to refresh space list
     const handleConversationsChanged = () => fetchSpaceConversations();
     window.addEventListener('conversations-changed', handleConversationsChanged);
-    
+
     return () => {
       window.removeEventListener('conversations-changed', handleConversationsChanged);
     };
@@ -262,7 +263,7 @@ const MainContent = ({
 
             {/* Search Box */}
             <div className="w-full relative group">
-              <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/20 to-blue-500/20 rounded-xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+              <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/20 via-blue-500/15 to-purple-500/20 rounded-xl blur-2xl opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-500 pointer-events-none" />
               <div className="relative bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-xl shadow-sm hover:shadow-md transition-all duration-300 p-4">
                 {homeAttachments.length > 0 && (
                   <div className="flex gap-2 mb-3 px-1 overflow-x-auto py-1">
@@ -315,11 +316,10 @@ const MainContent = ({
                     />
                     <button
                       onClick={handleHomeFileUpload}
-                      className={`p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
-                        homeAttachments.length > 0
-                          ? "text-cyan-500"
-                          : "text-gray-500 dark:text-gray-400"
-                      }`}
+                      className={`p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${homeAttachments.length > 0
+                        ? "text-cyan-500"
+                        : "text-gray-500 dark:text-gray-400"
+                        }`}
                     >
                       <Paperclip size={18} />
                     </button>
@@ -327,11 +327,10 @@ const MainContent = ({
                       disabled={settings.apiProvider === "openai_compatibility"}
                       value={isHomeSearchActive}
                       onClick={() => setIsHomeSearchActive(!isHomeSearchActive)}
-                      className={`p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
-                        isHomeSearchActive
-                          ? "text-cyan-500 bg-gray-100 dark:bg-zinc-800"
-                          : "text-gray-500 dark:text-gray-400"
-                      }`}
+                      className={`p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${isHomeSearchActive
+                        ? "text-cyan-500 bg-gray-100 dark:bg-zinc-800"
+                        : "text-gray-500 dark:text-gray-400"
+                        }`}
                     >
                       <Globe size={18} />
                       <span>Search</span>
@@ -340,11 +339,10 @@ const MainContent = ({
                       onClick={() =>
                         setIsHomeThinkingActive(!isHomeThinkingActive)
                       }
-                      className={`p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
-                        isHomeThinkingActive
-                          ? "text-cyan-500 bg-gray-100 dark:bg-zinc-800"
-                          : "text-gray-500 dark:text-gray-400"
-                      }`}
+                      className={`p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${isHomeThinkingActive
+                        ? "text-cyan-500 bg-gray-100 dark:bg-zinc-800"
+                        : "text-gray-500 dark:text-gray-400"
+                        }`}
                     >
                       <Layers size={18} />
                       <span>Think</span>
@@ -354,11 +352,10 @@ const MainContent = ({
                         onClick={() =>
                           setIsHomeSpaceSelectorOpen(!isHomeSpaceSelectorOpen)
                         }
-                        className={`px-3 py-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
-                          isHomeSpaceAuto
-                            ? "text-gray-500 dark:text-gray-400"
-                            : "text-cyan-500 bg-gray-100 dark:bg-zinc-800"
-                        }`}
+                        className={`px-3 py-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${isHomeSpaceAuto
+                          ? "text-gray-500 dark:text-gray-400"
+                          : "text-cyan-500 bg-gray-100 dark:bg-zinc-800"
+                          }`}
                       >
                         <LayoutGrid size={18} />
                         <span>
@@ -373,11 +370,10 @@ const MainContent = ({
                           <div className="p-2 flex flex-col gap-1">
                             <button
                               onClick={handleSelectHomeSpaceAuto}
-                              className={`flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left ${
-                                isHomeSpaceAuto
-                                  ? "text-cyan-500"
-                                  : "text-gray-700 dark:text-gray-200"
-                              }`}
+                              className={`flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left ${isHomeSpaceAuto
+                                ? "text-cyan-500"
+                                : "text-gray-700 dark:text-gray-200"
+                                }`}
                             >
                               <span className="text-sm font-medium">Auto</span>
                               {isHomeSpaceAuto && (
@@ -425,7 +421,7 @@ const MainContent = ({
                       disabled={
                         !homeInput.trim() && homeAttachments.length === 0
                       }
-                      className="p-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-full transition-colors disabled:opacity-50"
+                      className="p-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-full transition-colors disabled:opacity-50  disabled:hover:bg-cyan-500"
                     >
                       <ArrowRight size={18} />
                     </button>

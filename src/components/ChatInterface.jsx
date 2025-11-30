@@ -11,7 +11,7 @@ import {
   X,
   LayoutGrid,
 } from "lucide-react";
-import { deleteMessagesAfterTimestamp } from "../lib/supabase";
+import { deleteMessageById } from "../lib/supabase";
 import { getProvider } from "../lib/providers";
 import { loadSettings } from "../lib/settings";
 import {
@@ -134,6 +134,8 @@ const ChatInterface = ({
       const { data, error } = await listMessages(activeConversation.id);
       if (!error && data) {
         const mapped = data.map((m) => ({
+          id: m.id,
+          created_at: m.created_at,
           role: m.role === "assistant" ? "ai" : m.role,
           content: m.content,
           related: m.related_questions || undefined,
@@ -354,6 +356,11 @@ const ChatInterface = ({
 
   // State to track if we are editing a message
   const [editingIndex, setEditingIndex] = useState(null);
+  const [editingTargetTimestamp, setEditingTargetTimestamp] = useState(null);
+  const [editingPartnerTimestamp, setEditingPartnerTimestamp] = useState(null);
+  const [editingTargetId, setEditingTargetId] = useState(null);
+  const [editingPartnerId, setEditingPartnerId] = useState(null);
+  const textareaRef = useRef(null);
 
   const handleEdit = (index) => {
     const msg = messages[index];
@@ -370,13 +377,15 @@ const ChatInterface = ({
     setInput(text);
     setAttachments(msgAttachments);
     setEditingIndex(index);
+    setEditingTargetTimestamp(msg.created_at || null);
+    setEditingTargetId(msg.id || null);
+    const nextMsg = messages[index + 1];
+    const hasPartner = nextMsg && nextMsg.role === "ai";
+    setEditingPartnerTimestamp(hasPartner ? nextMsg.created_at || null : null);
+    setEditingPartnerId(hasPartner ? nextMsg.id || null : null);
 
     // Focus input
-    // We can't directly focus the textarea from here easily without a ref, 
-    // but the user will likely click it anyway. 
-    // Ideally we should focus it.
-    const textarea = document.querySelector('textarea');
-    if (textarea) textarea.focus();
+    if (textareaRef.current) textareaRef.current.focus();
   };
 
   const handleSendMessage = async (
@@ -414,16 +423,30 @@ const ChatInterface = ({
     const now = new Date().toISOString();
     const userMessage = { role: "user", content, created_at: now };
 
-    let currentMessages = messages;
-    if (editingIndex !== null) {
-      // If editing AND sending from input (no override), we overwrite
-      if (msgOverride === null) {
-        currentMessages = messages.slice(0, editingIndex);
-      }
-      setEditingIndex(null); // Always reset editing state after a send
-    }
+    // Base history for context: when editing, include only messages before the edited one
+    const historyForSend =
+      editingIndex !== null ? messages.slice(0, editingIndex) : messages;
 
-    const newMessages = [...currentMessages, userMessage];
+    // UI state: remove the edited user message (and its paired AI answer if any), then append the new user message at the end
+    let newMessages;
+    if (editingIndex !== null && msgOverride === null) {
+      const nextMsg = messages[editingIndex + 1];
+      const hasAiPartner = nextMsg && nextMsg.role === "ai";
+      const tailStart = editingIndex + 1 + (hasAiPartner ? 1 : 0);
+
+      newMessages = [
+        ...messages.slice(0, editingIndex),
+        ...messages.slice(tailStart),
+        userMessage,
+      ];
+    } else {
+      newMessages = [...messages, userMessage];
+    }
+    setEditingIndex(null);
+    setEditingTargetTimestamp(null);
+    setEditingPartnerTimestamp(null);
+    setEditingTargetId(null);
+    setEditingPartnerId(null);
     setMessages(newMessages);
 
     // Ensure conversation exists
@@ -452,47 +475,49 @@ const ChatInterface = ({
 
     // Persist user message
     if (convId) {
-      // If we were editing, we need to clean up the old future messages from the DB
       if (editingIndex !== null && msgOverride === null) {
-        // We need to find the timestamp of the message BEFORE the one we are editing.
-        // If editingIndex is 0, we delete everything for this conversation (or just delete all > some old date).
-        // Actually, if editingIndex is 0, we are replacing the start. We should delete ALL messages for this conv?
-        // Or better, delete messages with created_at >= the created_at of the message we are replacing?
-        // But we don't have the exact timestamp of the message we are replacing readily available if we just sliced it out.
-
-        // Alternative: If editingIndex > 0, get messages[editingIndex-1].created_at.
-        // Delete all messages > that timestamp.
-
-        // If editingIndex === 0, we can delete all messages for this conversation.
-
-        // Wait, 'messages' here is the OLD list before we sliced it? 
-        // No, we sliced it above: 'currentMessages = messages.slice(0, editingIndex)'.
-        // So 'currentMessages' contains the history we want to KEEP.
-
-        if (currentMessages.length > 0) {
-          const lastKeptMessage = currentMessages[currentMessages.length - 1];
-          if (lastKeptMessage.created_at) {
-            await deleteMessagesAfterTimestamp(convId, lastKeptMessage.created_at);
-          }
-        } else {
-          await deleteMessagesAfterTimestamp(convId, '1970-01-01T00:00:00.000Z');
+        // Remove only the original edited message (and paired AI answer) from DB
+        if (editingTargetId) {
+          await deleteMessageById(editingTargetId);
+        }
+        if (editingPartnerId) {
+          await deleteMessageById(editingPartnerId);
         }
       }
 
-      await addMessage({
+      const { data: insertedUser } = await addMessage({
         conversation_id: convId,
         role: "user",
         content,
         created_at: new Date().toISOString(),
       });
+      if (insertedUser) {
+        setMessages((prev) => {
+          const updated = [...prev];
+          // Find the most recent user message without id (the one we just added)
+          for (let i = updated.length - 1; i >= 0; i--) {
+            if (updated[i].role === "user" && !updated[i].id) {
+              updated[i] = { ...updated[i], id: insertedUser.id, created_at: insertedUser.created_at };
+              break;
+            }
+          }
+          return updated;
+        });
+      }
     }
 
-    const conversationMessages = displaySpace?.prompt
-      ? [{ role: "system", content: displaySpace.prompt }, ...newMessages]
-      : newMessages;
+    const conversationMessagesBase = displaySpace?.prompt
+      ? [{ role: "system", content: displaySpace.prompt }, ...historyForSend]
+      : historyForSend;
+
+    const conversationMessages = [...conversationMessagesBase, userMessage];
 
     // 2. Prepare AI Placeholder
-    const aiMessagePlaceholder = { role: "ai", content: "" };
+    const aiMessagePlaceholder = {
+      role: "ai",
+      content: "",
+      created_at: new Date().toISOString(),
+    };
     setMessages((prev) => [...prev, aiMessagePlaceholder]);
 
     try {
@@ -595,7 +620,7 @@ const ChatInterface = ({
 
           // Persist assistant message
           if (conversationId || convId) {
-            await addMessage({
+            const { data: insertedAi } = await addMessage({
               conversation_id: convId || conversationId,
               role: "assistant",
               content: result.content,
@@ -603,6 +628,20 @@ const ChatInterface = ({
               related_questions: related || null,
               created_at: new Date().toISOString(),
             });
+
+            if (insertedAi) {
+              setMessages((prev) => {
+                const updated = [...prev];
+                // Update the last AI placeholder with DB id/timestamp
+                for (let i = updated.length - 1; i >= 0; i--) {
+                  if (updated[i].role === "ai" && !updated[i].id) {
+                    updated[i] = { ...updated[i], id: insertedAi.id, created_at: insertedAi.created_at };
+                    break;
+                  }
+                }
+                return updated;
+              });
+            }
           }
 
           // Update conversation title/space
@@ -791,6 +830,7 @@ const ChatInterface = ({
             )}
             <textarea
               value={input}
+              ref={textareaRef}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {

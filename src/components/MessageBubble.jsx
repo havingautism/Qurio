@@ -88,6 +88,7 @@ const MessageBubble = ({
     return () => observer.disconnect();
   }, []);
 
+  const [isThoughtExpanded, setIsThoughtExpanded] = useState(true);
   const isUser = message.role === "user";
 
   if (isUser) {
@@ -153,8 +154,6 @@ const MessageBubble = ({
       </div>
     );
   }
-
-  const [isThoughtExpanded, setIsThoughtExpanded] = useState(true);
 
   // Parse content using provider-specific logic
   const provider = getProvider(apiProvider);

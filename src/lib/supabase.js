@@ -230,16 +230,45 @@ export const getHistory = async (conversationId) => {
   return { data: data || [], error };
 };
 
-export const deleteMessagesAfterTimestamp = async (conversationId, timestamp) => {
+// export const deleteMessagesAfterTimestamp = async (conversationId, timestamp) => {
+//   const supabase = getSupabaseClient();
+//   if (!supabase)
+//     return { data: null, error: new Error("Supabase not configured") };
+  
+//   const { data, error } = await supabase
+//     .from("conversation_messages")
+//     .delete()
+//     .eq("conversation_id", conversationId)
+//     .gt("created_at", timestamp);
+    
+//   return { data, error };
+// };
+
+export const deleteMessageByTimestamp = async (conversationId, timestamp) => {
   const supabase = getSupabaseClient();
   if (!supabase)
     return { data: null, error: new Error("Supabase not configured") };
-  
+
   const { data, error } = await supabase
     .from("conversation_messages")
     .delete()
     .eq("conversation_id", conversationId)
-    .gt("created_at", timestamp);
-    
+    .eq("created_at", timestamp);
+
   return { data, error };
 };
+
+
+export const deleteMessageById = async (id) => {
+  const supabase = getSupabaseClient();
+  if (!supabase)
+    return { data: null, error: new Error('Supabase not configured') };
+
+  const { data, error } = await supabase
+    .from('conversation_messages')
+    .delete()
+    .eq('id', id);
+
+  return { data, error };
+};
+

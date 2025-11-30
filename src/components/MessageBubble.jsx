@@ -28,8 +28,8 @@ const MessageBubble = ({ message, apiProvider, onRelatedClick }) => {
     document.documentElement.classList.contains("dark")
   );
 
-  // Ref for copy button to show success indication
-  const copyButtonRef = useRef(null);
+  // State to track copy success
+  const [isCopied, setIsCopied] = useState(false);
 
   // Utility function to copy text to clipboard
   const copyToClipboard = async (text) => {
@@ -42,24 +42,17 @@ const MessageBubble = ({ message, apiProvider, onRelatedClick }) => {
     }
   };
 
-  // Utility function to show copy success with temporary change
-  const showCopySuccess = (buttonRef) => {
-    if (buttonRef.current) {
-      const originalHTML = buttonRef.current.innerHTML;
-      // Add a nice animation effect when copy succeeds
-      buttonRef.current.innerHTML = `
-        <div class="flex items-center gap-1">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-green-600 dark:text-green-400">
-            <polyline points="20,6 9,17 4,12"></polyline>
-          </svg>
-          <span class="text-gray-600 dark:text-gray-400 font-medium text-sm">copied</span>
-        </div>
-      `;
-      setTimeout(() => {
-        buttonRef.current.innerHTML = originalHTML;
+  // Effect to handle copy success timeout with proper cleanup
+  useEffect(() => {
+    if (isCopied) {
+      const timer = setTimeout(() => {
+        setIsCopied(false);
       }, 2000);
+      
+      // Cleanup function to clear timeout if component unmounts
+      return () => clearTimeout(timer);
     }
-  };
+  }, [isCopied]);
 
   useEffect(() => {
     const observer = new MutationObserver((mutations) => {
@@ -348,8 +341,6 @@ const MessageBubble = ({ message, apiProvider, onRelatedClick }) => {
         </button>
         <button
           className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
-          data-copy-button="true"
-          ref={copyButtonRef}
           onClick={() => {
             // Copy the complete AI response including related questions
             const parsed = provider.parseMessage(message.content);
@@ -363,11 +354,22 @@ const MessageBubble = ({ message, apiProvider, onRelatedClick }) => {
 
             const contentToCopy = mainContent + relatedContent;
             copyToClipboard(contentToCopy);
-            showCopySuccess(copyButtonRef);
+            setIsCopied(true);
           }}
         >
-          <Copy size={16} />
-          Copy
+          {isCopied ? (
+            <>
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-600 dark:text-green-400">
+                <polyline points="20,6 9,17 4,12"></polyline>
+              </svg>
+              <span className="text-green-600 dark:text-green-400">Copied</span>
+            </>
+          ) : (
+            <>
+              <Copy size={16} />
+              Copy
+            </>
+          )}
         </button>
         <div className="flex-1" />
         <button className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">

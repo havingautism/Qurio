@@ -48,12 +48,11 @@ const MessageBubble = ({ message, apiProvider, onRelatedClick }) => {
       const originalHTML = buttonRef.current.innerHTML;
       // Add a nice animation effect when copy succeeds
       buttonRef.current.innerHTML = `
-        <div class="flex items-center gap-1 text-center">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-500 text-center">
-            <path d="M5 13l4 4L19 7l-7-7 0 0z"/>
-            <path d="M9 5v2a1 1 0 0 1h1a1 1 0 0 1V6a1 1 0 0 1H9z"/>
+        <div class="flex items-center gap-1">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-green-600 dark:text-green-400">
+            <polyline points="20,6 9,17 4,12"></polyline>
           </svg>
-          <span class="text-gray-500 font-medium text-sm">copied</span>
+          <span class="text-gray-600 dark:text-gray-400 font-medium text-sm">copied</span>
         </div>
       `;
       setTimeout(() => {

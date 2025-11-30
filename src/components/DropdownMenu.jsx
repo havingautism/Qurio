@@ -1,35 +1,55 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import clsx from 'clsx';
 
-const DropdownMenu = ({ isOpen, onClose, items, position = 'bottom-right' }) => {
+const DropdownMenu = ({ isOpen, onClose, items, anchorEl }) => {
   const menuRef = useRef(null);
+  const [position, setPosition] = useState({ top: 0, left: 0 });
+
+  useEffect(() => {
+    if (isOpen && anchorEl) {
+      const rect = anchorEl.getBoundingClientRect();
+      setPosition({
+        top: rect.bottom + 4,
+        left: rect.left,
+      });
+    }
+  }, [isOpen, anchorEl]);
 
   useEffect(() => {
     if (!isOpen) return;
 
     const handleClickOutside = (event) => {
-      if (menuRef.current && !menuRef.current.contains(event.target)) {
+      if (
+        menuRef.current && 
+        !menuRef.current.contains(event.target) &&
+        (!anchorEl || !anchorEl.contains(event.target))
+      ) {
         onClose();
       }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isOpen, onClose]);
+    window.addEventListener('scroll', onClose, true);
+    window.addEventListener('resize', onClose);
 
-  if (!isOpen) return null;
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('scroll', onClose, true);
+      window.removeEventListener('resize', onClose);
+    };
+  }, [isOpen, onClose, anchorEl]);
 
-  const positionClasses = {
-    'bottom-right': 'top-full right-0 mt-1',
-    'bottom-left': 'top-full left-0 mt-1',
-  };
+  if (!isOpen || !anchorEl) return null;
 
   return (
     <div
       ref={menuRef}
+      style={{
+        top: position.top,
+        left: position.left,
+      }}
       className={clsx(
-        'absolute z-50 min-w-[160px] bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg shadow-lg py-1',
-        positionClasses[position] || positionClasses['bottom-right']
+        'fixed z-[9999] min-w-[160px] bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg shadow-lg py-1',
       )}
     >
       {items.map((item, index) => (

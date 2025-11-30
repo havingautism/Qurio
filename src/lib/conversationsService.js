@@ -4,11 +4,14 @@ const table = "conversations";
 
 export const listConversations = async (limit = 50) => {
   const supabase = getSupabaseClient();
-  if (!supabase) return { data: [], error: new Error("Supabase not configured") };
+  if (!supabase)
+    return { data: [], error: new Error("Supabase not configured") };
 
   const { data, error } = await supabase
     .from(table)
-    .select("id,title,created_at,space_id,api_provider,is_search_enabled,is_thinking_enabled")
+    .select(
+      "id,title,created_at,space_id,api_provider,is_search_enabled,is_thinking_enabled,is_favorited"
+    )
     .order("created_at", { ascending: false })
     .limit(limit);
 
@@ -17,7 +20,8 @@ export const listConversations = async (limit = 50) => {
 
 export const getConversation = async (id) => {
   const supabase = getSupabaseClient();
-  if (!supabase) return { data: null, error: new Error("Supabase not configured") };
+  if (!supabase)
+    return { data: null, error: new Error("Supabase not configured") };
   const { data, error } = await supabase
     .from(table)
     .select("*")
@@ -28,7 +32,8 @@ export const getConversation = async (id) => {
 
 export const createConversation = async (payload) => {
   const supabase = getSupabaseClient();
-  if (!supabase) return { data: null, error: new Error("Supabase not configured") };
+  if (!supabase)
+    return { data: null, error: new Error("Supabase not configured") };
   const { data, error } = await supabase
     .from(table)
     .insert([payload])
@@ -39,7 +44,8 @@ export const createConversation = async (payload) => {
 
 export const listConversationsBySpace = async (spaceId, limit = 50) => {
   const supabase = getSupabaseClient();
-  if (!supabase) return { data: [], error: new Error("Supabase not configured") };
+  if (!supabase)
+    return { data: [], error: new Error("Supabase not configured") };
   const { data, error } = await supabase
     .from(table)
     .select("id,title,created_at,space_id")
@@ -51,7 +57,8 @@ export const listConversationsBySpace = async (spaceId, limit = 50) => {
 
 export const listMessages = async (conversationId) => {
   const supabase = getSupabaseClient();
-  if (!supabase) return { data: [], error: new Error("Supabase not configured") };
+  if (!supabase)
+    return { data: [], error: new Error("Supabase not configured") };
   const { data, error } = await supabase
     .from("conversation_messages")
     .select("*")
@@ -62,7 +69,8 @@ export const listMessages = async (conversationId) => {
 
 export const updateConversation = async (id, payload) => {
   const supabase = getSupabaseClient();
-  if (!supabase) return { data: null, error: new Error("Supabase not configured") };
+  if (!supabase)
+    return { data: null, error: new Error("Supabase not configured") };
   const { data, error } = await supabase
     .from(table)
     .update(payload)
@@ -74,10 +82,24 @@ export const updateConversation = async (id, payload) => {
 
 export const addMessage = async (message) => {
   const supabase = getSupabaseClient();
-  if (!supabase) return { data: null, error: new Error("Supabase not configured") };
+  if (!supabase)
+    return { data: null, error: new Error("Supabase not configured") };
   const { data, error } = await supabase
     .from("conversation_messages")
     .insert([message])
+    .select()
+    .single();
+  return { data, error };
+};
+
+export const toggleFavorite = async (id, isFavorited) => {
+  const supabase = getSupabaseClient();
+  if (!supabase)
+    return { data: null, error: new Error("Supabase not configured") };
+  const { data, error } = await supabase
+    .from(table)
+    .update({ is_favorited: isFavorited })
+    .eq("id", id)
     .select()
     .single();
   return { data, error };

@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Compass, LayoutGrid, User, Globe, Map, BookOpen, Code, Film, Cpu, Wallet, ChevronRight, Settings, Sun, Moon, Laptop, Trash2 } from 'lucide-react';
+import { Plus, Search, Compass, LayoutGrid, User, Globe, Map, BookOpen, Code, Film, Cpu, Wallet, ChevronRight, Settings, Sun, Moon, Laptop, Trash2, Star, MoreHorizontal } from 'lucide-react';
 import clsx from 'clsx';
 import ClarityLogo from './Logo';
-import { listConversations } from '../lib/conversationsService';
+import { listConversations, toggleFavorite } from '../lib/conversationsService';
 import { deleteConversation } from '../lib/supabase';
 import ConfirmationModal from './ConfirmationModal';
+import DropdownMenu from './DropdownMenu';
 import { useToast } from '../contexts/ToastContext';
 
 const Sidebar = ({ onOpenSettings, onNavigate, onNavigateToSpace, onCreateSpace, onEditSpace, onOpenConversation, spaces, spacesLoading = false, theme, onToggleTheme, activeConversationId }) => {
@@ -14,6 +15,8 @@ const Sidebar = ({ onOpenSettings, onNavigate, onNavigateToSpace, onCreateSpace,
   const [conversations, setConversations] = useState([]);
   const [isConversationsLoading, setIsConversationsLoading] = useState(false);
   const [conversationToDelete, setConversationToDelete] = useState(null);
+  const [openMenuId, setOpenMenuId] = useState(null);
+  const [menuAnchorEl, setMenuAnchorEl] = useState(null);
   const toast = useToast();
 
   const displayTab = hoveredTab || activeTab;
@@ -39,8 +42,17 @@ const Sidebar = ({ onOpenSettings, onNavigate, onNavigateToSpace, onCreateSpace,
     };
   }, []);
 
+  // Close dropdown when sidebar collapses (mouse leaves)
+  useEffect(() => {
+    if (!isHovered) {
+      setOpenMenuId(null);
+      setMenuAnchorEl(null);
+    }
+  }, [isHovered]);
+
   const navItems = [
     { id: 'library', icon: Search, label: 'Library' },
+    { id: 'favorites', icon: Star, label: 'Favorites' },
     // { id: 'discover', icon: Compass, label: 'Discover' },
     { id: 'spaces', icon: LayoutGrid, label: 'Spaces' },
   ];
@@ -74,6 +86,27 @@ const Sidebar = ({ onOpenSettings, onNavigate, onNavigateToSpace, onCreateSpace,
     }
     
     setConversationToDelete(null);
+  };
+
+  const handleToggleFavorite = async (conversation) => {
+    const newStatus = !conversation.is_favorited;
+    // Optimistic update
+    setConversations(prev => prev.map(c => 
+      c.id === conversation.id ? { ...c, is_favorited: newStatus } : c
+    ));
+
+    const { error } = await toggleFavorite(conversation.id, newStatus);
+    
+    if (error) {
+      console.error("Failed to toggle favorite:", error);
+      toast.error("Failed to update favorite status");
+      // Revert optimistic update
+      setConversations(prev => prev.map(c => 
+        c.id === conversation.id ? { ...c, is_favorited: !newStatus } : c
+      ));
+    } else {
+      toast.success(newStatus ? "Added to favorites" : "Removed from favorites");
+    }
   };
 
   return (
@@ -162,7 +195,7 @@ const Sidebar = ({ onOpenSettings, onNavigate, onNavigateToSpace, onCreateSpace,
           {/* Header based on Tab */}
           <div className="mb-4 flex items-center justify-between">
             <h2 className="font-semibold text-lg text-foreground">
-              {displayTab === 'library' ? 'Library' : displayTab === 'spaces' ? 'Spaces' : ''}
+              {displayTab === 'library' ? 'Library' : displayTab === 'favorites' ? 'Favorites' : displayTab === 'spaces' ? 'Spaces' : ''}
             </h2>
             {displayTab === 'spaces' && (
               <button className="p-1 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded text-gray-500">
@@ -170,8 +203,8 @@ const Sidebar = ({ onOpenSettings, onNavigate, onNavigateToSpace, onCreateSpace,
             )}
           </div>
 
-          {/* HOME TAB CONTENT: History */}
-          {displayTab === 'library' && (
+          {/* CONVERSATION LIST (Library & Favorites) */}
+          {(displayTab === 'library' || displayTab === 'favorites') && (
             <div className="flex flex-col gap-2 overflow-y-auto h-[calc(100vh-100px)] pr-2 scrollbar-thin">
               {isConversationsLoading && (
                 <div className="text-xs text-gray-500 dark:text-gray-400 px-2 py-1">Loading conversations...</div>
@@ -179,14 +212,18 @@ const Sidebar = ({ onOpenSettings, onNavigate, onNavigateToSpace, onCreateSpace,
               {!isConversationsLoading && conversations.length === 0 && (
                 <div className="text-xs text-gray-500 dark:text-gray-400 px-2 py-1">No conversations yet.</div>
               )}
-              {conversations.map((conv) => {
+              {!isConversationsLoading && displayTab === 'favorites' && conversations.filter(c => c.is_favorited).length === 0 && (
+                <div className="text-xs text-gray-500 dark:text-gray-400 px-2 py-1">No favorite conversations.</div>
+              )}
+              
+              {(displayTab === 'favorites' ? conversations.filter(c => c.is_favorited) : conversations).map((conv) => {
                 const isActive = conv.id === activeConversationId;
                 return (
                   <div
                     key={conv.id}
                     onClick={() => onOpenConversation && onOpenConversation(conv)}
                     className={clsx(
-                      "text-sm p-2 rounded cursor-pointer truncate transition-colors group",
+                      "text-sm p-2 rounded cursor-pointer truncate transition-colors group relative",
                       isActive
                         ? "bg-cyan-500/10 dark:bg-cyan-500/20 border border-cyan-500/30 text-cyan-700 dark:text-cyan-300"
                         : "text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-zinc-800"
@@ -194,8 +231,13 @@ const Sidebar = ({ onOpenSettings, onNavigate, onNavigateToSpace, onCreateSpace,
                     title={conv.title}
                   >
                     <div className="flex items-center justify-between w-full overflow-hidden">
-                      <div className="flex flex-col overflow-hidden">
-                        <span className="truncate">{conv.title}</span>
+                      <div className="flex flex-col overflow-hidden flex-1 min-w-0">
+                        <div className="flex items-center gap-1">
+                          <span className="truncate font-medium">{conv.title}</span>
+                          {conv.is_favorited && (
+                            <Star size={10} className="fill-yellow-400 text-yellow-400 flex-shrink-0" />
+                          )}
+                        </div>
                         <span className={clsx(
                           "text-[10px]",
                           isActive ? "text-cyan-600 dark:text-cyan-400" : "text-gray-400"
@@ -203,16 +245,23 @@ const Sidebar = ({ onOpenSettings, onNavigate, onNavigateToSpace, onCreateSpace,
                           {new Date(conv.created_at).toLocaleDateString()}
                         </span>
                       </div>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setConversationToDelete(conv);
-                        }}
-                        className="opacity-100 md:opacity-0 md:group-hover:opacity-100 p-1.5 rounded-md hover:bg-gray-300 dark:hover:bg-zinc-700 text-gray-500 dark:text-gray-400 transition-all ml-2 hover:scale-110 hover:text-red-500"
-                        title="Delete conversation"
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                      
+                      <div className="relative ml-2 shrink-0">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenMenuId(conv.id);
+                            setMenuAnchorEl(e.currentTarget);
+                          }}
+                          className={clsx(
+                            "p-1.5 rounded-md hover:bg-gray-300 dark:hover:bg-zinc-700 transition-all",
+                            isActive ? "text-cyan-600 dark:text-cyan-400" : "text-gray-500 dark:text-gray-400",
+                            openMenuId === conv.id ? "opacity-100" : "opacity-100 md:opacity-0 md:group-hover:opacity-100"
+                          )}
+                        >
+                          <MoreHorizontal size={14} />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );
@@ -274,6 +323,34 @@ const Sidebar = ({ onOpenSettings, onNavigate, onNavigateToSpace, onCreateSpace,
         </div>
       </div>
       
+      {/* Global Dropdown Menu */}
+      <DropdownMenu
+        isOpen={!!openMenuId && !!menuAnchorEl}
+        anchorEl={menuAnchorEl}
+        onClose={() => {
+          setOpenMenuId(null);
+          setMenuAnchorEl(null);
+        }}
+        items={(() => {
+          const conv = conversations.find(c => c.id === openMenuId);
+          if (!conv) return [];
+          return [
+            {
+              label: conv.is_favorited ? "Unfavorite" : "Favorite",
+              icon: <Star size={14} className={conv.is_favorited ? "fill-current" : ""} />,
+              onClick: () => handleToggleFavorite(conv),
+              className: conv.is_favorited ? "text-yellow-500" : ""
+            },
+            {
+              label: "Delete conversation",
+              icon: <Trash2 size={14} />,
+              onClick: () => setConversationToDelete(conv),
+              danger: true
+            }
+          ];
+        })()}
+      />
+
       <ConfirmationModal
         isOpen={!!conversationToDelete}
         onClose={() => setConversationToDelete(null)}

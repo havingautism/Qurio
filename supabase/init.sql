@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS public.conversations (
   api_provider TEXT NOT NULL DEFAULT 'gemini',
   is_search_enabled BOOLEAN NOT NULL DEFAULT FALSE,
   is_thinking_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+  is_favorited BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

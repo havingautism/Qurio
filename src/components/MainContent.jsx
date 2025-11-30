@@ -44,15 +44,53 @@ const MainContent = ({
   const [settings, setSettings] = useState(loadSettings());
   const fileInputRef = useRef(null);
 
+  // Homepage Input State (moved here to fix hook order)
+  const [homeInput, setHomeInput] = useState("");
+  const [isHomeSearchActive, setIsHomeSearchActive] = useState(false);
+  const [isHomeThinkingActive, setIsHomeThinkingActive] = useState(false);
+  const [homeAttachments, setHomeAttachments] = useState([]);
+  const [homeSelectedSpace, setHomeSelectedSpace] = useState(null);
+  const homeSpaceSelectorRef = useRef(null);
+  const [isHomeSpaceSelectorOpen, setIsHomeSpaceSelectorOpen] = useState(false);
+  const [spaceConversations, setSpaceConversations] = useState([]);
+  const [spaceConversationsLoading, setSpaceConversationsLoading] = useState(false);
+
   // Sync prop change to local state if needed (e.g. sidebar navigation)
   useEffect(() => {
     setActiveView(currentView);
   }, [currentView]);
 
+  // Clear initial state when switching to an existing conversation (not the one just created)
+  useEffect(() => {
+    // Only clear initial states if we're switching to a DIFFERENT conversation
+    // and we have initial states that were set for a new conversation
+    if (activeConversation &&
+        activeView === "chat" &&
+        (initialMessage || initialAttachments.length > 0) &&
+        activeConversation.id !== undefined) {
+      // Check if this conversation already exists by having a proper created_at timestamp
+      // This prevents clearing states for the just-created conversation
+      if (activeConversation.created_at && activeConversation.title !== "New Conversation") {
+        // Clear initial states to prevent duplicate conversation creation
+        setInitialMessage("");
+        setInitialAttachments([]);
+        setInitialToggles({
+          search: false,
+          thinking: false,
+        });
+        setInitialSpaceSelection({
+          mode: "auto",
+          space: null,
+        });
+      }
+    }
+  }, [activeConversation, activeView, initialMessage, initialAttachments]);
+
   useEffect(() => {
     const handleSettingsChange = () => {
-      setSettings(loadSettings());
-      if (settings.apiProvider === "openai_compatibility") {
+      const newSettings = loadSettings();
+      setSettings(newSettings);
+      if (newSettings.apiProvider === "openai_compatibility") {
         setIsHomeSearchActive(false);
       }
     };
@@ -77,17 +115,8 @@ const MainContent = ({
     { icon: Search, title: "History of AI", subtitle: "Brief overview" },
   ];
 
-  // Homepage Input State
-  const [homeInput, setHomeInput] = useState("");
-  const [isHomeSearchActive, setIsHomeSearchActive] = useState(false);
-  const [isHomeThinkingActive, setIsHomeThinkingActive] = useState(false);
-  const [homeAttachments, setHomeAttachments] = useState([]);
-  const [homeSelectedSpace, setHomeSelectedSpace] = useState(null);
-  const homeSpaceSelectorRef = useRef(null);
-  const [isHomeSpaceSelectorOpen, setIsHomeSpaceSelectorOpen] = useState(false);
+  // Extract derived values that were declared with the state
   const isHomeSpaceAuto = !homeSelectedSpace;
-  const [spaceConversations, setSpaceConversations] = useState([]);
-  const [spaceConversationsLoading, setSpaceConversationsLoading] = useState(false);
 
   useEffect(() => {
     const handleClickOutside = (event) => {

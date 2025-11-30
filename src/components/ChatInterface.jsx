@@ -60,6 +60,8 @@ const ChatInterface = ({
 
   // Effect to handle initial message from homepage
   const hasInitialized = useRef(false);
+  const isProcessingInitial = useRef(false);
+  const isCreatingConversation = useRef(false);
 
   useEffect(() => {
     const handleSettingsChange = () => {
@@ -75,19 +77,31 @@ const ChatInterface = ({
   }, []);
 
   useEffect(() => {
-    if (
-      !hasInitialized.current &&
-      (initialMessage || initialAttachments.length > 0)
-    ) {
+    const processInitialMessage = async () => {
+      // Prevent multiple initializations and ensure we have content to process
+      if (
+        hasInitialized.current ||
+        isProcessingInitial.current ||
+        (!initialMessage && initialAttachments.length === 0) ||
+        conversationId // Already have a conversation, don't create new one
+      ) {
+        return;
+      }
+
+      isProcessingInitial.current = true;
       hasInitialized.current = true;
+
       // Set initial state
       if (initialToggles.search) setIsSearchActive(true);
       if (initialToggles.thinking) setIsThinkingActive(true);
 
       // Trigger send immediately
-      handleSendMessage(initialMessage, initialAttachments, initialToggles);
-    }
-  }, [initialMessage, initialAttachments, initialToggles]);
+      await handleSendMessage(initialMessage, initialAttachments, initialToggles);
+      isProcessingInitial.current = false;
+    };
+
+    processInitialMessage();
+  }, [initialMessage, initialAttachments, initialToggles, conversationId]);
 
   // Load existing conversation messages when switching conversations
   useEffect(() => {
@@ -277,7 +291,8 @@ const ChatInterface = ({
 
     // Ensure conversation exists
     let convId = conversationId;
-    if (!convId) {
+    if (!convId && !isCreatingConversation.current) {
+      isCreatingConversation.current = true;
       const creationPayload = {
         space_id:
           isManualSpaceSelection && selectedSpace ? selectedSpace.id : null,
@@ -287,12 +302,21 @@ const ChatInterface = ({
         is_thinking_enabled: thinkingActive,
       };
       const { data, error } = await createConversation(creationPayload);
+      isCreatingConversation.current = false;
       if (!error && data) {
         convId = data.id;
         setConversationId(data.id);
         window.dispatchEvent(new Event("conversations-changed"));
       } else {
         console.error("Create conversation failed:", error);
+      }
+    } else if (!convId && isCreatingConversation.current) {
+      // If another creation is in progress, wait for it to complete
+      let attempts = 0;
+      while (!convId && attempts < 50 && isCreatingConversation.current) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        convId = conversationId;
+        attempts++;
       }
     }
 

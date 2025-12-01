@@ -430,16 +430,37 @@ const finalizeMessage = async (
     credentials.baseUrl
   );
 
-  if (related && related.length > 0) {
+  // Attach sources to the last AI message (for Gemini search)
+  if (result.sources && result.sources.length > 0) {
     set((state) => {
       const updated = [...state.messages];
       const lastMsgIndex = updated.length - 1;
-      const lastMsg = { ...updated[lastMsgIndex] };
-      lastMsg.related = related;
-      updated[lastMsgIndex] = lastMsg;
+      if (lastMsgIndex >= 0 && updated[lastMsgIndex].role === "ai") {
+        updated[lastMsgIndex] = {
+          ...updated[lastMsgIndex],
+          sources: result.sources,
+        };
+      }
       return { messages: updated };
     });
   }
+
+  if (related && related.length > 0) {
+    set((state) => {
+      const updated = [...state.messages];
+    const lastMsgIndex = updated.length - 1;
+    const lastMsg = { ...updated[lastMsgIndex] };
+    lastMsg.related = related;
+    if (result.sources && result.sources.length > 0) {
+      lastMsg.sources = result.sources;
+    }
+    if (result.groundingSupports && result.groundingSupports.length > 0) {
+      lastMsg.groundingSupports = result.groundingSupports;
+    }
+    updated[lastMsgIndex] = lastMsg;
+    return { messages: updated };
+  });
+}
 
   // Persist AI message in database
   if (currentStore.conversationId) {
@@ -449,6 +470,8 @@ const finalizeMessage = async (
       content: result.content,
       tool_calls: result.toolCalls || null,
       related_questions: related || null,
+      sources: result.sources || null,
+      grounding_supports: result.groundingSupports || null,
       created_at: new Date().toISOString(),
     });
 

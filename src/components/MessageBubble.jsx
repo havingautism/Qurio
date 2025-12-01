@@ -29,6 +29,22 @@ import {
 import { getProvider } from "../lib/providers";
 
 /**
+ * Make inline [n] markers clickable to the corresponding source URL while keeping brackets.
+ */
+const formatContentWithSources = (content, sources = []) => {
+  if (typeof content !== "string" || !Array.isArray(sources) || sources.length === 0) {
+    return content;
+  }
+  return content.replace(/\[(\d+)\]/g, (match, p1) => {
+    const idx = Number(p1) - 1;
+    const src = sources[idx];
+    if (!src?.url) return match;
+    // Keep visible brackets by including them in the link text
+    return `[\\[${p1}\\]](${src.url})`;
+  });
+};
+
+/**
  * MessageBubble component that directly accesses messages from chatStore via index
  * Reduces props drilling and improves component independence
  */
@@ -104,6 +120,7 @@ const MessageBubble = ({
   }, []);
 
   const [isThoughtExpanded, setIsThoughtExpanded] = useState(true);
+  const [showAllSources, setShowAllSources] = useState(false);
   const isUser = message.role === "user";
 
   if (isUser) {
@@ -174,6 +191,7 @@ const MessageBubble = ({
   const provider = getProvider(apiProvider);
   const { content: mainContent, thought: thoughtContent } =
     provider.parseMessage(message);
+  const contentWithCitations = formatContentWithSources(mainContent, message.sources);
 
   const CodeBlock = ({ inline, className, children, ...props }) => {
     const match = /language-(\w+)/.exec(className || "");
@@ -272,31 +290,31 @@ const MessageBubble = ({
 
       {/* Sources Section */}
       {message.sources && message.sources.length > 0 && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {message.sources.map((source, index) => (
+        <div className="flex flex-wrap gap-2 items-stretch">
+          {(showAllSources ? message.sources : message.sources.slice(0, 4)).map((source, index) => (
             <div
               key={index}
-              className="bg-gray-50 dark:bg-zinc-800/50 hover:bg-gray-100 dark:hover:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-xl p-3 cursor-pointer transition-colors flex flex-col justify-between h-24"
-            >
-              <div className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 mb-2">
-                {source.title}
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded-full bg-gray-200 dark:bg-zinc-700 flex items-center justify-center text-[10px] text-gray-600 dark:text-gray-300">
+              className="bg-gray-50 dark:bg-zinc-800/50 hover:bg-gray-100 dark:hover:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg p-2.5 cursor-pointer transition-colors flex flex-col justify-between w-36 "
+              onClick={() => window.open(source.url, "_blank")}
+            > <div className="flex items-center gap-1.5 mt-1">
+                <div className="w-3.5 h-3.5 rounded-full bg-gray-200 dark:bg-zinc-700 flex items-center justify-center text-[9px] text-gray-600 dark:text-gray-300 shrink-0">
                   {index + 1}
+                </div> <div className="text-[11px] text-gray-600 dark:text-gray-300 line-clamp-2 leading-tight font-medium">
+                  {source.title}
                 </div>
-                <span className="text-xs text-gray-400 dark:text-gray-500 truncate">
-                  {source.domain}
-                </span>
-              </div>
+              </ div>
             </div>
           ))}
-          {/* View more sources placeholder */}
-          <div className="bg-gray-50 dark:bg-zinc-800/50 hover:bg-gray-100 dark:hover:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-xl p-3 cursor-pointer transition-colors flex items-center justify-center h-24">
-            <span className="text-xs text-gray-500 dark:text-gray-400">
-              View 2 more
-            </span>
-          </div>
+          {!showAllSources && message.sources.length > 4 && (
+            <div
+              onClick={() => setShowAllSources(true)}
+              className="bg-gray-50 dark:bg-zinc-800/50 hover:bg-gray-100 dark:hover:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg p-2.5 cursor-pointer transition-colors flex items-center justify-center w-24"
+            >
+              <span className="text-[11px] text-gray-500 dark:text-gray-400 font-medium text-center">
+                View {message.sources.length - 4} more
+              </span>
+            </div>
+          )}
         </div>
       )}
 
@@ -371,9 +389,17 @@ const MessageBubble = ({
                 />
               ),
               code: CodeBlock,
+              a: ({ node, ...props }) => (
+                <a
+                  {...props}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-[13px] text-cyan-600 dark:text-cyan-400"
+                />
+              ),
             }}
           >
-            {mainContent}
+            {contentWithCitations}
           </ReactMarkdown>
         )}
       </div>

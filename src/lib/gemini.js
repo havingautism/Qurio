@@ -138,6 +138,79 @@ const extractText = (content) => {
 };
 
 /**
+ * Extract web sources from grounding metadata.
+ * @param {object} groundingMetadata
+ * @returns {Array<{title: string, domain: string, url: string}>}
+ */
+const extractSources = (groundingMetadata) => {
+  const chunks = groundingMetadata?.groundingChunks;
+  if (!Array.isArray(chunks)) return [];
+
+  const getDomain = (uri) => {
+    try {
+      const hostname = new URL(uri).hostname;
+      return hostname.replace(/^www\./i, "");
+    } catch {
+      return uri;
+    }
+  };
+
+  return chunks
+    .map((chunk) => {
+      const uri = chunk?.web?.uri || chunk?.uri;
+      if (!uri) return null;
+      const title = chunk?.web?.title || chunk?.title || uri;
+      return {
+        title,
+        domain: getDomain(uri),
+        url: uri,
+      };
+    })
+    .filter(Boolean);
+};
+
+/**
+ * Annotate content with grounding supports (e.g., append [1][2] markers).
+ * @param {string} text
+ * @param {Array} supports
+ * @returns {string}
+ */
+const annotateGroundedText = (text, supports) => {
+  if (!text || !Array.isArray(supports) || supports.length === 0) return text;
+
+  let annotated = text;
+
+  for (const support of supports) {
+    const segText = support?.segment?.text;
+    const indices = support?.groundingChunkIndices;
+    if (!segText || !Array.isArray(indices) || indices.length === 0) continue;
+
+    const markers = indices.map((i) => `[${i + 1}]`).join("");
+    if (!markers) continue;
+
+    // Flexible, whitespace-tolerant search
+    const escaped = segText.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const regex = new RegExp(escaped.replace(/\s+/g, "\\s+"), "i");
+    const match = regex.exec(annotated);
+
+    if (match && typeof match.index === "number") {
+      const start = match.index;
+      const end = start + match[0].length;
+      annotated = `${annotated.slice(0, end)}${markers}${annotated.slice(end)}`;
+      continue;
+    }
+
+    const strictIdx = annotated.indexOf(segText);
+    if (strictIdx !== -1) {
+      const end = strictIdx + segText.length;
+      annotated = `${annotated.slice(0, end)}${markers}${annotated.slice(end)}`;
+    }
+  }
+
+  return annotated;
+};
+
+/**
  * Stream chat completion using native Gemini API (@google/genai)
  * 
  * @param {Object} params
@@ -188,9 +261,13 @@ export const streamChatCompletion = async ({
 
     let fullContent = "";
     let inThought = false;
+    let lastGroundingMetadata = null;
     
     for await (const chunk of result) {
       const parts = chunk.candidates?.[0]?.content?.parts || [];
+      if (chunk.candidates?.[0]?.groundingMetadata) {
+        lastGroundingMetadata = chunk.candidates[0].groundingMetadata;
+      }
       
       for (const part of parts) {
         if (part.thought) {
@@ -223,7 +300,17 @@ export const streamChatCompletion = async ({
       fullContent += "</thought>";
     }
 
-    onFinish({ content: fullContent });
+    const sources = extractSources(lastGroundingMetadata);
+    const groundedContent = annotateGroundedText(
+      fullContent,
+      lastGroundingMetadata?.groundingSupports
+    );
+
+    onFinish({
+      content: groundedContent,
+      sources: sources.length ? sources : undefined,
+      groundingSupports: lastGroundingMetadata?.groundingSupports || undefined
+    });
 
   } catch (error) {
     console.error("Gemini Stream Error:", error);

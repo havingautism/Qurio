@@ -189,6 +189,8 @@ const ChatInterface = ({
           content: m.content,
           related: m.related_questions || undefined,
           tool_calls: m.tool_calls || undefined,
+          sources: m.sources || undefined,
+          groundingSupports: m.grounding_supports || undefined,
         }));
         setMessages(mapped);
       } else {

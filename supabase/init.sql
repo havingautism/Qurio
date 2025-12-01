@@ -55,6 +55,8 @@ CREATE TABLE IF NOT EXISTS public.conversation_messages (
   content JSONB NOT NULL,
   tool_calls JSONB,
   related_questions JSONB,
+  sources JSONB,
+  grounding_supports JSONB,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 

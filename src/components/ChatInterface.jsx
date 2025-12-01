@@ -13,6 +13,7 @@ import {
   Check,
   X,
   LayoutGrid,
+  Brain
 } from "lucide-react";
 
 import { loadSettings } from "../lib/settings";
@@ -470,10 +471,10 @@ const ChatInterface = ({
       const editingInfo =
         editingIndex !== null
           ? {
-              index: editingIndex,
-              targetId: editingTargetId,
-              partnerId: editingPartnerId,
-            }
+            index: editingIndex,
+            targetId: editingTargetId,
+            partnerId: editingPartnerId,
+          }
           : null;
 
       // Reset editing state
@@ -553,11 +554,10 @@ const ChatInterface = ({
                   <div className="p-2 flex flex-col gap-1">
                     <button
                       onClick={handleClearSpaceSelection}
-                      className={`flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left ${
-                        !displaySpace
-                          ? "text-cyan-500"
-                          : "text-gray-700 dark:text-gray-200"
-                      }`}
+                      className={`flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left ${!displaySpace
+                        ? "text-cyan-500"
+                        : "text-gray-700 dark:text-gray-200"
+                        }`}
                     >
                       <span className="text-sm font-medium">None</span>
                       {!displaySpace && (
@@ -693,37 +693,35 @@ const ChatInterface = ({
                 />
                 <button
                   onClick={handleFileUpload}
-                  className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
-                    attachments.length > 0
-                      ? "text-cyan-500"
-                      : "text-gray-500 dark:text-gray-400"
-                  }`}
+                  className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${attachments.length > 0
+                    ? "text-cyan-500"
+                    : "text-gray-500 dark:text-gray-400"
+                    }`}
                 >
                   <Paperclip size={18} />
                 </button>
                 <button
+                  onClick={() => setIsThinkingActive(!isThinkingActive)}
+                  className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${isThinkingActive
+                    ? "text-cyan-500 bg-gray-200 dark:bg-zinc-700"
+                    : "text-gray-500 dark:text-gray-400"
+                    }`}
+                >
+                  <Brain size={18} />
+                  <span>Think</span>
+                </button>
+                <button
                   disabled={settings.apiProvider === "openai_compatibility"}
                   onClick={() => setIsSearchActive(!isSearchActive)}
-                  className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
-                    isSearchActive
-                      ? "text-cyan-500 bg-gray-200 dark:bg-zinc-700"
-                      : "text-gray-500 dark:text-gray-400"
-                  }`}
+                  className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${isSearchActive
+                    ? "text-cyan-500 bg-gray-200 dark:bg-zinc-700"
+                    : "text-gray-500 dark:text-gray-400"
+                    }`}
                 >
                   <Globe size={18} />
                   <span>Search</span>
                 </button>
-                <button
-                  onClick={() => setIsThinkingActive(!isThinkingActive)}
-                  className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
-                    isThinkingActive
-                      ? "text-cyan-500 bg-gray-200 dark:bg-zinc-700"
-                      : "text-gray-500 dark:text-gray-400"
-                  }`}
-                >
-                  <Layers size={18} />
-                  <span>Think</span>
-                </button>
+
               </div>
 
               <div className="flex gap-2">

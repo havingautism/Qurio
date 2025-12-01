@@ -14,6 +14,7 @@ import {
   Check,
   ChevronDown,
   LayoutGrid,
+  Brain,
 } from "lucide-react";
 import ChatInterface from "./ChatInterface";
 import SpaceView from "./SpaceView";
@@ -324,6 +325,18 @@ const MainContent = ({
                       <Paperclip size={18} />
                     </button>
                     <button
+                      onClick={() =>
+                        setIsHomeThinkingActive(!isHomeThinkingActive)
+                      }
+                      className={`p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${isHomeThinkingActive
+                        ? "text-cyan-500 bg-gray-100 dark:bg-zinc-800"
+                        : "text-gray-500 dark:text-gray-400"
+                        }`}
+                    >
+                      <Brain size={18} />
+                      <span>Think</span>
+                    </button>
+                    <button
                       disabled={settings.apiProvider === "openai_compatibility"}
                       value={isHomeSearchActive}
                       onClick={() => setIsHomeSearchActive(!isHomeSearchActive)}
@@ -335,18 +348,7 @@ const MainContent = ({
                       <Globe size={18} />
                       <span>Search</span>
                     </button>
-                    <button
-                      onClick={() =>
-                        setIsHomeThinkingActive(!isHomeThinkingActive)
-                      }
-                      className={`p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${isHomeThinkingActive
-                        ? "text-cyan-500 bg-gray-100 dark:bg-zinc-800"
-                        : "text-gray-500 dark:text-gray-400"
-                        }`}
-                    >
-                      <Layers size={18} />
-                      <span>Think</span>
-                    </button>
+
                     <div className="relative" ref={homeSpaceSelectorRef}>
                       <button
                         onClick={() =>

@@ -231,6 +231,8 @@ const prepareAIPlaceholder = (historyForSend, userMessage, spaceInfo, set) => {
  * @param {Array} spaces - Available spaces for auto-generation
  * @param {Function} get - Zustand get function
  * @param {Function} set - Zustand set function
+ * @param {number} historyForSendLength - Length of the history used for the API call
+ * @param {string} firstUserText - Raw text of the current user message
  */
 const callAIAPI = async (
   conversationMessages,
@@ -240,7 +242,9 @@ const callAIAPI = async (
   callbacks,
   spaces,
   get,
-  set
+  set,
+  historyForSendLength,
+  firstUserText
 ) => {
   try {
     // Get AI provider and credentials
@@ -287,7 +291,16 @@ const callAIAPI = async (
         // Handle streaming completion and finalization
         set({ isLoading: false });
         const currentStore = get(); // Get fresh state
-        await finalizeMessage(result, currentStore, settings, callbacks, spaces, set);
+        await finalizeMessage(
+          result,
+          currentStore,
+          settings,
+          callbacks,
+          spaces,
+          set,
+          historyForSendLength === 0,
+          firstUserText
+        );
       },
       onError: (err) => {
         // Handle streaming errors
@@ -329,13 +342,40 @@ const callAIAPI = async (
  * @param {Object} callbacks - Optional callback functions for title/space generation
  * @param {Array} spaces - Available spaces for auto-generation
  * @param {Function} set - Zustand set function
+ * @param {boolean} [isFirstTurnOverride] - Explicit flag indicating first turn
+ * @param {string} [firstUserText] - Raw text of the initial user message
  */
-const finalizeMessage = async (result, currentStore, settings, callbacks, spaces, set) => {
+const finalizeMessage = async (
+  result,
+  currentStore,
+  settings,
+  callbacks,
+  spaces,
+  set,
+  isFirstTurnOverride,
+  firstUserText
+) => {
   // Generate title and space if this is the first turn
   let resolvedTitle = currentStore.conversationTitle;
   let resolvedSpace = currentStore.spaceInfo?.selectedSpace || null;
 
-  const isFirstTurn = currentStore.historyForSend?.length === 0;
+  const isFirstTurn =
+    typeof isFirstTurnOverride === "boolean"
+      ? isFirstTurnOverride
+      : currentStore.historyForSend?.length === 0;
+
+  const fallbackFirstUserText = (() => {
+    const firstUser = currentStore?.messages?.find((m) => m.role === "user");
+    if (!firstUser) return "";
+    if (typeof firstUser.content === "string") return firstUser.content;
+    if (Array.isArray(firstUser.content)) {
+      const textPart = firstUser.content.find((c) => c.type === "text");
+      return textPart?.text || "";
+    }
+    return "";
+  })();
+
+  const firstMessageText = firstUserText ?? fallbackFirstUserText;
 
   if (isFirstTurn) {
     if (currentStore.spaceInfo?.isManualSpaceSelection && currentStore.spaceInfo?.selectedSpace) {
@@ -343,7 +383,7 @@ const finalizeMessage = async (result, currentStore, settings, callbacks, spaces
       const provider = getProvider(settings.apiProvider);
       const credentials = provider.getCredentials(settings);
       resolvedTitle = await provider.generateTitle(
-        currentStore.text,
+        firstMessageText,
         credentials.apiKey,
         credentials.baseUrl
       );
@@ -353,7 +393,7 @@ const finalizeMessage = async (result, currentStore, settings, callbacks, spaces
       const provider = getProvider(settings.apiProvider);
       const credentials = provider.getCredentials(settings);
       const { title, space } = await callbacks.onTitleAndSpaceGenerated(
-        currentStore.text,
+        firstMessageText,
         credentials.apiKey,
         credentials.baseUrl
       );
@@ -365,7 +405,7 @@ const finalizeMessage = async (result, currentStore, settings, callbacks, spaces
       const provider = getProvider(settings.apiProvider);
       const credentials = provider.getCredentials(settings);
       const { title, space } = await provider.generateTitleAndSpace(
-        currentStore.text,
+        firstMessageText,
         spaces || [],
         credentials.apiKey,
         credentials.baseUrl
@@ -385,7 +425,7 @@ const finalizeMessage = async (result, currentStore, settings, callbacks, spaces
   const provider = getProvider(settings.apiProvider);
   const credentials = provider.getCredentials(settings);
   const related = await provider.generateRelatedQuestions(
-    [...sanitizedMessages], // This includes the just-finished AI message
+    sanitizedMessages.slice(-2), // Only use the last 2 messages (User + AI) for context
     credentials.apiKey,
     credentials.baseUrl
   );
@@ -565,86 +605,17 @@ const useChatStore = create((set, get) => ({
     const { conversationMessages, aiMessagePlaceholder } = prepareAIPlaceholder(historyForSend, userMessage, spaceInfo, set);
 
     // Step 7: Call API & Stream
-    // Create callback functions for the streaming process
-    const streamingCallbacks = {
-      onFinish: async (result) => {
-        // Handle streaming completion and finalization
-        const currentStore = get(); // Get fresh state
-
-        // Generate title and space if this is the first turn
-        let resolvedTitle = currentStore.conversationTitle;
-        let resolvedSpace = spaceInfo.selectedSpace || null;
-
-        const isFirstTurn = historyForSend.length === 0;
-
-        if (isFirstTurn) {
-          if (spaceInfo.isManualSpaceSelection && spaceInfo.selectedSpace) {
-            // Generate title only when space is manually selected
-            const provider = getProvider(settings.apiProvider);
-            const credentials = provider.getCredentials(settings);
-            resolvedTitle = await provider.generateTitle(
-              text,
-              credentials.apiKey,
-              credentials.baseUrl
-            );
-            set({ conversationTitle: resolvedTitle });
-          } else if (callbacks?.onTitleAndSpaceGenerated) {
-            // Use callback to generate both title and space
-            const provider = getProvider(settings.apiProvider);
-            const credentials = provider.getCredentials(settings);
-            const { title, space } = await callbacks.onTitleAndSpaceGenerated(
-              text,
-              credentials.apiKey,
-              credentials.baseUrl
-            );
-            resolvedTitle = title;
-            set({ conversationTitle: title });
-            resolvedSpace = space || null;
-          } else {
-            // Generate both title and space automatically
-            const provider = getProvider(settings.apiProvider);
-            const credentials = provider.getCredentials(settings);
-            const { title, space } = await provider.generateTitleAndSpace(
-              text,
-              spaces || [],
-              credentials.apiKey,
-              credentials.baseUrl
-            );
-            resolvedTitle = title;
-            set({ conversationTitle: title });
-            resolvedSpace = space || null;
-          }
-        }
-
-        // Call finalizeMessage to handle related questions and database persistence
-        await finalizeMessage(result, currentStore, settings, callbacks, spaces, set);
-
-        // Update conversation in database with resolved title and space
-        if (convId && resolvedTitle) {
-          await updateConversation(convId, {
-            title: resolvedTitle,
-            space_id: resolvedSpace ? resolvedSpace.id : null,
-          });
-          window.dispatchEvent(new Event("conversations-changed"));
-        }
-
-        // Notify callback if space was resolved
-        if (callbacks?.onSpaceResolved && resolvedSpace) {
-          callbacks.onSpaceResolved(resolvedSpace);
-        }
-      }
-    };
-
-    // Call the AI API with streaming
     await callAIAPI(
       conversationMessages,
       aiMessagePlaceholder,
       settings,
       toggles,
-      streamingCallbacks,
+      callbacks,
       spaces,
       get,
-      set
+      set,
+      historyForSend.length,
+      text
     );
   },
 }));

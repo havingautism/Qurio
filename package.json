@@ -21,7 +21,8 @@
     "react-syntax-highlighter": "^16.1.0",
     "remark-gfm": "^4.0.1",
     "styled-components": "^6.1.19",
-    "tailwind-merge": "^3.4.0"
+    "tailwind-merge": "^3.4.0",
+    "zustand": "^5.0.9"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

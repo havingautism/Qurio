@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Plus, Search, Bookmark, LayoutGrid, Library, Globe, Map, BookOpen, Code, Film, Cpu, Wallet, ChevronRight, Settings, Sun, Moon, Laptop, Trash2, Star, MoreHorizontal, Divide } from 'lucide-react';
 import clsx from 'clsx';
-import ClarityLogo from './Logo';
+import QurioLogo from './Logo';
 import { listConversations, toggleFavorite } from '../lib/conversationsService';
 import { deleteConversation } from '../lib/supabase';
 import ConfirmationModal from './ConfirmationModal';
@@ -169,7 +169,7 @@ const Sidebar = ({ onOpenSettings, onNavigate, onNavigateToSpace, onCreateSpace,
         {/* Logo */}
         <div className="mb-6">
           <div className="w-8 h-8 flex items-center justify-center text-gray-900 dark:text-white font-bold text-xl">
-            <ClarityLogo size={32} />
+            <QurioLogo size={24} />
           </div>
         </div>
 

@@ -173,7 +173,7 @@ const MessageBubble = ({
   // Parse content using provider-specific logic
   const provider = getProvider(apiProvider);
   const { content: mainContent, thought: thoughtContent } =
-    provider.parseMessage(message.content);
+    provider.parseMessage(message);
 
   const CodeBlock = ({ inline, className, children, ...props }) => {
     const match = /language-(\w+)/.exec(className || "");
@@ -214,7 +214,7 @@ const MessageBubble = ({
 
     return (
       <code
-        className={`${className} bg-gray-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded text-sm font-['Google_Sans_Code'] text-pink-500 dark:text-pink-400`}
+        className={`${className} bg-[#f7f1f2] dark:bg-zinc-800 px-1.5 py-0.5 rounded text-sm font-['Google_Sans_Code'] font-semibold text-black dark:text-white`}
         {...props}
       >
         {children}

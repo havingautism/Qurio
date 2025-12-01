@@ -267,7 +267,18 @@ const callAIAPI = async (
           const updated = [...state.messages];
           const lastMsgIndex = updated.length - 1;
           const lastMsg = { ...updated[lastMsgIndex] };
-          lastMsg.content += chunk;
+          
+          if (typeof chunk === 'object' && chunk !== null) {
+            if (chunk.type === 'thought') {
+              lastMsg.thought = (lastMsg.thought || "") + chunk.content;
+            } else if (chunk.type === 'text') {
+              lastMsg.content += chunk.content;
+            }
+          } else {
+            // Fallback for string chunks
+            lastMsg.content += chunk;
+          }
+          
           updated[lastMsgIndex] = lastMsg;
           return { messages: updated };
         });

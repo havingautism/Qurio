@@ -9,7 +9,7 @@
   --color-sidebar-foreground: var(--sidebar-foreground);
   --font-sans: 'Google Sans Text', Inter, sans-serif;
   --font-display: 'Google Sans', Inter, sans-serif;
-  --font-serif: 'Noto Serif', serif;
+  --font-serif: 'Noto Serif', 'Noto Serif SC', 'Noto Serif TC', 'Songti SC', 'SimSun', 'Times New Roman', serif;
 }
 
 :root {

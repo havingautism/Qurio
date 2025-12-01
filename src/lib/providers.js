@@ -10,7 +10,18 @@ import * as gemini from './gemini';
 /**
  * Default message parser (handles <thought> tags)
  */
-const defaultParseMessage = (content) => {
+const defaultParseMessage = (input) => {
+  // Handle message object input (structured thought)
+  if (typeof input === 'object' && input !== null && input.thought) {
+    return {
+      thought: input.thought,
+      content: input.content
+    };
+  }
+
+  // Handle string input (or object without thought property, treating as content string if possible)
+  const content = typeof input === 'string' ? input : (input.content || "");
+
   if (typeof content !== 'string') return { content, thought: null };
   const thoughtMatch = /<thought>([\s\S]*?)(?:<\/thought>|$)/.exec(content);
   if (thoughtMatch) {
@@ -59,8 +70,8 @@ export const PROVIDERS = {
       apiKey: settings.googleApiKey || import.meta.env.VITE_GOOGLE_API_KEY,
       baseUrl: undefined // Native SDK usually handles its own endpoints
     }),
-    getTools: (isSearchActive) => isSearchActive ? [{ googleSearch: {} }] : undefined, // Native Gemini tool format (pseudo)
-    getThinking: (isThinkingActive) => isThinkingActive ? { includeThoughts: true } : undefined, // Native Gemini thinking config (pseudo)
+    getTools: (isSearchActive) => isSearchActive ? [{ googleSearch: {} }] : undefined, // Native Gemini Google Search tool
+    getThinking: (isThinkingActive) => isThinkingActive ? { thinkingConfig: { includeThoughts: true, thinkingBudget: 1024 } } : undefined, // Native Gemini thinking config
     parseMessage: defaultParseMessage
   }
 };

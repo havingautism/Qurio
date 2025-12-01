@@ -1,13 +1,25 @@
 import React from 'react';
+import { useShallow } from 'zustand/react/shallow';
+import useChatStore from '../lib/chatStore';
 import MessageBubble from './MessageBubble';
 
+/**
+ * MessageList component that directly consumes chatStore state
+ * Eliminates props drilling and automatically responds to message updates
+ */
 const MessageList = ({
-  messages,
   apiProvider,
   onRelatedClick,
   onMessageRef,
   onEdit,
 }) => {
+  // Get messages directly from chatStore using shallow selector
+  const { messages } = useChatStore(
+    useShallow((state) => ({
+      messages: state.messages,
+    }))
+  );
+
   return (
     <div className="flex flex-col w-full max-w-3xl mx-auto pb-32">
       {messages.map((msg, index) => (
@@ -19,9 +31,9 @@ const MessageList = ({
               ? onMessageRef(`message-${index}`, msg, el)
               : undefined
           }
-          message={msg}
+          messageIndex={index}
           apiProvider={apiProvider}
-          onRelatedClick={onRelatedClick}
+          onRelatedClick={(q) => onRelatedClick(q)}
           onEdit={() => onEdit && onEdit(index)}
         />
       ))}

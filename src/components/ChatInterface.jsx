@@ -3,6 +3,7 @@ import { useShallow } from "zustand/react/shallow";
 import useChatStore from "../lib/chatStore";
 import MessageList from "./MessageList";
 import QuestionNavigator from "./QuestionNavigator";
+import { updateConversation } from "../lib/conversationsService";
 import {
   Paperclip,
   ArrowRight,
@@ -597,7 +598,6 @@ const ChatInterface = ({
           {/* Messages Area */}
           <div className="w-full max-w-3xl flex-1 pb-32 relative">
             <MessageList
-              messages={messages}
               apiProvider={settings.apiProvider}
               onRelatedClick={handleRelatedClick}
               onMessageRef={registerMessageRef}

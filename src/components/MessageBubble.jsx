@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
+import { useShallow } from 'zustand/react/shallow';
+import useChatStore from '../lib/chatStore';
 import {
   Copy,
   ThumbsUp,
@@ -26,14 +28,27 @@ import {
 
 import { getProvider } from "../lib/providers";
 
+/**
+ * MessageBubble component that directly accesses messages from chatStore via index
+ * Reduces props drilling and improves component independence
+ */
 const MessageBubble = ({
-  message,
+  messageIndex,
   apiProvider,
   onRelatedClick,
   messageId,
   bubbleRef,
   onEdit,
 }) => {
+  // Get message directly from chatStore using shallow selector
+  const { messages } = useChatStore(
+    useShallow((state) => ({
+      messages: state.messages,
+    }))
+  );
+
+  // Extract message by index
+  const message = messages[messageIndex];
   const [isDark, setIsDark] = useState(
     document.documentElement.classList.contains("dark")
   );

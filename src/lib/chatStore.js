@@ -6,6 +6,7 @@ import {
 } from "../lib/conversationsService";
 import { deleteMessageById } from "../lib/supabase";
 import { getProvider } from "../lib/providers";
+import { getModelForTask } from "../lib/modelSelector.js";
 
 // ================================================================================
 // CHAT STORE HELPER FUNCTIONS
@@ -256,7 +257,8 @@ const callAIAPI = async (
     // Get AI provider and credentials
     const provider = getProvider(settings.apiProvider);
     const credentials = provider.getCredentials(settings);
-    const model = "gemini-2.5-flash"; // Hardcoded in original, maybe should be dynamic?
+    // Use dynamic model selection for main conversation
+    const model = getModelForTask('streamChatCompletion', settings);
 
     // Prepare API parameters
     const params = {
@@ -394,7 +396,8 @@ const finalizeMessage = async (
       resolvedTitle = await provider.generateTitle(
         firstMessageText,
         credentials.apiKey,
-        credentials.baseUrl
+        credentials.baseUrl,
+        getModelForTask('generateTitle', settings)
       );
       set({ conversationTitle: resolvedTitle });
     } else if (callbacks?.onTitleAndSpaceGenerated) {
@@ -417,7 +420,8 @@ const finalizeMessage = async (
         firstMessageText,
         spaces || [],
         credentials.apiKey,
-        credentials.baseUrl
+        credentials.baseUrl,
+        getModelForTask('generateTitleAndSpace', settings) // Use the appropriate model for this task
       );
       resolvedTitle = title;
       set({ conversationTitle: title });
@@ -433,10 +437,13 @@ const finalizeMessage = async (
 
   const provider = getProvider(settings.apiProvider);
   const credentials = provider.getCredentials(settings);
+  // Get the appropriate model for related questions task
+  const model = getModelForTask('generateRelatedQuestions', settings);
   const related = await provider.generateRelatedQuestions(
     sanitizedMessages.slice(-2), // Only use the last 2 messages (User + AI) for context
     credentials.apiKey,
-    credentials.baseUrl
+    credentials.baseUrl,
+    model // Pass the selected model for this task
   );
 
   // Attach sources to the last AI message (for Gemini search)

@@ -26,6 +26,10 @@ export const loadSettings = (overrides = {}) => {
   const localOpenAIKey = localStorage.getItem("OpenAICompatibilityKey");
   const localOpenAIUrl = localStorage.getItem("OpenAICompatibilityUrl");
 
+  // Model configuration
+  const localLiteModel = localStorage.getItem("liteModel");
+  const localDefaultModel = localStorage.getItem("defaultModel");
+
   return {
     // Supabase
     supabaseUrl:
@@ -45,6 +49,10 @@ export const loadSettings = (overrides = {}) => {
     // API Provider
     apiProvider: localStorage.getItem("apiProvider") || overrides.apiProvider || "gemini",
     googleApiKey: import.meta.env.VITE_GOOGLE_API_KEY || localStorage.getItem("googleApiKey") || overrides.googleApiKey || "",
+
+    // Model configuration
+    liteModel: localLiteModel || overrides.liteModel || "gemini-2.5-flash",
+    defaultModel: localDefaultModel || overrides.defaultModel || "gemini-2.5-flash",
 
     ...overrides,
   };
@@ -79,6 +87,13 @@ export const saveSettings = async (settings) => {
   }
   if (settings.googleApiKey !== undefined) {
     localStorage.setItem("googleApiKey", settings.googleApiKey);
+  }
+  // Save model configuration
+  if (settings.liteModel !== undefined) {
+    localStorage.setItem("liteModel", settings.liteModel);
+  }
+  if (settings.defaultModel !== undefined) {
+    localStorage.setItem("defaultModel", settings.defaultModel);
   }
 
   window.dispatchEvent(new Event('settings-changed'));

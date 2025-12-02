@@ -321,12 +321,12 @@ export const streamChatCompletion = async ({
 /**
  * Generate title using native Gemini API
  */
-export const generateTitle = async (firstMessage, apiKey) => {
+export const generateTitle = async (firstMessage, apiKey, baseUrl, model = "gemini-2.5-flash") => {
   try {
     const ai = new GoogleGenAI({ apiKey });
-    
+
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model, // Use dynamic model parameter
       config: {
         systemInstruction: "Generate a concise chat title (max 5 words). Do not use quotation marks.",
       },
@@ -344,7 +344,7 @@ export const generateTitle = async (firstMessage, apiKey) => {
 /**
  * Generate related questions using native Gemini API
  */
-export const generateRelatedQuestions = async (messages, apiKey) => {
+export const generateRelatedQuestions = async (messages, apiKey, baseUrl, model = "gemini-2.5-flash") => {
   try {
     const conversationText = (messages || [])
       .map((m) => `${m.role}: ${extractText(m.content)}`)
@@ -353,7 +353,7 @@ export const generateRelatedQuestions = async (messages, apiKey) => {
     const ai = new GoogleGenAI({ apiKey });
 
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model, // Use dynamic model parameter
       contents: [
         {
           role: "user",
@@ -388,14 +388,14 @@ export const generateRelatedQuestions = async (messages, apiKey) => {
 /**
  * Generate title and space using native Gemini API
  */
-export const generateTitleAndSpace = async (firstMessage, spaces, apiKey) => {
+export const generateTitleAndSpace = async (firstMessage, spaces, apiKey, baseUrl, model = "gemini-2.5-flash") => {
   try {
     const spaceLabels = spaces.map((s) => s.label).join(", ");
 
     const ai = new GoogleGenAI({ apiKey });
 
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model, // Use dynamic model parameter
       contents: [
         {
           role: "user",

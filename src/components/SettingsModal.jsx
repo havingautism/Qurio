@@ -32,6 +32,9 @@ const SettingsModal = ({ isOpen, onClose }) => {
   const providerDropdownRef = useRef(null);
   const [systemPrompt, setSystemPrompt] = useState("");
   const [modelId, setModelId] = useState("");
+  // Model configuration states
+  const [liteModel, setLiteModel] = useState("gemini-2.5-flash");
+  const [defaultModel, setDefaultModel] = useState("gemini-2.5-flash");
 
   // Handle click outside provider dropdown
   useEffect(() => {
@@ -75,6 +78,9 @@ const SettingsModal = ({ isOpen, onClose }) => {
         setOpenAICompatibilityUrl(settings.OpenAICompatibilityUrl);
       if (settings.apiProvider) setApiProvider(settings.apiProvider);
       if (settings.googleApiKey) setGoogleApiKey(settings.googleApiKey);
+      // Load model configuration
+      if (settings.liteModel) setLiteModel(settings.liteModel);
+      if (settings.defaultModel) setDefaultModel(settings.defaultModel);
     }
   }, [isOpen]);
 
@@ -99,6 +105,9 @@ const SettingsModal = ({ isOpen, onClose }) => {
       OpenAICompatibilityUrl,
       supabaseUrl,
       supabaseKey,
+      // Save model configuration
+      liteModel,
+      defaultModel,
     });
 
     onClose();
@@ -287,6 +296,63 @@ const SettingsModal = ({ isOpen, onClose }) => {
                       </div>
                     </div>
                   )}
+                </div>
+
+                {/* Model Configuration */}
+                <div className="flex flex-col gap-6">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-sm font-medium text-gray-900 dark:text-white">
+                      Model Configuration
+                    </label>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Choose different models for different tasks.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex flex-col gap-2">
+                      <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                        ⚡ Lite Tasks
+                      </label>
+                      <select
+                        value={liteModel}
+                        onChange={(e) => setLiteModel(e.target.value)}
+                        className="w-full p-2 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm bg-white dark:bg-zinc-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
+                      >
+                        <option value="gemini-2.5-flash-lite">
+                          Gemini 2.5 Flash Lite
+                        </option>
+                        <option value="gemini-2.5-flash">
+                          Gemini 2.5 Flash
+                        </option>
+                      </select>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        For title generation, related questions, space
+                        classification
+                      </p>
+                    </div>
+
+                    <div className="flex flex-col gap-2">
+                      <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                        📊 Main Conversation
+                      </label>
+                      <select
+                        value={defaultModel}
+                        onChange={(e) => setDefaultModel(e.target.value)}
+                        className="w-full p-2 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm bg-white dark:bg-zinc-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
+                      >
+                        <option value="gemini-2.5-flash-lite">
+                          Gemini 2.5 Flash Lite
+                        </option>
+                        <option value="gemini-2.5-flash">
+                          Gemini 2.5 Flash
+                        </option>
+                      </select>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        For main chat conversations and responses
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="h-px bg-gray-100 dark:bg-zinc-800" />

@@ -106,7 +106,7 @@ const handleEditingAndHistory = (messages, editingInfo, userMessage) => {
  * @param {Object} toggles - Feature toggles (search, thinking)
  * @param {Object} spaceInfo - Space selection information
  * @param {Function} set - Zustand set function
- * @returns {string} Conversation ID (existing or newly created)
+ * @returns {{ id: string, data: object|null, isNew: boolean }} Conversation info
  * @throws {Error} If conversation creation fails
  */
 const ensureConversationExists = async (
@@ -118,7 +118,7 @@ const ensureConversationExists = async (
 ) => {
   // If conversation already exists, return it
   if (conversationId) {
-    return conversationId;
+    return { id: conversationId, data: null, isNew: false };
   }
 
   // Create new conversation payload
@@ -139,7 +139,7 @@ const ensureConversationExists = async (
     set({ conversationId: data.id });
     // Notify other components that conversations list changed
     window.dispatchEvent(new Event("conversations-changed"));
-    return data.id;
+    return { id: data.id, data, isNew: true };
   } else {
     console.error("Create conversation failed:", error);
     // Reset loading state on error
@@ -363,6 +363,22 @@ const finalizeMessage = async (
   isFirstTurnOverride,
   firstUserText
 ) => {
+  // Replace streamed placeholder with finalized content (e.g., with citations/grounding)
+  if (result?.content) {
+    set((state) => {
+      const updated = [...state.messages];
+      const lastMsgIndex = updated.length - 1;
+      if (lastMsgIndex >= 0 && updated[lastMsgIndex].role === "ai") {
+        updated[lastMsgIndex] = {
+          ...updated[lastMsgIndex],
+          content: result.content,
+          ...(result.toolCalls ? { tool_calls: result.toolCalls } : {}),
+        };
+      }
+      return { messages: updated };
+    });
+  }
+
   // Generate title and space if this is the first turn
   let resolvedTitle = currentStore.conversationTitle;
   let resolvedSpace = currentStore.spaceInfo?.selectedSpace || null;
@@ -581,7 +597,7 @@ const useChatStore = create((set, get) => ({
    * @param {Object} params.settings - User settings and API configuration
    * @param {Object} params.spaceInfo - Space selection information { selectedSpace, isManualSpaceSelection }
    * @param {Object|null} params.editingInfo - Information about message being edited { index, targetId, partnerId }
-   * @param {Object|null} params.callbacks - Callback functions for title/space generation { onTitleAndSpaceGenerated, onSpaceResolved }
+   * @param {Object|null} params.callbacks - Callback functions { onTitleAndSpaceGenerated, onSpaceResolved, onConversationReady }
    * @param {Array} params.spaces - Available spaces for auto-generation (optional)
    *
    * @returns {Promise<void>}
@@ -632,9 +648,9 @@ const useChatStore = create((set, get) => ({
     set({ messages: newMessages });
 
     // Step 4: Ensure Conversation Exists
-    let convId;
+    let convInfo;
     try {
-      convId = await ensureConversationExists(
+      convInfo = await ensureConversationExists(
         conversationId,
         settings,
         toggles,
@@ -643,6 +659,18 @@ const useChatStore = create((set, get) => ({
       );
     } catch (convError) {
       return; // Early return on conversation creation failure
+    }
+    const convId = convInfo.id;
+
+    if (convInfo.isNew && callbacks?.onConversationReady) {
+      callbacks.onConversationReady(
+        convInfo.data || {
+          id: convId,
+          title: "New Conversation",
+          space_id: spaceInfo?.selectedSpace?.id || null,
+          api_provider: settings.apiProvider,
+        }
+      );
     }
 
     // Step 5: Persist User Message

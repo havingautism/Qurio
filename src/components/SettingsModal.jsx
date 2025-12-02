@@ -18,6 +18,27 @@ import clsx from "clsx";
 import { saveSettings, loadSettings } from "../lib/settings";
 import { testConnection } from "../lib/supabase";
 
+// Model options registry by provider for maintainability/expansion
+const MODEL_OPTION_SETS = {
+  gemini: [
+    { value: "gemini-3-pro-preview", label: "Gemini 3 Pro Preview" },
+    { value: "gemini-2.5-pro", label: "Gemini 2.5 Pro" },
+    { value: "gemini-2.5-flash", label: "Gemini 2.5 Flash" },
+    { value: "gemini-2.5-flash-lite", label: "Gemini 2.5 Flash Lite" },
+  ],
+  openai_compatibility: [
+    { value: "gpt-4o", label: "gpt-4o" },
+    { value: "gpt-4o-mini", label: "gpt-4o-mini" },
+    { value: "gpt-4.1", label: "gpt-4.1" },
+    { value: "gpt-4.1-mini", label: "gpt-4.1-mini" },
+    { value: "o3-mini", label: "o3-mini" },
+  ],
+  __fallback__: [],
+};
+
+const getModelOptionsForProvider = (provider) =>
+  MODEL_OPTION_SETS[provider] || MODEL_OPTION_SETS.__fallback__;
+
 const SettingsModal = ({ isOpen, onClose }) => {
   const [activeTab, setActiveTab] = useState("general");
   const [OpenAICompatibilityKey, setOpenAICompatibilityKey] = useState("");
@@ -243,13 +264,13 @@ const SettingsModal = ({ isOpen, onClose }) => {
                           className="w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600"
                         />
                       </div>
-                      <p className="text-[10px] text-gray-400">
+                      {/* <p className="text-[10px] text-gray-400">
                         Add{" "}
                         <code className="bg-gray-100 dark:bg-zinc-800 px-1 rounded">
                           VITE_GOOGLE_API_KEY
                         </code>{" "}
                         to your .env file to persist this.
-                      </p>
+                      </p> */}
                     </div>
                   )}
 
@@ -310,15 +331,12 @@ const SettingsModal = ({ isOpen, onClose }) => {
                   </div>
 
                   {(() => {
-                    const modelOptions = [
-                      { value: "gemini-3-pro-preview", label: "Gemini 3 Pro Preview" },
-                      { value: "gemini-2.5-pro", label: "Gemini 2.5 Pro" },
-                      { value: "gemini-2.5-flash", label: "Gemini 2.5 Flash" },
-                      { value: "gemini-2.5-flash-lite", label: "Gemini 2.5 Flash Lite" },
-                    ];
+                    const modelOptions = getModelOptionsForProvider(apiProvider);
 
                     const ModelCard = ({ label, helper, value, onChange }) => {
                       const [isOpen, setIsOpen] = useState(false);
+                      const [showTooltip, setShowTooltip] = useState(false);
+                      const [tooltipPos, setTooltipPos] = useState({ top: 0, left: 0 });
                       const dropdownRef = useRef(null);
                       const isCustom = !modelOptions.some(
                         (opt) => opt.value === value
@@ -348,16 +366,44 @@ const SettingsModal = ({ isOpen, onClose }) => {
                         };
                       }, [isOpen]);
 
+                      const handleMouseEnter = (e) => {
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        setTooltipPos({
+                          top: rect.top - 8,
+                          left: rect.left + rect.width / 2,
+                        });
+                        setShowTooltip(true);
+                      };
+
                       return (
                         <div className="flex flex-col gap-3 p-4 border border-gray-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 shadow-sm transition-all hover:shadow-md">
                           <div className="flex items-center justify-between">
-                            <div>
+                            <div className="flex items-center gap-2">
                               <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                                 {label}
                               </p>
-                              <p className="text-[11px] text-gray-500 dark:text-gray-400">
-                                {helper}
-                              </p>
+                              <div
+                                className="relative flex items-center"
+                                onMouseEnter={handleMouseEnter}
+                                onMouseLeave={() => setShowTooltip(false)}
+                              >
+                                <Info
+                                  size={13}
+                                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 cursor-help transition-colors"
+                                />
+                                {showTooltip && (
+                                  <div
+                                    className="fixed z-[9999] -translate-x-1/2 -translate-y-full w-48 p-2 bg-gray-900 dark:bg-zinc-700 text-white dark:text-gray-100 text-[11px] rounded-lg shadow-xl pointer-events-none animate-in fade-in zoom-in-95 duration-100"
+                                    style={{
+                                      top: tooltipPos.top,
+                                      left: tooltipPos.left,
+                                    }}
+                                  >
+                                    {helper}
+                                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900 dark:border-t-zinc-700" />
+                                  </div>
+                                )}
+                              </div>
                             </div>
                             <span className="text-[10px] px-2 py-1 rounded-full bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-zinc-700">
                               {isCustom ? "Custom" : "Preset"}

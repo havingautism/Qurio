@@ -525,16 +525,16 @@ const ChatInterface = ({
   );
 
   return (
-    <div className="flex-1 min-h-screen bg-background text-foreground relative p-4 ml-16">
+    <div className="flex-1 min-h-screen bg-background text-foreground relative pb-4 ml-16">
       <div className="w-full max-w-6xl mx-auto flex flex-col xl:flex-row gap-6 xl:gap-8 items-start">
         <div className="flex-1 min-w-0 flex flex-col items-center">
           {/* Title Bar */}
-          <div className="sticky top-0 z-20 w-full max-w-3xl bg-background/80 backdrop-blur-md py-4 mb-4 border-b border-transparent transition-all flex items-center gap-4">
+          <div className="sticky top-0 z-20 w-full max-w-4xl border-b border-gray-200 dark:border-zinc-800 bg-background/80 backdrop-blur-md py-3 mb-3 transition-all flex items-center gap-4">
             {/* Space Selector */}
             <div className="relative" ref={selectorRef}>
               <button
                 onClick={() => setIsSelectorOpen(!isSelectorOpen)}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors text-sm font-medium text-gray-700 dark:text-gray-300"
+                className="flex items-center gap-2 px-3  rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors text-sm font-medium text-gray-700 dark:text-gray-300"
               >
                 <LayoutGrid size={16} className="text-gray-400" />
                 {displaySpace ? (

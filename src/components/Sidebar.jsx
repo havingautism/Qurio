@@ -247,7 +247,7 @@ const Sidebar = ({ onOpenSettings, onNavigate, onNavigateToSpace, onCreateSpace,
         <div className="p-2 min-w-[256px]"> {/* min-w ensures content doesn't squash during transition */}
 
           {/* Header based on Tab */}
-          <div className="mb-4 flex items-center justify-between">
+          <div className="p-2 flex items-center justify-between">
             <h2 className="font-semibold text-lg text-foreground">
               {displayTab === 'library' ? 'Library' : displayTab === 'bookmarks' ? 'Bookmarks' : displayTab === 'spaces' ? 'Spaces' : ''}
             </h2>

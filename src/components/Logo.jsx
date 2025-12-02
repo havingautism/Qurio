@@ -78,13 +78,13 @@ const FiloLogo = ({ size = 24, className = "" }) => {
       version="1.1"
       id="Layer_1"
       xmlns="http://www.w3.org/2000/svg"
-      xmlns:xlink="http://www.w3.org/1999/xlink"
+      xmlnsXlink="http://www.w3.org/1999/xlink"
       x="0px"
       y="0px"
       width="100%"
       viewBox="340 210 370 370"
-      enable-background="new 340 210 370 370"
-      xml:space="preserve"
+      enableBackground="new 340 210 370 370"
+      xmlSpace="preserve"
     >
       <path
         fill="currentColor"

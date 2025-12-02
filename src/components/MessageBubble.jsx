@@ -17,6 +17,7 @@ import {
   CornerRightDown,
   Pencil,
   Check,
+  RefreshCw,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -55,6 +56,7 @@ const MessageBubble = ({
   messageId,
   bubbleRef,
   onEdit,
+  onRegenerateAnswer,
 }) => {
   // Get message directly from chatStore using shallow selector
   const { messages } = useChatStore(
@@ -435,6 +437,13 @@ const MessageBubble = ({
         <button className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
           <Share2 size={16} />
           Share
+        </button>
+        <button
+          className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+          onClick={() => onRegenerateAnswer && onRegenerateAnswer()}
+        >
+          <RefreshCw size={16} />
+          Regenerate
         </button>
         <button
           className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"

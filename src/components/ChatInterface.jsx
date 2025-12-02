@@ -16,7 +16,7 @@ import {
   X,
   LayoutGrid,
   Brain,
-  RefreshCw
+  Sparkles
 } from "lucide-react";
 
 import { loadSettings } from "../lib/settings";
@@ -453,7 +453,7 @@ const ChatInterface = ({
       msgOverride = null,
       attOverride = null,
       togglesOverride = null,
-      { skipMeta = false } = {}
+      { skipMeta = false, editingInfoOverride = null } = {}
     ) => {
       const textToSend = msgOverride !== null ? msgOverride : inputRef.current;
       const attToSend =
@@ -475,13 +475,14 @@ const ChatInterface = ({
       }
 
       const editingInfo =
-        editingIndex !== null
+        editingInfoOverride ||
+        (editingIndex !== null
           ? {
-            index: editingIndex,
-            targetId: editingTargetId,
-            partnerId: editingPartnerId,
-          }
-          : null;
+              index: editingIndex,
+              targetId: editingTargetId,
+              partnerId: editingPartnerId,
+            }
+          : null);
 
       // Reset editing state
       setEditingIndex(null);
@@ -526,6 +527,77 @@ const ChatInterface = ({
   const handleRelatedClick = useCallback(
     (q) => handleSendMessage(q, null, null, { skipMeta: true }),
     [handleSendMessage]
+  );
+
+  const handleRegenerateQuestion = useCallback(() => {
+    if (isLoading) return;
+
+    const lastUserIndex = [...messages]
+      .map((m, idx) => (m.role === "user" ? idx : -1))
+      .filter((idx) => idx !== -1)
+      .pop();
+
+    if (lastUserIndex === undefined || lastUserIndex === -1) return;
+
+    const userMsg = messages[lastUserIndex];
+    const nextMsg = messages[lastUserIndex + 1];
+    const hasPartner = nextMsg && nextMsg.role === "ai";
+
+    const msgAttachments = Array.isArray(userMsg.content)
+      ? userMsg.content.filter((c) => c.type === "image_url")
+      : [];
+
+    const text = extractUserQuestion(userMsg);
+    if (!text.trim() && msgAttachments.length === 0) return;
+
+    const editingInfoOverride = {
+      index: lastUserIndex,
+      targetId: userMsg.id || null,
+      partnerId: hasPartner ? nextMsg.id || null : null,
+    };
+
+    handleSendMessage(text, msgAttachments, null, { editingInfoOverride });
+  }, [extractUserQuestion, handleSendMessage, isLoading, messages]);
+
+  const handleRegenerateAnswer = useCallback(
+    (aiIndex) => {
+      if (isLoading) return;
+      const aiMsg = messages[aiIndex];
+      if (!aiMsg || aiMsg.role !== "ai") return;
+
+      // Find the associated user message (prefer immediate previous)
+      let userIndex = aiIndex - 1;
+      while (userIndex >= 0 && messages[userIndex].role !== "user") {
+        userIndex -= 1;
+      }
+      if (userIndex < 0) return;
+
+      const userMsg = messages[userIndex];
+      const msgAttachments = Array.isArray(userMsg.content)
+        ? userMsg.content.filter((c) => c.type === "image_url")
+        : [];
+      const text = extractUserQuestion(userMsg);
+      if (!text.trim() && msgAttachments.length === 0) return;
+
+      const editingInfoOverride = {
+        index: userIndex,
+        targetId: userMsg.id || null,
+        partnerId: aiMsg.id || null,
+      };
+
+      handleSendMessage(text, msgAttachments, null, { editingInfoOverride });
+    },
+    [
+      extractUserQuestion,
+      handleSendMessage,
+      isLoading,
+      messages,
+      setEditingIndex,
+      setEditingPartnerId,
+      setEditingPartnerTimestamp,
+      setEditingTargetId,
+      setEditingTargetTimestamp,
+    ]
   );
 
   const extractPlainText = useCallback((content) => {
@@ -657,17 +729,19 @@ const ChatInterface = ({
               )}
             </div>
 
-            <h1 className="text-xl font-medium text-gray-800 dark:text-gray-100 truncate flex-1">
-              {conversationTitle || "New Conversation"}
-            </h1>
-            <button
-              onClick={handleRegenerateTitle}
-              disabled={isRegeneratingTitle || messages.length === 0}
-              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors disabled:opacity-50 disabled:hover:bg-transparent"
-              title="Regenerate title from last 3 messages"
-            >
-              <RefreshCw size={18} />
-            </button>
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <h1 className="text-xl font-medium text-gray-800 dark:text-gray-100 truncate">
+                {conversationTitle || "New Conversation"}
+              </h1>
+              <button
+                onClick={handleRegenerateTitle}
+                disabled={isRegeneratingTitle || messages.length === 0}
+                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors disabled:opacity-50 disabled:hover:bg-transparent"
+                title="Regenerate title from last 3 messages"
+              >
+                <Sparkles size={18} />
+              </button>
+            </div>
           </div>
 
           {/* Messages Area */}
@@ -677,6 +751,7 @@ const ChatInterface = ({
               onRelatedClick={handleRelatedClick}
               onMessageRef={registerMessageRef}
               onEdit={handleEdit}
+              onRegenerateAnswer={handleRegenerateAnswer}
             />
 
             {/* Absolute positioned navigator */}
@@ -817,7 +892,7 @@ const ChatInterface = ({
           </div>
         </div>
       </div>
-    </div>
+    </div >
   );
 };
 

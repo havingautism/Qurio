@@ -12,6 +12,7 @@ const MessageList = ({
   onRelatedClick,
   onMessageRef,
   onEdit,
+  onRegenerateAnswer,
 }) => {
   // Get messages directly from chatStore using shallow selector
   const { messages } = useChatStore(
@@ -35,6 +36,9 @@ const MessageList = ({
           apiProvider={apiProvider}
           onRelatedClick={(q) => onRelatedClick(q)}
           onEdit={() => onEdit && onEdit(index)}
+          onRegenerateAnswer={() =>
+            onRegenerateAnswer && onRegenerateAnswer(index)
+          }
         />
       ))}
     </div>

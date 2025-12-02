@@ -12,6 +12,22 @@ const resolveModel = (model, fallbackKey = 'defaultModel') => {
 };
 
 /**
+ * Trim conversation history based on user-configured limit.
+ * Preserves a leading system prompt if present.
+ */
+const applyContextLimit = (messages) => {
+  const { contextMessageLimit } = loadSettings();
+  const limit = parseInt(contextMessageLimit, 10);
+  if (!Array.isArray(messages) || !limit || limit < 1) return messages;
+
+  const systemMessages = messages.filter((m) => m?.role === "system");
+  const nonSystemMessages = messages.filter((m) => m?.role !== "system");
+  const trimmedNonSystem = nonSystemMessages.slice(-limit);
+
+  return [...systemMessages, ...trimmedNonSystem];
+};
+
+/**
  * Create an OpenAI client instance.
  * @param {Object} config
  * @param {string} config.apiKey
@@ -77,11 +93,12 @@ export const streamChatCompletion = async ({
   try {
     const resolvedModel = resolveModel(model, 'defaultModel');
     const client = createOpenAIClient({ apiKey, baseUrl})
+    const trimmedMessages = applyContextLimit(messages);
 
     // Construct the request options
     const options = {
       model: resolvedModel,
-      messages,
+      messages: trimmedMessages,
       stream: true,
     };
 

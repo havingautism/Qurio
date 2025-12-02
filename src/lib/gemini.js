@@ -19,6 +19,22 @@ const resolveModel = (model, variant = "default") => {
 };
 
 /**
+ * Trim conversation history based on user-configured limit.
+ * Keeps a leading system message intact if present.
+ */
+const applyContextLimit = (messages) => {
+  const { contextMessageLimit } = loadSettings();
+  const limit = parseInt(contextMessageLimit, 10);
+  if (!Array.isArray(messages) || !limit || limit < 1) return messages;
+
+  const systemMessages = messages.filter((m) => m?.role === "system");
+  const nonSystemMessages = messages.filter((m) => m?.role !== "system");
+  const trimmedNonSystem = nonSystemMessages.slice(-limit);
+
+  return [...systemMessages, ...trimmedNonSystem];
+};
+
+/**
  * Convert a data URL (data:mime;base64,...) into Gemini inlineData format.
  * @param {string} dataUrl
  * @returns {{ inlineData: { mimeType: string, data: string } } | null}
@@ -250,7 +266,8 @@ export const streamChatCompletion = async ({
     const resolvedModel = resolveModel(model, "default");
     const ai = new GoogleGenAI({ apiKey });
 
-    const { history, promptParts, systemInstruction } = buildChatPayload(messages);
+    const trimmedMessages = applyContextLimit(messages);
+    const { history, promptParts, systemInstruction } = buildChatPayload(trimmedMessages);
     const geminiTools = normalizeTools(tools);
 
     // Combine history and current prompt for generateContent

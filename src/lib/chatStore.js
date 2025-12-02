@@ -7,6 +7,7 @@ import {
 import { deleteMessageById } from "../lib/supabase";
 import { getProvider } from "../lib/providers";
 import { getModelForTask } from "../lib/modelSelector.js";
+import { loadSettings } from "./settings";
 
 // ================================================================================
 // CHAT STORE HELPER FUNCTIONS
@@ -203,13 +204,15 @@ const persistUserMessage = async (convId, editingInfo, content, set) => {
  * @returns {Object} Contains conversationMessages (for API) and aiMessagePlaceholder (for UI)
  */
 const prepareAIPlaceholder = (historyForSend, userMessage, spaceInfo, set) => {
-  // Build conversation base with system prompt if space is selected
-  const conversationMessagesBase = spaceInfo.selectedSpace?.prompt
-    ? [
-        { role: "system", content: spaceInfo.selectedSpace.prompt },
-        ...historyForSend,
-      ]
-    : historyForSend;
+  const { systemPrompt } = loadSettings();
+
+  // Use space prompt if available; otherwise fall back to global system prompt
+  const activePrompt = spaceInfo.selectedSpace?.prompt || systemPrompt || null;
+
+  const conversationMessagesBase = [
+    ...(activePrompt ? [{ role: "system", content: activePrompt }] : []),
+    ...historyForSend,
+  ];
 
   // Combine base messages with user message
   const conversationMessages = [...conversationMessagesBase, userMessage];

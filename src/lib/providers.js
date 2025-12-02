@@ -13,9 +13,13 @@ import * as gemini from './gemini';
 const defaultParseMessage = (input) => {
   // Handle message object input (structured thought)
   if (typeof input === 'object' && input !== null && input.thought) {
+    const content =
+      typeof input.content === 'string'
+        ? input.content.replace(/<thought>[\s\S]*?(?:<\/thought>|$)/, '').trim()
+        : input.content;
     return {
       thought: input.thought,
-      content: input.content
+      content
     };
   }
 

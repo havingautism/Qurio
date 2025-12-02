@@ -33,18 +33,24 @@ export const loadSettings = (overrides = {}) => {
   // Model configuration
   const localLiteModel = localStorage.getItem("liteModel");
   const localDefaultModel = localStorage.getItem("defaultModel");
+  const localSystemPrompt = localStorage.getItem("systemPrompt");
+  const localContextMessageLimit = localStorage.getItem("contextMessageLimit");
+  const parsedContextLimit = parseInt(localContextMessageLimit, 10);
+  const resolvedContextLimit = Number.isFinite(parsedContextLimit)
+    ? parsedContextLimit
+    : overrides.contextMessageLimit || 12;
 
   return {
     // Supabase
     supabaseUrl:
       envSupabaseUrl ||
-      import.meta.env.VITE_SUPABASE_URL ||
+      import.meta.env.PUBLIC_SUPABASE_URL ||
       localSupabaseUrl ||
       overrides.supabaseUrl ||
       "",
     supabaseKey:
       envSupabaseKey ||
-      import.meta.env.VITE_SUPABASE_KEY ||
+      import.meta.env.PUBLIC_SUPABASE_KEY ||
       localSupabaseKey ||
       overrides.supabaseKey ||
       "",
@@ -52,13 +58,13 @@ export const loadSettings = (overrides = {}) => {
     // OpenAI
     OpenAICompatibilityKey:
       envOpenAIKey ||
-      import.meta.env.VITE_OPENAI_API_KEY ||
+      import.meta.env.PUBLIC_OPENAI_API_KEY ||
       localOpenAIKey ||
       overrides.OpenAICompatibilityKey ||
       "",
     OpenAICompatibilityUrl:
       envOpenAIBaseUrl ||
-      import.meta.env.VITE_OPENAI_BASE_URL ||
+      import.meta.env.PUBLIC_OPENAI_BASE_URL ||
       localOpenAIUrl ||
       overrides.OpenAICompatibilityUrl ||
       "",
@@ -67,7 +73,6 @@ export const loadSettings = (overrides = {}) => {
     apiProvider: localStorage.getItem("apiProvider") || overrides.apiProvider || "gemini",
     googleApiKey:
       import.meta.env.PUBLIC_GOOGLE_API_KEY ||
-      import.meta.env.VITE_GOOGLE_API_KEY ||
       localStorage.getItem("googleApiKey") ||
       overrides.googleApiKey ||
       "",
@@ -75,6 +80,10 @@ export const loadSettings = (overrides = {}) => {
     // Model configuration
     liteModel: localLiteModel || overrides.liteModel || "gemini-2.5-flash",
     defaultModel: localDefaultModel || overrides.defaultModel || "gemini-2.5-flash",
+
+    // Chat behavior
+    systemPrompt: localSystemPrompt || overrides.systemPrompt || "",
+    contextMessageLimit: resolvedContextLimit,
 
     ...overrides,
   };
@@ -116,6 +125,15 @@ export const saveSettings = async (settings) => {
   }
   if (settings.defaultModel !== undefined) {
     localStorage.setItem("defaultModel", settings.defaultModel);
+  }
+  if (settings.systemPrompt !== undefined) {
+    localStorage.setItem("systemPrompt", settings.systemPrompt);
+  }
+  if (settings.contextMessageLimit !== undefined) {
+    localStorage.setItem(
+      "contextMessageLimit",
+      String(settings.contextMessageLimit)
+    );
   }
 
   window.dispatchEvent(new Event('settings-changed'));

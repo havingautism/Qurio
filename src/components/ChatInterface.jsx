@@ -4,6 +4,8 @@ import useChatStore from "../lib/chatStore";
 import MessageList from "./MessageList";
 import QuestionNavigator from "./QuestionNavigator";
 import { updateConversation } from "../lib/conversationsService";
+import { getProvider } from "../lib/providers";
+import { getModelForTask } from "../lib/modelSelector.js";
 import {
   Paperclip,
   ArrowRight,
@@ -13,7 +15,8 @@ import {
   Check,
   X,
   LayoutGrid,
-  Brain
+  Brain,
+  RefreshCw
 } from "lucide-react";
 
 import { loadSettings } from "../lib/settings";
@@ -84,6 +87,7 @@ const ChatInterface = ({
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const hasPushedConversation = useRef(false);
   const messageRefs = useRef({});
+  const [isRegeneratingTitle, setIsRegeneratingTitle] = useState(false);
   const conversationSpace = React.useMemo(() => {
     if (!activeConversation?.space_id) return null;
     const sid = String(activeConversation.space_id);
@@ -524,12 +528,73 @@ const ChatInterface = ({
     [handleSendMessage]
   );
 
+  const extractPlainText = useCallback((content) => {
+    if (!content) return "";
+    if (typeof content === "string") return content;
+    if (Array.isArray(content)) {
+      return content
+        .filter((c) => c.type === "text" && typeof c.text === "string")
+        .map((c) => c.text)
+        .join("\n");
+    }
+    return "";
+  }, []);
+
+  const handleRegenerateTitle = useCallback(async () => {
+    if (isRegeneratingTitle) return;
+
+    const lastMessages = messages.slice(-3);
+    const contextText = lastMessages
+      .map((m) => {
+        const text = extractPlainText(m.content).trim();
+        if (!text) return "";
+        const prefix = m.role === "user" ? "User" : "Assistant";
+        return `${prefix}: ${text}`;
+      })
+      .filter(Boolean)
+      .join("\n");
+
+    if (!contextText) return;
+
+    setIsRegeneratingTitle(true);
+    try {
+      const provider = getProvider(settings.apiProvider);
+      const credentials = provider.getCredentials(settings);
+      const model = getModelForTask("generateTitle", settings);
+      const newTitle = await provider.generateTitle(
+        contextText,
+        credentials.apiKey,
+        credentials.baseUrl,
+        model
+      );
+      if (!newTitle) return;
+      setConversationTitle(newTitle);
+      const convId = conversationId || activeConversation?.id;
+      if (convId) {
+        await updateConversation(convId, { title: newTitle });
+        window.dispatchEvent(new Event("conversations-changed"));
+      }
+    } catch (err) {
+      console.error("Failed to regenerate title:", err);
+    } finally {
+      setIsRegeneratingTitle(false);
+    }
+  }, [
+    activeConversation?.id,
+    conversationId,
+    extractPlainText,
+    isRegeneratingTitle,
+    messages,
+    settings,
+    setConversationTitle,
+  ]);
+
   return (
     <div className="flex-1 min-h-screen bg-background text-foreground relative pb-4 ml-16">
       <div className="w-full max-w-6xl mx-auto flex flex-col xl:flex-row gap-6 xl:gap-8 items-start">
         <div className="flex-1 min-w-0 flex flex-col items-center">
           {/* Title Bar */}
-          <div className="sticky top-0 z-20 w-full max-w-4xl border-b border-gray-200 dark:border-zinc-800 bg-background/80 backdrop-blur-md py-3 mb-3 transition-all flex items-center gap-4">
+          <div className="sticky top-0 z-20 w-full max-w-8xl border-b border-gray-200 dark:border-zinc-800 bg-background/80 backdrop-blur-md py-3 mb-3 transition-all flex items-center gap-4">
             {/* Space Selector */}
             <div className="relative" ref={selectorRef}>
               <button
@@ -540,7 +605,7 @@ const ChatInterface = ({
                 {displaySpace ? (
                   <div className="flex items-center gap-2">
                     <span className="text-lg">{displaySpace.emoji}</span>
-                    <span className="truncate max-w-[120px]">
+                    <span className="truncate max-w-[200px]">
                       {displaySpace.label}
                     </span>
                   </div>
@@ -595,6 +660,14 @@ const ChatInterface = ({
             <h1 className="text-xl font-medium text-gray-800 dark:text-gray-100 truncate flex-1">
               {conversationTitle || "New Conversation"}
             </h1>
+            <button
+              onClick={handleRegenerateTitle}
+              disabled={isRegeneratingTitle || messages.length === 0}
+              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors disabled:opacity-50 disabled:hover:bg-transparent"
+              title="Regenerate title from last 3 messages"
+            >
+              <RefreshCw size={18} />
+            </button>
           </div>
 
           {/* Messages Area */}

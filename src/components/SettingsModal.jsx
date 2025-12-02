@@ -76,6 +76,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
   const [isProviderDropdownOpen, setIsProviderDropdownOpen] = useState(false);
   const providerDropdownRef = useRef(null);
   const [systemPrompt, setSystemPrompt] = useState("");
+  const [contextMessageLimit, setContextMessageLimit] = useState(12);
   const [modelId, setModelId] = useState("");
   // Model configuration states
   const [liteModel, setLiteModel] = useState("gemini-2.5-flash");
@@ -123,6 +124,9 @@ const SettingsModal = ({ isOpen, onClose }) => {
         setOpenAICompatibilityUrl(settings.OpenAICompatibilityUrl);
       if (settings.apiProvider) setApiProvider(settings.apiProvider);
       if (settings.googleApiKey) setGoogleApiKey(settings.googleApiKey);
+      if (settings.systemPrompt) setSystemPrompt(settings.systemPrompt);
+      if (settings.contextMessageLimit)
+        setContextMessageLimit(Number(settings.contextMessageLimit));
       // Load model configuration
       if (settings.liteModel) setLiteModel(settings.liteModel);
       if (settings.defaultModel) setDefaultModel(settings.defaultModel);
@@ -150,6 +154,8 @@ const SettingsModal = ({ isOpen, onClose }) => {
       OpenAICompatibilityUrl,
       supabaseUrl,
       supabaseKey,
+      systemPrompt,
+      contextMessageLimit,
       // Save model configuration
       liteModel,
       defaultModel,
@@ -666,6 +672,30 @@ const SettingsModal = ({ isOpen, onClose }) => {
 
             {activeTab === "chat" && (
               <div className="flex flex-col gap-8 max-w-2xl">
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-medium text-gray-900 dark:text-white">
+                    Context Messages
+                  </label>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    How many recent messages to send with each request (excluding spaces/system prompts).
+                  </p>
+                  <input
+                    type="number"
+                    min={1}
+                    max={50}
+                    value={contextMessageLimit}
+                    onChange={(e) =>
+                      setContextMessageLimit(
+                        Math.min(
+                          50,
+                          Math.max(1, Number(e.target.value) || 1)
+                        )
+                      )
+                    }
+                    className="w-32 mt-1 px-3 py-2 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600"
+                  />
+                </div>
+
                 <div className="flex flex-col gap-1">
                   <label className="text-sm font-medium text-gray-900 dark:text-white">
                     System Prompt

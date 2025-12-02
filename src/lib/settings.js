@@ -13,12 +13,16 @@
  */
 export const loadSettings = (overrides = {}) => {
   // Supabase Env Vars
-  const envSupabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-  const envSupabaseKey = import.meta.env.VITE_SUPABASE_KEY;
+  const envSupabaseUrl =
+    import.meta.env.PUBLIC_SUPABASE_URL 
+  const envSupabaseKey =
+    import.meta.env.PUBLIC_SUPABASE_KEY 
 
   // OpenAI Env Vars
-  const envOpenAIKey = import.meta.env.VITE_OPENAI_API_KEY;
-  const envOpenAIBaseUrl = import.meta.env.VITE_OPENAI_BASE_URL;
+  const envOpenAIKey =
+    import.meta.env.PUBLIC_OPENAI_API_KEY
+  const envOpenAIBaseUrl =
+    import.meta.env.PUBLIC_OPENAI_BASE_URL 
 
   // LocalStorage
   const localSupabaseUrl = localStorage.getItem("supabaseUrl");
@@ -33,22 +37,40 @@ export const loadSettings = (overrides = {}) => {
   return {
     // Supabase
     supabaseUrl:
-      envSupabaseUrl || localSupabaseUrl || overrides.supabaseUrl || "",
+      envSupabaseUrl ||
+      import.meta.env.VITE_SUPABASE_URL ||
+      localSupabaseUrl ||
+      overrides.supabaseUrl ||
+      "",
     supabaseKey:
-      envSupabaseKey || localSupabaseKey || overrides.supabaseKey || "",
+      envSupabaseKey ||
+      import.meta.env.VITE_SUPABASE_KEY ||
+      localSupabaseKey ||
+      overrides.supabaseKey ||
+      "",
 
     // OpenAI
     OpenAICompatibilityKey:
-      envOpenAIKey || localOpenAIKey || overrides.OpenAICompatibilityKey || "",
+      envOpenAIKey ||
+      import.meta.env.VITE_OPENAI_API_KEY ||
+      localOpenAIKey ||
+      overrides.OpenAICompatibilityKey ||
+      "",
     OpenAICompatibilityUrl:
       envOpenAIBaseUrl ||
+      import.meta.env.VITE_OPENAI_BASE_URL ||
       localOpenAIUrl ||
       overrides.OpenAICompatibilityUrl ||
       "",
     
     // API Provider
     apiProvider: localStorage.getItem("apiProvider") || overrides.apiProvider || "gemini",
-    googleApiKey: import.meta.env.VITE_GOOGLE_API_KEY || localStorage.getItem("googleApiKey") || overrides.googleApiKey || "",
+    googleApiKey:
+      import.meta.env.PUBLIC_GOOGLE_API_KEY ||
+      import.meta.env.VITE_GOOGLE_API_KEY ||
+      localStorage.getItem("googleApiKey") ||
+      overrides.googleApiKey ||
+      "",
 
     // Model configuration
     liteModel: localLiteModel || overrides.liteModel || "gemini-2.5-flash",

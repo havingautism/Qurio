@@ -67,7 +67,9 @@ export const PROVIDERS = {
     id: 'gemini',
     name: 'Google Gemini',
     getCredentials: (settings) => ({
-      apiKey: settings.googleApiKey || import.meta.env.VITE_GOOGLE_API_KEY,
+      apiKey:
+        settings.googleApiKey ||
+        import.meta.env.PUBLIC_GOOGLE_API_KEY,
       baseUrl: undefined // Native SDK usually handles its own endpoints
     }),
     getTools: (isSearchActive) => isSearchActive ? [{ googleSearch: {} }] : undefined, // Native Gemini Google Search tool

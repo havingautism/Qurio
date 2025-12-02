@@ -13,10 +13,27 @@ import {
   Database,
   ChevronDown,
   Check,
+  Github,
+  Twitter,
+  Globe,
 } from "lucide-react";
+import FiloLogo from "./Logo";
 import clsx from "clsx";
 import { saveSettings, loadSettings } from "../lib/settings";
 import { testConnection } from "../lib/supabase";
+
+const ENV_VARS = {
+  supabaseUrl:
+    import.meta.env.PUBLIC_SUPABASE_URL,
+  supabaseKey:
+    import.meta.env.PUBLIC_SUPABASE_KEY,
+  openAIKey:
+    import.meta.env.PUBLIC_OPENAI_API_KEY,
+  openAIBaseUrl:
+    import.meta.env.PUBLIC_OPENAI_BASE_URL,
+  googleApiKey:
+    import.meta.env.PUBLIC_GOOGLE_API_KEY,
+};
 
 // Model options registry by provider for maintainability/expansion
 const MODEL_OPTION_SETS = {
@@ -40,6 +57,13 @@ const getModelOptionsForProvider = (provider) =>
   MODEL_OPTION_SETS[provider] || MODEL_OPTION_SETS.__fallback__;
 
 const SettingsModal = ({ isOpen, onClose }) => {
+  const renderEnvHint = (hasEnv) =>
+    hasEnv ? (
+      <p className="text-[10px] text-emerald-500">
+        Loaded from environment
+      </p>
+    ) : null;
+
   const [activeTab, setActiveTab] = useState("general");
   const [OpenAICompatibilityKey, setOpenAICompatibilityKey] = useState("");
   const [OpenAICompatibilityUrl, setOpenAICompatibilityUrl] = useState("");
@@ -261,16 +285,14 @@ const SettingsModal = ({ isOpen, onClose }) => {
                           value={googleApiKey}
                           onChange={(e) => setGoogleApiKey(e.target.value)}
                           placeholder="AIzaSy..."
-                          className="w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600"
+                          disabled={Boolean(ENV_VARS.googleApiKey)}
+                          className={clsx(
+                            "w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600",
+                            ENV_VARS.googleApiKey && "opacity-70 cursor-not-allowed"
+                          )}
                         />
                       </div>
-                      {/* <p className="text-[10px] text-gray-400">
-                        Add{" "}
-                        <code className="bg-gray-100 dark:bg-zinc-800 px-1 rounded">
-                          VITE_GOOGLE_API_KEY
-                        </code>{" "}
-                        to your .env file to persist this.
-                      </p> */}
+                      {renderEnvHint(Boolean(ENV_VARS.googleApiKey))}
                     </div>
                   )}
 
@@ -292,9 +314,14 @@ const SettingsModal = ({ isOpen, onClose }) => {
                               setOpenAICompatibilityKey(e.target.value)
                             }
                             placeholder="sk-..."
-                            className="w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600"
+                            disabled={Boolean(ENV_VARS.openAIKey)}
+                            className={clsx(
+                              "w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600",
+                              ENV_VARS.openAIKey && "opacity-70 cursor-not-allowed"
+                            )}
                           />
                         </div>
+                        {renderEnvHint(Boolean(ENV_VARS.openAIKey))}
                       </div>
                       <div className="flex flex-col gap-2">
                         <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
@@ -311,9 +338,14 @@ const SettingsModal = ({ isOpen, onClose }) => {
                               setOpenAICompatibilityUrl(e.target.value)
                             }
                             placeholder="https://api.openai.com/v1"
-                            className="w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600"
+                            disabled={Boolean(ENV_VARS.openAIBaseUrl)}
+                            className={clsx(
+                              "w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600",
+                              ENV_VARS.openAIBaseUrl && "opacity-70 cursor-not-allowed"
+                            )}
                           />
                         </div>
+                        {renderEnvHint(Boolean(ENV_VARS.openAIBaseUrl))}
                       </div>
                     </div>
                   )}
@@ -535,9 +567,14 @@ const SettingsModal = ({ isOpen, onClose }) => {
                           value={supabaseUrl}
                           onChange={(e) => setSupabaseUrl(e.target.value)}
                           placeholder="https://your-project.supabase.co"
-                          className="w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600"
+                          disabled={Boolean(ENV_VARS.supabaseUrl)}
+                          className={clsx(
+                            "w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600",
+                            ENV_VARS.supabaseUrl && "opacity-70 cursor-not-allowed"
+                          )}
                         />
                       </div>
+                      {renderEnvHint(Boolean(ENV_VARS.supabaseUrl))}
                     </div>
 
                     <div className="flex flex-col gap-2">
@@ -553,9 +590,14 @@ const SettingsModal = ({ isOpen, onClose }) => {
                           value={supabaseKey}
                           onChange={(e) => setSupabaseKey(e.target.value)}
                           placeholder="••••••••••••••••••••••••••••••••"
-                          className="w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600"
+                          disabled={Boolean(ENV_VARS.supabaseKey)}
+                          className={clsx(
+                            "w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600",
+                            ENV_VARS.supabaseKey && "opacity-70 cursor-not-allowed"
+                          )}
                         />
                       </div>
+                      {renderEnvHint(Boolean(ENV_VARS.supabaseKey))}
                     </div>
                   </div>
 
@@ -685,6 +727,59 @@ const SettingsModal = ({ isOpen, onClose }) => {
                     ).
                   </p>
                 </div>
+              </div>
+            )}
+            {activeTab === "about" && (
+              <div className="flex flex-col items-center justify-center h-full text-center gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="p-4 bg-gray-50 dark:bg-zinc-900 rounded-3xl mb-2">
+                  <FiloLogo size={64} className="text-gray-900 dark:text-white" />
+                </div>
+
+                <div className="flex flex-col gap-2 items-center">
+                  <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    Filo
+                    <span className="px-2 py-0.5 rounded-full bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300 text-[10px] font-bold tracking-wide uppercase border border-cyan-200 dark:border-cyan-800">
+                      Beta
+                    </span>
+                  </h1>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 max-w-md leading-relaxed">
+                    An advanced AI assistant interface designed for clarity, speed, and precision. Built with the latest web technologies for a seamless experience.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-3 mt-4">
+                  <a
+                    href="#"
+                    className="p-2 rounded-full bg-gray-50 dark:bg-zinc-900 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-zinc-800 hover:text-gray-900 dark:hover:text-white transition-all border border-gray-200 dark:border-zinc-800"
+                  >
+                    <Github size={18} />
+                  </a>
+                  <a
+                    href="#"
+                    className="p-2 rounded-full bg-gray-50 dark:bg-zinc-900 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-zinc-800 hover:text-gray-900 dark:hover:text-white transition-all border border-gray-200 dark:border-zinc-800"
+                  >
+                    <Twitter size={18} />
+                  </a>
+                  <a
+                    href="#"
+                    className="p-2 rounded-full bg-gray-50 dark:bg-zinc-900 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-zinc-800 hover:text-gray-900 dark:hover:text-white transition-all border border-gray-200 dark:border-zinc-800"
+                  >
+                    <Globe size={18} />
+                  </a>
+                </div>
+
+                <div className="mt-8 pt-8 border-t border-gray-100 dark:border-zinc-800 w-full max-w-xs flex flex-col gap-1">
+                  <p className="text-xs text-gray-400 dark:text-gray-500 font-medium">
+                    Designed & Built by
+                  </p>
+                  <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                    Antigravity Team
+                  </p>
+                </div>
+
+                <p className="text-[10px] text-gray-300 dark:text-gray-600 mt-auto">
+                  v0.1.0 • © 2025 All rights reserved
+                </p>
               </div>
             )}
           </div>

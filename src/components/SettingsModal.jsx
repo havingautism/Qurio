@@ -761,7 +761,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
             )}
             {activeTab === "about" && (
               <div className="flex flex-col items-center justify-center h-full text-center gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="p-4 bg-gray-50 dark:bg-zinc-900 rounded-3xl mb-2">
+                <div className="p-4  rounded-3xl mb-2">
                   <FiloLogo size={64} className="text-gray-900 dark:text-white" />
                 </div>
 
@@ -803,7 +803,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                     Designed & Built by
                   </p>
                   <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                    Antigravity Team
+                    havingautism & allabouturmind
                   </p>
                 </div>
 

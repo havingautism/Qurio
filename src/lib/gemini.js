@@ -6,6 +6,17 @@
  */
 
 import { GoogleGenAI } from "@google/genai";
+import { loadSettings } from "./settings";
+
+/**
+ * Resolve model based on provided override or persisted settings.
+ * Pass "lite" to use the lite model fallback; otherwise the default model is used.
+ */
+const resolveModel = (model, variant = "default") => {
+  if (model) return model;
+  const settings = loadSettings();
+  return variant === "lite" ? settings.liteModel : settings.defaultModel;
+};
 
 /**
  * Convert a data URL (data:mime;base64,...) into Gemini inlineData format.
@@ -236,6 +247,7 @@ export const streamChatCompletion = async ({
   signal,
 }) => {
   try {
+    const resolvedModel = resolveModel(model, "default");
     const ai = new GoogleGenAI({ apiKey });
 
     const { history, promptParts, systemInstruction } = buildChatPayload(messages);
@@ -254,7 +266,7 @@ export const streamChatCompletion = async ({
     };
 
     const result = await ai.models.generateContentStream({
-      model,
+      model: resolvedModel,
       contents,
       config,
     }, { signal });
@@ -321,12 +333,13 @@ export const streamChatCompletion = async ({
 /**
  * Generate title using native Gemini API
  */
-export const generateTitle = async (firstMessage, apiKey, baseUrl, model = "gemini-2.5-flash") => {
+export const generateTitle = async (firstMessage, apiKey, baseUrl, model) => {
   try {
+    const resolvedModel = resolveModel(model, "lite");
     const ai = new GoogleGenAI({ apiKey });
 
     const response = await ai.models.generateContent({
-      model, // Use dynamic model parameter
+      model: resolvedModel, // Use dynamic model parameter
       config: {
         systemInstruction: "Generate a concise chat title (max 5 words). Do not use quotation marks.",
       },
@@ -344,8 +357,9 @@ export const generateTitle = async (firstMessage, apiKey, baseUrl, model = "gemi
 /**
  * Generate related questions using native Gemini API
  */
-export const generateRelatedQuestions = async (messages, apiKey, baseUrl, model = "gemini-2.5-flash") => {
+export const generateRelatedQuestions = async (messages, apiKey, baseUrl, model) => {
   try {
+    const resolvedModel = resolveModel(model, "lite");
     const conversationText = (messages || [])
       .map((m) => `${m.role}: ${extractText(m.content)}`)
       .join("\n");
@@ -353,7 +367,7 @@ export const generateRelatedQuestions = async (messages, apiKey, baseUrl, model 
     const ai = new GoogleGenAI({ apiKey });
 
     const response = await ai.models.generateContent({
-      model, // Use dynamic model parameter
+      model: resolvedModel, // Use dynamic model parameter
       contents: [
         {
           role: "user",
@@ -388,14 +402,15 @@ export const generateRelatedQuestions = async (messages, apiKey, baseUrl, model 
 /**
  * Generate title and space using native Gemini API
  */
-export const generateTitleAndSpace = async (firstMessage, spaces, apiKey, baseUrl, model = "gemini-2.5-flash") => {
+export const generateTitleAndSpace = async (firstMessage, spaces, apiKey, baseUrl, model) => {
   try {
+    const resolvedModel = resolveModel(model, "lite");
     const spaceLabels = spaces.map((s) => s.label).join(", ");
 
     const ai = new GoogleGenAI({ apiKey });
 
     const response = await ai.models.generateContent({
-      model, // Use dynamic model parameter
+      model: resolvedModel, // Use dynamic model parameter
       contents: [
         {
           role: "user",

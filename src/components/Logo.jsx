@@ -72,7 +72,7 @@ const Logo = ({ size = 24, className = "" }) => {
 };
 
 // Re-implementing with a cleaner geometric path that matches the "Clarity" logo (3 interlocking cubes)
-const QurioLogo = ({ size = 24, className = "" }) => {
+const FiloLogo = ({ size = 24, className = "" }) => {
   return (
     <svg
       version="1.1"
@@ -152,4 +152,4 @@ z"
   );
 };
 
-export default QurioLogo;
+export default FiloLogo;

@@ -272,7 +272,7 @@ const callAIAPI = async (
         ...(m.name && { name: m.name }),
       })),
       tools: provider.getTools(toggles.search),
-      thinking: provider.getThinking(toggles.thinking),
+      thinking: provider.getThinking(toggles.thinking, model),
       onChunk: (chunk) => {
         // Handle streaming chunk updates
         set((state) => {

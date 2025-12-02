@@ -71,7 +71,15 @@ export const PROVIDERS = {
       baseUrl: undefined // Native SDK usually handles its own endpoints
     }),
     getTools: (isSearchActive) => isSearchActive ? [{ googleSearch: {} }] : undefined, // Native Gemini Google Search tool
-    getThinking: (isThinkingActive) => isThinkingActive ? { thinkingConfig: { includeThoughts: true, thinkingBudget: 1024 } } : undefined, // Native Gemini thinking config
+    getThinking: (isThinkingActive, model) => {
+      if (!isThinkingActive) return undefined;
+      const isGemini3Preview = model === 'gemini-3-pro-preview';
+      return {
+        thinkingConfig: isGemini3Preview
+          ? { includeThoughts: true, thinkingLevel: 'high' }
+          : { includeThoughts: true, thinkingBudget: 1024 }
+      };
+    }, // Native Gemini thinking config
     parseMessage: defaultParseMessage
   }
 };

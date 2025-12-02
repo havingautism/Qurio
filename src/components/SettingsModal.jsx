@@ -297,7 +297,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                     </div>
                   )}
                 </div>
-
+                <div className="h-px bg-gray-100 dark:bg-zinc-800" />
                 {/* Model Configuration */}
                 <div className="flex flex-col gap-6">
                   <div className="flex flex-col gap-1">
@@ -305,54 +305,161 @@ const SettingsModal = ({ isOpen, onClose }) => {
                       Model Configuration
                     </label>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Choose different models for different tasks.
+                      Choose different models for different tasks, or enter a custom model ID.
                     </p>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="flex flex-col gap-2">
-                      <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                        ⚡ Lite Tasks
-                      </label>
-                      <select
-                        value={liteModel}
-                        onChange={(e) => setLiteModel(e.target.value)}
-                        className="w-full p-2 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm bg-white dark:bg-zinc-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
-                      >
-                        <option value="gemini-2.5-flash-lite">
-                          Gemini 2.5 Flash Lite
-                        </option>
-                        <option value="gemini-2.5-flash">
-                          Gemini 2.5 Flash
-                        </option>
-                      </select>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        For title generation, related questions, space
-                        classification
-                      </p>
-                    </div>
+                  {(() => {
+                    const modelOptions = [
+                      { value: "gemini-3-pro-preview", label: "Gemini 3 Pro Preview" },
+                      { value: "gemini-2.5-pro", label: "Gemini 2.5 Pro" },
+                      { value: "gemini-2.5-flash", label: "Gemini 2.5 Flash" },
+                      { value: "gemini-2.5-flash-lite", label: "Gemini 2.5 Flash Lite" },
+                    ];
 
-                    <div className="flex flex-col gap-2">
-                      <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                        📊 Main Conversation
-                      </label>
-                      <select
-                        value={defaultModel}
-                        onChange={(e) => setDefaultModel(e.target.value)}
-                        className="w-full p-2 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm bg-white dark:bg-zinc-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
-                      >
-                        <option value="gemini-2.5-flash-lite">
-                          Gemini 2.5 Flash Lite
-                        </option>
-                        <option value="gemini-2.5-flash">
-                          Gemini 2.5 Flash
-                        </option>
-                      </select>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        For main chat conversations and responses
-                      </p>
-                    </div>
-                  </div>
+                    const ModelCard = ({ label, helper, value, onChange }) => {
+                      const [isOpen, setIsOpen] = useState(false);
+                      const dropdownRef = useRef(null);
+                      const isCustom = !modelOptions.some(
+                        (opt) => opt.value === value
+                      );
+                      const currentLabel =
+                        modelOptions.find((opt) => opt.value === value)
+                          ?.label || "Custom...";
+
+                      useEffect(() => {
+                        const handleClickOutside = (event) => {
+                          if (
+                            dropdownRef.current &&
+                            !dropdownRef.current.contains(event.target)
+                          ) {
+                            setIsOpen(false);
+                          }
+                        };
+
+                        if (isOpen) {
+                          document.addEventListener("mousedown", handleClickOutside);
+                        }
+                        return () => {
+                          document.removeEventListener(
+                            "mousedown",
+                            handleClickOutside
+                          );
+                        };
+                      }, [isOpen]);
+
+                      return (
+                        <div className="flex flex-col gap-3 p-4 border border-gray-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 shadow-sm transition-all hover:shadow-md">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                                {label}
+                              </p>
+                              <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                                {helper}
+                              </p>
+                            </div>
+                            <span className="text-[10px] px-2 py-1 rounded-full bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-zinc-700">
+                              {isCustom ? "Custom" : "Preset"}
+                            </span>
+                          </div>
+
+                          <div className="relative" ref={dropdownRef}>
+                            <button
+                              onClick={() => setIsOpen(!isOpen)}
+                              className={clsx(
+                                "w-full flex items-center justify-between px-3 py-2.5 bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm transition-all text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-zinc-800",
+                                isOpen &&
+                                "ring-2 ring-cyan-500/20 border-cyan-500"
+                              )}
+                            >
+                              <span>{currentLabel}</span>
+                              <ChevronDown
+                                size={16}
+                                className={clsx(
+                                  "text-gray-400 transition-transform duration-200",
+                                  isOpen && "rotate-180"
+                                )}
+                              />
+                            </button>
+
+                            {isOpen && (
+                              <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg shadow-xl z-20 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+                                <div className="max-h-[200px] overflow-y-auto">
+                                  {modelOptions.map((opt) => (
+                                    <button
+                                      key={opt.value}
+                                      onClick={() => {
+                                        onChange(opt.value);
+                                        setIsOpen(false);
+                                      }}
+                                      className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
+                                    >
+                                      <span>{opt.label}</span>
+                                      {value === opt.value && (
+                                        <Check
+                                          size={14}
+                                          className="text-cyan-500"
+                                        />
+                                      )}
+                                    </button>
+                                  ))}
+                                  <div className="h-px bg-gray-100 dark:bg-zinc-800 my-1" />
+                                  <button
+                                    onClick={() => {
+                                      onChange(""); // Clear value for custom input
+                                      setIsOpen(false);
+                                    }}
+                                    className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
+                                  >
+                                    <span>Custom...</span>
+                                    {isCustom && (
+                                      <Check
+                                        size={14}
+                                        className="text-cyan-500"
+                                      />
+                                    )}
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          {isCustom && (
+                            <div className="flex flex-col gap-1 animate-in fade-in slide-in-from-top-1 duration-200">
+                              <label className="text-[11px] text-gray-500 dark:text-gray-400">
+                                Custom model ID
+                              </label>
+                              <input
+                                type="text"
+                                value={value}
+                                onChange={(e) => onChange(e.target.value)}
+                                placeholder="Enter your own model id"
+                                className="w-full px-3 py-2 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm bg-gray-50 dark:bg-zinc-950 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    };
+
+                    return (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <ModelCard
+                          label="Lite"
+                          helper="Titles, related questions, space suggestions"
+                          value={liteModel}
+                          onChange={setLiteModel}
+                        />
+                        <ModelCard
+                          label="Default"
+                          helper="Primary chat responses"
+                          value={defaultModel}
+                          onChange={setDefaultModel}
+                        />
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 <div className="h-px bg-gray-100 dark:bg-zinc-800" />
@@ -424,8 +531,8 @@ const SettingsModal = ({ isOpen, onClose }) => {
                           testResult.success
                             ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800"
                             : testResult.connection
-                            ? "bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800"
-                            : "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800"
+                              ? "bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800"
+                              : "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800"
                         )}
                       >
                         <div className="text-sm font-medium mb-2 text-gray-900 dark:text-white">

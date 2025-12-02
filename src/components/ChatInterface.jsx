@@ -740,7 +740,7 @@ const ChatInterface = ({
             </div>
           </div>
           <div className="text-center mt-2 text-xs text-gray-400 dark:text-gray-500">
-            Qurio can make mistakes. Please use with caution.
+            Filo can make mistakes. Please use with caution.
           </div>
         </div>
       </div>

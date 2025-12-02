@@ -1,4 +1,15 @@
 import OpenAI from 'openai';
+import { loadSettings } from './settings';
+
+/**
+ * Resolve model based on provided override or persisted settings.
+ * For lite tasks, pass "liteModel"; otherwise default to "defaultModel".
+ */
+const resolveModel = (model, fallbackKey = 'defaultModel') => {
+  if (model) return model;
+  const settings = loadSettings();
+  return settings[fallbackKey];
+};
 
 /**
  * Create an OpenAI client instance.
@@ -64,11 +75,12 @@ export const streamChatCompletion = async ({
   signal
 }) => {
   try {
+    const resolvedModel = resolveModel(model, 'defaultModel');
     const client = createOpenAIClient({ apiKey, baseUrl})
 
     // Construct the request options
     const options = {
-      model,
+      model: resolvedModel,
       messages,
       stream: true,
     };
@@ -157,11 +169,12 @@ export const streamChatCompletion = async ({
  * @param {string} baseUrl
  * @returns {Promise<string>}
  */
-export const generateTitle = async (firstMessage, apiKey, baseUrl, model = "gemini-2.5-flash") => {
+export const generateTitle = async (firstMessage, apiKey, baseUrl, model) => {
   try {
+    const resolvedModel = resolveModel(model, 'liteModel');
     const client = createOpenAIClient({ apiKey, baseUrl });
     const response = await client.chat.completions.create({
-      model, // Use dynamic model parameter
+      model: resolvedModel, // Use dynamic model parameter
       messages: [
         { role: "system", content: "Generate a short, concise title (max 5 words) for this conversation based on the user's first message. Do not use quotes." },
         { role: "user", content: firstMessage }
@@ -183,13 +196,14 @@ export const generateTitle = async (firstMessage, apiKey, baseUrl, model = "gemi
  * @param {string} baseUrl
  * @returns {Promise<{title: string, space: Object|null}>}
  */
-export const generateTitleAndSpace = async (firstMessage, spaces, apiKey, baseUrl, model = "gemini-2.5-flash") => {
+export const generateTitleAndSpace = async (firstMessage, spaces, apiKey, baseUrl, model) => {
   try {
+    const resolvedModel = resolveModel(model, 'liteModel');
     const client = createOpenAIClient({ apiKey, baseUrl });
     const spaceLabels = spaces.map(s => s.label).join(", ");
 
     const response = await client.chat.completions.create({
-      model, // Use dynamic model parameter
+      model: resolvedModel, // Use dynamic model parameter
       messages: [
         { 
           role: "system", 
@@ -226,11 +240,12 @@ export const generateTitleAndSpace = async (firstMessage, spaces, apiKey, baseUr
  * @param {string} baseUrl
  * @returns {Promise<Array<string>>}
  */
-export const generateRelatedQuestions = async (messages, apiKey, baseUrl, model = "gemini-2.5-flash") => {
+export const generateRelatedQuestions = async (messages, apiKey, baseUrl, model) => {
   try {
+    const resolvedModel = resolveModel(model, 'liteModel');
     const client = createOpenAIClient({ apiKey, baseUrl });
     const response = await client.chat.completions.create({
-      model, // Use dynamic model parameter
+      model: resolvedModel, // Use dynamic model parameter
       messages: [
         ...messages,
         { role: "user", content: "Based on our conversation, suggest 3 short, relevant follow-up questions I might ask. Return them as a JSON array of strings. Example: [\"Question 1?\", \"Question 2?\"]" }

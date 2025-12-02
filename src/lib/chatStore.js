@@ -108,7 +108,13 @@ const handleEditingAndHistory = (messages, editingInfo, userMessage) => {
  * @returns {string} Conversation ID (existing or newly created)
  * @throws {Error} If conversation creation fails
  */
-const ensureConversationExists = async (conversationId, settings, toggles, spaceInfo, set) => {
+const ensureConversationExists = async (
+  conversationId,
+  settings,
+  toggles,
+  spaceInfo,
+  set
+) => {
   // If conversation already exists, return it
   if (conversationId) {
     return conversationId;
@@ -271,18 +277,18 @@ const callAIAPI = async (
           const updated = [...state.messages];
           const lastMsgIndex = updated.length - 1;
           const lastMsg = { ...updated[lastMsgIndex] };
-          
-          if (typeof chunk === 'object' && chunk !== null) {
-            if (chunk.type === 'thought') {
+
+          if (typeof chunk === "object" && chunk !== null) {
+            if (chunk.type === "thought") {
               lastMsg.thought = (lastMsg.thought || "") + chunk.content;
-            } else if (chunk.type === 'text') {
+            } else if (chunk.type === "text") {
               lastMsg.content += chunk.content;
             }
           } else {
             // Fallback for string chunks
             lastMsg.content += chunk;
           }
-          
+
           updated[lastMsgIndex] = lastMsg;
           return { messages: updated };
         });
@@ -378,7 +384,10 @@ const finalizeMessage = async (
   const firstMessageText = firstUserText ?? fallbackFirstUserText;
 
   if (isFirstTurn) {
-    if (currentStore.spaceInfo?.isManualSpaceSelection && currentStore.spaceInfo?.selectedSpace) {
+    if (
+      currentStore.spaceInfo?.isManualSpaceSelection &&
+      currentStore.spaceInfo?.selectedSpace
+    ) {
       // Generate title only when space is manually selected
       const provider = getProvider(settings.apiProvider);
       const credentials = provider.getCredentials(settings);
@@ -448,19 +457,19 @@ const finalizeMessage = async (
   if (related && related.length > 0) {
     set((state) => {
       const updated = [...state.messages];
-    const lastMsgIndex = updated.length - 1;
-    const lastMsg = { ...updated[lastMsgIndex] };
-    lastMsg.related = related;
-    if (result.sources && result.sources.length > 0) {
-      lastMsg.sources = result.sources;
-    }
-    if (result.groundingSupports && result.groundingSupports.length > 0) {
-      lastMsg.groundingSupports = result.groundingSupports;
-    }
-    updated[lastMsgIndex] = lastMsg;
-    return { messages: updated };
-  });
-}
+      const lastMsgIndex = updated.length - 1;
+      const lastMsg = { ...updated[lastMsgIndex] };
+      lastMsg.related = related;
+      if (result.sources && result.sources.length > 0) {
+        lastMsg.sources = result.sources;
+      }
+      if (result.groundingSupports && result.groundingSupports.length > 0) {
+        lastMsg.groundingSupports = result.groundingSupports;
+      }
+      updated[lastMsgIndex] = lastMsg;
+      return { messages: updated };
+    });
+  }
 
   // Persist AI message in database
   if (currentStore.conversationId) {
@@ -493,8 +502,8 @@ const finalizeMessage = async (
     }
   }
 
-  // Update conversation in database
-  if (currentStore.conversationId && resolvedTitle) {
+  // Update conversation in database (only on first turn to set title/space)
+  if (isFirstTurn && currentStore.conversationId && resolvedTitle) {
     await updateConversation(currentStore.conversationId, {
       title: resolvedTitle,
       space_id: resolvedSpace ? resolvedSpace.id : null,
@@ -608,13 +617,23 @@ const useChatStore = create((set, get) => ({
     const userMessage = buildUserMessage(text, attachments);
 
     // Step 3: Handle Editing & History
-    const { newMessages, historyForSend } = handleEditingAndHistory(messages, editingInfo, userMessage);
+    const { newMessages, historyForSend } = handleEditingAndHistory(
+      messages,
+      editingInfo,
+      userMessage
+    );
     set({ messages: newMessages });
 
     // Step 4: Ensure Conversation Exists
     let convId;
     try {
-      convId = await ensureConversationExists(conversationId, settings, toggles, spaceInfo, set);
+      convId = await ensureConversationExists(
+        conversationId,
+        settings,
+        toggles,
+        spaceInfo,
+        set
+      );
     } catch (convError) {
       return; // Early return on conversation creation failure
     }
@@ -625,7 +644,12 @@ const useChatStore = create((set, get) => ({
     }
 
     // Step 6: Prepare AI Placeholder
-    const { conversationMessages, aiMessagePlaceholder } = prepareAIPlaceholder(historyForSend, userMessage, spaceInfo, set);
+    const { conversationMessages, aiMessagePlaceholder } = prepareAIPlaceholder(
+      historyForSend,
+      userMessage,
+      spaceInfo,
+      set
+    );
 
     // Step 7: Call API & Stream
     await callAIAPI(

@@ -1,83 +1,96 @@
-import React from 'react';
+import React from "react";
 
 const Logo = ({ size = 24, className = "" }) => {
-    return (
-        <svg
-            width={size}
-            height={size}
-            viewBox="0 0 24 24"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            className={className}
-        >
-            <path
-                d="M12.0002 1.5L16.5002 4.09808V9.29423L12.0002 11.8923L7.50019 9.29423V4.09808L12.0002 1.5Z"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-            />
-            <path
-                d="M12.0002 11.8923V22.2846"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-            />
-            <path
-                d="M12.0002 11.8923L3.00019 6.69617"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-            />
-            <path
-                d="M12.0002 11.8923L21.0002 6.69617"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-            />
-            <path
-                d="M7.50019 19.6865L3.00019 17.0885V11.8923"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-            />
-            <path
-                d="M16.5002 19.6865L21.0002 17.0885V11.8923"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-            />
-            {/* Adjusting to match the specific interlocking block look more closely */}
-            <path
-                d="M7.5 4.1L12 6.7L16.5 4.1"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-            />
-            <path
-                d="M16.5 19.7L12 17.1L7.5 19.7"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-            />
-        </svg>
-    );
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+    >
+      <path
+        d="M12.0002 1.5L16.5002 4.09808V9.29423L12.0002 11.8923L7.50019 9.29423V4.09808L12.0002 1.5Z"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M12.0002 11.8923V22.2846"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M12.0002 11.8923L3.00019 6.69617"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M12.0002 11.8923L21.0002 6.69617"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M7.50019 19.6865L3.00019 17.0885V11.8923"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M16.5002 19.6865L21.0002 17.0885V11.8923"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      {/* Adjusting to match the specific interlocking block look more closely */}
+      <path
+        d="M7.5 4.1L12 6.7L16.5 4.1"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M16.5 19.7L12 17.1L7.5 19.7"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
 };
 
 // Re-implementing with a cleaner geometric path that matches the "Clarity" logo (3 interlocking cubes)
 const QurioLogo = ({ size = 24, className = "" }) => {
-    return (
-        <svg version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
-            width="100%" viewBox="340 210 370 370" enable-background="new 340 210 370 370" xml:space="preserve">
-            <path fill="currentColor" opacity="1.000000" stroke="none"
-                d="
+  return (
+    <svg
+      version="1.1"
+      id="Layer_1"
+      xmlns="http://www.w3.org/2000/svg"
+      xmlns:xlink="http://www.w3.org/1999/xlink"
+      x="0px"
+      y="0px"
+      width="100%"
+      viewBox="340 210 370 370"
+      enable-background="new 340 210 370 370"
+      xml:space="preserve"
+    >
+      <path
+        fill="currentColor"
+        opacity="1.000000"
+        stroke="none"
+        d="
 M582.651001,217.967590 
 	C602.820435,219.715073 621.494934,224.843933 638.271973,235.554398 
 	C674.901184,258.938477 694.203918,292.439301 696.324158,335.878998 
@@ -133,9 +146,10 @@ M407.445526,341.876343
 	C373.204041,341.779388 371.440857,343.086304 371.421722,345.270996 
 	C371.345123,354.011810 371.390106,362.753662 371.390106,372.853790 
 	C382.213165,360.131256 393.384735,349.841980 407.445526,341.876343 
-z"/>
-        </svg>
-    );
+z"
+      />
+    </svg>
+  );
 };
 
-export default ClarityLogo;
+export default QurioLogo;

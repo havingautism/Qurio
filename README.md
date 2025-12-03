@@ -16,7 +16,7 @@ A React-based chat application with Supabase integration for data persistence.
 ## Setup
 
 ### Prerequisites
-- Node.js (v18+)
+- [Bun](https://bun.sh) v1.3+
 - A Supabase account ([sign up here](https://supabase.com))
 
 ### Installation
@@ -29,7 +29,7 @@ A React-based chat application with Supabase integration for data persistence.
 
 2. **Install dependencies**
    ```bash
-   npm install
+   bun install
    ```
 
 3. **Create your Supabase project**
@@ -58,7 +58,7 @@ A React-based chat application with Supabase integration for data persistence.
 
 Run the development server:
 ```bash
-npm run dev
+bun run dev
 ```
 
 Open [http://localhost:5173](http://localhost:5173) in your browser.

@@ -30,6 +30,12 @@ function App() {
   const [spaces, setSpaces] = useState([]);
   const [spacesLoading, setSpacesLoading] = useState(false);
 
+  // Sidebar pin state
+  const [isSidebarPinned, setIsSidebarPinned] = useState(() => {
+    const saved = localStorage.getItem("sidebar-pinned");
+    return saved === "true";
+  });
+
   useEffect(() => {
     const root = document.documentElement;
     const systemTheme = window.matchMedia("(prefers-color-scheme: dark)")
@@ -226,6 +232,7 @@ function App() {
           theme={theme}
           onToggleTheme={cycleTheme}
           activeConversationId={activeConversation?.id}
+          onPinChange={setIsSidebarPinned}
         />
         <MainContent
           currentView={currentView}
@@ -239,6 +246,7 @@ function App() {
           onNavigate={handleNavigate}
           onNavigateToSpace={handleNavigateToSpace}
           onCreateSpace={handleCreateSpace}
+          isSidebarPinned={isSidebarPinned}
         />
         <SettingsModal
           isOpen={isSettingsOpen}

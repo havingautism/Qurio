@@ -16,6 +16,7 @@ import {
   LayoutGrid,
   Brain,
 } from "lucide-react";
+import clsx from "clsx";
 import ChatInterface from "./ChatInterface";
 import SpaceView from "./SpaceView";
 import SpacesListView from "./SpacesListView";
@@ -34,6 +35,7 @@ const MainContent = ({
   onNavigate,
   onNavigateToSpace,
   onCreateSpace,
+  isSidebarPinned = false,
 }) => {
   const [activeView, setActiveView] = useState(currentView); // Local state to manage view transition
   const [initialMessage, setInitialMessage] = useState("");
@@ -256,6 +258,7 @@ const MainContent = ({
           initialToggles={initialToggles}
           initialSpaceSelection={initialSpaceSelection}
           activeConversation={activeConversation}
+          isSidebarPinned={isSidebarPinned}
         />
       ) : activeView === "space" && activeSpace ? (
         <SpaceView
@@ -270,6 +273,7 @@ const MainContent = ({
               prev.filter((c) => c.id !== deletedId)
             );
           }}
+          isSidebarPinned={isSidebarPinned}
         />
       ) : activeView === "spaces" ? (
         <SpacesListView
@@ -277,9 +281,15 @@ const MainContent = ({
           spacesLoading={spacesLoading}
           onCreateSpace={onCreateSpace}
           onNavigateToSpace={onNavigateToSpace}
+          isSidebarPinned={isSidebarPinned}
         />
       ) : (
-        <div className="flex flex-col items-center justify-center min-h-screen p-4 ml-16">
+        <div
+          className={clsx(
+            "flex flex-col items-center justify-center min-h-screen p-4 transition-all duration-300",
+            isSidebarPinned ? "ml-80" : "ml-16"
+          )}
+        >
           {/* Main Container */}
           <div className="w-full max-w-3xl flex flex-col items-center gap-8">
             {/* Title */}

@@ -16,8 +16,9 @@ import {
   X,
   LayoutGrid,
   Brain,
-  Sparkles
+  Sparkles,
 } from "lucide-react";
+import clsx from "clsx";
 
 import { loadSettings } from "../lib/settings";
 import { listMessages } from "../lib/conversationsService";
@@ -30,6 +31,7 @@ const ChatInterface = ({
   initialToggles = {},
   initialSpaceSelection = { mode: "auto", space: null },
   onTitleAndSpaceGenerated,
+  isSidebarPinned = false,
 }) => {
   const {
     messages,
@@ -662,7 +664,12 @@ const ChatInterface = ({
   ]);
 
   return (
-    <div className="flex-1 min-h-screen bg-background text-foreground relative pb-4 ml-16">
+    <div
+      className={clsx(
+        "flex-1 min-h-screen bg-background text-foreground relative pb-4 transition-all duration-300",
+        isSidebarPinned ? "ml-80" : "ml-16"
+      )}
+    >
       <div className="w-full max-w-6xl mx-auto flex flex-col xl:flex-row gap-6 xl:gap-8 items-start">
         <div className="flex-1 min-w-0 flex flex-col items-center">
           {/* Title Bar */}
@@ -693,10 +700,11 @@ const ChatInterface = ({
                   <div className="p-2 flex flex-col gap-1">
                     <button
                       onClick={handleClearSpaceSelection}
-                      className={`flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left ${!displaySpace
-                        ? "text-cyan-500"
-                        : "text-gray-700 dark:text-gray-200"
-                        }`}
+                      className={`flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left ${
+                        !displaySpace
+                          ? "text-cyan-500"
+                          : "text-gray-700 dark:text-gray-200"
+                      }`}
                     >
                       <span className="text-sm font-medium">None</span>
                       {!displaySpace && (
@@ -753,21 +761,24 @@ const ChatInterface = ({
               onEdit={handleEdit}
               onRegenerateAnswer={handleRegenerateAnswer}
             />
-
-            {/* Absolute positioned navigator */}
-            <div className="absolute top-0 left-full h-full">
-              <QuestionNavigator
-                items={questionNavItems}
-                onJump={jumpToMessage}
-                activeId={activeQuestionId}
-              />
-            </div>
           </div>
         </div>
+
+        {/* Right side navigator - now part of flex layout */}
+        <QuestionNavigator
+          items={questionNavItems}
+          onJump={jumpToMessage}
+          activeId={activeQuestionId}
+        />
       </div>
 
       {/* Sticky Input Area */}
-      <div className="fixed bottom-0 left-16 right-0 bg-gradient-to-t from-background via-background to-transparent pb-6 pt-10 px-4 flex justify-center z-10">
+      <div
+        className={clsx(
+          "fixed bottom-0 right-0 bg-gradient-to-t from-background via-background to-transparent pb-6 pt-10 px-4 flex justify-center z-10 transition-all duration-300",
+          isSidebarPinned ? "left-80" : "left-16"
+        )}
+      >
         <div className="w-full max-w-3xl relative group">
           <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/20 via-blue-500/15 to-purple-500/20 rounded-xl blur-2xl opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-500 pointer-events-none" />
           <div className="relative bg-gray-100 dark:bg-zinc-800 border border-transparent focus-within:border-gray-300 dark:focus-within:border-zinc-600 rounded-xl transition-all duration-300 p-3 shadow-sm hover:shadow-lg group-hover:shadow-lg focus-within:shadow-xl">
@@ -843,19 +854,21 @@ const ChatInterface = ({
                 />
                 <button
                   onClick={handleFileUpload}
-                  className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${attachments.length > 0
-                    ? "text-cyan-500"
-                    : "text-gray-500 dark:text-gray-400"
-                    }`}
+                  className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
+                    attachments.length > 0
+                      ? "text-cyan-500"
+                      : "text-gray-500 dark:text-gray-400"
+                  }`}
                 >
                   <Paperclip size={18} />
                 </button>
                 <button
                   onClick={() => setIsThinkingActive(!isThinkingActive)}
-                  className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${isThinkingActive
-                    ? "text-cyan-500 bg-gray-200 dark:bg-zinc-700"
-                    : "text-gray-500 dark:text-gray-400"
-                    }`}
+                  className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
+                    isThinkingActive
+                      ? "text-cyan-500 bg-gray-200 dark:bg-zinc-700"
+                      : "text-gray-500 dark:text-gray-400"
+                  }`}
                 >
                   <Brain size={18} />
                   <span>Think</span>
@@ -863,15 +876,15 @@ const ChatInterface = ({
                 <button
                   disabled={settings.apiProvider === "openai_compatibility"}
                   onClick={() => setIsSearchActive(!isSearchActive)}
-                  className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${isSearchActive
-                    ? "text-cyan-500 bg-gray-200 dark:bg-zinc-700"
-                    : "text-gray-500 dark:text-gray-400"
-                    }`}
+                  className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
+                    isSearchActive
+                      ? "text-cyan-500 bg-gray-200 dark:bg-zinc-700"
+                      : "text-gray-500 dark:text-gray-400"
+                  }`}
                 >
                   <Globe size={18} />
                   <span>Search</span>
                 </button>
-
               </div>
 
               <div className="flex gap-2">
@@ -892,7 +905,7 @@ const ChatInterface = ({
           </div>
         </div>
       </div>
-    </div >
+    </div>
   );
 };
 

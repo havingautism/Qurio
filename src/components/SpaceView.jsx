@@ -1,10 +1,14 @@
 import React, { useState } from "react";
 import { Layers, MoreHorizontal, Pencil, Trash2, LogOut } from "lucide-react";
-import DropdownMenu from './DropdownMenu';
-import ConfirmationModal from './ConfirmationModal';
-import { deleteConversation, removeConversationFromSpace } from '../lib/supabase';
-import { useToast } from '../contexts/ToastContext';
-import FancyLoader from './FancyLoader';
+import clsx from "clsx";
+import DropdownMenu from "./DropdownMenu";
+import ConfirmationModal from "./ConfirmationModal";
+import {
+  deleteConversation,
+  removeConversationFromSpace,
+} from "../lib/supabase";
+import { useToast } from "../contexts/ToastContext";
+import FancyLoader from "./FancyLoader";
 
 const SpaceView = ({
   space,
@@ -14,6 +18,7 @@ const SpaceView = ({
   onOpenConversation,
   activeConversationId,
   onConversationDeleted,
+  isSidebarPinned = false,
 }) => {
   const [openMenuId, setOpenMenuId] = useState(null);
   const [conversationToDelete, setConversationToDelete] = useState(null);
@@ -22,15 +27,17 @@ const SpaceView = ({
   const handleDeleteConversation = async () => {
     if (!conversationToDelete) return;
 
-    const { success, error } = await deleteConversation(conversationToDelete.id);
+    const { success, error } = await deleteConversation(
+      conversationToDelete.id
+    );
 
     if (success) {
-      toast.success('Conversation deleted successfully');
+      toast.success("Conversation deleted successfully");
       if (onConversationDeleted) {
         onConversationDeleted(conversationToDelete.id);
       }
       // Notify Sidebar to refresh its conversation list
-      window.dispatchEvent(new Event('conversations-changed'));
+      window.dispatchEvent(new Event("conversations-changed"));
     } else {
       console.error("Failed to delete conversation:", error);
       toast.error("Failed to delete conversation");
@@ -43,19 +50,24 @@ const SpaceView = ({
     const { data, error } = await removeConversationFromSpace(conversation.id);
 
     if (!error && data) {
-      toast.success('Conversation removed from space');
+      toast.success("Conversation removed from space");
       if (onConversationDeleted) {
         onConversationDeleted(conversation.id);
       }
       // Notify Sidebar to refresh its conversation list
-      window.dispatchEvent(new Event('conversations-changed'));
+      window.dispatchEvent(new Event("conversations-changed"));
     } else {
       console.error("Failed to remove conversation from space:", error);
       toast.error("Failed to remove conversation from space");
     }
   };
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen p-4 ml-16 bg-background text-foreground">
+    <div
+      className={clsx(
+        "flex flex-col items-center justify-center min-h-screen p-4 bg-background text-foreground transition-all duration-300",
+        isSidebarPinned ? "ml-80" : "ml-16"
+      )}
+    >
       <div className="w-full max-w-3xl flex flex-col gap-8">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -153,12 +165,12 @@ const SpaceView = ({
                       onClose={() => setOpenMenuId(null)}
                       items={[
                         {
-                          label: 'Remove from space',
+                          label: "Remove from space",
                           icon: <LogOut size={14} />,
                           onClick: () => handleRemoveFromSpace(conv),
                         },
                         {
-                          label: 'Delete conversation',
+                          label: "Delete conversation",
                           icon: <Trash2 size={14} />,
                           danger: true,
                           onClick: () => setConversationToDelete(conv),

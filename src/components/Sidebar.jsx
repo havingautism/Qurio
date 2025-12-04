@@ -21,6 +21,7 @@ import {
   Star,
   MoreHorizontal,
   Divide,
+  Pin,
 } from "lucide-react";
 import clsx from "clsx";
 import FiloLogo from "./Logo";
@@ -42,8 +43,13 @@ const Sidebar = ({
   theme,
   onToggleTheme,
   activeConversationId,
+  onPinChange,
 }) => {
   const [isHovered, setIsHovered] = useState(false);
+  const [isPinned, setIsPinned] = useState(() => {
+    const saved = localStorage.getItem("sidebar-pinned");
+    return saved === "true";
+  });
   const [activeTab, setActiveTab] = useState("library"); // 'library', 'discover', 'spaces'
   const [hoveredTab, setHoveredTab] = useState(null);
   const [conversations, setConversations] = useState([]);
@@ -54,6 +60,15 @@ const Sidebar = ({
   const toast = useToast();
 
   const displayTab = hoveredTab || activeTab;
+  const isExpanded = isPinned || isHovered;
+
+  // Persist pin state to localStorage and notify parent
+  useEffect(() => {
+    localStorage.setItem("sidebar-pinned", isPinned);
+    if (onPinChange) {
+      onPinChange(isPinned);
+    }
+  }, [isPinned, onPinChange]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -216,8 +231,10 @@ const Sidebar = ({
       className="fixed left-0 top-0 h-full z-50 flex"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => {
-        setIsHovered(false);
-        setHoveredTab(null);
+        if (!isPinned) {
+          setIsHovered(false);
+          setHoveredTab(null);
+        }
       }}
     >
       {/* 1. Fixed Icon Strip */}
@@ -303,7 +320,7 @@ const Sidebar = ({
       <div
         className={clsx(
           "h-full bg-sidebar  transition-all duration-300 ease-in-out overflow-hidden flex flex-col",
-          isHovered && displayTab !== "discover"
+          isExpanded && displayTab !== "discover"
             ? "w-64 opacity-100 translate-x-0 shadow-2xl"
             : "w-0 opacity-0 -translate-x-4"
         )}
@@ -322,9 +339,21 @@ const Sidebar = ({
                 ? "Spaces"
                 : ""}
             </h2>
-            {displayTab === "spaces" && (
-              <button className="p-1 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded text-gray-500"></button>
-            )}
+            <button
+              onClick={() => setIsPinned(!isPinned)}
+              className="p-1.5 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded transition-colors"
+              title={isPinned ? "Unpin sidebar" : "Pin sidebar"}
+            >
+              <Pin
+                size={16}
+                className={clsx(
+                  "transition-colors",
+                  isPinned
+                    ? "fill-current text-cyan-500"
+                    : "text-gray-500 dark:text-gray-400"
+                )}
+              />
+            </button>
           </div>
           <div className="h-px bg-gray-200 dark:bg-zinc-800 mb-2" />
           {/* CONVERSATION LIST (Library & Bookmarks) */}

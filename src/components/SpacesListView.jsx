@@ -1,5 +1,6 @@
 import React from "react";
 import { Plus, Clock } from "lucide-react";
+import clsx from "clsx";
 import FancyLoader from "./FancyLoader";
 
 const SpacesListView = ({
@@ -7,9 +8,15 @@ const SpacesListView = ({
   spacesLoading = false,
   onCreateSpace,
   onNavigateToSpace,
+  isSidebarPinned = false,
 }) => {
   return (
-    <div className="flex flex-col min-h-screen p-8 ml-16 bg-background text-foreground">
+    <div
+      className={clsx(
+        "flex flex-col min-h-screen p-8 bg-background text-foreground transition-all duration-300",
+        isSidebarPinned ? "ml-80" : "ml-16"
+      )}
+    >
       <div className="w-full max-w-6xl mx-auto">
         {/* Header */}
         <div className="flex items-center gap-3 mb-8">

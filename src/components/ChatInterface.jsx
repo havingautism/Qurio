@@ -706,13 +706,11 @@ const ChatInterface = ({
 
   return (
     <div
-      // className={clsx(
-      //   "flex-1 min-h-screen bg-background text-foreground relative pb-4 transition-all duration-300",
-      //   isSidebarPinned ? "ml-[256px]" : "ml-16"
-      // )}
-      className={
-        "flex-1 min-h-screen bg-background text-foreground relative pb-4 transition-all duration-300"
-      }
+      className={clsx(
+        "flex-1 min-h-screen bg-background text-foreground relative pb-4 transition-all duration-300",
+        isSidebarPinned ? "ml-80" : "ml-16"
+      )}
+
     >
       <div className="w-full max-w-3xl mx-auto relative">
         <div className="flex flex-col w-full">
@@ -821,14 +819,14 @@ const ChatInterface = ({
 
       {/* Sticky Input Area */}
       <div
-        // className={clsx(
-        //   "fixed bottom-0 right-0 bg-gradient-to-t from-background via-background to-transparent pb-6 pt-10 px-4 flex justify-center z-10 transition-all duration-300",
-        //   isSidebarPinned ? "left-80" : "left-16"
-        // )}
-        className={
-          "fixed bottom-0 left-0 right-0 bg-gradient-to-t from-background via-background to-transparent pb-6 pt-10 px-4 flex justify-center z-10 transition-all duration-300"
+        className={clsx(
+          "fixed bottom-0 right-0 bg-gradient-to-t from-background via-background to-transparent pb-6 pt-10 px-4 flex justify-center z-10 transition-all duration-300",
+          isSidebarPinned ? "left-80" : "left-16"
+        )}
+      // className={
+      //   "fixed bottom-0 left-0 right-0 bg-gradient-to-t from-background via-background to-transparent pb-6 pt-10 px-4 flex justify-center z-10 transition-all duration-300"
 
-        }
+      // }
       >
         <div className="w-full max-w-3xl relative group">
           <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/20 via-blue-500/15 to-purple-500/20 rounded-xl blur-2xl opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-500 pointer-events-none" />

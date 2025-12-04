@@ -286,6 +286,16 @@ const MainContent = ({
           onNavigateToSpace={onNavigateToSpace}
           isSidebarPinned={isSidebarPinned}
         />
+      ) : activeView === "bookmarks" ? (
+        <ConversationsListView
+          conversations={conversations.filter((c) => c.is_favorited)}
+          conversationsLoading={conversationsLoading}
+          onCreateConversation={() => onNavigate("home")}
+          onOpenConversation={onOpenConversation}
+          isSidebarPinned={isSidebarPinned}
+          title="Bookmarks"
+          showCreateButton={false}
+        />
       ) : activeView === "library" ? (
         <ConversationsListView
           conversations={conversations}

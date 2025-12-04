@@ -271,6 +271,10 @@ const Sidebar = ({
                 if (item.id === "spaces") {
                   onNavigate("spaces");
                 }
+                // Navigate to bookmarks list view when clicking Bookmarks icon
+                if (item.id === "bookmarks") {
+                  onNavigate("bookmarks");
+                }
               }}
               onMouseEnter={() => setHoveredTab(item.id)}
               className={clsx(

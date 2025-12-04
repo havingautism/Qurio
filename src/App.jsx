@@ -96,6 +96,11 @@ function App() {
       setActiveSpace(null);
       setActiveConversation(null);
     }
+    // Clear active states when navigating to bookmarks list view
+    if (view === "bookmarks") {
+      setActiveSpace(null);
+      setActiveConversation(null);
+    }
   };
 
   const handleNavigateToSpace = (space) => {

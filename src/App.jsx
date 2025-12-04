@@ -1,6 +1,6 @@
 ﻿import React, { useState, useEffect } from "react";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import Sidebar from "./components/Sidebar";
-import MainContent from "./components/MainContent";
 import SettingsModal from "./components/SettingsModal";
 import SpaceModal from "./components/SpaceModal";
 import { initSupabase } from "./lib/supabase";
@@ -10,21 +10,20 @@ import {
   updateSpace,
   deleteSpace,
 } from "./lib/spacesService";
-import { getConversation, listConversations } from "./lib/conversationsService";
+import { listConversations } from "./lib/conversationsService";
 import { ToastProvider } from "./contexts/ToastContext";
 
 function App() {
+  const location = useLocation();
+  const navigate = useNavigate();
+
   // Initialize theme based on system preference or default to dark
   const [theme, setTheme] = useState("system"); // 'light' | 'dark' | 'system'
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [currentView, setCurrentView] = useState("home"); // 'home' | 'chat'
 
   // Space Modal State
   const [isSpaceModalOpen, setIsSpaceModalOpen] = useState(false);
   const [editingSpace, setEditingSpace] = useState(null);
-  const [activeSpace, setActiveSpace] = useState(null);
-  const [activeConversation, setActiveConversation] = useState(null);
-  const [hasSyncedPath, setHasSyncedPath] = useState(false);
 
   // Spaces Data
   const [spaces, setSpaces] = useState([]);
@@ -39,6 +38,18 @@ function App() {
     const saved = localStorage.getItem("sidebar-pinned");
     return saved === "true";
   });
+
+  // Derive current view from location
+  const currentView = React.useMemo(() => {
+    const path = location.pathname;
+    if (path === "/" || path === "/new_chat") return "home";
+    if (path.startsWith("/conversation/")) return "chat";
+    if (path === "/spaces") return "spaces";
+    if (path.startsWith("/space/")) return "space";
+    if (path === "/library") return "library";
+    if (path === "/bookmarks") return "bookmarks";
+    return "home";
+  }, [location]);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -78,35 +89,33 @@ function App() {
   };
 
   const handleNavigate = (view) => {
-    setCurrentView(view);
-    if (view !== "space") {
-      setActiveSpace(null);
-    }
-    if (view === "home") {
-      setActiveConversation(null);
-      window.history.replaceState(null, "", "/new_chat");
-    }
-    // Clear active states when navigating to spaces list view
-    if (view === "spaces") {
-      setActiveSpace(null);
-      setActiveConversation(null);
-    }
-    // Clear active states when navigating to library list view
-    if (view === "library") {
-      setActiveSpace(null);
-      setActiveConversation(null);
-    }
-    // Clear active states when navigating to bookmarks list view
-    if (view === "bookmarks") {
-      setActiveSpace(null);
-      setActiveConversation(null);
+    switch (view) {
+      case "home":
+        navigate("/new_chat");
+        break;
+      case "spaces":
+        navigate("/spaces");
+        break;
+      case "library":
+        navigate("/library");
+        break;
+      case "bookmarks":
+        navigate("/bookmarks");
+        break;
+      case "chat":
+        navigate("/new_chat");
+        break;
+      default:
+        navigate("/");
     }
   };
 
   const handleNavigateToSpace = (space) => {
-    setActiveSpace(space);
-    setCurrentView("space");
-    setActiveConversation(null);
+    if (space) {
+      navigate(`/space/${space.id}`);
+    } else {
+      navigate("/spaces");
+    }
   };
 
   const handleCreateSpace = () => {
@@ -120,14 +129,10 @@ function App() {
   };
 
   const handleOpenConversation = (conversation) => {
-    setActiveConversation(conversation);
-    if (conversation?.space_id) {
-      const space = spaces.find((s) => s.id === conversation.space_id);
-      setActiveSpace(space || null);
-    }
-    setCurrentView("chat");
     if (conversation?.id) {
-      window.history.pushState(null, "", `/conversation/${conversation.id}`);
+      navigate(`/conversation/${conversation.id}`);
+    } else {
+      navigate("/new_chat");
     }
   };
 
@@ -210,9 +215,9 @@ function App() {
     const { error } = await deleteSpace(id);
     if (!error) {
       setSpaces((prev) => prev.filter((s) => s.id !== id));
-      if (activeSpace?.id === id) {
-        setActiveSpace(null);
-        setCurrentView("home");
+      // Navigate away if currently viewing the deleted space
+      if (location.pathname === `/space/${id}`) {
+        navigate("/spaces");
       }
     } else {
       console.error("Delete space failed:", error);
@@ -221,48 +226,7 @@ function App() {
     setEditingSpace(null);
   };
 
-  // Route sync on load / refresh
-  useEffect(() => {
-    const syncFromPath = async () => {
-      const path = window.location.pathname;
-      if (path.startsWith("/conversation/")) {
-        const convoId = path.split("/conversation/")[1];
-        if (convoId) {
-          const { data } = await getConversation(convoId);
-          if (data) {
-            setActiveConversation(data);
-            if (data.space_id) {
-              const space = spaces.find((s) => s.id === data.space_id);
-              setActiveSpace(space || null);
-            }
-            setCurrentView("chat");
-            setHasSyncedPath(true);
-            return;
-          }
-        }
-      }
-      // default
-      setActiveConversation(null);
-      setActiveSpace(null);
-      setCurrentView("home");
-      window.history.replaceState(null, "", "/new_chat");
-      setHasSyncedPath(true);
-    };
-
-    syncFromPath();
-
-    const onPop = () => syncFromPath();
-    window.addEventListener("popstate", onPop);
-    return () => window.removeEventListener("popstate", onPop);
-  }, [spaces]);
-
-  useEffect(() => {
-    // Ensure URL reflects new chat whenever we return home after initial path sync
-    if (!hasSyncedPath) return;
-    if (currentView === "home") {
-      window.history.replaceState(null, "", "/new_chat");
-    }
-  }, [currentView, hasSyncedPath]);
+  // Remove old route sync logic - React Router handles this automatically
 
   return (
     <ToastProvider>
@@ -278,25 +242,24 @@ function App() {
           spacesLoading={spacesLoading}
           theme={theme}
           onToggleTheme={cycleTheme}
-          activeConversationId={activeConversation?.id}
-          onPinChange={setIsSidebarPinned}
-        />
-        <MainContent
-          currentView={currentView}
-          activeSpace={activeSpace}
-          activeConversation={activeConversation}
-          spaces={spaces}
-          conversations={conversations}
-          conversationsLoading={conversationsLoading}
-          onChatStart={() => setCurrentView("chat")}
-          onEditSpace={handleEditSpace}
-          spacesLoading={spacesLoading}
-          onOpenConversation={handleOpenConversation}
-          onNavigate={handleNavigate}
-          onNavigateToSpace={handleNavigateToSpace}
-          onCreateSpace={handleCreateSpace}
           isSidebarPinned={isSidebarPinned}
         />
+        <div className="flex-1 relative">
+          <Outlet
+            context={{
+              spaces,
+              conversations,
+              conversationsLoading,
+              spacesLoading,
+              onNavigate: handleNavigate,
+              onNavigateToSpace: handleNavigateToSpace,
+              onOpenConversation: handleOpenConversation,
+              onCreateSpace: handleCreateSpace,
+              onEditSpace: handleEditSpace,
+              isSidebarPinned,
+            }}
+          />
+        </div>
         <SettingsModal
           isOpen={isSettingsOpen}
           onClose={() => setIsSettingsOpen(false)}

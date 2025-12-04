@@ -1,67 +1,86 @@
 # Perplexity Chat Startup
 
-A React-based chat application with Supabase integration for data persistence.
+一个基于 React 的聊天应用程序，集成了 Supabase 进行数据持久化。该应用使用 React Router 进行路由管理。
 
-## Features
-- **Chat Interface**: A modern, responsive chat UI
-- **Message Copy**: One-click copy functionality for AI responses including sources and related questions
-- **Supabase Integration**: Stores conversations and messages in Supabase
-- **Spaces**: Organize conversations into workspaces
-- **Settings**: Configurable API keys and Supabase credentials
-- **Dark/Light Theme**: System theme support with manual toggle options
-- **Conversation Management**: Bookmark, delete, and organize conversations
-- **Code Syntax Highlighting**: Beautiful code blocks with syntax highlighting
-- **Image Support**: Upload and display images in conversations
+## 特性
+- **聊天界面**: 现代化、响应式的聊天用户界面
+- **消息复制**: 一键复制 AI 回复内容，包括来源和相关问题
+- **Supabase 集成**: 在 Supabase 中存储对话和消息
+- **空间管理**: 将对话组织到不同的工作空间中
+- **设置配置**: 可配置的 API 密钥和 Supabase 凭据
+- **主题切换**: 支持系统主题，可手动切换明暗模式
+- **对话管理**: 收藏、删除和组织对话
+- **代码语法高亮**: 美观的代码块，支持语法高亮
+- **图片支持**: 在对话中上传和显示图片
+- **React Router**: 使用 React Router v7 进行客户端路由管理，支持：
+  - 声明式路由配置
+  - 代码分割和懒加载
+  - 路由级别的数据预加载
+  - 浏览器历史记录管理
 
-## Setup
+## 安装和设置
 
-### Prerequisites
+### 前置要求
 - [Bun](https://bun.sh) v1.3+
-- A Supabase account ([sign up here](https://supabase.com))
+- 一个 Supabase 账户 ([在此注册](https://supabase.com))
 
-### Installation
+### 安装步骤
 
-1. **Clone the repository**
+1. **克隆仓库**
    ```bash
-   git clone <your-repo-url>
+   git clone <你的仓库地址>
    cd perplexity_chat_startup
    ```
 
-2. **Install dependencies**
+2. **安装依赖**
    ```bash
    bun install
    ```
 
-3. **Create your Supabase project**
-   - Go to [supabase.com](https://supabase.com)
-   - Create a new project
-   - Wait for the project to finish setting up
+   这将安装包括 React Router v7 在内的所有必要依赖。
 
-4. **Initialize the database**
-   - Open your Supabase Dashboard
-   - Go to **SQL Editor**
-   - Copy the contents of `supabase/schema.sql`
-   - Paste and click **Run**
+3. **创建 Supabase 项目**
+   - 访问 [supabase.com](https://supabase.com)
+   - 创建一个新项目
+   - 等待项目设置完成
 
-5. **Configure your credentials**
-   
-   **Option A: Environment Variables (Recommended)**
-   - Copy `.env.example` to `.env`
-   - Fill in your Supabase URL and Anon Key from your project settings
-   
-   **Option B: In-App Settings**
-   - Run the app and open Settings
-   - Enter your Supabase URL and Anon Key
-   - Click "Save Changes"
+4. **初始化数据库**
+   - 打开你的 Supabase Dashboard
+   - 进入 **SQL Editor**
+   - 复制 `supabase/schema.sql` 的内容
+   - 粘贴并点击 **Run**
 
-### Development
+5. **配置你的凭据**
 
-Run the development server:
+   **选项 A: 环境变量（推荐）**
+   - 复制 `.env.example` 为 `.env`
+   - 填写你的 Supabase URL 和 Anon Key（从项目设置中获取）
+
+   **选项 B: 应用内设置**
+   - 运行应用并打开设置
+   - 输入你的 Supabase URL 和 Anon Key
+   - 点击"保存更改"
+
+### 开发
+
+运行开发服务器：
 ```bash
 bun run dev
 ```
 
-Open [http://localhost:5173](http://localhost:5173) in your browser.
+在浏览器中打开 [http://localhost:5173](http://localhost:5173)。
+
+## 路由结构
+
+应用程序使用 React Router v7 实现以下路由结构：
+
+- `/` - 主页视图（新聊天）
+- `/new_chat` - 新建聊天页面
+- `/conversation/:conversationId` - 特定对话视图
+- `/spaces` - 空间列表视图
+- `/space/:spaceId` - 特定空间视图
+- `/library` - 对话库视图
+- `/bookmarks` - 收藏的对话视图
 
 ## Usage
 

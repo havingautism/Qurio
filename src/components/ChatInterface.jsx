@@ -1,4 +1,5 @@
 ﻿import React, { useState, useRef, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { useShallow } from "zustand/react/shallow";
 import useChatStore from "../lib/chatStore";
 import MessageList from "./MessageList";
@@ -33,6 +34,7 @@ const ChatInterface = ({
   onTitleAndSpaceGenerated,
   isSidebarPinned = false,
 }) => {
+  const navigate = useNavigate();
   const {
     messages,
     setMessages,
@@ -214,10 +216,10 @@ const ChatInterface = ({
       !activeConversation?.id &&
       !hasPushedConversation.current
     ) {
-      window.history.pushState(null, "", `/conversation/${conversationId}`);
+      navigate(`/conversation/${conversationId}`, { replace: true });
       hasPushedConversation.current = true;
     }
-  }, [conversationId, activeConversation]);
+  }, [conversationId, activeConversation, navigate]);
 
   useEffect(() => {
     if (

@@ -1,6 +1,7 @@
 import React from "react";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import App from "./App";
+import FancyLoader from "./components/FancyLoader";
 import { getConversation } from "./lib/conversationsService";
 import { listSpaces } from "./lib/spacesService";
 import { initSupabase } from "./lib/supabase";
@@ -50,7 +51,11 @@ const router = createBrowserRouter([
       {
         index: true,
         element: (
-          <React.Suspense fallback={<div>Loading...</div>}>
+          <React.Suspense fallback={
+            <div className="flex min-h-screen bg-background text-foreground font-sans items-center justify-center">
+              <FancyLoader />
+            </div>
+          }>
             <HomeView />
           </React.Suspense>
         ),
@@ -58,7 +63,11 @@ const router = createBrowserRouter([
       {
         path: "new_chat",
         element: (
-          <React.Suspense fallback={<div>Loading...</div>}>
+          <React.Suspense fallback={
+            <div className="flex min-h-screen bg-background text-foreground font-sans items-center justify-center">
+              <FancyLoader />
+            </div>
+          }>
             <HomeView />
           </React.Suspense>
         ),
@@ -66,7 +75,11 @@ const router = createBrowserRouter([
       {
         path: "conversation/:conversationId",
         element: (
-          <React.Suspense fallback={<div>Loading...</div>}>
+          <React.Suspense fallback={
+            <div className="flex min-h-screen bg-background text-foreground font-sans items-center justify-center">
+              <FancyLoader />
+            </div>
+          }>
             <ConversationView />
           </React.Suspense>
         ),
@@ -75,7 +88,11 @@ const router = createBrowserRouter([
       {
         path: "spaces",
         element: (
-          <React.Suspense fallback={<div>Loading...</div>}>
+          <React.Suspense fallback={
+            <div className="flex min-h-screen bg-background text-foreground font-sans items-center justify-center">
+              <FancyLoader />
+            </div>
+          }>
             <SpacesView />
           </React.Suspense>
         ),
@@ -84,7 +101,11 @@ const router = createBrowserRouter([
       {
         path: "space/:spaceId",
         element: (
-          <React.Suspense fallback={<div>Loading...</div>}>
+          <React.Suspense fallback={
+            <div className="flex min-h-screen bg-background text-foreground font-sans items-center justify-center">
+              <FancyLoader />
+            </div>
+          }>
             <SpaceView />
           </React.Suspense>
         ),
@@ -93,7 +114,11 @@ const router = createBrowserRouter([
       {
         path: "library",
         element: (
-          <React.Suspense fallback={<div>Loading...</div>}>
+          <React.Suspense fallback={
+            <div className="flex min-h-screen bg-background text-foreground font-sans items-center justify-center">
+              <FancyLoader />
+            </div>
+          }>
             <LibraryView />
           </React.Suspense>
         ),
@@ -101,7 +126,11 @@ const router = createBrowserRouter([
       {
         path: "bookmarks",
         element: (
-          <React.Suspense fallback={<div>Loading...</div>}>
+          <React.Suspense fallback={
+            <div className="flex min-h-screen bg-background text-foreground font-sans items-center justify-center">
+              <FancyLoader />
+            </div>
+          }>
             <BookmarksView />
           </React.Suspense>
         ),

@@ -10,7 +10,7 @@ import {
   updateSpace,
   deleteSpace,
 } from "./lib/spacesService";
-import { getConversation } from "./lib/conversationsService";
+import { getConversation, listConversations } from "./lib/conversationsService";
 import { ToastProvider } from "./contexts/ToastContext";
 
 function App() {
@@ -28,6 +28,10 @@ function App() {
 
   // Spaces Data
   const [spaces, setSpaces] = useState([]);
+
+  // Conversations Data
+  const [conversations, setConversations] = useState([]);
+  const [conversationsLoading, setConversationsLoading] = useState(false);
   const [spacesLoading, setSpacesLoading] = useState(false);
 
   // Sidebar pin state
@@ -87,6 +91,11 @@ function App() {
       setActiveSpace(null);
       setActiveConversation(null);
     }
+    // Clear active states when navigating to library list view
+    if (view === "library") {
+      setActiveSpace(null);
+      setActiveConversation(null);
+    }
   };
 
   const handleNavigateToSpace = (space) => {
@@ -136,6 +145,39 @@ function App() {
       }
     };
     load();
+  }, []);
+
+  // Load conversations from Supabase on mount
+  useEffect(() => {
+    const loadConversations = async () => {
+      setConversationsLoading(true);
+      try {
+        const { data, error } = await listConversations();
+        if (!error && data) {
+          setConversations(data);
+        } else {
+          console.error("Failed to fetch conversations:", error);
+        }
+      } catch (err) {
+        console.error("Unexpected error fetching conversations:", err);
+      } finally {
+        setConversationsLoading(false);
+      }
+    };
+    loadConversations();
+
+    // Listen for conversation changes
+    const handleConversationsChanged = () => loadConversations();
+    window.addEventListener(
+      "conversations-changed",
+      handleConversationsChanged
+    );
+    return () => {
+      window.removeEventListener(
+        "conversations-changed",
+        handleConversationsChanged
+      );
+    };
   }, []);
 
   const handleSaveSpace = async (payload) => {
@@ -239,6 +281,8 @@ function App() {
           activeSpace={activeSpace}
           activeConversation={activeConversation}
           spaces={spaces}
+          conversations={conversations}
+          conversationsLoading={conversationsLoading}
           onChatStart={() => setCurrentView("chat")}
           onEditSpace={handleEditSpace}
           spacesLoading={spacesLoading}

@@ -20,6 +20,7 @@ import clsx from "clsx";
 import ChatInterface from "./ChatInterface";
 import SpaceView from "./SpaceView";
 import SpacesListView from "./SpacesListView";
+import ConversationsListView from "./ConversationsListView";
 import { loadSettings } from "../lib/settings";
 import { listConversationsBySpace } from "../lib/conversationsService";
 
@@ -28,6 +29,8 @@ const MainContent = ({
   activeSpace,
   activeConversation,
   spaces,
+  conversations = [],
+  conversationsLoading = false,
   spacesLoading = false,
   onChatStart,
   onEditSpace,
@@ -281,6 +284,14 @@ const MainContent = ({
           spacesLoading={spacesLoading}
           onCreateSpace={onCreateSpace}
           onNavigateToSpace={onNavigateToSpace}
+          isSidebarPinned={isSidebarPinned}
+        />
+      ) : activeView === "library" ? (
+        <ConversationsListView
+          conversations={conversations}
+          conversationsLoading={conversationsLoading}
+          onCreateConversation={() => onNavigate("home")}
+          onOpenConversation={onOpenConversation}
           isSidebarPinned={isSidebarPinned}
         />
       ) : (

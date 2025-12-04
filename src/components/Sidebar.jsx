@@ -263,6 +263,10 @@ const Sidebar = ({
               key={item.id}
               onClick={() => {
                 setActiveTab(item.id);
+                // Navigate to library list view when clicking Library icon
+                if (item.id === "library") {
+                  onNavigate("library");
+                }
                 // Navigate to spaces list view when clicking Spaces icon
                 if (item.id === "spaces") {
                   onNavigate("spaces");

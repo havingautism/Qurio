@@ -48,7 +48,7 @@ export const listConversationsBySpace = async (spaceId, limit = 50) => {
     return { data: [], error: new Error("Supabase not configured") };
   const { data, error } = await supabase
     .from(table)
-    .select("id,title,created_at,space_id")
+    .select("id,title,created_at,space_id,is_favorited")
     .eq("space_id", spaceId)
     .order("created_at", { ascending: false })
     .limit(limit);

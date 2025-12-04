@@ -1,5 +1,12 @@
 import React, { useState } from "react";
-import { Layers, MoreHorizontal, Pencil, Trash2, LogOut } from "lucide-react";
+import {
+  Layers,
+  MoreHorizontal,
+  Pencil,
+  Trash2,
+  LogOut,
+  Bookmark,
+} from "lucide-react";
 import clsx from "clsx";
 import DropdownMenu from "./DropdownMenu";
 import ConfirmationModal from "./ConfirmationModal";
@@ -138,8 +145,14 @@ const SpaceView = ({
                                         <span className="text-xs font-bold">{conv.title?.[0]?.toUpperCase() || "T"}</span>
                                     </div> */}
                   <div className="flex-1">
-                    <h3 className="font-medium text-gray-900 dark:text-gray-100 group-hover:text-cyan-500 transition-colors">
+                    <h3 className="font-medium text-gray-900 dark:text-gray-100 group-hover:text-cyan-500 transition-colors flex items-center gap-2">
                       {conv.title || "Untitled"}
+                      {conv.is_favorited && (
+                        <Bookmark
+                          size={14}
+                          className="text-yellow-500 fill-current"
+                        />
+                      )}
                     </h3>
                     {/* <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2 mt-1">
                                             {conv.description || "Conversation in this space."}

@@ -1,9 +1,9 @@
 import React from "react";
-import { useOutletContext } from "react-router-dom";
 import MainContent from "../components/MainContent";
+import { useAppContext } from "../App";
 
 const HomeView = () => {
-  const context = useOutletContext();
+  const context = useAppContext();
 
   return <MainContent currentView="home" {...context} />;
 };

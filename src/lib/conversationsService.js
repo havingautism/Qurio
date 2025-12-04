@@ -10,7 +10,7 @@ export const listConversations = async (limit = 50) => {
   const { data, error } = await supabase
     .from(table)
     .select(
-      "id,title,created_at,space_id,api_provider,is_search_enabled,is_thinking_enabled,is_favorited"
+      "id,title,created_at,space_id,api_provider,is_favorited"
     )
     .order("created_at", { ascending: false })
     .limit(limit);
@@ -24,7 +24,7 @@ export const getConversation = async (id) => {
     return { data: null, error: new Error("Supabase not configured") };
   const { data, error } = await supabase
     .from(table)
-    .select("*")
+    .select("id,title,created_at,space_id,api_provider,is_favorited")
     .eq("id", id)
     .single();
   return { data, error };

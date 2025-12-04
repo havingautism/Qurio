@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from "react";
-import { useParams, useOutletContext } from "react-router-dom";
 import MainContent from "../components/MainContent";
 import FancyLoader from "../components/FancyLoader";
+import { conversationRoute } from "../router";
 import { getConversation } from "../lib/conversationsService";
+import { useAppContext } from "../App";
 
 const ConversationView = () => {
-  const { conversationId } = useParams();
-  const context = useOutletContext();
+  const { conversationId } = conversationRoute.useParams();
+  const context = useAppContext();
   const [conversation, setConversation] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [prevConversationId, setPrevConversationId] = useState(conversationId);

@@ -10,31 +10,51 @@ import * as gemini from './gemini';
 /**
  * Default message parser (handles <thought> tags)
  */
+const extractText = (value) => {
+  if (typeof value === "string") return value;
+  if (Array.isArray(value)) {
+    return value
+      .map((part) => {
+        if (typeof part === "string") return part;
+        if (part?.type === "text" && part.text) return part.text;
+        if (part?.text) return part.text;
+        return "";
+      })
+      .join("");
+  }
+  if (value && typeof value === "object" && Array.isArray(value.parts)) {
+    return value.parts
+      .map((p) => (typeof p === "string" ? p : p?.text || ""))
+      .join("");
+  }
+  return value ? String(value) : "";
+};
+
 const defaultParseMessage = (input) => {
-  // Handle message object input (structured thought)
-  if (typeof input === 'object' && input !== null && input.thought) {
-    const content =
-      typeof input.content === 'string'
-        ? input.content.replace(/<thought>[\s\S]*?(?:<\/thought>|$)/, '').trim()
-        : input.content;
+  const hasThoughtField =
+    input && typeof input === "object" && Object.prototype.hasOwnProperty.call(input, "thought");
+
+  if (hasThoughtField) {
+    const thoughtText = extractText(input.thought);
+    const contentText = extractText(input.content || "");
     return {
-      thought: input.thought,
-      content
+      thought: thoughtText || null,
+      content: contentText.replace(/<thought>[\s\S]*?(?:<\/thought>|$)/, "").trim(),
     };
   }
 
-  // Handle string input (or object without thought property, treating as content string if possible)
-  const content = typeof input === 'string' ? input : (input.content || "");
+  const rawContent =
+    typeof input === "string" ? input : extractText(input?.content ?? input);
 
-  if (typeof content !== 'string') return { content, thought: null };
-  const thoughtMatch = /<thought>([\s\S]*?)(?:<\/thought>|$)/.exec(content);
+  const thoughtMatch = /<thought>([\s\S]*?)(?:<\/thought>|$)/.exec(rawContent);
   if (thoughtMatch) {
     return {
       thought: thoughtMatch[1],
-      content: content.replace(/<thought>[\s\S]*?(?:<\/thought>|$)/, '').trim()
+      content: rawContent.replace(/<thought>[\s\S]*?(?:<\/thought>|$)/, "").trim(),
     };
   }
-  return { content, thought: null };
+
+  return { content: rawContent, thought: null };
 };
 
 export const PROVIDERS = {

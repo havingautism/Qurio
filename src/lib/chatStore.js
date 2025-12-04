@@ -130,8 +130,6 @@ const ensureConversationExists = async (
         : null,
     title: "New Conversation",
     api_provider: settings.apiProvider,
-    is_search_enabled: toggles.search,
-    is_thinking_enabled: toggles.thinking,
   };
 
   const { data, error } = await createConversation(creationPayload);
@@ -203,7 +201,13 @@ const persistUserMessage = async (convId, editingInfo, content, set) => {
  * @param {Function} set - Zustand set function
  * @returns {Object} Contains conversationMessages (for API) and aiMessagePlaceholder (for UI)
  */
-const prepareAIPlaceholder = (historyForSend, userMessage, spaceInfo, set) => {
+const prepareAIPlaceholder = (
+  historyForSend,
+  userMessage,
+  spaceInfo,
+  set,
+  toggles
+) => {
   const { systemPrompt } = loadSettings();
 
   // Use space prompt if available; otherwise fall back to global system prompt
@@ -222,6 +226,7 @@ const prepareAIPlaceholder = (historyForSend, userMessage, spaceInfo, set) => {
     role: "ai",
     content: "",
     created_at: new Date().toISOString(),
+    thinkingEnabled: !!toggles?.thinking,
   };
 
   // Add placeholder to UI
@@ -285,7 +290,12 @@ const callAIAPI = async (
 
           if (typeof chunk === "object" && chunk !== null) {
             if (chunk.type === "thought") {
-              lastMsg.thought = (lastMsg.thought || "") + chunk.content;
+              if (lastMsg.thinkingEnabled) {
+                lastMsg.thought = (lastMsg.thought || "") + chunk.content;
+              } else {
+                // When thinking is disabled, treat thought text as normal content so edits still render
+                lastMsg.content += chunk.content;
+              }
             } else if (chunk.type === "text") {
               lastMsg.content += chunk.content;
             }
@@ -366,6 +376,26 @@ const finalizeMessage = async (
   isFirstTurnOverride,
   firstUserText
 ) => {
+  const normalizeContent = (content) => {
+    if (typeof content === "string") return content;
+    if (Array.isArray(content)) {
+      return content
+        .map((part) => {
+          if (typeof part === "string") return part;
+          if (part?.type === "text" && part.text) return part.text;
+          if (part?.text) return part.text;
+          return "";
+        })
+        .join("");
+    }
+    if (content && typeof content === "object" && Array.isArray(content.parts)) {
+      return content.parts
+        .map((p) => (typeof p === "string" ? p : p?.text || ""))
+        .join("");
+    }
+    return content ? String(content) : "";
+  };
+
   // Replace streamed placeholder with finalized content (e.g., with citations/grounding)
   if (result?.content) {
     set((state) => {
@@ -374,7 +404,7 @@ const finalizeMessage = async (
       if (lastMsgIndex >= 0 && updated[lastMsgIndex].role === "ai") {
         updated[lastMsgIndex] = {
           ...updated[lastMsgIndex],
-          content: result.content,
+          content: normalizeContent(result.content),
           ...(result.toolCalls ? { tool_calls: result.toolCalls } : {}),
         };
       }
@@ -694,7 +724,8 @@ const useChatStore = create((set, get) => ({
       historyForSend,
       userMessage,
       spaceInfo,
-      set
+      set,
+      toggles
     );
 
     // Step 7: Call API & Stream

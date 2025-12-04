@@ -1,12 +1,12 @@
 import React from "react";
-import { createBrowserRouter, RouterProvider } from "react-router-dom";
+import {
+  createRootRoute,
+  createRoute,
+  createRouter,
+} from "@tanstack/react-router";
 import App from "./App";
 import FancyLoader from "./components/FancyLoader";
-import { getConversation } from "./lib/conversationsService";
-import { listSpaces } from "./lib/spacesService";
-import { initSupabase } from "./lib/supabase";
 
-// Lazy load components for better performance
 const HomeView = React.lazy(() => import("./views/HomeView"));
 const ConversationView = React.lazy(() => import("./views/ConversationView"));
 const SpacesView = React.lazy(() => import("./views/SpacesView"));
@@ -14,130 +14,105 @@ const SpaceView = React.lazy(() => import("./views/SpaceView"));
 const LibraryView = React.lazy(() => import("./views/LibraryView"));
 const BookmarksView = React.lazy(() => import("./views/BookmarksView"));
 
-// Route loaders for data fetching
-const conversationLoader = async ({ params }) => {
-  try {
-    initSupabase();
-    const { data } = await getConversation(params.conversationId);
-    if (!data) {
-      throw new Response("Conversation not found", { status: 404 });
+const SuspensePage = ({ children }) => (
+  <React.Suspense
+    fallback={
+      <div className="flex min-h-screen bg-background text-foreground font-sans items-center justify-center">
+        <FancyLoader />
+      </div>
     }
-    return { conversation: data };
-  } catch (error) {
-    console.error("Failed to load conversation:", error);
-    throw new Response("Failed to load conversation", { status: 500 });
-  }
-};
+  >
+    {children}
+  </React.Suspense>
+);
 
-const spacesLoader = async () => {
-  try {
-    initSupabase();
-    const { data, error } = await listSpaces();
-    if (error) {
-      throw new Response("Failed to load spaces", { status: 500 });
-    }
-    return { spaces: data || [] };
-  } catch (error) {
-    console.error("Failed to load spaces:", error);
-    throw new Response("Failed to load spaces", { status: 500 });
-  }
-};
+export const rootRoute = createRootRoute({
+  component: App,
+  notFoundComponent: () => <div>Something went wrong!</div>,
+});
 
-const router = createBrowserRouter([
-  {
-    path: "/",
-    element: <App />,
-    children: [
-      {
-        index: true,
-        element: (
-          <React.Suspense fallback={
-            <div className="flex min-h-screen bg-background text-foreground font-sans items-center justify-center">
-              <FancyLoader />
-            </div>
-          }>
-            <HomeView />
-          </React.Suspense>
-        ),
-      },
-      {
-        path: "new_chat",
-        element: (
-          <React.Suspense fallback={
-            <div className="flex min-h-screen bg-background text-foreground font-sans items-center justify-center">
-              <FancyLoader />
-            </div>
-          }>
-            <HomeView />
-          </React.Suspense>
-        ),
-      },
-      {
-        path: "conversation/:conversationId",
-        element: (
-          <React.Suspense fallback={
-            <div className="flex min-h-screen bg-background text-foreground font-sans items-center justify-center">
-              <FancyLoader />
-            </div>
-          }>
-            <ConversationView />
-          </React.Suspense>
-        ),
-        loader: conversationLoader,
-      },
-      {
-        path: "spaces",
-        element: (
-          <React.Suspense fallback={
-            <div className="flex min-h-screen bg-background text-foreground font-sans items-center justify-center">
-              <FancyLoader />
-            </div>
-          }>
-            <SpacesView />
-          </React.Suspense>
-        ),
-        loader: spacesLoader,
-      },
-      {
-        path: "space/:spaceId",
-        element: (
-          <React.Suspense fallback={
-            <div className="flex min-h-screen bg-background text-foreground font-sans items-center justify-center">
-              <FancyLoader />
-            </div>
-          }>
-            <SpaceView />
-          </React.Suspense>
-        ),
-        loader: spacesLoader,
-      },
-      {
-        path: "library",
-        element: (
-          <React.Suspense fallback={
-            <div className="flex min-h-screen bg-background text-foreground font-sans items-center justify-center">
-              <FancyLoader />
-            </div>
-          }>
-            <LibraryView />
-          </React.Suspense>
-        ),
-      },
-      {
-        path: "bookmarks",
-        element: (
-          <React.Suspense fallback={
-            <div className="flex min-h-screen bg-background text-foreground font-sans items-center justify-center">
-              <FancyLoader />
-            </div>
-          }>
-            <BookmarksView />
-          </React.Suspense>
-        ),
-      },
-    ],
-    errorElement: <div>Something went wrong!</div>,
-  },
+export const homeRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/",
+  component: () => (
+    <SuspensePage>
+      <HomeView />
+    </SuspensePage>
+  ),
+});
+
+export const newChatRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "new_chat",
+  component: () => (
+    <SuspensePage>
+      <HomeView />
+    </SuspensePage>
+  ),
+});
+
+export const conversationRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "conversation/$conversationId",
+  component: () => (
+    <SuspensePage>
+      <ConversationView />
+    </SuspensePage>
+  ),
+});
+
+export const spacesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "spaces",
+  component: () => (
+    <SuspensePage>
+      <SpacesView />
+    </SuspensePage>
+  ),
+});
+
+export const spaceRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "space/$spaceId",
+  component: () => (
+    <SuspensePage>
+      <SpaceView />
+    </SuspensePage>
+  ),
+});
+
+export const libraryRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "library",
+  component: () => (
+    <SuspensePage>
+      <LibraryView />
+    </SuspensePage>
+  ),
+});
+
+export const bookmarksRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "bookmarks",
+  component: () => (
+    <SuspensePage>
+      <BookmarksView />
+    </SuspensePage>
+  ),
+});
+
+const routeTree = rootRoute.addChildren([
+  homeRoute,
+  newChatRoute,
+  conversationRoute,
+  spacesRoute,
+  spaceRoute,
+  libraryRoute,
+  bookmarksRoute,
 ]);
+
+const router = createRouter({
+  routeTree,
+});
 
 export default router;

@@ -1,12 +1,17 @@
 import React from "react";
-import { useLoaderData, useOutletContext } from "react-router-dom";
 import MainContent from "../components/MainContent";
+import { useAppContext } from "../App";
 
 const SpacesView = () => {
-  const { spaces } = useLoaderData();
-  const context = useOutletContext();
+  const context = useAppContext();
 
-  return <MainContent currentView="spaces" spaces={spaces} {...context} />;
+  return (
+    <MainContent
+      currentView="spaces"
+      spaces={context?.spaces || []}
+      {...context}
+    />
+  );
 };
 
 export default SpacesView;

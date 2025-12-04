@@ -191,8 +191,9 @@ const MessageBubble = ({
 
   // Parse content using provider-specific logic
   const provider = getProvider(apiProvider);
-  const { content: mainContent, thought: thoughtContent } =
-    provider.parseMessage(message);
+  const parsed = provider.parseMessage(message);
+  const thoughtContent = message.thinkingEnabled === false ? null : parsed.thought;
+  const mainContent = parsed.content;
   const contentWithCitations = formatContentWithSources(mainContent, message.sources);
 
   const CodeBlock = ({ inline, className, children, ...props }) => {

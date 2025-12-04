@@ -1,5 +1,5 @@
-﻿import React, { useState, useEffect } from "react";
-import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { Outlet, useLocation, useNavigate } from "@tanstack/react-router";
 import Sidebar from "./components/Sidebar";
 import SettingsModal from "./components/SettingsModal";
 import SpaceModal from "./components/SpaceModal";
@@ -12,6 +12,9 @@ import {
 } from "./lib/spacesService";
 import { listConversations } from "./lib/conversationsService";
 import { ToastProvider } from "./contexts/ToastContext";
+
+export const AppContext = React.createContext(null);
+export const useAppContext = () => React.useContext(AppContext);
 
 function App() {
   const location = useLocation();
@@ -97,30 +100,33 @@ function App() {
   const handleNavigate = (view) => {
     switch (view) {
       case "home":
-        navigate("/new_chat");
+        navigate({ to: "/new_chat" });
         break;
       case "spaces":
-        navigate("/spaces");
+        navigate({ to: "/spaces" });
         break;
       case "library":
-        navigate("/library");
+        navigate({ to: "/library" });
         break;
       case "bookmarks":
-        navigate("/bookmarks");
+        navigate({ to: "/bookmarks" });
         break;
       case "chat":
-        navigate("/new_chat");
+        navigate({ to: "/new_chat" });
         break;
       default:
-        navigate("/");
+        navigate({ to: "/" });
     }
   };
 
   const handleNavigateToSpace = (space) => {
     if (space) {
-      navigate(`/space/${space.id}`);
+      navigate({
+        to: "/space/$spaceId",
+        params: { spaceId: String(space.id) },
+      });
     } else {
-      navigate("/spaces");
+      navigate({ to: "/spaces" });
     }
   };
 
@@ -136,9 +142,12 @@ function App() {
 
   const handleOpenConversation = (conversation) => {
     if (conversation?.id) {
-      navigate(`/conversation/${conversation.id}`);
+      navigate({
+        to: "/conversation/$conversationId",
+        params: { conversationId: String(conversation.id) },
+      });
     } else {
-      navigate("/new_chat");
+      navigate({ to: "/new_chat" });
     }
   };
 
@@ -223,7 +232,7 @@ function App() {
       setSpaces((prev) => prev.filter((s) => s.id !== id));
       // Navigate away if currently viewing the deleted space
       if (location.pathname === `/space/${id}`) {
-        navigate("/spaces");
+        navigate({ to: "/spaces" });
       }
     } else {
       console.error("Delete space failed:", error);
@@ -253,12 +262,13 @@ function App() {
           activeConversationId={activeConversationId}
         />
         <div
-          className={`flex-1 relative transition-all duration-300 ${
-            isSidebarPinned ? "ml-18" : "ml-0"
-          }`}
+          // className={`flex-1 relative transition-all duration-300 ${
+          //   isSidebarPinned ? "ml-18" : "ml-0"
+          // }`}
+          className={`flex-1 relative transition-all duration-300 ml-0`}
         >
-          <Outlet
-            context={{
+          <AppContext.Provider
+            value={{
               spaces,
               conversations,
               conversationsLoading,
@@ -270,7 +280,9 @@ function App() {
               onEditSpace: handleEditSpace,
               isSidebarPinned,
             }}
-          />
+          >
+            <Outlet />
+          </AppContext.Provider>
         </div>
         <SettingsModal
           isOpen={isSettingsOpen}

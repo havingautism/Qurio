@@ -1,14 +1,22 @@
 import React from "react";
-import { useLoaderData, useParams, useOutletContext } from "react-router-dom";
 import MainContent from "../components/MainContent";
+import { spaceRoute } from "../router";
+import { useAppContext } from "../App";
 
 const SpaceView = () => {
-  const { spaces } = useLoaderData();
-  const { spaceId } = useParams();
-  const context = useOutletContext();
-  const activeSpace = spaces.find((s) => s.id === spaceId);
+  const { spaceId } = spaceRoute.useParams();
+  const context = useAppContext();
+  const activeSpace =
+    context?.spaces?.find((s) => String(s.id) === String(spaceId)) || null;
 
-  return <MainContent currentView="space" activeSpace={activeSpace} spaces={spaces} {...context} />;
+  return (
+    <MainContent
+      currentView="space"
+      activeSpace={activeSpace}
+      spaces={context?.spaces || []}
+      {...context}
+    />
+  );
 };
 
 export default SpaceView;

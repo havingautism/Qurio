@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import ChatInterface from "./ChatInterface";
 import SpaceView from "./SpaceView";
+import SpacesListView from "./SpacesListView";
 import { loadSettings } from "../lib/settings";
 import { listConversationsBySpace } from "../lib/conversationsService";
 
@@ -30,6 +31,9 @@ const MainContent = ({
   onChatStart,
   onEditSpace,
   onOpenConversation,
+  onNavigate,
+  onNavigateToSpace,
+  onCreateSpace,
 }) => {
   const [activeView, setActiveView] = useState(currentView); // Local state to manage view transition
   const [initialMessage, setInitialMessage] = useState("");
@@ -54,7 +58,8 @@ const MainContent = ({
   const homeSpaceSelectorRef = useRef(null);
   const [isHomeSpaceSelectorOpen, setIsHomeSpaceSelectorOpen] = useState(false);
   const [spaceConversations, setSpaceConversations] = useState([]);
-  const [spaceConversationsLoading, setSpaceConversationsLoading] = useState(false);
+  const [spaceConversationsLoading, setSpaceConversationsLoading] =
+    useState(false);
 
   // Sync prop change to local state if needed (e.g. sidebar navigation)
   useEffect(() => {
@@ -65,13 +70,18 @@ const MainContent = ({
   useEffect(() => {
     // Only clear initial states if we're switching to a DIFFERENT conversation
     // and we have initial states that were set for a new conversation
-    if (activeConversation &&
+    if (
+      activeConversation &&
       activeView === "chat" &&
       (initialMessage || initialAttachments.length > 0) &&
-      activeConversation.id !== undefined) {
+      activeConversation.id !== undefined
+    ) {
       // Check if this conversation already exists by having a proper created_at timestamp
       // This prevents clearing states for the just-created conversation
-      if (activeConversation.created_at && activeConversation.title !== "New Conversation") {
+      if (
+        activeConversation.created_at &&
+        activeConversation.title !== "New Conversation"
+      ) {
         // Clear initial states to prevent duplicate conversation creation
         setInitialMessage("");
         setInitialAttachments([]);
@@ -223,10 +233,16 @@ const MainContent = ({
 
     // Listen for conversation changes to refresh space list
     const handleConversationsChanged = () => fetchSpaceConversations();
-    window.addEventListener('conversations-changed', handleConversationsChanged);
+    window.addEventListener(
+      "conversations-changed",
+      handleConversationsChanged
+    );
 
     return () => {
-      window.removeEventListener('conversations-changed', handleConversationsChanged);
+      window.removeEventListener(
+        "conversations-changed",
+        handleConversationsChanged
+      );
     };
   }, [activeSpace]);
 
@@ -250,8 +266,17 @@ const MainContent = ({
           onOpenConversation={onOpenConversation}
           activeConversationId={activeConversation?.id}
           onConversationDeleted={(deletedId) => {
-            setSpaceConversations(prev => prev.filter(c => c.id !== deletedId));
+            setSpaceConversations((prev) =>
+              prev.filter((c) => c.id !== deletedId)
+            );
           }}
+        />
+      ) : activeView === "spaces" ? (
+        <SpacesListView
+          spaces={spaces}
+          spacesLoading={spacesLoading}
+          onCreateSpace={onCreateSpace}
+          onNavigateToSpace={onNavigateToSpace}
         />
       ) : (
         <div className="flex flex-col items-center justify-center min-h-screen p-4 ml-16">
@@ -317,10 +342,11 @@ const MainContent = ({
                     />
                     <button
                       onClick={handleHomeFileUpload}
-                      className={`p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${homeAttachments.length > 0
-                        ? "text-cyan-500"
-                        : "text-gray-500 dark:text-gray-400"
-                        }`}
+                      className={`p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
+                        homeAttachments.length > 0
+                          ? "text-cyan-500"
+                          : "text-gray-500 dark:text-gray-400"
+                      }`}
                     >
                       <Paperclip size={18} />
                     </button>
@@ -328,10 +354,11 @@ const MainContent = ({
                       onClick={() =>
                         setIsHomeThinkingActive(!isHomeThinkingActive)
                       }
-                      className={`p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${isHomeThinkingActive
-                        ? "text-cyan-500 bg-gray-100 dark:bg-zinc-800"
-                        : "text-gray-500 dark:text-gray-400"
-                        }`}
+                      className={`p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
+                        isHomeThinkingActive
+                          ? "text-cyan-500 bg-gray-100 dark:bg-zinc-800"
+                          : "text-gray-500 dark:text-gray-400"
+                      }`}
                     >
                       <Brain size={18} />
                       <span>Think</span>
@@ -340,10 +367,11 @@ const MainContent = ({
                       disabled={settings.apiProvider === "openai_compatibility"}
                       value={isHomeSearchActive}
                       onClick={() => setIsHomeSearchActive(!isHomeSearchActive)}
-                      className={`p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${isHomeSearchActive
-                        ? "text-cyan-500 bg-gray-100 dark:bg-zinc-800"
-                        : "text-gray-500 dark:text-gray-400"
-                        }`}
+                      className={`p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
+                        isHomeSearchActive
+                          ? "text-cyan-500 bg-gray-100 dark:bg-zinc-800"
+                          : "text-gray-500 dark:text-gray-400"
+                      }`}
                     >
                       <Globe size={18} />
                       <span>Search</span>
@@ -354,10 +382,11 @@ const MainContent = ({
                         onClick={() =>
                           setIsHomeSpaceSelectorOpen(!isHomeSpaceSelectorOpen)
                         }
-                        className={`px-3 py-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${isHomeSpaceAuto
-                          ? "text-gray-500 dark:text-gray-400"
-                          : "text-cyan-500 bg-gray-100 dark:bg-zinc-800"
-                          }`}
+                        className={`px-3 py-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
+                          isHomeSpaceAuto
+                            ? "text-gray-500 dark:text-gray-400"
+                            : "text-cyan-500 bg-gray-100 dark:bg-zinc-800"
+                        }`}
                       >
                         <LayoutGrid size={18} />
                         <span>
@@ -372,10 +401,11 @@ const MainContent = ({
                           <div className="p-2 flex flex-col gap-1">
                             <button
                               onClick={handleSelectHomeSpaceAuto}
-                              className={`flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left ${isHomeSpaceAuto
-                                ? "text-cyan-500"
-                                : "text-gray-700 dark:text-gray-200"
-                                }`}
+                              className={`flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left ${
+                                isHomeSpaceAuto
+                                  ? "text-cyan-500"
+                                  : "text-gray-700 dark:text-gray-200"
+                              }`}
                             >
                               <span className="text-sm font-medium">Auto</span>
                               {isHomeSpaceAuto && (

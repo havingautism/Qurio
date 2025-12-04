@@ -1,16 +1,50 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Plus, Search, Bookmark, LayoutGrid, Library, Globe, Map, BookOpen, Code, Film, Cpu, Wallet, ChevronRight, Settings, Sun, Moon, Laptop, Trash2, Star, MoreHorizontal, Divide } from 'lucide-react';
-import clsx from 'clsx';
-import FiloLogo from './Logo';
-import { listConversations, toggleFavorite } from '../lib/conversationsService';
-import { deleteConversation } from '../lib/supabase';
-import ConfirmationModal from './ConfirmationModal';
-import DropdownMenu from './DropdownMenu';
-import { useToast } from '../contexts/ToastContext';
+import React, { useEffect, useMemo, useState } from "react";
+import {
+  Plus,
+  Search,
+  Bookmark,
+  LayoutGrid,
+  Library,
+  Globe,
+  Map,
+  BookOpen,
+  Code,
+  Film,
+  Cpu,
+  Wallet,
+  ChevronRight,
+  Settings,
+  Sun,
+  Moon,
+  Laptop,
+  Trash2,
+  Star,
+  MoreHorizontal,
+  Divide,
+} from "lucide-react";
+import clsx from "clsx";
+import FiloLogo from "./Logo";
+import { listConversations, toggleFavorite } from "../lib/conversationsService";
+import { deleteConversation } from "../lib/supabase";
+import ConfirmationModal from "./ConfirmationModal";
+import DropdownMenu from "./DropdownMenu";
+import { useToast } from "../contexts/ToastContext";
 
-const Sidebar = ({ onOpenSettings, onNavigate, onNavigateToSpace, onCreateSpace, onEditSpace, onOpenConversation, spaces, spacesLoading = false, theme, onToggleTheme, activeConversationId }) => {
+const Sidebar = ({
+  onOpenSettings,
+  onNavigate,
+  onNavigateToSpace,
+  onCreateSpace,
+  onEditSpace,
+  onOpenConversation,
+  spaces,
+  spacesLoading = false,
+  theme,
+  onToggleTheme,
+  activeConversationId,
+}) => {
   const [isHovered, setIsHovered] = useState(false);
-  const [activeTab, setActiveTab] = useState('library'); // 'library', 'discover', 'spaces'
+  const [activeTab, setActiveTab] = useState("library"); // 'library', 'discover', 'spaces'
   const [hoveredTab, setHoveredTab] = useState(null);
   const [conversations, setConversations] = useState([]);
   const [isConversationsLoading, setIsConversationsLoading] = useState(false);
@@ -28,7 +62,7 @@ const Sidebar = ({ onOpenSettings, onNavigate, onNavigateToSpace, onCreateSpace,
       if (!error && data) {
         setConversations(data);
       } else {
-        console.error('Failed to load conversations:', error);
+        console.error("Failed to load conversations:", error);
       }
       setIsConversationsLoading(false);
     };
@@ -36,9 +70,15 @@ const Sidebar = ({ onOpenSettings, onNavigate, onNavigateToSpace, onCreateSpace,
     fetchData();
 
     const handleConversationsChanged = () => fetchData();
-    window.addEventListener('conversations-changed', handleConversationsChanged);
+    window.addEventListener(
+      "conversations-changed",
+      handleConversationsChanged
+    );
     return () => {
-      window.removeEventListener('conversations-changed', handleConversationsChanged);
+      window.removeEventListener(
+        "conversations-changed",
+        handleConversationsChanged
+      );
     };
   }, []);
 
@@ -51,18 +91,22 @@ const Sidebar = ({ onOpenSettings, onNavigate, onNavigateToSpace, onCreateSpace,
   }, [isHovered]);
 
   const navItems = [
-    { id: 'library', icon: Library, label: 'Library' },
-    { id: 'bookmarks', icon: Bookmark, label: 'Bookmarks' },
+    { id: "library", icon: Library, label: "Library" },
+    { id: "bookmarks", icon: Bookmark, label: "Bookmarks" },
     // { id: 'discover', icon: Compass, label: 'Discover' },
-    { id: 'spaces', icon: LayoutGrid, label: 'Spaces' },
+    { id: "spaces", icon: LayoutGrid, label: "Spaces" },
   ];
 
   const getThemeIcon = () => {
     switch (theme) {
-      case 'light': return <Sun size={20} />;
-      case 'dark': return <Moon size={20} />;
-      case 'system': return <Laptop size={20} />;
-      default: return <Laptop size={20} />;
+      case "light":
+        return <Sun size={20} />;
+      case "dark":
+        return <Moon size={20} />;
+      case "system":
+        return <Laptop size={20} />;
+      default:
+        return <Laptop size={20} />;
     }
   };
 
@@ -77,20 +121,22 @@ const Sidebar = ({ onOpenSettings, onNavigate, onNavigateToSpace, onCreateSpace,
     const groups = {
       Today: [],
       Yesterday: [],
-      'Previous 7 Days': [],
-      Past: []
+      "Previous 7 Days": [],
+      Past: [],
     };
 
     items.forEach((conv) => {
       const convDate = startOfDay(conv.created_at);
-      const diffDays = Math.floor((todayStart - convDate) / (1000 * 60 * 60 * 24));
+      const diffDays = Math.floor(
+        (todayStart - convDate) / (1000 * 60 * 60 * 24)
+      );
 
       if (diffDays === 0) {
         groups.Today.push(conv);
       } else if (diffDays === 1) {
         groups.Yesterday.push(conv);
       } else if (diffDays <= 7) {
-        groups['Previous 7 Days'].push(conv);
+        groups["Previous 7 Days"].push(conv);
       } else {
         groups.Past.push(conv);
       }
@@ -104,7 +150,9 @@ const Sidebar = ({ onOpenSettings, onNavigate, onNavigateToSpace, onCreateSpace,
   const handleDeleteConversation = async () => {
     if (!conversationToDelete) return;
 
-    const { success, error } = await deleteConversation(conversationToDelete.id);
+    const { success, error } = await deleteConversation(
+      conversationToDelete.id
+    );
 
     if (success) {
       // Refresh list
@@ -113,7 +161,7 @@ const Sidebar = ({ onOpenSettings, onNavigate, onNavigateToSpace, onCreateSpace,
 
       // Only navigate home if we deleted the currently active conversation
       if (conversationToDelete.id === activeConversationId) {
-        onNavigate('home');
+        onNavigate("home");
       }
     } else {
       console.error("Failed to delete conversation:", error);
@@ -126,9 +174,11 @@ const Sidebar = ({ onOpenSettings, onNavigate, onNavigateToSpace, onCreateSpace,
   const handleToggleFavorite = async (conversation) => {
     const newStatus = !conversation.is_favorited;
     // Optimistic update
-    setConversations(prev => prev.map(c =>
-      c.id === conversation.id ? { ...c, is_favorited: newStatus } : c
-    ));
+    setConversations((prev) =>
+      prev.map((c) =>
+        c.id === conversation.id ? { ...c, is_favorited: newStatus } : c
+      )
+    );
 
     const { error } = await toggleFavorite(conversation.id, newStatus);
 
@@ -136,16 +186,23 @@ const Sidebar = ({ onOpenSettings, onNavigate, onNavigateToSpace, onCreateSpace,
       console.error("Failed to toggle favorite:", error);
       toast.error("Failed to update favorite status");
       // Revert optimistic update
-      setConversations(prev => prev.map(c =>
-        c.id === conversation.id ? { ...c, is_favorited: !newStatus } : c
-      ));
+      setConversations((prev) =>
+        prev.map((c) =>
+          c.id === conversation.id ? { ...c, is_favorited: !newStatus } : c
+        )
+      );
     } else {
-      toast.success(newStatus ? "Added to bookmarks" : "Removed from bookmarks");
+      toast.success(
+        newStatus ? "Added to bookmarks" : "Removed from bookmarks"
+      );
     }
   };
 
   const filteredConversations = useMemo(
-    () => (displayTab === 'bookmarks' ? conversations.filter((c) => c.is_favorited) : conversations),
+    () =>
+      displayTab === "bookmarks"
+        ? conversations.filter((c) => c.is_favorited)
+        : conversations,
     [conversations, displayTab]
   );
 
@@ -165,7 +222,6 @@ const Sidebar = ({ onOpenSettings, onNavigate, onNavigateToSpace, onCreateSpace,
     >
       {/* 1. Fixed Icon Strip */}
       <div className="w-18 h-full bg-sidebar  flex flex-col items-center py-4 z-20 relative">
-
         {/* Logo */}
         <div className="mb-6">
           <div className="w-8 h-8 flex items-center justify-center text-gray-900 dark:text-white font-bold text-xl">
@@ -176,7 +232,7 @@ const Sidebar = ({ onOpenSettings, onNavigate, onNavigateToSpace, onCreateSpace,
         {/* New Thread Button (Icon Only) */}
         <div className="mb-6">
           <button
-            onClick={() => onNavigate('home')}
+            onClick={() => onNavigate("home")}
             className="w-10 h-10 flex items-center justify-center rounded-full bg-[#9c9d8a29] dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-transform duration-200 hover:scale-110 active:scale-95 cursor-pointer"
           >
             <Plus size={20} />
@@ -188,7 +244,13 @@ const Sidebar = ({ onOpenSettings, onNavigate, onNavigateToSpace, onCreateSpace,
           {navItems.map((item) => (
             <button
               key={item.id}
-              onClick={() => setActiveTab(item.id)}
+              onClick={() => {
+                setActiveTab(item.id);
+                // Navigate to spaces list view when clicking Spaces icon
+                if (item.id === "spaces") {
+                  onNavigate("spaces");
+                }
+              }}
               onMouseEnter={() => setHoveredTab(item.id)}
               className={clsx(
                 "flex flex-col items-center justify-center gap-1 py-2 mx-2 rounded-xl transition-all duration-200 cursor-pointer",
@@ -220,7 +282,7 @@ const Sidebar = ({ onOpenSettings, onNavigate, onNavigateToSpace, onCreateSpace,
           <button
             onClick={onToggleTheme}
             className="w-10 h-10 flex items-center justify-center rounded-full bg-[#9c9d8a29] dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-transform duration-200 hover:scale-110 active:scale-95 cursor-pointer"
-          //  title={`Current theme: ${theme}`}
+            //  title={`Current theme: ${theme}`}
           >
             {getThemeIcon()}
           </button>
@@ -241,35 +303,50 @@ const Sidebar = ({ onOpenSettings, onNavigate, onNavigateToSpace, onCreateSpace,
       <div
         className={clsx(
           "h-full bg-sidebar  transition-all duration-300 ease-in-out overflow-hidden flex flex-col",
-          isHovered && displayTab !== 'discover' ? "w-64 opacity-100 translate-x-0 shadow-2xl" : "w-0 opacity-0 -translate-x-4"
+          isHovered && displayTab !== "discover"
+            ? "w-64 opacity-100 translate-x-0 shadow-2xl"
+            : "w-0 opacity-0 -translate-x-4"
         )}
       >
-        <div className="p-2 min-w-[256px]"> {/* min-w ensures content doesn't squash during transition */}
-
+        <div className="p-2 min-w-[256px]">
+          {" "}
+          {/* min-w ensures content doesn't squash during transition */}
           {/* Header based on Tab */}
           <div className="p-2 flex items-center justify-between">
             <h2 className="font-semibold text-lg text-foreground">
-              {displayTab === 'library' ? 'Library' : displayTab === 'bookmarks' ? 'Bookmarks' : displayTab === 'spaces' ? 'Spaces' : ''}
+              {displayTab === "library"
+                ? "Library"
+                : displayTab === "bookmarks"
+                ? "Bookmarks"
+                : displayTab === "spaces"
+                ? "Spaces"
+                : ""}
             </h2>
-            {displayTab === 'spaces' && (
-              <button className="p-1 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded text-gray-500">
-              </button>
+            {displayTab === "spaces" && (
+              <button className="p-1 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded text-gray-500"></button>
             )}
-
           </div>
           <div className="h-px bg-gray-200 dark:bg-zinc-800 mb-2" />
           {/* CONVERSATION LIST (Library & Bookmarks) */}
-          {(displayTab === 'library' || displayTab === 'bookmarks') && (
+          {(displayTab === "library" || displayTab === "bookmarks") && (
             <div className="flex flex-col gap-2 overflow-y-auto h-[calc(100vh-100px)] pr-2 scrollbar-thin">
               {isConversationsLoading && (
-                <div className="text-xs text-gray-500 dark:text-gray-400 px-2 py-1">Loading conversations...</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400 px-2 py-1">
+                  Loading conversations...
+                </div>
               )}
               {!isConversationsLoading && conversations.length === 0 && (
-                <div className="text-xs text-gray-500 dark:text-gray-400 px-2 py-1">No conversations yet.</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400 px-2 py-1">
+                  No conversations yet.
+                </div>
               )}
-              {!isConversationsLoading && displayTab === 'bookmarks' && conversations.filter(c => c.is_favorited).length === 0 && (
-                <div className="text-xs text-gray-500 dark:text-gray-400 px-2 py-1">No bookmarked conversations.</div>
-              )}
+              {!isConversationsLoading &&
+                displayTab === "bookmarks" &&
+                conversations.filter((c) => c.is_favorited).length === 0 && (
+                  <div className="text-xs text-gray-500 dark:text-gray-400 px-2 py-1">
+                    No bookmarked conversations.
+                  </div>
+                )}
 
               {groupedConversations.map((section) => (
                 <div key={section.title} className="flex flex-col gap-1">
@@ -281,7 +358,9 @@ const Sidebar = ({ onOpenSettings, onNavigate, onNavigateToSpace, onCreateSpace,
                     return (
                       <div
                         key={conv.id}
-                        onClick={() => onOpenConversation && onOpenConversation(conv)}
+                        onClick={() =>
+                          onOpenConversation && onOpenConversation(conv)
+                        }
                         className={clsx(
                           "text-sm p-2 rounded cursor-pointer truncate transition-colors group relative",
                           isActive
@@ -293,15 +372,24 @@ const Sidebar = ({ onOpenSettings, onNavigate, onNavigateToSpace, onCreateSpace,
                         <div className="flex items-center justify-between w-full overflow-hidden">
                           <div className="flex flex-col overflow-hidden flex-1 min-w-0">
                             <div className="flex items-center gap-1">
-                              <span className="truncate font-medium">{conv.title}</span>
+                              <span className="truncate font-medium">
+                                {conv.title}
+                              </span>
                               {conv.is_favorited && (
-                                <Bookmark size={10} className=" flex-shrink-0" />
+                                <Bookmark
+                                  size={10}
+                                  className=" flex-shrink-0"
+                                />
                               )}
                             </div>
-                            <span className={clsx(
-                              "text-[10px]",
-                              isActive ? "text-cyan-600 dark:text-cyan-400" : "text-gray-400"
-                            )}>
+                            <span
+                              className={clsx(
+                                "text-[10px]",
+                                isActive
+                                  ? "text-cyan-600 dark:text-cyan-400"
+                                  : "text-gray-400"
+                              )}
+                            >
                               {new Date(conv.created_at).toLocaleDateString()}
                             </span>
                           </div>
@@ -315,8 +403,12 @@ const Sidebar = ({ onOpenSettings, onNavigate, onNavigateToSpace, onCreateSpace,
                               }}
                               className={clsx(
                                 "p-1.5 rounded-md hover:bg-gray-300 dark:hover:bg-zinc-700 transition-all",
-                                isActive ? "text-cyan-600 dark:text-cyan-400" : "text-gray-500 dark:text-gray-400",
-                                openMenuId === conv.id ? "opacity-100" : "opacity-100 md:opacity-0 md:group-hover:opacity-100"
+                                isActive
+                                  ? "text-cyan-600 dark:text-cyan-400"
+                                  : "text-gray-500 dark:text-gray-400",
+                                openMenuId === conv.id
+                                  ? "opacity-100"
+                                  : "opacity-100 md:opacity-0 md:group-hover:opacity-100"
                               )}
                             >
                               <MoreHorizontal size={14} />
@@ -330,9 +422,8 @@ const Sidebar = ({ onOpenSettings, onNavigate, onNavigateToSpace, onCreateSpace,
               ))}
             </div>
           )}
-
           {/* SPACES TAB CONTENT */}
-          {displayTab === 'spaces' && (
+          {displayTab === "spaces" && (
             <div className="flex flex-col gap-2">
               {/* Create New Space */}
               <button
@@ -349,10 +440,14 @@ const Sidebar = ({ onOpenSettings, onNavigate, onNavigateToSpace, onCreateSpace,
 
               {/* Spaces List */}
               {spacesLoading && (
-                <div className="text-xs text-gray-500 dark:text-gray-400 px-2 py-1">Loading spaces...</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400 px-2 py-1">
+                  Loading spaces...
+                </div>
               )}
               {!spacesLoading && spaces.length === 0 && (
-                <div className="text-xs text-gray-500 dark:text-gray-400 px-2 py-1">No spaces yet.</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400 px-2 py-1">
+                  No spaces yet.
+                </div>
               )}
               {spaces.map((space) => (
                 <div
@@ -364,7 +459,9 @@ const Sidebar = ({ onOpenSettings, onNavigate, onNavigateToSpace, onCreateSpace,
                     <div className="w-8 h-8 rounded bg-gray-100 dark:bg-zinc-800  flex items-center justify-center group-hover:border-gray-300 dark:group-hover:border-zinc-600 text-lg">
                       {space.emoji}
                     </div>
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{space.label}</span>
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      {space.label}
+                    </span>
                   </div>
 
                   {/* Edit Button (Visible on Hover) */}
@@ -381,7 +478,6 @@ const Sidebar = ({ onOpenSettings, onNavigate, onNavigateToSpace, onCreateSpace,
               ))}
             </div>
           )}
-
         </div>
       </div>
 
@@ -394,21 +490,26 @@ const Sidebar = ({ onOpenSettings, onNavigate, onNavigateToSpace, onCreateSpace,
           setMenuAnchorEl(null);
         }}
         items={(() => {
-          const conv = conversations.find(c => c.id === openMenuId);
+          const conv = conversations.find((c) => c.id === openMenuId);
           if (!conv) return [];
           return [
             {
               label: conv.is_favorited ? "Remove Bookmark" : "Add Bookmark",
-              icon: <Bookmark size={14} className={conv.is_favorited ? "fill-current" : ""} />,
+              icon: (
+                <Bookmark
+                  size={14}
+                  className={conv.is_favorited ? "fill-current" : ""}
+                />
+              ),
               onClick: () => handleToggleFavorite(conv),
-              className: conv.is_favorited ? "text-yellow-500" : ""
+              className: conv.is_favorited ? "text-yellow-500" : "",
             },
             {
               label: "Delete",
               icon: <Trash2 size={14} />,
               onClick: () => setConversationToDelete(conv),
-              danger: true
-            }
+              danger: true,
+            },
           ];
         })()}
       />

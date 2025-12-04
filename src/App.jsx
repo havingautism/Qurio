@@ -1,18 +1,23 @@
-﻿import React, { useState, useEffect } from 'react';
-import Sidebar from './components/Sidebar';
-import MainContent from './components/MainContent';
-import SettingsModal from './components/SettingsModal';
-import SpaceModal from './components/SpaceModal';
-import { initSupabase } from './lib/supabase';
-import { listSpaces, createSpace, updateSpace, deleteSpace } from './lib/spacesService';
-import { getConversation } from './lib/conversationsService';
-import { ToastProvider } from './contexts/ToastContext';
+﻿import React, { useState, useEffect } from "react";
+import Sidebar from "./components/Sidebar";
+import MainContent from "./components/MainContent";
+import SettingsModal from "./components/SettingsModal";
+import SpaceModal from "./components/SpaceModal";
+import { initSupabase } from "./lib/supabase";
+import {
+  listSpaces,
+  createSpace,
+  updateSpace,
+  deleteSpace,
+} from "./lib/spacesService";
+import { getConversation } from "./lib/conversationsService";
+import { ToastProvider } from "./contexts/ToastContext";
 
 function App() {
   // Initialize theme based on system preference or default to dark
-  const [theme, setTheme] = useState('system'); // 'light' | 'dark' | 'system'
+  const [theme, setTheme] = useState("system"); // 'light' | 'dark' | 'system'
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [currentView, setCurrentView] = useState('home'); // 'home' | 'chat'
+  const [currentView, setCurrentView] = useState("home"); // 'home' | 'chat'
 
   // Space Modal State
   const [isSpaceModalOpen, setIsSpaceModalOpen] = useState(false);
@@ -27,54 +32,62 @@ function App() {
 
   useEffect(() => {
     const root = document.documentElement;
-    const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    const systemTheme = window.matchMedia("(prefers-color-scheme: dark)")
+      .matches
+      ? "dark"
+      : "light";
 
     const applyTheme = (t) => {
-      if (t === 'dark' || (t === 'system' && systemTheme === 'dark')) {
-        root.classList.add('dark');
+      if (t === "dark" || (t === "system" && systemTheme === "dark")) {
+        root.classList.add("dark");
       } else {
-        root.classList.remove('dark');
+        root.classList.remove("dark");
       }
     };
 
     applyTheme(theme);
 
     // Listener for system theme changes if in system mode
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
     const handleChange = () => {
-      if (theme === 'system') {
-        applyTheme('system');
+      if (theme === "system") {
+        applyTheme("system");
       }
     };
 
-    mediaQuery.addEventListener('change', handleChange);
-    return () => mediaQuery.removeEventListener('change', handleChange);
+    mediaQuery.addEventListener("change", handleChange);
+    return () => mediaQuery.removeEventListener("change", handleChange);
   }, [theme]);
 
   const cycleTheme = () => {
-    setTheme(prev => {
-      if (prev === 'light') return 'dark';
-      if (prev === 'dark') return 'system';
-      return 'light';
+    setTheme((prev) => {
+      if (prev === "light") return "dark";
+      if (prev === "dark") return "system";
+      return "light";
     });
   };
 
   const handleNavigate = (view) => {
     setCurrentView(view);
-    if (view !== 'space') {
+    if (view !== "space") {
       setActiveSpace(null);
     }
-    if (view === 'home') {
+    if (view === "home") {
       setActiveConversation(null);
-      window.history.replaceState(null, '', '/new_chat');
+      window.history.replaceState(null, "", "/new_chat");
+    }
+    // Clear active states when navigating to spaces list view
+    if (view === "spaces") {
+      setActiveSpace(null);
+      setActiveConversation(null);
     }
   };
 
-const handleNavigateToSpace = (space) => {
-  setActiveSpace(space);
-  setCurrentView('space');
-  setActiveConversation(null);
-};
+  const handleNavigateToSpace = (space) => {
+    setActiveSpace(space);
+    setCurrentView("space");
+    setActiveConversation(null);
+  };
 
   const handleCreateSpace = () => {
     setEditingSpace(null);
@@ -86,17 +99,17 @@ const handleNavigateToSpace = (space) => {
     setIsSpaceModalOpen(true);
   };
 
-const handleOpenConversation = (conversation) => {
-  setActiveConversation(conversation);
-  if (conversation?.space_id) {
-    const space = spaces.find((s) => s.id === conversation.space_id);
-    setActiveSpace(space || null);
-  }
-  setCurrentView('chat');
-  if (conversation?.id) {
-    window.history.pushState(null, '', `/conversation/${conversation.id}`);
-  }
-};
+  const handleOpenConversation = (conversation) => {
+    setActiveConversation(conversation);
+    if (conversation?.space_id) {
+      const space = spaces.find((s) => s.id === conversation.space_id);
+      setActiveSpace(space || null);
+    }
+    setCurrentView("chat");
+    if (conversation?.id) {
+      window.history.pushState(null, "", `/conversation/${conversation.id}`);
+    }
+  };
 
   // Load spaces from Supabase on mount
   useEffect(() => {
@@ -108,10 +121,10 @@ const handleOpenConversation = (conversation) => {
         if (!error && data) {
           setSpaces(data);
         } else {
-          console.error('Failed to fetch spaces:', error);
+          console.error("Failed to fetch spaces:", error);
         }
       } catch (err) {
-        console.error('Unexpected error fetching spaces:', err);
+        console.error("Unexpected error fetching spaces:", err);
       } finally {
         setSpacesLoading(false);
       }
@@ -123,17 +136,17 @@ const handleOpenConversation = (conversation) => {
     if (editingSpace) {
       const { data, error } = await updateSpace(editingSpace.id, payload);
       if (!error && data) {
-        setSpaces(prev => prev.map(s => s.id === data.id ? data : s));
+        setSpaces((prev) => prev.map((s) => (s.id === data.id ? data : s)));
         if (activeSpace?.id === data.id) setActiveSpace(data);
       } else {
-        console.error('Update space failed:', error);
+        console.error("Update space failed:", error);
       }
     } else {
       const { data, error } = await createSpace(payload);
       if (!error && data) {
-        setSpaces(prev => [...prev, data]);
+        setSpaces((prev) => [...prev, data]);
       } else {
-        console.error('Create space failed:', error);
+        console.error("Create space failed:", error);
       }
     }
     setIsSpaceModalOpen(false);
@@ -143,13 +156,13 @@ const handleOpenConversation = (conversation) => {
   const handleDeleteSpace = async (id) => {
     const { error } = await deleteSpace(id);
     if (!error) {
-      setSpaces(prev => prev.filter(s => s.id !== id));
+      setSpaces((prev) => prev.filter((s) => s.id !== id));
       if (activeSpace?.id === id) {
         setActiveSpace(null);
-        setCurrentView('home');
+        setCurrentView("home");
       }
     } else {
-      console.error('Delete space failed:', error);
+      console.error("Delete space failed:", error);
     }
     setIsSpaceModalOpen(false);
     setEditingSpace(null);
@@ -159,8 +172,8 @@ const handleOpenConversation = (conversation) => {
   useEffect(() => {
     const syncFromPath = async () => {
       const path = window.location.pathname;
-      if (path.startsWith('/conversation/')) {
-        const convoId = path.split('/conversation/')[1];
+      if (path.startsWith("/conversation/")) {
+        const convoId = path.split("/conversation/")[1];
         if (convoId) {
           const { data } = await getConversation(convoId);
           if (data) {
@@ -169,7 +182,7 @@ const handleOpenConversation = (conversation) => {
               const space = spaces.find((s) => s.id === data.space_id);
               setActiveSpace(space || null);
             }
-            setCurrentView('chat');
+            setCurrentView("chat");
             setHasSyncedPath(true);
             return;
           }
@@ -178,23 +191,23 @@ const handleOpenConversation = (conversation) => {
       // default
       setActiveConversation(null);
       setActiveSpace(null);
-      setCurrentView('home');
-      window.history.replaceState(null, '', '/new_chat');
+      setCurrentView("home");
+      window.history.replaceState(null, "", "/new_chat");
       setHasSyncedPath(true);
     };
 
     syncFromPath();
 
     const onPop = () => syncFromPath();
-    window.addEventListener('popstate', onPop);
-    return () => window.removeEventListener('popstate', onPop);
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
   }, [spaces]);
 
   useEffect(() => {
     // Ensure URL reflects new chat whenever we return home after initial path sync
     if (!hasSyncedPath) return;
-    if (currentView === 'home') {
-      window.history.replaceState(null, '', '/new_chat');
+    if (currentView === "home") {
+      window.history.replaceState(null, "", "/new_chat");
     }
   }, [currentView, hasSyncedPath]);
 
@@ -219,12 +232,18 @@ const handleOpenConversation = (conversation) => {
           activeSpace={activeSpace}
           activeConversation={activeConversation}
           spaces={spaces}
-          onChatStart={() => setCurrentView('chat')}
+          onChatStart={() => setCurrentView("chat")}
           onEditSpace={handleEditSpace}
           spacesLoading={spacesLoading}
           onOpenConversation={handleOpenConversation}
+          onNavigate={handleNavigate}
+          onNavigateToSpace={handleNavigateToSpace}
+          onCreateSpace={handleCreateSpace}
         />
-        <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+        <SettingsModal
+          isOpen={isSettingsOpen}
+          onClose={() => setIsSettingsOpen(false)}
+        />
         <SpaceModal
           isOpen={isSpaceModalOpen}
           onClose={() => setIsSpaceModalOpen(false)}
@@ -238,5 +257,3 @@ const handleOpenConversation = (conversation) => {
 }
 
 export default App;
-
-

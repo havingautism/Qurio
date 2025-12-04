@@ -238,32 +238,39 @@ const Sidebar = ({
     return filteredConversations.length > MAX_BOOKMARKS_TO_SHOW;
   }, [filteredConversations, displayTab]);
 
-  // Check if we should show "See All" button for spaces
-  const shouldShowSeeAllForSpaces = useMemo(() => {
-    if (displayTab !== "spaces") return false;
-    return spaces.length > MAX_SPACES_TO_SHOW;
-  }, [spaces, displayTab]);
-
+  
   // Group conversations by date (for library)
   const groupedConversations = useMemo(() => {
     const groups = groupConversationsByDate(filteredConversations);
-    // Limit conversations per section
+    // Limit conversations per section and track if there are more
     return groups.map(section => ({
       ...section,
-      items: section.items.slice(0, MAX_CONVERSATIONS_PER_SECTION)
+      items: section.items.slice(0, MAX_CONVERSATIONS_PER_SECTION),
+      hasMore: section.items.length > MAX_CONVERSATIONS_PER_SECTION,
+      totalCount: section.items.length
     }));
   }, [filteredConversations]);
 
-  // Get limited bookmarks for display
+  // Get limited bookmarks for display and track if there are more
   const limitedBookmarks = useMemo(() => {
-    if (displayTab !== "bookmarks") return [];
-    return filteredConversations.slice(0, MAX_BOOKMARKS_TO_SHOW);
+    if (displayTab !== "bookmarks") return { items: [], hasMore: false, totalCount: 0 };
+    const items = filteredConversations.slice(0, MAX_BOOKMARKS_TO_SHOW);
+    return {
+      items,
+      hasMore: filteredConversations.length > MAX_BOOKMARKS_TO_SHOW,
+      totalCount: filteredConversations.length
+    };
   }, [filteredConversations, displayTab]);
 
-  // Get limited spaces for display
+  // Get limited spaces for display and track if there are more
   const limitedSpaces = useMemo(() => {
-    if (displayTab !== "spaces") return [];
-    return spaces.slice(0, MAX_SPACES_TO_SHOW);
+    if (displayTab !== "spaces") return { items: [], hasMore: false, totalCount: 0 };
+    const items = spaces.slice(0, MAX_SPACES_TO_SHOW);
+    return {
+      items,
+      hasMore: spaces.length > MAX_SPACES_TO_SHOW,
+      totalCount: spaces.length
+    };
   }, [spaces, displayTab]);
 
   return (
@@ -496,11 +503,24 @@ const Sidebar = ({
                       </div>
                     );
                   })}
+                  {/* Show "..." indicator if there are more conversations in this group */}
+                  {section.hasMore && (
+                    <div
+                      className="text-xs text-gray-400 dark:text-gray-500 px-2 py-1 cursor-pointer hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                      onClick={() => {
+                        setActiveTab("library");
+                        onNavigate("library");
+                      }}
+                      title={`Show all ${section.totalCount} conversations in ${section.title}`}
+                    >
+                      ... {section.totalCount - MAX_CONVERSATIONS_PER_SECTION} more
+                    </div>
+                  )}
                 </div>
               ))}
 
               {/* For bookmarks tab, show limited list */}
-              {displayTab === "bookmarks" && limitedBookmarks.map((conv) => {
+              {displayTab === "bookmarks" && limitedBookmarks.items.map((conv) => {
                 const isActive = conv.id === activeConversationId;
                 return (
                   <div
@@ -563,6 +583,19 @@ const Sidebar = ({
                   </div>
                 );
               })}
+              {/* Show "..." indicator if there are more bookmarks */}
+              {displayTab === "bookmarks" && limitedBookmarks.hasMore && (
+                <div
+                  className="text-xs text-gray-400 dark:text-gray-500 px-2 py-1 cursor-pointer hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                  onClick={() => {
+                    setActiveTab("bookmarks");
+                    onNavigate("bookmarks");
+                  }}
+                  title={`Show all ${limitedBookmarks.totalCount} bookmarks`}
+                >
+                  ... {limitedBookmarks.totalCount - MAX_BOOKMARKS_TO_SHOW} more
+                </div>
+              )}
 
               {/* See All Button - only for library tab when there are more conversations */}
               {shouldShowSeeAllForLibrary && (
@@ -622,7 +655,7 @@ const Sidebar = ({
                   No spaces yet.
                 </div>
               )}
-              {limitedSpaces.map((space) => (
+              {limitedSpaces.items.map((space) => (
                 <div
                   key={space.id || space.label}
                   onClick={() => onNavigateToSpace(space)}
@@ -650,8 +683,22 @@ const Sidebar = ({
                 </div>
               ))}
 
+              {/* Show "..." indicator if there are more spaces */}
+              {displayTab === "spaces" && limitedSpaces.hasMore && (
+                <div
+                  className="text-xs text-gray-400 dark:text-gray-500 px-2 py-1 cursor-pointer hover:text-gray-600 dark:hover:text-gray-300 transition-colors mt-2"
+                  onClick={() => {
+                    setActiveTab("spaces");
+                    onNavigate("spaces");
+                  }}
+                  title={`Show all ${limitedSpaces.totalCount} spaces`}
+                >
+                  ... {limitedSpaces.totalCount - MAX_SPACES_TO_SHOW} more
+                </div>
+              )}
+
               {/* See All Button - only for spaces tab when there are more spaces */}
-              {shouldShowSeeAllForSpaces && (
+              {displayTab === "spaces" && limitedSpaces.hasMore && (
                 <div className="flex flex-col gap-1 mt-2">
                   <button
                     onClick={() => {

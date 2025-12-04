@@ -243,8 +243,13 @@ function App() {
           theme={theme}
           onToggleTheme={cycleTheme}
           isSidebarPinned={isSidebarPinned}
+          onPinChange={setIsSidebarPinned}
         />
-        <div className="flex-1 relative">
+        <div
+          className={`flex-1 relative transition-all duration-300 ${
+            isSidebarPinned ? "ml-18" : "ml-0"
+          }`}
+        >
           <Outlet
             context={{
               spaces,

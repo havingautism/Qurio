@@ -1,5 +1,5 @@
 ﻿import React, { useState, useRef, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useShallow } from "zustand/react/shallow";
 import useChatStore from "../lib/chatStore";
 import MessageList from "./MessageList";
@@ -35,6 +35,7 @@ const ChatInterface = ({
   isSidebarPinned = false,
 }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const {
     messages,
     setMessages,
@@ -90,6 +91,7 @@ const ChatInterface = ({
   const [settings, setSettings] = useState(loadSettings());
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const hasPushedConversation = useRef(false);
+  const lastConversationId = useRef(null); // Track the last conversationId we navigated to
   const messageRefs = useRef({});
   const [isRegeneratingTitle, setIsRegeneratingTitle] = useState(false);
   const conversationSpace = React.useMemo(() => {
@@ -162,21 +164,60 @@ const ChatInterface = ({
   // Load existing conversation messages when switching conversations
   useEffect(() => {
     const loadHistory = async () => {
+      console.log("[LoadHistory] Triggered", {
+        activeConversationId: activeConversation?.id,
+        currentConversationId: conversationId,
+        messagesCount: messages.length,
+        hasInitialized: hasInitialized.current,
+        initialMessage,
+        initialAttachments: initialAttachments.length,
+      });
+
       if (!activeConversation?.id) {
-        // If we're in a brand new chat kicked off from the home input, avoid clearing the
-        // just-added first message bubble.
+        // When switching to new chat, always clear conversationId and reset navigation flag
+        // This ensures that when a new conversation is created, it can navigate correctly
+        console.log("[LoadHistory] No activeConversation, clearing state");
+
+        // If we're switching from an old conversation (conversationId is not null),
+        // we should clear the old messages even if we have initialMessage
+        const isFromOldConversation = conversationId !== null;
+
+        setConversationId(null);
+        hasPushedConversation.current = false;
+
+        // If we're in a brand new chat kicked off from the home input (not from an old conversation),
+        // avoid clearing the just-added first message bubble.
         if (
-          hasInitialized.current ||
-          initialMessage ||
-          initialAttachments.length > 0
+          !isFromOldConversation &&
+          (hasInitialized.current ||
+            initialMessage ||
+            initialAttachments.length > 0)
         ) {
+          console.log(
+            "[LoadHistory] Preserving messages (initial send from home)"
+          );
           return;
         }
-        setConversationId(null);
+
+        // Clear all other states for a fresh start
+        console.log("[LoadHistory] Clearing all messages", {
+          isFromOldConversation,
+        });
         setConversationTitle("");
         setMessages([]);
         setSelectedSpace(null);
         setIsManualSpaceSelection(false);
+        return;
+      }
+
+      // If we're navigating to a conversation that we just created (conversationId matches),
+      // check if we already have messages in the store
+      if (activeConversation.id === conversationId && messages.length > 0) {
+        // We already have messages (they're being streamed or just completed)
+        // Just update the title and space from the loaded conversation data
+        setConversationTitle(activeConversation.title || "New Conversation");
+        setSelectedSpace(conversationSpace);
+        setIsManualSpaceSelection(!!conversationSpace);
         return;
       }
 
@@ -211,15 +252,24 @@ const ChatInterface = ({
   }, [activeConversation, conversationSpace]);
 
   useEffect(() => {
-    if (
-      conversationId &&
-      !activeConversation?.id &&
-      !hasPushedConversation.current
-    ) {
+    // Check if conversationId has changed (new conversation created)
+    if (conversationId !== lastConversationId.current) {
+      lastConversationId.current = conversationId;
+      // Reset the flag when conversationId changes to allow navigation to the new conversation
+      hasPushedConversation.current = false;
+    }
+
+    // Check if we're on a new chat page (not on a specific conversation route)
+    const isOnNewChatPage =
+      location.pathname === "/new_chat" || location.pathname === "/";
+    const shouldNavigate =
+      conversationId && isOnNewChatPage && !hasPushedConversation.current;
+
+    if (shouldNavigate) {
       navigate(`/conversation/${conversationId}`, { replace: true });
       hasPushedConversation.current = true;
     }
-  }, [conversationId, activeConversation, navigate]);
+  }, [conversationId, location.pathname, navigate]);
 
   useEffect(() => {
     if (

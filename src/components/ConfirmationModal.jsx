@@ -1,6 +1,8 @@
 import React from 'react';
+import useScrollLock from '../hooks/useScrollLock';
 
 const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message, confirmText = "Confirm", cancelText = "Cancel", isDangerous = false }) => {
+  useScrollLock(isOpen);
   if (!isOpen) return null;
 
   return (
@@ -8,7 +10,7 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message, confirm
       <div className="bg-[#1e1e1e] border border-white/10 rounded-xl shadow-2xl w-full max-w-md p-6 transform transition-all scale-100 opacity-100 mx-4">
         <h3 className="text-xl font-semibold text-white mb-2">{title}</h3>
         <p className="text-gray-400 mb-6">{message}</p>
-        
+
         <div className="flex justify-end gap-3">
           <button
             onClick={onClose}
@@ -18,11 +20,10 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message, confirm
           </button>
           <button
             onClick={onConfirm}
-            className={`px-4 py-2 rounded-lg text-white text-sm font-medium transition-colors ${
-              isDangerous 
-                ? 'bg-red-500/80 hover:bg-red-500' 
+            className={`px-4 py-2 rounded-lg text-white text-sm font-medium transition-colors ${isDangerous
+                ? 'bg-red-500/80 hover:bg-red-500'
                 : 'bg-blue-500 hover:bg-blue-600'
-            }`}
+              }`}
           >
             {confirmText}
           </button>

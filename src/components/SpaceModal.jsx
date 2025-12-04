@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
+import useScrollLock from '../hooks/useScrollLock';
 
 const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) => {
+  useScrollLock(isOpen);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [prompt, setPrompt] = useState('');

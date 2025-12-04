@@ -21,6 +21,7 @@ import FiloLogo from "./Logo";
 import clsx from "clsx";
 import { saveSettings, loadSettings } from "../lib/settings";
 import { testConnection } from "../lib/supabase";
+import useScrollLock from "../hooks/useScrollLock";
 
 const ENV_VARS = {
   supabaseUrl:
@@ -132,6 +133,8 @@ const SettingsModal = ({ isOpen, onClose }) => {
       if (settings.defaultModel) setDefaultModel(settings.defaultModel);
     }
   }, [isOpen]);
+
+  useScrollLock(isOpen);
 
   if (!isOpen) return null;
 

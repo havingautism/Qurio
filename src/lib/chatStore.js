@@ -529,12 +529,20 @@ const finalizeMessage = async (
   }
 
   // Update conversation in database (only on first turn to set title/space)
-  if (isFirstTurn && currentStore.conversationId && resolvedTitle) {
+  if (isFirstTurn && currentStore.conversationId) {
     await updateConversation(currentStore.conversationId, {
       title: resolvedTitle,
       space_id: resolvedSpace ? resolvedSpace.id : null,
     });
     window.dispatchEvent(new Event("conversations-changed"));
+
+    // Dispatch a specific event for conversation update
+    window.dispatchEvent(new CustomEvent("conversation-space-updated", {
+      detail: {
+        conversationId: currentStore.conversationId,
+        space: resolvedSpace
+      }
+    }));
   }
 
   // Notify callback if space was resolved

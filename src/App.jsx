@@ -39,6 +39,12 @@ function App() {
     return saved === "true";
   });
 
+  // Extract conversation ID from URL
+  const activeConversationId = React.useMemo(() => {
+    const match = location.pathname.match(/\/conversation\/(.+)/);
+    return match ? match[1] : null;
+  }, [location]);
+
   // Derive current view from location
   const currentView = React.useMemo(() => {
     const path = location.pathname;
@@ -244,6 +250,7 @@ function App() {
           onToggleTheme={cycleTheme}
           isSidebarPinned={isSidebarPinned}
           onPinChange={setIsSidebarPinned}
+          activeConversationId={activeConversationId}
         />
         <div
           className={`flex-1 relative transition-all duration-300 ${

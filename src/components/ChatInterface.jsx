@@ -122,6 +122,7 @@ const ChatInterface = ({
       window.removeEventListener("settings-changed", handleSettingsChange);
   }, []);
 
+  
   useEffect(() => {
     const processInitialMessage = async () => {
       // Prevent multiple initializations and ensure we have content to process
@@ -164,19 +165,9 @@ const ChatInterface = ({
   // Load existing conversation messages when switching conversations
   useEffect(() => {
     const loadHistory = async () => {
-      console.log("[LoadHistory] Triggered", {
-        activeConversationId: activeConversation?.id,
-        currentConversationId: conversationId,
-        messagesCount: messages.length,
-        hasInitialized: hasInitialized.current,
-        initialMessage,
-        initialAttachments: initialAttachments.length,
-      });
-
       if (!activeConversation?.id) {
         // When switching to new chat, always clear conversationId and reset navigation flag
         // This ensures that when a new conversation is created, it can navigate correctly
-        console.log("[LoadHistory] No activeConversation, clearing state");
 
         // If we're switching from an old conversation (conversationId is not null),
         // we should clear the old messages even if we have initialMessage
@@ -193,16 +184,10 @@ const ChatInterface = ({
             initialMessage ||
             initialAttachments.length > 0)
         ) {
-          console.log(
-            "[LoadHistory] Preserving messages (initial send from home)"
-          );
           return;
         }
 
         // Clear all other states for a fresh start
-        console.log("[LoadHistory] Clearing all messages", {
-          isFromOldConversation,
-        });
         setConversationTitle("");
         setMessages([]);
         setSelectedSpace(null);

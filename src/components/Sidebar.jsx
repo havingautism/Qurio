@@ -570,7 +570,7 @@ const Sidebar = ({
                   <button
                     onClick={() => {
                       setActiveTab("library");
-                      onNavigate("conversations");
+                      onNavigate("library");
                     }}
                     className="flex items-center justify-center gap-2 p-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors rounded hover:bg-gray-200 dark:hover:bg-zinc-800"
                   >

@@ -14,6 +14,7 @@ import {
   deleteConversation,
   removeConversationFromSpace,
 } from "../lib/supabase";
+import { toggleFavorite } from "../lib/conversationsService";
 import { useToast } from "../contexts/ToastContext";
 import FancyLoader from "./FancyLoader";
 
@@ -28,6 +29,7 @@ const SpaceView = ({
   isSidebarPinned = false,
 }) => {
   const [openMenuId, setOpenMenuId] = useState(null);
+  const [menuAnchorEl, setMenuAnchorEl] = useState(null);
   const [conversationToDelete, setConversationToDelete] = useState(null);
   const toast = useToast();
 
@@ -68,7 +70,24 @@ const SpaceView = ({
       toast.error("Failed to remove conversation from space");
     }
   };
-  return (
+
+  const handleToggleFavorite = async (conversation) => {
+    const newStatus = !conversation.is_favorited;
+    const { error } = await toggleFavorite(conversation.id, newStatus);
+
+    if (error) {
+      console.error("Failed to toggle favorite:", error);
+      toast.error("Failed to update favorite status");
+    } else {
+      toast.success(
+        newStatus ? "Added to bookmarks" : "Removed from bookmarks"
+      );
+      // Notify Sidebar to refresh its conversation list
+      window.dispatchEvent(new Event("conversations-changed"));
+    }
+  };
+
+    return (
     <div
       className={clsx(
         "flex flex-col items-center justify-center min-h-screen p-4 bg-background text-foreground transition-all duration-300",
@@ -168,15 +187,31 @@ const SpaceView = ({
                       className="opacity-0 group-hover:opacity-100 md:opacity-100 p-1 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded text-gray-400 transition-all"
                       onClick={(e) => {
                         e.stopPropagation();
-                        setOpenMenuId(openMenuId === conv.id ? null : conv.id);
+                        setOpenMenuId(conv.id);
+                        setMenuAnchorEl(e.currentTarget);
                       }}
                     >
                       <MoreHorizontal size={16} />
                     </button>
                     <DropdownMenu
                       isOpen={openMenuId === conv.id}
-                      onClose={() => setOpenMenuId(null)}
+                      anchorEl={openMenuId === conv.id ? menuAnchorEl : null}
+                      onClose={() => {
+                        setOpenMenuId(null);
+                        setMenuAnchorEl(null);
+                      }}
                       items={[
+                        {
+                          label: conv.is_favorited ? "Remove Bookmark" : "Add Bookmark",
+                          icon: (
+                            <Bookmark
+                              size={14}
+                              className={conv.is_favorited ? "fill-current" : ""}
+                            />
+                          ),
+                          onClick: () => handleToggleFavorite(conv),
+                          className: conv.is_favorited ? "text-yellow-500" : "",
+                        },
                         {
                           label: "Remove from space",
                           icon: <LogOut size={14} />,

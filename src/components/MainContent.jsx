@@ -284,6 +284,12 @@ const MainContent = ({
           spacesLoading={spacesLoading}
           onCreateSpace={onCreateSpace}
           onNavigateToSpace={onNavigateToSpace}
+          onSpaceDeleted={(deletedId) => {
+            // Navigate home if we deleted the currently active space
+            if (activeSpace?.id === deletedId) {
+              onNavigate("home");
+            }
+          }}
           isSidebarPinned={isSidebarPinned}
         />
       ) : activeView === "bookmarks" ? (
@@ -302,7 +308,28 @@ const MainContent = ({
           conversationsLoading={conversationsLoading}
           onCreateConversation={() => onNavigate("home")}
           onOpenConversation={onOpenConversation}
+          onConversationDeleted={(deletedId) => {
+            // Navigate home if we deleted the currently active conversation
+            if (activeConversation?.id === deletedId) {
+              onNavigate("home");
+            }
+          }}
           isSidebarPinned={isSidebarPinned}
+        />
+      ) : activeView === "conversations" ? (
+        <ConversationsListView
+          conversations={conversations}
+          conversationsLoading={conversationsLoading}
+          onCreateConversation={() => onNavigate("home")}
+          onOpenConversation={onOpenConversation}
+          onConversationDeleted={(deletedId) => {
+            // Navigate home if we deleted the currently active conversation
+            if (activeConversation?.id === deletedId) {
+              onNavigate("home");
+            }
+          }}
+          isSidebarPinned={isSidebarPinned}
+          title="All Conversations"
         />
       ) : (
         <div

@@ -1,15 +1,46 @@
-import React from "react";
-import { Plus, Clock } from "lucide-react";
+import React, { useState } from "react";
+import { Plus, Clock, MoreHorizontal, Trash2 } from "lucide-react";
 import clsx from "clsx";
 import FancyLoader from "./FancyLoader";
+import DropdownMenu from "./DropdownMenu";
+import ConfirmationModal from "./ConfirmationModal";
+import { deleteSpace } from "../lib/supabase";
+import { useToast } from "../contexts/ToastContext";
 
 const SpacesListView = ({
   spaces = [],
   spacesLoading = false,
   onCreateSpace,
   onNavigateToSpace,
+  onSpaceDeleted,
   isSidebarPinned = false,
 }) => {
+  const [openMenuId, setOpenMenuId] = useState(null);
+  const [menuAnchorEl, setMenuAnchorEl] = useState(null);
+  const [spaceToDelete, setSpaceToDelete] = useState(null);
+  const toast = useToast();
+
+  const handleDeleteSpace = async () => {
+    if (!spaceToDelete) return;
+
+    const { success, error } = await deleteSpace(spaceToDelete.id);
+
+    if (success) {
+      toast.success("Space deleted successfully");
+      // Notify parent component about deletion
+      if (onSpaceDeleted) {
+        onSpaceDeleted(spaceToDelete.id);
+      }
+      // Notify other components to refresh
+      window.dispatchEvent(new Event("spaces-changed"));
+    } else {
+      console.error("Failed to delete space:", error);
+      toast.error("Failed to delete space");
+    }
+
+    setSpaceToDelete(null);
+  };
+
   return (
     <div
       className={clsx(
@@ -72,38 +103,57 @@ const SpacesListView = ({
 
               {/* Space Cards */}
               {spaces.map((space) => (
-                <button
+                <div
                   key={space.id}
-                  onClick={() => onNavigateToSpace && onNavigateToSpace(space)}
                   className="group relative bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-xl p-6 hover:border-cyan-500/50 dark:hover:border-cyan-500/50 hover:shadow-lg dark:hover:shadow-cyan-500/10 transition-all duration-200 cursor-pointer min-h-[180px] flex flex-col"
                 >
-                  {/* Space Icon */}
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center mb-4 text-2xl">
-                    {space.emoji || "📁"}
+                  {/* Menu Button */}
+                  <div className="absolute top-4 right-4">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setOpenMenuId(space.id);
+                        setMenuAnchorEl(e.currentTarget);
+                      }}
+                      className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-400 dark:text-gray-500 transition-colors opacity-0 group-hover:opacity-100"
+                    >
+                      <MoreHorizontal size={16} />
+                    </button>
                   </div>
 
-                  {/* Space Name */}
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2 text-left group-hover:text-cyan-500 transition-colors">
-                    {space.label}
-                  </h3>
+                  {/* Space Click Area */}
+                  <div
+                    className="flex-1 flex flex-col"
+                    onClick={() => onNavigateToSpace && onNavigateToSpace(space)}
+                  >
+                    {/* Space Icon */}
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center mb-4 text-2xl">
+                      {space.emoji || "📁"}
+                    </div>
 
-                  {/* Space Meta Info */}
-                  <div className="flex items-center gap-2 mt-auto text-xs text-gray-500 dark:text-gray-400">
-                    <Clock className="w-3 h-3" />
-                    <span>
-                      {space.created_at
-                        ? new Date(space.created_at).toLocaleDateString(
-                            "en-US",
-                            {
-                              month: "short",
-                              day: "numeric",
-                              year: "numeric",
-                            }
-                          )
-                        : "Recently"}
-                    </span>
+                    {/* Space Name */}
+                    <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2 text-left group-hover:text-cyan-500 transition-colors">
+                      {space.label}
+                    </h3>
+
+                    {/* Space Meta Info */}
+                    <div className="flex items-center gap-2 mt-auto text-xs text-gray-500 dark:text-gray-400">
+                      <Clock className="w-3 h-3" />
+                      <span>
+                        {space.created_at
+                          ? new Date(space.created_at).toLocaleDateString(
+                              "en-US",
+                              {
+                                month: "short",
+                                day: "numeric",
+                                year: "numeric",
+                              }
+                            )
+                          : "Recently"}
+                      </span>
+                    </div>
                   </div>
-                </button>
+                </div>
               ))}
             </div>
           )}
@@ -118,6 +168,38 @@ const SpacesListView = ({
           )}
         </div>
       </div>
+
+      {/* Global Dropdown Menu */}
+      <DropdownMenu
+        isOpen={!!openMenuId && !!menuAnchorEl}
+        anchorEl={menuAnchorEl}
+        onClose={() => {
+          setOpenMenuId(null);
+          setMenuAnchorEl(null);
+        }}
+        items={(() => {
+          const space = spaces.find((s) => s.id === openMenuId);
+          if (!space) return [];
+          return [
+            {
+              label: "Delete space",
+              icon: <Trash2 size={14} />,
+              onClick: () => setSpaceToDelete(space),
+              danger: true,
+            },
+          ];
+        })()}
+      />
+
+      <ConfirmationModal
+        isOpen={!!spaceToDelete}
+        onClose={() => setSpaceToDelete(null)}
+        onConfirm={handleDeleteSpace}
+        title="Delete Space"
+        message={`Are you sure you want to delete "${spaceToDelete?.label}"? This action cannot be undone and all conversations in this space will be permanently deleted.`}
+        confirmText="Delete"
+        isDangerous={true}
+      />
     </div>
   );
 };

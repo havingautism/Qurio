@@ -213,6 +213,11 @@ const Sidebar = ({
     }
   };
 
+  // Limit conversations per section for display
+  const MAX_CONVERSATIONS_PER_SECTION = 3;
+  const MAX_BOOKMARKS_TO_SHOW = 5; // Maximum bookmarks to show before showing "See All"
+  const MAX_SPACES_TO_SHOW = 5; // Maximum spaces to show before showing "See All"
+
   const filteredConversations = useMemo(
     () =>
       displayTab === "bookmarks"
@@ -221,10 +226,45 @@ const Sidebar = ({
     [conversations, displayTab]
   );
 
-  const groupedConversations = useMemo(
-    () => groupConversationsByDate(filteredConversations),
-    [filteredConversations]
-  );
+  // Check if we should show "See All" button for library
+  const shouldShowSeeAllForLibrary = useMemo(() => {
+    if (displayTab !== "library") return false;
+    return filteredConversations.length > MAX_CONVERSATIONS_PER_SECTION * 4; // 4 sections: Today, Yesterday, Previous 7 Days, Past
+  }, [filteredConversations, displayTab]);
+
+  // Check if we should show "See All" button for bookmarks
+  const shouldShowSeeAllForBookmarks = useMemo(() => {
+    if (displayTab !== "bookmarks") return false;
+    return filteredConversations.length > MAX_BOOKMARKS_TO_SHOW;
+  }, [filteredConversations, displayTab]);
+
+  // Check if we should show "See All" button for spaces
+  const shouldShowSeeAllForSpaces = useMemo(() => {
+    if (displayTab !== "spaces") return false;
+    return spaces.length > MAX_SPACES_TO_SHOW;
+  }, [spaces, displayTab]);
+
+  // Group conversations by date (for library)
+  const groupedConversations = useMemo(() => {
+    const groups = groupConversationsByDate(filteredConversations);
+    // Limit conversations per section
+    return groups.map(section => ({
+      ...section,
+      items: section.items.slice(0, MAX_CONVERSATIONS_PER_SECTION)
+    }));
+  }, [filteredConversations]);
+
+  // Get limited bookmarks for display
+  const limitedBookmarks = useMemo(() => {
+    if (displayTab !== "bookmarks") return [];
+    return filteredConversations.slice(0, MAX_BOOKMARKS_TO_SHOW);
+  }, [filteredConversations, displayTab]);
+
+  // Get limited spaces for display
+  const limitedSpaces = useMemo(() => {
+    if (displayTab !== "spaces") return [];
+    return spaces.slice(0, MAX_SPACES_TO_SHOW);
+  }, [spaces, displayTab]);
 
   return (
     <div
@@ -379,13 +419,14 @@ const Sidebar = ({
               )}
               {!isConversationsLoading &&
                 displayTab === "bookmarks" &&
-                conversations.filter((c) => c.is_favorited).length === 0 && (
+                filteredConversations.length === 0 && (
                   <div className="text-xs text-gray-500 dark:text-gray-400 px-2 py-1">
                     No bookmarked conversations.
                   </div>
                 )}
 
-              {groupedConversations.map((section) => (
+              {/* For library tab, use grouped conversations with limits */}
+              {displayTab === "library" && groupedConversations.map((section) => (
                 <div key={section.title} className="flex flex-col gap-1">
                   <div className="text-[10px] justify-center flex uppercase tracking-wide text-gray-400 px-2 mt-1">
                     {section.title}
@@ -457,6 +498,101 @@ const Sidebar = ({
                   })}
                 </div>
               ))}
+
+              {/* For bookmarks tab, show limited list */}
+              {displayTab === "bookmarks" && limitedBookmarks.map((conv) => {
+                const isActive = conv.id === activeConversationId;
+                return (
+                  <div
+                    key={conv.id}
+                    onClick={() =>
+                      onOpenConversation && onOpenConversation(conv)
+                    }
+                    className={clsx(
+                      "text-sm p-2 rounded cursor-pointer truncate transition-colors group relative",
+                      isActive
+                        ? "bg-cyan-500/10 dark:bg-cyan-500/20 border border-cyan-500/30 text-cyan-700 dark:text-cyan-300"
+                        : "text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-zinc-800"
+                    )}
+                    title={conv.title}
+                  >
+                    <div className="flex items-center justify-between w-full overflow-hidden">
+                      <div className="flex flex-col overflow-hidden flex-1 min-w-0">
+                        <div className="flex items-center gap-1">
+                          <span className="truncate font-medium">
+                            {conv.title}
+                          </span>
+                          <Bookmark
+                            size={10}
+                            className="fill-current flex-shrink-0"
+                          />
+                        </div>
+                        <span
+                          className={clsx(
+                            "text-[10px]",
+                            isActive
+                              ? "text-cyan-600 dark:text-cyan-400"
+                              : "text-gray-400"
+                          )}
+                        >
+                          {new Date(conv.created_at).toLocaleDateString()}
+                        </span>
+                      </div>
+
+                      <div className="relative ml-2 shrink-0">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenMenuId(conv.id);
+                            setMenuAnchorEl(e.currentTarget);
+                          }}
+                          className={clsx(
+                            "p-1.5 rounded-md hover:bg-gray-300 dark:hover:bg-zinc-700 transition-all",
+                            isActive
+                              ? "text-cyan-600 dark:text-cyan-400"
+                              : "text-gray-500 dark:text-gray-400",
+                            openMenuId === conv.id
+                              ? "opacity-100"
+                              : "opacity-100 md:opacity-0 md:group-hover:opacity-100"
+                          )}
+                        >
+                          <MoreHorizontal size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* See All Button - only for library tab when there are more conversations */}
+              {shouldShowSeeAllForLibrary && (
+                <div className="flex flex-col gap-1 mt-2">
+                  <button
+                    onClick={() => {
+                      setActiveTab("library");
+                      onNavigate("conversations");
+                    }}
+                    className="flex items-center justify-center gap-2 p-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors rounded hover:bg-gray-200 dark:hover:bg-zinc-800"
+                  >
+                    <span>See all</span>
+                  </button>
+                </div>
+              )}
+
+              {/* See All Button - only for bookmarks tab when there are more bookmarks */}
+              {shouldShowSeeAllForBookmarks && (
+                <div className="flex flex-col gap-1 mt-2">
+                  <button
+                    onClick={() => {
+                      setActiveTab("bookmarks");
+                      onNavigate("bookmarks");
+                    }}
+                    className="flex items-center justify-center gap-2 p-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors rounded hover:bg-gray-200 dark:hover:bg-zinc-800"
+                  >
+                    <span>See all</span>
+                  </button>
+                </div>
+              )}
             </div>
           )}
           {/* SPACES TAB CONTENT */}
@@ -486,7 +622,7 @@ const Sidebar = ({
                   No spaces yet.
                 </div>
               )}
-              {spaces.map((space) => (
+              {limitedSpaces.map((space) => (
                 <div
                   key={space.id || space.label}
                   onClick={() => onNavigateToSpace(space)}
@@ -513,6 +649,21 @@ const Sidebar = ({
                   </button>
                 </div>
               ))}
+
+              {/* See All Button - only for spaces tab when there are more spaces */}
+              {shouldShowSeeAllForSpaces && (
+                <div className="flex flex-col gap-1 mt-2">
+                  <button
+                    onClick={() => {
+                      setActiveTab("spaces");
+                      onNavigate("spaces");
+                    }}
+                    className="flex items-center justify-center gap-2 p-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors rounded hover:bg-gray-200 dark:hover:bg-zinc-800"
+                  >
+                    <span>See all</span>
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>

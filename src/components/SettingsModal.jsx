@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from 'react'
 import {
   X,
   Settings,
@@ -10,142 +10,128 @@ import {
   Info,
   Key,
   Link,
-  Database,
   ChevronDown,
   Check,
   Github,
   Twitter,
   Globe,
-} from "lucide-react";
-import FiloLogo from "./Logo";
-import clsx from "clsx";
-import { saveSettings, loadSettings } from "../lib/settings";
-import { testConnection } from "../lib/supabase";
-import useScrollLock from "../hooks/useScrollLock";
+} from 'lucide-react'
+import FiloLogo from './Logo'
+import clsx from 'clsx'
+import { saveSettings, loadSettings } from '../lib/settings'
+import { testConnection } from '../lib/supabase'
+import useScrollLock from '../hooks/useScrollLock'
 
 const ENV_VARS = {
-  supabaseUrl:
-    import.meta.env.PUBLIC_SUPABASE_URL,
-  supabaseKey:
-    import.meta.env.PUBLIC_SUPABASE_KEY,
-  openAIKey:
-    import.meta.env.PUBLIC_OPENAI_API_KEY,
-  openAIBaseUrl:
-    import.meta.env.PUBLIC_OPENAI_BASE_URL,
-  googleApiKey:
-    import.meta.env.PUBLIC_GOOGLE_API_KEY,
-};
+  supabaseUrl: import.meta.env.PUBLIC_SUPABASE_URL,
+  supabaseKey: import.meta.env.PUBLIC_SUPABASE_KEY,
+  openAIKey: import.meta.env.PUBLIC_OPENAI_API_KEY,
+  openAIBaseUrl: import.meta.env.PUBLIC_OPENAI_BASE_URL,
+  googleApiKey: import.meta.env.PUBLIC_GOOGLE_API_KEY,
+}
 
 // Model options registry by provider for maintainability/expansion
 const MODEL_OPTION_SETS = {
   gemini: [
-    { value: "gemini-3-pro-preview", label: "Gemini 3 Pro Preview" },
-    { value: "gemini-2.5-pro", label: "Gemini 2.5 Pro" },
-    { value: "gemini-2.5-flash", label: "Gemini 2.5 Flash" },
-    { value: "gemini-2.5-flash-lite", label: "Gemini 2.5 Flash Lite" },
+    { value: 'gemini-3-pro-preview', label: 'Gemini 3 Pro Preview' },
+    { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
+    { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
+    { value: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite' },
   ],
   openai_compatibility: [
-    { value: "gpt-4o", label: "gpt-4o" },
-    { value: "gpt-4o-mini", label: "gpt-4o-mini" },
-    { value: "gpt-4.1", label: "gpt-4.1" },
-    { value: "gpt-4.1-mini", label: "gpt-4.1-mini" },
-    { value: "o3-mini", label: "o3-mini" },
+    { value: 'gpt-4o', label: 'gpt-4o' },
+    { value: 'gpt-4o-mini', label: 'gpt-4o-mini' },
+    { value: 'gpt-4.1', label: 'gpt-4.1' },
+    { value: 'gpt-4.1-mini', label: 'gpt-4.1-mini' },
+    { value: 'o3-mini', label: 'o3-mini' },
   ],
   __fallback__: [],
-};
+}
 
-const getModelOptionsForProvider = (provider) =>
-  MODEL_OPTION_SETS[provider] || MODEL_OPTION_SETS.__fallback__;
+const getModelOptionsForProvider = provider =>
+  MODEL_OPTION_SETS[provider] || MODEL_OPTION_SETS.__fallback__
 
 const SettingsModal = ({ isOpen, onClose }) => {
-  const renderEnvHint = (hasEnv) =>
-    hasEnv ? (
-      <p className="text-[10px] text-emerald-500">
-        Loaded from environment
-      </p>
-    ) : null;
+  const renderEnvHint = hasEnv =>
+    hasEnv ? <p className="text-[10px] text-emerald-500">Loaded from environment</p> : null
 
-  const [activeTab, setActiveTab] = useState("general");
-  const [OpenAICompatibilityKey, setOpenAICompatibilityKey] = useState("");
-  const [OpenAICompatibilityUrl, setOpenAICompatibilityUrl] = useState("");
-  const [apiProvider, setApiProvider] = useState("gemini");
-  const [googleApiKey, setGoogleApiKey] = useState("");
-  const [supabaseUrl, setSupabaseUrl] = useState("");
-  const [supabaseKey, setSupabaseKey] = useState("");
-  const [testing, setTesting] = useState(false);
-  const [testResult, setTestResult] = useState(null);
-  const [isProviderDropdownOpen, setIsProviderDropdownOpen] = useState(false);
-  const providerDropdownRef = useRef(null);
-  const [systemPrompt, setSystemPrompt] = useState("");
-  const [contextMessageLimit, setContextMessageLimit] = useState(12);
-  const [modelId, setModelId] = useState("");
+  const [activeTab, setActiveTab] = useState('general')
+  const [OpenAICompatibilityKey, setOpenAICompatibilityKey] = useState('')
+  const [OpenAICompatibilityUrl, setOpenAICompatibilityUrl] = useState('')
+  const [apiProvider, setApiProvider] = useState('gemini')
+  const [googleApiKey, setGoogleApiKey] = useState('')
+  const [supabaseUrl, setSupabaseUrl] = useState('')
+  const [supabaseKey, setSupabaseKey] = useState('')
+  const [testing, setTesting] = useState(false)
+  const [testResult, setTestResult] = useState(null)
+  const [isProviderDropdownOpen, setIsProviderDropdownOpen] = useState(false)
+  const providerDropdownRef = useRef(null)
+  const [systemPrompt, setSystemPrompt] = useState('')
+  const [contextMessageLimit, setContextMessageLimit] = useState(12)
+  const [modelId, setModelId] = useState('')
   // Model configuration states
-  const [liteModel, setLiteModel] = useState("gemini-2.5-flash");
-  const [defaultModel, setDefaultModel] = useState("gemini-2.5-flash");
+  const [liteModel, setLiteModel] = useState('gemini-2.5-flash')
+  const [defaultModel, setDefaultModel] = useState('gemini-2.5-flash')
 
   // Handle click outside provider dropdown
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (
-        providerDropdownRef.current &&
-        !providerDropdownRef.current.contains(event.target)
-      ) {
-        setIsProviderDropdownOpen(false);
+    const handleClickOutside = event => {
+      if (providerDropdownRef.current && !providerDropdownRef.current.contains(event.target)) {
+        setIsProviderDropdownOpen(false)
       }
-    };
+    }
 
     if (isProviderDropdownOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener('mousedown', handleClickOutside)
     }
     return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [isProviderDropdownOpen]);
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [isProviderDropdownOpen])
 
   const menuItems = [
-    { id: "general", label: "General", icon: Settings },
-    { id: "chat", label: "Chat", icon: MessageSquare },
-    { id: "interface", label: "Interface", icon: Monitor },
-    { id: "model", label: "Model", icon: Box },
-    { id: "personalization", label: "Personalization", icon: Palette },
-    { id: "account", label: "Account", icon: User },
-    { id: "about", label: "About", icon: Info },
-  ];
+    { id: 'general', label: 'General', icon: Settings },
+    { id: 'chat', label: 'Chat', icon: MessageSquare },
+    { id: 'interface', label: 'Interface', icon: Monitor },
+    { id: 'model', label: 'Model', icon: Box },
+    { id: 'personalization', label: 'Personalization', icon: Palette },
+    { id: 'account', label: 'Account', icon: User },
+    { id: 'about', label: 'About', icon: Info },
+  ]
 
   // TODO: useEffect to load settings from Supabase/LocalStorage on mount
   // Load settings when modal opens
   useEffect(() => {
     if (isOpen) {
-      const settings = loadSettings();
-      if (settings.supabaseUrl) setSupabaseUrl(settings.supabaseUrl);
-      if (settings.supabaseKey) setSupabaseKey(settings.supabaseKey);
+      const settings = loadSettings()
+      if (settings.supabaseUrl) setSupabaseUrl(settings.supabaseUrl)
+      if (settings.supabaseKey) setSupabaseKey(settings.supabaseKey)
       if (settings.OpenAICompatibilityKey)
-        setOpenAICompatibilityKey(settings.OpenAICompatibilityKey);
+        setOpenAICompatibilityKey(settings.OpenAICompatibilityKey)
       if (settings.OpenAICompatibilityUrl)
-        setOpenAICompatibilityUrl(settings.OpenAICompatibilityUrl);
-      if (settings.apiProvider) setApiProvider(settings.apiProvider);
-      if (settings.googleApiKey) setGoogleApiKey(settings.googleApiKey);
-      if (settings.systemPrompt) setSystemPrompt(settings.systemPrompt);
-      if (settings.contextMessageLimit)
-        setContextMessageLimit(Number(settings.contextMessageLimit));
+        setOpenAICompatibilityUrl(settings.OpenAICompatibilityUrl)
+      if (settings.apiProvider) setApiProvider(settings.apiProvider)
+      if (settings.googleApiKey) setGoogleApiKey(settings.googleApiKey)
+      if (settings.systemPrompt) setSystemPrompt(settings.systemPrompt)
+      if (settings.contextMessageLimit) setContextMessageLimit(Number(settings.contextMessageLimit))
       // Load model configuration
-      if (settings.liteModel) setLiteModel(settings.liteModel);
-      if (settings.defaultModel) setDefaultModel(settings.defaultModel);
+      if (settings.liteModel) setLiteModel(settings.liteModel)
+      if (settings.defaultModel) setDefaultModel(settings.defaultModel)
     }
-  }, [isOpen]);
+  }, [isOpen])
 
-  useScrollLock(isOpen);
+  useScrollLock(isOpen)
 
-  if (!isOpen) return null;
+  if (!isOpen) return null
 
   const handleTestConnection = async () => {
-    setTesting(true);
-    setTestResult(null);
+    setTesting(true)
+    setTestResult(null)
 
-    const result = await testConnection(supabaseUrl, supabaseKey);
-    setTestResult(result);
-    setTesting(false);
-  };
+    const result = await testConnection(supabaseUrl, supabaseKey)
+    setTestResult(result)
+    setTesting(false)
+  }
 
   const handleSave = async () => {
     // TODO: Validate inputs
@@ -162,29 +148,27 @@ const SettingsModal = ({ isOpen, onClose }) => {
       // Save model configuration
       liteModel,
       defaultModel,
-    });
+    })
 
-    onClose();
-  };
+    onClose()
+  }
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
       <div className="w-full max-w-4xl h-[80vh] bg-white dark:bg-[#191a1a] rounded-2xl shadow-2xl flex overflow-hidden border border-gray-200 dark:border-zinc-800">
         {/* Sidebar */}
         <div className="w-64 bg-gray-50 dark:bg-[#202222] border-r border-gray-200 dark:border-zinc-800 p-4 flex flex-col">
-          <h2 className="text-xl font-bold mb-6 px-2 text-gray-900 dark:text-white">
-            Settings
-          </h2>
+          <h2 className="text-xl font-bold mb-6 px-2 text-gray-900 dark:text-white">Settings</h2>
           <nav className="flex flex-col gap-1">
-            {menuItems.map((item) => (
+            {menuItems.map(item => (
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
                 className={clsx(
-                  "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                  'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
                   activeTab === item.id
-                    ? "bg-gray-100 dark:bg-zinc-800 text-cyan-600 dark:text-cyan-400"
-                    : "text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-zinc-800"
+                    ? 'bg-gray-100 dark:bg-zinc-800 text-cyan-600 dark:text-cyan-400'
+                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-zinc-800',
                 )}
               >
                 <item.icon size={18} />
@@ -211,7 +195,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
 
           {/* Scrollable Content */}
           <div className="flex-1 overflow-y-auto p-8">
-            {activeTab === "general" && (
+            {activeTab === 'general' && (
               <div className="flex flex-col gap-8 max-w-2xl">
                 {/* ... existing general settings ... */}
                 {/* API Provider Selection */}
@@ -227,24 +211,20 @@ const SettingsModal = ({ isOpen, onClose }) => {
 
                   <div className="relative" ref={providerDropdownRef}>
                     <button
-                      onClick={() =>
-                        setIsProviderDropdownOpen(!isProviderDropdownOpen)
-                      }
+                      onClick={() => setIsProviderDropdownOpen(!isProviderDropdownOpen)}
                       className="w-full flex items-center justify-between pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-zinc-800"
                     >
                       <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
                         <Box size={16} />
                       </div>
                       <span>
-                        {apiProvider === "gemini"
-                          ? "Google Gemini"
-                          : "OpenAI Compatible"}
+                        {apiProvider === 'gemini' ? 'Google Gemini' : 'OpenAI Compatible'}
                       </span>
                       <ChevronDown
                         size={16}
                         className={clsx(
-                          "text-gray-400 transition-transform duration-200",
-                          isProviderDropdownOpen && "rotate-180"
+                          'text-gray-400 transition-transform duration-200',
+                          isProviderDropdownOpen && 'rotate-180',
                         )}
                       />
                     </button>
@@ -253,25 +233,25 @@ const SettingsModal = ({ isOpen, onClose }) => {
                       <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg shadow-xl z-20 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
                         <button
                           onClick={() => {
-                            setApiProvider("gemini");
-                            setIsProviderDropdownOpen(false);
+                            setApiProvider('gemini')
+                            setIsProviderDropdownOpen(false)
                           }}
                           className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
                         >
                           <span>Google Gemini</span>
-                          {apiProvider === "gemini" && (
+                          {apiProvider === 'gemini' && (
                             <Check size={14} className="text-cyan-500" />
                           )}
                         </button>
                         <button
                           onClick={() => {
-                            setApiProvider("openai_compatibility");
-                            setIsProviderDropdownOpen(false);
+                            setApiProvider('openai_compatibility')
+                            setIsProviderDropdownOpen(false)
                           }}
                           className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
                         >
                           <span>OpenAI Compatible</span>
-                          {apiProvider === "openai_compatibility" && (
+                          {apiProvider === 'openai_compatibility' && (
                             <Check size={14} className="text-cyan-500" />
                           )}
                         </button>
@@ -280,7 +260,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                   </div>
 
                   {/* Google Settings */}
-                  {apiProvider === "gemini" && (
+                  {apiProvider === 'gemini' && (
                     <div className="flex flex-col gap-2 animate-in fade-in slide-in-from-top-2 duration-200">
                       <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
                         Google API Key
@@ -292,12 +272,12 @@ const SettingsModal = ({ isOpen, onClose }) => {
                         <input
                           type="password"
                           value={googleApiKey}
-                          onChange={(e) => setGoogleApiKey(e.target.value)}
+                          onChange={e => setGoogleApiKey(e.target.value)}
                           placeholder="AIzaSy..."
                           disabled={Boolean(ENV_VARS.googleApiKey)}
                           className={clsx(
-                            "w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600",
-                            ENV_VARS.googleApiKey && "opacity-70 cursor-not-allowed"
+                            'w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
+                            ENV_VARS.googleApiKey && 'opacity-70 cursor-not-allowed',
                           )}
                         />
                       </div>
@@ -306,7 +286,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                   )}
 
                   {/* OpenAI Compatible Settings */}
-                  {apiProvider === "openai_compatibility" && (
+                  {apiProvider === 'openai_compatibility' && (
                     <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-top-2 duration-200">
                       <div className="flex flex-col gap-2">
                         <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
@@ -319,14 +299,12 @@ const SettingsModal = ({ isOpen, onClose }) => {
                           <input
                             type="password"
                             value={OpenAICompatibilityKey}
-                            onChange={(e) =>
-                              setOpenAICompatibilityKey(e.target.value)
-                            }
+                            onChange={e => setOpenAICompatibilityKey(e.target.value)}
                             placeholder="sk-..."
                             disabled={Boolean(ENV_VARS.openAIKey)}
                             className={clsx(
-                              "w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600",
-                              ENV_VARS.openAIKey && "opacity-70 cursor-not-allowed"
+                              'w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
+                              ENV_VARS.openAIKey && 'opacity-70 cursor-not-allowed',
                             )}
                           />
                         </div>
@@ -343,14 +321,12 @@ const SettingsModal = ({ isOpen, onClose }) => {
                           <input
                             type="text"
                             value={OpenAICompatibilityUrl}
-                            onChange={(e) =>
-                              setOpenAICompatibilityUrl(e.target.value)
-                            }
+                            onChange={e => setOpenAICompatibilityUrl(e.target.value)}
                             placeholder="https://api.openai.com/v1"
                             disabled={Boolean(ENV_VARS.openAIBaseUrl)}
                             className={clsx(
-                              "w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600",
-                              ENV_VARS.openAIBaseUrl && "opacity-70 cursor-not-allowed"
+                              'w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
+                              ENV_VARS.openAIBaseUrl && 'opacity-70 cursor-not-allowed',
                             )}
                           />
                         </div>
@@ -372,49 +348,40 @@ const SettingsModal = ({ isOpen, onClose }) => {
                   </div>
 
                   {(() => {
-                    const modelOptions = getModelOptionsForProvider(apiProvider);
+                    const modelOptions = getModelOptionsForProvider(apiProvider)
 
                     const ModelCard = ({ label, helper, value, onChange }) => {
-                      const [isOpen, setIsOpen] = useState(false);
-                      const [showTooltip, setShowTooltip] = useState(false);
-                      const [tooltipPos, setTooltipPos] = useState({ top: 0, left: 0 });
-                      const dropdownRef = useRef(null);
-                      const isCustom = !modelOptions.some(
-                        (opt) => opt.value === value
-                      );
+                      const [isOpen, setIsOpen] = useState(false)
+                      const [showTooltip, setShowTooltip] = useState(false)
+                      const [tooltipPos, setTooltipPos] = useState({ top: 0, left: 0 })
+                      const dropdownRef = useRef(null)
+                      const isCustom = !modelOptions.some(opt => opt.value === value)
                       const currentLabel =
-                        modelOptions.find((opt) => opt.value === value)
-                          ?.label || "Custom...";
+                        modelOptions.find(opt => opt.value === value)?.label || 'Custom...'
 
                       useEffect(() => {
-                        const handleClickOutside = (event) => {
-                          if (
-                            dropdownRef.current &&
-                            !dropdownRef.current.contains(event.target)
-                          ) {
-                            setIsOpen(false);
+                        const handleClickOutside = event => {
+                          if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+                            setIsOpen(false)
                           }
-                        };
+                        }
 
                         if (isOpen) {
-                          document.addEventListener("mousedown", handleClickOutside);
+                          document.addEventListener('mousedown', handleClickOutside)
                         }
                         return () => {
-                          document.removeEventListener(
-                            "mousedown",
-                            handleClickOutside
-                          );
-                        };
-                      }, [isOpen]);
+                          document.removeEventListener('mousedown', handleClickOutside)
+                        }
+                      }, [isOpen])
 
-                      const handleMouseEnter = (e) => {
-                        const rect = e.currentTarget.getBoundingClientRect();
+                      const handleMouseEnter = e => {
+                        const rect = e.currentTarget.getBoundingClientRect()
                         setTooltipPos({
                           top: rect.top - 8,
                           left: rect.left + rect.width / 2,
-                        });
-                        setShowTooltip(true);
-                      };
+                        })
+                        setShowTooltip(true)
+                      }
 
                       return (
                         <div className="flex flex-col gap-3 p-4 border border-gray-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 shadow-sm transition-all hover:shadow-md">
@@ -447,7 +414,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                               </div>
                             </div>
                             <span className="text-[10px] px-2 py-1 rounded-full bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-zinc-700">
-                              {isCustom ? "Custom" : "Preset"}
+                              {isCustom ? 'Custom' : 'Preset'}
                             </span>
                           </div>
 
@@ -455,17 +422,16 @@ const SettingsModal = ({ isOpen, onClose }) => {
                             <button
                               onClick={() => setIsOpen(!isOpen)}
                               className={clsx(
-                                "w-full flex items-center justify-between px-3 py-2.5 bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm transition-all text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-zinc-800",
-                                isOpen &&
-                                "ring-2 ring-cyan-500/20 border-cyan-500"
+                                'w-full flex items-center justify-between px-3 py-2.5 bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm transition-all text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-zinc-800',
+                                isOpen && 'ring-2 ring-cyan-500/20 border-cyan-500',
                               )}
                             >
                               <span>{currentLabel}</span>
                               <ChevronDown
                                 size={16}
                                 className={clsx(
-                                  "text-gray-400 transition-transform duration-200",
-                                  isOpen && "rotate-180"
+                                  'text-gray-400 transition-transform duration-200',
+                                  isOpen && 'rotate-180',
                                 )}
                               />
                             </button>
@@ -473,39 +439,31 @@ const SettingsModal = ({ isOpen, onClose }) => {
                             {isOpen && (
                               <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg shadow-xl z-20 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
                                 <div className="max-h-[200px] overflow-y-auto">
-                                  {modelOptions.map((opt) => (
+                                  {modelOptions.map(opt => (
                                     <button
                                       key={opt.value}
                                       onClick={() => {
-                                        onChange(opt.value);
-                                        setIsOpen(false);
+                                        onChange(opt.value)
+                                        setIsOpen(false)
                                       }}
                                       className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
                                     >
                                       <span>{opt.label}</span>
                                       {value === opt.value && (
-                                        <Check
-                                          size={14}
-                                          className="text-cyan-500"
-                                        />
+                                        <Check size={14} className="text-cyan-500" />
                                       )}
                                     </button>
                                   ))}
                                   <div className="h-px bg-gray-100 dark:bg-zinc-800 my-1" />
                                   <button
                                     onClick={() => {
-                                      onChange(""); // Clear value for custom input
-                                      setIsOpen(false);
+                                      onChange('') // Clear value for custom input
+                                      setIsOpen(false)
                                     }}
                                     className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
                                   >
                                     <span>Custom...</span>
-                                    {isCustom && (
-                                      <Check
-                                        size={14}
-                                        className="text-cyan-500"
-                                      />
-                                    )}
+                                    {isCustom && <Check size={14} className="text-cyan-500" />}
                                   </button>
                                 </div>
                               </div>
@@ -520,15 +478,15 @@ const SettingsModal = ({ isOpen, onClose }) => {
                               <input
                                 type="text"
                                 value={value}
-                                onChange={(e) => onChange(e.target.value)}
+                                onChange={e => onChange(e.target.value)}
                                 placeholder="Enter your own model id"
                                 className="w-full px-3 py-2 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm bg-gray-50 dark:bg-zinc-950 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
                               />
                             </div>
                           )}
                         </div>
-                      );
-                    };
+                      )
+                    }
 
                     return (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -545,7 +503,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                           onChange={setDefaultModel}
                         />
                       </div>
-                    );
+                    )
                   })()}
                 </div>
 
@@ -574,12 +532,12 @@ const SettingsModal = ({ isOpen, onClose }) => {
                         <input
                           type="text"
                           value={supabaseUrl}
-                          onChange={(e) => setSupabaseUrl(e.target.value)}
+                          onChange={e => setSupabaseUrl(e.target.value)}
                           placeholder="https://your-project.supabase.co"
                           disabled={Boolean(ENV_VARS.supabaseUrl)}
                           className={clsx(
-                            "w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600",
-                            ENV_VARS.supabaseUrl && "opacity-70 cursor-not-allowed"
+                            'w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
+                            ENV_VARS.supabaseUrl && 'opacity-70 cursor-not-allowed',
                           )}
                         />
                       </div>
@@ -597,12 +555,12 @@ const SettingsModal = ({ isOpen, onClose }) => {
                         <input
                           type="password"
                           value={supabaseKey}
-                          onChange={(e) => setSupabaseKey(e.target.value)}
+                          onChange={e => setSupabaseKey(e.target.value)}
                           placeholder="••••••••••••••••••••••••••••••••"
                           disabled={Boolean(ENV_VARS.supabaseKey)}
                           className={clsx(
-                            "w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600",
-                            ENV_VARS.supabaseKey && "opacity-70 cursor-not-allowed"
+                            'w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
+                            ENV_VARS.supabaseKey && 'opacity-70 cursor-not-allowed',
                           )}
                         />
                       </div>
@@ -616,20 +574,18 @@ const SettingsModal = ({ isOpen, onClose }) => {
                       disabled={testing || !supabaseUrl || !supabaseKey}
                       className="self-end px-4 py-2 text-xs font-medium text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-900/20 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {testing
-                        ? "Testing..."
-                        : "Test Connection & Database Tables"}
+                      {testing ? 'Testing...' : 'Test Connection & Database Tables'}
                     </button>
 
                     {testResult && (
                       <div
                         className={clsx(
-                          "p-4 rounded-lg border",
+                          'p-4 rounded-lg border',
                           testResult.success
-                            ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800"
+                            ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
                             : testResult.connection
-                              ? "bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800"
-                              : "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800"
+                              ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800'
+                              : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800',
                         )}
                       >
                         <div className="text-sm font-medium mb-2 text-gray-900 dark:text-white">
@@ -639,27 +595,17 @@ const SettingsModal = ({ isOpen, onClose }) => {
                         {testResult.connection && (
                           <div className="space-y-1 text-xs">
                             <div className="flex items-center gap-2">
-                              <span>
-                                {testResult.tables.spaces ? "✅" : "❌"}
-                              </span>
-                              <span className="text-gray-700 dark:text-gray-300">
-                                spaces table
-                              </span>
+                              <span>{testResult.tables.spaces ? '✅' : '❌'}</span>
+                              <span className="text-gray-700 dark:text-gray-300">spaces table</span>
                             </div>
                             <div className="flex items-center gap-2">
-                              <span>
-                                {testResult.tables.conversations ? "✅" : "❌"}
-                              </span>
+                              <span>{testResult.tables.conversations ? '✅' : '❌'}</span>
                               <span className="text-gray-700 dark:text-gray-300">
                                 chat_sessions table
                               </span>
                             </div>
                             <div className="flex items-center gap-2">
-                              <span>
-                                {testResult.tables.conversation_messages
-                                  ? "✅"
-                                  : "❌"}
-                              </span>
+                              <span>{testResult.tables.conversation_messages ? '✅' : '❌'}</span>
                               <span className="text-gray-700 dark:text-gray-300">
                                 messages table
                               </span>
@@ -673,27 +619,23 @@ const SettingsModal = ({ isOpen, onClose }) => {
               </div>
             )}
 
-            {activeTab === "chat" && (
+            {activeTab === 'chat' && (
               <div className="flex flex-col gap-8 max-w-2xl">
                 <div className="flex flex-col gap-2">
                   <label className="text-sm font-medium text-gray-900 dark:text-white">
                     Context Messages
                   </label>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                    How many recent messages to send with each request (excluding spaces/system prompts).
+                    How many recent messages to send with each request (excluding spaces/system
+                    prompts).
                   </p>
                   <input
                     type="number"
                     min={1}
                     max={50}
                     value={contextMessageLimit}
-                    onChange={(e) =>
-                      setContextMessageLimit(
-                        Math.min(
-                          50,
-                          Math.max(1, Number(e.target.value) || 1)
-                        )
-                      )
+                    onChange={e =>
+                      setContextMessageLimit(Math.min(50, Math.max(1, Number(e.target.value) || 1)))
                     }
                     className="w-32 mt-1 px-3 py-2 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600"
                   />
@@ -710,7 +652,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                 <div className="relative">
                   <textarea
                     value={systemPrompt}
-                    onChange={(e) => setSystemPrompt(e.target.value)}
+                    onChange={e => setSystemPrompt(e.target.value)}
                     placeholder="You are a helpful AI assistant..."
                     rows={6}
                     className="w-full p-4 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600 resize-none"
@@ -719,7 +661,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
               </div>
             )}
 
-            {activeTab === "model" && (
+            {activeTab === 'model' && (
               <div className="flex flex-col gap-8 max-w-2xl">
                 <div className="flex flex-col gap-1">
                   <label className="text-sm font-medium text-gray-900 dark:text-white">
@@ -732,9 +674,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
 
                 <div className="flex flex-col gap-2">
                   <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                    {apiProvider === "gemini"
-                      ? "Gemini Model ID"
-                      : "OpenAI Model ID"}
+                    {apiProvider === 'gemini' ? 'Gemini Model ID' : 'OpenAI Model ID'}
                   </label>
                   <div className="relative">
                     <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
@@ -743,26 +683,20 @@ const SettingsModal = ({ isOpen, onClose }) => {
                     <input
                       type="text"
                       value={modelId}
-                      onChange={(e) => setModelId(e.target.value)}
-                      placeholder={
-                        apiProvider === "gemini"
-                          ? "gemini-2.0-flash-exp"
-                          : "gpt-4o"
-                      }
+                      onChange={e => setModelId(e.target.value)}
+                      placeholder={apiProvider === 'gemini' ? 'gemini-2.0-flash-exp' : 'gpt-4o'}
                       className="w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600"
                     />
                   </div>
                   <p className="text-[10px] text-gray-400">
-                    Enter the specific model identifier you wish to use (e.g.,{" "}
-                    {apiProvider === "gemini"
-                      ? "gemini-1.5-pro"
-                      : "gpt-3.5-turbo"}
+                    Enter the specific model identifier you wish to use (e.g.,{' '}
+                    {apiProvider === 'gemini' ? 'gemini-1.5-pro' : 'gpt-3.5-turbo'}
                     ).
                   </p>
                 </div>
               </div>
             )}
-            {activeTab === "about" && (
+            {activeTab === 'about' && (
               <div className="flex flex-col items-center justify-center h-full text-center gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <div className="p-4  rounded-3xl mb-2">
                   <FiloLogo size={64} className="text-gray-900 dark:text-white" />
@@ -776,7 +710,8 @@ const SettingsModal = ({ isOpen, onClose }) => {
                     </span>
                   </h1>
                   <p className="text-sm text-gray-500 dark:text-gray-400 max-w-md leading-relaxed">
-                    An advanced AI assistant interface designed for clarity, speed, and precision. Built with the latest web technologies for a seamless experience.
+                    An advanced AI assistant interface designed for clarity, speed, and precision.
+                    Built with the latest web technologies for a seamless experience.
                   </p>
                 </div>
 
@@ -835,7 +770,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
         </div>
       </div>
     </div>
-  );
-};
+  )
+}
 
-export default SettingsModal;
+export default SettingsModal

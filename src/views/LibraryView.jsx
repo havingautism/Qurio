@@ -1,180 +1,174 @@
-import React, { useState, useMemo, useEffect } from "react";
-import { useAppContext } from "../App";
-import { useNavigate } from "@tanstack/react-router";
-import { listConversations, toggleFavorite } from "../lib/conversationsService";
-import { deleteConversation } from "../lib/supabase";
+import React, { useState, useEffect } from 'react'
+import { useAppContext } from '../App'
+import { useNavigate } from '@tanstack/react-router'
+import { listConversations, toggleFavorite } from '../lib/conversationsService'
+import { deleteConversation } from '../lib/supabase'
 import {
   Search,
   Plus,
   Clock,
-  LayoutGrid,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   MoreHorizontal,
-  ArrowUpDown,
   Library as LibraryIcon,
   Check,
   Bookmark,
   Trash2,
   X,
   ArrowRight,
-} from "lucide-react";
-import clsx from "clsx";
-import FancyLoader from "../components/FancyLoader";
-import DropdownMenu from "../components/DropdownMenu";
-import ConfirmationModal from "../components/ConfirmationModal";
-import { useToast } from "../contexts/ToastContext";
-import TwemojiDisplay from "../components/TwemojiDisplay";
+} from 'lucide-react'
+import clsx from 'clsx'
+import FancyLoader from '../components/FancyLoader'
+import DropdownMenu from '../components/DropdownMenu'
+import ConfirmationModal from '../components/ConfirmationModal'
+import { useToast } from '../contexts/ToastContext'
+import TwemojiDisplay from '../components/TwemojiDisplay'
 
 const SORT_OPTIONS = [
-  { label: "Newest", value: "created_at", ascending: false },
-  { label: "Oldest", value: "created_at", ascending: true },
-  { label: "Title (A-Z)", value: "title", ascending: true },
-  { label: "Title (Z-A)", value: "title", ascending: false },
-];
+  { label: 'Newest', value: 'created_at', ascending: false },
+  { label: 'Oldest', value: 'created_at', ascending: true },
+  { label: 'Title (A-Z)', value: 'title', ascending: true },
+  { label: 'Title (Z-A)', value: 'title', ascending: false },
+]
 
 const LibraryView = () => {
-  const { spaces, isSidebarPinned } = useAppContext();
-  const navigate = useNavigate();
-  const [searchQuery, setSearchQuery] = useState("");
-  const [activeSearchQuery, setActiveSearchQuery] = useState(""); // Query actually sent to server
-  const [sortOption, setSortOption] = useState(SORT_OPTIONS[0]);
-  const [isSortOpen, setIsSortOpen] = useState(false);
-  const [openMenuId, setOpenMenuId] = useState(null);
-  const [menuAnchorEl, setMenuAnchorEl] = useState(null);
-  const [conversationToDelete, setConversationToDelete] = useState(null);
-  const toast = useToast();
+  const { spaces, isSidebarPinned } = useAppContext()
+  const navigate = useNavigate()
+  const [searchQuery, setSearchQuery] = useState('')
+  const [activeSearchQuery, setActiveSearchQuery] = useState('') // Query actually sent to server
+  const [sortOption, setSortOption] = useState(SORT_OPTIONS[0])
+  const [isSortOpen, setIsSortOpen] = useState(false)
+  const [openMenuId, setOpenMenuId] = useState(null)
+  const [menuAnchorEl, setMenuAnchorEl] = useState(null)
+  const [conversationToDelete, setConversationToDelete] = useState(null)
+  const toast = useToast()
 
-  const [conversations, setConversations] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalCount, setTotalCount] = useState(0);
-  const limit = 10;
+  const [conversations, setConversations] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalCount, setTotalCount] = useState(0)
+  const limit = 10
 
   useEffect(() => {
     // Reset to page 1 when sort or active search changes
-    setCurrentPage(1);
-  }, [sortOption, activeSearchQuery]);
+    setCurrentPage(1)
+  }, [sortOption, activeSearchQuery])
 
   useEffect(() => {
     const fetchConversations = async () => {
-      setLoading(true);
+      setLoading(true)
       const { data, count, error } = await listConversations({
         sortBy: sortOption.value,
         ascending: sortOption.ascending,
         page: currentPage,
         limit,
         search: activeSearchQuery,
-      });
+      })
 
       if (!error) {
-        setConversations(data || []);
-        if (count !== undefined) setTotalCount(count);
+        setConversations(data || [])
+        if (count !== undefined) setTotalCount(count)
       } else {
-        console.error("Failed to load conversations:", error);
-        toast.error("Failed to load conversations");
+        console.error('Failed to load conversations:', error)
+        toast.error('Failed to load conversations')
       }
-      setLoading(false);
-    };
+      setLoading(false)
+    }
 
-    fetchConversations();
+    fetchConversations()
 
-    const handleConversationsChanged = () => fetchConversations();
-    window.addEventListener("conversations-changed", handleConversationsChanged);
-    return () => window.removeEventListener("conversations-changed", handleConversationsChanged);
-  }, [currentPage, sortOption, activeSearchQuery]);
+    const handleConversationsChanged = () => fetchConversations()
+    window.addEventListener('conversations-changed', handleConversationsChanged)
+    return () => window.removeEventListener('conversations-changed', handleConversationsChanged)
+  }, [currentPage, sortOption, activeSearchQuery])
 
   const handleSearch = () => {
     if (searchQuery.trim() !== activeSearchQuery) {
-      setActiveSearchQuery(searchQuery.trim());
+      setActiveSearchQuery(searchQuery.trim())
     }
-  };
+  }
 
-  const handleKeyDown = (e) => {
-    if (e.key === "Enter") {
-      handleSearch();
+  const handleKeyDown = e => {
+    if (e.key === 'Enter') {
+      handleSearch()
     }
-  };
+  }
 
   const handleClearSearch = () => {
-    setSearchQuery("");
-    setActiveSearchQuery("");
-  };
+    setSearchQuery('')
+    setActiveSearchQuery('')
+  }
 
-  const totalPages = Math.ceil(totalCount / limit);
+  const totalPages = Math.ceil(totalCount / limit)
 
-  const handlePageChange = (newPage) => {
+  const handlePageChange = newPage => {
     if (newPage >= 1 && newPage <= totalPages) {
-      setCurrentPage(newPage);
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      setCurrentPage(newPage)
+      window.scrollTo({ top: 0, behavior: 'smooth' })
     }
-  };
+  }
 
   // Filter conversations based on search query - Removed as we now do server-side search
-  const filteredConversations = conversations;
+  const filteredConversations = conversations
 
   // Helper to get space info
-  const getSpaceInfo = (spaceId) => {
-    if (!spaceId) return null;
-    return spaces.find((s) => String(s.id) === String(spaceId));
-  };
+  const getSpaceInfo = spaceId => {
+    if (!spaceId) return null
+    return spaces.find(s => String(s.id) === String(spaceId))
+  }
 
   // Format date helper
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-      hour: "numeric",
-      minute: "numeric",
-    });
-  };
+  const formatDate = dateString => {
+    const date = new Date(dateString)
+    return date.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: 'numeric',
+    })
+  }
 
   // Handle toggle favorite
-  const handleToggleFavorite = async (conversation) => {
-    const newStatus = !conversation.is_favorited;
-    const { error } = await toggleFavorite(conversation.id, newStatus);
+  const handleToggleFavorite = async conversation => {
+    const newStatus = !conversation.is_favorited
+    const { error } = await toggleFavorite(conversation.id, newStatus)
 
     if (error) {
-      console.error("Failed to toggle favorite:", error);
-      toast.error("Failed to update favorite status");
+      console.error('Failed to toggle favorite:', error)
+      toast.error('Failed to update favorite status')
     } else {
-      toast.success(
-        newStatus ? "Added to bookmarks" : "Removed from bookmarks"
-      );
+      toast.success(newStatus ? 'Added to bookmarks' : 'Removed from bookmarks')
       // Refresh data
-      window.dispatchEvent(new Event("conversations-changed"));
+      window.dispatchEvent(new Event('conversations-changed'))
     }
-    setOpenMenuId(null);
-  };
+    setOpenMenuId(null)
+  }
 
   // Handle delete conversation
   const handleDeleteConversation = async () => {
-    if (!conversationToDelete) return;
+    if (!conversationToDelete) return
 
-    const { success, error } = await deleteConversation(
-      conversationToDelete.id
-    );
+    const { success, error } = await deleteConversation(conversationToDelete.id)
 
     if (success) {
-      toast.success("Conversation deleted successfully");
+      toast.success('Conversation deleted successfully')
       // Refresh data
-      window.dispatchEvent(new Event("conversations-changed"));
+      window.dispatchEvent(new Event('conversations-changed'))
     } else {
-      console.error("Failed to delete conversation:", error);
-      toast.error("Failed to delete conversation");
+      console.error('Failed to delete conversation:', error)
+      toast.error('Failed to delete conversation')
     }
 
-    setConversationToDelete(null);
-  };
+    setConversationToDelete(null)
+  }
 
   return (
     <div
       className={clsx(
-        "flex-1 min-h-screen bg-background text-foreground transition-all duration-300",
-        isSidebarPinned ? "ml-80" : "ml-16"
+        'flex-1 min-h-screen bg-background text-foreground transition-all duration-300',
+        isSidebarPinned ? 'ml-80' : 'ml-16',
       )}
     >
       <div className="w-full max-w-5xl mx-auto px-6 py-8">
@@ -185,7 +179,7 @@ const LibraryView = () => {
             <h1 className="text-3xl font-medium">Library</h1>
           </div>
           <button
-            onClick={() => navigate({ to: "/new_chat" })}
+            onClick={() => navigate({ to: '/new_chat' })}
             className="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors text-sm font-medium"
           >
             <Plus size={16} />
@@ -207,7 +201,7 @@ const LibraryView = () => {
               type="text"
               placeholder="Search your Threads..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={e => setSearchQuery(e.target.value)}
               onKeyDown={handleKeyDown}
               className="w-full bg-gray-100 dark:bg-zinc-900 border border-transparent focus:border-gray-300 dark:focus:border-zinc-700 rounded-xl py-3 pl-10 pr-20 outline-none transition-all placeholder-gray-500"
             />
@@ -268,25 +262,22 @@ const LibraryView = () => {
               {/* Sort Dropdown */}
               {isSortOpen && (
                 <>
-                  <div
-                    className="fixed inset-0 z-10"
-                    onClick={() => setIsSortOpen(false)}
-                  />
+                  <div className="fixed inset-0 z-10" onClick={() => setIsSortOpen(false)} />
                   <div className="absolute right-0 top-full mt-2 w-40 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-xl shadow-lg z-20 overflow-hidden py-1">
-                    {SORT_OPTIONS.map((option) => (
+                    {SORT_OPTIONS.map(option => (
                       <button
                         key={option.label}
                         onClick={() => {
-                          setSortOption(option);
-                          setIsSortOpen(false);
+                          setSortOption(option)
+                          setIsSortOpen(false)
                         }}
                         className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-zinc-800 flex items-center justify-between group"
                       >
                         <span
                           className={
                             sortOption.label === option.label
-                              ? "text-cyan-500"
-                              : "text-gray-700 dark:text-gray-300"
+                              ? 'text-cyan-500'
+                              : 'text-gray-700 dark:text-gray-300'
                           }
                         >
                           {option.label}
@@ -314,14 +305,14 @@ const LibraryView = () => {
               No threads found matching your search.
             </div>
           ) : (
-            filteredConversations.map((conv) => {
-              const space = getSpaceInfo(conv.space_id);
+            filteredConversations.map(conv => {
+              const space = getSpaceInfo(conv.space_id)
               return (
                 <div
                   key={conv.id}
                   onClick={() =>
                     navigate({
-                      to: "/conversation/$conversationId",
+                      to: '/conversation/$conversationId',
                       params: { conversationId: conv.id },
                     })
                   }
@@ -331,12 +322,9 @@ const LibraryView = () => {
                     <div className="flex-1 min-w-0">
                       {/* Title */}
                       <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-3 truncate flex items-center gap-2">
-                        {conv.title || "Untitled Thread"}
+                        {conv.title || 'Untitled Thread'}
                         {conv.is_favorited && (
-                          <Bookmark
-                            size={14}
-                            className="text-yellow-500 fill-current shrink-0"
-                          />
+                          <Bookmark size={14} className="text-yellow-500 fill-current shrink-0" />
                         )}
                       </h3>
 
@@ -358,10 +346,10 @@ const LibraryView = () => {
                     {/* Actions (visible on hover) */}
                     <div className="relative">
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setOpenMenuId(conv.id);
-                          setMenuAnchorEl(e.currentTarget);
+                        onClick={e => {
+                          e.stopPropagation()
+                          setOpenMenuId(conv.id)
+                          setMenuAnchorEl(e.currentTarget)
                         }}
                         className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 opacity-0 group-hover:opacity-100 transition-opacity"
                       >
@@ -371,29 +359,23 @@ const LibraryView = () => {
                         isOpen={openMenuId === conv.id}
                         anchorEl={openMenuId === conv.id ? menuAnchorEl : null}
                         onClose={() => {
-                          setOpenMenuId(null);
-                          setMenuAnchorEl(null);
+                          setOpenMenuId(null)
+                          setMenuAnchorEl(null)
                         }}
                         items={[
                           {
-                            label: conv.is_favorited
-                              ? "Remove Bookmark"
-                              : "Add Bookmark",
+                            label: conv.is_favorited ? 'Remove Bookmark' : 'Add Bookmark',
                             icon: (
                               <Bookmark
                                 size={14}
-                                className={
-                                  conv.is_favorited ? "fill-current" : ""
-                                }
+                                className={conv.is_favorited ? 'fill-current' : ''}
                               />
                             ),
                             onClick: () => handleToggleFavorite(conv),
-                            className: conv.is_favorited
-                              ? "text-yellow-500"
-                              : "",
+                            className: conv.is_favorited ? 'text-yellow-500' : '',
                           },
                           {
-                            label: "Delete conversation",
+                            label: 'Delete conversation',
                             icon: <Trash2 size={14} />,
                             danger: true,
                             onClick: () => setConversationToDelete(conv),
@@ -403,7 +385,7 @@ const LibraryView = () => {
                     </div>
                   </div>
                 </div>
-              );
+              )
             })
           )}
 
@@ -446,7 +428,7 @@ const LibraryView = () => {
         isDangerous={true}
       />
     </div>
-  );
-};
+  )
+}
 
-export default LibraryView;
+export default LibraryView

@@ -12,7 +12,7 @@ init({
   data,
   backgroundImageFn: (set, sheetSize) => {
     return `https://cdn.jsdelivr.net/npm/emoji-datasource-twitter@15.0.1/img/twitter/sheets/${sheetSize}.png`
-  }
+  },
 })
 
 createRoot(document.getElementById('root')).render(

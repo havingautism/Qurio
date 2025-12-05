@@ -1,27 +1,14 @@
-import React, { useState } from "react";
-import {
-  Layers,
-  MoreHorizontal,
-  Pencil,
-  Trash2,
-  LogOut,
-  Bookmark,
-} from "lucide-react";
-import clsx from "clsx";
-import DropdownMenu from "./DropdownMenu";
-import ConfirmationModal from "./ConfirmationModal";
-import {
-  deleteConversation,
-  removeConversationFromSpace,
-} from "../lib/supabase";
-import {
-  toggleFavorite,
-  listConversationsBySpace,
-} from "../lib/conversationsService";
-import { useInfiniteScroll } from "../hooks/useInfiniteScroll";
-import { useToast } from "../contexts/ToastContext";
-import FancyLoader from "./FancyLoader";
-import TwemojiDisplay from "./TwemojiDisplay";
+import React, { useState } from 'react'
+import { Layers, MoreHorizontal, Pencil, Trash2, LogOut, Bookmark } from 'lucide-react'
+import clsx from 'clsx'
+import DropdownMenu from './DropdownMenu'
+import ConfirmationModal from './ConfirmationModal'
+import { deleteConversation, removeConversationFromSpace } from '../lib/supabase'
+import { toggleFavorite, listConversationsBySpace } from '../lib/conversationsService'
+import { useInfiniteScroll } from '../hooks/useInfiniteScroll'
+import { useToast } from '../contexts/ToastContext'
+import FancyLoader from './FancyLoader'
+import TwemojiDisplay from './TwemojiDisplay'
 
 const SpaceView = ({
   space,
@@ -31,10 +18,10 @@ const SpaceView = ({
   onConversationDeleted,
   isSidebarPinned = false,
 }) => {
-  const [openMenuId, setOpenMenuId] = useState(null);
-  const [menuAnchorEl, setMenuAnchorEl] = useState(null);
-  const [conversationToDelete, setConversationToDelete] = useState(null);
-  const toast = useToast();
+  const [openMenuId, setOpenMenuId] = useState(null)
+  const [menuAnchorEl, setMenuAnchorEl] = useState(null)
+  const [conversationToDelete, setConversationToDelete] = useState(null)
+  const toast = useToast()
 
   // Use infinite scroll hook
   const {
@@ -45,83 +32,81 @@ const SpaceView = ({
     loadMoreRef,
   } = useInfiniteScroll(
     async (cursor, limit) => {
-      if (!space?.id) return { data: [], nextCursor: null, hasMore: false };
-      return await listConversationsBySpace(space.id, { cursor, limit });
+      if (!space?.id) return { data: [], nextCursor: null, hasMore: false }
+      return await listConversationsBySpace(space.id, { cursor, limit })
     },
     {
       limit: 10,
       dependencies: [space?.id],
       enabled: !!space?.id,
-      rootMargin: "100px",
-    }
-  );
+      rootMargin: '100px',
+    },
+  )
 
   const handleDeleteConversation = async () => {
-    if (!conversationToDelete) return;
+    if (!conversationToDelete) return
 
-    const { success, error } = await deleteConversation(
-      conversationToDelete.id
-    );
+    const { success, error } = await deleteConversation(conversationToDelete.id)
 
     if (success) {
-      toast.success("Conversation deleted successfully");
+      toast.success('Conversation deleted successfully')
       if (onConversationDeleted) {
-        onConversationDeleted(conversationToDelete.id);
+        onConversationDeleted(conversationToDelete.id)
       }
       // Notify Sidebar to refresh its conversation list
-      window.dispatchEvent(new Event("conversations-changed"));
+      window.dispatchEvent(new Event('conversations-changed'))
     } else {
-      console.error("Failed to delete conversation:", error);
-      toast.error("Failed to delete conversation");
+      console.error('Failed to delete conversation:', error)
+      toast.error('Failed to delete conversation')
     }
 
-    setConversationToDelete(null);
-  };
+    setConversationToDelete(null)
+  }
 
-  const handleRemoveFromSpace = async (conversation) => {
-    const { data, error } = await removeConversationFromSpace(conversation.id);
+  const handleRemoveFromSpace = async conversation => {
+    const { data, error } = await removeConversationFromSpace(conversation.id)
 
     if (!error && data) {
-      toast.success("Conversation removed from space");
+      toast.success('Conversation removed from space')
       if (onConversationDeleted) {
-        onConversationDeleted(conversation.id);
+        onConversationDeleted(conversation.id)
       }
       // Notify Sidebar to refresh its conversation list
-      window.dispatchEvent(new Event("conversations-changed"));
+      window.dispatchEvent(new Event('conversations-changed'))
     } else {
-      console.error("Failed to remove conversation from space:", error);
-      toast.error("Failed to remove conversation from space");
+      console.error('Failed to remove conversation from space:', error)
+      toast.error('Failed to remove conversation from space')
     }
-  };
+  }
 
-  const handleToggleFavorite = async (conversation) => {
-    const newStatus = !conversation.is_favorited;
-    const { error } = await toggleFavorite(conversation.id, newStatus);
+  const handleToggleFavorite = async conversation => {
+    const newStatus = !conversation.is_favorited
+    const { error } = await toggleFavorite(conversation.id, newStatus)
 
     if (error) {
-      console.error("Failed to toggle favorite:", error);
-      toast.error("Failed to update favorite status");
+      console.error('Failed to toggle favorite:', error)
+      toast.error('Failed to update favorite status')
     } else {
-      toast.success(
-        newStatus ? "Added to bookmarks" : "Removed from bookmarks"
-      );
+      toast.success(newStatus ? 'Added to bookmarks' : 'Removed from bookmarks')
       // Notify Sidebar to refresh its conversation list
-      window.dispatchEvent(new Event("conversations-changed"));
+      window.dispatchEvent(new Event('conversations-changed'))
     }
-  };
+  }
 
   return (
     <div
       className={clsx(
-        "flex flex-col items-center justify-center min-h-screen p-4 bg-background text-foreground transition-all duration-300",
-        isSidebarPinned ? "ml-80" : "ml-16"
+        'flex flex-col items-center justify-center min-h-screen p-4 bg-background text-foreground transition-all duration-300',
+        isSidebarPinned ? 'ml-80' : 'ml-16',
       )}
     >
       <div className="w-full max-w-3xl flex flex-col gap-8">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <div className="text-4xl"><TwemojiDisplay emoji={space.emoji} size="2.25rem" /></div>
+            <div className="text-4xl">
+              <TwemojiDisplay emoji={space.emoji} size="2.25rem" />
+            </div>
             <div className="flex flex-col">
               <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
                 {space.label}
@@ -169,9 +154,7 @@ const SpaceView = ({
               </div>
             )}
             {!loading && conversations.length === 0 && (
-              <div className="text-sm text-gray-500 dark:text-gray-400">
-                No conversations yet.
-              </div>
+              <div className="text-sm text-gray-500 dark:text-gray-400">No conversations yet.</div>
             )}
             {conversations.map((conv, i) => (
               <div
@@ -185,30 +168,25 @@ const SpaceView = ({
                                     </div> */}
                   <div className="flex-1">
                     <h3 className="font-medium text-gray-900 dark:text-gray-100 group-hover:text-cyan-500 transition-colors flex items-center gap-2">
-                      {conv.title || "Untitled"}
+                      {conv.title || 'Untitled'}
                       {conv.is_favorited && (
-                        <Bookmark
-                          size={14}
-                          className="text-yellow-500 fill-current"
-                        />
+                        <Bookmark size={14} className="text-yellow-500 fill-current" />
                       )}
                     </h3>
                     {/* <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2 mt-1">
                                             {conv.description || "Conversation in this space."}
                                         </p> */}
                     <div className="flex items-center gap-2 mt-2 text-xs text-gray-400">
-                      <span>
-                        {new Date(conv.created_at).toLocaleDateString()}
-                      </span>
+                      <span>{new Date(conv.created_at).toLocaleDateString()}</span>
                     </div>
                   </div>
                   <div className="relative">
                     <button
                       className="opacity-0 group-hover:opacity-100 md:opacity-100 p-1 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded text-gray-400 transition-all"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setOpenMenuId(conv.id);
-                        setMenuAnchorEl(e.currentTarget);
+                      onClick={e => {
+                        e.stopPropagation()
+                        setOpenMenuId(conv.id)
+                        setMenuAnchorEl(e.currentTarget)
                       }}
                     >
                       <MoreHorizontal size={16} />
@@ -217,32 +195,28 @@ const SpaceView = ({
                       isOpen={openMenuId === conv.id}
                       anchorEl={openMenuId === conv.id ? menuAnchorEl : null}
                       onClose={() => {
-                        setOpenMenuId(null);
-                        setMenuAnchorEl(null);
+                        setOpenMenuId(null)
+                        setMenuAnchorEl(null)
                       }}
                       items={[
                         {
-                          label: conv.is_favorited
-                            ? "Remove Bookmark"
-                            : "Add Bookmark",
+                          label: conv.is_favorited ? 'Remove Bookmark' : 'Add Bookmark',
                           icon: (
                             <Bookmark
                               size={14}
-                              className={
-                                conv.is_favorited ? "fill-current" : ""
-                              }
+                              className={conv.is_favorited ? 'fill-current' : ''}
                             />
                           ),
                           onClick: () => handleToggleFavorite(conv),
-                          className: conv.is_favorited ? "text-yellow-500" : "",
+                          className: conv.is_favorited ? 'text-yellow-500' : '',
                         },
                         {
-                          label: "Remove from space",
+                          label: 'Remove from space',
                           icon: <LogOut size={14} />,
                           onClick: () => handleRemoveFromSpace(conv),
                         },
                         {
-                          label: "Delete conversation",
+                          label: 'Delete conversation',
                           icon: <Trash2 size={14} />,
                           danger: true,
                           onClick: () => setConversationToDelete(conv),
@@ -264,9 +238,7 @@ const SpaceView = ({
             {!loading && loadingMore && (
               <div className="flex flex-col items-center gap-3 py-8">
                 <FancyLoader />
-                <span className="text-sm text-gray-400">
-                  Loading more conversations...
-                </span>
+                <span className="text-sm text-gray-400">Loading more conversations...</span>
               </div>
             )}
 
@@ -290,7 +262,7 @@ const SpaceView = ({
         isDangerous={true}
       />
     </div>
-  );
-};
+  )
+}
 
-export default SpaceView;
+export default SpaceView

@@ -1,13 +1,12 @@
-import React from "react";
-import MainContent from "../components/MainContent";
-import { spaceRoute } from "../router";
-import { useAppContext } from "../App";
+import React from 'react'
+import MainContent from '../components/MainContent'
+import { spaceRoute } from '../router'
+import { useAppContext } from '../App'
 
 const SpaceView = () => {
-  const { spaceId } = spaceRoute.useParams();
-  const context = useAppContext();
-  const activeSpace =
-    context?.spaces?.find((s) => String(s.id) === String(spaceId)) || null;
+  const { spaceId } = spaceRoute.useParams()
+  const context = useAppContext()
+  const activeSpace = context?.spaces?.find(s => String(s.id) === String(spaceId)) || null
 
   return (
     <MainContent
@@ -16,7 +15,7 @@ const SpaceView = () => {
       spaces={context?.spaces || []}
       {...context}
     />
-  );
-};
+  )
+}
 
-export default SpaceView;
+export default SpaceView

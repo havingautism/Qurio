@@ -1,245 +1,231 @@
-import React, { useState, useEffect } from "react";
-import { Outlet, useLocation, useNavigate } from "@tanstack/react-router";
-import Sidebar from "./components/Sidebar";
-import SettingsModal from "./components/SettingsModal";
-import SpaceModal from "./components/SpaceModal";
-import { initSupabase } from "./lib/supabase";
-import {
-  listSpaces,
-  createSpace,
-  updateSpace,
-  deleteSpace,
-} from "./lib/spacesService";
-import { listConversations } from "./lib/conversationsService";
-import { ToastProvider } from "./contexts/ToastContext";
+import React, { useState, useEffect } from 'react'
+import { Outlet, useLocation, useNavigate } from '@tanstack/react-router'
+import Sidebar from './components/Sidebar'
+import SettingsModal from './components/SettingsModal'
+import SpaceModal from './components/SpaceModal'
+import { initSupabase } from './lib/supabase'
+import { listSpaces, createSpace, updateSpace, deleteSpace } from './lib/spacesService'
+import { listConversations } from './lib/conversationsService'
+import { ToastProvider } from './contexts/ToastContext'
 
-export const AppContext = React.createContext(null);
-export const useAppContext = () => React.useContext(AppContext);
+export const AppContext = React.createContext(null)
+export const useAppContext = () => React.useContext(AppContext)
 
 function App() {
-  const location = useLocation();
-  const navigate = useNavigate();
+  const location = useLocation()
+  const navigate = useNavigate()
 
   // Initialize theme based on system preference or default to dark
-  const [theme, setTheme] = useState("system"); // 'light' | 'dark' | 'system'
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [theme, setTheme] = useState('system') // 'light' | 'dark' | 'system'
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
 
   // Space Modal State
-  const [isSpaceModalOpen, setIsSpaceModalOpen] = useState(false);
-  const [editingSpace, setEditingSpace] = useState(null);
+  const [isSpaceModalOpen, setIsSpaceModalOpen] = useState(false)
+  const [editingSpace, setEditingSpace] = useState(null)
 
   // Spaces Data
-  const [spaces, setSpaces] = useState([]);
+  const [spaces, setSpaces] = useState([])
 
   // Conversations Data
-  const [conversations, setConversations] = useState([]);
-  const [conversationsLoading, setConversationsLoading] = useState(false);
-  const [spacesLoading, setSpacesLoading] = useState(false);
+  const [conversations, setConversations] = useState([])
+  const [conversationsLoading, setConversationsLoading] = useState(false)
+  const [spacesLoading, setSpacesLoading] = useState(false)
 
   // Sidebar pin state
   const [isSidebarPinned, setIsSidebarPinned] = useState(() => {
-    const saved = localStorage.getItem("sidebar-pinned");
-    return saved === "true";
-  });
+    const saved = localStorage.getItem('sidebar-pinned')
+    return saved === 'true'
+  })
 
   // Extract conversation ID from URL
   const activeConversationId = React.useMemo(() => {
-    const match = location.pathname.match(/\/conversation\/(.+)/);
-    return match ? match[1] : null;
-  }, [location]);
+    const match = location.pathname.match(/\/conversation\/(.+)/)
+    return match ? match[1] : null
+  }, [location])
 
   // Derive current view from location
   const currentView = React.useMemo(() => {
-    const path = location.pathname;
-    if (path === "/" || path === "/new_chat") return "home";
-    if (path.startsWith("/conversation/")) return "chat";
-    if (path === "/spaces") return "spaces";
-    if (path.startsWith("/space/")) return "space";
-    if (path === "/library") return "library";
-    if (path === "/bookmarks") return "bookmarks";
-    return "home";
-  }, [location]);
+    const path = location.pathname
+    if (path === '/' || path === '/new_chat') return 'home'
+    if (path.startsWith('/conversation/')) return 'chat'
+    if (path === '/spaces') return 'spaces'
+    if (path.startsWith('/space/')) return 'space'
+    if (path === '/library') return 'library'
+    if (path === '/bookmarks') return 'bookmarks'
+    return 'home'
+  }, [location])
 
   useEffect(() => {
-    const root = document.documentElement;
-    const systemTheme = window.matchMedia("(prefers-color-scheme: dark)")
-      .matches
-      ? "dark"
-      : "light";
+    const root = document.documentElement
+    const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
 
-    const applyTheme = (t) => {
-      if (t === "dark" || (t === "system" && systemTheme === "dark")) {
-        root.classList.add("dark");
+    const applyTheme = t => {
+      if (t === 'dark' || (t === 'system' && systemTheme === 'dark')) {
+        root.classList.add('dark')
       } else {
-        root.classList.remove("dark");
+        root.classList.remove('dark')
       }
-    };
+    }
 
-    applyTheme(theme);
+    applyTheme(theme)
 
     // Listener for system theme changes if in system mode
-    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
     const handleChange = () => {
-      if (theme === "system") {
-        applyTheme("system");
+      if (theme === 'system') {
+        applyTheme('system')
       }
-    };
+    }
 
-    mediaQuery.addEventListener("change", handleChange);
-    return () => mediaQuery.removeEventListener("change", handleChange);
-  }, [theme]);
+    mediaQuery.addEventListener('change', handleChange)
+    return () => mediaQuery.removeEventListener('change', handleChange)
+  }, [theme])
 
   const cycleTheme = () => {
-    setTheme((prev) => {
-      if (prev === "light") return "dark";
-      if (prev === "dark") return "system";
-      return "light";
-    });
-  };
+    setTheme(prev => {
+      if (prev === 'light') return 'dark'
+      if (prev === 'dark') return 'system'
+      return 'light'
+    })
+  }
 
-  const handleNavigate = (view) => {
+  const handleNavigate = view => {
     switch (view) {
-      case "home":
-        navigate({ to: "/new_chat" });
-        break;
-      case "spaces":
-        navigate({ to: "/spaces" });
-        break;
-      case "library":
-        navigate({ to: "/library" });
-        break;
-      case "bookmarks":
-        navigate({ to: "/bookmarks" });
-        break;
-      case "chat":
-        navigate({ to: "/new_chat" });
-        break;
+      case 'home':
+        navigate({ to: '/new_chat' })
+        break
+      case 'spaces':
+        navigate({ to: '/spaces' })
+        break
+      case 'library':
+        navigate({ to: '/library' })
+        break
+      case 'bookmarks':
+        navigate({ to: '/bookmarks' })
+        break
+      case 'chat':
+        navigate({ to: '/new_chat' })
+        break
       default:
-        navigate({ to: "/" });
+        navigate({ to: '/' })
     }
-  };
+  }
 
-  const handleNavigateToSpace = (space) => {
+  const handleNavigateToSpace = space => {
     if (space) {
       navigate({
-        to: "/space/$spaceId",
+        to: '/space/$spaceId',
         params: { spaceId: String(space.id) },
-      });
+      })
     } else {
-      navigate({ to: "/spaces" });
+      navigate({ to: '/spaces' })
     }
-  };
+  }
 
   const handleCreateSpace = () => {
-    setEditingSpace(null);
-    setIsSpaceModalOpen(true);
-  };
+    setEditingSpace(null)
+    setIsSpaceModalOpen(true)
+  }
 
-  const handleEditSpace = (space) => {
-    setEditingSpace(space);
-    setIsSpaceModalOpen(true);
-  };
+  const handleEditSpace = space => {
+    setEditingSpace(space)
+    setIsSpaceModalOpen(true)
+  }
 
-  const handleOpenConversation = (conversation) => {
+  const handleOpenConversation = conversation => {
     if (conversation?.id) {
       navigate({
-        to: "/conversation/$conversationId",
+        to: '/conversation/$conversationId',
         params: { conversationId: String(conversation.id) },
-      });
+      })
     } else {
-      navigate({ to: "/new_chat" });
+      navigate({ to: '/new_chat' })
     }
-  };
+  }
 
   // Load spaces from Supabase on mount
   useEffect(() => {
     const load = async () => {
-      setSpacesLoading(true);
+      setSpacesLoading(true)
       try {
-        initSupabase();
-        const { data, error } = await listSpaces();
+        initSupabase()
+        const { data, error } = await listSpaces()
         if (!error && data) {
-          setSpaces(data);
+          setSpaces(data)
         } else {
-          console.error("Failed to fetch spaces:", error);
+          console.error('Failed to fetch spaces:', error)
         }
       } catch (err) {
-        console.error("Unexpected error fetching spaces:", err);
+        console.error('Unexpected error fetching spaces:', err)
       } finally {
-        setSpacesLoading(false);
+        setSpacesLoading(false)
       }
-    };
-    load();
-  }, []);
+    }
+    load()
+  }, [])
 
   // Load conversations from Supabase on mount
   useEffect(() => {
     const loadConversations = async () => {
-      setConversationsLoading(true);
+      setConversationsLoading(true)
       try {
-        const { data, error } = await listConversations({ limit: 50 });
+        const { data, error } = await listConversations({ limit: 50 })
         if (!error && data) {
-          setConversations(data);
+          setConversations(data)
         } else {
-          console.error("Failed to fetch conversations:", error);
+          console.error('Failed to fetch conversations:', error)
         }
       } catch (err) {
-        console.error("Unexpected error fetching conversations:", err);
+        console.error('Unexpected error fetching conversations:', err)
       } finally {
-        setConversationsLoading(false);
+        setConversationsLoading(false)
       }
-    };
-    loadConversations();
+    }
+    loadConversations()
 
     // Listen for conversation changes
-    const handleConversationsChanged = () => loadConversations();
-    window.addEventListener(
-      "conversations-changed",
-      handleConversationsChanged
-    );
+    const handleConversationsChanged = () => loadConversations()
+    window.addEventListener('conversations-changed', handleConversationsChanged)
     return () => {
-      window.removeEventListener(
-        "conversations-changed",
-        handleConversationsChanged
-      );
-    };
-  }, []);
+      window.removeEventListener('conversations-changed', handleConversationsChanged)
+    }
+  }, [])
 
-  const handleSaveSpace = async (payload) => {
+  const handleSaveSpace = async payload => {
     if (editingSpace) {
-      const { data, error } = await updateSpace(editingSpace.id, payload);
+      const { data, error } = await updateSpace(editingSpace.id, payload)
       if (!error && data) {
-        setSpaces((prev) => prev.map((s) => (s.id === data.id ? data : s)));
-        if (activeSpace?.id === data.id) setActiveSpace(data);
+        setSpaces(prev => prev.map(s => (s.id === data.id ? data : s)))
+        if (activeSpace?.id === data.id) setActiveSpace(data)
       } else {
-        console.error("Update space failed:", error);
+        console.error('Update space failed:', error)
       }
     } else {
-      const { data, error } = await createSpace(payload);
+      const { data, error } = await createSpace(payload)
       if (!error && data) {
-        setSpaces((prev) => [...prev, data]);
+        setSpaces(prev => [...prev, data])
       } else {
-        console.error("Create space failed:", error);
+        console.error('Create space failed:', error)
       }
     }
-    setIsSpaceModalOpen(false);
-    setEditingSpace(null);
-  };
+    setIsSpaceModalOpen(false)
+    setEditingSpace(null)
+  }
 
-  const handleDeleteSpace = async (id) => {
-    const { error } = await deleteSpace(id);
+  const handleDeleteSpace = async id => {
+    const { error } = await deleteSpace(id)
     if (!error) {
-      setSpaces((prev) => prev.filter((s) => s.id !== id));
+      setSpaces(prev => prev.filter(s => s.id !== id))
       // Navigate away if currently viewing the deleted space
       if (location.pathname === `/space/${id}`) {
-        navigate({ to: "/spaces" });
+        navigate({ to: '/spaces' })
       }
     } else {
-      console.error("Delete space failed:", error);
+      console.error('Delete space failed:', error)
     }
-    setIsSpaceModalOpen(false);
-    setEditingSpace(null);
-  };
+    setIsSpaceModalOpen(false)
+    setEditingSpace(null)
+  }
 
   // Remove old route sync logic - React Router handles this automatically
 
@@ -284,10 +270,7 @@ function App() {
             <Outlet />
           </AppContext.Provider>
         </div>
-        <SettingsModal
-          isOpen={isSettingsOpen}
-          onClose={() => setIsSettingsOpen(false)}
-        />
+        <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
         <SpaceModal
           isOpen={isSpaceModalOpen}
           onClose={() => setIsSpaceModalOpen(false)}
@@ -297,7 +280,7 @@ function App() {
         />
       </div>
     </ToastProvider>
-  );
+  )
 }
 
-export default App;
+export default App

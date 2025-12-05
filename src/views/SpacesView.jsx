@@ -1,64 +1,57 @@
-import React from "react";
-import { useAppContext } from "../App";
-import { useNavigate } from "@tanstack/react-router";
-import {
-  LayoutGrid,
-  Plus,
-  Clock,
-  Brain,
-  DollarSign,
-  Laptop,
-} from "lucide-react";
-import clsx from "clsx";
+import React from 'react'
+import { useAppContext } from '../App'
+import { useNavigate } from '@tanstack/react-router'
+import { LayoutGrid, Plus, Clock, Brain, DollarSign, Laptop } from 'lucide-react'
+import clsx from 'clsx'
 
 const SpacesView = () => {
-  const { spaces, onCreateSpace, isSidebarPinned } = useAppContext();
-  const navigate = useNavigate();
+  const { spaces, onCreateSpace, isSidebarPinned } = useAppContext()
+  const navigate = useNavigate()
 
   // Helper to format date
-  const formatDate = (dateString) => {
-    if (!dateString) return "Just now";
-    const date = new Date(dateString);
-    return date.toLocaleString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-  };
+  const formatDate = dateString => {
+    if (!dateString) return 'Just now'
+    const date = new Date(dateString)
+    return date.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    })
+  }
 
   // Static examples data
   const exampleSpaces = [
     {
-      id: "ex-1",
-      emoji: "🧠",
-      label: "Perplexity Support",
+      id: 'ex-1',
+      emoji: '🧠',
+      label: 'Perplexity Support',
       icon: Brain,
-      color: "text-pink-500",
-      bgColor: "bg-pink-500/10",
+      color: 'text-pink-500',
+      bgColor: 'bg-pink-500/10',
     },
     {
-      id: "ex-2",
-      emoji: "💵",
-      label: "What would Buffet say?",
+      id: 'ex-2',
+      emoji: '💵',
+      label: 'What would Buffet say?',
       icon: DollarSign,
-      color: "text-green-500",
-      bgColor: "bg-green-500/10",
+      color: 'text-green-500',
+      bgColor: 'bg-green-500/10',
     },
     {
-      id: "ex-3",
-      emoji: "💻",
-      label: "LLM Research",
+      id: 'ex-3',
+      emoji: '💻',
+      label: 'LLM Research',
       icon: Laptop,
-      color: "text-yellow-500",
-      bgColor: "bg-yellow-500/10",
+      color: 'text-yellow-500',
+      bgColor: 'bg-yellow-500/10',
     },
-  ];
+  ]
 
   return (
     <div
       className={clsx(
-        "flex-1 min-h-screen bg-background text-foreground transition-all duration-300",
-        isSidebarPinned ? "ml-80" : "ml-16"
+        'flex-1 min-h-screen bg-background text-foreground transition-all duration-300',
+        isSidebarPinned ? 'ml-80' : 'ml-16',
       )}
     >
       <div className="w-full max-w-5xl mx-auto px-6 py-8">
@@ -70,9 +63,7 @@ const SpacesView = () => {
 
         {/* My Spaces Section */}
         <div className="mb-12">
-          <h2 className="text-lg font-medium mb-4 text-gray-700 dark:text-gray-300">
-            My Spaces
-          </h2>
+          <h2 className="text-lg font-medium mb-4 text-gray-700 dark:text-gray-300">My Spaces</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {/* Create Card */}
             <div
@@ -91,12 +82,12 @@ const SpacesView = () => {
             </div>
 
             {/* User Spaces */}
-            {spaces.map((space) => (
+            {spaces.map(space => (
               <div
                 key={space.id}
                 onClick={() =>
                   navigate({
-                    to: "/space/$spaceId",
+                    to: '/space/$spaceId',
                     params: { spaceId: space.id },
                   })
                 }
@@ -106,9 +97,7 @@ const SpacesView = () => {
                   {space.emoji}
                 </div>
                 <div>
-                  <h3 className="font-medium text-lg mb-1 truncate">
-                    {space.label}
-                  </h3>
+                  <h3 className="font-medium text-lg mb-1 truncate">{space.label}</h3>
                   <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
                     <Clock size={12} />
                     <span>{formatDate(space.created_at)}</span>
@@ -121,20 +110,18 @@ const SpacesView = () => {
 
         {/* Examples Section */}
         <div>
-          <h2 className="text-lg font-medium mb-4 text-gray-700 dark:text-gray-300">
-            Examples
-          </h2>
+          <h2 className="text-lg font-medium mb-4 text-gray-700 dark:text-gray-300">Examples</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {exampleSpaces.map((ex) => (
+            {exampleSpaces.map(ex => (
               <div
                 key={ex.id}
                 className="group p-6 rounded-xl bg-gray-100 dark:bg-zinc-900 hover:bg-gray-200 dark:hover:bg-zinc-800 cursor-pointer transition-colors flex flex-col justify-between min-h-[160px]"
               >
                 <div
                   className={clsx(
-                    "w-10 h-10 rounded-full flex items-center justify-center mb-4",
+                    'w-10 h-10 rounded-full flex items-center justify-center mb-4',
                     ex.bgColor,
-                    ex.color
+                    ex.color,
                   )}
                 >
                   <ex.icon size={20} />
@@ -148,7 +135,7 @@ const SpacesView = () => {
         </div>
       </div>
     </div>
-  );
-};
+  )
+}
 
-export default SpacesView;
+export default SpacesView

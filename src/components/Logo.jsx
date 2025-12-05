@@ -1,6 +1,6 @@
-import React from "react";
+import React from 'react'
 
-const Logo = ({ size = 24, className = "" }) => {
+const Logo = ({ size = 24, className = '' }) => {
   return (
     <svg
       width={size}
@@ -68,11 +68,11 @@ const Logo = ({ size = 24, className = "" }) => {
         strokeLinejoin="round"
       />
     </svg>
-  );
-};
+  )
+}
 
 // Re-implementing with a cleaner geometric path that matches the "Clarity" logo (3 interlocking cubes)
-const FiloLogo = ({ size = 24, className = "" }) => {
+const FiloLogo = ({ size = 24, className = '' }) => {
   return (
     <svg
       version="1.1"
@@ -149,7 +149,7 @@ M407.445526,341.876343
 z"
       />
     </svg>
-  );
-};
+  )
+}
 
-export default FiloLogo;
+export default FiloLogo

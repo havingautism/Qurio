@@ -1,14 +1,12 @@
-import React, { useState, useEffect, useRef } from "react";
-import { useShallow } from 'zustand/react/shallow';
-import useChatStore from '../lib/chatStore';
+import React, { useState, useEffect, useRef } from 'react'
+import { useShallow } from 'zustand/react/shallow'
+import useChatStore from '../lib/chatStore'
 import {
   Copy,
   ThumbsUp,
   ThumbsDown,
   Share2,
   MoreHorizontal,
-  FileText,
-  List,
   AlignLeft,
   Layers,
   Brain,
@@ -18,32 +16,29 @@ import {
   Pencil,
   Check,
   RefreshCw,
-} from "lucide-react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import {
-  oneDark,
-  oneLight,
-} from "react-syntax-highlighter/dist/esm/styles/prism";
+} from 'lucide-react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
+import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
 
-import { getProvider } from "../lib/providers";
+import { getProvider } from '../lib/providers'
 
 /**
  * Make inline [n] markers clickable to the corresponding source URL while keeping brackets.
  */
 const formatContentWithSources = (content, sources = []) => {
-  if (typeof content !== "string" || !Array.isArray(sources) || sources.length === 0) {
-    return content;
+  if (typeof content !== 'string' || !Array.isArray(sources) || sources.length === 0) {
+    return content
   }
   return content.replace(/\[(\d+)\]/g, (match, p1) => {
-    const idx = Number(p1) - 1;
-    const src = sources[idx];
-    if (!src?.url) return match;
+    const idx = Number(p1) - 1
+    const src = sources[idx]
+    if (!src?.url) return match
     // Keep visible brackets by including them in the link text
-    return `[\\[${p1}\\]](${src.url})`;
-  });
-};
+    return `[\\[${p1}\\]](${src.url})`
+  })
+}
 
 /**
  * MessageBubble component that directly accesses messages from chatStore via index
@@ -60,87 +55,81 @@ const MessageBubble = ({
 }) => {
   // Get message directly from chatStore using shallow selector
   const { messages } = useChatStore(
-    useShallow((state) => ({
+    useShallow(state => ({
       messages: state.messages,
-    }))
-  );
+    })),
+  )
 
   // Extract message by index
-  const message = messages[messageIndex];
-  const [isDark, setIsDark] = useState(
-    document.documentElement.classList.contains("dark")
-  );
-  const mainContentRef = useRef(null);
+  const message = messages[messageIndex]
+  const [isDark, setIsDark] = useState(document.documentElement.classList.contains('dark'))
+  const mainContentRef = useRef(null)
 
   // State to track copy success
-  const [isCopied, setIsCopied] = useState(false);
+  const [isCopied, setIsCopied] = useState(false)
 
   // Utility function to copy text to clipboard
-  const copyToClipboard = async (text) => {
+  const copyToClipboard = async text => {
     try {
       if (navigator?.clipboard?.writeText) {
-        await navigator.clipboard.writeText(text);
+        await navigator.clipboard.writeText(text)
       } else {
-        const textarea = document.createElement("textarea");
-        textarea.value = text;
-        textarea.style.position = "fixed";
-        textarea.style.opacity = "0";
-        document.body.appendChild(textarea);
-        textarea.select();
-        document.execCommand("copy");
-        document.body.removeChild(textarea);
+        const textarea = document.createElement('textarea')
+        textarea.value = text
+        textarea.style.position = 'fixed'
+        textarea.style.opacity = '0'
+        document.body.appendChild(textarea)
+        textarea.select()
+        document.execCommand('copy')
+        document.body.removeChild(textarea)
       }
       // Show a brief success indication
-      console.log("Text copied to clipboard");
+      console.log('Text copied to clipboard')
     } catch (err) {
-      console.error("Failed to copy text: ", err);
+      console.error('Failed to copy text: ', err)
     }
-  };
+  }
 
   // Effect to handle copy success timeout with proper cleanup
   useEffect(() => {
     if (isCopied) {
       const timer = setTimeout(() => {
-        setIsCopied(false);
-      }, 2000);
+        setIsCopied(false)
+      }, 2000)
 
       // Cleanup function to clear timeout if component unmounts
-      return () => clearTimeout(timer);
+      return () => clearTimeout(timer)
     }
-  }, [isCopied]);
+  }, [isCopied])
 
   useEffect(() => {
-    const observer = new MutationObserver((mutations) => {
-      mutations.forEach((mutation) => {
-        if (mutation.attributeName === "class") {
-          setIsDark(document.documentElement.classList.contains("dark"));
+    const observer = new MutationObserver(mutations => {
+      mutations.forEach(mutation => {
+        if (mutation.attributeName === 'class') {
+          setIsDark(document.documentElement.classList.contains('dark'))
         }
-      });
-    });
-    observer.observe(document.documentElement, { attributes: true });
-    return () => observer.disconnect();
-  }, []);
+      })
+    })
+    observer.observe(document.documentElement, { attributes: true })
+    return () => observer.disconnect()
+  }, [])
 
-  const [isThoughtExpanded, setIsThoughtExpanded] = useState(true);
-  const [showAllSources, setShowAllSources] = useState(false);
-  const isUser = message.role === "user";
+  const [isThoughtExpanded, setIsThoughtExpanded] = useState(true)
+  const [showAllSources, setShowAllSources] = useState(false)
+  const isUser = message.role === 'user'
 
   if (isUser) {
-    let contentToRender = message.content;
-    let imagesToRender = [];
+    let contentToRender = message.content
+    let imagesToRender = []
 
     if (Array.isArray(message.content)) {
-      const textPart = message.content.find((c) => c.type === "text");
-      contentToRender = textPart ? textPart.text : "";
-      imagesToRender = message.content.filter((c) => c.type === "image_url");
+      const textPart = message.content.find(c => c.type === 'text')
+      contentToRender = textPart ? textPart.text : ''
+      imagesToRender = message.content.filter(c => c.type === 'image_url')
     }
 
     return (
-      <div
-        id={messageId}
-        ref={bubbleRef}
-        className="flex justify-end w-full mb-8 group"
-      >
+      <div id={messageId} ref={bubbleRef} className="flex justify-end w-full mb-8 group">
         <div className="flex items-end gap-3">
           {/* Action Buttons */}
           <div className="opacity-0 group-hover:opacity-100 flex  gap-1 transition-opacity duration-200">
@@ -153,8 +142,8 @@ const MessageBubble = ({
             </button>
             <button
               onClick={() => {
-                copyToClipboard(contentToRender);
-                setIsCopied(true);
+                copyToClipboard(contentToRender)
+                setIsCopied(true)
               }}
               className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 bg-gray-100 dark:bg-zinc-800/50 rounded-lg transition-colors"
               title="Copy"
@@ -186,19 +175,19 @@ const MessageBubble = ({
           </div>
         </div>
       </div>
-    );
+    )
   }
 
   // Parse content using provider-specific logic
-  const provider = getProvider(apiProvider);
-  const parsed = provider.parseMessage(message);
-  const thoughtContent = message.thinkingEnabled === false ? null : parsed.thought;
-  const mainContent = parsed.content;
-  const contentWithCitations = formatContentWithSources(mainContent, message.sources);
+  const provider = getProvider(apiProvider)
+  const parsed = provider.parseMessage(message)
+  const thoughtContent = message.thinkingEnabled === false ? null : parsed.thought
+  const mainContent = parsed.content
+  const contentWithCitations = formatContentWithSources(mainContent, message.sources)
 
   const CodeBlock = ({ inline, className, children, ...props }) => {
-    const match = /language-(\w+)/.exec(className || "");
-    const langLabel = match ? match[1].toUpperCase() : "CODE";
+    const match = /language-(\w+)/.exec(className || '')
+    const langLabel = match ? match[1].toUpperCase() : 'CODE'
 
     if (!inline && match) {
       return (
@@ -216,21 +205,21 @@ const MessageBubble = ({
             className="code-scrollbar text-sm"
             customStyle={{
               margin: 0,
-              padding: "1rem",
-              background: "transparent", // Let the container handle bg if needed, or use theme's bg
+              padding: '1rem',
+              background: 'transparent', // Let the container handle bg if needed, or use theme's bg
             }}
             codeTagProps={{
               style: {
-                backgroundColor: "transparent",
+                backgroundColor: 'transparent',
                 fontFamily: '"Google Sans Code", monospace',
               },
             }}
             {...props}
           >
-            {String(children).replace(/\n$/, "")}
+            {String(children).replace(/\n$/, '')}
           </SyntaxHighlighter>
         </div>
-      );
+      )
     }
 
     return (
@@ -240,15 +229,11 @@ const MessageBubble = ({
       >
         {children}
       </code>
-    );
-  };
+    )
+  }
 
   return (
-    <div
-      id={messageId}
-      ref={bubbleRef}
-      className="w-full max-w-3xl mb-12 flex flex-col gap-6"
-    >
+    <div id={messageId} ref={bubbleRef} className="w-full max-w-3xl mb-12 flex flex-col gap-6">
       {/* Answer Header */}
       <div className="flex items-center gap-3 text-gray-900 dark:text-gray-100">
         <AlignLeft size={24} className="text-cyan-500" />
@@ -266,11 +251,7 @@ const MessageBubble = ({
               <Brain size={16} className="text-cyan-500 dark:text-cyan-400" />
               <span>Thinking Process</span>
             </div>
-            {isThoughtExpanded ? (
-              <ChevronDown size={16} />
-            ) : (
-              <ChevronRight size={16} />
-            )}
+            {isThoughtExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
           </button>
 
           {isThoughtExpanded && (
@@ -278,9 +259,7 @@ const MessageBubble = ({
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 components={{
-                  p: ({ node, ...props }) => (
-                    <p className="mb-2 last:mb-0" {...props} />
-                  ),
+                  p: ({ node, ...props }) => <p className="mb-2 last:mb-0" {...props} />,
                   code: CodeBlock,
                 }}
               >
@@ -298,14 +277,17 @@ const MessageBubble = ({
             <div
               key={index}
               className="bg-gray-50 dark:bg-zinc-800/50 hover:bg-gray-100 dark:hover:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg p-2.5 cursor-pointer transition-colors flex flex-col justify-between w-36 "
-              onClick={() => window.open(source.url, "_blank")}
-            > <div className="flex items-center gap-1.5 mt-1">
+              onClick={() => window.open(source.url, '_blank')}
+            >
+              {' '}
+              <div className="flex items-center gap-1.5 mt-1">
                 <div className="w-3.5 h-3.5 rounded-full bg-gray-200 dark:bg-zinc-700 flex items-center justify-center text-[9px] text-gray-600 dark:text-gray-300 shrink-0">
                   {index + 1}
-                </div> <div className="text-[11px] text-gray-600 dark:text-gray-300 line-clamp-2 leading-tight font-medium">
+                </div>{' '}
+                <div className="text-[11px] text-gray-600 dark:text-gray-300 line-clamp-2 leading-tight font-medium">
                   {source.title}
                 </div>
-              </ div>
+              </div>
             </div>
           ))}
           {!showAllSources && message.sources.length > 4 && (
@@ -336,18 +318,12 @@ const MessageBubble = ({
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
             components={{
-              p: ({ node, ...props }) => (
-                <p className="mb-4 last:mb-0" {...props} />
-              ),
+              p: ({ node, ...props }) => <p className="mb-4 last:mb-0" {...props} />,
               h1: ({ node, ...props }) => (
                 <h1 className="text-2xl font-bold mb-4 mt-6" {...props} />
               ),
-              h2: ({ node, ...props }) => (
-                <h2 className="text-xl font-bold mb-3 mt-5" {...props} />
-              ),
-              h3: ({ node, ...props }) => (
-                <h3 className="text-lg font-bold mb-2 mt-4" {...props} />
-              ),
+              h2: ({ node, ...props }) => <h2 className="text-xl font-bold mb-3 mt-5" {...props} />,
+              h3: ({ node, ...props }) => <h3 className="text-lg font-bold mb-2 mt-4" {...props} />,
               ul: ({ node, ...props }) => (
                 <ul className="list-disc pl-5 mb-4 space-y-1" {...props} />
               ),
@@ -421,9 +397,7 @@ const MessageBubble = ({
                 onClick={() => onRelatedClick && onRelatedClick(question)}
                 className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800/50 cursor-pointer transition-colors group"
               >
-                <span className="text-gray-700 dark:text-gray-300 font-medium">
-                  {question}
-                </span>
+                <span className="text-gray-700 dark:text-gray-300 font-medium">{question}</span>
                 <div className="opacity-0 group-hover:opacity-100 text-gray-400 dark:text-gray-500">
                   <CornerRightDown />
                 </div>
@@ -450,16 +424,26 @@ const MessageBubble = ({
           className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
           onClick={() => {
             // Copy only the rendered markdown text (no extra metadata/sections)
-            const renderedText =
-              mainContentRef.current?.innerText?.trim() || "";
-            const fallbackText = mainContent || "";
-            copyToClipboard(renderedText || fallbackText);
-            setIsCopied(true);
+            const renderedText = mainContentRef.current?.innerText?.trim() || ''
+            const fallbackText = mainContent || ''
+            copyToClipboard(renderedText || fallbackText)
+            setIsCopied(true)
           }}
         >
           {isCopied ? (
             <>
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-600 dark:text-green-400">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="text-green-600 dark:text-green-400"
+              >
                 <polyline points="20,6 9,17 4,12"></polyline>
               </svg>
               <span className="text-green-600 dark:text-green-400">Copied</span>
@@ -483,8 +467,8 @@ const MessageBubble = ({
         </button>
       </div>
     </div>
-  );
-};
+  )
+}
 
 const PlusIcon = () => (
   <svg
@@ -501,6 +485,6 @@ const PlusIcon = () => (
     <path d="M5 12h14" />
     <path d="M12 5v14" />
   </svg>
-);
+)
 
-export default MessageBubble;
+export default MessageBubble

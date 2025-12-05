@@ -1,9 +1,18 @@
-import React from 'react';
-import useScrollLock from '../hooks/useScrollLock';
+import React from 'react'
+import useScrollLock from '../hooks/useScrollLock'
 
-const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message, confirmText = "Confirm", cancelText = "Cancel", isDangerous = false }) => {
-  useScrollLock(isOpen);
-  if (!isOpen) return null;
+const ConfirmationModal = ({
+  isOpen,
+  onClose,
+  onConfirm,
+  title,
+  message,
+  confirmText = 'Confirm',
+  cancelText = 'Cancel',
+  isDangerous = false,
+}) => {
+  useScrollLock(isOpen)
+  if (!isOpen) return null
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
@@ -20,17 +29,16 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message, confirm
           </button>
           <button
             onClick={onConfirm}
-            className={`px-4 py-2 rounded-lg text-white text-sm font-medium transition-colors ${isDangerous
-                ? 'bg-red-500/80 hover:bg-red-500'
-                : 'bg-blue-500 hover:bg-blue-600'
-              }`}
+            className={`px-4 py-2 rounded-lg text-white text-sm font-medium transition-colors ${
+              isDangerous ? 'bg-red-500/80 hover:bg-red-500' : 'bg-blue-500 hover:bg-blue-600'
+            }`}
           >
             {confirmText}
           </button>
         </div>
       </div>
     </div>
-  );
-};
+  )
+}
 
-export default ConfirmationModal;
+export default ConfirmationModal

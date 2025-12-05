@@ -1,15 +1,13 @@
-import { defineConfig, loadEnv } from '@rsbuild/core';
-import { pluginReact } from '@rsbuild/plugin-react';
+import { defineConfig, loadEnv } from '@rsbuild/core'
+import { pluginReact } from '@rsbuild/plugin-react'
 
 export default defineConfig(({ env }) => {
   const envVars = loadEnv({
     mode: env.envMode,
     prefixes: ['PUBLIC_'],
-  });
+  })
 
-  const openAIBaseUrl =
-    envVars.parsed.PUBLIC_OPENAI_BASE_URL ||
-    process.env.PUBLIC_OPENAI_BASE_URL 
+  const openAIBaseUrl = envVars.parsed.PUBLIC_OPENAI_BASE_URL || process.env.PUBLIC_OPENAI_BASE_URL
 
   return {
     plugins: [pluginReact()],
@@ -36,5 +34,5 @@ export default defineConfig(({ env }) => {
           }
         : undefined,
     },
-  };
-});
+  }
+})

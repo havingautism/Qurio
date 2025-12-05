@@ -1,22 +1,22 @@
-import React from 'react';
-import styled from 'styled-components';
+import React from 'react'
+import styled from 'styled-components'
 
 const FancyLoader = () => {
-    return (
-        <StyledWrapper>
-            <div className="banter-loader">
-                <div className="banter-loader__box" />
-                <div className="banter-loader__box" />
-                <div className="banter-loader__box" />
-                <div className="banter-loader__box" />
-                <div className="banter-loader__box" />
-                <div className="banter-loader__box" />
-                <div className="banter-loader__box" />
-                <div className="banter-loader__box" />
-                <div className="banter-loader__box" />
-            </div>
-        </StyledWrapper>
-    );
+  return (
+    <StyledWrapper>
+      <div className="banter-loader">
+        <div className="banter-loader__box" />
+        <div className="banter-loader__box" />
+        <div className="banter-loader__box" />
+        <div className="banter-loader__box" />
+        <div className="banter-loader__box" />
+        <div className="banter-loader__box" />
+        <div className="banter-loader__box" />
+        <div className="banter-loader__box" />
+        <div className="banter-loader__box" />
+      </div>
+    </StyledWrapper>
+  )
 }
 
 const StyledWrapper = styled.div`
@@ -39,7 +39,7 @@ const StyledWrapper = styled.div`
   }
 
   .banter-loader__box:before {
-    content: "";
+    content: '';
     position: absolute;
     left: 0;
     top: 0;
@@ -517,6 +517,7 @@ const StyledWrapper = styled.div`
 
   .banter-loader__box:nth-child(9) {
     animation: moveBox-9 4s infinite;
-  }`;
+  }
+`
 
-export default FancyLoader;
+export default FancyLoader

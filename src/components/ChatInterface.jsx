@@ -1,42 +1,41 @@
-﻿import React, { useState, useRef, useEffect, useCallback } from "react";
-import { useNavigate, useLocation } from "@tanstack/react-router";
-import { useShallow } from "zustand/react/shallow";
-import useChatStore from "../lib/chatStore";
-import MessageList from "./MessageList";
-import QuestionNavigator from "./QuestionNavigator";
-import { updateConversation } from "../lib/conversationsService";
-import { getProvider } from "../lib/providers";
-import { getModelForTask } from "../lib/modelSelector.js";
+﻿import React, { useState, useRef, useEffect, useCallback } from 'react'
+import { useNavigate, useLocation } from '@tanstack/react-router'
+import { useShallow } from 'zustand/react/shallow'
+import useChatStore from '../lib/chatStore'
+import MessageList from './MessageList'
+import QuestionNavigator from './QuestionNavigator'
+import { updateConversation } from '../lib/conversationsService'
+import { getProvider } from '../lib/providers'
+import { getModelForTask } from '../lib/modelSelector.js'
 import {
   Paperclip,
   ArrowRight,
   Globe,
-  Layers,
   ChevronDown,
   Check,
   X,
   LayoutGrid,
   Brain,
   Sparkles,
-} from "lucide-react";
-import clsx from "clsx";
+} from 'lucide-react'
+import clsx from 'clsx'
 
-import { loadSettings } from "../lib/settings";
-import { listMessages } from "../lib/conversationsService";
-import TwemojiDisplay from "./TwemojiDisplay";
+import { loadSettings } from '../lib/settings'
+import { listMessages } from '../lib/conversationsService'
+import TwemojiDisplay from './TwemojiDisplay'
 
 const ChatInterface = ({
   spaces = [],
   activeConversation = null,
-  initialMessage = "",
+  initialMessage = '',
   initialAttachments = [],
   initialToggles = {},
-  initialSpaceSelection = { mode: "auto", space: null },
+  initialSpaceSelection = { mode: 'auto', space: null },
   onTitleAndSpaceGenerated,
   isSidebarPinned = false,
 }) => {
-  const navigate = useNavigate();
-  const location = useLocation();
+  const navigate = useNavigate()
+  const location = useLocation()
   const {
     messages,
     setMessages,
@@ -48,7 +47,7 @@ const ChatInterface = ({
     setIsLoading,
     sendMessage,
   } = useChatStore(
-    useShallow((state) => ({
+    useShallow(state => ({
       messages: state.messages,
       setMessages: state.setMessages,
       conversationId: state.conversationId,
@@ -58,70 +57,77 @@ const ChatInterface = ({
       isLoading: state.isLoading,
       setIsLoading: state.setIsLoading,
       sendMessage: state.sendMessage,
-    }))
-  );
+    })),
+  )
 
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState('')
 
   // New state for toggles and attachments
-  const [isSearchActive, setIsSearchActive] = useState(false);
-  const [isThinkingActive, setIsThinkingActive] = useState(false);
-  const [attachments, setAttachments] = useState([]);
+  const [isSearchActive, setIsSearchActive] = useState(false)
+  const [isThinkingActive, setIsThinkingActive] = useState(false)
+  const [attachments, setAttachments] = useState([])
 
-  const inputRef = useRef("");
-  const attachmentsRef = useRef([]);
+  const inputRef = useRef('')
+  const attachmentsRef = useRef([])
 
   // Sync refs with state
   useEffect(() => {
-    inputRef.current = input;
-  }, [input]);
+    inputRef.current = input
+  }, [input])
 
   useEffect(() => {
-    attachmentsRef.current = attachments;
-  }, [attachments]);
+    attachmentsRef.current = attachments
+  }, [attachments])
+
+  // Auto-resize textarea
+  React.useLayoutEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto'
+      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`
+    }
+  }, [input])
 
   const [selectedSpace, setSelectedSpace] = useState(
-    initialSpaceSelection.mode === "manual" ? initialSpaceSelection.space : null
-  );
-  const [isSelectorOpen, setIsSelectorOpen] = useState(false);
-  const selectorRef = useRef(null);
+    initialSpaceSelection.mode === 'manual' ? initialSpaceSelection.space : null,
+  )
+  const [isSelectorOpen, setIsSelectorOpen] = useState(false)
+  const selectorRef = useRef(null)
   const [isManualSpaceSelection, setIsManualSpaceSelection] = useState(
-    initialSpaceSelection.mode === "manual" && !!initialSpaceSelection.space
-  );
+    initialSpaceSelection.mode === 'manual' && !!initialSpaceSelection.space,
+  )
 
-  const [settings, setSettings] = useState(loadSettings());
-  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
-  const hasPushedConversation = useRef(false);
-  const lastConversationId = useRef(null); // Track the last conversationId we navigated to
-  const messageRefs = useRef({});
-  const [isRegeneratingTitle, setIsRegeneratingTitle] = useState(false);
+  const [settings, setSettings] = useState(loadSettings())
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false)
+  const hasPushedConversation = useRef(false)
+  const lastConversationId = useRef(null) // Track the last conversationId we navigated to
+  const messageRefs = useRef({})
+  const [isRegeneratingTitle, setIsRegeneratingTitle] = useState(false)
   const conversationSpace = React.useMemo(() => {
-    if (!activeConversation?.space_id) return null;
-    const sid = String(activeConversation.space_id);
-    return spaces.find((s) => String(s.id) === sid) || null;
-  }, [activeConversation?.space_id, spaces]);
+    if (!activeConversation?.space_id) return null
+    const sid = String(activeConversation.space_id)
+    return spaces.find(s => String(s.id) === sid) || null
+  }, [activeConversation?.space_id, spaces])
 
   // If user has manually selected a space (or None), use that; otherwise use conversation's space
   const displaySpace = isManualSpaceSelection
     ? selectedSpace
-    : selectedSpace || conversationSpace || null;
+    : selectedSpace || conversationSpace || null
 
   // Effect to handle initial message from homepage
-  const hasInitialized = useRef(false);
-  const isProcessingInitial = useRef(false);
+  const hasInitialized = useRef(false)
+  const isProcessingInitial = useRef(false)
 
   useEffect(() => {
     const handleSettingsChange = () => {
-      setSettings(loadSettings());
-      if (settings.apiProvider === "openai_compatibility") {
-        setIsSearchActive(false);
+      setSettings(loadSettings())
+      if (settings.apiProvider === 'openai_compatibility') {
+        setIsSearchActive(false)
       }
-    };
+    }
 
-    window.addEventListener("settings-changed", handleSettingsChange);
-    return () =>
-      window.removeEventListener("settings-changed", handleSettingsChange);
-  }, []);
+    window.addEventListener('settings-changed', handleSettingsChange)
+    return () => window.removeEventListener('settings-changed', handleSettingsChange)
+  }, [])
 
   useEffect(() => {
     const processInitialMessage = async () => {
@@ -133,34 +139,24 @@ const ChatInterface = ({
         conversationId || // Already have a conversation, don't create new one
         activeConversation?.id // If an existing conversation is provided, skip auto-send
       ) {
-        return;
+        return
       }
 
-      isProcessingInitial.current = true;
-      hasInitialized.current = true;
+      isProcessingInitial.current = true
+      hasInitialized.current = true
 
       // Set initial state
       // Set initial state
-      if (initialToggles.search) setIsSearchActive(true);
-      if (initialToggles.thinking) setIsThinkingActive(true);
+      if (initialToggles.search) setIsSearchActive(true)
+      if (initialToggles.thinking) setIsThinkingActive(true)
 
       // Trigger send immediately
-      await handleSendMessage(
-        initialMessage,
-        initialAttachments,
-        initialToggles
-      );
-      isProcessingInitial.current = false;
-    };
+      await handleSendMessage(initialMessage, initialAttachments, initialToggles)
+      isProcessingInitial.current = false
+    }
 
-    processInitialMessage();
-  }, [
-    initialMessage,
-    initialAttachments,
-    initialToggles,
-    conversationId,
-    activeConversation?.id,
-  ]);
+    processInitialMessage()
+  }, [initialMessage, initialAttachments, initialToggles, conversationId, activeConversation?.id])
 
   // Load existing conversation messages when switching conversations
   useEffect(() => {
@@ -171,28 +167,26 @@ const ChatInterface = ({
 
         // If we're switching from an old conversation (conversationId is not null),
         // we should clear the old messages even if we have initialMessage
-        const isFromOldConversation = conversationId !== null;
+        const isFromOldConversation = conversationId !== null
 
-        setConversationId(null);
-        hasPushedConversation.current = false;
+        setConversationId(null)
+        hasPushedConversation.current = false
 
         // If we're in a brand new chat kicked off from the home input (not from an old conversation),
         // avoid clearing the just-added first message bubble.
         if (
           !isFromOldConversation &&
-          (hasInitialized.current ||
-            initialMessage ||
-            initialAttachments.length > 0)
+          (hasInitialized.current || initialMessage || initialAttachments.length > 0)
         ) {
-          return;
+          return
         }
 
         // Clear all other states for a fresh start
-        setConversationTitle("");
-        setMessages([]);
-        setSelectedSpace(null);
-        setIsManualSpaceSelection(false);
-        return;
+        setConversationTitle('')
+        setMessages([])
+        setSelectedSpace(null)
+        setIsManualSpaceSelection(false)
+        return
       }
 
       // If we're navigating to a conversation that we just created (conversationId matches),
@@ -200,345 +194,327 @@ const ChatInterface = ({
       if (activeConversation.id === conversationId && messages.length > 0) {
         // We already have messages (they're being streamed or just completed)
         // Just update the title and space from the loaded conversation data
-        setConversationTitle(activeConversation.title || "New Conversation");
-        setSelectedSpace(conversationSpace);
-        setIsManualSpaceSelection(!!conversationSpace);
-        return;
+        setConversationTitle(activeConversation.title || 'New Conversation')
+        setSelectedSpace(conversationSpace)
+        setIsManualSpaceSelection(!!conversationSpace)
+        return
       }
 
       // Reset hasInitialized when loading an existing conversation
-      hasInitialized.current = false;
+      hasInitialized.current = false
 
-      setIsLoadingHistory(true);
-      setConversationId(activeConversation.id);
-      setConversationTitle(activeConversation.title || "New Conversation");
-      setSelectedSpace(conversationSpace);
-      setIsManualSpaceSelection(!!conversationSpace);
-      const { data, error } = await listMessages(activeConversation.id);
+      setIsLoadingHistory(true)
+      setConversationId(activeConversation.id)
+      setConversationTitle(activeConversation.title || 'New Conversation')
+      setSelectedSpace(conversationSpace)
+      setIsManualSpaceSelection(!!conversationSpace)
+      const { data, error } = await listMessages(activeConversation.id)
       if (!error && data) {
-        const mapped = data.map((m) => ({
+        const mapped = data.map(m => ({
           id: m.id,
           created_at: m.created_at,
-          role: m.role === "assistant" ? "ai" : m.role,
+          role: m.role === 'assistant' ? 'ai' : m.role,
           content: m.content,
           related: m.related_questions || undefined,
           tool_calls: m.tool_calls || undefined,
           sources: m.sources || undefined,
           groundingSupports: m.grounding_supports || undefined,
-        }));
-        setMessages(mapped);
+        }))
+        setMessages(mapped)
       } else {
-        console.error("Failed to load conversation messages:", error);
-        setMessages([]);
+        console.error('Failed to load conversation messages:', error)
+        setMessages([])
       }
-      setIsLoadingHistory(false);
-    };
-    loadHistory();
-  }, [activeConversation, conversationSpace]);
+      setIsLoadingHistory(false)
+    }
+    loadHistory()
+  }, [activeConversation, conversationSpace])
 
   useEffect(() => {
     // Check if conversationId has changed (new conversation created)
-    const idChanged = conversationId !== lastConversationId.current;
+    const idChanged = conversationId !== lastConversationId.current
     if (idChanged) {
-      lastConversationId.current = conversationId;
+      lastConversationId.current = conversationId
       // Reset the flag when conversationId changes to allow navigation to the new conversation
-      hasPushedConversation.current = false;
+      hasPushedConversation.current = false
     }
 
     // Check if we're on a new chat page (not on a specific conversation route)
-    const isOnNewChatPage =
-      location.pathname === "/new_chat" || location.pathname === "/";
+    const isOnNewChatPage = location.pathname === '/new_chat' || location.pathname === '/'
 
     // Only navigate if we have a conversationId AND it has just changed (to avoid navigating on stale IDs)
     const shouldNavigate =
-      conversationId &&
-      isOnNewChatPage &&
-      !hasPushedConversation.current &&
-      idChanged;
+      conversationId && isOnNewChatPage && !hasPushedConversation.current && idChanged
 
     if (shouldNavigate) {
       navigate({
-        to: "/conversation/$conversationId",
+        to: '/conversation/$conversationId',
         params: { conversationId: String(conversationId) },
         replace: true,
-      });
-      hasPushedConversation.current = true;
+      })
+      hasPushedConversation.current = true
     }
-  }, [conversationId, location.pathname, navigate]);
+  }, [conversationId, location.pathname, navigate])
 
   useEffect(() => {
-    if (
-      initialSpaceSelection?.mode === "manual" &&
-      initialSpaceSelection.space
-    ) {
-      setSelectedSpace(initialSpaceSelection.space);
-      setIsManualSpaceSelection(true);
-    } else if (initialSpaceSelection?.mode === "auto") {
-      setSelectedSpace(null);
-      setIsManualSpaceSelection(false);
+    if (initialSpaceSelection?.mode === 'manual' && initialSpaceSelection.space) {
+      setSelectedSpace(initialSpaceSelection.space)
+      setIsManualSpaceSelection(true)
+    } else if (initialSpaceSelection?.mode === 'auto') {
+      setSelectedSpace(null)
+      setIsManualSpaceSelection(false)
     }
-  }, [initialSpaceSelection]);
+  }, [initialSpaceSelection])
 
   // Handle click outside to close selector
   useEffect(() => {
-    const handleClickOutside = (event) => {
+    const handleClickOutside = event => {
       if (selectorRef.current && !selectorRef.current.contains(event.target)) {
-        setIsSelectorOpen(false);
+        setIsSelectorOpen(false)
       }
-    };
+    }
 
     if (isSelectorOpen) {
-      document.addEventListener("click", handleClickOutside);
+      document.addEventListener('click', handleClickOutside)
     }
 
     return () => {
-      document.removeEventListener("click", handleClickOutside);
-    };
-  }, [isSelectorOpen]);
+      document.removeEventListener('click', handleClickOutside)
+    }
+  }, [isSelectorOpen])
 
-  const handleSelectSpace = (space) => {
-    setSelectedSpace(space);
-    setIsManualSpaceSelection(true);
-    setIsSelectorOpen(false);
+  const handleSelectSpace = space => {
+    setSelectedSpace(space)
+    setIsManualSpaceSelection(true)
+    setIsSelectorOpen(false)
     if (conversationId || activeConversation?.id) {
       updateConversation(conversationId || activeConversation.id, {
         space_id: space?.id || null,
       })
         .then(() => {
           // Trigger event to refresh sidebar
-          window.dispatchEvent(new Event("conversations-changed"));
+          window.dispatchEvent(new Event('conversations-changed'))
         })
-        .catch((err) =>
-          console.error("Failed to update conversation space:", err)
-        );
+        .catch(err => console.error('Failed to update conversation space:', err))
     }
-  };
+  }
 
   const handleClearSpaceSelection = () => {
-    setSelectedSpace(null);
-    setIsManualSpaceSelection(true); // Keep as true because selecting "None" is a manual action
-    setIsSelectorOpen(false);
+    setSelectedSpace(null)
+    setIsManualSpaceSelection(true) // Keep as true because selecting "None" is a manual action
+    setIsSelectorOpen(false)
     if (conversationId || activeConversation?.id) {
       updateConversation(conversationId || activeConversation.id, {
         space_id: null,
       })
         .then(() => {
           // Trigger event to refresh sidebar
-          window.dispatchEvent(new Event("conversations-changed"));
+          window.dispatchEvent(new Event('conversations-changed'))
         })
-        .catch((err) =>
-          console.error("Failed to clear conversation space:", err)
-        );
+        .catch(err => console.error('Failed to clear conversation space:', err))
     }
-  };
+  }
 
-  const fileInputRef = useRef(null);
+  const fileInputRef = useRef(null)
 
-  const handleFileChange = (e) => {
-    const files = Array.from(e.target.files);
-    if (files.length === 0) return;
+  const handleFileChange = e => {
+    const files = Array.from(e.target.files)
+    if (files.length === 0) return
 
-    files.forEach((file) => {
-      if (!file.type.startsWith("image/")) return;
+    files.forEach(file => {
+      if (!file.type.startsWith('image/')) return
 
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setAttachments((prev) => [
+      const reader = new FileReader()
+      reader.onload = e => {
+        setAttachments(prev => [
           ...prev,
           {
-            type: "image_url",
+            type: 'image_url',
             image_url: { url: e.target.result },
           },
-        ]);
-      };
-      reader.readAsDataURL(file);
-    });
+        ])
+      }
+      reader.readAsDataURL(file)
+    })
 
     // Reset input
-    e.target.value = "";
-  };
+    e.target.value = ''
+  }
 
   const handleFileUpload = () => {
-    fileInputRef.current?.click();
-  };
+    fileInputRef.current?.click()
+  }
 
   const registerMessageRef = useCallback((id, msg, el) => {
     if (el) {
-      messageRefs.current[id] = el;
+      messageRefs.current[id] = el
     } else {
-      delete messageRefs.current[id];
+      delete messageRefs.current[id]
     }
-  }, []);
+  }, [])
 
-  const jumpToMessage = (id) => {
-    const node = messageRefs.current[id];
-    if (!node) return;
+  const jumpToMessage = id => {
+    const node = messageRefs.current[id]
+    if (!node) return
 
     // Calculate position with offset for sticky header
-    const yOffset = -100; // Adjust based on your header height
-    const y = node.getBoundingClientRect().top + window.pageYOffset + yOffset;
+    const yOffset = -100 // Adjust based on your header height
+    const y = node.getBoundingClientRect().top + window.pageYOffset + yOffset
 
-    window.scrollTo({ top: y, behavior: "smooth" });
-  };
+    window.scrollTo({ top: y, behavior: 'smooth' })
+  }
 
-  const extractUserQuestion = (msg) => {
-    if (!msg) return "";
-    if (typeof msg.content === "string") return msg.content;
+  const extractUserQuestion = msg => {
+    if (!msg) return ''
+    if (typeof msg.content === 'string') return msg.content
     if (Array.isArray(msg.content)) {
-      const textPart = msg.content.find((c) => c.type === "text");
-      return textPart?.text || "";
+      const textPart = msg.content.find(c => c.type === 'text')
+      return textPart?.text || ''
     }
-    return "";
-  };
+    return ''
+  }
 
-  const [activeQuestionId, setActiveQuestionId] = useState(null);
+  const [activeQuestionId, setActiveQuestionId] = useState(null)
 
   useEffect(() => {
-    const observerCallback = (entries) => {
-      entries.forEach((entry) => {
+    const observerCallback = entries => {
+      entries.forEach(entry => {
         if (entry.isIntersecting && entry.intersectionRatio > 0.1) {
           // When a message comes into view, check if it's a user message (question)
           // or if it belongs to a question block.
           // Since we want to highlight the question even when reading the answer,
           // we need to find the closest preceding question.
 
-          const id = entry.target.id; // message-0, message-1, etc.
-          if (!id) return;
+          const id = entry.target.id // message-0, message-1, etc.
+          if (!id) return
 
-          const index = parseInt(id.replace("message-", ""), 10);
-          if (isNaN(index)) return;
+          const index = parseInt(id.replace('message-', ''), 10)
+          if (isNaN(index)) return
 
           // Find the question for this message
           // If this message is a user message, it IS the question.
           // If it's an AI message, the question is likely index - 1.
-          const message = messages[index];
-          if (!message) return;
+          const message = messages[index]
+          if (!message) return
 
-          let targetQuestionId = null;
-          if (message.role === "user") {
-            targetQuestionId = id;
-          } else if (index > 0 && messages[index - 1].role === "user") {
-            targetQuestionId = `message-${index - 1}`;
+          let targetQuestionId = null
+          if (message.role === 'user') {
+            targetQuestionId = id
+          } else if (index > 0 && messages[index - 1].role === 'user') {
+            targetQuestionId = `message-${index - 1}`
           }
 
           if (targetQuestionId) {
-            setActiveQuestionId(targetQuestionId);
+            setActiveQuestionId(targetQuestionId)
           }
         }
-      });
-    };
+      })
+    }
 
     const observer = new IntersectionObserver(observerCallback, {
       root: null,
-      rootMargin: "-10% 0px -60% 0px", // Trigger when element is near the top
+      rootMargin: '-10% 0px -60% 0px', // Trigger when element is near the top
       threshold: [0.1],
-    });
+    })
 
-    Object.values(messageRefs.current).forEach((el) => {
-      if (el) observer.observe(el);
-    });
+    Object.values(messageRefs.current).forEach(el => {
+      if (el) observer.observe(el)
+    })
 
-    return () => observer.disconnect();
-  }, [messages]);
+    return () => observer.disconnect()
+  }, [messages])
 
   const questionNavItems = React.useMemo(
     () =>
       messages
         .map((msg, idx) => {
-          if (msg.role !== "user") return null;
-          const text = extractUserQuestion(msg).trim();
-          if (!text) return null;
+          if (msg.role !== 'user') return null
+          const text = extractUserQuestion(msg).trim()
+          if (!text) return null
           return {
             id: `message-${idx}`,
             index: idx + 1,
             label: text.length > 120 ? `${text.slice(0, 117)}...` : text,
-          };
+          }
         })
         .filter(Boolean),
-    [messages]
-  );
+    [messages],
+  )
 
   // State to track if we are editing a message
-  const [editingIndex, setEditingIndex] = useState(null);
-  const [editingTargetTimestamp, setEditingTargetTimestamp] = useState(null);
-  const [editingPartnerTimestamp, setEditingPartnerTimestamp] = useState(null);
-  const [editingTargetId, setEditingTargetId] = useState(null);
-  const [editingPartnerId, setEditingPartnerId] = useState(null);
-  const textareaRef = useRef(null);
+  const [editingIndex, setEditingIndex] = useState(null)
+  const [editingTargetTimestamp, setEditingTargetTimestamp] = useState(null)
+  const [editingPartnerTimestamp, setEditingPartnerTimestamp] = useState(null)
+  const [editingTargetId, setEditingTargetId] = useState(null)
+  const [editingPartnerId, setEditingPartnerId] = useState(null)
+  const textareaRef = useRef(null)
 
   const handleEdit = useCallback(
-    (index) => {
-      const msg = messages[index];
-      if (!msg) return;
+    index => {
+      const msg = messages[index]
+      if (!msg) return
 
       // Extract content and attachments
-      const text = extractUserQuestion(msg);
+      const text = extractUserQuestion(msg)
 
-      let msgAttachments = [];
+      let msgAttachments = []
       if (Array.isArray(msg.content)) {
-        msgAttachments = msg.content.filter((c) => c.type === "image_url");
+        msgAttachments = msg.content.filter(c => c.type === 'image_url')
       }
 
-      setInput(text);
-      setAttachments(msgAttachments);
-      setEditingIndex(index);
-      setEditingTargetTimestamp(msg.created_at || null);
-      setEditingTargetId(msg.id || null);
-      const nextMsg = messages[index + 1];
-      const hasPartner = nextMsg && nextMsg.role === "ai";
-      setEditingPartnerTimestamp(
-        hasPartner ? nextMsg.created_at || null : null
-      );
-      setEditingPartnerId(hasPartner ? nextMsg.id || null : null);
+      setInput(text)
+      setAttachments(msgAttachments)
+      setEditingIndex(index)
+      setEditingTargetTimestamp(msg.created_at || null)
+      setEditingTargetId(msg.id || null)
+      const nextMsg = messages[index + 1]
+      const hasPartner = nextMsg && nextMsg.role === 'ai'
+      setEditingPartnerTimestamp(hasPartner ? nextMsg.created_at || null : null)
+      setEditingPartnerId(hasPartner ? nextMsg.id || null : null)
 
       // Focus input
-      if (textareaRef.current) textareaRef.current.focus();
+      if (textareaRef.current) textareaRef.current.focus()
     },
-    [messages]
-  );
+    [messages],
+  )
 
   const handleSendMessage = useCallback(
     async (
       msgOverride = null,
       attOverride = null,
       togglesOverride = null,
-      { skipMeta = false, editingInfoOverride = null } = {}
+      { skipMeta = false, editingInfoOverride = null } = {},
     ) => {
-      const textToSend = msgOverride !== null ? msgOverride : inputRef.current;
-      const attToSend =
-        attOverride !== null ? attOverride : attachmentsRef.current;
-      const searchActive = togglesOverride
-        ? togglesOverride.search
-        : isSearchActive;
-      const thinkingActive = togglesOverride
-        ? togglesOverride.thinking
-        : isThinkingActive;
+      const textToSend = msgOverride !== null ? msgOverride : inputRef.current
+      const attToSend = attOverride !== null ? attOverride : attachmentsRef.current
+      const searchActive = togglesOverride ? togglesOverride.search : isSearchActive
+      const thinkingActive = togglesOverride ? togglesOverride.thinking : isThinkingActive
 
-      if (!textToSend.trim() && attToSend.length === 0) return;
-      if (isLoading) return;
+      if (!textToSend.trim() && attToSend.length === 0) return
+      if (isLoading) return
 
       // Clear input immediately if manual send
       if (msgOverride === null) {
-        setInput("");
-        setAttachments([]);
+        setInput('')
+        setAttachments([])
       }
 
       const editingInfo =
         editingInfoOverride ||
         (editingIndex !== null
           ? {
-            index: editingIndex,
-            targetId: editingTargetId,
-            partnerId: editingPartnerId,
-          }
-          : null);
+              index: editingIndex,
+              targetId: editingTargetId,
+              partnerId: editingPartnerId,
+            }
+          : null)
 
       // Reset editing state
-      setEditingIndex(null);
-      setEditingTargetTimestamp(null);
-      setEditingPartnerTimestamp(null);
-      setEditingTargetId(null);
-      setEditingPartnerId(null);
+      setEditingIndex(null)
+      setEditingTargetTimestamp(null)
+      setEditingPartnerTimestamp(null)
+      setEditingTargetId(null)
+      setEditingPartnerId(null)
 
       await sendMessage({
         text: textToSend,
@@ -549,13 +525,13 @@ const ChatInterface = ({
         editingInfo,
         callbacks: {
           onTitleAndSpaceGenerated,
-          onSpaceResolved: (space) => {
-            setSelectedSpace(space);
-            setIsManualSpaceSelection(false);
+          onSpaceResolved: space => {
+            setSelectedSpace(space)
+            setIsManualSpaceSelection(false)
           },
         },
         spaces,
-      });
+      })
     },
     [
       isSearchActive,
@@ -570,71 +546,71 @@ const ChatInterface = ({
       isManualSpaceSelection,
       onTitleAndSpaceGenerated,
       spaces,
-    ]
-  );
+    ],
+  )
 
   const handleRelatedClick = useCallback(
-    (q) => handleSendMessage(q, null, null, { skipMeta: true }),
-    [handleSendMessage]
-  );
+    q => handleSendMessage(q, null, null, { skipMeta: true }),
+    [handleSendMessage],
+  )
 
   const handleRegenerateQuestion = useCallback(() => {
-    if (isLoading) return;
+    if (isLoading) return
 
     const lastUserIndex = [...messages]
-      .map((m, idx) => (m.role === "user" ? idx : -1))
-      .filter((idx) => idx !== -1)
-      .pop();
+      .map((m, idx) => (m.role === 'user' ? idx : -1))
+      .filter(idx => idx !== -1)
+      .pop()
 
-    if (lastUserIndex === undefined || lastUserIndex === -1) return;
+    if (lastUserIndex === undefined || lastUserIndex === -1) return
 
-    const userMsg = messages[lastUserIndex];
-    const nextMsg = messages[lastUserIndex + 1];
-    const hasPartner = nextMsg && nextMsg.role === "ai";
+    const userMsg = messages[lastUserIndex]
+    const nextMsg = messages[lastUserIndex + 1]
+    const hasPartner = nextMsg && nextMsg.role === 'ai'
 
     const msgAttachments = Array.isArray(userMsg.content)
-      ? userMsg.content.filter((c) => c.type === "image_url")
-      : [];
+      ? userMsg.content.filter(c => c.type === 'image_url')
+      : []
 
-    const text = extractUserQuestion(userMsg);
-    if (!text.trim() && msgAttachments.length === 0) return;
+    const text = extractUserQuestion(userMsg)
+    if (!text.trim() && msgAttachments.length === 0) return
 
     const editingInfoOverride = {
       index: lastUserIndex,
       targetId: userMsg.id || null,
       partnerId: hasPartner ? nextMsg.id || null : null,
-    };
+    }
 
-    handleSendMessage(text, msgAttachments, null, { editingInfoOverride });
-  }, [extractUserQuestion, handleSendMessage, isLoading, messages]);
+    handleSendMessage(text, msgAttachments, null, { editingInfoOverride })
+  }, [extractUserQuestion, handleSendMessage, isLoading, messages])
 
   const handleRegenerateAnswer = useCallback(
-    (aiIndex) => {
-      if (isLoading) return;
-      const aiMsg = messages[aiIndex];
-      if (!aiMsg || aiMsg.role !== "ai") return;
+    aiIndex => {
+      if (isLoading) return
+      const aiMsg = messages[aiIndex]
+      if (!aiMsg || aiMsg.role !== 'ai') return
 
       // Find the associated user message (prefer immediate previous)
-      let userIndex = aiIndex - 1;
-      while (userIndex >= 0 && messages[userIndex].role !== "user") {
-        userIndex -= 1;
+      let userIndex = aiIndex - 1
+      while (userIndex >= 0 && messages[userIndex].role !== 'user') {
+        userIndex -= 1
       }
-      if (userIndex < 0) return;
+      if (userIndex < 0) return
 
-      const userMsg = messages[userIndex];
+      const userMsg = messages[userIndex]
       const msgAttachments = Array.isArray(userMsg.content)
-        ? userMsg.content.filter((c) => c.type === "image_url")
-        : [];
-      const text = extractUserQuestion(userMsg);
-      if (!text.trim() && msgAttachments.length === 0) return;
+        ? userMsg.content.filter(c => c.type === 'image_url')
+        : []
+      const text = extractUserQuestion(userMsg)
+      if (!text.trim() && msgAttachments.length === 0) return
 
       const editingInfoOverride = {
         index: userIndex,
         targetId: userMsg.id || null,
         partnerId: aiMsg.id || null,
-      };
+      }
 
-      handleSendMessage(text, msgAttachments, null, { editingInfoOverride });
+      handleSendMessage(text, msgAttachments, null, { editingInfoOverride })
     },
     [
       extractUserQuestion,
@@ -646,59 +622,59 @@ const ChatInterface = ({
       setEditingPartnerTimestamp,
       setEditingTargetId,
       setEditingTargetTimestamp,
-    ]
-  );
+    ],
+  )
 
-  const extractPlainText = useCallback((content) => {
-    if (!content) return "";
-    if (typeof content === "string") return content;
+  const extractPlainText = useCallback(content => {
+    if (!content) return ''
+    if (typeof content === 'string') return content
     if (Array.isArray(content)) {
       return content
-        .filter((c) => c.type === "text" && typeof c.text === "string")
-        .map((c) => c.text)
-        .join("\n");
+        .filter(c => c.type === 'text' && typeof c.text === 'string')
+        .map(c => c.text)
+        .join('\n')
     }
-    return "";
-  }, []);
+    return ''
+  }, [])
 
   const handleRegenerateTitle = useCallback(async () => {
-    if (isRegeneratingTitle) return;
+    if (isRegeneratingTitle) return
 
-    const lastMessages = messages.slice(-3);
+    const lastMessages = messages.slice(-3)
     const contextText = lastMessages
-      .map((m) => {
-        const text = extractPlainText(m.content).trim();
-        if (!text) return "";
-        const prefix = m.role === "user" ? "User" : "Assistant";
-        return `${prefix}: ${text}`;
+      .map(m => {
+        const text = extractPlainText(m.content).trim()
+        if (!text) return ''
+        const prefix = m.role === 'user' ? 'User' : 'Assistant'
+        return `${prefix}: ${text}`
       })
       .filter(Boolean)
-      .join("\n");
+      .join('\n')
 
-    if (!contextText) return;
+    if (!contextText) return
 
-    setIsRegeneratingTitle(true);
+    setIsRegeneratingTitle(true)
     try {
-      const provider = getProvider(settings.apiProvider);
-      const credentials = provider.getCredentials(settings);
-      const model = getModelForTask("generateTitle", settings);
+      const provider = getProvider(settings.apiProvider)
+      const credentials = provider.getCredentials(settings)
+      const model = getModelForTask('generateTitle', settings)
       const newTitle = await provider.generateTitle(
         contextText,
         credentials.apiKey,
         credentials.baseUrl,
-        model
-      );
-      if (!newTitle) return;
-      setConversationTitle(newTitle);
-      const convId = conversationId || activeConversation?.id;
+        model,
+      )
+      if (!newTitle) return
+      setConversationTitle(newTitle)
+      const convId = conversationId || activeConversation?.id
       if (convId) {
-        await updateConversation(convId, { title: newTitle });
-        window.dispatchEvent(new Event("conversations-changed"));
+        await updateConversation(convId, { title: newTitle })
+        window.dispatchEvent(new Event('conversations-changed'))
       }
     } catch (err) {
-      console.error("Failed to regenerate title:", err);
+      console.error('Failed to regenerate title:', err)
     } finally {
-      setIsRegeneratingTitle(false);
+      setIsRegeneratingTitle(false)
     }
   }, [
     activeConversation?.id,
@@ -708,13 +684,13 @@ const ChatInterface = ({
     messages,
     settings,
     setConversationTitle,
-  ]);
+  ])
 
   return (
     <div
       className={clsx(
-        "flex-1 min-h-screen bg-background text-foreground relative pb-4 transition-all duration-300",
-        isSidebarPinned ? "ml-80" : "ml-16"
+        'flex-1 min-h-screen bg-background text-foreground relative pb-4 transition-all duration-300',
+        isSidebarPinned ? 'ml-80' : 'ml-16',
       )}
     >
       <div className="w-full max-w-3xl mx-auto relative">
@@ -730,10 +706,10 @@ const ChatInterface = ({
                 <LayoutGrid size={16} className="text-gray-400" />
                 {displaySpace ? (
                   <div className="flex items-center gap-2">
-                    <span className="text-lg"><TwemojiDisplay emoji={displaySpace.emoji} size="1.125rem" /></span>
-                    <span className="truncate max-w-[200px]">
-                      {displaySpace.label}
+                    <span className="text-lg">
+                      <TwemojiDisplay emoji={displaySpace.emoji} size="1.125rem" />
                     </span>
+                    <span className="truncate max-w-[200px]">{displaySpace.label}</span>
                   </div>
                 ) : (
                   <span className="text-gray-500">Spaces: None</span>
@@ -747,19 +723,16 @@ const ChatInterface = ({
                   <div className="p-2 flex flex-col gap-1">
                     <button
                       onClick={handleClearSpaceSelection}
-                      className={`flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left ${!displaySpace
-                          ? "text-cyan-500"
-                          : "text-gray-700 dark:text-gray-200"
-                        }`}
+                      className={`flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left ${
+                        !displaySpace ? 'text-cyan-500' : 'text-gray-700 dark:text-gray-200'
+                      }`}
                     >
                       <span className="text-sm font-medium">None</span>
-                      {!displaySpace && (
-                        <Check size={14} className="text-cyan-500" />
-                      )}
+                      {!displaySpace && <Check size={14} className="text-cyan-500" />}
                     </button>
                     <div className="h-px bg-gray-100 dark:bg-zinc-800 my-1" />
                     {spaces.map((space, idx) => {
-                      const isSelected = selectedSpace?.label === space.label;
+                      const isSelected = selectedSpace?.label === space.label
                       return (
                         <button
                           key={idx}
@@ -767,16 +740,16 @@ const ChatInterface = ({
                           className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left"
                         >
                           <div className="flex items-center gap-3">
-                            <span className="text-lg"><TwemojiDisplay emoji={space.emoji} size="1.125rem" /></span>
+                            <span className="text-lg">
+                              <TwemojiDisplay emoji={space.emoji} size="1.125rem" />
+                            </span>
                             <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
                               {space.label}
                             </span>
                           </div>
-                          {isSelected && (
-                            <Check size={14} className="text-cyan-500" />
-                          )}
+                          {isSelected && <Check size={14} className="text-cyan-500" />}
                         </button>
-                      );
+                      )
                     })}
                   </div>
                 </div>
@@ -785,7 +758,7 @@ const ChatInterface = ({
 
             <div className="flex items-center gap-2 flex-1 min-w-0">
               <h1 className="text-xl font-medium text-gray-800 dark:text-gray-100 truncate">
-                {conversationTitle || "New Conversation"}
+                {conversationTitle || 'New Conversation'}
               </h1>
               <button
                 onClick={handleRegenerateTitle}
@@ -825,13 +798,13 @@ const ChatInterface = ({
       {/* Sticky Input Area */}
       <div
         className={clsx(
-          "fixed bottom-0 right-0 bg-gradient-to-t from-background via-background to-transparent pb-6 pt-10 px-4 flex justify-center z-10 transition-all duration-300",
-          isSidebarPinned ? "left-80" : "left-16"
+          'fixed bottom-0 right-0 bg-gradient-to-t from-background via-background to-transparent pb-6 pt-10 px-4 flex justify-center z-10 transition-all duration-300',
+          isSidebarPinned ? 'left-80' : 'left-16',
         )}
-      // className={
-      //   "fixed bottom-0 left-0 right-0 bg-gradient-to-t from-background via-background to-transparent pb-6 pt-10 px-4 flex justify-center z-10 transition-all duration-300"
+        // className={
+        //   "fixed bottom-0 left-0 right-0 bg-gradient-to-t from-background via-background to-transparent pb-6 pt-10 px-4 flex justify-center z-10 transition-all duration-300"
 
-      // }
+        // }
       >
         <div className="w-full max-w-3xl relative group">
           <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/20 via-blue-500/15 to-purple-500/20 rounded-xl blur-2xl opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-500 pointer-events-none" />
@@ -870,9 +843,7 @@ const ChatInterface = ({
                       />
                     </div>
                     <button
-                      onClick={() =>
-                        setAttachments(attachments.filter((_, i) => i !== idx))
-                      }
+                      onClick={() => setAttachments(attachments.filter((_, i) => i !== idx))}
                       className="absolute -top-1.5 -right-1.5 bg-gray-900 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity shadow-md"
                     >
                       <X size={12} />
@@ -884,15 +855,15 @@ const ChatInterface = ({
             <textarea
               value={input}
               ref={textareaRef}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSendMessage();
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  handleSendMessage()
                 }
               }}
               placeholder="Ask follow-up..."
-              className="w-full bg-transparent border-none outline-none resize-none text-base placeholder-gray-500 dark:placeholder-gray-400 min-h-[44px] max-h-[200px] py-2"
+              className="w-full bg-transparent border-none outline-none resize-none text-base placeholder-gray-500 dark:placeholder-gray-400 min-h-[44px] max-h-[200px] overflow-y-auto py-2"
               rows={1}
             />
 
@@ -908,30 +879,31 @@ const ChatInterface = ({
                 />
                 <button
                   onClick={handleFileUpload}
-                  className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${attachments.length > 0
-                      ? "text-cyan-500"
-                      : "text-gray-500 dark:text-gray-400"
-                    }`}
+                  className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
+                    attachments.length > 0 ? 'text-cyan-500' : 'text-gray-500 dark:text-gray-400'
+                  }`}
                 >
                   <Paperclip size={18} />
                 </button>
                 <button
                   onClick={() => setIsThinkingActive(!isThinkingActive)}
-                  className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${isThinkingActive
-                      ? "text-cyan-500 bg-gray-200 dark:bg-zinc-700"
-                      : "text-gray-500 dark:text-gray-400"
-                    }`}
+                  className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
+                    isThinkingActive
+                      ? 'text-cyan-500 bg-gray-200 dark:bg-zinc-700'
+                      : 'text-gray-500 dark:text-gray-400'
+                  }`}
                 >
                   <Brain size={18} />
                   <span>Think</span>
                 </button>
                 <button
-                  disabled={settings.apiProvider === "openai_compatibility"}
+                  disabled={settings.apiProvider === 'openai_compatibility'}
                   onClick={() => setIsSearchActive(!isSearchActive)}
-                  className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${isSearchActive
-                      ? "text-cyan-500 bg-gray-200 dark:bg-zinc-700"
-                      : "text-gray-500 dark:text-gray-400"
-                    }`}
+                  className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
+                    isSearchActive
+                      ? 'text-cyan-500 bg-gray-200 dark:bg-zinc-700'
+                      : 'text-gray-500 dark:text-gray-400'
+                  }`}
                 >
                   <Globe size={18} />
                   <span>Search</span>
@@ -941,9 +913,7 @@ const ChatInterface = ({
               <div className="flex gap-2">
                 <button
                   onClick={() => handleSendMessage()}
-                  disabled={
-                    isLoading || (!input.trim() && attachments.length === 0)
-                  }
+                  disabled={isLoading || (!input.trim() && attachments.length === 0)}
                   className="p-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-full transition-colors disabled:opacity-50  disabled:hover:bg-cyan-500"
                 >
                   <ArrowRight size={18} />
@@ -957,7 +927,7 @@ const ChatInterface = ({
         </div>
       </div>
     </div>
-  );
-};
+  )
+}
 
-export default ChatInterface;
+export default ChatInterface

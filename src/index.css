@@ -1,5 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Serif:ital,wght@0,400;0,700;1,400;1,700&display=swap');
-@import "tailwindcss";
+@import 'tailwindcss';
 @variant dark (&:where(.dark, .dark *));
 
 @theme {
@@ -9,7 +9,8 @@
   --color-sidebar-foreground: var(--sidebar-foreground);
   --font-sans: 'Google Sans Text', Inter, sans-serif;
   --font-display: 'Google Sans', Inter, sans-serif;
-  --font-serif: 'Noto Serif', 'Noto Serif SC', 'Noto Serif TC', 'Songti SC', 'SimSun', 'Times New Roman', serif;
+  --font-serif:
+    'Noto Serif', 'Noto Serif SC', 'Noto Serif TC', 'Songti SC', 'SimSun', 'Times New Roman', serif;
 }
 
 :root {

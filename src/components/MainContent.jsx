@@ -1,28 +1,22 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect } from 'react'
 import {
-  Search,
   Paperclip,
   ArrowRight,
-  Clock,
-  Cloud,
-  Github,
-  Youtube,
-  Coffee,
   Globe,
-  Layers,
   X,
   Check,
   ChevronDown,
   LayoutGrid,
   Brain,
-} from "lucide-react";
-import clsx from "clsx";
-import ChatInterface from "./ChatInterface";
-import SpaceView from "./SpaceView";
-import SpacesListView from "./SpacesListView";
-import ConversationsListView from "./ConversationsListView";
-import { loadSettings } from "../lib/settings";
-import TwemojiDisplay from "./TwemojiDisplay";
+} from 'lucide-react'
+import clsx from 'clsx'
+import ChatInterface from './ChatInterface'
+import SpaceView from './SpaceView'
+import SpacesListView from './SpacesListView'
+import ConversationsListView from './ConversationsListView'
+import { loadSettings } from '../lib/settings'
+import TwemojiDisplay from './TwemojiDisplay'
+import HomeWidgets from './widgets/HomeWidgets'
 
 const MainContent = ({
   currentView,
@@ -40,33 +34,33 @@ const MainContent = ({
   onCreateSpace,
   isSidebarPinned = false,
 }) => {
-  const [activeView, setActiveView] = useState(currentView); // Local state to manage view transition
-  const [initialMessage, setInitialMessage] = useState("");
-  const [initialAttachments, setInitialAttachments] = useState([]);
+  const [activeView, setActiveView] = useState(currentView) // Local state to manage view transition
+  const [initialMessage, setInitialMessage] = useState('')
+  const [initialAttachments, setInitialAttachments] = useState([])
   const [initialToggles, setInitialToggles] = useState({
     search: false,
     thinking: false,
-  });
+  })
   const [initialSpaceSelection, setInitialSpaceSelection] = useState({
-    mode: "auto",
+    mode: 'auto',
     space: null,
-  });
-  const [settings, setSettings] = useState(loadSettings());
-  const fileInputRef = useRef(null);
+  })
+  const [settings, setSettings] = useState(loadSettings())
+  const fileInputRef = useRef(null)
 
   // Homepage Input State (moved here to fix hook order)
-  const [homeInput, setHomeInput] = useState("");
-  const [isHomeSearchActive, setIsHomeSearchActive] = useState(false);
-  const [isHomeThinkingActive, setIsHomeThinkingActive] = useState(false);
-  const [homeAttachments, setHomeAttachments] = useState([]);
-  const [homeSelectedSpace, setHomeSelectedSpace] = useState(null);
-  const homeSpaceSelectorRef = useRef(null);
-  const [isHomeSpaceSelectorOpen, setIsHomeSpaceSelectorOpen] = useState(false);
+  const [homeInput, setHomeInput] = useState('')
+  const [isHomeSearchActive, setIsHomeSearchActive] = useState(false)
+  const [isHomeThinkingActive, setIsHomeThinkingActive] = useState(false)
+  const [homeAttachments, setHomeAttachments] = useState([])
+  const [homeSelectedSpace, setHomeSelectedSpace] = useState(null)
+  const homeSpaceSelectorRef = useRef(null)
+  const [isHomeSpaceSelectorOpen, setIsHomeSpaceSelectorOpen] = useState(false)
 
   // Sync prop change to local state if needed (e.g. sidebar navigation)
   useEffect(() => {
-    setActiveView(currentView);
-  }, [currentView]);
+    setActiveView(currentView)
+  }, [currentView])
 
   // Clear initial state when switching to an existing conversation (not the one just created)
   useEffect(() => {
@@ -74,148 +68,128 @@ const MainContent = ({
     // and we have initial states that were set for a new conversation
     if (
       activeConversation &&
-      activeView === "chat" &&
+      activeView === 'chat' &&
       (initialMessage || initialAttachments.length > 0) &&
       activeConversation.id !== undefined
     ) {
       // Check if this conversation already exists by having a proper created_at timestamp
       // This prevents clearing states for the just-created conversation
-      if (
-        activeConversation.created_at &&
-        activeConversation.title !== "New Conversation"
-      ) {
+      if (activeConversation.created_at && activeConversation.title !== 'New Conversation') {
         // Clear initial states to prevent duplicate conversation creation
-        setInitialMessage("");
-        setInitialAttachments([]);
+        setInitialMessage('')
+        setInitialAttachments([])
         setInitialToggles({
           search: false,
           thinking: false,
-        });
+        })
         setInitialSpaceSelection({
-          mode: "auto",
+          mode: 'auto',
           space: null,
-        });
+        })
       }
     }
-  }, [activeConversation, activeView, initialMessage, initialAttachments]);
+  }, [activeConversation, activeView, initialMessage, initialAttachments])
 
   useEffect(() => {
     const handleSettingsChange = () => {
-      const newSettings = loadSettings();
-      setSettings(newSettings);
-      if (newSettings.apiProvider === "openai_compatibility") {
-        setIsHomeSearchActive(false);
+      const newSettings = loadSettings()
+      setSettings(newSettings)
+      if (newSettings.apiProvider === 'openai_compatibility') {
+        setIsHomeSearchActive(false)
       }
-    };
+    }
 
-    window.addEventListener("settings-changed", handleSettingsChange);
-    return () =>
-      window.removeEventListener("settings-changed", handleSettingsChange);
-  }, []);
+    window.addEventListener('settings-changed', handleSettingsChange)
+    return () => window.removeEventListener('settings-changed', handleSettingsChange)
+  }, [])
 
   // ... (rest of the component)
 
-  const suggestions = [
-    { icon: Clock, title: "Time in Tokyo", subtitle: "Current local time" },
-    { icon: Cloud, title: "Weather", subtitle: "San Francisco, CA" },
-    { icon: Github, title: "GitHub Trends", subtitle: "Latest popular repos" },
-    { icon: Youtube, title: "YouTube", subtitle: "Trending videos" },
-    {
-      icon: Coffee,
-      title: "Espresso vs Ristretto",
-      subtitle: "What is the difference?",
-    },
-    { icon: Search, title: "History of AI", subtitle: "Brief overview" },
-  ];
-
   // Extract derived values that were declared with the state
-  const isHomeSpaceAuto = !homeSelectedSpace;
+  const isHomeSpaceAuto = !homeSelectedSpace
 
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (
-        homeSpaceSelectorRef.current &&
-        !homeSpaceSelectorRef.current.contains(event.target)
-      ) {
-        setIsHomeSpaceSelectorOpen(false);
+    const handleClickOutside = event => {
+      if (homeSpaceSelectorRef.current && !homeSpaceSelectorRef.current.contains(event.target)) {
+        setIsHomeSpaceSelectorOpen(false)
       }
-    };
-
-    if (isHomeSpaceSelectorOpen) {
-      document.addEventListener("click", handleClickOutside);
     }
 
-    return () => document.removeEventListener("click", handleClickOutside);
-  }, [isHomeSpaceSelectorOpen]);
+    if (isHomeSpaceSelectorOpen) {
+      document.addEventListener('click', handleClickOutside)
+    }
 
-  const handleFileChange = (e) => {
-    const files = Array.from(e.target.files);
-    if (files.length === 0) return;
+    return () => document.removeEventListener('click', handleClickOutside)
+  }, [isHomeSpaceSelectorOpen])
 
-    files.forEach((file) => {
-      if (!file.type.startsWith("image/")) return;
+  const handleFileChange = e => {
+    const files = Array.from(e.target.files)
+    if (files.length === 0) return
 
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setHomeAttachments((prev) => [
+    files.forEach(file => {
+      if (!file.type.startsWith('image/')) return
+
+      const reader = new FileReader()
+      reader.onload = e => {
+        setHomeAttachments(prev => [
           ...prev,
           {
-            type: "image_url",
+            type: 'image_url',
             image_url: { url: e.target.result },
           },
-        ]);
-      };
-      reader.readAsDataURL(file);
-    });
+        ])
+      }
+      reader.readAsDataURL(file)
+    })
 
     // Reset input
-    e.target.value = "";
-  };
+    e.target.value = ''
+  }
 
   const handleHomeFileUpload = () => {
-    fileInputRef.current?.click();
-  };
+    fileInputRef.current?.click()
+  }
 
-  const handleSelectHomeSpace = (space) => {
-    setHomeSelectedSpace(space);
-    setIsHomeSpaceSelectorOpen(false);
-  };
+  const handleSelectHomeSpace = space => {
+    setHomeSelectedSpace(space)
+    setIsHomeSpaceSelectorOpen(false)
+  }
 
   const handleSelectHomeSpaceAuto = () => {
-    setHomeSelectedSpace(null);
-    setIsHomeSpaceSelectorOpen(false);
-  };
+    setHomeSelectedSpace(null)
+    setIsHomeSpaceSelectorOpen(false)
+  }
 
   const handleStartChat = async () => {
-    if (!homeInput.trim() && homeAttachments.length === 0) return;
+    if (!homeInput.trim() && homeAttachments.length === 0) return
 
     // Set initial state for ChatInterface
-    setInitialMessage(homeInput);
-    setInitialAttachments(homeAttachments);
+    setInitialMessage(homeInput)
+    setInitialAttachments(homeAttachments)
     setInitialToggles({
       search: isHomeSearchActive,
       thinking: isHomeThinkingActive,
-    });
-    const isManualSpaceSelection = !!homeSelectedSpace;
+    })
+    const isManualSpaceSelection = !!homeSelectedSpace
     setInitialSpaceSelection({
-      mode: isManualSpaceSelection ? "manual" : "auto",
+      mode: isManualSpaceSelection ? 'manual' : 'auto',
       space: isManualSpaceSelection ? homeSelectedSpace : null,
-    });
+    })
 
     // Switch to chat view
-    setActiveView("chat");
-    if (onChatStart) onChatStart();
+    setActiveView('chat')
+    if (onChatStart) onChatStart()
 
     // Reset home input
-    setHomeInput("");
-    setHomeAttachments([]);
-    setIsHomeSearchActive(false);
-    setIsHomeThinkingActive(false);
-  };
+    setHomeInput('')
+    setHomeAttachments([])
+    setIsHomeSearchActive(false)
+    setIsHomeThinkingActive(false)
+  }
 
   return (
     <div className="flex-1 min-h-screen bg-background text-foreground transition-colors duration-300 relative">
-      {activeView === "chat" ? (
+      {activeView === 'chat' ? (
         <ChatInterface
           spaces={spaces}
           initialMessage={initialMessage}
@@ -225,68 +199,68 @@ const MainContent = ({
           activeConversation={activeConversation}
           isSidebarPinned={isSidebarPinned}
         />
-      ) : activeView === "space" && activeSpace ? (
+      ) : activeView === 'space' && activeSpace ? (
         <SpaceView
           space={activeSpace}
           onEditSpace={onEditSpace}
           onOpenConversation={onOpenConversation}
           activeConversationId={activeConversation?.id}
-          onConversationDeleted={(deletedId) => {
+          onConversationDeleted={deletedId => {
             // Navigate home if we deleted the currently active conversation
             if (activeConversation?.id === deletedId) {
-              onNavigate("home");
+              onNavigate('home')
             }
           }}
           isSidebarPinned={isSidebarPinned}
         />
-      ) : activeView === "spaces" ? (
+      ) : activeView === 'spaces' ? (
         <SpacesListView
           spaces={spaces}
           spacesLoading={spacesLoading}
           onCreateSpace={onCreateSpace}
           onNavigateToSpace={onNavigateToSpace}
-          onSpaceDeleted={(deletedId) => {
+          onSpaceDeleted={deletedId => {
             // Navigate home if we deleted the currently active space
             if (activeSpace?.id === deletedId) {
-              onNavigate("home");
+              onNavigate('home')
             }
           }}
           isSidebarPinned={isSidebarPinned}
         />
-      ) : activeView === "bookmarks" ? (
+      ) : activeView === 'bookmarks' ? (
         <ConversationsListView
-          conversations={conversations.filter((c) => c.is_favorited)}
+          conversations={conversations.filter(c => c.is_favorited)}
           conversationsLoading={conversationsLoading}
-          onCreateConversation={() => onNavigate("home")}
+          onCreateConversation={() => onNavigate('home')}
           onOpenConversation={onOpenConversation}
           isSidebarPinned={isSidebarPinned}
           title="Bookmarks"
           showCreateButton={false}
         />
-      ) : activeView === "library" ? (
+      ) : activeView === 'library' ? (
         <ConversationsListView
           conversations={conversations}
           conversationsLoading={conversationsLoading}
-          onCreateConversation={() => onNavigate("home")}
+          onCreateConversation={() => onNavigate('home')}
           onOpenConversation={onOpenConversation}
-          onConversationDeleted={(deletedId) => {
+          onConversationDeleted={deletedId => {
             // Navigate home if we deleted the currently active conversation
             if (activeConversation?.id === deletedId) {
-              onNavigate("home");
+              onNavigate('home')
             }
           }}
           isSidebarPinned={isSidebarPinned}
         />
-      ) : activeView === "conversations" ? (
+      ) : activeView === 'conversations' ? (
         <ConversationsListView
           conversations={conversations}
           conversationsLoading={conversationsLoading}
-          onCreateConversation={() => onNavigate("home")}
+          onCreateConversation={() => onNavigate('home')}
           onOpenConversation={onOpenConversation}
-          onConversationDeleted={(deletedId) => {
+          onConversationDeleted={deletedId => {
             // Navigate home if we deleted the currently active conversation
             if (activeConversation?.id === deletedId) {
-              onNavigate("home");
+              onNavigate('home')
             }
           }}
           isSidebarPinned={isSidebarPinned}
@@ -295,8 +269,8 @@ const MainContent = ({
       ) : (
         <div
           className={clsx(
-            "flex flex-col items-center justify-center min-h-screen p-4 transition-all duration-300",
-            isSidebarPinned ? "ml-80" : "ml-16"
+            'flex flex-col items-center justify-center min-h-screen p-4 transition-all duration-300',
+            isSidebarPinned ? 'ml-80' : 'ml-16',
           )}
         >
           {/* Main Container */}
@@ -323,9 +297,7 @@ const MainContent = ({
                         </div>
                         <button
                           onClick={() =>
-                            setHomeAttachments(
-                              homeAttachments.filter((_, i) => i !== idx)
-                            )
+                            setHomeAttachments(homeAttachments.filter((_, i) => i !== idx))
                           }
                           className="absolute -top-1.5 -right-1.5 bg-gray-900 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity shadow-md"
                         >
@@ -337,15 +309,19 @@ const MainContent = ({
                 )}
                 <textarea
                   value={homeInput}
-                  onChange={(e) => setHomeInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      handleStartChat();
+                  onChange={e => {
+                    setHomeInput(e.target.value)
+                    e.target.style.height = 'auto'
+                    e.target.style.height = `${e.target.scrollHeight}px`
+                  }}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault()
+                      handleStartChat()
                     }
                   }}
                   placeholder="Ask anything..."
-                  className="w-full bg-transparent border-none outline-none resize-none text-lg placeholder-gray-400 dark:placeholder-gray-500 min-h-[60px]"
+                  className="w-full bg-transparent border-none outline-none resize-none text-lg placeholder-gray-400 dark:placeholder-gray-500 min-h-[60px] max-h-[200px] overflow-y-auto"
                   rows={1}
                 />
 
@@ -361,33 +337,34 @@ const MainContent = ({
                     />
                     <button
                       onClick={handleHomeFileUpload}
-                      className={`p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${homeAttachments.length > 0
-                          ? "text-cyan-500"
-                          : "text-gray-500 dark:text-gray-400"
-                        }`}
+                      className={`p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
+                        homeAttachments.length > 0
+                          ? 'text-cyan-500'
+                          : 'text-gray-500 dark:text-gray-400'
+                      }`}
                     >
                       <Paperclip size={18} />
                     </button>
                     <button
-                      onClick={() =>
-                        setIsHomeThinkingActive(!isHomeThinkingActive)
-                      }
-                      className={`p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${isHomeThinkingActive
-                          ? "text-cyan-500 bg-gray-100 dark:bg-zinc-800"
-                          : "text-gray-500 dark:text-gray-400"
-                        }`}
+                      onClick={() => setIsHomeThinkingActive(!isHomeThinkingActive)}
+                      className={`p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
+                        isHomeThinkingActive
+                          ? 'text-cyan-500 bg-gray-100 dark:bg-zinc-800'
+                          : 'text-gray-500 dark:text-gray-400'
+                      }`}
                     >
                       <Brain size={18} />
                       <span>Think</span>
                     </button>
                     <button
-                      disabled={settings.apiProvider === "openai_compatibility"}
+                      disabled={settings.apiProvider === 'openai_compatibility'}
                       value={isHomeSearchActive}
                       onClick={() => setIsHomeSearchActive(!isHomeSearchActive)}
-                      className={`p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${isHomeSearchActive
-                          ? "text-cyan-500 bg-gray-100 dark:bg-zinc-800"
-                          : "text-gray-500 dark:text-gray-400"
-                        }`}
+                      className={`p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
+                        isHomeSearchActive
+                          ? 'text-cyan-500 bg-gray-100 dark:bg-zinc-800'
+                          : 'text-gray-500 dark:text-gray-400'
+                      }`}
                     >
                       <Globe size={18} />
                       <span>Search</span>
@@ -395,18 +372,17 @@ const MainContent = ({
 
                     <div className="relative" ref={homeSpaceSelectorRef}>
                       <button
-                        onClick={() =>
-                          setIsHomeSpaceSelectorOpen(!isHomeSpaceSelectorOpen)
-                        }
-                        className={`px-3 py-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${isHomeSpaceAuto
-                            ? "text-gray-500 dark:text-gray-400"
-                            : "text-cyan-500 bg-gray-100 dark:bg-zinc-800"
-                          }`}
+                        onClick={() => setIsHomeSpaceSelectorOpen(!isHomeSpaceSelectorOpen)}
+                        className={`px-3 py-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
+                          isHomeSpaceAuto
+                            ? 'text-gray-500 dark:text-gray-400'
+                            : 'text-cyan-500 bg-gray-100 dark:bg-zinc-800'
+                        }`}
                       >
                         <LayoutGrid size={18} />
                         <span>
                           {isHomeSpaceAuto || !homeSelectedSpace
-                            ? "Spaces: Auto"
+                            ? 'Spaces: Auto'
                             : `Spaces: ${homeSelectedSpace.label}`}
                         </span>
                         <ChevronDown size={14} />
@@ -416,22 +392,20 @@ const MainContent = ({
                           <div className="p-2 flex flex-col gap-1">
                             <button
                               onClick={handleSelectHomeSpaceAuto}
-                              className={`flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left ${isHomeSpaceAuto
-                                  ? "text-cyan-500"
-                                  : "text-gray-700 dark:text-gray-200"
-                                }`}
+                              className={`flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left ${
+                                isHomeSpaceAuto
+                                  ? 'text-cyan-500'
+                                  : 'text-gray-700 dark:text-gray-200'
+                              }`}
                             >
                               <span className="text-sm font-medium">Auto</span>
-                              {isHomeSpaceAuto && (
-                                <Check size={14} className="text-cyan-500" />
-                              )}
+                              {isHomeSpaceAuto && <Check size={14} className="text-cyan-500" />}
                             </button>
                             {spaces.length > 0 && (
                               <div className="h-px bg-gray-100 dark:bg-zinc-800 my-1" />
                             )}
                             {spaces.map((space, idx) => {
-                              const isSelected =
-                                homeSelectedSpace?.label === space.label;
+                              const isSelected = homeSelectedSpace?.label === space.label
                               return (
                                 <button
                                   key={idx}
@@ -446,14 +420,9 @@ const MainContent = ({
                                       {space.label}
                                     </span>
                                   </div>
-                                  {isSelected && (
-                                    <Check
-                                      size={14}
-                                      className="text-cyan-500"
-                                    />
-                                  )}
+                                  {isSelected && <Check size={14} className="text-cyan-500" />}
                                 </button>
-                              );
+                              )
                             })}
                           </div>
                         </div>
@@ -464,9 +433,7 @@ const MainContent = ({
                   <div className="flex gap-2">
                     <button
                       onClick={handleStartChat}
-                      disabled={
-                        !homeInput.trim() && homeAttachments.length === 0
-                      }
+                      disabled={!homeInput.trim() && homeAttachments.length === 0}
                       className="p-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-full transition-colors disabled:opacity-50  disabled:hover:bg-cyan-500"
                     >
                       <ArrowRight size={18} />
@@ -476,31 +443,8 @@ const MainContent = ({
               </div>
             </div>
 
-            {/* Suggestions Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 w-full mt-8">
-              {suggestions.map((item, index) => (
-                <div
-                  key={index}
-                  onClick={() => {
-                    setHomeInput(item.title);
-                    // Optional: auto-submit or just set input
-                  }}
-                  className="p-4 rounded-xl bg-gray-50 dark:bg-zinc-800/50 hover:bg-gray-100 dark:hover:bg-zinc-800 border border-transparent hover:border-gray-200 dark:hover:border-zinc-700 cursor-pointer transition-all duration-200 flex flex-col gap-2"
-                >
-                  <div className="p-2 bg-white dark:bg-zinc-900 w-fit rounded-lg shadow-sm text-cyan-600 dark:text-cyan-400">
-                    <item.icon size={20} />
-                  </div>
-                  <div>
-                    <h3 className="font-medium text-sm text-gray-900 dark:text-gray-100 line-clamp-1">
-                      {item.title}
-                    </h3>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-1">
-                      {item.subtitle}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
+            {/* Widgets Section */}
+            <HomeWidgets />
           </div>
 
           {/* Footer */}
@@ -527,7 +471,7 @@ const MainContent = ({
         </div>
       )}
     </div>
-  );
-};
+  )
+}
 
-export default MainContent;
+export default MainContent

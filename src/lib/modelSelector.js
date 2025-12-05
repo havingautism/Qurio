@@ -3,7 +3,7 @@
  * Provides intelligent model selection based on task types and user settings
  */
 
-import { TASK_MAPPING, TASK_TYPES } from './taskConfig.js';
+import { TASK_MAPPING, TASK_TYPES } from './taskConfig.js'
 
 /**
  * Get the appropriate model for a given task based on user settings
@@ -14,19 +14,19 @@ import { TASK_MAPPING, TASK_TYPES } from './taskConfig.js';
  */
 export const getModelForTask = (taskName, settings) => {
   // Determine the task type from our mapping
-  const taskType = TASK_MAPPING[taskName] || TASK_MAPPING['__fallback__'];
+  const taskType = TASK_MAPPING[taskName] || TASK_MAPPING['__fallback__']
 
   // Select the appropriate model based on task type
   switch (taskType) {
     case TASK_TYPES.LITE:
-      return settings.liteModel;
+      return settings.liteModel
     case TASK_TYPES.DEFAULT:
-      return settings.defaultModel;
+      return settings.defaultModel
     default:
       // Defensive programming: always return defaultModel as last resort
-      return settings.defaultModel;
+      return settings.defaultModel
   }
-};
+}
 
 /**
  * Check if a task is considered lightweight
@@ -34,9 +34,9 @@ export const getModelForTask = (taskName, settings) => {
  * @param {string} taskName - The name of the task to check
  * @returns {boolean} True if this is a lightweight task
  */
-export const isLiteTask = (taskName) => {
-  return TASK_MAPPING[taskName] === TASK_TYPES.LITE;
-};
+export const isLiteTask = taskName => {
+  return TASK_MAPPING[taskName] === TASK_TYPES.LITE
+}
 
 /**
  * Get all available task names for debugging and validation
@@ -44,5 +44,5 @@ export const isLiteTask = (taskName) => {
  * @returns {Array<string>} Array of task names
  */
 export const getAllTaskNames = () => {
-  return Object.keys(TASK_MAPPING).filter(task => task !== '__fallback__');
-};
+  return Object.keys(TASK_MAPPING).filter(task => task !== '__fallback__')
+}

@@ -3,6 +3,7 @@
 一个基于 React 的聊天应用程序，集成了 Supabase 进行数据持久化。该应用使用 React Router 进行路由管理。
 
 ## 特性
+
 - **聊天界面**: 现代化、响应式的聊天用户界面
 - **消息复制**: 一键复制 AI 回复内容，包括来源和相关问题
 - **Supabase 集成**: 在 Supabase 中存储对话和消息
@@ -21,18 +22,21 @@
 ## 安装和设置
 
 ### 前置要求
+
 - [Bun](https://bun.sh) v1.3+
 - 一个 Supabase 账户 ([在此注册](https://supabase.com))
 
 ### 安装步骤
 
 1. **克隆仓库**
+
    ```bash
    git clone <你的仓库地址>
    cd perplexity_chat_startup
    ```
 
 2. **安装依赖**
+
    ```bash
    bun install
    ```
@@ -64,6 +68,7 @@
 ### 开发
 
 运行开发服务器：
+
 ```bash
 bun run dev
 ```
@@ -85,6 +90,7 @@ bun run dev
 ## Usage
 
 ### Chat Features
+
 - **Start Conversation**: Type your message and press Enter or click the arrow button
 - **Copy Messages**: Click the "Copy" button on any AI response to copy the complete content
 - **Image Upload**: Click the paperclip icon to upload images
@@ -92,22 +98,26 @@ bun run dev
 - **Thinking Mode**: View AI reasoning process before getting the final answer
 
 ### Organization
+
 - **Spaces**: Create dedicated workspaces for different topics
 - **Bookmarks**: Mark important conversations for quick access
 - **Conversation History**: All conversations are automatically saved and organized by date
 
 ### Settings
+
 - **API Provider**: Choose between different AI providers
 - **Theme**: Light, dark, or system theme
 - **Supabase Configuration**: Set up your database credentials
 
 ### Keyboard Shortcuts
+
 - `Enter`: Send message
 - `Shift + Enter`: New line in message input
 
 ## Database Schema
 
 The application uses the following tables:
+
 - **spaces**: Workspaces for organizing conversations
 - **chat_sessions**: Individual conversations
 - **messages**: Chat messages with AI responses
@@ -117,6 +127,7 @@ All tables use Row Level Security (RLS) based on `client-id` for data isolation.
 ## Configuration Priority
 
 The app loads settings in this order:
+
 1. Environment Variables (`.env` file)
 2. LocalStorage (browser storage)
 3. User input (Settings Modal)

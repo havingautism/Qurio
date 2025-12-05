@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback } from 'react'
 
 /**
  * Custom hook for infinite scroll with cursor-based pagination
@@ -14,117 +14,106 @@ import { useState, useEffect, useRef, useCallback } from "react";
  * @returns {Object} - { data, loading, loadingMore, hasMore, loadMoreRef, refresh, error }
  */
 export function useInfiniteScroll(fetchFunction, options = {}) {
-  const {
-    limit = 10,
-    dependencies = [],
-    enabled = true,
-    rootMargin = "100px",
-  } = options;
+  const { limit = 10, dependencies = [], enabled = true, rootMargin = '100px' } = options
 
-  const [data, setData] = useState([]);
-  const [cursor, setCursor] = useState(null);
-  const [hasMore, setHasMore] = useState(true);
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [error, setError] = useState(null);
-  const loadMoreRef = useRef(null);
+  const [data, setData] = useState([])
+  const [cursor, setCursor] = useState(null)
+  const [hasMore, setHasMore] = useState(true)
+  const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [error, setError] = useState(null)
+  const loadMoreRef = useRef(null)
 
   // Fetch initial data
   const fetchInitialData = useCallback(async () => {
-    if (!enabled) return;
+    if (!enabled) return
 
-    setLoading(true);
-    setData([]);
-    setCursor(null);
-    setHasMore(true);
-    setError(null);
+    setLoading(true)
+    setData([])
+    setCursor(null)
+    setHasMore(true)
+    setError(null)
 
     try {
-      const result = await fetchFunction(null, limit);
-      setData(result.data || []);
-      setCursor(result.nextCursor);
-      setHasMore(result.hasMore);
+      const result = await fetchFunction(null, limit)
+      setData(result.data || [])
+      setCursor(result.nextCursor)
+      setHasMore(result.hasMore)
     } catch (err) {
-      console.error("Failed to fetch initial data:", err);
-      setError(err);
+      console.error('Failed to fetch initial data:', err)
+      setError(err)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  }, [fetchFunction, limit, enabled]);
+  }, [fetchFunction, limit, enabled])
 
   // Load more data
   const loadMore = useCallback(async () => {
-    if (!hasMore || loadingMore || loading || !enabled) return;
+    if (!hasMore || loadingMore || loading || !enabled) return
 
-    setLoadingMore(true);
-    setError(null);
+    setLoadingMore(true)
+    setError(null)
 
     try {
-      const result = await fetchFunction(cursor, limit);
-      setData((prev) => [...prev, ...(result.data || [])]);
-      setCursor(result.nextCursor);
-      setHasMore(result.hasMore);
+      const result = await fetchFunction(cursor, limit)
+      setData(prev => [...prev, ...(result.data || [])])
+      setCursor(result.nextCursor)
+      setHasMore(result.hasMore)
     } catch (err) {
-      console.error("Failed to load more data:", err);
-      setError(err);
+      console.error('Failed to load more data:', err)
+      setError(err)
     } finally {
-      setLoadingMore(false);
+      setLoadingMore(false)
     }
-  }, [cursor, hasMore, loadingMore, loading, fetchFunction, limit, enabled]);
+  }, [cursor, hasMore, loadingMore, loading, fetchFunction, limit, enabled])
 
   // Refresh data (reset and reload)
   const refresh = useCallback(() => {
-    fetchInitialData();
-  }, [fetchInitialData]);
+    fetchInitialData()
+  }, [fetchInitialData])
 
   // Fetch initial data when dependencies change
   useEffect(() => {
-    fetchInitialData();
+    fetchInitialData()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, ...dependencies]);
+  }, [enabled, ...dependencies])
 
   // Listen for conversation changes (e.g., favorite/delete)
   useEffect(() => {
     const handleConversationsChanged = () => {
-      refresh();
-    };
+      refresh()
+    }
 
-    window.addEventListener(
-      "conversations-changed",
-      handleConversationsChanged
-    );
+    window.addEventListener('conversations-changed', handleConversationsChanged)
     return () => {
-      window.removeEventListener(
-        "conversations-changed",
-        handleConversationsChanged
-      );
-    };
-  }, [refresh]);
+      window.removeEventListener('conversations-changed', handleConversationsChanged)
+    }
+  }, [refresh])
 
   // Setup Intersection Observer for infinite scroll
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled) return
 
     const observer = new IntersectionObserver(
-      (entries) => {
+      entries => {
         if (entries[0].isIntersecting) {
-          loadMore();
+          loadMore()
         }
       },
-      { threshold: 0.1, rootMargin: `${rootMargin}` }
-    );
+      { threshold: 0.1, rootMargin: `${rootMargin}` },
+    )
 
-    const currentRef = loadMoreRef.current;
+    const currentRef = loadMoreRef.current
     if (currentRef) {
-      observer.observe(currentRef);
+      observer.observe(currentRef)
     }
 
     return () => {
       if (currentRef) {
-        observer.unobserve(currentRef);
+        observer.unobserve(currentRef)
       }
-    };
-  }, [loadMore, enabled, rootMargin]);
+    }
+  }, [loadMore, enabled, rootMargin])
 
   return {
     data,
@@ -134,5 +123,5 @@ export function useInfiniteScroll(fetchFunction, options = {}) {
     loadMoreRef,
     refresh,
     error,
-  };
+  }
 }

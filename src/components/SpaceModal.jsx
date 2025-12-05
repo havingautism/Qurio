@@ -1,102 +1,122 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { X } from 'lucide-react';
-import useScrollLock from '../hooks/useScrollLock';
-import TwemojiDisplay from './TwemojiDisplay';
-import CustomEmojiPicker from './CustomEmojiPicker';
+import React, { useState, useEffect, useRef } from 'react'
+import { X } from 'lucide-react'
+import useScrollLock from '../hooks/useScrollLock'
+import TwemojiDisplay from './TwemojiDisplay'
+import CustomEmojiPicker from './CustomEmojiPicker'
 
 const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) => {
-  useScrollLock(isOpen);
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [prompt, setPrompt] = useState('');
-  const [emoji, setEmoji] = useState('🌍'); // Default emoji
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState('');
-  const pickerRef = useRef(null);
-  const buttonRef = useRef(null);
+  useScrollLock(isOpen)
+  const [name, setName] = useState('')
+  const [description, setDescription] = useState('')
+  const [prompt, setPrompt] = useState('')
+  const [emoji, setEmoji] = useState('🌍') // Default emoji
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [error, setError] = useState('')
+  const pickerRef = useRef(null)
+  const buttonRef = useRef(null)
 
   const emojis = [
-    '🌍', '💻', '📚', '🧠', '🎬', '📈', '🧪', '🎧', '📸', '🗺️', '📝', '🧩',
-    '🪴', '🎨', '⚡', '🚀', '📖', '🔬', '🎮', '🧘', '🧭', '🪐', '📊'
-  ];
+    '🌍',
+    '💻',
+    '📚',
+    '🧠',
+    '🎬',
+    '📈',
+    '🧪',
+    '🎧',
+    '📸',
+    '🗺️',
+    '📝',
+    '🧩',
+    '🪴',
+    '🎨',
+    '⚡',
+    '🚀',
+    '📖',
+    '🔬',
+    '🎮',
+    '🧘',
+    '🧭',
+    '🪐',
+    '📊',
+  ]
 
   // Close picker when clicking outside
   useEffect(() => {
-    const handleClickOutside = (event) => {
+    const handleClickOutside = event => {
       if (
         pickerRef.current &&
         !pickerRef.current.contains(event.target) &&
         buttonRef.current &&
         !buttonRef.current.contains(event.target)
       ) {
-        setShowEmojiPicker(false);
+        setShowEmojiPicker(false)
       }
-    };
+    }
 
     if (showEmojiPicker) {
-      document.addEventListener('click', handleClickOutside);
+      document.addEventListener('click', handleClickOutside)
     }
-    return () => document.removeEventListener('click', handleClickOutside);
-  }, [showEmojiPicker]);
+    return () => document.removeEventListener('click', handleClickOutside)
+  }, [showEmojiPicker])
 
   // Populate form when modal opens/changes
   useEffect(() => {
     if (isOpen) {
       if (editingSpace) {
-        setName(editingSpace.label || '');
-        setDescription(editingSpace.description || '');
-        setPrompt(editingSpace.prompt || '');
-        setEmoji(editingSpace.emoji || '🌍');
+        setName(editingSpace.label || '')
+        setDescription(editingSpace.description || '')
+        setPrompt(editingSpace.prompt || '')
+        setEmoji(editingSpace.emoji || '🌍')
       } else {
-        setName('');
-        setDescription('');
-        setPrompt('');
-        setEmoji('🌍');
+        setName('')
+        setDescription('')
+        setPrompt('')
+        setEmoji('🌍')
       }
-      setShowEmojiPicker(false);
-      setError('');
-      setIsSaving(false);
+      setShowEmojiPicker(false)
+      setError('')
+      setIsSaving(false)
     }
-  }, [isOpen, editingSpace]);
+  }, [isOpen, editingSpace])
 
   const handleSave = async () => {
     if (!name.trim()) {
-      setError('Name is required');
-      return;
+      setError('Name is required')
+      return
     }
-    setIsSaving(true);
-    setError('');
+    setIsSaving(true)
+    setError('')
     try {
       await onSave?.({
         emoji,
         label: name.trim(),
         description: description.trim(),
         prompt: prompt.trim(),
-      });
+      })
     } catch (err) {
-      setError(err.message || 'Failed to save space');
-      setIsSaving(false);
+      setError(err.message || 'Failed to save space')
+      setIsSaving(false)
     }
-  };
+  }
 
   const handleDelete = async () => {
-    if (!editingSpace?.id) return;
-    const confirmed = window.confirm('Delete this space? This cannot be undone.');
-    if (!confirmed) return;
+    if (!editingSpace?.id) return
+    const confirmed = window.confirm('Delete this space? This cannot be undone.')
+    if (!confirmed) return
     try {
-      await onDelete?.(editingSpace.id);
+      await onDelete?.(editingSpace.id)
     } catch (err) {
-      setError(err.message || 'Failed to delete space');
+      setError(err.message || 'Failed to delete space')
     }
-  };
+  }
 
-  if (!isOpen) return null;
+  if (!isOpen) return null
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
       <div className="w-full max-w-md bg-white dark:bg-[#191a1a] rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-gray-200 dark:border-zinc-800">
-
         {/* Header */}
         <div className="h-14 border-b border-gray-200 dark:border-zinc-800 flex items-center justify-between px-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -112,8 +132,6 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
 
         {/* Content */}
         <div className="p-6 flex flex-col gap-4">
-
-
           {/* Icon and Name Row */}
           <div className="flex gap-4">
             {/* Emoji Picker */}
@@ -134,9 +152,9 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
                   className="absolute top-full left-0 mt-2 z-50 shadow-2xl rounded-xl overflow-hidden"
                 >
                   <CustomEmojiPicker
-                    onEmojiSelect={(e) => {
-                      setEmoji(e.native);
-                      setShowEmojiPicker(false);
+                    onEmojiSelect={e => {
+                      setEmoji(e.native)
+                      setShowEmojiPicker(false)
                     }}
                   />
                 </div>
@@ -149,7 +167,7 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
               <input
                 type="text"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={e => setName(e.target.value)}
                 placeholder="e.g., Daily Life, Research..."
                 className="w-full h-12 px-4 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600"
               />
@@ -158,10 +176,12 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
 
           {/* Description Input */}
           <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Description <span className="text-gray-400 font-normal">(Optional)</span></label>
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Description <span className="text-gray-400 font-normal">(Optional)</span>
+            </label>
             <textarea
               value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              onChange={e => setDescription(e.target.value)}
               placeholder="What is this space for?"
               rows={3}
               className="w-full px-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600 resize-none"
@@ -170,20 +190,19 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
 
           {/* Prompt Input */}
           <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Space Prompt <span className="text-gray-400 font-normal">(Optional)</span></label>
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Space Prompt <span className="text-gray-400 font-normal">(Optional)</span>
+            </label>
             <textarea
               value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
+              onChange={e => setPrompt(e.target.value)}
               placeholder="Provide guidance the assistant should follow inside this space."
               rows={3}
               className="w-full px-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600 resize-none"
             />
           </div>
 
-          {error && (
-            <div className="text-sm text-red-500">{error}</div>
-          )}
-
+          {error && <div className="text-sm text-red-500">{error}</div>}
         </div>
 
         {/* Footer */}
@@ -215,10 +234,9 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
             </button>
           </div>
         </div>
-
       </div>
     </div>
-  );
-};
+  )
+}
 
-export default SpaceModal;
+export default SpaceModal

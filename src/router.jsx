@@ -1,18 +1,14 @@
-import React from "react";
-import {
-  createRootRoute,
-  createRoute,
-  createRouter,
-} from "@tanstack/react-router";
-import App from "./App";
-import FancyLoader from "./components/FancyLoader";
+import React from 'react'
+import { createRootRoute, createRoute, createRouter } from '@tanstack/react-router'
+import App from './App'
+import FancyLoader from './components/FancyLoader'
 
-const HomeView = React.lazy(() => import("./views/HomeView"));
-const ConversationView = React.lazy(() => import("./views/ConversationView"));
-const SpacesView = React.lazy(() => import("./views/SpacesView"));
-const SpaceView = React.lazy(() => import("./views/SpaceView"));
-const LibraryView = React.lazy(() => import("./views/LibraryView"));
-const BookmarksView = React.lazy(() => import("./views/BookmarksView"));
+const HomeView = React.lazy(() => import('./views/HomeView'))
+const ConversationView = React.lazy(() => import('./views/ConversationView'))
+const SpacesView = React.lazy(() => import('./views/SpacesView'))
+const SpaceView = React.lazy(() => import('./views/SpaceView'))
+const LibraryView = React.lazy(() => import('./views/LibraryView'))
+const BookmarksView = React.lazy(() => import('./views/BookmarksView'))
 
 const SuspensePage = ({ children }) => (
   <React.Suspense
@@ -24,82 +20,82 @@ const SuspensePage = ({ children }) => (
   >
     {children}
   </React.Suspense>
-);
+)
 
 export const rootRoute = createRootRoute({
   component: App,
   notFoundComponent: () => <div>Something went wrong!</div>,
-});
+})
 
 export const homeRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/",
+  path: '/',
   component: () => (
     <SuspensePage>
       <HomeView />
     </SuspensePage>
   ),
-});
+})
 
 export const newChatRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "new_chat",
+  path: 'new_chat',
   component: () => (
     <SuspensePage>
       <HomeView />
     </SuspensePage>
   ),
-});
+})
 
 export const conversationRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "conversation/$conversationId",
+  path: 'conversation/$conversationId',
   component: () => (
     <SuspensePage>
       <ConversationView />
     </SuspensePage>
   ),
-});
+})
 
 export const spacesRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "spaces",
+  path: 'spaces',
   component: () => (
     <SuspensePage>
       <SpacesView />
     </SuspensePage>
   ),
-});
+})
 
 export const spaceRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "space/$spaceId",
+  path: 'space/$spaceId',
   component: () => (
     <SuspensePage>
       <SpaceView />
     </SuspensePage>
   ),
-});
+})
 
 export const libraryRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "library",
+  path: 'library',
   component: () => (
     <SuspensePage>
       <LibraryView />
     </SuspensePage>
   ),
-});
+})
 
 export const bookmarksRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "bookmarks",
+  path: 'bookmarks',
   component: () => (
     <SuspensePage>
       <BookmarksView />
     </SuspensePage>
   ),
-});
+})
 
 const routeTree = rootRoute.addChildren([
   homeRoute,
@@ -109,10 +105,10 @@ const routeTree = rootRoute.addChildren([
   spaceRoute,
   libraryRoute,
   bookmarksRoute,
-]);
+])
 
 const router = createRouter({
   routeTree,
-});
+})
 
-export default router;
+export default router

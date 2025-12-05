@@ -1,27 +1,31 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useAppContext } from "../App";
 import { useNavigate } from "@tanstack/react-router";
 import { listConversations, toggleFavorite } from "../lib/conversationsService";
 import { deleteConversation } from "../lib/supabase";
-import { useInfiniteScroll } from "../hooks/useInfiniteScroll";
 import {
   Search,
   Plus,
   Clock,
   LayoutGrid,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   MoreHorizontal,
   ArrowUpDown,
   Library as LibraryIcon,
   Check,
   Bookmark,
   Trash2,
+  X,
+  ArrowRight,
 } from "lucide-react";
 import clsx from "clsx";
 import FancyLoader from "../components/FancyLoader";
 import DropdownMenu from "../components/DropdownMenu";
 import ConfirmationModal from "../components/ConfirmationModal";
 import { useToast } from "../contexts/ToastContext";
+import TwemojiDisplay from "../components/TwemojiDisplay";
 
 const SORT_OPTIONS = [
   { label: "Newest", value: "created_at", ascending: false },
@@ -34,6 +38,7 @@ const LibraryView = () => {
   const { spaces, isSidebarPinned } = useAppContext();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
+  const [activeSearchQuery, setActiveSearchQuery] = useState(""); // Query actually sent to server
   const [sortOption, setSortOption] = useState(SORT_OPTIONS[0]);
   const [isSortOpen, setIsSortOpen] = useState(false);
   const [openMenuId, setOpenMenuId] = useState(null);
@@ -41,36 +46,73 @@ const LibraryView = () => {
   const [conversationToDelete, setConversationToDelete] = useState(null);
   const toast = useToast();
 
-  // Use infinite scroll hook
-  const {
-    data: conversations,
-    loading,
-    loadingMore,
-    hasMore,
-    loadMoreRef,
-  } = useInfiniteScroll(
-    async (cursor, limit) => {
-      return await listConversations({
+  const [conversations, setConversations] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const limit = 10;
+
+  useEffect(() => {
+    // Reset to page 1 when sort or active search changes
+    setCurrentPage(1);
+  }, [sortOption, activeSearchQuery]);
+
+  useEffect(() => {
+    const fetchConversations = async () => {
+      setLoading(true);
+      const { data, count, error } = await listConversations({
         sortBy: sortOption.value,
         ascending: sortOption.ascending,
-        cursor,
+        page: currentPage,
         limit,
+        search: activeSearchQuery,
       });
-    },
-    {
-      limit: 10,
-      dependencies: [sortOption],
-      rootMargin: "100px",
-    }
-  );
 
-  // Filter conversations based on search query
-  const filteredConversations = useMemo(() => {
-    if (!searchQuery.trim()) return conversations;
-    return conversations.filter((c) =>
-      c.title.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  }, [conversations, searchQuery]);
+      if (!error) {
+        setConversations(data || []);
+        if (count !== undefined) setTotalCount(count);
+      } else {
+        console.error("Failed to load conversations:", error);
+        toast.error("Failed to load conversations");
+      }
+      setLoading(false);
+    };
+
+    fetchConversations();
+
+    const handleConversationsChanged = () => fetchConversations();
+    window.addEventListener("conversations-changed", handleConversationsChanged);
+    return () => window.removeEventListener("conversations-changed", handleConversationsChanged);
+  }, [currentPage, sortOption, activeSearchQuery]);
+
+  const handleSearch = () => {
+    if (searchQuery.trim() !== activeSearchQuery) {
+      setActiveSearchQuery(searchQuery.trim());
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter") {
+      handleSearch();
+    }
+  };
+
+  const handleClearSearch = () => {
+    setSearchQuery("");
+    setActiveSearchQuery("");
+  };
+
+  const totalPages = Math.ceil(totalCount / limit);
+
+  const handlePageChange = (newPage) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setCurrentPage(newPage);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
+  // Filter conversations based on search query - Removed as we now do server-side search
+  const filteredConversations = conversations;
 
   // Helper to get space info
   const getSpaceInfo = (spaceId) => {
@@ -155,17 +197,48 @@ const LibraryView = () => {
         <div className="mb-8 space-y-4">
           {/* Search Bar */}
           <div className="relative">
-            <Search
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-              size={20}
-            />
+            <button
+              onClick={handleSearch}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors cursor-pointer"
+            >
+              <Search size={20} />
+            </button>
             <input
               type="text"
               placeholder="Search your Threads..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-gray-100 dark:bg-zinc-900 border border-transparent focus:border-gray-300 dark:focus:border-zinc-700 rounded-xl py-3 pl-10 pr-4 outline-none transition-all placeholder-gray-500"
+              onKeyDown={handleKeyDown}
+              className="w-full bg-gray-100 dark:bg-zinc-900 border border-transparent focus:border-gray-300 dark:focus:border-zinc-700 rounded-xl py-3 pl-10 pr-20 outline-none transition-all placeholder-gray-500"
             />
+            {searchQuery && (
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                <button
+                  onClick={handleClearSearch}
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors p-1"
+                  title="Clear"
+                >
+                  <X size={16} />
+                </button>
+                <div className="w-px h-4 bg-gray-300 dark:bg-zinc-700 mx-1" />
+                <button
+                  onClick={handleSearch}
+                  className="bg-cyan-500 hover:bg-cyan-600 text-white rounded-md p-1 transition-colors"
+                  title="Search"
+                >
+                  <ArrowRight size={16} />
+                </button>
+              </div>
+            )}
+            {!searchQuery && (
+              <button
+                onClick={handleSearch}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors p-1"
+                title="Search"
+              >
+                <ArrowRight size={16} />
+              </button>
+            )}
           </div>
 
           {/* Filter Row (Visual only for now) */}
@@ -252,7 +325,7 @@ const LibraryView = () => {
                       params: { conversationId: conv.id },
                     })
                   }
-                  className="group relative p-4 rounded-xl hover:bg-gray-50 dark:hover:bg-zinc-900/50 cursor-pointer transition-colors border-b border-gray-100 dark:border-zinc-800/50 last:border-0"
+                  className="group relative p-2 rounded-xl hover:bg-gray-50 dark:hover:bg-zinc-900/50 cursor-pointer transition-colors border-b border-gray-100 dark:border-zinc-800/50 last:border-0"
                 >
                   <div className="flex justify-between items-start gap-4">
                     <div className="flex-1 min-w-0">
@@ -275,7 +348,7 @@ const LibraryView = () => {
                         </div>
                         {space && (
                           <div className="flex items-center gap-1.5">
-                            <span>{space.emoji}</span>
+                            <TwemojiDisplay emoji={space.emoji} size="1rem" />
                             <span>{space.label}</span>
                           </div>
                         )}
@@ -334,23 +407,30 @@ const LibraryView = () => {
             })
           )}
 
-          {/* Invisible Sentinel for Intersection Observer */}
-          {!loading && hasMore && <div ref={loadMoreRef} className="h-1" />}
+          {/* Pagination Controls */}
+          {!loading && totalPages > 1 && (
+            <div className="flex items-center justify-center gap-4 py-8  mt-8">
+              <button
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                title="Previous Page"
+              >
+                <ChevronLeft size={20} />
+              </button>
 
-          {/* Loading More Indicator - Fixed at bottom of list */}
-          {!loading && loadingMore && (
-            <div className="flex flex-col items-center gap-3 py-8">
-              <FancyLoader />
-              <span className="text-sm text-gray-400">
-                Loading more threads...
+              <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                Page {currentPage} of {totalPages}
               </span>
-            </div>
-          )}
 
-          {/* No More Data Message */}
-          {!loading && !hasMore && conversations.length > 0 && (
-            <div className="text-center py-8 text-gray-400 text-sm">
-              No more threads to load
+              <button
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                title="Next Page"
+              >
+                <ChevronRight size={20} />
+              </button>
             </div>
           )}
         </div>

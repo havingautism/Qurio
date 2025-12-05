@@ -22,10 +22,17 @@ import {
   MoreHorizontal,
   Divide,
   Pin,
+  ChevronDown,
 } from "lucide-react";
 import clsx from "clsx";
 import FiloLogo from "./Logo";
-import { listConversations, toggleFavorite } from "../lib/conversationsService";
+import DotLoader from "./DotLoader";
+import TwemojiDisplay from "./TwemojiDisplay";
+import {
+  listConversations,
+  listConversationsBySpace,
+  toggleFavorite,
+} from "../lib/conversationsService";
 import { deleteConversation } from "../lib/supabase";
 import ConfirmationModal from "./ConfirmationModal";
 import DropdownMenu from "./DropdownMenu";
@@ -53,10 +60,18 @@ const Sidebar = ({
   const [activeTab, setActiveTab] = useState("library"); // 'library', 'discover', 'spaces'
   const [hoveredTab, setHoveredTab] = useState(null);
   const [conversations, setConversations] = useState([]);
+  const [nextCursor, setNextCursor] = useState(null);
+  const [hasMore, setHasMore] = useState(true);
   const [isConversationsLoading, setIsConversationsLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [conversationToDelete, setConversationToDelete] = useState(null);
   const [openMenuId, setOpenMenuId] = useState(null);
   const [menuAnchorEl, setMenuAnchorEl] = useState(null);
+
+  // Spaces interaction state
+  const [expandedSpaces, setExpandedSpaces] = useState(new Set());
+  const [spaceConversations, setSpaceConversations] = useState({}); // { [spaceId]: { items: [], nextCursor: null, hasMore: true, loading: false } }
+
   const toast = useToast();
 
   const displayTab = hoveredTab || activeTab;
@@ -70,21 +85,42 @@ const Sidebar = ({
     }
   }, [isPinned, onPinChange]);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setIsConversationsLoading(true);
-      const { data, error } = await listConversations({ limit: 50 });
+  const fetchConversations = async (isInitial = true) => {
+    try {
+      if (isInitial) {
+        setIsConversationsLoading(true);
+      } else {
+        setLoadingMore(true);
+      }
+
+      const { data, error, nextCursor: newCursor, hasMore: moreAvailable } = await listConversations({
+        limit: 20,
+        cursor: isInitial ? null : nextCursor,
+      });
+
       if (!error && data) {
-        setConversations(data);
+        if (isInitial) {
+          setConversations(data);
+        } else {
+          setConversations((prev) => [...prev, ...data]);
+        }
+        setNextCursor(newCursor);
+        setHasMore(moreAvailable);
       } else {
         console.error("Failed to load conversations:", error);
       }
+    } catch (err) {
+      console.error("Error loading conversations:", err);
+    } finally {
       setIsConversationsLoading(false);
-    };
+      setLoadingMore(false);
+    }
+  };
 
-    fetchData();
+  useEffect(() => {
+    fetchConversations(true);
 
-    const handleConversationsChanged = () => fetchData();
+    const handleConversationsChanged = () => fetchConversations(true);
     window.addEventListener(
       "conversations-changed",
       handleConversationsChanged
@@ -171,8 +207,7 @@ const Sidebar = ({
 
     if (success) {
       // Refresh list
-      const { data } = await listConversations({ limit: 50 });
-      if (data) setConversations(data);
+      fetchConversations(true);
 
       // Only navigate home if we deleted the currently active conversation
       if (conversationToDelete.id === activeConversationId) {
@@ -213,8 +248,64 @@ const Sidebar = ({
     }
   };
 
+  const toggleSpace = async (spaceId) => {
+    // Toggle expansion state
+    const newExpanded = new Set(expandedSpaces);
+    const isExpanding = !newExpanded.has(spaceId);
+
+    if (isExpanding) {
+      newExpanded.add(spaceId);
+      // Fetch initial data if not already present
+      if (!spaceConversations[spaceId]) {
+        fetchSpaceConversations(spaceId, true);
+      }
+    } else {
+      newExpanded.delete(spaceId);
+    }
+    setExpandedSpaces(newExpanded);
+  };
+
+  const fetchSpaceConversations = async (spaceId, isInitial = true) => {
+    // Set loading state
+    setSpaceConversations((prev) => ({
+      ...prev,
+      [spaceId]: {
+        ...(prev[spaceId] || { items: [], nextCursor: null, hasMore: true }),
+        loading: true,
+      },
+    }));
+
+    try {
+      const currentData = spaceConversations[spaceId];
+      const cursor = isInitial ? null : currentData?.nextCursor;
+
+      const { data, nextCursor, hasMore } = await listConversationsBySpace(spaceId, {
+        limit: 10,
+        cursor,
+      });
+
+      setSpaceConversations((prev) => ({
+        ...prev,
+        [spaceId]: {
+          items: isInitial ? (data || []) : [...(prev[spaceId]?.items || []), ...(data || [])],
+          nextCursor,
+          hasMore,
+          loading: false,
+        },
+      }));
+    } catch (error) {
+      console.error("Failed to load space conversations:", error);
+      toast.error("Failed to load space history");
+      setSpaceConversations((prev) => ({
+        ...prev,
+        [spaceId]: { ...prev[spaceId], loading: false },
+      }));
+    }
+  };
+
   // Limit conversations per section for display
-  const MAX_CONVERSATIONS_PER_SECTION = 3;
+  const MAX_CONVERSATIONS_PER_SECTION = 1000; // Effectively no limit, showing all fetched
+
   const MAX_BOOKMARKS_TO_SHOW = 5; // Maximum bookmarks to show before showing "See All"
   const MAX_SPACES_TO_SHOW = 5; // Maximum spaces to show before showing "See All"
 
@@ -355,7 +446,7 @@ const Sidebar = ({
           <button
             onClick={onToggleTheme}
             className="w-10 h-10 flex items-center justify-center rounded-full bg-[#9c9d8a29] dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-transform duration-200 hover:scale-110 active:scale-95 cursor-pointer"
-            //  title={`Current theme: ${theme}`}
+          //  title={`Current theme: ${theme}`}
           >
             {getThemeIcon()}
           </button>
@@ -390,10 +481,10 @@ const Sidebar = ({
               {displayTab === "library"
                 ? "Library"
                 : displayTab === "bookmarks"
-                ? "Bookmarks"
-                : displayTab === "spaces"
-                ? "Spaces"
-                : ""}
+                  ? "Bookmarks"
+                  : displayTab === "spaces"
+                    ? "Spaces"
+                    : ""}
             </h2>
             <button
               onClick={() => setIsPinned(!isPinned)}
@@ -505,21 +596,32 @@ const Sidebar = ({
                         </div>
                       );
                     })}
-                    {/* Show "..." indicator if there are more conversations in this group */}
-                    {section.hasMore && (
-                      <div
-                        className="text-xs text-gray-400 dark:text-gray-500 px-2 py-1 cursor-pointer hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-                        onClick={() => {
-                          setActiveTab("library");
-                          onNavigate("library");
-                        }}
-                        title="Show all conversations"
-                      >
-                        ...more
-                      </div>
-                    )}
                   </div>
                 ))}
+
+              {/* Load More Button */}
+              {displayTab === "library" && (
+                <div className="px-2 py-2">
+                  {hasMore ? (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        fetchConversations(false);
+                      }}
+                      disabled={loadingMore}
+                      className="w-full py-2 text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded transition-colors flex items-center justify-center gap-2"
+                    >
+                      {loadingMore ? <DotLoader /> : "Load more"}
+                    </button>
+                  ) : (
+                    conversations.length > 0 && (
+                      <div className="text-center text-[10px] text-gray-400 py-2">
+                        No more threads
+                      </div>
+                    )
+                  )}
+                </div>
+              )}
 
               {/* For bookmarks tab, show limited list */}
               {displayTab === "bookmarks" &&
@@ -600,20 +702,7 @@ const Sidebar = ({
                 </div>
               )}
 
-              {/* See All Button - only for library tab when there are more conversations */}
-              {shouldShowSeeAllForLibrary && (
-                <div className="flex flex-col gap-1 mt-2">
-                  <button
-                    onClick={() => {
-                      setActiveTab("library");
-                      onNavigate("library");
-                    }}
-                    className="flex items-center justify-center gap-2 p-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors rounded hover:bg-gray-200 dark:hover:bg-zinc-800"
-                  >
-                    <span>See all</span>
-                  </button>
-                </div>
-              )}
+              {/* See All Button - removed for Library as we use Load More now, keeping forBookmarks logic if needed, or just remove */}
 
               {/* See All Button - only for bookmarks tab when there are more bookmarks */}
               {shouldShowSeeAllForBookmarks && (
@@ -649,8 +738,8 @@ const Sidebar = ({
 
               {/* Spaces List */}
               {spacesLoading && (
-                <div className="text-xs text-gray-500 dark:text-gray-400 px-2 py-1">
-                  Loading spaces...
+                <div className="flex justify-center py-2">
+                  <DotLoader />
                 </div>
               )}
               {!spacesLoading && spaces.length === 0 && (
@@ -659,31 +748,92 @@ const Sidebar = ({
                 </div>
               )}
               {limitedSpaces.items.map((space) => (
-                <div
-                  key={space.id || space.label}
-                  onClick={() => onNavigateToSpace(space)}
-                  className="flex items-center justify-between p-2 rounded hover:bg-gray-200 dark:hover:bg-zinc-800 cursor-pointer transition-colors group"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded bg-gray-100 dark:bg-zinc-800  flex items-center justify-center group-hover:border-gray-300 dark:group-hover:border-zinc-600 text-lg">
-                      {space.emoji}
+                <React.Fragment key={space.id || space.label}>
+                  <div
+                    onClick={() => onNavigateToSpace(space)}
+                    className="flex items-center justify-between p-2 rounded hover:bg-gray-200 dark:hover:bg-zinc-800 cursor-pointer transition-colors group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleSpace(space.id);
+                        }}
+                        className="p-1 -ml-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+                      >
+                        <ChevronDown
+                          size={14}
+                          className={clsx(
+                            "transition-transform duration-200",
+                            expandedSpaces.has(space.id) ? "" : "-rotate-90"
+                          )}
+                        />
+                      </button>
+                      <div className="w-8 h-8 rounded bg-gray-100 dark:bg-zinc-800  flex items-center justify-center group-hover:border-gray-300 dark:group-hover:border-zinc-600 text-lg">
+                        <TwemojiDisplay emoji={space.emoji} />
+                      </div>
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        {space.label}
+                      </span>
                     </div>
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                      {space.label}
-                    </span>
+
+                    {/* Edit Button (Visible on Hover) */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onEditSpace(space);
+                      }}
+                      className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md hover:bg-gray-300 dark:hover:bg-zinc-700 text-gray-500 dark:text-gray-400 transition-all"
+                    >
+                      <Settings size={14} />
+                    </button>
                   </div>
 
-                  {/* Edit Button (Visible on Hover) */}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onEditSpace(space);
-                    }}
-                    className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md hover:bg-gray-300 dark:hover:bg-zinc-700 text-gray-500 dark:text-gray-400 transition-all"
-                  >
-                    <Settings size={14} />
-                  </button>
-                </div>
+                  {/* Expandable Content for Space */}
+                  {
+                    expandedSpaces.has(space.id) && (
+                      <div className="ml-[2.75rem] mr-2 flex flex-col gap-1 border-l border-gray-200 dark:border-zinc-800 pl-2 mb-2">
+                        {spaceConversations[space.id]?.loading && spaceConversations[space.id]?.items?.length === 0 && (
+                          <div className="px-2">
+                            <DotLoader />
+                          </div>
+                        )}
+
+                        {spaceConversations[space.id]?.items?.map(conv => (
+                          <div
+                            key={conv.id}
+                            onClick={() => onOpenConversation && onOpenConversation(conv)}
+                            className={clsx(
+                              "text-xs py-1.5 px-2 rounded cursor-pointer truncate transition-colors",
+                              conv.id === activeConversationId
+                                ? "bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 font-medium"
+                                : "text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-zinc-800"
+                            )}
+                            title={conv.title}
+                          >
+                            {conv.title || "Untitled"}
+                          </div>
+                        ))}
+
+                        {spaceConversations[space.id]?.hasMore && spaceConversations[space.id]?.items?.length > 0 && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              fetchSpaceConversations(space.id, false);
+                            }}
+                            className="text-[10px] text-left text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 py-1 px-2 transition-colors flex items-center gap-1 min-h-[24px]"
+                          >
+                            {spaceConversations[space.id]?.loading ? <DotLoader /> : "More..."}
+                          </button>
+                        )}
+
+                        {!spaceConversations[space.id]?.loading && spaceConversations[space.id]?.items?.length === 0 && (
+                          <div className="text-[10px] text-gray-400 py-1 px-2">No history</div>
+                        )}
+                      </div>
+                    )
+                  }
+                </React.Fragment>
               ))}
 
               {/* Show "..." indicator if there are more spaces */}
@@ -761,7 +911,7 @@ const Sidebar = ({
         confirmText="Delete"
         isDangerous={true}
       />
-    </div>
+    </div >
   );
 };
 

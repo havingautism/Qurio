@@ -6,6 +6,8 @@ export const listConversations = async (options = {}) => {
   const {
     limit = 10,
     cursor = null,
+    page = null,
+    search = null, // Add search support
     sortBy = "created_at",
     ascending = false,
   } = options;
@@ -16,37 +18,56 @@ export const listConversations = async (options = {}) => {
       error: new Error("Supabase not configured"),
       nextCursor: null,
       hasMore: false,
+      count: 0,
     };
 
-  // Build query with cursor support
+  // Build query
   let query = supabase
     .from(table)
-    .select("id,title,created_at,space_id,api_provider,is_favorited")
-    .order(sortBy, { ascending })
-    .limit(limit);
+    .select("id,title,created_at,space_id,api_provider,is_favorited", {
+      count: "exact",
+    })
+    .order(sortBy, { ascending });
 
-  // Apply cursor filter based on sort direction
-  if (cursor) {
+  // Handle Search
+  if (search && search.trim()) {
+    query = query.ilike("title", `%${search.trim()}%`);
+  }
+
+  // Handle Pagination
+  if (page !== null) {
+    // Page-based pagination (0-indexed internally for range)
+    // If user passes page=1 (1-indexed), range is (0, 9) for limit 10
+    const from = (page - 1) * limit;
+    const to = from + limit - 1;
+    query = query.range(from, to);
+  } else if (cursor) {
+    // Cursor-based pagination (Legacy/Infinite Scroll)
+    // NOTE: Combining search + infinite scroll/cursor is complex if sorted by created_at.
+    // For now, we assume search is mostly used with page pagination (LibraryView).
+    // If sidebar needs search, it might need page pagination or standard limit without cursor if searching.
+    query = query.limit(limit);
     if (sortBy === "created_at") {
-      // For created_at sorting
       if (ascending) {
         query = query.gt("created_at", cursor);
       } else {
         query = query.lt("created_at", cursor);
       }
     } else if (sortBy === "title") {
-      // For title sorting
       if (ascending) {
         query = query.gt("title", cursor);
       } else {
         query = query.lt("title", cursor);
       }
     }
+  } else {
+    // No cursor, no page -> just limit (Initial fetch or default)
+    query = query.limit(limit);
   }
 
-  const { data, error } = await query;
+  const { data, error, count } = await query;
 
-  // Determine next cursor and if there's more data
+  // Determine next cursor and if there's more data (for infinite scroll compatibility)
   const hasMore = data && data.length === limit;
   const nextCursor =
     hasMore && data.length > 0 ? data[data.length - 1][sortBy] : null;
@@ -56,6 +77,7 @@ export const listConversations = async (options = {}) => {
     error,
     nextCursor,
     hasMore,
+    count: count || 0,
   };
 };
 

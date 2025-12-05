@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
 import useScrollLock from '../hooks/useScrollLock';
+import TwemojiDisplay from './TwemojiDisplay';
+import CustomEmojiPicker from './CustomEmojiPicker';
 
 const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) => {
   useScrollLock(isOpen);
@@ -111,6 +113,7 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
         {/* Content */}
         <div className="p-6 flex flex-col gap-4">
 
+
           {/* Icon and Name Row */}
           <div className="flex gap-4">
             {/* Emoji Picker */}
@@ -121,27 +124,21 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
                 onClick={() => setShowEmojiPicker(!showEmojiPicker)}
                 className="w-12 h-12 rounded-xl bg-gray-100 dark:bg-zinc-800 flex items-center justify-center text-2xl hover:bg-gray-200 dark:hover:bg-zinc-700 transition-colors border border-transparent focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 outline-none"
               >
-                {emoji}
+                <TwemojiDisplay emoji={emoji} />
               </button>
 
               {/* Picker Popover */}
               {showEmojiPicker && (
                 <div
                   ref={pickerRef}
-                  className="absolute top-full left-0 mt-2 p-2 bg-white dark:bg-[#202222] border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl z-10 grid grid-cols-6 gap-1 w-64"
+                  className="absolute top-full left-0 mt-2 z-50 shadow-2xl rounded-xl overflow-hidden"
                 >
-                  {emojis.map((e) => (
-                    <button
-                      key={e}
-                      onClick={() => {
-                        setEmoji(e);
-                        setShowEmojiPicker(false);
-                      }}
-                      className="w-9 h-9 flex items-center justify-center text-xl rounded hover:bg-gray-100 dark:hover:bg-zinc-700 transition-colors"
-                    >
-                      {e}
-                    </button>
-                  ))}
+                  <CustomEmojiPicker
+                    onEmojiSelect={(e) => {
+                      setEmoji(e.native);
+                      setShowEmojiPicker(false);
+                    }}
+                  />
                 </div>
               )}
             </div>

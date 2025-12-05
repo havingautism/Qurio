@@ -22,6 +22,7 @@ import SpaceView from "./SpaceView";
 import SpacesListView from "./SpacesListView";
 import ConversationsListView from "./ConversationsListView";
 import { loadSettings } from "../lib/settings";
+import TwemojiDisplay from "./TwemojiDisplay";
 
 const MainContent = ({
   currentView,
@@ -360,11 +361,10 @@ const MainContent = ({
                     />
                     <button
                       onClick={handleHomeFileUpload}
-                      className={`p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
-                        homeAttachments.length > 0
+                      className={`p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${homeAttachments.length > 0
                           ? "text-cyan-500"
                           : "text-gray-500 dark:text-gray-400"
-                      }`}
+                        }`}
                     >
                       <Paperclip size={18} />
                     </button>
@@ -372,11 +372,10 @@ const MainContent = ({
                       onClick={() =>
                         setIsHomeThinkingActive(!isHomeThinkingActive)
                       }
-                      className={`p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
-                        isHomeThinkingActive
+                      className={`p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${isHomeThinkingActive
                           ? "text-cyan-500 bg-gray-100 dark:bg-zinc-800"
                           : "text-gray-500 dark:text-gray-400"
-                      }`}
+                        }`}
                     >
                       <Brain size={18} />
                       <span>Think</span>
@@ -385,11 +384,10 @@ const MainContent = ({
                       disabled={settings.apiProvider === "openai_compatibility"}
                       value={isHomeSearchActive}
                       onClick={() => setIsHomeSearchActive(!isHomeSearchActive)}
-                      className={`p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
-                        isHomeSearchActive
+                      className={`p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${isHomeSearchActive
                           ? "text-cyan-500 bg-gray-100 dark:bg-zinc-800"
                           : "text-gray-500 dark:text-gray-400"
-                      }`}
+                        }`}
                     >
                       <Globe size={18} />
                       <span>Search</span>
@@ -400,11 +398,10 @@ const MainContent = ({
                         onClick={() =>
                           setIsHomeSpaceSelectorOpen(!isHomeSpaceSelectorOpen)
                         }
-                        className={`px-3 py-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
-                          isHomeSpaceAuto
+                        className={`px-3 py-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${isHomeSpaceAuto
                             ? "text-gray-500 dark:text-gray-400"
                             : "text-cyan-500 bg-gray-100 dark:bg-zinc-800"
-                        }`}
+                          }`}
                       >
                         <LayoutGrid size={18} />
                         <span>
@@ -419,11 +416,10 @@ const MainContent = ({
                           <div className="p-2 flex flex-col gap-1">
                             <button
                               onClick={handleSelectHomeSpaceAuto}
-                              className={`flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left ${
-                                isHomeSpaceAuto
+                              className={`flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left ${isHomeSpaceAuto
                                   ? "text-cyan-500"
                                   : "text-gray-700 dark:text-gray-200"
-                              }`}
+                                }`}
                             >
                               <span className="text-sm font-medium">Auto</span>
                               {isHomeSpaceAuto && (
@@ -443,8 +439,8 @@ const MainContent = ({
                                   className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left"
                                 >
                                   <div className="flex items-center gap-3">
-                                    <span className="text-lg">
-                                      {space.emoji}
+                                    <span className="text-lg flex items-center justify-center">
+                                      <TwemojiDisplay emoji={space.emoji} size="1.25rem" />
                                     </span>
                                     <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                       {space.label}

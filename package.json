@@ -11,6 +11,8 @@
     "preview": "rsbuild preview"
   },
   "dependencies": {
+    "@emoji-mart/data": "^1.2.1",
+    "@emoji-mart/react": "^1.1.1",
     "@google/genai": "^1.30.0",
     "@google/generative-ai": "^0.24.1",
     "@radix-ui/react-scroll-area": "^1.2.10",
@@ -18,10 +20,11 @@
     "@tailwindcss/postcss": "^4.1.17",
     "@tanstack/react-router": "^1.139.14",
     "clsx": "^2.1.1",
+    "emoji-mart": "^5.6.0",
     "lucide-react": "^0.554.0",
     "openai": "^6.9.1",
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0",
+    "react": "^19.2.1",
+    "react-dom": "^19.2.1",
     "react-markdown": "^10.1.0",
     "react-syntax-highlighter": "^16.1.0",
     "remark-gfm": "^4.0.1",

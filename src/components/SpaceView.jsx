@@ -21,6 +21,7 @@ import {
 import { useInfiniteScroll } from "../hooks/useInfiniteScroll";
 import { useToast } from "../contexts/ToastContext";
 import FancyLoader from "./FancyLoader";
+import TwemojiDisplay from "./TwemojiDisplay";
 
 const SpaceView = ({
   space,
@@ -120,7 +121,7 @@ const SpaceView = ({
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <div className="text-4xl">{space.emoji}</div>
+            <div className="text-4xl"><TwemojiDisplay emoji={space.emoji} size="2.25rem" /></div>
             <div className="flex flex-col">
               <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
                 {space.label}

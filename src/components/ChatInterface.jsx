@@ -122,7 +122,6 @@ const ChatInterface = ({
       window.removeEventListener("settings-changed", handleSettingsChange);
   }, []);
 
-
   useEffect(() => {
     const processInitialMessage = async () => {
       // Prevent multiple initializations and ensure we have content to process
@@ -238,7 +237,8 @@ const ChatInterface = ({
 
   useEffect(() => {
     // Check if conversationId has changed (new conversation created)
-    if (conversationId !== lastConversationId.current) {
+    const idChanged = conversationId !== lastConversationId.current;
+    if (idChanged) {
       lastConversationId.current = conversationId;
       // Reset the flag when conversationId changes to allow navigation to the new conversation
       hasPushedConversation.current = false;
@@ -247,8 +247,13 @@ const ChatInterface = ({
     // Check if we're on a new chat page (not on a specific conversation route)
     const isOnNewChatPage =
       location.pathname === "/new_chat" || location.pathname === "/";
+
+    // Only navigate if we have a conversationId AND it has just changed (to avoid navigating on stale IDs)
     const shouldNavigate =
-      conversationId && isOnNewChatPage && !hasPushedConversation.current;
+      conversationId &&
+      isOnNewChatPage &&
+      !hasPushedConversation.current &&
+      idChanged;
 
     if (shouldNavigate) {
       navigate({
@@ -521,10 +526,10 @@ const ChatInterface = ({
         editingInfoOverride ||
         (editingIndex !== null
           ? {
-            index: editingIndex,
-            targetId: editingTargetId,
-            partnerId: editingPartnerId,
-          }
+              index: editingIndex,
+              targetId: editingTargetId,
+              partnerId: editingPartnerId,
+            }
           : null);
 
       // Reset editing state
@@ -710,7 +715,6 @@ const ChatInterface = ({
         "flex-1 min-h-screen bg-background text-foreground relative pb-4 transition-all duration-300",
         isSidebarPinned ? "ml-80" : "ml-16"
       )}
-
     >
       <div className="w-full max-w-3xl mx-auto relative">
         <div className="flex flex-col w-full">
@@ -742,10 +746,11 @@ const ChatInterface = ({
                   <div className="p-2 flex flex-col gap-1">
                     <button
                       onClick={handleClearSpaceSelection}
-                      className={`flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left ${!displaySpace
-                        ? "text-cyan-500"
-                        : "text-gray-700 dark:text-gray-200"
-                        }`}
+                      className={`flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left ${
+                        !displaySpace
+                          ? "text-cyan-500"
+                          : "text-gray-700 dark:text-gray-200"
+                      }`}
                     >
                       <span className="text-sm font-medium">None</span>
                       {!displaySpace && (
@@ -823,10 +828,10 @@ const ChatInterface = ({
           "fixed bottom-0 right-0 bg-gradient-to-t from-background via-background to-transparent pb-6 pt-10 px-4 flex justify-center z-10 transition-all duration-300",
           isSidebarPinned ? "left-80" : "left-16"
         )}
-      // className={
-      //   "fixed bottom-0 left-0 right-0 bg-gradient-to-t from-background via-background to-transparent pb-6 pt-10 px-4 flex justify-center z-10 transition-all duration-300"
+        // className={
+        //   "fixed bottom-0 left-0 right-0 bg-gradient-to-t from-background via-background to-transparent pb-6 pt-10 px-4 flex justify-center z-10 transition-all duration-300"
 
-      // }
+        // }
       >
         <div className="w-full max-w-3xl relative group">
           <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/20 via-blue-500/15 to-purple-500/20 rounded-xl blur-2xl opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-500 pointer-events-none" />
@@ -903,19 +908,21 @@ const ChatInterface = ({
                 />
                 <button
                   onClick={handleFileUpload}
-                  className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${attachments.length > 0
-                    ? "text-cyan-500"
-                    : "text-gray-500 dark:text-gray-400"
-                    }`}
+                  className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
+                    attachments.length > 0
+                      ? "text-cyan-500"
+                      : "text-gray-500 dark:text-gray-400"
+                  }`}
                 >
                   <Paperclip size={18} />
                 </button>
                 <button
                   onClick={() => setIsThinkingActive(!isThinkingActive)}
-                  className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${isThinkingActive
-                    ? "text-cyan-500 bg-gray-200 dark:bg-zinc-700"
-                    : "text-gray-500 dark:text-gray-400"
-                    }`}
+                  className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
+                    isThinkingActive
+                      ? "text-cyan-500 bg-gray-200 dark:bg-zinc-700"
+                      : "text-gray-500 dark:text-gray-400"
+                  }`}
                 >
                   <Brain size={18} />
                   <span>Think</span>
@@ -923,10 +930,11 @@ const ChatInterface = ({
                 <button
                   disabled={settings.apiProvider === "openai_compatibility"}
                   onClick={() => setIsSearchActive(!isSearchActive)}
-                  className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${isSearchActive
-                    ? "text-cyan-500 bg-gray-200 dark:bg-zinc-700"
-                    : "text-gray-500 dark:text-gray-400"
-                    }`}
+                  className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
+                    isSearchActive
+                      ? "text-cyan-500 bg-gray-200 dark:bg-zinc-700"
+                      : "text-gray-500 dark:text-gray-400"
+                  }`}
                 >
                   <Globe size={18} />
                   <span>Search</span>
@@ -951,7 +959,7 @@ const ChatInterface = ({
           </div>
         </div>
       </div>
-    </div >
+    </div>
   );
 };
 

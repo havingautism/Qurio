@@ -73,7 +73,7 @@ const Sidebar = ({
   useEffect(() => {
     const fetchData = async () => {
       setIsConversationsLoading(true);
-      const { data, error } = await listConversations();
+      const { data, error } = await listConversations({ limit: 50 });
       if (!error && data) {
         setConversations(data);
       } else {
@@ -171,7 +171,7 @@ const Sidebar = ({
 
     if (success) {
       // Refresh list
-      const { data } = await listConversations();
+      const { data } = await listConversations({ limit: 50 });
       if (data) setConversations(data);
 
       // Only navigate home if we deleted the currently active conversation
@@ -238,38 +238,39 @@ const Sidebar = ({
     return filteredConversations.length > MAX_BOOKMARKS_TO_SHOW;
   }, [filteredConversations, displayTab]);
 
-  
   // Group conversations by date (for library)
   const groupedConversations = useMemo(() => {
     const groups = groupConversationsByDate(filteredConversations);
     // Limit conversations per section and track if there are more
-    return groups.map(section => ({
+    return groups.map((section) => ({
       ...section,
       items: section.items.slice(0, MAX_CONVERSATIONS_PER_SECTION),
       hasMore: section.items.length > MAX_CONVERSATIONS_PER_SECTION,
-      totalCount: section.items.length
+      totalCount: section.items.length,
     }));
   }, [filteredConversations]);
 
   // Get limited bookmarks for display and track if there are more
   const limitedBookmarks = useMemo(() => {
-    if (displayTab !== "bookmarks") return { items: [], hasMore: false, totalCount: 0 };
+    if (displayTab !== "bookmarks")
+      return { items: [], hasMore: false, totalCount: 0 };
     const items = filteredConversations.slice(0, MAX_BOOKMARKS_TO_SHOW);
     return {
       items,
       hasMore: filteredConversations.length > MAX_BOOKMARKS_TO_SHOW,
-      totalCount: filteredConversations.length
+      totalCount: filteredConversations.length,
     };
   }, [filteredConversations, displayTab]);
 
   // Get limited spaces for display and track if there are more
   const limitedSpaces = useMemo(() => {
-    if (displayTab !== "spaces") return { items: [], hasMore: false, totalCount: 0 };
+    if (displayTab !== "spaces")
+      return { items: [], hasMore: false, totalCount: 0 };
     const items = spaces.slice(0, MAX_SPACES_TO_SHOW);
     return {
       items,
       hasMore: spaces.length > MAX_SPACES_TO_SHOW,
-      totalCount: spaces.length
+      totalCount: spaces.length,
     };
   }, [spaces, displayTab]);
 
@@ -433,156 +434,158 @@ const Sidebar = ({
                 )}
 
               {/* For library tab, use grouped conversations with limits */}
-              {displayTab === "library" && groupedConversations.map((section) => (
-                <div key={section.title} className="flex flex-col gap-1">
-                  <div className="text-[10px] justify-center flex uppercase tracking-wide text-gray-400 px-2 mt-1">
-                    {section.title}
-                  </div>
-                  {section.items.map((conv) => {
-                    const isActive = conv.id === activeConversationId;
-                    return (
-                      <div
-                        key={conv.id}
-                        onClick={() =>
-                          onOpenConversation && onOpenConversation(conv)
-                        }
-                        className={clsx(
-                          "text-sm p-2 rounded cursor-pointer truncate transition-colors group relative",
-                          isActive
-                            ? "bg-cyan-500/10 dark:bg-cyan-500/20 border border-cyan-500/30 text-cyan-700 dark:text-cyan-300"
-                            : "text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-zinc-800"
-                        )}
-                        title={conv.title}
-                      >
-                        <div className="flex items-center justify-between w-full overflow-hidden">
-                          <div className="flex flex-col overflow-hidden flex-1 min-w-0">
-                            <div className="flex items-center gap-1">
-                              <span className="truncate font-medium">
-                                {conv.title}
+              {displayTab === "library" &&
+                groupedConversations.map((section) => (
+                  <div key={section.title} className="flex flex-col gap-1">
+                    <div className="text-[10px] justify-center flex uppercase tracking-wide text-gray-400 px-2 mt-1">
+                      {section.title}
+                    </div>
+                    {section.items.map((conv) => {
+                      const isActive = conv.id === activeConversationId;
+                      return (
+                        <div
+                          key={conv.id}
+                          onClick={() =>
+                            onOpenConversation && onOpenConversation(conv)
+                          }
+                          className={clsx(
+                            "text-sm p-2 rounded cursor-pointer truncate transition-colors group relative",
+                            isActive
+                              ? "bg-cyan-500/10 dark:bg-cyan-500/20 border border-cyan-500/30 text-cyan-700 dark:text-cyan-300"
+                              : "text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-zinc-800"
+                          )}
+                          title={conv.title}
+                        >
+                          <div className="flex items-center justify-between w-full overflow-hidden">
+                            <div className="flex flex-col overflow-hidden flex-1 min-w-0">
+                              <div className="flex items-center gap-1">
+                                <span className="truncate font-medium">
+                                  {conv.title}
+                                </span>
+                                {conv.is_favorited && (
+                                  <Bookmark
+                                    size={10}
+                                    className=" flex-shrink-0"
+                                  />
+                                )}
+                              </div>
+                              <span
+                                className={clsx(
+                                  "text-[10px]",
+                                  isActive
+                                    ? "text-cyan-600 dark:text-cyan-400"
+                                    : "text-gray-400"
+                                )}
+                              >
+                                {new Date(conv.created_at).toLocaleDateString()}
                               </span>
-                              {conv.is_favorited && (
-                                <Bookmark
-                                  size={10}
-                                  className=" flex-shrink-0"
-                                />
-                              )}
                             </div>
-                            <span
-                              className={clsx(
-                                "text-[10px]",
-                                isActive
-                                  ? "text-cyan-600 dark:text-cyan-400"
-                                  : "text-gray-400"
-                              )}
-                            >
-                              {new Date(conv.created_at).toLocaleDateString()}
-                            </span>
-                          </div>
 
-                          <div className="relative ml-2 shrink-0">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setOpenMenuId(conv.id);
-                                setMenuAnchorEl(e.currentTarget);
-                              }}
-                              className={clsx(
-                                "p-1.5 rounded-md hover:bg-gray-300 dark:hover:bg-zinc-700 transition-all",
-                                isActive
-                                  ? "text-cyan-600 dark:text-cyan-400"
-                                  : "text-gray-500 dark:text-gray-400",
-                                openMenuId === conv.id
-                                  ? "opacity-100"
-                                  : "opacity-100 md:opacity-0 md:group-hover:opacity-100"
-                              )}
-                            >
-                              <MoreHorizontal size={14} />
-                            </button>
+                            <div className="relative ml-2 shrink-0">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setOpenMenuId(conv.id);
+                                  setMenuAnchorEl(e.currentTarget);
+                                }}
+                                className={clsx(
+                                  "p-1.5 rounded-md hover:bg-gray-300 dark:hover:bg-zinc-700 transition-all",
+                                  isActive
+                                    ? "text-cyan-600 dark:text-cyan-400"
+                                    : "text-gray-500 dark:text-gray-400",
+                                  openMenuId === conv.id
+                                    ? "opacity-100"
+                                    : "opacity-100 md:opacity-0 md:group-hover:opacity-100"
+                                )}
+                              >
+                                <MoreHorizontal size={14} />
+                              </button>
+                            </div>
                           </div>
                         </div>
+                      );
+                    })}
+                    {/* Show "..." indicator if there are more conversations in this group */}
+                    {section.hasMore && (
+                      <div
+                        className="text-xs text-gray-400 dark:text-gray-500 px-2 py-1 cursor-pointer hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                        onClick={() => {
+                          setActiveTab("library");
+                          onNavigate("library");
+                        }}
+                        title="Show all conversations"
+                      >
+                        ...more
                       </div>
-                    );
-                  })}
-                  {/* Show "..." indicator if there are more conversations in this group */}
-                  {section.hasMore && (
-                    <div
-                      className="text-xs text-gray-400 dark:text-gray-500 px-2 py-1 cursor-pointer hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-                      onClick={() => {
-                        setActiveTab("library");
-                        onNavigate("library");
-                      }}
-                      title={`Show all ${section.totalCount} conversations in ${section.title}`}
-                    >
-                      ... {section.totalCount - MAX_CONVERSATIONS_PER_SECTION} more
-                    </div>
-                  )}
-                </div>
-              ))}
+                    )}
+                  </div>
+                ))}
 
               {/* For bookmarks tab, show limited list */}
-              {displayTab === "bookmarks" && limitedBookmarks.items.map((conv) => {
-                const isActive = conv.id === activeConversationId;
-                return (
-                  <div
-                    key={conv.id}
-                    onClick={() =>
-                      onOpenConversation && onOpenConversation(conv)
-                    }
-                    className={clsx(
-                      "text-sm p-2 rounded cursor-pointer truncate transition-colors group relative",
-                      isActive
-                        ? "bg-cyan-500/10 dark:bg-cyan-500/20 border border-cyan-500/30 text-cyan-700 dark:text-cyan-300"
-                        : "text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-zinc-800"
-                    )}
-                    title={conv.title}
-                  >
-                    <div className="flex items-center justify-between w-full overflow-hidden">
-                      <div className="flex flex-col overflow-hidden flex-1 min-w-0">
-                        <div className="flex items-center gap-1">
-                          <span className="truncate font-medium">
-                            {conv.title}
+              {displayTab === "bookmarks" &&
+                limitedBookmarks.items.map((conv) => {
+                  const isActive = conv.id === activeConversationId;
+                  return (
+                    <div
+                      key={conv.id}
+                      onClick={() =>
+                        onOpenConversation && onOpenConversation(conv)
+                      }
+                      className={clsx(
+                        "text-sm p-2 rounded cursor-pointer truncate transition-colors group relative",
+                        isActive
+                          ? "bg-cyan-500/10 dark:bg-cyan-500/20 border border-cyan-500/30 text-cyan-700 dark:text-cyan-300"
+                          : "text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-zinc-800"
+                      )}
+                      title={conv.title}
+                    >
+                      <div className="flex items-center justify-between w-full overflow-hidden">
+                        <div className="flex flex-col overflow-hidden flex-1 min-w-0">
+                          <div className="flex items-center gap-1">
+                            <span className="truncate font-medium">
+                              {conv.title}
+                            </span>
+                            <Bookmark
+                              size={10}
+                              className="fill-current flex-shrink-0"
+                            />
+                          </div>
+                          <span
+                            className={clsx(
+                              "text-[10px]",
+                              isActive
+                                ? "text-cyan-600 dark:text-cyan-400"
+                                : "text-gray-400"
+                            )}
+                          >
+                            {new Date(conv.created_at).toLocaleDateString()}
                           </span>
-                          <Bookmark
-                            size={10}
-                            className="fill-current flex-shrink-0"
-                          />
                         </div>
-                        <span
-                          className={clsx(
-                            "text-[10px]",
-                            isActive
-                              ? "text-cyan-600 dark:text-cyan-400"
-                              : "text-gray-400"
-                          )}
-                        >
-                          {new Date(conv.created_at).toLocaleDateString()}
-                        </span>
-                      </div>
 
-                      <div className="relative ml-2 shrink-0">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setOpenMenuId(conv.id);
-                            setMenuAnchorEl(e.currentTarget);
-                          }}
-                          className={clsx(
-                            "p-1.5 rounded-md hover:bg-gray-300 dark:hover:bg-zinc-700 transition-all",
-                            isActive
-                              ? "text-cyan-600 dark:text-cyan-400"
-                              : "text-gray-500 dark:text-gray-400",
-                            openMenuId === conv.id
-                              ? "opacity-100"
-                              : "opacity-100 md:opacity-0 md:group-hover:opacity-100"
-                          )}
-                        >
-                          <MoreHorizontal size={14} />
-                        </button>
+                        <div className="relative ml-2 shrink-0">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOpenMenuId(conv.id);
+                              setMenuAnchorEl(e.currentTarget);
+                            }}
+                            className={clsx(
+                              "p-1.5 rounded-md hover:bg-gray-300 dark:hover:bg-zinc-700 transition-all",
+                              isActive
+                                ? "text-cyan-600 dark:text-cyan-400"
+                                : "text-gray-500 dark:text-gray-400",
+                              openMenuId === conv.id
+                                ? "opacity-100"
+                                : "opacity-100 md:opacity-0 md:group-hover:opacity-100"
+                            )}
+                          >
+                            <MoreHorizontal size={14} />
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
               {/* Show "..." indicator if there are more bookmarks */}
               {displayTab === "bookmarks" && limitedBookmarks.hasMore && (
                 <div
@@ -591,9 +594,9 @@ const Sidebar = ({
                     setActiveTab("bookmarks");
                     onNavigate("bookmarks");
                   }}
-                  title={`Show all ${limitedBookmarks.totalCount} bookmarks`}
+                  title="Show all bookmarks"
                 >
-                  ... {limitedBookmarks.totalCount - MAX_BOOKMARKS_TO_SHOW} more
+                  ...more
                 </div>
               )}
 
@@ -691,9 +694,9 @@ const Sidebar = ({
                     setActiveTab("spaces");
                     onNavigate("spaces");
                   }}
-                  title={`Show all ${limitedSpaces.totalCount} spaces`}
+                  title="Show all spaces"
                 >
-                  ... {limitedSpaces.totalCount - MAX_SPACES_TO_SHOW} more
+                  ...more
                 </div>
               )}
 

@@ -14,14 +14,16 @@ import {
   deleteConversation,
   removeConversationFromSpace,
 } from "../lib/supabase";
-import { toggleFavorite } from "../lib/conversationsService";
+import {
+  toggleFavorite,
+  listConversationsBySpace,
+} from "../lib/conversationsService";
+import { useInfiniteScroll } from "../hooks/useInfiniteScroll";
 import { useToast } from "../contexts/ToastContext";
 import FancyLoader from "./FancyLoader";
 
 const SpaceView = ({
   space,
-  conversations = [],
-  conversationsLoading = false,
   onEditSpace,
   onOpenConversation,
   activeConversationId,
@@ -32,6 +34,26 @@ const SpaceView = ({
   const [menuAnchorEl, setMenuAnchorEl] = useState(null);
   const [conversationToDelete, setConversationToDelete] = useState(null);
   const toast = useToast();
+
+  // Use infinite scroll hook
+  const {
+    data: conversations,
+    loading,
+    loadingMore,
+    hasMore,
+    loadMoreRef,
+  } = useInfiniteScroll(
+    async (cursor, limit) => {
+      if (!space?.id) return { data: [], nextCursor: null, hasMore: false };
+      return await listConversationsBySpace(space.id, { cursor, limit });
+    },
+    {
+      limit: 10,
+      dependencies: [space?.id],
+      enabled: !!space?.id,
+      rootMargin: "100px",
+    }
+  );
 
   const handleDeleteConversation = async () => {
     if (!conversationToDelete) return;
@@ -87,7 +109,7 @@ const SpaceView = ({
     }
   };
 
-    return (
+  return (
     <div
       className={clsx(
         "flex flex-col items-center justify-center min-h-screen p-4 bg-background text-foreground transition-all duration-300",
@@ -140,15 +162,12 @@ const SpaceView = ({
 
           {/* Topics List */}
           <div className="flex flex-col gap-4">
-            {conversationsLoading && (
-              // <div className="text-sm text-gray-500 dark:text-gray-400">
-              //   Loading...
-              // </div>
+            {loading && (
               <div className="flex items-center justify-center">
                 <FancyLoader />
               </div>
             )}
-            {!conversationsLoading && conversations.length === 0 && (
+            {!loading && conversations.length === 0 && (
               <div className="text-sm text-gray-500 dark:text-gray-400">
                 No conversations yet.
               </div>
@@ -202,11 +221,15 @@ const SpaceView = ({
                       }}
                       items={[
                         {
-                          label: conv.is_favorited ? "Remove Bookmark" : "Add Bookmark",
+                          label: conv.is_favorited
+                            ? "Remove Bookmark"
+                            : "Add Bookmark",
                           icon: (
                             <Bookmark
                               size={14}
-                              className={conv.is_favorited ? "fill-current" : ""}
+                              className={
+                                conv.is_favorited ? "fill-current" : ""
+                              }
                             />
                           ),
                           onClick: () => handleToggleFavorite(conv),
@@ -232,6 +255,26 @@ const SpaceView = ({
                 )}
               </div>
             ))}
+
+            {/* Invisible Sentinel for Intersection Observer */}
+            {!loading && hasMore && <div ref={loadMoreRef} className="h-1" />}
+
+            {/* Loading More Indicator */}
+            {!loading && loadingMore && (
+              <div className="flex flex-col items-center gap-3 py-8">
+                <FancyLoader />
+                <span className="text-sm text-gray-400">
+                  Loading more conversations...
+                </span>
+              </div>
+            )}
+
+            {/* No More Data Message */}
+            {!loading && !hasMore && conversations.length > 0 && (
+              <div className="text-center py-8 text-gray-400 text-sm">
+                No more conversations to load
+              </div>
+            )}
           </div>
         </div>
       </div>

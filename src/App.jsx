@@ -177,7 +177,7 @@ function App() {
     const loadConversations = async () => {
       setConversationsLoading(true);
       try {
-        const { data, error } = await listConversations();
+        const { data, error } = await listConversations({ limit: 50 });
         if (!error && data) {
           setConversations(data);
         } else {

@@ -42,6 +42,9 @@ CREATE TABLE IF NOT EXISTS public.conversations (
 );
 
 CREATE INDEX IF NOT EXISTS idx_conversations_space_id ON public.conversations(space_id);
+CREATE INDEX IF NOT EXISTS idx_conversations_created_at ON public.conversations(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_conversations_title ON public.conversations(title);
+CREATE INDEX IF NOT EXISTS idx_conversations_space_created ON public.conversations(space_id, created_at DESC);
 
 CREATE TRIGGER trg_conversations_updated_at
 BEFORE UPDATE ON public.conversations

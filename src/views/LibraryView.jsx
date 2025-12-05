@@ -1,7 +1,9 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo } from "react";
 import { useAppContext } from "../App";
 import { useNavigate } from "@tanstack/react-router";
-import { listConversations } from "../lib/conversationsService";
+import { listConversations, toggleFavorite } from "../lib/conversationsService";
+import { deleteConversation } from "../lib/supabase";
+import { useInfiniteScroll } from "../hooks/useInfiniteScroll";
 import {
   Search,
   Plus,
@@ -12,9 +14,14 @@ import {
   ArrowUpDown,
   Library as LibraryIcon,
   Check,
+  Bookmark,
+  Trash2,
 } from "lucide-react";
 import clsx from "clsx";
 import FancyLoader from "../components/FancyLoader";
+import DropdownMenu from "../components/DropdownMenu";
+import ConfirmationModal from "../components/ConfirmationModal";
+import { useToast } from "../contexts/ToastContext";
 
 const SORT_OPTIONS = [
   { label: "Newest", value: "created_at", ascending: false },
@@ -27,32 +34,35 @@ const LibraryView = () => {
   const { spaces, isSidebarPinned } = useAppContext();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
-  const [conversations, setConversations] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [sortOption, setSortOption] = useState(SORT_OPTIONS[0]);
   const [isSortOpen, setIsSortOpen] = useState(false);
+  const [openMenuId, setOpenMenuId] = useState(null);
+  const [menuAnchorEl, setMenuAnchorEl] = useState(null);
+  const [conversationToDelete, setConversationToDelete] = useState(null);
+  const toast = useToast();
 
-  // Fetch conversations when sort option changes
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        const { data, error } = await listConversations({
-          sortBy: sortOption.value,
-          ascending: sortOption.ascending,
-        });
-        if (data) {
-          setConversations(data);
-        }
-      } catch (error) {
-        console.error("Failed to fetch conversations:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [sortOption]);
+  // Use infinite scroll hook
+  const {
+    data: conversations,
+    loading,
+    loadingMore,
+    hasMore,
+    loadMoreRef,
+  } = useInfiniteScroll(
+    async (cursor, limit) => {
+      return await listConversations({
+        sortBy: sortOption.value,
+        ascending: sortOption.ascending,
+        cursor,
+        limit,
+      });
+    },
+    {
+      limit: 10,
+      dependencies: [sortOption],
+      rootMargin: "100px",
+    }
+  );
 
   // Filter conversations based on search query
   const filteredConversations = useMemo(() => {
@@ -78,6 +88,44 @@ const LibraryView = () => {
       hour: "numeric",
       minute: "numeric",
     });
+  };
+
+  // Handle toggle favorite
+  const handleToggleFavorite = async (conversation) => {
+    const newStatus = !conversation.is_favorited;
+    const { error } = await toggleFavorite(conversation.id, newStatus);
+
+    if (error) {
+      console.error("Failed to toggle favorite:", error);
+      toast.error("Failed to update favorite status");
+    } else {
+      toast.success(
+        newStatus ? "Added to bookmarks" : "Removed from bookmarks"
+      );
+      // Refresh data
+      window.dispatchEvent(new Event("conversations-changed"));
+    }
+    setOpenMenuId(null);
+  };
+
+  // Handle delete conversation
+  const handleDeleteConversation = async () => {
+    if (!conversationToDelete) return;
+
+    const { success, error } = await deleteConversation(
+      conversationToDelete.id
+    );
+
+    if (success) {
+      toast.success("Conversation deleted successfully");
+      // Refresh data
+      window.dispatchEvent(new Event("conversations-changed"));
+    } else {
+      console.error("Failed to delete conversation:", error);
+      toast.error("Failed to delete conversation");
+    }
+
+    setConversationToDelete(null);
   };
 
   return (
@@ -209,8 +257,14 @@ const LibraryView = () => {
                   <div className="flex justify-between items-start gap-4">
                     <div className="flex-1 min-w-0">
                       {/* Title */}
-                      <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-3 truncate">
+                      <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-3 truncate flex items-center gap-2">
                         {conv.title || "Untitled Thread"}
+                        {conv.is_favorited && (
+                          <Bookmark
+                            size={14}
+                            className="text-yellow-500 fill-current shrink-0"
+                          />
+                        )}
                       </h3>
 
                       {/* Metadata */}
@@ -229,16 +283,88 @@ const LibraryView = () => {
                     </div>
 
                     {/* Actions (visible on hover) */}
-                    <button className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <MoreHorizontal size={18} />
-                    </button>
+                    <div className="relative">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setOpenMenuId(conv.id);
+                          setMenuAnchorEl(e.currentTarget);
+                        }}
+                        className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <MoreHorizontal size={18} />
+                      </button>
+                      <DropdownMenu
+                        isOpen={openMenuId === conv.id}
+                        anchorEl={openMenuId === conv.id ? menuAnchorEl : null}
+                        onClose={() => {
+                          setOpenMenuId(null);
+                          setMenuAnchorEl(null);
+                        }}
+                        items={[
+                          {
+                            label: conv.is_favorited
+                              ? "Remove Bookmark"
+                              : "Add Bookmark",
+                            icon: (
+                              <Bookmark
+                                size={14}
+                                className={
+                                  conv.is_favorited ? "fill-current" : ""
+                                }
+                              />
+                            ),
+                            onClick: () => handleToggleFavorite(conv),
+                            className: conv.is_favorited
+                              ? "text-yellow-500"
+                              : "",
+                          },
+                          {
+                            label: "Delete conversation",
+                            icon: <Trash2 size={14} />,
+                            danger: true,
+                            onClick: () => setConversationToDelete(conv),
+                          },
+                        ]}
+                      />
+                    </div>
                   </div>
                 </div>
               );
             })
           )}
+
+          {/* Invisible Sentinel for Intersection Observer */}
+          {!loading && hasMore && <div ref={loadMoreRef} className="h-1" />}
+
+          {/* Loading More Indicator - Fixed at bottom of list */}
+          {!loading && loadingMore && (
+            <div className="flex flex-col items-center gap-3 py-8">
+              <FancyLoader />
+              <span className="text-sm text-gray-400">
+                Loading more threads...
+              </span>
+            </div>
+          )}
+
+          {/* No More Data Message */}
+          {!loading && !hasMore && conversations.length > 0 && (
+            <div className="text-center py-8 text-gray-400 text-sm">
+              No more threads to load
+            </div>
+          )}
         </div>
       </div>
+
+      <ConfirmationModal
+        isOpen={!!conversationToDelete}
+        onClose={() => setConversationToDelete(null)}
+        onConfirm={handleDeleteConversation}
+        title="Delete Conversation"
+        message={`Are you sure you want to delete "${conversationToDelete?.title}"? This action cannot be undone.`}
+        confirmText="Delete"
+        isDangerous={true}
+      />
     </div>
   );
 };

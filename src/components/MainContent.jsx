@@ -22,7 +22,6 @@ import SpaceView from "./SpaceView";
 import SpacesListView from "./SpacesListView";
 import ConversationsListView from "./ConversationsListView";
 import { loadSettings } from "../lib/settings";
-import { listConversationsBySpace } from "../lib/conversationsService";
 
 const MainContent = ({
   currentView,
@@ -62,9 +61,6 @@ const MainContent = ({
   const [homeSelectedSpace, setHomeSelectedSpace] = useState(null);
   const homeSpaceSelectorRef = useRef(null);
   const [isHomeSpaceSelectorOpen, setIsHomeSpaceSelectorOpen] = useState(false);
-  const [spaceConversations, setSpaceConversations] = useState([]);
-  const [spaceConversationsLoading, setSpaceConversationsLoading] =
-    useState(false);
 
   // Sync prop change to local state if needed (e.g. sidebar navigation)
   useEffect(() => {
@@ -216,41 +212,6 @@ const MainContent = ({
     setIsHomeThinkingActive(false);
   };
 
-  useEffect(() => {
-    const fetchSpaceConversations = async () => {
-      if (!activeSpace?.id) {
-        setSpaceConversations([]);
-        return;
-      }
-      setSpaceConversations([]);
-      setSpaceConversationsLoading(true);
-      const { data, error } = await listConversationsBySpace(activeSpace.id);
-      if (!error && data) {
-        setSpaceConversations(data);
-      } else {
-        console.error("Failed to load space conversations:", error);
-        setSpaceConversations([]);
-      }
-      setSpaceConversationsLoading(false);
-    };
-
-    fetchSpaceConversations();
-
-    // Listen for conversation changes to refresh space list
-    const handleConversationsChanged = () => fetchSpaceConversations();
-    window.addEventListener(
-      "conversations-changed",
-      handleConversationsChanged
-    );
-
-    return () => {
-      window.removeEventListener(
-        "conversations-changed",
-        handleConversationsChanged
-      );
-    };
-  }, [activeSpace]);
-
   return (
     <div className="flex-1 min-h-screen bg-background text-foreground transition-colors duration-300 relative">
       {activeView === "chat" ? (
@@ -266,15 +227,14 @@ const MainContent = ({
       ) : activeView === "space" && activeSpace ? (
         <SpaceView
           space={activeSpace}
-          conversations={spaceConversations}
-          conversationsLoading={spaceConversationsLoading}
           onEditSpace={onEditSpace}
           onOpenConversation={onOpenConversation}
           activeConversationId={activeConversation?.id}
           onConversationDeleted={(deletedId) => {
-            setSpaceConversations((prev) =>
-              prev.filter((c) => c.id !== deletedId)
-            );
+            // Navigate home if we deleted the currently active conversation
+            if (activeConversation?.id === deletedId) {
+              onNavigate("home");
+            }
           }}
           isSidebarPinned={isSidebarPinned}
         />

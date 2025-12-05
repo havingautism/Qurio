@@ -1,6 +1,7 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useAppContext } from "../App";
 import { useNavigate } from "@tanstack/react-router";
+import { listConversations } from "../lib/conversationsService";
 import {
   Search,
   Plus,
@@ -10,13 +11,48 @@ import {
   MoreHorizontal,
   ArrowUpDown,
   Library as LibraryIcon,
+  Check,
 } from "lucide-react";
 import clsx from "clsx";
+import FancyLoader from "../components/FancyLoader";
+
+const SORT_OPTIONS = [
+  { label: "Newest", value: "created_at", ascending: false },
+  { label: "Oldest", value: "created_at", ascending: true },
+  { label: "Title (A-Z)", value: "title", ascending: true },
+  { label: "Title (Z-A)", value: "title", ascending: false },
+];
 
 const LibraryView = () => {
-  const { conversations, spaces, isSidebarPinned } = useAppContext();
+  const { spaces, isSidebarPinned } = useAppContext();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
+  const [conversations, setConversations] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [sortOption, setSortOption] = useState(SORT_OPTIONS[0]);
+  const [isSortOpen, setIsSortOpen] = useState(false);
+
+  // Fetch conversations when sort option changes
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const { data, error } = await listConversations({
+          sortBy: sortOption.value,
+          ascending: sortOption.ascending,
+        });
+        if (data) {
+          setConversations(data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch conversations:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [sortOption]);
 
   // Filter conversations based on search query
   const filteredConversations = useMemo(() => {
@@ -99,16 +135,60 @@ const LibraryView = () => {
                 <ChevronDown size={12} />
               </button>
             </div>
-            <button className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 text-xs font-medium transition-colors">
-              <span>Sort: Newest</span>
-              <ChevronDown size={12} />
-            </button>
+            <div className="relative">
+              <button
+                onClick={() => setIsSortOpen(!isSortOpen)}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 text-xs font-medium transition-colors"
+              >
+                <span>Sort: {sortOption.label}</span>
+                <ChevronDown size={12} />
+              </button>
+
+              {/* Sort Dropdown */}
+              {isSortOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-10"
+                    onClick={() => setIsSortOpen(false)}
+                  />
+                  <div className="absolute right-0 top-full mt-2 w-40 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-xl shadow-lg z-20 overflow-hidden py-1">
+                    {SORT_OPTIONS.map((option) => (
+                      <button
+                        key={option.label}
+                        onClick={() => {
+                          setSortOption(option);
+                          setIsSortOpen(false);
+                        }}
+                        className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-zinc-800 flex items-center justify-between group"
+                      >
+                        <span
+                          className={
+                            sortOption.label === option.label
+                              ? "text-cyan-500"
+                              : "text-gray-700 dark:text-gray-300"
+                          }
+                        >
+                          {option.label}
+                        </span>
+                        {sortOption.label === option.label && (
+                          <Check size={14} className="text-cyan-500" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
 
         {/* Thread List */}
         <div className="space-y-4">
-          {filteredConversations.length === 0 ? (
+          {loading ? (
+            <div className="flex justify-center py-12">
+              <FancyLoader />
+            </div>
+          ) : filteredConversations.length === 0 ? (
             <div className="text-center py-12 text-gray-500">
               No threads found matching your search.
             </div>

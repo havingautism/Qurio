@@ -2,17 +2,16 @@ import { getSupabaseClient } from "./supabase";
 
 const table = "conversations";
 
-export const listConversations = async (limit = 50) => {
+export const listConversations = async (options = {}) => {
+  const { limit = 50, sortBy = "created_at", ascending = false } = options;
   const supabase = getSupabaseClient();
   if (!supabase)
     return { data: [], error: new Error("Supabase not configured") };
 
   const { data, error } = await supabase
     .from(table)
-    .select(
-      "id,title,created_at,space_id,api_provider,is_favorited"
-    )
-    .order("created_at", { ascending: false })
+    .select("id,title,created_at,space_id,api_provider,is_favorited")
+    .order(sortBy, { ascending })
     .limit(limit);
 
   return { data: data || [], error };

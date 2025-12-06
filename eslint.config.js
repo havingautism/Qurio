@@ -28,6 +28,12 @@ export default [
       'unused-imports': unusedImports,
     },
     rules: {
+      ...js.configs.recommended.rules,
+      ...react.configs.recommended.rules,
+      ...react.configs['jsx-runtime'].rules,
+      ...reactHooks.configs.recommended.rules,
+      ...prettierConfig.rules,
+
       'no-unused-vars': 'off', // Disable eslint's rule, use plugin's
       'react-hooks/exhaustive-deps': 'off',
       // Configure unused-imports to error on imports (autofixable)
@@ -42,13 +48,6 @@ export default [
           argsIgnorePattern: '^_',
         },
       ],
-      ...js.configs.recommended.rules,
-      ...react.configs.recommended.rules,
-      ...react.configs['jsx-runtime'].rules,
-      ...reactHooks.configs.recommended.rules,
-
-      // Disable rules that conflict with Prettier
-      ...prettierConfig.rules,
 
       // Common custom settings
       'no-console': 'off',

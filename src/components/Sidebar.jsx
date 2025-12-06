@@ -119,7 +119,7 @@ const Sidebar = ({
     return () => {
       window.removeEventListener('conversations-changed', handleConversationsChanged)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [])
 
   // Close dropdown when sidebar collapses (mouse leaves)

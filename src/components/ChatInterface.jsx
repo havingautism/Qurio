@@ -612,7 +612,7 @@ const ChatInterface = ({
 
       handleSendMessage(text, msgAttachments, null, { editingInfoOverride })
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
     [
       extractUserQuestion,
       handleSendMessage,
@@ -887,8 +887,8 @@ const ChatInterface = ({
                 <button
                   onClick={() => setIsThinkingActive(!isThinkingActive)}
                   className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${isThinkingActive
-                      ? 'text-cyan-500 bg-gray-200 dark:bg-zinc-700'
-                      : 'text-gray-500 dark:text-gray-400'
+                    ? 'text-cyan-500 bg-gray-200 dark:bg-zinc-700'
+                    : 'text-gray-500 dark:text-gray-400'
                     }`}
                 >
                   <Brain size={18} />
@@ -898,8 +898,8 @@ const ChatInterface = ({
                   disabled={settings.apiProvider === 'openai_compatibility'}
                   onClick={() => setIsSearchActive(!isSearchActive)}
                   className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${isSearchActive
-                      ? 'text-cyan-500 bg-gray-200 dark:bg-zinc-700'
-                      : 'text-gray-500 dark:text-gray-400'
+                    ? 'text-cyan-500 bg-gray-200 dark:bg-zinc-700'
+                    : 'text-gray-500 dark:text-gray-400'
                     }`}
                 >
                   <Globe size={18} />

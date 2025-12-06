@@ -2,6 +2,7 @@ import { useAppContext } from '../App'
 import { useNavigate } from '@tanstack/react-router'
 import { LayoutGrid, Plus, Clock, Brain, DollarSign, Laptop } from 'lucide-react'
 import clsx from 'clsx'
+import TwemojiDisplay from '../components/TwemojiDisplay'
 
 const SpacesView = () => {
   const { spaces, onCreateSpace, isSidebarPinned } = useAppContext()
@@ -93,7 +94,7 @@ const SpacesView = () => {
                 className="group p-6 rounded-xl bg-gray-100 dark:bg-zinc-900 hover:bg-gray-200 dark:hover:bg-zinc-800 cursor-pointer transition-colors flex flex-col justify-between min-h-[160px]"
               >
                 <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-zinc-800 flex items-center justify-center text-xl mb-4">
-                  {space.emoji}
+                  <TwemojiDisplay emoji={space.emoji} />
                 </div>
                 <div>
                   <h3 className="font-medium text-lg mb-1 truncate">{space.label}</h3>

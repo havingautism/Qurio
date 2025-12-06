@@ -56,6 +56,7 @@ CREATE TABLE IF NOT EXISTS public.conversation_messages (
   conversation_id UUID NOT NULL REFERENCES public.conversations(id) ON DELETE CASCADE,
   role TEXT NOT NULL CHECK (role IN ('system', 'user', 'assistant', 'tool')),
   content JSONB NOT NULL,
+  thinking_process TEXT,
   tool_calls JSONB,
   related_questions JSONB,
   sources JSONB,

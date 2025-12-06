@@ -245,6 +245,7 @@ const callAIAPI = async (
   historyForSendLength,
   firstUserText,
 ) => {
+  let streamedThought = ''
   try {
     // Get AI provider and credentials
     const provider = getProvider(settings.apiProvider)
@@ -275,6 +276,7 @@ const callAIAPI = async (
           if (typeof chunk === 'object' && chunk !== null) {
             if (chunk.type === 'thought') {
               if (lastMsg.thinkingEnabled) {
+                streamedThought += chunk.content
                 lastMsg.thought = (lastMsg.thought || '') + chunk.content
               } else {
                 // When thinking is disabled, treat thought text as normal content so edits still render
@@ -297,7 +299,7 @@ const callAIAPI = async (
         set({ isLoading: false })
         const currentStore = get() // Get fresh state
         await finalizeMessage(
-          result,
+          { ...result, thought: result.thought ?? streamedThought },
           currentStore,
           settings,
           callbacks,
@@ -357,6 +359,7 @@ const finalizeMessage = async (
   isFirstTurnOverride,
   firstUserText,
 ) => {
+  const normalizedThought = typeof result?.thought === 'string' ? result.thought.trim() : ''
   const normalizeContent = content => {
     if (typeof content === 'string') return content
     if (Array.isArray(content)) {
@@ -376,20 +379,23 @@ const finalizeMessage = async (
   }
 
   // Replace streamed placeholder with finalized content (e.g., with citations/grounding)
-  if (result?.content) {
-    set(state => {
-      const updated = [...state.messages]
-      const lastMsgIndex = updated.length - 1
-      if (lastMsgIndex >= 0 && updated[lastMsgIndex].role === 'ai') {
-        updated[lastMsgIndex] = {
-          ...updated[lastMsgIndex],
-          content: normalizeContent(result.content),
-          ...(result.toolCalls ? { tool_calls: result.toolCalls } : {}),
-        }
+  set(state => {
+    const updated = [...state.messages]
+    const lastMsgIndex = updated.length - 1
+    if (lastMsgIndex >= 0 && updated[lastMsgIndex].role === 'ai') {
+      const lastMsg = { ...updated[lastMsgIndex] }
+      if (typeof result?.content !== 'undefined') {
+        lastMsg.content = normalizeContent(result.content)
       }
-      return { messages: updated }
-    })
-  }
+      const thoughtToApply = normalizedThought || lastMsg.thought || ''
+      lastMsg.thought = thoughtToApply ? thoughtToApply : undefined
+      if (result?.toolCalls) {
+        lastMsg.tool_calls = result.toolCalls
+      }
+      updated[lastMsgIndex] = lastMsg
+    }
+    return { messages: updated }
+  })
 
   // Generate title and space if this is the first turn
   let resolvedTitle = currentStore.conversationTitle
@@ -505,10 +511,24 @@ const finalizeMessage = async (
 
   // Persist AI message in database
   if (currentStore.conversationId) {
+    const fallbackThoughtFromState = (() => {
+      const aiMessages = (currentStore.messages || []).filter(m => m.role === 'ai')
+      const latestAi = aiMessages[aiMessages.length - 1]
+      const thoughtValue = latestAi?.thought
+      return typeof thoughtValue === 'string' ? thoughtValue.trim() : ''
+    })()
+
+    const thoughtForPersistence = normalizedThought || fallbackThoughtFromState || null
+    const contentForPersistence =
+      typeof result.content !== 'undefined'
+        ? result.content
+        : currentStore.messages?.[currentStore.messages.length - 1]?.content ?? ''
+
     const { data: insertedAi } = await addMessage({
       conversation_id: currentStore.conversationId,
       role: 'assistant',
-      content: result.content,
+      content: contentForPersistence,
+      thinking_process: thoughtForPersistence,
       tool_calls: result.toolCalls || null,
       related_questions: related || null,
       sources: result.sources || null,

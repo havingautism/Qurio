@@ -1,11 +1,19 @@
-import { useState } from 'react'
-import { Layers, MoreHorizontal, Pencil, Trash2, LogOut, Bookmark } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import {
+  Layers,
+  MoreHorizontal,
+  Pencil,
+  Trash2,
+  LogOut,
+  Bookmark,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react'
 import clsx from 'clsx'
 import DropdownMenu from './DropdownMenu'
 import ConfirmationModal from './ConfirmationModal'
 import { deleteConversation, removeConversationFromSpace } from '../lib/supabase'
 import { toggleFavorite, listConversationsBySpace } from '../lib/conversationsService'
-import { useInfiniteScroll } from '../hooks/useInfiniteScroll'
 import { useToast } from '../contexts/ToastContext'
 import FancyLoader from './FancyLoader'
 import TwemojiDisplay from './TwemojiDisplay'
@@ -18,30 +26,61 @@ const SpaceView = ({
   onConversationDeleted,
   isSidebarPinned = false,
 }) => {
+  const [conversations, setConversations] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalCount, setTotalCount] = useState(0)
+  const limit = 10
+
   const [openMenuId, setOpenMenuId] = useState(null)
   const [menuAnchorEl, setMenuAnchorEl] = useState(null)
   const [conversationToDelete, setConversationToDelete] = useState(null)
   const toast = useToast()
 
-  // Use infinite scroll hook
-  const {
-    data: conversations,
-    loading,
-    loadingMore,
-    hasMore,
-    loadMoreRef,
-  } = useInfiniteScroll(
-    async (cursor, limit) => {
-      if (!space?.id) return { data: [], nextCursor: null, hasMore: false }
-      return await listConversationsBySpace(space.id, { cursor, limit })
-    },
-    {
-      limit: 10,
-      dependencies: [space?.id],
-      enabled: !!space?.id,
-      rootMargin: '100px',
-    },
-  )
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [space?.id])
+
+  useEffect(() => {
+    const fetchConversations = async () => {
+      if (!space?.id) {
+        setConversations([])
+        setTotalCount(0)
+        return
+      }
+      setLoading(true)
+      const { data, count, error } = await listConversationsBySpace(space.id, {
+        page: currentPage,
+        limit,
+        sortBy: 'created_at',
+        ascending: false,
+      })
+      if (!error) {
+        setConversations(data || [])
+        if (count !== undefined) {
+          setTotalCount(count)
+          const totalPages = Math.ceil(count / limit)
+          if (currentPage > totalPages && totalPages > 0) {
+            setCurrentPage(totalPages)
+          }
+        }
+      } else {
+        console.error('Failed to load conversations by space:', error)
+        toast.error('Failed to load conversations')
+      }
+      setLoading(false)
+    }
+
+    fetchConversations()
+  }, [space?.id, currentPage])
+
+  const totalPages = Math.ceil(totalCount / limit) || 1
+
+  const handlePageChange = newPage => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setCurrentPage(newPage)
+    }
+  }
 
   const handleDeleteConversation = async () => {
     if (!conversationToDelete) return
@@ -53,6 +92,7 @@ const SpaceView = ({
       if (onConversationDeleted) {
         onConversationDeleted(conversationToDelete.id)
       }
+      setCurrentPage(1)
       // Notify Sidebar to refresh its conversation list
       window.dispatchEvent(new Event('conversations-changed'))
     } else {
@@ -71,6 +111,7 @@ const SpaceView = ({
       if (onConversationDeleted) {
         onConversationDeleted(conversation.id)
       }
+      setCurrentPage(1)
       // Notify Sidebar to refresh its conversation list
       window.dispatchEvent(new Event('conversations-changed'))
     } else {
@@ -96,7 +137,7 @@ const SpaceView = ({
   return (
     <div
       className={clsx(
-        'flex flex-col items-center justify-center min-h-screen p-4 bg-background text-foreground transition-all duration-300',
+        'flex flex-col items-center justify-center min-h-screen p-4 pb-24 bg-background text-foreground transition-all duration-300',
         isSidebarPinned ? 'ml-80' : 'ml-16',
       )}
     >
@@ -149,7 +190,7 @@ const SpaceView = ({
           {/* Topics List */}
           <div className="flex flex-col gap-4">
             {loading && (
-              <div className="flex items-center justify-center">
+              <div className="flex items-center justify-center py-6">
                 <FancyLoader />
               </div>
             )}
@@ -230,24 +271,6 @@ const SpaceView = ({
                 )}
               </div>
             ))}
-
-            {/* Invisible Sentinel for Intersection Observer */}
-            {!loading && hasMore && <div ref={loadMoreRef} className="h-1" />}
-
-            {/* Loading More Indicator */}
-            {!loading && loadingMore && (
-              <div className="flex flex-col items-center gap-3 py-8">
-                <FancyLoader />
-                <span className="text-sm text-gray-400">Loading more conversations...</span>
-              </div>
-            )}
-
-            {/* No More Data Message */}
-            {!loading && !hasMore && conversations.length > 0 && (
-              <div className="text-center py-8 text-gray-400 text-sm">
-                No more conversations to load
-              </div>
-            )}
           </div>
         </div>
       </div>
@@ -261,6 +284,42 @@ const SpaceView = ({
         confirmText="Delete"
         isDangerous={true}
       />
+
+      {/* Pagination Controls */}
+      {!loading && totalPages > 1 && (
+        <div
+          className={clsx(
+            'fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur border-t border-gray-200 dark:border-zinc-800',
+            isSidebarPinned ? 'pl-80' : 'pl-16',
+          )}
+        >
+          <div className="max-w-3xl mx-auto px-4">
+            <div className="flex items-center justify-center gap-4 py-4">
+              <button
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                title="Previous Page"
+              >
+                <ChevronLeft size={20} />
+              </button>
+
+              <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                Page {currentPage} of {totalPages}
+              </span>
+
+              <button
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                title="Next Page"
+              >
+                <ChevronRight size={20} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

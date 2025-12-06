@@ -288,8 +288,8 @@ export const streamChatCompletion = async ({
       { signal },
     )
 
-    let fullContent = ''
-    let inThought = false
+    let thoughtText = ''
+    let answerText = ''
     let lastGroundingMetadata = null
 
     for await (const chunk of result) {
@@ -300,42 +300,26 @@ export const streamChatCompletion = async ({
 
       for (const part of parts) {
         if (part.thought) {
-          // Handle thought start
-          if (!inThought) {
-            fullContent += '<thought>'
-            inThought = true
-          }
-
           // Emit structured chunk for UI
           onChunk({ type: 'thought', content: part.text })
-          fullContent += part.text
+          thoughtText += part.text
         } else if (part.text) {
-          // Handle thought end
-          if (inThought) {
-            fullContent += '</thought>\n'
-            inThought = false
-          }
-
           // Emit structured chunk for UI
           onChunk({ type: 'text', content: part.text })
-          fullContent += part.text
+          answerText += part.text
         }
       }
     }
 
-    // Close thought tag if still open
-    if (inThought) {
-      fullContent += '</thought>'
-    }
-
     const sources = extractSources(lastGroundingMetadata)
     const groundedContent = annotateGroundedText(
-      fullContent,
+      answerText,
       lastGroundingMetadata?.groundingSupports,
     )
 
     onFinish({
       content: groundedContent,
+      thought: thoughtText.trim() || undefined,
       sources: sources.length ? sources : undefined,
       groundingSupports: lastGroundingMetadata?.groundingSupports || undefined,
     })

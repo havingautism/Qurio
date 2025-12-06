@@ -210,16 +210,27 @@ const ChatInterface = ({
       setIsManualSpaceSelection(!!conversationSpace)
       const { data, error } = await listMessages(activeConversation.id)
       if (!error && data) {
-        const mapped = data.map(m => ({
-          id: m.id,
-          created_at: m.created_at,
-          role: m.role === 'assistant' ? 'ai' : m.role,
-          content: m.content,
-          related: m.related_questions || undefined,
-          tool_calls: m.tool_calls || undefined,
-          sources: m.sources || undefined,
-          groundingSupports: m.grounding_supports || undefined,
-        }))
+        const mapped = data.map(m => {
+          const { content: cleanedContent, thought: thoughtFromContent } = splitThoughtFromContent(
+            m.content,
+          )
+          const thought =
+            m.thinking_process ?? m.thought ?? thoughtFromContent ?? undefined
+
+          return {
+            id: m.id,
+            created_at: m.created_at,
+            role: m.role === 'assistant' ? 'ai' : m.role,
+            content: cleanedContent,
+            thought,
+            related: m.related_questions || undefined,
+            tool_calls: m.tool_calls || undefined,
+            sources: m.sources || undefined,
+            groundingSupports: m.grounding_supports || undefined,
+            thinkingEnabled:
+              m.is_thinking_enabled ?? m.generated_with_thinking ?? (thought ? true : undefined),
+          }
+        })
         setMessages(mapped)
       } else {
         console.error('Failed to load conversation messages:', error)
@@ -372,6 +383,45 @@ const ChatInterface = ({
       return textPart?.text || ''
     }
     return ''
+  }
+
+  const splitThoughtFromContent = rawContent => {
+    if (rawContent && typeof rawContent === 'object' && !Array.isArray(rawContent)) {
+      const contentValue =
+        typeof rawContent.content !== 'undefined' ? rawContent.content : rawContent
+      const thoughtValue =
+        rawContent.thought ?? rawContent.thinking_process ?? rawContent.thinkingProcess ?? null
+
+      if (typeof contentValue === 'string') {
+        const thoughtMatch = /<thought>([\s\S]*?)(?:<\/thought>|$)/.exec(contentValue)
+        if (thoughtMatch) {
+          const cleaned = contentValue.replace(/<thought>[\s\S]*?(?:<\/thought>|$)/, '').trim()
+          const combinedThought = thoughtValue || thoughtMatch[1]?.trim() || null
+          return { content: cleaned, thought: combinedThought }
+        }
+      }
+
+      if (
+        Object.prototype.hasOwnProperty.call(rawContent, 'thought') ||
+        Object.prototype.hasOwnProperty.call(rawContent, 'thinking_process') ||
+        Object.prototype.hasOwnProperty.call(rawContent, 'thinkingProcess')
+      ) {
+        return {
+          content: contentValue,
+          thought: thoughtValue,
+        }
+      }
+    }
+
+    if (typeof rawContent !== 'string') return { content: rawContent, thought: null }
+
+    const thoughtMatch = /<thought>([\s\S]*?)(?:<\/thought>|$)/.exec(rawContent)
+    if (!thoughtMatch) return { content: rawContent, thought: null }
+
+    const cleaned = rawContent.replace(/<thought>[\s\S]*?(?:<\/thought>|$)/, '').trim()
+    const thought = thoughtMatch[1]?.trim() || null
+
+    return { content: cleaned, thought }
   }
 
   const [activeQuestionId, setActiveQuestionId] = useState(null)

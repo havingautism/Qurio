@@ -29,15 +29,21 @@ const extractText = value => {
 }
 
 const defaultParseMessage = input => {
-  const hasThoughtField =
-    input && typeof input === 'object' && Object.prototype.hasOwnProperty.call(input, 'thought')
+  const hasExplicitThought =
+    input &&
+    typeof input === 'object' &&
+    (Object.prototype.hasOwnProperty.call(input, 'thought') ||
+      Object.prototype.hasOwnProperty.call(input, 'thinking_process') ||
+      Object.prototype.hasOwnProperty.call(input, 'thinkingProcess'))
 
-  if (hasThoughtField) {
-    const thoughtText = extractText(input.thought)
-    const contentText = extractText(input.content || '')
+  if (hasExplicitThought) {
+    const thoughtField =
+      input.thought ?? input.thinking_process ?? input.thinkingProcess ?? input?.thought
+    const thoughtText = extractText(thoughtField)
+    const rawContent = extractText(input.content || '')
     return {
       thought: thoughtText || null,
-      content: contentText.replace(/<thought>[\s\S]*?(?:<\/thought>|$)/, '').trim(),
+      content: rawContent.replace(/<thought>[\s\S]*?(?:<\/thought>|$)/, '').trim(),
     }
   }
 

@@ -151,7 +151,13 @@ export const createConversation = async payload => {
 }
 
 export const listConversationsBySpace = async (spaceId, options = {}) => {
-  const { limit = 10, cursor = null } = options
+  const {
+    limit = 10,
+    cursor = null,
+    page = null,
+    sortBy = 'created_at',
+    ascending = false,
+  } = options
   const supabase = getSupabaseClient()
   if (!supabase)
     return {
@@ -159,33 +165,43 @@ export const listConversationsBySpace = async (spaceId, options = {}) => {
       error: new Error('Supabase not configured'),
       nextCursor: null,
       hasMore: false,
+      count: 0,
     }
 
-  // Build query with cursor support
-  // Uses composite index: idx_conversations_space_created (space_id, created_at DESC)
+  // Build query with cursor or page-based pagination
   let query = supabase
     .from(table)
-    .select('id,title,created_at,space_id,is_favorited')
+    .select('id,title,created_at,space_id,is_favorited', { count: 'exact' })
     .eq('space_id', spaceId)
-    .order('created_at', { ascending: false })
+    .order(sortBy, { ascending })
     .limit(limit)
 
-  // Apply cursor filter for pagination
-  if (cursor) {
-    query = query.lt('created_at', cursor)
+  if (page !== null) {
+    const from = (page - 1) * limit
+    const to = from + limit - 1
+    query = query.range(from, to)
+  } else if (cursor) {
+    if (sortBy === 'created_at') {
+      query = ascending ? query.gt('created_at', cursor) : query.lt('created_at', cursor)
+    } else if (sortBy === 'title') {
+      query = ascending ? query.gt('title', cursor) : query.lt('title', cursor)
+    }
   }
 
-  const { data, error } = await query
+  const { data, error, count } = await query
 
-  // Determine next cursor and if there's more data
   const hasMore = data && data.length === limit
-  const nextCursor = hasMore && data.length > 0 ? data[data.length - 1].created_at : null
+  let nextCursor = null
+  if (!page && hasMore && data.length > 0) {
+    nextCursor = data[data.length - 1][sortBy]
+  }
 
   return {
     data: data || [],
     error,
     nextCursor,
     hasMore,
+    count: count || 0,
   }
 }
 

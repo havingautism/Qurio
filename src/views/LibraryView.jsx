@@ -105,7 +105,6 @@ const LibraryView = () => {
   const handlePageChange = newPage => {
     if (newPage >= 1 && newPage <= totalPages) {
       setCurrentPage(newPage)
-      window.scrollTo({ top: 0, behavior: 'smooth' })
     }
   }
 
@@ -295,7 +294,7 @@ const LibraryView = () => {
         </div>
 
         {/* Thread List */}
-        <div className="space-y-4">
+        <div className="space-y-4 pb-24">
           {loading ? (
             <div className="flex justify-center py-12">
               <FancyLoader />
@@ -389,9 +388,19 @@ const LibraryView = () => {
             })
           )}
 
-          {/* Pagination Controls */}
-          {!loading && totalPages > 1 && (
-            <div className="flex items-center justify-center gap-4 py-8  mt-8">
+        </div>
+      </div>
+
+      {/* Fixed Pagination Controls */}
+      {!loading && totalPages > 1 && (
+        <div
+          className={clsx(
+            'fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur border-t border-gray-200 dark:border-zinc-800',
+            isSidebarPinned ? 'pl-80' : 'pl-16',
+          )}
+        >
+          <div className="max-w-5xl mx-auto px-6">
+            <div className="flex items-center justify-center gap-4 py-4">
               <button
                 onClick={() => handlePageChange(currentPage - 1)}
                 disabled={currentPage === 1}
@@ -414,9 +423,9 @@ const LibraryView = () => {
                 <ChevronRight size={20} />
               </button>
             </div>
-          )}
+          </div>
         </div>
-      </div>
+      )}
 
       <ConfirmationModal
         isOpen={!!conversationToDelete}

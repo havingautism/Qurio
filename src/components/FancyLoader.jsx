@@ -19,14 +19,17 @@ const FancyLoader = () => {
 }
 
 const StyledWrapper = styled.div`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 72px;
+  position: relative;
+
   .banter-loader {
-    position: absolute;
-    left: 50%;
-    top: 50%;
+    position: relative;
     width: 72px;
     height: 72px;
-    margin-left: -36px;
-    margin-top: -36px;
   }
 
   .banter-loader__box {

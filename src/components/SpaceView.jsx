@@ -188,89 +188,90 @@ const SpaceView = ({
           </div>
 
           {/* Topics List */}
-          <div className="flex flex-col gap-4">
+          <div className="relative flex flex-col gap-4">
             {loading && (
-              <div className="flex items-center justify-center py-6">
+              <div className="absolute inset-0 flex items-center justify-center backdrop-blur-md bg-background/40 rounded-2xl">
                 <FancyLoader />
               </div>
             )}
             {!loading && conversations.length === 0 && (
               <div className="text-sm text-gray-500 dark:text-gray-400">No conversations yet.</div>
             )}
-            {conversations.map((conv, i) => (
-              <div
-                key={conv.id || i}
-                className="group cursor-pointer"
-                onClick={() => onOpenConversation && onOpenConversation(conv)}
-              >
-                <div className="flex items-start gap-3">
-                  {/* <div className="w-8 h-8 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center text-orange-600 dark:text-orange-400 shrink-0 mt-1">
+            {!loading &&
+              conversations.map((conv, i) => (
+                <div
+                  key={conv.id || i}
+                  className="group cursor-pointer"
+                  onClick={() => onOpenConversation && onOpenConversation(conv)}
+                >
+                  <div className="flex items-start gap-3">
+                    {/* <div className="w-8 h-8 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center text-orange-600 dark:text-orange-400 shrink-0 mt-1">
                                         <span className="text-xs font-bold">{conv.title?.[0]?.toUpperCase() || "T"}</span>
                                     </div> */}
-                  <div className="flex-1">
-                    <h3 className="font-medium text-gray-900 dark:text-gray-100 group-hover:text-cyan-500 transition-colors flex items-center gap-2">
-                      {conv.title || 'Untitled'}
-                      {conv.is_favorited && (
-                        <Bookmark size={14} className="text-yellow-500 fill-current" />
-                      )}
-                    </h3>
-                    {/* <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2 mt-1">
+                    <div className="flex-1">
+                      <h3 className="font-medium text-gray-900 dark:text-gray-100 group-hover:text-cyan-500 transition-colors flex items-center gap-2">
+                        {conv.title || 'Untitled'}
+                        {conv.is_favorited && (
+                          <Bookmark size={14} className="text-yellow-500 fill-current" />
+                        )}
+                      </h3>
+                      {/* <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2 mt-1">
                                             {conv.description || "Conversation in this space."}
                                         </p> */}
-                    <div className="flex items-center gap-2 mt-2 text-xs text-gray-400">
-                      <span>{new Date(conv.created_at).toLocaleDateString()}</span>
+                      <div className="flex items-center gap-2 mt-2 text-xs text-gray-400">
+                        <span>{new Date(conv.created_at).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                    <div className="relative">
+                      <button
+                        className="opacity-0 group-hover:opacity-100 md:opacity-100 p-1 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded text-gray-400 transition-all"
+                        onClick={e => {
+                          e.stopPropagation()
+                          setOpenMenuId(conv.id)
+                          setMenuAnchorEl(e.currentTarget)
+                        }}
+                      >
+                        <MoreHorizontal size={16} />
+                      </button>
+                      <DropdownMenu
+                        isOpen={openMenuId === conv.id}
+                        anchorEl={openMenuId === conv.id ? menuAnchorEl : null}
+                        onClose={() => {
+                          setOpenMenuId(null)
+                          setMenuAnchorEl(null)
+                        }}
+                        items={[
+                          {
+                            label: conv.is_favorited ? 'Remove Bookmark' : 'Add Bookmark',
+                            icon: (
+                              <Bookmark
+                                size={14}
+                                className={conv.is_favorited ? 'fill-current' : ''}
+                              />
+                            ),
+                            onClick: () => handleToggleFavorite(conv),
+                            className: conv.is_favorited ? 'text-yellow-500' : '',
+                          },
+                          {
+                            label: 'Remove from space',
+                            icon: <LogOut size={14} />,
+                            onClick: () => handleRemoveFromSpace(conv),
+                          },
+                          {
+                            label: 'Delete conversation',
+                            icon: <Trash2 size={14} />,
+                            danger: true,
+                            onClick: () => setConversationToDelete(conv),
+                          },
+                        ]}
+                      />
                     </div>
                   </div>
-                  <div className="relative">
-                    <button
-                      className="opacity-0 group-hover:opacity-100 md:opacity-100 p-1 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded text-gray-400 transition-all"
-                      onClick={e => {
-                        e.stopPropagation()
-                        setOpenMenuId(conv.id)
-                        setMenuAnchorEl(e.currentTarget)
-                      }}
-                    >
-                      <MoreHorizontal size={16} />
-                    </button>
-                    <DropdownMenu
-                      isOpen={openMenuId === conv.id}
-                      anchorEl={openMenuId === conv.id ? menuAnchorEl : null}
-                      onClose={() => {
-                        setOpenMenuId(null)
-                        setMenuAnchorEl(null)
-                      }}
-                      items={[
-                        {
-                          label: conv.is_favorited ? 'Remove Bookmark' : 'Add Bookmark',
-                          icon: (
-                            <Bookmark
-                              size={14}
-                              className={conv.is_favorited ? 'fill-current' : ''}
-                            />
-                          ),
-                          onClick: () => handleToggleFavorite(conv),
-                          className: conv.is_favorited ? 'text-yellow-500' : '',
-                        },
-                        {
-                          label: 'Remove from space',
-                          icon: <LogOut size={14} />,
-                          onClick: () => handleRemoveFromSpace(conv),
-                        },
-                        {
-                          label: 'Delete conversation',
-                          icon: <Trash2 size={14} />,
-                          danger: true,
-                          onClick: () => setConversationToDelete(conv),
-                        },
-                      ]}
-                    />
-                  </div>
+                  {i < conversations.length - 1 && (
+                    <div className="h-px bg-gray-100 dark:bg-zinc-800 mt-4" />
+                  )}
                 </div>
-                {i < conversations.length - 1 && (
-                  <div className="h-px bg-gray-100 dark:bg-zinc-800 mt-4" />
-                )}
-              </div>
-            ))}
+              ))}
           </div>
         </div>
       </div>

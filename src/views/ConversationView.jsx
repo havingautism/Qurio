@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import MainContent from '../components/MainContent'
-import FancyLoader from '../components/FancyLoader'
 import { conversationRoute } from '../router'
 import { getConversation } from '../lib/conversationsService'
 import { useAppContext } from '../App'
@@ -20,6 +19,7 @@ const ConversationView = () => {
       // Show loader when switching to a different conversation
       if (conversationId !== prevConversationId) {
         setIsLoading(true)
+        setConversation(null) // avoid flashing previous conversation while loading
         setPrevConversationId(conversationId)
       }
 
@@ -63,13 +63,9 @@ const ConversationView = () => {
     }
   }, [conversationId])
 
-  // Show loader while loading
+  // Lightweight placeholder while fetching conversation data
   if (isLoading || !conversation) {
-    return (
-      <div className="flex min-h-screen bg-background text-foreground font-sans items-center justify-center">
-        <FancyLoader />
-      </div>
-    )
+    return <div className="min-h-screen bg-background text-foreground" />
   }
 
   return (

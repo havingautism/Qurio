@@ -1,7 +1,6 @@
 import React from 'react'
 import { createRootRoute, createRoute, createRouter } from '@tanstack/react-router'
 import App from './App'
-import FancyLoader from './components/FancyLoader'
 
 const HomeView = React.lazy(() => import('./views/HomeView'))
 const ConversationView = React.lazy(() => import('./views/ConversationView'))
@@ -11,13 +10,7 @@ const LibraryView = React.lazy(() => import('./views/LibraryView'))
 const BookmarksView = React.lazy(() => import('./views/BookmarksView'))
 
 const SuspensePage = ({ children }) => (
-  <React.Suspense
-    fallback={
-      <div className="flex min-h-screen bg-background text-foreground font-sans items-center justify-center">
-        <FancyLoader />
-      </div>
-    }
-  >
+  <React.Suspense fallback={<div className="min-h-screen bg-background text-foreground" />}>
     {children}
   </React.Suspense>
 )

@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from '@tanstack/react-router'
 import { useShallow } from 'zustand/react/shallow'
 import useChatStore from '../lib/chatStore'
 import MessageList from './MessageList'
+import FancyLoader from './FancyLoader'
 import QuestionNavigator from './QuestionNavigator'
 import { updateConversation } from '../lib/conversationsService'
 import { getProvider } from '../lib/providers'
@@ -172,6 +173,7 @@ const ChatInterface = ({
         // we should clear the old messages even if we have initialMessage
         const isFromOldConversation = conversationId !== null
 
+        setIsLoadingHistory(false)
         setConversationId(null)
         hasPushedConversation.current = false
 
@@ -207,6 +209,10 @@ const ChatInterface = ({
       hasInitialized.current = false
 
       setIsLoadingHistory(true)
+      if (activeConversation.id !== conversationId) {
+        // Clear stale messages while the new conversation history loads
+        setMessages([])
+      }
       setConversationId(activeConversation.id)
       setConversationTitle(activeConversation.title || 'New Conversation')
       setSelectedSpace(conversationSpace)
@@ -866,6 +872,11 @@ const ChatInterface = ({
 
           {/* Messages Area */}
           <div className="w-full max-w-3xl flex-1 pb-32 relative">
+            {isLoadingHistory && (
+              <div className="absolute inset-0 flex items-center justify-center backdrop-blur-md bg-background/40">
+                <FancyLoader />
+              </div>
+            )}
             <MessageList
               apiProvider={settings.apiProvider}
               onRelatedClick={handleRelatedClick}

@@ -196,7 +196,6 @@ function App() {
       const { data, error } = await updateSpace(editingSpace.id, payload)
       if (!error && data) {
         setSpaces(prev => prev.map(s => (s.id === data.id ? data : s)))
-        if (activeSpace?.id === data.id) setActiveSpace(data)
       } else {
         console.error('Update space failed:', error)
       }

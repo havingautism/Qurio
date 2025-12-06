@@ -119,8 +119,10 @@ const ConversationsListView = ({
 
         {/* Loading State */}
         {conversationsLoading && (
-          <div className="flex items-center justify-center py-12">
-            <FancyLoader />
+          <div className="relative min-h-[220px]">
+            <div className="absolute inset-0 flex items-center justify-center backdrop-blur-md bg-background/40 rounded-2xl">
+              <FancyLoader />
+            </div>
           </div>
         )}
 

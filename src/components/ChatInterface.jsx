@@ -17,6 +17,7 @@ import {
   LayoutGrid,
   Brain,
   Sparkles,
+  ArrowDown,
 } from 'lucide-react'
 import clsx from 'clsx'
 
@@ -101,6 +102,8 @@ const ChatInterface = ({
   const hasPushedConversation = useRef(false)
   const lastConversationId = useRef(null) // Track the last conversationId we navigated to
   const messageRefs = useRef({})
+  const bottomRef = useRef(null)
+  const [showScrollButton, setShowScrollButton] = useState(false)
   const [isRegeneratingTitle, setIsRegeneratingTitle] = useState(false)
   const conversationSpace = React.useMemo(() => {
     if (!activeConversation?.space_id) return null
@@ -687,6 +690,46 @@ const ChatInterface = ({
     return ''
   }, [])
 
+  // Scroll to bottom helper
+  const scrollToBottom = useCallback((behavior = 'smooth') => {
+    window.scrollTo({
+      top: document.documentElement.scrollHeight,
+      behavior,
+    })
+  }, [])
+
+  // Handle scroll to show/hide button
+  useEffect(() => {
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = document.documentElement
+      const isNearBottom = scrollHeight - scrollTop - clientHeight < 100
+      setShowScrollButton(!isNearBottom)
+    }
+
+    window.addEventListener('scroll', handleScroll)
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
+
+  // Auto-scroll logic
+  useEffect(() => {
+    if (isLoading) {
+      if (!showScrollButton) {
+        scrollToBottom('auto')
+      }
+    } else {
+      if (!showScrollButton) {
+        scrollToBottom()
+      }
+    }
+  }, [messages, isLoading, showScrollButton, scrollToBottom])
+
+  // Initial scroll to bottom
+  useEffect(() => {
+    if (!isLoadingHistory && messages.length > 0) {
+      setTimeout(() => scrollToBottom('auto'), 100)
+    }
+  }, [conversationId, isLoadingHistory, scrollToBottom])
+
   const handleRegenerateTitle = useCallback(async () => {
     if (isRegeneratingTitle) return
 
@@ -830,17 +873,36 @@ const ChatInterface = ({
               onEdit={handleEdit}
               onRegenerateAnswer={handleRegenerateAnswer}
             />
+            {/* Bottom Anchor */}
+            <div ref={bottomRef} className="h-1" />
           </div>
         </div>
 
         {/* Right side navigator - absolute positioned relative to centered container on XL, stacked on mobile */}
-        <div className="xl:absolute xl:left-full xl:top-0 xl:ml-8 xl:w-64 xl:h-full mt-8 xl:mt-0 w-full px-4 xl:px-0">
-          <div className="sticky top-24">
+        <div className="xl:absolute xl:left-full xl:top-0 xl:ml-8 xl:w-64 xl:h-full mt-8 xl:mt-0 w-full px-4 xl:px-0 flex flex-col">
+          <div className="sticky top-24 max-h-[calc(100vh-10rem)] overflow-y-auto no-scrollbar">
             <QuestionNavigator
               items={questionNavItems}
               onJump={jumpToMessage}
               activeId={activeQuestionId}
             />
+          </div>
+
+          {/* Scroll to Bottom Button */}
+          <div
+            className={clsx(
+              'sticky bottom-45 mt-auto flex justify-start transition-all duration-300 z-40',
+              showScrollButton
+                ? 'opacity-100 translate-y-0 pointer-events-auto'
+                : 'opacity-0 translate-y-4 pointer-events-none',
+            )}
+          >
+            <button
+              onClick={() => scrollToBottom()}
+              className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-full shadow-lg hover:shadow-xl hover:bg-gray-50 dark:hover:bg-zinc-700 transition-all text-sm font-medium text-gray-700 dark:text-gray-200"
+            >
+              <ArrowDown size={16} />
+            </button>
           </div>
         </div>
       </div>

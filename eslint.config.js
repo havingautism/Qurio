@@ -48,7 +48,7 @@ export default [
       ...prettierConfig.rules,
 
       // Error if formatting doesn't match Prettier
-      'prettier/prettier': 'error',
+      'prettier/prettier': ['error', { endOfLine: 'auto' }],
 
       // Common custom settings
 

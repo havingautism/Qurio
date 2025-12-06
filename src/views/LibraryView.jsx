@@ -387,7 +387,6 @@ const LibraryView = () => {
               )
             })
           )}
-
         </div>
       </div>
 

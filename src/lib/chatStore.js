@@ -522,7 +522,7 @@ const finalizeMessage = async (
     const contentForPersistence =
       typeof result.content !== 'undefined'
         ? result.content
-        : currentStore.messages?.[currentStore.messages.length - 1]?.content ?? ''
+        : (currentStore.messages?.[currentStore.messages.length - 1]?.content ?? '')
 
     const { data: insertedAi } = await addMessage({
       conversation_id: currentStore.conversationId,

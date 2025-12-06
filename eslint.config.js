@@ -3,6 +3,7 @@ import globals from 'globals'
 import react from 'eslint-plugin-react'
 import reactHooks from 'eslint-plugin-react-hooks'
 import prettierConfig from 'eslint-config-prettier'
+import prettierPlugin from 'eslint-plugin-prettier'
 import unusedImports from 'eslint-plugin-unused-imports'
 import { fixupPluginRules } from '@eslint/compat'
 
@@ -26,6 +27,7 @@ export default [
       react,
       'react-hooks': fixupPluginRules(reactHooks),
       'unused-imports': unusedImports,
+      prettier: prettierPlugin,
     },
     rules: {
       ...js.configs.recommended.rules,
@@ -33,6 +35,7 @@ export default [
       ...react.configs['jsx-runtime'].rules,
       ...reactHooks.configs.recommended.rules,
       ...prettierConfig.rules,
+      'prettier/prettier': 'error',
 
       'no-unused-vars': 'off', // Disable eslint's rule, use plugin's
       'react-hooks/exhaustive-deps': 'off',

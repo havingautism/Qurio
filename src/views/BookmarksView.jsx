@@ -19,6 +19,7 @@ import FancyLoader from '../components/FancyLoader'
 import DropdownMenu from '../components/DropdownMenu'
 import ConfirmationModal from '../components/ConfirmationModal'
 import { useToast } from '../contexts/ToastContext'
+import TwemojiDisplay from '../components/TwemojiDisplay'
 
 const SORT_OPTIONS = [
   { label: 'Newest', value: 'created_at', ascending: false },
@@ -250,7 +251,9 @@ const BookmarksView = () => {
                         </div>
                         {space && (
                           <div className="flex items-center gap-1.5">
-                            <span>{space.emoji}</span>
+                            <span>
+                              <TwemojiDisplay emoji={space.emoji} />
+                            </span>
                             <span>{space.label}</span>
                           </div>
                         )}

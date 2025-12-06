@@ -18,17 +18,17 @@ The UI is organized around spaces, chat sessions, and per-message controls (sear
 
 Tracks each chat session and its relationship to spaces.
 
-| Column                | Type        | Notes                                 |
-| --------------------- | ----------- | ------------------------------------- |
-| `id`                  | uuid        | Primary key                           |
+| Column                | Type        | Notes                                  |
+| --------------------- | ----------- | -------------------------------------- |
+| `id`                  | uuid        | Primary key                            |
 | `space_id`            | uuid        | FK -> `spaces.id`, nullable for "None" |
-| `title`               | text        | AI-generated or user-edited           |
-| `api_provider`        | text        | e.g. `gemini`, `openai_compatibility` |
-| `is_search_enabled`   | boolean     | Snapshot from the UI toggle           |
-| `is_thinking_enabled` | boolean     | Snapshot from the UI toggle           |
-| `is_favorited`        | boolean     | Sidebar pin                           |
-| `created_at`          | timestamptz |                                       |
-| `updated_at`          | timestamptz |                                       |
+| `title`               | text        | AI-generated or user-edited            |
+| `api_provider`        | text        | e.g. `gemini`, `openai_compatibility`  |
+| `is_search_enabled`   | boolean     | Snapshot from the UI toggle            |
+| `is_thinking_enabled` | boolean     | Snapshot from the UI toggle            |
+| `is_favorited`        | boolean     | Sidebar pin                            |
+| `created_at`          | timestamptz |                                        |
+| `updated_at`          | timestamptz |                                        |
 
 ## 3. `conversation_messages`
 
@@ -63,10 +63,10 @@ Optional audit table capturing settings changes during a session.
 
 References uploads tied to messages (records image URLs, file metadata).
 
-| Column       | Type        | Notes                           |
-| ------------ | ----------- | ------------------------------- |
-| `id`         | uuid        | PK                              |
+| Column       | Type        | Notes                            |
+| ------------ | ----------- | -------------------------------- |
+| `id`         | uuid        | PK                               |
 | `message_id` | uuid        | FK -> `conversation_messages.id` |
-| `type`       | text        | `image_url`, `file`, etc.       |
-| `data`       | jsonb       | Contains URLs, mime info, etc.  |
-| `created_at` | timestamptz |                                 |
+| `type`       | text        | `image_url`, `file`, etc.        |
+| `data`       | jsonb       | Contains URLs, mime info, etc.   |
+| `created_at` | timestamptz |                                  |

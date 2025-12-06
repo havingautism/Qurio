@@ -1,4 +1,3 @@
-import React from 'react'
 import MainContent from '../components/MainContent'
 import { spaceRoute } from '../router'
 import { useAppContext } from '../App'

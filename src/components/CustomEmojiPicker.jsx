@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import data from '@emoji-mart/data'
 import TwemojiDisplay from './TwemojiDisplay'
 import { Search } from 'lucide-react'

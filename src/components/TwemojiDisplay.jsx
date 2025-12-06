@@ -1,5 +1,3 @@
-import React from 'react'
-
 const TwemojiDisplay = ({ emoji, size = '1em', className = '' }) => {
   if (!emoji) return null
 

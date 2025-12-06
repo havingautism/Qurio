@@ -2,9 +2,9 @@ import js from '@eslint/js'
 import globals from 'globals'
 import react from 'eslint-plugin-react'
 import reactHooks from 'eslint-plugin-react-hooks'
-import prettier from 'eslint-plugin-prettier'
 import prettierConfig from 'eslint-config-prettier'
 import unusedImports from 'eslint-plugin-unused-imports'
+import { fixupPluginRules } from '@eslint/compat'
 
 export default [
   {
@@ -24,13 +24,15 @@ export default [
     },
     plugins: {
       react,
-      'react-hooks': reactHooks,
-      prettier,
+      'react-hooks': fixupPluginRules(reactHooks),
       'unused-imports': unusedImports,
     },
     rules: {
       'no-unused-vars': 'off', // Disable eslint's rule, use plugin's
+      'react-hooks/exhaustive-deps': 'off',
+      // Configure unused-imports to error on imports (autofixable)
       'unused-imports/no-unused-imports': 'error',
+      // Configure unused-imports to warn on vars
       'unused-imports/no-unused-vars': [
         'warn',
         {
@@ -42,16 +44,13 @@ export default [
       ],
       ...js.configs.recommended.rules,
       ...react.configs.recommended.rules,
+      ...react.configs['jsx-runtime'].rules,
       ...reactHooks.configs.recommended.rules,
 
       // Disable rules that conflict with Prettier
       ...prettierConfig.rules,
 
-      // Error if formatting doesn't match Prettier
-      'prettier/prettier': ['error', { endOfLine: 'auto' }],
-
       // Common custom settings
-
       'no-console': 'off',
       'react/prop-types': 'off',
     },

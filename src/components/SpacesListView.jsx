@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { Plus, Clock, MoreHorizontal, Trash2 } from 'lucide-react'
 import clsx from 'clsx'
 import FancyLoader from './FancyLoader'

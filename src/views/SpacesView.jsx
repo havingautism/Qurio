@@ -1,4 +1,3 @@
-import React from 'react'
 import { useAppContext } from '../App'
 import { useNavigate } from '@tanstack/react-router'
 import { LayoutGrid, Plus, Clock, Brain, DollarSign, Laptop } from 'lucide-react'

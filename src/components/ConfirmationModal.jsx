@@ -1,4 +1,3 @@
-import React from 'react'
 import useScrollLock from '../hooks/useScrollLock'
 
 const ConfirmationModal = ({

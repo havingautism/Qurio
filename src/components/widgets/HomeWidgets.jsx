@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Cloud,
   Sun,
@@ -144,7 +144,7 @@ const DateWidget = () => {
 const WeatherWidget = () => {
   // Mock data
   const currentTemp = 7
-  const weatherStatus = 'Cloudy'
+  // const weatherStatus = 'Cloudy'
   const location = 'Shanghai'
   const dateStr = 'Dec 6 Saturday'
 

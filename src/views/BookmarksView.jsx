@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { useAppContext } from '../App'
 import { useNavigate } from '@tanstack/react-router'
 import { listBookmarkedConversations, toggleFavorite } from '../lib/conversationsService'

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import MainContent from '../components/MainContent'
 import FancyLoader from '../components/FancyLoader'
 import { conversationRoute } from '../router'

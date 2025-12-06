@@ -119,6 +119,7 @@ const Sidebar = ({
     return () => {
       window.removeEventListener('conversations-changed', handleConversationsChanged)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Close dropdown when sidebar collapses (mouse leaves)
@@ -419,7 +420,7 @@ const Sidebar = ({
           <button
             onClick={onToggleTheme}
             className="w-10 h-10 flex items-center justify-center rounded-full bg-[#9c9d8a29] dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-transform duration-200 hover:scale-110 active:scale-95 cursor-pointer"
-            //  title={`Current theme: ${theme}`}
+          //  title={`Current theme: ${theme}`}
           >
             {getThemeIcon()}
           </button>

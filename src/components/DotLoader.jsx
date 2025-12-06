@@ -1,5 +1,3 @@
-import React from 'react'
-
 const DotLoader = () => {
   return (
     <div className="flex items-center gap-1 h-full py-1">

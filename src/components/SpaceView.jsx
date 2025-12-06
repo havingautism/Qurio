@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { Layers, MoreHorizontal, Pencil, Trash2, LogOut, Bookmark } from 'lucide-react'
 import clsx from 'clsx'
 import DropdownMenu from './DropdownMenu'

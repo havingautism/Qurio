@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { X } from 'lucide-react'
 import useScrollLock from '../hooks/useScrollLock'
 import TwemojiDisplay from './TwemojiDisplay'

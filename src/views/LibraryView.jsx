@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useAppContext } from '../App'
 import { useNavigate } from '@tanstack/react-router'
 import { listConversations, toggleFavorite } from '../lib/conversationsService'

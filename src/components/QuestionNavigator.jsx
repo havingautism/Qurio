@@ -1,5 +1,3 @@
-import React from 'react'
-
 const QuestionNavigator = ({ items = [], onJump, activeId }) => {
   if (!items.length) return null
 

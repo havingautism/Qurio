@@ -40,18 +40,62 @@ const validateInput = (text, attachments, isLoading) => {
  * @param {Array} attachments - Array of file attachments
  * @returns {Object} User message object with role, content, and timestamp
  */
-const buildUserMessage = (text, attachments) => {
-  // Build content with attachments if present
-  let content = text
-  if (attachments.length > 0) {
-    content = [{ type: 'text', text }, ...attachments]
+const buildUserMessage = (text, attachments, quoteContext) => {
+  const now = new Date().toISOString()
+  const quoteText = quoteContext?.text?.trim()
+
+  const buildContentArray = (textValue, includeQuote = false) => {
+    const textPart = { type: 'text', text: textValue }
+    const parts =
+      includeQuote && quoteText ? [{ type: 'quote', text: quoteText }, textPart] : [textPart]
+    return attachments.length > 0 ? [...parts, ...attachments] : parts
   }
 
-  // Create user message object with timestamp
-  const now = new Date().toISOString()
-  const userMessage = { role: 'user', content, created_at: now }
+  // Content used for UI + persistence (keeps quote separate for rendering)
+  const displayContent =
+    quoteText || attachments.length > 0 ? buildContentArray(text, !!quoteText) : text
 
-  return userMessage
+  // Content sent to the model (include quote text + original source content if provided)
+  const quoteSource = quoteContext?.sourceContent?.trim()
+  const composedQuote = [quoteText, quoteSource].filter(Boolean).join('\n\n')
+  const textWithPrefix =
+    composedQuote && text
+      ? `Quoted from previous answer:\n${composedQuote}\n\nUser question:\n${text}`
+      : text
+  const payloadContent =
+    attachments.length > 0 ? buildContentArray(textWithPrefix, false) : textWithPrefix
+
+  const userMessage = { role: 'user', content: displayContent, created_at: now }
+
+  return { userMessage, payloadContent }
+}
+
+/**
+ * Normalizes message content to be safe for provider payloads (strips custom types like quote)
+ * while preserving attachments and text.
+ */
+const normalizeMessageForSend = message => {
+  if (!message) return message
+  const content = message.content
+  if (Array.isArray(content)) {
+    const attachments = content.filter(part => part?.type === 'image_url')
+    const textValue = content
+      .filter(part => part?.type !== 'image_url')
+      .map(part => {
+        if (typeof part === 'string') return part
+        if (part?.text) return part.text
+        return ''
+      })
+      .filter(Boolean)
+      .join('\n\n')
+
+    const normalizedContent =
+      attachments.length > 0 ? [{ type: 'text', text: textValue }, ...attachments] : textValue
+
+    return { ...message, content: normalizedContent }
+  }
+
+  return message
 }
 
 // ========================================
@@ -66,12 +110,15 @@ const buildUserMessage = (text, attachments) => {
  * @param {Object} userMessage - The new user message to insert
  * @returns {Object} Contains newMessages (for UI) and historyForSend (for API)
  */
-const handleEditingAndHistory = (messages, editingInfo, userMessage) => {
+const handleEditingAndHistory = (messages, editingInfo, userMessage, historyOverride = null) => {
   // Base history for context: when editing, include only messages before the edited one
-  const historyForSend =
+  const baseHistory =
     editingInfo?.index !== undefined && editingInfo.index !== null
       ? messages.slice(0, editingInfo.index)
       : messages
+
+  const historyForSend = historyOverride !== null ? historyOverride : baseHistory
+  const safeHistoryForSend = (historyForSend || []).map(normalizeMessageForSend)
 
   // UI state: remove edited user message (and its paired AI answer if any), then append the new user message at the end
   let newMessages
@@ -89,7 +136,7 @@ const handleEditingAndHistory = (messages, editingInfo, userMessage) => {
     newMessages = [...messages, userMessage]
   }
 
-  return { newMessages, historyForSend }
+  return { newMessages, historyForSend: safeHistoryForSend }
 }
 
 // ========================================
@@ -191,7 +238,7 @@ const persistUserMessage = async (convId, editingInfo, content, set) => {
  * @param {Function} set - Zustand set function
  * @returns {Object} Contains conversationMessages (for API) and aiMessagePlaceholder (for UI)
  */
-const prepareAIPlaceholder = (historyForSend, userMessage, spaceInfo, set, toggles) => {
+const prepareAIPlaceholder = (historyForSend, userMessageForSend, spaceInfo, set, toggles) => {
   const { systemPrompt } = loadSettings()
 
   // Use space prompt if available; otherwise fall back to global system prompt
@@ -203,7 +250,7 @@ const prepareAIPlaceholder = (historyForSend, userMessage, spaceInfo, set, toggl
   ]
 
   // Combine base messages with user message
-  const conversationMessages = [...conversationMessagesBase, userMessage]
+  const conversationMessages = [...conversationMessagesBase, userMessageForSend]
 
   // Create AI message placeholder for streaming updates
   const aiMessagePlaceholder = {
@@ -230,7 +277,7 @@ const prepareAIPlaceholder = (historyForSend, userMessage, spaceInfo, set, toggl
  * @param {Array} spaces - Available spaces for auto-generation
  * @param {Function} get - Zustand get function
  * @param {Function} set - Zustand set function
- * @param {number} historyForSendLength - Length of the history used for the API call
+ * @param {number} historyLengthBeforeSend - Length of the conversation before the current user turn (for metadata)
  * @param {string} firstUserText - Raw text of the current user message
  */
 const callAIAPI = async (
@@ -242,7 +289,7 @@ const callAIAPI = async (
   spaces,
   get,
   set,
-  historyForSendLength,
+  historyLengthBeforeSend,
   firstUserText,
 ) => {
   let streamedThought = ''
@@ -305,7 +352,7 @@ const callAIAPI = async (
           callbacks,
           spaces,
           set,
-          historyForSendLength === 0,
+          historyLengthBeforeSend === 0,
           firstUserText,
         )
       },
@@ -463,7 +510,7 @@ const finalizeMessage = async (
   // Generate related questions
   const sanitizedMessages = currentStore.messages.map(m => ({
     role: m.role === 'ai' ? 'assistant' : m.role,
-    content: m.content,
+    content: normalizeContent(m.content),
   }))
 
   const provider = getProvider(settings.apiProvider)
@@ -659,6 +706,7 @@ const useChatStore = create((set, get) => ({
     editingInfo, // { index, targetId, partnerId } (optional)
     callbacks, // { onTitleAndSpaceGenerated, onSpaceResolved } (optional)
     spaces = [], // passed from component
+    quoteContext = null, // { text, sourceContent, sourceRole }
   }) => {
     const { messages, conversationId, isLoading } = get()
 
@@ -675,15 +723,33 @@ const useChatStore = create((set, get) => ({
     set({ isLoading: true })
 
     // Step 2: Construct User Message
-    const userMessage = buildUserMessage(text, attachments)
+    const { userMessage, payloadContent } = buildUserMessage(text, attachments, quoteContext)
+    const userMessageForSend = { ...userMessage, content: payloadContent }
+
+    const historyOverride =
+      quoteContext && (quoteContext.sourceContent || quoteContext.text)
+        ? [
+            {
+              role: quoteContext.sourceRole || 'assistant',
+              content: quoteContext.sourceContent || quoteContext.text || '',
+            },
+          ]
+        : quoteContext
+          ? []
+          : null
 
     // Step 3: Handle Editing & History
     const { newMessages, historyForSend } = handleEditingAndHistory(
       messages,
       editingInfo,
       userMessage,
+      historyOverride,
     )
     set({ messages: newMessages })
+    const historyLengthBeforeSend =
+      editingInfo?.index !== undefined && editingInfo?.index !== null
+        ? editingInfo.index
+        : messages.length
 
     // Step 4: Ensure Conversation Exists
     let convInfo
@@ -713,7 +779,7 @@ const useChatStore = create((set, get) => ({
     // Step 6: Prepare AI Placeholder
     const { conversationMessages, aiMessagePlaceholder } = prepareAIPlaceholder(
       historyForSend,
-      userMessage,
+      userMessageForSend,
       spaceInfo,
       set,
       toggles,
@@ -729,7 +795,7 @@ const useChatStore = create((set, get) => ({
       spaces,
       get,
       set,
-      historyForSend.length,
+      historyLengthBeforeSend,
       text,
     )
   },

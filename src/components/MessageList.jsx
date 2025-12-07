@@ -7,7 +7,14 @@ import MessageBubble from './MessageBubble'
  * MessageList component that directly consumes chatStore state
  * Eliminates props drilling and automatically responds to message updates
  */
-const MessageList = ({ apiProvider, onRelatedClick, onMessageRef, onEdit, onRegenerateAnswer }) => {
+const MessageList = ({
+  apiProvider,
+  onRelatedClick,
+  onMessageRef,
+  onEdit,
+  onRegenerateAnswer,
+  onQuote,
+}) => {
   // Get messages directly from chatStore using shallow selector
   const { messages } = useChatStore(
     useShallow(state => ({
@@ -26,6 +33,7 @@ const MessageList = ({ apiProvider, onRelatedClick, onMessageRef, onEdit, onRege
           apiProvider={apiProvider}
           onRelatedClick={q => onRelatedClick(q)}
           onEdit={() => onEdit && onEdit(index)}
+          onQuote={onQuote}
           onRegenerateAnswer={() => onRegenerateAnswer && onRegenerateAnswer(index)}
         />
       ))}

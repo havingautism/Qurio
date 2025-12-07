@@ -183,7 +183,7 @@ const ConversationsListView = ({
                         onClick={() => onOpenConversation && onOpenConversation(conversation)}
                       >
                         {/* Conversation Icon */}
-                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center mb-4 text-white">
+                        <div className="w-12 h-12 rounded-full bg-linear-to-br from-cyan-400 to-blue-500 flex items-center justify-center mb-4 text-white">
                           <MessageSquare className="w-6 h-6" />
                         </div>
 

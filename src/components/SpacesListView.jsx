@@ -126,7 +126,7 @@ const SpacesListView = ({
                     onClick={() => onNavigateToSpace && onNavigateToSpace(space)}
                   >
                     {/* Space Icon */}
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center mb-4 text-2xl">
+                    <div className="w-12 h-12 rounded-full bg-linear-to-br from-cyan-400 to-blue-500 flex items-center justify-center mb-4 text-2xl">
                       {/* space.emoji || "📁" */}
                       <TwemojiDisplay emoji={space.emoji || '📁'} size="1.5rem" />
                     </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import useChatStore from '../lib/chatStore'
 import {
@@ -16,6 +16,8 @@ import {
   Pencil,
   Check,
   RefreshCw,
+  // Quote is already imported, avoid duplication if necessary, but here we just list it cleanly
+  Quote,
 } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -52,6 +54,7 @@ const MessageBubble = ({
   bubbleRef,
   onEdit,
   onRegenerateAnswer,
+  onQuote,
 }) => {
   // Get message directly from chatStore using shallow selector
   const { messages } = useChatStore(
@@ -64,6 +67,7 @@ const MessageBubble = ({
   const message = messages[messageIndex]
   const [isDark, setIsDark] = useState(document.documentElement.classList.contains('dark'))
   const mainContentRef = useRef(null)
+  const containerRef = useRef(null) // Local ref for the wrapper
 
   // State to track copy success
   const [isCopied, setIsCopied] = useState(false)
@@ -102,6 +106,53 @@ const MessageBubble = ({
     }
   }, [isCopied])
 
+  // Selection Menu State
+  const [selectionMenu, setSelectionMenu] = useState(null)
+
+  const handleMouseUp = e => {
+    if (e.target.closest('.selection-menu')) return
+
+    const selection = window.getSelection()
+    const text = selection.toString().trim()
+
+    if (!text) {
+      setSelectionMenu(null)
+      return
+    }
+
+    // Ensure we have a reference to the container
+    const container = containerRef.current
+    if (!container) return
+
+    // Check if the selection range is within our container
+    // We check both anchorNode (start) to ensure the selection initiated/belongs to this bubble
+    if (container.contains(selection.anchorNode)) {
+      const range = selection.getRangeAt(0)
+      const rect = range.getBoundingClientRect()
+
+      setSelectionMenu({
+        x: rect.left + rect.width / 2,
+        y: rect.top - 10,
+        text: text,
+      })
+    } else {
+      setSelectionMenu(null)
+    }
+  }
+
+  // Clear menu on click outside
+  useEffect(() => {
+    const handleDocumentClick = e => {
+      // If formatting button, don't clear? No, always clear on click as selection clears usually.
+      if (selectionMenu && !e.target.closest('.selection-menu')) {
+        setSelectionMenu(null)
+      }
+    }
+    // We listen on mousedown or click. Click might be better.
+    document.addEventListener('mousedown', handleDocumentClick)
+    return () => document.removeEventListener('mousedown', handleDocumentClick)
+  }, [selectionMenu])
+
   useEffect(() => {
     const observer = new MutationObserver(mutations => {
       mutations.forEach(mutation => {
@@ -118,18 +169,128 @@ const MessageBubble = ({
   const [showAllSources, setShowAllSources] = useState(false)
   const isUser = message.role === 'user'
 
+  const CodeBlock = ({ inline, className, children, ...props }) => {
+    const match = /language-(\w+)/.exec(className || '')
+    const langLabel = match ? match[1].toUpperCase() : 'CODE'
+
+    if (!inline && match) {
+      return (
+        <div className="relative group my-4 border border-gray-200 dark:border-zinc-700 rounded-xl overflow-hidden bg-gray-50 dark:bg-[#202222]">
+          <div className="flex items-center justify-between px-3 py-2 text-[11px] font-semibold bg-gray-100 dark:bg-[#2a2a2a] text-gray-600 dark:text-gray-300 border-b border-gray-200 dark:border-zinc-700">
+            <span>{langLabel}</span>
+            <button className="px-2 py-1 rounded bg-gray-200 dark:bg-zinc-700 text-gray-700 dark:text-gray-200 text-[11px] opacity-0 group-hover:opacity-100 transition-opacity">
+              Copy
+            </button>
+          </div>
+          <SyntaxHighlighter
+            style={isDark ? oneDark : oneLight}
+            language={match[1]}
+            PreTag="div"
+            className="code-scrollbar text-sm"
+            customStyle={{
+              margin: 0,
+              padding: '1rem',
+              background: 'transparent',
+            }}
+            codeTagProps={{
+              style: {
+                backgroundColor: 'transparent',
+                fontFamily: '"Google Sans Code", monospace',
+              },
+            }}
+            {...props}
+          >
+            {String(children).replace(/\n$/, '')}
+          </SyntaxHighlighter>
+        </div>
+      )
+    }
+
+    return (
+      <code
+        className={`${className} bg-[#f7f1f2] dark:bg-zinc-800 px-1.5 py-0.5 rounded text-sm font-['Google_Sans_Code'] font-semibold text-black dark:text-white`}
+        {...props}
+      >
+        {children}
+      </code>
+    )
+  }
+
+  const markdownComponents = useMemo(
+    () => ({
+      p: ({ node, ...props }) => <p className="mb-4 last:mb-0" {...props} />,
+      h1: ({ node, ...props }) => <h1 className="text-2xl font-bold mb-4 mt-6" {...props} />,
+      h2: ({ node, ...props }) => <h2 className="text-xl font-bold mb-3 mt-5" {...props} />,
+      h3: ({ node, ...props }) => <h3 className="text-lg font-bold mb-2 mt-4" {...props} />,
+      ul: ({ node, ...props }) => <ul className="list-disc pl-5 mb-4 space-y-1" {...props} />,
+      ol: ({ node, ...props }) => <ol className="list-decimal pl-5 mb-4 space-y-1" {...props} />,
+      li: ({ node, ...props }) => <li className="mb-1" {...props} />,
+      blockquote: ({ node, ...props }) => (
+        <blockquote
+          className="border-l-4 border-gray-300 dark:border-zinc-600 pl-4 italic my-4 text-gray-600 dark:text-gray-400"
+          {...props}
+        />
+      ),
+      table: ({ node, ...props }) => (
+        <div className="overflow-x-auto my-4 rounded-lg border border-gray-200 dark:border-zinc-700 table-scrollbar code-scrollbar">
+          <table className="min-w-full divide-y divide-gray-200 dark:divide-zinc-700" {...props} />
+        </div>
+      ),
+      thead: ({ node, ...props }) => <thead className="bg-gray-50 dark:bg-zinc-800" {...props} />,
+      tbody: ({ node, ...props }) => (
+        <tbody
+          className="bg-white dark:bg-zinc-900 divide-y divide-gray-200 dark:divide-zinc-700"
+          {...props}
+        />
+      ),
+      tr: ({ node, ...props }) => <tr {...props} />,
+      th: ({ node, ...props }) => (
+        <th
+          className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
+          {...props}
+        />
+      ),
+      td: ({ node, ...props }) => (
+        <td
+          className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap"
+          {...props}
+        />
+      ),
+      code: CodeBlock,
+      a: ({ node, ...props }) => (
+        <a
+          {...props}
+          target="_blank"
+          rel="noreferrer"
+          className="text-[13px] text-cyan-600 dark:text-cyan-400"
+        />
+      ),
+    }),
+    [isDark], // Depend on isDark because CodeBlock uses it
+  )
+
   if (isUser) {
     let contentToRender = message.content
     let imagesToRender = []
+    let quoteToRender = null
 
     if (Array.isArray(message.content)) {
       const textPart = message.content.find(c => c.type === 'text')
+      quoteToRender = message.content.find(c => c.type === 'quote')
       contentToRender = textPart ? textPart.text : ''
       imagesToRender = message.content.filter(c => c.type === 'image_url')
     }
 
     return (
-      <div id={messageId} ref={bubbleRef} className="flex justify-end w-full mb-8 group">
+      <div
+        id={messageId}
+        ref={el => {
+          containerRef.current = el
+          if (typeof bubbleRef === 'function') bubbleRef(el)
+        }}
+        className="flex justify-end w-full mb-8 group"
+        onMouseUp={handleMouseUp}
+      >
         <div className="flex items-end gap-3">
           {/* Action Buttons */}
           <div className="opacity-0 group-hover:opacity-100 flex  gap-1 transition-opacity duration-200">
@@ -169,6 +330,16 @@ const MessageBubble = ({
                 ))}
               </div>
             )}
+            {quoteToRender && (
+              <div className="bg-white dark:bg-zinc-900 text-gray-700 dark:text-gray-200 px-4 py-3 rounded-2xl rounded-br-sm border border-gray-200 dark:border-zinc-700 max-w-2xl mb-2 shadow-sm">
+                <div className="text-xs font-semibold text-cyan-600 dark:text-cyan-400 uppercase tracking-wide mb-1">
+                  Quoting
+                </div>
+                <div className="text-sm italic text-gray-600 dark:text-gray-300 leading-relaxed">
+                  "{quoteToRender?.text || ''}"
+                </div>
+              </div>
+            )}
             <div className="bg-[#f7f1f2] dark:bg-zinc-800 text-gray-800 dark:text-gray-100 px-5 py-3 rounded-3xl rounded-tr-sm text-base leading-relaxed font-serif">
               {contentToRender}
             </div>
@@ -185,55 +356,81 @@ const MessageBubble = ({
   const mainContent = parsed.content
   const contentWithCitations = formatContentWithSources(mainContent, message.sources)
 
-  const CodeBlock = ({ inline, className, children, ...props }) => {
-    const match = /language-(\w+)/.exec(className || '')
-    const langLabel = match ? match[1].toUpperCase() : 'CODE'
+  // Removed duplicate definitions
 
-    if (!inline && match) {
-      return (
-        <div className="relative group my-4 border border-gray-200 dark:border-zinc-700 rounded-xl overflow-hidden bg-gray-50 dark:bg-[#202222]">
-          <div className="flex items-center justify-between px-3 py-2 text-[11px] font-semibold bg-gray-100 dark:bg-[#2a2a2a] text-gray-600 dark:text-gray-300 border-b border-gray-200 dark:border-zinc-700">
-            <span>{langLabel}</span>
-            <button className="px-2 py-1 rounded bg-gray-200 dark:bg-zinc-700 text-gray-700 dark:text-gray-200 text-[11px] opacity-0 group-hover:opacity-100 transition-opacity">
-              Copy
-            </button>
-          </div>
-          <SyntaxHighlighter
-            style={isDark ? oneDark : oneLight}
-            language={match[1]}
-            PreTag="div"
-            className="code-scrollbar text-sm"
-            customStyle={{
-              margin: 0,
-              padding: '1rem',
-              background: 'transparent', // Let the container handle bg if needed, or use theme's bg
-            }}
-            codeTagProps={{
-              style: {
-                backgroundColor: 'transparent',
-                fontFamily: '"Google Sans Code", monospace',
-              },
-            }}
-            {...props}
-          >
-            {String(children).replace(/\n$/, '')}
-          </SyntaxHighlighter>
-        </div>
-      )
-    }
+  // Wait, CodeBlock uses isDark. Since CodeBlock is defined inside component, it captures closure.
+  // We should pass CodeBlock to useMemo dependency if it's not stable.
+  // Actually, defining CodeBlock inside component makes it unstable too.
+  // Only way to make it stable is to memoize CodeBlock too or move it outside.
+  // Moving CodeBlock outside is hard because it uses `isDark`.
+  // So we memoize `markdownComponents` dependent on `isDark`.
+  // BUT `CodeBlock` function itself changes on every render because it's defined in the function body!
+  // So `markdownComponents` will also change if we include `CodeBlock` in it.
+  // NO, `CodeBlock` variable is new every render.
+  // We must memoize CodeBlock too or move it out.
+  // `isDark` is the only external dependency.
 
-    return (
-      <code
-        className={`${className} bg-[#f7f1f2] dark:bg-zinc-800 px-1.5 py-0.5 rounded text-sm font-['Google_Sans_Code'] font-semibold text-black dark:text-white`}
-        {...props}
-      >
-        {children}
-      </code>
-    )
-  }
+  // Actually, we can just pass CodeBlock into useMemo dependency array.
+  // But CodeBlock is re-created every render.
+  // We need to use useCallback for CodeBlock? No, it's a component.
+  // We should useMemo for CodeBlock definition or move it out and pass isDark as prop?
+  // ReactMarkdown passes props to components. We can't easily pass extra props like isDark.
+  // We can use a context or just keep it simple:
+  // Let's rely on useMemo for markdownComponents, but we need CodeBlock to be stable-ish.
+  // If we mistakenly make CodeBlock unstable, markdownComponents useMemo won't help if we put CodeBlock in dep array.
+  // Actually, if we define markdownComponents with `code: CodeBlock` and `CodeBlock` is new every time,
+  // we effectively need to define `markdownComponents` every time IF we use `CodeBlock` directly.
+
+  // BETTER PLAN: Define `markdownComponents` with `useMemo` and inside that `useMemo`, define `CodeBlock`?
+  // No, `CodeBlock` is a component, it should be defined at top level or memoized.
+
+  // Let's use `useMemo` for `markdownComponents`, and inside `useMemo`, we use a wraper or just the function.
+  // Wait, if `CodeBlock` is defined inside `MessageBubble`, it captures `isDark`.
+  // If we move `CodeBlock` definition inside `useMemo`, it will be stable as long as dependencies don't change.
 
   return (
-    <div id={messageId} ref={bubbleRef} className="w-full max-w-3xl mb-12 flex flex-col gap-6">
+    <div
+      id={messageId}
+      ref={el => {
+        containerRef.current = el
+        if (typeof bubbleRef === 'function') bubbleRef(el)
+      }}
+      className="w-full max-w-3xl mb-12 flex flex-col gap-6 relative"
+      onMouseUp={handleMouseUp}
+    >
+      {/* Selection Menu */}
+      {selectionMenu && (
+        <div
+          className="fixed selection-menu bg-gray-900 text-white dark:bg-zinc-700 rounded-lg shadow-xl flex items-center gap-1 p-1 z-50 transform -translate-x-1/2 -translate-y-full"
+          style={{ left: selectionMenu.x, top: selectionMenu.y }}
+        >
+          <button
+            className="flex items-center gap-1.5 px-2 py-1.5 hover:bg-gray-700 dark:hover:bg-zinc-600 rounded whitespace-nowrap text-xs font-medium transition-colors"
+            onClick={e => {
+              e.stopPropagation()
+              onQuote && onQuote({ text: selectionMenu.text, message })
+              setSelectionMenu(null)
+              window.getSelection().removeAllRanges()
+            }}
+          >
+            <Quote size={12} />
+            Quote
+          </button>
+          <div className="w-px h-3 bg-gray-700 dark:bg-zinc-600 mx-0.5" />
+          <button
+            className="flex items-center gap-1.5 px-2 py-1.5 hover:bg-gray-700 dark:hover:bg-zinc-600 rounded whitespace-nowrap text-xs font-medium transition-colors"
+            onClick={e => {
+              e.stopPropagation()
+              copyToClipboard(selectionMenu.text)
+              setSelectionMenu(null)
+              window.getSelection().removeAllRanges()
+            }}
+          >
+            <Copy size={12} />
+            Copy
+          </button>
+        </div>
+      )}
       {/* Answer Header */}
       <div className="flex items-center gap-3 text-gray-900 dark:text-gray-100">
         <AlignLeft size={24} className="text-cyan-500" />
@@ -256,13 +453,7 @@ const MessageBubble = ({
 
           {isThoughtExpanded && (
             <div className="p-4 bg-gray-50/50 dark:bg-zinc-800/30 border-t border-gray-200 dark:border-zinc-700 text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                components={{
-                  p: ({ node, ...props }) => <p className="mb-2 last:mb-0" {...props} />,
-                  code: CodeBlock,
-                }}
-              >
+              <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
                 {thoughtContent}
               </ReactMarkdown>
             </div>
@@ -315,69 +506,7 @@ const MessageBubble = ({
             <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-5/6"></div>
           </div>
         ) : (
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
-            components={{
-              p: ({ node, ...props }) => <p className="mb-4 last:mb-0" {...props} />,
-              h1: ({ node, ...props }) => (
-                <h1 className="text-2xl font-bold mb-4 mt-6" {...props} />
-              ),
-              h2: ({ node, ...props }) => <h2 className="text-xl font-bold mb-3 mt-5" {...props} />,
-              h3: ({ node, ...props }) => <h3 className="text-lg font-bold mb-2 mt-4" {...props} />,
-              ul: ({ node, ...props }) => (
-                <ul className="list-disc pl-5 mb-4 space-y-1" {...props} />
-              ),
-              ol: ({ node, ...props }) => (
-                <ol className="list-decimal pl-5 mb-4 space-y-1" {...props} />
-              ),
-              li: ({ node, ...props }) => <li className="mb-1" {...props} />,
-              blockquote: ({ node, ...props }) => (
-                <blockquote
-                  className="border-l-4 border-gray-300 dark:border-zinc-600 pl-4 italic my-4 text-gray-600 dark:text-gray-400"
-                  {...props}
-                />
-              ),
-              table: ({ node, ...props }) => (
-                <div className="overflow-x-auto my-4 rounded-lg border border-gray-200 dark:border-zinc-700 table-scrollbar code-scrollbar">
-                  <table
-                    className="min-w-full divide-y divide-gray-200 dark:divide-zinc-700"
-                    {...props}
-                  />
-                </div>
-              ),
-              thead: ({ node, ...props }) => (
-                <thead className="bg-gray-50 dark:bg-zinc-800" {...props} />
-              ),
-              tbody: ({ node, ...props }) => (
-                <tbody
-                  className="bg-white dark:bg-zinc-900 divide-y divide-gray-200 dark:divide-zinc-700"
-                  {...props}
-                />
-              ),
-              tr: ({ node, ...props }) => <tr {...props} />,
-              th: ({ node, ...props }) => (
-                <th
-                  className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
-                  {...props}
-                />
-              ),
-              td: ({ node, ...props }) => (
-                <td
-                  className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap"
-                  {...props}
-                />
-              ),
-              code: CodeBlock,
-              a: ({ node, ...props }) => (
-                <a
-                  {...props}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-[13px] text-cyan-600 dark:text-cyan-400"
-                />
-              ),
-            }}
-          >
+          <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
             {contentWithCitations}
           </ReactMarkdown>
         )}

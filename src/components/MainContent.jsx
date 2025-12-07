@@ -276,13 +276,13 @@ const MainContent = ({
           {/* Main Container */}
           <div className="w-full max-w-3xl flex flex-col items-center gap-8">
             {/* Title */}
-            <h1 className="text-4xl md:text-5xl !font-serif font-medium text-center mb-8 text-[#1f2937] dark:text-white">
+            <h1 className="text-4xl md:text-5xl font-serif! font-medium text-center mb-8 text-[#1f2937] dark:text-white">
               Where knowledge begins
             </h1>
 
             {/* Search Box */}
             <div className="w-full relative group">
-              <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/20 via-blue-500/15 to-purple-500/20 rounded-xl blur-2xl opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-500 pointer-events-none" />
+              <div className="absolute inset-0 bg-linear-to-r from-cyan-500/20 via-blue-500/15 to-purple-500/20 rounded-xl blur-2xl opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-500 pointer-events-none" />
               <div className="relative bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-xl shadow-sm hover:shadow-md transition-all duration-300 p-4">
                 {homeAttachments.length > 0 && (
                   <div className="flex gap-2 mb-3 px-1 overflow-x-auto py-1">

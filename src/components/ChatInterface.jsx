@@ -62,32 +62,15 @@ const ChatInterface = ({
     })),
   )
 
-  const [input, setInput] = useState('')
+  const [quotedText, setQuotedText] = useState(null)
+  const [quoteContext, setQuoteContext] = useState(null)
+  const [editingSeed, setEditingSeed] = useState({ text: '', attachments: [] })
+  const quoteTextRef = useRef('')
+  const quoteSourceRef = useRef('')
 
   // New state for toggles and attachments
   const [isSearchActive, setIsSearchActive] = useState(false)
   const [isThinkingActive, setIsThinkingActive] = useState(false)
-  const [attachments, setAttachments] = useState([])
-
-  const inputRef = useRef('')
-  const attachmentsRef = useRef([])
-
-  // Sync refs with state
-  useEffect(() => {
-    inputRef.current = input
-  }, [input])
-
-  useEffect(() => {
-    attachmentsRef.current = attachments
-  }, [attachments])
-
-  // Auto-resize textarea
-  React.useLayoutEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto'
-      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`
-    }
-  }, [input])
 
   const [selectedSpace, setSelectedSpace] = useState(
     initialSpaceSelection.mode === 'manual' ? initialSpaceSelection.space : null,
@@ -334,36 +317,6 @@ const ChatInterface = ({
     }
   }
 
-  const fileInputRef = useRef(null)
-
-  const handleFileChange = e => {
-    const files = Array.from(e.target.files)
-    if (files.length === 0) return
-
-    files.forEach(file => {
-      if (!file.type.startsWith('image/')) return
-
-      const reader = new FileReader()
-      reader.onload = e => {
-        setAttachments(prev => [
-          ...prev,
-          {
-            type: 'image_url',
-            image_url: { url: e.target.result },
-          },
-        ])
-      }
-      reader.readAsDataURL(file)
-    })
-
-    // Reset input
-    e.target.value = ''
-  }
-
-  const handleFileUpload = () => {
-    fileInputRef.current?.click()
-  }
-
   const registerMessageRef = useCallback((id, msg, el) => {
     if (el) {
       messageRefs.current[id] = el
@@ -499,13 +452,20 @@ const ChatInterface = ({
     [messages],
   )
 
+  // Scroll to bottom helper
+  const scrollToBottom = useCallback((behavior = 'smooth') => {
+    window.scrollTo({
+      top: document.documentElement.scrollHeight,
+      behavior,
+    })
+  }, [])
+
   // State to track if we are editing a message
   const [editingIndex, setEditingIndex] = useState(null)
   const [editingTargetTimestamp, setEditingTargetTimestamp] = useState(null)
   const [editingPartnerTimestamp, setEditingPartnerTimestamp] = useState(null)
   const [editingTargetId, setEditingTargetId] = useState(null)
   const [editingPartnerId, setEditingPartnerId] = useState(null)
-  const textareaRef = useRef(null)
 
   const handleEdit = useCallback(
     index => {
@@ -520,18 +480,16 @@ const ChatInterface = ({
         msgAttachments = msg.content.filter(c => c.type === 'image_url')
       }
 
-      setInput(text)
-      setAttachments(msgAttachments)
+      setEditingSeed({ text, attachments: msgAttachments })
       setEditingIndex(index)
+      setQuotedText(null) // Clear quote when editing
+      setQuoteContext(null)
       setEditingTargetTimestamp(msg.created_at || null)
       setEditingTargetId(msg.id || null)
       const nextMsg = messages[index + 1]
       const hasPartner = nextMsg && nextMsg.role === 'ai'
       setEditingPartnerTimestamp(hasPartner ? nextMsg.created_at || null : null)
       setEditingPartnerId(hasPartner ? nextMsg.id || null : null)
-
-      // Focus input
-      if (textareaRef.current) textareaRef.current.focus()
     },
     [messages],
   )
@@ -543,19 +501,13 @@ const ChatInterface = ({
       togglesOverride = null,
       { skipMeta = false, editingInfoOverride = null } = {},
     ) => {
-      const textToSend = msgOverride !== null ? msgOverride : inputRef.current
-      const attToSend = attOverride !== null ? attOverride : attachmentsRef.current
+      const textToSend = msgOverride !== null ? msgOverride : ''
+      const attToSend = attOverride !== null ? attOverride : []
       const searchActive = togglesOverride ? togglesOverride.search : isSearchActive
       const thinkingActive = togglesOverride ? togglesOverride.thinking : isThinkingActive
 
       if (!textToSend.trim() && attToSend.length === 0) return
       if (isLoading) return
-
-      // Clear input immediately if manual send
-      if (msgOverride === null) {
-        setInput('')
-        setAttachments([])
-      }
 
       const editingInfo =
         editingInfoOverride ||
@@ -573,6 +525,21 @@ const ChatInterface = ({
       setEditingPartnerTimestamp(null)
       setEditingTargetId(null)
       setEditingPartnerId(null)
+      setEditingSeed({ text: '', attachments: [] })
+
+      const quoteContextForSend = quoteContext
+        ? {
+            text: quoteTextRef.current || quoteContext.text,
+            sourceContent: quoteSourceRef.current || quoteContext.sourceContent,
+            sourceRole: quoteContext.sourceRole,
+          }
+        : null
+
+      // Clear quote state immediately so UI banner disappears right after sending
+      setQuotedText(null)
+      setQuoteContext(null)
+      quoteTextRef.current = ''
+      quoteSourceRef.current = ''
 
       await sendMessage({
         text: textToSend,
@@ -589,6 +556,7 @@ const ChatInterface = ({
           },
         },
         spaces,
+        quoteContext: quoteContextForSend,
       })
     },
     [
@@ -604,13 +572,51 @@ const ChatInterface = ({
       isManualSpaceSelection,
       onTitleAndSpaceGenerated,
       spaces,
+      quoteContext,
     ],
   )
 
   const handleRelatedClick = useCallback(
-    q => handleSendMessage(q, null, null, { skipMeta: true }),
+    q => handleSendMessage(q, [], null, { skipMeta: true }),
     [handleSendMessage],
   )
+
+  const handleQuote = useCallback(payload => {
+    const text = typeof payload === 'string' ? payload : payload?.text || ''
+    const message = typeof payload === 'object' ? payload?.message : null
+
+    let sourceContent = ''
+    let sourceRole = 'assistant'
+
+    if (message) {
+      sourceRole = message.role === 'ai' ? 'assistant' : message.role
+      if (typeof message.content === 'string') {
+        sourceContent = message.content
+      } else if (Array.isArray(message.content)) {
+        sourceContent = message.content
+          .filter(part => part.type === 'text' && typeof part.text === 'string')
+          .map(part => part.text)
+          .join('\n')
+      }
+    }
+
+    quoteTextRef.current = text
+    quoteSourceRef.current = sourceContent || text
+
+    const previewText = text.length > 200 ? `${text.slice(0, 200)}…` : text
+
+    setQuotedText(previewText || null)
+    setQuoteContext(
+      text
+        ? {
+            text,
+            sourceRole,
+          }
+        : null,
+    )
+    setEditingIndex(null) // Clear editing when quoting
+    window.requestAnimationFrame(() => document.getElementById('chat-input-textarea')?.focus())
+  }, [])
 
   const handleRegenerateQuestion = useCallback(() => {
     if (isLoading) return
@@ -696,14 +702,6 @@ const ChatInterface = ({
     return ''
   }, [])
 
-  // Scroll to bottom helper
-  const scrollToBottom = useCallback((behavior = 'smooth') => {
-    window.scrollTo({
-      top: document.documentElement.scrollHeight,
-      behavior,
-    })
-  }, [])
-
   // Handle scroll to show/hide button
   useEffect(() => {
     const handleScroll = () => {
@@ -732,7 +730,7 @@ const ChatInterface = ({
   // Initial scroll to bottom
   useEffect(() => {
     if (!isLoadingHistory && messages.length > 0) {
-      setTimeout(() => scrollToBottom('auto'), 100)
+      setTimeout(() => scrollToBottom('auto'), 2000)
     }
   }, [conversationId, isLoadingHistory, scrollToBottom])
 
@@ -882,6 +880,7 @@ const ChatInterface = ({
               onRelatedClick={handleRelatedClick}
               onMessageRef={registerMessageRef}
               onEdit={handleEdit}
+              onQuote={handleQuote}
               onRegenerateAnswer={handleRegenerateAnswer}
             />
             {/* Bottom Anchor */}
@@ -921,129 +920,37 @@ const ChatInterface = ({
       {/* Sticky Input Area */}
       <div
         className={clsx(
-          'fixed bottom-0 right-0 bg-gradient-to-t from-background via-background to-transparent pb-6 pt-10 px-4 flex justify-center z-10 transition-all duration-300',
+          'fixed bottom-0 right-0 bg-linear-to-t from-background via-background to-transparent pb-6 pt-10 px-4 flex justify-center z-10 transition-all duration-300',
           isSidebarPinned ? 'left-80' : 'left-16',
         )}
-        // className={
-        //   "fixed bottom-0 left-0 right-0 bg-gradient-to-t from-background via-background to-transparent pb-6 pt-10 px-4 flex justify-center z-10 transition-all duration-300"
-
-        // }
       >
-        <div className="w-full max-w-3xl relative group">
-          <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/20 via-blue-500/15 to-purple-500/20 rounded-xl blur-2xl opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-500 pointer-events-none" />
-          <div className="relative bg-gray-100 dark:bg-zinc-800 border border-transparent focus-within:border-gray-300 dark:focus-within:border-zinc-600 rounded-xl transition-all duration-300 p-3 shadow-sm hover:shadow-lg group-hover:shadow-lg focus-within:shadow-xl">
-            {/* Edit Context Banner */}
-            {editingIndex !== null && messages[editingIndex] && (
-              <div className="flex items-center justify-between bg-gray-200 dark:bg-zinc-700/50 rounded-lg px-3 py-2 mb-2 ">
-                <div className="flex items-center gap-3 overflow-hidden">
-                  <div className="flex flex-col">
-                    <span className="text-xs font-semibold text-cyan-600 dark:text-cyan-400 uppercase tracking-wide">
-                      Editing
-                    </span>
-                    <span className="text-sm text-gray-600 dark:text-gray-300 truncate max-w-[200px] md:max-w-md">
-                      {extractUserQuestion(messages[editingIndex])}
-                    </span>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setEditingIndex(null)}
-                  className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors rounded-full hover:bg-gray-300 dark:hover:bg-zinc-600"
-                >
-                  <X size={14} />
-                </button>
-              </div>
-            )}
-
-            {attachments.length > 0 && (
-              <div className="flex gap-2 mb-3 px-1 overflow-x-auto py-1">
-                {attachments.map((att, idx) => (
-                  <div key={idx} className="relative group shrink-0">
-                    <div className="w-16 h-16 rounded-xl overflow-hidden border border-gray-200 dark:border-zinc-700 shadow-sm">
-                      <img
-                        src={att.image_url.url}
-                        alt="attachment"
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                    <button
-                      onClick={() => setAttachments(attachments.filter((_, i) => i !== idx))}
-                      className="absolute -top-1.5 -right-1.5 bg-gray-900 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity shadow-md"
-                    >
-                      <X size={12} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-            <textarea
-              value={input}
-              ref={textareaRef}
-              onChange={e => setInput(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault()
-                  handleSendMessage()
-                }
-              }}
-              placeholder="Ask follow-up..."
-              className="w-full bg-transparent border-none outline-none resize-none text-base placeholder-gray-500 dark:placeholder-gray-400 min-h-[44px] max-h-[200px] overflow-y-auto py-2"
-              rows={1}
-            />
-
-            <div className="flex justify-between items-center mt-2">
-              <div className="flex gap-2">
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleFileChange}
-                  accept="image/*"
-                  multiple
-                  className="hidden"
-                />
-                <button
-                  onClick={handleFileUpload}
-                  className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
-                    attachments.length > 0 ? 'text-cyan-500' : 'text-gray-500 dark:text-gray-400'
-                  }`}
-                >
-                  <Paperclip size={18} />
-                </button>
-                <button
-                  onClick={() => setIsThinkingActive(!isThinkingActive)}
-                  className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
-                    isThinkingActive
-                      ? 'text-cyan-500 bg-gray-200 dark:bg-zinc-700'
-                      : 'text-gray-500 dark:text-gray-400'
-                  }`}
-                >
-                  <Brain size={18} />
-                  <span>Think</span>
-                </button>
-                <button
-                  disabled={settings.apiProvider === 'openai_compatibility'}
-                  onClick={() => setIsSearchActive(!isSearchActive)}
-                  className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
-                    isSearchActive
-                      ? 'text-cyan-500 bg-gray-200 dark:bg-zinc-700'
-                      : 'text-gray-500 dark:text-gray-400'
-                  }`}
-                >
-                  <Globe size={18} />
-                  <span>Search</span>
-                </button>
-              </div>
-
-              <div className="flex gap-2">
-                <button
-                  onClick={() => handleSendMessage()}
-                  disabled={isLoading || (!input.trim() && attachments.length === 0)}
-                  className="p-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-full transition-colors disabled:opacity-50  disabled:hover:bg-cyan-500"
-                >
-                  <ArrowRight size={18} />
-                </button>
-              </div>
-            </div>
-          </div>
+        <div className="w-full max-w-3xl">
+          <InputBar
+            isLoading={isLoading}
+            apiProvider={settings.apiProvider}
+            isSearchActive={isSearchActive}
+            isThinkingActive={isThinkingActive}
+            onToggleSearch={() => setIsSearchActive(prev => !prev)}
+            onToggleThinking={() => setIsThinkingActive(prev => !prev)}
+            quotedText={quotedText}
+            onQuoteClear={() => {
+              setQuotedText(null)
+              setQuoteContext(null)
+              quoteTextRef.current = ''
+              quoteSourceRef.current = ''
+            }}
+            onSend={(text, attachments) =>
+              handleSendMessage(text, attachments, null, { skipMeta: false })
+            }
+            editingSeed={editingSeed}
+            onEditingClear={() => {
+              setEditingIndex(null)
+              setEditingSeed({ text: '', attachments: [] })
+            }}
+            showEditing={editingIndex !== null && messages[editingIndex]}
+            editingLabel={editingIndex !== null ? extractUserQuestion(messages[editingIndex]) : ''}
+            scrollToBottom={scrollToBottom}
+          />
           <div className="text-center mt-2 text-xs text-gray-400 dark:text-gray-500">
             Filo can make mistakes. Please use with caution.
           </div>
@@ -1054,3 +961,222 @@ const ChatInterface = ({
 }
 
 export default ChatInterface
+
+const InputBar = React.memo(
+  ({
+    isLoading,
+    apiProvider,
+    isSearchActive,
+    isThinkingActive,
+    onToggleSearch,
+    onToggleThinking,
+    quotedText,
+    onQuoteClear,
+    onSend,
+    editingSeed,
+    onEditingClear,
+    showEditing,
+    editingLabel,
+    scrollToBottom,
+  }) => {
+    const [inputValue, setInputValue] = useState('')
+    const [attachments, setAttachments] = useState([])
+    const textareaRef = useRef(null)
+    const fileInputRef = useRef(null)
+
+    useEffect(() => {
+      setInputValue(editingSeed?.text || '')
+      setAttachments(editingSeed?.attachments || [])
+      if (editingSeed?.text || (editingSeed?.attachments || []).length > 0) {
+        window.requestAnimationFrame(() => textareaRef.current?.focus())
+      }
+    }, [editingSeed])
+
+    React.useLayoutEffect(() => {
+      if (textareaRef.current) {
+        textareaRef.current.style.height = 'auto'
+        textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`
+      }
+    }, [inputValue])
+
+    const handleFileChange = e => {
+      const files = Array.from(e.target.files)
+      if (files.length === 0) return
+
+      files.forEach(file => {
+        if (!file.type.startsWith('image/')) return
+
+        const reader = new FileReader()
+        reader.onload = evt => {
+          setAttachments(prev => [
+            ...prev,
+            {
+              type: 'image_url',
+              image_url: { url: evt.target.result },
+            },
+          ])
+        }
+        reader.readAsDataURL(file)
+      })
+
+      e.target.value = ''
+    }
+
+    const handleSend = () => {
+      if (isLoading) return
+      const text = inputValue
+      const hasContent = text.trim() || attachments.length > 0
+      if (!hasContent) return
+      onSend(text, attachments)
+      setInputValue('')
+      setAttachments([])
+      onEditingClear?.()
+      scrollToBottom('auto')
+    }
+
+    const handleKeyDown = e => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault()
+        handleSend()
+      }
+    }
+
+    return (
+      <div className="w-full max-w-3xl relative group">
+        <div className="absolute inset-0 bg-linear-to-r from-cyan-500/20 via-blue-500/15 to-purple-500/20 rounded-xl blur-2xl opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-500 pointer-events-none" />
+        <div className="relative bg-gray-100 dark:bg-zinc-800 border border-transparent focus-within:border-gray-300 dark:focus-within:border-zinc-600 rounded-xl transition-all duration-300 p-3 shadow-sm hover:shadow-lg group-hover:shadow-lg focus-within:shadow-xl">
+          {showEditing && (
+            <div className="flex items-center justify-between bg-gray-200 dark:bg-zinc-700/50 rounded-lg px-3 py-2 mb-2 ">
+              <div className="flex items-center gap-3 overflow-hidden">
+                <div className="flex flex-col">
+                  <span className="text-xs font-semibold text-cyan-600 dark:text-cyan-400 uppercase tracking-wide">
+                    Editing
+                  </span>
+                  <span className="text-sm text-gray-600 dark:text-gray-300 truncate max-w-[200px] md:max-w-md">
+                    {editingLabel}
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={() => onEditingClear?.()}
+                className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors rounded-full hover:bg-gray-300 dark:hover:bg-zinc-600"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          )}
+
+          {quotedText && (
+            <div className="flex items-center justify-between bg-gray-200 dark:bg-zinc-700/50 rounded-lg px-3 py-2 mb-2">
+              <div className="flex items-center gap-3 overflow-hidden">
+                <div className="flex flex-col min-w-0">
+                  <span className="text-xs font-semibold text-cyan-600 dark:text-cyan-400 uppercase tracking-wide">
+                    Quote
+                  </span>
+                  <span className="text-sm text-gray-600 dark:text-gray-300 truncate max-w-[200px] md:max-w-md italic">
+                    &quot;{quotedText}&quot;
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={onQuoteClear}
+                className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors rounded-full hover:bg-gray-300 dark:hover:bg-zinc-600"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          )}
+
+          {attachments.length > 0 && (
+            <div className="flex gap-2 mb-3 px-1 overflow-x-auto py-1">
+              {attachments.map((att, idx) => (
+                <div key={idx} className="relative group shrink-0">
+                  <div className="w-16 h-16 rounded-xl overflow-hidden border border-gray-200 dark:border-zinc-700 shadow-sm">
+                    <img
+                      src={att.image_url.url}
+                      alt="attachment"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <button
+                    onClick={() => setAttachments(attachments.filter((_, i) => i !== idx))}
+                    className="absolute -top-1.5 -right-1.5 bg-gray-900 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity shadow-md"
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <textarea
+            id="chat-input-textarea"
+            value={inputValue}
+            ref={textareaRef}
+            onChange={e => setInputValue(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Ask follow-up..."
+            className="w-full bg-transparent border-none outline-none resize-none text-base placeholder-gray-500 dark:placeholder-gray-400 min-h-[44px] max-h-[200px] overflow-y-auto py-2"
+            rows={1}
+          />
+
+          <div className="flex justify-between items-center mt-2">
+            <div className="flex gap-2">
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                accept="image/*"
+                multiple
+                className="hidden"
+              />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
+                  attachments.length > 0 ? 'text-cyan-500' : 'text-gray-500 dark:text-gray-400'
+                }`}
+              >
+                <Paperclip size={18} />
+              </button>
+              <button
+                onClick={onToggleThinking}
+                className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
+                  isThinkingActive
+                    ? 'text-cyan-500 bg-gray-200 dark:bg-zinc-700'
+                    : 'text-gray-500 dark:text-gray-400'
+                }`}
+              >
+                <Brain size={18} />
+                <span>Think</span>
+              </button>
+              <button
+                disabled={apiProvider === 'openai_compatibility'}
+                onClick={onToggleSearch}
+                className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
+                  isSearchActive
+                    ? 'text-cyan-500 bg-gray-200 dark:bg-zinc-700'
+                    : 'text-gray-500 dark:text-gray-400'
+                }`}
+              >
+                <Globe size={18} />
+                <span>Search</span>
+              </button>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={handleSend}
+                disabled={isLoading || (!inputValue.trim() && attachments.length === 0)}
+                className="p-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-full transition-colors disabled:opacity-50  disabled:hover:bg-cyan-500"
+              >
+                <ArrowRight size={18} />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  },
+)
+
+InputBar.displayName = 'InputBar'

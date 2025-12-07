@@ -1,4 +1,5 @@
 import * as openaiCompatibility from './openai_compatibility'
+import * as siliconflow from './siliconflow'
 import * as gemini from './gemini'
 
 /**
@@ -34,11 +35,16 @@ const defaultParseMessage = input => {
     typeof input === 'object' &&
     (Object.prototype.hasOwnProperty.call(input, 'thought') ||
       Object.prototype.hasOwnProperty.call(input, 'thinking_process') ||
-      Object.prototype.hasOwnProperty.call(input, 'thinkingProcess'))
+      Object.prototype.hasOwnProperty.call(input, 'thinkingProcess') ||
+      Object.prototype.hasOwnProperty.call(input, 'reasoning_content'))
 
   if (hasExplicitThought) {
     const thoughtField =
-      input.thought ?? input.thinking_process ?? input.thinkingProcess ?? input?.thought
+      input.thought ??
+      input.thinking_process ??
+      input.thinkingProcess ??
+      input?.thought ??
+      input?.reasoning_content
     const thoughtText = extractText(thoughtField)
     const rawContent = extractText(input.content || '')
     return {
@@ -93,6 +99,23 @@ export const PROVIDERS = {
                 },
               },
             },
+          }
+        : undefined,
+    parseMessage: defaultParseMessage,
+  },
+  siliconflow: {
+    ...siliconflow,
+    id: 'siliconflow',
+    name: 'SiliconFlow',
+    getCredentials: settings => ({
+      apiKey: settings.SiliconFlowKey || settings.OpenAICompatibilityKey,
+      baseUrl: settings.SiliconFlowUrl || settings.OpenAICompatibilityUrl,
+    }),
+    getTools: () => undefined,
+    getThinking: isThinkingActive =>
+      isThinkingActive
+        ? {
+            budget_tokens: 1024,
           }
         : undefined,
     parseMessage: defaultParseMessage,

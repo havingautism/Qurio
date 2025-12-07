@@ -94,7 +94,10 @@ const MainContent = ({
     const handleSettingsChange = () => {
       const newSettings = loadSettings()
       setSettings(newSettings)
-      if (newSettings.apiProvider === 'openai_compatibility') {
+      if (
+        newSettings.apiProvider === 'openai_compatibility' ||
+        newSettings.apiProvider === 'siliconflow'
+      ) {
         setIsHomeSearchActive(false)
       }
     }
@@ -357,7 +360,10 @@ const MainContent = ({
                       <span>Think</span>
                     </button>
                     <button
-                      disabled={settings.apiProvider === 'openai_compatibility'}
+                      disabled={
+                        settings.apiProvider === 'openai_compatibility' ||
+                        settings.apiProvider === 'siliconflow'
+                      }
                       value={isHomeSearchActive}
                       onClick={() => setIsHomeSearchActive(!isHomeSearchActive)}
                       className={`p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${

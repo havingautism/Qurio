@@ -25,6 +25,8 @@ export const loadSettings = (overrides = {}) => {
   const localSupabaseKey = localStorage.getItem('supabaseKey')
   const localOpenAIKey = localStorage.getItem('OpenAICompatibilityKey')
   const localOpenAIUrl = localStorage.getItem('OpenAICompatibilityUrl')
+  const localSiliconFlowKey = localStorage.getItem('SiliconFlowKey')
+  const localSiliconFlowUrl = localStorage.getItem('SiliconFlowUrl')
 
   // Model configuration
   const localLiteModel = localStorage.getItem('liteModel')
@@ -64,6 +66,16 @@ export const loadSettings = (overrides = {}) => {
       localOpenAIUrl ||
       overrides.OpenAICompatibilityUrl ||
       '',
+    SiliconFlowKey:
+      import.meta.env.PUBLIC_SILICONFLOW_API_KEY ||
+      localSiliconFlowKey ||
+      overrides.SiliconFlowKey ||
+      '',
+    SiliconFlowUrl:
+      import.meta.env.PUBLIC_SILICONFLOW_BASE_URL ||
+      localSiliconFlowUrl ||
+      overrides.SiliconFlowUrl ||
+      '',
 
     // API Provider
     apiProvider: localStorage.getItem('apiProvider') || overrides.apiProvider || 'gemini',
@@ -102,6 +114,12 @@ export const saveSettings = async settings => {
   }
   if (settings.OpenAICompatibilityUrl !== undefined) {
     localStorage.setItem('OpenAICompatibilityUrl', settings.OpenAICompatibilityUrl)
+  }
+  if (settings.SiliconFlowKey !== undefined) {
+    localStorage.setItem('SiliconFlowKey', settings.SiliconFlowKey)
+  }
+  if (settings.SiliconFlowUrl !== undefined) {
+    localStorage.setItem('SiliconFlowUrl', settings.SiliconFlowUrl)
   }
   if (settings.apiProvider !== undefined) {
     localStorage.setItem('apiProvider', settings.apiProvider)

@@ -28,6 +28,8 @@ const ENV_VARS = {
   openAIKey: import.meta.env.PUBLIC_OPENAI_API_KEY,
   openAIBaseUrl: import.meta.env.PUBLIC_OPENAI_BASE_URL,
   googleApiKey: import.meta.env.PUBLIC_GOOGLE_API_KEY,
+  siliconFlowKey: import.meta.env.PUBLIC_SILICONFLOW_API_KEY,
+  siliconFlowBaseUrl: import.meta.env.PUBLIC_SILICONFLOW_BASE_URL,
 }
 
 // Model options registry by provider for maintainability/expansion
@@ -45,11 +47,23 @@ const MODEL_OPTION_SETS = {
     { value: 'gpt-4.1-mini', label: 'gpt-4.1-mini' },
     { value: 'o3-mini', label: 'o3-mini' },
   ],
+  siliconflow: [
+    { value: 'deepseek-chat', label: 'deepseek-chat' },
+    { value: 'deepseek-reasoner', label: 'deepseek-reasoner' },
+    { value: 'deepseek-reasoner-lite', label: 'deepseek-reasoner-lite' },
+    { value: 'gpt-4o', label: 'gpt-4o' },
+  ],
   __fallback__: [],
 }
 
 const getModelOptionsForProvider = provider =>
   MODEL_OPTION_SETS[provider] || MODEL_OPTION_SETS.__fallback__
+
+const PROVIDER_LABELS = {
+  gemini: 'Google Gemini',
+  openai_compatibility: 'OpenAI Compatible',
+  siliconflow: 'SiliconFlow',
+}
 
 const SettingsModal = ({ isOpen, onClose }) => {
   const renderEnvHint = hasEnv =>
@@ -58,6 +72,8 @@ const SettingsModal = ({ isOpen, onClose }) => {
   const [activeTab, setActiveTab] = useState('general')
   const [OpenAICompatibilityKey, setOpenAICompatibilityKey] = useState('')
   const [OpenAICompatibilityUrl, setOpenAICompatibilityUrl] = useState('')
+  const [SiliconFlowKey, setSiliconFlowKey] = useState('')
+  const [SiliconFlowUrl, setSiliconFlowUrl] = useState('')
   const [apiProvider, setApiProvider] = useState('gemini')
   const [googleApiKey, setGoogleApiKey] = useState('')
   const [supabaseUrl, setSupabaseUrl] = useState('')
@@ -110,6 +126,8 @@ const SettingsModal = ({ isOpen, onClose }) => {
         setOpenAICompatibilityKey(settings.OpenAICompatibilityKey)
       if (settings.OpenAICompatibilityUrl)
         setOpenAICompatibilityUrl(settings.OpenAICompatibilityUrl)
+      if (settings.SiliconFlowKey) setSiliconFlowKey(settings.SiliconFlowKey)
+      if (settings.SiliconFlowUrl) setSiliconFlowUrl(settings.SiliconFlowUrl)
       if (settings.apiProvider) setApiProvider(settings.apiProvider)
       if (settings.googleApiKey) setGoogleApiKey(settings.googleApiKey)
       if (settings.systemPrompt) setSystemPrompt(settings.systemPrompt)
@@ -141,6 +159,8 @@ const SettingsModal = ({ isOpen, onClose }) => {
       googleApiKey,
       OpenAICompatibilityKey,
       OpenAICompatibilityUrl,
+      SiliconFlowKey,
+      SiliconFlowUrl,
       supabaseUrl,
       supabaseKey,
       systemPrompt,
@@ -217,9 +237,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                       <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
                         <Box size={16} />
                       </div>
-                      <span>
-                        {apiProvider === 'gemini' ? 'Google Gemini' : 'OpenAI Compatible'}
-                      </span>
+                      <span>{PROVIDER_LABELS[apiProvider] || apiProvider}</span>
                       <ChevronDown
                         size={16}
                         className={clsx(
@@ -252,6 +270,18 @@ const SettingsModal = ({ isOpen, onClose }) => {
                         >
                           <span>OpenAI Compatible</span>
                           {apiProvider === 'openai_compatibility' && (
+                            <Check size={14} className="text-cyan-500" />
+                          )}
+                        </button>
+                        <button
+                          onClick={() => {
+                            setApiProvider('siliconflow')
+                            setIsProviderDropdownOpen(false)
+                          }}
+                          className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
+                        >
+                          <span>SiliconFlow</span>
+                          {apiProvider === 'siliconflow' && (
                             <Check size={14} className="text-cyan-500" />
                           )}
                         </button>
@@ -331,6 +361,56 @@ const SettingsModal = ({ isOpen, onClose }) => {
                           />
                         </div>
                         {renderEnvHint(Boolean(ENV_VARS.openAIBaseUrl))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* SiliconFlow Settings */}
+                  {apiProvider === 'siliconflow' && (
+                    <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                      <div className="flex flex-col gap-2">
+                        <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                          SiliconFlow API Key
+                        </label>
+                        <div className="relative">
+                          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                            <Key size={16} />
+                          </div>
+                          <input
+                            type="password"
+                            value={SiliconFlowKey}
+                            onChange={e => setSiliconFlowKey(e.target.value)}
+                            placeholder="sk-..."
+                            disabled={Boolean(ENV_VARS.siliconFlowKey)}
+                            className={clsx(
+                              'w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
+                              ENV_VARS.siliconFlowKey && 'opacity-70 cursor-not-allowed',
+                            )}
+                          />
+                        </div>
+                        {renderEnvHint(Boolean(ENV_VARS.siliconFlowKey))}
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                          Base URL
+                        </label>
+                        <div className="relative">
+                          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                            <Link size={16} />
+                          </div>
+                          <input
+                            type="text"
+                            value={SiliconFlowUrl}
+                            onChange={e => setSiliconFlowUrl(e.target.value)}
+                            placeholder="https://api.siliconflow.cn/v1"
+                            disabled={Boolean(ENV_VARS.siliconFlowBaseUrl)}
+                            className={clsx(
+                              'w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
+                              ENV_VARS.siliconFlowBaseUrl && 'opacity-70 cursor-not-allowed',
+                            )}
+                          />
+                        </div>
+                        {renderEnvHint(Boolean(ENV_VARS.siliconFlowBaseUrl))}
                       </div>
                     </div>
                   )}
@@ -674,7 +754,11 @@ const SettingsModal = ({ isOpen, onClose }) => {
 
                 <div className="flex flex-col gap-2">
                   <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                    {apiProvider === 'gemini' ? 'Gemini Model ID' : 'OpenAI Model ID'}
+                    {apiProvider === 'gemini'
+                      ? 'Gemini Model ID'
+                      : apiProvider === 'siliconflow'
+                        ? 'SiliconFlow Model ID'
+                        : 'OpenAI Model ID'}
                   </label>
                   <div className="relative">
                     <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
@@ -684,13 +768,23 @@ const SettingsModal = ({ isOpen, onClose }) => {
                       type="text"
                       value={modelId}
                       onChange={e => setModelId(e.target.value)}
-                      placeholder={apiProvider === 'gemini' ? 'gemini-2.0-flash-exp' : 'gpt-4o'}
+                      placeholder={
+                        apiProvider === 'gemini'
+                          ? 'gemini-2.0-flash-exp'
+                          : apiProvider === 'siliconflow'
+                            ? 'deepseek-chat'
+                            : 'gpt-4o'
+                      }
                       className="w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600"
                     />
                   </div>
                   <p className="text-[10px] text-gray-400">
                     Enter the specific model identifier you wish to use (e.g.,{' '}
-                    {apiProvider === 'gemini' ? 'gemini-1.5-pro' : 'gpt-3.5-turbo'}
+                    {apiProvider === 'gemini'
+                      ? 'gemini-1.5-pro'
+                      : apiProvider === 'siliconflow'
+                        ? 'deepseek-reasoner'
+                        : 'gpt-3.5-turbo'}
                     ).
                   </p>
                 </div>

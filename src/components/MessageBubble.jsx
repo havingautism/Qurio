@@ -265,6 +265,14 @@ const MessageBubble = ({
           className="text-[13px] text-cyan-600 dark:text-cyan-400"
         />
       ),
+      hr: () => (
+        <div className="relative my-6">
+          <div className="h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent dark:via-zinc-700" />
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="w-2.5 h-2.5 rounded-full bg-gray-200 dark:bg-zinc-700 shadow-sm ring-2 ring-white dark:ring-zinc-900" />
+          </div>
+        </div>
+      ),
     }),
     [isDark], // Depend on isDark because CodeBlock uses it
   )

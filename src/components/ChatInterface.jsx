@@ -107,7 +107,7 @@ const ChatInterface = ({
   useEffect(() => {
     const handleSettingsChange = () => {
       setSettings(loadSettings())
-      if (settings.apiProvider === 'openai_compatibility') {
+      if (settings.apiProvider === 'openai_compatibility' || settings.apiProvider === 'siliconflow') {
         setIsSearchActive(false)
       }
     }
@@ -1150,7 +1150,7 @@ const InputBar = React.memo(
                 <span>Think</span>
               </button>
               <button
-                disabled={apiProvider === 'openai_compatibility'}
+                disabled={apiProvider === 'openai_compatibility' || apiProvider === 'siliconflow'}
                 onClick={onToggleSearch}
                 className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
                   isSearchActive

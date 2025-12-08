@@ -59,7 +59,9 @@ const FALLBACK_MODEL_OPTIONS = {
 }
 
 const getModelOptionsForProvider = (provider, dynamicModels) =>
-  dynamicModels && dynamicModels.length > 0 ? dynamicModels : FALLBACK_MODEL_OPTIONS[provider] || FALLBACK_MODEL_OPTIONS.__fallback__
+  dynamicModels && dynamicModels.length > 0
+    ? dynamicModels
+    : FALLBACK_MODEL_OPTIONS[provider] || FALLBACK_MODEL_OPTIONS.__fallback__
 
 const PROVIDER_LABELS = {
   gemini: 'Google Gemini',
@@ -174,7 +176,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
       } else if (apiProvider === 'siliconflow') {
         credentials = {
           apiKey: SiliconFlowKey,
-          baseUrl: SiliconFlowUrl || 'https://api.siliconflow.cn/v1'
+          baseUrl: SiliconFlowUrl || 'https://api.siliconflow.cn/v1',
         }
       }
 
@@ -428,7 +430,10 @@ const SettingsModal = ({ isOpen, onClose }) => {
                             disabled={isLoadingModels}
                             className="flex items-center gap-1 text-xs px-3 py-1 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-md transition-colors disabled:opacity-50"
                           >
-                            <RefreshCw size={12} className={clsx(isLoadingModels && 'animate-spin')} />
+                            <RefreshCw
+                              size={12}
+                              className={clsx(isLoadingModels && 'animate-spin')}
+                            />
                             {isLoadingModels ? 'Refreshing...' : 'Refresh Models'}
                           </button>
                         </div>
@@ -517,7 +522,10 @@ const SettingsModal = ({ isOpen, onClose }) => {
                               disabled={isLoadingModels}
                               className="flex items-center gap-1 text-xs px-3 py-1 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-md transition-colors disabled:opacity-50"
                             >
-                              <RefreshCw size={12} className={clsx(isLoadingModels && 'animate-spin')} />
+                              <RefreshCw
+                                size={12}
+                                className={clsx(isLoadingModels && 'animate-spin')}
+                              />
                               {isLoadingModels ? 'Refreshing...' : 'Refresh Models'}
                             </button>
                           </div>

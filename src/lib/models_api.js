@@ -3,7 +3,7 @@
  */
 
 // Fetch available models from Google Gemini
-export const fetchGeminiModels = async (apiKey) => {
+export const fetchGeminiModels = async apiKey => {
   if (!apiKey) {
     throw new Error('API Key is required')
   }
@@ -21,7 +21,7 @@ export const fetchGeminiModels = async (apiKey) => {
           'Content-Type': 'application/json',
         },
         signal: controller.signal,
-      }
+      },
     )
 
     clearTimeout(timeoutId)
@@ -37,9 +37,10 @@ export const fetchGeminiModels = async (apiKey) => {
 
     // Filter for chat models that support generateContent
     const models = data.models
-      .filter(model =>
-        model.name.includes('gemini') &&
-        model.supportedGenerationMethods?.includes('generateContent')
+      .filter(
+        model =>
+          model.name.includes('gemini') &&
+          model.supportedGenerationMethods?.includes('generateContent'),
       )
       .map(model => {
         // Extract model name from the full path
@@ -81,10 +82,14 @@ export const fetchSiliconFlowModels = async (apiKey, baseUrl = 'https://api.sili
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 second timeout
 
-    const response = await fetch(`${baseUrl}/models`, {
+    // Only request chat models via sub_type query param per SiliconFlow docs
+    const url = new URL(`${baseUrl.replace(/\/$/, '')}/models`)
+    url.searchParams.set('sub_type', 'chat')
+
+    const response = await fetch(url.toString(), {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
+        Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       signal: controller.signal,
@@ -110,13 +115,15 @@ export const fetchSiliconFlowModels = async (apiKey, baseUrl = 'https://api.sili
         const id = model.id.toLowerCase()
 
         // Exclude non-chat models (e.g., embedding models, image generation models)
-        if (id.includes('embed') ||
-            id.includes('embedding') ||
-            id.includes('whisper') ||
-            id.includes('tts') ||
-            id.includes('stable-diffusion') ||
-            id.includes('image') ||
-            id.includes('vision') && !id.includes('llava')) {
+        if (
+          id.includes('embed') ||
+          id.includes('embedding') ||
+          id.includes('whisper') ||
+          id.includes('tts') ||
+          id.includes('stable-diffusion') ||
+          id.includes('image') ||
+          (id.includes('vision') && !id.includes('llava'))
+        ) {
           return false
         }
 

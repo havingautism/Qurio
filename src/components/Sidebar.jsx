@@ -720,7 +720,7 @@ const Sidebar = ({
                   <React.Fragment key={space.id || space.label}>
                     <div
                       onClick={() => onNavigateToSpace(space)}
-                      className="flex items-center justify-between p-2 rounded hover:bg-gray-200 dark:hover:bg-zinc-800 cursor-pointer transition-colors group"
+                      className="flex items-center justify-between p-2 rounded  cursor-pointer transition-colors group"
                     >
                       <div className="flex items-center gap-3">
                         <button
@@ -728,7 +728,7 @@ const Sidebar = ({
                             e.stopPropagation()
                             toggleSpace(space.id)
                           }}
-                          className="p-1 -ml-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+                          className="p-1 -ml-1 hover:bg-gray-200 dark:hover:bg-zinc-800 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
                         >
                           <ChevronDown
                             size={14}
@@ -741,7 +741,7 @@ const Sidebar = ({
                         <div className="w-8 h-8 rounded bg-gray-100 dark:bg-zinc-800  flex items-center justify-center group-hover:border-gray-300 dark:group-hover:border-zinc-600 text-lg">
                           <TwemojiDisplay emoji={space.emoji} />
                         </div>
-                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
                           {space.label}
                         </span>
                       </div>
@@ -760,7 +760,7 @@ const Sidebar = ({
 
                     {/* Expandable Content for Space */}
                     {expandedSpaces.has(space.id) && (
-                      <div className="ml-[2.75rem] mr-2 flex flex-col gap-1 border-l border-gray-200 dark:border-zinc-800 pl-2 mb-2">
+                      <div className="ml-3 sm:ml-8 mr-2 flex flex-col gap-1 border-l border-gray-200 dark:border-zinc-800 pl-2 mb-2">
                         {spaceConversations[space.id]?.loading &&
                           spaceConversations[space.id]?.items?.length === 0 && (
                             <div className="px-2">

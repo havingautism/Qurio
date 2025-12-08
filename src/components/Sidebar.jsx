@@ -28,6 +28,8 @@ import DropdownMenu from './DropdownMenu'
 import { useToast } from '../contexts/ToastContext'
 
 const Sidebar = ({
+  isOpen = false, // Mobile state
+  onClose, // Mobile state
   onOpenSettings,
   onNavigate,
   onNavigateToSpace,
@@ -44,6 +46,7 @@ const Sidebar = ({
   const [isHovered, setIsHovered] = useState(false)
   const [isPinned, setIsPinned] = useState(() => {
     const saved = localStorage.getItem('sidebar-pinned')
+    // Default to false on mobile if using simple logic, but here relying on isOpen for mobile
     return saved === 'true'
   })
   const [activeTab, setActiveTab] = useState('library') // 'library', 'discover', 'spaces'
@@ -64,7 +67,7 @@ const Sidebar = ({
   const toast = useToast()
 
   const displayTab = hoveredTab || activeTab
-  const isExpanded = isPinned || isHovered
+  const isExpanded = isOpen || isPinned || isHovered
 
   // Persist pin state to localStorage and notify parent
   useEffect(() => {
@@ -292,11 +295,8 @@ const Sidebar = ({
     [conversations, displayTab],
   )
 
-  // Check if we should show "See All" button for library
-  const shouldShowSeeAllForLibrary = useMemo(() => {
-    if (displayTab !== 'library') return false
-    return filteredConversations.length > MAX_CONVERSATIONS_PER_SECTION * 4 // 4 sections: Today, Yesterday, Previous 7 Days, Past
-  }, [filteredConversations, displayTab])
+  // Check if we should show "See All" button for library (unused now)
+  // const shouldShowSeeAllForLibrary = ...
 
   // Check if we should show "See All" button for bookmarks
   const shouldShowSeeAllForBookmarks = useMemo(() => {
@@ -339,528 +339,545 @@ const Sidebar = ({
   }, [spaces, displayTab])
 
   return (
-    <div
-      className="fixed left-0 top-0 h-full z-50 flex"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => {
-        if (!isPinned) {
-          setIsHovered(false)
-          setHoveredTab(null)
-        }
-      }}
-    >
-      {/* 1. Fixed Icon Strip */}
-      <div className="w-18 h-full bg-sidebar  flex flex-col items-center py-4 z-20 relative">
-        {/* Logo */}
-        <div className="mb-6">
-          <div className="w-8 h-8 flex items-center justify-center text-gray-900 dark:text-white font-bold text-xl">
-            <FiloLogo size={24} />
-          </div>
-        </div>
+    <>
+      {/* Mobile Overlay */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm md:hidden"
+          onClick={onClose}
+        />
+      )}
 
-        {/* New Thread Button (Icon Only) */}
-        <div className="mb-6">
-          <button
-            onClick={() => onNavigate('home')}
-            className="w-10 h-10 flex items-center justify-center rounded-full bg-[#9c9d8a29] dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-transform duration-200 hover:scale-110 active:scale-95 cursor-pointer"
-          >
-            <Plus size={20} />
-          </button>
-        </div>
-
-        {/* Nav Icons */}
-        <div className="flex flex-col gap-4 w-full">
-          {navItems.map(item => (
-            <button
-              key={item.id}
-              onClick={() => {
-                setActiveTab(item.id)
-                // Navigate to library list view when clicking Library icon
-                if (item.id === 'library') {
-                  onNavigate('library')
-                }
-                // Navigate to spaces list view when clicking Spaces icon
-                if (item.id === 'spaces') {
-                  onNavigate('spaces')
-                }
-                // Navigate to bookmarks list view when clicking Bookmarks icon
-                if (item.id === 'bookmarks') {
-                  onNavigate('bookmarks')
-                }
-              }}
-              onMouseEnter={() => setHoveredTab(item.id)}
-              className={clsx(
-                'flex flex-col items-center justify-center gap-1 py-2 mx-2 rounded-xl transition-all duration-200 cursor-pointer',
-                activeTab === item.id
-                  ? 'text-[#13343bbf] dark:text-white'
-                  : 'text-[#13343bbf] dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200',
-              )}
-            >
-              <div
-                className={clsx(
-                  'p-3 rounded-lg transition-all',
-                  activeTab === item.id
-                    ? 'bg-[#9c9d8a29] dark:bg-zinc-700'
-                    : 'group-hover:bg-[#9c9d8a29] dark:group-hover:bg-zinc-800/50',
-                )}
-              >
-                <item.icon size={20} />
-              </div>
-              <span className="text-[10px] font-medium">{item.label}</span>
-            </button>
-          ))}
-        </div>
-
-        {/* Spacer */}
-        <div className="flex-1" />
-
-        {/* Theme Toggle Button */}
-        <div className="mb-2">
-          <button
-            onClick={onToggleTheme}
-            className="w-10 h-10 flex items-center justify-center rounded-full bg-[#9c9d8a29] dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-transform duration-200 hover:scale-110 active:scale-95 cursor-pointer"
-            //  title={`Current theme: ${theme}`}
-          >
-            {getThemeIcon()}
-          </button>
-        </div>
-
-        {/* Settings Button (Icon Only) */}
-        <div className="mb-2">
-          <button
-            onClick={onOpenSettings}
-            className="w-10 h-10 flex items-center justify-center rounded-full bg-[#9c9d8a29] dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-transform duration-200 hover:scale-110 active:scale-95 cursor-pointer"
-          >
-            <Settings size={20} />
-          </button>
-        </div>
-      </div>
-
-      {/* 2. Expanded Content Panel */}
       <div
         className={clsx(
-          'h-full bg-sidebar  transition-all duration-300 ease-in-out overflow-hidden flex flex-col',
-          isExpanded && displayTab !== 'discover'
-            ? 'w-64 opacity-100 translate-x-0 shadow-2xl'
-            : 'w-0 opacity-0 -translate-x-4',
+          'fixed left-0 top-0 h-full z-50 flex transition-transform duration-300 md:translate-x-0',
+          // On mobile, control via isOpen. On desktop, always visible (handled by layout margin)
+          // Actually, fixed sidebar on desktop is always visible (icon strip).
+          // Mobile: hidden by default (-translate-x-full), shown if isOpen
+          isOpen ? 'translate-x-0' : '-translate-x-full',
         )}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => {
+          if (!isPinned) {
+            setIsHovered(false)
+            setHoveredTab(null)
+          }
+        }}
       >
-        <div className="p-2 min-w-[256px]">
-          {' '}
-          {/* min-w ensures content doesn't squash during transition */}
-          {/* Header based on Tab */}
-          <div className="p-2 flex items-center justify-between">
-            <h2 className="font-semibold text-lg text-foreground">
-              {displayTab === 'library'
-                ? 'Library'
-                : displayTab === 'bookmarks'
-                  ? 'Bookmarks'
-                  : displayTab === 'spaces'
-                    ? 'Spaces'
-                    : ''}
-            </h2>
+        {/* 1. Fixed Icon Strip */}
+        <div className="w-18 h-full bg-sidebar  flex flex-col items-center py-4 z-20 relative">
+          {/* Logo */}
+          <div className="mb-6">
+            <div className="w-8 h-8 flex items-center justify-center text-gray-900 dark:text-white font-bold text-xl">
+              <FiloLogo size={24} />
+            </div>
+          </div>
+
+          {/* New Thread Button (Icon Only) */}
+          <div className="mb-6">
             <button
-              onClick={() => setIsPinned(!isPinned)}
-              className="p-1.5 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded transition-colors"
-              title={isPinned ? 'Unpin sidebar' : 'Pin sidebar'}
+              onClick={() => onNavigate('home')}
+              className="w-10 h-10 flex items-center justify-center rounded-full bg-[#9c9d8a29] dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-transform duration-200 hover:scale-110 active:scale-95 cursor-pointer"
             >
-              <Pin
-                size={16}
-                className={clsx(
-                  'transition-colors',
-                  isPinned ? 'fill-current text-cyan-500' : 'text-gray-500 dark:text-gray-400',
-                )}
-              />
+              <Plus size={20} />
             </button>
           </div>
-          <div className="h-px bg-gray-200 dark:bg-zinc-800 mb-2" />
-          {/* CONVERSATION LIST (Library & Bookmarks) */}
-          {(displayTab === 'library' || displayTab === 'bookmarks') && (
-            <div className="flex flex-col gap-2 overflow-y-auto h-[calc(100vh-100px)] pr-2 scrollbar-thin">
-              {isConversationsLoading && (
-                <div className="text-xs text-gray-500 dark:text-gray-400 px-2 py-1">
-                  Loading conversations...
+
+          {/* Nav Icons */}
+          <div className="flex flex-col gap-4 w-full">
+            {navItems.map(item => (
+              <button
+                key={item.id}
+                onClick={() => {
+                  setActiveTab(item.id)
+                  // On mobile (isOpen), only switch tab, don't navigate full page
+                  if (!isOpen) {
+                    if (item.id === 'library') onNavigate('library')
+                    else if (item.id === 'spaces') onNavigate('spaces')
+                    else if (item.id === 'bookmarks') onNavigate('bookmarks')
+                  }
+                }}
+                onMouseEnter={() => setHoveredTab(item.id)}
+                className={clsx(
+                  'flex flex-col items-center justify-center gap-1 py-2 mx-2 rounded-xl transition-all duration-200 cursor-pointer',
+                  activeTab === item.id
+                    ? 'text-[#13343bbf] dark:text-white'
+                    : 'text-[#13343bbf] dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200',
+                )}
+              >
+                <div
+                  className={clsx(
+                    'p-3 rounded-lg transition-all',
+                    activeTab === item.id
+                      ? 'bg-[#9c9d8a29] dark:bg-zinc-700'
+                      : 'group-hover:bg-[#9c9d8a29] dark:group-hover:bg-zinc-800/50',
+                  )}
+                >
+                  <item.icon size={20} />
                 </div>
-              )}
-              {!isConversationsLoading && conversations.length === 0 && (
-                <div className="text-xs text-gray-500 dark:text-gray-400 px-2 py-1">
-                  No conversations yet.
-                </div>
-              )}
-              {!isConversationsLoading &&
-                displayTab === 'bookmarks' &&
-                filteredConversations.length === 0 && (
+                <span className="text-[10px] font-medium">{item.label}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Spacer */}
+          <div className="flex-1" />
+
+          {/* Theme Toggle Button */}
+          <div className="mb-2">
+            <button
+              onClick={onToggleTheme}
+              className="w-10 h-10 flex items-center justify-center rounded-full bg-[#9c9d8a29] dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-transform duration-200 hover:scale-110 active:scale-95 cursor-pointer"
+              //  title={`Current theme: ${theme}`}
+            >
+              {getThemeIcon()}
+            </button>
+          </div>
+
+          {/* Settings Button (Icon Only) */}
+          <div className="mb-2">
+            <button
+              onClick={onOpenSettings}
+              className="w-10 h-10 flex items-center justify-center rounded-full bg-[#9c9d8a29] dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-transform duration-200 hover:scale-110 active:scale-95 cursor-pointer"
+            >
+              <Settings size={20} />
+            </button>
+          </div>
+        </div>
+
+        {/* 2. Expanded Content Panel */}
+        <div
+          className={clsx(
+            'h-full bg-sidebar  transition-all duration-300 ease-in-out overflow-hidden flex flex-col',
+            isExpanded && displayTab !== 'discover'
+              ? 'w-64 opacity-100 translate-x-0 shadow-2xl'
+              : 'w-0 opacity-0 -translate-x-4',
+          )}
+        >
+          <div className="p-2 min-w-[256px]">
+            {' '}
+            {/* min-w ensures content doesn't squash during transition */}
+            {/* Header based on Tab */}
+            <div className="p-2 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <h2 className="font-semibold text-lg text-foreground">
+                  {displayTab === 'library'
+                    ? 'Library'
+                    : displayTab === 'bookmarks'
+                      ? 'Bookmarks'
+                      : displayTab === 'spaces'
+                        ? 'Spaces'
+                        : ''}
+                </h2>
+                {/* View Full Page Button (Mobile Only, or always if useful) 
+                    The user requested this specifically for the extension area.
+                    We will show it always or check conditions, but it's safest to show it 
+                    so users know they can go there. */}
+                <button
+                  onClick={() => onNavigate(displayTab)}
+                  className="md:hidden px-2 py-1 text-xs font-medium bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded text-gray-600 dark:text-gray-300 transition-colors"
+                >
+                  View Page
+                </button>
+              </div>
+              <button
+                onClick={() => setIsPinned(!isPinned)}
+                className="hidden md:block p-1.5 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded transition-colors"
+                title={isPinned ? 'Unpin sidebar' : 'Pin sidebar'}
+              >
+                <Pin
+                  size={16}
+                  className={clsx(
+                    'transition-colors',
+                    isPinned ? 'fill-current text-cyan-500' : 'text-gray-500 dark:text-gray-400',
+                  )}
+                />
+              </button>
+            </div>
+            <div className="h-px bg-gray-200 dark:bg-zinc-800 mb-2" />
+            {/* CONVERSATION LIST (Library & Bookmarks) */}
+            {(displayTab === 'library' || displayTab === 'bookmarks') && (
+              <div className="flex flex-col gap-2 overflow-y-auto h-[calc(100vh-100px)] pr-2 scrollbar-thin">
+                {!isConversationsLoading && conversations.length === 0 && (
                   <div className="text-xs text-gray-500 dark:text-gray-400 px-2 py-1">
-                    No bookmarked conversations.
+                    No conversations yet.
+                  </div>
+                )}
+                {!isConversationsLoading &&
+                  displayTab === 'bookmarks' &&
+                  filteredConversations.length === 0 && (
+                    <div className="text-xs text-gray-500 dark:text-gray-400 px-2 py-1">
+                      No bookmarked conversations.
+                    </div>
+                  )}
+
+                {/* For library tab, use grouped conversations with limits */}
+                {displayTab === 'library' &&
+                  groupedConversations.map(section => (
+                    <div key={section.title} className="flex flex-col gap-1">
+                      <div className="text-[10px] justify-center flex uppercase tracking-wide text-gray-400 px-2 mt-1">
+                        {section.title}
+                      </div>
+                      {section.items.map(conv => {
+                        const isActive = conv.id === activeConversationId
+                        return (
+                          <div
+                            key={conv.id}
+                            onClick={() => onOpenConversation && onOpenConversation(conv)}
+                            className={clsx(
+                              'text-sm p-2 rounded cursor-pointer truncate transition-colors group relative',
+                              isActive
+                                ? 'bg-cyan-500/10 dark:bg-cyan-500/20 border border-cyan-500/30 text-cyan-700 dark:text-cyan-300'
+                                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-zinc-800',
+                            )}
+                            title={conv.title}
+                          >
+                            <div className="flex items-center justify-between w-full overflow-hidden">
+                              <div className="flex flex-col overflow-hidden flex-1 min-w-0">
+                                <div className="flex items-center gap-1">
+                                  <span className="truncate font-medium">{conv.title}</span>
+                                  {conv.is_favorited && (
+                                    <Bookmark size={10} className=" flex-shrink-0" />
+                                  )}
+                                </div>
+                                <span
+                                  className={clsx(
+                                    'text-[10px]',
+                                    isActive ? 'text-cyan-600 dark:text-cyan-400' : 'text-gray-400',
+                                  )}
+                                >
+                                  {new Date(conv.created_at).toLocaleDateString()}
+                                </span>
+                              </div>
+
+                              <div className="relative ml-2 shrink-0">
+                                <button
+                                  onClick={e => {
+                                    e.stopPropagation()
+                                    setOpenMenuId(conv.id)
+                                    setMenuAnchorEl(e.currentTarget)
+                                  }}
+                                  className={clsx(
+                                    'p-1.5 rounded-md hover:bg-gray-300 dark:hover:bg-zinc-700 transition-all',
+                                    isActive
+                                      ? 'text-cyan-600 dark:text-cyan-400'
+                                      : 'text-gray-500 dark:text-gray-400',
+                                    openMenuId === conv.id
+                                      ? 'opacity-100'
+                                      : 'opacity-100 md:opacity-0 md:group-hover:opacity-100',
+                                  )}
+                                >
+                                  <MoreHorizontal size={14} />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  ))}
+
+                {/* Load More Button */}
+                {displayTab === 'library' && (
+                  <div className="px-2 py-2">
+                    {hasMore ? (
+                      <button
+                        onClick={e => {
+                          e.stopPropagation()
+                          fetchConversations(false)
+                        }}
+                        disabled={loadingMore}
+                        className="w-full py-2 text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded transition-colors flex items-center justify-center gap-2"
+                      >
+                        {loadingMore ? <DotLoader /> : 'Load more'}
+                      </button>
+                    ) : (
+                      conversations.length > 0 && (
+                        <div className="text-center text-[10px] text-gray-400 py-2">
+                          No more threads
+                        </div>
+                      )
+                    )}
                   </div>
                 )}
 
-              {/* For library tab, use grouped conversations with limits */}
-              {displayTab === 'library' &&
-                groupedConversations.map(section => (
-                  <div key={section.title} className="flex flex-col gap-1">
-                    <div className="text-[10px] justify-center flex uppercase tracking-wide text-gray-400 px-2 mt-1">
-                      {section.title}
-                    </div>
-                    {section.items.map(conv => {
-                      const isActive = conv.id === activeConversationId
-                      return (
-                        <div
-                          key={conv.id}
-                          onClick={() => onOpenConversation && onOpenConversation(conv)}
-                          className={clsx(
-                            'text-sm p-2 rounded cursor-pointer truncate transition-colors group relative',
-                            isActive
-                              ? 'bg-cyan-500/10 dark:bg-cyan-500/20 border border-cyan-500/30 text-cyan-700 dark:text-cyan-300'
-                              : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-zinc-800',
-                          )}
-                          title={conv.title}
-                        >
-                          <div className="flex items-center justify-between w-full overflow-hidden">
-                            <div className="flex flex-col overflow-hidden flex-1 min-w-0">
-                              <div className="flex items-center gap-1">
-                                <span className="truncate font-medium">{conv.title}</span>
-                                {conv.is_favorited && (
-                                  <Bookmark size={10} className=" flex-shrink-0" />
-                                )}
-                              </div>
-                              <span
-                                className={clsx(
-                                  'text-[10px]',
-                                  isActive ? 'text-cyan-600 dark:text-cyan-400' : 'text-gray-400',
-                                )}
-                              >
-                                {new Date(conv.created_at).toLocaleDateString()}
-                              </span>
+                {/* For bookmarks tab, show limited list */}
+                {displayTab === 'bookmarks' &&
+                  limitedBookmarks.items.map(conv => {
+                    const isActive = conv.id === activeConversationId
+                    return (
+                      <div
+                        key={conv.id}
+                        onClick={() => onOpenConversation && onOpenConversation(conv)}
+                        className={clsx(
+                          'text-sm p-2 rounded cursor-pointer truncate transition-colors group relative',
+                          isActive
+                            ? 'bg-cyan-500/10 dark:bg-cyan-500/20 border border-cyan-500/30 text-cyan-700 dark:text-cyan-300'
+                            : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-zinc-800',
+                        )}
+                        title={conv.title}
+                      >
+                        <div className="flex items-center justify-between w-full overflow-hidden">
+                          <div className="flex flex-col overflow-hidden flex-1 min-w-0">
+                            <div className="flex items-center gap-1">
+                              <span className="truncate font-medium">{conv.title}</span>
+                              <Bookmark size={10} className="fill-current flex-shrink-0" />
                             </div>
+                            <span
+                              className={clsx(
+                                'text-[10px]',
+                                isActive ? 'text-cyan-600 dark:text-cyan-400' : 'text-gray-400',
+                              )}
+                            >
+                              {new Date(conv.created_at).toLocaleDateString()}
+                            </span>
+                          </div>
 
-                            <div className="relative ml-2 shrink-0">
-                              <button
-                                onClick={e => {
-                                  e.stopPropagation()
-                                  setOpenMenuId(conv.id)
-                                  setMenuAnchorEl(e.currentTarget)
-                                }}
-                                className={clsx(
-                                  'p-1.5 rounded-md hover:bg-gray-300 dark:hover:bg-zinc-700 transition-all',
-                                  isActive
-                                    ? 'text-cyan-600 dark:text-cyan-400'
-                                    : 'text-gray-500 dark:text-gray-400',
-                                  openMenuId === conv.id
-                                    ? 'opacity-100'
-                                    : 'opacity-100 md:opacity-0 md:group-hover:opacity-100',
-                                )}
-                              >
-                                <MoreHorizontal size={14} />
-                              </button>
-                            </div>
+                          <div className="relative ml-2 shrink-0">
+                            <button
+                              onClick={e => {
+                                e.stopPropagation()
+                                setOpenMenuId(conv.id)
+                                setMenuAnchorEl(e.currentTarget)
+                              }}
+                              className={clsx(
+                                'p-1.5 rounded-md hover:bg-gray-300 dark:hover:bg-zinc-700 transition-all',
+                                isActive
+                                  ? 'text-cyan-600 dark:text-cyan-400'
+                                  : 'text-gray-500 dark:text-gray-400',
+                                openMenuId === conv.id
+                                  ? 'opacity-100'
+                                  : 'opacity-100 md:opacity-0 md:group-hover:opacity-100',
+                              )}
+                            >
+                              <MoreHorizontal size={14} />
+                            </button>
                           </div>
                         </div>
-                      )
-                    })}
-                  </div>
-                ))}
-
-              {/* Load More Button */}
-              {displayTab === 'library' && (
-                <div className="px-2 py-2">
-                  {hasMore ? (
-                    <button
-                      onClick={e => {
-                        e.stopPropagation()
-                        fetchConversations(false)
-                      }}
-                      disabled={loadingMore}
-                      className="w-full py-2 text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded transition-colors flex items-center justify-center gap-2"
-                    >
-                      {loadingMore ? <DotLoader /> : 'Load more'}
-                    </button>
-                  ) : (
-                    conversations.length > 0 && (
-                      <div className="text-center text-[10px] text-gray-400 py-2">
-                        No more threads
                       </div>
                     )
-                  )}
-                </div>
-              )}
-
-              {/* For bookmarks tab, show limited list */}
-              {displayTab === 'bookmarks' &&
-                limitedBookmarks.items.map(conv => {
-                  const isActive = conv.id === activeConversationId
-                  return (
-                    <div
-                      key={conv.id}
-                      onClick={() => onOpenConversation && onOpenConversation(conv)}
-                      className={clsx(
-                        'text-sm p-2 rounded cursor-pointer truncate transition-colors group relative',
-                        isActive
-                          ? 'bg-cyan-500/10 dark:bg-cyan-500/20 border border-cyan-500/30 text-cyan-700 dark:text-cyan-300'
-                          : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-zinc-800',
-                      )}
-                      title={conv.title}
-                    >
-                      <div className="flex items-center justify-between w-full overflow-hidden">
-                        <div className="flex flex-col overflow-hidden flex-1 min-w-0">
-                          <div className="flex items-center gap-1">
-                            <span className="truncate font-medium">{conv.title}</span>
-                            <Bookmark size={10} className="fill-current flex-shrink-0" />
-                          </div>
-                          <span
-                            className={clsx(
-                              'text-[10px]',
-                              isActive ? 'text-cyan-600 dark:text-cyan-400' : 'text-gray-400',
-                            )}
-                          >
-                            {new Date(conv.created_at).toLocaleDateString()}
-                          </span>
-                        </div>
-
-                        <div className="relative ml-2 shrink-0">
-                          <button
-                            onClick={e => {
-                              e.stopPropagation()
-                              setOpenMenuId(conv.id)
-                              setMenuAnchorEl(e.currentTarget)
-                            }}
-                            className={clsx(
-                              'p-1.5 rounded-md hover:bg-gray-300 dark:hover:bg-zinc-700 transition-all',
-                              isActive
-                                ? 'text-cyan-600 dark:text-cyan-400'
-                                : 'text-gray-500 dark:text-gray-400',
-                              openMenuId === conv.id
-                                ? 'opacity-100'
-                                : 'opacity-100 md:opacity-0 md:group-hover:opacity-100',
-                            )}
-                          >
-                            <MoreHorizontal size={14} />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
-              {/* Show "..." indicator if there are more bookmarks */}
-              {displayTab === 'bookmarks' && limitedBookmarks.hasMore && (
-                <div
-                  className="text-xs text-gray-400 dark:text-gray-500 px-2 py-1 cursor-pointer hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-                  onClick={() => {
-                    setActiveTab('bookmarks')
-                    onNavigate('bookmarks')
-                  }}
-                  title="Show all bookmarks"
-                >
-                  ...more
-                </div>
-              )}
-
-              {/* See All Button - removed for Library as we use Load More now, keeping forBookmarks logic if needed, or just remove */}
-
-              {/* See All Button - only for bookmarks tab when there are more bookmarks */}
-              {shouldShowSeeAllForBookmarks && (
-                <div className="flex flex-col gap-1 mt-2">
-                  <button
+                  })}
+                {/* Show "..." indicator if there are more bookmarks */}
+                {displayTab === 'bookmarks' && limitedBookmarks.hasMore && (
+                  <div
+                    className="text-xs text-gray-400 dark:text-gray-500 px-2 py-1 cursor-pointer hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
                     onClick={() => {
                       setActiveTab('bookmarks')
                       onNavigate('bookmarks')
                     }}
-                    className="flex items-center justify-center gap-2 p-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors rounded hover:bg-gray-200 dark:hover:bg-zinc-800"
+                    title="Show all bookmarks"
                   >
-                    <span>See all</span>
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-          {/* SPACES TAB CONTENT */}
-          {displayTab === 'spaces' && (
-            <div className="flex flex-col gap-2">
-              {/* Create New Space */}
-              <button
-                onClick={onCreateSpace}
-                className="flex items-center gap-3 p-2 rounded hover:bg-gray-200 dark:hover:bg-zinc-800 text-gray-700 dark:text-gray-300 transition-colors  w-full text-left cursor-pointer"
-              >
-                <div className="w-8 h-8 rounded bg-gray-200 dark:bg-zinc-700 flex items-center justify-center">
-                  <Plus size={16} />
-                </div>
-                <span className="text-sm font-medium">Create New Space</span>
-              </button>
+                    ...more
+                  </div>
+                )}
 
-              <div className="h-px bg-gray-200 dark:bg-zinc-800 mb-2" />
+                {/* See All Button - removed for Library as we use Load More now, keeping forBookmarks logic if needed, or just remove */}
 
-              {/* Spaces List */}
-              {spacesLoading && (
-                <div className="flex justify-center py-2">
-                  <DotLoader />
-                </div>
-              )}
-              {!spacesLoading && spaces.length === 0 && (
-                <div className="text-xs text-gray-500 dark:text-gray-400 px-2 py-1">
-                  No spaces yet.
-                </div>
-              )}
-              {limitedSpaces.items.map(space => (
-                <React.Fragment key={space.id || space.label}>
-                  <div
-                    onClick={() => onNavigateToSpace(space)}
-                    className="flex items-center justify-between p-2 rounded hover:bg-gray-200 dark:hover:bg-zinc-800 cursor-pointer transition-colors group"
-                  >
-                    <div className="flex items-center gap-3">
+                {/* See All Button - only for bookmarks tab when there are more bookmarks */}
+                {shouldShowSeeAllForBookmarks && (
+                  <div className="flex flex-col gap-1 mt-2">
+                    <button
+                      onClick={() => {
+                        setActiveTab('bookmarks')
+                        onNavigate('bookmarks')
+                      }}
+                      className="flex items-center justify-center gap-2 p-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors rounded hover:bg-gray-200 dark:hover:bg-zinc-800"
+                    >
+                      <span>See all</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+            {/* SPACES TAB CONTENT */}
+            {displayTab === 'spaces' && (
+              <div className="flex flex-col gap-2 overflow-y-auto h-[calc(100vh-100px)] pr-2 scrollbar-thin">
+                {/* Create New Space */}
+                <button
+                  onClick={onCreateSpace}
+                  className="flex items-center gap-3 p-2 rounded hover:bg-gray-200 dark:hover:bg-zinc-800 text-gray-700 dark:text-gray-300 transition-colors  w-full text-left cursor-pointer"
+                >
+                  <div className="w-8 h-8 rounded bg-gray-200 dark:bg-zinc-700 flex items-center justify-center">
+                    <Plus size={16} />
+                  </div>
+                  <span className="text-sm font-medium">Create New Space</span>
+                </button>
+
+                <div className="h-px bg-gray-200 dark:bg-zinc-800 mb-2" />
+
+                {/* Spaces List */}
+                {spacesLoading && (
+                  <div className="flex justify-center py-2">
+                    <DotLoader />
+                  </div>
+                )}
+                {!spacesLoading && spaces.length === 0 && (
+                  <div className="text-xs text-gray-500 dark:text-gray-400 px-2 py-1">
+                    No spaces yet.
+                  </div>
+                )}
+                {limitedSpaces.items.map(space => (
+                  <React.Fragment key={space.id || space.label}>
+                    <div
+                      onClick={() => onNavigateToSpace(space)}
+                      className="flex items-center justify-between p-2 rounded hover:bg-gray-200 dark:hover:bg-zinc-800 cursor-pointer transition-colors group"
+                    >
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={e => {
+                            e.stopPropagation()
+                            toggleSpace(space.id)
+                          }}
+                          className="p-1 -ml-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+                        >
+                          <ChevronDown
+                            size={14}
+                            className={clsx(
+                              'transition-transform duration-200',
+                              expandedSpaces.has(space.id) ? '' : '-rotate-90',
+                            )}
+                          />
+                        </button>
+                        <div className="w-8 h-8 rounded bg-gray-100 dark:bg-zinc-800  flex items-center justify-center group-hover:border-gray-300 dark:group-hover:border-zinc-600 text-lg">
+                          <TwemojiDisplay emoji={space.emoji} />
+                        </div>
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                          {space.label}
+                        </span>
+                      </div>
+
+                      {/* Edit Button (Visible on Hover) */}
                       <button
                         onClick={e => {
                           e.stopPropagation()
-                          toggleSpace(space.id)
+                          onEditSpace(space)
                         }}
-                        className="p-1 -ml-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+                        className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md hover:bg-gray-300 dark:hover:bg-zinc-700 text-gray-500 dark:text-gray-400 transition-all"
                       >
-                        <ChevronDown
-                          size={14}
-                          className={clsx(
-                            'transition-transform duration-200',
-                            expandedSpaces.has(space.id) ? '' : '-rotate-90',
-                          )}
-                        />
+                        <Settings size={14} />
                       </button>
-                      <div className="w-8 h-8 rounded bg-gray-100 dark:bg-zinc-800  flex items-center justify-center group-hover:border-gray-300 dark:group-hover:border-zinc-600 text-lg">
-                        <TwemojiDisplay emoji={space.emoji} />
-                      </div>
-                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                        {space.label}
-                      </span>
                     </div>
 
-                    {/* Edit Button (Visible on Hover) */}
-                    <button
-                      onClick={e => {
-                        e.stopPropagation()
-                        onEditSpace(space)
-                      }}
-                      className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md hover:bg-gray-300 dark:hover:bg-zinc-700 text-gray-500 dark:text-gray-400 transition-all"
-                    >
-                      <Settings size={14} />
-                    </button>
-                  </div>
-
-                  {/* Expandable Content for Space */}
-                  {expandedSpaces.has(space.id) && (
-                    <div className="ml-[2.75rem] mr-2 flex flex-col gap-1 border-l border-gray-200 dark:border-zinc-800 pl-2 mb-2">
-                      {spaceConversations[space.id]?.loading &&
-                        spaceConversations[space.id]?.items?.length === 0 && (
-                          <div className="px-2">
-                            <DotLoader />
-                          </div>
-                        )}
-
-                      {spaceConversations[space.id]?.items?.map(conv => (
-                        <div
-                          key={conv.id}
-                          onClick={() => onOpenConversation && onOpenConversation(conv)}
-                          className={clsx(
-                            'text-xs py-1.5 px-2 rounded cursor-pointer truncate transition-colors',
-                            conv.id === activeConversationId
-                              ? 'bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 font-medium'
-                              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-zinc-800',
+                    {/* Expandable Content for Space */}
+                    {expandedSpaces.has(space.id) && (
+                      <div className="ml-[2.75rem] mr-2 flex flex-col gap-1 border-l border-gray-200 dark:border-zinc-800 pl-2 mb-2">
+                        {spaceConversations[space.id]?.loading &&
+                          spaceConversations[space.id]?.items?.length === 0 && (
+                            <div className="px-2">
+                              <DotLoader />
+                            </div>
                           )}
-                          title={conv.title}
-                        >
-                          {conv.title || 'Untitled'}
-                        </div>
-                      ))}
 
-                      {spaceConversations[space.id]?.hasMore &&
-                        spaceConversations[space.id]?.items?.length > 0 && (
-                          <button
-                            onClick={e => {
-                              e.stopPropagation()
-                              fetchSpaceConversations(space.id, false)
-                            }}
-                            className="text-[10px] text-left text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 py-1 px-2 transition-colors flex items-center gap-1 min-h-[24px]"
+                        {spaceConversations[space.id]?.items?.map(conv => (
+                          <div
+                            key={conv.id}
+                            onClick={() => onOpenConversation && onOpenConversation(conv)}
+                            className={clsx(
+                              'text-xs py-1.5 px-2 rounded cursor-pointer truncate transition-colors',
+                              conv.id === activeConversationId
+                                ? 'bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 font-medium'
+                                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-zinc-800',
+                            )}
+                            title={conv.title}
                           >
-                            {spaceConversations[space.id]?.loading ? <DotLoader /> : 'More...'}
-                          </button>
-                        )}
+                            {conv.title || 'Untitled'}
+                          </div>
+                        ))}
 
-                      {!spaceConversations[space.id]?.loading &&
-                        spaceConversations[space.id]?.items?.length === 0 && (
-                          <div className="text-[10px] text-gray-400 py-1 px-2">No history</div>
-                        )}
-                    </div>
-                  )}
-                </React.Fragment>
-              ))}
+                        {spaceConversations[space.id]?.hasMore &&
+                          spaceConversations[space.id]?.items?.length > 0 && (
+                            <button
+                              onClick={e => {
+                                e.stopPropagation()
+                                fetchSpaceConversations(space.id, false)
+                              }}
+                              className="text-[10px] text-left text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 py-1 px-2 transition-colors flex items-center gap-1 min-h-[24px]"
+                            >
+                              {spaceConversations[space.id]?.loading ? <DotLoader /> : 'More...'}
+                            </button>
+                          )}
 
-              {/* Show "..." indicator if there are more spaces */}
-              {displayTab === 'spaces' && limitedSpaces.hasMore && (
-                <div
-                  className="text-xs text-gray-400 dark:text-gray-500 px-2 py-1 cursor-pointer hover:text-gray-600 dark:hover:text-gray-300 transition-colors mt-2"
-                  onClick={() => {
-                    setActiveTab('spaces')
-                    onNavigate('spaces')
-                  }}
-                  title="Show all spaces"
-                >
-                  ...more
-                </div>
-              )}
+                        {!spaceConversations[space.id]?.loading &&
+                          spaceConversations[space.id]?.items?.length === 0 && (
+                            <div className="text-[10px] text-gray-400 py-1 px-2">No history</div>
+                          )}
+                      </div>
+                    )}
+                  </React.Fragment>
+                ))}
 
-              {/* See All Button - only for spaces tab when there are more spaces */}
-              {displayTab === 'spaces' && limitedSpaces.hasMore && (
-                <div className="flex flex-col gap-1 mt-2">
-                  <button
+                {/* Show "..." indicator if there are more spaces */}
+                {displayTab === 'spaces' && limitedSpaces.hasMore && (
+                  <div
+                    className="text-xs text-gray-400 dark:text-gray-500 px-2 py-1 cursor-pointer hover:text-gray-600 dark:hover:text-gray-300 transition-colors mt-2"
                     onClick={() => {
                       setActiveTab('spaces')
                       onNavigate('spaces')
                     }}
-                    className="flex items-center justify-center gap-2 p-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors rounded hover:bg-gray-200 dark:hover:bg-zinc-800"
+                    title="Show all spaces"
                   >
-                    <span>See all</span>
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
+                    ...more
+                  </div>
+                )}
+
+                {/* See All Button - only for spaces tab when there are more spaces */}
+                {displayTab === 'spaces' && limitedSpaces.hasMore && (
+                  <div className="flex flex-col gap-1 mt-2">
+                    <button
+                      onClick={() => {
+                        setActiveTab('spaces')
+                        onNavigate('spaces')
+                      }}
+                      className="flex items-center justify-center gap-2 p-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors rounded hover:bg-gray-200 dark:hover:bg-zinc-800"
+                    >
+                      <span>See all</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
+
+        {/* Global Dropdown Menu */}
+        <DropdownMenu
+          isOpen={!!openMenuId && !!menuAnchorEl}
+          anchorEl={menuAnchorEl}
+          onClose={() => {
+            setOpenMenuId(null)
+            setMenuAnchorEl(null)
+          }}
+          items={(() => {
+            const conv = conversations.find(c => c.id === openMenuId)
+            if (!conv) return []
+            return [
+              {
+                label: conv.is_favorited ? 'Remove Bookmark' : 'Add Bookmark',
+                icon: <Bookmark size={14} className={conv.is_favorited ? 'fill-current' : ''} />,
+                onClick: () => handleToggleFavorite(conv),
+                className: conv.is_favorited ? 'text-yellow-500' : '',
+              },
+              {
+                label: 'Delete',
+                icon: <Trash2 size={14} />,
+                onClick: () => setConversationToDelete(conv),
+                danger: true,
+              },
+            ]
+          })()}
+        />
+
+        <ConfirmationModal
+          isOpen={!!conversationToDelete}
+          onClose={() => setConversationToDelete(null)}
+          onConfirm={handleDeleteConversation}
+          title="Delete"
+          message={`Are you sure you want to delete "${conversationToDelete?.title}"? This action cannot be undone.`}
+          confirmText="Delete"
+          isDangerous={true}
+        />
       </div>
-
-      {/* Global Dropdown Menu */}
-      <DropdownMenu
-        isOpen={!!openMenuId && !!menuAnchorEl}
-        anchorEl={menuAnchorEl}
-        onClose={() => {
-          setOpenMenuId(null)
-          setMenuAnchorEl(null)
-        }}
-        items={(() => {
-          const conv = conversations.find(c => c.id === openMenuId)
-          if (!conv) return []
-          return [
-            {
-              label: conv.is_favorited ? 'Remove Bookmark' : 'Add Bookmark',
-              icon: <Bookmark size={14} className={conv.is_favorited ? 'fill-current' : ''} />,
-              onClick: () => handleToggleFavorite(conv),
-              className: conv.is_favorited ? 'text-yellow-500' : '',
-            },
-            {
-              label: 'Delete',
-              icon: <Trash2 size={14} />,
-              onClick: () => setConversationToDelete(conv),
-              danger: true,
-            },
-          ]
-        })()}
-      />
-
-      <ConfirmationModal
-        isOpen={!!conversationToDelete}
-        onClose={() => setConversationToDelete(null)}
-        onConfirm={handleDeleteConversation}
-        title="Delete"
-        message={`Are you sure you want to delete "${conversationToDelete?.title}"? This action cannot be undone.`}
-        confirmText="Delete"
-        isDangerous={true}
-      />
-    </div>
+    </>
   )
 }
 

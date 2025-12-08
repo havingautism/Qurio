@@ -45,8 +45,8 @@ const SpacesListView = ({
   return (
     <div
       className={clsx(
-        'flex flex-col min-h-screen p-8 bg-background text-foreground transition-all duration-300',
-        isSidebarPinned ? 'ml-80' : 'ml-16',
+        'flex flex-col min-h-screen p-4 md:p-8 bg-background text-foreground transition-all duration-300',
+        isSidebarPinned ? 'md:ml-80' : 'md:ml-16',
       )}
     >
       <div className="w-full max-w-6xl mx-auto">

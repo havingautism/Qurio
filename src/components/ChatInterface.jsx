@@ -19,8 +19,10 @@ import {
   Brain,
   Sparkles,
   ArrowDown,
+  Menu,
 } from 'lucide-react'
 import clsx from 'clsx'
+import { useAppContext } from '../App'
 
 import { loadSettings } from '../lib/settings'
 import { listMessages } from '../lib/conversationsService'
@@ -107,7 +109,10 @@ const ChatInterface = ({
   useEffect(() => {
     const handleSettingsChange = () => {
       setSettings(loadSettings())
-      if (settings.apiProvider === 'openai_compatibility' || settings.apiProvider === 'siliconflow') {
+      if (
+        settings.apiProvider === 'openai_compatibility' ||
+        settings.apiProvider === 'siliconflow'
+      ) {
         setIsSearchActive(false)
       }
     }
@@ -783,33 +788,45 @@ const ChatInterface = ({
     setConversationTitle,
   ])
 
+  const { toggleSidebar } = useAppContext()
+
   return (
     <div
       className={clsx(
         'flex-1 min-h-screen bg-background text-foreground relative pb-4 transition-all duration-300',
-        isSidebarPinned ? 'ml-80' : 'ml-16',
+        isSidebarPinned ? 'md:ml-80' : 'md:ml-16',
       )}
     >
       <div className="w-full max-w-3xl mx-auto relative">
         <div className="flex flex-col w-full">
           {/* Title Bar */}
-          <div className="sticky top-0 z-20 w-full max-w-8xl border-b border-gray-200 dark:border-zinc-800 bg-background/80 backdrop-blur-md py-3 mb-3 transition-all flex items-center gap-4">
+          <div className="sticky top-0 z-20 w-full max-w-8xl border-b border-gray-200 dark:border-zinc-800 bg-background/80 backdrop-blur-md py-3 mb-3 transition-all flex items-center gap-4 px-4 md:px-0">
+            {/* Mobile Menu Button */}
+            <button
+              onClick={toggleSidebar}
+              className="md:hidden p-2 -ml-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg shrink-0"
+            >
+              <Menu size={20} />
+            </button>
+
             {/* Space Selector */}
             <div className="relative" ref={selectorRef}>
               <button
                 onClick={() => setIsSelectorOpen(!isSelectorOpen)}
                 className="flex items-center gap-2 px-3  rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors text-sm font-medium text-gray-700 dark:text-gray-300"
               >
-                <LayoutGrid size={16} className="text-gray-400" />
+                <LayoutGrid size={16} className="text-gray-400 hidden sm:inline" />
                 {displaySpace ? (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1">
                     <span className="text-lg">
                       <TwemojiDisplay emoji={displaySpace.emoji} size="1.125rem" />
                     </span>
-                    <span className="truncate max-w-[200px]">{displaySpace.label}</span>
+                    <span className="hidden opacity-0 w-0 md:inline md:opacity-100 md:w-auto truncate max-w-[200px] transition-all">
+                      {displaySpace.label}
+                    </span>
                   </div>
                 ) : (
-                  <span className="text-gray-500">Spaces: None</span>
+                  <span className="text-gray-500">Spaces</span>
                 )}
                 <ChevronDown size={14} className="text-gray-400" />
               </button>
@@ -898,30 +915,22 @@ const ChatInterface = ({
             />
           </div>
 
-          {/* Scroll to Bottom Button */}
-          <div
-            className={clsx(
-              'sticky bottom-45 mt-auto flex justify-start transition-all duration-300 z-40',
-              showScrollButton
-                ? 'opacity-100 translate-y-0 pointer-events-auto'
-                : 'opacity-0 translate-y-4 pointer-events-none',
-            )}
-          >
+          {showScrollButton && (
             <button
-              onClick={() => scrollToBottom()}
-              className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-full shadow-lg hover:shadow-xl hover:bg-gray-50 dark:hover:bg-zinc-700 transition-all text-sm font-medium text-gray-700 dark:text-gray-200"
+              onClick={() => scrollToBottom('smooth')}
+              className="fixed bottom-50 left-1/2 -translate-x-1/2 md:left-auto md:translate-x-0 md:bottom-28 md:right-10 z-30 p-2 bg-background border border-border rounded-full shadow-lg hover:bg-muted transition-all duration-300 animate-in fade-in slide-in-from-bottom-2"
             >
-              <ArrowDown size={16} />
+              <ArrowDown size={20} className="text-foreground" />
             </button>
-          </div>
+          )}
         </div>
       </div>
 
       {/* Sticky Input Area */}
       <div
         className={clsx(
-          'fixed bottom-0 right-0 bg-linear-to-t from-background via-background to-transparent pb-6 pt-10 px-4 flex justify-center z-10 transition-all duration-300',
-          isSidebarPinned ? 'left-80' : 'left-16',
+          'fixed bottom-0 left-0 right-0 bg-linear-to-t from-background via-background to-transparent pb-6 pt-10 px-4 flex justify-center z-10 transition-all duration-300',
+          isSidebarPinned ? 'md:left-80' : 'md:left-16',
         )}
       >
         <div className="w-full max-w-3xl">
@@ -1147,7 +1156,7 @@ const InputBar = React.memo(
                 }`}
               >
                 <Brain size={18} />
-                <span>Think</span>
+                <span className="hidden md:inline">Think</span>
               </button>
               <button
                 disabled={apiProvider === 'openai_compatibility' || apiProvider === 'siliconflow'}
@@ -1159,7 +1168,7 @@ const InputBar = React.memo(
                 }`}
               >
                 <Globe size={18} />
-                <span>Search</span>
+                <span className="hidden md:inline">Search</span>
               </button>
             </div>
 

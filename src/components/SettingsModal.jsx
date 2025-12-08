@@ -170,7 +170,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
   }, [])
 
   // Function to fetch models for the current provider
-  const fetchModelsForProvider = async (provider) => {
+  const fetchModelsForProvider = async provider => {
     // Use the current provider if not specified
     const targetProvider = provider || apiProvider
 
@@ -217,7 +217,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
       }
 
       const models = await getModelsForProvider(targetProvider, credentials, {
-        signal: controller.signal
+        signal: controller.signal,
       })
 
       // Check if request was aborted
@@ -230,7 +230,6 @@ const SettingsModal = ({ isOpen, onClose }) => {
       console.log(`Successfully fetched ${models.length} models for ${targetProvider}`)
       setDynamicModels(models)
       setModelsError(null)
-
     } catch (error) {
       if (error.name === 'AbortError') {
         console.log('Request was cancelled')
@@ -259,7 +258,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
       const hasValidCredentials =
         (apiProvider === 'gemini' && googleApiKey) ||
         (apiProvider === 'siliconflow' && SiliconFlowKey) ||
-        (apiProvider === 'openai_compatibility')
+        apiProvider === 'openai_compatibility'
 
       if (hasValidCredentials) {
         // Clear previous state when provider changes
@@ -333,17 +332,19 @@ const SettingsModal = ({ isOpen, onClose }) => {
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="w-full max-w-4xl h-[80vh] bg-white dark:bg-[#191a1a] rounded-2xl shadow-2xl flex overflow-hidden border border-gray-200 dark:border-zinc-800">
+      <div className="w-full max-w-4xl h-[90vh] md:h-[80vh] bg-white dark:bg-[#191a1a] rounded-2xl shadow-2xl flex flex-col md:flex-row overflow-hidden border border-gray-200 dark:border-zinc-800">
         {/* Sidebar */}
-        <div className="w-64 bg-gray-50 dark:bg-[#202222] border-r border-gray-200 dark:border-zinc-800 p-4 flex flex-col">
-          <h2 className="text-xl font-bold mb-6 px-2 text-gray-900 dark:text-white">Settings</h2>
-          <nav className="flex flex-col gap-1">
+        <div className="w-full md:w-64 bg-gray-50 dark:bg-[#202222] border-b md:border-b-0 md:border-r border-gray-200 dark:border-zinc-800 p-4 flex flex-row md:flex-col gap-2 overflow-x-auto md:overflow-visible shrink-0">
+          <h2 className="text-xl font-bold mb-0 md:mb-6 px-2 text-gray-900 dark:text-white hidden md:block">
+            Settings
+          </h2>
+          <nav className="flex flex-row md:flex-col gap-1 w-full md:w-auto">
             {menuItems.map(item => (
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
                 className={clsx(
-                  'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                  'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap',
                   activeTab === item.id
                     ? 'bg-gray-100 dark:bg-zinc-800 text-cyan-600 dark:text-cyan-400'
                     : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-zinc-800',

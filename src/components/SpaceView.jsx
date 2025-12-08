@@ -291,7 +291,7 @@ const SpaceView = ({
         <div
           className={clsx(
             'fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur border-t border-gray-200 dark:border-zinc-800',
-            isSidebarPinned ? 'pl-80' : 'pl-16',
+            isSidebarPinned ? 'pl-0 sm:pl-80' : 'pl-0 sm:pl-16',
           )}
         >
           <div className="max-w-3xl mx-auto px-4">

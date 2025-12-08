@@ -23,7 +23,7 @@ const MessageList = ({
   )
 
   return (
-    <div className="flex flex-col w-full max-w-3xl mx-auto pb-32">
+    <div className="flex flex-col w-full max-w-3xl mx-auto pb-5 sm:pb-32">
       {messages.map((msg, index) => (
         <MessageBubble
           key={index}

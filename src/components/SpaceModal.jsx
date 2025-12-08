@@ -126,9 +126,9 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
 
   return (
     <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="w-full max-w-md bg-white dark:bg-[#191a1a] rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-gray-200 dark:border-zinc-800">
+      <div className="w-full max-w-md bg-white dark:bg-[#191a1a] rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-gray-200 dark:border-zinc-800 max-h-[90vh]">
         {/* Header */}
-        <div className="h-14 border-b border-gray-200 dark:border-zinc-800 flex items-center justify-between px-6">
+        <div className="h-14 border-b border-gray-200 dark:border-zinc-800 flex items-center justify-between px-6 shrink-0">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
             {editingSpace ? 'Edit Space' : 'Create New Space'}
           </h3>
@@ -141,9 +141,9 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
         </div>
 
         {/* Content */}
-        <div className="p-6 flex flex-col gap-4">
+        <div className="p-6 flex flex-col gap-4 overflow-y-auto">
           {/* Icon and Name Row */}
-          <div className="flex gap-4">
+          <div className="flex flex-col sm:flex-row gap-4">
             {/* Emoji Picker */}
             <div className="flex flex-col gap-2 relative">
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Icon</label>
@@ -231,9 +231,7 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
               </div>
             </div>
             <div className="flex flex-col gap-2 w-24">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Top K
-              </label>
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Top K</label>
               <input
                 type="number"
                 min="0"
@@ -252,7 +250,7 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
         </div>
 
         {/* Footer */}
-        <div className="h-16 border-t border-gray-200 dark:border-zinc-800 flex items-center justify-between px-6 gap-3 bg-gray-50/50 dark:bg-[#191a1a]">
+        <div className="h-16 border-t border-gray-200 dark:border-zinc-800 flex items-center justify-between px-6 gap-3 bg-gray-50/50 dark:bg-[#191a1a] shrink-0">
           <div className="flex items-center gap-2">
             {editingSpace && (
               <button

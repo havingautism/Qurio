@@ -104,8 +104,8 @@ const ConversationsListView = ({
   return (
     <div
       className={clsx(
-        'flex flex-col min-h-screen p-8 bg-background text-foreground transition-all duration-300',
-        isSidebarPinned ? 'ml-80' : 'ml-16',
+        'flex flex-col min-h-screen p-4 md:p-8 bg-background text-foreground transition-all duration-300',
+        isSidebarPinned ? 'md:ml-80' : 'md:ml-16',
       )}
     >
       <div className="w-full max-w-6xl mx-auto">
@@ -186,8 +186,6 @@ const ConversationsListView = ({
                         <div className="w-12 h-12 rounded-full bg-linear-to-br from-cyan-400 to-blue-500 flex items-center justify-center mb-4 text-white">
                           <MessageSquare className="w-6 h-6" />
                         </div>
-
-                        {/* Conversation Title */}
                         <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2 group-hover:text-cyan-500 transition-colors line-clamp-2 flex-1">
                           {conversation.title || 'Untitled Conversation'}
                         </h3>

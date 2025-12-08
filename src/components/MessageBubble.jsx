@@ -3,10 +3,7 @@ import { useShallow } from 'zustand/react/shallow'
 import useChatStore from '../lib/chatStore'
 import {
   Copy,
-  ThumbsUp,
-  ThumbsDown,
   Share2,
-  MoreHorizontal,
   AlignLeft,
   Layers,
   Brain,
@@ -23,7 +20,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
-
+import clsx from 'clsx'
 import { getProvider } from '../lib/providers'
 
 /**
@@ -175,7 +172,7 @@ const MessageBubble = ({
 
     if (!inline && match) {
       return (
-        <div className="relative group my-4 border border-gray-200 dark:border-zinc-700 rounded-xl overflow-hidden bg-gray-50 dark:bg-[#202222]">
+        <div className="relative group my-4 border border-gray-200 dark:border-zinc-700 rounded-xl overflow-x-auto bg-gray-50 dark:bg-[#202222]">
           <div className="flex items-center justify-between px-3 py-2 text-[11px] font-semibold bg-gray-100 dark:bg-[#2a2a2a] text-gray-600 dark:text-gray-300 border-b border-gray-200 dark:border-zinc-700">
             <span>{langLabel}</span>
             <button className="px-2 py-1 rounded bg-gray-200 dark:bg-zinc-700 text-gray-700 dark:text-gray-200 text-[11px] opacity-0 group-hover:opacity-100 transition-opacity">
@@ -296,15 +293,44 @@ const MessageBubble = ({
           containerRef.current = el
           if (typeof bubbleRef === 'function') bubbleRef(el)
         }}
-        className="flex justify-end w-full mb-8 group"
+        className="flex justify-end w-full mb-8 group px-5 sm:px-0"
         onMouseUp={handleMouseUp}
       >
-        <div className="flex items-end gap-3">
+        <div className="flex flex-col items-end gap-2 max-w-[90%] md:max-w-[75%]">
+          {/* Message Content */}
+          <div
+            className={clsx(
+              'relative px-5 py-3.5 rounded-3xl text-base',
+              'bg-gray-100 dark:bg-zinc-800 text-gray-900 dark:text-gray-100',
+              'rounded-br-sm',
+            )}
+          >
+            {quoteToRender && (
+              <div className="mb-2 p-2 bg-white/50 dark:bg-black/20 rounded-lg text-sm border-l-2 border-cyan-500">
+                <div className="font-medium opacity-70 mb-1">Replying to:</div>
+                <div className="line-clamp-2 italic opacity-80">{quoteToRender.text}</div>
+              </div>
+            )}
+            {imagesToRender.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-2">
+                {imagesToRender.map((img, idx) => (
+                  <img
+                    key={idx}
+                    src={img.url}
+                    alt="User uploaded"
+                    className="max-w-full h-auto rounded-lg max-h-60 object-cover"
+                  />
+                ))}
+              </div>
+            )}
+            <div className="whitespace-pre-wrap wrap-break-word">{contentToRender}</div>
+          </div>
+
           {/* Action Buttons */}
-          <div className="opacity-0 group-hover:opacity-100 flex  gap-1 transition-opacity duration-200">
+          <div className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 flex gap-2 transition-opacity duration-200 px-1">
             <button
               onClick={() => onEdit && onEdit()}
-              className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 bg-gray-100 dark:bg-zinc-800/50 rounded-lg transition-colors"
+              className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300  rounded-lg transition-colors"
               title="Edit"
             >
               <Pencil size={14} />
@@ -314,43 +340,11 @@ const MessageBubble = ({
                 copyToClipboard(contentToRender)
                 setIsCopied(true)
               }}
-              className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 bg-gray-100 dark:bg-zinc-800/50 rounded-lg transition-colors"
+              className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300  rounded-lg transition-colors"
               title="Copy"
             >
               {isCopied ? <Check size={14} /> : <Copy size={14} />}
             </button>
-          </div>
-
-          <div className="flex flex-col items-end gap-2 max-w-2xl">
-            {imagesToRender.length > 0 && (
-              <div className="flex gap-2 mb-1 flex-wrap justify-end">
-                {imagesToRender.map((img, idx) => (
-                  <div
-                    key={idx}
-                    className="w-24 h-24 rounded-xl overflow-hidden border border-gray-200 dark:border-zinc-700 shadow-sm"
-                  >
-                    <img
-                      src={img.image_url.url}
-                      alt="attachment"
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                ))}
-              </div>
-            )}
-            {quoteToRender && (
-              <div className="bg-white dark:bg-zinc-900 text-gray-700 dark:text-gray-200 px-4 py-3 rounded-2xl rounded-br-sm border border-gray-200 dark:border-zinc-700 max-w-2xl mb-2 shadow-sm">
-                <div className="text-xs font-semibold text-cyan-600 dark:text-cyan-400 uppercase tracking-wide mb-1">
-                  Quoting
-                </div>
-                <div className="text-sm italic text-gray-600 dark:text-gray-300 leading-relaxed">
-                  "{quoteToRender?.text || ''}"
-                </div>
-              </div>
-            )}
-            <div className="bg-[#f7f1f2] dark:bg-zinc-800 text-gray-800 dark:text-gray-100 px-5 py-3 rounded-3xl rounded-tr-sm text-base leading-relaxed font-serif">
-              {contentToRender}
-            </div>
           </div>
         </div>
       </div>
@@ -403,7 +397,7 @@ const MessageBubble = ({
         containerRef.current = el
         if (typeof bubbleRef === 'function') bubbleRef(el)
       }}
-      className="w-full max-w-3xl mb-12 flex flex-col gap-6 relative"
+      className="w-full max-w-3xl mb-12 flex flex-col gap-6 relative px-5 sm:px-0"
       onMouseUp={handleMouseUp}
     >
       {/* Selection Menu */}
@@ -527,14 +521,16 @@ const MessageBubble = ({
             <Layers size={24} className="text-cyan-500" />
             <h3 className="text-lg font-medium">Related</h3>
           </div>
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-1 md:gap-2">
             {message.related.map((question, index) => (
               <div
                 key={index}
                 onClick={() => onRelatedClick && onRelatedClick(question)}
-                className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800/50 cursor-pointer transition-colors group"
+                className="flex items-center justify-between p-2 md:p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800/50 cursor-pointer transition-colors group"
               >
-                <span className="text-gray-700 dark:text-gray-300 font-medium">{question}</span>
+                <span className="text-gray-700 dark:text-gray-300 font-medium text-sm md:text-base">
+                  {question}
+                </span>
                 <div className="opacity-0 group-hover:opacity-100 text-gray-400 dark:text-gray-500">
                   <CornerRightDown />
                 </div>
@@ -548,14 +544,14 @@ const MessageBubble = ({
       <div className="flex items-center gap-4 mt-2 border-t border-gray-200 dark:border-zinc-800 pt-4">
         <button className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
           <Share2 size={16} />
-          Share
+          <span className="hidden sm:block">Share</span>
         </button>
         <button
           className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
           onClick={() => onRegenerateAnswer && onRegenerateAnswer()}
         >
           <RefreshCw size={16} />
-          Regenerate
+          <span className="hidden sm:block">Regenerate</span>
         </button>
         <button
           className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
@@ -583,16 +579,16 @@ const MessageBubble = ({
               >
                 <polyline points="20,6 9,17 4,12"></polyline>
               </svg>
-              <span className="text-green-600 dark:text-green-400">Copied</span>
+              <span className="text-green-600 dark:text-green-400 hidden sm:block">Copied</span>
             </>
           ) : (
             <>
               <Copy size={16} />
-              Copy
+              <span className="hidden sm:block">Copy</span>
             </>
           )}
         </button>
-        <div className="flex-1" />
+        {/* <div className="flex-1" />
         <button className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
           <ThumbsUp size={16} />
         </button>
@@ -601,7 +597,7 @@ const MessageBubble = ({
         </button>
         <button className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
           <MoreHorizontal size={16} />
-        </button>
+        </button> */}
       </div>
     </div>
   )

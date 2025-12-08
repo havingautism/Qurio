@@ -51,7 +51,7 @@ const SpacesView = () => {
     <div
       className={clsx(
         'flex-1 min-h-screen bg-background text-foreground transition-all duration-300',
-        isSidebarPinned ? 'ml-80' : 'ml-16',
+        isSidebarPinned ? 'ml-0 sm:ml-80' : 'ml-0 sm:ml-16',
       )}
     >
       <div className="w-full max-w-5xl mx-auto px-6 py-8">

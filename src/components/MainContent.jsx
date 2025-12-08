@@ -8,6 +8,7 @@ import {
   ChevronDown,
   LayoutGrid,
   Brain,
+  Menu,
 } from 'lucide-react'
 import clsx from 'clsx'
 import ChatInterface from './ChatInterface'
@@ -17,6 +18,7 @@ import ConversationsListView from './ConversationsListView'
 import { loadSettings } from '../lib/settings'
 import TwemojiDisplay from './TwemojiDisplay'
 import HomeWidgets from './widgets/HomeWidgets'
+import { useAppContext } from '../App'
 
 const MainContent = ({
   currentView,
@@ -56,6 +58,7 @@ const MainContent = ({
   const [homeSelectedSpace, setHomeSelectedSpace] = useState(null)
   const homeSpaceSelectorRef = useRef(null)
   const [isHomeSpaceSelectorOpen, setIsHomeSpaceSelectorOpen] = useState(false)
+  const { toggleSidebar } = useAppContext()
 
   // Sync prop change to local state if needed (e.g. sidebar navigation)
   useEffect(() => {
@@ -273,13 +276,28 @@ const MainContent = ({
         <div
           className={clsx(
             'flex flex-col items-center justify-center min-h-screen p-4 transition-all duration-300',
-            isSidebarPinned ? 'ml-80' : 'ml-16',
+            isSidebarPinned ? 'md:ml-80' : 'md:ml-16',
           )}
         >
+          {/* Mobile Header for Home View */}
+          <div className="md:hidden w-full h-14 border-b border-gray-200 dark:border-zinc-800 flex items-center justify-between px-4 bg-background z-40 fixed top-0 left-0">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={toggleSidebar}
+                className="p-2 -ml-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg"
+              >
+                <Menu size={20} />
+              </button>
+              <span className="font-semibold text-gray-900 dark:text-white">Filo</span>
+            </div>
+            {/* Space for right button if needed, or just spacer */}
+            <div className="w-8" />
+          </div>
+
           {/* Main Container */}
-          <div className="w-full max-w-3xl flex flex-col items-center gap-8">
+          <div className="w-full max-w-3xl flex flex-col items-center gap-8 mt-14 md:mt-0">
             {/* Title */}
-            <h1 className="text-4xl md:text-5xl font-serif! font-medium text-center mb-8 text-[#1f2937] dark:text-white">
+            <h1 className="text-3xl md:text-5xl font-serif! font-medium text-center mb-8 text-[#1f2937] dark:text-white">
               Where knowledge begins
             </h1>
 
@@ -357,7 +375,7 @@ const MainContent = ({
                       }`}
                     >
                       <Brain size={18} />
-                      <span>Think</span>
+                      <span className="hidden md:inline">Think</span>
                     </button>
                     <button
                       disabled={
@@ -373,7 +391,7 @@ const MainContent = ({
                       }`}
                     >
                       <Globe size={18} />
-                      <span>Search</span>
+                      <span className="hidden md:inline">Search</span>
                     </button>
 
                     <div className="relative" ref={homeSpaceSelectorRef}>
@@ -386,7 +404,7 @@ const MainContent = ({
                         }`}
                       >
                         <LayoutGrid size={18} />
-                        <span>
+                        <span className="hidden md:inline">
                           {isHomeSpaceAuto || !homeSelectedSpace
                             ? 'Spaces: Auto'
                             : `Spaces: ${homeSelectedSpace.label}`}
@@ -454,7 +472,7 @@ const MainContent = ({
           </div>
 
           {/* Footer */}
-          <div className="absolute bottom-4 text-xs text-gray-400 dark:text-gray-600 flex gap-4">
+          {/* <div className="absolute bottom-4 text-xs text-gray-400 dark:text-gray-600 flex gap-4">
             <a href="#" className="hover:underline">
               Pro
             </a>
@@ -473,7 +491,7 @@ const MainContent = ({
             <a href="#" className="hover:underline">
               English (English)
             </a>
-          </div>
+          </div> */}
         </div>
       )}
     </div>

@@ -23,6 +23,9 @@ function App() {
   const [isSpaceModalOpen, setIsSpaceModalOpen] = useState(false)
   const [editingSpace, setEditingSpace] = useState(null)
 
+  // Mobile Sidebar State
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+
   // Spaces Data
   const [spaces, setSpaces] = useState([])
 
@@ -43,17 +46,8 @@ function App() {
     return match ? match[1] : null
   }, [location])
 
-  // Derive current view from location
-  const currentView = React.useMemo(() => {
-    const path = location.pathname
-    if (path === '/' || path === '/new_chat') return 'home'
-    if (path.startsWith('/conversation/')) return 'chat'
-    if (path === '/spaces') return 'spaces'
-    if (path.startsWith('/space/')) return 'space'
-    if (path === '/library') return 'library'
-    if (path === '/bookmarks') return 'bookmarks'
-    return 'home'
-  }, [location])
+  // Derive current view from location (removed unused logic)
+  // const currentView = React.useMemo(() => { ... })
 
   useEffect(() => {
     const root = document.documentElement
@@ -90,6 +84,7 @@ function App() {
   }
 
   const handleNavigate = view => {
+    setIsSidebarOpen(false)
     switch (view) {
       case 'home':
         navigate({ to: '/new_chat' })
@@ -112,6 +107,7 @@ function App() {
   }
 
   const handleNavigateToSpace = space => {
+    setIsSidebarOpen(false)
     if (space) {
       navigate({
         to: '/space/$spaceId',
@@ -133,6 +129,7 @@ function App() {
   }
 
   const handleOpenConversation = conversation => {
+    setIsSidebarOpen(false)
     if (conversation?.id) {
       navigate({
         to: '/conversation/$conversationId',
@@ -232,6 +229,8 @@ function App() {
     <ToastProvider>
       <div className="flex min-h-screen bg-background text-foreground font-sans selection:bg-cyan-500/30">
         <Sidebar
+          isOpen={isSidebarOpen}
+          onClose={() => setIsSidebarOpen(false)}
           onOpenSettings={() => setIsSettingsOpen(true)}
           onNavigate={handleNavigate}
           onNavigateToSpace={handleNavigateToSpace}
@@ -250,8 +249,57 @@ function App() {
           // className={`flex-1 relative transition-all duration-300 ${
           //   isSidebarPinned ? "ml-18" : "ml-0"
           // }`}
-          className={`flex-1 relative transition-all duration-300 ml-0`}
+          className={`flex-1 relative transition-all duration-300 ml-0 w-full`}
         >
+          {/* Mobile Header - Hide on Chat/Conversation routes as they have their own header */}
+          {!location.pathname.includes('/conversation/') &&
+            !location.pathname.includes('/new_chat') && (
+              <div className="md:hidden h-14 border-b border-gray-200 dark:border-zinc-800 flex items-center justify-between px-4 bg-background z-40 sticky top-0">
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setIsSidebarOpen(true)}
+                    className="p-2 -ml-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <line x1="3" y1="12" x2="21" y2="12"></line>
+                      <line x1="3" y1="6" x2="21" y2="6"></line>
+                      <line x1="3" y1="18" x2="21" y2="18"></line>
+                    </svg>
+                  </button>
+                  <span className="font-semibold text-gray-900 dark:text-white">Filo</span>
+                </div>
+                <button
+                  onClick={() => handleNavigate('home')}
+                  className="p-2 -mr-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M5 12h14"></path>
+                    <path d="M12 5v14"></path>
+                  </svg>
+                </button>
+              </div>
+            )}
+
           <AppContext.Provider
             value={{
               spaces,
@@ -264,6 +312,7 @@ function App() {
               onCreateSpace: handleCreateSpace,
               onEditSpace: handleEditSpace,
               isSidebarPinned,
+              toggleSidebar: () => setIsSidebarOpen(prev => !prev),
             }}
           >
             <Outlet />

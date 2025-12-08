@@ -167,7 +167,7 @@ const LibraryView = () => {
     <div
       className={clsx(
         'flex-1 min-h-screen bg-background text-foreground transition-all duration-300',
-        isSidebarPinned ? 'ml-80' : 'ml-16',
+        isSidebarPinned ? 'ml-0 sm:ml-80' : 'ml-0 sm:ml-16',
       )}
     >
       <div className="w-full max-w-5xl mx-auto px-6 py-8">
@@ -237,17 +237,17 @@ const LibraryView = () => {
           {/* Filter Row (Visual only for now) */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <button className="px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 text-xs font-medium transition-colors">
+              {/* <button className="px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 text-xs font-medium transition-colors">
                 Select
-              </button>
+              </button> */}
               <button className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 text-xs font-medium transition-colors">
                 <span>Type</span>
                 <ChevronDown size={12} />
               </button>
-              <button className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 text-xs font-medium transition-colors">
+              {/* <button className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 text-xs font-medium transition-colors">
                 <span>Temporary Threads: Show</span>
                 <ChevronDown size={12} />
-              </button>
+              </button> */}
             </div>
             <div className="relative">
               <button
@@ -395,7 +395,7 @@ const LibraryView = () => {
         <div
           className={clsx(
             'fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur border-t border-gray-200 dark:border-zinc-800',
-            isSidebarPinned ? 'pl-80' : 'pl-16',
+            isSidebarPinned ? 'pl-0 sm:pl-80' : 'pl-0 sm:pl-16',
           )}
         >
           <div className="max-w-5xl mx-auto px-6">

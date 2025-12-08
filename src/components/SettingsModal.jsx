@@ -65,6 +65,13 @@ const PROVIDER_LABELS = {
   siliconflow: 'SiliconFlow',
 }
 
+// Provider favicon URLs
+const PROVIDER_FAVICONS = {
+  gemini: 'https://www.google.com/favicon.ico',
+  openai_compatibility: 'https://openai.com/favicon.ico',
+  siliconflow: 'https://siliconflow.cn/favicon.ico',
+}
+
 const SettingsModal = ({ isOpen, onClose }) => {
   const renderEnvHint = hasEnv =>
     hasEnv ? <p className="text-[10px] text-emerald-500">Loaded from environment</p> : null
@@ -234,10 +241,17 @@ const SettingsModal = ({ isOpen, onClose }) => {
                       onClick={() => setIsProviderDropdownOpen(!isProviderDropdownOpen)}
                       className="w-full flex items-center justify-between pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-zinc-800"
                     >
-                      <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                        <Box size={16} />
+                      <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center">
+                        <Box size={16} className="text-gray-400" />
                       </div>
-                      <span>{PROVIDER_LABELS[apiProvider] || apiProvider}</span>
+                      <div className="flex items-center gap-3">
+                        <img
+                          src={PROVIDER_FAVICONS[apiProvider]}
+                          alt={PROVIDER_LABELS[apiProvider] || apiProvider}
+                          className="w-4 h-4"
+                        />
+                        <span>{PROVIDER_LABELS[apiProvider] || apiProvider}</span>
+                      </div>
                       <ChevronDown
                         size={16}
                         className={clsx(
@@ -256,7 +270,14 @@ const SettingsModal = ({ isOpen, onClose }) => {
                           }}
                           className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
                         >
-                          <span>Google Gemini</span>
+                          <div className="flex items-center gap-3">
+                            <img
+                              src={PROVIDER_FAVICONS.gemini}
+                              alt="Google Gemini"
+                              className="w-4 h-4"
+                            />
+                            <span>Google Gemini</span>
+                          </div>
                           {apiProvider === 'gemini' && (
                             <Check size={14} className="text-cyan-500" />
                           )}
@@ -268,7 +289,14 @@ const SettingsModal = ({ isOpen, onClose }) => {
                           }}
                           className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
                         >
-                          <span>OpenAI Compatible</span>
+                          <div className="flex items-center gap-3">
+                            <img
+                              src={PROVIDER_FAVICONS.openai_compatibility}
+                              alt="OpenAI"
+                              className="w-4 h-4"
+                            />
+                            <span>OpenAI Compatible</span>
+                          </div>
                           {apiProvider === 'openai_compatibility' && (
                             <Check size={14} className="text-cyan-500" />
                           )}
@@ -280,7 +308,14 @@ const SettingsModal = ({ isOpen, onClose }) => {
                           }}
                           className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
                         >
-                          <span>SiliconFlow</span>
+                          <div className="flex items-center gap-3">
+                            <img
+                              src={PROVIDER_FAVICONS.siliconflow}
+                              alt="SiliconFlow"
+                              className="w-4 h-4"
+                            />
+                            <span>SiliconFlow</span>
+                          </div>
                           {apiProvider === 'siliconflow' && (
                             <Check size={14} className="text-cyan-500" />
                           )}

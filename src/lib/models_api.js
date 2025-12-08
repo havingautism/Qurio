@@ -3,7 +3,7 @@
  */
 
 // Fetch available models from Google Gemini
-export const fetchGeminiModels = async apiKey => {
+export const fetchGeminiModels = async (apiKey, options = {}) => {
   if (!apiKey) {
     throw new Error('API Key is required')
   }
@@ -12,6 +12,11 @@ export const fetchGeminiModels = async apiKey => {
     // Add timeout to prevent hanging requests
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 second timeout
+
+    // If external signal is provided, abort when either the external signal or timeout triggers
+    if (options.signal) {
+      options.signal.addEventListener('abort', () => controller.abort())
+    }
 
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1/models?key=${apiKey}`,
@@ -72,7 +77,7 @@ export const fetchGeminiModels = async apiKey => {
 }
 
 // Fetch available models from SiliconFlow
-export const fetchSiliconFlowModels = async (apiKey, baseUrl = 'https://api.siliconflow.cn/v1') => {
+export const fetchSiliconFlowModels = async (apiKey, baseUrl = 'https://api.siliconflow.cn/v1', options = {}) => {
   if (!apiKey) {
     throw new Error('API Key is required')
   }
@@ -81,6 +86,11 @@ export const fetchSiliconFlowModels = async (apiKey, baseUrl = 'https://api.sili
     // Add timeout to prevent hanging requests
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 second timeout
+
+    // If external signal is provided, abort when either the external signal or timeout triggers
+    if (options.signal) {
+      options.signal.addEventListener('abort', () => controller.abort())
+    }
 
     // Only request chat models via sub_type query param per SiliconFlow docs
     const url = new URL(`${baseUrl.replace(/\/$/, '')}/models`)
@@ -154,12 +164,12 @@ export const fetchSiliconFlowModels = async (apiKey, baseUrl = 'https://api.sili
 }
 
 // Get models for a specific provider
-export const getModelsForProvider = async (provider, credentials) => {
+export const getModelsForProvider = async (provider, credentials, options = {}) => {
   switch (provider) {
     case 'gemini':
-      return await fetchGeminiModels(credentials.apiKey)
+      return await fetchGeminiModels(credentials.apiKey, options)
     case 'siliconflow':
-      return await fetchSiliconFlowModels(credentials.apiKey, credentials.baseUrl)
+      return await fetchSiliconFlowModels(credentials.apiKey, credentials.baseUrl, options)
     case 'openai_compatibility':
       // OpenAI compatible doesn't have a standard models endpoint
       // Return empty array to use fallback models

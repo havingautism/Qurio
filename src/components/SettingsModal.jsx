@@ -106,6 +106,9 @@ const SettingsModal = ({ isOpen, onClose }) => {
   const [modelsError, setModelsError] = useState(null)
   const [currentProvider, setCurrentProvider] = useState(null) // Track current provider for loading
 
+  // AbortController for cancelling requests
+  const abortControllerRef = useRef(null)
+
   // Handle click outside provider dropdown
   useEffect(() => {
     const handleClickOutside = event => {
@@ -157,10 +160,28 @@ const SettingsModal = ({ isOpen, onClose }) => {
 
   useScrollLock(isOpen)
 
+  // Cleanup abort controller when component unmounts
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+      }
+    }
+  }, [])
+
   // Function to fetch models for the current provider
   const fetchModelsForProvider = async (provider) => {
     // Use the current provider if not specified
     const targetProvider = provider || apiProvider
+
+    // Cancel previous request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+    }
+
+    // Create new AbortController for this request
+    const controller = new AbortController()
+    abortControllerRef.current = controller
 
     // Update current provider tracking
     setCurrentProvider(targetProvider)
@@ -169,6 +190,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
     if (targetProvider === 'openai_compatibility') {
       setDynamicModels([])
       setModelsError(null)
+      setIsLoadingModels(false)
       return
     }
 
@@ -192,24 +214,31 @@ const SettingsModal = ({ isOpen, onClose }) => {
         return
       }
 
-      const models = await getModelsForProvider(targetProvider, credentials)
+      const models = await getModelsForProvider(targetProvider, credentials, {
+        signal: controller.signal
+      })
 
       // Only update state if this is still the current provider (provider didn't change during fetch)
-      if (currentProvider === targetProvider) {
+      if (currentProvider === targetProvider && !controller.signal.aborted) {
         setDynamicModels(models)
         setModelsError(null)
       }
     } catch (error) {
+      if (error.name === 'AbortError') {
+        console.log('Request was cancelled')
+        return
+      }
+
       console.error('Failed to fetch models:', error)
 
-      // Only update error state if this is still the current provider
-      if (currentProvider === targetProvider) {
+      // Only update error state if this is still the current provider and request wasn't aborted
+      if (currentProvider === targetProvider && !controller.signal.aborted) {
         setModelsError(error.message)
         setDynamicModels([])
       }
     } finally {
-      // Only update loading state if this is still the current provider
-      if (currentProvider === targetProvider) {
+      // Only update loading state if this is still the current provider and request wasn't aborted
+      if (currentProvider === targetProvider && !controller.signal.aborted) {
         setIsLoadingModels(false)
       }
     }
@@ -360,6 +389,12 @@ const SettingsModal = ({ isOpen, onClose }) => {
                       <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg shadow-xl z-20 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
                         <button
                           onClick={() => {
+                            // Cancel any ongoing request before switching
+                            if (abortControllerRef.current) {
+                              abortControllerRef.current.abort()
+                              abortControllerRef.current = null
+                            }
+
                             setApiProvider('gemini')
                             setIsProviderDropdownOpen(false)
                             // Clear all model-related state when switching providers
@@ -384,6 +419,12 @@ const SettingsModal = ({ isOpen, onClose }) => {
                         </button>
                         <button
                           onClick={() => {
+                            // Cancel any ongoing request before switching
+                            if (abortControllerRef.current) {
+                              abortControllerRef.current.abort()
+                              abortControllerRef.current = null
+                            }
+
                             setApiProvider('openai_compatibility')
                             setIsProviderDropdownOpen(false)
                             // Clear all model-related state when switching providers
@@ -408,6 +449,12 @@ const SettingsModal = ({ isOpen, onClose }) => {
                         </button>
                         <button
                           onClick={() => {
+                            // Cancel any ongoing request before switching
+                            if (abortControllerRef.current) {
+                              abortControllerRef.current.abort()
+                              abortControllerRef.current = null
+                            }
+
                             setApiProvider('siliconflow')
                             setIsProviderDropdownOpen(false)
                             // Clear all model-related state when switching providers

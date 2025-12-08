@@ -752,7 +752,7 @@ const Sidebar = ({
                           e.stopPropagation()
                           onEditSpace(space)
                         }}
-                        className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md hover:bg-gray-300 dark:hover:bg-zinc-700 text-gray-500 dark:text-gray-400 transition-all"
+                        className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 p-1.5 rounded-md hover:bg-gray-300 dark:hover:bg-zinc-700 text-gray-500 dark:text-gray-400 transition-all"
                       >
                         <Settings size={14} />
                       </button>

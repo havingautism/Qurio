@@ -297,7 +297,7 @@ const MainContent = ({
           {/* Main Container */}
           <div className="w-full max-w-3xl flex flex-col items-center gap-8 mt-14 md:mt-0">
             {/* Title */}
-            <h1 className="text-3xl md:text-5xl font-serif! font-medium text-center mb-8 text-[#1f2937] dark:text-white">
+            <h1 className="text-3xl md:text-5xl font-serif! font-medium text-center mb-4 mt-4 sm:mt-0 sm:mb-8 text-[#1f2937] dark:text-white">
               Where knowledge begins
             </h1>
 

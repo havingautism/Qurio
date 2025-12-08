@@ -125,10 +125,10 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="w-full max-w-md bg-white dark:bg-[#191a1a] rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-gray-200 dark:border-zinc-800 max-h-[90vh]">
+    <div className="fixed inset-0 z-100 flex items-start sm:items-center justify-center bg-black/50 backdrop-blur-sm p-3 sm:p-4">
+      <div className="w-full max-w-md bg-white dark:bg-[#191a1a] rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-gray-200 dark:border-zinc-800 max-h-[calc(100vh-1.5rem)] sm:max-h-[90vh]">
         {/* Header */}
-        <div className="h-14 border-b border-gray-200 dark:border-zinc-800 flex items-center justify-between px-6 shrink-0">
+        <div className="h-14 border-b border-gray-200 dark:border-zinc-800 flex items-center justify-between px-4 sm:px-6 shrink-0">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
             {editingSpace ? 'Edit Space' : 'Create New Space'}
           </h3>
@@ -141,7 +141,7 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
         </div>
 
         {/* Content */}
-        <div className="p-6 flex flex-col gap-4 overflow-y-auto">
+        <div className="flex-1 px-4 sm:px-6 py-6 flex flex-col gap-4 overflow-y-auto min-h-0">
           {/* Icon and Name Row */}
           <div className="flex flex-col sm:flex-row gap-4">
             {/* Emoji Picker */}
@@ -250,7 +250,7 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
         </div>
 
         {/* Footer */}
-        <div className="h-16 border-t border-gray-200 dark:border-zinc-800 flex items-center justify-between px-6 gap-3 bg-gray-50/50 dark:bg-[#191a1a] shrink-0">
+        <div className="h-16 border-t border-gray-200 dark:border-zinc-800 flex items-center justify-between px-4 sm:px-6 gap-3 bg-gray-50/50 dark:bg-[#191a1a] shrink-0">
           <div className="flex items-center gap-2">
             {editingSpace && (
               <button

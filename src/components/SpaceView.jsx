@@ -137,8 +137,8 @@ const SpaceView = ({
   return (
     <div
       className={clsx(
-        'flex flex-col items-center justify-center min-h-screen p-4 pb-24 bg-background text-foreground transition-all duration-300',
-        isSidebarPinned ? 'ml-80' : 'ml-16',
+        'flex flex-col items-center justify-center min-h-screen p-6 pb-24 bg-background text-foreground transition-all duration-300',
+        isSidebarPinned ? 'ml-0 sm:ml-80' : 'ml-0 sm:ml-16',
       )}
     >
       <div className="w-full max-w-3xl flex flex-col gap-8">

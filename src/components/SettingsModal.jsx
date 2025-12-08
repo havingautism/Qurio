@@ -331,8 +331,19 @@ const SettingsModal = ({ isOpen, onClose }) => {
   }
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="w-full max-w-4xl h-[90vh] md:h-[80vh] bg-white dark:bg-[#191a1a] rounded-2xl shadow-2xl flex flex-col md:flex-row overflow-hidden border border-gray-200 dark:border-zinc-800">
+    <div className="fixed inset-0 z-[100] flex items-start md:items-center justify-center bg-black/50 backdrop-blur-sm p-3 md:p-4 overflow-y-auto md:overflow-hidden">
+      <div className="w-full max-w-4xl h-[calc(100vh-1.5rem)] md:h-[80vh] max-h-[calc(100vh-1.5rem)] bg-white dark:bg-[#191a1a] rounded-2xl shadow-2xl flex flex-col md:flex-row overflow-hidden border border-gray-200 dark:border-zinc-800">
+        {/* Mobile Header */}
+        <div className="md:hidden h-14 border-b border-gray-200 dark:border-zinc-800 flex items-center justify-between px-4 bg-white dark:bg-[#191a1a] shrink-0">
+          <h2 className="text-base font-semibold text-gray-900 dark:text-white">Settings</h2>
+          <button
+            onClick={onClose}
+            className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-500 transition-colors"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
         {/* Sidebar */}
         <div className="w-full md:w-64 bg-gray-50 dark:bg-[#202222] border-b md:border-b-0 md:border-r border-gray-200 dark:border-zinc-800 p-4 flex flex-row md:flex-col gap-2 overflow-x-auto md:overflow-visible shrink-0">
           <h2 className="text-xl font-bold mb-0 md:mb-6 px-2 text-gray-900 dark:text-white hidden md:block">
@@ -358,9 +369,9 @@ const SettingsModal = ({ isOpen, onClose }) => {
         </div>
 
         {/* Content Area */}
-        <div className="flex-1 flex flex-col min-w-0 bg-white dark:bg-[#191a1a]">
+        <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-white dark:bg-[#191a1a]">
           {/* Header */}
-          <div className="h-16 border-b border-gray-200 dark:border-zinc-800 flex items-center justify-between px-8">
+          <div className="h-16 border-b border-gray-200 dark:border-zinc-800 hidden md:flex items-center justify-between px-6 sm:px-8">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white capitalize">
               {activeTab}
             </h3>
@@ -373,7 +384,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
           </div>
 
           {/* Scrollable Content */}
-          <div className="flex-1 overflow-y-auto p-8">
+          <div className="flex-1 overflow-y-auto p-6 sm:p-8 min-h-0">
             {activeTab === 'general' && (
               <div className="flex flex-col gap-8 max-w-2xl">
                 {/* ... existing general settings ... */}
@@ -1117,7 +1128,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
           </div>
 
           {/* Footer */}
-          <div className="h-20 border-t border-gray-200 dark:border-zinc-800 flex items-center justify-end px-8 gap-3 bg-gray-50/50 dark:bg-[#191a1a]">
+          <div className="h-20 border-t border-gray-200 dark:border-zinc-800 flex items-center justify-end px-6 sm:px-8 gap-3 bg-gray-50/50 dark:bg-[#191a1a] shrink-0">
             <button
               onClick={onClose}
               className="px-4 cursor-pointer py-2 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-zinc-800 transition-colors"

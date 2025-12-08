@@ -531,7 +531,7 @@ const MessageBubble = ({
                 <span className="text-gray-700 dark:text-gray-300 font-medium text-sm md:text-base">
                   {question}
                 </span>
-                <div className="opacity-0 group-hover:opacity-100 text-gray-400 dark:text-gray-500">
+                <div className="ml-2 sm:ml-0opacity-100 sm:opacity-0 sm:group-hover:opacity-100 text-gray-400 dark:text-gray-500">
                   <CornerRightDown />
                 </div>
               </div>

@@ -68,6 +68,8 @@ export const streamChatCompletion = async ({
   toolChoice,
   responseFormat,
   thinking,
+  temperature,
+  top_k,
   onChunk,
   onFinish,
   onError,
@@ -83,6 +85,11 @@ export const streamChatCompletion = async ({
       messages: trimmedMessages,
       stream: true,
     }
+
+    if (temperature !== undefined) options.temperature = temperature
+    if (top_k !== undefined) options.top_k = top_k
+    // Some models might require top_k in extra_body if not standard, but SiliconFlow usually supports it? 
+    // We will stick to top-level for now as it maps to their API which is OpenAI-like but extended.
 
     if (tools && tools.length > 0) {
       options.tools = tools

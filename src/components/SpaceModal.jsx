@@ -9,7 +9,10 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [prompt, setPrompt] = useState('')
+
   const [emoji, setEmoji] = useState('🌍') // Default emoji
+  const [temperature, setTemperature] = useState(1.0)
+  const [topK, setTopK] = useState(null)
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState('')
@@ -69,11 +72,15 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
         setDescription(editingSpace.description || '')
         setPrompt(editingSpace.prompt || '')
         setEmoji(editingSpace.emoji || '🌍')
+        setTemperature(editingSpace.temperature ?? 1.0)
+        setTopK(editingSpace.top_k ?? null)
       } else {
         setName('')
         setDescription('')
         setPrompt('')
         setEmoji('🌍')
+        setTemperature(1.0)
+        setTopK(null)
       }
       setShowEmojiPicker(false)
       setError('')
@@ -93,7 +100,10 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
         emoji,
         label: name.trim(),
         description: description.trim(),
+
         prompt: prompt.trim(),
+        temperature,
+        top_k: topK,
       })
     } catch (err) {
       setError(err.message || 'Failed to save space')
@@ -200,6 +210,42 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
               rows={8}
               className="w-full px-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600 resize-none"
             />
+          </div>
+
+          {/* Model Settings */}
+          <div className="flex gap-4">
+            <div className="flex flex-col gap-2 flex-1">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Temperature <span className="text-gray-400 font-normal">({temperature})</span>
+              </label>
+              <div className="h-10 flex items-center px-1">
+                <input
+                  type="range"
+                  min="0"
+                  max="2"
+                  step="0.1"
+                  value={temperature}
+                  onChange={e => setTemperature(parseFloat(e.target.value))}
+                  className="w-full accent-black dark:accent-white cursor-pointer"
+                />
+              </div>
+            </div>
+            <div className="flex flex-col gap-2 w-24">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Top K
+              </label>
+              <input
+                type="number"
+                min="0"
+                value={topK ?? ''}
+                onChange={e => {
+                  const val = e.target.value
+                  setTopK(val === '' ? null : parseInt(val))
+                }}
+                placeholder="Auto"
+                className="w-full h-10 px-3 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600"
+              />
+            </div>
           </div>
 
           {error && <div className="text-sm text-red-500">{error}</div>}

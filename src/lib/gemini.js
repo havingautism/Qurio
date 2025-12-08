@@ -257,6 +257,8 @@ export const streamChatCompletion = async ({
   messages,
   tools,
   thinking,
+  temperature,
+  top_k,
   onChunk,
   onFinish,
   onError,
@@ -276,6 +278,10 @@ export const streamChatCompletion = async ({
     const config = {
       systemInstruction,
       tools: geminiTools,
+      generationConfig: {
+         ...(temperature !== undefined ? { temperature } : {}),
+         ...(top_k !== undefined ? { topK: top_k } : {}),
+      },
       ...(thinking || {}), // spreads { thinkingConfig: ... }
     }
 

@@ -287,6 +287,7 @@ const callAIAPI = async (
   toggles,
   callbacks,
   spaces,
+  spaceInfo,
   get,
   set,
   historyLengthBeforeSend,
@@ -300,10 +301,16 @@ const callAIAPI = async (
     // Use dynamic model selection for main conversation
     const model = getModelForTask('streamChatCompletion', settings)
 
+    // Extract space settings
+    const spaceTemperature = spaceInfo?.selectedSpace?.temperature
+    const spaceTopK = spaceInfo?.selectedSpace?.top_k
+
     // Prepare API parameters
     const params = {
       ...credentials,
       model,
+      temperature: spaceTemperature ?? undefined,
+      top_k: spaceTopK ?? undefined,
       messages: conversationMessages.map(m => ({
         role: m.role === 'ai' ? 'assistant' : m.role,
         content: m.content,
@@ -793,6 +800,7 @@ const useChatStore = create((set, get) => ({
       toggles,
       callbacks,
       spaces,
+      spaceInfo,
       get,
       set,
       historyLengthBeforeSend,

@@ -85,6 +85,8 @@ export const streamChatCompletion = async ({
   toolChoice,
   responseFormat,
   thinking,
+  temperature,
+  top_k,
   onChunk,
   onFinish,
   onError,
@@ -100,6 +102,13 @@ export const streamChatCompletion = async ({
       model: resolvedModel,
       messages: trimmedMessages,
       stream: true,
+    }
+
+    if (temperature !== undefined) options.temperature = temperature
+    
+    // Handle top_k which is not standard OpenAI
+    if (top_k !== undefined) {
+      options.extra_body = { ...(options.extra_body || {}), top_k }
     }
 
     // Optional splicing of features

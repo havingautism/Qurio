@@ -183,8 +183,9 @@ const SettingsModal = ({ isOpen, onClose }) => {
     const controller = new AbortController()
     abortControllerRef.current = controller
 
-    // Update current provider tracking
-    setCurrentProvider(targetProvider)
+    // Set current provider immediately
+    const currentProviderRef = targetProvider
+    setCurrentProvider(currentProviderRef)
 
     // Skip for openai_compatibility as it doesn't support model listing
     if (targetProvider === 'openai_compatibility') {
@@ -211,6 +212,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
 
       if (!credentials.apiKey) {
         setDynamicModels([])
+        setIsLoadingModels(false)
         return
       }
 
@@ -218,11 +220,17 @@ const SettingsModal = ({ isOpen, onClose }) => {
         signal: controller.signal
       })
 
-      // Only update state if this is still the current provider (provider didn't change during fetch)
-      if (currentProvider === targetProvider && !controller.signal.aborted) {
-        setDynamicModels(models)
-        setModelsError(null)
+      // Check if request was aborted
+      if (controller.signal.aborted) {
+        console.log('Request was aborted')
+        return
       }
+
+      // Update states regardless of provider change since we want to show the fetched models
+      console.log(`Successfully fetched ${models.length} models for ${targetProvider}`)
+      setDynamicModels(models)
+      setModelsError(null)
+
     } catch (error) {
       if (error.name === 'AbortError') {
         console.log('Request was cancelled')
@@ -231,45 +239,64 @@ const SettingsModal = ({ isOpen, onClose }) => {
 
       console.error('Failed to fetch models:', error)
 
-      // Only update error state if this is still the current provider and request wasn't aborted
-      if (currentProvider === targetProvider && !controller.signal.aborted) {
+      // Only update error state if request wasn't aborted
+      if (!controller.signal.aborted) {
         setModelsError(error.message)
         setDynamicModels([])
       }
     } finally {
-      // Only update loading state if this is still the current provider and request wasn't aborted
-      if (currentProvider === targetProvider && !controller.signal.aborted) {
+      // Always update loading state when request completes
+      if (!controller.signal.aborted) {
         setIsLoadingModels(false)
       }
     }
   }
 
-  // Fetch models when provider changes
+  // Fetch models when provider changes or when modal opens with valid credentials
   useEffect(() => {
     if (isOpen) {
-      // Clear previous state when provider changes
-      setModelsError(null)
-      setDynamicModels([])
-      setIsLoadingModels(false)
+      // Check if we should fetch models for this provider
+      const hasValidCredentials =
+        (apiProvider === 'gemini' && googleApiKey) ||
+        (apiProvider === 'siliconflow' && SiliconFlowKey) ||
+        (apiProvider === 'openai_compatibility')
 
-      const debounceTimer = setTimeout(() => {
-        fetchModelsForProvider(apiProvider)
-      }, 500) // Debounce to avoid too many API calls
+      if (hasValidCredentials) {
+        // Clear previous state when provider changes
+        setModelsError(null)
+        setDynamicModels([])
+        setIsLoadingModels(false)
 
-      return () => clearTimeout(debounceTimer)
+        const debounceTimer = setTimeout(() => {
+          fetchModelsForProvider(apiProvider)
+        }, 500) // Debounce to avoid too many API calls
+
+        return () => clearTimeout(debounceTimer)
+      } else {
+        // No valid credentials, clear model state
+        setDynamicModels([])
+        setModelsError(null)
+        setIsLoadingModels(false)
+      }
     }
   }, [apiProvider, isOpen])
 
-  // Fetch models when credentials change for current provider
+  // Fetch models when credentials change for current provider (excluding apiProvider to avoid duplicate calls)
   useEffect(() => {
-    if (isOpen && (apiProvider === 'gemini' && googleApiKey) || (apiProvider === 'siliconflow' && SiliconFlowKey)) {
-      const debounceTimer = setTimeout(() => {
-        fetchModelsForProvider(apiProvider)
-      }, 1000)
+    if (isOpen && apiProvider) {
+      const hasValidCredentials =
+        (apiProvider === 'gemini' && googleApiKey) ||
+        (apiProvider === 'siliconflow' && SiliconFlowKey)
 
-      return () => clearTimeout(debounceTimer)
+      if (hasValidCredentials) {
+        const debounceTimer = setTimeout(() => {
+          fetchModelsForProvider(apiProvider)
+        }, 1000)
+
+        return () => clearTimeout(debounceTimer)
+      }
     }
-  }, [googleApiKey, SiliconFlowKey, SiliconFlowUrl, apiProvider])
+  }, [googleApiKey, SiliconFlowKey, SiliconFlowUrl])
 
   if (!isOpen) return null
 
@@ -506,7 +533,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                       {apiProvider === 'gemini' && googleApiKey && (
                         <div className="flex items-center gap-2 mt-2">
                           <button
-                            onClick={fetchModelsForProvider}
+                            onClick={() => fetchModelsForProvider(apiProvider)}
                             disabled={isLoadingModels}
                             className="flex items-center gap-1 text-xs px-3 py-1 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-md transition-colors disabled:opacity-50"
                           >
@@ -598,7 +625,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                         {apiProvider === 'siliconflow' && SiliconFlowKey && (
                           <div className="flex items-center gap-2 mt-2">
                             <button
-                              onClick={fetchModelsForProvider}
+                              onClick={() => fetchModelsForProvider(apiProvider)}
                               disabled={isLoadingModels}
                               className="flex items-center gap-1 text-xs px-3 py-1 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-md transition-colors disabled:opacity-50"
                             >

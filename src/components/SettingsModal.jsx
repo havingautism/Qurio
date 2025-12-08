@@ -104,6 +104,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
   const [dynamicModels, setDynamicModels] = useState([])
   const [isLoadingModels, setIsLoadingModels] = useState(false)
   const [modelsError, setModelsError] = useState(null)
+  const [currentProvider, setCurrentProvider] = useState(null) // Track current provider for loading
 
   // Handle click outside provider dropdown
   useEffect(() => {
@@ -157,9 +158,15 @@ const SettingsModal = ({ isOpen, onClose }) => {
   useScrollLock(isOpen)
 
   // Function to fetch models for the current provider
-  const fetchModelsForProvider = async () => {
+  const fetchModelsForProvider = async (provider) => {
+    // Use the current provider if not specified
+    const targetProvider = provider || apiProvider
+
+    // Update current provider tracking
+    setCurrentProvider(targetProvider)
+
     // Skip for openai_compatibility as it doesn't support model listing
-    if (apiProvider === 'openai_compatibility') {
+    if (targetProvider === 'openai_compatibility') {
       setDynamicModels([])
       setModelsError(null)
       return
@@ -171,9 +178,9 @@ const SettingsModal = ({ isOpen, onClose }) => {
     try {
       let credentials = {}
 
-      if (apiProvider === 'gemini') {
+      if (targetProvider === 'gemini') {
         credentials = { apiKey: googleApiKey }
-      } else if (apiProvider === 'siliconflow') {
+      } else if (targetProvider === 'siliconflow') {
         credentials = {
           apiKey: SiliconFlowKey,
           baseUrl: SiliconFlowUrl || 'https://api.siliconflow.cn/v1',
@@ -185,22 +192,39 @@ const SettingsModal = ({ isOpen, onClose }) => {
         return
       }
 
-      const models = await getModelsForProvider(apiProvider, credentials)
-      setDynamicModels(models)
+      const models = await getModelsForProvider(targetProvider, credentials)
+
+      // Only update state if this is still the current provider (provider didn't change during fetch)
+      if (currentProvider === targetProvider) {
+        setDynamicModels(models)
+        setModelsError(null)
+      }
     } catch (error) {
       console.error('Failed to fetch models:', error)
-      setModelsError(error.message)
-      setDynamicModels([])
+
+      // Only update error state if this is still the current provider
+      if (currentProvider === targetProvider) {
+        setModelsError(error.message)
+        setDynamicModels([])
+      }
     } finally {
-      setIsLoadingModels(false)
+      // Only update loading state if this is still the current provider
+      if (currentProvider === targetProvider) {
+        setIsLoadingModels(false)
+      }
     }
   }
 
-  // Fetch models when provider changes or credentials change
+  // Fetch models when provider changes
   useEffect(() => {
     if (isOpen) {
+      // Clear previous state when provider changes
+      setModelsError(null)
+      setDynamicModels([])
+      setIsLoadingModels(false)
+
       const debounceTimer = setTimeout(() => {
-        fetchModelsForProvider()
+        fetchModelsForProvider(apiProvider)
       }, 500) // Debounce to avoid too many API calls
 
       return () => clearTimeout(debounceTimer)
@@ -209,14 +233,14 @@ const SettingsModal = ({ isOpen, onClose }) => {
 
   // Fetch models when credentials change for current provider
   useEffect(() => {
-    if (isOpen && dynamicModels.length > 0) {
+    if (isOpen && (apiProvider === 'gemini' && googleApiKey) || (apiProvider === 'siliconflow' && SiliconFlowKey)) {
       const debounceTimer = setTimeout(() => {
-        fetchModelsForProvider()
+        fetchModelsForProvider(apiProvider)
       }, 1000)
 
       return () => clearTimeout(debounceTimer)
     }
-  }, [googleApiKey, SiliconFlowKey, SiliconFlowUrl])
+  }, [googleApiKey, SiliconFlowKey, SiliconFlowUrl, apiProvider])
 
   if (!isOpen) return null
 
@@ -338,8 +362,11 @@ const SettingsModal = ({ isOpen, onClose }) => {
                           onClick={() => {
                             setApiProvider('gemini')
                             setIsProviderDropdownOpen(false)
+                            // Clear all model-related state when switching providers
                             setModelsError(null)
                             setDynamicModels([])
+                            setIsLoadingModels(false)
+                            setCurrentProvider('gemini')
                           }}
                           className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
                         >
@@ -359,8 +386,11 @@ const SettingsModal = ({ isOpen, onClose }) => {
                           onClick={() => {
                             setApiProvider('openai_compatibility')
                             setIsProviderDropdownOpen(false)
+                            // Clear all model-related state when switching providers
                             setModelsError(null)
                             setDynamicModels([])
+                            setIsLoadingModels(false)
+                            setCurrentProvider('openai_compatibility')
                           }}
                           className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
                         >
@@ -380,8 +410,11 @@ const SettingsModal = ({ isOpen, onClose }) => {
                           onClick={() => {
                             setApiProvider('siliconflow')
                             setIsProviderDropdownOpen(false)
+                            // Clear all model-related state when switching providers
                             setModelsError(null)
                             setDynamicModels([])
+                            setIsLoadingModels(false)
+                            setCurrentProvider('siliconflow')
                           }}
                           className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
                         >

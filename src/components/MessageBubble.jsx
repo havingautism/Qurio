@@ -65,6 +65,7 @@ const MessageBubble = ({
   const [isDark, setIsDark] = useState(document.documentElement.classList.contains('dark'))
   const mainContentRef = useRef(null)
   const containerRef = useRef(null) // Local ref for the wrapper
+  const prevStreamingRef = useRef(false)
 
   // State to track copy success
   const [isCopied, setIsCopied] = useState(false)
@@ -357,6 +358,9 @@ const MessageBubble = ({
   const thoughtContent = message.thinkingEnabled === false ? null : parsed.thought
   const mainContent = parsed.content
   const contentWithCitations = formatContentWithSources(mainContent, message.sources)
+  const isStreaming = !!message?.isStreaming
+  const hasThoughtText = !!(thoughtContent && String(thoughtContent).trim())
+  const shouldShowThought = message.thinkingEnabled !== false && (isStreaming || hasThoughtText)
 
   // Removed duplicate definitions
 
@@ -440,7 +444,7 @@ const MessageBubble = ({
       </div>
 
       {/* Thinking Process Section */}
-      {thoughtContent && (
+      {shouldShowThought && (
         <div className="border border-gray-200 dark:border-zinc-700 rounded-xl overflow-hidden">
           <button
             onClick={() => setIsThoughtExpanded(!isThoughtExpanded)}
@@ -453,7 +457,7 @@ const MessageBubble = ({
             {isThoughtExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
           </button>
 
-          {isThoughtExpanded && (
+          {isThoughtExpanded && hasThoughtText && (
             <div className="p-4 bg-gray-50/50 dark:bg-zinc-800/30 border-t border-gray-200 dark:border-zinc-700 text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
               <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
                 {thoughtContent}
@@ -499,7 +503,7 @@ const MessageBubble = ({
       {/* Main Content */}
       <div
         ref={mainContentRef}
-        className="prose dark:prose-invert max-w-none text-gray-800 dark:text-gray-200 leading-relaxed font-serif"
+        className="prose dark:prose-invert max-w-none text-gray-800 dark:text-gray-200 leading-relaxed font-serif [&_p]:overflow-x-auto [&_p]:max-w-full [&_p]:whitespace-pre-wrap [&_blockquote]:overflow-x-auto [&_blockquote]:max-w-full [&_table]:block [&_table]:overflow-x-auto [&_pre]:overflow-x-auto [&_pre]:max-w-full"
       >
         {!message.content && !thoughtContent ? (
           <div className="flex flex-col gap-2 animate-pulse">

@@ -294,6 +294,55 @@ const callAIAPI = async (
   firstUserText,
 ) => {
   let streamedThought = ''
+  let pendingText = ''
+  let pendingThought = ''
+  let rafId = null
+
+  const schedule = cb => {
+    if (typeof window !== 'undefined' && window.requestAnimationFrame) {
+      return window.requestAnimationFrame(cb)
+    }
+    return setTimeout(cb, 0)
+  }
+
+  const flushPending = () => {
+    if (!pendingText && !pendingThought) {
+      rafId = null
+      return
+    }
+
+    set(state => {
+      const updated = [...state.messages]
+      const lastMsgIndex = updated.length - 1
+      if (lastMsgIndex < 0) return { messages: updated }
+      const lastMsg = { ...updated[lastMsgIndex] }
+
+      if (pendingText) {
+        lastMsg.content += pendingText
+      }
+
+      if (pendingThought) {
+        if (lastMsg.thinkingEnabled) {
+          streamedThought += pendingThought
+          lastMsg.thought = (lastMsg.thought || '') + pendingThought
+        } else {
+          lastMsg.content += pendingThought
+        }
+      }
+
+      updated[lastMsgIndex] = lastMsg
+      return { messages: updated }
+    })
+
+    pendingText = ''
+    pendingThought = ''
+    rafId = null
+  }
+
+  const queueFlush = () => {
+    if (rafId !== null) return
+    rafId = schedule(flushPending)
+  }
   try {
     // Get AI provider and credentials
     const provider = getProvider(settings.apiProvider)
@@ -321,35 +370,22 @@ const callAIAPI = async (
       tools: provider.getTools(toggles.search),
       thinking: provider.getThinking(toggles.thinking, model),
       onChunk: chunk => {
-        // Handle streaming chunk updates
-        set(state => {
-          const updated = [...state.messages]
-          const lastMsgIndex = updated.length - 1
-          const lastMsg = { ...updated[lastMsgIndex] }
-
-          if (typeof chunk === 'object' && chunk !== null) {
-            if (chunk.type === 'thought') {
-              if (lastMsg.thinkingEnabled) {
-                streamedThought += chunk.content
-                lastMsg.thought = (lastMsg.thought || '') + chunk.content
-              } else {
-                // When thinking is disabled, treat thought text as normal content so edits still render
-                lastMsg.content += chunk.content
-              }
-            } else if (chunk.type === 'text') {
-              lastMsg.content += chunk.content
-            }
-          } else {
-            // Fallback for string chunks
-            lastMsg.content += chunk
+        if (typeof chunk === 'object' && chunk !== null) {
+          if (chunk.type === 'thought') {
+            pendingThought += chunk.content
+          } else if (chunk.type === 'text') {
+            pendingText += chunk.content
           }
+        } else {
+          // Fallback for string chunks
+          pendingText += chunk
+        }
 
-          updated[lastMsgIndex] = lastMsg
-          return { messages: updated }
-        })
+        queueFlush()
       },
       onFinish: async result => {
         // Handle streaming completion and finalization
+        flushPending()
         set({ isLoading: false })
         const currentStore = get() // Get fresh state
         await finalizeMessage(
@@ -365,6 +401,7 @@ const callAIAPI = async (
       },
       onError: err => {
         // Handle streaming errors
+        flushPending()
         console.error('Chat error:', err)
         set({ isLoading: false })
         set(state => {
@@ -386,6 +423,7 @@ const callAIAPI = async (
 
     await provider.streamChatCompletion(params)
   } catch (error) {
+    flushPending()
     console.error('Setup error:', error)
     set({ isLoading: false })
   }

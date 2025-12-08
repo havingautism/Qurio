@@ -91,6 +91,7 @@ const ChatInterface = ({
   const bottomRef = useRef(null)
   const [showScrollButton, setShowScrollButton] = useState(false)
   const [isRegeneratingTitle, setIsRegeneratingTitle] = useState(false)
+  const scrollRafRef = useRef(null)
   const conversationSpace = React.useMemo(() => {
     if (!activeConversation?.space_id) return null
     const sid = String(activeConversation.space_id)
@@ -721,16 +722,25 @@ const ChatInterface = ({
 
   // Auto-scroll logic
   useEffect(() => {
-    if (isLoading) {
-      if (!showScrollButton) {
-        scrollToBottom('auto')
-      }
-    } else {
-      if (!showScrollButton) {
-        scrollToBottom()
-      }
-    }
+    if (showScrollButton) return
+    if (scrollRafRef.current) return
+
+    scrollRafRef.current = requestAnimationFrame(() => {
+      scrollToBottom(isLoading ? 'auto' : 'smooth')
+      scrollRafRef.current = null
+    })
   }, [messages, isLoading, showScrollButton, scrollToBottom])
+
+  // Cleanup pending raf on unmount
+  useEffect(
+    () => () => {
+      if (scrollRafRef.current) {
+        cancelAnimationFrame(scrollRafRef.current)
+        scrollRafRef.current = null
+      }
+    },
+    [],
+  )
 
   // Initial scroll to bottom
   useEffect(() => {

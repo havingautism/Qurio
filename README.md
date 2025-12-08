@@ -105,7 +105,15 @@ bun run dev
 
 ### Settings
 
-- **API Provider**: Choose between different AI providers
+- **API Provider**: Choose between different AI providers (Google Gemini, OpenAI Compatible, SiliconFlow)
+- **Model Selection**:
+  - Automatically fetches available models when selecting a provider
+  - Supports both preset models and custom model IDs
+  - Real-time model list updates for Gemini and SiliconFlow providers
+  - Manual refresh button to reload the latest model list
+- **Model Configuration**:
+  - Lite Model: Used for quick tasks like title generation and space suggestions
+  - Default Model: Used for main chat conversations
 - **Theme**: Light, dark, or system theme
 - **Supabase Configuration**: Set up your database credentials
 

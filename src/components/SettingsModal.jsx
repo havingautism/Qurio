@@ -15,11 +15,13 @@ import {
   Github,
   Twitter,
   Globe,
+  RefreshCw,
 } from 'lucide-react'
 import FiloLogo from './Logo'
 import clsx from 'clsx'
 import { saveSettings, loadSettings } from '../lib/settings'
 import { testConnection } from '../lib/supabase'
+import { getModelsForProvider } from '../lib/models_api'
 import useScrollLock from '../hooks/useScrollLock'
 
 const ENV_VARS = {
@@ -32,8 +34,8 @@ const ENV_VARS = {
   siliconFlowBaseUrl: import.meta.env.PUBLIC_SILICONFLOW_BASE_URL,
 }
 
-// Model options registry by provider for maintainability/expansion
-const MODEL_OPTION_SETS = {
+// Fallback model options for when API is unavailable or for providers without model listing
+const FALLBACK_MODEL_OPTIONS = {
   gemini: [
     { value: 'gemini-3-pro-preview', label: 'Gemini 3 Pro Preview' },
     { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
@@ -56,8 +58,8 @@ const MODEL_OPTION_SETS = {
   __fallback__: [],
 }
 
-const getModelOptionsForProvider = provider =>
-  MODEL_OPTION_SETS[provider] || MODEL_OPTION_SETS.__fallback__
+const getModelOptionsForProvider = (provider, dynamicModels) =>
+  dynamicModels && dynamicModels.length > 0 ? dynamicModels : FALLBACK_MODEL_OPTIONS[provider] || FALLBACK_MODEL_OPTIONS.__fallback__
 
 const PROVIDER_LABELS = {
   gemini: 'Google Gemini',
@@ -95,6 +97,11 @@ const SettingsModal = ({ isOpen, onClose }) => {
   // Model configuration states
   const [liteModel, setLiteModel] = useState('gemini-2.5-flash')
   const [defaultModel, setDefaultModel] = useState('gemini-2.5-flash')
+
+  // Dynamic model states
+  const [dynamicModels, setDynamicModels] = useState([])
+  const [isLoadingModels, setIsLoadingModels] = useState(false)
+  const [modelsError, setModelsError] = useState(null)
 
   // Handle click outside provider dropdown
   useEffect(() => {
@@ -146,6 +153,68 @@ const SettingsModal = ({ isOpen, onClose }) => {
   }, [isOpen])
 
   useScrollLock(isOpen)
+
+  // Function to fetch models for the current provider
+  const fetchModelsForProvider = async () => {
+    // Skip for openai_compatibility as it doesn't support model listing
+    if (apiProvider === 'openai_compatibility') {
+      setDynamicModels([])
+      setModelsError(null)
+      return
+    }
+
+    setIsLoadingModels(true)
+    setModelsError(null)
+
+    try {
+      let credentials = {}
+
+      if (apiProvider === 'gemini') {
+        credentials = { apiKey: googleApiKey }
+      } else if (apiProvider === 'siliconflow') {
+        credentials = {
+          apiKey: SiliconFlowKey,
+          baseUrl: SiliconFlowUrl || 'https://api.siliconflow.cn/v1'
+        }
+      }
+
+      if (!credentials.apiKey) {
+        setDynamicModels([])
+        return
+      }
+
+      const models = await getModelsForProvider(apiProvider, credentials)
+      setDynamicModels(models)
+    } catch (error) {
+      console.error('Failed to fetch models:', error)
+      setModelsError(error.message)
+      setDynamicModels([])
+    } finally {
+      setIsLoadingModels(false)
+    }
+  }
+
+  // Fetch models when provider changes or credentials change
+  useEffect(() => {
+    if (isOpen) {
+      const debounceTimer = setTimeout(() => {
+        fetchModelsForProvider()
+      }, 500) // Debounce to avoid too many API calls
+
+      return () => clearTimeout(debounceTimer)
+    }
+  }, [apiProvider, isOpen])
+
+  // Fetch models when credentials change for current provider
+  useEffect(() => {
+    if (isOpen && dynamicModels.length > 0) {
+      const debounceTimer = setTimeout(() => {
+        fetchModelsForProvider()
+      }, 1000)
+
+      return () => clearTimeout(debounceTimer)
+    }
+  }, [googleApiKey, SiliconFlowKey, SiliconFlowUrl])
 
   if (!isOpen) return null
 
@@ -267,6 +336,8 @@ const SettingsModal = ({ isOpen, onClose }) => {
                           onClick={() => {
                             setApiProvider('gemini')
                             setIsProviderDropdownOpen(false)
+                            setModelsError(null)
+                            setDynamicModels([])
                           }}
                           className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
                         >
@@ -286,6 +357,8 @@ const SettingsModal = ({ isOpen, onClose }) => {
                           onClick={() => {
                             setApiProvider('openai_compatibility')
                             setIsProviderDropdownOpen(false)
+                            setModelsError(null)
+                            setDynamicModels([])
                           }}
                           className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
                         >
@@ -305,6 +378,8 @@ const SettingsModal = ({ isOpen, onClose }) => {
                           onClick={() => {
                             setApiProvider('siliconflow')
                             setIsProviderDropdownOpen(false)
+                            setModelsError(null)
+                            setDynamicModels([])
                           }}
                           className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
                         >
@@ -346,6 +421,18 @@ const SettingsModal = ({ isOpen, onClose }) => {
                           )}
                         />
                       </div>
+                      {apiProvider === 'gemini' && googleApiKey && (
+                        <div className="flex items-center gap-2 mt-2">
+                          <button
+                            onClick={fetchModelsForProvider}
+                            disabled={isLoadingModels}
+                            className="flex items-center gap-1 text-xs px-3 py-1 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-md transition-colors disabled:opacity-50"
+                          >
+                            <RefreshCw size={12} className={clsx(isLoadingModels && 'animate-spin')} />
+                            {isLoadingModels ? 'Refreshing...' : 'Refresh Models'}
+                          </button>
+                        </div>
+                      )}
                       {renderEnvHint(Boolean(ENV_VARS.googleApiKey))}
                     </div>
                   )}
@@ -423,6 +510,18 @@ const SettingsModal = ({ isOpen, onClose }) => {
                             )}
                           />
                         </div>
+                        {apiProvider === 'siliconflow' && SiliconFlowKey && (
+                          <div className="flex items-center gap-2 mt-2">
+                            <button
+                              onClick={fetchModelsForProvider}
+                              disabled={isLoadingModels}
+                              className="flex items-center gap-1 text-xs px-3 py-1 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-md transition-colors disabled:opacity-50"
+                            >
+                              <RefreshCw size={12} className={clsx(isLoadingModels && 'animate-spin')} />
+                              {isLoadingModels ? 'Refreshing...' : 'Refresh Models'}
+                            </button>
+                          </div>
+                        )}
                         {renderEnvHint(Boolean(ENV_VARS.siliconFlowKey))}
                       </div>
                       <div className="flex flex-col gap-2">
@@ -460,10 +559,30 @@ const SettingsModal = ({ isOpen, onClose }) => {
                     <p className="text-xs text-gray-500 dark:text-gray-400">
                       Choose different models for different tasks, or enter a custom model ID.
                     </p>
+                    {apiProvider !== 'openai_compatibility' && (
+                      <div className="flex items-center gap-2 text-xs">
+                        {isLoadingModels && (
+                          <div className="flex items-center gap-1 text-gray-500">
+                            <div className="w-3 h-3 border border-gray-300 border-t-transparent rounded-full animate-spin"></div>
+                            <span>Loading models...</span>
+                          </div>
+                        )}
+                        {!isLoadingModels && dynamicModels.length > 0 && (
+                          <span className="text-emerald-600 dark:text-emerald-400">
+                            ✓ {dynamicModels.length} models loaded
+                          </span>
+                        )}
+                        {modelsError && (
+                          <span className="text-amber-600 dark:text-amber-400" title={modelsError}>
+                            ⚠ Using fallback models
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {(() => {
-                    const modelOptions = getModelOptionsForProvider(apiProvider)
+                    const modelOptions = getModelOptionsForProvider(apiProvider, dynamicModels)
 
                     const ModelCard = ({ label, helper, value, onChange }) => {
                       const [isOpen, setIsOpen] = useState(false)

@@ -1,141 +1,75 @@
-# Perplexity Chat Startup
+# Filo - Multi-Provider AI Chat Workspace
 
-一个基于 React 的聊天应用程序，集成了 Supabase 进行数据持久化。该应用使用 React Router 进行路由管理。
+An opinionated AI chat experience built with React 19, TanStack Router v1, RSBuild on Bun, and Supabase for persistence. Plug in Google Gemini, SiliconFlow, or any OpenAI-compatible endpoint, stream responses with reasoning, organize conversations into spaces, and enjoy a polished UI with dark/light themes, inline images, and keyboard-friendly controls.
 
-## 特性
+## Highlights
+- Chat-first UX: fast streaming replies, optional reasoning/thinking output, tool call support, rich markdown with code highlighting, and one-tap copy for AI messages.
+- Multi-provider ready: Gemini, SiliconFlow, and generic OpenAI-compatible providers with dual model slots (Lite + Default) and live model fetching (SiliconFlow lists chat sub-type models only).
+- Organized knowledge: spaces to group threads, a library view for recent conversations, bookmarks for quick recall, and a pin-able sidebar for focus.
+- Configurable context: custom system prompt, adjustable context window, and per-provider model IDs (including custom inputs and base URLs).
+- Media friendly: attach images directly in the chat input and render them inline in the transcript.
+- Built-in persistence: Supabase stores spaces, chat sessions, and messages with RLS isolation; test your connection from the Settings modal.
+- Polished interface: light/dark/system themes, emoji picker, and keyboard shortcuts (Enter to send, Shift+Enter for a new line).
 
-- **聊天界面**: 现代化、响应式的聊天用户界面
-- **消息复制**: 一键复制 AI 回复内容，包括来源和相关问题
-- **Supabase 集成**: 在 Supabase 中存储对话和消息
-- **空间管理**: 将对话组织到不同的工作空间中
-- **设置配置**: 可配置的 API 密钥和 Supabase 凭据
-- **主题切换**: 支持系统主题，可手动切换明暗模式
-- **对话管理**: 收藏、删除和组织对话
-- **代码语法高亮**: 美观的代码块，支持语法高亮
-- **图片支持**: 在对话中上传和显示图片
-- **React Router**: 使用 React Router v7 进行客户端路由管理，支持：
-  - 声明式路由配置
-  - 代码分割和懒加载
-  - 路由级别的数据预加载
-  - 浏览器历史记录管理
+## Tech Stack
+- React 19 + TanStack Router v1 for routing and layouts.
+- Zustand for lightweight state management.
+- RSBuild + Bun for fast dev/build, linting with ESLint/Prettier.
+- Styling via Tailwind CSS v4, styled-components, and Lucide icons.
+- AI clients: Google Generative AI SDKs plus the OpenAI SDK targeting SiliconFlow/OpenAI-compatible endpoints.
+- Data layer: Supabase schema and migrations in `supabase/`.
+- Markdown/rendering: `react-markdown`, `remark-gfm`, and `react-syntax-highlighter`.
 
-## 安装和设置
+## Getting Started
+1. **Prerequisites**  
+   - Bun 1.3+  
+   - A Supabase project (for persistence)
 
-### 前置要求
-
-- [Bun](https://bun.sh) v1.3+
-- 一个 Supabase 账户 ([在此注册](https://supabase.com))
-
-### 安装步骤
-
-1. **克隆仓库**
-
+2. **Install**  
    ```bash
-   git clone <你的仓库地址>
-   cd perplexity_chat_startup
-   ```
-
-2. **安装依赖**
-
-   ```bash
+   git clone <your-repo-url>
+   cd perplexity_chat
    bun install
    ```
 
-   这将安装包括 React Router v7 在内的所有必要依赖。
+3. **Environment**  
+   Copy `.env.example` to `.env` and fill in:
+   - `PUBLIC_SUPABASE_URL`, `PUBLIC_SUPABASE_KEY`
+   - `PUBLIC_GOOGLE_API_KEY` (Gemini)
+   - `PUBLIC_SILICONFLOW_API_KEY` and optional `PUBLIC_SILICONFLOW_BASE_URL`
+   - `PUBLIC_OPENAI_API_KEY` and optional `PUBLIC_OPENAI_BASE_URL`
 
-3. **创建 Supabase 项目**
-   - 访问 [supabase.com](https://supabase.com)
-   - 创建一个新项目
-   - 等待项目设置完成
+4. **Database**  
+   In Supabase, open the SQL editor and run `supabase/schema.sql` (or `supabase/init.sql`) to create tables and RLS policies.
 
-4. **初始化数据库**
-   - 打开你的 Supabase Dashboard
-   - 进入 **SQL Editor**
-   - 复制 `supabase/schema.sql` 的内容
-   - 粘贴并点击 **Run**
+5. **Develop**  
+   ```bash
+   bun run dev
+   ```
+   Open the shown local URL (default `http://localhost:5173`).
 
-5. **配置你的凭据**
+6. **Build / Lint**  
+   ```bash
+   bun run build
+   bun run lint
+   ```
 
-   **选项 A: 环境变量（推荐）**
-   - 复制 `.env.example` 为 `.env`
-   - 填写你的 Supabase URL 和 Anon Key（从项目设置中获取）
+## Usage Tips
+- Open **Settings** to pick your provider, drop in API keys, test the Supabase connection, set the system prompt, and tune the context window.
+- Use the **Model** section to fetch the latest models for Gemini/SiliconFlow (SiliconFlow is filtered to chat-only) or type a custom model ID/base URL for any OpenAI-compatible endpoint.
+- **Lite model** powers titles/related questions/space suggestions; **Default model** powers main chat responses.
+- Create and edit **Spaces**, move threads between them, and star favorites in **Bookmarks**. Browse recent conversations in **Library**.
+- Attach **images** directly in the chat input; copy AI responses with one click; toggle themes via the cycle control (light -> dark -> system).
 
-   **选项 B: 应用内设置**
-   - 运行应用并打开设置
-   - 输入你的 Supabase URL 和 Anon Key
-   - 点击"保存更改"
+## Project Routes (TanStack Router)
+- `/new_chat` - start a fresh conversation
+- `/conversation/:conversationId` - continue an existing thread
+- `/spaces` and `/space/:spaceId` - manage and browse workspaces
+- `/library` - recent conversations
+- `/bookmarks` - starred threads
 
-### 开发
-
-运行开发服务器：
-
-```bash
-bun run dev
-```
-
-在浏览器中打开 [http://localhost:5173](http://localhost:5173)。
-
-## 路由结构
-
-应用程序使用 React Router v7 实现以下路由结构：
-
-- `/` - 主页视图（新聊天）
-- `/new_chat` - 新建聊天页面
-- `/conversation/:conversationId` - 特定对话视图
-- `/spaces` - 空间列表视图
-- `/space/:spaceId` - 特定空间视图
-- `/library` - 对话库视图
-- `/bookmarks` - 收藏的对话视图
-
-## Usage
-
-### Chat Features
-
-- **Start Conversation**: Type your message and press Enter or click the arrow button
-- **Copy Messages**: Click the "Copy" button on any AI response to copy the complete content
-- **Image Upload**: Click the paperclip icon to upload images
-- **Search Toggle**: Enable web search for real-time information
-- **Thinking Mode**: View AI reasoning process before getting the final answer
-
-### Organization
-
-- **Spaces**: Create dedicated workspaces for different topics
-- **Bookmarks**: Mark important conversations for quick access
-- **Conversation History**: All conversations are automatically saved and organized by date
-
-### Settings
-
-- **API Provider**: Choose between different AI providers (Google Gemini, OpenAI Compatible, SiliconFlow)
-- **Model Selection**:
-  - Automatically fetches available models when selecting a provider
-  - Supports both preset models and custom model IDs
-  - Real-time model list updates for Gemini and SiliconFlow providers
-  - Manual refresh button to reload the latest model list
-- **Model Configuration**:
-  - Lite Model: Used for quick tasks like title generation and space suggestions
-  - Default Model: Used for main chat conversations
-- **Theme**: Light, dark, or system theme
-- **Supabase Configuration**: Set up your database credentials
-
-### Keyboard Shortcuts
-
-- `Enter`: Send message
-- `Shift + Enter`: New line in message input
-
-## Database Schema
-
-The application uses the following tables:
-
-- **spaces**: Workspaces for organizing conversations
-- **chat_sessions**: Individual conversations
-- **messages**: Chat messages with AI responses
-
-All tables use Row Level Security (RLS) based on `client-id` for data isolation.
-
-## Configuration Priority
-
-The app loads settings in this order:
-
-1. Environment Variables (`.env` file)
-2. LocalStorage (browser storage)
-3. User input (Settings Modal)
+## Scripts
+- `bun run dev` - start the dev server
+- `bun run build` - production build with RSBuild
+- `bun run preview` - preview the production build
+- `bun run lint` - lint the project

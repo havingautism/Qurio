@@ -17,7 +17,7 @@ export default defineConfig(({ env }) => {
       template: './index.html',
     },
     output: {
-      assetPrefix,
+      publicPath: assetPrefix,
     },
     source: {
       entry: {

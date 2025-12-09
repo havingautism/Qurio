@@ -1,8 +1,22 @@
 # Qurio - Multi-Provider AI Chat Workspace
 
-![Bun](https://img.shields.io/badge/Bun-1.3+-000?logo=bun&logoColor=fff) ![React](https://img.shields.io/badge/React-19-61dafb?logo=react&logoColor=000) ![TanStack Router](https://img.shields.io/badge/TanStack%20Router-v1-ff6b6b) ![RSBuild](https://img.shields.io/badge/RSBuild-fast-orange) ![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS-v4-38bdf8?logo=tailwindcss&logoColor=fff) ![Supabase](https://img.shields.io/badge/Supabase-backend-3ecf8e?logo=supabase&logoColor=fff) ![CI](https://img.shields.io/badge/GitHub%20Actions-CI%2FCD-2088ff?logo=githubactions&logoColor=fff) ![Deploy](https://img.shields.io/badge/Deploy-GitHub%20Pages-000000?logo=githubpages&logoColor=fff)
+![Bun](https://img.shields.io/badge/Bun-1.3+-000?logo=bun&logoColor=fff)
+![React](https://img.shields.io/badge/React-19-61dafb?logo=react&logoColor=000)
+![TanStack Router](https://img.shields.io/badge/TanStack%20Router-v1-ff6b6b)
+![RSBuild](https://img.shields.io/badge/RSBuild-fast-orange)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS-v4-38bdf8?logo=tailwindcss&logoColor=fff)
+![Supabase](https://img.shields.io/badge/Supabase-backend-3ecf8e?logo=supabase&logoColor=fff)
+![CI](https://img.shields.io/badge/GitHub%20Actions-CI%2FCD-2088ff?logo=githubactions&logoColor=fff)
+![Deploy](https://img.shields.io/badge/Deploy-GitHub%20Pages-000000?logo=githubpages&logoColor=fff)
 
-An opinionated AI chat experience built with React 19, TanStack Router v1, RSBuild on Bun, and Supabase for persistence. Plug in Google Gemini, SiliconFlow, or any OpenAI-compatible endpoint, stream responses with reasoning, organize conversations into spaces, and enjoy a polished UI with dark/light themes, inline images, and keyboard-friendly controls.
+**Qurio** is a fast, polished AI chat workspace for multi-provider setups (Gemini, SiliconFlow, OpenAI-compatible). Stream reasoning, keep chats organized, and switch themes on the fly.
+
+## Why Qurio
+- Ready for multiple AI providers with dual model slots (Lite + Default) and live model fetching.
+- Chat-first UX: reasoning view, inline images, rich Markdown with code blocks, one-tap copy.
+- Organized knowledge: spaces, bookmarks, and a library view; pin-able sidebar for focus.
+- Production-grade feel: light/dark/system themes, emoji picker, keyboard shortcuts, responsive layouts.
+- Backend ready: Supabase persistence with RLS, plus GitHub Pages deployment baked in.
 
 ## Highlights
 - Chat-first UX: fast streaming replies, optional reasoning/thinking output, tool call support, rich markdown with code highlighting, and one-tap copy for AI messages.
@@ -65,6 +79,7 @@ An opinionated AI chat experience built with React 19, TanStack Router v1, RSBui
 
 ## Usage & License
 - **Non-commercial only**: This project is provided for personal/educational use. Commercial use, resale, or production deployment is not permitted without explicit permission from the maintainers.
+  See [LICENSE](./LICENSE).
 
 ## Project Routes (TanStack Router)
 - `/new_chat` - start a fresh conversation
@@ -86,3 +101,6 @@ This project uses GitHub Actions for continuous integration and deployment.
 - **Deploy to GitHub Pages** (`.github/workflows/ci-cd.yml`): On push to `main`, installs deps, builds with Bun/RSBuild, uploads artifact, and deploys to GitHub Pages.
 - **Dependency Updates** (`.github/workflows/dependency-update.yml`): Weekly (Mon 09:00 UTC) or manual; runs `bun update` and opens a PR if changes exist.
 - **CodeQL Analysis** (`.github/workflows/codeql-analysis.yml`): Runs on pushes to `main`/`develop` and PRs to `main` for security scanning.
+
+## Contributing
+Pull requests are welcome for non-commercial improvements (bug fixes, docs, UI polish). Please open an issue first for major changes.

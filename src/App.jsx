@@ -1,29 +1,334 @@
-import React, { useState, useEffect } from 'react';
-import Sidebar from './components/Sidebar';
-import MainContent from './components/MainContent';
+import React, { useState, useEffect } from 'react'
+import { Outlet, useLocation, useNavigate } from '@tanstack/react-router'
+import Sidebar from './components/Sidebar'
+import SettingsModal from './components/SettingsModal'
+import SpaceModal from './components/SpaceModal'
+import { initSupabase } from './lib/supabase'
+import { listSpaces, createSpace, updateSpace, deleteSpace } from './lib/spacesService'
+import { listConversations } from './lib/conversationsService'
+import { ToastProvider } from './contexts/ToastContext'
+
+export const AppContext = React.createContext(null)
+export const useAppContext = () => React.useContext(AppContext)
 
 function App() {
+  const location = useLocation()
+  const navigate = useNavigate()
+
   // Initialize theme based on system preference or default to dark
-  const [isDarkMode, setIsDarkMode] = useState(true);
+  const [theme, setTheme] = useState('system') // 'light' | 'dark' | 'system'
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+
+  // Space Modal State
+  const [isSpaceModalOpen, setIsSpaceModalOpen] = useState(false)
+  const [editingSpace, setEditingSpace] = useState(null)
+
+  // Mobile Sidebar State
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+
+  // Spaces Data
+  const [spaces, setSpaces] = useState([])
+
+  // Conversations Data
+  const [conversations, setConversations] = useState([])
+  const [conversationsLoading, setConversationsLoading] = useState(false)
+  const [spacesLoading, setSpacesLoading] = useState(false)
+
+  // Sidebar pin state
+  const [isSidebarPinned, setIsSidebarPinned] = useState(() => {
+    const saved = localStorage.getItem('sidebar-pinned')
+    return saved === 'true'
+  })
+
+  // Extract conversation ID from URL
+  const activeConversationId = React.useMemo(() => {
+    const match = location.pathname.match(/\/conversation\/(.+)/)
+    return match ? match[1] : null
+  }, [location])
+
+  // Derive current view from location (removed unused logic)
+  // const currentView = React.useMemo(() => { ... })
 
   useEffect(() => {
-    if (isDarkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, [isDarkMode]);
+    const root = document.documentElement
+    const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
 
-  const toggleTheme = () => {
-    setIsDarkMode(!isDarkMode);
-  };
+    const applyTheme = t => {
+      if (t === 'dark' || (t === 'system' && systemTheme === 'dark')) {
+        root.classList.add('dark')
+      } else {
+        root.classList.remove('dark')
+      }
+    }
+
+    applyTheme(theme)
+
+    // Listener for system theme changes if in system mode
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+    const handleChange = () => {
+      if (theme === 'system') {
+        applyTheme('system')
+      }
+    }
+
+    mediaQuery.addEventListener('change', handleChange)
+    return () => mediaQuery.removeEventListener('change', handleChange)
+  }, [theme])
+
+  const cycleTheme = () => {
+    setTheme(prev => {
+      if (prev === 'light') return 'dark'
+      if (prev === 'dark') return 'system'
+      return 'light'
+    })
+  }
+
+  const handleNavigate = view => {
+    setIsSidebarOpen(false)
+    switch (view) {
+      case 'home':
+        navigate({ to: '/new_chat' })
+        break
+      case 'spaces':
+        navigate({ to: '/spaces' })
+        break
+      case 'library':
+        navigate({ to: '/library' })
+        break
+      case 'bookmarks':
+        navigate({ to: '/bookmarks' })
+        break
+      case 'chat':
+        navigate({ to: '/new_chat' })
+        break
+      default:
+        navigate({ to: '/' })
+    }
+  }
+
+  const handleNavigateToSpace = space => {
+    setIsSidebarOpen(false)
+    if (space) {
+      navigate({
+        to: '/space/$spaceId',
+        params: { spaceId: String(space.id) },
+      })
+    } else {
+      navigate({ to: '/spaces' })
+    }
+  }
+
+  const handleCreateSpace = () => {
+    setEditingSpace(null)
+    setIsSpaceModalOpen(true)
+  }
+
+  const handleEditSpace = space => {
+    setEditingSpace(space)
+    setIsSpaceModalOpen(true)
+  }
+
+  const handleOpenConversation = conversation => {
+    setIsSidebarOpen(false)
+    if (conversation?.id) {
+      navigate({
+        to: '/conversation/$conversationId',
+        params: { conversationId: String(conversation.id) },
+      })
+    } else {
+      navigate({ to: '/new_chat' })
+    }
+  }
+
+  // Load spaces from Supabase on mount
+  useEffect(() => {
+    const load = async () => {
+      setSpacesLoading(true)
+      try {
+        initSupabase()
+        const { data, error } = await listSpaces()
+        if (!error && data) {
+          setSpaces(data)
+        } else {
+          console.error('Failed to fetch spaces:', error)
+        }
+      } catch (err) {
+        console.error('Unexpected error fetching spaces:', err)
+      } finally {
+        setSpacesLoading(false)
+      }
+    }
+    load()
+  }, [])
+
+  // Load conversations from Supabase on mount
+  useEffect(() => {
+    const loadConversations = async () => {
+      setConversationsLoading(true)
+      try {
+        const { data, error } = await listConversations({ limit: 50 })
+        if (!error && data) {
+          setConversations(data)
+        } else {
+          console.error('Failed to fetch conversations:', error)
+        }
+      } catch (err) {
+        console.error('Unexpected error fetching conversations:', err)
+      } finally {
+        setConversationsLoading(false)
+      }
+    }
+    loadConversations()
+
+    // Listen for conversation changes
+    const handleConversationsChanged = () => loadConversations()
+    window.addEventListener('conversations-changed', handleConversationsChanged)
+    return () => {
+      window.removeEventListener('conversations-changed', handleConversationsChanged)
+    }
+  }, [])
+
+  const handleSaveSpace = async payload => {
+    if (editingSpace) {
+      const { data, error } = await updateSpace(editingSpace.id, payload)
+      if (!error && data) {
+        setSpaces(prev => prev.map(s => (s.id === data.id ? data : s)))
+      } else {
+        console.error('Update space failed:', error)
+      }
+    } else {
+      const { data, error } = await createSpace(payload)
+      if (!error && data) {
+        setSpaces(prev => [...prev, data])
+      } else {
+        console.error('Create space failed:', error)
+      }
+    }
+    setIsSpaceModalOpen(false)
+    setEditingSpace(null)
+  }
+
+  const handleDeleteSpace = async id => {
+    const { error } = await deleteSpace(id)
+    if (!error) {
+      setSpaces(prev => prev.filter(s => s.id !== id))
+      // Navigate away if currently viewing the deleted space
+      if (location.pathname === `/space/${id}`) {
+        navigate({ to: '/spaces' })
+      }
+    } else {
+      console.error('Delete space failed:', error)
+    }
+    setIsSpaceModalOpen(false)
+    setEditingSpace(null)
+  }
+
+  // Remove old route sync logic - React Router handles this automatically
 
   return (
-    <div className="flex min-h-screen bg-background text-foreground font-sans selection:bg-cyan-500/30">
-      <Sidebar />
-      <MainContent isDarkMode={isDarkMode} toggleTheme={toggleTheme} />
-    </div>
-  );
+    <ToastProvider>
+      <div className="flex min-h-screen bg-background text-foreground font-sans selection:bg-cyan-500/30">
+        <Sidebar
+          isOpen={isSidebarOpen}
+          onClose={() => setIsSidebarOpen(false)}
+          onOpenSettings={() => setIsSettingsOpen(true)}
+          onNavigate={handleNavigate}
+          onNavigateToSpace={handleNavigateToSpace}
+          onCreateSpace={handleCreateSpace}
+          onEditSpace={handleEditSpace}
+          onOpenConversation={handleOpenConversation}
+          spaces={spaces}
+          spacesLoading={spacesLoading}
+          theme={theme}
+          onToggleTheme={cycleTheme}
+          isSidebarPinned={isSidebarPinned}
+          onPinChange={setIsSidebarPinned}
+          activeConversationId={activeConversationId}
+        />
+        <div
+          // className={`flex-1 relative transition-all duration-300 ${
+          //   isSidebarPinned ? "ml-18" : "ml-0"
+          // }`}
+          className={`flex-1 relative transition-all duration-300 ml-0 w-full`}
+        >
+          {/* Mobile Header - Hide on Chat/Conversation routes as they have their own header */}
+          {!location.pathname.includes('/conversation/') &&
+            !location.pathname.includes('/new_chat') && (
+              <div className="md:hidden h-14 border-b border-gray-200 dark:border-zinc-800 flex items-center justify-between px-4 bg-background z-40 sticky top-0">
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setIsSidebarOpen(true)}
+                    className="p-2 -ml-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <line x1="3" y1="12" x2="21" y2="12"></line>
+                      <line x1="3" y1="6" x2="21" y2="6"></line>
+                      <line x1="3" y1="18" x2="21" y2="18"></line>
+                    </svg>
+                  </button>
+                  <span className="font-semibold text-gray-900 dark:text-white">Qurio</span>
+                </div>
+                <button
+                  onClick={() => handleNavigate('home')}
+                  className="p-2 -mr-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M5 12h14"></path>
+                    <path d="M12 5v14"></path>
+                  </svg>
+                </button>
+              </div>
+            )}
+
+          <AppContext.Provider
+            value={{
+              spaces,
+              conversations,
+              conversationsLoading,
+              spacesLoading,
+              onNavigate: handleNavigate,
+              onNavigateToSpace: handleNavigateToSpace,
+              onOpenConversation: handleOpenConversation,
+              onCreateSpace: handleCreateSpace,
+              onEditSpace: handleEditSpace,
+              isSidebarPinned,
+              toggleSidebar: () => setIsSidebarOpen(prev => !prev),
+            }}
+          >
+            <Outlet />
+          </AppContext.Provider>
+        </div>
+        <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+        <SpaceModal
+          isOpen={isSpaceModalOpen}
+          onClose={() => setIsSpaceModalOpen(false)}
+          editingSpace={editingSpace}
+          onSave={handleSaveSpace}
+          onDelete={handleDeleteSpace}
+        />
+      </div>
+    </ToastProvider>
+  )
 }
 
-export default App;
+export default App

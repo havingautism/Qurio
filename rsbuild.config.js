@@ -17,7 +17,7 @@ export default defineConfig(({ env }) => {
       template: './index.html',
     },
     output: {
-      publicPath: assetPrefix,
+      assetPrefix,
     },
     source: {
       entry: {
@@ -25,6 +25,7 @@ export default defineConfig(({ env }) => {
       },
       define: {
         ...envVars.publicVars,
+        'process.env.PUBLIC_BASE_PATH': JSON.stringify(assetPrefix),
       },
     },
     server: {

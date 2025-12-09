@@ -13,8 +13,6 @@ import {
   ChevronDown,
   Check,
   Github,
-  Twitter,
-  Globe,
   RefreshCw,
 } from 'lucide-react'
 import Logo from './Logo'
@@ -129,7 +127,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
     { id: 'general', label: 'General', icon: Settings },
     { id: 'chat', label: 'Chat', icon: MessageSquare },
     { id: 'interface', label: 'Interface', icon: Monitor },
-    { id: 'model', label: 'Model', icon: Box },
+    // { id: 'model', label: 'Model', icon: Box },
     { id: 'personalization', label: 'Personalization', icon: Palette },
     { id: 'account', label: 'Account', icon: User },
     { id: 'about', label: 'About', icon: Info },
@@ -1092,12 +1090,12 @@ const SettingsModal = ({ isOpen, onClose }) => {
 
                 <div className="flex items-center gap-3 mt-4">
                   <a
-                    href="#"
+                    href="https://github.com/havingautism/Qurio"
                     className="p-2 rounded-full bg-gray-50 dark:bg-zinc-900 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-zinc-800 hover:text-gray-900 dark:hover:text-white transition-all border border-gray-200 dark:border-zinc-800"
                   >
                     <Github size={18} />
                   </a>
-                  <a
+                  {/* <a
                     href="#"
                     className="p-2 rounded-full bg-gray-50 dark:bg-zinc-900 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-zinc-800 hover:text-gray-900 dark:hover:text-white transition-all border border-gray-200 dark:border-zinc-800"
                   >
@@ -1108,7 +1106,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                     className="p-2 rounded-full bg-gray-50 dark:bg-zinc-900 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-zinc-800 hover:text-gray-900 dark:hover:text-white transition-all border border-gray-200 dark:border-zinc-800"
                   >
                     <Globe size={18} />
-                  </a>
+                  </a> */}
                 </div>
 
                 <div className="mt-8 pt-8 border-t border-gray-100 dark:border-zinc-800 w-full max-w-xs flex flex-col gap-1">

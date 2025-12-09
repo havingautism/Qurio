@@ -1,5 +1,5 @@
 import React from 'react'
-import { createRootRoute, createRoute, createRouter } from '@tanstack/react-router'
+import { createRootRoute, createRoute, createRouter, redirect } from '@tanstack/react-router'
 import App from './App'
 
 const HomeView = React.lazy(() => import('./views/HomeView'))
@@ -23,11 +23,7 @@ export const rootRoute = createRootRoute({
 export const homeRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
-  component: () => (
-    <SuspensePage>
-      <HomeView />
-    </SuspensePage>
-  ),
+  beforeLoad: () => redirect({ to: '/new_chat' }),
 })
 
 export const newChatRoute = createRoute({
@@ -100,8 +96,11 @@ const routeTree = rootRoute.addChildren([
   bookmarksRoute,
 ])
 
+const BASE_PATH = (import.meta.env.PUBLIC_BASE_PATH || '/Qurio').replace(/\/$/, '')
+
 const router = createRouter({
   routeTree,
+  basepath: BASE_PATH,
 })
 
 export default router

@@ -73,3 +73,47 @@ An opinionated AI chat experience built with React 19, TanStack Router v1, RSBui
 - `bun run build` - production build with RSBuild
 - `bun run preview` - preview the production build
 - `bun run lint` - lint the project
+
+## CI/CD Pipeline
+
+This project uses GitHub Actions for continuous integration and deployment. The pipeline includes:
+
+### Workflow Overview
+
+1. **CI/CD Pipeline** (`.github/workflows/ci-cd.yml`)
+   - Triggers on pushes to `main`, `dev`, `develop` branches and PRs to `main`
+   - **Code Quality**: Runs ESLint and Prettier checks
+   - **Build**: Builds the application using RSBuild
+   - **Preview Deployment**: Deploys previews for pull requests to Netlify
+   - **Production Deployment**: Deploys main branch to production
+   - **Security**: Runs dependency audits and Snyk security scans
+
+2. **Dependency Updates** (`.github/workflows/dependency-update.yml`)
+   - Runs weekly on Mondays at 9 AM UTC
+   - Automatically updates all dependencies
+   - Creates a pull request with the updates
+
+3. **CodeQL Analysis** (`.github/workflows/codeql-analysis.yml`)
+   - Runs on pushes to `main`/`develop` and PRs
+   - Performs static code analysis for security vulnerabilities
+
+### Required Secrets
+
+To enable deployment and security features, configure these repository secrets:
+
+- `NETLIFY_AUTH_TOKEN`: Netlify authentication token
+- `NETLIFY_SITE_ID`: Netlify site ID for deployment
+- `SNYK_TOKEN`: Snyk API token for vulnerability scanning (optional)
+
+### Environment-Specific Deployments
+
+- **Pull Requests**: Automatic preview deployments with a unique URL
+- **Main Branch**: Production deployment after successful checks
+- **Feature Branches**: Build validation without deployment
+
+### Security Features
+
+- Automated dependency vulnerability scanning
+- CodeQL static analysis
+- Pull request preview deployments for review
+- Environment-protected production deployment

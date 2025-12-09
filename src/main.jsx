@@ -7,7 +7,7 @@ import data from '@emoji-mart/data'
 import { init } from 'emoji-mart'
 
 // Initialize emoji-mart with reliable CDN for Twitter emojis
-// Using emoji-datasource-twitter explicitly as @emoji-mart/data might not serve images on all CDNs
+// Using emoji-datasource-twitter explicitly as @emoji-mart/data might not serve images on all the CDNs
 
 init({
   data,

@@ -496,7 +496,7 @@ const Sidebar = ({
             </div>
             <div className="h-px bg-gray-200 dark:bg-zinc-800 mb-2" />
             {/* CONVERSATION LIST (Library & Bookmarks) */}
-            {(displayTab === 'library' || displayTab === 'bookmarks') && (
+            {displayTab === 'library' && (
               <div className="flex flex-col gap-2 overflow-y-auto h-[calc(100vh-100px)] pr-2 scrollbar-thin">
                 {!isConversationsLoading && conversations.length === 0 && (
                   <div className="text-xs text-gray-500 dark:text-gray-400 px-2 py-1">

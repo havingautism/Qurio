@@ -1,4 +1,6 @@
-# Filo - Multi-Provider AI Chat Workspace
+# Qurio - Multi-Provider AI Chat Workspace
+
+![Bun](https://img.shields.io/badge/Bun-1.3+-000?logo=bun&logoColor=fff) ![React](https://img.shields.io/badge/React-19-61dafb?logo=react&logoColor=000) ![TanStack Router](https://img.shields.io/badge/TanStack%20Router-v1-ff6b6b) ![RSBuild](https://img.shields.io/badge/RSBuild-fast-orange) ![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS-v4-38bdf8?logo=tailwindcss&logoColor=fff) ![Supabase](https://img.shields.io/badge/Supabase-backend-3ecf8e?logo=supabase&logoColor=fff) ![CI](https://img.shields.io/badge/GitHub%20Actions-CI%2FCD-2088ff?logo=githubactions&logoColor=fff) ![Deploy](https://img.shields.io/badge/Deploy-GitHub%20Pages-000000?logo=githubpages&logoColor=fff)
 
 An opinionated AI chat experience built with React 19, TanStack Router v1, RSBuild on Bun, and Supabase for persistence. Plug in Google Gemini, SiliconFlow, or any OpenAI-compatible endpoint, stream responses with reasoning, organize conversations into spaces, and enjoy a polished UI with dark/light themes, inline images, and keyboard-friendly controls.
 
@@ -28,7 +30,7 @@ An opinionated AI chat experience built with React 19, TanStack Router v1, RSBui
 2. **Install**  
    ```bash
    git clone <your-repo-url>
-   cd perplexity_chat
+   cd qurio
    bun install
    ```
 
@@ -61,6 +63,9 @@ An opinionated AI chat experience built with React 19, TanStack Router v1, RSBui
 - Create and edit **Spaces**, move threads between them, and star favorites in **Bookmarks**. Browse recent conversations in **Library**.
 - Attach **images** directly in the chat input; copy AI responses with one click; toggle themes via the cycle control (light -> dark -> system).
 
+## Usage & License
+- **Non-commercial only**: This project is provided for personal/educational use. Commercial use, resale, or production deployment is not permitted without explicit permission from the maintainers.
+
 ## Project Routes (TanStack Router)
 - `/new_chat` - start a fresh conversation
 - `/conversation/:conversationId` - continue an existing thread
@@ -76,44 +81,8 @@ An opinionated AI chat experience built with React 19, TanStack Router v1, RSBui
 
 ## CI/CD Pipeline
 
-This project uses GitHub Actions for continuous integration and deployment. The pipeline includes:
+This project uses GitHub Actions for continuous integration and deployment.
 
-### Workflow Overview
-
-1. **CI/CD Pipeline** (`.github/workflows/ci-cd.yml`)
-   - Triggers on pushes to `main`, `dev`, `develop` branches and PRs to `main`
-   - **Code Quality**: Runs ESLint and Prettier checks
-   - **Build**: Builds the application using RSBuild
-   - **Preview Deployment**: Deploys previews for pull requests to Netlify
-   - **Production Deployment**: Deploys main branch to production
-   - **Security**: Runs dependency audits and Snyk security scans
-
-2. **Dependency Updates** (`.github/workflows/dependency-update.yml`)
-   - Runs weekly on Mondays at 9 AM UTC
-   - Automatically updates all dependencies
-   - Creates a pull request with the updates
-
-3. **CodeQL Analysis** (`.github/workflows/codeql-analysis.yml`)
-   - Runs on pushes to `main`/`develop` and PRs
-   - Performs static code analysis for security vulnerabilities
-
-### Required Secrets
-
-To enable deployment and security features, configure these repository secrets:
-
-- `NETLIFY_AUTH_TOKEN`: Netlify authentication token
-- `NETLIFY_SITE_ID`: Netlify site ID for deployment
-- `SNYK_TOKEN`: Snyk API token for vulnerability scanning (optional)
-
-### Environment-Specific Deployments
-
-- **Pull Requests**: Automatic preview deployments with a unique URL
-- **Main Branch**: Production deployment after successful checks
-- **Feature Branches**: Build validation without deployment
-
-### Security Features
-
-- Automated dependency vulnerability scanning
-- CodeQL static analysis
-- Pull request preview deployments for review
-- Environment-protected production deployment
+- **Deploy to GitHub Pages** (`.github/workflows/ci-cd.yml`): On push to `main`, installs deps, builds with Bun/RSBuild, uploads artifact, and deploys to GitHub Pages.
+- **Dependency Updates** (`.github/workflows/dependency-update.yml`): Weekly (Mon 09:00 UTC) or manual; runs `bun update` and opens a PR if changes exist.
+- **CodeQL Analysis** (`.github/workflows/codeql-analysis.yml`): Runs on pushes to `main`/`develop` and PRs to `main` for security scanning.

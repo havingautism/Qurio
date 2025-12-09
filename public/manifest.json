@@ -1,6 +1,6 @@
 {
-  "name": "Filo Chat",
-  "short_name": "Filo",
+  "name": "Qurio Chat",
+  "short_name": "Qurio",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#18181b",

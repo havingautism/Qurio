@@ -971,7 +971,7 @@ const ChatInterface = ({
             scrollToBottom={scrollToBottom}
           />
           <div className="text-center mt-2 text-xs text-gray-400 dark:text-gray-500">
-            Filo can make mistakes. Please use with caution.
+            Qurio can make mistakes. Please use with caution.
           </div>
         </div>
       </div>

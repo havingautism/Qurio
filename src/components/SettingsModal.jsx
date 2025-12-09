@@ -17,7 +17,7 @@ import {
   Globe,
   RefreshCw,
 } from 'lucide-react'
-import FiloLogo from './Logo'
+import Logo from './Logo'
 import clsx from 'clsx'
 import { saveSettings, loadSettings } from '../lib/settings'
 import { testConnection } from '../lib/supabase'
@@ -1074,12 +1074,12 @@ const SettingsModal = ({ isOpen, onClose }) => {
             {activeTab === 'about' && (
               <div className="flex flex-col items-center justify-center h-full text-center gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <div className="p-4  rounded-3xl mb-2">
-                  <FiloLogo size={64} className="text-gray-900 dark:text-white" />
+                  <Logo size={64} className="text-gray-900 dark:text-white" />
                 </div>
 
                 <div className="flex flex-col gap-2 items-center">
                   <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                    Filo
+                    Qurio
                     <span className="px-2 py-0.5 rounded-full bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300 text-[10px] font-bold tracking-wide uppercase border border-cyan-200 dark:border-cyan-800">
                       Beta
                     </span>

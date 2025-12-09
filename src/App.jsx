@@ -276,7 +276,7 @@ function App() {
                       <line x1="3" y1="18" x2="21" y2="18"></line>
                     </svg>
                   </button>
-                  <span className="font-semibold text-gray-900 dark:text-white">Filo</span>
+                  <span className="font-semibold text-gray-900 dark:text-white">Qurio</span>
                 </div>
                 <button
                   onClick={() => handleNavigate('home')}

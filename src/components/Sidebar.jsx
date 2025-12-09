@@ -14,7 +14,7 @@ import {
   ChevronDown,
 } from 'lucide-react'
 import clsx from 'clsx'
-import FiloLogo from './Logo'
+import Logo from './Logo'
 import DotLoader from './DotLoader'
 import TwemojiDisplay from './TwemojiDisplay'
 import {
@@ -369,7 +369,7 @@ const Sidebar = ({
           {/* Logo */}
           <div className="mb-6">
             <div className="w-8 h-8 flex items-center justify-center text-gray-900 dark:text-white font-bold text-xl">
-              <FiloLogo size={24} />
+              <Logo size={24} />
             </div>
           </div>
 

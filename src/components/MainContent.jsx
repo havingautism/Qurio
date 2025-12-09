@@ -288,7 +288,7 @@ const MainContent = ({
               >
                 <Menu size={20} />
               </button>
-              <span className="font-semibold text-gray-900 dark:text-white">Filo</span>
+              <span className="font-semibold text-gray-900 dark:text-white">Qurio</span>
             </div>
             {/* Space for right button if needed, or just spacer */}
             <div className="w-8" />

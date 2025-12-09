@@ -1,0 +1,18 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="refresh" content="0; url=/Qurio/" />
+    <script>
+      // SPA fallback: redirect any deep link back to the app entry on GitHub Pages
+      const redirect = () => {
+        const path = window.location.pathname.replace(/^\/Qurio/, '')
+        const search = window.location.search || ''
+        const hash = window.location.hash || ''
+        window.location.replace(`/Qurio/${path}${search}${hash}`)
+      }
+      redirect()
+    </script>
+  </head>
+  <body></body>
+</html>

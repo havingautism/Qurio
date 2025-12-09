@@ -96,11 +96,9 @@
 
 ## CI/CD Pipeline
 
-This project uses GitHub Actions for continuous integration and deployment.
+This project uses GitHub Actions to deploy the `main` branch to GitHub Pages.
 
-- **Deploy to GitHub Pages** (`.github/workflows/ci-cd.yml`): On push to `main`, installs deps, builds with Bun/RSBuild, uploads artifact, and deploys to GitHub Pages.
-- **Dependency Updates** (`.github/workflows/dependency-update.yml`): Weekly (Mon 09:00 UTC) or manual; runs `bun update` and opens a PR if changes exist.
-- **CodeQL Analysis** (`.github/workflows/codeql-analysis.yml`): Runs on pushes to `main`/`develop` and PRs to `main` for security scanning.
+- **Deploy to GitHub Pages** (`.github/workflows/ci-cd.yml`): On push to `main`, installs deps, builds with Bun/RSBuild, uploads the `dist` artifact, and deploys to GitHub Pages.
 
 ## Contributing
 Pull requests are welcome for non-commercial improvements (bug fixes, docs, UI polish). Please open an issue first for major changes.

@@ -4,10 +4,15 @@
     <meta charset="UTF-8" />
     <meta http-equiv="refresh" content="0; url=/Qurio/" />
     <script>
-      // Simple SPA fallback: always send unknown paths to the root to avoid redirect loops
+      // SPA fallback for GitHub Pages: preserve path via redirect param
       const redirect = () => {
-        if (window.location.pathname !== '/Qurio/') {
-          window.location.replace('/Qurio/')
+        const path = window.location.pathname || '/'
+        const search = window.location.search || ''
+        const hash = window.location.hash || ''
+        const redirectPath = encodeURIComponent(`${path}${search}${hash}`)
+        // Avoid loops if we're already at the redirect URL
+        if (!search.includes('redirect=')) {
+          window.location.replace(`/Qurio/?redirect=${redirectPath}`)
         }
       }
       redirect()

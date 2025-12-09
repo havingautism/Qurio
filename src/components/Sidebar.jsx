@@ -584,7 +584,7 @@ const Sidebar = ({
                   ))}
 
                 {/* Load More Button */}
-                {displayTab === 'library' && (
+                {displayTab === 'library' && conversations.length > 0 && (
                   <div className="px-2 py-2">
                     {hasMore ? (
                       <button
@@ -598,11 +598,9 @@ const Sidebar = ({
                         {loadingMore ? <DotLoader /> : 'Load more'}
                       </button>
                     ) : (
-                      conversations.length > 0 && (
-                        <div className="text-center text-[10px] text-gray-400 py-2">
-                          No more threads
-                        </div>
-                      )
+                      <div className="text-center text-[10px] text-gray-400 py-2">
+                        No more threads
+                      </div>
                     )}
                   </div>
                 )}

@@ -254,7 +254,7 @@ function App() {
           {/* Mobile Header - Hide on Chat/Conversation routes as they have their own header */}
           {!location.pathname.includes('/conversation/') &&
             !location.pathname.includes('/new_chat') && (
-              <div className="md:hidden h-14 border-b border-gray-200 dark:border-zinc-800 flex items-center justify-between px-4 bg-background z-40 sticky top-0">
+              <div className="md:hidden h-14 border-b border-gray-200 dark:border-zinc-800 flex items-center justify-between px-4 bg-background z-30 sticky top-0">
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => setIsSidebarOpen(true)}

@@ -1,7 +1,8 @@
 {
-  "name": "Qurio Chat",
+  "name": "Qurio",
   "short_name": "Qurio",
-  "start_url": "/",
+  "start_url": "/Qurio/",
+  "scope": "/Qurio/",
   "display": "standalone",
   "background_color": "#18181b",
   "theme_color": "#18181b",

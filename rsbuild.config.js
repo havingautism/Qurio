@@ -8,11 +8,16 @@ export default defineConfig(({ env }) => {
   })
 
   const openAIBaseUrl = envVars.parsed.PUBLIC_OPENAI_BASE_URL || process.env.PUBLIC_OPENAI_BASE_URL
+  // Base path for GitHub Pages (set to "/Qurio/" for project page). Allow override via env.
+  const assetPrefix = process.env.PUBLIC_BASE_PATH || '/Qurio/'
 
   return {
     plugins: [pluginReact()],
     html: {
       template: './index.html',
+    },
+    output: {
+      assetPrefix,
     },
     source: {
       entry: {

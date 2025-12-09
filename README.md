@@ -1,4 +1,4 @@
-# Qurio - Multi-Provider AI Chat Workspace
+# Qurio - Multi-Provider AI Knowledge Workspace
 
 ![Bun](https://img.shields.io/badge/Bun-1.3+-000?logo=bun&logoColor=fff)
 ![React](https://img.shields.io/badge/React-19-61dafb?logo=react&logoColor=000)
@@ -6,10 +6,8 @@
 ![RSBuild](https://img.shields.io/badge/RSBuild-fast-orange)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS-v4-38bdf8?logo=tailwindcss&logoColor=fff)
 ![Supabase](https://img.shields.io/badge/Supabase-backend-3ecf8e?logo=supabase&logoColor=fff)
-![CI](https://img.shields.io/badge/GitHub%20Actions-CI%2FCD-2088ff?logo=githubactions&logoColor=fff)
-![Deploy](https://img.shields.io/badge/Deploy-GitHub%20Pages-000000?logo=githubpages&logoColor=fff)
 
-**Qurio** is a fast, polished AI chat workspace for multi-provider setups (Gemini, SiliconFlow, OpenAI-compatible). Stream reasoning, keep chats organized, and switch themes on the fly.
+**Qurio** is a fast, polished AI Knowledge workspace for multi-provider setups (Gemini, SiliconFlow, OpenAI-compatible and more to come). Stream reasoning, keep knowledge organized, and switch themes on the fly.
 
 ## Why Qurio
 - Ready for multiple AI providers with dual model slots (Lite + Default) and live model fetching.

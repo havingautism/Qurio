@@ -15,11 +15,16 @@ dist-ssr
 # Environment variables
 .env
 
-# Editor directories and files
-.vscode/*
+# IDE and tool configurations (team members should maintain their own)
+.vscode/
+.idea/
+.claude/
+.agent/
+# VSCode specific extensions that should be shared
 !.vscode/extensions.json
 !.vscode/settings.json
-.idea
+
+# System files
 .DS_Store
 *.suo
 *.ntvs*

@@ -125,7 +125,7 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-100 flex items-start sm:items-center justify-center bg-black/50 backdrop-blur-sm p-3 sm:p-4">
+    <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/50 backdrop-blur-sm p-3 sm:p-4">
       <div className="w-full max-w-md bg-white dark:bg-[#191a1a] rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-gray-200 dark:border-zinc-800 max-h-[calc(100vh-1.5rem)] sm:max-h-[90vh]">
         {/* Header */}
         <div className="h-14 border-b border-gray-200 dark:border-zinc-800 flex items-center justify-between px-4 sm:px-6 shrink-0">
@@ -143,43 +143,42 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
         {/* Content */}
         <div className="flex-1 px-4 sm:px-6 py-6 flex flex-col gap-4 overflow-y-auto min-h-0">
           {/* Icon and Name Row */}
-          <div className="flex flex-col sm:flex-row gap-4">
-            {/* Emoji Picker */}
-            <div className="flex flex-col gap-2 relative">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Icon</label>
-              <button
-                ref={buttonRef}
-                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                className="w-12 h-12 rounded-xl bg-gray-100 dark:bg-zinc-800 flex items-center justify-center text-2xl hover:bg-gray-200 dark:hover:bg-zinc-700 transition-colors border border-transparent focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 outline-none"
-              >
-                <TwemojiDisplay emoji={emoji} />
-              </button>
-
-              {/* Picker Popover */}
-              {showEmojiPicker && (
-                <div
-                  ref={pickerRef}
-                  className="absolute top-full left-0 mt-2 z-50 shadow-2xl rounded-xl overflow-hidden"
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Icon & Name</label>
+            <div className="flex items-center gap-3">
+              {/* Emoji Picker */}
+              <div className="relative">
+                <button
+                  ref={buttonRef}
+                  onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                  className="w-12 h-12 rounded-xl bg-gray-100 dark:bg-zinc-800 flex items-center justify-center text-2xl hover:bg-gray-200 dark:hover:bg-zinc-700 transition-colors border border-transparent focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 outline-none"
                 >
-                  <CustomEmojiPicker
-                    onEmojiSelect={e => {
-                      setEmoji(e.native)
-                      setShowEmojiPicker(false)
-                    }}
-                  />
-                </div>
-              )}
-            </div>
+                  <TwemojiDisplay emoji={emoji} />
+                </button>
 
-            {/* Name Input */}
-            <div className="flex flex-col gap-2 flex-1">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Name</label>
+                {/* Picker Popover */}
+                {showEmojiPicker && (
+                  <div
+                    ref={pickerRef}
+                    className="absolute top-full left-0 mt-2 z-50 shadow-2xl rounded-xl overflow-hidden"
+                  >
+                    <CustomEmojiPicker
+                      onEmojiSelect={e => {
+                        setEmoji(e.native)
+                        setShowEmojiPicker(false)
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Name Input */}
               <input
                 type="text"
                 value={name}
                 onChange={e => setName(e.target.value)}
                 placeholder="e.g., Daily Life, Research..."
-                className="w-full h-12 px-4 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600"
+                className="flex-1 h-12 px-4 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600"
               />
             </div>
           </div>

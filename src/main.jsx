@@ -11,8 +11,9 @@ import { init } from 'emoji-mart'
 // Register Service Worker
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
+    const basePath = (import.meta.env.PUBLIC_BASE_PATH || '/Qurio/').replace(/\/?$/, '/')
     navigator.serviceWorker
-      .register('/sw.js')
+      .register(`${basePath}sw.js`)
       .then(registration => {
         console.log('SW registered: ', registration)
       })

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, Clock, MessageSquare, Bookmark, MoreHorizontal, Trash2 } from 'lucide-react'
+import { Plus, Clock, MessageSquare, Bookmark, MoreHorizontal, Trash2, Coffee } from 'lucide-react'
 import clsx from 'clsx'
 import FancyLoader from './FancyLoader'
 import DropdownMenu from './DropdownMenu'
@@ -217,10 +217,19 @@ const ConversationsListView = ({
 
             {/* Empty State */}
             {conversations.length === 0 && (
-              <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+              <div className="text-center py-12 text-gray-500 dark:text-gray-400 flex flex-col items-center gap-3">
+                <Coffee size={48} className="text-black dark:text-white" />
                 <p className="text-sm">
                   No conversations yet. Start your first conversation to get started.
                 </p>
+                {showCreateButton && onCreateConversation && (
+                  <button
+                    onClick={onCreateConversation}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-cyan-500 text-white hover:bg-cyan-600 transition-colors"
+                  >
+                    <Plus size={14} /> New Conversation
+                  </button>
+                )}
               </div>
             )}
           </div>

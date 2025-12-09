@@ -12,6 +12,8 @@ import {
   MoreHorizontal,
   Pin,
   ChevronDown,
+  Coffee,
+  SquareStack,
 } from 'lucide-react'
 import clsx from 'clsx'
 import Logo from './Logo'
@@ -475,7 +477,7 @@ const Sidebar = ({
                     so users know they can go there. */}
                 <button
                   onClick={() => onNavigate(displayTab)}
-                  className="md:hidden px-2 py-1 text-xs font-medium bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded text-gray-600 dark:text-gray-300 transition-colors"
+                  className="md:hidden px-2 py-1 text-xs font-medium bg-[#9c9d8a29] dark:bg-zinc-800 hover:bg-[#9c9d8a40] dark:hover:bg-zinc-700 rounded text-gray-700 dark:text-gray-200 transition-colors"
                 >
                   View Page
                 </button>
@@ -496,18 +498,20 @@ const Sidebar = ({
             </div>
             <div className="h-px bg-gray-200 dark:bg-zinc-800 mb-2" />
             {/* CONVERSATION LIST (Library & Bookmarks) */}
-            {displayTab === 'library' && (
+            {(displayTab === 'library' || displayTab === 'bookmarks') && (
               <div className="flex flex-col gap-2 overflow-y-auto h-[calc(100vh-100px)] pr-2 scrollbar-thin">
                 {!isConversationsLoading && conversations.length === 0 && (
-                  <div className="text-xs text-gray-500 dark:text-gray-400 px-2 py-1">
-                    No conversations yet.
+                  <div className="flex flex-col items-center gap-2 text-xs text-gray-500 dark:text-gray-400 px-2 py-3">
+                    <Coffee size={24} className="text-black dark:text-white" />
+                    <div>No conversations yet.</div>
                   </div>
                 )}
                 {!isConversationsLoading &&
                   displayTab === 'bookmarks' &&
                   filteredConversations.length === 0 && (
-                    <div className="text-xs text-gray-500 dark:text-gray-400 px-2 py-1">
-                      No bookmarked conversations.
+                    <div className="flex flex-col items-center gap-2 text-xs text-gray-500 dark:text-gray-400 px-2 py-3">
+                      <Coffee size={24} className="text-black dark:text-white" />
+                      <div>No bookmarked conversations.</div>
                     </div>
                   )}
 
@@ -587,7 +591,7 @@ const Sidebar = ({
                           fetchConversations(false)
                         }}
                         disabled={loadingMore}
-                        className="w-full py-2 text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded transition-colors flex items-center justify-center gap-2"
+                        className="w-full py-2 text-xs font-medium text-gray-700 dark:text-gray-200 bg-[#9c9d8a29] dark:bg-zinc-800 hover:bg-[#9c9d8a40] dark:hover:bg-zinc-700 rounded transition-colors flex items-center justify-center gap-2"
                       >
                         {loadingMore ? <DotLoader /> : 'Load more'}
                       </button>
@@ -695,9 +699,9 @@ const Sidebar = ({
                 {/* Create New Space */}
                 <button
                   onClick={onCreateSpace}
-                  className="flex items-center gap-3 p-2 rounded hover:bg-gray-200 dark:hover:bg-zinc-800 text-gray-700 dark:text-gray-300 transition-colors  w-full text-left cursor-pointer"
+                  className="flex items-center gap-3 p-2 rounded bg-[#9c9d8a29] dark:bg-zinc-800 hover:bg-[#9c9d8a40] dark:hover:bg-zinc-700 text-gray-700 dark:text-gray-200 transition-colors w-full text-left cursor-pointer border border-transparent hover:border-[#9c9d8a40] dark:hover:border-zinc-700"
                 >
-                  <div className="w-8 h-8 rounded bg-gray-200 dark:bg-zinc-700 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded bg-white/70 dark:bg-zinc-700 flex items-center justify-center text-gray-700 dark:text-gray-100">
                     <Plus size={16} />
                   </div>
                   <span className="text-sm font-medium">Create New Space</span>
@@ -712,8 +716,9 @@ const Sidebar = ({
                   </div>
                 )}
                 {!spacesLoading && spaces.length === 0 && (
-                  <div className="text-xs text-gray-500 dark:text-gray-400 px-2 py-1">
-                    No spaces yet.
+                  <div className="flex flex-col items-center gap-2 text-xs text-gray-500 dark:text-gray-400 px-2 py-3">
+                    <Coffee size={24} className="text-black dark:text-white" />
+                    <div>No spaces yet.</div>
                   </div>
                 )}
                 {limitedSpaces.items.map(space => (
@@ -799,7 +804,10 @@ const Sidebar = ({
 
                         {!spaceConversations[space.id]?.loading &&
                           spaceConversations[space.id]?.items?.length === 0 && (
-                            <div className="text-[10px] text-gray-400 py-1 px-2">No history</div>
+                            <div className="flex flex-col items-center gap-1 text-[10px] text-gray-400 py-1 px-2">
+                              <SquareStack size={18} className="text-black dark:text-white" />
+                              <div>No history</div>
+                            </div>
                           )}
                       </div>
                     )}

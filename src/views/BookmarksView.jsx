@@ -13,6 +13,7 @@ import {
   Bookmark,
   Check,
   Trash2,
+  Coffee,
 } from 'lucide-react'
 import clsx from 'clsx'
 import FancyLoader from '../components/FancyLoader'
@@ -219,8 +220,16 @@ const BookmarksView = () => {
               <FancyLoader />
             </div>
           ) : filteredConversations.length === 0 ? (
-            <div className="text-center py-12 text-gray-500">
-              No bookmarks found matching your search.
+            <div className="text-center py-12 text-gray-500 flex flex-col items-center gap-3">
+              <Coffee size={56} className="text-black dark:text-white" />
+              <p className="text-sm">No bookmarks yet. Save one to see it here.</p>
+              {/* <button
+                onClick={() => navigate({ to: '/new_chat' })}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-cyan-500 text-white hover:bg-cyan-600 transition-colors"
+              >
+                <Plus size={14} />
+                Start a thread
+              </button> */}
             </div>
           ) : (
             filteredConversations.map(conv => {

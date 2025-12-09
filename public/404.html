@@ -6,10 +6,11 @@
     <script>
       // SPA fallback: redirect any deep link back to the app entry on GitHub Pages
       const redirect = () => {
-        const path = window.location.pathname.replace(/^\/Qurio/, '')
+        const rawPath = window.location.pathname.replace(/^\/Qurio/, '')
+        const cleanedPath = rawPath.replace(/^\/+/, '') // avoid duplicating slashes
         const search = window.location.search || ''
         const hash = window.location.hash || ''
-        window.location.replace(`/Qurio/${path}${search}${hash}`)
+        window.location.replace(`/Qurio/${cleanedPath}${search}${hash}`)
       }
       redirect()
     </script>

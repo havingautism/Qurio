@@ -276,7 +276,7 @@ const MainContent = ({
         <div
           className={clsx(
             'flex flex-col items-center justify-center min-h-screen p-4 transition-all duration-300',
-            isSidebarPinned ? 'md:ml-80' : 'md:ml-16',
+            isSidebarPinned ? 'md:ml-20' : 'md:ml-16',
           )}
         >
           {/* Mobile Header for Home View */}

@@ -804,7 +804,7 @@ const ChatInterface = ({
     <div
       className={clsx(
         'flex-1 min-h-screen bg-background text-foreground relative pb-4 transition-all duration-300',
-        isSidebarPinned ? 'md:ml-80' : 'md:ml-16',
+        isSidebarPinned ? 'md:ml-20' : 'md:ml-16',
       )}
     >
       <div className="w-full max-w-3xl mx-auto relative">
@@ -940,7 +940,7 @@ const ChatInterface = ({
       <div
         className={clsx(
           'fixed bottom-0 left-0 right-0 bg-linear-to-t from-background via-background to-transparent pb-6 pt-10 px-4 flex justify-center z-10 transition-all duration-300',
-          isSidebarPinned ? 'md:left-80' : 'md:left-16',
+          isSidebarPinned ? 'md:left-20' : 'md:left-16',
         )}
       >
         <div className="w-full max-w-3xl">

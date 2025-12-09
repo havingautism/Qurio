@@ -105,7 +105,7 @@ const ConversationsListView = ({
     <div
       className={clsx(
         'flex flex-col min-h-screen p-4 md:p-8 bg-background text-foreground transition-all duration-300',
-        isSidebarPinned ? 'md:ml-80' : 'md:ml-16',
+        isSidebarPinned ? 'md:ml-20' : 'md:ml-16',
       )}
     >
       <div className="w-full max-w-6xl mx-auto">

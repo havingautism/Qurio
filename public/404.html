@@ -1,19 +1,16 @@
 <!doctype html>
-<html>
-  <head>
-    <meta charset="UTF-8" />
-    <meta http-equiv="refresh" content="0; url=/Qurio/" />
-    <script>
-      // SPA fallback: redirect any deep link back to the app entry on GitHub Pages
-      const redirect = () => {
-        const rawPath = window.location.pathname.replace(/^\/Qurio/, '')
-        const cleanedPath = rawPath.replace(/^\/+/, '') // avoid duplicating slashes
-        const search = window.location.search || ''
-        const hash = window.location.hash || ''
-        window.location.replace(`/Qurio/${cleanedPath}${search}${hash}`)
-      }
-      redirect()
-    </script>
-  </head>
-  <body></body>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/logo-light.svg" media="(prefers-color-scheme: light)" />
+  <link rel="icon" type="image/svg+xml" href="/logo-dark.svg" media="(prefers-color-scheme: dark)" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Filo</title>
+<script defer src="/static/js/lib-react.50c63f8d.js"></script><script defer src="/static/js/lib-router.c113341f.js"></script><script defer src="/static/js/981.3913c5e9.js"></script><script defer src="/static/js/index.6eead2b7.js"></script><link href="/static/css/index.ead1b6fc.css" rel="stylesheet"></head>
+
+<body>
+  <div id="root"></div>
+</body>
+
 </html>

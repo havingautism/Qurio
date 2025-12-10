@@ -2,16 +2,26 @@
 <html>
   <head>
     <meta charset="UTF-8" />
-    <meta http-equiv="refresh" content="0; url=/Qurio/" />
+    <title>Loading...</title>
     <script>
-      // Simple SPA fallback: always send unknown paths to the root to avoid redirect loops
-      const redirect = () => {
-        if (window.location.pathname !== '/Qurio/') {
-          window.location.replace('/Qurio/')
-        }
-      }
-      redirect()
+      // SPA fallback for GitHub Pages
+      // Save the original path and search params
+      const originalPath = window.location.pathname;
+      const originalSearch = window.location.search;
+      const originalHash = window.location.hash;
+
+      // Save to sessionStorage for later retrieval
+      sessionStorage.setItem('spa-redirect', JSON.stringify({
+        path: originalPath,
+        search: originalSearch,
+        hash: originalHash
+      }));
+
+      // Redirect to the root path so index.html can load
+      window.location.replace('/Qurio/');
     </script>
   </head>
-  <body></body>
+  <body>
+    <p>Loading application...</p>
+  </body>
 </html>

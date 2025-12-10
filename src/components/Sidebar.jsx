@@ -500,12 +500,14 @@ const Sidebar = ({
             {/* CONVERSATION LIST (Library & Bookmarks) */}
             {(displayTab === 'library' || displayTab === 'bookmarks') && (
               <div className="flex flex-col gap-2 overflow-y-auto h-[calc(100vh-100px)] pr-2 scrollbar-thin">
-                {!isConversationsLoading && conversations.length === 0 && (
-                  <div className="flex flex-col items-center gap-2 text-xs text-gray-500 dark:text-gray-400 px-2 py-3">
-                    <Coffee size={24} className="text-black dark:text-white" />
-                    <div>No conversations yet.</div>
-                  </div>
-                )}
+              {!isConversationsLoading &&
+                  displayTab === 'library' &&
+                  conversations.length === 0 && (
+                    <div className="flex flex-col items-center gap-2 text-xs text-gray-500 dark:text-gray-400 px-2 py-3">
+                      <Coffee size={24} className="text-black dark:text-white" />
+                      <div>No conversations yet.</div>
+                    </div>
+                  )}
                 {!isConversationsLoading &&
                   displayTab === 'bookmarks' &&
                   filteredConversations.length === 0 && (
@@ -582,7 +584,7 @@ const Sidebar = ({
                   ))}
 
                 {/* Load More Button */}
-                {displayTab === 'library' && (
+                {displayTab === 'library' && conversations.length > 0 && (
                   <div className="px-2 py-2">
                     {hasMore ? (
                       <button
@@ -596,11 +598,9 @@ const Sidebar = ({
                         {loadingMore ? <DotLoader /> : 'Load more'}
                       </button>
                     ) : (
-                      conversations.length > 0 && (
-                        <div className="text-center text-[10px] text-gray-400 py-2">
-                          No more threads
-                        </div>
-                      )
+                      <div className="text-center text-[10px] text-gray-400 py-2">
+                        No more threads
+                      </div>
                     )}
                   </div>
                 )}

@@ -231,7 +231,7 @@ const MessageBubble = ({
       ),
       table: ({ node, ...props }) => (
         <div className="overflow-x-auto my-4 rounded-lg border border-gray-200 dark:border-zinc-700 table-scrollbar code-scrollbar">
-          <table className="min-w-full divide-y divide-gray-200 dark:divide-zinc-700" {...props} />
+          <table className="w-auto divide-y divide-gray-200 dark:divide-zinc-700" {...props} />
         </div>
       ),
       thead: ({ node, ...props }) => <thead className="bg-gray-50 dark:bg-zinc-800" {...props} />,
@@ -503,7 +503,7 @@ const MessageBubble = ({
       {/* Main Content */}
       <div
         ref={mainContentRef}
-        className="prose dark:prose-invert max-w-none text-gray-800 dark:text-gray-200 leading-relaxed font-serif [&_p]:overflow-x-auto [&_p]:max-w-full [&_p]:whitespace-pre-wrap [&_blockquote]:overflow-x-auto [&_blockquote]:max-w-full [&_table]:block [&_table]:overflow-x-auto [&_pre]:overflow-x-auto [&_pre]:max-w-full"
+        className="prose dark:prose-invert max-w-none text-gray-800 dark:text-gray-200 leading-relaxed font-serif [&_p]:overflow-x-auto [&_p]:max-w-full [&_p]:whitespace-pre-wrap [&_blockquote]:overflow-x-auto [&_blockquote]:max-w-full [&_table]:inline-table [&_table]:w-auto [&_table]:table-auto [&_pre]:overflow-x-auto [&_pre]:max-w-full"
       >
         {!message.content && !thoughtContent ? (
           <div className="flex flex-col gap-2 animate-pulse">

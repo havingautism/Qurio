@@ -91,7 +91,6 @@ const ChatInterface = ({
   const bottomRef = useRef(null)
   const [showScrollButton, setShowScrollButton] = useState(false)
   const [isRegeneratingTitle, setIsRegeneratingTitle] = useState(false)
-  const scrollRafRef = useRef(null)
   const conversationSpace = React.useMemo(() => {
     if (!activeConversation?.space_id) return null
     const sid = String(activeConversation.space_id)
@@ -716,38 +715,11 @@ const ChatInterface = ({
       setShowScrollButton(!isNearBottom)
     }
 
+    // Run once on mount to set initial state
+    handleScroll()
     window.addEventListener('scroll', handleScroll)
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
-
-  // Auto-scroll logic
-  useEffect(() => {
-    if (showScrollButton) return
-    if (scrollRafRef.current) return
-
-    scrollRafRef.current = requestAnimationFrame(() => {
-      scrollToBottom(isLoading ? 'auto' : 'smooth')
-      scrollRafRef.current = null
-    })
-  }, [messages, isLoading, showScrollButton, scrollToBottom])
-
-  // Cleanup pending raf on unmount
-  useEffect(
-    () => () => {
-      if (scrollRafRef.current) {
-        cancelAnimationFrame(scrollRafRef.current)
-        scrollRafRef.current = null
-      }
-    },
-    [],
-  )
-
-  // Initial scroll to bottom
-  useEffect(() => {
-    if (!isLoadingHistory && messages.length > 0) {
-      setTimeout(() => scrollToBottom('auto'), 2000)
-    }
-  }, [conversationId, isLoadingHistory, scrollToBottom])
 
   const handleRegenerateTitle = useCallback(async () => {
     if (isRegeneratingTitle) return

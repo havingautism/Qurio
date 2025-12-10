@@ -280,7 +280,7 @@ const MainContent = ({
           )}
         >
           {/* Mobile Header for Home View */}
-          <div className="md:hidden w-full h-14 border-b border-gray-200 dark:border-zinc-800 flex items-center justify-between px-4 bg-background z-40 fixed top-0 left-0">
+          <div className="md:hidden w-full h-14 border-b border-gray-200 dark:border-zinc-800 flex items-center justify-between px-4 bg-background z-30 fixed top-0 left-0">
             <div className="flex items-center gap-3">
               <button
                 onClick={toggleSidebar}

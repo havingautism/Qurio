@@ -499,8 +499,8 @@ const Sidebar = ({
             <div className="h-px bg-gray-200 dark:bg-zinc-800 mb-2" />
             {/* CONVERSATION LIST (Library & Bookmarks) */}
             {(displayTab === 'library' || displayTab === 'bookmarks') && (
-              <div className="flex flex-col gap-2 overflow-y-auto h-[calc(100vh-100px)] pr-2 scrollbar-thin">
-              {!isConversationsLoading &&
+              <div className="flex flex-col gap-2 overflow-y-auto h-[calc(100vh-70px)] pr-2 scrollbar-thin">
+                {!isConversationsLoading &&
                   displayTab === 'library' &&
                   conversations.length === 0 && (
                     <div className="flex flex-col items-center gap-2 text-xs text-gray-500 dark:text-gray-400 px-2 py-3">
@@ -695,7 +695,7 @@ const Sidebar = ({
             )}
             {/* SPACES TAB CONTENT */}
             {displayTab === 'spaces' && (
-              <div className="flex flex-col gap-2 overflow-y-auto h-[calc(100vh-100px)] pr-2 scrollbar-thin">
+              <div className="flex flex-col gap-2 overflow-y-auto h-[calc(100vh-70px)] pr-2 scrollbar-thin">
                 {/* Create New Space */}
                 <button
                   onClick={onCreateSpace}

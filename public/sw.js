@@ -5,14 +5,14 @@ const BASE_PATH = '/Qurio/'
 const urlsToCache = [
   `${BASE_PATH}manifest.json`,
   `${BASE_PATH}logo-light.svg`,
-  `${BASE_PATH}logo-dark.svg`
+  `${BASE_PATH}logo-dark.svg`,
 ]
 
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => {
       return cache.addAll(urlsToCache)
-    })
+    }),
   )
   // Force the new service worker to become active immediately
   self.skipWaiting()
@@ -21,18 +21,21 @@ self.addEventListener('install', event => {
 self.addEventListener('activate', event => {
   // Clean up old caches immediately
   event.waitUntil(
-    caches.keys().then(cacheNames => {
-      return Promise.all(
-        cacheNames.map(cacheName => {
-          if (cacheName !== CACHE_NAME) {
-            return caches.delete(cacheName)
-          }
-        })
-      )
-    }).then(() => {
-      // Take control of all pages immediately
-      return self.clients.claim()
-    })
+    caches
+      .keys()
+      .then(cacheNames => {
+        return Promise.all(
+          cacheNames.map(cacheName => {
+            if (cacheName !== CACHE_NAME) {
+              return caches.delete(cacheName)
+            }
+          }),
+        )
+      })
+      .then(() => {
+        // Take control of all pages immediately
+        return self.clients.claim()
+      }),
   )
 })
 
@@ -46,8 +49,7 @@ self.addEventListener('fetch', event => {
   event.respondWith(
     caches.open(CACHE_NAME).then(cache => {
       // Try network first for HTML files to ensure fresh content
-      if (event.request.destination === 'document' ||
-          event.request.url.endsWith('.html')) {
+      if (event.request.destination === 'document' || event.request.url.endsWith('.html')) {
         return fetch(event.request)
           .then(response => {
             // Don't cache HTML files to avoid stale versions
@@ -74,6 +76,6 @@ self.addEventListener('fetch', event => {
           return response
         })
       })
-    })
+    }),
   )
 })

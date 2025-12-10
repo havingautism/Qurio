@@ -3,6 +3,7 @@ import { Outlet, useLocation, useNavigate } from '@tanstack/react-router'
 import Sidebar from './components/Sidebar'
 import SettingsModal from './components/SettingsModal'
 import SpaceModal from './components/SpaceModal'
+import { GitHubPagesRedirectHandler } from './components/GitHubPagesRedirectHandler'
 import { initSupabase } from './lib/supabase'
 import { listSpaces, createSpace, updateSpace, deleteSpace } from './lib/spacesService'
 import { listConversations } from './lib/conversationsService'
@@ -227,6 +228,7 @@ function App() {
 
   return (
     <ToastProvider>
+      <GitHubPagesRedirectHandler />
       <div className="flex min-h-screen bg-background text-foreground font-sans selection:bg-cyan-500/30">
         <Sidebar
           isOpen={isSidebarOpen}

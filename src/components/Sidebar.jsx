@@ -9,7 +9,7 @@ import {
   Moon,
   Laptop,
   Trash2,
-  MoreHorizontal,
+  ChevronUp,
   Pin,
   ChevronDown,
   Coffee,
@@ -26,7 +26,6 @@ import {
 } from '../lib/conversationsService'
 import { deleteConversation } from '../lib/supabase'
 import ConfirmationModal from './ConfirmationModal'
-import DropdownMenu from './DropdownMenu'
 import { useToast } from '../contexts/ToastContext'
 
 const Sidebar = ({
@@ -59,14 +58,15 @@ const Sidebar = ({
   const [isConversationsLoading, setIsConversationsLoading] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
   const [conversationToDelete, setConversationToDelete] = useState(null)
-  const [openMenuId, setOpenMenuId] = useState(null)
-  const [menuAnchorEl, setMenuAnchorEl] = useState(null)
+  const [expandedActionId, setExpandedActionId] = useState(null)
 
   // Spaces interaction state
   const [expandedSpaces, setExpandedSpaces] = useState(new Set())
   const [spaceConversations, setSpaceConversations] = useState({}) // { [spaceId]: { items: [], nextCursor: null, hasMore: true, loading: false } }
 
   const toast = useToast()
+
+  const closeActions = () => setExpandedActionId(null)
 
   const displayTab = hoveredTab || activeTab
   const isExpanded = isOpen || isPinned || isHovered
@@ -129,8 +129,7 @@ const Sidebar = ({
   // Close dropdown when sidebar collapses (mouse leaves)
   useEffect(() => {
     if (!isHovered) {
-      setOpenMenuId(null)
-      setMenuAnchorEl(null)
+      closeActions()
     }
   }, [isHovered])
 
@@ -351,7 +350,7 @@ const Sidebar = ({
       )}
 
       <div
-                className={clsx(
+        className={clsx(
           'fixed left-0 top-0 h-full z-50 flex transition-transform duration-300 md:translate-x-0',
           // On mobile, control via isOpen. On desktop, always visible (handled by layout margin)
           // Actually, fixed sidebar on desktop is always visible (icon strip).
@@ -526,61 +525,110 @@ const Sidebar = ({
                       </div>
                       {section.items.map(conv => {
                         const isActive = conv.id === activeConversationId
+                        const isExpanded = expandedActionId === conv.id
                         return (
-                          <div
-                            key={conv.id}
-                            data-conversation-id={conv.id}
-                            onClick={() => onOpenConversation && onOpenConversation(conv)}
-                            className={clsx(
-                              'text-sm p-2 rounded cursor-pointer truncate transition-colors group relative',
-                              isActive
-                                ? 'bg-cyan-500/10 dark:bg-cyan-500/20 border border-cyan-500/30 text-cyan-700 dark:text-cyan-300'
-                                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-zinc-800',
-                            )}
-                            title={conv.title}
-                          >
-                            <div className="flex items-center justify-between w-full overflow-hidden">
-                              <div className="flex flex-col overflow-hidden flex-1 min-w-0">
-                                <div className="flex items-center gap-1">
-                                  <span className="truncate font-medium">{conv.title}</span>
-                                  {conv.is_favorited && (
-                                    <Bookmark size={10} className=" flex-shrink-0" />
-                                  )}
+                          <div key={conv.id} className="flex flex-col">
+                            <div
+                              data-conversation-id={conv.id}
+                              onClick={() => {
+                                if (expandedActionId) {
+                                  closeActions()
+                                  return
+                                }
+                                onOpenConversation && onOpenConversation(conv)
+                              }}
+                              className={clsx(
+                                'text-sm p-2 rounded cursor-pointer truncate transition-colors group relative',
+                                isActive
+                                  ? 'bg-cyan-500/10 dark:bg-cyan-500/20 border border-cyan-500/30 text-cyan-700 dark:text-cyan-300'
+                                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-zinc-800',
+                                isExpanded &&
+                                  'bg-cyan-50/70 dark:bg-cyan-900/20 border border-cyan-200/60 dark:border-cyan-800/60 ring-1 ring-cyan-100/70 dark:ring-cyan-800/60',
+                              )}
+                              title={conv.title}
+                            >
+                              <div className="flex items-center justify-between w-full overflow-hidden">
+                                <div className="flex flex-col overflow-hidden flex-1 min-w-0">
+                                  <div className="flex items-center gap-1">
+                                    <span className="truncate font-medium">{conv.title}</span>
+                                    {conv.is_favorited && (
+                                      <Bookmark size={10} className=" flex-shrink-0" />
+                                    )}
+                                  </div>
+                                  <span
+                                    className={clsx(
+                                      'text-[10px]',
+                                      isActive
+                                        ? 'text-cyan-600 dark:text-cyan-400'
+                                        : 'text-gray-400',
+                                    )}
+                                  >
+                                    {new Date(conv.created_at).toLocaleDateString()}
+                                  </span>
                                 </div>
-                                <span
-                                  className={clsx(
-                                    'text-[10px]',
-                                    isActive ? 'text-cyan-600 dark:text-cyan-400' : 'text-gray-400',
-                                  )}
-                                >
-                                  {new Date(conv.created_at).toLocaleDateString()}
-                                </span>
-                              </div>
 
-                              <div className="relative ml-2 shrink-0">
+                                <div className="relative ml-2 shrink-0">
+                                  <button
+                                    onClick={e => {
+                                      e.stopPropagation()
+                                      setExpandedActionId(prev =>
+                                        prev === conv.id ? null : conv.id,
+                                      )
+                                    }}
+                                    className={clsx(
+                                      'p-1.5 rounded-md hover:bg-gray-300 dark:hover:bg-zinc-700 transition-all',
+                                      isActive
+                                        ? 'text-cyan-600 dark:text-cyan-400 bg-cyan-100 dark:bg-cyan-900/20'
+                                        : 'text-gray-500 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-zinc-700',
+                                      'opacity-100',
+                                      'md:opacity-0 md:group-hover:opacity-100',
+                                      'min-w-[32px] min-h-[32px] flex items-center justify-center',
+                                    )}
+                                  >
+                                    {isExpanded ? (
+                                      <ChevronUp size={16} strokeWidth={2.5} />
+                                    ) : (
+                                      <ChevronDown size={16} strokeWidth={2.5} />
+                                    )}
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                            {isExpanded && (
+                              <div className="grid grid-cols-2 gap-2 mt-2 px-2 text-xs">
                                 <button
                                   onClick={e => {
                                     e.stopPropagation()
-                                    setOpenMenuId(conv.id)
-                                    setMenuAnchorEl(e.currentTarget)
+                                    handleToggleFavorite(conv)
                                   }}
                                   className={clsx(
-                                    'p-1.5 rounded-md hover:bg-gray-300 dark:hover:bg-zinc-700 transition-all',
-                                    isActive
-                                      ? 'text-cyan-600 dark:text-cyan-400 bg-cyan-100 dark:bg-cyan-900/20'
-                                      : 'text-gray-500 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-zinc-700',
-                                    // Always visible on mobile
-                                    'opacity-100',
-                                    // Show on hover on desktop
-                                    'md:opacity-0 md:group-hover:opacity-100',
-                                    // Ensure button has minimum size for touch
-                                    'min-w-[32px] min-h-[32px] flex items-center justify-center',
+                                    'py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5',
+                                    conv.is_favorited
+                                      ? 'bg-yellow-50 text-yellow-700 hover:bg-yellow-100 dark:bg-yellow-900/30 dark:text-yellow-200'
+                                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-zinc-800 dark:text-gray-200 dark:hover:bg-zinc-700',
                                   )}
+                                  title={conv.is_favorited ? 'Remove Bookmark' : 'Add Bookmark'}
                                 >
-                                  <MoreHorizontal size={16} strokeWidth={2.5} />
+                                  <Bookmark
+                                    size={13}
+                                    className={conv.is_favorited ? 'fill-current' : ''}
+                                  />
+                                  <span className="font-medium truncate">
+                                    {conv.is_favorited ? 'Saved' : 'Save'}
+                                  </span>
+                                </button>
+                                <button
+                                  onClick={e => {
+                                    e.stopPropagation()
+                                    setConversationToDelete(conv)
+                                  }}
+                                  className="py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5 bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-200 dark:hover:bg-red-800/60"
+                                >
+                                  <Trash2 size={13} />
+                                  <span className="font-medium">Delete</span>
                                 </button>
                               </div>
-                            </div>
+                            )}
                           </div>
                         )
                       })}
@@ -613,59 +661,104 @@ const Sidebar = ({
                 {displayTab === 'bookmarks' &&
                   limitedBookmarks.items.map(conv => {
                     const isActive = conv.id === activeConversationId
+                    const isExpanded = expandedActionId === conv.id
                     return (
-                      <div
-                        key={conv.id}
-                        data-conversation-id={conv.id}
-                        onClick={() => onOpenConversation && onOpenConversation(conv)}
-                        className={clsx(
-                          'text-sm p-2 rounded cursor-pointer truncate transition-colors group relative',
-                          isActive
-                            ? 'bg-cyan-500/10 dark:bg-cyan-500/20 border border-cyan-500/30 text-cyan-700 dark:text-cyan-300'
-                            : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-zinc-800',
-                        )}
-                        title={conv.title}
-                      >
-                        <div className="flex items-center justify-between w-full overflow-hidden">
-                          <div className="flex flex-col overflow-hidden flex-1 min-w-0">
-                            <div className="flex items-center gap-1">
-                              <span className="truncate font-medium">{conv.title}</span>
-                              <Bookmark size={10} className="fill-current flex-shrink-0" />
+                      <div key={conv.id} className="flex flex-col">
+                        <div
+                          data-conversation-id={conv.id}
+                          onClick={() => {
+                            if (expandedActionId) {
+                              closeActions()
+                              return
+                            }
+                            onOpenConversation && onOpenConversation(conv)
+                          }}
+                          className={clsx(
+                            'text-sm p-2 rounded cursor-pointer truncate transition-colors group relative',
+                            isActive
+                              ? 'bg-cyan-500/10 dark:bg-cyan-500/20 border border-cyan-500/30 text-cyan-700 dark:text-cyan-300'
+                              : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-zinc-800',
+                            isExpanded &&
+                              'bg-cyan-50/70 dark:bg-cyan-900/20 border border-cyan-200/60 dark:border-cyan-800/60 ring-1 ring-cyan-100/70 dark:ring-cyan-800/60',
+                          )}
+                          title={conv.title}
+                        >
+                          <div className="flex items-center justify-between w-full overflow-hidden">
+                            <div className="flex flex-col overflow-hidden flex-1 min-w-0">
+                              <div className="flex items-center gap-1">
+                                <span className="truncate font-medium">{conv.title}</span>
+                                <Bookmark size={10} className="fill-current flex-shrink-0" />
+                              </div>
+                              <span
+                                className={clsx(
+                                  'text-[10px]',
+                                  isActive ? 'text-cyan-600 dark:text-cyan-400' : 'text-gray-400',
+                                )}
+                              >
+                                {new Date(conv.created_at).toLocaleDateString()}
+                              </span>
                             </div>
-                            <span
-                              className={clsx(
-                                'text-[10px]',
-                                isActive ? 'text-cyan-600 dark:text-cyan-400' : 'text-gray-400',
-                              )}
-                            >
-                              {new Date(conv.created_at).toLocaleDateString()}
-                            </span>
-                          </div>
 
-                          <div className="relative ml-2 shrink-0">
+                            <div className="relative ml-2 shrink-0">
+                              <button
+                                onClick={e => {
+                                  e.stopPropagation()
+                                  setExpandedActionId(prev => (prev === conv.id ? null : conv.id))
+                                }}
+                                className={clsx(
+                                  'p-1.5 rounded-md hover:bg-gray-300 dark:hover:bg-zinc-700 transition-all',
+                                  isActive
+                                    ? 'text-cyan-600 dark:text-cyan-400 bg-cyan-100 dark:bg-cyan-900/20'
+                                    : 'text-gray-500 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-zinc-700',
+                                  'opacity-100',
+                                  'md:opacity-0 md:group-hover:opacity-100',
+                                  'min-w-[32px] min-h-[32px] flex items-center justify-center',
+                                )}
+                              >
+                                {isExpanded ? (
+                                  <ChevronUp size={16} strokeWidth={2.5} />
+                                ) : (
+                                  <ChevronDown size={16} strokeWidth={2.5} />
+                                )}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                        {isExpanded && (
+                          <div className="grid grid-cols-2 gap-2 mt-2 px-2 text-xs">
                             <button
                               onClick={e => {
                                 e.stopPropagation()
-                                setOpenMenuId(conv.id)
-                                setMenuAnchorEl(e.currentTarget)
+                                handleToggleFavorite(conv)
                               }}
                               className={clsx(
-                                'p-1.5 rounded-md hover:bg-gray-300 dark:hover:bg-zinc-700 transition-all',
-                                isActive
-                                  ? 'text-cyan-600 dark:text-cyan-400 bg-cyan-100 dark:bg-cyan-900/20'
-                                  : 'text-gray-500 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-zinc-700',
-                                // Always visible on mobile
-                                'opacity-100',
-                                // Show on hover on desktop
-                                'md:opacity-0 md:group-hover:opacity-100',
-                                // Ensure button has minimum size for touch
-                                'min-w-[32px] min-h-[32px] flex items-center justify-center',
+                                'py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5',
+                                conv.is_favorited
+                                  ? 'bg-yellow-50 text-yellow-700 hover:bg-yellow-100 dark:bg-yellow-900/30 dark:text-yellow-200'
+                                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-zinc-800 dark:text-gray-200 dark:hover:bg-zinc-700',
                               )}
+                              title={conv.is_favorited ? 'Remove Bookmark' : 'Add Bookmark'}
                             >
-                              <MoreHorizontal size={16} strokeWidth={2.5} />
+                              <Bookmark
+                                size={13}
+                                className={conv.is_favorited ? 'fill-current' : ''}
+                              />
+                              <span className="font-medium truncate">
+                                {conv.is_favorited ? 'Saved' : 'Save'}
+                              </span>
+                            </button>
+                            <button
+                              onClick={e => {
+                                e.stopPropagation()
+                                setConversationToDelete(conv)
+                              }}
+                              className="py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5 bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-200 dark:hover:bg-red-800/60"
+                            >
+                              <Trash2 size={13} />
+                              <span className="font-medium">Delete</span>
                             </button>
                           </div>
-                        </div>
+                        )}
                       </div>
                     )
                   })}
@@ -781,37 +874,86 @@ const Sidebar = ({
                             </div>
                           )}
 
-                        {spaceConversations[space.id]?.items?.map(conv => (
-                          <div
-                            key={conv.id}
-                            data-conversation-id={conv.id}
-                            className={clsx(
-                              'group relative flex items-center justify-between text-xs py-1.5 px-2 rounded cursor-pointer truncate transition-colors',
-                              conv.id === activeConversationId
-                                ? 'bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 font-medium'
-                                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-zinc-800',
-                            )}
-                          >
-                            <div
-                              className="flex-1 truncate"
-                              onClick={() => onOpenConversation && onOpenConversation(conv)}
-                              title={conv.title}
-                            >
-                              {conv.title || 'Untitled'}
-                            </div>
+                        {spaceConversations[space.id]?.items?.map(conv => {
+                          const isExpanded = expandedActionId === conv.id
+                          return (
+                            <div key={conv.id} className="flex flex-col">
+                              <div
+                                data-conversation-id={conv.id}
+                                className={clsx(
+                                  'group relative flex items-center justify-between text-xs py-1.5 px-2 rounded cursor-pointer truncate transition-colors',
+                                  conv.id === activeConversationId
+                                    ? 'bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 font-medium'
+                                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-zinc-800',
+                                  isExpanded &&
+                                    'bg-cyan-50/70 dark:bg-cyan-900/20 border border-cyan-200/60 dark:border-cyan-800/60 ring-1 ring-cyan-100/70 dark:ring-cyan-800/60',
+                                )}
+                              >
+                                <div
+                                  className="flex-1 truncate"
+                                  onClick={() => {
+                                    if (expandedActionId) {
+                                      closeActions()
+                                      return
+                                    }
+                                    onOpenConversation && onOpenConversation(conv)
+                                  }}
+                                  title={conv.title}
+                                >
+                                  {conv.title || 'Untitled'}
+                                </div>
 
-                            <button
-                              onClick={e => {
-                                e.stopPropagation()
-                                setOpenMenuId(conv.id)
-                                setMenuAnchorEl(e.currentTarget)
-                              }}
-                              className="ml-2 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-gray-300 dark:hover:bg-zinc-700 transition-all"
-                            >
-                              <MoreHorizontal size={12} />
-                            </button>
-                          </div>
-                        ))}
+                                <button
+                                  onClick={e => {
+                                    e.stopPropagation()
+                                    setExpandedActionId(prev => (prev === conv.id ? null : conv.id))
+                                  }}
+                                  className="ml-2 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-gray-300 dark:hover:bg-zinc-700 transition-all"
+                                >
+                                  {isExpanded ? (
+                                    <ChevronUp size={12} strokeWidth={2.5} />
+                                  ) : (
+                                    <ChevronDown size={12} strokeWidth={2.5} />
+                                  )}
+                                </button>
+                              </div>
+                              {isExpanded && (
+                                <div className="flex gap-2 mt-1 pl-2 pr-2 text-xs">
+                                  <button
+                                    onClick={e => {
+                                      e.stopPropagation()
+                                      handleToggleFavorite(conv)
+                                    }}
+                                    className={clsx(
+                                      'px-3 py-2 rounded-lg transition-colors flex items-center gap-2',
+                                      conv.is_favorited
+                                        ? 'bg-yellow-50 text-yellow-700 hover:bg-yellow-100 dark:bg-yellow-900/30 dark:text-yellow-200'
+                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-zinc-800 dark:text-gray-200 dark:hover:bg-zinc-700',
+                                    )}
+                                  >
+                                    <Bookmark
+                                      size={12}
+                                      className={conv.is_favorited ? 'fill-current' : ''}
+                                    />
+                                    <span className="font-medium">
+                                      {conv.is_favorited ? 'Remove Bookmark' : 'Add Bookmark'}
+                                    </span>
+                                  </button>
+                                  <button
+                                    onClick={e => {
+                                      e.stopPropagation()
+                                      setConversationToDelete(conv)
+                                    }}
+                                    className="px-3 py-2 rounded-lg transition-colors flex items-center gap-2 bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-200 dark:hover:bg-red-800/60"
+                                  >
+                                    <Trash2 size={12} />
+                                    <span className="font-medium">Delete</span>
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
 
                         {spaceConversations[space.id]?.hasMore &&
                           spaceConversations[space.id]?.items?.length > 0 && (
@@ -870,44 +1012,6 @@ const Sidebar = ({
             )}
           </div>
         </div>
-
-        {/* Global Dropdown Menu */}
-        <DropdownMenu
-          isOpen={!!openMenuId && !!menuAnchorEl}
-          anchorEl={menuAnchorEl}
-          onClose={() => {
-            setOpenMenuId(null)
-            setMenuAnchorEl(null)
-          }}
-          items={(() => {
-            // Find conversation from all possible sources
-            let conv = conversations.find(c => c.id === openMenuId)
-
-            // If not found in main conversations, search in space conversations
-            if (!conv) {
-              for (const spaceId in spaceConversations) {
-                conv = spaceConversations[spaceId]?.items?.find(c => c.id === openMenuId)
-                if (conv) break
-              }
-            }
-
-            if (!conv) return []
-            return [
-              {
-                label: conv.is_favorited ? 'Remove Bookmark' : 'Add Bookmark',
-                icon: <Bookmark size={14} className={conv.is_favorited ? 'fill-current' : ''} />,
-                onClick: () => handleToggleFavorite(conv),
-                className: conv.is_favorited ? 'text-yellow-500' : '',
-              },
-              {
-                label: 'Delete',
-                icon: <Trash2 size={14} />,
-                onClick: () => setConversationToDelete(conv),
-                danger: true,
-              },
-            ]
-          })()}
-        />
 
         <ConfirmationModal
           isOpen={!!conversationToDelete}

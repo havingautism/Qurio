@@ -782,7 +782,7 @@ const ChatInterface = ({
       <div className="w-full max-w-3xl mx-auto relative">
         <div className="flex flex-col w-full">
           {/* Title Bar */}
-          <div className="sticky top-0 z-20 w-full max-w-8xl border-b border-gray-200 dark:border-zinc-800 bg-background/80 backdrop-blur-md py-2 mb-3 transition-all flex items-center gap-1 px-2 md:px-0">
+          <div className="sticky top-0 z-20 w-full max-w-8xl border-b border-gray-200 dark:border-zinc-800 bg-background/80 backdrop-blur-md py-2 mb-3 transition-all flex items-center gap-1 px-5 md:px-0">
             {/* Mobile Menu Button */}
             <button
               onClick={toggleSidebar}

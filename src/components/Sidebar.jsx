@@ -369,8 +369,8 @@ const Sidebar = ({
         <div className="w-18 h-full bg-sidebar  flex flex-col items-center py-4 z-20 relative">
           {/* Logo */}
           <div className="mb-6">
-            <div className="w-8 h-8 flex items-center justify-center text-gray-900 dark:text-white font-bold text-xl">
-              <Logo size={24} />
+            <div className="w-full h-full flex items-center justify-center text-gray-900 dark:text-white font-bold text-xl">
+              <Logo size={64} />
             </div>
           </div>
 

@@ -1,12 +1,8 @@
-const CACHE_NAME = 'qurio-chat-v1'
+const CACHE_NAME = 'qurio-chat-v2'
 // Add base path for GitHub Pages deployment
 const BASE_PATH = '/Qurio/'
 // Cache essential static assets only
-const urlsToCache = [
-  `${BASE_PATH}manifest.json`,
-  `${BASE_PATH}logo-light.svg`,
-  `${BASE_PATH}logo-dark.svg`,
-]
+const urlsToCache = [`${BASE_PATH}manifest.json`, `${BASE_PATH}Qurio-logo-app.png`]
 
 self.addEventListener('install', event => {
   event.waitUntil(

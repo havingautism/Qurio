@@ -106,8 +106,62 @@ const MessageBubble = ({
 
   // Selection Menu State
   const [selectionMenu, setSelectionMenu] = useState(null)
+  const [isMobile, setIsMobile] = useState(false)
+
+  // Detect mobile device
+  useEffect(() => {
+    const checkMobile = () => {
+      const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+                            (navigator.maxTouchPoints > 0 && navigator.maxTouchPoints <= 5) ||
+                            (window.matchMedia && window.matchMedia('(pointer: coarse)').matches)
+      setIsMobile(isMobileDevice)
+    }
+
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
+
+  // Calculate optimal menu position to avoid viewport edges and selection
+  const calculateMenuPosition = (selectionRect) => {
+    const viewportWidth = window.innerWidth
+    const viewportHeight = window.innerHeight
+    const menuWidth = isMobile ? 160 : 150 // Slightly wider for text on mobile
+    const menuHeight = isMobile ? 38 : 40
+    const menuTopOffset = isMobile ? 8 : 10 // Distance above selection
+
+    let x = selectionRect.left + selectionRect.width / 2
+    let y = selectionRect.top - menuTopOffset
+
+    // Adjust horizontal position to avoid viewport edges
+    const halfMenuWidth = menuWidth / 2
+    if (x - halfMenuWidth < 10) {
+      x = 10 + halfMenuWidth
+    } else if (x + halfMenuWidth > viewportWidth - 10) {
+      x = viewportWidth - 10 - halfMenuWidth
+    }
+
+    // For mobile, always place below selection to avoid covering selected text
+    if (isMobile) {
+      y = selectionRect.bottom + 5 // Place below selection with small gap
+    }
+    // For desktop, if menu would go off top, place below
+    else if (y - menuHeight < 10) {
+      y = selectionRect.bottom + 5
+    }
+
+    // Ensure menu doesn't go below viewport on mobile
+    if (isMobile && y + menuHeight > viewportHeight - 10) {
+      y = Math.max(10, viewportHeight - menuHeight - 10)
+    }
+
+    return { x, y }
+  }
 
   const handleMouseUp = e => {
+    // Only handle mouse events on desktop
+    if (isMobile) return
+
     if (e.target.closest('.selection-menu')) return
 
     const selection = window.getSelection()
@@ -127,10 +181,11 @@ const MessageBubble = ({
     if (container.contains(selection.anchorNode)) {
       const range = selection.getRangeAt(0)
       const rect = range.getBoundingClientRect()
+      const position = calculateMenuPosition(rect)
 
       setSelectionMenu({
-        x: rect.left + rect.width / 2,
-        y: rect.top - 10,
+        x: position.x,
+        y: position.y,
         text: text,
       })
     } else {
@@ -138,18 +193,100 @@ const MessageBubble = ({
     }
   }
 
-  // Clear menu on click outside
+  // Handle touch events for mobile
+  const handleTouchEnd = e => {
+    if (!isMobile) return
+
+    // Don't prevent default here to allow text selection
+    // Instead, we'll handle it in contextmenu event
+
+    // Use setTimeout to allow selection to complete after touch ends
+    setTimeout(() => {
+      const selection = window.getSelection()
+      const text = selection.toString().trim()
+
+      if (!text) {
+        setSelectionMenu(null)
+        return
+      }
+
+      // Ensure we have a reference to the container
+      const container = containerRef.current
+      if (!container) return
+
+      // Check if the selection range is within our container
+      if (container.contains(selection.anchorNode)) {
+        const range = selection.getRangeAt(0)
+        const rect = range.getBoundingClientRect()
+
+        // Ensure we have a valid rect (not empty)
+        if (rect.width === 0 || rect.height === 0) {
+          setSelectionMenu(null)
+          return
+        }
+
+        const position = calculateMenuPosition(rect)
+
+        setSelectionMenu({
+          x: position.x,
+          y: position.y,
+          text: text,
+        })
+      } else {
+        setSelectionMenu(null)
+      }
+    }, 150) // Slightly longer delay for mobile
+  }
+
+  // Prevent context menu on mobile for text selection
+  const handleContextMenu = e => {
+    if (isMobile && e.target.closest('.message-content')) {
+      e.preventDefault()
+    }
+  }
+
+  // Clear menu on click/touch outside
   useEffect(() => {
-    const handleDocumentClick = e => {
-      // If formatting button, don't clear? No, always clear on click as selection clears usually.
+    const handleDocumentInteraction = e => {
+      // Clear menu if clicking/touching outside of it
       if (selectionMenu && !e.target.closest('.selection-menu')) {
         setSelectionMenu(null)
       }
     }
-    // We listen on mousedown or click. Click might be better.
-    document.addEventListener('mousedown', handleDocumentClick)
-    return () => document.removeEventListener('mousedown', handleDocumentClick)
-  }, [selectionMenu])
+
+    // Use mousedown for desktop, touchstart for mobile
+    const eventType = isMobile ? 'touchstart' : 'mousedown'
+    document.addEventListener(eventType, handleDocumentInteraction)
+
+    return () => document.removeEventListener(eventType, handleDocumentInteraction)
+  }, [selectionMenu, isMobile])
+
+  // Handle selection changes for mobile
+  useEffect(() => {
+    if (!isMobile) return
+
+    const handleSelectionChange = () => {
+      const selection = window.getSelection()
+      const text = selection.toString().trim()
+
+      if (!text) {
+        setSelectionMenu(null)
+        return
+      }
+
+      // Only update if we're inside a message bubble
+      const container = containerRef.current
+      if (container && container.contains(selection.anchorNode)) {
+        // The actual menu update will be handled by handleTouchEnd
+      }
+    }
+
+    document.addEventListener('selectionchange', handleSelectionChange)
+
+    return () => {
+      document.removeEventListener('selectionchange', handleSelectionChange)
+    }
+  }, [isMobile])
 
   useEffect(() => {
     const observer = new MutationObserver(mutations => {
@@ -296,6 +433,8 @@ const MessageBubble = ({
         }}
         className="flex justify-end w-full mb-8 group px-5 sm:px-0"
         onMouseUp={handleMouseUp}
+        onTouchEnd={handleTouchEnd}
+        onContextMenu={handleContextMenu}
       >
         <div className="flex flex-col items-end gap-2 max-w-[90%] md:max-w-[75%]">
           {/* Message Content */}
@@ -324,7 +463,18 @@ const MessageBubble = ({
                 ))}
               </div>
             )}
-            <div className="whitespace-pre-wrap wrap-break-word">{contentToRender}</div>
+            <div
+              className="message-content whitespace-pre-wrap wrap-break-word"
+              // Prevent native selection menu on mobile
+              style={{
+                WebkitTouchCallout: isMobile ? 'none' : 'default',
+                WebkitUserSelect: isMobile ? 'text' : 'auto',
+                KhtmlUserSelect: isMobile ? 'text' : 'auto',
+                MozUserSelect: isMobile ? 'text' : 'auto',
+                MsUserSelect: isMobile ? 'text' : 'auto',
+                userSelect: isMobile ? 'text' : 'auto'
+              }}
+            >{contentToRender}</div>
           </div>
 
           {/* Action Buttons */}
@@ -403,15 +553,32 @@ const MessageBubble = ({
       }}
       className="w-full max-w-3xl mb-12 flex flex-col gap-6 relative px-5 sm:px-0"
       onMouseUp={handleMouseUp}
+      onTouchEnd={handleTouchEnd}
+      onContextMenu={handleContextMenu}
     >
       {/* Selection Menu */}
       {selectionMenu && (
         <div
-          className="fixed selection-menu bg-gray-900 text-white dark:bg-zinc-700 rounded-lg shadow-xl flex items-center gap-1 p-1 z-50 transform -translate-x-1/2 -translate-y-full"
-          style={{ left: selectionMenu.x, top: selectionMenu.y }}
+          className={clsx(
+            "fixed selection-menu shadow-lg flex items-center z-50 transform -translate-x-1/2",
+            isMobile
+              ? "bg-gray-900/98 text-white dark:bg-zinc-800/98 rounded-full py-1.5 px-3 backdrop-blur-md border border-gray-700/50"
+              : "bg-gray-900 text-white dark:bg-zinc-700 rounded-lg p-1 -translate-y-full"
+          )}
+          style={{
+            left: selectionMenu.x,
+            top: selectionMenu.y,
+            // Ensure menu appears above everything on mobile
+            zIndex: isMobile ? 9999 : 50
+          }}
         >
           <button
-            className="flex items-center gap-1.5 px-2 py-1.5 hover:bg-gray-700 dark:hover:bg-zinc-600 rounded whitespace-nowrap text-xs font-medium transition-colors"
+            className={clsx(
+              "flex items-center gap-1.5 rounded-full transition-all text-xs font-medium",
+              isMobile
+                ? "px-3 py-1.5 active:bg-gray-700 hover:bg-gray-800"
+                : "px-2 py-1.5 hover:bg-gray-700 dark:hover:bg-zinc-600 whitespace-nowrap"
+            )}
             onClick={e => {
               e.stopPropagation()
               onQuote && onQuote({ text: selectionMenu.text, message })
@@ -419,12 +586,20 @@ const MessageBubble = ({
               window.getSelection().removeAllRanges()
             }}
           >
-            <Quote size={12} />
+            <Quote size={isMobile ? 13 : 12} />
             Quote
           </button>
-          <div className="w-px h-3 bg-gray-700 dark:bg-zinc-600 mx-0.5" />
+          <div className={clsx(
+            "mx-0.5",
+            isMobile ? "w-px h-4 bg-gray-600" : "w-px h-3 bg-gray-700 dark:bg-zinc-600"
+          )} />
           <button
-            className="flex items-center gap-1.5 px-2 py-1.5 hover:bg-gray-700 dark:hover:bg-zinc-600 rounded whitespace-nowrap text-xs font-medium transition-colors"
+            className={clsx(
+              "flex items-center gap-1.5 rounded-full transition-all text-xs font-medium",
+              isMobile
+                ? "px-3 py-1.5 active:bg-gray-700 hover:bg-gray-800"
+                : "px-2 py-1.5 hover:bg-gray-700 dark:hover:bg-zinc-600 whitespace-nowrap"
+            )}
             onClick={e => {
               e.stopPropagation()
               copyToClipboard(selectionMenu.text)
@@ -432,7 +607,7 @@ const MessageBubble = ({
               window.getSelection().removeAllRanges()
             }}
           >
-            <Copy size={12} />
+            <Copy size={isMobile ? 13 : 12} />
             Copy
           </button>
         </div>
@@ -503,7 +678,16 @@ const MessageBubble = ({
       {/* Main Content */}
       <div
         ref={mainContentRef}
-        className="prose dark:prose-invert max-w-none text-gray-800 dark:text-gray-200 leading-relaxed font-serif [&_p]:overflow-x-auto [&_p]:max-w-full [&_p]:whitespace-pre-wrap [&_blockquote]:overflow-x-auto [&_blockquote]:max-w-full [&_table]:inline-table [&_table]:w-auto [&_table]:table-auto [&_pre]:overflow-x-auto [&_pre]:max-w-full"
+        className="message-content prose dark:prose-invert max-w-none text-gray-800 dark:text-gray-200 leading-relaxed font-serif [&_p]:overflow-x-auto [&_p]:max-w-full [&_p]:whitespace-pre-wrap [&_blockquote]:overflow-x-auto [&_blockquote]:max-w-full [&_table]:inline-table [&_table]:w-auto [&_table]:table-auto [&_pre]:overflow-x-auto [&_pre]:max-w-full"
+        // Prevent native selection menu on mobile
+        style={{
+          WebkitTouchCallout: isMobile ? 'none' : 'default',
+          WebkitUserSelect: isMobile ? 'text' : 'auto',
+          KhtmlUserSelect: isMobile ? 'text' : 'auto',
+          MozUserSelect: isMobile ? 'text' : 'auto',
+          MsUserSelect: isMobile ? 'text' : 'auto',
+          userSelect: isMobile ? 'text' : 'auto'
+        }}
       >
         {!message.content && !thoughtContent ? (
           <div className="flex flex-col gap-2 animate-pulse">

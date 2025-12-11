@@ -1,7 +1,9 @@
+import logoSrc from '../assets/Qurio-logo-light-theme.png'
+
 const Logo = ({ size = 64, className = '' }) => {
   return (
     <img
-      src="/Qurio-logo-light-theme.png"
+      src={logoSrc}
       alt="Qurio"
       width={size}
       height={size}

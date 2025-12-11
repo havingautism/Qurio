@@ -343,7 +343,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
         </div>
 
         {/* Sidebar */}
-        <div className="w-full md:w-64 bg-gray-50 dark:bg-[#202222] border-b md:border-b-0 md:border-r border-gray-200 dark:border-zinc-800 p-4 flex flex-row md:flex-col gap-2 overflow-x-auto md:overflow-visible shrink-0">
+        <div className="w-full md:w-64 bg-gray-50 dark:bg-[#202222] border-b md:border-b-0 md:border-r border-gray-200 dark:border-zinc-800 px-1 py-3 sm:py-4 sm:px-4 flex flex-row md:flex-col gap-2 overflow-x-auto md:overflow-visible shrink-0">
           <h2 className="text-xl font-bold mb-0 md:mb-6 px-2 text-gray-900 dark:text-white hidden md:block">
             Settings
           </h2>
@@ -353,7 +353,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
                 className={clsx(
-                  'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap',
+                  'flex items-center gap-1 sm:gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap',
                   activeTab === item.id
                     ? 'bg-gray-100 dark:bg-zinc-800 text-cyan-600 dark:text-cyan-400'
                     : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-zinc-800',
@@ -1072,7 +1072,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
             {activeTab === 'about' && (
               <div className="flex flex-col items-center justify-center h-full text-center gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <div className="p-4  rounded-3xl mb-2">
-                  <Logo size={64} className="text-gray-900 dark:text-white" />
+                  <Logo size={128} className="text-gray-900 dark:text-white" />
                 </div>
 
                 <div className="flex flex-col gap-2 items-center">

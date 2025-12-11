@@ -237,13 +237,14 @@ const BookmarksView = () => {
               return (
                 <div
                   key={conv.id}
+                  data-conversation-id={conv.id}
                   onClick={() =>
                     navigate({
                       to: '/conversation/$conversationId',
                       params: { conversationId: conv.id },
                     })
                   }
-                  className="group relative p-4 rounded-xl hover:bg-gray-50 dark:hover:bg-zinc-900/50 cursor-pointer transition-colors border-b border-gray-100 dark:border-zinc-800/50 last:border-0"
+                  className="group relative p-4 rounded-xl cursor-pointer transition-colors border-b border-gray-100 dark:border-zinc-800/50 last:border-0 hover:bg-cyan-500/10 dark:hover:bg-cyan-500/20 hover:border hover:border-cyan-500/30 dark:hover:border-cyan-500/40"
                 >
                   <div className="flex justify-between items-start gap-4">
                     <div className="flex-1 min-w-0">
@@ -269,7 +270,7 @@ const BookmarksView = () => {
                       </div>
                     </div>
 
-                    {/* Actions (visible on hover) */}
+                    {/* Actions (always visible on mobile, visible on hover on desktop) */}
                     <div className="relative">
                       <button
                         onClick={e => {
@@ -277,9 +278,17 @@ const BookmarksView = () => {
                           setOpenMenuId(conv.id)
                           setMenuAnchorEl(e.currentTarget)
                         }}
-                        className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 opacity-0 group-hover:opacity-100 transition-opacity"
+                        className={clsx(
+                          'p-2 text-gray-400 hover:bg-cyan-500/10 dark:hover:bg-cyan-500/20 rounded hover:text-cyan-600 dark:hover:text-cyan-400 transition-all',
+                          // Always visible on mobile
+                          'opacity-100',
+                          // Show on hover on desktop
+                          'md:opacity-0 md:group-hover:opacity-100',
+                          // Ensure button has minimum size for touch
+                          'min-w-[44px] min-h-[44px] flex items-center justify-center'
+                        )}
                       >
-                        <MoreHorizontal size={18} />
+                        <MoreHorizontal size={18} strokeWidth={2} />
                       </button>
                       <DropdownMenu
                         isOpen={openMenuId === conv.id}

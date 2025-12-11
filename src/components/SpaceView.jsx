@@ -201,10 +201,11 @@ const SpaceView = ({
               conversations.map((conv, i) => (
                 <div
                   key={conv.id || i}
-                  className="group cursor-pointer"
+                  data-conversation-id={conv.id || i}
+                  className="group relative p-4 rounded-xl cursor-pointer transition-colors border-b border-gray-100 dark:border-zinc-800/50 last:border-0 hover:bg-cyan-500/10 dark:hover:bg-cyan-500/20 hover:border hover:border-cyan-500/30 dark:hover:border-cyan-500/40"
                   onClick={() => onOpenConversation && onOpenConversation(conv)}
                 >
-                  <div className="flex items-start gap-3">
+                  <div className="flex justify-between items-start gap-4">
                     {/* <div className="w-8 h-8 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center text-orange-600 dark:text-orange-400 shrink-0 mt-1">
                                         <span className="text-xs font-bold">{conv.title?.[0]?.toUpperCase() || "T"}</span>
                                     </div> */}
@@ -222,16 +223,26 @@ const SpaceView = ({
                         <span>{new Date(conv.created_at).toLocaleDateString()}</span>
                       </div>
                     </div>
+
+                    {/* Actions (always visible on mobile, visible on hover on desktop) */}
                     <div className="relative">
                       <button
-                        className="opacity-0 group-hover:opacity-100 md:opacity-100 p-1 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded text-gray-400 transition-all"
+                        className={clsx(
+                          'p-1 hover:bg-cyan-500/10 dark:hover:bg-cyan-500/20 rounded text-gray-400 hover:text-cyan-600 dark:hover:text-cyan-400 transition-all',
+                          // Always visible on mobile
+                          'opacity-100',
+                          // Show on hover on desktop
+                          'md:opacity-0 md:group-hover:opacity-100',
+                          // Ensure button has minimum size for touch
+                          'min-w-[44px] min-h-[44px] flex items-center justify-center'
+                        )}
                         onClick={e => {
                           e.stopPropagation()
                           setOpenMenuId(conv.id)
                           setMenuAnchorEl(e.currentTarget)
                         }}
                       >
-                        <MoreHorizontal size={16} />
+                        <MoreHorizontal size={16} strokeWidth={2} />
                       </button>
                       <DropdownMenu
                         isOpen={openMenuId === conv.id}
@@ -267,9 +278,6 @@ const SpaceView = ({
                       />
                     </div>
                   </div>
-                  {i < conversations.length - 1 && (
-                    <div className="h-px bg-gray-100 dark:bg-zinc-800 mt-4" />
-                  )}
                 </div>
               ))}
           </div>

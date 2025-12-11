@@ -529,6 +529,7 @@ const Sidebar = ({
                         return (
                           <div
                             key={conv.id}
+                            data-conversation-id={conv.id}
                             onClick={() => onOpenConversation && onOpenConversation(conv)}
                             className={clsx(
                               'text-sm p-2 rounded cursor-pointer truncate transition-colors group relative',
@@ -566,14 +567,17 @@ const Sidebar = ({
                                   className={clsx(
                                     'p-1.5 rounded-md hover:bg-gray-300 dark:hover:bg-zinc-700 transition-all',
                                     isActive
-                                      ? 'text-cyan-600 dark:text-cyan-400'
-                                      : 'text-gray-500 dark:text-gray-400',
-                                    openMenuId === conv.id
-                                      ? 'opacity-100'
-                                      : 'opacity-100 md:opacity-0 md:group-hover:opacity-100',
+                                      ? 'text-cyan-600 dark:text-cyan-400 bg-cyan-100 dark:bg-cyan-900/20'
+                                      : 'text-gray-500 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-zinc-700',
+                                    // Always visible on mobile
+                                    'opacity-100',
+                                    // Show on hover on desktop
+                                    'md:opacity-0 md:group-hover:opacity-100',
+                                    // Ensure button has minimum size for touch
+                                    'min-w-[32px] min-h-[32px] flex items-center justify-center',
                                   )}
                                 >
-                                  <MoreHorizontal size={14} />
+                                  <MoreHorizontal size={16} strokeWidth={2.5} />
                                 </button>
                               </div>
                             </div>
@@ -612,6 +616,7 @@ const Sidebar = ({
                     return (
                       <div
                         key={conv.id}
+                        data-conversation-id={conv.id}
                         onClick={() => onOpenConversation && onOpenConversation(conv)}
                         className={clsx(
                           'text-sm p-2 rounded cursor-pointer truncate transition-colors group relative',
@@ -647,14 +652,17 @@ const Sidebar = ({
                               className={clsx(
                                 'p-1.5 rounded-md hover:bg-gray-300 dark:hover:bg-zinc-700 transition-all',
                                 isActive
-                                  ? 'text-cyan-600 dark:text-cyan-400'
-                                  : 'text-gray-500 dark:text-gray-400',
-                                openMenuId === conv.id
-                                  ? 'opacity-100'
-                                  : 'opacity-100 md:opacity-0 md:group-hover:opacity-100',
+                                  ? 'text-cyan-600 dark:text-cyan-400 bg-cyan-100 dark:bg-cyan-900/20'
+                                  : 'text-gray-500 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-zinc-700',
+                                // Always visible on mobile
+                                'opacity-100',
+                                // Show on hover on desktop
+                                'md:opacity-0 md:group-hover:opacity-100',
+                                // Ensure button has minimum size for touch
+                                'min-w-[32px] min-h-[32px] flex items-center justify-center',
                               )}
                             >
-                              <MoreHorizontal size={14} />
+                              <MoreHorizontal size={16} strokeWidth={2.5} />
                             </button>
                           </div>
                         </div>
@@ -776,16 +784,32 @@ const Sidebar = ({
                         {spaceConversations[space.id]?.items?.map(conv => (
                           <div
                             key={conv.id}
-                            onClick={() => onOpenConversation && onOpenConversation(conv)}
+                            data-conversation-id={conv.id}
                             className={clsx(
-                              'text-xs py-1.5 px-2 rounded cursor-pointer truncate transition-colors',
+                              'group relative flex items-center justify-between text-xs py-1.5 px-2 rounded cursor-pointer truncate transition-colors',
                               conv.id === activeConversationId
                                 ? 'bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 font-medium'
                                 : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-zinc-800',
                             )}
-                            title={conv.title}
                           >
-                            {conv.title || 'Untitled'}
+                            <div
+                              className="flex-1 truncate"
+                              onClick={() => onOpenConversation && onOpenConversation(conv)}
+                              title={conv.title}
+                            >
+                              {conv.title || 'Untitled'}
+                            </div>
+
+                            <button
+                              onClick={e => {
+                                e.stopPropagation()
+                                setOpenMenuId(conv.id)
+                                setMenuAnchorEl(e.currentTarget)
+                              }}
+                              className="ml-2 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-gray-300 dark:hover:bg-zinc-700 transition-all"
+                            >
+                              <MoreHorizontal size={12} />
+                            </button>
                           </div>
                         ))}
 
@@ -856,7 +880,17 @@ const Sidebar = ({
             setMenuAnchorEl(null)
           }}
           items={(() => {
-            const conv = conversations.find(c => c.id === openMenuId)
+            // Find conversation from all possible sources
+            let conv = conversations.find(c => c.id === openMenuId)
+
+            // If not found in main conversations, search in space conversations
+            if (!conv) {
+              for (const spaceId in spaceConversations) {
+                conv = spaceConversations[spaceId]?.items?.find(c => c.id === openMenuId)
+                if (conv) break
+              }
+            }
+
             if (!conv) return []
             return [
               {

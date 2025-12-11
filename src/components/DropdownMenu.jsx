@@ -23,9 +23,10 @@ const DropdownMenu = ({ isOpen, onClose, items, anchorEl }) => {
         const rect = anchorEl.getBoundingClientRect()
         const viewportHeight = window.innerHeight
         // Find the parent conversation element
-        const conversationEl = anchorEl.closest('[data-conversation-id]') ||
-                              anchorEl.closest('.group') ||
-                              anchorEl.parentElement
+        const conversationEl =
+          anchorEl.closest('[data-conversation-id]') ||
+          anchorEl.closest('.group') ||
+          anchorEl.parentElement
 
         // Estimate menu height (items * 48px + padding)
         const estimatedMenuHeight = items.length * 48 + 16
@@ -58,7 +59,7 @@ const DropdownMenu = ({ isOpen, onClose, items, anchorEl }) => {
             'dark:!bg-cyan-500/20',
             'dark:!border-cyan-500/40',
             'transition-all',
-            'duration-200'
+            'duration-200',
           )
         } else {
           // Fallback: position below anchor but with padding
@@ -101,9 +102,10 @@ const DropdownMenu = ({ isOpen, onClose, items, anchorEl }) => {
         })
 
         // Also add highlight on desktop
-        const conversationEl = anchorEl.closest('[data-conversation-id]') ||
-                              anchorEl.closest('.group') ||
-                              anchorEl.parentElement
+        const conversationEl =
+          anchorEl.closest('[data-conversation-id]') ||
+          anchorEl.closest('.group') ||
+          anchorEl.parentElement
         if (conversationEl) {
           conversationEl.classList.add(
             '!bg-cyan-500/10',
@@ -112,7 +114,7 @@ const DropdownMenu = ({ isOpen, onClose, items, anchorEl }) => {
             'dark:!bg-cyan-500/20',
             'dark:!border-cyan-500/40',
             'transition-all',
-            'duration-200'
+            'duration-200',
           )
         }
       }
@@ -134,7 +136,7 @@ const DropdownMenu = ({ isOpen, onClose, items, anchorEl }) => {
           'dark:bg-cyan-500/20',
           'dark:!bg-cyan-500/20',
           'dark:border-cyan-500/40',
-          'dark:!border-cyan-500/40'
+          'dark:!border-cyan-500/40',
         )
       })
     }
@@ -167,45 +169,62 @@ const DropdownMenu = ({ isOpen, onClose, items, anchorEl }) => {
   if (!isOpen || !anchorEl) return null
 
   return (
-    <div
-      ref={menuRef}
-      style={{
-        top: position.top,
-        left: isMobile ? (position.left || 16) : position.left,
-        right: isMobile ? position.right : 'auto',
-      }}
-      className={clsx(
-        'fixed z-[9999] bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 shadow-lg p-1',
-        isMobile
-          ? 'rounded-lg'
-          : 'min-w-[160px] rounded-lg',
-      )}
-    >
-      {items.map((item, index) => (
-        <button
-          key={index}
-          onClick={e => {
-            e.stopPropagation()
-            item.onClick()
-            onClose()
-          }}
-          className={clsx(
-            'w-full text-left transition-colors flex items-center gap-2 rounded-lg',
-            isMobile
-              ? 'px-4 py-3 text-base'
-              : 'px-4 py-2 text-sm',
-            item.danger
-              ? 'text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20'
-              : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-zinc-700',
-          )}
-        >
-          {item.icon && <span>{item.icon}</span>}
-          <span className={clsx('font-medium', isMobile ? 'text-sm' : 'text-xs')}>
-            {item.label}
-          </span>
-        </button>
-      ))}
-    </div>
+    <>
+      {/* Overlay to absorb clicks/touches so underlying conversation items are not triggered */}
+      <div
+        className="fixed inset-0 z-9998"
+        onMouseDown={e => {
+          e.stopPropagation()
+          e.preventDefault()
+          onClose()
+        }}
+        onClick={e => {
+          e.stopPropagation()
+          e.preventDefault()
+          onClose()
+        }}
+        onTouchStart={e => {
+          e.stopPropagation()
+          e.preventDefault()
+          onClose()
+        }}
+      />
+      <div
+        ref={menuRef}
+        style={{
+          top: position.top,
+          left: isMobile ? position.left || 16 : position.left,
+          right: isMobile ? position.right : 'auto',
+        }}
+        className={clsx(
+          'fixed z-9999 bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 shadow-lg p-1',
+          isMobile ? 'rounded-lg' : 'min-w-[160px] rounded-lg',
+        )}
+      >
+        {items.map((item, index) => (
+          <button
+            key={index}
+            onClick={e => {
+              e.stopPropagation()
+              item.onClick()
+              onClose()
+            }}
+            className={clsx(
+              'w-full text-left transition-colors flex items-center gap-2 rounded-lg',
+              isMobile ? 'px-4 py-3 text-base' : 'px-4 py-2 text-sm',
+              item.danger
+                ? 'text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20'
+                : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-zinc-700',
+            )}
+          >
+            {item.icon && <span>{item.icon}</span>}
+            <span className={clsx('font-medium', isMobile ? 'text-sm' : 'text-xs')}>
+              {item.label}
+            </span>
+          </button>
+        ))}
+      </div>
+    </>
   )
 }
 

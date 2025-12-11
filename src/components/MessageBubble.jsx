@@ -120,7 +120,7 @@ const MessageBubble = ({
   }, [])
 
   // Calculate optimal menu position to avoid viewport edges and selection
-  const calculateMenuPosition = (selectionRect) => {
+  const calculateMenuPosition = selectionRect => {
     const viewportWidth = window.innerWidth
     const viewportHeight = window.innerHeight
     const menuWidth = isMobile ? 160 : 150 // Slightly wider for text on mobile
@@ -155,37 +155,47 @@ const MessageBubble = ({
     return { x, y }
   }
 
+  const updateSelectionMenuFromSelection = () => {
+    const selection = window.getSelection()
+    const text = selection?.toString().trim()
+
+    if (!text) {
+      setSelectionMenu(null)
+      return false
+    }
+
+    const container = containerRef.current
+    if (!container || !container.contains(selection.anchorNode)) {
+      setSelectionMenu(null)
+      return false
+    }
+
+    if (!selection.rangeCount) return false
+    const range = selection.getRangeAt(0)
+    const rect = range.getBoundingClientRect()
+
+    if (!rect || rect.width === 0 || rect.height === 0) {
+      setSelectionMenu(null)
+      return false
+    }
+
+    const position = calculateMenuPosition(rect)
+
+    setSelectionMenu({
+      x: position.x,
+      y: position.y,
+      text,
+    })
+    return true
+  }
+
   const handleMouseUp = e => {
     // Only handle mouse events on desktop
     if (isMobile) return
 
     if (e.target.closest('.selection-menu')) return
 
-    const selection = window.getSelection()
-    const text = selection.toString().trim()
-
-    if (!text) {
-      setSelectionMenu(null)
-      return
-    }
-
-    // Ensure we have a reference to the container
-    const container = containerRef.current
-    if (!container) return
-
-    // Check if the selection range is within our container
-    // We check both anchorNode (start) to ensure the selection initiated/belongs to this bubble
-    if (container.contains(selection.anchorNode)) {
-      const range = selection.getRangeAt(0)
-      const rect = range.getBoundingClientRect()
-      const position = calculateMenuPosition(rect)
-
-      setSelectionMenu({
-        x: position.x,
-        y: position.y,
-        text: text,
-      })
-    } else {
+    if (!updateSelectionMenuFromSelection()) {
       setSelectionMenu(null)
     }
   }
@@ -199,37 +209,7 @@ const MessageBubble = ({
 
     // Use setTimeout to allow selection to complete after touch ends
     setTimeout(() => {
-      const selection = window.getSelection()
-      const text = selection.toString().trim()
-
-      if (!text) {
-        setSelectionMenu(null)
-        return
-      }
-
-      // Ensure we have a reference to the container
-      const container = containerRef.current
-      if (!container) return
-
-      // Check if the selection range is within our container
-      if (container.contains(selection.anchorNode)) {
-        const range = selection.getRangeAt(0)
-        const rect = range.getBoundingClientRect()
-
-        // Ensure we have a valid rect (not empty)
-        if (rect.width === 0 || rect.height === 0) {
-          setSelectionMenu(null)
-          return
-        }
-
-        const position = calculateMenuPosition(rect)
-
-        setSelectionMenu({
-          x: position.x,
-          y: position.y,
-          text: text,
-        })
-      } else {
+      if (!updateSelectionMenuFromSelection()) {
         setSelectionMenu(null)
       }
     }, 150) // Slightly longer delay for mobile
@@ -271,11 +251,8 @@ const MessageBubble = ({
         return
       }
 
-      // Only update if we're inside a message bubble
-      const container = containerRef.current
-      if (container && container.contains(selection.anchorNode)) {
-        // The actual menu update will be handled by handleTouchEnd
-      }
+      // On Android long-press selection may not fire touchend, so update menu here
+      updateSelectionMenuFromSelection()
     }
 
     document.addEventListener('selectionchange', handleSelectionChange)
@@ -428,7 +405,7 @@ const MessageBubble = ({
           containerRef.current = el
           if (typeof bubbleRef === 'function') bubbleRef(el)
         }}
-        className="flex justify-end w-full mb-8 group px-5 sm:px-0"
+        className="flex justify-end w-full mb-3 sm:mb-6 group px-5 sm:px-0"
         onMouseUp={handleMouseUp}
         onTouchEnd={handleTouchEnd}
         onContextMenu={handleContextMenu}
@@ -444,7 +421,7 @@ const MessageBubble = ({
           >
             {quoteToRender && (
               <div className="mb-2 p-2 bg-white/50 dark:bg-black/20 rounded-lg text-sm border-l-2 border-cyan-500">
-                <div className="font-medium opacity-70 mb-1">Replying to:</div>
+                <div className="font-medium opacity-70 mb-1">Quoting:</div>
                 <div className="line-clamp-2 italic opacity-80">{quoteToRender.text}</div>
               </div>
             )}
@@ -469,9 +446,11 @@ const MessageBubble = ({
                 KhtmlUserSelect: isMobile ? 'text' : 'auto',
                 MozUserSelect: isMobile ? 'text' : 'auto',
                 MsUserSelect: isMobile ? 'text' : 'auto',
-                userSelect: isMobile ? 'text' : 'auto'
+                userSelect: isMobile ? 'text' : 'auto',
               }}
-            >{contentToRender}</div>
+            >
+              {contentToRender}
+            </div>
           </div>
 
           {/* Action Buttons */}
@@ -557,24 +536,24 @@ const MessageBubble = ({
       {selectionMenu && (
         <div
           className={clsx(
-            "fixed selection-menu shadow-lg flex items-center z-50 transform -translate-x-1/2",
+            'fixed selection-menu shadow-lg flex items-center z-50 transform -translate-x-1/2',
             isMobile
-              ? "bg-gray-900/98 text-white dark:bg-zinc-800/98 rounded-full py-1.5 px-3 backdrop-blur-md border border-gray-700/50"
-              : "bg-gray-900 text-white dark:bg-zinc-700 rounded-lg p-1 -translate-y-full"
+              ? 'bg-gray-900/98 text-white dark:bg-zinc-800/98 rounded-full py-1.5 px-3 backdrop-blur-md border border-gray-700/50'
+              : 'bg-gray-900 text-white dark:bg-zinc-700 rounded-lg p-1 -translate-y-full',
           )}
           style={{
             left: selectionMenu.x,
             top: selectionMenu.y,
             // Ensure menu appears above everything on mobile
-            zIndex: isMobile ? 9999 : 50
+            zIndex: isMobile ? 9999 : 50,
           }}
         >
           <button
             className={clsx(
-              "flex items-center gap-1.5 rounded-full transition-all text-xs font-medium",
+              'flex items-center gap-1.5 rounded-full transition-all text-xs font-medium',
               isMobile
-                ? "px-3 py-1.5 active:bg-gray-700 hover:bg-gray-800"
-                : "px-2 py-1.5 hover:bg-gray-700 dark:hover:bg-zinc-600 whitespace-nowrap"
+                ? 'px-3 py-1.5 active:bg-gray-700 hover:bg-gray-800'
+                : 'px-2 py-1.5 hover:bg-gray-700 dark:hover:bg-zinc-600 whitespace-nowrap',
             )}
             onClick={e => {
               e.stopPropagation()
@@ -586,16 +565,18 @@ const MessageBubble = ({
             <Quote size={isMobile ? 13 : 12} />
             Quote
           </button>
-          <div className={clsx(
-            "mx-0.5",
-            isMobile ? "w-px h-4 bg-gray-600" : "w-px h-3 bg-gray-700 dark:bg-zinc-600"
-          )} />
+          <div
+            className={clsx(
+              'mx-0.5',
+              isMobile ? 'w-px h-4 bg-gray-600' : 'w-px h-3 bg-gray-700 dark:bg-zinc-600',
+            )}
+          />
           <button
             className={clsx(
-              "flex items-center gap-1.5 rounded-full transition-all text-xs font-medium",
+              'flex items-center gap-1.5 rounded-full transition-all text-xs font-medium',
               isMobile
-                ? "px-3 py-1.5 active:bg-gray-700 hover:bg-gray-800"
-                : "px-2 py-1.5 hover:bg-gray-700 dark:hover:bg-zinc-600 whitespace-nowrap"
+                ? 'px-3 py-1.5 active:bg-gray-700 hover:bg-gray-800'
+                : 'px-2 py-1.5 hover:bg-gray-700 dark:hover:bg-zinc-600 whitespace-nowrap',
             )}
             onClick={e => {
               e.stopPropagation()
@@ -683,7 +664,7 @@ const MessageBubble = ({
           KhtmlUserSelect: isMobile ? 'text' : 'auto',
           MozUserSelect: isMobile ? 'text' : 'auto',
           MsUserSelect: isMobile ? 'text' : 'auto',
-          userSelect: isMobile ? 'text' : 'auto'
+          userSelect: isMobile ? 'text' : 'auto',
         }}
       >
         {!message.content && !thoughtContent ? (

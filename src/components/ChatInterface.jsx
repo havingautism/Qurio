@@ -782,7 +782,7 @@ const ChatInterface = ({
       <div className="w-full max-w-3xl mx-auto relative">
         <div className="flex flex-col w-full">
           {/* Title Bar */}
-          <div className="sticky top-0 z-20 w-full max-w-8xl border-b border-gray-200 dark:border-zinc-800 bg-background/80 backdrop-blur-md py-3 mb-3 transition-all flex items-center gap-4 px-4 md:px-0">
+          <div className="sticky top-0 z-20 w-full max-w-8xl border-b border-gray-200 dark:border-zinc-800 bg-background/80 backdrop-blur-md py-2 mb-3 transition-all flex items-center gap-1 px-5 md:px-0">
             {/* Mobile Menu Button */}
             <button
               onClick={toggleSidebar}
@@ -795,7 +795,7 @@ const ChatInterface = ({
             <div className="relative" ref={selectorRef}>
               <button
                 onClick={() => setIsSelectorOpen(!isSelectorOpen)}
-                className="flex items-center gap-2 px-3  rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors text-sm font-medium text-gray-700 dark:text-gray-300"
+                className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors text-sm font-medium text-gray-700 dark:text-gray-300"
               >
                 <LayoutGrid size={16} className="text-gray-400 hidden sm:inline" />
                 {displaySpace ? (
@@ -808,7 +808,7 @@ const ChatInterface = ({
                     </span>
                   </div>
                 ) : (
-                  <span className="text-gray-500">Spaces</span>
+                  <span className="text-gray-500 text-xs sm:text-s">None</span>
                 )}
                 <ChevronDown size={14} className="text-gray-400" />
               </button>
@@ -853,7 +853,7 @@ const ChatInterface = ({
             </div>
 
             <div className="flex items-center gap-2 flex-1 min-w-0">
-              <h1 className="text-xl font-medium text-gray-800 dark:text-gray-100 truncate">
+              <h1 className="text-m sm:text-xl font-medium text-gray-800 dark:text-gray-100 truncate">
                 {conversationTitle || 'New Conversation'}
               </h1>
               <button

@@ -3,7 +3,7 @@ const TwemojiDisplay = ({ emoji, size = '1em', className = '' }) => {
 
   return (
     <span
-      className={`inline-flex mb-1 items-center justify-center ${className}`}
+      className={`inline-flex mb-2 items-center justify-center ${className}`}
       style={{ fontSize: size, lineHeight: 1 }}
     >
       <em-emoji set="twitter" size={size} native={emoji}></em-emoji>

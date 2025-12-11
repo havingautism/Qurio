@@ -155,37 +155,47 @@ const MessageBubble = ({
     return { x, y }
   }
 
+  const updateSelectionMenuFromSelection = () => {
+    const selection = window.getSelection()
+    const text = selection?.toString().trim()
+
+    if (!text) {
+      setSelectionMenu(null)
+      return false
+    }
+
+    const container = containerRef.current
+    if (!container || !container.contains(selection.anchorNode)) {
+      setSelectionMenu(null)
+      return false
+    }
+
+    if (!selection.rangeCount) return false
+    const range = selection.getRangeAt(0)
+    const rect = range.getBoundingClientRect()
+
+    if (!rect || rect.width === 0 || rect.height === 0) {
+      setSelectionMenu(null)
+      return false
+    }
+
+    const position = calculateMenuPosition(rect)
+
+    setSelectionMenu({
+      x: position.x,
+      y: position.y,
+      text,
+    })
+    return true
+  }
+
   const handleMouseUp = e => {
     // Only handle mouse events on desktop
     if (isMobile) return
 
     if (e.target.closest('.selection-menu')) return
 
-    const selection = window.getSelection()
-    const text = selection.toString().trim()
-
-    if (!text) {
-      setSelectionMenu(null)
-      return
-    }
-
-    // Ensure we have a reference to the container
-    const container = containerRef.current
-    if (!container) return
-
-    // Check if the selection range is within our container
-    // We check both anchorNode (start) to ensure the selection initiated/belongs to this bubble
-    if (container.contains(selection.anchorNode)) {
-      const range = selection.getRangeAt(0)
-      const rect = range.getBoundingClientRect()
-      const position = calculateMenuPosition(rect)
-
-      setSelectionMenu({
-        x: position.x,
-        y: position.y,
-        text: text,
-      })
-    } else {
+    if (!updateSelectionMenuFromSelection()) {
       setSelectionMenu(null)
     }
   }
@@ -199,37 +209,7 @@ const MessageBubble = ({
 
     // Use setTimeout to allow selection to complete after touch ends
     setTimeout(() => {
-      const selection = window.getSelection()
-      const text = selection.toString().trim()
-
-      if (!text) {
-        setSelectionMenu(null)
-        return
-      }
-
-      // Ensure we have a reference to the container
-      const container = containerRef.current
-      if (!container) return
-
-      // Check if the selection range is within our container
-      if (container.contains(selection.anchorNode)) {
-        const range = selection.getRangeAt(0)
-        const rect = range.getBoundingClientRect()
-
-        // Ensure we have a valid rect (not empty)
-        if (rect.width === 0 || rect.height === 0) {
-          setSelectionMenu(null)
-          return
-        }
-
-        const position = calculateMenuPosition(rect)
-
-        setSelectionMenu({
-          x: position.x,
-          y: position.y,
-          text: text,
-        })
-      } else {
+      if (!updateSelectionMenuFromSelection()) {
         setSelectionMenu(null)
       }
     }, 150) // Slightly longer delay for mobile
@@ -271,11 +251,8 @@ const MessageBubble = ({
         return
       }
 
-      // Only update if we're inside a message bubble
-      const container = containerRef.current
-      if (container && container.contains(selection.anchorNode)) {
-        // The actual menu update will be handled by handleTouchEnd
-      }
+      // On Android long-press selection may not fire touchend, so update menu here
+      updateSelectionMenuFromSelection()
     }
 
     document.addEventListener('selectionchange', handleSelectionChange)
@@ -428,7 +405,7 @@ const MessageBubble = ({
           containerRef.current = el
           if (typeof bubbleRef === 'function') bubbleRef(el)
         }}
-        className="flex justify-end w-full mb-8 group px-5 sm:px-0"
+        className="flex justify-end w-full mb-3 sm:mb-6 group px-5 sm:px-0"
         onMouseUp={handleMouseUp}
         onTouchEnd={handleTouchEnd}
         onContextMenu={handleContextMenu}

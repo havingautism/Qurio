@@ -57,10 +57,10 @@ const buildUserMessage = (text, attachments, quoteContext) => {
 
   // Content sent to the model (include quote text + original source content if provided)
   const quoteSource = quoteContext?.sourceContent?.trim()
-  const composedQuote = [quoteText, quoteSource].filter(Boolean).join('\n\n')
+  // const composedQuote = [quoteText, quoteSource].filter(Boolean).join('\n\n')
   const textWithPrefix =
-    composedQuote && text
-      ? `Quoted from previous answer:\n${composedQuote}\n\nUser question:\n${text}`
+    quoteText && quoteSource && text
+      ? `###User quoted these sentences from context:\n${quoteText}\n\n###User question:\n${text}\n\n ###User original context:\n${quoteSource}`
       : text
   const payloadContent =
     attachments.length > 0 ? buildContentArray(textWithPrefix, false) : textWithPrefix
@@ -771,17 +771,9 @@ const useChatStore = create((set, get) => ({
     const { userMessage, payloadContent } = buildUserMessage(text, attachments, quoteContext)
     const userMessageForSend = { ...userMessage, content: payloadContent }
 
-    const historyOverride =
-      quoteContext && (quoteContext.sourceContent || quoteContext.text)
-        ? [
-            {
-              role: quoteContext.sourceRole || 'assistant',
-              content: quoteContext.sourceContent || quoteContext.text || '',
-            },
-          ]
-        : quoteContext
-          ? []
-          : null
+    // When quoting, the original answer has already been embedded into textWithPrefix,
+    // so we don't need to resend it as separate context.
+    const historyOverride = quoteContext ? [] : null
 
     // Step 3: Handle Editing & History
     const { newMessages, historyForSend } = handleEditingAndHistory(

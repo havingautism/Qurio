@@ -120,7 +120,7 @@ const MessageBubble = ({
   }, [])
 
   // Calculate optimal menu position to avoid viewport edges and selection
-  const calculateMenuPosition = (selectionRect) => {
+  const calculateMenuPosition = selectionRect => {
     const viewportWidth = window.innerWidth
     const viewportHeight = window.innerHeight
     const menuWidth = isMobile ? 160 : 150 // Slightly wider for text on mobile
@@ -444,7 +444,7 @@ const MessageBubble = ({
           >
             {quoteToRender && (
               <div className="mb-2 p-2 bg-white/50 dark:bg-black/20 rounded-lg text-sm border-l-2 border-cyan-500">
-                <div className="font-medium opacity-70 mb-1">Replying to:</div>
+                <div className="font-medium opacity-70 mb-1">Quoting:</div>
                 <div className="line-clamp-2 italic opacity-80">{quoteToRender.text}</div>
               </div>
             )}
@@ -469,9 +469,11 @@ const MessageBubble = ({
                 KhtmlUserSelect: isMobile ? 'text' : 'auto',
                 MozUserSelect: isMobile ? 'text' : 'auto',
                 MsUserSelect: isMobile ? 'text' : 'auto',
-                userSelect: isMobile ? 'text' : 'auto'
+                userSelect: isMobile ? 'text' : 'auto',
               }}
-            >{contentToRender}</div>
+            >
+              {contentToRender}
+            </div>
           </div>
 
           {/* Action Buttons */}
@@ -557,24 +559,24 @@ const MessageBubble = ({
       {selectionMenu && (
         <div
           className={clsx(
-            "fixed selection-menu shadow-lg flex items-center z-50 transform -translate-x-1/2",
+            'fixed selection-menu shadow-lg flex items-center z-50 transform -translate-x-1/2',
             isMobile
-              ? "bg-gray-900/98 text-white dark:bg-zinc-800/98 rounded-full py-1.5 px-3 backdrop-blur-md border border-gray-700/50"
-              : "bg-gray-900 text-white dark:bg-zinc-700 rounded-lg p-1 -translate-y-full"
+              ? 'bg-gray-900/98 text-white dark:bg-zinc-800/98 rounded-full py-1.5 px-3 backdrop-blur-md border border-gray-700/50'
+              : 'bg-gray-900 text-white dark:bg-zinc-700 rounded-lg p-1 -translate-y-full',
           )}
           style={{
             left: selectionMenu.x,
             top: selectionMenu.y,
             // Ensure menu appears above everything on mobile
-            zIndex: isMobile ? 9999 : 50
+            zIndex: isMobile ? 9999 : 50,
           }}
         >
           <button
             className={clsx(
-              "flex items-center gap-1.5 rounded-full transition-all text-xs font-medium",
+              'flex items-center gap-1.5 rounded-full transition-all text-xs font-medium',
               isMobile
-                ? "px-3 py-1.5 active:bg-gray-700 hover:bg-gray-800"
-                : "px-2 py-1.5 hover:bg-gray-700 dark:hover:bg-zinc-600 whitespace-nowrap"
+                ? 'px-3 py-1.5 active:bg-gray-700 hover:bg-gray-800'
+                : 'px-2 py-1.5 hover:bg-gray-700 dark:hover:bg-zinc-600 whitespace-nowrap',
             )}
             onClick={e => {
               e.stopPropagation()
@@ -586,16 +588,18 @@ const MessageBubble = ({
             <Quote size={isMobile ? 13 : 12} />
             Quote
           </button>
-          <div className={clsx(
-            "mx-0.5",
-            isMobile ? "w-px h-4 bg-gray-600" : "w-px h-3 bg-gray-700 dark:bg-zinc-600"
-          )} />
+          <div
+            className={clsx(
+              'mx-0.5',
+              isMobile ? 'w-px h-4 bg-gray-600' : 'w-px h-3 bg-gray-700 dark:bg-zinc-600',
+            )}
+          />
           <button
             className={clsx(
-              "flex items-center gap-1.5 rounded-full transition-all text-xs font-medium",
+              'flex items-center gap-1.5 rounded-full transition-all text-xs font-medium',
               isMobile
-                ? "px-3 py-1.5 active:bg-gray-700 hover:bg-gray-800"
-                : "px-2 py-1.5 hover:bg-gray-700 dark:hover:bg-zinc-600 whitespace-nowrap"
+                ? 'px-3 py-1.5 active:bg-gray-700 hover:bg-gray-800'
+                : 'px-2 py-1.5 hover:bg-gray-700 dark:hover:bg-zinc-600 whitespace-nowrap',
             )}
             onClick={e => {
               e.stopPropagation()
@@ -683,7 +687,7 @@ const MessageBubble = ({
           KhtmlUserSelect: isMobile ? 'text' : 'auto',
           MozUserSelect: isMobile ? 'text' : 'auto',
           MsUserSelect: isMobile ? 'text' : 'auto',
-          userSelect: isMobile ? 'text' : 'auto'
+          userSelect: isMobile ? 'text' : 'auto',
         }}
       >
         {!message.content && !thoughtContent ? (

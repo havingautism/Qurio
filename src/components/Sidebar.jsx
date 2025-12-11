@@ -351,7 +351,7 @@ const Sidebar = ({
       )}
 
       <div
-        className={clsx(
+                className={clsx(
           'fixed left-0 top-0 h-full z-50 flex transition-transform duration-300 md:translate-x-0',
           // On mobile, control via isOpen. On desktop, always visible (handled by layout margin)
           // Actually, fixed sidebar on desktop is always visible (icon strip).

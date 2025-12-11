@@ -75,8 +75,10 @@ const DropdownMenu = ({ isOpen, onClose, items, anchorEl }) => {
       } else {
         // On desktop, position relative to anchor
         const rect = anchorEl.getBoundingClientRect()
+        const viewportWidth = window.innerWidth
         const viewportHeight = window.innerHeight
         const estimatedMenuHeight = items.length * 32 + 8
+        const estimatedMenuWidth = 160 // Approximate menu width
 
         let topPosition = rect.bottom + 4
         if (topPosition + estimatedMenuHeight > viewportHeight) {
@@ -84,9 +86,18 @@ const DropdownMenu = ({ isOpen, onClose, items, anchorEl }) => {
           topPosition = Math.max(8, rect.top - estimatedMenuHeight - 4)
         }
 
+        // Calculate horizontal position considering sidebar and viewport
+        let leftPosition = rect.left
+
+        // Check if menu would overflow viewport right edge
+        if (leftPosition + estimatedMenuWidth > viewportWidth - 8) {
+          // Position menu to the left of the anchor
+          leftPosition = Math.max(8, rect.right - estimatedMenuWidth)
+        }
+
         setPosition({
           top: topPosition,
-          left: rect.left,
+          left: leftPosition,
         })
 
         // Also add highlight on desktop

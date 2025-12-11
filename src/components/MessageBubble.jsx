@@ -108,13 +108,10 @@ const MessageBubble = ({
   const [selectionMenu, setSelectionMenu] = useState(null)
   const [isMobile, setIsMobile] = useState(false)
 
-  // Detect mobile device
+  // Detect mobile view based on screen size
   useEffect(() => {
     const checkMobile = () => {
-      const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
-                            (navigator.maxTouchPoints > 0 && navigator.maxTouchPoints <= 5) ||
-                            (window.matchMedia && window.matchMedia('(pointer: coarse)').matches)
-      setIsMobile(isMobileDevice)
+      setIsMobile(window.innerWidth < 768) // md: breakpoint
     }
 
     checkMobile()

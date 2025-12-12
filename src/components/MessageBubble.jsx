@@ -304,7 +304,8 @@ const MessageBubble = ({
             codeTagProps={{
               style: {
                 backgroundColor: 'transparent',
-                fontFamily: '"Google Sans Code", monospace',
+                fontFamily:
+                  'CascadiaCode, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
               },
             }}
             {...props}
@@ -317,7 +318,7 @@ const MessageBubble = ({
 
     return (
       <code
-        className={`${className} bg-[#f7f1f2] dark:bg-zinc-800 px-1.5 py-0.5 rounded text-sm font-['Google_Sans_Code'] font-semibold text-black dark:text-white`}
+        className={`${className} bg-gray-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded text-sm font-mono font-semibold text-black dark:text-white`}
         {...props}
       >
         {children}

@@ -480,7 +480,7 @@ const Sidebar = ({
             <div className="h-px bg-gray-200 dark:bg-zinc-800 mb-2" />
             {/* CONVERSATION LIST (Library & Bookmarks) */}
             {(displayTab === 'library' || displayTab === 'bookmarks') && (
-              <div className="flex flex-col gap-2 overflow-y-auto h-[calc(100vh-70px)] pr-2 scrollbar-thin">
+              <div className="flex flex-col gap-2 overflow-y-auto h-[calc(100vh-70px)] pr-2 sidebar-scrollbar">
                 {!isConversationsLoading &&
                   displayTab === 'library' &&
                   conversations.length === 0 && (
@@ -525,7 +525,7 @@ const Sidebar = ({
                                   ? 'bg-cyan-500/10 dark:bg-cyan-500/20 border border-cyan-500/30 text-cyan-700 dark:text-cyan-300'
                                   : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-zinc-800',
                                 isExpanded &&
-                                  'bg-cyan-50/70 dark:bg-cyan-900/20 border border-cyan-200/60 dark:border-cyan-800/60 ring-1 ring-cyan-100/70 dark:ring-cyan-800/60',
+                                  'bg-cyan-50/70 dark:bg-cyan-900/20  border-cyan-200/60  dark:border-cyan-800/60 ring-1 ring-cyan-100/70 dark:ring-cyan-800/60',
                               )}
                               title={conv.title}
                             >
@@ -534,7 +534,7 @@ const Sidebar = ({
                                   <div className="flex items-center gap-1">
                                     <span className="truncate font-medium">{conv.title}</span>
                                     {conv.is_favorited && (
-                                      <Bookmark size={10} className=" flex-shrink-0" />
+                                      <Bookmark size={10} className=" shrink-0" />
                                     )}
                                   </div>
                                   <span
@@ -781,7 +781,7 @@ const Sidebar = ({
             )}
             {/* SPACES TAB CONTENT */}
             {displayTab === 'spaces' && (
-              <div className="flex flex-col gap-2 overflow-y-auto h-[calc(100vh-70px)] pr-2 scrollbar-thin">
+              <div className="flex flex-col gap-2 overflow-y-auto h-[calc(100vh-70px)] pr-2 sidebar-scrollbar">
                 {/* Create New Space */}
                 <button
                   onClick={onCreateSpace}

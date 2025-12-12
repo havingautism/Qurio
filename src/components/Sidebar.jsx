@@ -632,8 +632,10 @@ const Sidebar = ({
                         {loadingMore ? <DotLoader /> : 'Load more'}
                       </button>
                     ) : (
-                      <div className="text-center text-[10px] text-gray-400 py-2">
-                        No more threads
+                      <div className="flex items-center gap-2 text-[10px] text-gray-400 py-2">
+                        <span className="flex-1 h-px bg-gray-200 dark:bg-zinc-800" />
+                        <span className="whitespace-nowrap">No more threads</span>
+                        <span className="flex-1 h-px bg-gray-200 dark:bg-zinc-800" />
                       </div>
                     )}
                   </div>
@@ -767,8 +769,10 @@ const Sidebar = ({
                         {loadingMore ? <DotLoader /> : 'Load more'}
                       </button>
                     ) : (
-                      <div className="text-center text-[10px] text-gray-400 py-2">
-                        No more threads
+                      <div className="flex items-center gap-2 text-[10px] text-gray-400 py-2">
+                        <span className="flex-1 h-px bg-gray-200 dark:bg-zinc-800" />
+                        <span className="whitespace-nowrap">No more threads</span>
+                        <span className="flex-1 h-px bg-gray-200 dark:bg-zinc-800" />
                       </div>
                     )}
                   </div>
@@ -891,8 +895,10 @@ const Sidebar = ({
                                 )}
                               </button>
                             ) : (
-                              <div className="text-center text-[10px] text-gray-400 py-2">
-                                No more threads
+                              <div className="flex items-center gap-2 text-[10px] text-gray-400 py-2">
+                                <span className="flex-1 h-px bg-gray-200 dark:bg-zinc-800" />
+                                <span className="whitespace-nowrap">No more threads</span>
+                                <span className="flex-1 h-px bg-gray-200 dark:bg-zinc-800" />
                               </div>
                             )}
                           </div>

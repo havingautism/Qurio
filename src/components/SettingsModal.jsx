@@ -343,7 +343,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
         </div>
 
         {/* Sidebar */}
-        <div className="w-full md:w-64 bg-gray-50 dark:bg-[#202222] border-b md:border-b-0 md:border-r border-gray-200 dark:border-zinc-800 px-1 py-3 sm:py-4 sm:px-4 flex flex-row md:flex-col gap-2 overflow-x-auto md:overflow-visible shrink-0">
+        <div className="w-full md:w-64 bg-gray-50 dark:bg-[#202222] border-b md:border-b-0 md:border-r border-gray-200 dark:border-zinc-800 px-1 py-1 sm:py-4 sm:px-4 flex flex-row md:flex-col gap-2 overflow-x-auto md:overflow-visible shrink-0">
           <h2 className="text-xl font-bold mb-0 md:mb-6 px-2 text-gray-900 dark:text-white hidden md:block">
             Settings
           </h2>
@@ -382,7 +382,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
           </div>
 
           {/* Scrollable Content */}
-          <div className="flex-1 overflow-y-auto p-6 sm:p-8 min-h-0">
+          <div className="flex-1 overflow-y-auto px-2 py-4 sm:px-8 sm:py-8 min-h-0">
             {activeTab === 'general' && (
               <div className="flex flex-col gap-8 max-w-2xl">
                 {/* ... existing general settings ... */}

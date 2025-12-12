@@ -17,7 +17,7 @@ const SuspensePage = ({ children }) => (
 )
 
 const NotFound = () => {
-  const basepath = (import.meta.env.PUBLIC_BASE_PATH || '/Qurio').replace(/\/$/, '')
+  const basepath = (import.meta.env.DEV ? '/' : (import.meta.env.PUBLIC_BASE_PATH || '/Qurio')).replace(/\/$/, '')
   return (
     <div className="min-h-screen flex items-center justify-center bg-background text-foreground px-6 py-12">
       <div className="w-full max-w-md text-center space-y-6 bg-white/70 dark:bg-zinc-900/80 backdrop-blur-md rounded-2xl shadow-lg border border-gray-200/80 dark:border-zinc-800 px-6 py-8">
@@ -132,7 +132,7 @@ const routeTree = rootRoute.addChildren([
   bookmarksRoute,
 ])
 
-const BASE_PATH = (import.meta.env.PUBLIC_BASE_PATH || '/Qurio').replace(/\/$/, '')
+const BASE_PATH = (import.meta.env.DEV ? '/' : (import.meta.env.PUBLIC_BASE_PATH || '/Qurio')).replace(/\/$/, '')
 
 const router = createRouter({
   routeTree,

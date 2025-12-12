@@ -10,17 +10,27 @@ import { init } from 'emoji-mart'
 // Using emoji-datasource-twitter explicitly as @emoji-mart/data might not serve images on all CDNs
 // Register Service Worker
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    const basePath = (import.meta.env.PUBLIC_BASE_PATH || '/Qurio/').replace(/\/?$/, '/')
-    navigator.serviceWorker
-      .register(`${basePath}sw.js`)
-      .then(registration => {
-        console.log('SW registered: ', registration)
-      })
-      .catch(registrationError => {
-        console.log('SW registration failed: ', registrationError)
-      })
-  })
+  if (!import.meta.env.DEV) {
+    window.addEventListener('load', () => {
+      const basePath = (import.meta.env.PUBLIC_BASE_PATH || '/Qurio/').replace(/\/?$/, '/')
+      navigator.serviceWorker
+        .register(`${basePath}sw.js`)
+        .then(registration => {
+          console.log('SW registered: ', registration)
+        })
+        .catch(registrationError => {
+          console.log('SW registration failed: ', registrationError)
+        })
+    })
+  } else {
+    // In development, explicitly unregister any existing service workers to prevent caching issues
+    navigator.serviceWorker.getRegistrations().then(registrations => {
+      for (const registration of registrations) {
+        registration.unregister()
+        console.log('SW unregistered in dev mode')
+      }
+    })
+  }
 }
 
 init({

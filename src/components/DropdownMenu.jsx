@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import clsx from 'clsx'
 
 const DropdownMenu = ({ isOpen, onClose, items, anchorEl }) => {
@@ -168,11 +169,14 @@ const DropdownMenu = ({ isOpen, onClose, items, anchorEl }) => {
 
   if (!isOpen || !anchorEl) return null
 
-  return (
+  // Use Portal to render the menu outside the normal DOM hierarchy
+  // This solves stacking context issues and ensures the overlay works correctly
+  return createPortal(
     <>
       {/* Overlay to absorb clicks/touches so underlying conversation items are not triggered */}
+      {/* This overlay is fixed/absolute relative to viewport/body, ensuring it covers everything */}
       <div
-        className="fixed inset-0 z-9998"
+        className="fixed inset-0 z-[9998]"
         onMouseDown={e => {
           e.stopPropagation()
           e.preventDefault()
@@ -183,11 +187,8 @@ const DropdownMenu = ({ isOpen, onClose, items, anchorEl }) => {
           e.preventDefault()
           onClose()
         }}
-        onTouchStart={e => {
-          e.stopPropagation()
-          e.preventDefault()
-          onClose()
-        }}
+        // IMPORTANT: Do NOT use onTouchStart here. deeply nested elements on mobile might relying on click.
+        // Letting the touch event become a click event allows us to catch it in onClick above.
       />
       <div
         ref={menuRef}
@@ -197,7 +198,7 @@ const DropdownMenu = ({ isOpen, onClose, items, anchorEl }) => {
           right: isMobile ? position.right : 'auto',
         }}
         className={clsx(
-          'fixed z-9999 bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 shadow-lg p-1',
+          'fixed z-[9999] bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 shadow-lg p-1',
           isMobile ? 'rounded-lg' : 'min-w-[160px] rounded-lg',
         )}
       >
@@ -206,8 +207,11 @@ const DropdownMenu = ({ isOpen, onClose, items, anchorEl }) => {
             key={index}
             onClick={e => {
               e.stopPropagation()
-              item.onClick()
-              onClose()
+              // Small timeout to ensure no ghost interactions
+              setTimeout(() => {
+                item.onClick()
+                onClose()
+              }, 0)
             }}
             className={clsx(
               'w-full text-left transition-colors flex items-center gap-2 rounded-lg',
@@ -224,7 +228,8 @@ const DropdownMenu = ({ isOpen, onClose, items, anchorEl }) => {
           </button>
         ))}
       </div>
-    </>
+    </>,
+    document.body,
   )
 }
 

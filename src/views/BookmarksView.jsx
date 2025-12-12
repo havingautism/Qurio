@@ -290,33 +290,7 @@ const BookmarksView = () => {
                       >
                         <MoreHorizontal size={18} strokeWidth={2} />
                       </button>
-                      <DropdownMenu
-                        isOpen={openMenuId === conv.id}
-                        anchorEl={openMenuId === conv.id ? menuAnchorEl : null}
-                        onClose={() => {
-                          setOpenMenuId(null)
-                          setMenuAnchorEl(null)
-                        }}
-                        items={[
-                          {
-                            label: conv.is_favorited ? 'Remove Bookmark' : 'Add Bookmark',
-                            icon: (
-                              <Bookmark
-                                size={14}
-                                className={conv.is_favorited ? 'fill-current' : ''}
-                              />
-                            ),
-                            onClick: () => handleToggleFavorite(conv),
-                            className: conv.is_favorited ? 'text-yellow-500' : '',
-                          },
-                          {
-                            label: 'Delete conversation',
-                            icon: <Trash2 size={14} />,
-                            danger: true,
-                            onClick: () => setConversationToDelete(conv),
-                          },
-                        ]}
-                      />
+
                     </div>
                   </div>
                 </div>
@@ -341,6 +315,40 @@ const BookmarksView = () => {
           )}
         </div>
       </div>
+
+
+      {/* Global DropdownMenu */}
+      <DropdownMenu
+        isOpen={!!openMenuId}
+        anchorEl={menuAnchorEl}
+        onClose={() => {
+          setOpenMenuId(null)
+          setMenuAnchorEl(null)
+        }}
+        items={(() => {
+          const activeConv = conversations.find(c => c.id === openMenuId)
+          if (!activeConv) return []
+          return [
+            {
+              label: activeConv.is_favorited ? 'Remove Bookmark' : 'Add Bookmark',
+              icon: (
+                <Bookmark
+                  size={14}
+                  className={activeConv.is_favorited ? 'fill-current' : ''}
+                />
+              ),
+              onClick: () => handleToggleFavorite(activeConv),
+              className: activeConv.is_favorited ? 'text-yellow-500' : '',
+            },
+            {
+              label: 'Delete conversation',
+              icon: <Trash2 size={14} />,
+              danger: true,
+              onClick: () => setConversationToDelete(activeConv),
+            },
+          ]
+        })()}
+      />
 
       <ConfirmationModal
         isOpen={!!conversationToDelete}

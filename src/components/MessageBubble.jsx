@@ -416,7 +416,7 @@ const MessageBubble = ({
           <div
             className={clsx(
               'relative px-5 py-3.5 rounded-3xl text-base',
-              'bg-gray-100 dark:bg-zinc-800 text-gray-900 dark:text-gray-100',
+              'bg-[#f7f7f1] dark:bg-zinc-800 text-gray-900 dark:text-gray-100',
               'rounded-br-sm',
             )}
           >
@@ -602,7 +602,7 @@ const MessageBubble = ({
         <div className="border border-gray-200 dark:border-zinc-700 rounded-xl overflow-hidden">
           <button
             onClick={() => setIsThoughtExpanded(!isThoughtExpanded)}
-            className="w-full flex items-center justify-between p-3 bg-gray-50 dark:bg-zinc-800/50 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
+            className="w-full flex items-center justify-between p-3 bg-[#f7f7f1] dark:bg-zinc-800/50 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
           >
             <div className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
               <Brain size={16} className="text-cyan-500 dark:text-cyan-400" />
@@ -612,7 +612,7 @@ const MessageBubble = ({
           </button>
 
           {isThoughtExpanded && hasThoughtText && (
-            <div className="p-4 bg-gray-50/50 dark:bg-zinc-800/30 border-t border-gray-200 dark:border-zinc-700 text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+            <div className="p-4 bg-[#f7f7f1b5] dark:bg-zinc-800/30 border-t border-gray-200 dark:border-zinc-700 text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
               <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
                 {thoughtContent}
               </ReactMarkdown>
@@ -627,7 +627,7 @@ const MessageBubble = ({
           {(showAllSources ? message.sources : message.sources.slice(0, 4)).map((source, index) => (
             <div
               key={index}
-              className="bg-gray-50 dark:bg-zinc-800/50 hover:bg-gray-100 dark:hover:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg p-2.5 cursor-pointer transition-colors flex flex-col justify-between w-36 "
+              className="bg-[#f7f7f1] dark:bg-zinc-800/50 hover:bg-gray-100 dark:hover:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg p-2.5 cursor-pointer transition-colors flex flex-col justify-between w-36 "
               onClick={() => window.open(source.url, '_blank')}
             >
               {' '}
@@ -644,7 +644,7 @@ const MessageBubble = ({
           {!showAllSources && message.sources.length > 4 && (
             <div
               onClick={() => setShowAllSources(true)}
-              className="bg-gray-50 dark:bg-zinc-800/50 hover:bg-gray-100 dark:hover:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg p-2.5 cursor-pointer transition-colors flex items-center justify-center w-24"
+              className="bg-[#f7f7f1] dark:bg-zinc-800/50 hover:bg-gray-100 dark:hover:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg p-2.5 cursor-pointer transition-colors flex items-center justify-center w-24"
             >
               <span className="text-[11px] text-gray-500 dark:text-gray-400 font-medium text-center">
                 View {message.sources.length - 4} more

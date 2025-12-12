@@ -288,7 +288,6 @@ const Sidebar = ({
   // Limit conversations per section for display
   const MAX_CONVERSATIONS_PER_SECTION = 1000 // Effectively no limit, showing all fetched
 
-  const MAX_BOOKMARKS_TO_SHOW = 5 // Maximum bookmarks to show before showing "See All"
   const MAX_SPACES_TO_SHOW = 5 // Maximum spaces to show before showing "See All"
 
   const filteredConversations = useMemo(
@@ -298,12 +297,6 @@ const Sidebar = ({
 
   // Check if we should show "See All" button for library (unused now)
   // const shouldShowSeeAllForLibrary = ...
-
-  // Check if we should show "See All" button for bookmarks
-  const shouldShowSeeAllForBookmarks = useMemo(() => {
-    if (displayTab !== 'bookmarks') return false
-    return filteredConversations.length > MAX_BOOKMARKS_TO_SHOW
-  }, [filteredConversations, displayTab])
 
   // Group conversations by date (for library)
   const groupedConversations = useMemo(() => {
@@ -316,17 +309,6 @@ const Sidebar = ({
       totalCount: section.items.length,
     }))
   }, [filteredConversations])
-
-  // Get limited bookmarks for display and track if there are more
-  const limitedBookmarks = useMemo(() => {
-    if (displayTab !== 'bookmarks') return { items: [], hasMore: false, totalCount: 0 }
-    const items = filteredConversations.slice(0, MAX_BOOKMARKS_TO_SHOW)
-    return {
-      items,
-      hasMore: filteredConversations.length > MAX_BOOKMARKS_TO_SHOW,
-      totalCount: filteredConversations.length,
-    }
-  }, [filteredConversations, displayTab])
 
   // Get limited spaces for display and track if there are more
   const limitedSpaces = useMemo(() => {
@@ -650,16 +632,18 @@ const Sidebar = ({
                         {loadingMore ? <DotLoader /> : 'Load more'}
                       </button>
                     ) : (
-                      <div className="text-center text-[10px] text-gray-400 py-2">
-                        No more threads
+                      <div className="flex items-center gap-2 text-[10px] text-gray-400 py-2">
+                        <span className="flex-1 h-px bg-gray-200 dark:bg-zinc-800" />
+                        <span className="whitespace-nowrap">No more threads</span>
+                        <span className="flex-1 h-px bg-gray-200 dark:bg-zinc-800" />
                       </div>
                     )}
                   </div>
                 )}
 
-                {/* For bookmarks tab, show limited list */}
+                {/* For bookmarks tab, match library interaction */}
                 {displayTab === 'bookmarks' &&
-                  limitedBookmarks.items.map(conv => {
+                  filteredConversations.map(conv => {
                     const isActive = conv.id === activeConversationId
                     const isExpanded = expandedActionId === conv.id
                     return (
@@ -762,34 +746,35 @@ const Sidebar = ({
                       </div>
                     )
                   })}
-                {/* Show "..." indicator if there are more bookmarks */}
-                {displayTab === 'bookmarks' && limitedBookmarks.hasMore && (
-                  <div
-                    className="text-xs text-gray-400 dark:text-gray-500 px-2 py-1 cursor-pointer hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-                    onClick={() => {
-                      setActiveTab('bookmarks')
-                      onNavigate('bookmarks')
-                    }}
-                    title="Show all bookmarks"
-                  >
-                    ...more
-                  </div>
-                )}
+                {/* Loading indicator for bookmarks initial fetch */}
+                {displayTab === 'bookmarks' &&
+                  isConversationsLoading &&
+                  filteredConversations.length === 0 && (
+                    <div className="flex justify-center py-2">
+                      <DotLoader />
+                    </div>
+                  )}
 
-                {/* See All Button - removed for Library as we use Load More now, keeping forBookmarks logic if needed, or just remove */}
-
-                {/* See All Button - only for bookmarks tab when there are more bookmarks */}
-                {shouldShowSeeAllForBookmarks && (
-                  <div className="flex flex-col gap-1 mt-2">
-                    <button
-                      onClick={() => {
-                        setActiveTab('bookmarks')
-                        onNavigate('bookmarks')
-                      }}
-                      className="flex items-center justify-center gap-2 p-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors rounded hover:bg-gray-200 dark:hover:bg-zinc-800"
-                    >
-                      <span>See all</span>
-                    </button>
+                {displayTab === 'bookmarks' && filteredConversations.length > 0 && (
+                  <div className="px-2 py-2">
+                    {hasMore ? (
+                      <button
+                        onClick={e => {
+                          e.stopPropagation()
+                          fetchConversations(false)
+                        }}
+                        disabled={loadingMore}
+                        className="w-full py-2 text-xs font-medium text-gray-700 dark:text-gray-200 bg-[#9c9d8a29] dark:bg-zinc-800 hover:bg-[#9c9d8a40] dark:hover:bg-zinc-700 rounded transition-colors flex items-center justify-center gap-2"
+                      >
+                        {loadingMore ? <DotLoader /> : 'Load more'}
+                      </button>
+                    ) : (
+                      <div className="flex items-center gap-2 text-[10px] text-gray-400 py-2">
+                        <span className="flex-1 h-px bg-gray-200 dark:bg-zinc-800" />
+                        <span className="whitespace-nowrap">No more threads</span>
+                        <span className="flex-1 h-px bg-gray-200 dark:bg-zinc-800" />
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -844,7 +829,7 @@ const Sidebar = ({
                             )}
                           />
                         </button>
-                        <div className="w-8 h-8 rounded bg-gray-100 dark:bg-zinc-800  flex items-center justify-center group-hover:border-gray-300 dark:group-hover:border-zinc-600 text-lg">
+                        <div className="w-8 h-8 rounded bg-transparent flex items-center justify-center group-hover:border-gray-300 dark:group-hover:border-zinc-600 text-lg">
                           <TwemojiDisplay emoji={space.emoji} />
                         </div>
                         <span className="text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
@@ -874,100 +859,50 @@ const Sidebar = ({
                             </div>
                           )}
 
-                        {spaceConversations[space.id]?.items?.map(conv => {
-                          const isExpanded = expandedActionId === conv.id
-                          return (
-                            <div key={conv.id} className="flex flex-col">
-                              <div
-                                data-conversation-id={conv.id}
-                                className={clsx(
-                                  'group relative flex items-center justify-between text-xs py-1.5 px-2 rounded cursor-pointer truncate transition-colors',
-                                  conv.id === activeConversationId
-                                    ? 'bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 font-medium'
-                                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-zinc-800',
-                                  isExpanded &&
-                                    'bg-cyan-50/70 dark:bg-cyan-900/20 border border-cyan-200/60 dark:border-cyan-800/60 ring-1 ring-cyan-100/70 dark:ring-cyan-800/60',
-                                )}
-                              >
-                                <div
-                                  className="flex-1 truncate"
-                                  onClick={() => {
-                                    if (expandedActionId) {
-                                      closeActions()
-                                      return
-                                    }
-                                    onOpenConversation && onOpenConversation(conv)
-                                  }}
-                                  title={conv.title}
-                                >
-                                  {conv.title || 'Untitled'}
-                                </div>
-
-                                <button
-                                  onClick={e => {
-                                    e.stopPropagation()
-                                    setExpandedActionId(prev => (prev === conv.id ? null : conv.id))
-                                  }}
-                                  className="ml-2 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-gray-300 dark:hover:bg-zinc-700 transition-all"
-                                >
-                                  {isExpanded ? (
-                                    <ChevronUp size={12} strokeWidth={2.5} />
-                                  ) : (
-                                    <ChevronDown size={12} strokeWidth={2.5} />
-                                  )}
-                                </button>
-                              </div>
-                              {isExpanded && (
-                                <div className="grid grid-cols-2 gap-2 mt-2 px-2 text-xs">
-                                  <button
-                                    onClick={e => {
-                                      e.stopPropagation()
-                                      handleToggleFavorite(conv)
-                                    }}
-                                    className={clsx(
-                                      'py-1.5 rounded-md transition-colors flex items-center justify-center gap-1.5 font-medium border border-transparent',
-                                      conv.is_favorited
-                                        ? 'bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-200 dark:border-yellow-800/30'
-                                        : 'text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-zinc-700',
-                                    )}
-                                    title={conv.is_favorited ? 'Remove Bookmark' : 'Add Bookmark'}
-                                  >
-                                    <Bookmark
-                                      size={13}
-                                      className={conv.is_favorited ? 'fill-current' : ''}
-                                    />
-                                    <span className="truncate">
-                                      {conv.is_favorited ? 'Saved' : 'Save'}
-                                    </span>
-                                  </button>
-                                  <button
-                                    onClick={e => {
-                                      e.stopPropagation()
-                                      setConversationToDelete(conv)
-                                    }}
-                                    className="py-1.5 rounded-md transition-colors flex items-center justify-center gap-1.5 font-medium border border-transparent text-gray-500 dark:text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400 hover:border-red-100 dark:hover:border-red-800/30"
-                                  >
-                                    <Trash2 size={13} />
-                                    <span>Delete</span>
-                                  </button>
-                                </div>
+                        {spaceConversations[space.id]?.items?.map(conv => (
+                          <div key={conv.id} className="flex flex-col">
+                            <div
+                              data-conversation-id={conv.id}
+                              className={clsx(
+                                'group relative flex items-center justify-between text-xs py-1.5 px-2 rounded cursor-pointer truncate transition-colors',
+                                conv.id === activeConversationId
+                                  ? 'bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 font-medium'
+                                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-zinc-800',
                               )}
-                            </div>
-                          )
-                        })}
-
-                        {spaceConversations[space.id]?.hasMore &&
-                          spaceConversations[space.id]?.items?.length > 0 && (
-                            <button
-                              onClick={e => {
-                                e.stopPropagation()
-                                fetchSpaceConversations(space.id, false)
-                              }}
-                              className="text-[10px] text-left text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 py-1 px-2 transition-colors flex items-center gap-1 min-h-[24px]"
+                              onClick={() => onOpenConversation && onOpenConversation(conv)}
+                              title={conv.title}
                             >
-                              {spaceConversations[space.id]?.loading ? <DotLoader /> : 'More...'}
-                            </button>
-                          )}
+                              <div className="flex-1 truncate">{conv.title || 'Untitled'}</div>
+                            </div>
+                          </div>
+                        ))}
+
+                        {spaceConversations[space.id]?.items?.length > 0 && (
+                          <div className="px-2 py-2">
+                            {spaceConversations[space.id]?.hasMore ? (
+                              <button
+                                onClick={e => {
+                                  e.stopPropagation()
+                                  fetchSpaceConversations(space.id, false)
+                                }}
+                                disabled={spaceConversations[space.id]?.loading}
+                                className="w-full py-2 text-xs font-medium text-gray-700 dark:text-gray-200 bg-[#9c9d8a29] dark:bg-zinc-800 hover:bg-[#9c9d8a40] dark:hover:bg-zinc-700 rounded transition-colors flex items-center justify-center gap-2"
+                              >
+                                {spaceConversations[space.id]?.loading ? (
+                                  <DotLoader />
+                                ) : (
+                                  'Load more'
+                                )}
+                              </button>
+                            ) : (
+                              <div className="flex items-center gap-2 text-[10px] text-gray-400 py-2">
+                                <span className="flex-1 h-px bg-gray-200 dark:bg-zinc-800" />
+                                <span className="whitespace-nowrap">No more threads</span>
+                                <span className="flex-1 h-px bg-gray-200 dark:bg-zinc-800" />
+                              </div>
+                            )}
+                          </div>
+                        )}
 
                         {!spaceConversations[space.id]?.loading &&
                           spaceConversations[space.id]?.items?.length === 0 && (

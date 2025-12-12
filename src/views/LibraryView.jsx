@@ -352,7 +352,7 @@ const LibraryView = () => {
                           setMenuAnchorEl(e.currentTarget)
                         }}
                         className={clsx(
-                          'p-2 text-gray-400 hover:bg-cyan-500/10 dark:hover:bg-cyan-500/20 rounded hover:text-cyan-600 dark:hover:text-cyan-400 transition-all',
+                          'p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-all rounded-full hover:bg-black/5 dark:hover:bg-white/10',
                           // Always visible on mobile
                           'opacity-100',
                           // Show on hover on desktop

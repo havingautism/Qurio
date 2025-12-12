@@ -602,10 +602,10 @@ const Sidebar = ({
                                     handleToggleFavorite(conv)
                                   }}
                                   className={clsx(
-                                    'py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5',
+                                    'py-1.5 rounded-md transition-colors flex items-center justify-center gap-1.5 font-medium border border-transparent',
                                     conv.is_favorited
-                                      ? 'bg-yellow-50 text-yellow-700 hover:bg-yellow-100 dark:bg-yellow-900/30 dark:text-yellow-200'
-                                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-zinc-800 dark:text-gray-200 dark:hover:bg-zinc-700',
+                                      ? 'bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-200 dark:border-yellow-800/30'
+                                      : 'text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-zinc-700',
                                   )}
                                   title={conv.is_favorited ? 'Remove Bookmark' : 'Add Bookmark'}
                                 >
@@ -613,7 +613,7 @@ const Sidebar = ({
                                     size={13}
                                     className={conv.is_favorited ? 'fill-current' : ''}
                                   />
-                                  <span className="font-medium truncate">
+                                  <span className="truncate">
                                     {conv.is_favorited ? 'Saved' : 'Save'}
                                   </span>
                                 </button>
@@ -622,10 +622,10 @@ const Sidebar = ({
                                     e.stopPropagation()
                                     setConversationToDelete(conv)
                                   }}
-                                  className="py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5 bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-200 dark:hover:bg-red-800/60"
+                                  className="py-1.5 rounded-md transition-colors flex items-center justify-center gap-1.5 font-medium border border-transparent text-gray-500 dark:text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400 hover:border-red-100 dark:hover:border-red-800/30"
                                 >
                                   <Trash2 size={13} />
-                                  <span className="font-medium">Delete</span>
+                                  <span>Delete</span>
                                 </button>
                               </div>
                             )}
@@ -732,10 +732,10 @@ const Sidebar = ({
                                 handleToggleFavorite(conv)
                               }}
                               className={clsx(
-                                'py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5',
+                                'py-1.5 rounded-md transition-colors flex items-center justify-center gap-1.5 font-medium border border-transparent',
                                 conv.is_favorited
-                                  ? 'bg-yellow-50 text-yellow-700 hover:bg-yellow-100 dark:bg-yellow-900/30 dark:text-yellow-200'
-                                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-zinc-800 dark:text-gray-200 dark:hover:bg-zinc-700',
+                                  ? 'bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-200 dark:border-yellow-800/30'
+                                  : 'text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-zinc-700',
                               )}
                               title={conv.is_favorited ? 'Remove Bookmark' : 'Add Bookmark'}
                             >
@@ -743,7 +743,7 @@ const Sidebar = ({
                                 size={13}
                                 className={conv.is_favorited ? 'fill-current' : ''}
                               />
-                              <span className="font-medium truncate">
+                              <span className="truncate">
                                 {conv.is_favorited ? 'Saved' : 'Save'}
                               </span>
                             </button>
@@ -752,10 +752,10 @@ const Sidebar = ({
                                 e.stopPropagation()
                                 setConversationToDelete(conv)
                               }}
-                              className="py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5 bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-200 dark:hover:bg-red-800/60"
+                              className="py-1.5 rounded-md transition-colors flex items-center justify-center gap-1.5 font-medium border border-transparent text-gray-500 dark:text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400 hover:border-red-100 dark:hover:border-red-800/30"
                             >
                               <Trash2 size={13} />
-                              <span className="font-medium">Delete</span>
+                              <span>Delete</span>
                             </button>
                           </div>
                         )}
@@ -918,25 +918,26 @@ const Sidebar = ({
                                 </button>
                               </div>
                               {isExpanded && (
-                                <div className="flex gap-2 mt-1 pl-2 pr-2 text-xs">
+                                <div className="grid grid-cols-2 gap-2 mt-2 px-2 text-xs">
                                   <button
                                     onClick={e => {
                                       e.stopPropagation()
                                       handleToggleFavorite(conv)
                                     }}
                                     className={clsx(
-                                      'px-3 py-2 rounded-lg transition-colors flex items-center gap-2',
+                                      'py-1.5 rounded-md transition-colors flex items-center justify-center gap-1.5 font-medium border border-transparent',
                                       conv.is_favorited
-                                        ? 'bg-yellow-50 text-yellow-700 hover:bg-yellow-100 dark:bg-yellow-900/30 dark:text-yellow-200'
-                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-zinc-800 dark:text-gray-200 dark:hover:bg-zinc-700',
+                                        ? 'bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-200 dark:border-yellow-800/30'
+                                        : 'text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-zinc-700',
                                     )}
+                                    title={conv.is_favorited ? 'Remove Bookmark' : 'Add Bookmark'}
                                   >
                                     <Bookmark
-                                      size={12}
+                                      size={13}
                                       className={conv.is_favorited ? 'fill-current' : ''}
                                     />
-                                    <span className="font-medium">
-                                      {conv.is_favorited ? 'Remove Bookmark' : 'Add Bookmark'}
+                                    <span className="truncate">
+                                      {conv.is_favorited ? 'Saved' : 'Save'}
                                     </span>
                                   </button>
                                   <button
@@ -944,10 +945,10 @@ const Sidebar = ({
                                       e.stopPropagation()
                                       setConversationToDelete(conv)
                                     }}
-                                    className="px-3 py-2 rounded-lg transition-colors flex items-center gap-2 bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-200 dark:hover:bg-red-800/60"
+                                    className="py-1.5 rounded-md transition-colors flex items-center justify-center gap-1.5 font-medium border border-transparent text-gray-500 dark:text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400 hover:border-red-100 dark:hover:border-red-800/30"
                                   >
-                                    <Trash2 size={12} />
-                                    <span className="font-medium">Delete</span>
+                                    <Trash2 size={13} />
+                                    <span>Delete</span>
                                   </button>
                                 </div>
                               )}

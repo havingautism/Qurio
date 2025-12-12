@@ -50,6 +50,13 @@ function App() {
   // Derive current view from location (removed unused logic)
   // const currentView = React.useMemo(() => { ... })
 
+  // Always reset scroll to top on route changes to avoid persisting old scroll positions
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+    document.documentElement?.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+    document.body?.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+  }, [location.pathname, location.search])
+
   useEffect(() => {
     const root = document.documentElement
     const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'

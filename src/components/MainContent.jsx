@@ -19,6 +19,7 @@ import { loadSettings } from '../lib/settings'
 import TwemojiDisplay from './TwemojiDisplay'
 import HomeWidgets from './widgets/HomeWidgets'
 import { useAppContext } from '../App'
+import Logo from './Logo'
 
 const MainContent = ({
   currentView,
@@ -295,9 +296,12 @@ const MainContent = ({
           </div>
 
           {/* Main Container */}
-          <div className="w-full max-w-3xl flex flex-col items-center gap-8 mt-14 md:mt-0">
+          <div className="w-full max-w-3xl flex flex-col items-center gap-4 sm:gap-8 mt-14 md:mt-0">
+            <div className="p-4 block sm:hidden  rounded-3xl mb-2">
+              <Logo size={128} className="text-gray-900 dark:text-white" />
+            </div>
             {/* Title */}
-            <h1 className="text-3xl md:text-5xl font-serif! font-medium text-center mb-4 mt-4 sm:mt-0 sm:mb-8 text-[#1f2937] dark:text-white">
+            <h1 className="text-3xl md:text-5xl font-serif! font-medium text-center mb-4 mt-0 sm:mb-8 text-[#1f2937] dark:text-white">
               Where knowledge begins
             </h1>
 

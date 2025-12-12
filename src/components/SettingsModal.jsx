@@ -14,6 +14,7 @@ import {
   Check,
   Github,
   RefreshCw,
+  Copy,
 } from 'lucide-react'
 import Logo from './Logo'
 import clsx from 'clsx'
@@ -31,6 +32,92 @@ const ENV_VARS = {
   siliconFlowKey: import.meta.env.PUBLIC_SILICONFLOW_API_KEY,
   siliconFlowBaseUrl: import.meta.env.PUBLIC_SILICONFLOW_BASE_URL,
 }
+
+// Minimal copy of supabase/init.sql for quick remediation in-app
+const INIT_SQL_SCRIPT = `-- Supabase initialization script (local-first, single-user)
+-- Run in Supabase SQL editor to create core tables for spaces, conversations, messages, and attachments.
+
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+CREATE OR REPLACE FUNCTION public.set_updated_at()
+RETURNS trigger AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TABLE IF NOT EXISTS public.spaces (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  emoji TEXT NOT NULL DEFAULT '',
+  label TEXT NOT NULL,
+  description TEXT,
+  prompt TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TRIGGER trg_spaces_updated_at
+BEFORE UPDATE ON public.spaces
+FOR EACH ROW EXECUTE PROCEDURE public.set_updated_at();
+
+CREATE TABLE IF NOT EXISTS public.conversations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  space_id UUID REFERENCES public.spaces(id) ON DELETE SET NULL,
+  title TEXT NOT NULL DEFAULT 'New Conversation',
+  api_provider TEXT NOT NULL DEFAULT 'gemini',
+  is_search_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+  is_thinking_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+  is_favorited BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_conversations_space_id ON public.conversations(space_id);
+CREATE INDEX IF NOT EXISTS idx_conversations_created_at ON public.conversations(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_conversations_title ON public.conversations(title);
+CREATE INDEX IF NOT EXISTS idx_conversations_space_created ON public.conversations(space_id, created_at DESC);
+
+CREATE TRIGGER trg_conversations_updated_at
+BEFORE UPDATE ON public.conversations
+FOR EACH ROW EXECUTE PROCEDURE public.set_updated_at();
+
+CREATE TABLE IF NOT EXISTS public.conversation_messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  conversation_id UUID NOT NULL REFERENCES public.conversations(id) ON DELETE CASCADE,
+  role TEXT NOT NULL CHECK (role IN ('system', 'user', 'assistant', 'tool')),
+  content JSONB NOT NULL,
+  thinking_process TEXT,
+  tool_calls JSONB,
+  related_questions JSONB,
+  sources JSONB,
+  grounding_supports JSONB,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_messages_conversation_created_at
+  ON public.conversation_messages(conversation_id, created_at);
+
+CREATE TABLE IF NOT EXISTS public.conversation_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  conversation_id UUID NOT NULL REFERENCES public.conversations(id) ON DELETE CASCADE,
+  event_type TEXT NOT NULL,
+  payload JSONB,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_events_conversation_created_at
+  ON public.conversation_events(conversation_id, created_at);
+
+CREATE TABLE IF NOT EXISTS public.attachments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  message_id UUID NOT NULL REFERENCES public.conversation_messages(id) ON DELETE CASCADE,
+  type TEXT NOT NULL,
+  data JSONB NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_attachments_message_id ON public.attachments(message_id);`
 
 // Fallback model options for when API is unavailable or for providers without model listing
 const FALLBACK_MODEL_OPTIONS = {
@@ -103,6 +190,10 @@ const SettingsModal = ({ isOpen, onClose }) => {
   const [isLoadingModels, setIsLoadingModels] = useState(false)
   const [modelsError, setModelsError] = useState(null)
   const [currentProvider, setCurrentProvider] = useState(null) // Track current provider for loading
+  const [isInitModalOpen, setIsInitModalOpen] = useState(false)
+  const [initModalResult, setInitModalResult] = useState(null)
+  const [copiedInitSql, setCopiedInitSql] = useState(false)
+  const [retestingDb, setRetestingDb] = useState(false)
 
   // AbortController for cancelling requests
   const abortControllerRef = useRef(null)
@@ -295,6 +386,39 @@ const SettingsModal = ({ isOpen, onClose }) => {
     }
   }, [googleApiKey, SiliconFlowKey, SiliconFlowUrl])
 
+  const requiredTables = ['spaces', 'conversations', 'conversation_messages']
+
+  const getMissingTables = result => {
+    if (!result?.tables) return requiredTables
+    return requiredTables.filter(table => !result.tables[table])
+  }
+
+  const openInitSqlModal = result => {
+    setInitModalResult(result)
+    setIsInitModalOpen(true)
+  }
+
+  const copyInitSql = async () => {
+    try {
+      await navigator.clipboard.writeText(INIT_SQL_SCRIPT)
+      setCopiedInitSql(true)
+      setTimeout(() => setCopiedInitSql(false), 2000)
+    } catch (err) {
+      console.error('Failed to copy init.sql', err)
+    }
+  }
+
+  const handleRetestAfterInit = async () => {
+    setRetestingDb(true)
+    const result = await testConnection(supabaseUrl, supabaseKey)
+    setTestResult(result)
+    setInitModalResult(result)
+    setRetestingDb(false)
+    if (result.success) {
+      setIsInitModalOpen(false)
+    }
+  }
+
   if (!isOpen) return null
 
   const handleTestConnection = async () => {
@@ -304,9 +428,24 @@ const SettingsModal = ({ isOpen, onClose }) => {
     const result = await testConnection(supabaseUrl, supabaseKey)
     setTestResult(result)
     setTesting(false)
+    if (!result.success) {
+      openInitSqlModal(result)
+    }
   }
 
   const handleSave = async () => {
+    // Validate database before saving to guide users through setup
+    if (supabaseUrl && supabaseKey) {
+      setTesting(true)
+      const result = await testConnection(supabaseUrl, supabaseKey)
+      setTestResult(result)
+      setTesting(false)
+      if (!result.success) {
+        openInitSqlModal(result)
+        return
+      }
+    }
+
     // TODO: Validate inputs
 
     await saveSettings({
@@ -343,7 +482,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
         </div>
 
         {/* Sidebar */}
-        <div className="w-full md:w-64 bg-gray-50 dark:bg-[#202222] border-b md:border-b-0 md:border-r border-gray-200 dark:border-zinc-800 px-1 py-3 sm:py-4 sm:px-4 flex flex-row md:flex-col gap-2 overflow-x-auto md:overflow-visible shrink-0">
+        <div className="w-full md:w-64 bg-gray-50 dark:bg-[#202222] border-b md:border-b-0 md:border-r border-gray-200 dark:border-zinc-800 px-1 py-1 sm:py-4 sm:px-4 flex flex-row md:flex-col gap-2 overflow-x-auto md:overflow-visible shrink-0">
           <h2 className="text-xl font-bold mb-0 md:mb-6 px-2 text-gray-900 dark:text-white hidden md:block">
             Settings
           </h2>
@@ -382,7 +521,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
           </div>
 
           {/* Scrollable Content */}
-          <div className="flex-1 overflow-y-auto p-6 sm:p-8 min-h-0">
+          <div className="flex-1 overflow-y-auto px-2 py-4 sm:px-8 sm:py-8 min-h-0">
             {activeTab === 'general' && (
               <div className="flex flex-col gap-8 max-w-2xl">
                 {/* ... existing general settings ... */}
@@ -1142,6 +1281,109 @@ const SettingsModal = ({ isOpen, onClose }) => {
           </div>
         </div>
       </div>
+      {isInitModalOpen && (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center px-3 sm:px-6">
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setIsInitModalOpen(false)}
+          />
+          <div className="relative w-full max-w-3xl bg-white dark:bg-[#111] border border-gray-200 dark:border-zinc-800 rounded-2xl shadow-2xl p-5 sm:p-6 space-y-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="space-y-1">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Complete Supabase setup
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  We could not verify all required tables. Please run the init.sql once in Supabase,
+                  then re-test.
+                </p>
+              </div>
+              <button
+                onClick={() => setIsInitModalOpen(false)}
+                className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-500 transition-colors"
+                aria-label="Close"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {initModalResult && (
+              <div className="rounded-lg border border-amber-200 dark:border-amber-900/40 bg-amber-50 dark:bg-amber-900/20 p-4 space-y-2">
+                <div className="text-sm font-medium text-amber-900 dark:text-amber-100">
+                  {initModalResult.connection
+                    ? 'Connection ok, but schema needs setup.'
+                    : 'Connection failed. Check URL/key, then run init.sql.'}
+                </div>
+                {initModalResult.tables && (
+                  <div className="flex flex-wrap gap-2 text-xs text-amber-800 dark:text-amber-100">
+                    {requiredTables.map(table => {
+                      const exists = initModalResult.tables?.[table]
+                      return (
+                        <span
+                          key={table}
+                          className={clsx(
+                            'px-2 py-1 rounded-md border',
+                            exists
+                              ? 'border-emerald-200 dark:border-emerald-900/40 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-800 dark:text-emerald-100'
+                              : 'border-amber-200 dark:border-amber-900/40 bg-amber-100/70 dark:bg-amber-900/40',
+                          )}
+                        >
+                          {exists ? 'Ready' : 'Missing'} · {table}
+                        </span>
+                      )
+                    })}
+                  </div>
+                )}
+                {getMissingTables(initModalResult).length > 0 && (
+                  <div className="text-xs text-amber-800 dark:text-amber-100">
+                    Missing: {getMissingTables(initModalResult).join(', ')}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
+                Quick fix steps
+              </h4>
+              <ol className="list-decimal list-inside text-sm text-gray-700 dark:text-gray-300 space-y-1">
+                <li>Copy the SQL below and run it once in Supabase SQL Editor.</li>
+                <li>Click “Re-test” to verify the required tables.</li>
+              </ol>
+            </div>
+
+            <div className="relative">
+              <button
+                onClick={copyInitSql}
+                className="absolute top-3 right-3 flex items-center gap-1 px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-zinc-800 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-zinc-700 transition-colors"
+              >
+                <Copy size={14} />
+                {copiedInitSql ? 'Copied' : 'Copy SQL'}
+              </button>
+              <pre className="max-h-64 overflow-auto text-xs bg-gray-900 text-gray-100 rounded-lg p-4 border border-gray-800 whitespace-pre-wrap">
+{INIT_SQL_SCRIPT}
+              </pre>
+            </div>
+
+            <div className="flex flex-wrap justify-end gap-2">
+              <button
+                onClick={() => setIsInitModalOpen(false)}
+                className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
+              >
+                Close
+              </button>
+              <button
+                onClick={handleRetestAfterInit}
+                disabled={retestingDb}
+                className="px-4 py-2 rounded-lg text-sm font-medium bg-cyan-500 text-white hover:bg-cyan-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                <RefreshCw size={16} className={retestingDb ? 'animate-spin' : ''} />
+                {retestingDb ? 'Re-testing...' : 'Re-test'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

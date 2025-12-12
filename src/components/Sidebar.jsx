@@ -63,6 +63,8 @@ const Sidebar = ({
   // Spaces interaction state
   const [expandedSpaces, setExpandedSpaces] = useState(new Set())
   const [spaceConversations, setSpaceConversations] = useState({}) // { [spaceId]: { items: [], nextCursor: null, hasMore: true, loading: false } }
+  const [spacesLimit, setSpacesLimit] = useState(10)
+  const [spacesLoadingMore, setSpacesLoadingMore] = useState(false)
 
   const toast = useToast()
 
@@ -132,6 +134,13 @@ const Sidebar = ({
       closeActions()
     }
   }, [isHovered])
+
+  // Reset visible spaces count when switching back to the Spaces tab
+  useEffect(() => {
+    if (activeTab === 'spaces') {
+      setSpacesLimit(10)
+    }
+  }, [activeTab])
 
   const navItems = [
     { id: 'library', icon: Library, label: 'Library' },
@@ -288,8 +297,6 @@ const Sidebar = ({
   // Limit conversations per section for display
   const MAX_CONVERSATIONS_PER_SECTION = 1000 // Effectively no limit, showing all fetched
 
-  const MAX_SPACES_TO_SHOW = 5 // Maximum spaces to show before showing "See All"
-
   const filteredConversations = useMemo(
     () => (displayTab === 'bookmarks' ? conversations.filter(c => c.is_favorited) : conversations),
     [conversations, displayTab],
@@ -310,16 +317,16 @@ const Sidebar = ({
     }))
   }, [filteredConversations])
 
-  // Get limited spaces for display and track if there are more
-  const limitedSpaces = useMemo(() => {
-    if (displayTab !== 'spaces') return { items: [], hasMore: false, totalCount: 0 }
-    const items = spaces.slice(0, MAX_SPACES_TO_SHOW)
-    return {
-      items,
-      hasMore: spaces.length > MAX_SPACES_TO_SHOW,
-      totalCount: spaces.length,
-    }
-  }, [spaces, displayTab])
+  // Spaces list pagination inside sidebar
+  const visibleSpaces = useMemo(() => {
+    if (displayTab !== 'spaces') return []
+    return spaces.slice(0, spacesLimit)
+  }, [spaces, spacesLimit, displayTab])
+
+  const spacesHasMore = useMemo(
+    () => displayTab === 'spaces' && spaces.length > spacesLimit,
+    [spaces.length, spacesLimit, displayTab],
+  )
 
   return (
     <>
@@ -352,7 +359,7 @@ const Sidebar = ({
           {/* Logo */}
           <div className="mb-6">
             <div className="w-full h-full flex items-center justify-center text-gray-900 dark:text-white font-bold text-xl">
-              <Logo size={64} />
+              <Logo size={32} />
             </div>
           </div>
 
@@ -460,7 +467,7 @@ const Sidebar = ({
                   onClick={() => onNavigate(displayTab)}
                   className="md:hidden px-2 py-1 text-xs font-medium bg-[#9c9d8a29] dark:bg-zinc-800 hover:bg-[#9c9d8a40] dark:hover:bg-zinc-700 rounded text-gray-700 dark:text-gray-200 transition-colors"
                 >
-                  View Page
+                  See all
                 </button>
               </div>
               <button
@@ -480,7 +487,7 @@ const Sidebar = ({
             <div className="h-px bg-gray-200 dark:bg-zinc-800 mb-2" />
             {/* CONVERSATION LIST (Library & Bookmarks) */}
             {(displayTab === 'library' || displayTab === 'bookmarks') && (
-              <div className="flex flex-col gap-2 overflow-y-auto h-[calc(100vh-70px)] pr-2 sidebar-scrollbar">
+              <div className="flex flex-col gap-2 overflow-y-auto h-[calc(100vh-70px)] px-2 sidebar-scrollbar">
                 {!isConversationsLoading &&
                   displayTab === 'library' &&
                   conversations.length === 0 && (
@@ -781,7 +788,7 @@ const Sidebar = ({
             )}
             {/* SPACES TAB CONTENT */}
             {displayTab === 'spaces' && (
-              <div className="flex flex-col gap-2 overflow-y-auto h-[calc(100vh-70px)] pr-2 sidebar-scrollbar">
+              <div className="flex flex-col gap-2 overflow-y-auto h-[calc(100vh-70px)] px-2 sidebar-scrollbar">
                 {/* Create New Space */}
                 <button
                   onClick={onCreateSpace}
@@ -807,7 +814,7 @@ const Sidebar = ({
                     <div>No spaces yet.</div>
                   </div>
                 )}
-                {limitedSpaces.items.map(space => (
+                {visibleSpaces.map(space => (
                   <React.Fragment key={space.id || space.label}>
                     <div
                       onClick={() => onNavigateToSpace(space)}
@@ -916,22 +923,36 @@ const Sidebar = ({
                   </React.Fragment>
                 ))}
 
-                {/* Show "..." indicator if there are more spaces */}
-                {displayTab === 'spaces' && limitedSpaces.hasMore && (
-                  <div
-                    className="text-xs text-gray-400 dark:text-gray-500 px-2 py-1 cursor-pointer hover:text-gray-600 dark:hover:text-gray-300 transition-colors mt-2"
-                    onClick={() => {
-                      setActiveTab('spaces')
-                      onNavigate('spaces')
-                    }}
-                    title="Show all spaces"
-                  >
-                    ...more
+                {/* Spaces Load More */}
+                {!spacesLoading && spaces.length > 0 && (
+                  <div className="px-2 py-2">
+                    {spacesHasMore ? (
+                      <button
+                        onClick={e => {
+                          e.stopPropagation()
+                          setSpacesLoadingMore(true)
+                          setTimeout(() => {
+                            setSpacesLimit(prev => prev + 10)
+                            setSpacesLoadingMore(false)
+                          }, 150)
+                        }}
+                        disabled={spacesLoadingMore}
+                        className="w-full py-2 text-xs font-medium text-gray-700 dark:text-gray-200 bg-[#9c9d8a29] dark:bg-zinc-800 hover:bg-[#9c9d8a40] dark:hover:bg-zinc-700 rounded transition-colors flex items-center justify-center gap-2"
+                      >
+                        {spacesLoadingMore ? <DotLoader /> : 'Load more'}
+                      </button>
+                    ) : (
+                      <div className="flex items-center gap-2 text-[10px] text-gray-400 py-2">
+                        <span className="flex-1 h-px bg-gray-200 dark:bg-zinc-800" />
+                        <span className="whitespace-nowrap">No more spaces</span>
+                        <span className="flex-1 h-px bg-gray-200 dark:bg-zinc-800" />
+                      </div>
+                    )}
                   </div>
                 )}
 
                 {/* See All Button - only for spaces tab when there are more spaces */}
-                {displayTab === 'spaces' && limitedSpaces.hasMore && (
+                {/* {displayTab === 'spaces' && spacesHasMore && (
                   <div className="flex flex-col gap-1 mt-2">
                     <button
                       onClick={() => {
@@ -943,7 +964,7 @@ const Sidebar = ({
                       <span>See all</span>
                     </button>
                   </div>
-                )}
+                )} */}
               </div>
             )}
           </div>

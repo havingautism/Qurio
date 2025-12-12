@@ -17,7 +17,7 @@
 }
 
 :root {
-  --background: #f9f9f9;
+  --background: #fffcf7;
   --foreground: #1f2937;
   /* gray-800 */
   --sidebar: rgb(243 243 238);
@@ -28,7 +28,7 @@
 }
 
 .dark {
-  --background: #191a1a;
+  --background: #1d1f1f;
   --foreground: #e5e7eb;
   /* gray-200 */
   --sidebar: #202222;

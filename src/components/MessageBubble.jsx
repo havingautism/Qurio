@@ -614,7 +614,7 @@ const MessageBubble = ({
           </button>
 
           {isThoughtExpanded && hasThoughtText && (
-            <div className="p-4 bg-user-bubble/50 dark:bg-zinc-800/30 border-t border-gray-200 dark:border-zinc-700 text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+            <div className="p-4 bg-user-bubble/50 font-mono! dark:bg-zinc-800/30 border-t border-gray-200 dark:border-zinc-700 text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
               <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
                 {thoughtContent}
               </ReactMarkdown>

@@ -11,6 +11,9 @@
  * @param {Object} [overrides={}] - Optional overrides
  * @returns {Object} The consolidated settings object
  */
+const DEFAULT_SYSTEM_PROMPT =
+  'Respond concisely with a friendly tone and add relevant emojis (2-4) to each reply while keeping clarity and avoiding repetition.'
+
 export const loadSettings = (overrides = {}) => {
   // Supabase Env Vars
   const envSupabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL
@@ -91,7 +94,7 @@ export const loadSettings = (overrides = {}) => {
     defaultModel: localDefaultModel || overrides.defaultModel || 'gemini-2.5-flash',
 
     // Chat behavior
-    systemPrompt: localSystemPrompt || overrides.systemPrompt || '',
+    systemPrompt: localSystemPrompt || overrides.systemPrompt || DEFAULT_SYSTEM_PROMPT,
     contextMessageLimit: resolvedContextLimit,
     themeColor: localThemeColor || overrides.themeColor || 'fox',
 

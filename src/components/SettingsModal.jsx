@@ -525,7 +525,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
           </div>
 
           {/* Scrollable Content */}
-          <div className="flex-1 overflow-y-auto px-2 py-4 sm:px-8 sm:py-8 min-h-0">
+          <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-8 sm:py-8 min-h-0">
             {activeTab === 'general' && (
               <div className="flex flex-col gap-8 max-w-2xl">
                 {/* ... existing general settings ... */}
@@ -841,7 +841,10 @@ const SettingsModal = ({ isOpen, onClose }) => {
                           </span>
                         )}
                         {modelsError && (
-                          <span className="text-primary-600 dark:text-primary-400" title={modelsError}>
+                          <span
+                            className="text-primary-600 dark:text-primary-400"
+                            title={modelsError}
+                          >
                             ⚠ Using fallback models
                           </span>
                         )}
@@ -1131,7 +1134,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                     Customize the look and feel of your workspace.
                   </p>
                 </div>
-                
+
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                   {Object.entries(THEMES).map(([key, theme]) => (
                     <button
@@ -1141,23 +1144,27 @@ const SettingsModal = ({ isOpen, onClose }) => {
                         'relative flex flex-col items-center gap-3 p-4 rounded-xl border transition-all',
                         themeColor === key
                           ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/10 ring-1 ring-primary-500/20'
-                          : 'border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-gray-50 dark:hover:bg-zinc-800'
+                          : 'border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-gray-50 dark:hover:bg-zinc-800',
                       )}
                     >
                       <div className="flex gap-1">
-                        <div 
+                        <div
                           className="w-6 h-6 rounded-full shadow-sm"
-                          style={{ backgroundColor: theme.colors['--color-primary-500'] }} 
+                          style={{ backgroundColor: theme.colors['--color-primary-500'] }}
                         />
-                        <div 
+                        <div
                           className="w-6 h-6 rounded-full shadow-sm -ml-2"
-                          style={{ backgroundColor: theme.colors['--color-primary-300'] }} 
+                          style={{ backgroundColor: theme.colors['--color-primary-300'] }}
                         />
                       </div>
-                      <span className={clsx(
-                        "text-sm font-medium",
-                        themeColor === key ? 'text-primary-700 dark:text-primary-300' : 'text-gray-700 dark:text-gray-300'
-                      )}>
+                      <span
+                        className={clsx(
+                          'text-sm font-medium',
+                          themeColor === key
+                            ? 'text-primary-700 dark:text-primary-300'
+                            : 'text-gray-700 dark:text-gray-300',
+                        )}
+                      >
                         {theme.label}
                       </span>
                       {themeColor === key && (
@@ -1193,15 +1200,13 @@ const SettingsModal = ({ isOpen, onClose }) => {
                   />
                 </div>
 
-                <div className="flex flex-col gap-1">
+                <div className="flex flex-col gap-2">
                   <label className="text-sm font-medium text-gray-900 dark:text-white">
                     System Prompt
                   </label>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
                     Customize the behavior and personality of the AI.
                   </p>
-                </div>
-                <div className="relative">
                   <textarea
                     value={systemPrompt}
                     onChange={e => setSystemPrompt(e.target.value)}
@@ -1415,7 +1420,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                 {copiedInitSql ? 'Copied' : 'Copy SQL'}
               </button>
               <pre className="max-h-64 overflow-auto text-xs bg-gray-900 text-gray-100 rounded-lg p-4 border border-gray-800 whitespace-pre-wrap">
-{INIT_SQL_SCRIPT}
+                {INIT_SQL_SCRIPT}
               </pre>
             </div>
 

@@ -302,7 +302,7 @@ const MainContent = ({
             </div>
             {/* Title */}
             <h1 className="text-3xl md:text-5xl font-serif! font-medium text-center mb-4 mt-0 sm:mb-8 text-[#1f2937] dark:text-white">
-              Where knowledge begins
+              Where insight clicks.
             </h1>
 
             {/* Search Box */}

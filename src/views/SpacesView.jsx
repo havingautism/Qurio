@@ -57,7 +57,7 @@ const SpacesView = () => {
       <div className="w-full max-w-5xl mx-auto px-6 py-8">
         {/* Header */}
         <div className="flex items-center gap-3 mb-8">
-          <LayoutGrid size={32} className="text-cyan-500" />
+          <LayoutGrid size={32} className="text-primary-500" />
           <h1 className="text-3xl font-medium">Spaces</h1>
         </div>
 
@@ -70,7 +70,7 @@ const SpacesView = () => {
               onClick={onCreateSpace}
               className="group p-6 rounded-xl bg-gray-100 dark:bg-zinc-900 hover:bg-gray-200 dark:hover:bg-zinc-800 cursor-pointer transition-colors flex flex-col justify-between min-h-[160px]"
             >
-              <div className="w-10 h-10 rounded-full bg-cyan-500 flex items-center justify-center text-white mb-4 group-hover:scale-110 transition-transform">
+              <div className="w-10 h-10 rounded-full bg-primary-500 flex items-center justify-center text-white mb-4 group-hover:scale-110 transition-transform">
                 <Plus size={24} />
               </div>
               <div>

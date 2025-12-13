@@ -174,7 +174,7 @@ const LibraryView = () => {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-3">
-            <LibraryIcon size={32} className="text-cyan-500" />
+            <LibraryIcon size={32} className="text-primary-500" />
             <h1 className="text-3xl font-medium">Library</h1>
           </div>
           <button
@@ -216,7 +216,7 @@ const LibraryView = () => {
                 <div className="w-px h-4 bg-gray-300 dark:bg-zinc-700 mx-1" />
                 <button
                   onClick={handleSearch}
-                  className="bg-cyan-500 hover:bg-cyan-600 text-white rounded-md p-1 transition-colors"
+                  className="bg-primary-500 hover:bg-primary-600 text-white rounded-md p-1 transition-colors"
                   title="Search"
                 >
                   <ArrowRight size={16} />
@@ -275,14 +275,14 @@ const LibraryView = () => {
                         <span
                           className={
                             sortOption.label === option.label
-                              ? 'text-cyan-500'
+                              ? 'text-primary-500'
                               : 'text-gray-700 dark:text-gray-300'
                           }
                         >
                           {option.label}
                         </span>
                         {sortOption.label === option.label && (
-                          <Check size={14} className="text-cyan-500" />
+                          <Check size={14} className="text-primary-500" />
                         )}
                       </button>
                     ))}
@@ -316,7 +316,7 @@ const LibraryView = () => {
                       params: { conversationId: conv.id },
                     })
                   }
-                  className="group relative p-2 rounded-xl cursor-pointer transition-colors border-b border-gray-100 dark:border-zinc-800/50 last:border-0 hover:bg-cyan-500/10 dark:hover:bg-cyan-500/20 hover:border hover:border-cyan-500/30 dark:hover:border-cyan-500/40"
+                  className="group relative p-2 rounded-xl cursor-pointer transition-colors border-b border-gray-100 dark:border-zinc-800/50 last:border-0 hover:bg-primary-500/10 dark:hover:bg-primary-500/20 hover:border hover:border-primary-500/30 dark:hover:border-primary-500/40"
                 >
                   <div className="flex justify-between items-start gap-4">
                     <div className="flex-1 min-w-0">

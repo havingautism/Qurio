@@ -33,6 +33,7 @@ export const loadSettings = (overrides = {}) => {
   const localDefaultModel = localStorage.getItem('defaultModel')
   const localSystemPrompt = localStorage.getItem('systemPrompt')
   const localContextMessageLimit = localStorage.getItem('contextMessageLimit')
+  const localThemeColor = localStorage.getItem('themeColor')
   const parsedContextLimit = parseInt(localContextMessageLimit, 10)
   const resolvedContextLimit = Number.isFinite(parsedContextLimit)
     ? parsedContextLimit
@@ -92,6 +93,7 @@ export const loadSettings = (overrides = {}) => {
     // Chat behavior
     systemPrompt: localSystemPrompt || overrides.systemPrompt || '',
     contextMessageLimit: resolvedContextLimit,
+    themeColor: localThemeColor || overrides.themeColor || 'fox',
 
     ...overrides,
   }
@@ -139,6 +141,9 @@ export const saveSettings = async settings => {
   }
   if (settings.contextMessageLimit !== undefined) {
     localStorage.setItem('contextMessageLimit', String(settings.contextMessageLimit))
+  }
+  if (settings.themeColor !== undefined) {
+    localStorage.setItem('themeColor', settings.themeColor)
   }
 
   window.dispatchEvent(new Event('settings-changed'))

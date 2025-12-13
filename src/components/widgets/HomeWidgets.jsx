@@ -69,8 +69,8 @@ const ShortcutsWidget = () => {
         <ShortcutItem icon={Github} color="text-gray-700 dark:text-white" />
         <ShortcutItem icon={Youtube} color="text-red-500" />
         <ShortcutItem icon={Code} color="text-purple-500" />
-        <ShortcutItem icon={Bot} color="text-cyan-500" />
-        <ShortcutItem icon={BookOpen} color="text-amber-500" />
+        <ShortcutItem icon={Bot} color="text-primary-500" />
+        <ShortcutItem icon={BookOpen} color="text-primary-500" />
         <ShortcutItem icon={MoreHorizontal} color="text-gray-400" />
       </div>
     </WidgetCard>

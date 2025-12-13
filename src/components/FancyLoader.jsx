@@ -47,7 +47,7 @@ const StyledWrapper = styled.div`
     top: 0;
     width: 100%;
     height: 100%;
-    background: rgb(81, 228, 220);
+    background: var(--color-primary-500);
     border-radius: 6px;
     transform: rotate(45deg);
     opacity: 70%;

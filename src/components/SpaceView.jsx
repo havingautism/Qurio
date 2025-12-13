@@ -202,7 +202,7 @@ const SpaceView = ({
                 <div
                   key={conv.id || i}
                   data-conversation-id={conv.id || i}
-                  className="group relative p-4 rounded-xl cursor-pointer transition-colors border-b border-gray-100 dark:border-zinc-800/50 last:border-0 hover:bg-cyan-500/10 dark:hover:bg-cyan-500/20 hover:border hover:border-cyan-500/30 dark:hover:border-cyan-500/40"
+                  className="group relative p-4 rounded-xl cursor-pointer transition-colors border-b border-gray-100 dark:border-zinc-800/50 last:border-0 hover:bg-primary-500/10 dark:hover:bg-primary-500/20 hover:border hover:border-primary-500/30 dark:hover:border-primary-500/40"
                   onClick={() => onOpenConversation && onOpenConversation(conv)}
                 >
                   <div className="flex justify-between items-start gap-4">
@@ -210,7 +210,7 @@ const SpaceView = ({
                                         <span className="text-xs font-bold">{conv.title?.[0]?.toUpperCase() || "T"}</span>
                                     </div> */}
                     <div className="flex-1">
-                      <h3 className="font-medium text-gray-900 dark:text-gray-100 group-hover:text-cyan-500 transition-colors flex items-center gap-2">
+                      <h3 className="font-medium text-gray-900 dark:text-gray-100 group-hover:text-primary-500 transition-colors flex items-center gap-2">
                         {conv.title || 'Untitled'}
                         {conv.is_favorited && (
                           <Bookmark size={14} className="text-yellow-500 fill-current" />
@@ -228,7 +228,7 @@ const SpaceView = ({
                     <div className="relative">
                       <button
                         className={clsx(
-                          'p-1 hover:bg-cyan-500/10 dark:hover:bg-cyan-500/20 rounded text-gray-400 hover:text-cyan-600 dark:hover:text-cyan-400 transition-all',
+                          'p-1 hover:bg-primary-500/10 dark:hover:bg-primary-500/20 rounded text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-all',
                           // Always visible on mobile
                           'opacity-100',
                           // Show on hover on desktop

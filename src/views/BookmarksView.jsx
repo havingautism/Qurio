@@ -132,7 +132,7 @@ const BookmarksView = () => {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-3">
-            <Bookmark size={32} className="text-cyan-500 fill-current" />
+            <Bookmark size={32} className="text-primary-500 fill-current" />
             <h1 className="text-3xl font-medium">Bookmarks</h1>
           </div>
           <button
@@ -195,14 +195,14 @@ const BookmarksView = () => {
                         <span
                           className={
                             sortOption.label === option.label
-                              ? 'text-cyan-500'
+                              ? 'text-primary-500'
                               : 'text-gray-700 dark:text-gray-300'
                           }
                         >
                           {option.label}
                         </span>
                         {sortOption.label === option.label && (
-                          <Check size={14} className="text-cyan-500" />
+                          <Check size={14} className="text-primary-500" />
                         )}
                       </button>
                     ))}
@@ -225,7 +225,7 @@ const BookmarksView = () => {
               <p className="text-sm">No bookmarks yet. Save one to see it here.</p>
               {/* <button
                 onClick={() => navigate({ to: '/new_chat' })}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-cyan-500 text-white hover:bg-cyan-600 transition-colors"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-primary-500 text-white hover:bg-primary-600 transition-colors"
               >
                 <Plus size={14} />
                 Start a thread
@@ -244,7 +244,7 @@ const BookmarksView = () => {
                       params: { conversationId: conv.id },
                     })
                   }
-                  className="group relative p-4 rounded-xl cursor-pointer transition-colors border-b border-gray-100 dark:border-zinc-800/50 last:border-0 hover:bg-cyan-500/10 dark:hover:bg-cyan-500/20 hover:border hover:border-cyan-500/30 dark:hover:border-cyan-500/40"
+                  className="group relative p-4 rounded-xl cursor-pointer transition-colors border-b border-gray-100 dark:border-zinc-800/50 last:border-0 hover:bg-primary-500/10 dark:hover:bg-primary-500/20 hover:border hover:border-primary-500/30 dark:hover:border-primary-500/40"
                 >
                   <div className="flex justify-between items-start gap-4">
                     <div className="flex-1 min-w-0">

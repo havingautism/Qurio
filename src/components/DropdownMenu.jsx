@@ -54,11 +54,11 @@ const DropdownMenu = ({ isOpen, onClose, items, anchorEl }) => {
 
           // Add highlight classes to the conversation element using Tailwind with !important
           conversationEl.classList.add(
-            '!bg-cyan-500/10',
+            '!bg-primary-500/10',
             '!border',
-            '!border-cyan-500/30',
-            'dark:!bg-cyan-500/20',
-            'dark:!border-cyan-500/40',
+            '!border-primary-500/30',
+            'dark:!bg-primary-500/20',
+            'dark:!border-primary-500/40',
             'transition-all',
             'duration-200',
           )
@@ -109,11 +109,11 @@ const DropdownMenu = ({ isOpen, onClose, items, anchorEl }) => {
           anchorEl.parentElement
         if (conversationEl) {
           conversationEl.classList.add(
-            '!bg-cyan-500/10',
+            '!bg-primary-500/10',
             '!border',
-            '!border-cyan-500/30',
-            'dark:!bg-cyan-500/20',
-            'dark:!border-cyan-500/40',
+            '!border-primary-500/30',
+            'dark:!bg-primary-500/20',
+            'dark:!border-primary-500/40',
             'transition-all',
             'duration-200',
           )
@@ -126,18 +126,18 @@ const DropdownMenu = ({ isOpen, onClose, items, anchorEl }) => {
   useEffect(() => {
     if (!isOpen) {
       // Remove all highlight classes including !important variants
-      document.querySelectorAll('[class*="bg-cyan-500"], [class*="!bg-cyan-500"]').forEach(el => {
+      document.querySelectorAll('[class*="bg-primary-500"], [class*="!bg-primary-500"]').forEach(el => {
         el.classList.remove(
-          'bg-cyan-500/10',
-          '!bg-cyan-500/10',
+          'bg-primary-500/10',
+          '!bg-primary-500/10',
           'border',
           '!border',
-          'border-cyan-500/30',
-          '!border-cyan-500/30',
-          'dark:bg-cyan-500/20',
-          'dark:!bg-cyan-500/20',
-          'dark:border-cyan-500/40',
-          'dark:!border-cyan-500/40',
+          'border-primary-500/30',
+          '!border-primary-500/30',
+          'dark:bg-primary-500/20',
+          'dark:!bg-primary-500/20',
+          'dark:border-primary-500/40',
+          'dark:!border-primary-500/40',
         )
       })
     }

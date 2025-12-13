@@ -853,7 +853,7 @@ const ChatInterface = ({
             </div>
 
             <div className="flex items-center gap-2 flex-1 min-w-0">
-              <h1 className="text-m sm:text-xl font-medium text-gray-800 dark:text-gray-100 truncate">
+              <h1 className="text-m font-serif! sm:text-xl font-medium text-gray-800 dark:text-gray-100 truncate">
                 {conversationTitle || 'New Conversation'}
               </h1>
               <button
@@ -1035,7 +1035,7 @@ const InputBar = React.memo(
     return (
       <div className="w-full max-w-3xl relative group">
         <div className="absolute inset-0 bg-linear-to-r from-primary-500/20 via-blue-500/15 to-purple-500/20 rounded-xl blur-2xl opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-500 pointer-events-none" />
-        <div className="relative bg-[#f7f7f1] dark:bg-zinc-800 border border-transparent focus-within:border-gray-300 dark:focus-within:border-zinc-600 rounded-xl transition-all duration-300 p-3 shadow-sm hover:shadow-lg group-hover:shadow-lg focus-within:shadow-xl">
+        <div className="relative bg-user-bubble dark:bg-zinc-800 border border-transparent focus-within:border-gray-300 dark:focus-within:border-zinc-600 rounded-xl transition-all duration-300 p-3 shadow-sm hover:shadow-lg group-hover:shadow-lg focus-within:shadow-xl">
           {showEditing && (
             <div className="flex items-center justify-between bg-gray-200 dark:bg-zinc-700/50 rounded-lg px-3 py-2 mb-2 ">
               <div className="flex items-center gap-3 overflow-hidden">

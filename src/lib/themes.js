@@ -1,6 +1,6 @@
 /**
  * Theme Definitions
- * 
+ *
  * Defines the color palettes for the application themes.
  * Each theme should define colors for 50-950 scales to match Tailwind's expectations
  * if we were using it fully dynamically, but here we primarily map them to the
@@ -22,6 +22,7 @@ export const THEMES = {
       '--color-primary-800': '#703322',
       '--color-primary-900': '#592B1E',
       '--color-primary-950': '#33160F',
+      '--user-bubble': '#f7f2f1',
     },
   },
   ocean: {
@@ -38,6 +39,7 @@ export const THEMES = {
       '--color-primary-800': '#075985',
       '--color-primary-900': '#0c4a6e',
       '--color-primary-950': '#082f49',
+      '--user-bubble': '#f0f9ff',
     },
   },
   emerald: {
@@ -54,6 +56,7 @@ export const THEMES = {
       '--color-primary-800': '#065f46',
       '--color-primary-900': '#064e3b',
       '--color-primary-950': '#022c22',
+      '--user-bubble': '#ecfdf5',
     },
   },
   violet: {
@@ -70,36 +73,44 @@ export const THEMES = {
       '--color-primary-800': '#5b21b6',
       '--color-primary-900': '#4c1d95',
       '--color-primary-950': '#2e1065',
+      '--user-bubble': '#f5f3ff',
     },
   },
   charcoal: {
     label: 'Charcoal Gray',
     colors: {
-        '--color-primary-50': '#f9fafb',
-        '--color-primary-100': '#f3f4f6',
-        '--color-primary-200': '#e5e7eb',
-        '--color-primary-300': '#d1d5db',
-        '--color-primary-400': '#9ca3af',
-        '--color-primary-500': '#6b7280',
-        '--color-primary-600': '#4b5563',
-        '--color-primary-700': '#374151',
-        '--color-primary-800': '#1f2937',
-        '--color-primary-900': '#111827',
-        '--color-primary-950': '#030712',
-    }
-  }
+      '--color-primary-50': '#f9fafb',
+      '--color-primary-100': '#f3f4f6',
+      '--color-primary-200': '#e5e7eb',
+      '--color-primary-300': '#d1d5db',
+      '--color-primary-400': '#9ca3af',
+      '--color-primary-500': '#6b7280',
+      '--color-primary-600': '#4b5563',
+      '--color-primary-700': '#374151',
+      '--color-primary-800': '#1f2937',
+      '--color-primary-900': '#111827',
+      '--color-primary-950': '#030712',
+      '--user-bubble': '#f9fafb',
+    },
+  },
 }
 
 /**
  * Applies the selected theme to the document root.
  * @param {string} themeKey - The key of the theme to apply (e.g., 'fox', 'ocean').
  */
-export const applyTheme = (themeKey) => {
-  const root = document.documentElement;
-  const theme = THEMES[themeKey] || THEMES['fox']; // Default to fox if invalid
+// ... (existing code)
+
+/**
+ * Applies the selected theme to the document root.
+ * @param {string} themeKey - The key of the theme to apply (e.g., 'fox', 'ocean').
+ */
+export const applyTheme = themeKey => {
+  const root = document.documentElement
+  const theme = THEMES[themeKey] || THEMES['fox'] // Default to fox if invalid
 
   Object.entries(theme.colors).forEach(([property, value]) => {
     // We expect property to be --color-primary-*, which is correct after sed
-    root.style.setProperty(property, value);
-  });
+    root.style.setProperty(property, value)
+  })
 }

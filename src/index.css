@@ -6,14 +6,26 @@
   --color-foreground: var(--foreground);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
-  --font-sans: Ginto, ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+  --color-user-bubble: var(--user-bubble);
+  --font-sans-serif: -apple-system, BlinkMacSystemFont, "Apple Color Emoji",
+    "Segoe UI Emoji", "Segoe UI Symbol", "Segoe UI", "PingFang SC",
+    HarmonyOS_Regular, "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue",
+    Helvetica, "Source Han Sans SC", "Noto Sans CJK SC", "WenQuanYi Micro Hei",
+    Arial, sans-serif;
+  --font-serif: STZhongsong, STSong, "Noto Serif CJK", "Noto Serif SC", PMingLiu,
+    SimSun, "WenQuanYi Bitmap Song", "Times New Roman", Times, serif,
+    "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", "Cascadia Code",
+    "Segoe UI Mono", "Source Code Pro", Menlo, Consolas, "Liberation Mono",
+    monospace;
+    /* --font-sans: Ginto, ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
     'Segoe UI Symbol', 'Noto Color Emoji';
   --font-display: Ginto, ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
     'Segoe UI Symbol', 'Noto Color Emoji';
   --font-serif: Ginto, ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
     'Segoe UI Symbol', 'Noto Color Emoji';
   --font-mono: CascadiaCode, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
-    'Courier New', monospace;
+    'Courier New', monospace; */
 
   /* Custom Primary Palette (formerly Brown) - Default Map to Variables */
   /* These will be overridden by the JS style injection on root */
@@ -48,16 +60,18 @@
   --background: #fffcf7;
   --foreground: #1f2937;
   /* gray-800 -> stone-800 */
-  --sidebar: #e7e5e4;
+  --sidebar: #fffcf7;
   /* stone-200 */
   --sidebar-foreground: #44403c;
   /* stone-700 */
   --border: #d6d3d1;
   /* stone-300 */
+
+  --user-bubble: #f7f2f1;
 }
 
 .dark {
-  --background: #1d1f1f;
+  --background: #1c1917;
   --foreground: #e5e7eb;
   /* stone-950 */
   --sidebar: #1c1917;
@@ -82,7 +96,16 @@ h3,
 h4,
 h5,
 h6 {
-  @apply font-display;
+  @apply font-sans-serif;
+}
+
+.prose h1,
+.prose h2,
+.prose h3,
+.prose h4,
+.prose h5,
+.prose h6 {
+  font-family: var(--font-serif);
 }
 
 .prose {

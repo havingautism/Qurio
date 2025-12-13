@@ -16,7 +16,7 @@ import {
 
 const WidgetCard = ({ children, className = '', title, action }) => (
   <div
-    className={`bg-white/80 dark:bg-[#1e1e1e]/60 backdrop-blur-md border border-gray-200 dark:border-white/5 rounded-2xl p-5 flex flex-col shadow-sm ${className}`}
+    className={`bg-user-bubble dark:bg-[#1e1e1e]/60 backdrop-blur-md border border-gray-200 dark:border-white/5 rounded-2xl p-5 flex flex-col shadow-sm ${className}`}
   >
     {(title || action) && (
       <div className="flex justify-between items-center mb-3">

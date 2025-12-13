@@ -6,6 +6,7 @@
   --color-foreground: var(--foreground);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-user-bubble: var(--user-bubble);
   --font-sans: Ginto, ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
     'Segoe UI Symbol', 'Noto Color Emoji';
   --font-display: Ginto, ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
@@ -48,16 +49,18 @@
   --background: #fffcf7;
   --foreground: #1f2937;
   /* gray-800 -> stone-800 */
-  --sidebar: #e7e5e4;
+  --sidebar: #fffcf7;
   /* stone-200 */
   --sidebar-foreground: #44403c;
   /* stone-700 */
   --border: #d6d3d1;
   /* stone-300 */
+
+  --user-bubble: #f7f2f1;
 }
 
 .dark {
-  --background: #1d1f1f;
+  --background: #1c1917;
   --foreground: #e5e7eb;
   /* stone-950 */
   --sidebar: #1c1917;

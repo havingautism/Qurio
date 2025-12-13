@@ -10,6 +10,8 @@ import {
   Brain,
   Menu,
 } from 'lucide-react'
+import { useGSAP } from '@gsap/react'
+import gsap from 'gsap'
 import clsx from 'clsx'
 import ChatInterface from './ChatInterface'
 import SpaceView from './SpaceView'
@@ -59,7 +61,58 @@ const MainContent = ({
   const [homeSelectedSpace, setHomeSelectedSpace] = useState(null)
   const homeSpaceSelectorRef = useRef(null)
   const [isHomeSpaceSelectorOpen, setIsHomeSpaceSelectorOpen] = useState(false)
+
   const { toggleSidebar } = useAppContext()
+  const homeContainerRef = useRef(null)
+
+  useGSAP(
+    () => {
+      if (
+        activeView === 'chat' ||
+        activeView === 'space' ||
+        activeView === 'spaces' ||
+        activeView === 'bookmarks' ||
+        activeView === 'library' ||
+        activeView === 'conversations'
+      )
+        return
+
+      const tl = gsap.timeline()
+
+      // Animate Title
+      tl.from('.home-title', {
+        y: -20,
+        opacity: 0,
+        duration: 0.8,
+        ease: 'power3.out',
+      })
+
+        // Animate Search Box
+        .from(
+          '.home-search-box',
+          {
+            scale: 0.95,
+            opacity: 0,
+            duration: 0.6,
+            ease: 'back.out(1.7)',
+          },
+          '-=0.4',
+        )
+
+        // Animate Widgets
+        .from(
+          '.home-widgets',
+          {
+            y: 20,
+            opacity: 0,
+            duration: 0.8,
+            ease: 'power2.out',
+          },
+          '-=0.4',
+        )
+    },
+    { dependencies: [activeView], scope: homeContainerRef },
+  )
 
   // Sync prop change to local state if needed (e.g. sidebar navigation)
   useEffect(() => {
@@ -275,6 +328,7 @@ const MainContent = ({
         />
       ) : (
         <div
+          ref={homeContainerRef}
           className={clsx(
             'flex flex-col items-center justify-center min-h-screen p-4 transition-all duration-300',
             isSidebarPinned ? 'md:ml-20' : 'md:ml-16',
@@ -301,14 +355,14 @@ const MainContent = ({
               <Logo size={128} className="text-gray-900 dark:text-white" />
             </div>
             {/* Title */}
-            <h1 className="text-3xl md:text-5xl font-serif! font-medium text-center mb-4 mt-0 sm:mb-8 text-[#1f2937] dark:text-white">
+            <h1 className="home-title text-3xl md:text-5xl font-serif! font-medium text-center mb-4 mt-0 sm:mb-8 text-[#1f2937] dark:text-white">
               Where insight clicks.
             </h1>
 
             {/* Search Box */}
-            <div className="w-full relative group">
+            <div className="home-search-box w-full relative group">
               <div className="absolute inset-0 bg-linear-to-r from-primary-500/20 via-blue-500/15 to-purple-500/20 rounded-xl blur-2xl opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-500 pointer-events-none" />
-              <div className="relative bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-xl shadow-sm hover:shadow-md transition-all duration-300 p-4">
+              <div className="relative bg-user-bubble dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-xl shadow-sm hover:shadow-md transition-all duration-300 p-4">
                 {homeAttachments.length > 0 && (
                   <div className="flex gap-2 mb-3 px-1 overflow-x-auto py-1">
                     {homeAttachments.map((att, idx) => (
@@ -472,7 +526,9 @@ const MainContent = ({
             </div>
 
             {/* Widgets Section */}
-            <HomeWidgets />
+            <div className="home-widgets w-full">
+              <HomeWidgets />
+            </div>
           </div>
 
           {/* Footer */}

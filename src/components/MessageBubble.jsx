@@ -372,7 +372,7 @@ const MessageBubble = ({
           {...props}
           target="_blank"
           rel="noreferrer"
-          className="text-[13px] text-cyan-600 dark:text-cyan-400"
+          className="text-[13px] text-primary-600 dark:text-primary-400"
         />
       ),
       hr: () => (
@@ -421,7 +421,7 @@ const MessageBubble = ({
             )}
           >
             {quoteToRender && (
-              <div className="mb-2 p-2 bg-white/50 dark:bg-black/20 rounded-lg text-sm border-l-2 border-cyan-500">
+              <div className="mb-2 p-2 bg-white/50 dark:bg-black/20 rounded-lg text-sm border-l-2 border-primary-500">
                 <div className="font-medium opacity-70 mb-1">Quoting:</div>
                 <div className="line-clamp-2 italic opacity-80">{quoteToRender.text}</div>
               </div>
@@ -593,7 +593,7 @@ const MessageBubble = ({
       )}
       {/* Answer Header */}
       <div className="flex items-center gap-3 text-gray-900 dark:text-gray-100">
-        <AlignLeft size={24} className="text-cyan-500" />
+        <AlignLeft size={24} className="text-primary-500" />
         <h2 className="text-lg font-medium">Answer</h2>
       </div>
 
@@ -605,7 +605,7 @@ const MessageBubble = ({
             className="w-full flex items-center justify-between p-3 bg-[#f7f7f1] dark:bg-zinc-800/50 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
           >
             <div className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-              <Brain size={16} className="text-cyan-500 dark:text-cyan-400" />
+              <Brain size={16} className="text-primary-500 dark:text-primary-400" />
               <span>Thinking Process</span>
             </div>
             {isThoughtExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
@@ -685,7 +685,7 @@ const MessageBubble = ({
       {message.related && message.related.length > 0 && (
         <div className="mt-4">
           <div className="flex items-center gap-3 mb-3 text-gray-900 dark:text-gray-100">
-            <Layers size={24} className="text-cyan-500" />
+            <Layers size={24} className="text-primary-500" />
             <h3 className="text-lg font-medium">Related</h3>
           </div>
           <div className="flex flex-col gap-1 md:gap-2">

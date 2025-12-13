@@ -87,10 +87,10 @@ const SpacesListView = ({
               {/* Create New Space Card */}
               <button
                 onClick={onCreateSpace}
-                className="group relative bg-white dark:bg-zinc-900 border-2 border-dashed border-gray-300 dark:border-zinc-700 rounded-xl p-6 hover:border-cyan-500 dark:hover:border-cyan-500 hover:bg-gray-50 dark:hover:bg-zinc-800/50 transition-all duration-200 cursor-pointer min-h-[180px] flex flex-col items-center justify-center"
+                className="group relative bg-white dark:bg-zinc-900 border-2 border-dashed border-gray-300 dark:border-zinc-700 rounded-xl p-6 hover:border-primary-500 dark:hover:border-primary-500 hover:bg-gray-50 dark:hover:bg-zinc-800/50 transition-all duration-200 cursor-pointer min-h-[180px] flex flex-col items-center justify-center"
               >
-                <div className="w-12 h-12 rounded-full bg-cyan-500/10 dark:bg-cyan-500/20 flex items-center justify-center mb-3 group-hover:bg-cyan-500/20 dark:group-hover:bg-cyan-500/30 transition-colors">
-                  <Plus className="w-6 h-6 text-cyan-500" />
+                <div className="w-12 h-12 rounded-full bg-primary-500/10 dark:bg-primary-500/20 flex items-center justify-center mb-3 group-hover:bg-primary-500/20 dark:group-hover:bg-primary-500/30 transition-colors">
+                  <Plus className="w-6 h-6 text-primary-500" />
                 </div>
                 <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-1">
                   Create a Space
@@ -104,7 +104,7 @@ const SpacesListView = ({
               {spaces.map(space => (
                 <div
                   key={space.id}
-                  className="group relative bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-xl p-6 hover:border-cyan-500/50 dark:hover:border-cyan-500/50 hover:shadow-lg dark:hover:shadow-cyan-500/10 transition-all duration-200 cursor-pointer min-h-[180px] flex flex-col"
+                  className="group relative bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-xl p-6 hover:border-primary-500/50 dark:hover:border-primary-500/50 hover:shadow-lg dark:hover:shadow-primary-500/10 transition-all duration-200 cursor-pointer min-h-[180px] flex flex-col"
                 >
                   {/* Menu Button */}
                   <div className="absolute top-4 right-4">
@@ -126,13 +126,13 @@ const SpacesListView = ({
                     onClick={() => onNavigateToSpace && onNavigateToSpace(space)}
                   >
                     {/* Space Icon */}
-                    <div className="w-12 h-12 rounded-full bg-linear-to-br from-cyan-400 to-blue-500 flex items-center justify-center mb-4 text-2xl">
+                    <div className="w-12 h-12 rounded-full bg-linear-to-br from-primary-400 to-blue-500 flex items-center justify-center mb-4 text-2xl">
                       {/* space.emoji || "📁" */}
                       <TwemojiDisplay emoji={space.emoji || '📁'} size="1.5rem" />
                     </div>
 
                     {/* Space Name */}
-                    <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2 text-left group-hover:text-cyan-500 transition-colors">
+                    <h3 className="text-base font-semibold text-gray-900 mb-2 text-left group-hover:text-primary-500 transition-colors">
                       {space.label}
                     </h3>
 

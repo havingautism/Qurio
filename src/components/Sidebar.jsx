@@ -472,14 +472,14 @@ const Sidebar = ({
               </div>
               <button
                 onClick={() => setIsPinned(!isPinned)}
-                className="hidden md:block p-1.5 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded transition-colors"
+                className="hidden md:block p-1.5 hover:bg-primary-50 dark:hover:bg-zinc-700 hover:text-primary-600 dark:hover:text-primary-400 rounded transition-colors"
                 title={isPinned ? 'Unpin sidebar' : 'Pin sidebar'}
               >
                 <Pin
                   size={16}
                   className={clsx(
                     'transition-colors',
-                    isPinned ? 'fill-current text-cyan-500' : 'text-gray-500 dark:text-gray-400',
+                    isPinned ? 'fill-current text-primary-500' : 'text-gray-500 dark:text-gray-400',
                   )}
                 />
               </button>
@@ -529,10 +529,10 @@ const Sidebar = ({
                               className={clsx(
                                 'text-sm p-2 rounded cursor-pointer truncate transition-colors group relative',
                                 isActive
-                                  ? 'bg-cyan-500/10 dark:bg-cyan-500/20 border border-cyan-500/30 text-cyan-700 dark:text-cyan-300'
-                                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-zinc-800',
+                                  ? 'bg-primary-500/10 dark:bg-primary-500/20 border border-primary-500/30 text-primary-700 dark:text-primary-300'
+                                  : 'text-gray-700 dark:text-gray-300 hover:bg-primary-50 dark:hover:bg-zinc-800',
                                 isExpanded &&
-                                  'bg-cyan-50/70 dark:bg-cyan-900/20  border-cyan-200/60  dark:border-cyan-800/60 ring-1 ring-cyan-100/70 dark:ring-cyan-800/60',
+                                  'bg-primary-50/70 dark:bg-primary-900/20  border-primary-200/60  dark:border-primary-800/60 ring-1 ring-primary-100/70 dark:ring-primary-800/60',
                               )}
                               title={conv.title}
                             >
@@ -548,7 +548,7 @@ const Sidebar = ({
                                     className={clsx(
                                       'text-[10px]',
                                       isActive
-                                        ? 'text-cyan-600 dark:text-cyan-400'
+                                        ? 'text-primary-600 dark:text-primary-400'
                                         : 'text-gray-400',
                                     )}
                                   >
@@ -567,7 +567,7 @@ const Sidebar = ({
                                     className={clsx(
                                       'p-1.5 rounded-md hover:bg-gray-300 dark:hover:bg-zinc-700 transition-all',
                                       isActive
-                                        ? 'text-cyan-600 dark:text-cyan-400 bg-cyan-100 dark:bg-cyan-900/20'
+                                        ? 'text-primary-600 dark:text-primary-400 bg-primary-100 dark:bg-primary-900/20'
                                         : 'text-gray-500 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-zinc-700',
                                       'opacity-100',
                                       'md:opacity-0 md:group-hover:opacity-100',
@@ -594,7 +594,7 @@ const Sidebar = ({
                                     'py-1.5 rounded-md transition-colors flex items-center justify-center gap-1.5 font-medium border border-transparent',
                                     conv.is_favorited
                                       ? 'bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-200 dark:border-yellow-800/30'
-                                      : 'text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-zinc-700',
+                                      : 'text-gray-500 dark:text-gray-400 hover:bg-primary-50 dark:hover:bg-zinc-700 hover:text-primary-600 dark:hover:text-primary-400',
                                   )}
                                   title={conv.is_favorited ? 'Remove Bookmark' : 'Add Bookmark'}
                                 >
@@ -667,10 +667,10 @@ const Sidebar = ({
                           className={clsx(
                             'text-sm p-2 rounded cursor-pointer truncate transition-colors group relative',
                             isActive
-                              ? 'bg-cyan-500/10 dark:bg-cyan-500/20 border border-cyan-500/30 text-cyan-700 dark:text-cyan-300'
-                              : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-zinc-800',
+                              ? 'bg-primary-500/10 dark:bg-primary-500/20 border border-primary-500/30 text-primary-700 dark:text-primary-300'
+                              : 'text-gray-700 dark:text-gray-300 hover:bg-primary-50 dark:hover:bg-zinc-800',
                             isExpanded &&
-                              'bg-cyan-50/70 dark:bg-cyan-900/20 border border-cyan-200/60 dark:border-cyan-800/60 ring-1 ring-cyan-100/70 dark:ring-cyan-800/60',
+                              'bg-primary-50/70 dark:bg-primary-900/20 border border-primary-200/60 dark:border-primary-800/60 ring-1 ring-primary-100/70 dark:ring-primary-800/60',
                           )}
                           title={conv.title}
                         >
@@ -683,7 +683,7 @@ const Sidebar = ({
                               <span
                                 className={clsx(
                                   'text-[10px]',
-                                  isActive ? 'text-cyan-600 dark:text-cyan-400' : 'text-gray-400',
+                                  isActive ? 'text-primary-600 dark:text-primary-400' : 'text-gray-400',
                                 )}
                               >
                                 {new Date(conv.created_at).toLocaleDateString()}
@@ -699,7 +699,7 @@ const Sidebar = ({
                                 className={clsx(
                                   'p-1.5 rounded-md hover:bg-gray-300 dark:hover:bg-zinc-700 transition-all',
                                   isActive
-                                    ? 'text-cyan-600 dark:text-cyan-400 bg-cyan-100 dark:bg-cyan-900/20'
+                                    ? 'text-primary-600 dark:text-primary-400 bg-primary-100 dark:bg-primary-900/20'
                                     : 'text-gray-500 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-zinc-700',
                                   'opacity-100',
                                   'md:opacity-0 md:group-hover:opacity-100',
@@ -726,7 +726,7 @@ const Sidebar = ({
                                 'py-1.5 rounded-md transition-colors flex items-center justify-center gap-1.5 font-medium border border-transparent',
                                 conv.is_favorited
                                   ? 'bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-200 dark:border-yellow-800/30'
-                                  : 'text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-zinc-700',
+                                  : 'text-gray-500 dark:text-gray-400 hover:bg-primary-50 dark:hover:bg-zinc-700 hover:text-primary-600 dark:hover:text-primary-400',
                               )}
                               title={conv.is_favorited ? 'Remove Bookmark' : 'Add Bookmark'}
                             >
@@ -826,7 +826,7 @@ const Sidebar = ({
                             e.stopPropagation()
                             toggleSpace(space.id)
                           }}
-                          className="p-1 -ml-1 hover:bg-gray-200 dark:hover:bg-zinc-800 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+                          className="p-1 -ml-1 hover:bg-primary-50 dark:hover:bg-zinc-800 text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
                         >
                           <ChevronDown
                             size={14}
@@ -873,8 +873,8 @@ const Sidebar = ({
                               className={clsx(
                                 'group relative flex items-center justify-between text-xs py-1.5 px-2 rounded cursor-pointer truncate transition-colors',
                                 conv.id === activeConversationId
-                                  ? 'bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 font-medium'
-                                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-zinc-800',
+                                  ? 'bg-primary-500/10 text-primary-700 dark:text-primary-300 font-medium'
+                                  : 'text-gray-600 dark:text-gray-400 hover:bg-primary-50 dark:hover:bg-zinc-800 hover:shadow-sm hover:ring-1 hover:ring-primary-200 dark:hover:ring-zinc-700 hover:z-10',
                               )}
                               onClick={() => onOpenConversation && onOpenConversation(conv)}
                               title={conv.title}
@@ -959,7 +959,7 @@ const Sidebar = ({
                         setActiveTab('spaces')
                         onNavigate('spaces')
                       }}
-                      className="flex items-center justify-center gap-2 p-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors rounded hover:bg-gray-200 dark:hover:bg-zinc-800"
+                      className="flex items-center justify-center gap-2 p-2 text-sm text-gray-500 dark:text-gray-400 hover:text-primary-700 dark:hover:text-primary-300 transition-colors rounded hover:bg-primary-50 dark:hover:bg-zinc-800"
                     >
                       <span>See all</span>
                     </button>

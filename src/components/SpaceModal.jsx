@@ -151,7 +151,7 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
                 <button
                   ref={buttonRef}
                   onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                  className="w-12 h-12 rounded-xl bg-gray-100 dark:bg-zinc-800 flex items-center justify-center text-2xl hover:bg-gray-200 dark:hover:bg-zinc-700 transition-colors border border-transparent focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 outline-none"
+                  className="w-12 h-12 rounded-xl bg-gray-100 dark:bg-zinc-800 flex items-center justify-center text-2xl hover:bg-gray-200 dark:hover:bg-zinc-700 transition-colors border border-transparent focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 outline-none"
                 >
                   <TwemojiDisplay emoji={emoji} />
                 </button>
@@ -178,7 +178,7 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
                 value={name}
                 onChange={e => setName(e.target.value)}
                 placeholder="e.g., Daily Life, Research..."
-                className="flex-1 h-12 px-4 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600"
+                className="flex-1 h-12 px-4 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600"
               />
             </div>
           </div>
@@ -193,7 +193,7 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
               onChange={e => setDescription(e.target.value)}
               placeholder="What is this space for?"
               rows={2}
-              className="w-full px-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600 resize-none"
+              className="w-full px-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600 resize-none"
             />
           </div>
 
@@ -207,7 +207,7 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
               onChange={e => setPrompt(e.target.value)}
               placeholder="Provide guidance the assistant should follow inside this space."
               rows={8}
-              className="w-full px-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600 resize-none"
+              className="w-full px-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600 resize-none"
             />
           </div>
 
@@ -240,7 +240,7 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
                   setTopK(val === '' ? null : parseInt(val))
                 }}
                 placeholder="Auto"
-                className="w-full h-10 px-3 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600"
+                className="w-full h-10 px-3 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600"
               />
             </div>
           </div>

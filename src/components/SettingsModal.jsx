@@ -22,6 +22,7 @@ import { saveSettings, loadSettings } from '../lib/settings'
 import { testConnection } from '../lib/supabase'
 import { getModelsForProvider } from '../lib/models_api'
 import useScrollLock from '../hooks/useScrollLock'
+import { THEMES } from '../lib/themes'
 
 const ENV_VARS = {
   supabaseUrl: import.meta.env.PUBLIC_SUPABASE_URL,
@@ -184,6 +185,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
   // Model configuration states
   const [liteModel, setLiteModel] = useState('gemini-2.5-flash')
   const [defaultModel, setDefaultModel] = useState('gemini-2.5-flash')
+  const [themeColor, setThemeColor] = useState('fox')
 
   // Dynamic model states
   const [dynamicModels, setDynamicModels] = useState([])
@@ -244,6 +246,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
       // Load model configuration
       if (settings.liteModel) setLiteModel(settings.liteModel)
       if (settings.defaultModel) setDefaultModel(settings.defaultModel)
+      if (settings.themeColor) setThemeColor(settings.themeColor)
     }
   }, [isOpen])
 
@@ -462,6 +465,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
       // Save model configuration
       liteModel,
       defaultModel,
+      themeColor,
     })
 
     onClose()
@@ -494,7 +498,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                 className={clsx(
                   'flex items-center gap-1 sm:gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap',
                   activeTab === item.id
-                    ? 'bg-gray-100 dark:bg-zinc-800 text-cyan-600 dark:text-cyan-400'
+                    ? 'bg-gray-100 dark:bg-zinc-800 text-primary-600 dark:text-primary-400'
                     : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-zinc-800',
                 )}
               >
@@ -539,7 +543,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                   <div className="relative" ref={providerDropdownRef}>
                     <button
                       onClick={() => setIsProviderDropdownOpen(!isProviderDropdownOpen)}
-                      className="w-full flex items-center justify-between pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-zinc-800"
+                      className="w-full flex items-center justify-between pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-zinc-800"
                     >
                       <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center">
                         <Box size={16} className="text-gray-400" />
@@ -590,7 +594,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                             <span>Google Gemini</span>
                           </div>
                           {apiProvider === 'gemini' && (
-                            <Check size={14} className="text-cyan-500" />
+                            <Check size={14} className="text-primary-500" />
                           )}
                         </button>
                         <button
@@ -620,7 +624,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                             <span>OpenAI Compatible</span>
                           </div>
                           {apiProvider === 'openai_compatibility' && (
-                            <Check size={14} className="text-cyan-500" />
+                            <Check size={14} className="text-primary-500" />
                           )}
                         </button>
                         <button
@@ -650,7 +654,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                             <span>SiliconFlow</span>
                           </div>
                           {apiProvider === 'siliconflow' && (
-                            <Check size={14} className="text-cyan-500" />
+                            <Check size={14} className="text-primary-500" />
                           )}
                         </button>
                       </div>
@@ -674,7 +678,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                           placeholder="AIzaSy..."
                           disabled={Boolean(ENV_VARS.googleApiKey)}
                           className={clsx(
-                            'w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
+                            'w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
                             ENV_VARS.googleApiKey && 'opacity-70 cursor-not-allowed',
                           )}
                         />
@@ -716,7 +720,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                             placeholder="sk-..."
                             disabled={Boolean(ENV_VARS.openAIKey)}
                             className={clsx(
-                              'w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
+                              'w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
                               ENV_VARS.openAIKey && 'opacity-70 cursor-not-allowed',
                             )}
                           />
@@ -738,7 +742,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                             placeholder="https://api.openai.com/v1"
                             disabled={Boolean(ENV_VARS.openAIBaseUrl)}
                             className={clsx(
-                              'w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
+                              'w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
                               ENV_VARS.openAIBaseUrl && 'opacity-70 cursor-not-allowed',
                             )}
                           />
@@ -766,7 +770,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                             placeholder="sk-..."
                             disabled={Boolean(ENV_VARS.siliconFlowKey)}
                             className={clsx(
-                              'w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
+                              'w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
                               ENV_VARS.siliconFlowKey && 'opacity-70 cursor-not-allowed',
                             )}
                           />
@@ -803,7 +807,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                             placeholder="https://api.siliconflow.cn/v1"
                             disabled={Boolean(ENV_VARS.siliconFlowBaseUrl)}
                             className={clsx(
-                              'w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
+                              'w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
                               ENV_VARS.siliconFlowBaseUrl && 'opacity-70 cursor-not-allowed',
                             )}
                           />
@@ -837,7 +841,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                           </span>
                         )}
                         {modelsError && (
-                          <span className="text-amber-600 dark:text-amber-400" title={modelsError}>
+                          <span className="text-primary-600 dark:text-primary-400" title={modelsError}>
                             ⚠ Using fallback models
                           </span>
                         )}
@@ -921,7 +925,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                               onClick={() => setIsOpen(!isOpen)}
                               className={clsx(
                                 'w-full flex items-center justify-between px-3 py-2.5 bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm transition-all text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-zinc-800',
-                                isOpen && 'ring-2 ring-cyan-500/20 border-cyan-500',
+                                isOpen && 'ring-2 ring-primary-500/20 border-primary-500',
                               )}
                             >
                               <span>{currentLabel}</span>
@@ -948,7 +952,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                                     >
                                       <span>{opt.label}</span>
                                       {value === opt.value && (
-                                        <Check size={14} className="text-cyan-500" />
+                                        <Check size={14} className="text-primary-500" />
                                       )}
                                     </button>
                                   ))}
@@ -961,7 +965,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                                     className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
                                   >
                                     <span>Custom...</span>
-                                    {isCustom && <Check size={14} className="text-cyan-500" />}
+                                    {isCustom && <Check size={14} className="text-primary-500" />}
                                   </button>
                                 </div>
                               </div>
@@ -978,7 +982,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                                 value={value}
                                 onChange={e => onChange(e.target.value)}
                                 placeholder="Enter your own model id"
-                                className="w-full px-3 py-2 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm bg-gray-50 dark:bg-zinc-950 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
+                                className="w-full px-3 py-2 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm bg-gray-50 dark:bg-zinc-950 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
                               />
                             </div>
                           )}
@@ -1034,7 +1038,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                           placeholder="https://your-project.supabase.co"
                           disabled={Boolean(ENV_VARS.supabaseUrl)}
                           className={clsx(
-                            'w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
+                            'w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
                             ENV_VARS.supabaseUrl && 'opacity-70 cursor-not-allowed',
                           )}
                         />
@@ -1057,7 +1061,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                           placeholder="••••••••••••••••••••••••••••••••"
                           disabled={Boolean(ENV_VARS.supabaseKey)}
                           className={clsx(
-                            'w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
+                            'w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
                             ENV_VARS.supabaseKey && 'opacity-70 cursor-not-allowed',
                           )}
                         />
@@ -1070,7 +1074,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                     <button
                       onClick={handleTestConnection}
                       disabled={testing || !supabaseUrl || !supabaseKey}
-                      className="self-end px-4 py-2 text-xs font-medium text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-900/20 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="self-end px-4 py-2 text-xs font-medium text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {testing ? 'Testing...' : 'Test Connection & Database Tables'}
                     </button>
@@ -1117,6 +1121,56 @@ const SettingsModal = ({ isOpen, onClose }) => {
               </div>
             )}
 
+            {activeTab === 'interface' && (
+              <div className="flex flex-col gap-8 max-w-2xl">
+                <div className="flex flex-col gap-1">
+                  <label className="text-sm font-medium text-gray-900 dark:text-white">
+                    Theme Color
+                  </label>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Customize the look and feel of your workspace.
+                  </p>
+                </div>
+                
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                  {Object.entries(THEMES).map(([key, theme]) => (
+                    <button
+                      key={key}
+                      onClick={() => setThemeColor(key)}
+                      className={clsx(
+                        'relative flex flex-col items-center gap-3 p-4 rounded-xl border transition-all',
+                        themeColor === key
+                          ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/10 ring-1 ring-primary-500/20'
+                          : 'border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-gray-50 dark:hover:bg-zinc-800'
+                      )}
+                    >
+                      <div className="flex gap-1">
+                        <div 
+                          className="w-6 h-6 rounded-full shadow-sm"
+                          style={{ backgroundColor: theme.colors['--color-primary-500'] }} 
+                        />
+                        <div 
+                          className="w-6 h-6 rounded-full shadow-sm -ml-2"
+                          style={{ backgroundColor: theme.colors['--color-primary-300'] }} 
+                        />
+                      </div>
+                      <span className={clsx(
+                        "text-sm font-medium",
+                        themeColor === key ? 'text-primary-700 dark:text-primary-300' : 'text-gray-700 dark:text-gray-300'
+                      )}>
+                        {theme.label}
+                      </span>
+                      {themeColor === key && (
+                        <div className="absolute top-3 right-3 text-primary-500">
+                          <Check size={16} />
+                        </div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {activeTab === 'chat' && (
               <div className="flex flex-col gap-8 max-w-2xl">
                 <div className="flex flex-col gap-2">
@@ -1135,7 +1189,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                     onChange={e =>
                       setContextMessageLimit(Math.min(50, Math.max(1, Number(e.target.value) || 1)))
                     }
-                    className="w-32 mt-1 px-3 py-2 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600"
+                    className="w-32 mt-1 px-3 py-2 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600"
                   />
                 </div>
 
@@ -1153,7 +1207,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                     onChange={e => setSystemPrompt(e.target.value)}
                     placeholder="You are a helpful AI assistant..."
                     rows={6}
-                    className="w-full p-4 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600 resize-none"
+                    className="w-full p-4 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600 resize-none"
                   />
                 </div>
               </div>
@@ -1193,7 +1247,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                             ? 'deepseek-chat'
                             : 'gpt-4o'
                       }
-                      className="w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600"
+                      className="w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600"
                     />
                   </div>
                   <p className="text-[10px] text-gray-400">
@@ -1217,7 +1271,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                 <div className="flex flex-col gap-2 items-center">
                   <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
                     Qurio
-                    <span className="px-2 py-0.5 rounded-full bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300 text-[10px] font-bold tracking-wide uppercase border border-cyan-200 dark:border-cyan-800">
+                    <span className="px-2 py-0.5 rounded-full bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 text-[10px] font-bold tracking-wide uppercase border border-primary-200 dark:border-primary-800">
                       Beta
                     </span>
                   </h1>
@@ -1308,14 +1362,14 @@ const SettingsModal = ({ isOpen, onClose }) => {
             </div>
 
             {initModalResult && (
-              <div className="rounded-lg border border-amber-200 dark:border-amber-900/40 bg-amber-50 dark:bg-amber-900/20 p-4 space-y-2">
-                <div className="text-sm font-medium text-amber-900 dark:text-amber-100">
+              <div className="rounded-lg border border-primary-200 dark:border-primary-900/40 bg-primary-50 dark:bg-primary-900/20 p-4 space-y-2">
+                <div className="text-sm font-medium text-primary-900 dark:text-primary-100">
                   {initModalResult.connection
                     ? 'Connection ok, but schema needs setup.'
                     : 'Connection failed. Check URL/key, then run init.sql.'}
                 </div>
                 {initModalResult.tables && (
-                  <div className="flex flex-wrap gap-2 text-xs text-amber-800 dark:text-amber-100">
+                  <div className="flex flex-wrap gap-2 text-xs text-primary-800 dark:text-primary-100">
                     {requiredTables.map(table => {
                       const exists = initModalResult.tables?.[table]
                       return (
@@ -1325,7 +1379,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                             'px-2 py-1 rounded-md border',
                             exists
                               ? 'border-emerald-200 dark:border-emerald-900/40 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-800 dark:text-emerald-100'
-                              : 'border-amber-200 dark:border-amber-900/40 bg-amber-100/70 dark:bg-amber-900/40',
+                              : 'border-primary-200 dark:border-primary-900/40 bg-primary-100/70 dark:bg-primary-900/40',
                           )}
                         >
                           {exists ? 'Ready' : 'Missing'} · {table}
@@ -1335,7 +1389,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                   </div>
                 )}
                 {getMissingTables(initModalResult).length > 0 && (
-                  <div className="text-xs text-amber-800 dark:text-amber-100">
+                  <div className="text-xs text-primary-800 dark:text-primary-100">
                     Missing: {getMissingTables(initModalResult).join(', ')}
                   </div>
                 )}
@@ -1375,7 +1429,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
               <button
                 onClick={handleRetestAfterInit}
                 disabled={retestingDb}
-                className="px-4 py-2 rounded-lg text-sm font-medium bg-cyan-500 text-white hover:bg-cyan-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
+                className="px-4 py-2 rounded-lg text-sm font-medium bg-primary-500 text-white hover:bg-primary-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 <RefreshCw size={16} className={retestingDb ? 'animate-spin' : ''} />
                 {retestingDb ? 'Re-testing...' : 'Re-test'}

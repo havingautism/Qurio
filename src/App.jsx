@@ -8,6 +8,8 @@ import { initSupabase } from './lib/supabase'
 import { listSpaces, createSpace, updateSpace, deleteSpace } from './lib/spacesService'
 import { listConversations } from './lib/conversationsService'
 import { ToastProvider } from './contexts/ToastContext'
+import { applyTheme } from './lib/themes'
+import { loadSettings } from './lib/settings'
 
 export const AppContext = React.createContext(null)
 export const useAppContext = () => React.useContext(AppContext)
@@ -81,7 +83,29 @@ function App() {
 
     mediaQuery.addEventListener('change', handleChange)
     return () => mediaQuery.removeEventListener('change', handleChange)
+    return () => mediaQuery.removeEventListener('change', handleChange)
   }, [theme])
+
+  // Apply User Configured Theme Color
+  useEffect(() => {
+    const applyConfiguredTheme = () => {
+      const settings = loadSettings()
+      if (settings.themeColor) {
+        applyTheme(settings.themeColor)
+      }
+    }
+
+    // Apply immediately
+    applyConfiguredTheme()
+
+    // Re-apply on settings change
+    const handleSettingsChange = () => {
+      applyConfiguredTheme()
+    }
+
+    window.addEventListener('settings-changed', handleSettingsChange)
+    return () => window.removeEventListener('settings-changed', handleSettingsChange)
+  }, [])
 
   const cycleTheme = () => {
     setTheme(prev => {
@@ -236,7 +260,7 @@ function App() {
   return (
     <ToastProvider>
       <GitHubPagesRedirectHandler />
-      <div className="flex min-h-screen bg-background text-foreground font-sans selection:bg-cyan-500/30">
+      <div className="flex min-h-screen bg-background text-foreground font-sans selection:bg-primary-500/30">
         <Sidebar
           isOpen={isSidebarOpen}
           onClose={() => setIsSidebarOpen(false)}

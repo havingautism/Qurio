@@ -307,7 +307,7 @@ const MainContent = ({
 
             {/* Search Box */}
             <div className="w-full relative group">
-              <div className="absolute inset-0 bg-linear-to-r from-cyan-500/20 via-blue-500/15 to-purple-500/20 rounded-xl blur-2xl opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-500 pointer-events-none" />
+              <div className="absolute inset-0 bg-linear-to-r from-primary-500/20 via-blue-500/15 to-purple-500/20 rounded-xl blur-2xl opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-500 pointer-events-none" />
               <div className="relative bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-xl shadow-sm hover:shadow-md transition-all duration-300 p-4">
                 {homeAttachments.length > 0 && (
                   <div className="flex gap-2 mb-3 px-1 overflow-x-auto py-1">
@@ -364,7 +364,7 @@ const MainContent = ({
                       onClick={handleHomeFileUpload}
                       className={`p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
                         homeAttachments.length > 0
-                          ? 'text-cyan-500'
+                          ? 'text-primary-500'
                           : 'text-gray-500 dark:text-gray-400'
                       }`}
                     >
@@ -374,7 +374,7 @@ const MainContent = ({
                       onClick={() => setIsHomeThinkingActive(!isHomeThinkingActive)}
                       className={`p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
                         isHomeThinkingActive
-                          ? 'text-cyan-500 bg-gray-100 dark:bg-zinc-800'
+                          ? 'text-primary-500 bg-gray-100 dark:bg-zinc-800'
                           : 'text-gray-500 dark:text-gray-400'
                       }`}
                     >
@@ -390,7 +390,7 @@ const MainContent = ({
                       onClick={() => setIsHomeSearchActive(!isHomeSearchActive)}
                       className={`p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
                         isHomeSearchActive
-                          ? 'text-cyan-500 bg-gray-100 dark:bg-zinc-800'
+                          ? 'text-primary-500 bg-gray-100 dark:bg-zinc-800'
                           : 'text-gray-500 dark:text-gray-400'
                       }`}
                     >
@@ -404,7 +404,7 @@ const MainContent = ({
                         className={`px-3 py-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
                           isHomeSpaceAuto
                             ? 'text-gray-500 dark:text-gray-400'
-                            : 'text-cyan-500 bg-gray-100 dark:bg-zinc-800'
+                            : 'text-primary-500 bg-gray-100 dark:bg-zinc-800'
                         }`}
                       >
                         <LayoutGrid size={18} />
@@ -422,12 +422,12 @@ const MainContent = ({
                               onClick={handleSelectHomeSpaceAuto}
                               className={`flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left ${
                                 isHomeSpaceAuto
-                                  ? 'text-cyan-500'
+                                  ? 'text-primary-500'
                                   : 'text-gray-700 dark:text-gray-200'
                               }`}
                             >
                               <span className="text-sm font-medium">Auto</span>
-                              {isHomeSpaceAuto && <Check size={14} className="text-cyan-500" />}
+                              {isHomeSpaceAuto && <Check size={14} className="text-primary-500" />}
                             </button>
                             {spaces.length > 0 && (
                               <div className="h-px bg-gray-100 dark:bg-zinc-800 my-1" />
@@ -448,7 +448,7 @@ const MainContent = ({
                                       {space.label}
                                     </span>
                                   </div>
-                                  {isSelected && <Check size={14} className="text-cyan-500" />}
+                                  {isSelected && <Check size={14} className="text-primary-500" />}
                                 </button>
                               )
                             })}
@@ -462,7 +462,7 @@ const MainContent = ({
                     <button
                       onClick={handleStartChat}
                       disabled={!homeInput.trim() && homeAttachments.length === 0}
-                      className="p-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-full transition-colors disabled:opacity-50  disabled:hover:bg-cyan-500"
+                      className="p-2 bg-primary-500 hover:bg-primary-600 text-white rounded-full transition-colors disabled:opacity-50  disabled:hover:bg-primary-500"
                     >
                       <ArrowRight size={18} />
                     </button>

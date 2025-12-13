@@ -28,6 +28,8 @@ import { deleteConversation } from '../lib/supabase'
 import ConfirmationModal from './ConfirmationModal'
 import { useToast } from '../contexts/ToastContext'
 
+const SIDEBAR_FETCH_LIMIT = 20
+
 const Sidebar = ({
   isOpen = false, // Mobile state
   onClose, // Mobile state
@@ -63,7 +65,7 @@ const Sidebar = ({
   // Spaces interaction state
   const [expandedSpaces, setExpandedSpaces] = useState(new Set())
   const [spaceConversations, setSpaceConversations] = useState({}) // { [spaceId]: { items: [], nextCursor: null, hasMore: true, loading: false } }
-  const [spacesLimit, setSpacesLimit] = useState(10)
+  const [spacesLimit, setSpacesLimit] = useState(SIDEBAR_FETCH_LIMIT)
   const [spacesLoadingMore, setSpacesLoadingMore] = useState(false)
 
   const toast = useToast()
@@ -95,7 +97,7 @@ const Sidebar = ({
         nextCursor: newCursor,
         hasMore: moreAvailable,
       } = await listConversations({
-        limit: 20,
+        limit: SIDEBAR_FETCH_LIMIT,
         cursor: isInitial ? null : nextCursor,
       })
 
@@ -138,7 +140,7 @@ const Sidebar = ({
   // Reset visible spaces count when switching back to the Spaces tab
   useEffect(() => {
     if (activeTab === 'spaces') {
-      setSpacesLimit(10)
+      setSpacesLimit(SIDEBAR_FETCH_LIMIT)
     }
   }, [activeTab])
 
@@ -271,7 +273,7 @@ const Sidebar = ({
       const cursor = isInitial ? null : currentData?.nextCursor
 
       const { data, nextCursor, hasMore } = await listConversationsBySpace(spaceId, {
-        limit: 10,
+        limit: SIDEBAR_FETCH_LIMIT,
         cursor,
       })
 
@@ -683,7 +685,9 @@ const Sidebar = ({
                               <span
                                 className={clsx(
                                   'text-[10px]',
-                                  isActive ? 'text-primary-600 dark:text-primary-400' : 'text-gray-400',
+                                  isActive
+                                    ? 'text-primary-600 dark:text-primary-400'
+                                    : 'text-gray-400',
                                 )}
                               >
                                 {new Date(conv.created_at).toLocaleDateString()}
@@ -902,7 +906,7 @@ const Sidebar = ({
                                 )}
                               </button>
                             ) : (
-                              <div className="flex items-center gap-2 text-[10px] text-gray-400 py-2">
+                              <div className="hidden  items-center gap-2 text-[10px] text-gray-400 py-2">
                                 <span className="flex-1 h-px bg-gray-200 dark:bg-zinc-800" />
                                 <span className="whitespace-nowrap">No more threads</span>
                                 <span className="flex-1 h-px bg-gray-200 dark:bg-zinc-800" />
@@ -932,7 +936,7 @@ const Sidebar = ({
                           e.stopPropagation()
                           setSpacesLoadingMore(true)
                           setTimeout(() => {
-                            setSpacesLimit(prev => prev + 10)
+                            setSpacesLimit(prev => prev + SIDEBAR_FETCH_LIMIT)
                             setSpacesLoadingMore(false)
                           }, 150)
                         }}

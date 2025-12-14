@@ -23,6 +23,7 @@ import {
   listConversations,
   listConversationsBySpace,
   toggleFavorite,
+  listBookmarkedConversations,
 } from '../lib/conversationsService'
 import { deleteConversation } from '../lib/supabase'
 import ConfirmationModal from './ConfirmationModal'
@@ -59,6 +60,13 @@ const Sidebar = ({
   const [hasMore, setHasMore] = useState(true)
   const [isConversationsLoading, setIsConversationsLoading] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
+
+  // Dedicated Bookmarks State
+  const [bookmarkedConversations, setBookmarkedConversations] = useState([])
+  const [bookmarkNextCursor, setBookmarkNextCursor] = useState(null)
+  const [bookmarkHasMore, setBookmarkHasMore] = useState(true)
+  const [isBookmarksLoading, setIsBookmarksLoading] = useState(false)
+  const [bookmarksLoadingMore, setBookmarksLoadingMore] = useState(false)
   const [conversationToDelete, setConversationToDelete] = useState(null)
   const [expandedActionId, setExpandedActionId] = useState(null)
 
@@ -120,10 +128,51 @@ const Sidebar = ({
     }
   }
 
+  const fetchBookmarkedConversations = async (isInitial = true) => {
+    try {
+      if (isInitial) {
+        setIsBookmarksLoading(true)
+      } else {
+        setBookmarksLoadingMore(true)
+      }
+
+      const {
+        data,
+        error,
+        nextCursor: newCursor,
+        hasMore: moreAvailable,
+      } = await listBookmarkedConversations({
+        limit: SIDEBAR_FETCH_LIMIT,
+        cursor: isInitial ? null : bookmarkNextCursor,
+      })
+
+      if (!error && data) {
+        if (isInitial) {
+          setBookmarkedConversations(data)
+        } else {
+          setBookmarkedConversations(prev => [...prev, ...data])
+        }
+        setBookmarkNextCursor(newCursor)
+        setBookmarkHasMore(moreAvailable)
+      } else {
+        console.error('Failed to load bookmarked conversations:', error)
+      }
+    } catch (err) {
+      console.error('Error loading bookmarked conversations:', err)
+    } finally {
+      setIsBookmarksLoading(false)
+      setBookmarksLoadingMore(false)
+    }
+  }
+
   useEffect(() => {
     fetchConversations(true)
+    fetchBookmarkedConversations(true)
 
-    const handleConversationsChanged = () => fetchConversations(true)
+    const handleConversationsChanged = () => {
+      fetchConversations(true)
+      fetchBookmarkedConversations(true)
+    }
     window.addEventListener('conversations-changed', handleConversationsChanged)
     return () => {
       window.removeEventListener('conversations-changed', handleConversationsChanged)
@@ -143,6 +192,7 @@ const Sidebar = ({
       setSpacesLimit(SIDEBAR_FETCH_LIMIT)
     }
   }, [activeTab])
+
 
   const navItems = [
     { id: 'library', icon: Library, label: 'Library' },
@@ -207,6 +257,9 @@ const Sidebar = ({
     if (success) {
       // Refresh list
       fetchConversations(true)
+      if (conversationToDelete.is_favorited) {
+        fetchBookmarkedConversations(true)
+      }
 
       // Only navigate home if we deleted the currently active conversation
       if (conversationToDelete.id === activeConversationId) {
@@ -223,22 +276,46 @@ const Sidebar = ({
   const handleToggleFavorite = async conversation => {
     const newStatus = !conversation.is_favorited
     // Optimistic update
-    setConversations(prev =>
-      prev.map(c => (c.id === conversation.id ? { ...c, is_favorited: newStatus } : c)),
-    )
-
-    const { error } = await toggleFavorite(conversation.id, newStatus)
-
-    if (error) {
-      console.error('Failed to toggle favorite:', error)
-      toast.error('Failed to update favorite status')
-      // Revert optimistic update
       setConversations(prev =>
-        prev.map(c => (c.id === conversation.id ? { ...c, is_favorited: !newStatus } : c)),
+        prev.map(c => (c.id === conversation.id ? { ...c, is_favorited: newStatus } : c)),
       )
-    } else {
-      toast.success(newStatus ? 'Added to bookmarks' : 'Removed from bookmarks')
-    }
+
+      // Optimistically update bookmarks list
+      // If we are adding to favorites
+      if (newStatus) {
+        // We can't easily add it to the correct sorted position without a refetch or guessing.
+        // But simply prepending or checking sort might be enough for a quick UI response.
+        // For simplicity and correctness with pagination, we might just want to refetch or prepend if it's 'created_at' desc.
+        // Let's try to just prepend it to bookmarks list if it doesn't exist.
+        setBookmarkedConversations(prev => {
+          if (prev.find(c => c.id === conversation.id)) return prev
+          return [{ ...conversation, is_favorited: true }, ...prev]
+        })
+      } else {
+        // Removing from favorites
+        setBookmarkedConversations(prev => prev.filter(c => c.id !== conversation.id))
+      }
+
+      const { error } = await toggleFavorite(conversation.id, newStatus)
+
+      if (error) {
+        console.error('Failed to toggle favorite:', error)
+        toast.error('Failed to update favorite status')
+        // Revert optimistic update
+        setConversations(prev =>
+          prev.map(c => (c.id === conversation.id ? { ...c, is_favorited: !newStatus } : c)),
+        )
+        // Revert bookmarks list changes
+        if (newStatus) {
+          // We added it, so remove it
+          setBookmarkedConversations(prev => prev.filter(c => c.id !== conversation.id))
+        } else {
+          // We removed it, so add it back
+          setBookmarkedConversations(prev => [{ ...conversation, is_favorited: true }, ...prev])
+        }
+      } else {
+        toast.success(newStatus ? 'Added to bookmarks' : 'Removed from bookmarks')
+      }
   }
 
   const toggleSpace = async spaceId => {
@@ -299,17 +376,18 @@ const Sidebar = ({
   // Limit conversations per section for display
   const MAX_CONVERSATIONS_PER_SECTION = 1000 // Effectively no limit, showing all fetched
 
-  const filteredConversations = useMemo(
-    () => (displayTab === 'bookmarks' ? conversations.filter(c => c.is_favorited) : conversations),
-    [conversations, displayTab],
-  )
+  // No longer needed to filter client side for bookmarks tab display
+  // But we still might want filteredConversations for logic if used elsewhere?
+  // Actually, we should just use bookmarkedConversations for the bookmarks tab.
+  const displayConversations =
+    displayTab === 'bookmarks' ? bookmarkedConversations : conversations
 
   // Check if we should show "See All" button for library (unused now)
   // const shouldShowSeeAllForLibrary = ...
 
   // Group conversations by date (for library)
   const groupedConversations = useMemo(() => {
-    const groups = groupConversationsByDate(filteredConversations)
+    const groups = groupConversationsByDate(conversations)
     // Limit conversations per section and track if there are more
     return groups.map(section => ({
       ...section,
@@ -317,7 +395,7 @@ const Sidebar = ({
       hasMore: section.items.length > MAX_CONVERSATIONS_PER_SECTION,
       totalCount: section.items.length,
     }))
-  }, [filteredConversations])
+  }, [conversations])
 
   // Spaces list pagination inside sidebar
   const visibleSpaces = useMemo(() => {
@@ -498,9 +576,9 @@ const Sidebar = ({
                       <div>No conversations yet.</div>
                     </div>
                   )}
-                {!isConversationsLoading &&
+                {!isBookmarksLoading &&
                   displayTab === 'bookmarks' &&
-                  filteredConversations.length === 0 && (
+                  displayConversations.length === 0 && (
                     <div className="flex flex-col items-center gap-2 text-xs text-gray-500 dark:text-gray-400 px-2 py-3">
                       <Coffee size={24} className="text-black dark:text-white" />
                       <div>No bookmarked conversations.</div>
@@ -652,7 +730,7 @@ const Sidebar = ({
 
                 {/* For bookmarks tab, match library interaction */}
                 {displayTab === 'bookmarks' &&
-                  filteredConversations.map(conv => {
+                  displayConversations.map(conv => {
                     const isActive = conv.id === activeConversationId
                     const isExpanded = expandedActionId === conv.id
                     return (
@@ -759,25 +837,25 @@ const Sidebar = ({
                   })}
                 {/* Loading indicator for bookmarks initial fetch */}
                 {displayTab === 'bookmarks' &&
-                  isConversationsLoading &&
-                  filteredConversations.length === 0 && (
+                  isBookmarksLoading &&
+                  displayConversations.length === 0 && (
                     <div className="flex justify-center py-2">
                       <DotLoader />
                     </div>
                   )}
 
-                {displayTab === 'bookmarks' && filteredConversations.length > 0 && (
+                {displayTab === 'bookmarks' && displayConversations.length > 0 && (
                   <div className="px-2 py-2">
-                    {hasMore ? (
+                    {bookmarkHasMore ? (
                       <button
                         onClick={e => {
                           e.stopPropagation()
-                          fetchConversations(false)
+                          fetchBookmarkedConversations(false)
                         }}
-                        disabled={loadingMore}
+                        disabled={bookmarksLoadingMore}
                         className="w-full py-2 text-xs font-medium text-gray-700 dark:text-gray-200 bg-[#9c9d8a29] dark:bg-zinc-800 hover:bg-[#9c9d8a40] dark:hover:bg-zinc-700 rounded transition-colors flex items-center justify-center gap-2"
                       >
-                        {loadingMore ? <DotLoader /> : 'Load more'}
+                        {bookmarksLoadingMore ? <DotLoader /> : 'Load more'}
                       </button>
                     ) : (
                       <div className="flex items-center gap-2 text-[10px] text-gray-400 py-2">

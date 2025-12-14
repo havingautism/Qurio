@@ -325,7 +325,7 @@ const LibraryView = () => {
                       <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-3 truncate flex items-center gap-2">
                         {conv.title || 'Untitled Thread'}
                         {conv.is_favorited && (
-                          <Bookmark size={14} className="text-yellow-500 fill-current shrink-0" />
+                          <Bookmark size={14} className="text-primary-500 fill-current shrink-0" />
                         )}
                       </h3>
 
@@ -359,12 +359,11 @@ const LibraryView = () => {
                           // Show on hover on desktop
                           'md:opacity-0 md:group-hover:opacity-100',
                           // Ensure button has minimum size for touch
-                          'min-w-[44px] min-h-[44px] flex items-center justify-center'
+                          'min-w-[44px] min-h-[44px] flex items-center justify-center',
                         )}
                       >
                         <MoreHorizontal size={18} strokeWidth={2} />
                       </button>
-
                     </div>
                   </div>
                 </div>
@@ -425,10 +424,7 @@ const LibraryView = () => {
             {
               label: activeConv.is_favorited ? 'Remove Bookmark' : 'Add Bookmark',
               icon: (
-                <Bookmark
-                  size={14}
-                  className={activeConv.is_favorited ? 'fill-current' : ''}
-                />
+                <Bookmark size={14} className={activeConv.is_favorited ? 'fill-current' : ''} />
               ),
               onClick: () => handleToggleFavorite(activeConv),
               className: activeConv.is_favorited ? 'text-yellow-500' : '',

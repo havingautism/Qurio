@@ -109,7 +109,7 @@ export const PROVIDERS = {
     name: 'SiliconFlow',
     getCredentials: settings => ({
       apiKey: settings.SiliconFlowKey || settings.OpenAICompatibilityKey,
-      baseUrl: settings.SiliconFlowUrl || settings.OpenAICompatibilityUrl,
+      baseUrl: siliconflow.SILICONFLOW_BASE_URL,
     }),
     getTools: () => undefined,
     getThinking: isThinkingActive =>

@@ -23,6 +23,7 @@ import { testConnection } from '../lib/supabase'
 import { getModelsForProvider } from '../lib/models_api'
 import useScrollLock from '../hooks/useScrollLock'
 import { THEMES } from '../lib/themes'
+import { SILICONFLOW_BASE_URL } from '../lib/siliconflow'
 
 const ENV_VARS = {
   supabaseUrl: import.meta.env.PUBLIC_SUPABASE_URL,
@@ -31,7 +32,6 @@ const ENV_VARS = {
   openAIBaseUrl: import.meta.env.PUBLIC_OPENAI_BASE_URL,
   googleApiKey: import.meta.env.PUBLIC_GOOGLE_API_KEY,
   siliconFlowKey: import.meta.env.PUBLIC_SILICONFLOW_API_KEY,
-  siliconFlowBaseUrl: import.meta.env.PUBLIC_SILICONFLOW_BASE_URL,
 }
 
 // Minimal copy of supabase/init.sql for quick remediation in-app
@@ -172,7 +172,6 @@ const SettingsModal = ({ isOpen, onClose }) => {
   const [OpenAICompatibilityKey, setOpenAICompatibilityKey] = useState('')
   const [OpenAICompatibilityUrl, setOpenAICompatibilityUrl] = useState('')
   const [SiliconFlowKey, setSiliconFlowKey] = useState('')
-  const [SiliconFlowUrl, setSiliconFlowUrl] = useState('')
   const [apiProvider, setApiProvider] = useState('gemini')
   const [googleApiKey, setGoogleApiKey] = useState('')
   const [supabaseUrl, setSupabaseUrl] = useState('')
@@ -241,7 +240,6 @@ const SettingsModal = ({ isOpen, onClose }) => {
       if (settings.OpenAICompatibilityUrl)
         setOpenAICompatibilityUrl(settings.OpenAICompatibilityUrl)
       if (settings.SiliconFlowKey) setSiliconFlowKey(settings.SiliconFlowKey)
-      if (settings.SiliconFlowUrl) setSiliconFlowUrl(settings.SiliconFlowUrl)
       if (settings.apiProvider) setApiProvider(settings.apiProvider)
       if (settings.googleApiKey) setGoogleApiKey(settings.googleApiKey)
       if (settings.systemPrompt) setSystemPrompt(settings.systemPrompt)
@@ -303,7 +301,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
       } else if (targetProvider === 'siliconflow') {
         credentials = {
           apiKey: SiliconFlowKey,
-          baseUrl: SiliconFlowUrl || 'https://api.siliconflow.cn/v1',
+          baseUrl: SILICONFLOW_BASE_URL,
         }
       }
 
@@ -392,7 +390,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
         return () => clearTimeout(debounceTimer)
       }
     }
-  }, [googleApiKey, SiliconFlowKey, SiliconFlowUrl])
+  }, [googleApiKey, SiliconFlowKey])
 
   const requiredTables = ['spaces', 'conversations', 'conversation_messages']
 
@@ -462,7 +460,6 @@ const SettingsModal = ({ isOpen, onClose }) => {
       OpenAICompatibilityKey,
       OpenAICompatibilityUrl,
       SiliconFlowKey,
-      SiliconFlowUrl,
       supabaseUrl,
       supabaseKey,
       systemPrompt,
@@ -798,27 +795,10 @@ const SettingsModal = ({ isOpen, onClose }) => {
                         )}
                         {renderEnvHint(Boolean(ENV_VARS.siliconFlowKey))}
                       </div>
-                      <div className="flex flex-col gap-2">
-                        <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                          Base URL
-                        </label>
-                        <div className="relative">
-                          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                            <Link size={16} />
-                          </div>
-                          <input
-                            type="text"
-                            value={SiliconFlowUrl}
-                            onChange={e => setSiliconFlowUrl(e.target.value)}
-                            placeholder="https://api.siliconflow.cn/v1"
-                            disabled={Boolean(ENV_VARS.siliconFlowBaseUrl)}
-                            className={clsx(
-                              'w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
-                              ENV_VARS.siliconFlowBaseUrl && 'opacity-70 cursor-not-allowed',
-                            )}
-                          />
-                        </div>
-                        {renderEnvHint(Boolean(ENV_VARS.siliconFlowBaseUrl))}
+                      <div className="flex flex-col gap-1 text-xs text-gray-500 dark:text-gray-400">
+                        <span className="font-medium text-gray-700 dark:text-gray-300">Base URL</span>
+                        <span className="font-mono text-[11px]">{SILICONFLOW_BASE_URL}</span>
+                        <span>SiliconFlow uses a fixed endpoint and no env override is needed.</span>
                       </div>
                     </div>
                   )}

@@ -19,7 +19,9 @@ import {
   Brain,
   Sparkles,
   ArrowDown,
+  ArrowDown,
   Menu,
+  Layers,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useAppContext } from '../App'
@@ -73,6 +75,7 @@ const ChatInterface = ({
   // New state for toggles and attachments
   const [isSearchActive, setIsSearchActive] = useState(false)
   const [isThinkingActive, setIsThinkingActive] = useState(false)
+  const [isRelatedActive, setIsRelatedActive] = useState(false)
 
   const [selectedSpace, setSelectedSpace] = useState(
     initialSpaceSelection.mode === 'manual' ? initialSpaceSelection.space : null,
@@ -138,9 +141,9 @@ const ChatInterface = ({
       hasInitialized.current = true
 
       // Set initial state
-      // Set initial state
       if (initialToggles.search) setIsSearchActive(true)
       if (initialToggles.thinking) setIsThinkingActive(true)
+      if (initialToggles.related) setIsRelatedActive(true)
 
       // Trigger send immediately
       await handleSendMessage(initialMessage, initialAttachments, initialToggles)
@@ -510,6 +513,7 @@ const ChatInterface = ({
       const attToSend = attOverride !== null ? attOverride : []
       const searchActive = togglesOverride ? togglesOverride.search : isSearchActive
       const thinkingActive = togglesOverride ? togglesOverride.thinking : isThinkingActive
+      const relatedActive = togglesOverride ? togglesOverride.related : isRelatedActive
 
       if (!textToSend.trim() && attToSend.length === 0) return
       if (isLoading) return
@@ -549,7 +553,7 @@ const ChatInterface = ({
       await sendMessage({
         text: textToSend,
         attachments: attToSend,
-        toggles: { search: searchActive, thinking: thinkingActive },
+        toggles: { search: searchActive, thinking: thinkingActive, related: relatedActive },
         settings,
         spaceInfo: { selectedSpace, isManualSpaceSelection },
         editingInfo,
@@ -921,8 +925,10 @@ const ChatInterface = ({
             apiProvider={settings.apiProvider}
             isSearchActive={isSearchActive}
             isThinkingActive={isThinkingActive}
+            isRelatedActive={isRelatedActive}
             onToggleSearch={() => setIsSearchActive(prev => !prev)}
             onToggleThinking={() => setIsThinkingActive(prev => !prev)}
+            onToggleRelated={() => setIsRelatedActive(prev => !prev)}
             quotedText={quotedText}
             onQuoteClear={() => {
               setQuotedText(null)
@@ -959,8 +965,10 @@ const InputBar = React.memo(
     apiProvider,
     isSearchActive,
     isThinkingActive,
+    isRelatedActive,
     onToggleSearch,
     onToggleThinking,
+    onToggleRelated,
     quotedText,
     onQuoteClear,
     onSend,
@@ -1139,6 +1147,17 @@ const InputBar = React.memo(
               >
                 <Brain size={18} />
                 <span className="hidden md:inline">Think</span>
+              </button>
+              <button
+                onClick={onToggleRelated}
+                className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
+                  isRelatedActive
+                    ? 'text-primary-500 bg-gray-200 dark:bg-zinc-700'
+                    : 'text-gray-500 dark:text-gray-400'
+                }`}
+              >
+                <Layers size={18} />
+                <span className="hidden md:inline">Related</span>
               </button>
               <button
                 disabled={apiProvider === 'openai_compatibility' || apiProvider === 'siliconflow'}

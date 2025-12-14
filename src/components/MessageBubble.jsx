@@ -342,7 +342,7 @@ const MessageBubble = ({
         />
       ),
       table: ({ node, ...props }) => (
-        <div className="overflow-x-auto my-4 w-fit rounded-lg border border-gray-200 dark:border-zinc-700 table-scrollbar code-scrollbar">
+        <div className="overflow-x-auto my-4 w-fit max-w-full rounded-lg border border-gray-200 dark:border-zinc-700 table-scrollbar code-scrollbar">
           <table className="w-auto divide-y divide-gray-200 dark:divide-zinc-700" {...props} />
         </div>
       ),

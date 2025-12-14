@@ -397,6 +397,7 @@ const callAIAPI = async (
           set,
           historyLengthBeforeSend === 0,
           firstUserText,
+          toggles,
         )
       },
       onError: err => {
@@ -450,6 +451,7 @@ const finalizeMessage = async (
   set,
   isFirstTurnOverride,
   firstUserText,
+  toggles = {},
 ) => {
   const normalizedThought = typeof result?.thought === 'string' ? result.thought.trim() : ''
   const normalizeContent = content => {
@@ -552,22 +554,25 @@ const finalizeMessage = async (
     }
   }
 
-  // Generate related questions
-  const sanitizedMessages = currentStore.messages.map(m => ({
-    role: m.role === 'ai' ? 'assistant' : m.role,
-    content: normalizeContent(m.content),
-  }))
+  // Generate related questions (only if enabled)
+  let related = []
+  if (toggles?.related) {
+    const sanitizedMessages = currentStore.messages.map(m => ({
+      role: m.role === 'ai' ? 'assistant' : m.role,
+      content: normalizeContent(m.content),
+    }))
 
-  const provider = getProvider(settings.apiProvider)
-  const credentials = provider.getCredentials(settings)
-  // Get the appropriate model for related questions task
-  const model = getModelForTask('generateRelatedQuestions', settings)
-  const related = await provider.generateRelatedQuestions(
-    sanitizedMessages.slice(-2), // Only use the last 2 messages (User + AI) for context
-    credentials.apiKey,
-    credentials.baseUrl,
-    model, // Pass the selected model for this task
-  )
+    const provider = getProvider(settings.apiProvider)
+    const credentials = provider.getCredentials(settings)
+    // Get the appropriate model for related questions task
+    const model = getModelForTask('generateRelatedQuestions', settings)
+    related = await provider.generateRelatedQuestions(
+      sanitizedMessages.slice(-2), // Only use the last 2 messages (User + AI) for context
+      credentials.apiKey,
+      credentials.baseUrl,
+      model, // Pass the selected model for this task
+    )
+  }
 
   // Attach sources to the last AI message (for Gemini search)
   if (result.sources && result.sources.length > 0) {

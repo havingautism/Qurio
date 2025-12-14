@@ -370,7 +370,7 @@ const MainContent = ({
 
             {/* Search Box */}
             <div className="home-search-box w-full relative group">
-              <div className="absolute inset-0 bg-linear-to-r from-primary-500/20 via-blue-500/15 to-purple-500/20 rounded-xl blur-2xl opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-500 pointer-events-none" />
+              <div className="absolute inset-0 input-glow-veil rounded-xl blur-2xl opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-500 pointer-events-none" />
               <div className="relative bg-user-bubble dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-xl shadow-sm hover:shadow-md transition-all duration-300 p-4">
                 {homeAttachments.length > 0 && (
                   <div className="flex gap-2 mb-3 px-1 overflow-x-auto py-1">

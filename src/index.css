@@ -57,10 +57,11 @@
   --color-primary-950: #33160F;
 
 
-  --background: #fffcf7;
+  /* Dynamic background variables injected by src/lib/themes.js */
+  --background: var(--theme-bg-light, #fffcf7);
   --foreground: #1f2937;
   /* gray-800 -> stone-800 */
-  --sidebar: #fffcf7;
+  --sidebar: var(--theme-sidebar-light, #fffcf7);
   /* stone-200 */
   --sidebar-foreground: #44403c;
   /* stone-700 */
@@ -68,13 +69,19 @@
   /* stone-300 */
 
   --user-bubble: #f7f2f1;
+
+  /* Glow defaults (Fox Rust) */
+  --theme-glow-1: rgba(234, 205, 196, 0.35);
+  --theme-glow-2: rgba(207, 146, 122, 0.28);
+  --theme-glow-3: rgba(153, 75, 48, 0.32);
 }
 
 .dark {
-  --background: #1c1917;
+  /* Dynamic background variables injected by src/lib/themes.js */
+  --background: var(--theme-bg-dark, #1c1917);
   --foreground: #e5e7eb;
   /* stone-950 */
-  --sidebar: #1c1917;
+  --sidebar: var(--theme-sidebar-dark, #1c1917);
   /* stone-900 */
   --sidebar-foreground: #a8a29e;
   /* stone-400 */
@@ -215,4 +222,14 @@ h6 {
 
 .dark .sidebar-scrollbar::-webkit-scrollbar-thumb:hover {
   background-color: #57534e; /* stone-600 */
+}
+
+/* Shared glow for primary input shells (home + chat) */
+.input-glow-veil {
+  background: linear-gradient(
+    125deg,
+    var(--theme-glow-1),
+    var(--theme-glow-2) 50%,
+    var(--theme-glow-3)
+  );
 }

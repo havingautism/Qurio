@@ -499,8 +499,11 @@ const MessageBubble = ({
   }
 
   const providerId = message.provider || apiProvider
-  const providerMeta =
-    PROVIDER_META[providerId] || { label: providerId || 'AI', logo: null, fallback: 'AI' }
+  const providerMeta = PROVIDER_META[providerId] || {
+    label: providerId || 'AI',
+    logo: null,
+    fallback: 'AI',
+  }
   const resolvedModel = message.model || defaultModel || 'default model'
 
   // Parse content using provider-specific logic
@@ -619,7 +622,11 @@ const MessageBubble = ({
       <div className="flex items-center gap-3 text-gray-900 dark:text-gray-100">
         <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-zinc-800 shadow-inner flex items-center justify-center overflow-hidden">
           {providerMeta.logo ? (
-            <img src={providerMeta.logo} alt={providerMeta.label} className="w-full h-full object-cover" />
+            <img
+              src={providerMeta.logo}
+              alt={providerMeta.label}
+              className="w-full h-full object-cover"
+            />
           ) : (
             <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
               {providerMeta.fallback?.slice(0, 2).toUpperCase()}
@@ -647,7 +654,7 @@ const MessageBubble = ({
           </button>
 
           {isThoughtExpanded && hasThoughtText && (
-            <div className="p-4 bg-user-bubble/50 font-mono! dark:bg-zinc-800/30 border-t border-gray-200 dark:border-zinc-700 text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+            <div className="p-4 bg-user-bubble/30 font-mono! dark:bg-zinc-800/30 border-t border-gray-200 dark:border-zinc-700 text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
               <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
                 {thoughtContent}
               </ReactMarkdown>

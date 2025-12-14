@@ -20,7 +20,7 @@
 - Chat-first UX: fast streaming replies, optional reasoning/thinking output, tool call support, rich markdown with code highlighting, and one-tap copy for AI messages.
 - Multi-provider ready: Gemini, SiliconFlow, and generic OpenAI-compatible providers with dual model slots (Lite + Default) and live model fetching (SiliconFlow lists chat sub-type models only).
 - Organized knowledge: spaces to group threads, a library view for recent conversations, bookmarks for quick recall, and a pin-able sidebar for focus.
-- Configurable context: custom system prompt, adjustable context window, and per-provider model IDs (including custom inputs and base URLs).
+- Configurable context: custom system prompt, adjustable context window, and per-provider model IDs (including custom inputs and OpenAI-compatible base URLs; SiliconFlow uses a fixed endpoint).
 - Media friendly: attach images directly in the chat input and render them inline in the transcript.
 - Built-in persistence: Supabase stores spaces, chat sessions, and messages with RLS isolation; test your connection from the Settings modal.
 - Polished interface: light/dark/system themes, emoji picker, and keyboard shortcuts (Enter to send, Shift+Enter for a new line).
@@ -50,7 +50,7 @@
    Copy `.env.example` to `.env` and fill in:
    - `PUBLIC_SUPABASE_URL`, `PUBLIC_SUPABASE_KEY`
    - `PUBLIC_GOOGLE_API_KEY` (Gemini)
-   - `PUBLIC_SILICONFLOW_API_KEY` and optional `PUBLIC_SILICONFLOW_BASE_URL`
+   - `PUBLIC_SILICONFLOW_API_KEY` (base URL is fixed to `https://api.siliconflow.cn/v1/`)
    - `PUBLIC_OPENAI_API_KEY` and optional `PUBLIC_OPENAI_BASE_URL`
 
 4. **Database**  
@@ -70,7 +70,7 @@
 
 ## Usage Tips
 - Open **Settings** to pick your provider, drop in API keys, test the Supabase connection, set the system prompt, and tune the context window.
-- Use the **Model** section to fetch the latest models for Gemini/SiliconFlow (SiliconFlow is filtered to chat-only) or type a custom model ID/base URL for any OpenAI-compatible endpoint.
+- Use the **Model** section to fetch the latest models for Gemini/SiliconFlow (SiliconFlow is filtered to chat-only) or type a custom model ID/base URL for OpenAI-compatible endpoints.
 - **Lite model** powers titles/related questions/space suggestions; **Default model** powers main chat responses.
 - Create and edit **Spaces**, move threads between them, and star favorites in **Bookmarks**. Browse recent conversations in **Library**.
 - Attach **images** directly in the chat input; copy AI responses with one click; toggle themes via the cycle control (light -> dark -> system).

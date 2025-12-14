@@ -1,6 +1,8 @@
 import OpenAI from 'openai'
 import { loadSettings } from './settings'
 
+export const SILICONFLOW_BASE_URL = 'https://api.siliconflow.cn/v1/'
+
 /**
  * Resolve model based on provided override or persisted settings.
  * For lite tasks, pass "liteModel"; otherwise default to "defaultModel".
@@ -72,7 +74,7 @@ const normalizeRelatedQuestions = payload => {
  * @param {string} config.baseUrl
  * @returns {OpenAI}
  */
-export const createOpenAIClient = ({ apiKey, baseUrl }) => {
+export const createOpenAIClient = ({ apiKey, baseUrl = SILICONFLOW_BASE_URL }) => {
   return new OpenAI({
     apiKey,
     baseURL: baseUrl,
@@ -99,7 +101,7 @@ export const createOpenAIClient = ({ apiKey, baseUrl }) => {
  */
 export const streamChatCompletion = async ({
   apiKey,
-  baseUrl,
+  baseUrl = SILICONFLOW_BASE_URL,
   model,
   messages,
   tools,
@@ -206,7 +208,7 @@ export const streamChatCompletion = async ({
 /**
  * Generate a title for the conversation.
  */
-export const generateTitle = async (firstMessage, apiKey, baseUrl, model) => {
+export const generateTitle = async (firstMessage, apiKey, baseUrl = SILICONFLOW_BASE_URL, model) => {
   try {
     const resolvedModel = resolveModel(model, 'liteModel')
     const client = createOpenAIClient({ apiKey, baseUrl })
@@ -231,7 +233,13 @@ export const generateTitle = async (firstMessage, apiKey, baseUrl, model) => {
 /**
  * Generate a title and suggest a space for the conversation.
  */
-export const generateTitleAndSpace = async (firstMessage, spaces, apiKey, baseUrl, model) => {
+export const generateTitleAndSpace = async (
+  firstMessage,
+  spaces,
+  apiKey,
+  baseUrl = SILICONFLOW_BASE_URL,
+  model,
+) => {
   try {
     const resolvedModel = resolveModel(model, 'liteModel')
     const client = createOpenAIClient({ apiKey, baseUrl })
@@ -270,7 +278,12 @@ export const generateTitleAndSpace = async (firstMessage, spaces, apiKey, baseUr
 /**
  * Generate related questions based on the conversation history.
  */
-export const generateRelatedQuestions = async (messages, apiKey, baseUrl, model) => {
+export const generateRelatedQuestions = async (
+  messages,
+  apiKey,
+  baseUrl = SILICONFLOW_BASE_URL,
+  model,
+) => {
   try {
     const resolvedModel = resolveModel(model, 'liteModel')
     const client = createOpenAIClient({ apiKey, baseUrl })

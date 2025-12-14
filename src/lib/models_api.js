@@ -77,7 +77,11 @@ export const fetchGeminiModels = async (apiKey, options = {}) => {
 }
 
 // Fetch available models from SiliconFlow
-export const fetchSiliconFlowModels = async (apiKey, baseUrl = 'https://api.siliconflow.cn/v1', options = {}) => {
+export const fetchSiliconFlowModels = async (
+  apiKey,
+  baseUrl = SILICONFLOW_BASE_URL,
+  options = {},
+) => {
   if (!apiKey) {
     throw new Error('API Key is required')
   }
@@ -178,3 +182,4 @@ export const getModelsForProvider = async (provider, credentials, options = {}) 
       return []
   }
 }
+import { SILICONFLOW_BASE_URL } from './siliconflow'

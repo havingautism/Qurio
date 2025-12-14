@@ -205,7 +205,6 @@ const Sidebar = ({
     }
   }, [activeTab])
 
-
   const navItems = [
     { id: 'library', icon: Library, label: 'Library' },
     { id: 'bookmarks', icon: Bookmark, label: 'Bookmarks' },
@@ -288,46 +287,46 @@ const Sidebar = ({
   const handleToggleFavorite = async conversation => {
     const newStatus = !conversation.is_favorited
     // Optimistic update
+    setConversations(prev =>
+      prev.map(c => (c.id === conversation.id ? { ...c, is_favorited: newStatus } : c)),
+    )
+
+    // Optimistically update bookmarks list
+    // If we are adding to favorites
+    if (newStatus) {
+      // We can't easily add it to the correct sorted position without a refetch or guessing.
+      // But simply prepending or checking sort might be enough for a quick UI response.
+      // For simplicity and correctness with pagination, we might just want to refetch or prepend if it's 'created_at' desc.
+      // Let's try to just prepend it to bookmarks list if it doesn't exist.
+      setBookmarkedConversations(prev => {
+        if (prev.find(c => c.id === conversation.id)) return prev
+        return [{ ...conversation, is_favorited: true }, ...prev]
+      })
+    } else {
+      // Removing from favorites
+      setBookmarkedConversations(prev => prev.filter(c => c.id !== conversation.id))
+    }
+
+    const { error } = await toggleFavorite(conversation.id, newStatus)
+
+    if (error) {
+      console.error('Failed to toggle favorite:', error)
+      toast.error('Failed to update favorite status')
+      // Revert optimistic update
       setConversations(prev =>
-        prev.map(c => (c.id === conversation.id ? { ...c, is_favorited: newStatus } : c)),
+        prev.map(c => (c.id === conversation.id ? { ...c, is_favorited: !newStatus } : c)),
       )
-
-      // Optimistically update bookmarks list
-      // If we are adding to favorites
+      // Revert bookmarks list changes
       if (newStatus) {
-        // We can't easily add it to the correct sorted position without a refetch or guessing.
-        // But simply prepending or checking sort might be enough for a quick UI response.
-        // For simplicity and correctness with pagination, we might just want to refetch or prepend if it's 'created_at' desc.
-        // Let's try to just prepend it to bookmarks list if it doesn't exist.
-        setBookmarkedConversations(prev => {
-          if (prev.find(c => c.id === conversation.id)) return prev
-          return [{ ...conversation, is_favorited: true }, ...prev]
-        })
-      } else {
-        // Removing from favorites
+        // We added it, so remove it
         setBookmarkedConversations(prev => prev.filter(c => c.id !== conversation.id))
-      }
-
-      const { error } = await toggleFavorite(conversation.id, newStatus)
-
-      if (error) {
-        console.error('Failed to toggle favorite:', error)
-        toast.error('Failed to update favorite status')
-        // Revert optimistic update
-        setConversations(prev =>
-          prev.map(c => (c.id === conversation.id ? { ...c, is_favorited: !newStatus } : c)),
-        )
-        // Revert bookmarks list changes
-        if (newStatus) {
-          // We added it, so remove it
-          setBookmarkedConversations(prev => prev.filter(c => c.id !== conversation.id))
-        } else {
-          // We removed it, so add it back
-          setBookmarkedConversations(prev => [{ ...conversation, is_favorited: true }, ...prev])
-        }
       } else {
-        toast.success(newStatus ? 'Added to bookmarks' : 'Removed from bookmarks')
+        // We removed it, so add it back
+        setBookmarkedConversations(prev => [{ ...conversation, is_favorited: true }, ...prev])
       }
+    } else {
+      toast.success(newStatus ? 'Added to bookmarks' : 'Removed from bookmarks')
+    }
   }
 
   const toggleSpace = async spaceId => {
@@ -391,8 +390,7 @@ const Sidebar = ({
   // No longer needed to filter client side for bookmarks tab display
   // But we still might want filteredConversations for logic if used elsewhere?
   // Actually, we should just use bookmarkedConversations for the bookmarks tab.
-  const displayConversations =
-    displayTab === 'bookmarks' ? bookmarkedConversations : conversations
+  const displayConversations = displayTab === 'bookmarks' ? bookmarkedConversations : conversations
 
   // Check if we should show "See All" button for library (unused now)
   // const shouldShowSeeAllForLibrary = ...
@@ -633,20 +631,23 @@ const Sidebar = ({
                                   <div className="flex items-center gap-1">
                                     <span className="truncate font-medium">{conv.title}</span>
                                     {conv.is_favorited && (
-                                      <Bookmark size={10} className=" shrink-0" />
+                                      <Bookmark
+                                        size={10}
+                                        className="text-primary-500 fill-current shrink-0"
+                                      />
                                     )}
                                   </div>
                                   <span
-                                className={clsx(
-                                  'text-[10px]',
-                                  isActive
-                                    ? 'text-primary-600 dark:text-primary-400'
-                                    : 'text-gray-400',
-                                )}
-                              >
+                                    className={clsx(
+                                      'text-[10px]',
+                                      isActive
+                                        ? 'text-primary-600 dark:text-primary-400'
+                                        : 'text-gray-400',
+                                    )}
+                                  >
                                     {formatDateTime(conv.created_at)}
-                              </span>
-                            </div>
+                                  </span>
+                                </div>
 
                                 <div className="relative ml-2 shrink-0">
                                   <button
@@ -685,7 +686,7 @@ const Sidebar = ({
                                   className={clsx(
                                     'py-1.5 rounded-md transition-colors flex items-center justify-center gap-1.5 font-medium border border-transparent',
                                     conv.is_favorited
-                                      ? 'bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-200 dark:border-yellow-800/30'
+                                      ? 'bg-primary-50 text-primary-500 border-primary-50 dark:bg-primary-600/20 dark:text-primary-500 dark:border-primary-50/30'
                                       : 'text-gray-500 dark:text-gray-400 hover:bg-primary-50 dark:hover:bg-zinc-700 hover:text-primary-600 dark:hover:text-primary-400',
                                   )}
                                   title={conv.is_favorited ? 'Remove Bookmark' : 'Add Bookmark'}
@@ -770,7 +771,10 @@ const Sidebar = ({
                             <div className="flex flex-col overflow-hidden flex-1 min-w-0">
                               <div className="flex items-center gap-1">
                                 <span className="truncate font-medium">{conv.title}</span>
-                                <Bookmark size={10} className="fill-current flex-shrink-0" />
+                                <Bookmark
+                                  size={10}
+                                  className="text-primary-500 fill-current shrink-0"
+                                />
                               </div>
                               <span
                                 className={clsx(
@@ -978,32 +982,34 @@ const Sidebar = ({
                           </div>
                         ))}
 
-                        {spaceConversations[space.id]?.items?.length > 0 && (
-                          <div className="px-2 py-2">
-                            {spaceConversations[space.id]?.hasMore ? (
-                              <button
-                                onClick={e => {
-                                  e.stopPropagation()
-                                  fetchSpaceConversations(space.id, false)
-                                }}
-                                disabled={spaceConversations[space.id]?.loading}
-                                className="w-full py-2 text-xs font-medium text-gray-700 dark:text-gray-200 bg-[#9c9d8a29] dark:bg-zinc-800 hover:bg-[#9c9d8a40] dark:hover:bg-zinc-700 rounded transition-colors flex items-center justify-center gap-2"
-                              >
-                                {spaceConversations[space.id]?.loading ? (
-                                  <DotLoader />
-                                ) : (
-                                  'Load more'
-                                )}
-                              </button>
-                            ) : (
-                              <div className="hidden  items-center gap-2 text-[10px] text-gray-400 py-2">
-                                <span className="flex-1 h-px bg-gray-200 dark:bg-zinc-800" />
-                                <span className="whitespace-nowrap">No more threads</span>
-                                <span className="flex-1 h-px bg-gray-200 dark:bg-zinc-800" />
-                              </div>
-                            )}
-                          </div>
-                        )}
+                        {spaceConversations[space.id]?.items?.length > 0 &&
+                          spaceConversations[space.id]?.hasMore && (
+                            <div className="px-2 py-2">
+                              {
+                                <button
+                                  onClick={e => {
+                                    e.stopPropagation()
+                                    fetchSpaceConversations(space.id, false)
+                                  }}
+                                  disabled={spaceConversations[space.id]?.loading}
+                                  className="w-full py-2 text-xs font-medium text-gray-700 dark:text-gray-200 bg-[#9c9d8a29] dark:bg-zinc-800 hover:bg-[#9c9d8a40] dark:hover:bg-zinc-700 rounded transition-colors flex items-center justify-center gap-2"
+                                >
+                                  {spaceConversations[space.id]?.loading ? (
+                                    <DotLoader />
+                                  ) : (
+                                    'Load more'
+                                  )}
+                                </button>
+                                // : (
+                                //   <div className="hidden  items-center gap-2 text-[10px] text-gray-400 py-2">
+                                //     <span className="flex-1 h-px bg-gray-200 dark:bg-zinc-800" />
+                                //     <span className="whitespace-nowrap">No more threads</span>
+                                //     <span className="flex-1 h-px bg-gray-200 dark:bg-zinc-800" />
+                                //   </div>
+                                // )
+                              }
+                            </div>
+                          )}
 
                         {!spaceConversations[space.id]?.loading &&
                           spaceConversations[space.id]?.items?.length === 0 && (

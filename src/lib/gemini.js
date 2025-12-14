@@ -238,6 +238,44 @@ const annotateGroundedText = (text, supports) => {
 }
 
 /**
+ * Normalize related questions payloads from varied model responses.
+ * Accepts direct arrays or objects with common keys.
+ * @param {any} payload
+ * @returns {string[]}
+ */
+const normalizeRelatedQuestions = payload => {
+  const sanitize = arr =>
+    (arr || [])
+      .map(q => {
+        if (typeof q === 'string') return q.trim()
+        if (q === null || q === undefined) return ''
+        try {
+          return String(q).trim()
+        } catch {
+          return ''
+        }
+      })
+      .filter(Boolean)
+
+  if (Array.isArray(payload)) return sanitize(payload)
+  if (payload && typeof payload === 'object') {
+    const candidates = [
+      payload.questions,
+      payload.follow_up_questions,
+      payload.followUpQuestions,
+      payload.followups,
+      payload.followUps,
+    ]
+    for (const candidate of candidates) {
+      if (Array.isArray(candidate)) return sanitize(candidate)
+    }
+    const firstArray = Object.values(payload).find(v => Array.isArray(v))
+    if (firstArray) return sanitize(firstArray)
+  }
+  return []
+}
+
+/**
  * Stream chat completion using native Gemini API (@google/genai)
  *
  * @param {Object} params
@@ -392,9 +430,7 @@ export const generateRelatedQuestions = async (messages, apiKey, baseUrl, model)
 
     try {
       const parsed = JSON.parse(text)
-      if (Array.isArray(parsed)) return parsed
-      if (parsed.questions && Array.isArray(parsed.questions)) return parsed.questions
-      return []
+      return normalizeRelatedQuestions(parsed)
     } catch (err) {
       console.error('Failed to parse related questions JSON:', err)
       return []

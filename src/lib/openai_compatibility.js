@@ -28,6 +28,44 @@ const applyContextLimit = messages => {
 }
 
 /**
+ * Normalize related questions payloads from varied model responses.
+ * Accepts direct arrays or objects with common keys.
+ * @param {any} payload
+ * @returns {string[]}
+ */
+const normalizeRelatedQuestions = payload => {
+  const sanitize = arr =>
+    (arr || [])
+      .map(q => {
+        if (typeof q === 'string') return q.trim()
+        if (q === null || q === undefined) return ''
+        try {
+          return String(q).trim()
+        } catch {
+          return ''
+        }
+      })
+      .filter(Boolean)
+
+  if (Array.isArray(payload)) return sanitize(payload)
+  if (payload && typeof payload === 'object') {
+    const candidates = [
+      payload.questions,
+      payload.follow_up_questions,
+      payload.followUpQuestions,
+      payload.followups,
+      payload.followUps,
+    ]
+    for (const candidate of candidates) {
+      if (Array.isArray(candidate)) return sanitize(candidate)
+    }
+    const firstArray = Object.values(payload).find(v => Array.isArray(v))
+    if (firstArray) return sanitize(firstArray)
+  }
+  return []
+}
+
+/**
  * Create an OpenAI client instance.
  * @param {Object} config
  * @param {string} config.apiKey
@@ -293,10 +331,7 @@ export const generateRelatedQuestions = async (messages, apiKey, baseUrl, model)
     // Attempt to parse JSON
     try {
       const parsed = JSON.parse(content)
-      // Handle various potential JSON structures (array directly, or object with key)
-      if (Array.isArray(parsed)) return parsed
-      if (parsed.questions && Array.isArray(parsed.questions)) return parsed.questions
-      return []
+      return normalizeRelatedQuestions(parsed)
     } catch (e) {
       console.error('Failed to parse related questions JSON:', e)
       return []

@@ -4,7 +4,6 @@ import useChatStore from '../lib/chatStore'
 import {
   Copy,
   Share2,
-  AlignLeft,
   Layers,
   Brain,
   ChevronRight,
@@ -22,6 +21,24 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import clsx from 'clsx'
 import { getProvider } from '../lib/providers'
+
+const PROVIDER_META = {
+  gemini: {
+    label: 'Google Gemini',
+    logo: 'https://www.google.com/favicon.ico',
+    fallback: 'G',
+  },
+  openai_compatibility: {
+    label: 'OpenAI Compatible',
+    logo: 'https://openai.com/favicon.ico',
+    fallback: 'O',
+  },
+  siliconflow: {
+    label: 'SiliconFlow',
+    logo: 'https://siliconflow.cn/favicon.ico',
+    fallback: 'S',
+  },
+}
 
 /**
  * Make inline [n] markers clickable to the corresponding source URL while keeping brackets.
@@ -46,6 +63,7 @@ const formatContentWithSources = (content, sources = []) => {
 const MessageBubble = ({
   messageIndex,
   apiProvider,
+  defaultModel,
   onRelatedClick,
   messageId,
   bubbleRef,
@@ -284,10 +302,10 @@ const MessageBubble = ({
 
     if (!inline && match) {
       return (
-        <div className="relative group my-4 border border-gray-200 dark:border-zinc-700 rounded-xl overflow-x-auto bg-user-bubble/50 dark:bg-[#202222]">
-          <div className="flex items-center justify-between px-3 py-2 text-[11px] font-semibold bg-user-bubble/50 dark:bg-[#2a2a2a] text-gray-600 dark:text-gray-300 border-b border-gray-200 dark:border-zinc-700">
+        <div className="relative group mb-4 border border-gray-200 dark:border-zinc-700 rounded-xl overflow-x-auto bg-user-bubble/50 dark:bg-[#202222]">
+          <div className="flex items-center font-mono! justify-between px-3 py-2 text-[11px] font-semibold bg-user-bubble/50 dark:bg-[#2a2a2a] text-gray-600 dark:text-gray-300 border-b border-gray-200 dark:border-zinc-700">
             <span>{langLabel}</span>
-            <button className="px-2 py-1 rounded bg-gray-200 dark:bg-zinc-700 text-gray-700 dark:text-gray-200 text-[11px] opacity-0 group-hover:opacity-100 transition-opacity">
+            <button className="px-2 py-1 rounded bg-gray-200 dark:bg-zinc-700 text-gray-700 dark:text-gray-200 text-[11px] opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
               Copy
             </button>
           </div>
@@ -419,7 +437,6 @@ const MessageBubble = ({
             className={clsx(
               'relative px-5 py-3.5 rounded-3xl text-base',
               'bg-user-bubble dark:bg-zinc-800 text-gray-900 dark:text-gray-100',
-              'rounded-br-sm',
             )}
           >
             {quoteToRender && (
@@ -481,8 +498,13 @@ const MessageBubble = ({
     )
   }
 
+  const providerId = message.provider || apiProvider
+  const providerMeta =
+    PROVIDER_META[providerId] || { label: providerId || 'AI', logo: null, fallback: 'AI' }
+  const resolvedModel = message.model || defaultModel || 'default model'
+
   // Parse content using provider-specific logic
-  const provider = getProvider(apiProvider)
+  const provider = getProvider(providerId)
   const parsed = provider.parseMessage(message)
   const thoughtContent = message.thinkingEnabled === false ? null : parsed.thought
   const mainContent = parsed.content
@@ -593,10 +615,21 @@ const MessageBubble = ({
           </button>
         </div>
       )}
-      {/* Answer Header */}
+      {/* Provider/Model Header */}
       <div className="flex items-center gap-3 text-gray-900 dark:text-gray-100">
-        <AlignLeft size={24} className="text-primary-500" />
-        <h2 className="text-lg font-medium">Answer</h2>
+        <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-zinc-800 shadow-inner flex items-center justify-center overflow-hidden">
+          {providerMeta.logo ? (
+            <img src={providerMeta.logo} alt={providerMeta.label} className="w-full h-full object-cover" />
+          ) : (
+            <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+              {providerMeta.fallback?.slice(0, 2).toUpperCase()}
+            </span>
+          )}
+        </div>
+        <div className="flex flex-col leading-tight">
+          <span className="text-sm font-semibold">{providerMeta.label}</span>
+          <span className="text-xs text-gray-500 dark:text-gray-400">Model: {resolvedModel}</span>
+        </div>
       </div>
 
       {/* Thinking Process Section */}

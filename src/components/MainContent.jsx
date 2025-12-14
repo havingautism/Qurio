@@ -8,9 +8,7 @@ import {
   ChevronDown,
   LayoutGrid,
   Brain,
-  Brain,
   Menu,
-  Layers,
 } from 'lucide-react'
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
@@ -60,7 +58,6 @@ const MainContent = ({
   const [homeInput, setHomeInput] = useState('')
   const [isHomeSearchActive, setIsHomeSearchActive] = useState(false)
   const [isHomeThinkingActive, setIsHomeThinkingActive] = useState(false)
-  const [isHomeRelatedActive, setIsHomeRelatedActive] = useState(false)
   const [homeAttachments, setHomeAttachments] = useState([])
   const [homeSelectedSpace, setHomeSelectedSpace] = useState(null)
   const homeSpaceSelectorRef = useRef(null)
@@ -142,7 +139,7 @@ const MainContent = ({
         setInitialToggles({
           search: false,
           thinking: false,
-          related: false,
+          related: Boolean(settings.enableRelatedQuestions),
         })
         setInitialSpaceSelection({
           mode: 'auto',
@@ -150,7 +147,13 @@ const MainContent = ({
         })
       }
     }
-  }, [activeConversation, activeView, initialMessage, initialAttachments])
+  }, [
+    activeConversation,
+    activeView,
+    initialMessage,
+    initialAttachments,
+    settings.enableRelatedQuestions,
+  ])
 
   useEffect(() => {
     const handleSettingsChange = () => {
@@ -234,7 +237,7 @@ const MainContent = ({
     setInitialToggles({
       search: isHomeSearchActive,
       thinking: isHomeThinkingActive,
-      related: isHomeRelatedActive,
+      related: Boolean(settings.enableRelatedQuestions),
     })
     const isManualSpaceSelection = !!homeSelectedSpace
     setInitialSpaceSelection({
@@ -251,7 +254,6 @@ const MainContent = ({
     setHomeAttachments([])
     setIsHomeSearchActive(false)
     setIsHomeThinkingActive(false)
-    setIsHomeRelatedActive(false)
   }
 
   return (
@@ -441,17 +443,6 @@ const MainContent = ({
                     >
                       <Brain size={18} />
                       <span className="hidden md:inline">Think</span>
-                    </button>
-                    <button
-                      onClick={() => setIsHomeRelatedActive(!isHomeRelatedActive)}
-                      className={`p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
-                        isHomeRelatedActive
-                          ? 'text-primary-500 bg-gray-100 dark:bg-zinc-800'
-                          : 'text-gray-500 dark:text-gray-400'
-                      }`}
-                    >
-                      <Layers size={18} />
-                      <span className="hidden md:inline">Related</span>
                     </button>
                     <button
                       disabled={

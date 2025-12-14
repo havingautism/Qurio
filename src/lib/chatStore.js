@@ -350,6 +350,20 @@ const callAIAPI = async (
     // Use dynamic model selection for main conversation
     const model = getModelForTask('streamChatCompletion', settings)
 
+    // Tag the placeholder with provider/model so UI can show it while streaming
+    set(state => {
+      const updated = [...state.messages]
+      const lastMsgIndex = updated.length - 1
+      if (lastMsgIndex < 0) return { messages: updated }
+      const lastMsg = { ...updated[lastMsgIndex] }
+      if (lastMsg.role === 'ai') {
+        lastMsg.provider = settings.apiProvider
+        lastMsg.model = model
+        updated[lastMsgIndex] = lastMsg
+      }
+      return { messages: updated }
+    })
+
     // Extract space settings
     const spaceTemperature = spaceInfo?.selectedSpace?.temperature
     const spaceTopK = spaceInfo?.selectedSpace?.top_k
@@ -398,6 +412,7 @@ const callAIAPI = async (
           historyLengthBeforeSend === 0,
           firstUserText,
           toggles,
+          model,
         )
       },
       onError: err => {
@@ -452,6 +467,7 @@ const finalizeMessage = async (
   isFirstTurnOverride,
   firstUserText,
   toggles = {},
+  modelUsed = null,
 ) => {
   const normalizedThought = typeof result?.thought === 'string' ? result.thought.trim() : ''
   const normalizeContent = content => {
@@ -486,6 +502,8 @@ const finalizeMessage = async (
       if (result?.toolCalls) {
         lastMsg.tool_calls = result.toolCalls
       }
+      lastMsg.provider = settings.apiProvider
+      lastMsg.model = modelUsed || getModelForTask('streamChatCompletion', settings)
       updated[lastMsgIndex] = lastMsg
     }
     return { messages: updated }
@@ -624,6 +642,8 @@ const finalizeMessage = async (
     const { data: insertedAi } = await addMessage({
       conversation_id: currentStore.conversationId,
       role: 'assistant',
+      provider: settings.apiProvider,
+      model: modelUsed || getModelForTask('streamChatCompletion', settings),
       content: contentForPersistence,
       thinking_process: thoughtForPersistence,
       tool_calls: result.toolCalls || null,

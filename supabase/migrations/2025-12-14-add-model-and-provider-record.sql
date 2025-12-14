@@ -1,0 +1,1 @@
+ALTER TABLE conversation_messages ADD COLUMN provider text, ADD COLUMN model text;

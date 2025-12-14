@@ -56,6 +56,8 @@ CREATE TABLE IF NOT EXISTS public.conversation_messages (
   conversation_id UUID NOT NULL REFERENCES public.conversations(id) ON DELETE CASCADE,
   role TEXT NOT NULL CHECK (role IN ('system', 'user', 'assistant', 'tool')),
   content JSONB NOT NULL,
+  provider TEXT,
+  model TEXT,
   thinking_process TEXT,
   tool_calls JSONB,
   related_questions JSONB,
@@ -89,4 +91,3 @@ CREATE TABLE IF NOT EXISTS public.attachments (
 );
 
 CREATE INDEX IF NOT EXISTS idx_attachments_message_id ON public.attachments(message_id);
-

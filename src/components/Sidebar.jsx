@@ -78,6 +78,18 @@ const Sidebar = ({
 
   const toast = useToast()
 
+  const formatDateTime = value => {
+    if (!value) return 'Recently'
+    return new Date(value).toLocaleString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    })
+  }
+
   const closeActions = () => setExpandedActionId(null)
 
   const displayTab = hoveredTab || activeTab
@@ -625,16 +637,16 @@ const Sidebar = ({
                                     )}
                                   </div>
                                   <span
-                                    className={clsx(
-                                      'text-[10px]',
-                                      isActive
-                                        ? 'text-primary-600 dark:text-primary-400'
-                                        : 'text-gray-400',
-                                    )}
-                                  >
-                                    {new Date(conv.created_at).toLocaleDateString()}
-                                  </span>
-                                </div>
+                                className={clsx(
+                                  'text-[10px]',
+                                  isActive
+                                    ? 'text-primary-600 dark:text-primary-400'
+                                    : 'text-gray-400',
+                                )}
+                              >
+                                    {formatDateTime(conv.created_at)}
+                              </span>
+                            </div>
 
                                 <div className="relative ml-2 shrink-0">
                                   <button
@@ -768,7 +780,7 @@ const Sidebar = ({
                                     : 'text-gray-400',
                                 )}
                               >
-                                {new Date(conv.created_at).toLocaleDateString()}
+                                {formatDateTime(conv.created_at)}
                               </span>
                             </div>
 

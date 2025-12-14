@@ -88,6 +88,8 @@ CREATE TABLE IF NOT EXISTS public.conversation_messages (
   conversation_id UUID NOT NULL REFERENCES public.conversations(id) ON DELETE CASCADE,
   role TEXT NOT NULL CHECK (role IN ('system', 'user', 'assistant', 'tool')),
   content JSONB NOT NULL,
+  provider TEXT,
+  model TEXT,
   thinking_process TEXT,
   tool_calls JSONB,
   related_questions JSONB,
@@ -186,6 +188,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
   const [liteModel, setLiteModel] = useState('gemini-2.5-flash')
   const [defaultModel, setDefaultModel] = useState('gemini-2.5-flash')
   const [themeColor, setThemeColor] = useState('fox')
+  const [enableRelatedQuestions, setEnableRelatedQuestions] = useState(false)
 
   // Dynamic model states
   const [dynamicModels, setDynamicModels] = useState([])
@@ -247,6 +250,8 @@ const SettingsModal = ({ isOpen, onClose }) => {
       if (settings.liteModel) setLiteModel(settings.liteModel)
       if (settings.defaultModel) setDefaultModel(settings.defaultModel)
       if (settings.themeColor) setThemeColor(settings.themeColor)
+      if (typeof settings.enableRelatedQuestions === 'boolean')
+        setEnableRelatedQuestions(settings.enableRelatedQuestions)
     }
   }, [isOpen])
 
@@ -466,6 +471,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
       liteModel,
       defaultModel,
       themeColor,
+      enableRelatedQuestions,
     })
 
     onClose()
@@ -1180,6 +1186,36 @@ const SettingsModal = ({ isOpen, onClose }) => {
 
             {activeTab === 'chat' && (
               <div className="flex flex-col gap-8 max-w-2xl">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-sm font-semibold text-gray-900 dark:text-white">
+                      Related Questions
+                    </label>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Automatically generate follow-up suggestions after the assistant responds.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={enableRelatedQuestions}
+                    onClick={() => setEnableRelatedQuestions(prev => !prev)}
+                    className={clsx(
+                      'relative inline-flex h-7 w-12 shrink-0 items-center rounded-full border transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500/40',
+                      enableRelatedQuestions
+                        ? 'bg-primary-500 border-primary-500'
+                        : 'bg-gray-200 dark:bg-zinc-800 border-gray-300 dark:border-zinc-700',
+                    )}
+                  >
+                    <span
+                      className={clsx(
+                        'inline-block h-6 w-6 transform rounded-full bg-white shadow-sm transition-transform',
+                        enableRelatedQuestions ? 'translate-x-[22px]' : 'translate-x-1',
+                      )}
+                    />
+                  </button>
+                </div>
+
                 <div className="flex flex-col gap-2">
                   <label className="text-sm font-medium text-gray-900 dark:text-white">
                     Context Messages

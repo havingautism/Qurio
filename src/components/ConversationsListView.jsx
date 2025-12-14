@@ -63,6 +63,19 @@ const ConversationsListView = ({
     setConversationToDelete(null)
   }
 
+  const formatDateTime = dateString => {
+    if (!dateString) return 'Recently'
+    const d = new Date(dateString)
+    return d.toLocaleString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    })
+  }
+
   // Group conversations by date
   const groupConversationsByDate = items => {
     const startOfDay = date => {
@@ -193,16 +206,8 @@ const ConversationsListView = ({
                         {/* Conversation Meta Info */}
                         <div className="flex items-center justify-between mt-auto">
                           <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                            <Clock className="w-3 h-3" />
-                            <span>
-                              {conversation.created_at
-                                ? new Date(conversation.created_at).toLocaleDateString('en-US', {
-                                    month: 'short',
-                                    day: 'numeric',
-                                    year: 'numeric',
-                                  })
-                                : 'Recently'}
-                            </span>
+                          <Clock className="w-3 h-3" />
+                            <span>{formatDateTime(conversation.created_at)}</span>
                           </div>
                           {conversation.is_favorited && (
                             <Bookmark className="w-4 h-4 text-yellow-500 fill-current" />

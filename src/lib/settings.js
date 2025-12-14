@@ -37,10 +37,17 @@ export const loadSettings = (overrides = {}) => {
   const localSystemPrompt = localStorage.getItem('systemPrompt')
   const localContextMessageLimit = localStorage.getItem('contextMessageLimit')
   const localThemeColor = localStorage.getItem('themeColor')
+  const localEnableRelatedQuestions = localStorage.getItem('enableRelatedQuestions')
   const parsedContextLimit = parseInt(localContextMessageLimit, 10)
   const resolvedContextLimit = Number.isFinite(parsedContextLimit)
     ? parsedContextLimit
     : overrides.contextMessageLimit || 12
+  const resolvedRelatedQuestionsPreference =
+    typeof overrides.enableRelatedQuestions === 'boolean'
+      ? overrides.enableRelatedQuestions
+      : localEnableRelatedQuestions !== null
+        ? localEnableRelatedQuestions === 'true'
+        : true
 
   return {
     // Supabase
@@ -97,6 +104,7 @@ export const loadSettings = (overrides = {}) => {
     systemPrompt: localSystemPrompt || overrides.systemPrompt || DEFAULT_SYSTEM_PROMPT,
     contextMessageLimit: resolvedContextLimit,
     themeColor: localThemeColor || overrides.themeColor || 'fox',
+    enableRelatedQuestions: resolvedRelatedQuestionsPreference,
 
     ...overrides,
   }
@@ -147,6 +155,9 @@ export const saveSettings = async settings => {
   }
   if (settings.themeColor !== undefined) {
     localStorage.setItem('themeColor', settings.themeColor)
+  }
+  if (settings.enableRelatedQuestions !== undefined) {
+    localStorage.setItem('enableRelatedQuestions', String(!!settings.enableRelatedQuestions))
   }
 
   window.dispatchEvent(new Event('settings-changed'))

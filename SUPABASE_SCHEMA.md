@@ -40,6 +40,8 @@ Stores the ordered transcript, including attachments, tool metadata, and (now) a
 | `conversation_id`    | uuid        | FK -> `conversations.id`                               |
 | `role`               | text        | `system`, `user`, `assistant`, `tool`                  |
 | `content`            | jsonb       | Flexible payload (text blocks, attachments, citations) |
+| `provider`           | text        | Provider used for this message (e.g., `gemini`)        |
+| `model`              | text        | Model id used for this message                         |
 | `thinking_process`   | text        | Raw reasoning text stored separately from `content`    |
 | `tool_calls`         | jsonb       | Optional structured tool-call info                     |
 | `related_questions`  | jsonb       | Array of generated follow-ups for the assistant reply  |

@@ -78,12 +78,13 @@ const BookmarksView = () => {
   // Format date helper
   const formatDate = dateString => {
     const date = new Date(dateString)
-    return date.toLocaleString('en-US', {
+    return date.toLocaleString(undefined, {
       month: 'short',
       day: 'numeric',
       year: 'numeric',
-      hour: 'numeric',
-      minute: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
     })
   }
 

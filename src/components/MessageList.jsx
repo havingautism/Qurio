@@ -9,6 +9,7 @@ import MessageBubble from './MessageBubble'
  */
 const MessageList = ({
   apiProvider,
+  defaultModel,
   onRelatedClick,
   onMessageRef,
   onEdit,
@@ -31,6 +32,7 @@ const MessageList = ({
           bubbleRef={el => (onMessageRef ? onMessageRef(`message-${index}`, msg, el) : undefined)}
           messageIndex={index}
           apiProvider={apiProvider}
+          defaultModel={defaultModel}
           onRelatedClick={q => onRelatedClick(q)}
           onEdit={() => onEdit && onEdit(index)}
           onQuote={onQuote}

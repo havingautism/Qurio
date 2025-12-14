@@ -7,6 +7,60 @@
  * --color-primary-* variables that the app currently uses as its primary/accent color.
  */
 
+/**
+ * Helper to mix two hex colors with a weight (0-1).
+ * @param {string} color1 - Base hex color.
+ * @param {string} color2 - Mix hex color.
+ * @param {number} weight - Weight of color2 (0 to 1).
+ * @returns {string} - Resulting hex color.
+ */
+const mixColors = (color1, color2, weight) => {
+  const hex = c => parseInt(c.replace('#', ''), 16)
+  const pad = c => c.toString(16).padStart(2, '0')
+
+  const c1 = hex(color1)
+  const c2 = hex(color2)
+
+  const r1 = (c1 >> 16) & 255
+  const g1 = (c1 >> 8) & 255
+  const b1 = c1 & 255
+
+  const r2 = (c2 >> 16) & 255
+  const g2 = (c2 >> 8) & 255
+  const b2 = c2 & 255
+
+  const r = Math.round(r1 * (1 - weight) + r2 * weight)
+  const g = Math.round(g1 * (1 - weight) + g2 * weight)
+  const b = Math.round(b1 * (1 - weight) + b2 * weight)
+
+  return `#${pad(r)}${pad(g)}${pad(b)}`
+}
+
+/**
+ * Convert hex to rgba string with an alpha channel.
+ * @param {string} hex - Hex color (#rrggbb).
+ * @param {number} alpha - Alpha between 0 and 1.
+ * @returns {string}
+ */
+const hexToRgba = (hex, alpha = 1) => {
+  const normalized = hex.replace('#', '')
+  const value = parseInt(normalized, 16)
+  const r = (value >> 16) & 255
+  const g = (value >> 8) & 255
+  const b = value & 255
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`
+}
+
+// Base background colors from index.css
+// const BASE_BG_LIGHT = '#F6F5F0'
+const BASE_BG_LIGHT = '#ffffff'
+// const BASE_BG_DARK = '#1c1917'
+const BASE_BG_DARK = '#1d1d1d'
+
+// Tint weights
+const TINT_WEIGHT_LIGHT = 0.02 // 2%
+const TINT_WEIGHT_DARK = 0.02 // 2%
+
 export const THEMES = {
   fox: {
     label: 'Fox Rust',
@@ -94,6 +148,26 @@ export const THEMES = {
     },
   },
 }
+
+// Pre-calculate tinted backgrounds for each theme
+Object.keys(THEMES).forEach(key => {
+  const theme = THEMES[key]
+  const primary500 = theme.colors['--color-primary-500']
+
+  theme.colors['--theme-bg-light'] = mixColors(BASE_BG_LIGHT, primary500, TINT_WEIGHT_LIGHT)
+  theme.colors['--theme-bg-dark'] = mixColors(BASE_BG_DARK, primary500, TINT_WEIGHT_DARK)
+  // Use the same tint for sidebar for now
+  theme.colors['--theme-sidebar-light'] = mixColors(BASE_BG_LIGHT, primary500, TINT_WEIGHT_LIGHT)
+  theme.colors['--theme-sidebar-dark'] = mixColors(BASE_BG_DARK, primary500, TINT_WEIGHT_DARK)
+
+  // Soft glow palette for focus rings/halos
+  const glowStart = mixColors(theme.colors['--color-primary-400'], '#ffffff', 0.55)
+  const glowMid = mixColors(primary500, '#ffffff', 0.25)
+  const glowEnd = mixColors(theme.colors['--color-primary-600'], '#000000', 0.08)
+  theme.colors['--theme-glow-1'] = hexToRgba(glowStart, 0.35)
+  theme.colors['--theme-glow-2'] = hexToRgba(glowMid, 0.28)
+  theme.colors['--theme-glow-3'] = hexToRgba(glowEnd, 0.32)
+})
 
 /**
  * Applies the selected theme to the document root.

@@ -19,9 +19,7 @@ import {
   Brain,
   Sparkles,
   ArrowDown,
-  ArrowDown,
   Menu,
-  Layers,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useAppContext } from '../App'
@@ -75,7 +73,6 @@ const ChatInterface = ({
   // New state for toggles and attachments
   const [isSearchActive, setIsSearchActive] = useState(false)
   const [isThinkingActive, setIsThinkingActive] = useState(false)
-  const [isRelatedActive, setIsRelatedActive] = useState(false)
 
   const [selectedSpace, setSelectedSpace] = useState(
     initialSpaceSelection.mode === 'manual' ? initialSpaceSelection.space : null,
@@ -87,6 +84,7 @@ const ChatInterface = ({
   )
 
   const [settings, setSettings] = useState(loadSettings())
+  const isRelatedEnabled = Boolean(settings.enableRelatedQuestions)
   const [isLoadingHistory, setIsLoadingHistory] = useState(false)
   const hasPushedConversation = useRef(false)
   const lastConversationId = useRef(null) // Track the last conversationId we navigated to
@@ -143,7 +141,6 @@ const ChatInterface = ({
       // Set initial state
       if (initialToggles.search) setIsSearchActive(true)
       if (initialToggles.thinking) setIsThinkingActive(true)
-      if (initialToggles.related) setIsRelatedActive(true)
 
       // Trigger send immediately
       await handleSendMessage(initialMessage, initialAttachments, initialToggles)
@@ -226,6 +223,8 @@ const ChatInterface = ({
             tool_calls: m.tool_calls || undefined,
             sources: m.sources || undefined,
             groundingSupports: m.grounding_supports || undefined,
+            provider: m.provider || activeConversation?.api_provider,
+            model: m.model || settings.defaultModel,
             thinkingEnabled:
               m.is_thinking_enabled ?? m.generated_with_thinking ?? (thought ? true : undefined),
           }
@@ -238,7 +237,7 @@ const ChatInterface = ({
       setIsLoadingHistory(false)
     }
     loadHistory()
-  }, [activeConversation, conversationSpace])
+  }, [activeConversation, conversationSpace, settings])
 
   useEffect(() => {
     // Check if conversationId has changed (new conversation created)
@@ -513,7 +512,7 @@ const ChatInterface = ({
       const attToSend = attOverride !== null ? attOverride : []
       const searchActive = togglesOverride ? togglesOverride.search : isSearchActive
       const thinkingActive = togglesOverride ? togglesOverride.thinking : isThinkingActive
-      const relatedActive = togglesOverride ? togglesOverride.related : isRelatedActive
+      const relatedActive = togglesOverride ? togglesOverride.related : isRelatedEnabled
 
       if (!textToSend.trim() && attToSend.length === 0) return
       if (isLoading) return
@@ -571,6 +570,7 @@ const ChatInterface = ({
     [
       isSearchActive,
       isThinkingActive,
+      isRelatedEnabled,
       isLoading,
       editingIndex,
       editingTargetId,
@@ -857,7 +857,7 @@ const ChatInterface = ({
             </div>
 
             <div className="flex items-center gap-2 flex-1 min-w-0">
-              <h1 className="text-m font-serif! sm:text-xl font-medium text-gray-800 dark:text-gray-100 truncate">
+              <h1 className="text-m sm:text-xl font-medium text-gray-800 dark:text-gray-100 truncate">
                 {conversationTitle || 'New Conversation'}
               </h1>
               <button
@@ -878,13 +878,14 @@ const ChatInterface = ({
                 <FancyLoader />
               </div>
             )}
-            <MessageList
-              apiProvider={settings.apiProvider}
-              onRelatedClick={handleRelatedClick}
-              onMessageRef={registerMessageRef}
-              onEdit={handleEdit}
-              onQuote={handleQuote}
-              onRegenerateAnswer={handleRegenerateAnswer}
+          <MessageList
+            apiProvider={settings.apiProvider}
+            defaultModel={settings.defaultModel}
+            onRelatedClick={handleRelatedClick}
+            onMessageRef={registerMessageRef}
+            onEdit={handleEdit}
+            onQuote={handleQuote}
+            onRegenerateAnswer={handleRegenerateAnswer}
             />
             {/* Bottom Anchor */}
             <div ref={bottomRef} className="h-1" />
@@ -925,10 +926,8 @@ const ChatInterface = ({
             apiProvider={settings.apiProvider}
             isSearchActive={isSearchActive}
             isThinkingActive={isThinkingActive}
-            isRelatedActive={isRelatedActive}
             onToggleSearch={() => setIsSearchActive(prev => !prev)}
             onToggleThinking={() => setIsThinkingActive(prev => !prev)}
-            onToggleRelated={() => setIsRelatedActive(prev => !prev)}
             quotedText={quotedText}
             onQuoteClear={() => {
               setQuotedText(null)
@@ -965,10 +964,8 @@ const InputBar = React.memo(
     apiProvider,
     isSearchActive,
     isThinkingActive,
-    isRelatedActive,
     onToggleSearch,
     onToggleThinking,
-    onToggleRelated,
     quotedText,
     onQuoteClear,
     onSend,
@@ -1042,7 +1039,7 @@ const InputBar = React.memo(
 
     return (
       <div className="w-full max-w-3xl relative group">
-        <div className="absolute inset-0 bg-linear-to-r from-primary-500/20 via-blue-500/15 to-purple-500/20 rounded-xl blur-2xl opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-500 pointer-events-none" />
+        <div className="absolute inset-0 input-glow-veil rounded-xl blur-2xl opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-500 pointer-events-none" />
         <div className="relative bg-user-bubble dark:bg-zinc-800 border border-transparent focus-within:border-gray-300 dark:focus-within:border-zinc-600 rounded-xl transition-all duration-300 p-3 shadow-sm hover:shadow-lg group-hover:shadow-lg focus-within:shadow-xl">
           {showEditing && (
             <div className="flex items-center justify-between bg-gray-200 dark:bg-zinc-700/50 rounded-lg px-3 py-2 mb-2 ">
@@ -1147,17 +1144,6 @@ const InputBar = React.memo(
               >
                 <Brain size={18} />
                 <span className="hidden md:inline">Think</span>
-              </button>
-              <button
-                onClick={onToggleRelated}
-                className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
-                  isRelatedActive
-                    ? 'text-primary-500 bg-gray-200 dark:bg-zinc-700'
-                    : 'text-gray-500 dark:text-gray-400'
-                }`}
-              >
-                <Layers size={18} />
-                <span className="hidden md:inline">Related</span>
               </button>
               <button
                 disabled={apiProvider === 'openai_compatibility' || apiProvider === 'siliconflow'}

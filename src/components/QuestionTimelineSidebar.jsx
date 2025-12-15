@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react'
-import { Search, X, Clock, MessageSquare, History } from 'lucide-react'
+import { Search, X, Clock, MessageSquare } from 'lucide-react'
 import clsx from 'clsx'
 
 /**
@@ -18,7 +18,7 @@ const QuestionTimelineSidebar = ({
   activeId,
   isOpen = false,
   onToggle,
-  className
+  className,
 }) => {
   const [searchQuery, setSearchQuery] = useState('')
   const [isTransitioning, setIsTransitioning] = useState(false)
@@ -28,9 +28,10 @@ const QuestionTimelineSidebar = ({
     if (!searchQuery.trim()) return items
 
     const query = searchQuery.toLowerCase()
-    return items.filter(item =>
-      item.label?.toLowerCase().includes(query) ||
-      (item.timestamp && item.timestamp.toLowerCase().includes(query))
+    return items.filter(
+      item =>
+        item.label?.toLowerCase().includes(query) ||
+        (item.timestamp && item.timestamp.toLowerCase().includes(query)),
     )
   }, [items, searchQuery])
 
@@ -56,7 +57,7 @@ const QuestionTimelineSidebar = ({
             groupKey = date.toLocaleDateString('en-US', {
               month: 'short',
               day: 'numeric',
-              year: date.getFullYear() !== today.getFullYear() ? 'numeric' : undefined
+              year: date.getFullYear() !== today.getFullYear() ? 'numeric' : undefined,
             })
           }
         } catch (e) {
@@ -73,21 +74,21 @@ const QuestionTimelineSidebar = ({
     return groups
   }, [filteredItems])
 
-  const formatTime = (timestamp) => {
+  const formatTime = timestamp => {
     if (!timestamp) return null
 
     try {
       const date = new Date(timestamp)
       return date.toLocaleTimeString('en-US', {
         hour: '2-digit',
-        minute: '2-digit'
+        minute: '2-digit',
       })
     } catch (e) {
       return null
     }
   }
 
-  const handleItemClick = (item) => {
+  const handleItemClick = item => {
     if (onJump) {
       onJump(item.id)
     }
@@ -119,14 +120,11 @@ const QuestionTimelineSidebar = ({
         className={clsx(
           'fixed top-0 right-0 bg-white dark:bg-[#202222] border-l border-gray-200 dark:border-zinc-700 shadow-2xl z-50 transform transition-all duration-300 ease-in-out',
           'w-[calc(100%-4rem)] sm:w-80 md:w-96 flex flex-col overflow-hidden',
-          isOpen
-            ? 'translate-x-0'
-            : 'translate-x-full',
-          className
+          isOpen ? 'translate-x-0' : 'translate-x-full',
+          className,
         )}
         style={{ height: '100dvh' }}
       >
-
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-zinc-700 shrink-0">
           <div className="flex items-center gap-2 text-gray-900 dark:text-white">
@@ -162,7 +160,7 @@ const QuestionTimelineSidebar = ({
               type="text"
               placeholder="Search questions..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={e => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-2 bg-gray-100 dark:bg-zinc-800 border border-transparent rounded-lg focus:outline-none focus:border-primary-500 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
             />
           </div>
@@ -204,17 +202,17 @@ const QuestionTimelineSidebar = ({
         {filteredItems.length > 0 && (
           <div className="p-4 border-t border-gray-200 dark:border-zinc-700 shrink-0">
             <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
-              <span>{items.length} {items.length === 1 ? 'question' : 'questions'}</span>
-              {searchQuery && (
-                <span>{filteredItems.length} found</span>
-              )}
+              <span>
+                {items.length} {items.length === 1 ? 'question' : 'questions'}
+              </span>
+              {searchQuery && <span>{filteredItems.length} found</span>}
             </div>
           </div>
         )}
       </div>
 
       {/* Floating toggle button for desktop when sidebar is closed */}
-      {!isOpen && !isTransitioning && (
+      {/* {!isOpen && !isTransitioning && (
         <button
           onClick={handleToggle}
           className="hidden md:flex fixed right-6 top-6 p-2.5 bg-white dark:bg-[#202222] border border-gray-200 dark:border-zinc-700 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 z-50"
@@ -222,7 +220,7 @@ const QuestionTimelineSidebar = ({
         >
           <History size={20} className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200" />
         </button>
-      )}
+      )} */}
     </>
   )
 }
@@ -239,7 +237,7 @@ const QuestionCard = React.memo(({ item, isActive, onClick, time }) => {
         'hover:shadow-md hover:border-primary-300 dark:hover:border-primary-600',
         isActive
           ? 'bg-primary-50 dark:bg-primary-900/20 border-primary-300 dark:border-primary-600 shadow-sm'
-          : 'bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-zinc-700'
+          : 'bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-zinc-700',
       )}
     >
       <div className="flex items-start gap-3">
@@ -247,20 +245,20 @@ const QuestionCard = React.memo(({ item, isActive, onClick, time }) => {
           <div
             className={clsx(
               'w-2 h-2 rounded-full',
-              isActive
-                ? 'bg-primary-500'
-                : 'bg-gray-300 dark:bg-zinc-600'
+              isActive ? 'bg-primary-500' : 'bg-gray-300 dark:bg-zinc-600',
             )}
           />
         </div>
 
         <div className="flex-1 min-w-0">
-          <p className={clsx(
-            'text-sm leading-relaxed break-words',
-            isActive
-              ? 'text-primary-900 dark:text-primary-100 font-medium'
-              : 'text-gray-700 dark:text-gray-300'
-          )}>
+          <p
+            className={clsx(
+              'text-sm leading-relaxed break-words',
+              isActive
+                ? 'text-primary-900 dark:text-primary-100 font-medium'
+                : 'text-gray-700 dark:text-gray-300',
+            )}
+          >
             {item.label}
           </p>
 

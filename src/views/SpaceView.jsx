@@ -18,18 +18,13 @@ import { deleteConversation, removeConversationFromSpace } from '../lib/supabase
 import { toggleFavorite, listConversationsBySpace } from '../lib/conversationsService'
 import { useToast } from '../contexts/ToastContext'
 import FancyLoader from '../components/FancyLoader'
-import TwemojiDisplay from '../components/TwemojiDisplay'
+import EmojiDisplay from '../components/EmojiDisplay'
 
 const SpaceView = () => {
   const { spaceId } = spaceRoute.useParams()
   const navigate = useNavigate()
-  const {
-    spaces,
-    isSidebarPinned,
-    onEditSpace,
-    onOpenConversation,
-    showConfirmation
-  } = useAppContext()
+  const { spaces, isSidebarPinned, onEditSpace, onOpenConversation, showConfirmation } =
+    useAppContext()
 
   const activeSpace = spaces?.find(s => String(s.id) === String(spaceId)) || null
 
@@ -89,63 +84,75 @@ const SpaceView = () => {
 
   const totalPages = Math.ceil(totalCount / limit) || 1
 
-  const handlePageChange = useCallback((newPage) => {
-    if (newPage >= 1 && newPage <= totalPages) {
-      setCurrentPage(newPage)
-    }
-  }, [totalPages])
+  const handlePageChange = useCallback(
+    newPage => {
+      if (newPage >= 1 && newPage <= totalPages) {
+        setCurrentPage(newPage)
+      }
+    },
+    [totalPages],
+  )
 
-  const handleDeleteConversation = useCallback(async (conversation) => {
-    if (!conversation) return
+  const handleDeleteConversation = useCallback(
+    async conversation => {
+      if (!conversation) return
 
-    showConfirmation({
-      title: 'Delete Conversation',
-      message: `Are you sure you want to delete "${conversation.title}"? This action cannot be undone.`,
-      confirmText: 'Delete',
-      isDangerous: true,
-      onConfirm: async () => {
-        const { success, error } = await deleteConversation(conversation.id)
+      showConfirmation({
+        title: 'Delete Conversation',
+        message: `Are you sure you want to delete "${conversation.title}"? This action cannot be undone.`,
+        confirmText: 'Delete',
+        isDangerous: true,
+        onConfirm: async () => {
+          const { success, error } = await deleteConversation(conversation.id)
 
-        if (success) {
-          toast.success('Conversation deleted successfully')
-          setCurrentPage(1)
-          // Notify Sidebar to refresh its conversation list
-          window.dispatchEvent(new Event('conversations-changed'))
-        } else {
-          console.error('Failed to delete conversation:', error)
-          toast.error('Failed to delete conversation')
-        }
-      },
-    })
-  }, [showConfirmation, toast])
+          if (success) {
+            toast.success('Conversation deleted successfully')
+            setCurrentPage(1)
+            // Notify Sidebar to refresh its conversation list
+            window.dispatchEvent(new Event('conversations-changed'))
+          } else {
+            console.error('Failed to delete conversation:', error)
+            toast.error('Failed to delete conversation')
+          }
+        },
+      })
+    },
+    [showConfirmation, toast],
+  )
 
-  const handleRemoveFromSpace = useCallback(async (conversation) => {
-    const { data, error } = await removeConversationFromSpace(conversation.id)
+  const handleRemoveFromSpace = useCallback(
+    async conversation => {
+      const { data, error } = await removeConversationFromSpace(conversation.id)
 
-    if (!error && data) {
-      toast.success('Conversation removed from space')
-      setCurrentPage(1)
-      // Notify Sidebar to refresh its conversation list
-      window.dispatchEvent(new Event('conversations-changed'))
-    } else {
-      console.error('Failed to remove conversation from space:', error)
-      toast.error('Failed to remove conversation from space')
-    }
-  }, [toast])
+      if (!error && data) {
+        toast.success('Conversation removed from space')
+        setCurrentPage(1)
+        // Notify Sidebar to refresh its conversation list
+        window.dispatchEvent(new Event('conversations-changed'))
+      } else {
+        console.error('Failed to remove conversation from space:', error)
+        toast.error('Failed to remove conversation from space')
+      }
+    },
+    [toast],
+  )
 
-  const handleToggleFavorite = useCallback(async (conversation) => {
-    const newStatus = !conversation.is_favorited
-    const { error } = await toggleFavorite(conversation.id, newStatus)
+  const handleToggleFavorite = useCallback(
+    async conversation => {
+      const newStatus = !conversation.is_favorited
+      const { error } = await toggleFavorite(conversation.id, newStatus)
 
-    if (error) {
-      console.error('Failed to toggle favorite:', error)
-      toast.error('Failed to update favorite status')
-    } else {
-      toast.success(newStatus ? 'Added to bookmarks' : 'Removed from bookmarks')
-      // Notify Sidebar to refresh its conversation list
-      window.dispatchEvent(new Event('conversations-changed'))
-    }
-  }, [toast])
+      if (error) {
+        console.error('Failed to toggle favorite:', error)
+        toast.error('Failed to update favorite status')
+      } else {
+        toast.success(newStatus ? 'Added to bookmarks' : 'Removed from bookmarks')
+        // Notify Sidebar to refresh its conversation list
+        window.dispatchEvent(new Event('conversations-changed'))
+      }
+    },
+    [toast],
+  )
 
   if (!activeSpace) {
     return <div className="min-h-screen bg-background text-foreground" />
@@ -163,7 +170,7 @@ const SpaceView = () => {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="text-4xl">
-              <TwemojiDisplay emoji={activeSpace.emoji} size="2.25rem" />
+              <EmojiDisplay emoji={activeSpace.emoji} size="2.25rem" />
             </div>
             <div className="flex flex-col">
               <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
@@ -242,7 +249,7 @@ const SpaceView = () => {
                           'p-1 hover:bg-primary-500/10 dark:hover:bg-primary-500/20 rounded text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-all',
                           'opacity-100',
                           'md:opacity-0 md:group-hover:opacity-100',
-                          'min-w-[44px] min-h-[44px] flex items-center justify-center'
+                          'min-w-[44px] min-h-[44px] flex items-center justify-center',
                         )}
                         onClick={e => {
                           e.stopPropagation()

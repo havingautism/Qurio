@@ -36,7 +36,7 @@ if ('serviceWorker' in navigator) {
 init({
   data,
   backgroundImageFn: (set, sheetSize) => {
-    return `https://cdn.jsdelivr.net/npm/emoji-datasource-twitter@15.0.1/img/twitter/sheets/${sheetSize}.png`
+    return `https://cdn.jsdelivr.net/npm/emoji-datasource-google@15.0.1/img/google/sheets/${sheetSize}.png`
   },
 })
 

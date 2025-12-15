@@ -1,7 +1,4 @@
 import { useState, useRef, useEffect } from 'react'
-import { useGSAP } from '@gsap/react'
-import gsap from 'gsap'
-import clsx from 'clsx'
 import {
   Paperclip,
   ArrowRight,
@@ -13,19 +10,36 @@ import {
   Brain,
   Menu,
 } from 'lucide-react'
+import { useGSAP } from '@gsap/react'
+import gsap from 'gsap'
+import clsx from 'clsx'
+import ChatInterface from './ChatInterface'
+import SpaceView from './SpaceView'
+import SpacesListView from './SpacesListView'
+import ConversationsListView from './ConversationsListView'
 import { loadSettings } from '../lib/settings'
-import EmojiDisplay from '../components/EmojiDisplay'
-import HomeWidgets from '../components/widgets/HomeWidgets'
+import EmojiDisplay from './EmojiDisplay'
+import HomeWidgets from './widgets/HomeWidgets'
 import { useAppContext } from '../App'
-import Logo from '../components/Logo'
-import useChatStore from '../lib/chatStore'
-import ChatInterface from '../components/ChatInterface'
+import Logo from './Logo'
 
-const HomeView = () => {
-  const { toggleSidebar, isSidebarPinned, spaces } = useAppContext()
-  const [activeView, setActiveView] = useState('home')
-
-  // Initial state for ChatInterface
+const MainContent = ({
+  currentView,
+  activeSpace,
+  activeConversation,
+  spaces,
+  conversations = [],
+  conversationsLoading = false,
+  spacesLoading = false,
+  onChatStart,
+  onEditSpace,
+  onOpenConversation,
+  onNavigate,
+  onNavigateToSpace,
+  onCreateSpace,
+  isSidebarPinned = false,
+}) => {
+  const [activeView, setActiveView] = useState(currentView) // Local state to manage view transition
   const [initialMessage, setInitialMessage] = useState('')
   const [initialAttachments, setInitialAttachments] = useState([])
   const [initialToggles, setInitialToggles] = useState({
@@ -40,7 +54,7 @@ const HomeView = () => {
   const [settings, setSettings] = useState(loadSettings())
   const fileInputRef = useRef(null)
 
-  // Homepage Input State
+  // Homepage Input State (moved here to fix hook order)
   const [homeInput, setHomeInput] = useState('')
   const [isHomeSearchActive, setIsHomeSearchActive] = useState(false)
   const [isHomeThinkingActive, setIsHomeThinkingActive] = useState(false)
@@ -48,12 +62,9 @@ const HomeView = () => {
   const [homeSelectedSpace, setHomeSelectedSpace] = useState(null)
   const homeSpaceSelectorRef = useRef(null)
   const [isHomeSpaceSelectorOpen, setIsHomeSpaceSelectorOpen] = useState(false)
-  const homeContainerRef = useRef(null)
 
-  // Reset conversation state when entering Home/New Chat view
-  useEffect(() => {
-    useChatStore.getState().resetConversation()
-  }, [])
+  const { toggleSidebar } = useAppContext()
+  const homeContainerRef = useRef(null)
 
   useGSAP(
     () => {
@@ -104,15 +115,66 @@ const HomeView = () => {
     { dependencies: [activeView], scope: homeContainerRef },
   )
 
+  // Sync prop change to local state if needed (e.g. sidebar navigation)
+  useEffect(() => {
+    setActiveView(currentView)
+  }, [currentView])
+
+  // Clear initial state when switching to an existing conversation (not the one just created)
+  useEffect(() => {
+    // Only clear initial states if we're switching to a DIFFERENT conversation
+    // and we have initial states that were set for a new conversation
+    if (
+      activeConversation &&
+      activeView === 'chat' &&
+      (initialMessage || initialAttachments.length > 0) &&
+      activeConversation.id !== undefined
+    ) {
+      // Check if this conversation already exists by having a proper created_at timestamp
+      // This prevents clearing states for the just-created conversation
+      if (activeConversation.created_at && activeConversation.title !== 'New Conversation') {
+        // Clear initial states to prevent duplicate conversation creation
+        setInitialMessage('')
+        setInitialAttachments([])
+        setInitialToggles({
+          search: false,
+          thinking: false,
+          related: Boolean(settings.enableRelatedQuestions),
+        })
+        setInitialSpaceSelection({
+          mode: 'auto',
+          space: null,
+        })
+      }
+    }
+  }, [
+    activeConversation,
+    activeView,
+    initialMessage,
+    initialAttachments,
+    settings.enableRelatedQuestions,
+  ])
+
   useEffect(() => {
     const handleSettingsChange = () => {
       const newSettings = loadSettings()
       setSettings(newSettings)
+      if (
+        newSettings.apiProvider === 'openai_compatibility' ||
+        newSettings.apiProvider === 'siliconflow'
+      ) {
+        setIsHomeSearchActive(false)
+      }
     }
 
     window.addEventListener('settings-changed', handleSettingsChange)
     return () => window.removeEventListener('settings-changed', handleSettingsChange)
   }, [])
+
+  // ... (rest of the component)
+
+  // Extract derived values that were declared with the state
+  const isHomeSpaceAuto = !homeSelectedSpace
 
   useEffect(() => {
     const handleClickOutside = event => {
@@ -185,6 +247,7 @@ const HomeView = () => {
 
     // Switch to chat view
     setActiveView('chat')
+    if (onChatStart) onChatStart()
 
     // Reset home input
     setHomeInput('')
@@ -192,8 +255,6 @@ const HomeView = () => {
     setIsHomeSearchActive(false)
     setIsHomeThinkingActive(false)
   }
-
-  const isHomeSpaceAuto = !homeSelectedSpace
 
   return (
     <div className="flex-1 min-h-screen bg-background text-foreground transition-colors duration-300 relative">
@@ -204,7 +265,75 @@ const HomeView = () => {
           initialAttachments={initialAttachments}
           initialToggles={initialToggles}
           initialSpaceSelection={initialSpaceSelection}
+          activeConversation={activeConversation}
           isSidebarPinned={isSidebarPinned}
+        />
+      ) : activeView === 'space' && activeSpace ? (
+        <SpaceView
+          space={activeSpace}
+          onEditSpace={onEditSpace}
+          onOpenConversation={onOpenConversation}
+          activeConversationId={activeConversation?.id}
+          onConversationDeleted={deletedId => {
+            // Navigate home if we deleted the currently active conversation
+            if (activeConversation?.id === deletedId) {
+              onNavigate('home')
+            }
+          }}
+          isSidebarPinned={isSidebarPinned}
+        />
+      ) : activeView === 'spaces' ? (
+        <SpacesListView
+          spaces={spaces}
+          spacesLoading={spacesLoading}
+          onCreateSpace={onCreateSpace}
+          onNavigateToSpace={onNavigateToSpace}
+          onSpaceDeleted={deletedId => {
+            // Navigate home if we deleted the currently active space
+            if (activeSpace?.id === deletedId) {
+              onNavigate('home')
+            }
+          }}
+          isSidebarPinned={isSidebarPinned}
+        />
+      ) : activeView === 'bookmarks' ? (
+        <ConversationsListView
+          conversations={conversations.filter(c => c.is_favorited)}
+          conversationsLoading={conversationsLoading}
+          onCreateConversation={() => onNavigate('home')}
+          onOpenConversation={onOpenConversation}
+          isSidebarPinned={isSidebarPinned}
+          title="Bookmarks"
+          showCreateButton={false}
+        />
+      ) : activeView === 'library' ? (
+        <ConversationsListView
+          conversations={conversations}
+          conversationsLoading={conversationsLoading}
+          onCreateConversation={() => onNavigate('home')}
+          onOpenConversation={onOpenConversation}
+          onConversationDeleted={deletedId => {
+            // Navigate home if we deleted the currently active conversation
+            if (activeConversation?.id === deletedId) {
+              onNavigate('home')
+            }
+          }}
+          isSidebarPinned={isSidebarPinned}
+        />
+      ) : activeView === 'conversations' ? (
+        <ConversationsListView
+          conversations={conversations}
+          conversationsLoading={conversationsLoading}
+          onCreateConversation={() => onNavigate('home')}
+          onOpenConversation={onOpenConversation}
+          onConversationDeleted={deletedId => {
+            // Navigate home if we deleted the currently active conversation
+            if (activeConversation?.id === deletedId) {
+              onNavigate('home')
+            }
+          }}
+          isSidebarPinned={isSidebarPinned}
+          title="All Conversations"
         />
       ) : (
         <div
@@ -240,7 +369,7 @@ const HomeView = () => {
             </h1>
 
             {/* Search Box */}
-            <div className="home-search-box w-full relative group z-40">
+            <div className="home-search-box w-full relative group">
               <div className="absolute inset-0 input-glow-veil rounded-xl blur-2xl opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-500 pointer-events-none" />
               <div className="relative bg-user-bubble dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-xl shadow-sm hover:shadow-md transition-all duration-300 p-4">
                 {homeAttachments.length > 0 && (
@@ -350,7 +479,7 @@ const HomeView = () => {
                         <ChevronDown size={14} />
                       </button>
                       {isHomeSpaceSelectorOpen && (
-                        <div className="absolute top-full left-0 mt-2 w-60 bg-white dark:bg-[#202222] border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl z-50">
+                        <div className="absolute top-full left-0 mt-2 w-60 bg-white dark:bg-[#202222] border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl z-30">
                           <div className="p-2 flex flex-col gap-1">
                             <button
                               onClick={handleSelectHomeSpaceAuto}
@@ -410,10 +539,32 @@ const HomeView = () => {
               <HomeWidgets />
             </div>
           </div>
+
+          {/* Footer */}
+          {/* <div className="absolute bottom-4 text-xs text-gray-400 dark:text-gray-600 flex gap-4">
+            <a href="#" className="hover:underline">
+              Pro
+            </a>
+            <a href="#" className="hover:underline">
+              Enterprise
+            </a>
+            <a href="#" className="hover:underline">
+              Store
+            </a>
+            <a href="#" className="hover:underline">
+              Blog
+            </a>
+            <a href="#" className="hover:underline">
+              Careers
+            </a>
+            <a href="#" className="hover:underline">
+              English (English)
+            </a>
+          </div> */}
         </div>
       )}
     </div>
   )
 }
 
-export default HomeView
+export default MainContent

@@ -21,7 +21,6 @@ import {
   Sparkles,
   ArrowDown,
   Menu,
-  MessageSquare,
   History,
 } from 'lucide-react'
 import clsx from 'clsx'
@@ -29,7 +28,7 @@ import { useAppContext } from '../App'
 
 import { loadSettings } from '../lib/settings'
 import { listMessages } from '../lib/conversationsService'
-import TwemojiDisplay from './TwemojiDisplay'
+import EmojiDisplay from './EmojiDisplay'
 
 const ChatInterface = ({
   spaces = [],
@@ -810,7 +809,7 @@ const ChatInterface = ({
                 {displaySpace ? (
                   <div className="flex items-center gap-1">
                     <span className="text-lg">
-                      <TwemojiDisplay emoji={displaySpace.emoji} size="1.125rem" />
+                      <EmojiDisplay emoji={displaySpace.emoji} size="1.125rem" />
                     </span>
                     <span className="hidden opacity-0 w-0 md:inline md:opacity-100 md:w-auto truncate max-w-[200px] transition-all">
                       {displaySpace.label}
@@ -846,7 +845,7 @@ const ChatInterface = ({
                         >
                           <div className="flex items-center gap-3">
                             <span className="text-lg">
-                              <TwemojiDisplay emoji={space.emoji} size="1.125rem" />
+                              <EmojiDisplay emoji={space.emoji} size="1.125rem" />
                             </span>
                             <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
                               {space.label}
@@ -892,14 +891,14 @@ const ChatInterface = ({
                 <FancyLoader />
               </div>
             )}
-          <MessageList
-            apiProvider={settings.apiProvider}
-            defaultModel={settings.defaultModel}
-            onRelatedClick={handleRelatedClick}
-            onMessageRef={registerMessageRef}
-            onEdit={handleEdit}
-            onQuote={handleQuote}
-            onRegenerateAnswer={handleRegenerateAnswer}
+            <MessageList
+              apiProvider={settings.apiProvider}
+              defaultModel={settings.defaultModel}
+              onRelatedClick={handleRelatedClick}
+              onMessageRef={registerMessageRef}
+              onEdit={handleEdit}
+              onQuote={handleQuote}
+              onRegenerateAnswer={handleRegenerateAnswer}
             />
             {/* Bottom Anchor */}
             <div ref={bottomRef} className="h-1" />
@@ -1189,7 +1188,7 @@ const InputBar = React.memo(
               <button
                 onClick={handleSend}
                 disabled={isLoading || (!inputValue.trim() && attachments.length === 0)}
-                className="p-2 bg-primary-500 hover:bg-primary-600 text-white rounded-full transition-colors disabled:opacity-50  disabled:hover:bg-primary-500"
+                className="p-2 bg-primary-500 dark:bg-primary-800 hover:bg-primary-600 text-white rounded-full transition-colors disabled:opacity-50  disabled:hover:bg-primary-500"
               >
                 <ArrowRight size={18} />
               </button>

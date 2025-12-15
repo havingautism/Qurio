@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { X } from 'lucide-react'
 import useScrollLock from '../hooks/useScrollLock'
-import TwemojiDisplay from './TwemojiDisplay'
+import EmojiDisplay from './EmojiDisplay'
 import CustomEmojiPicker from './CustomEmojiPicker'
 import { useAppContext } from '../App'
 
@@ -20,32 +20,6 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
   const [error, setError] = useState('')
   const pickerRef = useRef(null)
   const buttonRef = useRef(null)
-
-  const emojis = [
-    '🌍',
-    '💻',
-    '📚',
-    '🧠',
-    '🎬',
-    '📈',
-    '🧪',
-    '🎧',
-    '📸',
-    '🗺️',
-    '📝',
-    '🧩',
-    '🪴',
-    '🎨',
-    '⚡',
-    '🚀',
-    '📖',
-    '🔬',
-    '🎮',
-    '🧘',
-    '🧭',
-    '🪐',
-    '📊',
-  ]
 
   // Close picker when clicking outside
   useEffect(() => {
@@ -153,7 +127,9 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
         <div className="flex-1 px-4 sm:px-6 py-6 flex flex-col gap-4 overflow-y-auto min-h-0">
           {/* Icon and Name Row */}
           <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Icon & Name</label>
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Icon & Name
+            </label>
             <div className="flex items-center gap-3">
               {/* Emoji Picker */}
               <div className="relative">
@@ -162,7 +138,7 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
                   onClick={() => setShowEmojiPicker(!showEmojiPicker)}
                   className="w-12 h-12 rounded-xl bg-gray-100 dark:bg-zinc-800 flex items-center justify-center text-2xl hover:bg-gray-200 dark:hover:bg-zinc-700 transition-colors border border-transparent focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 outline-none"
                 >
-                  <TwemojiDisplay emoji={emoji} />
+                  <EmojiDisplay emoji={emoji} />
                 </button>
 
                 {/* Picker Popover */}
@@ -280,7 +256,7 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
             <button
               onClick={handleSave}
               disabled={isSaving}
-              className="px-4 py-2 rounded-lg text-sm font-medium bg-black dark:bg-white text-white dark:text-black hover:opacity-90 transition-opacity disabled:opacity-50"
+              className="px-4 py-2 rounded-lg text-sm font-medium bg-primary-500 text-white hover:opacity-90 transition-opacity disabled:opacity-50"
             >
               {isSaving ? 'Saving...' : editingSpace ? 'Save Changes' : 'Create Space'}
             </button>

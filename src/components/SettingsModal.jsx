@@ -166,7 +166,9 @@ const PROVIDER_FAVICONS = {
 
 const SettingsModal = ({ isOpen, onClose }) => {
   const renderEnvHint = hasEnv =>
-    hasEnv ? <p className="text-[10px] text-emerald-500">Loaded from environment</p> : null
+    hasEnv ? (
+      <p className="text-emerald-600 text-xs dark:text-emerald-400">Loaded from environment</p>
+    ) : null
 
   const [activeTab, setActiveTab] = useState('general')
   const [OpenAICompatibilityKey, setOpenAICompatibilityKey] = useState('')
@@ -489,7 +491,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
         </div>
 
         {/* Sidebar */}
-        <div className="w-full md:w-64 bg-gray-50 dark:bg-[#202222] border-b md:border-b-0 md:border-r border-gray-200 dark:border-zinc-800 px-1 py-1 sm:py-4 sm:px-4 flex flex-row md:flex-col gap-2 overflow-x-auto md:overflow-visible shrink-0">
+        <div className="w-full md:w-64 bg-primary-50 dark:bg-background/70 border-b md:border-b-0 md:border-r border-gray-200 dark:border-zinc-800 px-1 py-1 sm:py-4 sm:px-4 flex flex-row md:flex-col gap-2 overflow-x-auto md:overflow-visible shrink-0">
           <h2 className="text-xl font-bold mb-0 md:mb-6 px-2 text-gray-900 dark:text-white hidden md:block">
             Settings
           </h2>
@@ -501,8 +503,8 @@ const SettingsModal = ({ isOpen, onClose }) => {
                 className={clsx(
                   'flex items-center gap-1 sm:gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap',
                   activeTab === item.id
-                    ? 'bg-gray-100 dark:bg-zinc-800 text-primary-600 dark:text-primary-400'
-                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-zinc-800',
+                    ? 'bg-primary-100 dark:bg-zinc-800 text-primary-600 dark:text-primary-400'
+                    : 'text-gray-600 dark:text-gray-400 hover:bg-primary-100 dark:hover:bg-zinc-800',
                 )}
               >
                 <item.icon size={18} />
@@ -794,11 +796,6 @@ const SettingsModal = ({ isOpen, onClose }) => {
                           </div>
                         )}
                         {renderEnvHint(Boolean(ENV_VARS.siliconFlowKey))}
-                      </div>
-                      <div className="flex flex-col gap-1 text-xs text-gray-500 dark:text-gray-400">
-                        <span className="font-medium text-gray-700 dark:text-gray-300">Base URL</span>
-                        <span className="font-mono text-[11px]">{SILICONFLOW_BASE_URL}</span>
-                        <span>SiliconFlow uses a fixed endpoint and no env override is needed.</span>
                       </div>
                     </div>
                   )}
@@ -1340,7 +1337,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
           </div>
 
           {/* Footer */}
-          <div className="h-20 border-t border-gray-200 dark:border-zinc-800 flex items-center justify-end px-6 sm:px-8 gap-3 bg-gray-50/50 dark:bg-[#191a1a] shrink-0">
+          <div className="h-20 border-t border-gray-200 dark:border-zinc-800 flex items-center justify-end px-6 sm:px-8 gap-3 bg-white dark:bg-[#191a1a] shrink-0">
             <button
               onClick={onClose}
               className="px-4 cursor-pointer py-2 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-zinc-800 transition-colors"
@@ -1349,7 +1346,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
             </button>
             <button
               onClick={handleSave}
-              className="px-4 cursor-pointer py-2 rounded-lg text-sm font-medium bg-black dark:bg-white text-white dark:text-black hover:opacity-90 transition-opacity"
+              className="px-4 cursor-pointer py-2 rounded-lg text-sm font-medium bg-primary-500 text-white  hover:opacity-90 transition-opacity"
             >
               Save Changes
             </button>

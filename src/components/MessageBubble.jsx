@@ -635,7 +635,7 @@ const MessageBubble = ({
         </div>
         <div className="flex flex-col leading-tight">
           <span className="text-sm font-semibold">{providerMeta.label}</span>
-          <span className="text-xs text-gray-500 dark:text-gray-400">Model: {resolvedModel}</span>
+          <span className="text-xs text-gray-500 dark:text-gray-400">{resolvedModel}</span>
         </div>
       </div>
 

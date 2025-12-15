@@ -18,7 +18,7 @@ import SpaceView from './SpaceView'
 import SpacesListView from './SpacesListView'
 import ConversationsListView from './ConversationsListView'
 import { loadSettings } from '../lib/settings'
-import TwemojiDisplay from './TwemojiDisplay'
+import EmojiDisplay from './EmojiDisplay'
 import HomeWidgets from './widgets/HomeWidgets'
 import { useAppContext } from '../App'
 import Logo from './Logo'
@@ -505,7 +505,7 @@ const MainContent = ({
                                 >
                                   <div className="flex items-center gap-3">
                                     <span className="text-lg flex items-center justify-center">
-                                      <TwemojiDisplay emoji={space.emoji} size="1.25rem" />
+                                      <EmojiDisplay emoji={space.emoji} size="1.25rem" />
                                     </span>
                                     <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                       {space.label}

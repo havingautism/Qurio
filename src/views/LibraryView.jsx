@@ -22,7 +22,7 @@ import clsx from 'clsx'
 import FancyLoader from '../components/FancyLoader'
 import DropdownMenu from '../components/DropdownMenu'
 import { useToast } from '../contexts/ToastContext'
-import TwemojiDisplay from '../components/TwemojiDisplay'
+import EmojiDisplay from '../components/EmojiDisplay'
 
 const SORT_OPTIONS = [
   { label: 'Newest', value: 'created_at', ascending: false },
@@ -145,7 +145,7 @@ const LibraryView = () => {
   }
 
   // Handle delete conversation
-  const handleDeleteConversation = async (conversation) => {
+  const handleDeleteConversation = async conversation => {
     if (!conversation) return
 
     showConfirmation({
@@ -341,7 +341,7 @@ const LibraryView = () => {
                         </div>
                         {space && (
                           <div className="flex items-center gap-1.5">
-                            <TwemojiDisplay emoji={space.emoji} size="1rem" />
+                            <EmojiDisplay emoji={space.emoji} size="1rem" />
                             <span>{space.label}</span>
                           </div>
                         )}

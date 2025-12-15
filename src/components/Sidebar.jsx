@@ -18,7 +18,7 @@ import {
 import clsx from 'clsx'
 import Logo from './Logo'
 import DotLoader from './DotLoader'
-import TwemojiDisplay from './TwemojiDisplay'
+import EmojiDisplay from './EmojiDisplay'
 import {
   listConversations,
   listConversationsBySpace,
@@ -925,13 +925,13 @@ const Sidebar = ({
                       onClick={() => onNavigateToSpace(space)}
                       className="flex items-center justify-between p-2 rounded  cursor-pointer transition-colors group"
                     >
-                      <div className="flex items-center gap-3">
+                      <div className="flex-1 min-w-0 flex items-center gap-3">
                         <button
                           onClick={e => {
                             e.stopPropagation()
                             toggleSpace(space.id)
                           }}
-                          className="p-1 -ml-1 hover:bg-primary-50 dark:hover:bg-zinc-800 text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
+                          className="p-1 -ml-1 hover:bg-primary-50 dark:hover:bg-zinc-800 text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors shrink-0"
                         >
                           <ChevronDown
                             size={14}
@@ -941,10 +941,10 @@ const Sidebar = ({
                             )}
                           />
                         </button>
-                        <div className="w-8 h-8 rounded bg-transparent flex items-center justify-center group-hover:border-gray-300 dark:group-hover:border-zinc-600 text-lg">
-                          <TwemojiDisplay emoji={space.emoji} />
+                        <div className="w-8 h-8 rounded bg-transparent flex items-center justify-center group-hover:border-gray-300 dark:group-hover:border-zinc-600 text-lg shrink-0">
+                          <EmojiDisplay emoji={space.emoji} />
                         </div>
-                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-600 dark:hover:text-gray-200 transition-colors truncate">
                           {space.label}
                         </span>
                       </div>

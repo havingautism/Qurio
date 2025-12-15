@@ -6,7 +6,7 @@ import DropdownMenu from './DropdownMenu'
 import { deleteSpace } from '../lib/supabase'
 import { useToast } from '../contexts/ToastContext'
 import { useAppContext } from '../App'
-import TwemojiDisplay from './TwemojiDisplay'
+import EmojiDisplay from './EmojiDisplay'
 
 const SpacesListView = ({
   spaces = [],
@@ -21,7 +21,7 @@ const SpacesListView = ({
   const toast = useToast()
   const { showConfirmation } = useAppContext()
 
-  const handleDeleteSpace = async (space) => {
+  const handleDeleteSpace = async space => {
     if (!space) return
 
     showConfirmation({
@@ -134,7 +134,7 @@ const SpacesListView = ({
                     {/* Space Icon */}
                     <div className="w-12 h-12 rounded-full bg-linear-to-br from-primary-400 to-blue-500 flex items-center justify-center mb-4 text-2xl">
                       {/* space.emoji || "📁" */}
-                      <TwemojiDisplay emoji={space.emoji || '📁'} size="1.5rem" />
+                      <EmojiDisplay emoji={space.emoji || '📁'} size="1.5rem" />
                     </div>
 
                     {/* Space Name */}

@@ -22,7 +22,7 @@ const QuestionNavigator = ({ items = [], onJump, activeId }) => {
                 onClick={() => onJump && onJump(item.id)}
                 className={`text-left text-sm transition-colors duration-200 line-clamp-2 leading-relaxed ${
                   isActive
-                    ? 'text-primary-500 dark:text-primary-900/80 font-medium'
+                    ? 'text-primary-500 dark:text-primary-400 font-medium'
                     : 'text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400'
                 }`}
               >

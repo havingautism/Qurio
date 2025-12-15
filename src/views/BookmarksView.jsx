@@ -19,7 +19,7 @@ import clsx from 'clsx'
 import FancyLoader from '../components/FancyLoader'
 import DropdownMenu from '../components/DropdownMenu'
 import { useToast } from '../contexts/ToastContext'
-import TwemojiDisplay from '../components/TwemojiDisplay'
+import EmojiDisplay from '../components/EmojiDisplay'
 
 const SORT_OPTIONS = [
   { label: 'Newest', value: 'created_at', ascending: false },
@@ -103,7 +103,7 @@ const BookmarksView = () => {
   }
 
   // Handle delete conversation
-  const handleDeleteConversation = async (conversation) => {
+  const handleDeleteConversation = async conversation => {
     if (!conversation) return
 
     showConfirmation({
@@ -267,7 +267,7 @@ const BookmarksView = () => {
                         {space && (
                           <div className="flex items-center gap-1.5">
                             <span>
-                              <TwemojiDisplay emoji={space.emoji} />
+                              <EmojiDisplay emoji={space.emoji} />
                             </span>
                             <span>{space.label}</span>
                           </div>
@@ -290,12 +290,11 @@ const BookmarksView = () => {
                           // Show on hover on desktop
                           'md:opacity-0 md:group-hover:opacity-100',
                           // Ensure button has minimum size for touch
-                          'min-w-[44px] min-h-[44px] flex items-center justify-center'
+                          'min-w-[44px] min-h-[44px] flex items-center justify-center',
                         )}
                       >
                         <MoreHorizontal size={18} strokeWidth={2} />
                       </button>
-
                     </div>
                   </div>
                 </div>
@@ -321,7 +320,6 @@ const BookmarksView = () => {
         </div>
       </div>
 
-
       {/* Global DropdownMenu */}
       <DropdownMenu
         isOpen={!!openMenuId}
@@ -337,10 +335,7 @@ const BookmarksView = () => {
             {
               label: activeConv.is_favorited ? 'Remove Bookmark' : 'Add Bookmark',
               icon: (
-                <Bookmark
-                  size={14}
-                  className={activeConv.is_favorited ? 'fill-current' : ''}
-                />
+                <Bookmark size={14} className={activeConv.is_favorited ? 'fill-current' : ''} />
               ),
               onClick: () => handleToggleFavorite(activeConv),
               className: activeConv.is_favorited ? 'text-yellow-500' : '',

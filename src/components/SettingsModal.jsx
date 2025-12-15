@@ -166,7 +166,9 @@ const PROVIDER_FAVICONS = {
 
 const SettingsModal = ({ isOpen, onClose }) => {
   const renderEnvHint = hasEnv =>
-    hasEnv ? <p className="text-[10px] text-emerald-500">Loaded from environment</p> : null
+    hasEnv ? (
+      <p className="text-emerald-600 text-xs dark:text-emerald-400">Loaded from environment</p>
+    ) : null
 
   const [activeTab, setActiveTab] = useState('general')
   const [OpenAICompatibilityKey, setOpenAICompatibilityKey] = useState('')

@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import data from '@emoji-mart/data'
-import TwemojiDisplay from './TwemojiDisplay'
 import { Search } from 'lucide-react'
+import EmojiDisplay from './EmojiDisplay'
 
 const CustomEmojiPicker = ({ onEmojiSelect }) => {
   const [search, setSearch] = useState('')
@@ -79,7 +79,7 @@ const CustomEmojiPicker = ({ onEmojiSelect }) => {
                     title={emojiData.name}
                     className="w-9 h-9 flex items-center justify-center rounded hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
                   >
-                    <TwemojiDisplay emoji={nativeEmoji} size="1.2em" />
+                    <EmojiDisplay emoji={nativeEmoji} size="1.2em" />
                   </button>
                 )
               })}

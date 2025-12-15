@@ -16,7 +16,7 @@ import { toggleFavorite, listConversationsBySpace } from '../lib/conversationsSe
 import { useToast } from '../contexts/ToastContext'
 import { useAppContext } from '../App'
 import FancyLoader from './FancyLoader'
-import TwemojiDisplay from './TwemojiDisplay'
+import EmojiDisplay from './EmojiDisplay'
 
 const SpaceView = ({
   space,
@@ -82,7 +82,7 @@ const SpaceView = ({
     }
   }
 
-  const handleDeleteConversation = async (conversation) => {
+  const handleDeleteConversation = async conversation => {
     if (!conversation) return
 
     showConfirmation({
@@ -152,7 +152,7 @@ const SpaceView = ({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="text-4xl">
-              <TwemojiDisplay emoji={space.emoji} size="2.25rem" />
+              <EmojiDisplay emoji={space.emoji} size="2.25rem" />
             </div>
             <div className="flex flex-col">
               <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
@@ -240,7 +240,7 @@ const SpaceView = ({
                           // Show on hover on desktop
                           'md:opacity-0 md:group-hover:opacity-100',
                           // Ensure button has minimum size for touch
-                          'min-w-[44px] min-h-[44px] flex items-center justify-center'
+                          'min-w-[44px] min-h-[44px] flex items-center justify-center',
                         )}
                         onClick={e => {
                           e.stopPropagation()

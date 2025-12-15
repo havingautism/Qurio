@@ -1,27 +1,22 @@
 import { useEffect, useState } from 'react'
-import MainContent from '../components/MainContent'
 import { conversationRoute } from '../router'
 import { getConversation } from '../lib/conversationsService'
 import { useAppContext } from '../App'
+import ChatInterface from '../components/ChatInterface'
 
 const ConversationView = () => {
   const { conversationId } = conversationRoute.useParams()
-  const context = useAppContext()
+  const { spaces, toggleSidebar, isSidebarPinned } = useAppContext()
   const [conversation, setConversation] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [prevConversationId, setPrevConversationId] = useState(conversationId)
 
   // Effect to fetch conversation data when conversationId changes
   useEffect(() => {
     const fetchConversation = async () => {
       if (!conversationId) return
 
-      // Show loader when switching to a different conversation
-      if (conversationId !== prevConversationId) {
-        setIsLoading(true)
-        setConversation(null) // avoid flashing previous conversation while loading
-        setPrevConversationId(conversationId)
-      }
+      setIsLoading(true)
+      setConversation(null)
 
       try {
         const { data } = await getConversation(conversationId)
@@ -36,12 +31,12 @@ const ConversationView = () => {
     }
 
     fetchConversation()
-  }, [conversationId, prevConversationId])
+  }, [conversationId])
 
   // Listen for conversation space updates
   useEffect(() => {
     const handleSpaceUpdated = async event => {
-      const { conversationId: updatedId, space } = event.detail
+      const { conversationId: updatedId } = event.detail
 
       // If this is the current conversation, refetch its data
       if (updatedId === conversationId) {
@@ -68,12 +63,13 @@ const ConversationView = () => {
     return <div className="min-h-screen bg-background text-foreground" />
   }
 
+  // Directly render ChatInterface with the conversation data
   return (
-    <MainContent
-      currentView="chat"
+    <ChatInterface
+      spaces={spaces}
       activeConversation={conversation}
       conversationId={conversationId}
-      {...context}
+      isSidebarPinned={isSidebarPinned}
     />
   )
 }

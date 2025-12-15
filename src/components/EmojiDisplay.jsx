@@ -1,17 +1,44 @@
+import emojiData from 'fluentui-emoji-js/emojiData.json'
+
 const EmojiDisplay = ({ emoji, size = '1em', className = '' }) => {
   if (!emoji) return null
 
-  // Helper to convert unicode to hex string
-  // This handles surrogate pairs and variation selectors correctly for the CDN
-  const getHex = emojiChar => {
-    return Array.from(emojiChar)
-      .map(c => c.codePointAt(0).toString(16))
-      .join('-')
+  // Find the emoji entry in the bundled JSON data
+  const emojiEntry = emojiData.find(e => e.glyph === emoji || e.unicode === emoji)
+
+  // Construct URL if found
+  // path format in JSON: folder: "/Name", images: { "3D": ["file.png"] }
+  let url = null
+  if (emojiEntry) {
+    const style = '3D' // Default style
+    const files = emojiEntry.images[style]
+    if (files && files.length > 0) {
+      // Structure: assets / {folder} / {style} / {filename}
+      // Note: emojiEntry.folder start with '/', so we construct carefuly
+      const folder = emojiEntry.folder.startsWith('/') ? emojiEntry.folder : `/${emojiEntry.folder}`
+      const filename = files[0]
+      url = `https://cdn.jsdelivr.net/gh/microsoft/fluentui-emoji@main/assets${folder}/${style}/${filename}`
+    }
   }
 
-  const hex = getHex(emoji)
-  // Using Advena's Fluent Emoji CDN
-  const url = `https://emoji.fluent-cdn.com/1.0.0/100x100/${hex}.png`
+  if (!url) {
+    // Fallback to native text rendering immediately if no mapping found
+    return (
+      <span
+        className={`inline-flex items-center justify-center shrink-0 ${className}`}
+        style={{
+          width: size,
+          height: size,
+          fontSize: size,
+          lineHeight: 1,
+          verticalAlign: '-0.125em',
+          fontFamily: '"Segoe UI Emoji", "Noto Color Emoji", sans-serif',
+        }}
+      >
+        {emoji}
+      </span>
+    )
+  }
 
   return (
     <span
@@ -19,7 +46,7 @@ const EmojiDisplay = ({ emoji, size = '1em', className = '' }) => {
       style={{
         width: size,
         height: size,
-        fontSize: size, // Keep fontSize for layout alignment if needed
+        fontSize: size,
         lineHeight: 1,
         verticalAlign: '-0.125em',
       }}
@@ -30,7 +57,6 @@ const EmojiDisplay = ({ emoji, size = '1em', className = '' }) => {
         className="w-full h-full object-contain"
         loading="lazy"
         onError={e => {
-          // Fallback to native emoji if image fails to load
           e.target.style.display = 'none'
           e.target.nextSibling.style.display = 'inline-block'
         }}

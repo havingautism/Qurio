@@ -436,7 +436,7 @@ const MessageBubble = ({
           <div
             className={clsx(
               'relative px-5 py-3.5 rounded-3xl text-base',
-              'bg-user-bubble dark:bg-zinc-800 text-gray-900 dark:text-gray-100',
+              'bg-primary-500 dark:bg-primary-900 text-white dark:text-gray-100',
             )}
           >
             {quoteToRender && (
@@ -654,7 +654,7 @@ const MessageBubble = ({
           </button>
 
           {isThoughtExpanded && hasThoughtText && (
-            <div className="p-4 bg-user-bubble/30 font-mono! dark:bg-zinc-800/30 border-t border-gray-200 dark:border-zinc-700 text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+            <div className="p-4 bg-user-bubble/30 font-stretch-semi-condensed dark:bg-zinc-800/30 border-t border-gray-200 dark:border-zinc-700 text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
               <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
                 {thoughtContent}
               </ReactMarkdown>
@@ -728,19 +728,19 @@ const MessageBubble = ({
         <div className="mt-4">
           <div className="flex items-center gap-3 mb-3 text-gray-900 dark:text-gray-100">
             <Layers size={24} className="text-primary-500" />
-            <h3 className="text-lg font-medium">Related</h3>
+            <span className="text-sm font-semibold">Related</span>
           </div>
           <div className="flex flex-col gap-1 md:gap-2">
             {message.related.map((question, index) => (
               <div
                 key={index}
                 onClick={() => onRelatedClick && onRelatedClick(question)}
-                className="flex items-center justify-between p-2 md:p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800/50 cursor-pointer transition-colors group"
+                className="flex items-center justify-between p-1 md:p-2 rounded-lg hover:bg-user-bubble dark:hover:bg-zinc-800/50 cursor-pointer transition-colors group"
               >
-                <span className="text-gray-700 dark:text-gray-300 font-medium text-sm md:text-base">
+                <span className="text-gray-700 dark:text-gray-300 font-medium text-sm md:text-balance">
                   {question}
                 </span>
-                <div className="ml-2 sm:ml-0opacity-100 sm:opacity-0 sm:group-hover:opacity-100 text-gray-400 dark:text-gray-500">
+                <div className="ml-2 sm:ml-0opacity-100 sm:opacity-0 sm:group-hover:opacity-100 text-primary-500 dark:text-gray-500">
                   <CornerRightDown />
                 </div>
               </div>

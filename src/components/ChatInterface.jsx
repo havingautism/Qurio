@@ -21,7 +21,6 @@ import {
   Sparkles,
   ArrowDown,
   Menu,
-  MessageSquare,
   History,
 } from 'lucide-react'
 import clsx from 'clsx'
@@ -892,14 +891,14 @@ const ChatInterface = ({
                 <FancyLoader />
               </div>
             )}
-          <MessageList
-            apiProvider={settings.apiProvider}
-            defaultModel={settings.defaultModel}
-            onRelatedClick={handleRelatedClick}
-            onMessageRef={registerMessageRef}
-            onEdit={handleEdit}
-            onQuote={handleQuote}
-            onRegenerateAnswer={handleRegenerateAnswer}
+            <MessageList
+              apiProvider={settings.apiProvider}
+              defaultModel={settings.defaultModel}
+              onRelatedClick={handleRelatedClick}
+              onMessageRef={registerMessageRef}
+              onEdit={handleEdit}
+              onQuote={handleQuote}
+              onRegenerateAnswer={handleRegenerateAnswer}
             />
             {/* Bottom Anchor */}
             <div ref={bottomRef} className="h-1" />
@@ -1189,7 +1188,7 @@ const InputBar = React.memo(
               <button
                 onClick={handleSend}
                 disabled={isLoading || (!inputValue.trim() && attachments.length === 0)}
-                className="p-2 bg-primary-500 hover:bg-primary-600 text-white rounded-full transition-colors disabled:opacity-50  disabled:hover:bg-primary-500"
+                className="p-2 bg-primary-500 dark:bg-primary-800 hover:bg-primary-600 text-white rounded-full transition-colors disabled:opacity-50  disabled:hover:bg-primary-500"
               >
                 <ArrowRight size={18} />
               </button>

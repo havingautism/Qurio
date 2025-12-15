@@ -260,7 +260,7 @@ const Sidebar = ({
       .filter(section => section.items.length > 0)
   }
 
-  const handleDeleteConversation = async (conversation) => {
+  const handleDeleteConversation = async conversation => {
     if (!conversation) return
 
     showConfirmation({
@@ -464,7 +464,7 @@ const Sidebar = ({
           <div className="mb-6">
             <button
               onClick={() => onNavigate('home')}
-              className="w-10 h-10 flex items-center justify-center rounded-full bg-[#9c9d8a29] dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-transform duration-200 hover:scale-110 active:scale-95 cursor-pointer"
+              className="w-10 h-10 flex items-center justify-center rounded-full bg-user-bubble dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-transform duration-200 hover:scale-110 active:scale-95 cursor-pointer"
             >
               <Plus size={20} />
             </button>
@@ -488,7 +488,7 @@ const Sidebar = ({
                 className={clsx(
                   'flex flex-col items-center justify-center gap-1 py-2 mx-2 rounded-xl transition-all duration-200 cursor-pointer',
                   activeTab === item.id
-                    ? 'text-[#13343bbf] dark:text-white'
+                    ? 'text-primary-500 dark:text-primary-400'
                     : 'text-[#13343bbf] dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200',
                 )}
               >
@@ -496,13 +496,13 @@ const Sidebar = ({
                   className={clsx(
                     'p-3 rounded-lg transition-all',
                     activeTab === item.id
-                      ? 'bg-[#9c9d8a29] dark:bg-zinc-700'
-                      : 'group-hover:bg-[#9c9d8a29] dark:group-hover:bg-zinc-800/50',
+                      ? 'bg-user-bubble dark:bg-user-bubble/10'
+                      : 'group-hover:bg-user-bubble dark:group-hover:bg-zinc-800/50',
                   )}
                 >
                   <item.icon size={20} />
                 </div>
-                <span className="text-[10px] font-medium">{item.label}</span>
+                <span className="text-[11px] font-medium">{item.label}</span>
               </button>
             ))}
           </div>
@@ -514,7 +514,7 @@ const Sidebar = ({
           <div className="mb-2">
             <button
               onClick={onToggleTheme}
-              className="w-10 h-10 flex items-center justify-center rounded-full bg-[#9c9d8a29] dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-transform duration-200 hover:scale-110 active:scale-95 cursor-pointer"
+              className="w-10 h-10 flex items-center justify-center rounded-full bg-user-bubble dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-transform duration-200 hover:scale-110 active:scale-95 cursor-pointer"
               //  title={`Current theme: ${theme}`}
             >
               {getThemeIcon()}
@@ -525,7 +525,7 @@ const Sidebar = ({
           <div className="mb-2">
             <button
               onClick={onOpenSettings}
-              className="w-10 h-10 flex items-center justify-center rounded-full bg-[#9c9d8a29] dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-transform duration-200 hover:scale-110 active:scale-95 cursor-pointer"
+              className="w-10 h-10 flex items-center justify-center rounded-full bg-user-bubble dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-transform duration-200 hover:scale-110 active:scale-95 cursor-pointer"
             >
               <Settings size={20} />
             </button>

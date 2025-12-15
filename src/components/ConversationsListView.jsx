@@ -3,10 +3,10 @@ import { Plus, Clock, MessageSquare, Bookmark, MoreHorizontal, Trash2, Coffee } 
 import clsx from 'clsx'
 import FancyLoader from './FancyLoader'
 import DropdownMenu from './DropdownMenu'
-import ConfirmationModal from './ConfirmationModal'
 import { deleteConversation } from '../lib/supabase'
 import { toggleFavorite } from '../lib/conversationsService'
 import { useToast } from '../contexts/ToastContext'
+import { useAppContext } from '../App'
 
 const ConversationsListView = ({
   conversations = [],
@@ -20,8 +20,8 @@ const ConversationsListView = ({
 }) => {
   const [openMenuId, setOpenMenuId] = useState(null)
   const [menuAnchorEl, setMenuAnchorEl] = useState(null)
-  const [conversationToDelete, setConversationToDelete] = useState(null)
   const toast = useToast()
+  const { showConfirmation } = useAppContext()
 
   const handleToggleFavorite = async conversation => {
     const newStatus = !conversation.is_favorited
@@ -42,25 +42,31 @@ const ConversationsListView = ({
     }
   }
 
-  const handleDeleteConversation = async () => {
-    if (!conversationToDelete) return
+  const handleDeleteConversation = async (conversation) => {
+    if (!conversation) return
 
-    const { success, error } = await deleteConversation(conversationToDelete.id)
+    showConfirmation({
+      title: 'Delete',
+      message: `Are you sure you want to delete "${conversation.title}"? This action cannot be undone.`,
+      confirmText: 'Delete',
+      isDangerous: true,
+      onConfirm: async () => {
+        const { success, error } = await deleteConversation(conversation.id)
 
-    if (success) {
-      toast.success('Conversation deleted successfully')
-      // Notify parent component about deletion
-      if (onConversationDeleted) {
-        onConversationDeleted(conversationToDelete.id)
-      }
-      // Trigger a conversation update by firing the event
-      window.dispatchEvent(new Event('conversations-changed'))
-    } else {
-      console.error('Failed to delete conversation:', error)
-      toast.error('Failed to delete conversation')
-    }
-
-    setConversationToDelete(null)
+        if (success) {
+          toast.success('Conversation deleted successfully')
+          // Notify parent component about deletion
+          if (onConversationDeleted) {
+            onConversationDeleted(conversation.id)
+          }
+          // Trigger a conversation update by firing the event
+          window.dispatchEvent(new Event('conversations-changed'))
+        } else {
+          console.error('Failed to delete conversation:', error)
+          toast.error('Failed to delete conversation')
+        }
+      },
+    })
   }
 
   const formatDateTime = dateString => {
@@ -262,21 +268,11 @@ const ConversationsListView = ({
             {
               label: 'Delete',
               icon: <Trash2 size={14} />,
-              onClick: () => setConversationToDelete(conv),
+              onClick: () => handleDeleteConversation(conv),
               danger: true,
             },
           ]
         })()}
-      />
-
-      <ConfirmationModal
-        isOpen={!!conversationToDelete}
-        onClose={() => setConversationToDelete(null)}
-        onConfirm={handleDeleteConversation}
-        title="Delete"
-        message={`Are you sure you want to delete "${conversationToDelete?.title}"? This action cannot be undone.`}
-        confirmText="Delete"
-        isDangerous={true}
       />
     </div>
   )

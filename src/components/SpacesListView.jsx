@@ -3,9 +3,9 @@ import { Plus, Clock, MoreHorizontal, Trash2 } from 'lucide-react'
 import clsx from 'clsx'
 import FancyLoader from './FancyLoader'
 import DropdownMenu from './DropdownMenu'
-import ConfirmationModal from './ConfirmationModal'
 import { deleteSpace } from '../lib/supabase'
 import { useToast } from '../contexts/ToastContext'
+import { useAppContext } from '../App'
 import TwemojiDisplay from './TwemojiDisplay'
 
 const SpacesListView = ({
@@ -18,28 +18,34 @@ const SpacesListView = ({
 }) => {
   const [openMenuId, setOpenMenuId] = useState(null)
   const [menuAnchorEl, setMenuAnchorEl] = useState(null)
-  const [spaceToDelete, setSpaceToDelete] = useState(null)
   const toast = useToast()
+  const { showConfirmation } = useAppContext()
 
-  const handleDeleteSpace = async () => {
-    if (!spaceToDelete) return
+  const handleDeleteSpace = async (space) => {
+    if (!space) return
 
-    const { success, error } = await deleteSpace(spaceToDelete.id)
+    showConfirmation({
+      title: 'Delete Space',
+      message: `Are you sure you want to delete "${space.label}"? This action cannot be undone.`,
+      confirmText: 'Delete',
+      isDangerous: true,
+      onConfirm: async () => {
+        const { success, error } = await deleteSpace(space.id)
 
-    if (success) {
-      toast.success('Space deleted successfully')
-      // Notify parent component about deletion
-      if (onSpaceDeleted) {
-        onSpaceDeleted(spaceToDelete.id)
-      }
-      // Notify other components to refresh
-      window.dispatchEvent(new Event('spaces-changed'))
-    } else {
-      console.error('Failed to delete space:', error)
-      toast.error('Failed to delete space')
-    }
-
-    setSpaceToDelete(null)
+        if (success) {
+          toast.success('Space deleted successfully')
+          // Notify parent component about deletion
+          if (onSpaceDeleted) {
+            onSpaceDeleted(space.id)
+          }
+          // Notify other components to refresh
+          window.dispatchEvent(new Event('spaces-changed'))
+        } else {
+          console.error('Failed to delete space:', error)
+          toast.error('Failed to delete space')
+        }
+      },
+    })
   }
 
   return (
@@ -179,21 +185,11 @@ const SpacesListView = ({
             {
               label: 'Delete space',
               icon: <Trash2 size={14} />,
-              onClick: () => setSpaceToDelete(space),
+              onClick: () => handleDeleteSpace(space),
               danger: true,
             },
           ]
         })()}
-      />
-
-      <ConfirmationModal
-        isOpen={!!spaceToDelete}
-        onClose={() => setSpaceToDelete(null)}
-        onConfirm={handleDeleteSpace}
-        title="Delete Space"
-        message={`Are you sure you want to delete "${spaceToDelete?.label}"? This action cannot be undone and all conversations in this space will be permanently deleted.`}
-        confirmText="Delete"
-        isDangerous={true}
       />
     </div>
   )

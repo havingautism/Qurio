@@ -3,9 +3,11 @@ import { X } from 'lucide-react'
 import useScrollLock from '../hooks/useScrollLock'
 import TwemojiDisplay from './TwemojiDisplay'
 import CustomEmojiPicker from './CustomEmojiPicker'
+import { useAppContext } from '../App'
 
 const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) => {
   useScrollLock(isOpen)
+  const { showConfirmation } = useAppContext()
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [prompt, setPrompt] = useState('')
@@ -113,13 +115,20 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
 
   const handleDelete = async () => {
     if (!editingSpace?.id) return
-    const confirmed = window.confirm('Delete this space? This cannot be undone.')
-    if (!confirmed) return
-    try {
-      await onDelete?.(editingSpace.id)
-    } catch (err) {
-      setError(err.message || 'Failed to delete space')
-    }
+
+    showConfirmation({
+      title: 'Delete Space',
+      message: `Are you sure you want to delete "${editingSpace.label}"? This action cannot be undone. Conversations in this space will be moved to your default space.`,
+      confirmText: 'Delete',
+      isDangerous: true,
+      onConfirm: async () => {
+        try {
+          await onDelete?.(editingSpace.id)
+        } catch (err) {
+          setError(err.message || 'Failed to delete space')
+        }
+      },
+    })
   }
 
   if (!isOpen) return null

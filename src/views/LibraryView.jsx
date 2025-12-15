@@ -21,7 +21,6 @@ import {
 import clsx from 'clsx'
 import FancyLoader from '../components/FancyLoader'
 import DropdownMenu from '../components/DropdownMenu'
-import ConfirmationModal from '../components/ConfirmationModal'
 import { useToast } from '../contexts/ToastContext'
 import TwemojiDisplay from '../components/TwemojiDisplay'
 
@@ -33,7 +32,7 @@ const SORT_OPTIONS = [
 ]
 
 const LibraryView = () => {
-  const { spaces, isSidebarPinned } = useAppContext()
+  const { spaces, isSidebarPinned, showConfirmation } = useAppContext()
   const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState('')
   const [activeSearchQuery, setActiveSearchQuery] = useState('') // Query actually sent to server
@@ -41,7 +40,6 @@ const LibraryView = () => {
   const [isSortOpen, setIsSortOpen] = useState(false)
   const [openMenuId, setOpenMenuId] = useState(null)
   const [menuAnchorEl, setMenuAnchorEl] = useState(null)
-  const [conversationToDelete, setConversationToDelete] = useState(null)
   const toast = useToast()
 
   const [conversations, setConversations] = useState([])
@@ -147,21 +145,27 @@ const LibraryView = () => {
   }
 
   // Handle delete conversation
-  const handleDeleteConversation = async () => {
-    if (!conversationToDelete) return
+  const handleDeleteConversation = async (conversation) => {
+    if (!conversation) return
 
-    const { success, error } = await deleteConversation(conversationToDelete.id)
+    showConfirmation({
+      title: 'Delete Conversation',
+      message: `Are you sure you want to delete "${conversation.title}"? This action cannot be undone.`,
+      confirmText: 'Delete',
+      isDangerous: true,
+      onConfirm: async () => {
+        const { success, error } = await deleteConversation(conversation.id)
 
-    if (success) {
-      toast.success('Conversation deleted successfully')
-      // Refresh data
-      window.dispatchEvent(new Event('conversations-changed'))
-    } else {
-      console.error('Failed to delete conversation:', error)
-      toast.error('Failed to delete conversation')
-    }
-
-    setConversationToDelete(null)
+        if (success) {
+          toast.success('Conversation deleted successfully')
+          // Refresh data
+          window.dispatchEvent(new Event('conversations-changed'))
+        } else {
+          console.error('Failed to delete conversation:', error)
+          toast.error('Failed to delete conversation')
+        }
+      },
+    })
   }
 
   return (
@@ -433,20 +437,10 @@ const LibraryView = () => {
               label: 'Delete conversation',
               icon: <Trash2 size={14} />,
               danger: true,
-              onClick: () => setConversationToDelete(activeConv),
+              onClick: () => handleDeleteConversation(activeConv),
             },
           ]
         })()}
-      />
-
-      <ConfirmationModal
-        isOpen={!!conversationToDelete}
-        onClose={() => setConversationToDelete(null)}
-        onConfirm={handleDeleteConversation}
-        title="Delete Conversation"
-        message={`Are you sure you want to delete "${conversationToDelete?.title}"? This action cannot be undone.`}
-        confirmText="Delete"
-        isDangerous={true}
       />
     </div>
   )

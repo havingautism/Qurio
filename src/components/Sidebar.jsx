@@ -26,8 +26,8 @@ import {
   listBookmarkedConversations,
 } from '../lib/conversationsService'
 import { deleteConversation } from '../lib/supabase'
-import ConfirmationModal from './ConfirmationModal'
 import { useToast } from '../contexts/ToastContext'
+import { useAppContext } from '../App'
 
 const SIDEBAR_FETCH_LIMIT = 20
 
@@ -67,7 +67,6 @@ const Sidebar = ({
   const [bookmarkHasMore, setBookmarkHasMore] = useState(true)
   const [isBookmarksLoading, setIsBookmarksLoading] = useState(false)
   const [bookmarksLoadingMore, setBookmarksLoadingMore] = useState(false)
-  const [conversationToDelete, setConversationToDelete] = useState(null)
   const [expandedActionId, setExpandedActionId] = useState(null)
 
   // Spaces interaction state
@@ -77,6 +76,7 @@ const Sidebar = ({
   const [spacesLoadingMore, setSpacesLoadingMore] = useState(false)
 
   const toast = useToast()
+  const { showConfirmation } = useAppContext()
 
   const formatDateTime = value => {
     if (!value) return 'Recently'
@@ -260,28 +260,35 @@ const Sidebar = ({
       .filter(section => section.items.length > 0)
   }
 
-  const handleDeleteConversation = async () => {
-    if (!conversationToDelete) return
+  const handleDeleteConversation = async (conversation) => {
+    if (!conversation) return
 
-    const { success, error } = await deleteConversation(conversationToDelete.id)
+    showConfirmation({
+      title: 'Delete',
+      message: `Are you sure you want to delete "${conversation.title}"? This action cannot be undone.`,
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      isDangerous: true,
+      onConfirm: async () => {
+        const { success, error } = await deleteConversation(conversation.id)
 
-    if (success) {
-      // Refresh list
-      fetchConversations(true)
-      if (conversationToDelete.is_favorited) {
-        fetchBookmarkedConversations(true)
-      }
+        if (success) {
+          // Refresh list
+          fetchConversations(true)
+          if (conversation.is_favorited) {
+            fetchBookmarkedConversations(true)
+          }
 
-      // Only navigate home if we deleted the currently active conversation
-      if (conversationToDelete.id === activeConversationId) {
-        onNavigate('home')
-      }
-    } else {
-      console.error('Failed to delete conversation:', error)
-      toast.error('Failed to delete conversation')
-    }
-
-    setConversationToDelete(null)
+          // Only navigate home if we deleted the currently active conversation
+          if (conversation.id === activeConversationId) {
+            onNavigate('home')
+          }
+        } else {
+          console.error('Failed to delete conversation:', error)
+          toast.error('Failed to delete conversation')
+        }
+      },
+    })
   }
 
   const handleToggleFavorite = async conversation => {
@@ -702,7 +709,7 @@ const Sidebar = ({
                                 <button
                                   onClick={e => {
                                     e.stopPropagation()
-                                    setConversationToDelete(conv)
+                                    handleDeleteConversation(conv)
                                   }}
                                   className="py-1.5 rounded-md transition-colors flex items-center justify-center gap-1.5 font-medium border border-transparent text-gray-500 dark:text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400 hover:border-red-100 dark:hover:border-red-800/30"
                                 >
@@ -839,7 +846,7 @@ const Sidebar = ({
                             <button
                               onClick={e => {
                                 e.stopPropagation()
-                                setConversationToDelete(conv)
+                                handleDeleteConversation(conv)
                               }}
                               className="py-1.5 rounded-md transition-colors flex items-center justify-center gap-1.5 font-medium border border-transparent text-gray-500 dark:text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400 hover:border-red-100 dark:hover:border-red-800/30"
                             >
@@ -1069,16 +1076,6 @@ const Sidebar = ({
             )}
           </div>
         </div>
-
-        <ConfirmationModal
-          isOpen={!!conversationToDelete}
-          onClose={() => setConversationToDelete(null)}
-          onConfirm={handleDeleteConversation}
-          title="Delete"
-          message={`Are you sure you want to delete "${conversationToDelete?.title}"? This action cannot be undone.`}
-          confirmText="Delete"
-          isDangerous={true}
-        />
       </div>
     </>
   )

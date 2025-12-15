@@ -11,10 +11,10 @@ import {
 } from 'lucide-react'
 import clsx from 'clsx'
 import DropdownMenu from './DropdownMenu'
-import ConfirmationModal from './ConfirmationModal'
 import { deleteConversation, removeConversationFromSpace } from '../lib/supabase'
 import { toggleFavorite, listConversationsBySpace } from '../lib/conversationsService'
 import { useToast } from '../contexts/ToastContext'
+import { useAppContext } from '../App'
 import FancyLoader from './FancyLoader'
 import TwemojiDisplay from './TwemojiDisplay'
 
@@ -34,8 +34,8 @@ const SpaceView = ({
 
   const [openMenuId, setOpenMenuId] = useState(null)
   const [menuAnchorEl, setMenuAnchorEl] = useState(null)
-  const [conversationToDelete, setConversationToDelete] = useState(null)
   const toast = useToast()
+  const { showConfirmation } = useAppContext()
 
   useEffect(() => {
     setCurrentPage(1)
@@ -82,25 +82,31 @@ const SpaceView = ({
     }
   }
 
-  const handleDeleteConversation = async () => {
-    if (!conversationToDelete) return
+  const handleDeleteConversation = async (conversation) => {
+    if (!conversation) return
 
-    const { success, error } = await deleteConversation(conversationToDelete.id)
+    showConfirmation({
+      title: 'Delete Conversation',
+      message: `Are you sure you want to delete "${conversation.title}"? This action cannot be undone.`,
+      confirmText: 'Delete',
+      isDangerous: true,
+      onConfirm: async () => {
+        const { success, error } = await deleteConversation(conversation.id)
 
-    if (success) {
-      toast.success('Conversation deleted successfully')
-      if (onConversationDeleted) {
-        onConversationDeleted(conversationToDelete.id)
-      }
-      setCurrentPage(1)
-      // Notify Sidebar to refresh its conversation list
-      window.dispatchEvent(new Event('conversations-changed'))
-    } else {
-      console.error('Failed to delete conversation:', error)
-      toast.error('Failed to delete conversation')
-    }
-
-    setConversationToDelete(null)
+        if (success) {
+          toast.success('Conversation deleted successfully')
+          if (onConversationDeleted) {
+            onConversationDeleted(conversation.id)
+          }
+          setCurrentPage(1)
+          // Notify Sidebar to refresh its conversation list
+          window.dispatchEvent(new Event('conversations-changed'))
+        } else {
+          console.error('Failed to delete conversation:', error)
+          toast.error('Failed to delete conversation')
+        }
+      },
+    })
   }
 
   const handleRemoveFromSpace = async conversation => {
@@ -272,7 +278,7 @@ const SpaceView = ({
                             label: 'Delete conversation',
                             icon: <Trash2 size={14} />,
                             danger: true,
-                            onClick: () => setConversationToDelete(conv),
+                            onClick: () => handleDeleteConversation(conv),
                           },
                         ]}
                       />
@@ -283,16 +289,6 @@ const SpaceView = ({
           </div>
         </div>
       </div>
-
-      <ConfirmationModal
-        isOpen={!!conversationToDelete}
-        onClose={() => setConversationToDelete(null)}
-        onConfirm={handleDeleteConversation}
-        title="Delete Conversation"
-        message={`Are you sure you want to delete "${conversationToDelete?.title}"? This action cannot be undone.`}
-        confirmText="Delete"
-        isDangerous={true}
-      />
 
       {/* Pagination Controls */}
       {!loading && totalPages > 1 && (

@@ -240,7 +240,7 @@ const HomeView = () => {
             </h1>
 
             {/* Search Box */}
-            <div className="home-search-box w-full relative group">
+            <div className="home-search-box w-full relative group z-40">
               <div className="absolute inset-0 input-glow-veil rounded-xl blur-2xl opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-500 pointer-events-none" />
               <div className="relative bg-user-bubble dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-xl shadow-sm hover:shadow-md transition-all duration-300 p-4">
                 {homeAttachments.length > 0 && (
@@ -350,7 +350,7 @@ const HomeView = () => {
                         <ChevronDown size={14} />
                       </button>
                       {isHomeSpaceSelectorOpen && (
-                        <div className="absolute top-full left-0 mt-2 w-60 bg-white dark:bg-[#202222] border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl z-30">
+                        <div className="absolute top-full left-0 mt-2 w-60 bg-white dark:bg-[#202222] border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl z-50">
                           <div className="p-2 flex flex-col gap-1">
                             <button
                               onClick={handleSelectHomeSpaceAuto}

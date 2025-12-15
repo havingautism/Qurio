@@ -5,6 +5,7 @@ import useChatStore from '../lib/chatStore'
 import MessageList from './MessageList'
 import FancyLoader from './FancyLoader'
 import QuestionNavigator from './QuestionNavigator'
+import QuestionTimelineSidebar from './QuestionTimelineSidebar'
 import { updateConversation } from '../lib/conversationsService'
 import { getProvider } from '../lib/providers'
 import { getModelForTask } from '../lib/modelSelector.js'
@@ -20,6 +21,8 @@ import {
   Sparkles,
   ArrowDown,
   Menu,
+  MessageSquare,
+  History,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useAppContext } from '../App'
@@ -393,6 +396,7 @@ const ChatInterface = ({
   }
 
   const [activeQuestionId, setActiveQuestionId] = useState(null)
+  const [isTimelineSidebarOpen, setIsTimelineSidebarOpen] = useState(false)
 
   useEffect(() => {
     const observerCallback = entries => {
@@ -453,6 +457,7 @@ const ChatInterface = ({
             id: `message-${idx}`,
             index: idx + 1,
             label: text.length > 120 ? `${text.slice(0, 117)}...` : text,
+            timestamp: msg.created_at,
           }
         })
         .filter(Boolean),
@@ -863,12 +868,21 @@ const ChatInterface = ({
               <button
                 onClick={handleRegenerateTitle}
                 disabled={isRegeneratingTitle || messages.length === 0}
-                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors disabled:opacity-50 disabled:hover:bg-transparent"
+                className="hidden sm:block p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors disabled:opacity-50 disabled:hover:bg-transparent"
                 title="Regenerate title from last 3 messages"
               >
                 <Sparkles size={18} />
               </button>
             </div>
+
+            {/* Mobile Timeline Button */}
+            <button
+              onClick={() => setIsTimelineSidebarOpen(true)}
+              className="md:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-colors shrink-0"
+              title="Open question timeline"
+            >
+              <History size={20} />
+            </button>
           </div>
 
           {/* Messages Area */}
@@ -892,14 +906,17 @@ const ChatInterface = ({
           </div>
         </div>
 
-        {/* Right side navigator - absolute positioned relative to centered container on XL, stacked on mobile */}
-        <div className="xl:absolute xl:left-full xl:top-0 xl:ml-8 xl:w-64 xl:h-full mt-8 xl:mt-0 w-full px-4 xl:px-0 flex flex-col">
-          <div className="sticky top-24 max-h-[calc(100vh-10rem)] overflow-y-auto no-scrollbar">
-            <QuestionNavigator
-              items={questionNavItems}
-              onJump={jumpToMessage}
-              activeId={activeQuestionId}
-            />
+        {/* Timeline Sidebar - Keep original QuestionNavigator for fallback on smaller screens */}
+        <div className="xl:absolute xl:left-full xl:top-0 xl:ml-8 xl:w-64 xl:h-full mt-8 xl:mt-0 w-full px-4 xl:px-0">
+          {/* Original QuestionNavigator - visible only on desktop when sidebar is closed */}
+          <div className="hidden xl:block h-full">
+            <div className="sticky top-24 max-h-[calc(100vh-10rem)] overflow-y-auto no-scrollbar">
+              <QuestionNavigator
+                items={questionNavItems}
+                onJump={jumpToMessage}
+                activeId={activeQuestionId}
+              />
+            </div>
           </div>
 
           {showScrollButton && (
@@ -911,6 +928,15 @@ const ChatInterface = ({
             </button>
           )}
         </div>
+
+        {/* New Timeline Sidebar */}
+        <QuestionTimelineSidebar
+          items={questionNavItems}
+          onJump={jumpToMessage}
+          activeId={activeQuestionId}
+          isOpen={isTimelineSidebarOpen}
+          onToggle={setIsTimelineSidebarOpen}
+        />
       </div>
 
       {/* Sticky Input Area */}

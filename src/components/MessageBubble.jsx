@@ -21,6 +21,7 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import clsx from 'clsx'
 import { getProvider } from '../lib/providers'
+import { parseChildrenWithEmojis } from '../lib/emojiParser'
 
 const PROVIDER_META = {
   gemini: {
@@ -346,18 +347,40 @@ const MessageBubble = ({
 
   const markdownComponents = useMemo(
     () => ({
-      p: ({ node, ...props }) => <p className="mb-4 last:mb-0" {...props} />,
-      h1: ({ node, ...props }) => <h1 className="text-2xl font-bold mb-4 mt-6" {...props} />,
-      h2: ({ node, ...props }) => <h2 className="text-xl font-bold mb-3 mt-5" {...props} />,
-      h3: ({ node, ...props }) => <h3 className="text-lg font-bold mb-2 mt-4" {...props} />,
+      p: ({ node, children, ...props }) => (
+        <p className="mb-4 last:mb-0" {...props}>
+          {parseChildrenWithEmojis(children)}
+        </p>
+      ),
+      h1: ({ node, children, ...props }) => (
+        <h1 className="text-2xl font-bold mb-4 mt-6" {...props}>
+          {parseChildrenWithEmojis(children)}
+        </h1>
+      ),
+      h2: ({ node, children, ...props }) => (
+        <h2 className="text-xl font-bold mb-3 mt-5" {...props}>
+          {parseChildrenWithEmojis(children)}
+        </h2>
+      ),
+      h3: ({ node, children, ...props }) => (
+        <h3 className="text-lg font-bold mb-2 mt-4" {...props}>
+          {parseChildrenWithEmojis(children)}
+        </h3>
+      ),
       ul: ({ node, ...props }) => <ul className="list-disc pl-5 mb-4 space-y-1" {...props} />,
       ol: ({ node, ...props }) => <ol className="list-decimal pl-5 mb-4 space-y-1" {...props} />,
-      li: ({ node, ...props }) => <li className="mb-1" {...props} />,
-      blockquote: ({ node, ...props }) => (
+      li: ({ node, children, ...props }) => (
+        <li className="mb-1" {...props}>
+          {parseChildrenWithEmojis(children)}
+        </li>
+      ),
+      blockquote: ({ node, children, ...props }) => (
         <blockquote
           className="border-l-4 border-gray-300 dark:border-zinc-600 pl-4 italic my-4 text-gray-600 dark:text-gray-400"
           {...props}
-        />
+        >
+          {parseChildrenWithEmojis(children)}
+        </blockquote>
       ),
       table: ({ node, ...props }) => (
         <div className="overflow-x-auto my-4 w-fit max-w-full rounded-lg border border-gray-200 dark:border-zinc-700 table-scrollbar code-scrollbar">
@@ -374,26 +397,32 @@ const MessageBubble = ({
         />
       ),
       tr: ({ node, ...props }) => <tr {...props} />,
-      th: ({ node, ...props }) => (
+      th: ({ node, children, ...props }) => (
         <th
           className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
           {...props}
-        />
+        >
+          {parseChildrenWithEmojis(children)}
+        </th>
       ),
-      td: ({ node, ...props }) => (
+      td: ({ node, children, ...props }) => (
         <td
           className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap"
           {...props}
-        />
+        >
+          {parseChildrenWithEmojis(children)}
+        </td>
       ),
       code: CodeBlock,
-      a: ({ node, ...props }) => (
+      a: ({ node, children, ...props }) => (
         <a
           {...props}
           target="_blank"
           rel="noreferrer"
           className="text-[13px] text-primary-600 dark:text-primary-400"
-        />
+        >
+          {parseChildrenWithEmojis(children)}
+        </a>
       ),
       hr: () => (
         <div className="relative my-6">
@@ -440,7 +469,7 @@ const MessageBubble = ({
             )}
           >
             {quoteToRender && (
-              <div className="mb-2 p-2 bg-white/50 dark:bg-black/20 rounded-lg text-sm border-l-2 border-primary-500">
+              <div className="mb-2 p-3 bg-white/50 dark:bg-black/20 rounded-lg text-sm">
                 <div className="font-medium opacity-70 mb-1">Quoting:</div>
                 <div className="line-clamp-2 italic opacity-80">{quoteToRender.text}</div>
               </div>

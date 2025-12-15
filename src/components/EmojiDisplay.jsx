@@ -15,13 +15,13 @@ const EmojiDisplay = ({ emoji, size = '1em', className = '' }) => {
 
   return (
     <span
-      className={`inline-flex mb-1 items-center justify-center ${className}`}
+      className={`inline-flex items-center justify-center shrink-0 ${className}`}
       style={{
         width: size,
         height: size,
         fontSize: size, // Keep fontSize for layout alignment if needed
         lineHeight: 1,
-        verticalAlign: 'middle',
+        verticalAlign: '-0.125em',
       }}
     >
       <img

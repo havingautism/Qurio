@@ -20,6 +20,7 @@
 - Chat-first UX: fast streaming replies, optional reasoning/thinking output, tool call support, rich markdown with code highlighting, and one-tap copy for AI messages.
 - Multi-provider ready: Gemini, SiliconFlow, and generic OpenAI-compatible providers with dual model slots (Lite + Default) and live model fetching (SiliconFlow lists chat sub-type models only).
 - Organized knowledge: spaces to group threads, a library view for recent conversations, bookmarks for quick recall, and a pin-able sidebar for focus.
+- Question Timeline: innovative collapsible sidebar that displays user questions as interactive cards with search functionality, time-based grouping (Today, Yesterday, dates), and one-click navigation to any question.
 - Configurable context: custom system prompt, adjustable context window, and per-provider model IDs (including custom inputs and OpenAI-compatible base URLs; SiliconFlow uses a fixed endpoint).
 - Media friendly: attach images directly in the chat input and render them inline in the transcript.
 - Built-in persistence: Supabase stores spaces, chat sessions, and messages with RLS isolation; test your connection from the Settings modal.
@@ -74,6 +75,7 @@
 - **Lite model** powers titles/related questions/space suggestions; **Default model** powers main chat responses.
 - Create and edit **Spaces**, move threads between them, and star favorites in **Bookmarks**. Browse recent conversations in **Library**.
 - Attach **images** directly in the chat input; copy AI responses with one click; toggle themes via the cycle control (light -> dark -> system).
+- Use the **Question Timeline** feature: Click the "View Timeline" button to open a collapsible sidebar that displays all your questions as cards. Search through questions, navigate by time groups (Today, Yesterday, specific dates), and click any card to jump directly to that question in the conversation.
 
 ## Usage & License
 - **Non-commercial only**: This project is provided for personal/educational use. Commercial use, resale, or production deployment is not permitted without explicit permission from the maintainers.

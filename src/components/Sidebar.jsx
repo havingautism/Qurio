@@ -486,7 +486,7 @@ const Sidebar = ({
                 }}
                 onMouseEnter={() => setHoveredTab(item.id)}
                 className={clsx(
-                  'flex flex-col items-center justify-center gap-1 py-2 mx-2 rounded-xl transition-all duration-200 cursor-pointer',
+                  'flex flex-col items-center justify-center py-2 mx-2 rounded-xl transition-all duration-200 cursor-pointer group',
                   activeTab === item.id
                     ? 'text-primary-500 dark:text-primary-400'
                     : 'text-[#13343bbf] dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200',
@@ -502,7 +502,9 @@ const Sidebar = ({
                 >
                   <item.icon size={20} />
                 </div>
-                <span className="text-[11px] font-medium">{item.label}</span>
+                <span className="text-[11px] font-medium overflow-hidden transition-all duration-300 ease-in-out max-h-[20px] opacity-100 mt-1 md:max-h-0 md:opacity-0 md:mt-0 md:group-hover:max-h-[20px] md:group-hover:opacity-100 md:group-hover:mt-1">
+                  {item.label}
+                </span>
               </button>
             ))}
           </div>
@@ -639,7 +641,7 @@ const Sidebar = ({
                                     <span className="truncate font-medium">{conv.title}</span>
                                     {conv.is_favorited && (
                                       <Bookmark
-                                        size={10}
+                                        size={12}
                                         className="text-primary-500 fill-current shrink-0"
                                       />
                                     )}
@@ -779,7 +781,7 @@ const Sidebar = ({
                               <div className="flex items-center gap-1">
                                 <span className="truncate font-medium">{conv.title}</span>
                                 <Bookmark
-                                  size={10}
+                                  size={12}
                                   className="text-primary-500 fill-current shrink-0"
                                 />
                               </div>
@@ -897,9 +899,9 @@ const Sidebar = ({
                 {/* Create New Space */}
                 <button
                   onClick={onCreateSpace}
-                  className="flex items-center gap-3 p-2 rounded bg-[#9c9d8a29] dark:bg-zinc-800 hover:bg-[#9c9d8a40] dark:hover:bg-zinc-700 text-gray-700 dark:text-gray-200 transition-colors w-full text-left cursor-pointer border border-transparent hover:border-[#9c9d8a40] dark:hover:border-zinc-700"
+                  className="flex items-center gap-3 bg-user-bubble hover:scale-105 dark:bg-zinc-800 transition-transform p-2 rounded-lg hover:bg-user-bubble dark:hover:bg-user-bubble/10  text-gray-6600 dark:text-gray-300  w-full text-left cursor-pointer "
                 >
-                  <div className="w-8 h-8 rounded bg-white/70 dark:bg-zinc-700 flex items-center justify-center text-gray-700 dark:text-gray-100">
+                  <div className="w-8 h-8 rounded  flex items-center justify-center text-gray-700 dark:text-gray-100">
                     <Plus size={16} />
                   </div>
                   <span className="text-sm font-medium">Create New Space</span>
@@ -925,16 +927,16 @@ const Sidebar = ({
                       onClick={() => onNavigateToSpace(space)}
                       className="flex items-center justify-between p-2 rounded  cursor-pointer transition-colors group"
                     >
-                      <div className="flex-1 min-w-0 flex items-center gap-3">
+                      <div className="flex-1 min-w-0 flex items-center gap-1">
                         <button
                           onClick={e => {
                             e.stopPropagation()
                             toggleSpace(space.id)
                           }}
-                          className="p-1 -ml-1 hover:bg-primary-50 dark:hover:bg-zinc-800 text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors shrink-0"
+                          className="p-1.5 rounded-md -ml-1 hover:bg-primary-50 dark:hover:bg-zinc-800 text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors shrink-0"
                         >
                           <ChevronDown
-                            size={14}
+                            size={16}
                             className={clsx(
                               'transition-transform duration-200',
                               expandedSpaces.has(space.id) ? '' : '-rotate-90',
@@ -944,7 +946,7 @@ const Sidebar = ({
                         <div className="w-8 h-8 rounded bg-transparent flex items-center justify-center group-hover:border-gray-300 dark:group-hover:border-zinc-600 text-lg shrink-0">
                           <EmojiDisplay emoji={space.emoji} />
                         </div>
-                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-600 dark:hover:text-gray-200 transition-colors truncate">
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-gray-200 transition-colors truncate">
                           {space.label}
                         </span>
                       </div>
@@ -955,9 +957,9 @@ const Sidebar = ({
                           e.stopPropagation()
                           onEditSpace(space)
                         }}
-                        className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 p-1.5 rounded-md hover:bg-gray-300 dark:hover:bg-zinc-700 text-gray-500 dark:text-gray-400 transition-all"
+                        className="p-1.5 rounded-md ml-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:bg-primary-50 dark:hover:bg-zinc-800 text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors shrink-0"
                       >
-                        <Settings size={14} />
+                        <Settings size={16} />
                       </button>
                     </div>
 

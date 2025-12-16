@@ -185,7 +185,7 @@ const SpaceView = () => {
           <div className="flex items-center gap-2">
             <button
               onClick={() => onEditSpace && onEditSpace(activeSpace)}
-              className="w-8 h-8 rounded-full bg-gray-200 dark:bg-zinc-800 flex items-center justify-center text-gray-500 hover:bg-gray-300 dark:hover:bg-zinc-700 transition-colors"
+              className="w-10 h-10 flex items-center justify-center rounded-full bg-user-bubble dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-transform duration-200 hover:scale-110 active:scale-95 cursor-pointer"
               title="Edit space"
             >
               <Pencil size={16} />
@@ -194,7 +194,7 @@ const SpaceView = () => {
         </div>
 
         {activeSpace.prompt && (
-          <div className="w-full bg-gray-50 dark:bg-zinc-900 border border-dashed border-gray-300 dark:border-zinc-700 rounded-xl p-4">
+          <div className="w-full bg-user-bubble/50 dark:bg-zinc-900 border border-dashed border-gray-300 dark:border-zinc-700 rounded-xl p-4">
             <div className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
               Space Prompt
             </div>

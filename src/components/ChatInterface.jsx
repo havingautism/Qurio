@@ -926,9 +926,9 @@ const ChatInterface = ({
              onClick={() => scrollToBottom('smooth')}
              className={clsx(
                 'fixed bottom-50 left-1/2 -translate-x-1/2 p-2 bg-background border border-border rounded-full shadow-lg hover:bg-muted transition-all duration-300 animate-in fade-in slide-in-from-bottom-2 z-30',
-               'md:left-auto md:translate-x-0 md:bottom-28 md:right-10',
+               'md:left-auto md:translate-x-0 md:bottom-28 md:right-10 ',
                // Mobile animation when sidebar is open - follow ChatInterface's transform
-               isTimelineSidebarOpen ? 'md:translate-x-0 -translate-x-3/4' : 'translate-x-0'
+              //  isTimelineSidebarOpen ? 'md:translate-x-0 -translate-x-3/4' : 'translate-x-0'
               )}
             >
              <ArrowDown size={20} className="text-foreground" />

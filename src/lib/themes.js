@@ -62,21 +62,21 @@ const TINT_WEIGHT_LIGHT = 0.02 // 2%
 const TINT_WEIGHT_DARK = 0.02 // 2%
 
 export const THEMES = {
-  fox: {
-    label: 'Fox Rust',
+  violet: {
+    label: 'Royal Violet',
     colors: {
-      '--color-primary-50': '#FCF9F7',
-      '--color-primary-100': '#F6ECE8',
-      '--color-primary-200': '#EDD4CC',
-      '--color-primary-300': '#E0B4A6',
-      '--color-primary-400': '#D0907C',
-      '--color-primary-500': '#BF6E4E',
-      '--color-primary-600': '#A65234',
-      '--color-primary-700': '#8A4028',
-      '--color-primary-800': '#703322',
-      '--color-primary-900': '#592B1E',
-      '--color-primary-950': '#33160F',
-      '--user-bubble': '#f7f2f1',
+      '--color-primary-50': '#f5f3ff',
+      '--color-primary-100': '#ede9fe',
+      '--color-primary-200': '#ddd6fe',
+      '--color-primary-300': '#c4b5fd',
+      '--color-primary-400': '#a78bfa',
+      '--color-primary-500': '#8b5cf6',
+      '--color-primary-600': '#7c3aed',
+      '--color-primary-700': '#6d28d9',
+      '--color-primary-800': '#5b21b6',
+      '--color-primary-900': '#4c1d95',
+      '--color-primary-950': '#2e1065',
+      '--user-bubble': '#f5f3ff',
     },
   },
   ocean: {
@@ -113,23 +113,7 @@ export const THEMES = {
       '--user-bubble': '#ecfdf5',
     },
   },
-  violet: {
-    label: 'Royal Violet',
-    colors: {
-      '--color-primary-50': '#f5f3ff',
-      '--color-primary-100': '#ede9fe',
-      '--color-primary-200': '#ddd6fe',
-      '--color-primary-300': '#c4b5fd',
-      '--color-primary-400': '#a78bfa',
-      '--color-primary-500': '#8b5cf6',
-      '--color-primary-600': '#7c3aed',
-      '--color-primary-700': '#6d28d9',
-      '--color-primary-800': '#5b21b6',
-      '--color-primary-900': '#4c1d95',
-      '--color-primary-950': '#2e1065',
-      '--user-bubble': '#f5f3ff',
-    },
-  },
+
   charcoal: {
     label: 'Charcoal Gray',
     colors: {
@@ -145,6 +129,23 @@ export const THEMES = {
       '--color-primary-900': '#111827',
       '--color-primary-950': '#030712',
       '--user-bubble': '#f9fafb',
+    },
+  },
+  fox: {
+    label: 'Fox Rust',
+    colors: {
+      '--color-primary-50': '#FCF9F7',
+      '--color-primary-100': '#F6ECE8',
+      '--color-primary-200': '#EDD4CC',
+      '--color-primary-300': '#E0B4A6',
+      '--color-primary-400': '#D0907C',
+      '--color-primary-500': '#BF6E4E',
+      '--color-primary-600': '#A65234',
+      '--color-primary-700': '#8A4028',
+      '--color-primary-800': '#703322',
+      '--color-primary-900': '#592B1E',
+      '--color-primary-950': '#33160F',
+      '--user-bubble': '#f7f2f1',
     },
   },
 }

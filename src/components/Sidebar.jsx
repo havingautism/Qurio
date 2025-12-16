@@ -585,7 +585,7 @@ const Sidebar = ({
                     so users know they can go there. */}
                 <button
                   onClick={() => onNavigate(displayTab)}
-                  className="md:hidden px-2 py-1 text-xs font-medium bg-[#9c9d8a29] dark:bg-zinc-800 hover:bg-[#9c9d8a40] dark:hover:bg-zinc-700 rounded text-gray-700 dark:text-gray-200 transition-colors"
+                  className="md:hidden px-2 py-1 text-xs font-medium rounded bg-user-bubble dark:bg-zinc-800 hover:bg-user-bubble/10 dark:hover:bg-zinc-700 text-gray-700 dark:text-gray-200 transition-colors"
                 >
                   See all
                 </button>
@@ -738,7 +738,7 @@ const Sidebar = ({
                                     className={conv.is_favorited ? 'fill-current' : ''}
                                   />
                                   <span className="truncate">
-                                    {conv.is_favorited ? 'Saved' : 'Save'}
+                                    {conv.is_favorited ? 'Added' : 'Add'}
                                   </span>
                                 </button>
                                 <button
@@ -769,7 +769,7 @@ const Sidebar = ({
                           fetchConversations(false)
                         }}
                         disabled={loadingMore}
-                        className="w-full py-2 text-xs font-medium text-gray-700 dark:text-gray-200 bg-[#9c9d8a29] dark:bg-zinc-800 hover:bg-[#9c9d8a40] dark:hover:bg-zinc-700 rounded transition-colors flex items-center justify-center gap-2"
+                        className="w-full py-2 text-xs font-medium text-gray-700 dark:text-gray-200 bg-user-bubble dark:bg-zinc-800 hover:transform hover:translate-y-[-2px] rounded transition-colors flex items-center justify-center gap-2"
                       >
                         {loadingMore ? <DotLoader /> : 'Load more'}
                       </button>
@@ -923,7 +923,7 @@ const Sidebar = ({
                           fetchBookmarkedConversations(false)
                         }}
                         disabled={bookmarksLoadingMore}
-                        className="w-full py-2 text-xs font-medium text-gray-700 dark:text-gray-200 bg-[#9c9d8a29] dark:bg-zinc-800 hover:bg-[#9c9d8a40] dark:hover:bg-zinc-700 rounded transition-colors flex items-center justify-center gap-2"
+                        className="w-full py-2 text-xs font-medium text-gray-700 dark:text-gray-200 bg-user-bubble dark:bg-zinc-800 hover:bg-user-bubble/10 dark:hover:bg-zinc-700 rounded transition-colors flex items-center justify-center gap-2"
                       >
                         {bookmarksLoadingMore ? <DotLoader /> : 'Load more'}
                       </button>
@@ -1010,7 +1010,7 @@ const Sidebar = ({
 
                     {/* Expandable Content for Space */}
                     {expandedSpaces.has(space.id) && (
-                      <div className="ml-3 sm:ml-8 mr-2 flex flex-col gap-1 border-l border-gray-200 dark:border-zinc-800 pl-2 mb-2">
+                      <div className="ml-2 sm:ml-4 mr-2 flex flex-col gap-1 border-l border-gray-200 dark:border-zinc-800 pl-2 mb-2">
                         {spaceConversations[space.id]?.loading &&
                           spaceConversations[space.id]?.items?.length === 0 && (
                             <div className="px-2">
@@ -1046,7 +1046,7 @@ const Sidebar = ({
                                     fetchSpaceConversations(space.id, false)
                                   }}
                                   disabled={spaceConversations[space.id]?.loading}
-                                  className="w-full py-2 text-xs font-medium text-gray-700 dark:text-gray-200 bg-[#9c9d8a29] dark:bg-zinc-800 hover:bg-[#9c9d8a40] dark:hover:bg-zinc-700 rounded transition-colors flex items-center justify-center gap-2"
+                                  className="w-full py-2 text-xs font-medium text-gray-700 dark:text-gray-200 bg-user-bubble dark:bg-zinc-800 hover:bg-user-bubble/10 dark:hover:bg-zinc-700 rounded transition-colors flex items-center justify-center gap-2"
                                 >
                                   {spaceConversations[space.id]?.loading ? (
                                     <DotLoader />
@@ -1091,7 +1091,7 @@ const Sidebar = ({
                           }, 150)
                         }}
                         disabled={spacesLoadingMore}
-                        className="w-full py-2 text-xs font-medium text-gray-700 dark:text-gray-200 bg-[#9c9d8a29] dark:bg-zinc-800 hover:bg-[#9c9d8a40] dark:hover:bg-zinc-700 rounded transition-colors flex items-center justify-center gap-2"
+                        className="w-full py-2 text-xs font-medium text-gray-700 dark:text-gray-200 bg-user-bubble dark:bg-zinc-800 hover:bg-user-bubble/10 dark:hover:bg-zinc-700 rounded transition-colors flex items-center justify-center gap-2"
                       >
                         {spacesLoadingMore ? <DotLoader /> : 'Load more'}
                       </button>

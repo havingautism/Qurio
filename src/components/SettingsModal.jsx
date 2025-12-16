@@ -477,8 +477,8 @@ const SettingsModal = ({ isOpen, onClose }) => {
   }
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-start md:items-center justify-center bg-black/50 backdrop-blur-sm p-3 md:p-4 overflow-y-auto md:overflow-hidden">
-      <div className="w-full max-w-4xl h-[calc(100vh-1.5rem)] md:h-[80vh] max-h-[calc(100vh-1.5rem)] bg-white dark:bg-[#191a1a] rounded-2xl shadow-2xl flex flex-col md:flex-row overflow-hidden border border-gray-200 dark:border-zinc-800">
+    <div className="fixed inset-0 z-[100] flex items-start md:items-center justify-center bg-black/50 backdrop-blur-sm p-0 md:p-4 overflow-y-auto md:overflow-hidden">
+      <div className="w-full h-[100vh] md:max-w-4xl md:h-[80vh] bg-white dark:bg-[#191a1a] rounded-none md:rounded-2xl shadow-2xl flex flex-col md:flex-row overflow-hidden border-0 md:border border-gray-200 dark:border-zinc-800">
         {/* Mobile Header */}
         <div className="md:hidden h-14 border-b border-gray-200 dark:border-zinc-800 flex items-center justify-between px-4 bg-white dark:bg-[#191a1a] shrink-0">
           <h2 className="text-base font-semibold text-gray-900 dark:text-white">Settings</h2>

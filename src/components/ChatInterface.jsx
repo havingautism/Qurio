@@ -1,4 +1,5 @@
 ﻿import React, { useState, useRef, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate, useLocation } from '@tanstack/react-router'
 import { useShallow } from 'zustand/react/shallow'
 import useChatStore from '../lib/chatStore'
@@ -785,6 +786,8 @@ const ChatInterface = ({
       className={clsx(
         'flex-1 min-h-screen bg-background text-foreground relative pb-4 transition-all duration-300',
         isSidebarPinned ? 'md:ml-20' : 'md:ml-16',
+        // Mobile animation when sidebar is open
+        isTimelineSidebarOpen ? 'md:translate-x-0 -translate-x-3/4' : 'translate-x-0',
       )}
     >
       <div className="w-full max-w-3xl mx-auto relative">
@@ -874,10 +877,10 @@ const ChatInterface = ({
               </button>
             </div>
 
-            {/* Mobile Timeline Button */}
+            {/* Timeline Button */}
             <button
               onClick={() => setIsTimelineSidebarOpen(true)}
-              className="md:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-colors shrink-0"
+              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-colors shrink-0"
               title="Open question timeline"
             >
               <History size={20} />
@@ -917,14 +920,20 @@ const ChatInterface = ({
               />
             </div>
           </div>
-
-          {showScrollButton && (
+          {/* Scroll to bottom button - separate portal to avoid transform inheritance */}
+          {showScrollButton && createPortal(
             <button
-              onClick={() => scrollToBottom('smooth')}
-              className="fixed bottom-50 left-1/2 -translate-x-1/2 md:left-auto md:translate-x-0 md:bottom-28 md:right-10 z-30 p-2 bg-background border border-border rounded-full shadow-lg hover:bg-muted transition-all duration-300 animate-in fade-in slide-in-from-bottom-2"
+             onClick={() => scrollToBottom('smooth')}
+             className={clsx(
+                'fixed bottom-50 left-1/2 -translate-x-1/2 p-2 bg-background border border-border rounded-full shadow-lg hover:bg-muted transition-all duration-300 animate-in fade-in slide-in-from-bottom-2 z-30',
+               'md:left-auto md:translate-x-0 md:bottom-28 md:right-10',
+               // Mobile animation when sidebar is open - follow ChatInterface's transform
+               isTimelineSidebarOpen ? 'md:translate-x-0 -translate-x-3/4' : 'translate-x-0'
+              )}
             >
-              <ArrowDown size={20} className="text-foreground" />
-            </button>
+             <ArrowDown size={20} className="text-foreground" />
+            </button>,
+            document.body
           )}
         </div>
 
@@ -938,45 +947,50 @@ const ChatInterface = ({
         />
       </div>
 
-      {/* Sticky Input Area */}
-      <div
-        className={clsx(
-          'fixed bottom-0 left-0 right-0 bg-linear-to-t from-background via-background to-transparent pb-6 pt-10 px-4 flex justify-center z-10 transition-all duration-300',
-          isSidebarPinned ? 'md:left-20' : 'md:left-16',
-        )}
-      >
-        <div className="w-full max-w-3xl">
-          <InputBar
-            isLoading={isLoading}
-            apiProvider={settings.apiProvider}
-            isSearchActive={isSearchActive}
-            isThinkingActive={isThinkingActive}
-            onToggleSearch={() => setIsSearchActive(prev => !prev)}
-            onToggleThinking={() => setIsThinkingActive(prev => !prev)}
-            quotedText={quotedText}
-            onQuoteClear={() => {
-              setQuotedText(null)
-              setQuoteContext(null)
-              quoteTextRef.current = ''
-              quoteSourceRef.current = ''
-            }}
-            onSend={(text, attachments) =>
-              handleSendMessage(text, attachments, null, { skipMeta: false })
-            }
-            editingSeed={editingSeed}
-            onEditingClear={() => {
-              setEditingIndex(null)
-              setEditingSeed({ text: '', attachments: [] })
-            }}
-            showEditing={editingIndex !== null && messages[editingIndex]}
-            editingLabel={editingIndex !== null ? extractUserQuestion(messages[editingIndex]) : ''}
-            scrollToBottom={scrollToBottom}
-          />
-          <div className="text-center mt-2 text-xs text-gray-400 dark:text-gray-500">
-            Qurio can make mistakes. Please use with caution.
+      {/* Sticky Input Area rendered via Portal to avoid transform inheritance */}
+      {createPortal(
+        <div
+          className={clsx(
+            'fixed bottom-0 left-0 right-0 bg-linear-to-t from-background via-background to-transparent pb-6 pt-10 px-4 flex justify-center z-10 transition-all duration-300',
+            isSidebarPinned ? 'md:left-20' : 'md:left-16',
+            // Mobile animation when sidebar is open - follow ChatInterface's transform
+            isTimelineSidebarOpen ? 'md:translate-x-0 -translate-x-3/4' : 'translate-x-0',
+          )}
+        >
+          <div className="w-full max-w-3xl">
+            <InputBar
+              isLoading={isLoading}
+              apiProvider={settings.apiProvider}
+              isSearchActive={isSearchActive}
+              isThinkingActive={isThinkingActive}
+              onToggleSearch={() => setIsSearchActive(prev => !prev)}
+              onToggleThinking={() => setIsThinkingActive(prev => !prev)}
+              quotedText={quotedText}
+              onQuoteClear={() => {
+                setQuotedText(null)
+                setQuoteContext(null)
+                quoteTextRef.current = ''
+                quoteSourceRef.current = ''
+              }}
+              onSend={(text, attachments) =>
+                handleSendMessage(text, attachments, null, { skipMeta: false })
+              }
+              editingSeed={editingSeed}
+              onEditingClear={() => {
+                setEditingIndex(null)
+                setEditingSeed({ text: '', attachments: [] })
+              }}
+              showEditing={editingIndex !== null && messages[editingIndex]}
+              editingLabel={editingIndex !== null ? extractUserQuestion(messages[editingIndex]) : ''}
+              scrollToBottom={scrollToBottom}
+            />
+            <div className="text-center mt-2 text-xs text-gray-400 dark:text-gray-500">
+              Qurio can make mistakes. Please use with caution.
+            </div>
           </div>
-        </div>
-      </div>
+        </div>,
+        document.body
+      )}
     </div>
   )
 }

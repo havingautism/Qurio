@@ -815,7 +815,7 @@ const Sidebar = ({
                               {space?.emoji && (
                                 <EmojiDisplay
                                   emoji={space.emoji}
-                                  size="1.6em"
+                                  size="1.4em"
                                   className="shrink-0"
                                 />
                               )}

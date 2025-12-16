@@ -133,7 +133,7 @@ const BookmarksView = () => {
         isSidebarPinned ? 'ml-0 sm:ml-80' : 'ml-0 sm:ml-16',
       )}
     >
-      <div className="w-full max-w-5xl mx-auto px-6 py-8">
+      <div className="w-full max-w-5xl mx-auto sm:px-6 sm:py-8 px-3 py-5">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-3">
@@ -249,7 +249,7 @@ const BookmarksView = () => {
                       params: { conversationId: conv.id },
                     })
                   }
-                  className="group relative p-4 rounded-xl cursor-pointer transition-colors border-b border-gray-100 dark:border-zinc-800/50 last:border-0 hover:bg-primary-500/10 dark:hover:bg-primary-500/20 hover:border hover:border-primary-500/30 dark:hover:border-primary-500/40"
+                  className="group relative  py-3 sm:p-4 rounded-xl cursor-pointer transition-colors border-b border-gray-100 dark:border-zinc-800/50 last:border-0 hover:bg-primary-500/10 dark:hover:bg-primary-500/20 hover:border hover:border-primary-500/30 dark:hover:border-primary-500/40"
                 >
                   <div className="flex justify-between items-start gap-4">
                     {space?.emoji && (

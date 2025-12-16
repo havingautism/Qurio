@@ -81,6 +81,22 @@ const Sidebar = ({
   const toast = useToast()
   const { showConfirmation } = useAppContext()
 
+  const spaceById = useMemo(() => {
+    const map = new Map()
+    for (const space of spaces || []) {
+      if (space?.id != null) {
+        map.set(String(space.id), space)
+      }
+    }
+    return map
+  }, [spaces])
+
+  const getConversationSpace = conv => {
+    const spaceId = conv?.space_id
+    if (!spaceId) return null
+    return spaceById.get(String(spaceId)) || null
+  }
+
   const formatDateTime = value => {
     if (!value) return 'Recently'
     return new Date(value).toLocaleString(undefined, {
@@ -619,6 +635,7 @@ const Sidebar = ({
                       {section.items.map(conv => {
                         const isActive = conv.id === activeConversationId
                         const isExpanded = expandedActionId === conv.id
+                        const space = getConversationSpace(conv)
                         return (
                           <div key={conv.id} className="flex flex-col">
                             <div
@@ -642,8 +659,17 @@ const Sidebar = ({
                             >
                               <div className="flex items-center justify-between w-full overflow-hidden">
                                 <div className="flex flex-col overflow-hidden flex-1 min-w-0">
-                                  <div className="flex items-center gap-1">
-                                    <span className="truncate font-medium">{conv.title}</span>
+                                  <div className="flex items-center gap-1 min-w-0">
+                                    {space?.emoji && (
+                                      <EmojiDisplay
+                                        emoji={space.emoji}
+                                        size="1.1em"
+                                        className="shrink-0"
+                                      />
+                                    )}
+                                    <span className="truncate font-medium flex-1 min-w-0">
+                                      {conv.title}
+                                    </span>
                                     {conv.is_favorited && (
                                       <Bookmark
                                         size={12}
@@ -760,6 +786,7 @@ const Sidebar = ({
                   displayConversations.map(conv => {
                     const isActive = conv.id === activeConversationId
                     const isExpanded = expandedActionId === conv.id
+                    const space = getConversationSpace(conv)
                     return (
                       <div key={conv.id} className="flex flex-col">
                         <div
@@ -783,8 +810,17 @@ const Sidebar = ({
                         >
                           <div className="flex items-center justify-between w-full overflow-hidden">
                             <div className="flex flex-col overflow-hidden flex-1 min-w-0">
-                              <div className="flex items-center gap-1">
-                                <span className="truncate font-medium">{conv.title}</span>
+                              <div className="flex items-center gap-1 min-w-0">
+                                {space?.emoji && (
+                                  <EmojiDisplay
+                                    emoji={space.emoji}
+                                    size="1.1em"
+                                    className="shrink-0"
+                                  />
+                                )}
+                                <span className="truncate font-medium flex-1 min-w-0">
+                                  {conv.title}
+                                </span>
                                 <Bookmark
                                   size={12}
                                   className="text-primary-500 fill-current shrink-0"

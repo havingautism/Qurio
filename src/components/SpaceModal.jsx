@@ -134,7 +134,7 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
         {/* Content */}
         <div className="flex-1 flex flex-col min-h-0">
           {/* Tab Navigation */}
-          <div className="px-4 sm:px-6 pt-4 pb-2 border-b border-gray-200 dark:border-zinc-800 bg-gray-50/50 dark:bg-[#191a1a] shrink-0">
+          <div className="px-2 sm:px-3 pt-2 pb-2 border-b border-gray-200 dark:border-zinc-800 bg-gray-50/50 dark:bg-[#191a1a] shrink-0">
             <nav className="flex gap-1">
               {menuItems.map(item => (
                 <button
@@ -210,15 +210,11 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
                     value={description}
                     onChange={e => setDescription(e.target.value)}
                     placeholder="What is this space for?"
-                    rows={4}
+                    rows={2}
                     className="w-full px-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600 resize-none"
                   />
                 </div>
-              </div>
-            )}
 
-            {activeTab === 'advanced' && (
-              <div className="flex flex-col gap-4">
                 {/* Prompt Input */}
                 <div className="flex flex-col gap-2">
                   <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -232,12 +228,15 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
                     className="w-full px-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600 resize-none"
                   />
                 </div>
+              </div>
+            )}
+
+            {activeTab === 'advanced' && (
+              <div className="flex flex-col gap-4">
+
 
                 {/* Model Settings */}
                 <div className="flex flex-col gap-4">
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Model Settings
-                  </label>
                   <div className="flex gap-4">
                     <div className="flex flex-col gap-2 flex-1">
                       <label className="text-sm font-medium text-gray-700 dark:text-gray-300">

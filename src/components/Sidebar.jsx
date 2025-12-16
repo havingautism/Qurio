@@ -28,6 +28,7 @@ import {
 import { deleteConversation } from '../lib/supabase'
 import { useToast } from '../contexts/ToastContext'
 import { useAppContext } from '../App'
+import useScrollLock from '../hooks/useScrollLock'
 
 const SIDEBAR_FETCH_LIMIT = 20
 
@@ -47,6 +48,8 @@ const Sidebar = ({
   activeConversationId,
   onPinChange,
 }) => {
+  useScrollLock(isOpen)
+
   const [isHovered, setIsHovered] = useState(false)
   const [isPinned, setIsPinned] = useState(() => {
     const saved = localStorage.getItem('sidebar-pinned')
@@ -432,6 +435,8 @@ const Sidebar = ({
         <div
           className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm md:hidden"
           onClick={onClose}
+          onWheel={e => e.preventDefault()}
+          onTouchMove={e => e.preventDefault()}
         />
       )}
 
@@ -586,7 +591,7 @@ const Sidebar = ({
             <div className="h-px bg-gray-200 dark:bg-zinc-800 mb-2" />
             {/* CONVERSATION LIST (Library & Bookmarks) */}
             {(displayTab === 'library' || displayTab === 'bookmarks') && (
-              <div className="flex flex-col gap-2 overflow-y-auto h-[calc(100vh-70px)] px-2 sidebar-scrollbar">
+              <div className="flex flex-col gap-2 overflow-y-auto overscroll-contain h-[calc(100vh-70px)] px-2 sidebar-scrollbar">
                 {!isConversationsLoading &&
                   displayTab === 'library' &&
                   conversations.length === 0 && (
@@ -895,7 +900,7 @@ const Sidebar = ({
             )}
             {/* SPACES TAB CONTENT */}
             {displayTab === 'spaces' && (
-              <div className="flex flex-col gap-2 overflow-y-auto h-[calc(100vh-70px)] px-2 sidebar-scrollbar">
+              <div className="flex flex-col gap-2 overflow-y-auto overscroll-contain h-[calc(100vh-70px)] px-2 sidebar-scrollbar">
                 {/* Create New Space */}
                 <button
                   onClick={onCreateSpace}

@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { Search, X, Clock, MessageSquare } from 'lucide-react'
 import clsx from 'clsx'
+import useScrollLock from '../hooks/useScrollLock'
 
 /**
  * A collapsible sidebar component that displays user questions as cards
@@ -21,6 +22,8 @@ const QuestionTimelineSidebar = ({
   onToggle,
   className,
 }) => {
+  useScrollLock(isOpen)
+
   const [searchQuery, setSearchQuery] = useState('')
   const [isTransitioning, setIsTransitioning] = useState(false)
 
@@ -108,11 +111,13 @@ const QuestionTimelineSidebar = ({
 
   const sidebarContent = (
     <>
-      {/* Overlay for desktop when sidebar is open */}
+      {/* Overlay when sidebar is open */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 hidden md:block"
+          className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40"
           onClick={handleToggle}
+          onWheel={e => e.preventDefault()}
+          onTouchMove={e => e.preventDefault()}
         />
       )}
 
@@ -172,7 +177,7 @@ const QuestionTimelineSidebar = ({
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
+        <div className="flex-1 overflow-y-auto overscroll-contain p-4 space-y-4 min-h-0">
           {filteredItems.length === 0 ? (
             <div className="text-center py-8">
               <MessageSquare size={48} className="mx-auto text-gray-300 dark:text-zinc-600 mb-4" />

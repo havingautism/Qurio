@@ -658,35 +658,37 @@ const Sidebar = ({
                               title={conv.title}
                             >
                               <div className="flex items-center justify-between w-full overflow-hidden">
-                                <div className="flex flex-col overflow-hidden flex-1 min-w-0">
-                                  <div className="flex items-center gap-1 min-w-0">
-                                    {space?.emoji && (
-                                      <EmojiDisplay
-                                        emoji={space.emoji}
-                                        size="1.1em"
-                                        className="shrink-0"
-                                      />
-                                    )}
-                                    <span className="truncate font-medium flex-1 min-w-0">
-                                      {conv.title}
+                                <div className="flex items-center gap-2 overflow-hidden flex-1 min-w-0">
+                                  {space?.emoji && (
+                                    <EmojiDisplay
+                                      emoji={space.emoji}
+                                      size="1.4em"
+                                      className="shrink-0"
+                                    />
+                                  )}
+                                  <div className="flex flex-col overflow-hidden flex-1 min-w-0">
+                                    <div className="flex items-center gap-1 min-w-0">
+                                      <span className="truncate font-medium flex-1 min-w-0">
+                                        {conv.title}
+                                      </span>
+                                      {conv.is_favorited && (
+                                        <Bookmark
+                                          size={12}
+                                          className="text-primary-500 fill-current shrink-0"
+                                        />
+                                      )}
+                                    </div>
+                                    <span
+                                      className={clsx(
+                                        'text-[10px]',
+                                        isActive
+                                          ? 'text-primary-600 dark:text-primary-400'
+                                          : 'text-gray-400',
+                                      )}
+                                    >
+                                      {formatDateTime(conv.created_at)}
                                     </span>
-                                    {conv.is_favorited && (
-                                      <Bookmark
-                                        size={12}
-                                        className="text-primary-500 fill-current shrink-0"
-                                      />
-                                    )}
                                   </div>
-                                  <span
-                                    className={clsx(
-                                      'text-[10px]',
-                                      isActive
-                                        ? 'text-primary-600 dark:text-primary-400'
-                                        : 'text-gray-400',
-                                    )}
-                                  >
-                                    {formatDateTime(conv.created_at)}
-                                  </span>
                                 </div>
 
                                 <div className="relative ml-2 shrink-0">
@@ -809,33 +811,35 @@ const Sidebar = ({
                           title={conv.title}
                         >
                           <div className="flex items-center justify-between w-full overflow-hidden">
-                            <div className="flex flex-col overflow-hidden flex-1 min-w-0">
-                              <div className="flex items-center gap-1 min-w-0">
-                                {space?.emoji && (
-                                  <EmojiDisplay
-                                    emoji={space.emoji}
-                                    size="1.1em"
-                                    className="shrink-0"
-                                  />
-                                )}
-                                <span className="truncate font-medium flex-1 min-w-0">
-                                  {conv.title}
-                                </span>
-                                <Bookmark
-                                  size={12}
-                                  className="text-primary-500 fill-current shrink-0"
+                            <div className="flex items-center gap-2 overflow-hidden flex-1 min-w-0">
+                              {space?.emoji && (
+                                <EmojiDisplay
+                                  emoji={space.emoji}
+                                  size="1.4em"
+                                  className="shrink-0"
                                 />
+                              )}
+                              <div className="flex flex-col overflow-hidden flex-1 min-w-0">
+                                <div className="flex items-center gap-1 min-w-0">
+                                  <span className="truncate font-medium flex-1 min-w-0">
+                                    {conv.title}
+                                  </span>
+                                  <Bookmark
+                                    size={12}
+                                    className="text-primary-500 fill-current shrink-0"
+                                  />
+                                </div>
+                                <span
+                                  className={clsx(
+                                    'text-[10px]',
+                                    isActive
+                                      ? 'text-primary-600 dark:text-primary-400'
+                                      : 'text-gray-400',
+                                  )}
+                                >
+                                  {formatDateTime(conv.created_at)}
+                                </span>
                               </div>
-                              <span
-                                className={clsx(
-                                  'text-[10px]',
-                                  isActive
-                                    ? 'text-primary-600 dark:text-primary-400'
-                                    : 'text-gray-400',
-                                )}
-                              >
-                                {formatDateTime(conv.created_at)}
-                              </span>
                             </div>
 
                             <div className="relative ml-2 shrink-0">

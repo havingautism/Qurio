@@ -214,7 +214,7 @@ const WeatherWidget = () => {
 
 const HomeWidgets = () => {
   return (
-    <div className="w-full max-w-5xl px-4 mt-8">
+    <div className="w-full max-w-5xl mt-8">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Column 1 */}
         <div className="flex flex-col gap-4">

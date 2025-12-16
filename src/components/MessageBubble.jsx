@@ -22,6 +22,7 @@ import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/pris
 import clsx from 'clsx'
 import { getProvider } from '../lib/providers'
 import { parseChildrenWithEmojis } from '../lib/emojiParser'
+import EmojiDisplay from './EmojiDisplay'
 
 const PROVIDER_META = {
   gemini: {
@@ -673,11 +674,11 @@ const MessageBubble = ({
         <div className="border border-gray-200 dark:border-zinc-700 rounded-xl overflow-hidden">
           <button
             onClick={() => setIsThoughtExpanded(!isThoughtExpanded)}
-            className="w-full flex items-center justify-between p-3 bg-user-bubble dark:bg-zinc-800/50 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
+            className="w-full flex items-center justify-between p-2 bg-user-bubble dark:bg-zinc-800/50 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
           >
-            <div className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-              <Brain size={16} className="text-primary-500 dark:text-primary-400" />
-              <span>Thinking Process</span>
+            <div className="flex items-center gap-2 font-medium text-gray-700 dark:text-gray-300">
+              <EmojiDisplay emoji="🧠" size="1.2em" />
+              <span className="text-sm">Thinking Process</span>
             </div>
             {isThoughtExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
           </button>
@@ -756,7 +757,7 @@ const MessageBubble = ({
       {message.related && message.related.length > 0 && (
         <div className="mt-4">
           <div className="flex items-center gap-3 mb-3 text-gray-900 dark:text-gray-100">
-            <Layers size={24} className="text-primary-500" />
+            <EmojiDisplay emoji="🔮" size="1.2em" className="mb-1"/>
             <span className="text-sm font-semibold">Related</span>
           </div>
           <div className="flex flex-col gap-1 md:gap-2">
@@ -769,7 +770,7 @@ const MessageBubble = ({
                 <span className="text-gray-700 dark:text-gray-300 font-medium text-sm md:text-balance">
                   {question}
                 </span>
-                <div className="ml-2 sm:ml-0opacity-100 sm:opacity-0 sm:group-hover:opacity-100 text-primary-500 dark:text-gray-500">
+                <div className="ml-2 sm:ml-0opacity-100 sm:opacity-0 sm:group-hover:opacity-100 text-primary-500 dark:text-primary-500">
                   <CornerRightDown />
                 </div>
               </div>

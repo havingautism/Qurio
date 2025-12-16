@@ -523,7 +523,7 @@ const Sidebar = ({
                 >
                   <item.icon size={20} />
                 </div>
-                <span className="text-[11px] font-medium overflow-hidden transition-all duration-300 ease-in-out max-h-[20px] opacity-100 mt-1 md:max-h-0 md:opacity-0 md:mt-0 md:group-hover:max-h-[20px] md:group-hover:opacity-100 md:group-hover:mt-1">
+                <span className="text-[11px] font-medium font-sans overflow-hidden transition-all duration-300 ease-in-out max-h-[20px] opacity-100 mt-1 md:max-h-0 md:opacity-0 md:mt-0 md:group-hover:max-h-[20px] md:group-hover:opacity-100 md:group-hover:mt-1">
                   {item.label}
                 </span>
               </button>

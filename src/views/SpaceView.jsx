@@ -226,7 +226,7 @@ const SpaceView = () => {
                 <div
                   key={conv.id || i}
                   data-conversation-id={conv.id || i}
-                  className="group relative p-4 rounded-xl cursor-pointer transition-colors border-b border-gray-100 dark:border-zinc-800/50 last:border-0 hover:bg-primary-500/10 dark:hover:bg-primary-500/20 hover:border hover:border-primary-500/30 dark:hover:border-primary-500/40"
+                  className="group relative py-3 sm:p-4 rounded-xl cursor-pointer transition-colors border-b border-gray-100 dark:border-zinc-800/50 last:border-0 hover:bg-primary-500/10 dark:hover:bg-primary-500/20 hover:border hover:border-primary-500/30 dark:hover:border-primary-500/40"
                   onClick={() => onOpenConversation && onOpenConversation(conv)}
                 >
                   <div className="flex justify-between items-start gap-4">

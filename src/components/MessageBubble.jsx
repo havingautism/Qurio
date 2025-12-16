@@ -23,21 +23,22 @@ import clsx from 'clsx'
 import { getProvider } from '../lib/providers'
 import { parseChildrenWithEmojis } from '../lib/emojiParser'
 import EmojiDisplay from './EmojiDisplay'
+import { PROVIDER_ICONS, getModelIcon } from '../lib/modelIcons'
 
 const PROVIDER_META = {
   gemini: {
     label: 'Google Gemini',
-    logo: 'https://www.google.com/favicon.ico',
+    logo: PROVIDER_ICONS.gemini,
     fallback: 'G',
   },
   openai_compatibility: {
     label: 'OpenAI Compatible',
-    logo: 'https://openai.com/favicon.ico',
+    logo: PROVIDER_ICONS.openai_compatibility,
     fallback: 'O',
   },
   siliconflow: {
     label: 'SiliconFlow',
-    logo: 'https://siliconflow.cn/favicon.ico',
+    logo: PROVIDER_ICONS.siliconflow,
     fallback: 'S',
   },
 }
@@ -470,9 +471,9 @@ const MessageBubble = ({
             )}
           >
             {quoteToRender && (
-              <div className="mb-2 p-3 bg-white/50 dark:bg-black/20 rounded-lg text-sm">
-                <div className="font-medium opacity-70 mb-1">Quoting:</div>
-                <div className="line-clamp-2 italic opacity-80">{quoteToRender.text}</div>
+              <div className="mb-2 p-3 bg-white/20 dark:bg-black/20 rounded-3xl text-sm">
+                <div className="font-medium  mb-1">Quoting:</div>
+                <div className="line-clamp-2 italic ">{quoteToRender.text}</div>
               </div>
             )}
             {imagesToRender.length > 0 && (
@@ -650,12 +651,12 @@ const MessageBubble = ({
       )}
       {/* Provider/Model Header */}
       <div className="flex items-center gap-3 text-gray-900 dark:text-gray-100">
-        <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-zinc-800 shadow-inner flex items-center justify-center overflow-hidden">
+        <div className="w-10 h-10 rounded-full bg-gray-100  shadow-inner flex items-center justify-center overflow-hidden p-2">
           {providerMeta.logo ? (
             <img
               src={providerMeta.logo}
               alt={providerMeta.label}
-              className="w-full h-full object-cover"
+              className="w-full h-full object-contain"
             />
           ) : (
             <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
@@ -665,7 +666,16 @@ const MessageBubble = ({
         </div>
         <div className="flex flex-col leading-tight">
           <span className="text-sm font-semibold">{providerMeta.label}</span>
-          <span className="text-xs text-gray-500 dark:text-gray-400">{resolvedModel}</span>
+          <div className="flex items-center gap-1.5">
+            {getModelIcon(resolvedModel) && (
+              <img
+                src={getModelIcon(resolvedModel)}
+                alt=""
+                className="w-3.5 h-3.5 object-contain"
+              />
+            )}
+            <span className="text-xs text-gray-500 dark:text-gray-400">{resolvedModel}</span>
+          </div>
         </div>
       </div>
 
@@ -755,7 +765,7 @@ const MessageBubble = ({
 
       {/* Related Questions */}
       {message.related && message.related.length > 0 && (
-        <div className="mt-4">
+        <div className="border-t border-gray-200 dark:border-zinc-800 pt-4">
           <div className="flex items-center gap-3 mb-3 text-gray-900 dark:text-gray-100">
             <EmojiDisplay emoji="🔮" size="1.2em" className="mb-1"/>
             <span className="text-sm font-semibold">Related</span>
@@ -765,7 +775,7 @@ const MessageBubble = ({
               <div
                 key={index}
                 onClick={() => onRelatedClick && onRelatedClick(question)}
-                className="flex items-center justify-between p-1 md:p-2 rounded-lg hover:bg-user-bubble dark:hover:bg-zinc-800/50 cursor-pointer transition-colors group"
+                className="flex items-center rounded-2xl border sm:hover:scale-102 border-gray-200 dark:border-zinc-800 bg-user-bubble dark:bg-zinc-800/50 justify-between p-2  hover:bg-user-bubble dark:hover:bg-zinc-800/50 cursor-pointer transition-colors group"
               >
                 <span className="text-gray-700 dark:text-gray-300 font-medium text-sm md:text-balance">
                   {question}
@@ -780,7 +790,7 @@ const MessageBubble = ({
       )}
 
       {/* Action Bar */}
-      <div className="flex items-center gap-4 mt-2 border-t border-gray-200 dark:border-zinc-800 pt-4">
+      <div className="flex items-center gap-4  border-t border-gray-200 dark:border-zinc-800 pt-4">
         <button className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
           <Share2 size={16} />
           <span className="hidden sm:block">Share</span>

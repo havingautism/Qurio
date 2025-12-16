@@ -24,6 +24,7 @@ import { getModelsForProvider } from '../lib/models_api'
 import useScrollLock from '../hooks/useScrollLock'
 import { THEMES } from '../lib/themes'
 import { SILICONFLOW_BASE_URL } from '../lib/siliconflow'
+import { PROVIDER_ICONS, getModelIcon } from '../lib/modelIcons'
 
 const ENV_VARS = {
   supabaseUrl: import.meta.env.PUBLIC_SUPABASE_URL,
@@ -157,12 +158,7 @@ const PROVIDER_LABELS = {
   siliconflow: 'SiliconFlow',
 }
 
-// Provider favicon URLs
-const PROVIDER_FAVICONS = {
-  gemini: 'https://www.google.com/favicon.ico',
-  openai_compatibility: 'https://openai.com/favicon.ico',
-  siliconflow: 'https://siliconflow.cn/favicon.ico',
-}
+
 
 const SettingsModal = ({ isOpen, onClose }) => {
   const renderEnvHint = hasEnv =>
@@ -188,7 +184,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
   // Model configuration states
   const [liteModel, setLiteModel] = useState('gemini-2.5-flash')
   const [defaultModel, setDefaultModel] = useState('gemini-2.5-flash')
-  const [themeColor, setThemeColor] = useState('fox')
+  const [themeColor, setThemeColor] = useState('violet')
   const [enableRelatedQuestions, setEnableRelatedQuestions] = useState(false)
 
   // Dynamic model states
@@ -555,7 +551,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                       </div>
                       <div className="flex items-center gap-3">
                         <img
-                          src={PROVIDER_FAVICONS[apiProvider]}
+                          src={PROVIDER_ICONS[apiProvider]}
                           alt={PROVIDER_LABELS[apiProvider] || apiProvider}
                           className="w-4 h-4"
                         />
@@ -592,7 +588,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                         >
                           <div className="flex items-center gap-3">
                             <img
-                              src={PROVIDER_FAVICONS.gemini}
+                              src={PROVIDER_ICONS.gemini}
                               alt="Google Gemini"
                               className="w-4 h-4"
                             />
@@ -622,7 +618,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                         >
                           <div className="flex items-center gap-3">
                             <img
-                              src={PROVIDER_FAVICONS.openai_compatibility}
+                              src={PROVIDER_ICONS.openai_compatibility}
                               alt="OpenAI"
                               className="w-4 h-4"
                             />
@@ -652,7 +648,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                         >
                           <div className="flex items-center gap-3">
                             <img
-                              src={PROVIDER_FAVICONS.siliconflow}
+                              src={PROVIDER_ICONS.siliconflow}
                               alt="SiliconFlow"
                               className="w-4 h-4"
                             />
@@ -914,7 +910,12 @@ const SettingsModal = ({ isOpen, onClose }) => {
                                 isOpen && 'ring-2 ring-primary-500/20 border-primary-500',
                               )}
                             >
-                              <span>{currentLabel}</span>
+                              <div className="flex items-center gap-2">
+                                {getModelIcon(value) && (
+                                  <img src={getModelIcon(value)} alt="" className="w-3.5 h-3.5" />
+                                )}
+                                <span>{currentLabel}</span>
+                              </div>
                               <ChevronDown
                                 size={16}
                                 className={clsx(
@@ -936,7 +937,16 @@ const SettingsModal = ({ isOpen, onClose }) => {
                                       }}
                                       className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
                                     >
-                                      <span>{opt.label}</span>
+                                      <div className="flex items-center gap-2">
+                                        {getModelIcon(opt.value) && (
+                                          <img
+                                            src={getModelIcon(opt.value)}
+                                            alt=""
+                                            className="w-3.5 h-3.5"
+                                          />
+                                        )}
+                                        <span>{opt.label}</span>
+                                      </div>
                                       {value === opt.value && (
                                         <Check size={14} className="text-primary-500" />
                                       )}

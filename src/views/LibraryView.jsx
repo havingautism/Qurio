@@ -324,9 +324,14 @@ const LibraryView = () => {
                   className="group relative p-2 rounded-xl cursor-pointer transition-colors border-b border-gray-100 dark:border-zinc-800/50 last:border-0 hover:bg-primary-500/10 dark:hover:bg-primary-500/20 hover:border hover:border-primary-500/30 dark:hover:border-primary-500/40"
                 >
                   <div className="flex justify-between items-start gap-4">
+                    {space?.emoji && (
+                      <div className="shrink-0 flex items-center justify-center bg-gray-100 dark:bg-zinc-800 rounded-lg w-12 h-12">
+                        <EmojiDisplay emoji={space.emoji} size="2rem" />
+                      </div>
+                    )}
                     <div className="flex-1 min-w-0">
                       {/* Title */}
-                      <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-3 truncate flex items-center gap-2">
+                      <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-1 truncate flex items-center gap-2">
                         {conv.title || 'Untitled Thread'}
                         {conv.is_favorited && (
                           <Bookmark size={14} className="text-primary-500 fill-current shrink-0" />
@@ -341,7 +346,6 @@ const LibraryView = () => {
                         </div>
                         {space && (
                           <div className="flex items-center gap-1.5">
-                            <EmojiDisplay emoji={space.emoji} size="1rem" />
                             <span>{space.label}</span>
                           </div>
                         )}

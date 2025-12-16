@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { Search, X, Clock, MessageSquare } from 'lucide-react'
 import clsx from 'clsx'
 
@@ -105,12 +106,12 @@ const QuestionTimelineSidebar = ({
     }
   }
 
-  return (
+  const sidebarContent = (
     <>
-      {/* Overlay for mobile when sidebar is open */}
+      {/* Overlay for desktop when sidebar is open */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 md:hidden"
+          className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 hidden md:block"
           onClick={handleToggle}
         />
       )}
@@ -118,8 +119,12 @@ const QuestionTimelineSidebar = ({
       {/* Sidebar */}
       <div
         className={clsx(
-          'fixed top-0 right-0 bg-white dark:bg-[#202222] border-l border-gray-200 dark:border-zinc-700 shadow-2xl z-50 transform transition-all duration-300 ease-in-out',
-          'w-[calc(100%-4rem)] sm:w-80 md:w-96 flex flex-col overflow-hidden',
+          'top-0 bg-white dark:bg-[#202222] border-l border-gray-200 dark:border-zinc-700 shadow-2xl z-50 transform transition-all duration-300 ease-in-out flex flex-col overflow-hidden',
+          // Always positioned on the right
+          'fixed right-0',
+          // Different widths for different screen sizes
+          'w-3/4 md:w-96',
+          // Mobile animation
           isOpen ? 'translate-x-0' : 'translate-x-full',
           className,
         )}
@@ -223,6 +228,9 @@ const QuestionTimelineSidebar = ({
       )} */}
     </>
   )
+
+  // Always render portal to allow smooth animations
+  return createPortal(sidebarContent, document.body)
 }
 
 /**

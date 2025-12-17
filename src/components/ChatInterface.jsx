@@ -30,6 +30,7 @@ import { useAppContext } from '../App'
 import { loadSettings } from '../lib/settings'
 import { listMessages } from '../lib/conversationsService'
 import EmojiDisplay from './EmojiDisplay'
+import { useSidebarOffset } from '../hooks/useSidebarOffset'
 
 const ChatInterface = ({
   spaces = [],
@@ -397,6 +398,21 @@ const ChatInterface = ({
 
   const [activeQuestionId, setActiveQuestionId] = useState(null)
   const [isTimelineSidebarOpen, setIsTimelineSidebarOpen] = useState(false)
+  const [isXLScreen, setIsXLScreen] = useState(false)
+
+  // Check screen size
+  useEffect(() => {
+    const checkScreenSize = () => {
+      setIsXLScreen(window.innerWidth >= 1280)
+    }
+
+    checkScreenSize()
+    window.addEventListener('resize', checkScreenSize)
+    return () => window.removeEventListener('resize', checkScreenSize)
+  }, [])
+
+  // Update CSS variable for sidebar width when sidebar is open
+  useSidebarOffset(isTimelineSidebarOpen)
 
   useEffect(() => {
     const observerCallback = entries => {
@@ -784,10 +800,10 @@ const ChatInterface = ({
   return (
     <div
       className={clsx(
-        'flex-1 min-h-screen bg-background text-foreground relative pb-4 transition-all duration-300',
+        'flex-1 min-h-screen bg-background text-foreground relative pb-4 transition-transform duration-300',
+        // Add shift based on screen size
+        !isXLScreen ? 'sidebar-shift' : '-translate-x-40',
         isSidebarPinned ? 'md:ml-20' : 'md:ml-16',
-        // Mobile animation when sidebar is open
-        isTimelineSidebarOpen ? 'md:translate-x-0 -translate-x-3/4' : 'translate-x-0',
       )}
     >
       <div className="w-full max-w-3xl mx-auto relative">
@@ -877,10 +893,10 @@ const ChatInterface = ({
               </button>
             </div>
 
-            {/* Timeline Button */}
+            {/* Timeline Button - only show on screens where sidebar can be toggled (xl and below) */}
             <button
               onClick={() => setIsTimelineSidebarOpen(true)}
-              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-colors shrink-0"
+              className="xl:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-colors shrink-0"
               title="Open question timeline"
             >
               <History size={20} />
@@ -911,7 +927,7 @@ const ChatInterface = ({
         {/* Timeline Sidebar - Keep original QuestionNavigator for fallback on smaller screens */}
         <div className="xl:absolute xl:left-full xl:top-0 xl:ml-8 xl:w-64 xl:h-full mt-8 xl:mt-0 w-full px-4 xl:px-0">
           {/* Original QuestionNavigator - visible only on desktop when sidebar is closed */}
-          <div className="hidden xl:block h-full">
+          {/* <div className="hidden xl:block h-full">
             <div className="sticky top-24 max-h-[calc(100vh-10rem)] overflow-y-auto no-scrollbar">
               <QuestionNavigator
                 items={questionNavItems}
@@ -919,22 +935,7 @@ const ChatInterface = ({
                 activeId={activeQuestionId}
               />
             </div>
-          </div>
-          {/* Scroll to bottom button - separate portal to avoid transform inheritance */}
-          {showScrollButton && createPortal(
-            <button
-             onClick={() => scrollToBottom('smooth')}
-             className={clsx(
-                'fixed bottom-50 left-1/2 -translate-x-1/2 p-2 bg-background border border-border rounded-full shadow-lg hover:bg-muted transition-all duration-300 animate-in fade-in slide-in-from-bottom-2 z-30',
-               'md:left-auto md:translate-x-0 md:bottom-28 md:right-10 ',
-               // Mobile animation when sidebar is open - follow ChatInterface's transform
-              //  isTimelineSidebarOpen ? 'md:translate-x-0 -translate-x-3/4' : 'translate-x-0'
-              )}
-            >
-             <ArrowDown size={20} className="text-foreground" />
-            </button>,
-            document.body
-          )}
+          </div> */}
         </div>
 
         {/* New Timeline Sidebar */}
@@ -951,13 +952,23 @@ const ChatInterface = ({
       {createPortal(
         <div
           className={clsx(
-            'fixed bottom-0 left-0 right-0 bg-linear-to-t from-background via-background to-transparent pb-6 pt-10 px-4 flex justify-center z-10 transition-all duration-300',
+            'fixed bottom-0 left-0 right-0 bg-linear-to-t from-background via-background to-transparent pb-6 pt-20 px-4 flex justify-center z-10 transition-transform duration-300',
+            // Add shift based on screen size
+            !isXLScreen ? 'sidebar-shift' : '-translate-x-40',
             isSidebarPinned ? 'md:left-20' : 'md:left-16',
-            // Mobile animation when sidebar is open - follow ChatInterface's transform
-            isTimelineSidebarOpen ? 'md:translate-x-0 -translate-x-3/4' : 'translate-x-0',
           )}
         >
-          <div className="w-full max-w-3xl">
+          <div className="w-full max-w-3xl relative">
+            {/* Scroll to bottom button - positioned relative to input area */}
+            {showScrollButton && (
+              <button
+                onClick={() => scrollToBottom('smooth')}
+                className="absolute bottom-40 left-1/2 -translate-x-1/2 p-2 bg-background border border-border rounded-full shadow-lg hover:bg-muted transition-all duration-300 animate-in fade-in slide-in-from-bottom-2 z-30"
+              >
+                <ArrowDown size={20} className="text-foreground" />
+              </button>
+            )}
+
             <InputBar
               isLoading={isLoading}
               apiProvider={settings.apiProvider}

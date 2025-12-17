@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { Search, X, Clock, MessageSquare } from 'lucide-react'
 import clsx from 'clsx'
@@ -26,6 +26,18 @@ const QuestionTimelineSidebar = ({
 
   const [searchQuery, setSearchQuery] = useState('')
   const [isTransitioning, setIsTransitioning] = useState(false)
+  const [isLargeScreen, setIsLargeScreen] = useState(false)
+
+  // Check screen size
+  useEffect(() => {
+    const checkScreenSize = () => {
+      setIsLargeScreen(window.innerWidth >= 1280) // xl breakpoint and above
+    }
+
+    checkScreenSize()
+    window.addEventListener('resize', checkScreenSize)
+    return () => window.removeEventListener('resize', checkScreenSize)
+  }, [])
 
   // Filter items based on search query
   const filteredItems = useMemo(() => {
@@ -111,8 +123,8 @@ const QuestionTimelineSidebar = ({
 
   const sidebarContent = (
     <>
-      {/* Overlay when sidebar is open */}
-      {isOpen && (
+      {/* Overlay when sidebar is open - only on smaller screens */}
+      {isOpen && !isLargeScreen && (
         <div
           className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40"
           onClick={handleToggle}
@@ -123,14 +135,17 @@ const QuestionTimelineSidebar = ({
 
       {/* Sidebar */}
       <div
+        data-sidebar="timeline"
         className={clsx(
-          'top-0 bg-white dark:bg-[#202222] border-l border-gray-200 dark:border-zinc-700 shadow-2xl z-50 transform transition-all duration-300 ease-in-out flex flex-col overflow-hidden',
+          'top-0 bg-white dark:bg-[#202222] border-l border-gray-200 dark:border-zinc-700 shadow-2xl z-50 flex flex-col overflow-hidden',
           // Always positioned on the right
           'fixed right-0',
-          // Different widths for different screen sizes
-          'w-3/4 md:w-96',
-          // Mobile animation
-          isOpen ? 'translate-x-0' : 'translate-x-full',
+          // Use CSS variable for width
+          'w-(--sidebar-width)',
+          // Animation on smaller screens, always visible on lg and up
+          isLargeScreen || isOpen ? 'translate-x-0' : 'translate-x-full',
+          // Transition only on smaller screens
+          !isLargeScreen && 'transition-transform duration-300 ease-in-out',
           className,
         )}
         style={{ height: '100dvh' }}
@@ -143,19 +158,11 @@ const QuestionTimelineSidebar = ({
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Desktop close button */}
+            {/* Close button - only show on screens where sidebar can be toggled (xl and below) */}
             <button
               onClick={handleToggle}
-              className="hidden md:flex p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
+              className="xl:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
               title="Close timeline"
-            >
-              <X size={20} className="text-gray-500 dark:text-gray-400" />
-            </button>
-
-            {/* Mobile close button */}
-            <button
-              onClick={handleToggle}
-              className="md:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
             >
               <X size={20} className="text-gray-500 dark:text-gray-400" />
             </button>

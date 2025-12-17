@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { Search, X, Clock, MessageSquare } from 'lucide-react'
 import clsx from 'clsx'
-import useScrollLock from '../hooks/useScrollLock'
+// import useScrollLock from '../hooks/useScrollLock'
 
 /**
  * A collapsible sidebar component that displays user questions as cards
@@ -22,7 +22,7 @@ const QuestionTimelineSidebar = ({
   onToggle,
   className,
 }) => {
-  useScrollLock(isOpen)
+  // useScrollLock(isOpen)
 
   const [searchQuery, setSearchQuery] = useState('')
   const [isTransitioning, setIsTransitioning] = useState(false)
@@ -105,20 +105,8 @@ const QuestionTimelineSidebar = ({
   }
 
   const handleItemClick = item => {
-    // Close sidebar on mobile/tablet after clicking a card
-    if (!isLargeScreen && onToggle) {
-      onToggle(false)
-      // Wait for sidebar to start closing before jumping
-      setTimeout(() => {
-        if (onJump) {
-          onJump(item.id)
-        }
-      }, 0) // Small delay to ensure sidebar starts closing
-    } else {
-      // On desktop, jump immediately
-      if (onJump) {
-        onJump(item.id)
-      }
+    if (onJump) {
+      onJump(item.id)
     }
   }
 

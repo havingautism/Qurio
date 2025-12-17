@@ -105,8 +105,20 @@ const QuestionTimelineSidebar = ({
   }
 
   const handleItemClick = item => {
-    if (onJump) {
-      onJump(item.id)
+    // Close sidebar on mobile/tablet after clicking a card
+    if (!isLargeScreen && onToggle) {
+      onToggle(false)
+      // Wait for sidebar to start closing before jumping
+      setTimeout(() => {
+        if (onJump) {
+          onJump(item.id)
+        }
+      }, 0) // Small delay to ensure sidebar starts closing
+    } else {
+      // On desktop, jump immediately
+      if (onJump) {
+        onJump(item.id)
+      }
     }
   }
 

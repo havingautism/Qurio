@@ -270,14 +270,18 @@ const ChatInterface = ({
   }, [conversationId, location.pathname, navigate])
 
   useEffect(() => {
-    if (initialSpaceSelection?.mode === 'manual' && initialSpaceSelection.space) {
-      setSelectedSpace(initialSpaceSelection.space)
-      setIsManualSpaceSelection(true)
-    } else if (initialSpaceSelection?.mode === 'auto') {
-      setSelectedSpace(null)
-      setIsManualSpaceSelection(false)
+    // Only apply initialSpaceSelection when we don't have an active conversation
+    // This prevents overriding the space when loading existing conversations
+    if (!activeConversation) {
+      if (initialSpaceSelection?.mode === 'manual' && initialSpaceSelection.space) {
+        setSelectedSpace(initialSpaceSelection.space)
+        setIsManualSpaceSelection(true)
+      } else if (initialSpaceSelection?.mode === 'auto') {
+        setSelectedSpace(null)
+        setIsManualSpaceSelection(false)
+      }
     }
-  }, [initialSpaceSelection])
+  }, [initialSpaceSelection, activeConversation])
 
   // Handle click outside to close selector
   useEffect(() => {

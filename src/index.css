@@ -1,6 +1,17 @@
 @import 'tailwindcss';
 @variant dark (&:where(.dark, .dark *));
 
+/* CSS variables for sidebar width */
+:root {
+  --sidebar-width: 0px;
+}
+
+/* Apply transform to elements that need to move with sidebar */
+.sidebar-shift {
+  transform: translateX(calc(-1 * var(--sidebar-width)));
+  transition: transform 0.3s ease-in-out;
+}
+
 @theme {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

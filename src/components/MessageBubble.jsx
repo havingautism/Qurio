@@ -148,6 +148,7 @@ const MessageBubble = ({
     const menuWidth = isMobile ? 160 : 150 // Slightly wider for text on mobile
     const menuHeight = isMobile ? 38 : 40
     const menuTopOffset = isMobile ? 8 : 10 // Distance above selection
+    const edgePadding = 10 // Padding from viewport edges
 
     // Center the menu horizontally on the selection
     let x = selectionRect.left + selectionRect.width / 2
@@ -160,6 +161,45 @@ const MessageBubble = ({
     // For mobile, always place below selection to avoid covering selected text
     if (isMobile) {
       y = selectionRect.bottom + menuTopOffset
+    }
+
+    // Ensure menu stays within viewport bounds horizontally
+    // Account for the -translate-x-1/2 transform (centers the menu at x position)
+    const menuLeft = x - menuWidth / 2
+    const menuRight = x + menuWidth / 2
+
+    // If menu would go off left edge, adjust x to align left edge with padding
+    if (menuLeft < edgePadding) {
+      x = edgePadding + menuWidth / 2
+    }
+    // If menu would go off right edge, adjust x to align right edge with padding
+    else if (menuRight > viewportWidth - edgePadding) {
+      x = viewportWidth - edgePadding - menuWidth / 2
+    }
+
+    // For desktop: Ensure menu stays within viewport bounds vertically
+    if (!isMobile) {
+      // Since CSS has -translate-y-full, the actual top position after transform is y - menuHeight
+      const actualMenuTop = y - menuHeight
+      const actualMenuBottom = y
+
+      // If menu would go off top edge, place below selection instead
+      if (actualMenuTop < edgePadding) {
+        y = selectionRect.bottom + menuTopOffset
+      }
+      // If menu would go off bottom edge when placed below, place above instead
+      else if (actualMenuBottom > viewportHeight - edgePadding) {
+        y = selectionRect.top - menuTopOffset
+      }
+    }
+    // For mobile: Ensure menu stays within viewport bounds vertically
+    else {
+      // Mobile menu is placed below selection, check if it goes off bottom
+      const menuBottom = y + menuHeight
+      if (menuBottom > viewportHeight - edgePadding) {
+        // Place above selection instead
+        y = selectionRect.top - menuTopOffset - menuHeight
+      }
     }
 
     return { x, y }

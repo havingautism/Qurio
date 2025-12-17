@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { useShallow } from 'zustand/react/shallow'
 import useChatStore from '../lib/chatStore'
 import {
@@ -148,29 +149,17 @@ const MessageBubble = ({
     const menuHeight = isMobile ? 38 : 40
     const menuTopOffset = isMobile ? 8 : 10 // Distance above selection
 
+    // Center the menu horizontally on the selection
     let x = selectionRect.left + selectionRect.width / 2
-    let y = selectionRect.top - menuTopOffset
 
-    // Adjust horizontal position to avoid viewport edges
-    const halfMenuWidth = menuWidth / 2
-    if (x - halfMenuWidth < 10) {
-      x = 10 + halfMenuWidth
-    } else if (x + halfMenuWidth > viewportWidth - 10) {
-      x = viewportWidth - 10 - halfMenuWidth
-    }
+    // For desktop: Position above the selection
+    // Since CSS has -translate-y-full (moves menu up by its own height),
+    // we only need to position the bottom edge at the selection top
+    let y = selectionRect.top - menuTopOffset
 
     // For mobile, always place below selection to avoid covering selected text
     if (isMobile) {
-      y = selectionRect.bottom + 5 // Place below selection with small gap
-    }
-    // For desktop, if menu would go off top, place below
-    else if (y - menuHeight < 10) {
-      y = selectionRect.bottom + 5
-    }
-
-    // Ensure menu doesn't go below viewport on mobile
-    if (isMobile && y + menuHeight > viewportHeight - 10) {
-      y = Math.max(10, viewportHeight - menuHeight - 10)
+      y = selectionRect.bottom + menuTopOffset
     }
 
     return { x, y }
@@ -283,6 +272,7 @@ const MessageBubble = ({
     }
   }, [isMobile])
 
+  
   useEffect(() => {
     const observer = new MutationObserver(mutations => {
       mutations.forEach(mutation => {
@@ -591,64 +581,66 @@ const MessageBubble = ({
       onTouchEnd={handleTouchEnd}
       onContextMenu={handleContextMenu}
     >
-      {/* Selection Menu */}
-      {selectionMenu && (
-        <div
-          className={clsx(
-            'fixed selection-menu shadow-lg flex items-center z-50 transform -translate-x-1/2',
-            isMobile
-              ? 'bg-gray-900/98 text-white dark:bg-zinc-800/98 rounded-full py-1.5 px-3 backdrop-blur-md border border-gray-700/50'
-              : 'bg-gray-900 text-white dark:bg-zinc-700 rounded-lg p-1 -translate-y-full',
-          )}
-          style={{
-            left: selectionMenu.x,
-            top: selectionMenu.y,
-            // Ensure menu appears above everything on mobile
-            zIndex: isMobile ? 9999 : 50,
-          }}
-        >
-          <button
-            className={clsx(
-              'flex items-center gap-1.5 rounded-full transition-all text-xs font-medium',
-              isMobile
-                ? 'px-3 py-1.5 active:bg-gray-700 hover:bg-gray-800'
-                : 'px-2 py-1.5 hover:bg-gray-700 dark:hover:bg-zinc-600 whitespace-nowrap',
-            )}
-            onClick={e => {
-              e.stopPropagation()
-              onQuote && onQuote({ text: selectionMenu.text, message })
-              setSelectionMenu(null)
-              window.getSelection().removeAllRanges()
-            }}
-          >
-            <Quote size={isMobile ? 13 : 12} />
-            Quote
-          </button>
+      {/* Selection Menu - Rendered via portal to avoid transform issues */}
+      {selectionMenu &&
+        createPortal(
           <div
             className={clsx(
-              'mx-0.5',
-              isMobile ? 'w-px h-4 bg-gray-600' : 'w-px h-3 bg-gray-700 dark:bg-zinc-600',
-            )}
-          />
-          <button
-            className={clsx(
-              'flex items-center gap-1.5 rounded-full transition-all text-xs font-medium',
+              'fixed selection-menu shadow-lg flex items-center z-50 transform -translate-x-1/2',
               isMobile
-                ? 'px-3 py-1.5 active:bg-gray-700 hover:bg-gray-800'
-                : 'px-2 py-1.5 hover:bg-gray-700 dark:hover:bg-zinc-600 whitespace-nowrap',
+                ? 'bg-gray-900/98 text-white dark:bg-zinc-800/98 rounded-full py-1.5 px-3 backdrop-blur-md border border-gray-700/50'
+                : 'bg-gray-900 text-white dark:bg-zinc-700 rounded-lg p-1 -translate-y-full',
             )}
-            onClick={e => {
-              e.stopPropagation()
-              copyToClipboard(selectionMenu.text)
-              setSelectionMenu(null)
-              window.getSelection().removeAllRanges()
+            style={{
+              left: selectionMenu.x,
+              top: selectionMenu.y,
+              // Ensure menu appears above everything on mobile
+              zIndex: isMobile ? 9999 : 50,
             }}
           >
-            <Copy size={isMobile ? 13 : 12} />
-            Copy
-          </button>
-        </div>
-      )}
+            <button
+              className={clsx(
+                'flex items-center gap-1.5 rounded-full transition-all text-xs font-medium',
+                isMobile
+                  ? 'px-3 py-1.5 active:bg-gray-700 hover:bg-gray-800'
+                  : 'px-2 py-1.5 hover:bg-gray-700 dark:hover:bg-zinc-600 whitespace-nowrap',
+              )}
+              onClick={e => {
+                e.stopPropagation()
+                onQuote && onQuote({ text: selectionMenu.text, message })
+                setSelectionMenu(null)
+                window.getSelection().removeAllRanges()
+              }}
+            >
+              <Quote size={isMobile ? 13 : 12} />
+              Quote
+            </button>
+            <div
+              className={clsx(
+                'mx-0.5',
+                isMobile ? 'w-px h-4 bg-gray-600' : 'w-px h-3 bg-gray-700 dark:bg-zinc-600',
+              )}
+            />
+            <button
+              className={clsx(
+                'flex items-center gap-1.5 rounded-full transition-all text-xs font-medium',
+                isMobile
+                  ? 'px-3 py-1.5 active:bg-gray-700 hover:bg-gray-800'
+                  : 'px-2 py-1.5 hover:bg-gray-700 dark:hover:bg-zinc-600 whitespace-nowrap',
+              )}
+              onClick={e => {
+                e.stopPropagation()
+                copyToClipboard(selectionMenu.text)
+                setSelectionMenu(null)
+                window.getSelection().removeAllRanges()
+              }}
+            >
+              <Copy size={isMobile ? 13 : 12} />
+              Copy
+            </button>
+          </div>,
+          document.body,
+        )}
       {/* Provider/Model Header */}
       <div className="flex items-center gap-3 text-gray-900 dark:text-gray-100">
         <div className="w-10 h-10 rounded-full bg-gray-100  shadow-inner flex items-center justify-center overflow-hidden p-2">

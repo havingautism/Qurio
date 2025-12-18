@@ -42,6 +42,15 @@ const ChatInterface = ({
   onTitleAndSpaceGenerated,
   isSidebarPinned = false,
 }) => {
+  // Lock body scroll when component mounts
+  useEffect(() => {
+    document.body.classList.add('scroll-locked')
+
+    return () => {
+      // Unlock body scroll when component unmounts
+      document.body.classList.remove('scroll-locked')
+    }
+  }, [])
   const navigate = useNavigate()
   const location = useLocation()
   const {
@@ -957,7 +966,7 @@ const ChatInterface = ({
         </div>
 
         {/* Bottom Spacer to ensure messages aren't hidden by Input Area */}
-        <div className="h-42 flex-shrink-0"></div>
+        <div className="h-74 md:h-42 flex-shrink-0"></div>
 
         {/* Timeline Sidebar - Keep original QuestionNavigator for fallback on smaller screens */}
         {/* <div className="xl:absolute xl:left-full xl:top-0 xl:ml-8 xl:w-64 xl:h-full mt-8 xl:mt-0 w-full px-4 xl:px-0"> */}

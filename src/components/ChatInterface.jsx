@@ -822,7 +822,7 @@ const ChatInterface = ({
   return (
     <div
       className={clsx(
-        'flex-1 h-screen bg-background text-foreground transition-transform duration-300 flex flex-col md:ml-20 lg:ml-10 md:px-4',
+        'flex-1 h-screen bg-background text-foreground transition-transform duration-300 flex flex-col md:ml-20 lg:ml-10 sm:px-4',
         // Add shift based on screen size
         // 移动端/平板逻辑
         !isXLScreen && 'sidebar-shift',
@@ -836,7 +836,7 @@ const ChatInterface = ({
     >
       <div className="w-full max-w-3xl mx-auto relative flex flex-col h-full">
           {/* Title Bar */}
-          <div className="flex-shrink-0 sticky top-0 z-20 w-full max-w-8xl border-b border-gray-200 dark:border-zinc-800 bg-background/80 backdrop-blur-md py-2 mb-3 transition-all flex items-center gap-1 px-5 md:px-0">
+          <div className="flex-shrink-0 sticky top-0 z-20 w-full max-w-8xl border-b border-gray-200 dark:border-zinc-800 bg-background/80 backdrop-blur-md py-2 mb-3 transition-all flex items-center gap-1 px-3 md:px-0">
             {/* Mobile Menu Button */}
             <button
               onClick={toggleSidebar}

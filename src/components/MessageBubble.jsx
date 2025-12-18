@@ -451,7 +451,7 @@ const MessageBubble = ({
           {...props}
           target="_blank"
           rel="noreferrer"
-          className="text-[13px] hover:bg-primary-300/50 rounded-lg dark:hover:bg-primary-700/50 dark:bg-primary-900/50 bg-primary-200/50 mx-0.5 p-1 text-primary-700 dark:text-primary-300"
+          className="text-[12px] hover:bg-primary-300/50 rounded-lg dark:hover:bg-primary-700/50 dark:bg-primary-900/50 bg-primary-200/50 mx-0.5 py-0.5 px-1 text-primary-700 dark:text-primary-300"
         >
           {parseChildrenWithEmojis(children)}
         </a>

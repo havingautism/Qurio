@@ -9,6 +9,7 @@
 /* Apply transform to elements that need to move with sidebar */
 .sidebar-shift {
   transform: translateX(calc(-1 * var(--sidebar-width)));
+  /* transform: translateX(calc(-1 * 80%)); */
   transition: transform 0.3s ease-in-out;
 }
 

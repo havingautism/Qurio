@@ -147,8 +147,8 @@ const QuestionTimelineSidebar = ({
       {/* Overlay when sidebar is open - only on smaller screens */}
       {isOpen && !isLargeScreen && (
         <div
-          className="fixed inset-0 bg-black/20  z-40"
-
+          // className="fixed inset-0 blur-sm bg-black/30  z-40"
+          className="fixed inset-0  z-40"
           onClick={handleToggle}
           onWheel={e => e.preventDefault()}
           onTouchMove={e => e.preventDefault()}
@@ -161,9 +161,9 @@ const QuestionTimelineSidebar = ({
         className={clsx(
           'flex flex-col overflow-hidden transition-all duration-300 ease-in-out',
           isLargeScreen
-            ? 'absolute left-full top-0 h-full w-80 ml-16 bg-transparent border-none shadow-none z-10'
+            ? 'absolute left-full top-0 h-full w-85 ml-16 bg-transparent border-none shadow-none z-10'
             : [
-              'fixed right-0 top-0 h-dvh w-80',
+              'fixed right-0 top-0 h-dvh w-(--sidebar-width)',
               'bg-background z-50',
               isOpen ? 'translate-x-0' : 'translate-x-full',
             ],
@@ -264,7 +264,7 @@ const QuestionTimelineSidebar = ({
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto overscroll-contain px-2 py-2 space-y-1 min-h-0">
+        <div className="flex-1 pb-8 sm:pb-2 pt-2 overflow-y-auto overscroll-contain px-2  space-y-1 min-h-0">
           {filteredItems.length === 0 ? (
             <div className="text-center py-6">
               <MessageSquare size={40} className="mx-auto text-gray-300 dark:text-zinc-600 mb-3" />

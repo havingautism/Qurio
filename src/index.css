@@ -103,6 +103,11 @@ body {
   @apply bg-background text-foreground font-sans antialiased overflow-x-hidden;
 }
 
+body.scroll-locked {
+  overflow: hidden;
+  height: 100%;
+}
+
 button {
   cursor: pointer;
 }
@@ -248,6 +253,9 @@ h6 {
 .messages-scrollbar {
   scrollbar-width: thin;
   scrollbar-color: #d6d3d1 transparent;
+  /* Smooth scrolling on iOS */
+  -webkit-overflow-scrolling: touch;
+  height: 100%;
 }
 
 .dark .messages-scrollbar {

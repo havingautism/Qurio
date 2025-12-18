@@ -822,7 +822,7 @@ const ChatInterface = ({
   return (
     <div
       className={clsx(
-        'flex-1 h-screen bg-background text-foreground transition-transform duration-300 flex flex-col md:ml-20 lg:ml-10 px-4',
+        'flex-1 h-screen bg-background text-foreground transition-transform duration-300 flex flex-col md:ml-20 lg:ml-10 md:px-4',
         // Add shift based on screen size
         // 移动端/平板逻辑
         !isXLScreen && 'sidebar-shift',

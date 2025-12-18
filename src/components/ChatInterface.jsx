@@ -43,10 +43,10 @@ const ChatInterface = ({
 }) => {
   // Mobile detection
   const isMobile = (() => {
-    const ua = navigator.userAgent || navigator.vendor || window.opera;
-    const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-    return /iPhone|iPod|Android/i.test(ua) || (isTouch && window.innerWidth <= 1024);
-  })();
+    const ua = navigator.userAgent || navigator.vendor || window.opera
+    const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0
+    return /iPhone|iPod|Android/i.test(ua) || (isTouch && window.innerWidth <= 1024)
+  })()
 
   // Lock body scroll when component mounts
   useEffect(() => {
@@ -967,7 +967,7 @@ const ChatInterface = ({
         </div>
 
         {/* Bottom Spacer to ensure messages aren't hidden by Input Area */}
-        {/* <div className="h-42 flex-shrink-0"></div> */}
+        <div className={clsx('flex-shrink-0', isMobile ? 'h-70' : 'h-42')}></div>
 
         {/* Timeline Sidebar - Keep original QuestionNavigator for fallback on smaller screens */}
         {/* <div className="xl:absolute xl:left-full xl:top-0 xl:ml-8 xl:w-64 xl:h-full mt-8 xl:mt-0 w-full px-4 xl:px-0"> */}
@@ -994,11 +994,9 @@ const ChatInterface = ({
 
         {/* Input Area */}
         <div
-          className="flex-shrink-0 bg-gradient-to-t from-background via-background to-transparent pt-2 px-4 flex justify-center z-20"
+          className="fixed w-full left-0 flex-shrink-0 bg-gradient-to-t from-background via-background to-transparent pt-2 pb-3 px-4 flex justify-center z-20"
           style={{
-            paddingBottom: isMobile
-              ? 'max(7.5rem, env(safe-area-inset-bottom, 0px))'
-              : '1rem',
+            bottom: isMobile ? 'Max(7.5rem,env(safe-area-inset-bottom, 0px))' : '0px',
           }}
         >
           <div className="w-full max-w-3xl relative">

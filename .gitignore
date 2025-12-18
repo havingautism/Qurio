@@ -22,7 +22,6 @@ dist-ssr
 .agent/
 # VSCode specific extensions that should be shared
 !.vscode/extensions.json
-!.vscode/settings.json
 
 # System files
 .DS_Store

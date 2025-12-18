@@ -487,7 +487,7 @@ const MessageBubble = ({
           containerRef.current = el
           if (typeof bubbleRef === 'function') bubbleRef(el)
         }}
-        className="flex justify-end w-full mb-3 sm:mb-6 group px-5 sm:px-0"
+        className="flex justify-end items-center w-full mt-8 group px-5 sm:px-0"
         onMouseUp={handleMouseUp}
         onTouchEnd={handleTouchEnd}
         onContextMenu={handleContextMenu}
@@ -802,7 +802,7 @@ const MessageBubble = ({
             <EmojiDisplay emoji="🔮" size="1.2em" className="mb-1"/>
             <span className="text-sm font-semibold">Related</span>
           </div>
-          <div className="flex flex-col gap-1 md:gap-2">
+          <div className="flex flex-col gap-1 md:gap-2 px-2">
             {message.related.map((question, index) => (
               <div
                 key={index}

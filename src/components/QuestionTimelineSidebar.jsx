@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { Search, X, Clock, MessageSquare } from 'lucide-react'
 import clsx from 'clsx'
-// import useScrollLock from '../hooks/useScrollLock'
+import useScrollLock from '../hooks/useScrollLock'
 
 /**
  * A collapsible sidebar component that displays user questions as cards
@@ -22,7 +22,7 @@ const QuestionTimelineSidebar = ({
   onToggle,
   className,
 }) => {
-  // useScrollLock(isOpen)
+  useScrollLock(isOpen)
 
   const [searchQuery, setSearchQuery] = useState('')
   const [isTransitioning, setIsTransitioning] = useState(false)

@@ -243,3 +243,38 @@ h6 {
     var(--theme-glow-3)
   );
 }
+
+/* Custom Scrollbar for Messages Container */
+.messages-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #d6d3d1 transparent;
+}
+
+.dark .messages-scrollbar {
+  scrollbar-color: #44403c transparent;
+}
+
+.messages-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.messages-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.messages-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #d6d3d1; /* stone-300 */
+  border-radius: 4px;
+}
+
+.dark .messages-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #44403c; /* stone-700 */
+}
+
+.messages-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: #a8a29e; /* stone-400 */
+}
+
+.dark .messages-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: #57534e; /* stone-600 */
+}

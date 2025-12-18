@@ -5,7 +5,7 @@ import { useShallow } from 'zustand/react/shallow'
 import useChatStore from '../lib/chatStore'
 import MessageList from './MessageList'
 import FancyLoader from './FancyLoader'
-import QuestionNavigator from './QuestionNavigator'
+// import QuestionNavigator from './QuestionNavigator'
 import QuestionTimelineSidebar from './QuestionTimelineSidebar'
 import { updateConversation } from '../lib/conversationsService'
 import { getProvider } from '../lib/providers'
@@ -342,13 +342,20 @@ const ChatInterface = ({
 
   const jumpToMessage = id => {
     const node = messageRefs.current[id]
-    if (!node) return
+    if (!node || !messagesContainerRef.current) return
 
-    // Calculate position with offset for sticky header
-    const yOffset = -100 // Adjust based on your header height
-    const y = node.getBoundingClientRect().top + window.pageYOffset + yOffset
+    // Get the container's position and scroll
+    const containerRect = messagesContainerRef.current.getBoundingClientRect()
+    const nodeRect = node.getBoundingClientRect()
 
-    window.scrollTo({ top: y, behavior: 'smooth' })
+    // Calculate relative position within container
+    const yOffset = 20 // Offset from top of container
+    const scrollTop = nodeRect.top - containerRect.top + messagesContainerRef.current.scrollTop - yOffset
+
+    messagesContainerRef.current.scrollTo({
+      top: scrollTop,
+      behavior: 'smooth'
+    })
   }
 
   const extractUserQuestion = msg => {
@@ -454,7 +461,7 @@ const ChatInterface = ({
     }
 
     const observer = new IntersectionObserver(observerCallback, {
-      root: null,
+      root: messagesContainerRef.current, // Use messages container as root
       rootMargin: '-10% 0px -60% 0px', // Trigger when element is near the top
       threshold: [0.1],
     })
@@ -486,10 +493,12 @@ const ChatInterface = ({
 
   // Scroll to bottom helper
   const scrollToBottom = useCallback((behavior = 'smooth') => {
-    window.scrollTo({
-      top: document.documentElement.scrollHeight,
-      behavior,
-    })
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTo({
+        top: messagesContainerRef.current.scrollHeight,
+        behavior,
+      })
+    }
   }, [])
 
   // State to track if we are editing a message
@@ -739,15 +748,21 @@ const ChatInterface = ({
   // Handle scroll to show/hide button
   useEffect(() => {
     const handleScroll = () => {
-      const { scrollTop, scrollHeight, clientHeight } = document.documentElement
-      const isNearBottom = scrollHeight - scrollTop - clientHeight < 100
-      setShowScrollButton(!isNearBottom)
+      if (messagesContainerRef.current) {
+        const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current
+        const isNearBottom = scrollHeight - scrollTop - clientHeight < 100
+        setShowScrollButton(!isNearBottom)
+      }
     }
 
     // Run once on mount to set initial state
     handleScroll()
-    window.addEventListener('scroll', handleScroll)
-    return () => window.removeEventListener('scroll', handleScroll)
+
+    const container = messagesContainerRef.current
+    if (container) {
+      container.addEventListener('scroll', handleScroll)
+      return () => container.removeEventListener('scroll', handleScroll)
+    }
   }, [])
 
   const handleRegenerateTitle = useCallback(async () => {
@@ -801,19 +816,27 @@ const ChatInterface = ({
 
   const { toggleSidebar } = useAppContext()
 
+  // Create a ref for the messages scroll container
+  const messagesContainerRef = useRef(null)
+
   return (
     <div
       className={clsx(
-        'flex-1 min-h-screen bg-background text-foreground relative pb-4 transition-transform duration-300',
+        'flex-1 h-screen bg-background text-foreground transition-transform duration-300 flex flex-col md:ml-20 lg:ml-10 px-4',
         // Add shift based on screen size
-        !isXLScreen ? 'sidebar-shift' : '-translate-x-40',
-        isSidebarPinned ? 'md:ml-20' : 'md:ml-16',
+        // 移动端/平板逻辑
+        !isXLScreen && 'sidebar-shift',
+        // !isXLScreen && isSidebarPinned && 'translate-x-35',
+        // !isXLScreen && !isSidebarPinned && 'translate-x-2',
+        // 桌面端逻辑  
+        // isXLScreen && isSidebarPinned && 'translate-x-2',
+        // isXLScreen && !isSidebarPinned && '-translate-x-30'
+        isXLScreen && '-translate-x-30'
       )}
     >
-      <div className="w-full max-w-3xl mx-auto relative">
-        <div className="flex flex-col w-full">
+      <div className="w-full max-w-3xl mx-auto relative flex flex-col h-full">
           {/* Title Bar */}
-          <div className="sticky top-0 z-20 w-full max-w-8xl border-b border-gray-200 dark:border-zinc-800 bg-background/80 backdrop-blur-md py-2 mb-3 transition-all flex items-center gap-1 px-5 md:px-0">
+          <div className="flex-shrink-0 sticky top-0 z-20 w-full max-w-8xl border-b border-gray-200 dark:border-zinc-800 bg-background/80 backdrop-blur-md py-2 mb-3 transition-all flex items-center gap-1 px-5 md:px-0">
             {/* Mobile Menu Button */}
             <button
               onClick={toggleSidebar}
@@ -907,25 +930,33 @@ const ChatInterface = ({
             </button>
           </div>
 
-          {/* Messages Area */}
-          <div className="w-full max-w-3xl flex-1 pb-32 relative">
-            {isLoadingHistory && (
-              <div className="absolute inset-0 flex items-center justify-center backdrop-blur-md bg-background/40">
-                <FancyLoader />
-              </div>
-            )}
-            <MessageList
-              apiProvider={settings.apiProvider}
-              defaultModel={settings.defaultModel}
-              onRelatedClick={handleRelatedClick}
-              onMessageRef={registerMessageRef}
-              onEdit={handleEdit}
-              onQuote={handleQuote}
-              onRegenerateAnswer={handleRegenerateAnswer}
-            />
-            {/* Bottom Anchor */}
-            <div ref={bottomRef} className="h-1" />
+          {/* Messages Scroll Container */}
+          <div
+            ref={messagesContainerRef}
+            className="flex-1 overflow-y-auto relative messages-scrollbar"
+          >
+            <div className="w-full max-w-3xl mx-auto">
+              {isLoadingHistory && (
+                <div className="absolute inset-0 flex items-center justify-center backdrop-blur-md bg-background/40 z-10">
+                  <FancyLoader />
+                </div>
+              )}
+              <MessageList
+                apiProvider={settings.apiProvider}
+                defaultModel={settings.defaultModel}
+                onRelatedClick={handleRelatedClick}
+                onMessageRef={registerMessageRef}
+                onEdit={handleEdit}
+                onQuote={handleQuote}
+                onRegenerateAnswer={handleRegenerateAnswer}
+              />
+              {/* Bottom Anchor */}
+              <div ref={bottomRef} className="h-1" />
+            </div>
           </div>
+
+          {/* Bottom Spacer to ensure messages aren't hidden by Input Area */}
+          <div className="h-32 flex-shrink-0"></div>
         </div>
 
         {/* Timeline Sidebar - Keep original QuestionNavigator for fallback on smaller screens */}
@@ -950,16 +981,22 @@ const ChatInterface = ({
           isOpen={isTimelineSidebarOpen}
           onToggle={setIsTimelineSidebarOpen}
         />
-      </div>
+      
 
       {/* Sticky Input Area rendered via Portal to avoid transform inheritance */}
       {createPortal(
         <div
           className={clsx(
-            'fixed bottom-0 left-0 right-0 bg-linear-to-t from-background via-background to-transparent pb-6 pt-20 px-4 flex justify-center z-10 transition-transform duration-300',
+            'fixed bottom-0 left-0 right-0 bg-gradient-to-t from-background md:ml-20 lg:ml-10 via-background to-transparent pb-6 pt-20 px-4 flex justify-center z-10 transition-transform duration-300',
             // Add shift based on screen size
-            !isXLScreen ? 'sidebar-shift' : '-translate-x-40',
-            isSidebarPinned ? 'md:left-20' : 'md:left-16',
+            // 移动端/平板逻辑
+            !isXLScreen && 'sidebar-shift',
+            // !isXLScreen && isSidebarPinned && 'translate-x-35',
+            // !isXLScreen && !isSidebarPinned && 'translate-x-2',
+            // 桌面端逻辑  
+            // isXLScreen && isSidebarPinned && 'translate-x-2',
+            // isXLScreen && !isSidebarPinned && '-translate-x-30'
+            isXLScreen && '-translate-x-30'
           )}
         >
           <div className="w-full max-w-3xl relative">

@@ -1,18 +1,19 @@
 import React, { useState, useMemo, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { Search, X, Clock, MessageSquare } from 'lucide-react'
+import { Search, X, Clock, MessageSquare, ArrowUpDown } from 'lucide-react'
 import clsx from 'clsx'
 import useScrollLock from '../hooks/useScrollLock'
 
 /**
  * A collapsible sidebar component that displays user questions as cards
- * with search functionality and jump-to-position capability
+ * with search functionality, sorting, and jump-to-position capability
  *
  * @param {Array} items - Array of question items with id, label, and timestamp
  * @param {Function} onJump - Function to handle jumping to a specific question
  * @param {String} activeId - ID of the currently active question
  * @param {Boolean} isOpen - Whether the sidebar is open
  * @param {Function} onToggle - Function to toggle sidebar open/closed
+ * @param {String} className - Additional CSS class names
  */
 const QuestionTimelineSidebar = ({
   items = [],
@@ -27,6 +28,7 @@ const QuestionTimelineSidebar = ({
   const [searchQuery, setSearchQuery] = useState('')
   const [isTransitioning, setIsTransitioning] = useState(false)
   const [isLargeScreen, setIsLargeScreen] = useState(false)
+  const [sortOrder, setSortOrder] = useState('desc') // 'asc' for oldest first, 'desc' for newest first
 
   // Check screen size
   useEffect(() => {
@@ -39,19 +41,38 @@ const QuestionTimelineSidebar = ({
     return () => window.removeEventListener('resize', checkScreenSize)
   }, [])
 
-  // Filter items based on search query
+  // Filter and sort items based on search query and sort order
   const filteredItems = useMemo(() => {
-    if (!searchQuery.trim()) return items
+    let filtered = items
 
-    const query = searchQuery.toLowerCase()
-    return items.filter(
-      item =>
-        item.label?.toLowerCase().includes(query) ||
-        (item.timestamp && item.timestamp.toLowerCase().includes(query)),
-    )
-  }, [items, searchQuery])
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase()
+      filtered = items.filter(
+        item =>
+          item.label?.toLowerCase().includes(query) ||
+          (item.timestamp && item.timestamp.toLowerCase().includes(query)),
+      )
+    }
 
-  // Group items by date if timestamps are available
+    // Apply sorting by timestamp
+    const sorted = [...filtered].sort((a, b) => {
+      // Handle items without timestamps
+      if (!a.timestamp && !b.timestamp) return 0
+      if (!a.timestamp) return 1 // Put items without timestamp at the end
+      if (!b.timestamp) return -1 // Put items without timestamp at the end
+
+      const dateA = new Date(a.timestamp).getTime()
+      const dateB = new Date(b.timestamp).getTime()
+
+      // Sort based on sortOrder: 'asc' for oldest first, 'desc' for newest first
+      return sortOrder === 'asc' ? dateA - dateB : dateB - dateA
+    })
+
+    return sorted
+  }, [items, searchQuery, sortOrder])
+
+  // Group items by date while preserving the order from sorted filteredItems
   const groupedItems = useMemo(() => {
     const groups = {}
 
@@ -151,44 +172,102 @@ const QuestionTimelineSidebar = ({
         style={{ height: '100dvh' }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-zinc-700 shrink-0">
+        <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200 dark:border-zinc-700 shrink-0">
           <div className="flex items-center gap-2 text-gray-900 dark:text-white">
-            <MessageSquare size={20} />
-            <h2 className="text-lg font-semibold">Question History</h2>
+            <MessageSquare size={18} />
+            <h2 className="text-base font-semibold">Question History</h2>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             {/* Close button - only show on screens where sidebar can be toggled (xl and below) */}
             <button
               onClick={handleToggle}
-              className="xl:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
+              className="xl:hidden p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
               title="Close timeline"
             >
-              <X size={20} className="text-gray-500 dark:text-gray-400" />
+              <X size={18} className="text-gray-500 dark:text-gray-400" />
             </button>
           </div>
         </div>
 
         {/* Search Bar */}
-        <div className="p-4 border-b border-gray-200 dark:border-zinc-700 shrink-0">
+        <div className="px-3 py-2 border-b border-gray-200 dark:border-zinc-700 shrink-0 space-y-2">
           <div className="relative">
-            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Search size={16} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
               placeholder="Search questions..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-gray-100 dark:bg-zinc-800 border border-transparent rounded-lg focus:outline-none focus:border-primary-500 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+              className="w-full pl-8 pr-3 py-1.5 text-sm bg-gray-100 dark:bg-zinc-800 border border-transparent rounded-lg focus:outline-none focus:border-primary-500 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
             />
+          </div>
+
+          {/* Sort Order Toggle */}
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Sort by date</span>
+            <div className="flex items-center gap-0.5 bg-gray-100 dark:bg-zinc-800 rounded-md p-0.5 ring-1 ring-inset ring-gray-200/50 dark:ring-zinc-700/50">
+              <button
+                onClick={() => setSortOrder('asc')}
+                className={clsx(
+                  'px-2 py-1 text-xs font-medium rounded-sm transition-all duration-200 relative',
+                  'flex items-center gap-1 min-w-0',
+                  sortOrder === 'asc'
+                    ? [
+                        'bg-white dark:bg-zinc-700 text-primary-600 dark:text-primary-400 shadow-sm',
+                        'ring-1 ring-inset ring-primary-500/20 dark:ring-primary-400/20'
+                      ]
+                    : [
+                        'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200',
+                        'hover:bg-white/50 dark:hover:bg-zinc-700/50'
+                      ]
+                )}
+              >
+                <ArrowUpDown
+                  size={11}
+                  className={clsx(
+                    'transition-transform duration-200',
+                    sortOrder === 'asc' ? 'text-primary-500' : ''
+                  )}
+                  style={{ transform: 'rotate(180deg)' }}
+                />
+                <span>Oldest</span>
+              </button>
+              <button
+                onClick={() => setSortOrder('desc')}
+                className={clsx(
+                  'px-2 py-1 text-xs font-medium rounded-sm transition-all duration-200 relative',
+                  'flex items-center gap-1 min-w-0',
+                  sortOrder === 'desc'
+                    ? [
+                        'bg-white dark:bg-zinc-700 text-primary-600 dark:text-primary-400 shadow-sm',
+                        'ring-1 ring-inset ring-primary-500/20 dark:ring-primary-400/20'
+                      ]
+                    : [
+                        'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200',
+                        'hover:bg-white/50 dark:hover:bg-zinc-700/50'
+                      ]
+                )}
+              >
+                <ArrowUpDown
+                  size={11}
+                  className={clsx(
+                    'transition-transform duration-200',
+                    sortOrder === 'desc' ? 'text-primary-500' : ''
+                  )}
+                />
+                <span>Newest</span>
+              </button>
+            </div>
           </div>
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto overscroll-contain p-4 space-y-4 min-h-0">
+        <div className="flex-1 overflow-y-auto overscroll-contain px-3 py-2 space-y-3 min-h-0">
           {filteredItems.length === 0 ? (
-            <div className="text-center py-8">
-              <MessageSquare size={48} className="mx-auto text-gray-300 dark:text-zinc-600 mb-4" />
-              <p className="text-gray-500 dark:text-gray-400">
+            <div className="text-center py-6">
+              <MessageSquare size={40} className="mx-auto text-gray-300 dark:text-zinc-600 mb-3" />
+              <p className="text-sm text-gray-500 dark:text-gray-400">
                 {searchQuery ? 'No questions found' : 'No questions yet'}
               </p>
             </div>
@@ -196,7 +275,7 @@ const QuestionTimelineSidebar = ({
             Object.entries(groupedItems).map(([groupKey, groupItems]) => (
               <div key={groupKey} className="space-y-2">
                 {/* Group Header */}
-                <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider py-2">
+                <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider py-1">
                   {groupKey}
                 </div>
 
@@ -217,8 +296,8 @@ const QuestionTimelineSidebar = ({
 
         {/* Footer with question count */}
         {filteredItems.length > 0 && (
-          <div className="p-4 border-t border-gray-200 dark:border-zinc-700 shrink-0">
-            <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
+          <div className="px-3 py-2 border-t border-gray-200 dark:border-zinc-700 shrink-0">
+            <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
               <span>
                 {items.length} {items.length === 1 ? 'question' : 'questions'}
               </span>

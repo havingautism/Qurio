@@ -350,11 +350,12 @@ const ChatInterface = ({
 
     // Calculate relative position within container
     const yOffset = 20 // Offset from top of container
-    const scrollTop = nodeRect.top - containerRect.top + messagesContainerRef.current.scrollTop - yOffset
+    const scrollTop =
+      nodeRect.top - containerRect.top + messagesContainerRef.current.scrollTop - yOffset
 
     messagesContainerRef.current.scrollTo({
       top: scrollTop,
-      behavior: 'smooth'
+      behavior: 'smooth',
     })
   }
 
@@ -828,141 +829,140 @@ const ChatInterface = ({
         !isXLScreen && 'sidebar-shift',
         // !isXLScreen && isSidebarPinned && 'translate-x-35',
         // !isXLScreen && !isSidebarPinned && 'translate-x-2',
-        // 桌面端逻辑  
+        // 桌面端逻辑
         // isXLScreen && isSidebarPinned && 'translate-x-2',
         // isXLScreen && !isSidebarPinned && '-translate-x-30'
-        isXLScreen && '-translate-x-30'
+        isXLScreen && '-translate-x-30',
       )}
     >
       <div className="w-full max-w-3xl mx-auto relative flex flex-col h-full">
-          {/* Title Bar */}
-          <div className="flex-shrink-0 sticky top-0 z-20 w-full max-w-8xl border-b border-gray-200 dark:border-zinc-800 bg-background/80 backdrop-blur-md py-2 mb-3 transition-all flex items-center gap-1 px-3 md:px-0">
-            {/* Mobile Menu Button */}
-            <button
-              onClick={toggleSidebar}
-              className="md:hidden p-2 -ml-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg shrink-0"
-            >
-              <Menu size={20} />
-            </button>
-
-            {/* Space Selector */}
-            <div className="relative" ref={selectorRef}>
-              <button
-                onClick={() => setIsSelectorOpen(!isSelectorOpen)}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors text-sm font-medium text-gray-700 dark:text-gray-300"
-              >
-                <LayoutGrid size={16} className="text-gray-400 hidden sm:inline" />
-                {displaySpace ? (
-                  <div className="flex items-center gap-1">
-                    <span className="text-lg">
-                      <EmojiDisplay emoji={displaySpace.emoji} size="1.125rem" />
-                    </span>
-                    <span className="hidden opacity-0 w-0 md:inline md:opacity-100 md:w-auto truncate max-w-[200px] transition-all">
-                      {displaySpace.label}
-                    </span>
-                  </div>
-                ) : (
-                  <span className="text-gray-500 text-xs sm:text-s">None</span>
-                )}
-                <ChevronDown size={14} className="text-gray-400" />
-              </button>
-
-              {/* Dropdown */}
-              {isSelectorOpen && (
-                <div className="absolute top-full left-0 mt-2 w-56 bg-white dark:bg-[#202222] border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl z-30 overflow-hidden">
-                  <div className="p-2 flex flex-col gap-1">
-                    <button
-                      onClick={handleClearSpaceSelection}
-                      className={`flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left ${
-                        !displaySpace ? 'text-primary-500' : 'text-gray-700 dark:text-gray-200'
-                      }`}
-                    >
-                      <span className="text-sm font-medium">None</span>
-                      {!displaySpace && <Check size={14} className="text-primary-500" />}
-                    </button>
-                    <div className="h-px bg-gray-100 dark:bg-zinc-800 my-1" />
-                    {spaces.map((space, idx) => {
-                      const isSelected = selectedSpace?.label === space.label
-                      return (
-                        <button
-                          key={idx}
-                          onClick={() => handleSelectSpace(space)}
-                          className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left"
-                        >
-                          <div className="flex items-center gap-3">
-                            <span className="text-lg">
-                              <EmojiDisplay emoji={space.emoji} size="1.125rem" />
-                            </span>
-                            <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
-                              {space.label}
-                            </span>
-                          </div>
-                          {isSelected && <Check size={14} className="text-primary-500" />}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="flex items-center gap-2 flex-1 min-w-0">
-              <h1 className="text-m sm:text-xl font-medium text-gray-800 dark:text-gray-100 truncate">
-                {conversationTitle || 'New Conversation'}
-              </h1>
-              <button
-                onClick={handleRegenerateTitle}
-                disabled={isRegeneratingTitle || messages.length === 0}
-                className="hidden sm:block p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors disabled:opacity-50 disabled:hover:bg-transparent"
-                title="Regenerate title from last 3 messages"
-              >
-                <Sparkles size={18} />
-              </button>
-            </div>
-
-            {/* Timeline Button - only show on screens where sidebar can be toggled (xl and below) */}
-            <button
-              onClick={() => setIsTimelineSidebarOpen(true)}
-              className="xl:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-colors shrink-0"
-              title="Open question timeline"
-            >
-              <History size={20} />
-            </button>
-          </div>
-
-          {/* Messages Scroll Container */}
-          <div
-            ref={messagesContainerRef}
-            className="flex-1 overflow-y-auto relative messages-scrollbar"
+        {/* Title Bar */}
+        <div className="flex-shrink-0 sticky top-0 z-20 w-full max-w-8xl border-b border-gray-200 dark:border-zinc-800 bg-background/80 backdrop-blur-md py-2 mb-3 transition-all flex items-center gap-1 px-3 md:px-0">
+          {/* Mobile Menu Button */}
+          <button
+            onClick={toggleSidebar}
+            className="md:hidden p-2 -ml-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg shrink-0"
           >
-            <div className="w-full max-w-3xl mx-auto">
-              {isLoadingHistory && (
-                <div className="absolute inset-0 flex items-center justify-center backdrop-blur-md bg-background/40 z-10">
-                  <FancyLoader />
+            <Menu size={20} />
+          </button>
+
+          {/* Space Selector */}
+          <div className="relative" ref={selectorRef}>
+            <button
+              onClick={() => setIsSelectorOpen(!isSelectorOpen)}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              <LayoutGrid size={16} className="text-gray-400 hidden sm:inline" />
+              {displaySpace ? (
+                <div className="flex items-center gap-1">
+                  <span className="text-lg">
+                    <EmojiDisplay emoji={displaySpace.emoji} size="1.125rem" />
+                  </span>
+                  <span className="hidden opacity-0 w-0 md:inline md:opacity-100 md:w-auto truncate max-w-[200px] transition-all">
+                    {displaySpace.label}
+                  </span>
                 </div>
+              ) : (
+                <span className="text-gray-500 text-xs sm:text-s">None</span>
               )}
-              <MessageList
-                apiProvider={settings.apiProvider}
-                defaultModel={settings.defaultModel}
-                onRelatedClick={handleRelatedClick}
-                onMessageRef={registerMessageRef}
-                onEdit={handleEdit}
-                onQuote={handleQuote}
-                onRegenerateAnswer={handleRegenerateAnswer}
-              />
-              {/* Bottom Anchor */}
-              <div ref={bottomRef} className="h-1" />
-            </div>
+              <ChevronDown size={14} className="text-gray-400" />
+            </button>
+
+            {/* Dropdown */}
+            {isSelectorOpen && (
+              <div className="absolute top-full left-0 mt-2 w-56 bg-white dark:bg-[#202222] border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl z-30 overflow-hidden">
+                <div className="p-2 flex flex-col gap-1">
+                  <button
+                    onClick={handleClearSpaceSelection}
+                    className={`flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left ${
+                      !displaySpace ? 'text-primary-500' : 'text-gray-700 dark:text-gray-200'
+                    }`}
+                  >
+                    <span className="text-sm font-medium">None</span>
+                    {!displaySpace && <Check size={14} className="text-primary-500" />}
+                  </button>
+                  <div className="h-px bg-gray-100 dark:bg-zinc-800 my-1" />
+                  {spaces.map((space, idx) => {
+                    const isSelected = selectedSpace?.label === space.label
+                    return (
+                      <button
+                        key={idx}
+                        onClick={() => handleSelectSpace(space)}
+                        className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left"
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="text-lg">
+                            <EmojiDisplay emoji={space.emoji} size="1.125rem" />
+                          </span>
+                          <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                            {space.label}
+                          </span>
+                        </div>
+                        {isSelected && <Check size={14} className="text-primary-500" />}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Bottom Spacer to ensure messages aren't hidden by Input Area */}
-          <div className="h-32 flex-shrink-0"></div>
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <h1 className="text-m sm:text-xl font-medium text-gray-800 dark:text-gray-100 truncate">
+              {conversationTitle || 'New Conversation'}
+            </h1>
+            <button
+              onClick={handleRegenerateTitle}
+              disabled={isRegeneratingTitle || messages.length === 0}
+              className="hidden sm:block p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors disabled:opacity-50 disabled:hover:bg-transparent"
+              title="Regenerate title from last 3 messages"
+            >
+              <Sparkles size={18} />
+            </button>
+          </div>
+
+          {/* Timeline Button - only show on screens where sidebar can be toggled (xl and below) */}
+          <button
+            onClick={() => setIsTimelineSidebarOpen(true)}
+            className="xl:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-colors shrink-0"
+            title="Open question timeline"
+          >
+            <History size={20} />
+          </button>
         </div>
 
+        {/* Messages Scroll Container */}
+        <div
+          ref={messagesContainerRef}
+          className="flex-1 overflow-y-auto relative messages-scrollbar"
+        >
+          <div className="w-full max-w-3xl mx-auto">
+            {isLoadingHistory && (
+              <div className="absolute inset-0 flex items-center justify-center backdrop-blur-md bg-background/40 z-10">
+                <FancyLoader />
+              </div>
+            )}
+            <MessageList
+              apiProvider={settings.apiProvider}
+              defaultModel={settings.defaultModel}
+              onRelatedClick={handleRelatedClick}
+              onMessageRef={registerMessageRef}
+              onEdit={handleEdit}
+              onQuote={handleQuote}
+              onRegenerateAnswer={handleRegenerateAnswer}
+            />
+            {/* Bottom Anchor */}
+            <div ref={bottomRef} className="h-1" />
+          </div>
+        </div>
+
+        {/* Bottom Spacer to ensure messages aren't hidden by Input Area */}
+        <div className="h-42 flex-shrink-0"></div>
+
         {/* Timeline Sidebar - Keep original QuestionNavigator for fallback on smaller screens */}
-        <div className="xl:absolute xl:left-full xl:top-0 xl:ml-8 xl:w-64 xl:h-full mt-8 xl:mt-0 w-full px-4 xl:px-0">
-          {/* Original QuestionNavigator - visible only on desktop when sidebar is closed */}
-          {/* <div className="hidden xl:block h-full">
+        {/* <div className="xl:absolute xl:left-full xl:top-0 xl:ml-8 xl:w-64 xl:h-full mt-8 xl:mt-0 w-full px-4 xl:px-0"> */}
+        {/* Original QuestionNavigator - visible only on desktop when sidebar is closed */}
+        {/* <div className="hidden xl:block h-full">
             <div className="sticky top-24 max-h-[calc(100vh-10rem)] overflow-y-auto no-scrollbar">
               <QuestionNavigator
                 items={questionNavItems}
@@ -971,7 +971,7 @@ const ChatInterface = ({
               />
             </div>
           </div> */}
-        </div>
+        {/* </div> */}
 
         {/* New Timeline Sidebar */}
         <QuestionTimelineSidebar
@@ -981,68 +981,70 @@ const ChatInterface = ({
           isOpen={isTimelineSidebarOpen}
           onToggle={setIsTimelineSidebarOpen}
         />
-      
 
-      {/* Sticky Input Area rendered via Portal to avoid transform inheritance */}
-      {createPortal(
-        <div
-          className={clsx(
-            'fixed bottom-0 left-0 right-0 bg-gradient-to-t from-background md:ml-20 lg:ml-10 via-background to-transparent pb-6 pt-20 px-4 flex justify-center z-10 transition-transform duration-300',
-            // Add shift based on screen size
-            // 移动端/平板逻辑
-            !isXLScreen && 'sidebar-shift',
-            // !isXLScreen && isSidebarPinned && 'translate-x-35',
-            // !isXLScreen && !isSidebarPinned && 'translate-x-2',
-            // 桌面端逻辑  
-            // isXLScreen && isSidebarPinned && 'translate-x-2',
-            // isXLScreen && !isSidebarPinned && '-translate-x-30'
-            isXLScreen && '-translate-x-30'
-          )}
-        >
-          <div className="w-full max-w-3xl relative">
-            {/* Scroll to bottom button - positioned relative to input area */}
-            {showScrollButton && (
-              <button
-                onClick={() => scrollToBottom('smooth')}
-                className="absolute bottom-40 left-1/2 -translate-x-1/2 p-2 bg-background border border-border rounded-full shadow-lg hover:bg-muted transition-all duration-300 animate-in fade-in slide-in-from-bottom-2 z-30"
-              >
-                <ArrowDown size={20} className="text-foreground" />
-              </button>
+        {/* Sticky Input Area rendered via Portal to avoid transform inheritance */}
+        {createPortal(
+          <div
+            className={clsx(
+              'fixed bottom-0 left-0 right-0 bg-gradient-to-t from-background md:ml-20 lg:ml-10 via-background to-transparent pb-6 pt-20 px-4 flex justify-center z-10 transition-transform duration-300',
+              // Add shift based on screen size
+              // 移动端/平板逻辑
+              !isXLScreen && 'sidebar-shift',
+              // !isXLScreen && isSidebarPinned && 'translate-x-35',
+              // !isXLScreen && !isSidebarPinned && 'translate-x-2',
+              // 桌面端逻辑
+              // isXLScreen && isSidebarPinned && 'translate-x-2',
+              // isXLScreen && !isSidebarPinned && '-translate-x-30'
+              isXLScreen && '-translate-x-30',
             )}
+          >
+            <div className="w-full max-w-3xl relative">
+              {/* Scroll to bottom button - positioned relative to input area */}
+              {showScrollButton && (
+                <button
+                  onClick={() => scrollToBottom('smooth')}
+                  className="absolute bottom-40 left-1/2 -translate-x-1/2 p-2 bg-background border border-border rounded-full shadow-lg hover:bg-muted transition-all duration-300 animate-in fade-in slide-in-from-bottom-2 z-30"
+                >
+                  <ArrowDown size={20} className="text-foreground" />
+                </button>
+              )}
 
-            <InputBar
-              isLoading={isLoading}
-              apiProvider={settings.apiProvider}
-              isSearchActive={isSearchActive}
-              isThinkingActive={isThinkingActive}
-              onToggleSearch={() => setIsSearchActive(prev => !prev)}
-              onToggleThinking={() => setIsThinkingActive(prev => !prev)}
-              quotedText={quotedText}
-              onQuoteClear={() => {
-                setQuotedText(null)
-                setQuoteContext(null)
-                quoteTextRef.current = ''
-                quoteSourceRef.current = ''
-              }}
-              onSend={(text, attachments) =>
-                handleSendMessage(text, attachments, null, { skipMeta: false })
-              }
-              editingSeed={editingSeed}
-              onEditingClear={() => {
-                setEditingIndex(null)
-                setEditingSeed({ text: '', attachments: [] })
-              }}
-              showEditing={editingIndex !== null && messages[editingIndex]}
-              editingLabel={editingIndex !== null ? extractUserQuestion(messages[editingIndex]) : ''}
-              scrollToBottom={scrollToBottom}
-            />
-            <div className="text-center mt-2 text-xs text-gray-400 dark:text-gray-500">
-              Qurio can make mistakes. Please use with caution.
+              <InputBar
+                isLoading={isLoading}
+                apiProvider={settings.apiProvider}
+                isSearchActive={isSearchActive}
+                isThinkingActive={isThinkingActive}
+                onToggleSearch={() => setIsSearchActive(prev => !prev)}
+                onToggleThinking={() => setIsThinkingActive(prev => !prev)}
+                quotedText={quotedText}
+                onQuoteClear={() => {
+                  setQuotedText(null)
+                  setQuoteContext(null)
+                  quoteTextRef.current = ''
+                  quoteSourceRef.current = ''
+                }}
+                onSend={(text, attachments) =>
+                  handleSendMessage(text, attachments, null, { skipMeta: false })
+                }
+                editingSeed={editingSeed}
+                onEditingClear={() => {
+                  setEditingIndex(null)
+                  setEditingSeed({ text: '', attachments: [] })
+                }}
+                showEditing={editingIndex !== null && messages[editingIndex]}
+                editingLabel={
+                  editingIndex !== null ? extractUserQuestion(messages[editingIndex]) : ''
+                }
+                scrollToBottom={scrollToBottom}
+              />
+              <div className="text-center mt-2 text-xs text-gray-400 dark:text-gray-500">
+                Qurio can make mistakes. Please use with caution.
+              </div>
             </div>
-          </div>
-        </div>,
-        document.body
-      )}
+          </div>,
+          document.body,
+        )}
+      </div>
     </div>
   )
 }

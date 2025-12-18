@@ -55,8 +55,8 @@ const formatContentWithSources = (content, sources = []) => {
     const idx = Number(p1) - 1
     const src = sources[idx]
     if (!src?.url) return match
-    // Keep visible brackets by including them in the link text
-    return `[\\[${p1}\\]](${src.url})`
+    // Remove visible brackets
+    return `[${p1}](${src.url})`
   })
 }
 
@@ -312,7 +312,7 @@ const MessageBubble = ({
     }
   }, [isMobile])
 
-  
+
   useEffect(() => {
     const observer = new MutationObserver(mutations => {
       mutations.forEach(mutation => {
@@ -451,14 +451,14 @@ const MessageBubble = ({
           {...props}
           target="_blank"
           rel="noreferrer"
-          className="text-[13px] text-primary-600 dark:text-primary-400"
+          className="text-[13px] hover:bg-primary-300/50 rounded-lg dark:hover:bg-primary-700/50 dark:bg-primary-900/50 bg-primary-200/50 mx-0.5 p-1 text-primary-700 dark:text-primary-300"
         >
           {parseChildrenWithEmojis(children)}
         </a>
       ),
       hr: () => (
         <div className="relative my-6">
-          <div className="h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent dark:via-zinc-700" />
+          <div className="h-px bg-linear-to-r from-transparent via-gray-300 to-transparent dark:via-zinc-700" />
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <div className="w-2.5 h-2.5 rounded-full bg-gray-200 dark:bg-zinc-700 shadow-sm ring-2 ring-white dark:ring-zinc-900" />
           </div>
@@ -799,7 +799,7 @@ const MessageBubble = ({
       {message.related && message.related.length > 0 && (
         <div className="border-t border-gray-200 dark:border-zinc-800 pt-4">
           <div className="flex items-center gap-3 mb-3 text-gray-900 dark:text-gray-100">
-            <EmojiDisplay emoji="🔮" size="1.2em" className="mb-1"/>
+            <EmojiDisplay emoji="🔮" size="1.2em" className="mb-1" />
             <span className="text-sm font-semibold">Related</span>
           </div>
           <div className="flex flex-col gap-1 md:gap-2 px-2">

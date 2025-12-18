@@ -16,6 +16,8 @@ import {
   History,
   LayoutGrid,
   Menu,
+  Menu,
+  PanelRightOpen,
   Paperclip,
   Sparkles,
   X,
@@ -931,19 +933,22 @@ const ChatInterface = ({
           </div>
 
           {/* Timeline Button - only show on screens where sidebar can be toggled (xl and below) */}
-          <button
-            onClick={() => setIsTimelineSidebarOpen(true)}
-            className="xl:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-colors shrink-0"
-            title="Open question timeline"
-          >
-            <History size={20} />
-          </button>
+          {/* Timeline Button - only show on screens where sidebar can be toggled (xl and below), and hide when open */}
+          {!isTimelineSidebarOpen && (
+            <button
+              onClick={() => setIsTimelineSidebarOpen(true)}
+              className="xl:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-colors shrink-0"
+              title="Open question timeline"
+            >
+              <PanelRightOpen size={20} />
+            </button>
+          )}
         </div>
 
         {/* Messages Scroll Container */}
         <div
           ref={messagesContainerRef}
-          className="flex-1 overflow-y-auto relative messages-scrollbar"
+          className="flex-1 overflow-y-auto sm:p-2 relative messages-scrollbar"
         >
           <div className="w-full max-w-3xl mx-auto">
             {isLoadingHistory && (

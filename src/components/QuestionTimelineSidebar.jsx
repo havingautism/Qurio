@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { Search, X, Clock, MessageSquare, ArrowUpDown } from 'lucide-react'
+import { Search, PanelRightClose, Clock, MessageSquare, ArrowUpDown } from 'lucide-react'
 import clsx from 'clsx'
 import useScrollLock from '../hooks/useScrollLock'
 
@@ -147,7 +147,8 @@ const QuestionTimelineSidebar = ({
       {/* Overlay when sidebar is open - only on smaller screens */}
       {isOpen && !isLargeScreen && (
         <div
-          className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40"
+          className="fixed inset-0 bg-black/20  z-40"
+
           onClick={handleToggle}
           onWheel={e => e.preventDefault()}
           onTouchMove={e => e.preventDefault()}
@@ -158,21 +159,19 @@ const QuestionTimelineSidebar = ({
       <div
         data-sidebar="timeline"
         className={clsx(
-          'top-0 bg-white dark:bg-[#202222] border-l border-gray-200 dark:border-zinc-700 shadow-2xl z-50 flex flex-col overflow-hidden',
-          // Always positioned on the right
-          'fixed right-0',
-          // Use CSS variable for width
-          'w-(--sidebar-width)',
-          // Animation on smaller screens, always visible on lg and up
-          isLargeScreen || isOpen ? 'translate-x-0' : 'translate-x-full',
-          // Transition only on smaller screens
-          !isLargeScreen && 'transition-transform duration-300 ease-in-out',
+          'flex flex-col overflow-hidden transition-all duration-300 ease-in-out',
+          isLargeScreen
+            ? 'absolute left-full top-0 h-full w-80 ml-16 bg-transparent border-none shadow-none z-10'
+            : [
+              'fixed right-0 top-0 h-dvh w-80',
+              'bg-background z-50',
+              isOpen ? 'translate-x-0' : 'translate-x-full',
+            ],
           className,
         )}
-        style={{ height: '100dvh' }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200 dark:border-zinc-700 shrink-0">
+        <div className="flex sm:hidden items-center justify-between px-4 py-3 shrink-0">
           <div className="flex items-center gap-2 text-gray-900 dark:text-white">
             <MessageSquare size={18} />
             <h2 className="text-base font-semibold">Question History</h2>
@@ -185,18 +184,18 @@ const QuestionTimelineSidebar = ({
               className="xl:hidden p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
               title="Close timeline"
             >
-              <X size={18} className="text-gray-500 dark:text-gray-400" />
+              <PanelRightClose size={18} className="text-gray-500 dark:text-gray-400" />
             </button>
           </div>
         </div>
 
         {/* Search Bar */}
-        <div className="px-3 py-2 border-b border-gray-200 dark:border-zinc-700 shrink-0 space-y-2">
+        <div className="px-4 py-2 shrink-0 space-y-3">
           <div className="relative">
             <Search size={16} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
-              placeholder="Search questions..."
+              placeholder="Search question history..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               className="w-full pl-8 pr-3 py-1.5 text-sm bg-gray-100 dark:bg-zinc-800 border border-transparent rounded-lg focus:outline-none focus:border-primary-500 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
@@ -205,7 +204,9 @@ const QuestionTimelineSidebar = ({
 
           {/* Sort Order Toggle */}
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Sort by date</span>
+            <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+              {filteredItems.length} {filteredItems.length === 1 ? 'question' : 'questions'}
+            </span>
             <div className="flex items-center gap-0.5 bg-gray-100 dark:bg-zinc-800 rounded-md p-0.5 ring-1 ring-inset ring-gray-200/50 dark:ring-zinc-700/50">
               <button
                 onClick={() => setSortOrder('asc')}
@@ -214,13 +215,13 @@ const QuestionTimelineSidebar = ({
                   'flex items-center gap-1 min-w-0',
                   sortOrder === 'asc'
                     ? [
-                        'bg-white dark:bg-zinc-700 text-primary-600 dark:text-primary-400 shadow-sm',
-                        'ring-1 ring-inset ring-primary-500/20 dark:ring-primary-400/20'
-                      ]
+                      'bg-white dark:bg-zinc-700 text-primary-600 dark:text-primary-400 shadow-sm',
+                      'ring-1 ring-inset ring-primary-500/20 dark:ring-primary-400/20'
+                    ]
                     : [
-                        'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200',
-                        'hover:bg-white/50 dark:hover:bg-zinc-700/50'
-                      ]
+                      'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200',
+                      'hover:bg-white/50 dark:hover:bg-zinc-700/50'
+                    ]
                 )}
               >
                 <ArrowUpDown
@@ -240,13 +241,13 @@ const QuestionTimelineSidebar = ({
                   'flex items-center gap-1 min-w-0',
                   sortOrder === 'desc'
                     ? [
-                        'bg-white dark:bg-zinc-700 text-primary-600 dark:text-primary-400 shadow-sm',
-                        'ring-1 ring-inset ring-primary-500/20 dark:ring-primary-400/20'
-                      ]
+                      'bg-white dark:bg-zinc-700 text-primary-600 dark:text-primary-400 shadow-sm',
+                      'ring-1 ring-inset ring-primary-500/20 dark:ring-primary-400/20'
+                    ]
                     : [
-                        'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200',
-                        'hover:bg-white/50 dark:hover:bg-zinc-700/50'
-                      ]
+                      'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200',
+                      'hover:bg-white/50 dark:hover:bg-zinc-700/50'
+                    ]
                 )}
               >
                 <ArrowUpDown
@@ -263,7 +264,7 @@ const QuestionTimelineSidebar = ({
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto overscroll-contain px-3 py-2 space-y-3 min-h-0">
+        <div className="flex-1 overflow-y-auto overscroll-contain px-2 py-2 space-y-1 min-h-0">
           {filteredItems.length === 0 ? (
             <div className="text-center py-6">
               <MessageSquare size={40} className="mx-auto text-gray-300 dark:text-zinc-600 mb-3" />
@@ -275,7 +276,7 @@ const QuestionTimelineSidebar = ({
             Object.entries(groupedItems).map(([groupKey, groupItems]) => (
               <div key={groupKey} className="space-y-2">
                 {/* Group Header */}
-                <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider py-1">
+                <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider px-2 py-2">
                   {groupKey}
                 </div>
 
@@ -294,17 +295,7 @@ const QuestionTimelineSidebar = ({
           )}
         </div>
 
-        {/* Footer with question count */}
-        {filteredItems.length > 0 && (
-          <div className="px-3 py-2 border-t border-gray-200 dark:border-zinc-700 shrink-0">
-            <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-              <span>
-                {items.length} {items.length === 1 ? 'question' : 'questions'}
-              </span>
-              {searchQuery && <span>{filteredItems.length} found</span>}
-            </div>
-          </div>
-        )}
+
       </div>
 
       {/* Floating toggle button for desktop when sidebar is closed */}
@@ -320,7 +311,13 @@ const QuestionTimelineSidebar = ({
     </>
   )
 
-  // Always render portal to allow smooth animations
+
+
+  // On large screens, render inline. On small screens, use portal.
+  if (isLargeScreen) {
+    return sidebarContent
+  }
+
   return createPortal(sidebarContent, document.body)
 }
 
@@ -332,19 +329,18 @@ const QuestionCard = React.memo(({ item, isActive, onClick, time }) => {
     <div
       onClick={onClick}
       className={clsx(
-        'p-3 rounded-lg border cursor-pointer transition-all duration-200',
-        'hover:shadow-md hover:border-primary-300 dark:hover:border-primary-600',
+        'p-3 rounded-lg border border-gray-200 dark:border-zinc-700 cursor-pointer transition-all duration-200 group',
         isActive
-          ? 'bg-primary-50 dark:bg-primary-900/20 border-primary-300 dark:border-primary-600 shadow-sm'
-          : 'bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-zinc-700',
+          ? 'bg-primary-50 dark:bg-primary-900/10 border-primary-500/50 dark:border-primary-900/50 text-primary-900 dark:text-primary-100'
+          : 'hover:bg-gray-100 dark:hover:bg-zinc-800/50 text-gray-700 dark:text-gray-300',
       )}
     >
       <div className="flex items-start gap-3">
-        <div className="flex-shrink-0 mt-0.5">
+        <div className="shrink-0 mt-0.5">
           <div
             className={clsx(
-              'w-2 h-2 rounded-full',
-              isActive ? 'bg-primary-500' : 'bg-gray-300 dark:bg-zinc-600',
+              'w-2 h-2 rounded-full mt-1.5 transition-colors',
+              isActive ? 'bg-primary-500' : 'bg-transparent group-hover:bg-gray-300 dark:group-hover:bg-zinc-600',
             )}
           />
         </div>
@@ -353,9 +349,7 @@ const QuestionCard = React.memo(({ item, isActive, onClick, time }) => {
           <p
             className={clsx(
               'text-sm leading-relaxed break-words',
-              isActive
-                ? 'text-primary-900 dark:text-primary-100 font-medium'
-                : 'text-gray-700 dark:text-gray-300',
+              isActive ? 'font-medium' : ''
             )}
           >
             {item.label}

@@ -1,36 +1,35 @@
-﻿import React, { useState, useRef, useEffect, useCallback } from 'react'
-import { createPortal } from 'react-dom'
-import { useNavigate, useLocation } from '@tanstack/react-router'
+﻿import { useLocation, useNavigate } from '@tanstack/react-router'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import useChatStore from '../lib/chatStore'
-import MessageList from './MessageList'
 import FancyLoader from './FancyLoader'
+import MessageList from './MessageList'
 // import QuestionNavigator from './QuestionNavigator'
-import QuestionTimelineSidebar from './QuestionTimelineSidebar'
-import { updateConversation } from '../lib/conversationsService'
-import { getProvider } from '../lib/providers'
-import { getModelForTask } from '../lib/modelSelector.js'
-import {
-  Paperclip,
-  ArrowRight,
-  Globe,
-  ChevronDown,
-  Check,
-  X,
-  LayoutGrid,
-  Brain,
-  Sparkles,
-  ArrowDown,
-  Menu,
-  History,
-} from 'lucide-react'
 import clsx from 'clsx'
+import {
+  ArrowDown,
+  ArrowRight,
+  Brain,
+  Check,
+  ChevronDown,
+  Globe,
+  History,
+  LayoutGrid,
+  Menu,
+  Paperclip,
+  Sparkles,
+  X,
+} from 'lucide-react'
 import { useAppContext } from '../App'
+import { updateConversation } from '../lib/conversationsService'
+import { getModelForTask } from '../lib/modelSelector.js'
+import { getProvider } from '../lib/providers'
+import QuestionTimelineSidebar from './QuestionTimelineSidebar'
 
-import { loadSettings } from '../lib/settings'
-import { listMessages } from '../lib/conversationsService'
-import EmojiDisplay from './EmojiDisplay'
 import { useSidebarOffset } from '../hooks/useSidebarOffset'
+import { listMessages } from '../lib/conversationsService'
+import { loadSettings } from '../lib/settings'
+import EmojiDisplay from './EmojiDisplay'
 
 const ChatInterface = ({
   spaces = [],
@@ -42,6 +41,13 @@ const ChatInterface = ({
   onTitleAndSpaceGenerated,
   isSidebarPinned = false,
 }) => {
+  // Mobile detection
+  const isMobile = (() => {
+    const ua = navigator.userAgent || navigator.vendor || window.opera;
+    const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    return /iPhone|iPod|Android/i.test(ua) || (isTouch && window.innerWidth <= 1024);
+  })();
+
   // Lock body scroll when component mounts
   useEffect(() => {
     document.body.classList.add('scroll-locked')
@@ -832,21 +838,16 @@ const ChatInterface = ({
   return (
     <div
       className={clsx(
-        'flex-1 h-screen bg-background text-foreground transition-transform duration-300 flex flex-col md:ml-20 lg:ml-10 sm:px-4',
-        // Add shift based on screen size
-        // 移动端/平板逻辑
+        'flex-1 h-screen bg-background text-foreground transition-all duration-300 flex flex-col md:ml-20 lg:ml-10 sm:px-4',
+        // 大屏幕固定左移
+        'xl:-translate-x-30',
+        // 小屏幕跟随sidebar状态动态移动
         !isXLScreen && 'sidebar-shift',
-        // !isXLScreen && isSidebarPinned && 'translate-x-35',
-        // !isXLScreen && !isSidebarPinned && 'translate-x-2',
-        // 桌面端逻辑
-        // isXLScreen && isSidebarPinned && 'translate-x-2',
-        // isXLScreen && !isSidebarPinned && '-translate-x-30'
-        isXLScreen && '-translate-x-30',
       )}
     >
       <div className="w-full max-w-3xl mx-auto relative flex flex-col h-full">
         {/* Title Bar */}
-        <div className="flex-shrink-0 sticky top-0 z-20 w-full max-w-8xl border-b border-gray-200 dark:border-zinc-800 bg-background/80 backdrop-blur-md py-2 mb-3 transition-all flex items-center gap-1 px-3 md:px-0">
+        <div className="flex-shrink-0 z-20 w-full max-w-8xl border-b border-gray-200 dark:border-zinc-800 bg-background/80 backdrop-blur-md py-2 mb-3 transition-all flex items-center gap-1 px-3 md:px-0">
           {/* Mobile Menu Button */}
           <button
             onClick={toggleSidebar}
@@ -966,7 +967,7 @@ const ChatInterface = ({
         </div>
 
         {/* Bottom Spacer to ensure messages aren't hidden by Input Area */}
-        <div className="h-74 md:h-42 flex-shrink-0"></div>
+        {/* <div className="h-42 flex-shrink-0"></div> */}
 
         {/* Timeline Sidebar - Keep original QuestionNavigator for fallback on smaller screens */}
         {/* <div className="xl:absolute xl:left-full xl:top-0 xl:ml-8 xl:w-64 xl:h-full mt-8 xl:mt-0 w-full px-4 xl:px-0"> */}
@@ -991,68 +992,59 @@ const ChatInterface = ({
           onToggle={setIsTimelineSidebarOpen}
         />
 
-        {/* Sticky Input Area rendered via Portal to avoid transform inheritance */}
-        {createPortal(
-          <div
-            className={clsx(
-              'fixed bottom-0 left-0 right-0 bg-gradient-to-t from-background md:ml-20 lg:ml-10 via-background to-transparent pb-6 pt-20 px-4 flex justify-center z-10 transition-transform duration-300',
-              // Add shift based on screen size
-              // 移动端/平板逻辑
-              !isXLScreen && 'sidebar-shift',
-              // !isXLScreen && isSidebarPinned && 'translate-x-35',
-              // !isXLScreen && !isSidebarPinned && 'translate-x-2',
-              // 桌面端逻辑
-              // isXLScreen && isSidebarPinned && 'translate-x-2',
-              // isXLScreen && !isSidebarPinned && '-translate-x-30'
-              isXLScreen && '-translate-x-30',
+        {/* Input Area */}
+        <div
+          className="flex-shrink-0 bg-gradient-to-t from-background via-background to-transparent pt-2 px-4 flex justify-center z-20"
+          style={{
+            paddingBottom: isMobile
+              ? 'max(7.5rem, env(safe-area-inset-bottom, 0px))'
+              : '1rem',
+          }}
+        >
+          <div className="w-full max-w-3xl relative">
+            {/* Scroll to bottom button - positioned relative to input area */}
+            {showScrollButton && (
+              <button
+                onClick={() => scrollToBottom('smooth')}
+                className="absolute bottom-40 left-1/2 -translate-x-1/2 p-2 bg-background border border-border rounded-full shadow-lg hover:bg-muted transition-all duration-300 animate-in fade-in slide-in-from-bottom-2 z-30"
+              >
+                <ArrowDown size={20} className="text-foreground" />
+              </button>
             )}
-          >
-            <div className="w-full max-w-3xl relative">
-              {/* Scroll to bottom button - positioned relative to input area */}
-              {showScrollButton && (
-                <button
-                  onClick={() => scrollToBottom('smooth')}
-                  className="absolute bottom-40 left-1/2 -translate-x-1/2 p-2 bg-background border border-border rounded-full shadow-lg hover:bg-muted transition-all duration-300 animate-in fade-in slide-in-from-bottom-2 z-30"
-                >
-                  <ArrowDown size={20} className="text-foreground" />
-                </button>
-              )}
 
-              <InputBar
-                isLoading={isLoading}
-                apiProvider={settings.apiProvider}
-                isSearchActive={isSearchActive}
-                isThinkingActive={isThinkingActive}
-                onToggleSearch={() => setIsSearchActive(prev => !prev)}
-                onToggleThinking={() => setIsThinkingActive(prev => !prev)}
-                quotedText={quotedText}
-                onQuoteClear={() => {
-                  setQuotedText(null)
-                  setQuoteContext(null)
-                  quoteTextRef.current = ''
-                  quoteSourceRef.current = ''
-                }}
-                onSend={(text, attachments) =>
-                  handleSendMessage(text, attachments, null, { skipMeta: false })
-                }
-                editingSeed={editingSeed}
-                onEditingClear={() => {
-                  setEditingIndex(null)
-                  setEditingSeed({ text: '', attachments: [] })
-                }}
-                showEditing={editingIndex !== null && messages[editingIndex]}
-                editingLabel={
-                  editingIndex !== null ? extractUserQuestion(messages[editingIndex]) : ''
-                }
-                scrollToBottom={scrollToBottom}
-              />
-              <div className="text-center mt-2 text-xs text-gray-400 dark:text-gray-500">
-                Qurio can make mistakes. Please use with caution.
-              </div>
+            <InputBar
+              isLoading={isLoading}
+              apiProvider={settings.apiProvider}
+              isSearchActive={isSearchActive}
+              isThinkingActive={isThinkingActive}
+              onToggleSearch={() => setIsSearchActive(prev => !prev)}
+              onToggleThinking={() => setIsThinkingActive(prev => !prev)}
+              quotedText={quotedText}
+              onQuoteClear={() => {
+                setQuotedText(null)
+                setQuoteContext(null)
+                quoteTextRef.current = ''
+                quoteSourceRef.current = ''
+              }}
+              onSend={(text, attachments) =>
+                handleSendMessage(text, attachments, null, { skipMeta: false })
+              }
+              editingSeed={editingSeed}
+              onEditingClear={() => {
+                setEditingIndex(null)
+                setEditingSeed({ text: '', attachments: [] })
+              }}
+              showEditing={editingIndex !== null && messages[editingIndex]}
+              editingLabel={
+                editingIndex !== null ? extractUserQuestion(messages[editingIndex]) : ''
+              }
+              scrollToBottom={scrollToBottom}
+            />
+            <div className="text-center mt-2 text-xs text-gray-400 dark:text-gray-500">
+              Qurio can make mistakes. Please use with caution.
             </div>
-          </div>,
-          document.body,
-        )}
+          </div>
+        </div>
       </div>
     </div>
   )

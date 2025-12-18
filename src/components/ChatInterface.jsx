@@ -571,10 +571,10 @@ const ChatInterface = ({
         editingInfoOverride ||
         (editingIndex !== null
           ? {
-              index: editingIndex,
-              targetId: editingTargetId,
-              partnerId: editingPartnerId,
-            }
+            index: editingIndex,
+            targetId: editingTargetId,
+            partnerId: editingPartnerId,
+          }
           : null)
 
       // Reset editing state
@@ -587,10 +587,10 @@ const ChatInterface = ({
 
       const quoteContextForSend = quoteContext
         ? {
-            text: quoteTextRef.current || quoteContext.text,
-            sourceContent: quoteSourceRef.current || quoteContext.sourceContent,
-            sourceRole: quoteContext.sourceRole,
-          }
+          text: quoteTextRef.current || quoteContext.text,
+          sourceContent: quoteSourceRef.current || quoteContext.sourceContent,
+          sourceRole: quoteContext.sourceRole,
+        }
         : null
 
       // Clear quote state immediately so UI banner disappears right after sending
@@ -668,9 +668,9 @@ const ChatInterface = ({
     setQuoteContext(
       text
         ? {
-            text,
-            sourceRole,
-          }
+          text,
+          sourceRole,
+        }
         : null,
     )
     setEditingIndex(null) // Clear editing when quoting
@@ -884,9 +884,8 @@ const ChatInterface = ({
                 <div className="p-2 flex flex-col gap-1">
                   <button
                     onClick={handleClearSpaceSelection}
-                    className={`flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left ${
-                      !displaySpace ? 'text-primary-500' : 'text-gray-700 dark:text-gray-200'
-                    }`}
+                    className={`flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left ${!displaySpace ? 'text-primary-500' : 'text-gray-700 dark:text-gray-200'
+                      }`}
                   >
                     <span className="text-sm font-medium">None</span>
                     {!displaySpace && <Check size={14} className="text-primary-500" />}
@@ -967,7 +966,7 @@ const ChatInterface = ({
         </div>
 
         {/* Bottom Spacer to ensure messages aren't hidden by Input Area */}
-        <div className={clsx('flex-shrink-0', isMobile ? 'h-70' : 'h-42')}></div>
+        <div className={clsx('shrink-0', 'h-38')}></div>
 
         {/* Timeline Sidebar - Keep original QuestionNavigator for fallback on smaller screens */}
         {/* <div className="xl:absolute xl:left-full xl:top-0 xl:ml-8 xl:w-64 xl:h-full mt-8 xl:mt-0 w-full px-4 xl:px-0"> */}
@@ -994,9 +993,9 @@ const ChatInterface = ({
 
         {/* Input Area */}
         <div
-          className="fixed w-full left-0 flex-shrink-0 bg-gradient-to-t from-background via-background to-transparent pt-2 pb-3 px-4 flex justify-center z-20"
+          className="fixed w-full left-0 shrink-0 bg-linear-to-t from-background via-background to-transparent pt-0 pb-3 px-4 flex justify-center z-20"
           style={{
-            bottom: isMobile ? 'Max(7.5rem,env(safe-area-inset-bottom, 0px))' : '0px',
+            bottom: 0,
           }}
         >
           <div className="w-full max-w-3xl relative">
@@ -1220,19 +1219,17 @@ const InputBar = React.memo(
               />
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
-                  attachments.length > 0 ? 'text-primary-500' : 'text-gray-500 dark:text-gray-400'
-                }`}
+                className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${attachments.length > 0 ? 'text-primary-500' : 'text-gray-500 dark:text-gray-400'
+                  }`}
               >
                 <Paperclip size={18} />
               </button>
               <button
                 onClick={onToggleThinking}
-                className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
-                  isThinkingActive
-                    ? 'text-primary-500 bg-gray-200 dark:bg-zinc-700'
-                    : 'text-gray-500 dark:text-gray-400'
-                }`}
+                className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${isThinkingActive
+                  ? 'text-primary-500 bg-gray-200 dark:bg-zinc-700'
+                  : 'text-gray-500 dark:text-gray-400'
+                  }`}
               >
                 <Brain size={18} />
                 <span className="hidden md:inline">Think</span>
@@ -1240,11 +1237,10 @@ const InputBar = React.memo(
               <button
                 disabled={apiProvider === 'openai_compatibility' || apiProvider === 'siliconflow'}
                 onClick={onToggleSearch}
-                className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
-                  isSearchActive
-                    ? 'text-primary-500 bg-gray-200 dark:bg-zinc-700'
-                    : 'text-gray-500 dark:text-gray-400'
-                }`}
+                className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${isSearchActive
+                  ? 'text-primary-500 bg-gray-200 dark:bg-zinc-700'
+                  : 'text-gray-500 dark:text-gray-400'
+                  }`}
               >
                 <Globe size={18} />
                 <span className="hidden md:inline">Search</span>

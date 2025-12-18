@@ -511,7 +511,7 @@ const MessageBubble = ({
                 {imagesToRender.map((img, idx) => (
                   <img
                     key={idx}
-                    src={img.url}
+                    src={img?.url || img?.image_url?.url}
                     alt="User uploaded"
                     className="max-w-full h-auto rounded-lg max-h-60 object-cover"
                   />

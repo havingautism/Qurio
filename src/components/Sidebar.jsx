@@ -1,34 +1,34 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import clsx from 'clsx'
 import {
-  Plus,
   Bookmark,
+  ChevronDown,
+  ChevronUp,
+  Coffee,
+  Laptop,
   LayoutGrid,
   Library,
-  Settings,
-  Sun,
   Moon,
-  Laptop,
-  Trash2,
-  ChevronUp,
   Pin,
-  ChevronDown,
-  Coffee,
+  Plus,
+  Settings,
   SquareStack,
+  Sun,
+  Trash2,
 } from 'lucide-react'
-import clsx from 'clsx'
-import Logo from './Logo'
-import DotLoader from './DotLoader'
-import EmojiDisplay from './EmojiDisplay'
+import React, { useEffect, useMemo, useState } from 'react'
+import { useAppContext } from '../App'
+import { useToast } from '../contexts/ToastContext'
+import useScrollLock from '../hooks/useScrollLock'
 import {
+  listBookmarkedConversations,
   listConversations,
   listConversationsBySpace,
   toggleFavorite,
-  listBookmarkedConversations,
 } from '../lib/conversationsService'
 import { deleteConversation } from '../lib/supabase'
-import { useToast } from '../contexts/ToastContext'
-import { useAppContext } from '../App'
-import useScrollLock from '../hooks/useScrollLock'
+import DotLoader from './DotLoader'
+import EmojiDisplay from './EmojiDisplay'
+import Logo from './Logo'
 
 const SIDEBAR_FETCH_LIMIT = 20
 
@@ -451,8 +451,8 @@ const Sidebar = ({
         <div
           className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm md:hidden"
           onClick={onClose}
-        // onWheel={e => e.preventDefault()}
-        // onTouchMove={e => e.preventDefault()}
+          // onWheel={e => e.preventDefault()}
+          // onTouchMove={e => e.preventDefault()}
         />
       )}
 
@@ -538,7 +538,7 @@ const Sidebar = ({
             <button
               onClick={onToggleTheme}
               className="w-10 h-10 flex items-center justify-center rounded-full bg-user-bubble dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-transform duration-200 hover:scale-110 active:scale-95 cursor-pointer"
-            //  title={`Current theme: ${theme}`}
+              //  title={`Current theme: ${theme}`}
             >
               {getThemeIcon()}
             </button>
@@ -564,11 +564,11 @@ const Sidebar = ({
               : 'w-0 opacity-0 -translate-x-4',
           )}
         >
-          <div className="p-2 min-w-[256px]">
+          <div className="p-2 min-w-[256px] flex flex-col h-full">
             {' '}
             {/* min-w ensures content doesn't squash during transition */}
             {/* Header based on Tab */}
-            <div className="p-2 flex items-center justify-between">
+            <div className="p-2 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
                 <h2 className="font-semibold text-lg text-foreground">
                   {displayTab === 'library'
@@ -604,10 +604,10 @@ const Sidebar = ({
                 />
               </button>
             </div>
-            <div className="h-px bg-gray-200 dark:bg-zinc-800 mb-2" />
+            <div className="h-px bg-gray-200 dark:bg-zinc-800 mb-2 shrink-0" />
             {/* CONVERSATION LIST (Library & Bookmarks) */}
             {(displayTab === 'library' || displayTab === 'bookmarks') && (
-              <div className="flex flex-col gap-2 overflow-y-auto overscroll-contain h-[calc(100vh-70px)] px-2 sidebar-scrollbar">
+              <div className="flex flex-col gap-2 overflow-y-auto overscroll-contain flex-1 min-h-0 px-2 sidebar-scrollbar">
                 {!isConversationsLoading &&
                   displayTab === 'library' &&
                   conversations.length === 0 && (
@@ -653,7 +653,7 @@ const Sidebar = ({
                                   ? 'bg-primary-500/10 dark:bg-primary-500/20 border border-primary-500/30 text-primary-700 dark:text-primary-300'
                                   : 'text-gray-700 dark:text-gray-300 hover:bg-primary-50 dark:hover:bg-zinc-800',
                                 isExpanded &&
-                                'bg-primary-50/70 dark:bg-primary-900/20  border-primary-200/60  dark:border-primary-800/60 ring-1 ring-primary-100/70 dark:ring-primary-800/60',
+                                  'bg-primary-50/70 dark:bg-primary-900/20  border-primary-200/60  dark:border-primary-800/60 ring-1 ring-primary-100/70 dark:ring-primary-800/60',
                               )}
                               title={conv.title}
                             >
@@ -806,7 +806,7 @@ const Sidebar = ({
                               ? 'bg-primary-500/10 dark:bg-primary-500/20 border border-primary-500/30 text-primary-700 dark:text-primary-300'
                               : 'text-gray-700 dark:text-gray-300 hover:bg-primary-50 dark:hover:bg-zinc-800',
                             isExpanded &&
-                            'bg-primary-50/70 dark:bg-primary-900/20 border border-primary-200/60 dark:border-primary-800/60 ring-1 ring-primary-100/70 dark:ring-primary-800/60',
+                              'bg-primary-50/70 dark:bg-primary-900/20 border border-primary-200/60 dark:border-primary-800/60 ring-1 ring-primary-100/70 dark:ring-primary-800/60',
                           )}
                           title={conv.title}
                         >
@@ -940,7 +940,7 @@ const Sidebar = ({
             )}
             {/* SPACES TAB CONTENT */}
             {displayTab === 'spaces' && (
-              <div className="flex flex-col gap-2 overflow-y-auto overscroll-contain h-[calc(100vh-70px)] px-2 sidebar-scrollbar">
+              <div className="flex flex-col gap-2 overflow-y-auto overscroll-contain flex-1 min-h-0 px-2 sidebar-scrollbar">
                 {/* Create New Space */}
                 <button
                   onClick={onCreateSpace}

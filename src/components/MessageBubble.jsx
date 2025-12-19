@@ -15,6 +15,7 @@ import {
   RefreshCw,
   // Quote is already imported, avoid duplication if necessary, but here we just list it cleanly
   Quote,
+  X,
 } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -91,6 +92,7 @@ const MessageBubble = ({
 
   // State to track copy success
   const [isCopied, setIsCopied] = useState(false)
+  const [activeImageUrl, setActiveImageUrl] = useState(null)
 
   // Utility function to copy text to clipboard
   const copyToClipboard = async text => {
@@ -125,6 +127,25 @@ const MessageBubble = ({
       return () => clearTimeout(timer)
     }
   }, [isCopied])
+
+  useEffect(() => {
+    if (!activeImageUrl) return
+
+    const handleKeyDown = event => {
+      if (event.key === 'Escape') {
+        setActiveImageUrl(null)
+      }
+    }
+
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    document.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      document.body.style.overflow = previousOverflow
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [activeImageUrl])
 
   // Selection Menu State
   const [selectionMenu, setSelectionMenu] = useState(null)
@@ -492,6 +513,28 @@ const MessageBubble = ({
         onTouchEnd={handleTouchEnd}
         onContextMenu={handleContextMenu}
       >
+        {activeImageUrl &&
+          createPortal(
+            <div
+              className="fixed inset-0 z-[10000] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
+              onClick={() => setActiveImageUrl(null)}
+            >
+              <button
+                onClick={() => setActiveImageUrl(null)}
+                className="absolute top-4 right-4 p-2 rounded-full bg-black/70 text-white hover:bg-black/80 transition-colors"
+                aria-label="Close image preview"
+              >
+                <X size={18} />
+              </button>
+              <img
+                src={activeImageUrl}
+                alt="User uploaded preview"
+                className="max-h-[90vh] max-w-[90vw] rounded-2xl shadow-2xl"
+                onClick={event => event.stopPropagation()}
+              />
+            </div>,
+            document.body,
+          )}
         <div className="flex flex-col items-end gap-2 max-w-[90%] md:max-w-[75%]">
           {/* Message Content */}
           <div
@@ -513,7 +556,11 @@ const MessageBubble = ({
                     key={idx}
                     src={img?.url || img?.image_url?.url}
                     alt="User uploaded"
-                    className="max-w-full h-auto rounded-lg max-h-60 object-cover"
+                    className="max-w-full h-auto rounded-lg max-h-60 object-cover cursor-zoom-in"
+                    onClick={event => {
+                      event.stopPropagation()
+                      setActiveImageUrl(img?.url || img?.image_url?.url)
+                    }}
                   />
                 ))}
               </div>

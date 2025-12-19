@@ -287,3 +287,42 @@ h6 {
 .dark .messages-scrollbar::-webkit-scrollbar-thumb:hover {
   background-color: #57534e; /* stone-600 */
 }
+
+/* Custom Easing */
+.ease-spring {
+  transition-timing-function: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* Global Scrollbar Defaults (ensure everything has rounded corners) */
+::-webkit-scrollbar {
+  width: 2px;
+  height: 8px;
+  border-radius: 16px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #d6d3d1; /* stone-300 */
+  border-radius: 9999px;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background-color: #44403c; /* stone-700 */
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: #a8a29e; /* stone-400 */
+}
+
+
+/* Utility to hide scrollbar but allow scrolling */
+.no-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}

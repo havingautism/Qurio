@@ -19,24 +19,25 @@
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-user-bubble: var(--user-bubble);
-  --font-sans-serif: "IBM Plex Sans", "IBM Plex Sans SC", -apple-system, BlinkMacSystemFont, "Apple Color Emoji",
-    "Segoe UI Emoji", "Segoe UI Symbol", "Segoe UI", "PingFang SC",
-    HarmonyOS_Regular, "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue",
-    Helvetica, "Source Han Sans SC", "Noto Sans CJK SC", "WenQuanYi Micro Hei",
-    Arial, sans-serif;
-  --font-serif: "Playfair Display", STZhongsong, STSong, "Noto Serif CJK", "Noto Serif SC", PMingLiu,
-    SimSun, "WenQuanYi Bitmap Song", "Times New Roman", Times, serif,
-    "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, "SF Mono", "Cascadia Code",
-    "Segoe UI Mono", "Source Code Pro", Menlo, Consolas, "Liberation Mono",
-    monospace;
+  --font-sans-serif:
+    'IBM Plex Sans', 'IBM Plex Sans SC', -apple-system, BlinkMacSystemFont, 'Apple Color Emoji',
+    'Segoe UI Emoji', 'Segoe UI Symbol', 'Segoe UI', 'PingFang SC', HarmonyOS_Regular,
+    'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, 'Source Han Sans SC',
+    'Noto Sans CJK SC', 'WenQuanYi Micro Hei', Arial, sans-serif;
+  --font-serif:
+    'Playfair Display', STZhongsong, STSong, 'Noto Serif CJK', 'Noto Serif SC', PMingLiu, SimSun,
+    'WenQuanYi Bitmap Song', 'Times New Roman', Times, serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+    'Segoe UI Symbol';
+  --font-mono:
+    'JetBrains Mono', ui-monospace, SFMono-Regular, 'SF Mono', 'Cascadia Code', 'Segoe UI Mono',
+    'Source Code Pro', Menlo, Consolas, 'Liberation Mono', monospace;
   /* --font-sans: Ginto, ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
     'Segoe UI Symbol', 'Noto Color Emoji'; */
-  --font-sans: "IBM Plex Sans", "IBM Plex Sans SC", -apple-system, BlinkMacSystemFont, "Apple Color Emoji",
-    "Segoe UI Emoji", "Segoe UI Symbol", "Segoe UI", "PingFang SC",
-    HarmonyOS_Regular, "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue",
-    Helvetica, "Source Han Sans SC", "Noto Sans CJK SC", "WenQuanYi Micro Hei",
-    Arial, sans-serif;
+  --font-sans:
+    'IBM Plex Sans', 'IBM Plex Sans SC', -apple-system, BlinkMacSystemFont, 'Apple Color Emoji',
+    'Segoe UI Emoji', 'Segoe UI Symbol', 'Segoe UI', 'PingFang SC', HarmonyOS_Regular,
+    'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, 'Source Han Sans SC',
+    'Noto Sans CJK SC', 'WenQuanYi Micro Hei', Arial, sans-serif;
 
   /* Custom Primary Palette (formerly Brown) - Default Map to Variables */
   /* These will be overridden by the JS style injection on root */
@@ -55,18 +56,17 @@
 
 :root {
   /* Default Theme (Fox Rust) Initial Values */
-  --color-primary-50: #FCF9F7;
-  --color-primary-100: #F6ECE8;
-  --color-primary-200: #EDD4CC;
-  --color-primary-300: #E0B4A6;
-  --color-primary-400: #D0907C;
-  --color-primary-500: #BF6E4E;
-  --color-primary-600: #A65234;
-  --color-primary-700: #8A4028;
+  --color-primary-50: #fcf9f7;
+  --color-primary-100: #f6ece8;
+  --color-primary-200: #edd4cc;
+  --color-primary-300: #e0b4a6;
+  --color-primary-400: #d0907c;
+  --color-primary-500: #bf6e4e;
+  --color-primary-600: #a65234;
+  --color-primary-700: #8a4028;
   --color-primary-800: #703322;
-  --color-primary-900: #592B1E;
-  --color-primary-950: #33160F;
-
+  --color-primary-900: #592b1e;
+  --color-primary-950: #33160f;
 
   /* Dynamic background variables injected by src/lib/themes.js */
   --background: var(--theme-bg-light, #fffcf7);

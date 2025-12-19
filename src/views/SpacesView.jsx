@@ -1,7 +1,7 @@
-import { useAppContext } from '../App'
 import { useNavigate } from '@tanstack/react-router'
-import { LayoutGrid, Plus, Clock, Brain, DollarSign, Laptop } from 'lucide-react'
 import clsx from 'clsx'
+import { Brain, Clock, DollarSign, Laptop, LayoutGrid, Plus } from 'lucide-react'
+import { useAppContext } from '../App'
 import EmojiDisplay from '../components/EmojiDisplay'
 
 const SpacesView = () => {
@@ -50,7 +50,7 @@ const SpacesView = () => {
   return (
     <div
       className={clsx(
-        'flex-1 min-h-screen bg-background text-foreground transition-all duration-300',
+        'flex-1 h-full overflow-y-auto bg-background text-foreground transition-all duration-300',
         isSidebarPinned ? 'ml-0 sm:ml-80' : 'ml-0 sm:ml-16',
       )}
     >

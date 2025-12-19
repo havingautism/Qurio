@@ -1,28 +1,28 @@
-import { useState, useEffect } from 'react'
-import { useAppContext } from '../App'
 import { useNavigate } from '@tanstack/react-router'
-import { listConversations, toggleFavorite } from '../lib/conversationsService'
-import { deleteConversation } from '../lib/supabase'
+import clsx from 'clsx'
 import {
-  Search,
-  Plus,
-  Clock,
+  ArrowRight,
+  Bookmark,
+  Check,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  MoreHorizontal,
+  Clock,
   Library as LibraryIcon,
-  Check,
-  Bookmark,
+  MoreHorizontal,
+  Plus,
+  Search,
   Trash2,
   X,
-  ArrowRight,
 } from 'lucide-react'
-import clsx from 'clsx'
-import FancyLoader from '../components/FancyLoader'
+import { useEffect, useState } from 'react'
+import { useAppContext } from '../App'
 import DropdownMenu from '../components/DropdownMenu'
-import { useToast } from '../contexts/ToastContext'
 import EmojiDisplay from '../components/EmojiDisplay'
+import FancyLoader from '../components/FancyLoader'
+import { useToast } from '../contexts/ToastContext'
+import { listConversations, toggleFavorite } from '../lib/conversationsService'
+import { deleteConversation } from '../lib/supabase'
 
 const SORT_OPTIONS = [
   { label: 'Newest', value: 'created_at', ascending: false },
@@ -171,7 +171,7 @@ const LibraryView = () => {
   return (
     <div
       className={clsx(
-        'flex-1 min-h-screen bg-background text-foreground transition-all duration-300',
+        'flex-1 h-full overflow-y-auto bg-background text-foreground transition-all duration-300',
         isSidebarPinned ? 'ml-0 sm:ml-80' : 'ml-0 sm:ml-16',
       )}
     >

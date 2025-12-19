@@ -1,25 +1,25 @@
-import { useState, useMemo } from 'react'
-import { useAppContext } from '../App'
 import { useNavigate } from '@tanstack/react-router'
-import { listBookmarkedConversations, toggleFavorite } from '../lib/conversationsService'
-import { deleteConversation } from '../lib/supabase'
-import { useInfiniteScroll } from '../hooks/useInfiniteScroll'
+import clsx from 'clsx'
 import {
-  Search,
-  Plus,
-  Clock,
-  ChevronDown,
-  MoreHorizontal,
   Bookmark,
   Check,
-  Trash2,
+  ChevronDown,
+  Clock,
   Coffee,
+  MoreHorizontal,
+  Plus,
+  Search,
+  Trash2,
 } from 'lucide-react'
-import clsx from 'clsx'
-import FancyLoader from '../components/FancyLoader'
+import { useMemo, useState } from 'react'
+import { useAppContext } from '../App'
 import DropdownMenu from '../components/DropdownMenu'
-import { useToast } from '../contexts/ToastContext'
 import EmojiDisplay from '../components/EmojiDisplay'
+import FancyLoader from '../components/FancyLoader'
+import { useToast } from '../contexts/ToastContext'
+import { useInfiniteScroll } from '../hooks/useInfiniteScroll'
+import { listBookmarkedConversations, toggleFavorite } from '../lib/conversationsService'
+import { deleteConversation } from '../lib/supabase'
 
 const SORT_OPTIONS = [
   { label: 'Newest', value: 'created_at', ascending: false },
@@ -129,7 +129,7 @@ const BookmarksView = () => {
   return (
     <div
       className={clsx(
-        'flex-1 min-h-screen bg-background text-foreground transition-all duration-300',
+        'flex-1 h-full overflow-y-auto bg-background text-foreground transition-all duration-300',
         isSidebarPinned ? 'ml-0 sm:ml-80' : 'ml-0 sm:ml-16',
       )}
     >

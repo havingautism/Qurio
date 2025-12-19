@@ -1,25 +1,25 @@
-import { useState, useRef, useEffect } from 'react'
 import { useGSAP } from '@gsap/react'
-import gsap from 'gsap'
 import clsx from 'clsx'
+import gsap from 'gsap'
 import {
-  Paperclip,
   ArrowRight,
-  Globe,
-  X,
+  Brain,
   Check,
   ChevronDown,
+  Globe,
   LayoutGrid,
-  Brain,
   Menu,
+  Paperclip,
+  X,
 } from 'lucide-react'
-import { loadSettings } from '../lib/settings'
-import EmojiDisplay from '../components/EmojiDisplay'
-import HomeWidgets from '../components/widgets/HomeWidgets'
+import { useEffect, useRef, useState } from 'react'
 import { useAppContext } from '../App'
-import Logo from '../components/Logo'
-import useChatStore from '../lib/chatStore'
 import ChatInterface from '../components/ChatInterface'
+import EmojiDisplay from '../components/EmojiDisplay'
+import Logo from '../components/Logo'
+import HomeWidgets from '../components/widgets/HomeWidgets'
+import useChatStore from '../lib/chatStore'
+import { loadSettings } from '../lib/settings'
 
 const HomeView = () => {
   const { toggleSidebar, isSidebarPinned, spaces } = useAppContext()
@@ -196,7 +196,7 @@ const HomeView = () => {
   const isHomeSpaceAuto = !homeSelectedSpace
 
   return (
-    <div className="flex-1 min-h-screen bg-background text-foreground transition-colors duration-300 relative">
+    <div className="flex-1 h-full overflow-hidden bg-background text-foreground transition-colors duration-300 relative flex flex-col">
       {activeView === 'chat' ? (
         <ChatInterface
           spaces={spaces}
@@ -210,12 +210,12 @@ const HomeView = () => {
         <div
           ref={homeContainerRef}
           className={clsx(
-            'flex flex-col items-center justify-center min-h-screen p-4 transition-all duration-300',
+            'flex-1 h-full overflow-y-auto p-4 transition-all duration-300 flex flex-col items-center',
             isSidebarPinned ? 'md:ml-20' : 'md:ml-16',
           )}
         >
           {/* Mobile Header for Home View */}
-          <div className="md:hidden w-full h-14 border-b border-gray-200 dark:border-zinc-800 flex items-center justify-between px-4 bg-background z-30 fixed top-0 left-0">
+          <div className="md:hidden w-full h-14 shrink-0 border-b border-gray-200 dark:border-zinc-800 flex items-center justify-between px-4 bg-background z-30 fixed top-0 left-0">
             <div className="flex items-center gap-3">
               <button
                 onClick={toggleSidebar}
@@ -230,7 +230,7 @@ const HomeView = () => {
           </div>
 
           {/* Main Container */}
-          <div className="w-full max-w-3xl flex flex-col items-center gap-4 sm:gap-8 mt-14 md:mt-0">
+          <div className="w-full max-w-3xl flex flex-col items-center gap-4 sm:gap-8 mt-14 md:mt-0 my-auto">
             <div className="p-4 block sm:hidden  rounded-3xl mb-2">
               <Logo size={128} className="text-gray-900 dark:text-white" />
             </div>

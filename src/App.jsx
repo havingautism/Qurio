@@ -328,15 +328,12 @@ function App() {
             activeConversationId={activeConversationId}
           />
           <div
-            // className={`flex-1 relative transition-all duration-300 ${
-            //   isSidebarPinned ? "ml-18" : "ml-0"
-            // }`}
-            className={`flex-1 relative transition-all duration-300 ml-0 w-full`}
+            className={`flex-1 relative transition-all duration-300 ml-0 w-full flex flex-col overflow-hidden`}
           >
             {/* Mobile Header - Hide on Chat/Conversation routes as they have their own header */}
             {!location.pathname.includes('/conversation/') &&
               !location.pathname.includes('/new_chat') && (
-                <div className="md:hidden h-14 border-b border-gray-200 dark:border-zinc-800 flex items-center justify-between px-4 bg-background z-30 sticky top-0">
+                <div className="md:hidden h-14 shrink-0 border-b border-gray-200 dark:border-zinc-800 flex items-center justify-between px-4 bg-background z-30">
                   <div className="flex items-center gap-3">
                     <button
                       onClick={() => setIsSidebarOpen(true)}
@@ -381,8 +378,9 @@ function App() {
                   </button>
                 </div>
               )}
-
-            <Outlet />
+            <div className="flex-1 min-h-0 overflow-hidden">
+              <Outlet />
+            </div>
           </div>
           <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
           <SpaceModal

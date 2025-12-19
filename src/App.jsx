@@ -1,16 +1,16 @@
-import React, { useState, useEffect } from 'react'
 import { Outlet, useLocation, useNavigate } from '@tanstack/react-router'
-import Sidebar from './components/Sidebar'
-import SettingsModal from './components/SettingsModal'
-import SpaceModal from './components/SpaceModal'
+import React, { useEffect, useState } from 'react'
 import ConfirmationModal from './components/ConfirmationModal'
 import { GitHubPagesRedirectHandler } from './components/GitHubPagesRedirectHandler'
-import { initSupabase } from './lib/supabase'
-import { listSpaces, createSpace, updateSpace, deleteSpace } from './lib/spacesService'
-import { listConversations } from './lib/conversationsService'
+import SettingsModal from './components/SettingsModal'
+import Sidebar from './components/Sidebar'
+import SpaceModal from './components/SpaceModal'
 import { ToastProvider } from './contexts/ToastContext'
-import { applyTheme } from './lib/themes'
+import { listConversations } from './lib/conversationsService'
 import { loadSettings } from './lib/settings'
+import { createSpace, deleteSpace, listSpaces, updateSpace } from './lib/spacesService'
+import { initSupabase } from './lib/supabase'
+import { applyTheme } from './lib/themes'
 
 export const AppContext = React.createContext(null)
 export const useAppContext = () => React.useContext(AppContext)
@@ -68,7 +68,8 @@ function App() {
   // Reset scroll on route changes (only for non-conversation routes)
   useEffect(() => {
     // Don't reset scroll for conversation routes to maintain scroll position
-    const isConversationRoute = location.pathname.includes('/conversation/') || location.pathname.includes('/new_chat')
+    const isConversationRoute =
+      location.pathname.includes('/conversation/') || location.pathname.includes('/new_chat')
 
     if (!isConversationRoute) {
       window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
@@ -274,7 +275,7 @@ function App() {
   }
 
   // Global confirmation dialog handler
-  const showConfirmation = (options) => {
+  const showConfirmation = options => {
     setConfirmation({
       isOpen: true,
       title: options.title || 'Confirm',
@@ -308,7 +309,7 @@ function App() {
           showConfirmation,
         }}
       >
-        <div className="flex min-h-screen bg-background text-foreground font-sans selection:bg-primary-500/30">
+        <div className="flex h-dvh overflow-hidden bg-background text-foreground font-sans selection:bg-primary-500/30">
           <Sidebar
             isOpen={isSidebarOpen}
             onClose={() => setIsSidebarOpen(false)}

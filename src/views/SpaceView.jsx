@@ -1,24 +1,24 @@
-import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from '@tanstack/react-router'
-import { spaceRoute } from '../router'
-import { useAppContext } from '../App'
+import clsx from 'clsx'
 import {
-  Layers,
-  MoreHorizontal,
-  Pencil,
-  Trash2,
-  LogOut,
   Bookmark,
   ChevronLeft,
   ChevronRight,
+  Layers,
+  LogOut,
+  MoreHorizontal,
+  Pencil,
+  Trash2,
 } from 'lucide-react'
-import clsx from 'clsx'
+import { useCallback, useEffect, useState } from 'react'
+import { useAppContext } from '../App'
 import DropdownMenu from '../components/DropdownMenu'
-import { deleteConversation, removeConversationFromSpace } from '../lib/supabase'
-import { toggleFavorite, listConversationsBySpace } from '../lib/conversationsService'
-import { useToast } from '../contexts/ToastContext'
-import FancyLoader from '../components/FancyLoader'
 import EmojiDisplay from '../components/EmojiDisplay'
+import FancyLoader from '../components/FancyLoader'
+import { useToast } from '../contexts/ToastContext'
+import { listConversationsBySpace, toggleFavorite } from '../lib/conversationsService'
+import { deleteConversation, removeConversationFromSpace } from '../lib/supabase'
+import { spaceRoute } from '../router'
 
 const SpaceView = () => {
   const { spaceId } = spaceRoute.useParams()
@@ -161,7 +161,7 @@ const SpaceView = () => {
   return (
     <div
       className={clsx(
-        'flex flex-col items-center justify-center min-h-screen p-6 pb-24 bg-background text-foreground transition-all duration-300',
+        'flex flex-col items-center min-h-0 h-full overflow-y-auto p-6 pb-24 bg-background text-foreground transition-all duration-300',
         isSidebarPinned ? 'ml-0 sm:ml-80' : 'ml-0 sm:ml-16',
       )}
     >

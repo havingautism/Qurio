@@ -295,8 +295,9 @@ h6 {
 
 /* Global Scrollbar Defaults (ensure everything has rounded corners) */
 ::-webkit-scrollbar {
-  width: 8px;
+  width: 2px;
   height: 8px;
+  border-radius: 16px;
 }
 
 ::-webkit-scrollbar-track {
@@ -316,6 +317,12 @@ h6 {
   background-color: #a8a29e; /* stone-400 */
 }
 
-.dark ::-webkit-scrollbar-thumb:hover {
-  background-color: #57534e; /* stone-600 */
+
+/* Utility to hide scrollbar but allow scrolling */
+.no-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }

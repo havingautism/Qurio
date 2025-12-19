@@ -161,7 +161,7 @@ const QuestionTimelineSidebar = ({
         className={clsx(
           'flex flex-col overflow-hidden transition-all duration-300 ease-in-out',
           isLargeScreen
-            ? 'absolute left-full top-0 h-full w-85 ml-16 bg-transparent border-none shadow-none z-10'
+            ? 'absolute left-full top-0 h-full w-85 ml-16 bg-transparent border-none shadow-none z-30'
             : [
               'fixed right-0 top-0 h-dvh w-(--sidebar-width)',
               'bg-background z-50',

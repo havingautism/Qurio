@@ -840,7 +840,7 @@ const ChatInterface = ({
   return (
     <div
       className={clsx(
-        'flex-1 h-screen bg-background text-foreground transition-all duration-300 flex flex-col md:ml-20 lg:ml-10 sm:px-4',
+        'flex-1 h-dvh bg-background text-foreground transition-all duration-300 flex flex-col md:ml-20 lg:ml-10 sm:px-4',
         // 大屏幕固定左移
         'xl:-translate-x-30',
         // 小屏幕跟随sidebar状态动态移动

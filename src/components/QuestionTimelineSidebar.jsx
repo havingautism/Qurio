@@ -171,7 +171,7 @@ const QuestionTimelineSidebar = ({
         )}
       >
         {/* Header */}
-        <div className="flex sm:hidden items-center justify-between px-4 py-3 shrink-0">
+        <div className="flex xl:hidden items-center justify-between px-4 py-3 shrink-0">
           <div className="flex items-center gap-2 text-gray-900 dark:text-white">
             <MessageSquare size={18} />
             <h2 className="text-base font-semibold">Question History</h2>

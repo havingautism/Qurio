@@ -48,15 +48,16 @@ const ChatInterface = ({
     return /iPhone|iPod|Android/i.test(ua) || (isTouch && window.innerWidth <= 1024)
   })()
 
-  // Lock body scroll when component mounts
-  useEffect(() => {
-    document.body.classList.add('scroll-locked')
+  // Lock body scroll when component mounts (defensive measure for iOS keyboard interactions)
+  // useEffect(() => {
+  //   document.body.classList.add('scroll-locked')
 
-    return () => {
-      // Unlock body scroll when component unmounts
-      document.body.classList.remove('scroll-locked')
-    }
-  }, [])
+  //   return () => {
+  //     // Unlock body scroll when component unmounts
+  //     document.body.classList.remove('scroll-locked')
+  //   }
+  // }, [])
+
   const navigate = useNavigate()
   const location = useLocation()
   const {

@@ -1,10 +1,10 @@
 // Import Provider Icons
-import GeminiIcon from '../assets/gemini-color.svg'
-import OpenAIIcon from '../assets/openai.svg'
-import SiliconCloudIcon from '../assets/siliconcloud-color.svg'
-import DeepSeekIcon from '../assets/deepseek-color.svg'
-import QwenIcon from '../assets/qwen-color.svg'
-import KimiIcon from '../assets/kimi-color.svg'
+import GeminiIcon from '../assets/gemini-color.svg?url'
+import OpenAIIcon from '../assets/openai.svg?url'
+import SiliconCloudIcon from '../assets/siliconcloud-color.svg?url'
+import DeepSeekIcon from '../assets/deepseek-color.svg?url'
+import QwenIcon from '../assets/qwen-color.svg?url'
+import KimiIcon from '../assets/kimi-color.svg?url'
 
 export const PROVIDER_ICONS = {
   gemini: GeminiIcon,

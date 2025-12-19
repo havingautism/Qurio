@@ -16,12 +16,12 @@ const DEFAULT_SYSTEM_PROMPT =
 
 export const loadSettings = (overrides = {}) => {
   // Supabase Env Vars
-  const envSupabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL
-  const envSupabaseKey = import.meta.env.PUBLIC_SUPABASE_KEY
+  const envSupabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const envSupabaseKey = process.env.NEXT_PUBLIC_SUPABASE_KEY
 
   // OpenAI Env Vars
-  const envOpenAIKey = import.meta.env.PUBLIC_OPENAI_API_KEY
-  const envOpenAIBaseUrl = import.meta.env.PUBLIC_OPENAI_BASE_URL
+  const envOpenAIKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY
+  const envOpenAIBaseUrl = process.env.NEXT_PUBLIC_OPENAI_BASE_URL
 
   // LocalStorage
   const localSupabaseUrl = localStorage.getItem('supabaseUrl')
@@ -52,13 +52,13 @@ export const loadSettings = (overrides = {}) => {
     // Supabase
     supabaseUrl:
       envSupabaseUrl ||
-      import.meta.env.PUBLIC_SUPABASE_URL ||
+      process.env.NEXT_PUBLIC_SUPABASE_URL ||
       localSupabaseUrl ||
       overrides.supabaseUrl ||
       '',
     supabaseKey:
       envSupabaseKey ||
-      import.meta.env.PUBLIC_SUPABASE_KEY ||
+      process.env.NEXT_PUBLIC_SUPABASE_KEY ||
       localSupabaseKey ||
       overrides.supabaseKey ||
       '',
@@ -66,18 +66,18 @@ export const loadSettings = (overrides = {}) => {
     // OpenAI
     OpenAICompatibilityKey:
       envOpenAIKey ||
-      import.meta.env.PUBLIC_OPENAI_API_KEY ||
+      process.env.NEXT_PUBLIC_OPENAI_API_KEY ||
       localOpenAIKey ||
       overrides.OpenAICompatibilityKey ||
       '',
     OpenAICompatibilityUrl:
       envOpenAIBaseUrl ||
-      import.meta.env.PUBLIC_OPENAI_BASE_URL ||
+      process.env.NEXT_PUBLIC_OPENAI_BASE_URL ||
       localOpenAIUrl ||
       overrides.OpenAICompatibilityUrl ||
       '',
     SiliconFlowKey:
-      import.meta.env.PUBLIC_SILICONFLOW_API_KEY ||
+      process.env.NEXT_PUBLIC_SILICONFLOW_API_KEY ||
       localSiliconFlowKey ||
       overrides.SiliconFlowKey ||
       '',
@@ -85,7 +85,7 @@ export const loadSettings = (overrides = {}) => {
     // API Provider
     apiProvider: localStorage.getItem('apiProvider') || overrides.apiProvider || 'gemini',
     googleApiKey:
-      import.meta.env.PUBLIC_GOOGLE_API_KEY ||
+      process.env.NEXT_PUBLIC_GOOGLE_API_KEY ||
       localStorage.getItem('googleApiKey') ||
       overrides.googleApiKey ||
       '',

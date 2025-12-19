@@ -27,12 +27,12 @@ import { SILICONFLOW_BASE_URL } from '../lib/siliconflow'
 import { PROVIDER_ICONS, getModelIcon } from '../lib/modelIcons'
 
 const ENV_VARS = {
-  supabaseUrl: import.meta.env.PUBLIC_SUPABASE_URL,
-  supabaseKey: import.meta.env.PUBLIC_SUPABASE_KEY,
-  openAIKey: import.meta.env.PUBLIC_OPENAI_API_KEY,
-  openAIBaseUrl: import.meta.env.PUBLIC_OPENAI_BASE_URL,
-  googleApiKey: import.meta.env.PUBLIC_GOOGLE_API_KEY,
-  siliconFlowKey: import.meta.env.PUBLIC_SILICONFLOW_API_KEY,
+  supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
+  supabaseKey: process.env.NEXT_PUBLIC_SUPABASE_KEY,
+  openAIKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY,
+  openAIBaseUrl: process.env.NEXT_PUBLIC_OPENAI_BASE_URL,
+  googleApiKey: process.env.NEXT_PUBLIC_GOOGLE_API_KEY,
+  siliconFlowKey: process.env.NEXT_PUBLIC_SILICONFLOW_API_KEY,
 }
 
 // Minimal copy of supabase/init.sql for quick remediation in-app

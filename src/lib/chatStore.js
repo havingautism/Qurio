@@ -374,6 +374,7 @@ const callAIAPI = async (
       model,
       temperature: spaceTemperature ?? undefined,
       top_k: spaceTopK ?? undefined,
+      contextMessageLimit: settings.contextMessageLimit,
       messages: conversationMessages.map(m => ({
         role: m.role === 'ai' ? 'assistant' : m.role,
         content: m.content,

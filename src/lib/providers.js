@@ -1,6 +1,4 @@
-import * as openaiCompatibility from './openai_compatibility'
-import * as siliconflow from './siliconflow'
-import * as gemini from './gemini'
+import { createBackendProvider } from './backendProvider'
 
 /**
  * Provider Registry
@@ -68,7 +66,7 @@ const defaultParseMessage = input => {
 
 export const PROVIDERS = {
   openai_compatibility: {
-    ...openaiCompatibility,
+    ...createBackendProvider('openai_compatibility'),
     id: 'openai_compatibility',
     name: 'OpenAI Compatible',
     getCredentials: settings => ({
@@ -104,12 +102,12 @@ export const PROVIDERS = {
     parseMessage: defaultParseMessage,
   },
   siliconflow: {
-    ...siliconflow,
+    ...createBackendProvider('siliconflow'),
     id: 'siliconflow',
     name: 'SiliconFlow',
     getCredentials: settings => ({
       apiKey: settings.SiliconFlowKey || settings.OpenAICompatibilityKey,
-      baseUrl: siliconflow.SILICONFLOW_BASE_URL,
+      baseUrl: 'https://api.siliconflow.cn/v1',
     }),
     getTools: () => undefined,
     getThinking: isThinkingActive =>
@@ -121,11 +119,11 @@ export const PROVIDERS = {
     parseMessage: defaultParseMessage,
   },
   gemini: {
-    ...gemini,
+    ...createBackendProvider('gemini'),
     id: 'gemini',
     name: 'Google Gemini',
     getCredentials: settings => ({
-      apiKey: settings.googleApiKey || import.meta.env.PUBLIC_GOOGLE_API_KEY,
+      apiKey: settings.googleApiKey || process.env.NEXT_PUBLIC_GOOGLE_API_KEY,
       baseUrl: undefined, // Native SDK usually handles its own endpoints
     }),
     getTools: isSearchActive => (isSearchActive ? [{ googleSearch: {} }] : undefined), // Native Gemini Google Search tool

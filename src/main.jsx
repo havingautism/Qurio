@@ -10,9 +10,9 @@ import { init } from 'emoji-mart'
 // Using emoji-datasource-twitter explicitly as @emoji-mart/data might not serve images on all CDNs
 // Register Service Worker
 if ('serviceWorker' in navigator) {
-  if (!import.meta.env.DEV) {
+  if (process.env.NODE_ENV === 'production') {
     window.addEventListener('load', () => {
-      const basePath = (import.meta.env.PUBLIC_BASE_PATH || '/Qurio/').replace(/\/?$/, '/')
+      const basePath = (process.env.NEXT_PUBLIC_BASE_PATH || '/Qurio/').replace(/\/?$/, '/')
       navigator.serviceWorker
         .register(`${basePath}sw.js`)
         .then(registration => {

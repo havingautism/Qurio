@@ -25,7 +25,7 @@ export function GitHubPagesRedirectHandler() {
         sessionStorage.removeItem('spa-redirect')
 
         // Get the base path (e.g., /Qurio)
-        const basePath = (import.meta.env.PUBLIC_BASE_PATH || '/Qurio').replace(/\/$/, '')
+        const basePath = (process.env.NEXT_PUBLIC_BASE_PATH || '/Qurio').replace(/\/$/, '')
 
         // Extract the path relative to the base path
         const relativePath = path.replace(basePath, '') || '/'

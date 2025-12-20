@@ -1,3 +1,4 @@
+import Image from 'next/image'
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useShallow } from 'zustand/react/shallow'
@@ -732,10 +733,13 @@ const MessageBubble = ({
       <div className="flex items-center gap-3 text-gray-900 dark:text-gray-100">
         <div className="w-10 h-10 rounded-full bg-gray-100  shadow-inner flex items-center justify-center overflow-hidden p-2">
           {providerMeta.logo ? (
-            <img
+            <Image
               src={providerMeta.logo}
               alt={providerMeta.label}
+              width={40}
+              height={40}
               className="w-full h-full object-contain"
+              unoptimized
             />
           ) : (
             <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
@@ -747,10 +751,13 @@ const MessageBubble = ({
           <span className="text-sm font-semibold">{providerMeta.label}</span>
           <div className="flex items-center gap-1.5">
             {getModelIcon(resolvedModel) && (
-              <img
+              <Image
                 src={getModelIcon(resolvedModel)}
                 alt=""
+                width={14}
+                height={14}
                 className="w-3.5 h-3.5 object-contain"
+                unoptimized
               />
             )}
             <span className="text-xs text-gray-500 dark:text-gray-400">{resolvedModel}</span>

@@ -1,3 +1,4 @@
+import Image from 'next/image'
 import { useState, useEffect, useRef } from 'react'
 import {
   X,
@@ -473,8 +474,8 @@ const SettingsModal = ({ isOpen, onClose }) => {
   }
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-start md:items-center justify-center bg-black/50 backdrop-blur-sm p-0 md:p-4 overflow-y-auto md:overflow-hidden">
-      <div className="w-full h-[100vh] md:max-w-4xl md:h-[80vh] bg-white dark:bg-[#191a1a] rounded-none md:rounded-2xl shadow-2xl flex flex-col md:flex-row overflow-hidden border-0 md:border border-gray-200 dark:border-zinc-800">
+    <div className="fixed inset-0 z-100 flex items-start md:items-center justify-center bg-black/50 backdrop-blur-sm p-0 md:p-4 overflow-y-auto md:overflow-hidden">
+      <div className="w-full h-screen md:max-w-4xl md:h-[80vh] bg-white dark:bg-[#191a1a] rounded-none md:rounded-2xl shadow-2xl flex flex-col md:flex-row overflow-hidden border-0 md:border border-gray-200 dark:border-zinc-800">
         {/* Mobile Header */}
         <div className="md:hidden h-14 border-b border-gray-200 dark:border-zinc-800 flex items-center justify-between px-4 bg-white dark:bg-[#191a1a] shrink-0">
           <h2 className="text-base font-semibold text-gray-900 dark:text-white">Settings</h2>
@@ -550,10 +551,13 @@ const SettingsModal = ({ isOpen, onClose }) => {
                         <Box size={16} className="text-gray-400" />
                       </div>
                       <div className="flex items-center gap-3">
-                        <img
+                        <Image
                           src={PROVIDER_ICONS[apiProvider]}
                           alt={PROVIDER_LABELS[apiProvider] || apiProvider}
+                          width={16}
+                          height={16}
                           className="w-4 h-4"
+                          unoptimized
                         />
                         <span>{PROVIDER_LABELS[apiProvider] || apiProvider}</span>
                       </div>
@@ -587,10 +591,13 @@ const SettingsModal = ({ isOpen, onClose }) => {
                           className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
                         >
                           <div className="flex items-center gap-3">
-                            <img
+                            <Image
                               src={PROVIDER_ICONS.gemini}
                               alt="Google Gemini"
+                              width={16}
+                              height={16}
                               className="w-4 h-4"
+                              unoptimized
                             />
                             <span>Google Gemini</span>
                           </div>
@@ -617,10 +624,13 @@ const SettingsModal = ({ isOpen, onClose }) => {
                           className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
                         >
                           <div className="flex items-center gap-3">
-                            <img
+                            <Image
                               src={PROVIDER_ICONS.openai_compatibility}
                               alt="OpenAI"
+                              width={16}
+                              height={16}
                               className="w-4 h-4"
+                              unoptimized
                             />
                             <span>OpenAI Compatible</span>
                           </div>
@@ -647,10 +657,13 @@ const SettingsModal = ({ isOpen, onClose }) => {
                           className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
                         >
                           <div className="flex items-center gap-3">
-                            <img
+                            <Image
                               src={PROVIDER_ICONS.siliconflow}
                               alt="SiliconFlow"
+                              width={16}
+                              height={16}
                               className="w-4 h-4"
+                              unoptimized
                             />
                             <span>SiliconFlow</span>
                           </div>
@@ -912,7 +925,14 @@ const SettingsModal = ({ isOpen, onClose }) => {
                             >
                               <div className="flex items-center gap-2">
                                 {getModelIcon(value) && (
-                                  <img src={getModelIcon(value)} alt="" className="w-3.5 h-3.5" />
+                                  <Image
+                                    src={getModelIcon(value)}
+                                    alt=""
+                                    width={14}
+                                    height={14}
+                                    className="w-3.5 h-3.5"
+                                    unoptimized
+                                  />
                                 )}
                                 <span>{currentLabel}</span>
                               </div>
@@ -939,10 +959,13 @@ const SettingsModal = ({ isOpen, onClose }) => {
                                     >
                                       <div className="flex items-center gap-2">
                                         {getModelIcon(opt.value) && (
-                                          <img
+                                          <Image
                                             src={getModelIcon(opt.value)}
                                             alt=""
+                                            width={14}
+                                            height={14}
                                             className="w-3.5 h-3.5"
+                                            unoptimized
                                           />
                                         )}
                                         <span>{opt.label}</span>

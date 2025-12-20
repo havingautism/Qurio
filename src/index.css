@@ -20,24 +20,24 @@
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-user-bubble: var(--user-bubble);
   --font-sans-serif:
-    'IBM Plex Sans', 'IBM Plex Sans SC', -apple-system, BlinkMacSystemFont, 'Apple Color Emoji',
-    'Segoe UI Emoji', 'Segoe UI Symbol', 'Segoe UI', 'PingFang SC', HarmonyOS_Regular,
-    'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, 'Source Han Sans SC',
-    'Noto Sans CJK SC', 'WenQuanYi Micro Hei', Arial, sans-serif;
+   var(--font-ibm-plex-sans-sc), -apple-system, BlinkMacSystemFont,
+    'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Segoe UI', 'PingFang SC',
+    HarmonyOS_Regular, 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica,
+    'Source Han Sans SC', 'Noto Sans CJK SC', 'WenQuanYi Micro Hei', Arial, sans-serif;
   --font-serif:
-    'Playfair Display', STZhongsong, STSong, 'Noto Serif CJK', 'Noto Serif SC', PMingLiu, SimSun,
-    'WenQuanYi Bitmap Song', 'Times New Roman', Times, serif, 'Apple Color Emoji', 'Segoe UI Emoji',
-    'Segoe UI Symbol';
+    var(--font-playfair-display), STZhongsong, STSong, 'Noto Serif CJK', 'Noto Serif SC', PMingLiu,
+    SimSun, 'WenQuanYi Bitmap Song', 'Times New Roman', Times, serif, 'Apple Color Emoji',
+    'Segoe UI Emoji', 'Segoe UI Symbol';
   --font-mono:
-    'JetBrains Mono', ui-monospace, SFMono-Regular, 'SF Mono', 'Cascadia Code', 'Segoe UI Mono',
-    'Source Code Pro', Menlo, Consolas, 'Liberation Mono', monospace;
+    var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, 'SF Mono', 'Cascadia Code',
+    'Segoe UI Mono', 'Source Code Pro', Menlo, Consolas, 'Liberation Mono', monospace;
   /* --font-sans: Ginto, ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
     'Segoe UI Symbol', 'Noto Color Emoji'; */
   --font-sans:
-    'IBM Plex Sans', 'IBM Plex Sans SC', -apple-system, BlinkMacSystemFont, 'Apple Color Emoji',
-    'Segoe UI Emoji', 'Segoe UI Symbol', 'Segoe UI', 'PingFang SC', HarmonyOS_Regular,
-    'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, 'Source Han Sans SC',
-    'Noto Sans CJK SC', 'WenQuanYi Micro Hei', Arial, sans-serif;
+    var(--font-ibm-plex-sans-sc), -apple-system, BlinkMacSystemFont,
+    'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Segoe UI', 'PingFang SC',
+    HarmonyOS_Regular, 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica,
+    'Source Han Sans SC', 'Noto Sans CJK SC', 'WenQuanYi Micro Hei', Arial, sans-serif;
 
   /* Custom Primary Palette (formerly Brown) - Default Map to Variables */
   /* These will be overridden by the JS style injection on root */

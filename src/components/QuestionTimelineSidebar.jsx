@@ -172,10 +172,17 @@ const QuestionTimelineSidebar = ({
 
     try {
       const date = new Date(timestamp)
-      return date.toLocaleTimeString('en-US', {
+      const dateStr = date.toLocaleDateString(undefined, {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      })
+      const timeStr = date.toLocaleTimeString(undefined, {
         hour: '2-digit',
         minute: '2-digit',
+        hour12: false
       })
+      return `${dateStr} ${timeStr}`
     } catch (e) {
       return null
     }
@@ -383,7 +390,7 @@ const QuestionTimelineSidebar = ({
                               : 'opacity-0 translate-x-4 scale-95 pointer-events-none'
                           )}
                         >
-                          <div className="w-auto min-w-[180px] max-w-[260px] rounded-2xl border border-gray-200/80 dark:border-zinc-700/80 bg-user-bubble/95 dark:bg-zinc-800/95 px-4 py-3 shadow-xl backdrop-blur-md">
+                          <div className="w-auto min-w-[240px] max-w-[280px] rounded-2xl border border-gray-200/80 dark:border-zinc-700/80 bg-user-bubble/95 dark:bg-zinc-800/95 px-4 py-3 shadow-xl backdrop-blur-md">
                             {timeLabel && (
                               <div className="text-[10px] uppercase tracking-wider font-semibold text-gray-500 dark:text-gray-400 mb-0.5">
                                 {timeLabel}
@@ -445,7 +452,7 @@ const QuestionTimelineSidebar = ({
                   className={clsx(
                     "h-[2px] rounded-full transition-all duration-300 ease-spring",
                     isActive
-                      ? "w-6 bg-primary-500 shadow-[0_0_8px_rgba(var(--primary-500-rgb),0.4)]"
+                      ? "w-5 bg-primary-500 shadow-[0_0_8px_rgba(var(--primary-500-rgb),0.4)]"
                       : "w-2 bg-gray-300 dark:bg-zinc-600 group-hover:bg-primary-400 group-hover:w-4"
                   )}
                 />

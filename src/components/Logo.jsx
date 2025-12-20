@@ -1,3 +1,4 @@
+import Image from 'next/image'
 import logoSrc from '../assets/Qurio-logo-light-theme.png'
 
 const Logo = ({ size = 64, className = '' }) => {
@@ -5,7 +6,7 @@ const Logo = ({ size = 64, className = '' }) => {
     (typeof logoSrc === 'string' ? logoSrc : logoSrc?.src || logoSrc?.default) ||
     '/Qurio-logo-app.png'
   return (
-    <img
+    <Image
       src={resolvedSrc}
       alt="Qurio"
       width={size}

@@ -1,0 +1,11 @@
+[[edge_functions]]
+  path = "/api/llm/stream"
+  function = "llm-stream"
+
+[[edge_functions]]
+  path = "/api/llm/task"
+  function = "llm-task"
+
+[[edge_functions]]
+  path = "/api/llm/models"
+  function = "llm-models"

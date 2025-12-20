@@ -18,6 +18,8 @@ const readSseStream = async (response, handlers) => {
   const decoder = new TextDecoder()
   let buffer = ''
   let finished = false
+  let sawChunk = false
+  let sawDone = false
 
   try {
     while (true) {
@@ -43,9 +45,11 @@ const readSseStream = async (response, handlers) => {
             return
           }
           if (event.type === 'chunk') {
+            sawChunk = true
             onChunk?.(event.content)
           } else if (event.type === 'done') {
             finished = true
+            sawDone = true
             onFinish?.({ content: event.content, toolCalls: event.toolCalls })
           } else if (event.type === 'error') {
             onError?.(new Error(event.message || 'Stream error'))
@@ -53,8 +57,12 @@ const readSseStream = async (response, handlers) => {
         }
       }
     }
-    if (!finished) {
-      onError?.(new Error('Stream ended before completion'))
+    if (!finished && !sawDone) {
+      if (sawChunk) {
+        onFinish?.({ interrupted: true })
+      } else {
+        onError?.(new Error('Stream ended before completion'))
+      }
     }
   } catch (error) {
     onError?.(error)

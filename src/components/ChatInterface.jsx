@@ -848,7 +848,7 @@ const ChatInterface = ({
     >
       <div className="w-full max-w-3xl mx-auto relative flex flex-col flex-1 min-h-0">
         {/* Title Bar */}
-        <div className="shrink-0 z-20 w-full max-w-8xl border-b border-gray-200 dark:border-zinc-800 bg-background/80 backdrop-blur-md py-2 transition-all flex items-center gap-1 px-3 md:px-0">
+        <div className="shrink-0 z-20 w-full max-w-8xl border-b border-gray-200 dark:border-zinc-800 bg-background/80 backdrop-blur-md pb-2 pt-[calc(0.5rem+env(safe-area-inset-top))] transition-all flex items-center gap-1 px-3 md:px-0">
           {/* Mobile Menu Button */}
           <button
             onClick={toggleSidebar}
@@ -995,7 +995,7 @@ const ChatInterface = ({
         />
 
         {/* Input Area */}
-        <div className="w-full shrink-0 bg-background pt-0 pb-3 px-2 sm:px-0 flex justify-center z-20">
+        <div className="w-full shrink-0 bg-background pt-0 pb-[calc(0.75rem+env(safe-area-inset-bottom))] px-2 sm:px-0 flex justify-center z-20">
           <div className="w-full max-w-3xl relative">
             {/* Scroll to bottom button - positioned relative to input area */}
             {showScrollButton && (

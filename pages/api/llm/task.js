@@ -1,5 +1,28 @@
 import { buildChatMessages, getModelForProvider } from '../../../src/server/llm'
 
+const withSilencedTokenWarnings = async fn => {
+  const warn = console.warn
+  const error = console.error
+  const shouldSuppress = message =>
+    typeof message === 'string' &&
+    (message.includes('field[total_tokens] already exists') ||
+      message.includes('field[completion_tokens] already exists'))
+
+  console.warn = (...args) => {
+    if (!shouldSuppress(args[0])) warn(...args)
+  }
+  console.error = (...args) => {
+    if (!shouldSuppress(args[0])) error(...args)
+  }
+
+  try {
+    return await fn()
+  } finally {
+    console.warn = warn
+    console.error = error
+  }
+}
+
 const safeJsonParse = text => {
   if (!text || typeof text !== 'string') return null
   try {
@@ -78,7 +101,7 @@ export default async function handler(req, res) {
       ],
     })
     try {
-      const response = await chatModel.invoke(chatMessages)
+      const response = await withSilencedTokenWarnings(() => chatModel.invoke(chatMessages))
       res.status(200).json({ title: response?.content?.trim?.() || 'New Conversation' })
       return
     } catch (error) {
@@ -104,7 +127,7 @@ Return the result as a JSON object with keys "title" and "spaceLabel".`,
     })
 
     try {
-      const response = await chatModel.invoke(chatMessages)
+      const response = await withSilencedTokenWarnings(() => chatModel.invoke(chatMessages))
       const parsed = safeJsonParse(response?.content) || {}
       const title = parsed.title || 'New Conversation'
       const spaceLabel = parsed.spaceLabel
@@ -131,7 +154,7 @@ Return the result as a JSON object with keys "title" and "spaceLabel".`,
       ],
     })
     try {
-      const response = await chatModel.invoke(chatMessages)
+      const response = await withSilencedTokenWarnings(() => chatModel.invoke(chatMessages))
       const parsed = safeJsonParse(response?.content)
       const questions = normalizeRelatedQuestions(parsed)
       res.status(200).json({ questions })

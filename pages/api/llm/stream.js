@@ -17,6 +17,44 @@ const sendSse = (res, data) => {
   res.write(`data: ${JSON.stringify(data)}\n\n`)
 }
 
+const withSilencedTokenWarnings = async fn => {
+  const warn = console.warn
+  const error = console.error
+  const stderrWrite = process.stderr.write
+  const stdoutWrite = process.stdout.write
+  const shouldSuppress = message =>
+    typeof message === 'string' &&
+    (message.includes('field[total_tokens] already exists') ||
+      message.includes('field[completion_tokens] already exists') ||
+      message.includes('field[reasoning_tokens] already exists'))
+
+  console.warn = (...args) => {
+    if (!shouldSuppress(args[0])) warn(...args)
+  }
+  console.error = (...args) => {
+    if (!shouldSuppress(args[0])) error(...args)
+  }
+  process.stderr.write = (chunk, encoding, cb) => {
+    const text = typeof chunk === 'string' ? chunk : chunk?.toString?.()
+    if (shouldSuppress(text)) return true
+    return stderrWrite.call(process.stderr, chunk, encoding, cb)
+  }
+  process.stdout.write = (chunk, encoding, cb) => {
+    const text = typeof chunk === 'string' ? chunk : chunk?.toString?.()
+    if (shouldSuppress(text)) return true
+    return stdoutWrite.call(process.stdout, chunk, encoding, cb)
+  }
+
+  try {
+    return await fn()
+  } finally {
+    console.warn = warn
+    console.error = error
+    process.stderr.write = stderrWrite
+    process.stdout.write = stdoutWrite
+  }
+}
+
 const formatLangchainMessages = messages =>
   (messages || []).map(message => ({
     role: message?._getType?.() === 'ai' ? 'assistant' : message?._getType?.(),
@@ -145,7 +183,8 @@ export default async function handler(req, res) {
 
     if (process.env.LLM_DEBUG_REQUESTS === '1') {
       const invocation =
-        typeof chatModel?.invocationParams === 'function' ? chatModel.invocationParams() : {}
+        chatModel?.__debugParams ||
+        (typeof chatModel?.invocationParams === 'function' ? chatModel.invocationParams() : {})
       console.log(
         JSON.stringify(
           {
@@ -165,55 +204,161 @@ export default async function handler(req, res) {
       )
     }
 
-    const responseStream = await chatModel.stream(chatMessages)
+    await withSilencedTokenWarnings(async () => {
+      const responseStream = await chatModel.stream(chatMessages)
 
-    let fullContent = ''
-    const toolCallsMap = new Map()
+      let fullContent = ''
+      const toolCallsMap = new Map()
+      let inThoughtBlock = false
 
-    for await (const chunk of responseStream) {
-      const rawResponse = chunk?.message?.additional_kwargs?.__raw_response
-      const reasoningContent = rawResponse?.choices?.[0]?.delta?.reasoning_content
-      if (reasoningContent) {
-        sendSse(res, { type: 'chunk', content: { type: 'thought', content: reasoningContent } })
-      }
-
-      const text = extractChunkText(chunk)
-      if (text) {
+      const emitText = text => {
+        if (!text) return
         fullContent += text
         sendSse(res, { type: 'chunk', content: { type: 'text', content: text } })
       }
 
-      const toolCalls =
-        chunk?.additional_kwargs?.tool_calls ||
-        chunk?.tool_calls ||
-        chunk?.message?.additional_kwargs?.tool_calls
-      if (toolCalls) {
-        for (const toolCall of toolCalls) {
-          const index = toolCall.index ?? toolCallsMap.size
-          if (!toolCallsMap.has(index)) {
-            toolCallsMap.set(index, {
-              id: toolCall.id,
-              type: toolCall.type,
-              function: { name: '', arguments: '' },
-            })
-          }
+      const emitThought = text => {
+        if (!text) return
+        sendSse(res, { type: 'chunk', content: { type: 'thought', content: text } })
+      }
 
-          const currentToolCall = toolCallsMap.get(index)
-          if (toolCall.id) currentToolCall.id = toolCall.id
-          if (toolCall.type) currentToolCall.type = toolCall.type
-          if (toolCall.function?.name) currentToolCall.function.name += toolCall.function.name
-          if (toolCall.function?.arguments) {
-            currentToolCall.function.arguments += toolCall.function.arguments
+      const handleTaggedText = text => {
+        let remaining = text
+        while (remaining) {
+          if (!inThoughtBlock) {
+            const matchIndex = remaining.search(/<think>|<thought>/i)
+            if (matchIndex === -1) {
+              emitText(remaining)
+              return
+            }
+            emitText(remaining.slice(0, matchIndex))
+            remaining = remaining.slice(matchIndex)
+            const openMatch = remaining.match(/^<(think|thought)>/i)
+            if (openMatch) {
+              remaining = remaining.slice(openMatch[0].length)
+              inThoughtBlock = true
+            } else {
+              emitText(remaining)
+              return
+            }
+          } else {
+            const matchIndex = remaining.search(/<\/think>|<\/thought>/i)
+            if (matchIndex === -1) {
+              emitThought(remaining)
+              return
+            }
+            emitThought(remaining.slice(0, matchIndex))
+            remaining = remaining.slice(matchIndex)
+            const closeMatch = remaining.match(/^<\/(think|thought)>/i)
+            if (closeMatch) {
+              remaining = remaining.slice(closeMatch[0].length)
+              inThoughtBlock = false
+            } else {
+              emitThought(remaining)
+              return
+            }
           }
         }
       }
-    }
 
-    const finalToolCalls = Array.from(toolCallsMap.values())
-    sendSse(res, {
-      type: 'done',
-      content: fullContent,
-      toolCalls: finalToolCalls.length ? finalToolCalls : undefined,
+      const extractThoughtFromParts = parts => {
+        if (!Array.isArray(parts)) return ''
+        return parts
+          .map(part => {
+            if (!part || typeof part !== 'object') return ''
+            if (
+              part.type === 'reasoning' ||
+              part.type === 'thought' ||
+              part.type === 'thinking'
+            ) {
+              return part.text || part.content || ''
+            }
+            return ''
+          })
+          .filter(Boolean)
+          .join('')
+      }
+
+      let loggedChunk = false
+      for await (const chunk of responseStream) {
+        const rawResponse =
+          chunk?.message?.additional_kwargs?.__raw_response || chunk?.additional_kwargs?.__raw_response
+        const reasoningContent =
+          rawResponse?.choices?.[0]?.delta?.reasoning_content ||
+          rawResponse?.choices?.[0]?.delta?.reasoning ||
+          rawResponse?.choices?.[0]?.reasoning_content ||
+          chunk?.message?.additional_kwargs?.reasoning_content ||
+          chunk?.message?.additional_kwargs?.reasoning ||
+          chunk?.additional_kwargs?.reasoning_content ||
+          chunk?.additional_kwargs?.reasoning ||
+          extractThoughtFromParts(chunk?.content)
+
+        if (!loggedChunk && process.env.LLM_DEBUG_STREAM === '1') {
+          loggedChunk = true
+          console.log(
+            JSON.stringify(
+              {
+                provider,
+                model,
+                chunkKeys: Object.keys(chunk || {}),
+                messageKeys: Object.keys(chunk?.message || {}),
+                additionalKeys: Object.keys(chunk?.message?.additional_kwargs || {}),
+                chunkAdditionalKeys: Object.keys(chunk?.additional_kwargs || {}),
+                rawResponseKeys: Object.keys(rawResponse || {}),
+                deltaKeys: Object.keys(rawResponse?.choices?.[0]?.delta || {}),
+                contentPreview:
+                  typeof chunk?.content === 'string'
+                    ? chunk.content.slice(0, 200)
+                    : Array.isArray(chunk?.content)
+                      ? chunk.content.slice(0, 2)
+                      : null,
+              },
+              null,
+              2,
+            ),
+          )
+        }
+        if (reasoningContent) {
+          emitThought(reasoningContent)
+        }
+
+        const text = extractChunkText(chunk)
+        if (text) {
+          handleTaggedText(text)
+        }
+
+        const toolCalls =
+          chunk?.additional_kwargs?.tool_calls ||
+          chunk?.tool_calls ||
+          chunk?.message?.additional_kwargs?.tool_calls
+        if (toolCalls) {
+          for (const toolCall of toolCalls) {
+            const index = toolCall.index ?? toolCallsMap.size
+            if (!toolCallsMap.has(index)) {
+              toolCallsMap.set(index, {
+                id: toolCall.id,
+                type: toolCall.type,
+                function: { name: '', arguments: '' },
+              })
+            }
+
+            const currentToolCall = toolCallsMap.get(index)
+            if (toolCall.id) currentToolCall.id = toolCall.id
+            if (toolCall.type) currentToolCall.type = toolCall.type
+            if (toolCall.function?.name) currentToolCall.function.name += toolCall.function.name
+            if (toolCall.function?.arguments) {
+              currentToolCall.function.arguments += toolCall.function.arguments
+            }
+          }
+        }
+      }
+
+      const finalToolCalls = Array.from(toolCallsMap.values())
+      sendSse(res, {
+        type: 'done',
+        content: fullContent,
+        toolCalls: finalToolCalls.length ? finalToolCalls : undefined,
+      })
     })
     res.end()
   } catch (error) {

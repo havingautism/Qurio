@@ -78,19 +78,31 @@ const buildOpenAIModel = ({
 
   const modelKwargs = {}
   if (provider === 'siliconflow') {
+    if (!responseFormat) {
+      modelKwargs.response_format = { type: 'text' }
+    }
     if (thinking) {
       const budget = thinking.budget_tokens || thinking.budgetTokens || 1024
-      modelKwargs.extra_body = {
-        ...(modelKwargs.extra_body || {}),
-        thinking_budget: budget,
-        // enable_thinking: true,
-      }
-    }
-    if (thinking?.extra_body) {
-      modelKwargs.extra_body = thinking.extra_body
+      modelKwargs.thinking_budget = budget
     }
     if (top_k !== undefined) {
-      modelKwargs.extra_body = { ...(modelKwargs.extra_body || {}), top_k }
+      modelKwargs.top_k = top_k
+    }
+    const enableThinkingModels = new Set([
+      'zai-org/GLM-4.6',
+      'Qwen/Qwen3-8B',
+      'Qwen/Qwen3-14B',
+      'Qwen/Qwen3-32B',
+      'wen/Qwen3-30B-A3B',
+      'Qwen/Qwen3-235B-A22B',
+      'tencent/Hunyuan-A13B-Instruct',
+      'zai-org/GLM-4.5V',
+      'deepseek-ai/DeepSeek-V3.1-Terminus',
+      'Pro/deepseek-ai/DeepSeek-V3.1-Terminus',
+      'deepseek-ai/DeepSeek-V3.2',
+    ])
+    if (thinking && enableThinkingModels.has(model)) {
+      modelKwargs.enable_thinking = true
     }
   }
 
@@ -105,17 +117,52 @@ const buildOpenAIModel = ({
     configuration: { baseURL: resolvedBase },
   })
 
+  const debugParams = {
+    provider,
+    model,
+    temperature,
+    top_k,
+    modelKwargs,
+    bindParams: {},
+  }
+
+  const usesNonOpenAIModel = provider === 'siliconflow' || !model?.startsWith('gpt-')
+  if (usesNonOpenAIModel) {
+    modelInstance.getNumTokens = async content => {
+      const text =
+        typeof content === 'string'
+          ? content
+          : Array.isArray(content)
+            ? content
+                .map(item => {
+                  if (typeof item === 'string') return item
+                  if (item?.type === 'text' && item.text) return item.text
+                  return ''
+                })
+                .join('')
+            : ''
+      return Math.ceil(text.length / 4)
+    }
+  }
+
   const bindParams = {}
   if (tools && tools.length > 0) bindParams.tools = tools
   if (toolChoice) bindParams.tool_choice = toolChoice
-  if (responseFormat) bindParams.response_format = responseFormat
+  if (responseFormat && provider !== 'siliconflow') {
+    bindParams.response_format = responseFormat
+  }
   if (thinking?.extra_body) bindParams.extra_body = thinking.extra_body
   if (top_k !== undefined && provider !== 'siliconflow') {
     bindParams.extra_body = { ...(bindParams.extra_body || {}), top_k }
   }
 
   if (Object.keys(bindParams).length) {
+    debugParams.bindParams = bindParams
     modelInstance = modelInstance.bind(bindParams)
+    modelInstance.__debugParams = debugParams
+    modelInstance.__includeRawResponse = true
+  } else {
+    modelInstance.__debugParams = debugParams
   }
 
   return modelInstance

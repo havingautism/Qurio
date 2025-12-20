@@ -55,14 +55,7 @@ const mapMessagesForOpenAI = messages =>
     ...(message.name && { name: message.name }),
   }))
 
-const buildGeminiPayload = ({
-  messages,
-  temperature,
-  top_k,
-  tools,
-  thinking,
-  responseFormat,
-}) => {
+const buildGeminiPayload = ({ messages, temperature, top_k, tools, thinking }) => {
   const systemTexts = (messages || [])
     .filter(m => m.role === 'system')
     .map(m => normalizeTextContent(m.content))
@@ -81,9 +74,6 @@ const buildGeminiPayload = ({
   const generationConfig = {}
   if (temperature !== undefined) generationConfig.temperature = temperature
   if (top_k !== undefined) generationConfig.topK = top_k
-  if (responseFormat?.type === 'json_object') {
-    generationConfig.responseMimeType = 'application/json'
-  }
   if (thinking?.thinkingConfig) {
     generationConfig.thinkingConfig = thinking.thinkingConfig
   }
@@ -139,6 +129,28 @@ const streamOpenAICompat = async ({ requestBody, context, writer }) => {
   if (thinking?.extra_body) {
     payload.extra_body = { ...(payload.extra_body || {}), ...thinking.extra_body }
   }
+  if (provider === 'siliconflow' && thinking) {
+    const budget = thinking.budget_tokens || thinking.budgetTokens
+    if (budget) {
+      payload.extra_body = { ...(payload.extra_body || {}), thinking_budget: budget }
+    }
+    const enableThinkingModels = new Set([
+      'zai-org/GLM-4.6',
+      'Qwen/Qwen3-8B',
+      'Qwen/Qwen3-14B',
+      'Qwen/Qwen3-32B',
+      'wen/Qwen3-30B-A3B',
+      'Qwen/Qwen3-235B-A22B',
+      'tencent/Hunyuan-A13B-Instruct',
+      'zai-org/GLM-4.5V',
+      'deepseek-ai/DeepSeek-V3.1-Terminus',
+      'Pro/deepseek-ai/DeepSeek-V3.1-Terminus',
+      'deepseek-ai/DeepSeek-V3.2',
+    ])
+    if (enableThinkingModels.has(model)) {
+      payload.extra_body = { ...(payload.extra_body || {}), enable_thinking: true }
+    }
+  }
   if (top_k !== undefined) {
     payload.extra_body = { ...(payload.extra_body || {}), top_k }
   }
@@ -166,6 +178,57 @@ const streamOpenAICompat = async ({ requestBody, context, writer }) => {
   let buffer = ''
   let fullContent = ''
   const toolCallsMap = new Map()
+  let inThoughtBlock = false
+
+  const emitText = async text => {
+    if (!text) return
+    fullContent += text
+    await sendSse(writer, { type: 'chunk', content: { type: 'text', content: text } })
+  }
+
+  const emitThought = async text => {
+    if (!text) return
+    await sendSse(writer, { type: 'chunk', content: { type: 'thought', content: text } })
+  }
+
+  const handleTaggedText = async text => {
+    let remaining = text
+    while (remaining) {
+      if (!inThoughtBlock) {
+        const matchIndex = remaining.search(/<think>|<thought>/i)
+        if (matchIndex === -1) {
+          await emitText(remaining)
+          return
+        }
+        await emitText(remaining.slice(0, matchIndex))
+        remaining = remaining.slice(matchIndex)
+        const openMatch = remaining.match(/^<(think|thought)>/i)
+        if (openMatch) {
+          remaining = remaining.slice(openMatch[0].length)
+          inThoughtBlock = true
+        } else {
+          await emitText(remaining)
+          return
+        }
+      } else {
+        const matchIndex = remaining.search(/<\/think>|<\/thought>/i)
+        if (matchIndex === -1) {
+          await emitThought(remaining)
+          return
+        }
+        await emitThought(remaining.slice(0, matchIndex))
+        remaining = remaining.slice(matchIndex)
+        const closeMatch = remaining.match(/^<\/(think|thought)>/i)
+        if (closeMatch) {
+          remaining = remaining.slice(closeMatch[0].length)
+          inThoughtBlock = false
+        } else {
+          await emitThought(remaining)
+          return
+        }
+      }
+    }
+  }
 
   while (true) {
     const { done, value } = await reader.read()
@@ -200,9 +263,12 @@ const streamOpenAICompat = async ({ requestBody, context, writer }) => {
         }
         const choice = event?.choices?.[0]
         const delta = choice?.delta
+        const reasoningContent = delta?.reasoning_content || delta?.reasoning
+        if (reasoningContent) {
+          await emitThought(reasoningContent)
+        }
         if (delta?.content) {
-          fullContent += delta.content
-          await sendSse(writer, { type: 'chunk', content: delta.content })
+          await handleTaggedText(delta.content)
         }
         if (delta?.tool_calls) {
           for (const toolCall of delta.tool_calls) {
@@ -282,6 +348,57 @@ const streamGemini = async ({ requestBody, context, writer }) => {
   const decoder = new TextDecoder()
   let buffer = ''
   let fullContent = ''
+  let inThoughtBlock = false
+
+  const emitText = async text => {
+    if (!text) return
+    fullContent += text
+    await sendSse(writer, { type: 'chunk', content: { type: 'text', content: text } })
+  }
+
+  const emitThought = async text => {
+    if (!text) return
+    await sendSse(writer, { type: 'chunk', content: { type: 'thought', content: text } })
+  }
+
+  const handleTaggedText = async text => {
+    let remaining = text
+    while (remaining) {
+      if (!inThoughtBlock) {
+        const matchIndex = remaining.search(/<think>|<thought>/i)
+        if (matchIndex === -1) {
+          await emitText(remaining)
+          return
+        }
+        await emitText(remaining.slice(0, matchIndex))
+        remaining = remaining.slice(matchIndex)
+        const openMatch = remaining.match(/^<(think|thought)>/i)
+        if (openMatch) {
+          remaining = remaining.slice(openMatch[0].length)
+          inThoughtBlock = true
+        } else {
+          await emitText(remaining)
+          return
+        }
+      } else {
+        const matchIndex = remaining.search(/<\/think>|<\/thought>/i)
+        if (matchIndex === -1) {
+          await emitThought(remaining)
+          return
+        }
+        await emitThought(remaining.slice(0, matchIndex))
+        remaining = remaining.slice(matchIndex)
+        const closeMatch = remaining.match(/^<\/(think|thought)>/i)
+        if (closeMatch) {
+          remaining = remaining.slice(closeMatch[0].length)
+          inThoughtBlock = false
+        } else {
+          await emitThought(remaining)
+          return
+        }
+      }
+    }
+  }
 
   while (true) {
     const { done, value } = await reader.read()
@@ -309,8 +426,7 @@ const streamGemini = async ({ requestBody, context, writer }) => {
         for (const part of parts) {
           const text = part?.text
           if (!text) continue
-          fullContent += text
-          await sendSse(writer, { type: 'chunk', content: text })
+          await handleTaggedText(text)
         }
       }
     }

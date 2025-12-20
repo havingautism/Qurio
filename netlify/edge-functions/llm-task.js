@@ -81,14 +81,7 @@ const mapMessagesForOpenAI = messages =>
     ...(message.name && { name: message.name }),
   }))
 
-const buildGeminiPayload = ({
-  messages,
-  temperature,
-  top_k,
-  tools,
-  responseFormat,
-  thinking,
-}) => {
+const buildGeminiPayload = ({ messages, temperature, top_k, tools, thinking }) => {
   const systemTexts = (messages || [])
     .filter(m => m.role === 'system')
     .map(m => normalizeTextContent(m.content))
@@ -107,9 +100,6 @@ const buildGeminiPayload = ({
   const generationConfig = {}
   if (temperature !== undefined) generationConfig.temperature = temperature
   if (top_k !== undefined) generationConfig.topK = top_k
-  if (responseFormat?.type === 'json_object') {
-    generationConfig.responseMimeType = 'application/json'
-  }
   if (thinking?.thinkingConfig) {
     generationConfig.thinkingConfig = thinking.thinkingConfig
   }
@@ -155,6 +145,28 @@ const invokeOpenAICompat = async ({
   if (thinking?.extra_body) {
     payload.extra_body = { ...(payload.extra_body || {}), ...thinking.extra_body }
   }
+  if (provider === 'siliconflow' && thinking) {
+    const budget = thinking.budget_tokens || thinking.budgetTokens
+    if (budget) {
+      payload.extra_body = { ...(payload.extra_body || {}), thinking_budget: budget }
+    }
+    const enableThinkingModels = new Set([
+      'zai-org/GLM-4.6',
+      'Qwen/Qwen3-8B',
+      'Qwen/Qwen3-14B',
+      'Qwen/Qwen3-32B',
+      'wen/Qwen3-30B-A3B',
+      'Qwen/Qwen3-235B-A22B',
+      'tencent/Hunyuan-A13B-Instruct',
+      'zai-org/GLM-4.5V',
+      'deepseek-ai/DeepSeek-V3.1-Terminus',
+      'Pro/deepseek-ai/DeepSeek-V3.1-Terminus',
+      'deepseek-ai/DeepSeek-V3.2',
+    ])
+    if (enableThinkingModels.has(model)) {
+      payload.extra_body = { ...(payload.extra_body || {}), enable_thinking: true }
+    }
+  }
   if (top_k !== undefined) {
     payload.extra_body = { ...(payload.extra_body || {}), top_k }
   }
@@ -178,21 +190,14 @@ const invokeOpenAICompat = async ({
   return typeof content === 'string' ? content : normalizeTextContent(content)
 }
 
-const invokeGemini = async ({ requestBody, context, messages, responseFormat }) => {
+const invokeGemini = async ({ requestBody, context, messages }) => {
   const { apiKey, model, temperature, top_k, tools, thinking } = requestBody
   const resolvedKey = apiKey || context.env.GOOGLE_API_KEY || context.env.NEXT_PUBLIC_GOOGLE_API_KEY
   if (!resolvedKey) {
     throw new Error('Missing API key')
   }
 
-  const payload = buildGeminiPayload({
-    messages,
-    temperature,
-    top_k,
-    tools,
-    responseFormat,
-    thinking,
-  })
+  const payload = buildGeminiPayload({ messages, temperature, top_k, tools, thinking })
 
   const modelPath = model?.includes('/') ? model : `models/${model}`
   const url = `https://generativelanguage.googleapis.com/v1beta/${modelPath}:generateContent?key=${resolvedKey}`
@@ -273,12 +278,7 @@ Return the result as a JSON object with keys "title" and "spaceLabel".`,
 
       const content =
         provider === 'gemini'
-          ? await invokeGemini({
-              requestBody: body,
-              context,
-              messages: promptMessages,
-              responseFormat: { type: 'json_object' },
-            })
+          ? await invokeGemini({ requestBody: body, context, messages: promptMessages })
           : await invokeOpenAICompat({
               requestBody: body,
               context,
@@ -309,12 +309,7 @@ Return the result as a JSON object with keys "title" and "spaceLabel".`,
 
       const content =
         provider === 'gemini'
-          ? await invokeGemini({
-              requestBody: body,
-              context,
-              messages: promptMessages,
-              responseFormat: { type: 'json_object' },
-            })
+          ? await invokeGemini({ requestBody: body, context, messages: promptMessages })
           : await invokeOpenAICompat({
               requestBody: body,
               context,

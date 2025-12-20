@@ -182,4 +182,4 @@ export const getModelsForProvider = async (provider, credentials, options = {}) 
       return []
   }
 }
-import { SILICONFLOW_BASE_URL } from './siliconflow'
+import { SILICONFLOW_BASE_URL } from './providerConstants'

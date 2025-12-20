@@ -23,7 +23,7 @@ import { testConnection } from '../lib/supabase'
 import { getModelsForProvider } from '../lib/models_api'
 import useScrollLock from '../hooks/useScrollLock'
 import { THEMES } from '../lib/themes'
-import { SILICONFLOW_BASE_URL } from '../lib/siliconflow'
+import { SILICONFLOW_BASE_URL } from '../lib/providerConstants'
 import { PROVIDER_ICONS, getModelIcon } from '../lib/modelIcons'
 
 const ENV_VARS = {

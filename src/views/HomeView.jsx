@@ -231,7 +231,7 @@ const HomeView = () => {
 
           {/* Main Container */}
           <div className="w-full max-w-3xl flex flex-col items-center gap-4 sm:gap-8 sm:mt-14">
-            <div className="p-4 block sm:hidden  rounded-3xl mb-2">
+            <div className="p-4 block sm:hidden mt-10 rounded-3xl mb-2">
               <Logo size={128} className="text-gray-900 dark:text-white" />
             </div>
             {/* Title */}
@@ -240,7 +240,7 @@ const HomeView = () => {
             </h1>
 
             {/* Search Box */}
-            <div className="home-search-box w-full relative group z-30">
+            <div className="home-search-box w-full relative group z-20">
               <div className="absolute inset-0 input-glow-veil rounded-xl blur-2xl opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-500 pointer-events-none" />
               <div className="relative bg-user-bubble dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-xl shadow-sm hover:shadow-md transition-all duration-300 p-4">
                 {homeAttachments.length > 0 && (

@@ -1,4 +1,5 @@
 import { createBackendProvider } from './backendProvider'
+import { SILICONFLOW_BASE_URL } from './providerConstants'
 
 /**
  * Provider Registry
@@ -107,7 +108,7 @@ export const PROVIDERS = {
     name: 'SiliconFlow',
     getCredentials: settings => ({
       apiKey: settings.SiliconFlowKey || settings.OpenAICompatibilityKey,
-      baseUrl: 'https://api.siliconflow.cn/v1',
+      baseUrl: SILICONFLOW_BASE_URL,
     }),
     getTools: () => undefined,
     getThinking: isThinkingActive =>

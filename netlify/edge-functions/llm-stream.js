@@ -124,7 +124,11 @@ const streamOpenAICompat = async ({ requestBody, context, writer }) => {
   if (temperature !== undefined) payload.temperature = temperature
   if (tools && tools.length > 0) payload.tools = tools
   if (toolChoice) payload.tool_choice = toolChoice
-  if (responseFormat && provider !== 'siliconflow') payload.response_format = responseFormat
+  if (provider === 'siliconflow') {
+    payload.response_format = responseFormat || { type: 'text' }
+  } else if (responseFormat) {
+    payload.response_format = responseFormat
+  }
 
   if (thinking?.extra_body) {
     payload.extra_body = { ...(payload.extra_body || {}), ...thinking.extra_body }
@@ -132,7 +136,7 @@ const streamOpenAICompat = async ({ requestBody, context, writer }) => {
   if (provider === 'siliconflow' && thinking) {
     const budget = thinking.budget_tokens || thinking.budgetTokens
     if (budget) {
-      payload.extra_body = { ...(payload.extra_body || {}), thinking_budget: budget }
+      payload.thinking_budget = budget
     }
     const enableThinkingModels = new Set([
       'zai-org/GLM-4.6',
@@ -148,11 +152,15 @@ const streamOpenAICompat = async ({ requestBody, context, writer }) => {
       'deepseek-ai/DeepSeek-V3.2',
     ])
     if (enableThinkingModels.has(model)) {
-      payload.extra_body = { ...(payload.extra_body || {}), enable_thinking: true }
+      payload.enable_thinking = true
     }
   }
   if (top_k !== undefined) {
-    payload.extra_body = { ...(payload.extra_body || {}), top_k }
+    if (provider === 'siliconflow') {
+      payload.top_k = top_k
+    } else {
+      payload.extra_body = { ...(payload.extra_body || {}), top_k }
+    }
   }
 
   const upstream = await fetch(`${resolvedBase.replace(/\/$/, '')}/chat/completions`, {

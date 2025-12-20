@@ -88,20 +88,23 @@ const buildOpenAIModel = ({
     if (top_k !== undefined) {
       modelKwargs.top_k = top_k
     }
-    const enableThinkingModels = new Set([
-      'zai-org/GLM-4.6',
-      'Qwen/Qwen3-8B',
-      'Qwen/Qwen3-14B',
-      'Qwen/Qwen3-32B',
-      'wen/Qwen3-30B-A3B',
-      'Qwen/Qwen3-235B-A22B',
-      'tencent/Hunyuan-A13B-Instruct',
-      'zai-org/GLM-4.5V',
-      'deepseek-ai/DeepSeek-V3.1-Terminus',
-      'Pro/deepseek-ai/DeepSeek-V3.1-Terminus',
-      'deepseek-ai/DeepSeek-V3.2',
-    ])
-    if (thinking && enableThinkingModels.has(model)) {
+    // const enableThinkingModels = new Set([
+    //   'zai-org/GLM-4.6',
+    //   'Qwen/Qwen3-8B',
+    //   'Qwen/Qwen3-14B',
+    //   'Qwen/Qwen3-32B',
+    //   'wen/Qwen3-30B-A3B',
+    //   'Qwen/Qwen3-235B-A22B',
+    //   'tencent/Hunyuan-A13B-Instruct',
+    //   'zai-org/GLM-4.5V',
+    //   'deepseek-ai/DeepSeek-V3.1-Terminus',
+    //   'Pro/deepseek-ai/DeepSeek-V3.1-Terminus',
+    //   'deepseek-ai/DeepSeek-V3.2',
+    // ])
+    // if (thinking && enableThinkingModels.has(model)) {
+    //   modelKwargs.enable_thinking = true
+    // }
+    if (thinking) {
       modelKwargs.enable_thinking = true
     }
   }

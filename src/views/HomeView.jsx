@@ -232,7 +232,7 @@ const HomeView = () => {
           {/* Main Container */}
           <div className="w-full max-w-3xl flex flex-col items-center gap-4 sm:gap-8 sm:mt-14">
             <div className="p-4 block sm:hidden mt-10 rounded-3xl mb-2">
-              <Logo size={128} className="text-gray-900 dark:text-white" />
+              <Logo size={128} className="text-gray-900 dark:text-white" priority />
             </div>
             {/* Title */}
             <h1 className="home-title text-3xl md:text-5xl font-serif! font-medium text-center mb-4 mt-0 sm:mb-8 text-[#1f2937] dark:text-white">

@@ -357,7 +357,7 @@ const MessageBubble = ({
 
     if (!inline && match) {
       return (
-        <div className="relative group mb-4 border border-gray-200 dark:border-zinc-700 rounded-xl overflow-x-auto bg-user-bubble/50 dark:bg-zinc-800/30">
+        <div className="relative group my-4 border border-gray-200 dark:border-zinc-700 rounded-xl overflow-x-auto bg-user-bubble/50 dark:bg-zinc-800/30">
           <div className="flex items-center font-mono! justify-between px-3 py-2 text-[11px] font-semibold bg-user-bubble/50 dark:bg-zinc-800/50 text-gray-600 dark:text-gray-300 border-b border-gray-200 dark:border-zinc-700">
             <span>{langLabel}</span>
             <button className="px-2 py-1 rounded bg-gray-200 dark:bg-zinc-700 text-gray-700 dark:text-gray-200 text-[11px] opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
@@ -850,14 +850,14 @@ const MessageBubble = ({
       </div>
 
       {/* Related Questions */}
-      {message.related && message.related.length > 0 && (
+      {((message.related && message.related.length > 0) || isStreaming) && (
         <div className="border-t border-gray-200 dark:border-zinc-800 pt-4">
           <div className="flex items-center gap-3 mb-3 text-gray-900 dark:text-gray-100">
             <EmojiDisplay emoji="🔮" size="1.2em" className="mb-1" />
             <span className="text-sm font-semibold">Related</span>
           </div>
           <div className="flex flex-col gap-1 md:gap-2 px-2">
-            {message.related.map((question, index) => (
+            {message.related && message.related.map((question, index) => (
               <div
                 key={index}
                 onClick={() => onRelatedClick && onRelatedClick(question)}
@@ -866,11 +866,16 @@ const MessageBubble = ({
                 <span className="text-gray-700 dark:text-gray-300 font-medium text-sm md:text-balance">
                   {question}
                 </span>
-                <div className="ml-2 sm:ml-0opacity-100 sm:opacity-0 sm:group-hover:opacity-100 text-primary-500 dark:text-primary-500">
+                <div className="ml-2 sm:ml-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 text-primary-500 dark:text-primary-500">
                   <CornerRightDown />
                 </div>
               </div>
             ))}
+            {isStreaming && (
+              <div className="flex items-center p-2 text-gray-500 dark:text-gray-400">
+                <span className="animate-pulse text-lg leading-none">...</span>
+              </div>
+            )}
           </div>
         </div>
       )}

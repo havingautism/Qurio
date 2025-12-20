@@ -477,7 +477,7 @@ const Sidebar = ({
           {/* Logo */}
           <div className="mb-6">
             <div className="w-full h-full flex items-center justify-center text-gray-900 dark:text-white font-bold text-xl">
-              <Logo size={32} />
+              <Logo size={32} priority />
             </div>
           </div>
 

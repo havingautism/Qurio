@@ -31,6 +31,7 @@ const QuestionTimelineSidebar = ({
   const [sortOrder, setSortOrder] = useState('desc') // 'asc' for oldest first, 'desc' for newest first
   const [dragPreviewId, setDragPreviewId] = useState(null)
   const timelineRailRef = useRef(null)
+  const overlayRef = useRef(null)
   const dragFrameRef = useRef(null)
   const lastTouchIndexRef = useRef(null)
   // const [activeIndicatorTop, setActiveIndicatorTop] = useState(null) // Removed unused state
@@ -213,6 +214,24 @@ const QuestionTimelineSidebar = ({
     }
   }, [])
 
+  useEffect(() => {
+    if (isLargeScreen) return
+    const overlay = overlayRef.current
+    if (!overlay) return
+
+    const preventScroll = event => {
+      event.preventDefault()
+    }
+
+    overlay.addEventListener('wheel', preventScroll, { passive: false })
+    overlay.addEventListener('touchmove', preventScroll, { passive: false })
+    return () => {
+      overlay.removeEventListener('wheel', preventScroll)
+      overlay.removeEventListener('touchmove', preventScroll)
+    }
+  }, [isLargeScreen, isOpen])
+
+
   // Removed unused activeIndicator logic
   const updateActiveIndicator = useCallback(() => { }, [])
 
@@ -296,6 +315,34 @@ const QuestionTimelineSidebar = ({
     }
   }, [dragPreviewId, onJump])
 
+  useEffect(() => {
+    if (isLargeScreen) return
+    const rail = timelineRailRef.current
+    if (!rail) return
+
+    const onStart = event => handleTimelineTouchStart(event)
+    const onMove = event => handleTimelineTouchMove(event)
+    const onEnd = () => handleTimelineTouchEnd()
+
+    rail.addEventListener('touchstart', onStart, { passive: false })
+    rail.addEventListener('touchmove', onMove, { passive: false })
+    rail.addEventListener('touchend', onEnd, { passive: true })
+    rail.addEventListener('touchcancel', onEnd, { passive: true })
+
+    return () => {
+      rail.removeEventListener('touchstart', onStart)
+      rail.removeEventListener('touchmove', onMove)
+      rail.removeEventListener('touchend', onEnd)
+      rail.removeEventListener('touchcancel', onEnd)
+    }
+  }, [
+    handleTimelineTouchStart,
+    handleTimelineTouchMove,
+    handleTimelineTouchEnd,
+    isLargeScreen,
+    flatTimelineItems.length,
+  ])
+
   const sidebarContent = (
     <>
       {/* Overlay when sidebar is open - only on smaller screens */}
@@ -303,9 +350,8 @@ const QuestionTimelineSidebar = ({
         <div
           // className="fixed inset-0 blur-sm bg-black/30  z-40"
           className="fixed inset-0  z-40"
+          ref={overlayRef}
           onClick={handleToggle}
-          onWheel={e => e.preventDefault()}
-          onTouchMove={e => e.preventDefault()}
         />
       )}
 
@@ -354,10 +400,6 @@ const QuestionTimelineSidebar = ({
               <div
                 ref={timelineRailRef}
                 className="relative h-[55vh] w-full touch-none"
-                onTouchStart={handleTimelineTouchStart}
-                onTouchMove={handleTimelineTouchMove}
-                onTouchEnd={handleTimelineTouchEnd}
-                onTouchCancel={handleTimelineTouchEnd}
               >
                 {/* Visual Axis Container */}
                 <div className="flex h-full flex-col justify-center items-end gap-3 py-1 pr-1">

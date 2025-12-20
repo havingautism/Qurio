@@ -17,6 +17,7 @@ const readSseStream = async (response, handlers) => {
   const reader = response.body.getReader()
   const decoder = new TextDecoder()
   let buffer = ''
+  let finished = false
 
   try {
     while (true) {
@@ -34,16 +35,26 @@ const readSseStream = async (response, handlers) => {
           if (!line.startsWith('data:')) continue
           const payload = line.slice(5).trim()
           if (!payload) continue
-          const event = JSON.parse(payload)
+          let event
+          try {
+            event = JSON.parse(payload)
+          } catch (error) {
+            onError?.(error)
+            return
+          }
           if (event.type === 'chunk') {
             onChunk?.(event.content)
           } else if (event.type === 'done') {
+            finished = true
             onFinish?.({ content: event.content, toolCalls: event.toolCalls })
           } else if (event.type === 'error') {
             onError?.(new Error(event.message || 'Stream error'))
           }
         }
       }
+    }
+    if (!finished) {
+      onError?.(new Error('Stream ended before completion'))
     }
   } catch (error) {
     onError?.(error)

@@ -15,6 +15,7 @@ const createOpenAIClient = ({ apiKey, baseUrl }) => {
 
 const sendSse = (res, data) => {
   res.write(`data: ${JSON.stringify(data)}\n\n`)
+  if (typeof res.flush === 'function') res.flush()
 }
 
 const withSilencedTokenWarnings = async fn => {
@@ -88,6 +89,15 @@ export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-cache, no-transform')
   res.setHeader('Connection', 'keep-alive')
   res.setHeader('X-Accel-Buffering', 'no')
+  if (typeof res.flushHeaders === 'function') res.flushHeaders()
+
+  const heartbeat = setInterval(() => {
+    res.write(': ping\n\n')
+    if (typeof res.flush === 'function') res.flush()
+  }, 15000)
+
+  const clearHeartbeat = () => clearInterval(heartbeat)
+  req.on('close', clearHeartbeat)
 
   const streamMode = process.env.LLM_STREAM_MODE || 'langchain'
 
@@ -163,6 +173,7 @@ export default async function handler(req, res) {
         toolCalls: finalToolCalls.length ? finalToolCalls : undefined,
       })
       res.end()
+      clearHeartbeat()
       return
     }
 
@@ -361,8 +372,10 @@ export default async function handler(req, res) {
       })
     })
     res.end()
+    clearHeartbeat()
   } catch (error) {
     sendSse(res, { type: 'error', message: error?.message || 'Stream error' })
     res.end()
+    clearHeartbeat()
   }
 }

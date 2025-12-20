@@ -97,7 +97,7 @@ export const loadSettings = (overrides = {}) => {
     // Chat behavior
     systemPrompt: localSystemPrompt || overrides.systemPrompt || DEFAULT_SYSTEM_PROMPT,
     contextMessageLimit: resolvedContextLimit,
-    themeColor: localThemeColor || overrides.themeColor || 'fox',
+    themeColor: localThemeColor || overrides.themeColor || 'violet',
     enableRelatedQuestions: resolvedRelatedQuestionsPreference,
 
     ...overrides,

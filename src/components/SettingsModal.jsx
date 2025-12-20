@@ -885,7 +885,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                                 />
                                 {showTooltip && (
                                   <div
-                                    className="fixed z-[9999] -translate-x-1/2 -translate-y-full w-48 p-2 bg-gray-900 dark:bg-zinc-700 text-white dark:text-gray-100 text-[11px] rounded-lg shadow-xl pointer-events-none animate-in fade-in zoom-in-95 duration-100"
+                                    className="fixed z-9999 -translate-x-1/2 -translate-y-full w-48 p-2 bg-gray-900 dark:bg-zinc-700 text-white dark:text-gray-100 text-[11px] rounded-lg shadow-xl pointer-events-none animate-in fade-in zoom-in-95 duration-100"
                                     style={{
                                       top: tooltipPos.top,
                                       left: tooltipPos.left,

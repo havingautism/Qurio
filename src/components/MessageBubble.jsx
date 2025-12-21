@@ -607,7 +607,7 @@ const MessageBubble = ({
           containerRef.current = el
           if (typeof bubbleRef === 'function') bubbleRef(el)
         }}
-        className="flex justify-end items-center w-full mt-8 group px-5 sm:px-0"
+        className="flex justify-end items-center w-full mt-8 group px-3 sm:px-0"
         onMouseUp={handleMouseUp}
         onTouchEnd={handleTouchEnd}
         onContextMenu={handleContextMenu}

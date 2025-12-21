@@ -11,8 +11,82 @@
  * @param {Object} [overrides={}] - Optional overrides
  * @returns {Object} The consolidated settings object
  */
-const DEFAULT_SYSTEM_PROMPT =
-  'Respond concisely with a friendly tone and add relevant emojis (2-4) to each reply while keeping clarity and avoiding repetition.'
+const DEFAULT_STYLE_SETTINGS = {
+  baseTone: 'technical',
+  traits: 'default',
+  warmth: 'default',
+  enthusiasm: 'default',
+  headings: 'default',
+  emojis: 'default',
+  customInstruction: '',
+}
+
+const STYLE_PROMPTS = {
+  baseTone: {
+    technical: 'Use a technical, precise tone suitable for developers.',
+    friendly: 'Use a friendly, approachable tone.',
+    professional: 'Use a professional, business-appropriate tone.',
+    academic: 'Use an academic, formal tone with clear reasoning.',
+    creative: 'Use a creative, vivid tone when appropriate.',
+  },
+  traits: {
+    default: '',
+    concise: 'Be concise and avoid filler.',
+    structured: 'Prefer structured answers with clear sections.',
+    detailed: 'Provide thorough explanations with necessary detail.',
+    actionable: 'Prioritize actionable steps and concrete recommendations.',
+  },
+  warmth: {
+    default: '',
+    gentle: 'Be gentle and considerate in phrasing.',
+    empathetic: 'Show empathy and acknowledge user intent or concerns.',
+    direct: 'Keep warmth minimal and focus on direct delivery.',
+  },
+  enthusiasm: {
+    default: '',
+    low: 'Keep enthusiasm low and neutral.',
+    high: 'Use an upbeat, energetic tone.',
+  },
+  headings: {
+    default: '',
+    minimal: 'Use minimal formatting and avoid excessive headings.',
+    structured: 'Use headings and lists to improve scanability.',
+  },
+  emojis: {
+    default: '',
+    none: 'Avoid using emojis.',
+    light: 'Use emojis sparingly.',
+    moderate: 'Use a moderate amount of emojis when fitting.',
+  },
+}
+
+const buildResponseStylePrompt = settings => {
+  const rules = []
+  const baseTonePrompt = STYLE_PROMPTS.baseTone[settings.baseTone]
+  if (baseTonePrompt) rules.push(baseTonePrompt)
+
+  const traitPrompt = STYLE_PROMPTS.traits[settings.traits]
+  if (traitPrompt) rules.push(traitPrompt)
+
+  const warmthPrompt = STYLE_PROMPTS.warmth[settings.warmth]
+  if (warmthPrompt) rules.push(warmthPrompt)
+
+  const enthusiasmPrompt = STYLE_PROMPTS.enthusiasm[settings.enthusiasm]
+  if (enthusiasmPrompt) rules.push(enthusiasmPrompt)
+
+  const headingsPrompt = STYLE_PROMPTS.headings[settings.headings]
+  if (headingsPrompt) rules.push(headingsPrompt)
+
+  const emojisPrompt = STYLE_PROMPTS.emojis[settings.emojis]
+  if (emojisPrompt) rules.push(emojisPrompt)
+
+  const customInstruction =
+    typeof settings.customInstruction === 'string' ? settings.customInstruction.trim() : ''
+  if (customInstruction) rules.push(customInstruction)
+
+  if (rules.length === 0) return ''
+  return `Response style:\n${rules.map(rule => `- ${rule}`).join('\n')}`
+}
 
 export const loadSettings = (overrides = {}) => {
   // Supabase Env Vars
@@ -37,6 +111,15 @@ export const loadSettings = (overrides = {}) => {
   const localContextMessageLimit = localStorage.getItem('contextMessageLimit')
   const localThemeColor = localStorage.getItem('themeColor')
   const localEnableRelatedQuestions = localStorage.getItem('enableRelatedQuestions')
+  const localInterfaceLanguage = localStorage.getItem('interfaceLanguage')
+  const localLlmAnswerLanguage = localStorage.getItem('llmAnswerLanguage')
+  const localStyleBaseTone = localStorage.getItem('styleBaseTone')
+  const localStyleTraits = localStorage.getItem('styleTraits')
+  const localStyleWarmth = localStorage.getItem('styleWarmth')
+  const localStyleEnthusiasm = localStorage.getItem('styleEnthusiasm')
+  const localStyleHeadings = localStorage.getItem('styleHeadings')
+  const localStyleEmojis = localStorage.getItem('styleEmojis')
+  const localStyleCustomInstruction = localStorage.getItem('styleCustomInstruction')
   const parsedContextLimit = parseInt(localContextMessageLimit, 10)
   const resolvedContextLimit = Number.isFinite(parsedContextLimit)
     ? parsedContextLimit
@@ -48,7 +131,7 @@ export const loadSettings = (overrides = {}) => {
         ? localEnableRelatedQuestions === 'true'
         : true
 
-  return {
+  const settings = {
     // Supabase
     supabaseUrl:
       envSupabaseUrl ||
@@ -95,12 +178,31 @@ export const loadSettings = (overrides = {}) => {
     defaultModel: localDefaultModel || overrides.defaultModel || 'gemini-2.5-flash',
 
     // Chat behavior
-    systemPrompt: localSystemPrompt || overrides.systemPrompt || DEFAULT_SYSTEM_PROMPT,
+    systemPrompt: localSystemPrompt || overrides.systemPrompt || '',
     contextMessageLimit: resolvedContextLimit,
     themeColor: localThemeColor || overrides.themeColor || 'violet',
     enableRelatedQuestions: resolvedRelatedQuestionsPreference,
+    interfaceLanguage: localInterfaceLanguage || overrides.interfaceLanguage || 'en',
+    llmAnswerLanguage: localLlmAnswerLanguage || overrides.llmAnswerLanguage || 'English',
+    baseTone:
+      localStyleBaseTone || overrides.baseTone || DEFAULT_STYLE_SETTINGS.baseTone,
+    traits: localStyleTraits || overrides.traits || DEFAULT_STYLE_SETTINGS.traits,
+    warmth: localStyleWarmth || overrides.warmth || DEFAULT_STYLE_SETTINGS.warmth,
+    enthusiasm:
+      localStyleEnthusiasm || overrides.enthusiasm || DEFAULT_STYLE_SETTINGS.enthusiasm,
+    headings: localStyleHeadings || overrides.headings || DEFAULT_STYLE_SETTINGS.headings,
+    emojis: localStyleEmojis || overrides.emojis || DEFAULT_STYLE_SETTINGS.emojis,
+    customInstruction:
+      localStyleCustomInstruction ||
+      overrides.customInstruction ||
+      DEFAULT_STYLE_SETTINGS.customInstruction,
 
     ...overrides,
+  }
+
+  return {
+    ...settings,
+    responseStylePrompt: buildResponseStylePrompt(settings),
   }
 }
 
@@ -149,6 +251,33 @@ export const saveSettings = async settings => {
   }
   if (settings.enableRelatedQuestions !== undefined) {
     localStorage.setItem('enableRelatedQuestions', String(!!settings.enableRelatedQuestions))
+  }
+  if (settings.interfaceLanguage !== undefined) {
+    localStorage.setItem('interfaceLanguage', settings.interfaceLanguage)
+  }
+  if (settings.llmAnswerLanguage !== undefined) {
+    localStorage.setItem('llmAnswerLanguage', settings.llmAnswerLanguage)
+  }
+  if (settings.baseTone !== undefined) {
+    localStorage.setItem('styleBaseTone', settings.baseTone)
+  }
+  if (settings.traits !== undefined) {
+    localStorage.setItem('styleTraits', settings.traits)
+  }
+  if (settings.warmth !== undefined) {
+    localStorage.setItem('styleWarmth', settings.warmth)
+  }
+  if (settings.enthusiasm !== undefined) {
+    localStorage.setItem('styleEnthusiasm', settings.enthusiasm)
+  }
+  if (settings.headings !== undefined) {
+    localStorage.setItem('styleHeadings', settings.headings)
+  }
+  if (settings.emojis !== undefined) {
+    localStorage.setItem('styleEmojis', settings.emojis)
+  }
+  if (settings.customInstruction !== undefined) {
+    localStorage.setItem('styleCustomInstruction', settings.customInstruction)
   }
 
   window.dispatchEvent(new Event('settings-changed'))

@@ -69,6 +69,7 @@ const ChatInterface = ({
     setConversationTitle,
     isLoading,
     setIsLoading,
+    isMetaLoading,
     sendMessage,
   } = useChatStore(
     useShallow(state => ({
@@ -80,6 +81,7 @@ const ChatInterface = ({
       setConversationTitle: state.setConversationTitle,
       isLoading: state.isLoading,
       setIsLoading: state.setIsLoading,
+      isMetaLoading: state.isMetaLoading,
       sendMessage: state.sendMessage,
     })),
   )
@@ -198,8 +200,11 @@ const ChatInterface = ({
         // Clear all other states for a fresh start
         setConversationTitle('')
         setMessages([])
-        setSelectedSpace(null)
-        setIsManualSpaceSelection(false)
+        const shouldPreserveAutoSpace = !isManualSpaceSelection && selectedSpace
+        if (!shouldPreserveAutoSpace) {
+          setSelectedSpace(null)
+          setIsManualSpaceSelection(false)
+        }
         return
       }
 
@@ -207,10 +212,17 @@ const ChatInterface = ({
       // check if we already have messages in the store
       if (activeConversation.id === conversationId && messages.length > 0) {
         // We already have messages (they're being streamed or just completed)
-        // Just update the title and space from the loaded conversation data
-        setConversationTitle(activeConversation.title || 'New Conversation')
-        setSelectedSpace(conversationSpace)
-        setIsManualSpaceSelection(!!conversationSpace)
+        // Only adopt the stored title if it isn't a default placeholder.
+        if (
+          activeConversation.title &&
+          (activeConversation.title !== 'New Conversation' || !conversationTitle)
+        ) {
+          setConversationTitle(activeConversation.title)
+        }
+        if (conversationSpace) {
+          setSelectedSpace(conversationSpace)
+          setIsManualSpaceSelection(!!conversationSpace)
+        }
         return
       }
 
@@ -223,9 +235,21 @@ const ChatInterface = ({
         setMessages([])
       }
       setConversationId(activeConversation.id)
-      setConversationTitle(activeConversation.title || 'New Conversation')
-      setSelectedSpace(conversationSpace)
-      setIsManualSpaceSelection(!!conversationSpace)
+      if (
+        activeConversation.title &&
+        (activeConversation.title !== 'New Conversation' || !conversationTitle)
+      ) {
+        setConversationTitle(activeConversation.title)
+      } else if (!conversationTitle) {
+        setConversationTitle('')
+      }
+      if (conversationSpace) {
+        setSelectedSpace(conversationSpace)
+        setIsManualSpaceSelection(!!conversationSpace)
+      } else if (!selectedSpace) {
+        setSelectedSpace(null)
+        setIsManualSpaceSelection(false)
+      }
       const { data, error } = await listMessages(activeConversation.id)
       if (!error && data) {
         const mapped = data.map(m => {
@@ -258,7 +282,15 @@ const ChatInterface = ({
       setIsLoadingHistory(false)
     }
     loadHistory()
-  }, [activeConversation, conversationSpace, settings])
+  }, [
+    activeConversation,
+    conversationSpace,
+    settings,
+    conversationTitle,
+    messages.length,
+    selectedSpace,
+    isManualSpaceSelection,
+  ])
 
   useEffect(() => {
     // Check if conversationId has changed (new conversation created)
@@ -294,11 +326,13 @@ const ChatInterface = ({
         setSelectedSpace(initialSpaceSelection.space)
         setIsManualSpaceSelection(true)
       } else if (initialSpaceSelection?.mode === 'auto') {
-        setSelectedSpace(null)
-        setIsManualSpaceSelection(false)
+        if (!selectedSpace && !isManualSpaceSelection) {
+          setSelectedSpace(null)
+          setIsManualSpaceSelection(false)
+        }
       }
     }
-  }, [initialSpaceSelection, activeConversation])
+  }, [initialSpaceSelection, activeConversation, selectedSpace, isManualSpaceSelection])
 
   // Handle click outside to close selector
   useEffect(() => {
@@ -863,9 +897,12 @@ const ChatInterface = ({
             <button
               onClick={() => setIsSelectorOpen(!isSelectorOpen)}
               className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors text-sm font-medium text-gray-700 dark:text-gray-300"
+              disabled={isMetaLoading}
             >
               <LayoutGrid size={16} className="text-gray-400 hidden sm:inline" />
-              {displaySpace ? (
+              {isMetaLoading ? (
+                <span className="text-gray-500 animate-pulse">...</span>
+              ) : displaySpace ? (
                 <div className="flex items-center gap-1">
                   <span className="text-lg">
                     <EmojiDisplay emoji={displaySpace.emoji} size="1.125rem" />
@@ -919,8 +956,12 @@ const ChatInterface = ({
           </div>
 
           <div className="flex items-center gap-2 flex-1 min-w-0">
-            <h1 className="text-m sm:text-xl font-medium text-gray-800 dark:text-gray-100 truncate flex items-center gap-1">
-              {conversationTitle || 'New Conversation'}
+            <h1 className="text-m sm:text-xl font-medium text-gray-800 dark:text-gray-100 truncate flex items-center gap-2">
+              {isMetaLoading ? (
+                <span className="inline-block h-5 w-40 sm:w-56 rounded-md bg-gray-200 dark:bg-zinc-700 animate-pulse" />
+              ) : (
+                conversationTitle || 'New Conversation'
+              )}
               {isRegeneratingTitle && <span className="animate-pulse">...</span>}
             </h1>
             <button

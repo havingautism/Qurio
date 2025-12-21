@@ -21,8 +21,8 @@ import { loadSettings } from './settings'
  * @returns {Object} Validation result with isValid flag and optional reason
  */
 const validateInput = (text, attachments, isLoading) => {
-  // Check if input is valid (has text or attachments)
-  if (!text.trim() && attachments.length === 0) {
+  // Check if input is valid (text is required)
+  if (!text.trim()) {
     return { isValid: false, reason: 'empty_input' }
   }
 
@@ -98,6 +98,18 @@ const normalizeMessageForSend = message => {
   return message
 }
 
+const getLanguageInstruction = settings => {
+  const trimmedLanguage =
+    typeof settings?.llmAnswerLanguage === 'string' ? settings.llmAnswerLanguage.trim() : ''
+  return trimmedLanguage ? `Reply in ${trimmedLanguage}.` : ''
+}
+
+const applyLanguageInstructionToText = (text, instruction) => {
+  if (!instruction) return text
+  const baseText = typeof text === 'string' ? text.trim() : ''
+  return baseText ? `${baseText}\n\n${instruction}` : instruction
+}
+
 // ========================================
 // EDITING & HISTORY MANAGEMENT
 // ========================================
@@ -144,6 +156,44 @@ const handleEditingAndHistory = (messages, editingInfo, userMessage, historyOver
 // ========================================
 
 /**
+ * Preselects a space for auto mode before the first request so the space prompt
+ * can be applied to the initial message.
+ * @param {string} firstMessage - Raw user text
+ * @param {Object} settings - User settings and API configuration
+ * @param {Array} spaces - Available spaces for auto-selection
+ * @returns {Promise<{ title: string, space: Object|null }>}
+ */
+const preselectSpaceForAuto = async (firstMessage, settings, spaces) => {
+  const provider = getProvider(settings.apiProvider)
+  const credentials = provider.getCredentials(settings)
+  const model = getModelForTask('generateTitleAndSpace', settings)
+  const languageInstruction = getLanguageInstruction(settings)
+  const promptText = applyLanguageInstructionToText(firstMessage, languageInstruction)
+  return provider.generateTitleAndSpace(
+    promptText,
+    spaces || [],
+    credentials.apiKey,
+    credentials.baseUrl,
+    model,
+  )
+}
+
+/**
+ * Preselects a title for manual space before the first request.
+ * @param {string} firstMessage - Raw user text
+ * @param {Object} settings - User settings and API configuration
+ * @returns {Promise<string>}
+ */
+const preselectTitleForManual = async (firstMessage, settings) => {
+  const provider = getProvider(settings.apiProvider)
+  const credentials = provider.getCredentials(settings)
+  const model = getModelForTask('generateTitle', settings)
+  const languageInstruction = getLanguageInstruction(settings)
+  const promptText = applyLanguageInstructionToText(firstMessage, languageInstruction)
+  return provider.generateTitle(promptText, credentials.apiKey, credentials.baseUrl, model)
+}
+
+/**
  * Ensures a conversation exists in the database, creating one if necessary
  * @param {string|null} conversationId - Existing conversation ID or null
  * @param {Object} settings - User settings including API provider
@@ -161,10 +211,7 @@ const ensureConversationExists = async (conversationId, settings, toggles, space
 
   // Create new conversation payload
   const creationPayload = {
-    space_id:
-      spaceInfo.isManualSpaceSelection && spaceInfo.selectedSpace
-        ? spaceInfo.selectedSpace.id
-        : null,
+    space_id: spaceInfo.selectedSpace ? spaceInfo.selectedSpace.id : null,
     title: 'New Conversation',
     api_provider: settings.apiProvider,
   }
@@ -239,13 +286,22 @@ const persistUserMessage = async (convId, editingInfo, content, set) => {
  * @returns {Object} Contains conversationMessages (for API) and aiMessagePlaceholder (for UI)
  */
 const prepareAIPlaceholder = (historyForSend, userMessageForSend, spaceInfo, set, toggles) => {
-  const { systemPrompt } = loadSettings()
+  const { responseStylePrompt, llmAnswerLanguage } = loadSettings()
 
-  // Use space prompt if available; otherwise fall back to global system prompt
-  const activePrompt = spaceInfo.selectedSpace?.prompt || systemPrompt || null
+  const spacePrompt =
+    typeof spaceInfo.selectedSpace?.prompt === 'string'
+      ? spaceInfo.selectedSpace.prompt.trim()
+      : ''
+  const stylePrompt =
+    typeof responseStylePrompt === 'string' ? responseStylePrompt.trim() : ''
+  const trimmedLanguage = typeof llmAnswerLanguage === 'string' ? llmAnswerLanguage.trim() : ''
+  const languagePrompt = trimmedLanguage ? `Reply in ${trimmedLanguage}.` : ''
+
+  const combinedPrompt = [spacePrompt, stylePrompt, languagePrompt].filter(Boolean).join('\n\n')
+  const resolvedPrompt = combinedPrompt ? combinedPrompt : null
 
   const conversationMessagesBase = [
-    ...(activePrompt ? [{ role: 'system', content: activePrompt }] : []),
+    ...(resolvedPrompt ? [{ role: 'system', content: resolvedPrompt }] : []),
     ...historyForSend,
   ]
 
@@ -275,6 +331,8 @@ const prepareAIPlaceholder = (historyForSend, userMessageForSend, spaceInfo, set
  * @param {Object} toggles - Feature toggles (search, thinking)
  * @param {Object} callbacks - Optional callback functions for title/space generation
  * @param {Array} spaces - Available spaces for auto-generation
+ * @param {Object} spaceInfo - Space selection and prompt information
+ * @param {string|null} preselectedTitle - Preselected title for auto mode (optional)
  * @param {Function} get - Zustand get function
  * @param {Function} set - Zustand set function
  * @param {number} historyLengthBeforeSend - Length of the conversation before the current user turn (for metadata)
@@ -288,6 +346,7 @@ const callAIAPI = async (
   callbacks,
   spaces,
   spaceInfo,
+  preselectedTitle,
   get,
   set,
   historyLengthBeforeSend,
@@ -412,6 +471,8 @@ const callAIAPI = async (
           set,
           historyLengthBeforeSend === 0,
           firstUserText,
+          spaceInfo,
+          preselectedTitle,
           toggles,
           model,
         )
@@ -457,6 +518,8 @@ const callAIAPI = async (
  * @param {Function} set - Zustand set function
  * @param {boolean} [isFirstTurnOverride] - Explicit flag indicating first turn
  * @param {string} [firstUserText] - Raw text of the initial user message
+ * @param {Object} spaceInfo - Space selection information
+ * @param {string|null} preselectedTitle - Preselected title for auto mode (optional)
  */
 const finalizeMessage = async (
   result,
@@ -467,6 +530,8 @@ const finalizeMessage = async (
   set,
   isFirstTurnOverride,
   firstUserText,
+  spaceInfo,
+  preselectedTitle,
   toggles = {},
   modelUsed = null,
 ) => {
@@ -512,7 +577,7 @@ const finalizeMessage = async (
 
   // Generate title and space if this is the first turn
   let resolvedTitle = currentStore.conversationTitle
-  let resolvedSpace = currentStore.spaceInfo?.selectedSpace || null
+  let resolvedSpace = spaceInfo?.selectedSpace || null
 
   const isFirstTurn =
     typeof isFirstTurnOverride === 'boolean'
@@ -533,12 +598,17 @@ const finalizeMessage = async (
   const firstMessageText = firstUserText ?? fallbackFirstUserText
 
   if (isFirstTurn) {
-    if (currentStore.spaceInfo?.isManualSpaceSelection && currentStore.spaceInfo?.selectedSpace) {
+    if (typeof preselectedTitle === 'string' && preselectedTitle.trim()) {
+      resolvedTitle = preselectedTitle.trim()
+      set({ conversationTitle: resolvedTitle })
+    } else if (spaceInfo?.isManualSpaceSelection && spaceInfo?.selectedSpace) {
       // Generate title only when space is manually selected
       const provider = getProvider(settings.apiProvider)
       const credentials = provider.getCredentials(settings)
+      const languageInstruction = getLanguageInstruction(settings)
+      const promptText = applyLanguageInstructionToText(firstMessageText, languageInstruction)
       resolvedTitle = await provider.generateTitle(
-        firstMessageText,
+        promptText,
         credentials.apiKey,
         credentials.baseUrl,
         getModelForTask('generateTitle', settings),
@@ -548,8 +618,10 @@ const finalizeMessage = async (
       // Use callback to generate both title and space
       const provider = getProvider(settings.apiProvider)
       const credentials = provider.getCredentials(settings)
+      const languageInstruction = getLanguageInstruction(settings)
+      const promptText = applyLanguageInstructionToText(firstMessageText, languageInstruction)
       const { title, space } = await callbacks.onTitleAndSpaceGenerated(
-        firstMessageText,
+        promptText,
         credentials.apiKey,
         credentials.baseUrl,
       )
@@ -560,8 +632,10 @@ const finalizeMessage = async (
       // Generate both title and space automatically
       const provider = getProvider(settings.apiProvider)
       const credentials = provider.getCredentials(settings)
+      const languageInstruction = getLanguageInstruction(settings)
+      const promptText = applyLanguageInstructionToText(firstMessageText, languageInstruction)
       const { title, space } = await provider.generateTitleAndSpace(
-        firstMessageText,
+        promptText,
         spaces || [],
         credentials.apiKey,
         credentials.baseUrl,
@@ -593,6 +667,10 @@ const finalizeMessage = async (
         role: m.role === 'ai' ? 'assistant' : m.role,
         content: normalizeContent(m.content),
       }))
+      const languageInstruction = getLanguageInstruction(settings)
+      if (languageInstruction) {
+        sanitizedMessages.push({ role: 'system', content: languageInstruction })
+      }
 
       const provider = getProvider(settings.apiProvider)
       const credentials = provider.getCredentials(settings)
@@ -742,6 +820,8 @@ const useChatStore = create((set, get) => ({
   conversationTitle: '',
   /** Loading state for ongoing operations */
   isLoading: false,
+  /** Loading state for preselecting space/title in auto mode */
+  isMetaLoading: false,
 
   // ========================================
   // STATE SETTERS
@@ -757,6 +837,8 @@ const useChatStore = create((set, get) => ({
   setConversationTitle: conversationTitle => set({ conversationTitle }),
   /** Sets loading state */
   setIsLoading: isLoading => set({ isLoading }),
+  /** Sets meta loading state */
+  setIsMetaLoading: isMetaLoading => set({ isMetaLoading }),
 
   /** Resets conversation to initial state */
   resetConversation: () =>
@@ -765,6 +847,7 @@ const useChatStore = create((set, get) => ({
       conversationId: null,
       conversationTitle: '',
       isLoading: false,
+      isMetaLoading: false,
     }),
 
   // ========================================
@@ -790,11 +873,12 @@ const useChatStore = create((set, get) => ({
    * 1. Validates input and checks for ongoing operations
    * 2. Constructs user message with attachments
    * 3. Handles message editing and history context
-   * 4. Ensures conversation exists in database
-   * 5. Persists user message
-   * 6. Prepares AI message placeholder for streaming
-   * 7. Calls AI API with streaming support
-   * 8. Handles response finalization (title, space, related questions)
+   * 4. Preselects auto space (if needed) before first request
+   * 5. Ensures conversation exists in database
+   * 6. Persists user message
+   * 7. Prepares AI message placeholder for streaming
+   * 8. Calls AI API with streaming support
+   * 9. Handles response finalization (title, space, related questions)
    */
   sendMessage: async ({
     text,
@@ -842,10 +926,51 @@ const useChatStore = create((set, get) => ({
         ? editingInfo.index
         : messages.length
 
-    // Step 4: Ensure Conversation Exists
+    // Step 4: Preselect space/title before first request (if needed)
+    let resolvedSpaceInfo = spaceInfo
+    let preselectedTitle = null
+    const isFirstTurn = historyLengthBeforeSend === 0
+    const shouldPreselect =
+      !spaceInfo?.isManualSpaceSelection && !spaceInfo?.selectedSpace && text.trim()
+    const shouldPreselectTitleForManual =
+      isFirstTurn && spaceInfo?.isManualSpaceSelection && spaceInfo?.selectedSpace
+    if (shouldPreselect || shouldPreselectTitleForManual) {
+      set({ isMetaLoading: true })
+      try {
+        if (shouldPreselect) {
+          const { title, space } = await preselectSpaceForAuto(text, settings, spaces)
+          if (space) {
+            resolvedSpaceInfo = { ...spaceInfo, selectedSpace: space }
+            callbacks?.onSpaceResolved?.(space)
+          }
+          if (title) {
+            preselectedTitle = title
+            set({ conversationTitle: title })
+          }
+        } else if (shouldPreselectTitleForManual) {
+          const title = await preselectTitleForManual(text, settings)
+          if (title) {
+            preselectedTitle = title
+            set({ conversationTitle: title })
+          }
+        }
+      } catch (error) {
+        console.error('Preselection failed:', error)
+      } finally {
+        set({ isMetaLoading: false })
+      }
+    }
+
+    // Step 5: Ensure Conversation Exists
     let convInfo
     try {
-      convInfo = await ensureConversationExists(conversationId, settings, toggles, spaceInfo, set)
+      convInfo = await ensureConversationExists(
+        conversationId,
+        settings,
+        toggles,
+        resolvedSpaceInfo,
+        set,
+      )
     } catch (convError) {
       return // Early return on conversation creation failure
     }
@@ -856,27 +981,27 @@ const useChatStore = create((set, get) => ({
         convInfo.data || {
           id: convId,
           title: 'New Conversation',
-          space_id: spaceInfo?.selectedSpace?.id || null,
+          space_id: resolvedSpaceInfo?.selectedSpace?.id || null,
           api_provider: settings.apiProvider,
         },
       )
     }
 
-    // Step 5: Persist User Message
+    // Step 6: Persist User Message
     if (convId) {
       await persistUserMessage(convId, editingInfo, userMessage.content, set)
     }
 
-    // Step 6: Prepare AI Placeholder
+    // Step 7: Prepare AI Placeholder
     const { conversationMessages, aiMessagePlaceholder } = prepareAIPlaceholder(
       historyForSend,
       userMessageForSend,
-      spaceInfo,
+      resolvedSpaceInfo,
       set,
       toggles,
     )
 
-    // Step 7: Call API & Stream
+    // Step 8: Call API & Stream
     await callAIAPI(
       conversationMessages,
       aiMessagePlaceholder,
@@ -884,7 +1009,8 @@ const useChatStore = create((set, get) => ({
       toggles,
       callbacks,
       spaces,
-      spaceInfo,
+      resolvedSpaceInfo,
+      preselectedTitle,
       get,
       set,
       historyLengthBeforeSend,

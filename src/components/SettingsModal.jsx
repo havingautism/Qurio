@@ -13,6 +13,7 @@ import {
   Link,
   ChevronDown,
   Check,
+  Smile,
   Github,
   RefreshCw,
   Copy,
@@ -159,7 +160,62 @@ const PROVIDER_LABELS = {
   siliconflow: 'SiliconFlow',
 }
 
+const INTERFACE_LANGUAGE_OPTIONS = [{ value: 'en', label: 'English' }]
 
+const LLM_ANSWER_LANGUAGE_OPTIONS = [
+  { value: 'English', label: 'English' },
+  { value: 'Chinese (Simplified)', label: 'Chinese (Simplified)' },
+  { value: 'Chinese (Traditional)', label: 'Chinese (Traditional)' },
+  { value: 'Japanese', label: 'Japanese' },
+  { value: 'Korean', label: 'Korean' },
+  { value: 'Spanish', label: 'Spanish' },
+  { value: 'French', label: 'French' },
+  { value: 'German', label: 'German' },
+  { value: 'Portuguese', label: 'Portuguese' },
+  { value: 'Italian', label: 'Italian' },
+]
+
+const STYLE_BASE_TONE_OPTIONS = [
+  { value: 'technical', label: 'Technical' },
+  { value: 'friendly', label: 'Friendly' },
+  { value: 'professional', label: 'Professional' },
+  { value: 'academic', label: 'Academic' },
+  { value: 'creative', label: 'Creative' },
+]
+
+const STYLE_TRAIT_OPTIONS = [
+  { value: 'default', label: 'Default' },
+  { value: 'concise', label: 'Concise' },
+  { value: 'structured', label: 'Structured' },
+  { value: 'detailed', label: 'Detailed' },
+  { value: 'actionable', label: 'Actionable' },
+]
+
+const STYLE_WARMTH_OPTIONS = [
+  { value: 'default', label: 'Default' },
+  { value: 'gentle', label: 'Gentle' },
+  { value: 'empathetic', label: 'Empathetic' },
+  { value: 'direct', label: 'Direct' },
+]
+
+const STYLE_ENTHUSIASM_OPTIONS = [
+  { value: 'default', label: 'Default' },
+  { value: 'low', label: 'Low' },
+  { value: 'high', label: 'High' },
+]
+
+const STYLE_HEADINGS_OPTIONS = [
+  { value: 'default', label: 'Default' },
+  { value: 'minimal', label: 'Minimal' },
+  { value: 'structured', label: 'Headings & Lists' },
+]
+
+const STYLE_EMOJI_OPTIONS = [
+  { value: 'default', label: 'Default' },
+  { value: 'none', label: 'None' },
+  { value: 'light', label: 'Light' },
+  { value: 'moderate', label: 'Moderate' },
+]
 
 const SettingsModal = ({ isOpen, onClose }) => {
   const renderEnvHint = hasEnv =>
@@ -179,7 +235,10 @@ const SettingsModal = ({ isOpen, onClose }) => {
   const [testResult, setTestResult] = useState(null)
   const [isProviderDropdownOpen, setIsProviderDropdownOpen] = useState(false)
   const providerDropdownRef = useRef(null)
-  const [systemPrompt, setSystemPrompt] = useState('')
+  const [isInterfaceLanguageDropdownOpen, setIsInterfaceLanguageDropdownOpen] = useState(false)
+  const interfaceLanguageDropdownRef = useRef(null)
+  const [isLlmLanguageDropdownOpen, setIsLlmLanguageDropdownOpen] = useState(false)
+  const llmLanguageDropdownRef = useRef(null)
   const [contextMessageLimit, setContextMessageLimit] = useState(12)
   const [modelId, setModelId] = useState('')
   // Model configuration states
@@ -187,6 +246,27 @@ const SettingsModal = ({ isOpen, onClose }) => {
   const [defaultModel, setDefaultModel] = useState('gemini-2.5-flash')
   const [themeColor, setThemeColor] = useState('violet')
   const [enableRelatedQuestions, setEnableRelatedQuestions] = useState(false)
+  const [interfaceLanguage, setInterfaceLanguage] = useState('en')
+  const [llmAnswerLanguage, setLlmAnswerLanguage] = useState('English')
+  const [baseTone, setBaseTone] = useState('technical')
+  const [traits, setTraits] = useState('default')
+  const [warmth, setWarmth] = useState('default')
+  const [enthusiasm, setEnthusiasm] = useState('default')
+  const [headings, setHeadings] = useState('default')
+  const [emojis, setEmojis] = useState('default')
+  const [customInstruction, setCustomInstruction] = useState('')
+  const [isBaseToneDropdownOpen, setIsBaseToneDropdownOpen] = useState(false)
+  const baseToneDropdownRef = useRef(null)
+  const [isTraitsDropdownOpen, setIsTraitsDropdownOpen] = useState(false)
+  const traitsDropdownRef = useRef(null)
+  const [isWarmthDropdownOpen, setIsWarmthDropdownOpen] = useState(false)
+  const warmthDropdownRef = useRef(null)
+  const [isEnthusiasmDropdownOpen, setIsEnthusiasmDropdownOpen] = useState(false)
+  const enthusiasmDropdownRef = useRef(null)
+  const [isHeadingsDropdownOpen, setIsHeadingsDropdownOpen] = useState(false)
+  const headingsDropdownRef = useRef(null)
+  const [isEmojisDropdownOpen, setIsEmojisDropdownOpen] = useState(false)
+  const emojisDropdownRef = useRef(null)
 
   // Dynamic model states
   const [dynamicModels, setDynamicModels] = useState([])
@@ -207,15 +287,62 @@ const SettingsModal = ({ isOpen, onClose }) => {
       if (providerDropdownRef.current && !providerDropdownRef.current.contains(event.target)) {
         setIsProviderDropdownOpen(false)
       }
+      if (
+        interfaceLanguageDropdownRef.current &&
+        !interfaceLanguageDropdownRef.current.contains(event.target)
+      ) {
+        setIsInterfaceLanguageDropdownOpen(false)
+      }
+      if (llmLanguageDropdownRef.current && !llmLanguageDropdownRef.current.contains(event.target)) {
+        setIsLlmLanguageDropdownOpen(false)
+      }
+      if (baseToneDropdownRef.current && !baseToneDropdownRef.current.contains(event.target)) {
+        setIsBaseToneDropdownOpen(false)
+      }
+      if (traitsDropdownRef.current && !traitsDropdownRef.current.contains(event.target)) {
+        setIsTraitsDropdownOpen(false)
+      }
+      if (warmthDropdownRef.current && !warmthDropdownRef.current.contains(event.target)) {
+        setIsWarmthDropdownOpen(false)
+      }
+      if (enthusiasmDropdownRef.current && !enthusiasmDropdownRef.current.contains(event.target)) {
+        setIsEnthusiasmDropdownOpen(false)
+      }
+      if (headingsDropdownRef.current && !headingsDropdownRef.current.contains(event.target)) {
+        setIsHeadingsDropdownOpen(false)
+      }
+      if (emojisDropdownRef.current && !emojisDropdownRef.current.contains(event.target)) {
+        setIsEmojisDropdownOpen(false)
+      }
     }
 
-    if (isProviderDropdownOpen) {
+    if (
+      isProviderDropdownOpen ||
+      isInterfaceLanguageDropdownOpen ||
+      isLlmLanguageDropdownOpen ||
+      isBaseToneDropdownOpen ||
+      isTraitsDropdownOpen ||
+      isWarmthDropdownOpen ||
+      isEnthusiasmDropdownOpen ||
+      isHeadingsDropdownOpen ||
+      isEmojisDropdownOpen
+    ) {
       document.addEventListener('mousedown', handleClickOutside)
     }
     return () => {
       document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [isProviderDropdownOpen])
+  }, [
+    isProviderDropdownOpen,
+    isInterfaceLanguageDropdownOpen,
+    isLlmLanguageDropdownOpen,
+    isBaseToneDropdownOpen,
+    isTraitsDropdownOpen,
+    isWarmthDropdownOpen,
+    isEnthusiasmDropdownOpen,
+    isHeadingsDropdownOpen,
+    isEmojisDropdownOpen,
+  ])
 
   const menuItems = [
     { id: 'general', label: 'General', icon: Settings },
@@ -241,7 +368,6 @@ const SettingsModal = ({ isOpen, onClose }) => {
       if (settings.SiliconFlowKey) setSiliconFlowKey(settings.SiliconFlowKey)
       if (settings.apiProvider) setApiProvider(settings.apiProvider)
       if (settings.googleApiKey) setGoogleApiKey(settings.googleApiKey)
-      if (settings.systemPrompt) setSystemPrompt(settings.systemPrompt)
       if (settings.contextMessageLimit) setContextMessageLimit(Number(settings.contextMessageLimit))
       // Load model configuration
       if (settings.liteModel) setLiteModel(settings.liteModel)
@@ -249,6 +375,16 @@ const SettingsModal = ({ isOpen, onClose }) => {
       if (settings.themeColor) setThemeColor(settings.themeColor)
       if (typeof settings.enableRelatedQuestions === 'boolean')
         setEnableRelatedQuestions(settings.enableRelatedQuestions)
+      if (settings.interfaceLanguage) setInterfaceLanguage(settings.interfaceLanguage)
+      if (settings.llmAnswerLanguage) setLlmAnswerLanguage(settings.llmAnswerLanguage)
+      if (settings.baseTone) setBaseTone(settings.baseTone)
+      if (settings.traits) setTraits(settings.traits)
+      if (settings.warmth) setWarmth(settings.warmth)
+      if (settings.enthusiasm) setEnthusiasm(settings.enthusiasm)
+      if (settings.headings) setHeadings(settings.headings)
+      if (settings.emojis) setEmojis(settings.emojis)
+      if (typeof settings.customInstruction === 'string')
+        setCustomInstruction(settings.customInstruction)
     }
   }, [isOpen])
 
@@ -461,13 +597,21 @@ const SettingsModal = ({ isOpen, onClose }) => {
       SiliconFlowKey,
       supabaseUrl,
       supabaseKey,
-      systemPrompt,
       contextMessageLimit,
       // Save model configuration
       liteModel,
       defaultModel,
       themeColor,
       enableRelatedQuestions,
+      interfaceLanguage,
+      llmAnswerLanguage,
+      baseTone,
+      traits,
+      warmth,
+      enthusiasm,
+      headings,
+      emojis,
+      customInstruction,
     })
 
     onClose()
@@ -531,6 +675,67 @@ const SettingsModal = ({ isOpen, onClose }) => {
             {activeTab === 'general' && (
               <div className="flex flex-col gap-8 max-w-2xl">
                 {/* ... existing general settings ... */}
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-medium text-gray-900 dark:text-white">
+                    Interface Language
+                  </label>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Only English is supported right now.
+                  </p>
+                  <div className="relative w-full" ref={interfaceLanguageDropdownRef}>
+                    <button
+                      onClick={() => {
+                        const nextOpen = !isInterfaceLanguageDropdownOpen
+                        setIsProviderDropdownOpen(false)
+                        setIsLlmLanguageDropdownOpen(false)
+                        setIsBaseToneDropdownOpen(false)
+                        setIsTraitsDropdownOpen(false)
+                        setIsWarmthDropdownOpen(false)
+                        setIsEnthusiasmDropdownOpen(false)
+                        setIsHeadingsDropdownOpen(false)
+                        setIsEmojisDropdownOpen(false)
+                        setIsInterfaceLanguageDropdownOpen(nextOpen)
+                      }}
+                      className="w-full flex items-center justify-between pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-zinc-800"
+                    >
+                      <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center">
+                        <Monitor size={16} className="text-gray-400" />
+                      </div>
+                      <span>
+                        {INTERFACE_LANGUAGE_OPTIONS.find(
+                          option => option.value === interfaceLanguage,
+                        )?.label || interfaceLanguage}
+                      </span>
+                      <ChevronDown
+                        size={16}
+                        className={clsx(
+                          'text-gray-400 transition-transform duration-200',
+                          isInterfaceLanguageDropdownOpen && 'rotate-180',
+                        )}
+                      />
+                    </button>
+
+                    {isInterfaceLanguageDropdownOpen && (
+                      <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg shadow-xl z-20 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+                        {INTERFACE_LANGUAGE_OPTIONS.map(option => (
+                          <button
+                            key={option.value}
+                            onClick={() => {
+                              setInterfaceLanguage(option.value)
+                              setIsInterfaceLanguageDropdownOpen(false)
+                            }}
+                            className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
+                          >
+                            <span>{option.label}</span>
+                            {interfaceLanguage === option.value && (
+                              <Check size={14} className="text-primary-500" />
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
                 {/* API Provider Selection */}
                 <div className="flex flex-col gap-6">
                   <div className="flex flex-col gap-1">
@@ -544,7 +749,18 @@ const SettingsModal = ({ isOpen, onClose }) => {
 
                   <div className="relative" ref={providerDropdownRef}>
                     <button
-                      onClick={() => setIsProviderDropdownOpen(!isProviderDropdownOpen)}
+                      onClick={() => {
+                        const nextOpen = !isProviderDropdownOpen
+                        setIsInterfaceLanguageDropdownOpen(false)
+                        setIsLlmLanguageDropdownOpen(false)
+                        setIsBaseToneDropdownOpen(false)
+                        setIsTraitsDropdownOpen(false)
+                        setIsWarmthDropdownOpen(false)
+                        setIsEnthusiasmDropdownOpen(false)
+                        setIsHeadingsDropdownOpen(false)
+                        setIsEmojisDropdownOpen(false)
+                        setIsProviderDropdownOpen(nextOpen)
+                      }}
                       className="w-full flex items-center justify-between pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-zinc-800"
                     >
                       <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center">
@@ -1194,6 +1410,379 @@ const SettingsModal = ({ isOpen, onClose }) => {
               </div>
             )}
 
+            {activeTab === 'personalization' && (
+              <div className="flex flex-col gap-8 max-w-2xl">
+                <div className="flex flex-col gap-1">
+                  <label className="text-sm font-medium text-gray-900 dark:text-white">
+                    Response Style
+                  </label>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Fine-tune how replies sound and how they are structured.
+                  </p>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-medium text-gray-900 dark:text-white">
+                    Base Style and Tone
+                  </label>
+                  <div className="relative w-full" ref={baseToneDropdownRef}>
+                    <button
+                      onClick={() => {
+                        const nextOpen = !isBaseToneDropdownOpen
+                        setIsProviderDropdownOpen(false)
+                        setIsInterfaceLanguageDropdownOpen(false)
+                        setIsLlmLanguageDropdownOpen(false)
+                        setIsTraitsDropdownOpen(false)
+                        setIsWarmthDropdownOpen(false)
+                        setIsEnthusiasmDropdownOpen(false)
+                        setIsHeadingsDropdownOpen(false)
+                        setIsEmojisDropdownOpen(false)
+                        setIsBaseToneDropdownOpen(nextOpen)
+                      }}
+                      className="w-full flex items-center justify-between pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-zinc-800"
+                    >
+                      <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center">
+                        <Palette size={16} className="text-gray-400" />
+                      </div>
+                      <span>
+                        {STYLE_BASE_TONE_OPTIONS.find(option => option.value === baseTone)?.label ||
+                          baseTone}
+                      </span>
+                      <ChevronDown
+                        size={16}
+                        className={clsx(
+                          'text-gray-400 transition-transform duration-200',
+                          isBaseToneDropdownOpen && 'rotate-180',
+                        )}
+                      />
+                    </button>
+
+                    {isBaseToneDropdownOpen && (
+                      <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg shadow-xl z-20 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+                        {STYLE_BASE_TONE_OPTIONS.map(option => (
+                          <button
+                            key={option.value}
+                            onClick={() => {
+                              setBaseTone(option.value)
+                              setIsBaseToneDropdownOpen(false)
+                            }}
+                            className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
+                          >
+                            <span>{option.label}</span>
+                            {baseTone === option.value && (
+                              <Check size={14} className="text-primary-500" />
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-medium text-gray-900 dark:text-white">Traits</label>
+                  <div className="relative w-full" ref={traitsDropdownRef}>
+                    <button
+                      onClick={() => {
+                        const nextOpen = !isTraitsDropdownOpen
+                        setIsProviderDropdownOpen(false)
+                        setIsInterfaceLanguageDropdownOpen(false)
+                        setIsLlmLanguageDropdownOpen(false)
+                        setIsBaseToneDropdownOpen(false)
+                        setIsWarmthDropdownOpen(false)
+                        setIsEnthusiasmDropdownOpen(false)
+                        setIsHeadingsDropdownOpen(false)
+                        setIsEmojisDropdownOpen(false)
+                        setIsTraitsDropdownOpen(nextOpen)
+                      }}
+                      className="w-full flex items-center justify-between pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-zinc-800"
+                    >
+                      <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center">
+                        <Box size={16} className="text-gray-400" />
+                      </div>
+                      <span>
+                        {STYLE_TRAIT_OPTIONS.find(option => option.value === traits)?.label ||
+                          traits}
+                      </span>
+                      <ChevronDown
+                        size={16}
+                        className={clsx(
+                          'text-gray-400 transition-transform duration-200',
+                          isTraitsDropdownOpen && 'rotate-180',
+                        )}
+                      />
+                    </button>
+
+                    {isTraitsDropdownOpen && (
+                      <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg shadow-xl z-20 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+                        {STYLE_TRAIT_OPTIONS.map(option => (
+                          <button
+                            key={option.value}
+                            onClick={() => {
+                              setTraits(option.value)
+                              setIsTraitsDropdownOpen(false)
+                            }}
+                            className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
+                          >
+                            <span>{option.label}</span>
+                            {traits === option.value && (
+                              <Check size={14} className="text-primary-500" />
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-medium text-gray-900 dark:text-white">
+                    Warmth and Care
+                  </label>
+                  <div className="relative w-full" ref={warmthDropdownRef}>
+                    <button
+                      onClick={() => {
+                        const nextOpen = !isWarmthDropdownOpen
+                        setIsProviderDropdownOpen(false)
+                        setIsInterfaceLanguageDropdownOpen(false)
+                        setIsLlmLanguageDropdownOpen(false)
+                        setIsBaseToneDropdownOpen(false)
+                        setIsTraitsDropdownOpen(false)
+                        setIsEnthusiasmDropdownOpen(false)
+                        setIsHeadingsDropdownOpen(false)
+                        setIsEmojisDropdownOpen(false)
+                        setIsWarmthDropdownOpen(nextOpen)
+                      }}
+                      className="w-full flex items-center justify-between pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-zinc-800"
+                    >
+                      <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center">
+                        <User size={16} className="text-gray-400" />
+                      </div>
+                      <span>
+                        {STYLE_WARMTH_OPTIONS.find(option => option.value === warmth)?.label ||
+                          warmth}
+                      </span>
+                      <ChevronDown
+                        size={16}
+                        className={clsx(
+                          'text-gray-400 transition-transform duration-200',
+                          isWarmthDropdownOpen && 'rotate-180',
+                        )}
+                      />
+                    </button>
+
+                    {isWarmthDropdownOpen && (
+                      <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg shadow-xl z-20 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+                        {STYLE_WARMTH_OPTIONS.map(option => (
+                          <button
+                            key={option.value}
+                            onClick={() => {
+                              setWarmth(option.value)
+                              setIsWarmthDropdownOpen(false)
+                            }}
+                            className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
+                          >
+                            <span>{option.label}</span>
+                            {warmth === option.value && (
+                              <Check size={14} className="text-primary-500" />
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-medium text-gray-900 dark:text-white">
+                    Enthusiasm
+                  </label>
+                  <div className="relative w-full" ref={enthusiasmDropdownRef}>
+                    <button
+                      onClick={() => {
+                        const nextOpen = !isEnthusiasmDropdownOpen
+                        setIsProviderDropdownOpen(false)
+                        setIsInterfaceLanguageDropdownOpen(false)
+                        setIsLlmLanguageDropdownOpen(false)
+                        setIsBaseToneDropdownOpen(false)
+                        setIsTraitsDropdownOpen(false)
+                        setIsWarmthDropdownOpen(false)
+                        setIsHeadingsDropdownOpen(false)
+                        setIsEmojisDropdownOpen(false)
+                        setIsEnthusiasmDropdownOpen(nextOpen)
+                      }}
+                      className="w-full flex items-center justify-between pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-zinc-800"
+                    >
+                      <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center">
+                        <MessageSquare size={16} className="text-gray-400" />
+                      </div>
+                      <span>
+                        {STYLE_ENTHUSIASM_OPTIONS.find(option => option.value === enthusiasm)
+                          ?.label || enthusiasm}
+                      </span>
+                      <ChevronDown
+                        size={16}
+                        className={clsx(
+                          'text-gray-400 transition-transform duration-200',
+                          isEnthusiasmDropdownOpen && 'rotate-180',
+                        )}
+                      />
+                    </button>
+
+                    {isEnthusiasmDropdownOpen && (
+                      <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg shadow-xl z-20 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+                        {STYLE_ENTHUSIASM_OPTIONS.map(option => (
+                          <button
+                            key={option.value}
+                            onClick={() => {
+                              setEnthusiasm(option.value)
+                              setIsEnthusiasmDropdownOpen(false)
+                            }}
+                            className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
+                          >
+                            <span>{option.label}</span>
+                            {enthusiasm === option.value && (
+                              <Check size={14} className="text-primary-500" />
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-medium text-gray-900 dark:text-white">
+                    Headings and Lists
+                  </label>
+                  <div className="relative w-full" ref={headingsDropdownRef}>
+                    <button
+                      onClick={() => {
+                        const nextOpen = !isHeadingsDropdownOpen
+                        setIsProviderDropdownOpen(false)
+                        setIsInterfaceLanguageDropdownOpen(false)
+                        setIsLlmLanguageDropdownOpen(false)
+                        setIsBaseToneDropdownOpen(false)
+                        setIsTraitsDropdownOpen(false)
+                        setIsWarmthDropdownOpen(false)
+                        setIsEnthusiasmDropdownOpen(false)
+                        setIsEmojisDropdownOpen(false)
+                        setIsHeadingsDropdownOpen(nextOpen)
+                      }}
+                      className="w-full flex items-center justify-between pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-zinc-800"
+                    >
+                      <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center">
+                        <Info size={16} className="text-gray-400" />
+                      </div>
+                      <span>
+                        {STYLE_HEADINGS_OPTIONS.find(option => option.value === headings)?.label ||
+                          headings}
+                      </span>
+                      <ChevronDown
+                        size={16}
+                        className={clsx(
+                          'text-gray-400 transition-transform duration-200',
+                          isHeadingsDropdownOpen && 'rotate-180',
+                        )}
+                      />
+                    </button>
+
+                    {isHeadingsDropdownOpen && (
+                      <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg shadow-xl z-20 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+                        {STYLE_HEADINGS_OPTIONS.map(option => (
+                          <button
+                            key={option.value}
+                            onClick={() => {
+                              setHeadings(option.value)
+                              setIsHeadingsDropdownOpen(false)
+                            }}
+                            className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
+                          >
+                            <span>{option.label}</span>
+                            {headings === option.value && (
+                              <Check size={14} className="text-primary-500" />
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-medium text-gray-900 dark:text-white">Emojis</label>
+                  <div className="relative w-full" ref={emojisDropdownRef}>
+                    <button
+                      onClick={() => {
+                        const nextOpen = !isEmojisDropdownOpen
+                        setIsProviderDropdownOpen(false)
+                        setIsInterfaceLanguageDropdownOpen(false)
+                        setIsLlmLanguageDropdownOpen(false)
+                        setIsBaseToneDropdownOpen(false)
+                        setIsTraitsDropdownOpen(false)
+                        setIsWarmthDropdownOpen(false)
+                        setIsEnthusiasmDropdownOpen(false)
+                        setIsHeadingsDropdownOpen(false)
+                        setIsEmojisDropdownOpen(nextOpen)
+                      }}
+                      className="w-full flex items-center justify-between pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-zinc-800"
+                    >
+                      <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center">
+                        <Smile size={16} className="text-gray-400" />
+                      </div>
+                      <span>
+                        {STYLE_EMOJI_OPTIONS.find(option => option.value === emojis)?.label ||
+                          emojis}
+                      </span>
+                      <ChevronDown
+                        size={16}
+                        className={clsx(
+                          'text-gray-400 transition-transform duration-200',
+                          isEmojisDropdownOpen && 'rotate-180',
+                        )}
+                      />
+                    </button>
+
+                    {isEmojisDropdownOpen && (
+                      <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg shadow-xl z-20 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+                        {STYLE_EMOJI_OPTIONS.map(option => (
+                          <button
+                            key={option.value}
+                            onClick={() => {
+                              setEmojis(option.value)
+                              setIsEmojisDropdownOpen(false)
+                            }}
+                            className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
+                          >
+                            <span>{option.label}</span>
+                            {emojis === option.value && (
+                              <Check size={14} className="text-primary-500" />
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-medium text-gray-900 dark:text-white">
+                    Custom Instruction
+                  </label>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Optional extra guidance appended to the style prompt.
+                  </p>
+                  <textarea
+                    value={customInstruction}
+                    onChange={e => setCustomInstruction(e.target.value)}
+                    placeholder="Add any extra style notes here..."
+                    rows={4}
+                    className="w-full p-4 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600 resize-none"
+                  />
+                </div>
+              </div>
+            )}
+
             {activeTab === 'chat' && (
               <div className="flex flex-col gap-8 max-w-2xl">
                 <div className="flex items-start justify-between gap-4">
@@ -1248,19 +1837,66 @@ const SettingsModal = ({ isOpen, onClose }) => {
 
                 <div className="flex flex-col gap-2">
                   <label className="text-sm font-medium text-gray-900 dark:text-white">
-                    System Prompt
+                    LLM Answer Language
                   </label>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Customize the behavior and personality of the AI.
+                    Appended to the system prompt for reply language control.
                   </p>
-                  <textarea
-                    value={systemPrompt}
-                    onChange={e => setSystemPrompt(e.target.value)}
-                    placeholder="You are a helpful AI assistant..."
-                    rows={6}
-                    className="w-full p-4 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600 resize-none"
-                  />
+                  <div className="relative w-full" ref={llmLanguageDropdownRef}>
+                    <button
+                      onClick={() => {
+                        const nextOpen = !isLlmLanguageDropdownOpen
+                        setIsProviderDropdownOpen(false)
+                        setIsInterfaceLanguageDropdownOpen(false)
+                        setIsBaseToneDropdownOpen(false)
+                        setIsTraitsDropdownOpen(false)
+                        setIsWarmthDropdownOpen(false)
+                        setIsEnthusiasmDropdownOpen(false)
+                        setIsHeadingsDropdownOpen(false)
+                        setIsEmojisDropdownOpen(false)
+                        setIsLlmLanguageDropdownOpen(nextOpen)
+                      }}
+                      className="w-full flex items-center justify-between pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-zinc-800"
+                    >
+                      <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center">
+                        <MessageSquare size={16} className="text-gray-400" />
+                      </div>
+                      <span>
+                        {LLM_ANSWER_LANGUAGE_OPTIONS.find(
+                          option => option.value === llmAnswerLanguage,
+                        )?.label || llmAnswerLanguage}
+                      </span>
+                      <ChevronDown
+                        size={16}
+                        className={clsx(
+                          'text-gray-400 transition-transform duration-200',
+                          isLlmLanguageDropdownOpen && 'rotate-180',
+                        )}
+                      />
+                    </button>
+
+                    {isLlmLanguageDropdownOpen && (
+                      <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg shadow-xl z-20 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+                        {LLM_ANSWER_LANGUAGE_OPTIONS.map(option => (
+                          <button
+                            key={option.value}
+                            onClick={() => {
+                              setLlmAnswerLanguage(option.value)
+                              setIsLlmLanguageDropdownOpen(false)
+                            }}
+                            className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
+                          >
+                            <span>{option.label}</span>
+                            {llmAnswerLanguage === option.value && (
+                              <Check size={14} className="text-primary-500" />
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
+
               </div>
             )}
 

@@ -421,7 +421,10 @@ const MessageBubble = ({
   )
 
   const mermaidOptions = useMemo(
-    () => ({ config: { theme: isDark ? 'dark' : 'default' }, errorComponent: MermaidErrorFallback }),
+    () => ({
+      config: { theme: isDark ? 'dark' : 'default' },
+      errorComponent: MermaidErrorFallback,
+    }),
     [isDark, MermaidErrorFallback],
   )
 
@@ -443,11 +446,7 @@ const MessageBubble = ({
     if (!inline && language === 'mermaid') {
       return (
         <div className="my-4">
-          <Streamdown
-            mode="static"
-            mermaid={mermaidOptions}
-            controls={{ mermaid: true }}
-          >
+          <Streamdown mode="static" mermaid={mermaidOptions} controls={{ mermaid: true }}>
             {`\`\`\`mermaid\n${codeText}\n\`\`\``}
           </Streamdown>
         </div>
@@ -878,7 +877,7 @@ const MessageBubble = ({
               {!shouldShowThinkingStatus && <Check size="1em" />}
               {shouldShowThinkingStatus && (
                 <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                  <span className=" text-left">{thinkingStatusText}</span>
+                  <span className="text-left mr-4">{thinkingStatusText}</span>
                   <DotLoader />
                 </div>
               )}

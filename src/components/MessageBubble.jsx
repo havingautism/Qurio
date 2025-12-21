@@ -18,7 +18,7 @@ import {
   Quote,
   X,
 } from 'lucide-react'
-import ReactMarkdown from 'react-markdown'
+import { Streamdown } from 'streamdown'
 import remarkGfm from 'remark-gfm'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
@@ -45,6 +45,13 @@ const PROVIDER_META = {
     fallback: 'S',
   },
 }
+
+const THINKING_STATUS_MESSAGES = [
+  'Thinking',
+  'Analyzing',
+  'Working through it',
+  'Checking details',
+]
 
 /**
  * Make inline [n] markers clickable to the corresponding source URL while keeping brackets.
@@ -78,9 +85,10 @@ const MessageBubble = ({
   onQuote,
 }) => {
   // Get message directly from chatStore using shallow selector
-  const { messages } = useChatStore(
+  const { messages, isLoading } = useChatStore(
     useShallow(state => ({
       messages: state.messages,
+      isLoading: state.isLoading,
     })),
   )
 
@@ -347,9 +355,44 @@ const MessageBubble = ({
     return () => observer.disconnect()
   }, [])
 
-  const [isThoughtExpanded, setIsThoughtExpanded] = useState(true)
+  const [isThoughtExpanded, setIsThoughtExpanded] = useState(false)
+  const [thinkingStatusIndex, setThinkingStatusIndex] = useState(0)
   const [showAllSources, setShowAllSources] = useState(false)
   const isUser = message.role === 'user'
+  const isStreaming =
+    message?.isStreaming ??
+    (isLoading && message.role === 'ai' && messageIndex === messages.length - 1)
+  const hasMainText = (() => {
+    const content = message?.content
+    if (typeof content === 'string') return content.trim().length > 0
+    if (Array.isArray(content)) {
+      return content.some(part => {
+        if (typeof part === 'string') return part.trim().length > 0
+        if (part?.type === 'text' && typeof part.text === 'string') return part.text.trim().length > 0
+        if (part?.text != null) return String(part.text).trim().length > 0
+        return false
+      })
+    }
+    if (content && typeof content === 'object' && Array.isArray(content.parts)) {
+      return content.parts.some(part =>
+        typeof part === 'string' ? part.trim().length > 0 : String(part?.text || '').trim().length > 0,
+      )
+    }
+    return false
+  })()
+  const shouldShowThinkingStatus =
+    message.role === 'ai' && message.thinkingEnabled !== false && isStreaming && !hasMainText
+  const thinkingStatusText =
+    THINKING_STATUS_MESSAGES[thinkingStatusIndex] || THINKING_STATUS_MESSAGES[0]
+
+  useEffect(() => {
+    if (!shouldShowThinkingStatus) return undefined
+    setThinkingStatusIndex(0)
+    const intervalId = setInterval(() => {
+      setThinkingStatusIndex(prev => (prev + 1) % THINKING_STATUS_MESSAGES.length)
+    }, 1800)
+    return () => clearInterval(intervalId)
+  }, [shouldShowThinkingStatus])
 
   const CodeBlock = ({ inline, className, children, ...props }) => {
     const match = /language-(\w+)/.exec(className || '')
@@ -621,9 +664,10 @@ const MessageBubble = ({
   const thoughtContent = message.thinkingEnabled === false ? null : parsed.thought
   const mainContent = parsed.content
   const contentWithCitations = formatContentWithSources(mainContent, message.sources)
-  const isStreaming = !!message?.isStreaming
   const hasThoughtText = !!(thoughtContent && String(thoughtContent).trim())
   const shouldShowThought = message.thinkingEnabled !== false && (isStreaming || hasThoughtText)
+  const hasRelatedQuestions = Array.isArray(message.related) && message.related.length > 0
+  const isRelatedLoading = !!message.relatedLoading
 
   // Removed duplicate definitions
 
@@ -774,16 +818,29 @@ const MessageBubble = ({
           >
             <div className="flex items-center gap-2 font-medium text-gray-700 dark:text-gray-300">
               <EmojiDisplay emoji="🧠" size="1.2em" />
-              <span className="text-sm">Thinking Process</span>
+              {!shouldShowThinkingStatus && <span className="text-sm">Thinking Process</span>}
+              {!shouldShowThinkingStatus && <EmojiDisplay emoji="✅" size="1.2em" />}
+              {shouldShowThinkingStatus && (
+                <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+
+                  <span className=" text-left">{thinkingStatusText}</span>
+                  <span className="h-2 w-2 rounded-full bg-gray-400 dark:bg-gray-500 animate-bounce [animation-delay:-0.2s]" />
+                  <span className="h-2 w-2 rounded-full bg-gray-400 dark:bg-gray-500 animate-bounce" />
+                  <span className="h-2 w-2 rounded-full bg-gray-400 dark:bg-gray-500 animate-bounce [animation-delay:0.2s]" />
+                </div>
+              )}
             </div>
-            {isThoughtExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+            <div className="flex items-center gap-3">
+
+              {isThoughtExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+            </div>
           </button>
 
           {isThoughtExpanded && hasThoughtText && (
             <div className="p-4 bg-user-bubble/30 font-stretch-semi-condensed dark:bg-zinc-800/30 border-t border-gray-200 dark:border-zinc-700 text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
-              <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+              <Streamdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
                 {thoughtContent}
-              </ReactMarkdown>
+              </Streamdown>
             </div>
           )}
         </div>
@@ -843,21 +900,21 @@ const MessageBubble = ({
             <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-5/6"></div>
           </div>
         ) : (
-          <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+          <Streamdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
             {contentWithCitations}
-          </ReactMarkdown>
+          </Streamdown>
         )}
       </div>
 
       {/* Related Questions */}
-      {((message.related && message.related.length > 0) || isStreaming) && (
+      {(hasRelatedQuestions || isRelatedLoading) && (
         <div className="border-t border-gray-200 dark:border-zinc-800 pt-4">
           <div className="flex items-center gap-3 mb-3 text-gray-900 dark:text-gray-100">
             <EmojiDisplay emoji="🔮" size="1.2em" className="mb-1" />
             <span className="text-sm font-semibold">Related</span>
           </div>
           <div className="flex flex-col gap-1 md:gap-2 px-2">
-            {message.related && message.related.map((question, index) => (
+            {hasRelatedQuestions && message.related.map((question, index) => (
               <div
                 key={index}
                 onClick={() => onRelatedClick && onRelatedClick(question)}
@@ -871,7 +928,7 @@ const MessageBubble = ({
                 </div>
               </div>
             ))}
-            {isStreaming && (
+            {isRelatedLoading && (
               <div className="flex items-center p-2 text-gray-500 dark:text-gray-400">
                 <span className="animate-pulse text-lg leading-none">...</span>
               </div>

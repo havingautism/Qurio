@@ -11,14 +11,14 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@langchain/core": "^0.3.31",
-    "@langchain/google-genai": "^0.1.5",
-    "@langchain/openai": "^0.3.10",
     "@emoji-mart/data": "^1.2.1",
     "@emoji-mart/react": "^1.1.1",
     "@google/genai": "^1.30.0",
     "@google/generative-ai": "^0.24.1",
     "@gsap/react": "^2.1.2",
+    "@langchain/core": "^0.3.31",
+    "@langchain/google-genai": "^0.1.5",
+    "@langchain/openai": "^0.3.10",
     "@radix-ui/react-scroll-area": "^1.2.10",
     "@supabase/supabase-js": "^2.86.0",
     "@tailwindcss/postcss": "^4.1.17",
@@ -32,6 +32,7 @@
     "fluentui-emoji-js": "^1.2.1",
     "gsap": "^3.14.2",
     "lucide-react": "^0.554.0",
+    "next": "^15.3.3",
     "openai": "^6.9.1",
     "prettier": "^3.7.4",
     "react": "^19.2.1",
@@ -39,10 +40,10 @@
     "react-markdown": "^10.1.0",
     "react-syntax-highlighter": "^16.1.0",
     "remark-gfm": "^4.0.1",
+    "streamdown": "^1.6.10",
     "styled-components": "^6.1.19",
     "tailwind-merge": "^3.4.0",
-    "zustand": "^5.0.9",
-    "next": "^15.3.3"
+    "zustand": "^5.0.9"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

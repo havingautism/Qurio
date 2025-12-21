@@ -576,21 +576,49 @@ const finalizeMessage = async (
   // Generate related questions (only if enabled)
   let related = []
   if (toggles?.related) {
-    const sanitizedMessages = currentStore.messages.map(m => ({
-      role: m.role === 'ai' ? 'assistant' : m.role,
-      content: normalizeContent(m.content),
-    }))
+    set(state => {
+      const updated = [...state.messages]
+      const lastMsgIndex = updated.length - 1
+      if (lastMsgIndex >= 0 && updated[lastMsgIndex].role === 'ai') {
+        updated[lastMsgIndex] = {
+          ...updated[lastMsgIndex],
+          relatedLoading: true,
+        }
+      }
+      return { messages: updated }
+    })
 
-    const provider = getProvider(settings.apiProvider)
-    const credentials = provider.getCredentials(settings)
-    // Get the appropriate model for related questions task
-    const model = getModelForTask('generateRelatedQuestions', settings)
-    related = await provider.generateRelatedQuestions(
-      sanitizedMessages.slice(-2), // Only use the last 2 messages (User + AI) for context
-      credentials.apiKey,
-      credentials.baseUrl,
-      model, // Pass the selected model for this task
-    )
+    try {
+      const sanitizedMessages = currentStore.messages.map(m => ({
+        role: m.role === 'ai' ? 'assistant' : m.role,
+        content: normalizeContent(m.content),
+      }))
+
+      const provider = getProvider(settings.apiProvider)
+      const credentials = provider.getCredentials(settings)
+      // Get the appropriate model for related questions task
+      const model = getModelForTask('generateRelatedQuestions', settings)
+      related = await provider.generateRelatedQuestions(
+        sanitizedMessages.slice(-2), // Only use the last 2 messages (User + AI) for context
+        credentials.apiKey,
+        credentials.baseUrl,
+        model, // Pass the selected model for this task
+      )
+    } catch (error) {
+      console.error('Failed to generate related questions:', error)
+    } finally {
+      set(state => {
+        const updated = [...state.messages]
+        const lastMsgIndex = updated.length - 1
+        if (lastMsgIndex >= 0 && updated[lastMsgIndex].role === 'ai') {
+          updated[lastMsgIndex] = {
+            ...updated[lastMsgIndex],
+            relatedLoading: false,
+          }
+        }
+        return { messages: updated }
+      })
+    }
   }
 
   // Attach sources to the last AI message (for Gemini search)

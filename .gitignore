@@ -35,3 +35,4 @@ out
 *.njsproj
 *.sln
 *.sw?
+.bun-cache

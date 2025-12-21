@@ -5,6 +5,7 @@ import {
   Playfair_Display,
 } from 'next/font/google'
 import localFont from 'next/font/local'
+import 'katex/dist/katex.min.css'
 import '../src/index.css'
 
 const getBasePath = () => {

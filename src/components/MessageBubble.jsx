@@ -421,7 +421,7 @@ const MessageBubble = ({
               style: {
                 backgroundColor: 'transparent',
                 fontFamily:
-                  'CascadiaCode, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+                  'JetBrainsMono, CascadiaCode, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
               },
             }}
             {...props}

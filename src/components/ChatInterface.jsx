@@ -112,6 +112,7 @@ const ChatInterface = ({
   const bottomRef = useRef(null)
   const [showScrollButton, setShowScrollButton] = useState(false)
   const [isRegeneratingTitle, setIsRegeneratingTitle] = useState(false)
+  const isSwitchingConversation = Boolean(activeConversation?.id && activeConversation.id !== conversationId)
   const conversationSpace = React.useMemo(() => {
     if (!activeConversation?.space_id) return null
     const sid = String(activeConversation.space_id)
@@ -951,20 +952,22 @@ const ChatInterface = ({
           className="flex-1 overflow-y-auto sm:p-2 relative no-scrollbar"
         >
           <div className="w-full max-w-3xl mx-auto">
-            {isLoadingHistory && (
-              <div className="absolute inset-0 flex items-center justify-center backdrop-blur-md bg-background/40 z-10">
+            {(isLoadingHistory || isSwitchingConversation) && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
                 <FancyLoader />
               </div>
             )}
-            <MessageList
-              apiProvider={settings.apiProvider}
-              defaultModel={settings.defaultModel}
-              onRelatedClick={handleRelatedClick}
-              onMessageRef={registerMessageRef}
-              onEdit={handleEdit}
-              onQuote={handleQuote}
-              onRegenerateAnswer={handleRegenerateAnswer}
-            />
+            {!isLoadingHistory && !isSwitchingConversation && (
+              <MessageList
+                apiProvider={settings.apiProvider}
+                defaultModel={settings.defaultModel}
+                onRelatedClick={handleRelatedClick}
+                onMessageRef={registerMessageRef}
+                onEdit={handleEdit}
+                onQuote={handleQuote}
+                onRegenerateAnswer={handleRegenerateAnswer}
+              />
+            )}
             {/* Bottom Anchor */}
             <div ref={bottomRef} className="h-1" />
           </div>

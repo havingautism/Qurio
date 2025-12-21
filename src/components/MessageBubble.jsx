@@ -3,11 +3,10 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useShallow } from 'zustand/react/shallow'
 import useChatStore from '../lib/chatStore'
+
 import {
   Copy,
   Share2,
-  Layers,
-  Brain,
   ChevronRight,
   ChevronDown,
   CornerRightDown,
@@ -27,6 +26,7 @@ import { getProvider } from '../lib/providers'
 import { parseChildrenWithEmojis } from '../lib/emojiParser'
 import EmojiDisplay from './EmojiDisplay'
 import { PROVIDER_ICONS, getModelIcon } from '../lib/modelIcons'
+import DotLoader from './DotLoader'
 
 const PROVIDER_META = {
   gemini: {
@@ -46,12 +46,7 @@ const PROVIDER_META = {
   },
 }
 
-const THINKING_STATUS_MESSAGES = [
-  'Thinking',
-  'Analyzing',
-  'Working through it',
-  'Checking details',
-]
+const THINKING_STATUS_MESSAGES = ['Thinking', 'Analyzing', 'Working through it', 'Checking details']
 
 /**
  * Make inline [n] markers clickable to the corresponding source URL while keeping brackets.
@@ -342,7 +337,6 @@ const MessageBubble = ({
     }
   }, [isMobile])
 
-
   useEffect(() => {
     const observer = new MutationObserver(mutations => {
       mutations.forEach(mutation => {
@@ -368,14 +362,17 @@ const MessageBubble = ({
     if (Array.isArray(content)) {
       return content.some(part => {
         if (typeof part === 'string') return part.trim().length > 0
-        if (part?.type === 'text' && typeof part.text === 'string') return part.text.trim().length > 0
+        if (part?.type === 'text' && typeof part.text === 'string')
+          return part.text.trim().length > 0
         if (part?.text != null) return String(part.text).trim().length > 0
         return false
       })
     }
     if (content && typeof content === 'object' && Array.isArray(content.parts)) {
       return content.parts.some(part =>
-        typeof part === 'string' ? part.trim().length > 0 : String(part?.text || '').trim().length > 0,
+        typeof part === 'string'
+          ? part.trim().length > 0
+          : String(part?.text || '').trim().length > 0,
       )
     }
     return false
@@ -384,6 +381,10 @@ const MessageBubble = ({
     message.role === 'ai' && message.thinkingEnabled !== false && isStreaming && !hasMainText
   const thinkingStatusText =
     THINKING_STATUS_MESSAGES[thinkingStatusIndex] || THINKING_STATUS_MESSAGES[0]
+  const mermaidOptions = useMemo(
+    () => ({ config: { theme: isDark ? 'dark' : 'default' } }),
+    [isDark],
+  )
 
   useEffect(() => {
     if (!shouldShowThinkingStatus) return undefined
@@ -396,7 +397,23 @@ const MessageBubble = ({
 
   const CodeBlock = ({ inline, className, children, ...props }) => {
     const match = /language-(\w+)/.exec(className || '')
+    const language = match ? match[1].toLowerCase() : ''
     const langLabel = match ? match[1].toUpperCase() : 'CODE'
+    const codeText = String(children).replace(/\n$/, '')
+
+    if (!inline && language === 'mermaid') {
+      return (
+        <div className="my-4">
+          <Streamdown
+            mode="static"
+            mermaid={mermaidOptions}
+            controls={{ mermaid: true }}
+          >
+            {`\`\`\`mermaid\n${codeText}\n\`\`\``}
+          </Streamdown>
+        </div>
+      )
+    }
 
     if (!inline && match) {
       return (
@@ -426,7 +443,7 @@ const MessageBubble = ({
             }}
             {...props}
           >
-            {String(children).replace(/\n$/, '')}
+            {codeText}
           </SyntaxHighlighter>
         </div>
       )
@@ -819,26 +836,26 @@ const MessageBubble = ({
             <div className="flex items-center gap-2 font-medium text-gray-700 dark:text-gray-300">
               <EmojiDisplay emoji="🧠" size="1.2em" />
               {!shouldShowThinkingStatus && <span className="text-sm">Thinking Process</span>}
-              {!shouldShowThinkingStatus && <EmojiDisplay emoji="✅" size="1.2em" />}
+              {!shouldShowThinkingStatus && <Check size="1em" />}
               {shouldShowThinkingStatus && (
                 <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-
                   <span className=" text-left">{thinkingStatusText}</span>
-                  <span className="h-2 w-2 rounded-full bg-gray-400 dark:bg-gray-500 animate-bounce [animation-delay:-0.2s]" />
-                  <span className="h-2 w-2 rounded-full bg-gray-400 dark:bg-gray-500 animate-bounce" />
-                  <span className="h-2 w-2 rounded-full bg-gray-400 dark:bg-gray-500 animate-bounce [animation-delay:0.2s]" />
+                  <DotLoader />
                 </div>
               )}
             </div>
             <div className="flex items-center gap-3">
-
               {isThoughtExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
             </div>
           </button>
 
           {isThoughtExpanded && hasThoughtText && (
             <div className="p-4 bg-user-bubble/30 font-stretch-semi-condensed dark:bg-zinc-800/30 border-t border-gray-200 dark:border-zinc-700 text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
-              <Streamdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+              <Streamdown
+                mermaid={mermaidOptions}
+                remarkPlugins={[remarkGfm]}
+                components={markdownComponents}
+              >
                 {thoughtContent}
               </Streamdown>
             </div>
@@ -882,7 +899,7 @@ const MessageBubble = ({
       {/* Main Content */}
       <div
         ref={mainContentRef}
-        className="message-content prose dark:prose-invert max-w-none text-gray-800 dark:text-gray-200 leading-relaxed font-serif [&_p]:overflow-x-auto [&_p]:max-w-full [&_p]:whitespace-pre-wrap [&_blockquote]:overflow-x-auto [&_blockquote]:max-w-full [&_table]:inline-table [&_table]:w-auto [&_table]:table-auto [&_pre]:overflow-x-auto [&_pre]:max-w-full"
+        className="message-content prose dark:prose-invert max-w-none text-gray-800 dark:text-gray-200 leading-relaxed font-sans [&_p]:overflow-x-auto [&_p]:max-w-full [&_p]:whitespace-pre-wrap [&_blockquote]:overflow-x-auto [&_blockquote]:max-w-full [&_table]:inline-table [&_table]:w-auto [&_table]:table-auto [&_pre]:overflow-x-auto [&_pre]:max-w-full"
         // Prevent native selection menu on mobile
         style={{
           WebkitTouchCallout: isMobile ? 'none' : 'default',
@@ -893,14 +910,18 @@ const MessageBubble = ({
           userSelect: isMobile ? 'text' : 'auto',
         }}
       >
-        {!message.content && !thoughtContent ? (
+        {!message.content ? (
           <div className="flex flex-col gap-2 animate-pulse">
             <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-3/4"></div>
             <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-1/2"></div>
             <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-5/6"></div>
           </div>
         ) : (
-          <Streamdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+          <Streamdown
+            mermaid={mermaidOptions}
+            remarkPlugins={[remarkGfm]}
+            components={markdownComponents}
+          >
             {contentWithCitations}
           </Streamdown>
         )}
@@ -911,26 +932,27 @@ const MessageBubble = ({
         <div className="border-t border-gray-200 dark:border-zinc-800 pt-4">
           <div className="flex items-center gap-3 mb-3 text-gray-900 dark:text-gray-100">
             <EmojiDisplay emoji="🔮" size="1.2em" className="mb-1" />
-            <span className="text-sm font-semibold">Related</span>
+            <span className="text-sm font-semibold">Related Questions</span>
           </div>
           <div className="flex flex-col gap-1 md:gap-2 px-2">
-            {hasRelatedQuestions && message.related.map((question, index) => (
-              <div
-                key={index}
-                onClick={() => onRelatedClick && onRelatedClick(question)}
-                className="flex items-center rounded-2xl border sm:hover:scale-102 border-gray-200 dark:border-zinc-800 bg-user-bubble dark:bg-zinc-800/50 justify-between p-2  hover:bg-user-bubble dark:hover:bg-zinc-800/50 cursor-pointer transition-colors group"
-              >
-                <span className="text-gray-700 dark:text-gray-300 font-medium text-sm md:text-balance">
-                  {question}
-                </span>
-                <div className="ml-2 sm:ml-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 text-primary-500 dark:text-primary-500">
-                  <CornerRightDown />
+            {hasRelatedQuestions &&
+              message.related.map((question, index) => (
+                <div
+                  key={index}
+                  onClick={() => onRelatedClick && onRelatedClick(question)}
+                  className="flex items-center rounded-2xl border sm:hover:scale-102 border-gray-200 dark:border-zinc-800 bg-user-bubble dark:bg-zinc-800/50 justify-between p-2  hover:bg-user-bubble dark:hover:bg-zinc-800/50 cursor-pointer transition-colors group"
+                >
+                  <span className="text-gray-700 dark:text-gray-300 font-medium text-sm md:text-balance">
+                    {question}
+                  </span>
+                  <div className="ml-2 sm:ml-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 text-primary-500 dark:text-primary-500">
+                    <CornerRightDown />
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
             {isRelatedLoading && (
               <div className="flex items-center p-2 text-gray-500 dark:text-gray-400">
-                <span className="animate-pulse text-lg leading-none">...</span>
+                <DotLoader />
               </div>
             )}
           </div>

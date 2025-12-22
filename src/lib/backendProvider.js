@@ -2,6 +2,7 @@ import { ChatOpenAI } from '@langchain/openai'
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai'
 import { AIMessage, HumanMessage, SystemMessage, ToolMessage } from '@langchain/core/messages'
 import { getPublicEnv } from './publicEnv'
+import { DynamicRetrievalMode } from '@google/generative-ai'
 
 const OPENAI_DEFAULT_BASE = 'https://api.openai.com/v1'
 const SILICONFLOW_BASE = 'https://api.siliconflow.cn/v1'
@@ -23,6 +24,36 @@ const normalizeTextContent = content => {
     return content.parts.map(p => (typeof p === 'string' ? p : p?.text || '')).join('\n')
   }
   return content ? String(content) : ''
+}
+
+const buildGeminiPayload = ({ messages, temperature, top_k, tools, thinking }) => {
+  const systemTexts = (messages || [])
+    .filter(m => m.role === 'system')
+    .map(m => normalizeTextContent(m.content))
+    .filter(Boolean)
+  const systemInstruction = systemTexts.length
+    ? { parts: [{ text: systemTexts.join('\n') }] }
+    : undefined
+
+  const contents = (messages || [])
+    .filter(m => m.role !== 'system')
+    .map(m => ({
+      role: m.role === 'assistant' || m.role === 'ai' ? 'model' : 'user',
+      parts: [{ text: normalizeTextContent(m.content) }],
+    }))
+
+  const generationConfig = {}
+  if (temperature !== undefined) generationConfig.temperature = temperature
+  if (top_k !== undefined) generationConfig.topK = top_k
+  if (thinking?.thinkingConfig) {
+    generationConfig.thinkingConfig = thinking.thinkingConfig
+  }
+
+  const payload = { contents }
+  if (systemInstruction) payload.systemInstruction = systemInstruction
+  if (Object.keys(generationConfig).length) payload.generationConfig = generationConfig
+  if (tools) payload.tools = tools
+  return payload
 }
 
 const normalizeParts = content => {
@@ -176,6 +207,25 @@ const normalizeRelatedQuestions = payload => {
   return []
 }
 
+const normalizeGeminiMessages = messages => {
+  if (!Array.isArray(messages) || messages.length === 0) return messages
+  const systemMessages = messages.filter(m => m?.role === 'system')
+  const nonSystemMessages = messages.filter(m => m?.role !== 'system')
+  if (systemMessages.length === 0) return messages
+  return [...systemMessages, ...nonSystemMessages]
+}
+
+const collectGeminiSources = (metadata, sourceMap) => {
+  const chunks = metadata?.groundingChunks
+  if (!Array.isArray(chunks)) return
+  for (const chunk of chunks) {
+    const web = chunk?.web
+    const url = web?.uri
+    if (!url || sourceMap.has(url)) continue
+    sourceMap.set(url, { url, title: web?.title || url })
+  }
+}
+
 const safeJsonParse = text => {
   if (!text || typeof text !== 'string') return null
   try {
@@ -327,21 +377,27 @@ const buildGeminiModel = ({ apiKey, model, temperature, top_k, tools, thinking, 
     throw new Error('Missing API key')
   }
 
+  let searchRetrievalTool = undefined
+  if (tools && tools.length > 0) {
+    searchRetrievalTool = {
+      googleSearchRetrieval: {
+        dynamicRetrievalConfig: {
+          mode: DynamicRetrievalMode.MODE_DYNAMIC,
+          dynamicThreshold: 0.7, // default is 0.7
+        },
+      },
+    }
+  }
+
   let modelInstance = new ChatGoogleGenerativeAI({
     apiKey: resolvedKey,
     model,
     temperature,
     topK: top_k,
     streaming,
-    // thinkingConfig: { includeThoughts: true, thinkingBudget: 1024 },
-  })
-
-  const bindParams = {}
-  if (tools && tools.length > 0) bindParams.tools = tools
-  if (thinking?.thinkingConfig) bindParams.thinkingConfig = thinking.thinkingConfig
-  if (Object.keys(bindParams).length) {
-    modelInstance = modelInstance.bind(bindParams)
-  }
+    tools: tools || [],
+    ...(thinking?.thinkingConfig && { thinkingConfig: thinking.thinkingConfig }),
+  }).bindTools(searchRetrievalTool)
 
   return modelInstance
 }
@@ -447,9 +503,11 @@ const streamOpenAICompatRaw = async ({
   const reader = upstream.body.getReader()
   const decoder = new TextDecoder()
   let buffer = ''
-  let fullContent = ''
-  let fullThought = ''
-  const toolCallsMap = new Map()
+    let fullContent = ''
+    let fullThought = ''
+    const toolCallsMap = new Map()
+    const sourcesMap = new Map()
+    let groundingSupports = undefined
 
   const emitText = text => {
     if (!text) return
@@ -583,11 +641,11 @@ const streamWithLangChain = async ({
     })
   }
 
-  const stream = await modelInstance.stream(langchainMessages, signal ? { signal } : undefined)
-
   let fullContent = ''
   let fullThought = ''
   const toolCallsMap = new Map()
+  const sourcesMap = new Map()
+  let groundingSupports = undefined
   const emitText = text => {
     if (!text) return
     fullContent += text
@@ -603,8 +661,51 @@ const streamWithLangChain = async ({
   const handleTaggedText = handleTaggedTextFactory({ emitText, emitThought })
 
   try {
+    if (provider === 'gemini') {
+      const payload = buildGeminiPayload({
+        messages: trimmedMessages,
+        temperature,
+        top_k,
+        tools,
+        thinking,
+      })
+      const streamResponse = await modelInstance.client.generateContentStream(payload, { signal })
+      const stream = streamResponse?.stream || streamResponse
+
+      for await (const response of stream) {
+        const groundingMetadata = response?.candidates?.[0]?.groundingMetadata
+        if (groundingMetadata) {
+          collectGeminiSources(groundingMetadata, sourcesMap)
+          if (Array.isArray(groundingMetadata.groundingSupports)) {
+            groundingSupports = groundingMetadata.groundingSupports
+          }
+        }
+        const parts = response?.candidates?.[0]?.content?.parts || []
+        if (!Array.isArray(parts)) continue
+        for (const part of parts) {
+          const text = typeof part?.text === 'string' ? part.text : ''
+          if (!text) continue
+          if (part?.thought) {
+            emitThought(text)
+          } else {
+            handleTaggedText(text)
+          }
+        }
+      }
+
+      onFinish?.({
+        content: fullContent,
+        thought: fullThought || undefined,
+        sources: sourcesMap.size ? Array.from(sourcesMap.values()) : undefined,
+        groundingSupports: groundingSupports?.length ? groundingSupports : undefined,
+        toolCalls: toolCallsMap.size ? Array.from(toolCallsMap.values()) : undefined,
+      })
+      return
+    }
+
+    const stream = await modelInstance.stream(langchainMessages, signal ? { signal } : undefined)
+
     for await (const chunk of stream) {
-      console.log('Chunk:', JSON.stringify(chunk, null, 2))
       const messageChunk = chunk?.message ?? chunk
       const contentValue = messageChunk?.content ?? chunk?.content
 
@@ -614,9 +715,7 @@ const streamWithLangChain = async ({
           emitThought,
           handleTaggedText,
         })
-        if (parsed) {
-          continue
-        }
+        if (parsed) continue
       }
 
       const chunkText = normalizeTextContent(contentValue)
@@ -745,7 +844,8 @@ const requestGemini = async ({
     streaming: false,
   })
 
-  const langchainMessages = toLangChainMessages(messages || [])
+  const orderedMessages = normalizeGeminiMessages(messages || [])
+  const langchainMessages = toLangChainMessages(orderedMessages)
   const response = await modelInstance.invoke(langchainMessages, { signal })
 
   return typeof response.content === 'string'

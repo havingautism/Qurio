@@ -665,8 +665,9 @@ const finalizeMessage = async (
         content: normalizeContent(m.content),
       }))
       const languageInstruction = getLanguageInstruction(settings)
+      const relatedMessages = sanitizedMessages.slice(-2)
       if (languageInstruction) {
-        sanitizedMessages.push({ role: 'system', content: languageInstruction })
+        relatedMessages.unshift({ role: 'system', content: languageInstruction })
       }
 
       const provider = getProvider(settings.apiProvider)
@@ -674,7 +675,7 @@ const finalizeMessage = async (
       // Get the appropriate model for related questions task
       const model = getModelForTask('generateRelatedQuestions', settings)
       related = await provider.generateRelatedQuestions(
-        sanitizedMessages.slice(-2), // Only use the last 2 messages (User + AI) for context
+        relatedMessages, // Only use the last 2 messages (User + AI) for context
         credentials.apiKey,
         credentials.baseUrl,
         model, // Pass the selected model for this task

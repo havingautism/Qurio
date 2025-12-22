@@ -2,6 +2,7 @@ import React from 'react'
 import { createRootRoute, createRoute, createRouter, redirect } from '@tanstack/react-router'
 import { AlertTriangle, MoveLeft } from 'lucide-react'
 import App from './App'
+import { getNodeEnv, getPublicEnv } from './lib/publicEnv'
 
 const HomeView = React.lazy(() => import('./views/HomeView'))
 const ConversationView = React.lazy(() => import('./views/ConversationView'))
@@ -18,9 +19,9 @@ const SuspensePage = ({ children }) => (
 
 const NotFound = () => {
   const basepath = (
-    process.env.NODE_ENV === 'development'
+    getNodeEnv() === 'development'
       ? '/'
-      : process.env.NEXT_PUBLIC_BASE_PATH || '/Qurio'
+      : getPublicEnv('PUBLIC_BASE_PATH') || '/Qurio'
   ).replace(/\/$/, '')
   return (
     <div className="min-h-screen flex items-center justify-center bg-background text-foreground px-6 py-12">
@@ -138,7 +139,9 @@ export const routeTree = rootRoute.addChildren([
 
 const getBasePath = () =>
   (
-    process.env.NODE_ENV === 'development' ? '/' : process.env.NEXT_PUBLIC_BASE_PATH || '/Qurio'
+    getNodeEnv() === 'development'
+      ? '/'
+      : getPublicEnv('PUBLIC_BASE_PATH') || '/Qurio'
   ).replace(/\/$/, '')
 
 export const createAppRouter = () =>

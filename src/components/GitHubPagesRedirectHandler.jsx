@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useRouter } from '@tanstack/react-router'
 import { useNavigate } from '@tanstack/react-router'
+import { getPublicEnv } from '../lib/publicEnv'
 
 /**
  * Component to handle redirects from GitHub Pages 404.html
@@ -25,7 +26,7 @@ export function GitHubPagesRedirectHandler() {
         sessionStorage.removeItem('spa-redirect')
 
         // Get the base path (e.g., /Qurio)
-        const basePath = (process.env.NEXT_PUBLIC_BASE_PATH || '/Qurio').replace(/\/$/, '')
+        const basePath = (getPublicEnv('PUBLIC_BASE_PATH') || '/Qurio').replace(/\/$/, '')
 
         // Extract the path relative to the base path
         const relativePath = path.replace(basePath, '') || '/'

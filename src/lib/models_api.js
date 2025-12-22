@@ -1,27 +1,33 @@
 /**
- * API for fetching available models from different providers (via backend)
+ * API for fetching available models from different providers (direct from browser).
  */
 
-const getApiBasePath = () => {
-  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || ''
-  return basePath ? basePath.replace(/\/$/, '') : ''
-}
+import { getPublicEnv } from './publicEnv'
 
-const buildApiUrl = path => `${getApiBasePath()}${path}`
+const OPENAI_DEFAULT_BASE = 'https://api.openai.com/v1'
+const SILICONFLOW_BASE = 'https://api.siliconflow.cn/v1'
+const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta'
 
-const fetchModelsFromBackend = async (payload, options = {}) => {
-  // Add timeout to prevent hanging requests
+const withTimeout = (signal, timeoutMs = 10000) => {
   const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), 10000)
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
 
-  if (options.signal) {
-    options.signal.addEventListener('abort', () => controller.abort())
+  if (signal) {
+    signal.addEventListener('abort', () => controller.abort())
   }
 
-  const response = await fetch(buildApiUrl('/api/llm/models'), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
+  return { controller, timeoutId }
+}
+
+const fetchOpenAIModels = async ({ apiKey, baseUrl }, options = {}) => {
+  const resolvedBase = (baseUrl || getPublicEnv('PUBLIC_OPENAI_BASE_URL') || OPENAI_DEFAULT_BASE)
+    .replace(/\/$/, '')
+  const resolvedKey = apiKey || getPublicEnv('PUBLIC_OPENAI_API_KEY')
+  if (!resolvedKey) return []
+
+  const { controller, timeoutId } = withTimeout(options.signal)
+  const response = await fetch(`${resolvedBase}/models`, {
+    headers: { Authorization: `Bearer ${resolvedKey}` },
     signal: controller.signal,
   })
 
@@ -36,26 +42,56 @@ const fetchModelsFromBackend = async (payload, options = {}) => {
   }
 
   const data = await response.json()
-  return data?.models || []
+  return (data?.data || []).map(model => ({
+    value: model.id,
+    label: model.id,
+  }))
+}
+
+const fetchGeminiModels = async ({ apiKey }, options = {}) => {
+  const resolvedKey = apiKey || getPublicEnv('PUBLIC_GOOGLE_API_KEY')
+  if (!resolvedKey) return []
+
+  const { controller, timeoutId } = withTimeout(options.signal)
+  const response = await fetch(`${GEMINI_BASE}/models?key=${resolvedKey}`, {
+    signal: controller.signal,
+  })
+
+  clearTimeout(timeoutId)
+
+  if (!response.ok) {
+    if (response.status === 403) {
+      throw new Error('Invalid API key or insufficient permissions')
+    }
+    const message = await response.text().catch(() => '')
+    throw new Error(message || `HTTP error! status: ${response.status}`)
+  }
+
+  const data = await response.json()
+  return (data?.models || []).map(model => {
+    const name = model.name?.replace(/^models\//, '') || model.displayName || 'unknown'
+    return {
+      value: name,
+      label: model.displayName || name,
+    }
+  })
 }
 
 // Get models for a specific provider
 export const getModelsForProvider = async (provider, credentials, options = {}) => {
   switch (provider) {
     case 'gemini':
-      return await fetchModelsFromBackend(
-        { provider, apiKey: credentials.apiKey },
-        options,
-      )
+      return await fetchGeminiModels({ apiKey: credentials.apiKey }, options)
     case 'siliconflow':
-      return await fetchModelsFromBackend(
-        { provider, apiKey: credentials.apiKey, baseUrl: credentials.baseUrl },
+      return await fetchOpenAIModels(
+        { apiKey: credentials.apiKey, baseUrl: SILICONFLOW_BASE },
         options,
       )
     case 'openai_compatibility':
-      // OpenAI compatible doesn't have a standard models endpoint
-      // Return empty array to use fallback models
-      return []
+      return await fetchOpenAIModels(
+        { apiKey: credentials.apiKey, baseUrl: credentials.baseUrl },
+        options,
+      )
     default:
       return []
   }

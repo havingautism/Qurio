@@ -5,10 +5,10 @@
   "type": "module",
   "packageManager": "bun@1.3.3",
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "next lint"
+    "dev": "rsbuild dev",
+    "build": "rsbuild build",
+    "start": "rsbuild preview",
+    "lint": "eslint ."
   },
   "dependencies": {
     "@emoji-mart/data": "^1.2.1",
@@ -32,7 +32,6 @@
     "fluentui-emoji-js": "^1.2.1",
     "gsap": "^3.14.2",
     "lucide-react": "^0.554.0",
-    "next": "^15.3.3",
     "openai": "^6.9.1",
     "prettier": "^3.7.4",
     "react": "^19.2.1",
@@ -48,11 +47,13 @@
   "devDependencies": {
     "@eslint/compat": "^2.0.0",
     "@eslint/js": "^9.39.1",
+    "@rsbuild/plugin-node-polyfill": "^1.1.5",
     "@types/react": "^19.2.5",
     "@types/react-dom": "^19.2.3",
     "autoprefixer": "^10.4.22",
+    "@rsbuild/core": "^1.4.1",
+    "@rsbuild/plugin-react": "^1.4.0",
     "eslint": "^9.39.1",
-    "eslint-config-next": "^15.3.3",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",
     "eslint-plugin-unused-imports": "^4.3.0",

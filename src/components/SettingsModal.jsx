@@ -1,4 +1,3 @@
-import Image from 'next/image'
 import { useState, useEffect, useRef } from 'react'
 import {
   X,
@@ -27,14 +26,17 @@ import useScrollLock from '../hooks/useScrollLock'
 import { THEMES } from '../lib/themes'
 import { SILICONFLOW_BASE_URL } from '../lib/providerConstants'
 import { PROVIDER_ICONS, getModelIcon } from '../lib/modelIcons'
+import { getPublicEnv } from '../lib/publicEnv'
 
 const ENV_VARS = {
-  supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
-  supabaseKey: process.env.NEXT_PUBLIC_SUPABASE_KEY,
-  openAIKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY,
-  openAIBaseUrl: process.env.NEXT_PUBLIC_OPENAI_BASE_URL,
-  googleApiKey: process.env.NEXT_PUBLIC_GOOGLE_API_KEY,
-  siliconFlowKey: process.env.NEXT_PUBLIC_SILICONFLOW_API_KEY,
+  supabaseUrl: getPublicEnv('PUBLIC_SUPABASE_URL'),
+  supabaseKey: getPublicEnv('PUBLIC_SUPABASE_KEY'),
+  openAIKey: getPublicEnv('PUBLIC_OPENAI_API_KEY'),
+  openAIBaseUrl:
+    getPublicEnv('PUBLIC_OPENAI_BASE_URL'),
+  googleApiKey: getPublicEnv('PUBLIC_GOOGLE_API_KEY'),
+  siliconFlowKey:
+    getPublicEnv('PUBLIC_SILICONFLOW_API_KEY'),
 }
 
 // Minimal copy of supabase/init.sql for quick remediation in-app
@@ -417,14 +419,6 @@ const SettingsModal = ({ isOpen, onClose }) => {
     const currentProviderRef = targetProvider
     setCurrentProvider(currentProviderRef)
 
-    // Skip for openai_compatibility as it doesn't support model listing
-    if (targetProvider === 'openai_compatibility') {
-      setDynamicModels([])
-      setModelsError(null)
-      setIsLoadingModels(false)
-      return
-    }
-
     setIsLoadingModels(true)
     setModelsError(null)
 
@@ -437,6 +431,11 @@ const SettingsModal = ({ isOpen, onClose }) => {
         credentials = {
           apiKey: SiliconFlowKey,
           baseUrl: SILICONFLOW_BASE_URL,
+        }
+      } else if (targetProvider === 'openai_compatibility') {
+        credentials = {
+          apiKey: OpenAICompatibilityKey,
+          baseUrl: OpenAICompatibilityUrl,
         }
       }
 
@@ -488,7 +487,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
       const hasValidCredentials =
         (apiProvider === 'gemini' && googleApiKey) ||
         (apiProvider === 'siliconflow' && SiliconFlowKey) ||
-        apiProvider === 'openai_compatibility'
+        (apiProvider === 'openai_compatibility' && OpenAICompatibilityKey)
 
       if (hasValidCredentials) {
         // Clear previous state when provider changes
@@ -515,7 +514,8 @@ const SettingsModal = ({ isOpen, onClose }) => {
     if (isOpen && apiProvider) {
       const hasValidCredentials =
         (apiProvider === 'gemini' && googleApiKey) ||
-        (apiProvider === 'siliconflow' && SiliconFlowKey)
+        (apiProvider === 'siliconflow' && SiliconFlowKey) ||
+        (apiProvider === 'openai_compatibility' && OpenAICompatibilityKey)
 
       if (hasValidCredentials) {
         const debounceTimer = setTimeout(() => {
@@ -767,13 +767,13 @@ const SettingsModal = ({ isOpen, onClose }) => {
                         <Box size={16} className="text-gray-400" />
                       </div>
                       <div className="flex items-center gap-3">
-                        <Image
+                        <img
                           src={PROVIDER_ICONS[apiProvider]}
                           alt={PROVIDER_LABELS[apiProvider] || apiProvider}
                           width={16}
                           height={16}
                           className="w-4 h-4"
-                          unoptimized
+                          loading="lazy"
                         />
                         <span>{PROVIDER_LABELS[apiProvider] || apiProvider}</span>
                       </div>
@@ -807,13 +807,13 @@ const SettingsModal = ({ isOpen, onClose }) => {
                           className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
                         >
                           <div className="flex items-center gap-3">
-                            <Image
+                            <img
                               src={PROVIDER_ICONS.gemini}
                               alt="Google Gemini"
                               width={16}
                               height={16}
                               className="w-4 h-4"
-                              unoptimized
+                              loading="lazy"
                             />
                             <span>Google Gemini</span>
                           </div>
@@ -840,13 +840,13 @@ const SettingsModal = ({ isOpen, onClose }) => {
                           className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
                         >
                           <div className="flex items-center gap-3">
-                            <Image
+                            <img
                               src={PROVIDER_ICONS.openai_compatibility}
                               alt="OpenAI"
                               width={16}
                               height={16}
                               className="w-4 h-4"
-                              unoptimized
+                              loading="lazy"
                             />
                             <span>OpenAI Compatible</span>
                           </div>
@@ -873,13 +873,13 @@ const SettingsModal = ({ isOpen, onClose }) => {
                           className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
                         >
                           <div className="flex items-center gap-3">
-                            <Image
+                            <img
                               src={PROVIDER_ICONS.siliconflow}
                               alt="SiliconFlow"
                               width={16}
                               height={16}
                               className="w-4 h-4"
-                              unoptimized
+                              loading="lazy"
                             />
                             <span>SiliconFlow</span>
                           </div>
@@ -1141,13 +1141,13 @@ const SettingsModal = ({ isOpen, onClose }) => {
                             >
                               <div className="flex items-center gap-2">
                                 {getModelIcon(value) && (
-                                  <Image
+                                  <img
                                     src={getModelIcon(value)}
                                     alt=""
                                     width={14}
                                     height={14}
                                     className="w-3.5 h-3.5"
-                                    unoptimized
+                                    loading="lazy"
                                   />
                                 )}
                                 <span>{currentLabel}</span>
@@ -1175,13 +1175,13 @@ const SettingsModal = ({ isOpen, onClose }) => {
                                     >
                                       <div className="flex items-center gap-2">
                                         {getModelIcon(opt.value) && (
-                                          <Image
+                                          <img
                                             src={getModelIcon(opt.value)}
                                             alt=""
                                             width={14}
                                             height={14}
                                             className="w-3.5 h-3.5"
-                                            unoptimized
+                                            loading="lazy"
                                           />
                                         )}
                                         <span>{opt.label}</span>

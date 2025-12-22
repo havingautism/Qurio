@@ -1,4 +1,5 @@
 import { createBackendProvider } from './backendProvider'
+import { getPublicEnv } from './publicEnv'
 import { SILICONFLOW_BASE_URL } from './providerConstants'
 
 /**
@@ -124,7 +125,7 @@ export const PROVIDERS = {
     id: 'gemini',
     name: 'Google Gemini',
     getCredentials: settings => ({
-      apiKey: settings.googleApiKey || process.env.NEXT_PUBLIC_GOOGLE_API_KEY,
+      apiKey: settings.googleApiKey || getPublicEnv('PUBLIC_GOOGLE_API_KEY'),
       baseUrl: undefined, // Native SDK usually handles its own endpoints
     }),
     getTools: isSearchActive => (isSearchActive ? [{ googleSearch: {} }] : undefined), // Native Gemini Google Search tool

@@ -5,9 +5,10 @@ import { RouterProvider } from '@tanstack/react-router'
 import data from '@emoji-mart/data'
 import { init } from 'emoji-mart'
 import { createAppRouter } from './router'
+import { getNodeEnv, getPublicEnv } from './lib/publicEnv'
 
 const getBasePath = () => {
-  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '/'
+  const basePath = getPublicEnv('PUBLIC_BASE_PATH') || '/'
   return basePath.replace(/\/?$/, '/')
 }
 
@@ -20,7 +21,7 @@ export default function ClientApp() {
 
   useEffect(() => {
     if ('serviceWorker' in navigator) {
-      if (process.env.NODE_ENV === 'production') {
+      if (getNodeEnv() === 'production') {
         window.addEventListener('load', () => {
           const basePath = getBasePath()
           navigator.serviceWorker

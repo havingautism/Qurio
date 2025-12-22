@@ -1,3 +1,5 @@
+import { getPublicEnv } from './publicEnv'
+
 /**
  * Centralized Settings Management
  *
@@ -90,12 +92,12 @@ const buildResponseStylePrompt = settings => {
 
 export const loadSettings = (overrides = {}) => {
   // Supabase Env Vars
-  const envSupabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const envSupabaseKey = process.env.NEXT_PUBLIC_SUPABASE_KEY
+  const envSupabaseUrl = getPublicEnv('PUBLIC_SUPABASE_URL')
+  const envSupabaseKey = getPublicEnv('PUBLIC_SUPABASE_KEY')
 
   // OpenAI Env Vars
-  const envOpenAIKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY
-  const envOpenAIBaseUrl = process.env.NEXT_PUBLIC_OPENAI_BASE_URL
+  const envOpenAIKey = getPublicEnv('PUBLIC_OPENAI_API_KEY')
+  const envOpenAIBaseUrl = getPublicEnv('PUBLIC_OPENAI_BASE_URL')
 
   // LocalStorage
   const localSupabaseUrl = localStorage.getItem('supabaseUrl')
@@ -133,34 +135,16 @@ export const loadSettings = (overrides = {}) => {
 
   const settings = {
     // Supabase
-    supabaseUrl:
-      envSupabaseUrl ||
-      process.env.NEXT_PUBLIC_SUPABASE_URL ||
-      localSupabaseUrl ||
-      overrides.supabaseUrl ||
-      '',
-    supabaseKey:
-      envSupabaseKey ||
-      process.env.NEXT_PUBLIC_SUPABASE_KEY ||
-      localSupabaseKey ||
-      overrides.supabaseKey ||
-      '',
+    supabaseUrl: envSupabaseUrl || localSupabaseUrl || overrides.supabaseUrl || '',
+    supabaseKey: envSupabaseKey || localSupabaseKey || overrides.supabaseKey || '',
 
     // OpenAI
     OpenAICompatibilityKey:
-      envOpenAIKey ||
-      process.env.NEXT_PUBLIC_OPENAI_API_KEY ||
-      localOpenAIKey ||
-      overrides.OpenAICompatibilityKey ||
-      '',
+      envOpenAIKey || localOpenAIKey || overrides.OpenAICompatibilityKey || '',
     OpenAICompatibilityUrl:
-      envOpenAIBaseUrl ||
-      process.env.NEXT_PUBLIC_OPENAI_BASE_URL ||
-      localOpenAIUrl ||
-      overrides.OpenAICompatibilityUrl ||
-      '',
+      envOpenAIBaseUrl || localOpenAIUrl || overrides.OpenAICompatibilityUrl || '',
     SiliconFlowKey:
-      process.env.NEXT_PUBLIC_SILICONFLOW_API_KEY ||
+      getPublicEnv('PUBLIC_SILICONFLOW_API_KEY') ||
       localSiliconFlowKey ||
       overrides.SiliconFlowKey ||
       '',
@@ -168,7 +152,7 @@ export const loadSettings = (overrides = {}) => {
     // API Provider
     apiProvider: localStorage.getItem('apiProvider') || overrides.apiProvider || 'gemini',
     googleApiKey:
-      process.env.NEXT_PUBLIC_GOOGLE_API_KEY ||
+      getPublicEnv('PUBLIC_GOOGLE_API_KEY') ||
       localStorage.getItem('googleApiKey') ||
       overrides.googleApiKey ||
       '',
@@ -184,12 +168,10 @@ export const loadSettings = (overrides = {}) => {
     enableRelatedQuestions: resolvedRelatedQuestionsPreference,
     interfaceLanguage: localInterfaceLanguage || overrides.interfaceLanguage || 'en',
     llmAnswerLanguage: localLlmAnswerLanguage || overrides.llmAnswerLanguage || 'English',
-    baseTone:
-      localStyleBaseTone || overrides.baseTone || DEFAULT_STYLE_SETTINGS.baseTone,
+    baseTone: localStyleBaseTone || overrides.baseTone || DEFAULT_STYLE_SETTINGS.baseTone,
     traits: localStyleTraits || overrides.traits || DEFAULT_STYLE_SETTINGS.traits,
     warmth: localStyleWarmth || overrides.warmth || DEFAULT_STYLE_SETTINGS.warmth,
-    enthusiasm:
-      localStyleEnthusiasm || overrides.enthusiasm || DEFAULT_STYLE_SETTINGS.enthusiasm,
+    enthusiasm: localStyleEnthusiasm || overrides.enthusiasm || DEFAULT_STYLE_SETTINGS.enthusiasm,
     headings: localStyleHeadings || overrides.headings || DEFAULT_STYLE_SETTINGS.headings,
     emojis: localStyleEmojis || overrides.emojis || DEFAULT_STYLE_SETTINGS.emojis,
     customInstruction:

@@ -117,7 +117,7 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
 
   return (
     <div className="fixed inset-0 z-[100] flex items-start md:items-center justify-center bg-black/50 backdrop-blur-sm p-0 md:p-4 overflow-y-auto md:overflow-hidden">
-      <div className="w-full h-[100vh] md:max-w-md md:h-auto md:max-h-[90vh] bg-white dark:bg-[#191a1a] rounded-none md:rounded-2xl shadow-2xl flex flex-col overflow-hidden border-0 md:border border-gray-200 dark:border-zinc-800">
+      <div className="w-full h-[100vh] md:max-w-2xl md:h-[80vh] bg-white dark:bg-[#191a1a] rounded-none md:rounded-2xl shadow-2xl flex flex-col overflow-hidden border-0 md:border border-gray-200 dark:border-zinc-800">
         {/* Header */}
         <div className="h-14 border-b border-gray-200 dark:border-zinc-800 flex items-center justify-between px-4 sm:px-6 shrink-0">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -157,9 +157,9 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
           {/* Tab Content */}
           <div className="flex-1 px-4 sm:px-6 py-6 overflow-y-auto min-h-0">
             {activeTab === 'general' && (
-              <div className="flex flex-col gap-4">
-                {/* Icon and Name Row */}
-                <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-4 h-full">
+                {/* Icon and Name Row - Fixed height */}
+                <div className="flex flex-col gap-2 shrink-0">
                   <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                     Icon & Name
                   </label>
@@ -201,8 +201,8 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
                   </div>
                 </div>
 
-                {/* Description Input */}
-                <div className="flex flex-col gap-2">
+                {/* Description Input - Fixed height */}
+                <div className="flex flex-col gap-2 shrink-0">
                   <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                     Description <span className="text-gray-400 font-normal">(Optional)</span>
                   </label>
@@ -215,8 +215,8 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
                   />
                 </div>
 
-                {/* Prompt Input */}
-                <div className="flex flex-col gap-2">
+                {/* Prompt Input - Flexible height */}
+                <div className="flex flex-col gap-2 flex-1 min-h-0">
                   <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                     Space Prompt <span className="text-gray-400 font-normal">(Optional)</span>
                   </label>
@@ -224,8 +224,7 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
                     value={prompt}
                     onChange={e => setPrompt(e.target.value)}
                     placeholder="Provide guidance the assistant should follow inside this space."
-                    rows={8}
-                    className="w-full px-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600 resize-none"
+                    className="w-full flex-1 min-h-[120px] px-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600 resize-none"
                   />
                 </div>
               </div>

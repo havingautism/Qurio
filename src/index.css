@@ -1,5 +1,6 @@
 @import 'tailwindcss';
 @variant dark (&:where(.dark, .dark *));
+@source "../node_modules/streamdown/dist/*.js";
 
 /* CSS variables for sidebar width */
 :root {
@@ -19,25 +20,18 @@
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-user-bubble: var(--user-bubble);
-  --font-sans-serif:
-    'IBM Plex Sans', 'IBM Plex Sans SC', -apple-system, BlinkMacSystemFont, 'Apple Color Emoji',
-    'Segoe UI Emoji', 'Segoe UI Symbol', 'Segoe UI', 'PingFang SC', HarmonyOS_Regular,
-    'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, 'Source Han Sans SC',
-    'Noto Sans CJK SC', 'WenQuanYi Micro Hei', Arial, sans-serif;
-  --font-serif:
-    'Playfair Display', STZhongsong, STSong, 'Noto Serif CJK', 'Noto Serif SC', PMingLiu, SimSun,
-    'WenQuanYi Bitmap Song', 'Times New Roman', Times, serif, 'Apple Color Emoji', 'Segoe UI Emoji',
-    'Segoe UI Symbol';
-  --font-mono:
-    'JetBrains Mono', ui-monospace, SFMono-Regular, 'SF Mono', 'Cascadia Code', 'Segoe UI Mono',
-    'Source Code Pro', Menlo, Consolas, 'Liberation Mono', monospace;
-  /* --font-sans: Ginto, ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
-    'Segoe UI Symbol', 'Noto Color Emoji'; */
   --font-sans:
-    'IBM Plex Sans', 'IBM Plex Sans SC', -apple-system, BlinkMacSystemFont, 'Apple Color Emoji',
-    'Segoe UI Emoji', 'Segoe UI Symbol', 'Segoe UI', 'PingFang SC', HarmonyOS_Regular,
-    'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, 'Source Han Sans SC',
-    'Noto Sans CJK SC', 'WenQuanYi Micro Hei', Arial, sans-serif;
+    var(--font-geist-sans), var(--font-noto-sc), system-ui, -apple-system, 'Segoe UI', Roboto,
+    'PingFang SC', 'Hiragino Sans', 'Microsoft YaHei', sans-serif;
+
+  --font-sans-serif:
+    var(--font-geist-sans), var(--font-noto-sc), system-ui, -apple-system, 'Segoe UI',
+    'PingFang SC', 'Hiragino Sans', 'Microsoft YaHei', sans-serif;
+
+  /* 代码 / Prompt / Log */
+  --font-mono:
+    var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, 'SF Mono', 'Cascadia Code',
+    'Segoe UI Mono', 'Source Code Pro', Menlo, Consolas, monospace;
 
   /* Custom Primary Palette (formerly Brown) - Default Map to Variables */
   /* These will be overridden by the JS style injection on root */
@@ -80,6 +74,10 @@
   /* stone-300 */
 
   --user-bubble: #f7f2f1;
+
+  --font-geist-sans: 'Geist', 'Geist Fallback';
+  --font-noto-sc: 'Noto Sans SC', 'Noto Sans SC Fallback';
+  --font-jetbrains-mono: 'JetBrains Mono', 'JetBrains Mono Fallback';
 
   /* Glow defaults (Fox Rust) */
   --theme-glow-1: rgba(234, 205, 196, 0.35);
@@ -317,11 +315,10 @@ h6 {
   background-color: #a8a29e; /* stone-400 */
 }
 
-
 /* Utility to hide scrollbar but allow scrolling */
 .no-scrollbar {
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;  /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
 }
 .no-scrollbar::-webkit-scrollbar {
   display: none;

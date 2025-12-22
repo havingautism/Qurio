@@ -31,6 +31,7 @@ const QuestionTimelineSidebar = ({
   const [sortOrder, setSortOrder] = useState('desc') // 'asc' for oldest first, 'desc' for newest first
   const [dragPreviewId, setDragPreviewId] = useState(null)
   const timelineRailRef = useRef(null)
+  const overlayRef = useRef(null)
   const dragFrameRef = useRef(null)
   const lastTouchIndexRef = useRef(null)
   // const [activeIndicatorTop, setActiveIndicatorTop] = useState(null) // Removed unused state
@@ -172,10 +173,17 @@ const QuestionTimelineSidebar = ({
 
     try {
       const date = new Date(timestamp)
-      return date.toLocaleTimeString('en-US', {
+      const dateStr = date.toLocaleDateString(undefined, {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      })
+      const timeStr = date.toLocaleTimeString(undefined, {
         hour: '2-digit',
         minute: '2-digit',
+        hour12: false
       })
+      return `${dateStr} ${timeStr}`
     } catch (e) {
       return null
     }
@@ -205,6 +213,24 @@ const QuestionTimelineSidebar = ({
       }
     }
   }, [])
+
+  useEffect(() => {
+    if (isLargeScreen) return
+    const overlay = overlayRef.current
+    if (!overlay) return
+
+    const preventScroll = event => {
+      event.preventDefault()
+    }
+
+    overlay.addEventListener('wheel', preventScroll, { passive: false })
+    overlay.addEventListener('touchmove', preventScroll, { passive: false })
+    return () => {
+      overlay.removeEventListener('wheel', preventScroll)
+      overlay.removeEventListener('touchmove', preventScroll)
+    }
+  }, [isLargeScreen, isOpen])
+
 
   // Removed unused activeIndicator logic
   const updateActiveIndicator = useCallback(() => { }, [])
@@ -289,6 +315,34 @@ const QuestionTimelineSidebar = ({
     }
   }, [dragPreviewId, onJump])
 
+  useEffect(() => {
+    if (isLargeScreen) return
+    const rail = timelineRailRef.current
+    if (!rail) return
+
+    const onStart = event => handleTimelineTouchStart(event)
+    const onMove = event => handleTimelineTouchMove(event)
+    const onEnd = () => handleTimelineTouchEnd()
+
+    rail.addEventListener('touchstart', onStart, { passive: false })
+    rail.addEventListener('touchmove', onMove, { passive: false })
+    rail.addEventListener('touchend', onEnd, { passive: true })
+    rail.addEventListener('touchcancel', onEnd, { passive: true })
+
+    return () => {
+      rail.removeEventListener('touchstart', onStart)
+      rail.removeEventListener('touchmove', onMove)
+      rail.removeEventListener('touchend', onEnd)
+      rail.removeEventListener('touchcancel', onEnd)
+    }
+  }, [
+    handleTimelineTouchStart,
+    handleTimelineTouchMove,
+    handleTimelineTouchEnd,
+    isLargeScreen,
+    flatTimelineItems.length,
+  ])
+
   const sidebarContent = (
     <>
       {/* Overlay when sidebar is open - only on smaller screens */}
@@ -296,9 +350,8 @@ const QuestionTimelineSidebar = ({
         <div
           // className="fixed inset-0 blur-sm bg-black/30  z-40"
           className="fixed inset-0  z-40"
+          ref={overlayRef}
           onClick={handleToggle}
-          onWheel={e => e.preventDefault()}
-          onTouchMove={e => e.preventDefault()}
         />
       )}
 
@@ -347,10 +400,6 @@ const QuestionTimelineSidebar = ({
               <div
                 ref={timelineRailRef}
                 className="relative h-[55vh] w-full touch-none"
-                onTouchStart={handleTimelineTouchStart}
-                onTouchMove={handleTimelineTouchMove}
-                onTouchEnd={handleTimelineTouchEnd}
-                onTouchCancel={handleTimelineTouchEnd}
               >
                 {/* Visual Axis Container */}
                 <div className="flex h-full flex-col justify-center items-end gap-3 py-1 pr-1">
@@ -383,7 +432,7 @@ const QuestionTimelineSidebar = ({
                               : 'opacity-0 translate-x-4 scale-95 pointer-events-none'
                           )}
                         >
-                          <div className="w-auto min-w-[180px] max-w-[260px] rounded-2xl border border-gray-200/80 dark:border-zinc-700/80 bg-user-bubble/95 dark:bg-zinc-800/95 px-4 py-3 shadow-xl backdrop-blur-md">
+                          <div className="w-auto min-w-[240px] max-w-[280px] rounded-2xl border border-gray-200/80 dark:border-zinc-700/80 bg-user-bubble/95 dark:bg-zinc-800/95 px-4 py-3 shadow-xl backdrop-blur-md">
                             {timeLabel && (
                               <div className="text-[10px] uppercase tracking-wider font-semibold text-gray-500 dark:text-gray-400 mb-0.5">
                                 {timeLabel}
@@ -445,7 +494,7 @@ const QuestionTimelineSidebar = ({
                   className={clsx(
                     "h-[2px] rounded-full transition-all duration-300 ease-spring",
                     isActive
-                      ? "w-6 bg-primary-500 shadow-[0_0_8px_rgba(var(--primary-500-rgb),0.4)]"
+                      ? "w-5 bg-primary-500 shadow-[0_0_8px_rgba(var(--primary-500-rgb),0.4)]"
                       : "w-2 bg-gray-300 dark:bg-zinc-600 group-hover:bg-primary-400 group-hover:w-4"
                   )}
                 />

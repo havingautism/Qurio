@@ -1,12 +1,11 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useShallow } from 'zustand/react/shallow'
 import useChatStore from '../lib/chatStore'
+
 import {
   Copy,
   Share2,
-  Layers,
-  Brain,
   ChevronRight,
   ChevronDown,
   CornerRightDown,
@@ -17,7 +16,7 @@ import {
   Quote,
   X,
 } from 'lucide-react'
-import ReactMarkdown from 'react-markdown'
+import { Streamdown } from 'streamdown'
 import remarkGfm from 'remark-gfm'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
@@ -26,6 +25,7 @@ import { getProvider } from '../lib/providers'
 import { parseChildrenWithEmojis } from '../lib/emojiParser'
 import EmojiDisplay from './EmojiDisplay'
 import { PROVIDER_ICONS, getModelIcon } from '../lib/modelIcons'
+import DotLoader from './DotLoader'
 
 const PROVIDER_META = {
   gemini: {
@@ -44,6 +44,8 @@ const PROVIDER_META = {
     fallback: 'S',
   },
 }
+
+const THINKING_STATUS_MESSAGES = ['Thinking', 'Analyzing', 'Working through it', 'Checking details']
 
 /**
  * Make inline [n] markers clickable to the corresponding source URL while keeping brackets.
@@ -77,9 +79,10 @@ const MessageBubble = ({
   onQuote,
 }) => {
   // Get message directly from chatStore using shallow selector
-  const { messages } = useChatStore(
+  const { messages, isLoading } = useChatStore(
     useShallow(state => ({
       messages: state.messages,
+      isLoading: state.isLoading,
     })),
   )
 
@@ -333,7 +336,6 @@ const MessageBubble = ({
     }
   }, [isMobile])
 
-
   useEffect(() => {
     const observer = new MutationObserver(mutations => {
       mutations.forEach(mutation => {
@@ -346,17 +348,113 @@ const MessageBubble = ({
     return () => observer.disconnect()
   }, [])
 
-  const [isThoughtExpanded, setIsThoughtExpanded] = useState(true)
+  const [isThoughtExpanded, setIsThoughtExpanded] = useState(false)
+  const [thinkingStatusIndex, setThinkingStatusIndex] = useState(0)
   const [showAllSources, setShowAllSources] = useState(false)
   const isUser = message.role === 'user'
+  const isStreaming =
+    message?.isStreaming ??
+    (isLoading && message.role === 'ai' && messageIndex === messages.length - 1)
+  const hasMainText = (() => {
+    const content = message?.content
+    if (typeof content === 'string') return content.trim().length > 0
+    if (Array.isArray(content)) {
+      return content.some(part => {
+        if (typeof part === 'string') return part.trim().length > 0
+        if (part?.type === 'text' && typeof part.text === 'string')
+          return part.text.trim().length > 0
+        if (part?.text != null) return String(part.text).trim().length > 0
+        return false
+      })
+    }
+    if (content && typeof content === 'object' && Array.isArray(content.parts)) {
+      return content.parts.some(part =>
+        typeof part === 'string'
+          ? part.trim().length > 0
+          : String(part?.text || '').trim().length > 0,
+      )
+    }
+    return false
+  })()
+  const shouldShowThinkingStatus =
+    message.role === 'ai' && message.thinkingEnabled !== false && isStreaming && !hasMainText
+  const thinkingStatusText =
+    THINKING_STATUS_MESSAGES[thinkingStatusIndex] || THINKING_STATUS_MESSAGES[0]
+  const renderPlainCodeBlock = useCallback(
+    (codeText, language) => (
+      <div className="relative group my-4 border border-gray-200 dark:border-zinc-700 rounded-xl overflow-x-auto bg-user-bubble/50 dark:bg-zinc-800/30">
+        <div className="flex items-center font-mono! justify-between px-3 py-2 text-[11px] font-semibold bg-user-bubble/50 dark:bg-zinc-800/50 text-gray-600 dark:text-gray-300 border-b border-gray-200 dark:border-zinc-700">
+          <span>{String(language || 'CODE').toUpperCase()}</span>
+          <button className="px-2 py-1 rounded bg-gray-200 dark:bg-zinc-700 text-gray-700 dark:text-gray-200 text-[11px] opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+            Copy
+          </button>
+        </div>
+        <SyntaxHighlighter
+          style={isDark ? oneDark : oneLight}
+          language={language || 'text'}
+          PreTag="div"
+          className="code-scrollbar text-sm sm:text-base"
+          customStyle={{
+            margin: 0,
+            padding: '1rem',
+            background: 'transparent',
+          }}
+          codeTagProps={{
+            style: {
+              backgroundColor: 'transparent',
+              fontFamily:
+                'JetBrainsMono, CascadiaCode, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+            },
+          }}
+        >
+          {codeText}
+        </SyntaxHighlighter>
+      </div>
+    ),
+    [isDark],
+  )
+
+  const MermaidErrorFallback = useCallback(
+    ({ chart }) => renderPlainCodeBlock(chart || '', 'mermaid'),
+    [renderPlainCodeBlock],
+  )
+
+  const mermaidOptions = useMemo(
+    () => ({
+      config: { theme: isDark ? 'dark' : 'default' },
+      errorComponent: MermaidErrorFallback,
+    }),
+    [isDark, MermaidErrorFallback],
+  )
+
+  useEffect(() => {
+    if (!shouldShowThinkingStatus) return undefined
+    setThinkingStatusIndex(0)
+    const intervalId = setInterval(() => {
+      setThinkingStatusIndex(prev => (prev + 1) % THINKING_STATUS_MESSAGES.length)
+    }, 1800)
+    return () => clearInterval(intervalId)
+  }, [shouldShowThinkingStatus])
 
   const CodeBlock = ({ inline, className, children, ...props }) => {
     const match = /language-(\w+)/.exec(className || '')
+    const language = match ? match[1].toLowerCase() : ''
     const langLabel = match ? match[1].toUpperCase() : 'CODE'
+    const codeText = String(children).replace(/\n$/, '')
+
+    if (!inline && language === 'mermaid') {
+      return (
+        <div className="my-4">
+          <Streamdown mode="static" mermaid={mermaidOptions} controls={{ mermaid: true }}>
+            {`\`\`\`mermaid\n${codeText}\n\`\`\``}
+          </Streamdown>
+        </div>
+      )
+    }
 
     if (!inline && match) {
       return (
-        <div className="relative group mb-4 border border-gray-200 dark:border-zinc-700 rounded-xl overflow-x-auto bg-user-bubble/50 dark:bg-zinc-800/30">
+        <div className="relative group my-4 border border-gray-200 dark:border-zinc-700 rounded-xl overflow-x-auto bg-user-bubble/50 dark:bg-zinc-800/30">
           <div className="flex items-center font-mono! justify-between px-3 py-2 text-[11px] font-semibold bg-user-bubble/50 dark:bg-zinc-800/50 text-gray-600 dark:text-gray-300 border-b border-gray-200 dark:border-zinc-700">
             <span>{langLabel}</span>
             <button className="px-2 py-1 rounded bg-gray-200 dark:bg-zinc-700 text-gray-700 dark:text-gray-200 text-[11px] opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
@@ -377,12 +475,12 @@ const MessageBubble = ({
               style: {
                 backgroundColor: 'transparent',
                 fontFamily:
-                  'CascadiaCode, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+                  'JetBrainsMono, CascadiaCode, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
               },
             }}
             {...props}
           >
-            {String(children).replace(/\n$/, '')}
+            {codeText}
           </SyntaxHighlighter>
         </div>
       )
@@ -508,7 +606,7 @@ const MessageBubble = ({
           containerRef.current = el
           if (typeof bubbleRef === 'function') bubbleRef(el)
         }}
-        className="flex justify-end items-center w-full mt-8 group px-5 sm:px-0"
+        className="flex justify-end items-center w-full mt-8 group px-3 sm:px-0"
         onMouseUp={handleMouseUp}
         onTouchEnd={handleTouchEnd}
         onContextMenu={handleContextMenu}
@@ -620,9 +718,10 @@ const MessageBubble = ({
   const thoughtContent = message.thinkingEnabled === false ? null : parsed.thought
   const mainContent = parsed.content
   const contentWithCitations = formatContentWithSources(mainContent, message.sources)
-  const isStreaming = !!message?.isStreaming
   const hasThoughtText = !!(thoughtContent && String(thoughtContent).trim())
   const shouldShowThought = message.thinkingEnabled !== false && (isStreaming || hasThoughtText)
+  const hasRelatedQuestions = Array.isArray(message.related) && message.related.length > 0
+  const isRelatedLoading = !!message.relatedLoading
 
   // Removed duplicate definitions
 
@@ -735,7 +834,10 @@ const MessageBubble = ({
             <img
               src={providerMeta.logo}
               alt={providerMeta.label}
+              width={40}
+              height={40}
               className="w-full h-full object-contain"
+              loading="lazy"
             />
           ) : (
             <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
@@ -750,7 +852,10 @@ const MessageBubble = ({
               <img
                 src={getModelIcon(resolvedModel)}
                 alt=""
+                width={14}
+                height={14}
                 className="w-3.5 h-3.5 object-contain"
+                loading="lazy"
               />
             )}
             <span className="text-xs text-gray-500 dark:text-gray-400">{resolvedModel}</span>
@@ -767,16 +872,29 @@ const MessageBubble = ({
           >
             <div className="flex items-center gap-2 font-medium text-gray-700 dark:text-gray-300">
               <EmojiDisplay emoji="🧠" size="1.2em" />
-              <span className="text-sm">Thinking Process</span>
+              {!shouldShowThinkingStatus && <span className="text-sm">Thinking Process</span>}
+              {!shouldShowThinkingStatus && <Check size="1em" />}
+              {shouldShowThinkingStatus && (
+                <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                  <span className="text-left mr-4">{thinkingStatusText}</span>
+                  <DotLoader />
+                </div>
+              )}
             </div>
-            {isThoughtExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+            <div className="flex items-center gap-3">
+              {isThoughtExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+            </div>
           </button>
 
           {isThoughtExpanded && hasThoughtText && (
             <div className="p-4 bg-user-bubble/30 font-stretch-semi-condensed dark:bg-zinc-800/30 border-t border-gray-200 dark:border-zinc-700 text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
-              <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+              <Streamdown
+                mermaid={mermaidOptions}
+                remarkPlugins={[remarkGfm]}
+                components={markdownComponents}
+              >
                 {thoughtContent}
-              </ReactMarkdown>
+              </Streamdown>
             </div>
           )}
         </div>
@@ -818,7 +936,7 @@ const MessageBubble = ({
       {/* Main Content */}
       <div
         ref={mainContentRef}
-        className="message-content prose dark:prose-invert max-w-none text-gray-800 dark:text-gray-200 leading-relaxed font-serif [&_p]:overflow-x-auto [&_p]:max-w-full [&_p]:whitespace-pre-wrap [&_blockquote]:overflow-x-auto [&_blockquote]:max-w-full [&_table]:inline-table [&_table]:w-auto [&_table]:table-auto [&_pre]:overflow-x-auto [&_pre]:max-w-full"
+        className="message-content prose dark:prose-invert max-w-none text-gray-800 dark:text-gray-200 leading-relaxed font-sans [&_p]:overflow-x-auto [&_p]:max-w-full [&_p]:whitespace-pre-wrap [&_blockquote]:overflow-x-auto [&_blockquote]:max-w-full [&_table]:inline-table [&_table]:w-auto [&_table]:table-auto [&_pre]:overflow-x-auto [&_pre]:max-w-full"
         // Prevent native selection menu on mobile
         style={{
           WebkitTouchCallout: isMobile ? 'none' : 'default',
@@ -829,41 +947,51 @@ const MessageBubble = ({
           userSelect: isMobile ? 'text' : 'auto',
         }}
       >
-        {!message.content && !thoughtContent ? (
+        {!message.content ? (
           <div className="flex flex-col gap-2 animate-pulse">
             <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-3/4"></div>
             <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-1/2"></div>
             <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-5/6"></div>
           </div>
         ) : (
-          <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+          <Streamdown
+            mermaid={mermaidOptions}
+            remarkPlugins={[remarkGfm]}
+            components={markdownComponents}
+          >
             {contentWithCitations}
-          </ReactMarkdown>
+          </Streamdown>
         )}
       </div>
 
       {/* Related Questions */}
-      {message.related && message.related.length > 0 && (
+      {(hasRelatedQuestions || isRelatedLoading) && (
         <div className="border-t border-gray-200 dark:border-zinc-800 pt-4">
           <div className="flex items-center gap-3 mb-3 text-gray-900 dark:text-gray-100">
             <EmojiDisplay emoji="🔮" size="1.2em" className="mb-1" />
-            <span className="text-sm font-semibold">Related</span>
+            <span className="text-sm font-semibold">Related Questions</span>
           </div>
           <div className="flex flex-col gap-1 md:gap-2 px-2">
-            {message.related.map((question, index) => (
-              <div
-                key={index}
-                onClick={() => onRelatedClick && onRelatedClick(question)}
-                className="flex items-center rounded-2xl border sm:hover:scale-102 border-gray-200 dark:border-zinc-800 bg-user-bubble dark:bg-zinc-800/50 justify-between p-2  hover:bg-user-bubble dark:hover:bg-zinc-800/50 cursor-pointer transition-colors group"
-              >
-                <span className="text-gray-700 dark:text-gray-300 font-medium text-sm md:text-balance">
-                  {question}
-                </span>
-                <div className="ml-2 sm:ml-0opacity-100 sm:opacity-0 sm:group-hover:opacity-100 text-primary-500 dark:text-primary-500">
-                  <CornerRightDown />
+            {hasRelatedQuestions &&
+              message.related.map((question, index) => (
+                <div
+                  key={index}
+                  onClick={() => onRelatedClick && onRelatedClick(question)}
+                  className="flex items-center rounded-2xl border sm:hover:scale-102 border-gray-200 dark:border-zinc-800 bg-user-bubble dark:bg-zinc-800/50 justify-between p-2  hover:bg-user-bubble dark:hover:bg-zinc-800/50 cursor-pointer transition-colors group"
+                >
+                  <span className="text-gray-700 dark:text-gray-300 font-medium text-sm md:text-balance">
+                    {question}
+                  </span>
+                  <div className="ml-2 sm:ml-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 text-primary-500 dark:text-primary-500">
+                    <CornerRightDown />
+                  </div>
                 </div>
+              ))}
+            {isRelatedLoading && (
+              <div className="flex items-center p-2 text-gray-500 dark:text-gray-400">
+                <DotLoader />
               </div>
-            ))}
+            )}
           </div>
         </div>
       )}

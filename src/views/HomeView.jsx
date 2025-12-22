@@ -230,9 +230,9 @@ const HomeView = () => {
           </div>
 
           {/* Main Container */}
-          <div className="w-full max-w-3xl flex flex-col items-center gap-4 sm:gap-8 mt-14 md:mt-0 my-auto">
-            <div className="p-4 block sm:hidden  rounded-3xl mb-2">
-              <Logo size={128} className="text-gray-900 dark:text-white" />
+          <div className="w-full max-w-3xl flex flex-col items-center gap-4 sm:gap-8 sm:mt-14">
+            <div className="p-4 block sm:hidden mt-10 rounded-3xl mb-2">
+              <Logo size={128} className="text-gray-900 dark:text-white" priority />
             </div>
             {/* Title */}
             <h1 className="home-title text-3xl md:text-5xl font-serif! font-medium text-center mb-4 mt-0 sm:mb-8 text-[#1f2937] dark:text-white">
@@ -240,7 +240,7 @@ const HomeView = () => {
             </h1>
 
             {/* Search Box */}
-            <div className="home-search-box w-full relative group z-30">
+            <div className="home-search-box w-full relative group z-20">
               <div className="absolute inset-0 input-glow-veil rounded-xl blur-2xl opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-500 pointer-events-none" />
               <div className="relative bg-user-bubble dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-xl shadow-sm hover:shadow-md transition-all duration-300 p-4">
                 {homeAttachments.length > 0 && (
@@ -296,21 +296,19 @@ const HomeView = () => {
                     />
                     <button
                       onClick={handleHomeFileUpload}
-                      className={`p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
-                        homeAttachments.length > 0
-                          ? 'text-primary-500'
-                          : 'text-gray-500 dark:text-gray-400'
-                      }`}
+                      className={`p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${homeAttachments.length > 0
+                        ? 'text-primary-500'
+                        : 'text-gray-500 dark:text-gray-400'
+                        }`}
                     >
                       <Paperclip size={18} />
                     </button>
                     <button
                       onClick={() => setIsHomeThinkingActive(!isHomeThinkingActive)}
-                      className={`p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
-                        isHomeThinkingActive
-                          ? 'text-primary-500 bg-gray-100 dark:bg-zinc-800'
-                          : 'text-gray-500 dark:text-gray-400'
-                      }`}
+                      className={`p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${isHomeThinkingActive
+                        ? 'text-primary-500 bg-gray-100 dark:bg-zinc-800'
+                        : 'text-gray-500 dark:text-gray-400'
+                        }`}
                     >
                       <Brain size={18} />
                       <span className="hidden md:inline">Think</span>
@@ -322,11 +320,10 @@ const HomeView = () => {
                       }
                       value={isHomeSearchActive}
                       onClick={() => setIsHomeSearchActive(!isHomeSearchActive)}
-                      className={`p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
-                        isHomeSearchActive
-                          ? 'text-primary-500 bg-gray-100 dark:bg-zinc-800'
-                          : 'text-gray-500 dark:text-gray-400'
-                      }`}
+                      className={`p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${isHomeSearchActive
+                        ? 'text-primary-500 bg-gray-100 dark:bg-zinc-800'
+                        : 'text-gray-500 dark:text-gray-400'
+                        }`}
                     >
                       <Globe size={18} />
                       <span className="hidden md:inline">Search</span>
@@ -335,11 +332,10 @@ const HomeView = () => {
                     <div className="relative" ref={homeSpaceSelectorRef}>
                       <button
                         onClick={() => setIsHomeSpaceSelectorOpen(!isHomeSpaceSelectorOpen)}
-                        className={`px-3 py-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
-                          isHomeSpaceAuto
-                            ? 'text-gray-500 dark:text-gray-400'
-                            : 'text-primary-500 bg-gray-100 dark:bg-zinc-800'
-                        }`}
+                        className={`px-3 py-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${isHomeSpaceAuto
+                          ? 'text-gray-500 dark:text-gray-400'
+                          : 'text-primary-500 bg-gray-100 dark:bg-zinc-800'
+                          }`}
                       >
                         <LayoutGrid size={18} />
                         <span className="hidden md:inline">
@@ -354,11 +350,10 @@ const HomeView = () => {
                           <div className="p-2 flex flex-col gap-1">
                             <button
                               onClick={handleSelectHomeSpaceAuto}
-                              className={`flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left ${
-                                isHomeSpaceAuto
-                                  ? 'text-primary-500'
-                                  : 'text-gray-700 dark:text-gray-200'
-                              }`}
+                              className={`flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left ${isHomeSpaceAuto
+                                ? 'text-primary-500'
+                                : 'text-gray-700 dark:text-gray-200'
+                                }`}
                             >
                               <span className="text-sm font-medium">Auto</span>
                               {isHomeSpaceAuto && <Check size={14} className="text-primary-500" />}

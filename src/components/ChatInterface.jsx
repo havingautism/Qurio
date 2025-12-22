@@ -69,6 +69,7 @@ const ChatInterface = ({
     setConversationTitle,
     isLoading,
     setIsLoading,
+    isMetaLoading,
     sendMessage,
   } = useChatStore(
     useShallow(state => ({
@@ -80,6 +81,7 @@ const ChatInterface = ({
       setConversationTitle: state.setConversationTitle,
       isLoading: state.isLoading,
       setIsLoading: state.setIsLoading,
+      isMetaLoading: state.isMetaLoading,
       sendMessage: state.sendMessage,
     })),
   )
@@ -112,6 +114,9 @@ const ChatInterface = ({
   const bottomRef = useRef(null)
   const [showScrollButton, setShowScrollButton] = useState(false)
   const [isRegeneratingTitle, setIsRegeneratingTitle] = useState(false)
+  const isSwitchingConversation = Boolean(
+    activeConversation?.id && activeConversation.id !== conversationId,
+  )
   const conversationSpace = React.useMemo(() => {
     if (!activeConversation?.space_id) return null
     const sid = String(activeConversation.space_id)
@@ -197,8 +202,11 @@ const ChatInterface = ({
         // Clear all other states for a fresh start
         setConversationTitle('')
         setMessages([])
-        setSelectedSpace(null)
-        setIsManualSpaceSelection(false)
+        const shouldPreserveAutoSpace = !isManualSpaceSelection && selectedSpace
+        if (!shouldPreserveAutoSpace) {
+          setSelectedSpace(null)
+          setIsManualSpaceSelection(false)
+        }
         return
       }
 
@@ -206,10 +214,17 @@ const ChatInterface = ({
       // check if we already have messages in the store
       if (activeConversation.id === conversationId && messages.length > 0) {
         // We already have messages (they're being streamed or just completed)
-        // Just update the title and space from the loaded conversation data
-        setConversationTitle(activeConversation.title || 'New Conversation')
-        setSelectedSpace(conversationSpace)
-        setIsManualSpaceSelection(!!conversationSpace)
+        // Only adopt the stored title if it isn't a default placeholder.
+        if (
+          activeConversation.title &&
+          (activeConversation.title !== 'New Conversation' || !conversationTitle)
+        ) {
+          setConversationTitle(activeConversation.title)
+        }
+        if (conversationSpace) {
+          setSelectedSpace(conversationSpace)
+          setIsManualSpaceSelection(!!conversationSpace)
+        }
         return
       }
 
@@ -222,9 +237,21 @@ const ChatInterface = ({
         setMessages([])
       }
       setConversationId(activeConversation.id)
-      setConversationTitle(activeConversation.title || 'New Conversation')
-      setSelectedSpace(conversationSpace)
-      setIsManualSpaceSelection(!!conversationSpace)
+      if (
+        activeConversation.title &&
+        (activeConversation.title !== 'New Conversation' || !conversationTitle)
+      ) {
+        setConversationTitle(activeConversation.title)
+      } else if (!conversationTitle) {
+        setConversationTitle('')
+      }
+      if (conversationSpace) {
+        setSelectedSpace(conversationSpace)
+        setIsManualSpaceSelection(!!conversationSpace)
+      } else if (!selectedSpace) {
+        setSelectedSpace(null)
+        setIsManualSpaceSelection(false)
+      }
       const { data, error } = await listMessages(activeConversation.id)
       if (!error && data) {
         const mapped = data.map(m => {
@@ -257,7 +284,15 @@ const ChatInterface = ({
       setIsLoadingHistory(false)
     }
     loadHistory()
-  }, [activeConversation, conversationSpace, settings])
+  }, [
+    activeConversation,
+    conversationSpace,
+    settings,
+    conversationTitle,
+    messages.length,
+    selectedSpace,
+    isManualSpaceSelection,
+  ])
 
   useEffect(() => {
     // Check if conversationId has changed (new conversation created)
@@ -293,11 +328,13 @@ const ChatInterface = ({
         setSelectedSpace(initialSpaceSelection.space)
         setIsManualSpaceSelection(true)
       } else if (initialSpaceSelection?.mode === 'auto') {
-        setSelectedSpace(null)
-        setIsManualSpaceSelection(false)
+        if (!selectedSpace && !isManualSpaceSelection) {
+          setSelectedSpace(null)
+          setIsManualSpaceSelection(false)
+        }
       }
     }
-  }, [initialSpaceSelection, activeConversation])
+  }, [initialSpaceSelection, activeConversation, selectedSpace, isManualSpaceSelection])
 
   // Handle click outside to close selector
   useEffect(() => {
@@ -572,10 +609,10 @@ const ChatInterface = ({
         editingInfoOverride ||
         (editingIndex !== null
           ? {
-            index: editingIndex,
-            targetId: editingTargetId,
-            partnerId: editingPartnerId,
-          }
+              index: editingIndex,
+              targetId: editingTargetId,
+              partnerId: editingPartnerId,
+            }
           : null)
 
       // Reset editing state
@@ -588,10 +625,10 @@ const ChatInterface = ({
 
       const quoteContextForSend = quoteContext
         ? {
-          text: quoteTextRef.current || quoteContext.text,
-          sourceContent: quoteSourceRef.current || quoteContext.sourceContent,
-          sourceRole: quoteContext.sourceRole,
-        }
+            text: quoteTextRef.current || quoteContext.text,
+            sourceContent: quoteSourceRef.current || quoteContext.sourceContent,
+            sourceRole: quoteContext.sourceRole,
+          }
         : null
 
       // Clear quote state immediately so UI banner disappears right after sending
@@ -669,9 +706,9 @@ const ChatInterface = ({
     setQuoteContext(
       text
         ? {
-          text,
-          sourceRole,
-        }
+            text,
+            sourceRole,
+          }
         : null,
     )
     setEditingIndex(null) // Clear editing when quoting
@@ -846,102 +883,113 @@ const ChatInterface = ({
         !isXLScreen && 'sidebar-shift',
       )}
     >
-      <div className="w-full max-w-3xl mx-auto relative flex flex-col flex-1 min-h-0">
+      <div className="w-full relative flex flex-col flex-1 min-h-0">
         {/* Title Bar */}
-        <div className="shrink-0 z-20 w-full max-w-8xl border-b border-gray-200 dark:border-zinc-800 bg-background/80 backdrop-blur-md py-2 transition-all flex items-center gap-1 px-3 md:px-0">
-          {/* Mobile Menu Button */}
-          <button
-            onClick={toggleSidebar}
-            className="md:hidden p-2 -ml-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg shrink-0"
-          >
-            <Menu size={20} />
-          </button>
-
-          {/* Space Selector */}
-          <div className="relative" ref={selectorRef}>
+        <div className="shrink-0 z-20 w-full border-b border-gray-200 dark:border-zinc-800 bg-background/80 backdrop-blur-md pb-2 pt-[calc(0.5rem+env(safe-area-inset-top))] transition-all flex justify-center">
+          <div className="w-full max-w-3xl flex items-center gap-1 px-3">
+            {/* Mobile Menu Button */}
             <button
-              onClick={() => setIsSelectorOpen(!isSelectorOpen)}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors text-sm font-medium text-gray-700 dark:text-gray-300"
+              onClick={toggleSidebar}
+              className="md:hidden p-2 -ml-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg shrink-0"
             >
-              <LayoutGrid size={16} className="text-gray-400 hidden sm:inline" />
-              {displaySpace ? (
-                <div className="flex items-center gap-1">
-                  <span className="text-lg">
-                    <EmojiDisplay emoji={displaySpace.emoji} size="1.125rem" />
-                  </span>
-                  <span className="hidden opacity-0 w-0 md:inline md:opacity-100 md:w-auto truncate max-w-[200px] transition-all">
-                    {displaySpace.label}
-                  </span>
-                </div>
-              ) : (
-                <span className="text-gray-500 text-xs sm:text-s">None</span>
-              )}
-              <ChevronDown size={14} className="text-gray-400" />
+              <Menu size={20} />
             </button>
 
-            {/* Dropdown */}
-            {isSelectorOpen && (
-              <div className="absolute top-full left-0 mt-2 w-56 bg-white dark:bg-[#202222] border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl z-30 overflow-hidden">
-                <div className="p-2 flex flex-col gap-1">
-                  <button
-                    onClick={handleClearSpaceSelection}
-                    className={`flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left ${!displaySpace ? 'text-primary-500' : 'text-gray-700 dark:text-gray-200'
+            {/* Space Selector */}
+            <div className="relative" ref={selectorRef}>
+              <button
+                onClick={() => setIsSelectorOpen(!isSelectorOpen)}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors text-sm font-medium text-gray-700 dark:text-gray-300"
+                disabled={isMetaLoading}
+              >
+                <LayoutGrid size={16} className="text-gray-400 hidden sm:inline" />
+                {isMetaLoading ? (
+                  <span className="text-gray-500 animate-pulse">...</span>
+                ) : displaySpace ? (
+                  <div className="flex items-center gap-1">
+                    <span className="text-lg">
+                      <EmojiDisplay emoji={displaySpace.emoji} size="1.125rem" />
+                    </span>
+                    <span className="hidden opacity-0 w-0 md:inline md:opacity-100 md:w-auto truncate max-w-[200px] transition-all">
+                      {displaySpace.label}
+                    </span>
+                  </div>
+                ) : (
+                  <span className="text-gray-500 text-xs sm:text-s">None</span>
+                )}
+                <ChevronDown size={14} className="text-gray-400" />
+              </button>
+
+              {/* Dropdown */}
+              {isSelectorOpen && (
+                <div className="absolute top-full left-0 mt-2 w-56 bg-white dark:bg-[#202222] border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl z-30 overflow-hidden">
+                  <div className="p-2 flex flex-col gap-1">
+                    <button
+                      onClick={handleClearSpaceSelection}
+                      className={`flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left ${
+                        !displaySpace ? 'text-primary-500' : 'text-gray-700 dark:text-gray-200'
                       }`}
-                  >
-                    <span className="text-sm font-medium">None</span>
-                    {!displaySpace && <Check size={14} className="text-primary-500" />}
-                  </button>
-                  <div className="h-px bg-gray-100 dark:bg-zinc-800 my-1" />
-                  {spaces.map((space, idx) => {
-                    const isSelected = selectedSpace?.label === space.label
-                    return (
-                      <button
-                        key={idx}
-                        onClick={() => handleSelectSpace(space)}
-                        className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left"
-                      >
-                        <div className="flex items-center gap-3">
-                          <span className="text-lg">
-                            <EmojiDisplay emoji={space.emoji} size="1.125rem" />
-                          </span>
-                          <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
-                            {space.label}
-                          </span>
-                        </div>
-                        {isSelected && <Check size={14} className="text-primary-500" />}
-                      </button>
-                    )
-                  })}
+                    >
+                      <span className="text-sm font-medium">None</span>
+                      {!displaySpace && <Check size={14} className="text-primary-500" />}
+                    </button>
+                    <div className="h-px bg-gray-100 dark:bg-zinc-800 my-1" />
+                    {spaces.map((space, idx) => {
+                      const isSelected = selectedSpace?.label === space.label
+                      return (
+                        <button
+                          key={idx}
+                          onClick={() => handleSelectSpace(space)}
+                          className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left"
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className="text-lg">
+                              <EmojiDisplay emoji={space.emoji} size="1.125rem" />
+                            </span>
+                            <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                              {space.label}
+                            </span>
+                          </div>
+                          {isSelected && <Check size={14} className="text-primary-500" />}
+                        </button>
+                      )
+                    })}
+                  </div>
                 </div>
-              </div>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <h1 className="text-m sm:text-xl font-medium text-gray-800 dark:text-gray-100 truncate flex items-center gap-2">
+                {isMetaLoading ? (
+                  <span className="inline-block h-5 w-40 sm:w-56 rounded-md bg-gray-200 dark:bg-zinc-700 animate-pulse" />
+                ) : (
+                  conversationTitle || 'New Conversation'
+                )}
+                {isRegeneratingTitle && <span className="animate-pulse">...</span>}
+              </h1>
+              <button
+                onClick={handleRegenerateTitle}
+                disabled={isRegeneratingTitle || messages.length === 0}
+                className="hidden sm:block p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors disabled:opacity-50 disabled:hover:bg-transparent"
+                title="Regenerate title from last 3 messages"
+              >
+                <Sparkles size={18} />
+              </button>
+            </div>
+
+            {/* Timeline Button - only show on screens where sidebar can be toggled (xl and below) */}
+            {/* Timeline Button - only show on screens where sidebar can be toggled (xl and below), and hide when open */}
+            {!isTimelineSidebarOpen && (
+              <button
+                onClick={() => setIsTimelineSidebarOpen(true)}
+                className="xl:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-colors shrink-0"
+                title="Open question timeline"
+              >
+                <PanelRightOpen size={20} />
+              </button>
             )}
           </div>
-
-          <div className="flex items-center gap-2 flex-1 min-w-0">
-            <h1 className="text-m sm:text-xl font-medium text-gray-800 dark:text-gray-100 truncate">
-              {conversationTitle || 'New Conversation'}
-            </h1>
-            <button
-              onClick={handleRegenerateTitle}
-              disabled={isRegeneratingTitle || messages.length === 0}
-              className="hidden sm:block p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors disabled:opacity-50 disabled:hover:bg-transparent"
-              title="Regenerate title from last 3 messages"
-            >
-              <Sparkles size={18} />
-            </button>
-          </div>
-
-          {/* Timeline Button - only show on screens where sidebar can be toggled (xl and below) */}
-          {/* Timeline Button - only show on screens where sidebar can be toggled (xl and below), and hide when open */}
-          {!isTimelineSidebarOpen && (
-            <button
-              onClick={() => setIsTimelineSidebarOpen(true)}
-              className="xl:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-colors shrink-0"
-              title="Open question timeline"
-            >
-              <PanelRightOpen size={20} />
-            </button>
-          )}
         </div>
 
         {/* Messages Scroll Container */}
@@ -949,21 +997,23 @@ const ChatInterface = ({
           ref={messagesContainerRef}
           className="flex-1 overflow-y-auto sm:p-2 relative no-scrollbar"
         >
-          <div className="w-full max-w-3xl mx-auto">
-            {isLoadingHistory && (
-              <div className="absolute inset-0 flex items-center justify-center backdrop-blur-md bg-background/40 z-10">
+          <div className="w-full px-0 sm:px-5 max-w-3xl mx-auto">
+            {(isLoadingHistory || isSwitchingConversation) && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
                 <FancyLoader />
               </div>
             )}
-            <MessageList
-              apiProvider={settings.apiProvider}
-              defaultModel={settings.defaultModel}
-              onRelatedClick={handleRelatedClick}
-              onMessageRef={registerMessageRef}
-              onEdit={handleEdit}
-              onQuote={handleQuote}
-              onRegenerateAnswer={handleRegenerateAnswer}
-            />
+            {!isLoadingHistory && !isSwitchingConversation && (
+              <MessageList
+                apiProvider={settings.apiProvider}
+                defaultModel={settings.defaultModel}
+                onRelatedClick={handleRelatedClick}
+                onMessageRef={registerMessageRef}
+                onEdit={handleEdit}
+                onQuote={handleQuote}
+                onRegenerateAnswer={handleRegenerateAnswer}
+              />
+            )}
             {/* Bottom Anchor */}
             <div ref={bottomRef} className="h-1" />
           </div>
@@ -995,7 +1045,7 @@ const ChatInterface = ({
         />
 
         {/* Input Area */}
-        <div className="w-full shrink-0 bg-background pt-0 pb-3 px-2 sm:px-0 flex justify-center z-20">
+        <div className="w-full shrink-0 bg-background pt-0 pb-[calc(0.75rem+env(safe-area-inset-bottom))] px-2 sm:px-0 flex justify-center z-20">
           <div className="w-full max-w-3xl relative">
             {/* Scroll to bottom button - positioned relative to input area */}
             {showScrollButton && (
@@ -1217,17 +1267,19 @@ const InputBar = React.memo(
               />
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${attachments.length > 0 ? 'text-primary-500' : 'text-gray-500 dark:text-gray-400'
-                  }`}
+                className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
+                  attachments.length > 0 ? 'text-primary-500' : 'text-gray-500 dark:text-gray-400'
+                }`}
               >
                 <Paperclip size={18} />
               </button>
               <button
                 onClick={onToggleThinking}
-                className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${isThinkingActive
-                  ? 'text-primary-500 bg-gray-200 dark:bg-zinc-700'
-                  : 'text-gray-500 dark:text-gray-400'
-                  }`}
+                className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
+                  isThinkingActive
+                    ? 'text-primary-500 bg-gray-200 dark:bg-zinc-700'
+                    : 'text-gray-500 dark:text-gray-400'
+                }`}
               >
                 <Brain size={18} />
                 <span className="hidden md:inline">Think</span>
@@ -1235,10 +1287,11 @@ const InputBar = React.memo(
               <button
                 disabled={apiProvider === 'openai_compatibility' || apiProvider === 'siliconflow'}
                 onClick={onToggleSearch}
-                className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${isSearchActive
-                  ? 'text-primary-500 bg-gray-200 dark:bg-zinc-700'
-                  : 'text-gray-500 dark:text-gray-400'
-                  }`}
+                className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
+                  isSearchActive
+                    ? 'text-primary-500 bg-gray-200 dark:bg-zinc-700'
+                    : 'text-gray-500 dark:text-gray-400'
+                }`}
               >
                 <Globe size={18} />
                 <span className="hidden md:inline">Search</span>

@@ -7,8 +7,8 @@
   "scripts": {
     "dev": "rsbuild dev",
     "build": "rsbuild build",
-    "lint": "eslint .",
-    "preview": "rsbuild preview"
+    "start": "rsbuild preview",
+    "lint": "eslint ."
   },
   "dependencies": {
     "@emoji-mart/data": "^1.2.1",
@@ -16,6 +16,9 @@
     "@google/genai": "^1.30.0",
     "@google/generative-ai": "^0.24.1",
     "@gsap/react": "^2.1.2",
+    "@langchain/core": "^1.1.7",
+    "@langchain/google-genai": "^2.1.2",
+    "@langchain/openai": "^1.2.0",
     "@radix-ui/react-scroll-area": "^1.2.10",
     "@supabase/supabase-js": "^2.86.0",
     "@tailwindcss/postcss": "^4.1.17",
@@ -36,17 +39,20 @@
     "react-markdown": "^10.1.0",
     "react-syntax-highlighter": "^16.1.0",
     "remark-gfm": "^4.0.1",
+    "streamdown": "^1.6.10",
     "styled-components": "^6.1.19",
     "tailwind-merge": "^3.4.0",
     "zustand": "^5.0.9"
   },
   "devDependencies": {
+    "@eslint/compat": "^2.0.0",
     "@eslint/js": "^9.39.1",
-    "@rsbuild/core": "^1.6.12",
-    "@rsbuild/plugin-react": "^1.4.2",
+    "@rsbuild/plugin-node-polyfill": "^1.1.5",
     "@types/react": "^19.2.5",
     "@types/react-dom": "^19.2.3",
     "autoprefixer": "^10.4.22",
+    "@rsbuild/core": "^1.4.1",
+    "@rsbuild/plugin-react": "^1.4.0",
     "eslint": "^9.39.1",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",

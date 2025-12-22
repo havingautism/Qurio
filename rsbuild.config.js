@@ -1,5 +1,6 @@
 import { defineConfig, loadEnv } from '@rsbuild/core'
 import { pluginReact } from '@rsbuild/plugin-react'
+import { pluginNodePolyfill } from '@rsbuild/plugin-node-polyfill'
 
 export default defineConfig(({ env }) => {
   const envVars = loadEnv({
@@ -14,7 +15,7 @@ export default defineConfig(({ env }) => {
   const assetPrefix = isDev ? '/' : (process.env.PUBLIC_BASE_PATH || '/Qurio/')
 
   return {
-    plugins: [pluginReact()],
+    plugins: [pluginReact(), pluginNodePolyfill()],
     html: {
       template: './index.html',
     },

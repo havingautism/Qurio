@@ -2,6 +2,7 @@ import React from 'react'
 import { createRootRoute, createRoute, createRouter, redirect } from '@tanstack/react-router'
 import { AlertTriangle, MoveLeft } from 'lucide-react'
 import App from './App'
+import { getNodeEnv, getPublicEnv } from './lib/publicEnv'
 
 const HomeView = React.lazy(() => import('./views/HomeView'))
 const ConversationView = React.lazy(() => import('./views/ConversationView'))
@@ -17,7 +18,11 @@ const SuspensePage = ({ children }) => (
 )
 
 const NotFound = () => {
-  const basepath = (import.meta.env.DEV ? '/' : (import.meta.env.PUBLIC_BASE_PATH || '/Qurio')).replace(/\/$/, '')
+  const basepath = (
+    getNodeEnv() === 'development'
+      ? '/'
+      : getPublicEnv('PUBLIC_BASE_PATH') || '/Qurio'
+  ).replace(/\/$/, '')
   return (
     <div className="min-h-screen flex items-center justify-center bg-background text-foreground px-6 py-12">
       <div className="w-full max-w-md text-center space-y-6 bg-white/70 dark:bg-zinc-900/80 backdrop-blur-md rounded-2xl shadow-lg border border-gray-200/80 dark:border-zinc-800 px-6 py-8">
@@ -122,7 +127,7 @@ export const bookmarksRoute = createRoute({
   ),
 })
 
-const routeTree = rootRoute.addChildren([
+export const routeTree = rootRoute.addChildren([
   homeRoute,
   newChatRoute,
   conversationRoute,
@@ -132,11 +137,15 @@ const routeTree = rootRoute.addChildren([
   bookmarksRoute,
 ])
 
-const BASE_PATH = (import.meta.env.DEV ? '/' : (import.meta.env.PUBLIC_BASE_PATH || '/Qurio')).replace(/\/$/, '')
+const getBasePath = () =>
+  (
+    getNodeEnv() === 'development'
+      ? '/'
+      : getPublicEnv('PUBLIC_BASE_PATH') || '/Qurio'
+  ).replace(/\/$/, '')
 
-const router = createRouter({
-  routeTree,
-  basepath: BASE_PATH,
-})
-
-export default router
+export const createAppRouter = () =>
+  createRouter({
+    routeTree,
+    basepath: getBasePath(),
+  })

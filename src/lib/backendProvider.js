@@ -128,6 +128,22 @@ const handleTaggedTextFactory = ({ emitText, emitThought }) => {
   }
 }
 
+const parseGeminiParts = (parts, { emitText, emitThought, handleTaggedText }) => {
+  if (!Array.isArray(parts)) return false
+  let sawAny = false
+  for (const part of parts) {
+    const text = typeof part?.text === 'string' ? part.text : ''
+    if (!text) continue
+    sawAny = true
+    if (part?.thought) {
+      emitThought(text)
+    } else {
+      handleTaggedText(text)
+    }
+  }
+  return sawAny
+}
+
 const normalizeRelatedQuestions = payload => {
   const sanitize = arr =>
     (arr || [])
@@ -317,6 +333,7 @@ const buildGeminiModel = ({ apiKey, model, temperature, top_k, tools, thinking, 
     temperature,
     topK: top_k,
     streaming,
+    // thinkingConfig: { includeThoughts: true, thinkingBudget: 1024 },
   })
 
   const bindParams = {}
@@ -587,8 +604,23 @@ const streamWithLangChain = async ({
 
   try {
     for await (const chunk of stream) {
+      console.log('Chunk:', JSON.stringify(chunk, null, 2))
       const messageChunk = chunk?.message ?? chunk
-      const chunkText = normalizeTextContent(messageChunk?.content ?? chunk?.content)
+      const contentValue = messageChunk?.content ?? chunk?.content
+
+      if (provider === 'gemini' && Array.isArray(contentValue)) {
+        const parsed = parseGeminiParts(contentValue, {
+          emitText,
+          emitThought,
+          handleTaggedText,
+        })
+        if (parsed) {
+          continue
+        }
+      }
+
+      const chunkText = normalizeTextContent(contentValue)
+
       if (chunkText) {
         handleTaggedText(chunkText)
       }

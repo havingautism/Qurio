@@ -20,8 +20,11 @@ const withTimeout = (signal, timeoutMs = 10000) => {
 }
 
 const fetchOpenAIModels = async ({ apiKey, baseUrl }, options = {}) => {
-  const resolvedBase = (baseUrl || getPublicEnv('PUBLIC_OPENAI_BASE_URL') || OPENAI_DEFAULT_BASE)
-    .replace(/\/$/, '')
+  const resolvedBase = (
+    baseUrl ||
+    getPublicEnv('PUBLIC_OPENAI_BASE_URL') ||
+    OPENAI_DEFAULT_BASE
+  ).replace(/\/$/, '')
   const resolvedKey = apiKey || getPublicEnv('PUBLIC_OPENAI_API_KEY')
   if (!resolvedKey) return []
 

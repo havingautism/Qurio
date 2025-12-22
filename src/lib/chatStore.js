@@ -289,11 +289,8 @@ const prepareAIPlaceholder = (historyForSend, userMessageForSend, spaceInfo, set
   const { responseStylePrompt, llmAnswerLanguage } = loadSettings()
 
   const spacePrompt =
-    typeof spaceInfo.selectedSpace?.prompt === 'string'
-      ? spaceInfo.selectedSpace.prompt.trim()
-      : ''
-  const stylePrompt =
-    typeof responseStylePrompt === 'string' ? responseStylePrompt.trim() : ''
+    typeof spaceInfo.selectedSpace?.prompt === 'string' ? spaceInfo.selectedSpace.prompt.trim() : ''
+  const stylePrompt = typeof responseStylePrompt === 'string' ? responseStylePrompt.trim() : ''
   const trimmedLanguage = typeof llmAnswerLanguage === 'string' ? llmAnswerLanguage.trim() : ''
   const languagePrompt = trimmedLanguage ? `Reply in ${trimmedLanguage}.` : ''
 

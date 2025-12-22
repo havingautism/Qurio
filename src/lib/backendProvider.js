@@ -5,7 +5,6 @@ import { getPublicEnv } from './publicEnv'
 
 const OPENAI_DEFAULT_BASE = 'https://api.openai.com/v1'
 const SILICONFLOW_BASE = 'https://api.siliconflow.cn/v1'
-const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta'
 
 const normalizeTextContent = content => {
   if (typeof content === 'string') return content
@@ -78,43 +77,55 @@ const toLangChainMessages = messages => {
   })
 }
 
-const mapMessagesForOpenAI = messages =>
-  (messages || []).map(message => ({
-    role: message.role === 'ai' ? 'assistant' : message.role,
-    content: message.content,
-    ...(message.tool_calls && { tool_calls: message.tool_calls }),
-    ...(message.tool_call_id && { tool_call_id: message.tool_call_id }),
-    ...(message.name && { name: message.name }),
-  }))
+// const mapMessagesForOpenAI = messages =>
+//   (messages || []).map(message => ({
+//     role: message.role === 'ai' ? 'assistant' : message.role,
+//     content: message.content,
+//     ...(message.tool_calls && { tool_calls: message.tool_calls }),
+//     ...(message.tool_call_id && { tool_call_id: message.tool_call_id }),
+//     ...(message.name && { name: message.name }),
+//   }))
 
-const buildGeminiPayload = ({ messages, temperature, top_k, tools, thinking }) => {
-  const systemTexts = (messages || [])
-    .filter(m => m.role === 'system')
-    .map(m => normalizeTextContent(m.content))
-    .filter(Boolean)
-  const systemInstruction = systemTexts.length
-    ? { parts: [{ text: systemTexts.join('\n') }] }
-    : undefined
-
-  const contents = (messages || [])
-    .filter(m => m.role !== 'system')
-    .map(m => ({
-      role: m.role === 'assistant' || m.role === 'ai' ? 'model' : 'user',
-      parts: [{ text: normalizeTextContent(m.content) }],
-    }))
-
-  const generationConfig = {}
-  if (temperature !== undefined) generationConfig.temperature = temperature
-  if (top_k !== undefined) generationConfig.topK = top_k
-  if (thinking?.thinkingConfig) {
-    generationConfig.thinkingConfig = thinking.thinkingConfig
+const handleTaggedTextFactory = ({ emitText, emitThought }) => {
+  let inThoughtBlock = false
+  return text => {
+    let remaining = text
+    while (remaining) {
+      if (!inThoughtBlock) {
+        const matchIndex = remaining.search(/<think>|<thought>/i)
+        if (matchIndex === -1) {
+          emitText(remaining)
+          return
+        }
+        emitText(remaining.slice(0, matchIndex))
+        remaining = remaining.slice(matchIndex)
+        const openMatch = remaining.match(/^<(think|thought)>/i)
+        if (openMatch) {
+          remaining = remaining.slice(openMatch[0].length)
+          inThoughtBlock = true
+        } else {
+          emitText(remaining)
+          return
+        }
+      } else {
+        const matchIndex = remaining.search(/<\/think>|<\/thought>/i)
+        if (matchIndex === -1) {
+          emitThought(remaining)
+          return
+        }
+        emitThought(remaining.slice(0, matchIndex))
+        remaining = remaining.slice(matchIndex)
+        const closeMatch = remaining.match(/^<\/(think|thought)>/i)
+        if (closeMatch) {
+          remaining = remaining.slice(closeMatch[0].length)
+          inThoughtBlock = false
+        } else {
+          emitThought(remaining)
+          return
+        }
+      }
+    }
   }
-
-  const payload = { contents }
-  if (systemInstruction) payload.systemInstruction = systemInstruction
-  if (Object.keys(generationConfig).length) payload.generationConfig = generationConfig
-  if (tools) payload.tools = tools
-  return payload
 }
 
 const normalizeRelatedQuestions = payload => {
@@ -195,12 +206,16 @@ const buildOpenAIModel = ({
     }
     if (thinking) {
       const budget = thinking.budget_tokens || thinking.budgetTokens || 1024
-      modelKwargs.thinking_budget = budget
+      modelKwargs.extra_body = { thinking_budget: budget }
       modelKwargs.enable_thinking = true
+      modelKwargs.thinking_budget = budget
     }
     if (top_k !== undefined) {
       modelKwargs.top_k = top_k
     }
+  }
+  if (streaming) {
+    modelKwargs.stream_options = { include_usage: false }
   }
 
   let modelInstance = new ChatOpenAI({
@@ -209,6 +224,7 @@ const buildOpenAIModel = ({
     temperature,
     streaming,
     streamUsage: false,
+    __includeRawResponse: true,
     modelKwargs,
     configuration: { baseURL: resolvedBase, dangerouslyAllowBrowser: true },
   })
@@ -231,6 +247,64 @@ const buildOpenAIModel = ({
   return modelInstance
 }
 
+const buildSiliconFlowModel = ({
+  apiKey,
+  model,
+  temperature,
+  top_k,
+  tools,
+  toolChoice,
+  responseFormat,
+  thinking,
+  streaming = true,
+}) => {
+  const resolvedKey = apiKey || getPublicEnv('PUBLIC_SILICONFLOW_API_KEY')
+  if (!resolvedKey) {
+    throw new Error('Missing API key')
+  }
+  const resolvedBase = SILICONFLOW_BASE
+
+  const modelKwargs = {}
+  if (!responseFormat) {
+    modelKwargs.response_format = { type: 'text' }
+  }
+  if (thinking) {
+    const budget = thinking.budget_tokens || thinking.budgetTokens || 1024
+    modelKwargs.extra_body = { thinking_budget: budget }
+    modelKwargs.enable_thinking = true
+    modelKwargs.thinking_budget = budget
+  }
+  if (top_k !== undefined) {
+    modelKwargs.top_k = top_k
+  }
+  if (streaming) {
+    modelKwargs.stream_options = { include_usage: false }
+  }
+
+  let modelInstance = new ChatOpenAI({
+    openAIApiKey: resolvedKey,
+    modelName: model,
+    temperature,
+    streaming,
+    streamUsage: false,
+    __includeRawResponse: true,
+    modelKwargs,
+    configuration: { baseURL: resolvedBase, dangerouslyAllowBrowser: true },
+  })
+
+  const bindParams = {}
+  if (tools && tools.length > 0) bindParams.tools = tools
+  if (toolChoice) bindParams.tool_choice = toolChoice
+  if (responseFormat) bindParams.response_format = responseFormat
+  if (thinking?.extra_body) bindParams.extra_body = thinking.extra_body
+  if (top_k !== undefined) bindParams.extra_body = { ...(bindParams.extra_body || {}), top_k }
+
+  if (Object.keys(bindParams).length) {
+    modelInstance = modelInstance.bind(bindParams)
+  }
+
+  return modelInstance
+}
 const buildGeminiModel = ({ apiKey, model, temperature, top_k, tools, thinking, streaming }) => {
   const resolvedKey = apiKey || getPublicEnv('PUBLIC_GOOGLE_API_KEY')
   if (!resolvedKey) {
@@ -276,7 +350,8 @@ const updateToolCallsMap = (toolCallsMap, toolCalls) => {
   }
 }
 
-const streamWithLangChain = async ({
+/*
+const streamOpenAICompatRaw = async ({
   provider,
   apiKey,
   baseUrl,
@@ -294,145 +369,19 @@ const streamWithLangChain = async ({
   onError,
   signal,
 }) => {
-  const trimmedMessages = applyContextLimitRaw(messages, contextMessageLimit)
-  const langchainMessages = toLangChainMessages(trimmedMessages)
-
-  const modelInstance =
-    provider === 'gemini'
-      ? buildGeminiModel({
-          apiKey,
-          model,
-          temperature,
-          top_k,
-          tools,
-          thinking,
-          streaming: true,
-        })
-      : buildOpenAIModel({
-          provider,
-          apiKey,
-          baseUrl,
-          model,
-          temperature,
-          top_k,
-          tools,
-          toolChoice,
-          responseFormat,
-          thinking,
-          streaming: true,
-        })
-
-  const stream = await modelInstance.stream(langchainMessages, signal ? { signal } : undefined)
-
-  let fullContent = ''
-  let fullThought = ''
-  const toolCallsMap = new Map()
-  let inThoughtBlock = false
-
-  const emitText = text => {
-    if (!text) return
-    fullContent += text
-    onChunk?.({ type: 'text', content: text })
-  }
-
-  const emitThought = text => {
-    if (!text) return
-    fullThought += text
-    onChunk?.({ type: 'thought', content: text })
-  }
-
-  const handleTaggedText = text => {
-    let remaining = text
-    while (remaining) {
-      if (!inThoughtBlock) {
-        const matchIndex = remaining.search(/<think>|<thought>/i)
-        if (matchIndex === -1) {
-          emitText(remaining)
-          return
-        }
-        emitText(remaining.slice(0, matchIndex))
-        remaining = remaining.slice(matchIndex)
-        const openMatch = remaining.match(/^<(think|thought)>/i)
-        if (openMatch) {
-          remaining = remaining.slice(openMatch[0].length)
-          inThoughtBlock = true
-        } else {
-          emitText(remaining)
-          return
-        }
-      } else {
-        const matchIndex = remaining.search(/<\/think>|<\/thought>/i)
-        if (matchIndex === -1) {
-          emitThought(remaining)
-          return
-        }
-        emitThought(remaining.slice(0, matchIndex))
-        remaining = remaining.slice(matchIndex)
-        const closeMatch = remaining.match(/^<\/(think|thought)>/i)
-        if (closeMatch) {
-          remaining = remaining.slice(closeMatch[0].length)
-          inThoughtBlock = false
-        } else {
-          emitThought(remaining)
-          return
-        }
-      }
-    }
-  }
-
-  try {
-    for await (const chunk of stream) {
-      const chunkText = normalizeTextContent(chunk?.content)
-      if (chunkText) {
-        handleTaggedText(chunkText)
-      }
-
-      const toolCalls = chunk?.additional_kwargs?.tool_calls
-      if (toolCalls) {
-        updateToolCallsMap(toolCallsMap, toolCalls)
-      }
-
-      const reasoning = chunk?.additional_kwargs?.reasoning_content || chunk?.additional_kwargs?.reasoning
-      if (reasoning) {
-        emitThought(String(reasoning))
-      }
-    }
-
-    onFinish?.({
-      content: fullContent,
-      thought: fullThought || undefined,
-      toolCalls: toolCallsMap.size ? Array.from(toolCallsMap.values()) : undefined,
-    })
-  } catch (error) {
-    if (signal?.aborted) return
-    onError?.(error)
-  }
-}
-
-const requestOpenAICompat = async ({
-  provider,
-  apiKey,
-  baseUrl,
-  model,
-  messages,
-  temperature,
-  top_k,
-  tools,
-  toolChoice,
-  responseFormat,
-  thinking,
-  signal,
-}) => {
   const resolvedBase = resolveOpenAIBase(provider, baseUrl)
   const resolvedKey = apiKey || getPublicEnv('PUBLIC_OPENAI_API_KEY')
   if (!resolvedKey) {
-    throw new Error('Missing API key')
+    onError?.(new Error('Missing API key'))
+    return
   }
 
+  const trimmedMessages = applyContextLimitRaw(messages, contextMessageLimit)
   const payload = {
     model,
-    messages: mapMessagesForOpenAI(messages),
-    stream: false,
+    messages: mapMessagesForOpenAI(trimmedMessages),
+    stream: true,
+    stream_options: { include_usage: false },
   }
 
   if (temperature !== undefined) payload.temperature = temperature
@@ -462,7 +411,7 @@ const requestOpenAICompat = async ({
     }
   }
 
-  const response = await fetch(`${resolvedBase.replace(/\/$/, '')}/chat/completions`, {
+  const upstream = await fetch(`${resolvedBase.replace(/\/$/, '')}/chat/completions`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${resolvedKey}`,
@@ -472,16 +421,278 @@ const requestOpenAICompat = async ({
     signal,
   })
 
-  if (!response.ok) {
-    const text = await response.text().catch(() => '')
-    throw new Error(text || `Upstream error (${response.status})`)
+  if (!upstream.ok || !upstream.body) {
+    const errorText = await upstream.text().catch(() => '')
+    onError?.(new Error(errorText || `Upstream error (${upstream.status})`))
+    return
   }
 
-  const data = await response.json()
-  const content = data?.choices?.[0]?.message?.content ?? ''
-  return typeof content === 'string' ? content : normalizeTextContent(content)
+  const reader = upstream.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let fullContent = ''
+  let fullThought = ''
+  const toolCallsMap = new Map()
+
+  const emitText = text => {
+    if (!text) return
+    fullContent += text
+    onChunk?.({ type: 'text', content: text })
+  }
+
+  const emitThought = text => {
+    if (!text) return
+    fullThought += text
+    onChunk?.({ type: 'thought', content: text })
+  }
+
+  const handleTaggedText = handleTaggedTextFactory({ emitText, emitThought })
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true }).replace(/\r\n/g, '\n')
+
+      let boundary = buffer.indexOf('\n\n')
+      while (boundary !== -1) {
+        const chunk = buffer.slice(0, boundary)
+        buffer = buffer.slice(boundary + 2)
+        boundary = buffer.indexOf('\n\n')
+
+        const lines = chunk.split('\n')
+        for (const line of lines) {
+          if (!line.startsWith('data:')) continue
+          const payloadText = line.slice(5).trim()
+          if (!payloadText) continue
+          if (payloadText === '[DONE]') {
+            onFinish?.({
+              content: fullContent,
+              thought: fullThought || undefined,
+              toolCalls: toolCallsMap.size ? Array.from(toolCallsMap.values()) : undefined,
+            })
+            return
+          }
+
+          let event
+          try {
+            event = JSON.parse(payloadText)
+          } catch {
+            continue
+          }
+          const choice = event?.choices?.[0]
+          const delta = choice?.delta
+          const reasoningContent = delta?.reasoning_content || delta?.reasoning
+          if (reasoningContent) {
+            emitThought(String(reasoningContent))
+          }
+          if (delta?.content) {
+            handleTaggedText(delta.content)
+          }
+          if (delta?.tool_calls) {
+            updateToolCallsMap(toolCallsMap, delta.tool_calls)
+          }
+        }
+      }
+    }
+
+    onFinish?.({
+      content: fullContent,
+      thought: fullThought || undefined,
+      toolCalls: toolCallsMap.size ? Array.from(toolCallsMap.values()) : undefined,
+    })
+  } catch (error) {
+    if (signal?.aborted) return
+    onError?.(error)
+  }
+}
+*/
+
+const streamWithLangChain = async ({
+  provider,
+  apiKey,
+  baseUrl,
+  model,
+  messages,
+  tools,
+  toolChoice,
+  responseFormat,
+  thinking,
+  temperature,
+  top_k,
+  contextMessageLimit,
+  onChunk,
+  onFinish,
+  onError,
+  signal,
+}) => {
+  const trimmedMessages = applyContextLimitRaw(messages, contextMessageLimit)
+  const langchainMessages = toLangChainMessages(trimmedMessages)
+
+  let modelInstance = undefined
+  if (provider === 'gemini') {
+    modelInstance = buildGeminiModel({
+      apiKey,
+      model,
+      temperature,
+      top_k,
+      tools,
+      thinking,
+      streaming: true,
+    })
+  } else if (provider === 'siliconflow') {
+    modelInstance = buildSiliconFlowModel({
+      apiKey,
+      model,
+      temperature,
+      top_k,
+      tools,
+      thinking,
+      streaming: true,
+    })
+  } else {
+    modelInstance = buildOpenAIModel({
+      provider,
+      apiKey,
+      baseUrl,
+      model,
+      temperature,
+      top_k,
+      tools,
+      toolChoice,
+      responseFormat,
+      thinking,
+      streaming: true,
+    })
+  }
+
+  const stream = await modelInstance.stream(langchainMessages, signal ? { signal } : undefined)
+
+  let fullContent = ''
+  let fullThought = ''
+  const toolCallsMap = new Map()
+  const emitText = text => {
+    if (!text) return
+    fullContent += text
+    onChunk?.({ type: 'text', content: text })
+  }
+
+  const emitThought = text => {
+    if (!text) return
+    fullThought += text
+    onChunk?.({ type: 'thought', content: text })
+  }
+
+  const handleTaggedText = handleTaggedTextFactory({ emitText, emitThought })
+
+  try {
+    for await (const chunk of stream) {
+      const messageChunk = chunk?.message ?? chunk
+      const chunkText = normalizeTextContent(messageChunk?.content ?? chunk?.content)
+      if (chunkText) {
+        handleTaggedText(chunkText)
+      }
+
+      const toolCalls = messageChunk?.additional_kwargs?.tool_calls
+      if (toolCalls) {
+        updateToolCallsMap(toolCallsMap, toolCalls)
+      }
+
+      const reasoning =
+        messageChunk?.additional_kwargs?.__raw_response?.choices?.[0]?.delta?.reasoning_content ||
+        messageChunk?.additional_kwargs?.__raw_response?.choices?.[0]?.delta?.reasoning ||
+        messageChunk?.additional_kwargs?.reasoning_content ||
+        messageChunk?.additional_kwargs?.reasoning
+
+      if (reasoning) {
+        emitThought(String(reasoning))
+      }
+    }
+
+    onFinish?.({
+      content: fullContent,
+      thought: fullThought || undefined,
+      toolCalls: toolCallsMap.size ? Array.from(toolCallsMap.values()) : undefined,
+    })
+  } catch (error) {
+    if (signal?.aborted) return
+    onError?.(error)
+  }
 }
 
+const requestOpenAICompat = async ({
+  provider,
+  apiKey,
+  baseUrl,
+  model,
+  messages,
+  temperature,
+  top_k,
+  tools,
+  toolChoice,
+  responseFormat,
+  thinking,
+  signal,
+  stream,
+}) => {
+  const modelInstance = buildOpenAIModel({
+    provider,
+    apiKey,
+    baseUrl,
+    model,
+    temperature,
+    top_k,
+    tools,
+    toolChoice,
+    responseFormat,
+    thinking,
+    streaming: stream,
+  })
+
+  const langchainMessages = toLangChainMessages(messages || [])
+  const response = await modelInstance.invoke(langchainMessages, { signal })
+
+  return typeof response.content === 'string'
+    ? response.content
+    : normalizeTextContent(response.content)
+}
+
+const requestSiliconFlow = async ({
+  provider,
+  apiKey,
+  baseUrl,
+  model,
+  messages,
+  temperature,
+  top_k,
+  tools,
+  toolChoice,
+  responseFormat,
+  thinking,
+  signal,
+  stream,
+}) => {
+  const modelInstance = buildSiliconFlowModel({
+    provider,
+    apiKey,
+    baseUrl,
+    model,
+    temperature,
+    top_k,
+    tools,
+    toolChoice,
+    responseFormat,
+    thinking,
+    streaming: stream,
+  })
+
+  const langchainMessages = toLangChainMessages(messages || [])
+  const response = await modelInstance.invoke(langchainMessages, { signal })
+
+  return typeof response.content === 'string'
+    ? response.content
+    : normalizeTextContent(response.content)
+}
 const requestGemini = async ({
   apiKey,
   model,
@@ -492,29 +703,22 @@ const requestGemini = async ({
   thinking,
   signal,
 }) => {
-  const resolvedKey = apiKey || getPublicEnv('PUBLIC_GOOGLE_API_KEY')
-  if (!resolvedKey) {
-    throw new Error('Missing API key')
-  }
-
-  const payload = buildGeminiPayload({ messages, temperature, top_k, tools, thinking })
-  const modelPath = model?.includes('/') ? model : `models/${model}`
-  const url = `${GEMINI_BASE}/${modelPath}:generateContent?key=${resolvedKey}`
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-    signal,
+  const modelInstance = buildGeminiModel({
+    apiKey,
+    model,
+    temperature,
+    top_k,
+    tools,
+    thinking,
+    streaming: false,
   })
 
-  if (!response.ok) {
-    const text = await response.text().catch(() => '')
-    throw new Error(text || `Upstream error (${response.status})`)
-  }
+  const langchainMessages = toLangChainMessages(messages || [])
+  const response = await modelInstance.invoke(langchainMessages, { signal })
 
-  const data = await response.json()
-  const parts = data?.candidates?.[0]?.content?.parts || []
-  return parts.map(part => part?.text || '').join('')
+  return typeof response.content === 'string'
+    ? response.content
+    : normalizeTextContent(response.content)
 }
 
 const generateTitle = async (provider, firstMessage, apiKey, baseUrl, model) => {
@@ -527,16 +731,28 @@ const generateTitle = async (provider, firstMessage, apiKey, baseUrl, model) => 
     { role: 'user', content: firstMessage },
   ]
 
-  const content =
-    provider === 'gemini'
-      ? await requestGemini({ apiKey, model, messages: promptMessages })
-      : await requestOpenAICompat({
-          provider,
-          apiKey,
-          baseUrl,
-          model,
-          messages: promptMessages,
-        })
+  let content = undefined
+  if (provider === 'gemini') {
+    content = await requestGemini({ apiKey, model, messages: promptMessages })
+  } else if (provider === 'siliconflow') {
+    content = await requestSiliconFlow({
+      provider,
+      apiKey,
+      baseUrl,
+      model,
+      messages: promptMessages,
+      streaming: false,
+    })
+  } else {
+    content = await requestOpenAICompat({
+      provider,
+      apiKey,
+      baseUrl,
+      model,
+      messages: promptMessages,
+      streaming: false,
+    })
+  }
   return content?.trim?.() || 'New Conversation'
 }
 
@@ -554,18 +770,30 @@ Return the result as a JSON object with keys "title" and "spaceLabel".`,
   ]
 
   const responseFormat = provider !== 'gemini' ? { type: 'json_object' } : undefined
-  const content =
-    provider === 'gemini'
-      ? await requestGemini({ apiKey, model, messages: promptMessages })
-      : await requestOpenAICompat({
-          provider,
-          apiKey,
-          baseUrl,
-          model,
-          messages: promptMessages,
-          responseFormat,
-        })
-
+  let content = undefined
+  if (provider === 'gemini') {
+    content = await requestGemini({ apiKey, model, messages: promptMessages })
+  } else if (provider === 'siliconflow') {
+    content = await requestSiliconFlow({
+      provider,
+      apiKey,
+      baseUrl,
+      model,
+      messages: promptMessages,
+      responseFormat,
+      streaming: false,
+    })
+  } else {
+    content = await requestOpenAICompat({
+      provider,
+      apiKey,
+      baseUrl,
+      model,
+      messages: promptMessages,
+      responseFormat,
+      streaming: false,
+    })
+  }
   const parsed = safeJsonParse(content) || {}
   const title = parsed.title || 'New Conversation'
   const spaceLabel = parsed.spaceLabel
@@ -584,18 +812,30 @@ const generateRelatedQuestions = async (provider, messages, apiKey, baseUrl, mod
   ]
 
   const responseFormat = provider !== 'gemini' ? { type: 'json_object' } : undefined
-  const content =
-    provider === 'gemini'
-      ? await requestGemini({ apiKey, model, messages: promptMessages })
-      : await requestOpenAICompat({
-          provider,
-          apiKey,
-          baseUrl,
-          model,
-          messages: promptMessages,
-          responseFormat,
-        })
-
+  let content = undefined
+  if (provider === 'gemini') {
+    content = await requestGemini({ apiKey, model, messages: promptMessages })
+  } else if (provider === 'siliconflow') {
+    content = await requestSiliconFlow({
+      provider,
+      apiKey,
+      baseUrl,
+      model,
+      messages: promptMessages,
+      responseFormat,
+      streaming: false,
+    })
+  } else {
+    content = await requestOpenAICompat({
+      provider,
+      apiKey,
+      baseUrl,
+      model,
+      messages: promptMessages,
+      responseFormat,
+      streaming: false,
+    })
+  }
   const parsed = safeJsonParse(content)
   return normalizeRelatedQuestions(parsed)
 }

@@ -15,6 +15,7 @@ const createOpenAIClient = ({ apiKey, baseUrl }) => {
 
 const sendSse = (res, data) => {
   res.write(`data: ${JSON.stringify(data)}\n\n`)
+  // Crucial: In Node API, if flush is available (e.g., when using compression middleware), it must be called
   if (typeof res.flush === 'function') res.flush()
 }
 
@@ -88,7 +89,8 @@ export default async function handler(req, res) {
   res.setHeader('Content-Type', 'text/event-stream; charset=utf-8')
   res.setHeader('Cache-Control', 'no-cache, no-transform')
   res.setHeader('Connection', 'keep-alive')
-  res.setHeader('X-Accel-Buffering', 'no')
+  res.setHeader('X-Accel-Buffering', 'no') // Crucial: Disable buffering for proxies like Nginx
+
   if (typeof res.flushHeaders === 'function') res.flushHeaders()
 
   const heartbeat = setInterval(() => {
@@ -107,7 +109,8 @@ export default async function handler(req, res) {
         provider === 'siliconflow'
           ? 'https://api.siliconflow.cn/v1'
           : baseUrl || 'https://api.openai.com/v1'
-      const resolvedKey = apiKey || process.env.OPENAI_API_KEY || process.env.NEXT_PUBLIC_OPENAI_API_KEY
+      const resolvedKey =
+        apiKey || process.env.OPENAI_API_KEY || process.env.NEXT_PUBLIC_OPENAI_API_KEY
       const client = createOpenAIClient({ apiKey: resolvedKey, baseUrl: resolvedBase })
       const trimmedMessages = applyContextLimitRaw(messages, contextMessageLimit)
 
@@ -277,11 +280,7 @@ export default async function handler(req, res) {
         return parts
           .map(part => {
             if (!part || typeof part !== 'object') return ''
-            if (
-              part.type === 'reasoning' ||
-              part.type === 'thought' ||
-              part.type === 'thinking'
-            ) {
+            if (part.type === 'reasoning' || part.type === 'thought' || part.type === 'thinking') {
               return part.text || part.content || ''
             }
             return ''
@@ -293,7 +292,8 @@ export default async function handler(req, res) {
       let loggedChunk = false
       for await (const chunk of responseStream) {
         const rawResponse =
-          chunk?.message?.additional_kwargs?.__raw_response || chunk?.additional_kwargs?.__raw_response
+          chunk?.message?.additional_kwargs?.__raw_response ||
+          chunk?.additional_kwargs?.__raw_response
         const reasoningContent =
           rawResponse?.choices?.[0]?.delta?.reasoning_content ||
           rawResponse?.choices?.[0]?.delta?.reasoning ||

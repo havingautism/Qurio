@@ -280,11 +280,21 @@ const buildOpenAIModel = ({
       modelKwargs.top_k = top_k
     }
   }
+  if (tools && tools.length > 0) modelKwargs.tools = tools
+  if (toolChoice) modelKwargs.tool_choice = toolChoice
+  if (responseFormat && provider !== 'siliconflow') {
+    modelKwargs.response_format = responseFormat
+  }
+  if (thinking?.extra_body) modelKwargs.extra_body = thinking.extra_body
+  if (top_k !== undefined && provider !== 'siliconflow') {
+    modelKwargs.top_k = top_k
+  }
   if (streaming) {
     modelKwargs.stream_options = { include_usage: false }
   }
 
   let modelInstance = new ChatOpenAI({
+    apiKey: resolvedKey,
     openAIApiKey: resolvedKey,
     modelName: model,
     temperature,
@@ -294,21 +304,6 @@ const buildOpenAIModel = ({
     modelKwargs,
     configuration: { baseURL: resolvedBase, dangerouslyAllowBrowser: true },
   })
-
-  const bindParams = {}
-  if (tools && tools.length > 0) bindParams.tools = tools
-  if (toolChoice) bindParams.tool_choice = toolChoice
-  if (responseFormat && provider !== 'siliconflow') {
-    bindParams.response_format = responseFormat
-  }
-  if (thinking?.extra_body) bindParams.extra_body = thinking.extra_body
-  if (top_k !== undefined && provider !== 'siliconflow') {
-    bindParams.extra_body = { ...(bindParams.extra_body || {}), top_k }
-  }
-
-  if (Object.keys(bindParams).length) {
-    modelInstance = modelInstance.bind(bindParams)
-  }
 
   return modelInstance
 }
@@ -331,9 +326,7 @@ const buildSiliconFlowModel = ({
   const resolvedBase = SILICONFLOW_BASE
 
   const modelKwargs = {}
-  if (!responseFormat) {
-    modelKwargs.response_format = { type: 'text' }
-  }
+  modelKwargs.response_format = responseFormat || { type: 'text' }
   if (thinking) {
     const budget = thinking.budget_tokens || thinking.budgetTokens || 1024
     modelKwargs.extra_body = { thinking_budget: budget }
@@ -343,11 +336,17 @@ const buildSiliconFlowModel = ({
   if (top_k !== undefined) {
     modelKwargs.top_k = top_k
   }
+  if (tools && tools.length > 0) modelKwargs.tools = tools
+  if (toolChoice) modelKwargs.tool_choice = toolChoice
+  if (thinking?.extra_body) {
+    modelKwargs.extra_body = { ...(modelKwargs.extra_body || {}), ...thinking.extra_body }
+  }
   if (streaming) {
     modelKwargs.stream_options = { include_usage: false }
   }
 
   let modelInstance = new ChatOpenAI({
+    apiKey: resolvedKey,
     openAIApiKey: resolvedKey,
     modelName: model,
     temperature,
@@ -358,16 +357,16 @@ const buildSiliconFlowModel = ({
     configuration: { baseURL: resolvedBase, dangerouslyAllowBrowser: true },
   })
 
-  const bindParams = {}
-  if (tools && tools.length > 0) bindParams.tools = tools
-  if (toolChoice) bindParams.tool_choice = toolChoice
-  if (responseFormat) bindParams.response_format = responseFormat
-  if (thinking?.extra_body) bindParams.extra_body = thinking.extra_body
-  if (top_k !== undefined) bindParams.extra_body = { ...(bindParams.extra_body || {}), top_k }
+  // const bindParams = {}
+  // if (tools && tools.length > 0) bindParams.tools = tools
+  // if (toolChoice) bindParams.tool_choice = toolChoice
+  // if (responseFormat) bindParams.response_format = responseFormat
+  // if (thinking?.extra_body) bindParams.extra_body = thinking.extra_body
+  // if (top_k !== undefined) bindParams.extra_body = { ...(bindParams.extra_body || {}), top_k }
 
-  if (Object.keys(bindParams).length) {
-    modelInstance = modelInstance.bind(bindParams)
-  }
+  // if (Object.keys(bindParams).length) {
+  //   modelInstance = modelInstance.bind(bindParams)
+  // }
 
   return modelInstance
 }
@@ -777,7 +776,7 @@ const requestOpenAICompat = async ({
     toolChoice,
     responseFormat,
     thinking,
-    streaming: stream,
+    streaming: false,
   })
 
   const langchainMessages = toLangChainMessages(messages || [])
@@ -814,7 +813,7 @@ const requestSiliconFlow = async ({
     toolChoice,
     responseFormat,
     thinking,
-    streaming: stream,
+    streaming: false,
   })
 
   const langchainMessages = toLangChainMessages(messages || [])
@@ -873,7 +872,6 @@ const generateTitle = async (provider, firstMessage, apiKey, baseUrl, model) => 
       baseUrl,
       model,
       messages: promptMessages,
-      streaming: false,
     })
   } else {
     content = await requestOpenAICompat({
@@ -882,7 +880,6 @@ const generateTitle = async (provider, firstMessage, apiKey, baseUrl, model) => 
       baseUrl,
       model,
       messages: promptMessages,
-      streaming: false,
     })
   }
   return content?.trim?.() || 'New Conversation'
@@ -913,7 +910,6 @@ Return the result as a JSON object with keys "title" and "spaceLabel".`,
       model,
       messages: promptMessages,
       responseFormat,
-      streaming: false,
     })
   } else {
     content = await requestOpenAICompat({
@@ -923,7 +919,6 @@ Return the result as a JSON object with keys "title" and "spaceLabel".`,
       model,
       messages: promptMessages,
       responseFormat,
-      streaming: false,
     })
   }
   const parsed = safeJsonParse(content) || {}
@@ -955,7 +950,6 @@ const generateRelatedQuestions = async (provider, messages, apiKey, baseUrl, mod
       model,
       messages: promptMessages,
       responseFormat,
-      streaming: false,
     })
   } else {
     content = await requestOpenAICompat({
@@ -965,7 +959,6 @@ const generateRelatedQuestions = async (provider, messages, apiKey, baseUrl, mod
       model,
       messages: promptMessages,
       responseFormat,
-      streaming: false,
     })
   }
   const parsed = safeJsonParse(content)

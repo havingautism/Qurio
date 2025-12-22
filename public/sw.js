@@ -1,4 +1,4 @@
-const CACHE_NAME = 'qurio-chat-v2'
+const CACHE_NAME = 'qurio-chat-v3'
 // Add base path for GitHub Pages deployment
 const BASE_PATH = '/Qurio/'
 // Cache essential static assets only

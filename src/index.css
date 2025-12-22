@@ -75,9 +75,9 @@
 
   --user-bubble: #f7f2f1;
 
-  --font-geist-sans: 'Geist', 'Geist Fallback';
-  --font-noto-sc: 'Noto Sans SC', 'Noto Sans SC Fallback';
-  --font-jetbrains-mono: 'JetBrains Mono', 'JetBrains Mono Fallback';
+  --font-geist-sans: 'Geist';
+  --font-noto-sc: 'Noto Sans SC';
+  --font-jetbrains-mono: 'JetBrains Mono';
 
   /* Glow defaults (Fox Rust) */
   --theme-glow-1: rgba(234, 205, 196, 0.35);

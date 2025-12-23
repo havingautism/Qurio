@@ -32,11 +32,9 @@ const ENV_VARS = {
   supabaseUrl: getPublicEnv('PUBLIC_SUPABASE_URL'),
   supabaseKey: getPublicEnv('PUBLIC_SUPABASE_KEY'),
   openAIKey: getPublicEnv('PUBLIC_OPENAI_API_KEY'),
-  openAIBaseUrl:
-    getPublicEnv('PUBLIC_OPENAI_BASE_URL'),
+  openAIBaseUrl: getPublicEnv('PUBLIC_OPENAI_BASE_URL'),
   googleApiKey: getPublicEnv('PUBLIC_GOOGLE_API_KEY'),
-  siliconFlowKey:
-    getPublicEnv('PUBLIC_SILICONFLOW_API_KEY'),
+  siliconFlowKey: getPublicEnv('PUBLIC_SILICONFLOW_API_KEY'),
   glmKey: getPublicEnv('PUBLIC_GLM_API_KEY'),
 }
 
@@ -306,7 +304,10 @@ const SettingsModal = ({ isOpen, onClose }) => {
       ) {
         setIsInterfaceLanguageDropdownOpen(false)
       }
-      if (llmLanguageDropdownRef.current && !llmLanguageDropdownRef.current.contains(event.target)) {
+      if (
+        llmLanguageDropdownRef.current &&
+        !llmLanguageDropdownRef.current.contains(event.target)
+      ) {
         setIsLlmLanguageDropdownOpen(false)
       }
       if (baseToneDropdownRef.current && !baseToneDropdownRef.current.contains(event.target)) {
@@ -784,14 +785,16 @@ const SettingsModal = ({ isOpen, onClose }) => {
                         <Box size={16} className="text-gray-400" />
                       </div>
                       <div className="flex items-center gap-3">
-                        <img
-                          src={PROVIDER_ICONS[apiProvider]}
-                          alt={PROVIDER_LABELS[apiProvider] || apiProvider}
-                          width={16}
-                          height={16}
-                          className="w-4 h-4"
-                          loading="lazy"
-                        />
+                        <div className="flex items-center justify-center bg-white rounded-full p-0.5 shrink-0">
+                          <img
+                            src={PROVIDER_ICONS[apiProvider]}
+                            alt={PROVIDER_LABELS[apiProvider] || apiProvider}
+                            width={16}
+                            height={16}
+                            className="w-4 h-4"
+                            loading="lazy"
+                          />
+                        </div>
                         <span>{PROVIDER_LABELS[apiProvider] || apiProvider}</span>
                       </div>
                       <ChevronDown
@@ -824,14 +827,16 @@ const SettingsModal = ({ isOpen, onClose }) => {
                           className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
                         >
                           <div className="flex items-center gap-3">
-                            <img
-                              src={PROVIDER_ICONS.gemini}
-                              alt="Google Gemini"
-                              width={16}
-                              height={16}
-                              className="w-4 h-4"
-                              loading="lazy"
-                            />
+                            <div className="flex items-center justify-center bg-white rounded-full p-0.5 shrink-0">
+                              <img
+                                src={PROVIDER_ICONS.gemini}
+                                alt="Google Gemini"
+                                width={16}
+                                height={16}
+                                className="w-4 h-4"
+                                loading="lazy"
+                              />
+                            </div>
                             <span>Google Gemini</span>
                           </div>
                           {apiProvider === 'gemini' && (
@@ -857,14 +862,16 @@ const SettingsModal = ({ isOpen, onClose }) => {
                           className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
                         >
                           <div className="flex items-center gap-3">
-                            <img
-                              src={PROVIDER_ICONS.openai_compatibility}
-                              alt="OpenAI"
-                              width={16}
-                              height={16}
-                              className="w-4 h-4"
-                              loading="lazy"
-                            />
+                            <div className="flex items-center justify-center bg-white rounded-full p-0.5 shrink-0">
+                              <img
+                                src={PROVIDER_ICONS.openai_compatibility}
+                                alt="OpenAI"
+                                width={16}
+                                height={16}
+                                className="w-4 h-4"
+                                loading="lazy"
+                              />
+                            </div>
                             <span>OpenAI Compatible</span>
                           </div>
                           {apiProvider === 'openai_compatibility' && (
@@ -890,14 +897,16 @@ const SettingsModal = ({ isOpen, onClose }) => {
                           className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
                         >
                           <div className="flex items-center gap-3">
-                            <img
-                              src={PROVIDER_ICONS.siliconflow}
-                              alt="SiliconFlow"
-                              width={16}
-                              height={16}
-                              className="w-4 h-4"
-                              loading="lazy"
-                            />
+                            <div className="flex items-center justify-center bg-white rounded-full p-0.5 shrink-0">
+                              <img
+                                src={PROVIDER_ICONS.siliconflow}
+                                alt="SiliconFlow"
+                                width={16}
+                                height={16}
+                                className="w-4 h-4"
+                                loading="lazy"
+                              />
+                            </div>
                             <span>SiliconFlow</span>
                           </div>
                           {apiProvider === 'siliconflow' && (
@@ -923,14 +932,16 @@ const SettingsModal = ({ isOpen, onClose }) => {
                           className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
                         >
                           <div className="flex items-center gap-3">
-                            <img
-                              src={PROVIDER_ICONS.glm}
-                              alt="GLM"
-                              width={16}
-                              height={16}
-                              className="w-4 h-4"
-                              loading="lazy"
-                            />
+                            <div className="flex items-center justify-center bg-white rounded-full p-0.5 shrink-0">
+                              <img
+                                src={PROVIDER_ICONS.glm}
+                                alt="GLM"
+                                width={16}
+                                height={16}
+                                className="w-4 h-4"
+                                loading="lazy"
+                              />
+                            </div>
                             <span>GLM (Zhipu AI)</span>
                           </div>
                           {apiProvider === 'glm' && (
@@ -1573,7 +1584,9 @@ const SettingsModal = ({ isOpen, onClose }) => {
                 </div>
 
                 <div className="flex flex-col gap-2">
-                  <label className="text-sm font-medium text-gray-900 dark:text-white">Traits</label>
+                  <label className="text-sm font-medium text-gray-900 dark:text-white">
+                    Traits
+                  </label>
                   <div className="relative w-full" ref={traitsDropdownRef}>
                     <button
                       onClick={() => {
@@ -1803,7 +1816,9 @@ const SettingsModal = ({ isOpen, onClose }) => {
                 </div>
 
                 <div className="flex flex-col gap-2">
-                  <label className="text-sm font-medium text-gray-900 dark:text-white">Emojis</label>
+                  <label className="text-sm font-medium text-gray-900 dark:text-white">
+                    Emojis
+                  </label>
                   <div className="relative w-full" ref={emojisDropdownRef}>
                     <button
                       onClick={() => {
@@ -1989,7 +2004,6 @@ const SettingsModal = ({ isOpen, onClose }) => {
                     )}
                   </div>
                 </div>
-
               </div>
             )}
 

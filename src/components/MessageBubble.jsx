@@ -43,6 +43,11 @@ const PROVIDER_META = {
     logo: PROVIDER_ICONS.siliconflow,
     fallback: 'S',
   },
+  glm: {
+    label: 'GLM',
+    logo: PROVIDER_ICONS.glm,
+    fallback: 'G',
+  },
 }
 
 const THINKING_STATUS_MESSAGES = ['Thinking', 'Analyzing', 'Working through it', 'Checking details']

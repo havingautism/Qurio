@@ -8,7 +8,7 @@ import { ChatOpenAI } from '@langchain/openai'
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai'
 import { AIMessage, HumanMessage, SystemMessage, ToolMessage } from '@langchain/core/messages'
 import { getPublicEnv } from './publicEnv'
-import { DynamicRetrievalMode } from '@google/generative-ai'
+// import { DynamicRetrievalMode } from '@google/generative-ai'
 
 // Default base URLs for different providers
 const OPENAI_DEFAULT_BASE = 'https://api.openai.com/v1'

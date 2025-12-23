@@ -6,15 +6,16 @@ import DeepSeekIcon from '../assets/deepseek-color.svg?url'
 import QwenIcon from '../assets/qwen-color.svg?url'
 import KimiIcon from '../assets/kimi-color.svg?url'
 import GLMIcon from '../assets/glm-color.svg?url'
+import ChatGLMIcon from '../assets/chatglm-color.svg?url'
 
 export const PROVIDER_ICONS = {
   gemini: GeminiIcon,
   openai_compatibility: OpenAIIcon,
   siliconflow: SiliconCloudIcon,
-  glm: GLMIcon,
+  glm: ChatGLMIcon,
 }
 
-export const getModelIcon = (modelId) => {
+export const getModelIcon = modelId => {
   if (!modelId) return null
   const lowerId = modelId.toLowerCase()
   if (lowerId.includes('gemini')) return GeminiIcon

@@ -1,12 +1,25 @@
+/**
+ * Backend Provider Module
+ * Provides unified interface for multiple AI model providers including OpenAI, SiliconFlow, and Google Gemini.
+ * Supports streaming, tool calling, thinking mode, and various provider-specific features.
+ */
+
 import { ChatOpenAI } from '@langchain/openai'
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai'
 import { AIMessage, HumanMessage, SystemMessage, ToolMessage } from '@langchain/core/messages'
 import { getPublicEnv } from './publicEnv'
 import { DynamicRetrievalMode } from '@google/generative-ai'
 
+// Default base URLs for different providers
 const OPENAI_DEFAULT_BASE = 'https://api.openai.com/v1'
 const SILICONFLOW_BASE = 'https://api.siliconflow.cn/v1'
 
+/**
+ * Normalizes text content from various formats into a plain string.
+ * Handles strings, arrays of parts, and objects with parts property.
+ * @param {*} content - The content to normalize (string, array, or object)
+ * @returns {string} - Normalized text content
+ */
 const normalizeTextContent = content => {
   if (typeof content === 'string') return content
   if (Array.isArray(content)) {
@@ -26,6 +39,12 @@ const normalizeTextContent = content => {
   return content ? String(content) : ''
 }
 
+/**
+ * Builds a payload for Google Gemini API requests.
+ * Separates system instructions from conversation contents and applies generation config.
+ * @param {Object} params - Parameters including messages, temperature, top_k, tools, and thinking config
+ * @returns {Object} - Gemini API payload object
+ */
 const buildGeminiPayload = ({ messages, temperature, top_k, tools, thinking }) => {
   const systemTexts = (messages || [])
     .filter(m => m.role === 'system')
@@ -56,6 +75,12 @@ const buildGeminiPayload = ({ messages, temperature, top_k, tools, thinking }) =
   return payload
 }
 
+/**
+ * Normalizes message parts into a format suitable for the current provider.
+ * Converts various part types (text, image_url, quote) into standardized format.
+ * @param {*} content - The content to normalize
+ * @returns {string|Array} - Normalized parts (string if single text part, otherwise array)
+ */
 const normalizeParts = content => {
   if (!Array.isArray(content)) return content
 
@@ -80,6 +105,13 @@ const normalizeParts = content => {
   return parts
 }
 
+/**
+ * Applies a context limit to messages by keeping only the most recent non-system messages.
+ * All system messages are always preserved.
+ * @param {Array} messages - Array of messages to limit
+ * @param {number|string} limit - Maximum number of non-system messages to keep
+ * @returns {Array} - Trimmed messages array
+ */
 const applyContextLimitRaw = (messages, limit) => {
   const numericLimit = parseInt(limit, 10)
   if (!Array.isArray(messages) || !numericLimit || numericLimit < 1) return messages
@@ -91,6 +123,12 @@ const applyContextLimitRaw = (messages, limit) => {
   return [...systemMessages, ...trimmedNonSystem]
 }
 
+/**
+ * Converts internal message format to LangChain message format.
+ * Handles system, assistant (ai), tool, and human (user) message types.
+ * @param {Array} messages - Array of internal messages
+ * @returns {Array} - Array of LangChain message instances
+ */
 const toLangChainMessages = messages => {
   return (messages || []).map(message => {
     const role = message.role === 'ai' ? 'assistant' : message.role
@@ -117,6 +155,14 @@ const toLangChainMessages = messages => {
 //     ...(message.name && { name: message.name }),
 //   }))
 
+/**
+ * Creates a handler function for parsing tagged text blocks (think/thought tags).
+ * Separates regular text from thought content based on XML-like tags.
+ * @param {Object} params - Object containing emitText and emitThought callbacks
+ * @param {Function} params.emitText - Callback for regular text content
+ * @param {Function} params.emitThought - Callback for thought content
+ * @returns {Function} - Handler function that processes tagged text
+ */
 const handleTaggedTextFactory = ({ emitText, emitThought }) => {
   let inThoughtBlock = false
   return text => {
@@ -159,6 +205,13 @@ const handleTaggedTextFactory = ({ emitText, emitThought }) => {
   }
 }
 
+/**
+ * Parses Gemini response parts, extracting text and thought content.
+ * Handles parts marked with the 'thought' property separately.
+ * @param {Array} parts - Array of Gemini response parts
+ * @param {Object} handlers - Object containing emitText, emitThought, and handleTaggedText callbacks
+ * @returns {boolean} - True if any text was processed, false otherwise
+ */
 const parseGeminiParts = (parts, { emitText, emitThought, handleTaggedText }) => {
   if (!Array.isArray(parts)) return false
   let sawAny = false
@@ -175,6 +228,12 @@ const parseGeminiParts = (parts, { emitText, emitThought, handleTaggedText }) =>
   return sawAny
 }
 
+/**
+ * Normalizes related questions from various response formats.
+ * Handles arrays, objects with different property names, and malformed data.
+ * @param {*} payload - The payload containing related questions
+ * @returns {Array<string>} - Array of sanitized question strings
+ */
 const normalizeRelatedQuestions = payload => {
   const sanitize = arr =>
     (arr || [])
@@ -207,6 +266,12 @@ const normalizeRelatedQuestions = payload => {
   return []
 }
 
+/**
+ * Normalizes Gemini messages by ensuring system messages come first.
+ * Gemini requires system messages to precede other message types.
+ * @param {Array} messages - Array of messages to normalize
+ * @returns {Array} - Ordered messages array with system messages first
+ */
 const normalizeGeminiMessages = messages => {
   if (!Array.isArray(messages) || messages.length === 0) return messages
   const systemMessages = messages.filter(m => m?.role === 'system')
@@ -215,6 +280,12 @@ const normalizeGeminiMessages = messages => {
   return [...systemMessages, ...nonSystemMessages]
 }
 
+/**
+ * Collects source information from Gemini grounding metadata.
+ * Extracts URLs and titles from grounding chunks.
+ * @param {Object} metadata - Gemini grounding metadata containing chunks
+ * @param {Map} sourceMap - Map to store collected sources (url -> {url, title})
+ */
 const collectGeminiSources = (metadata, sourceMap) => {
   const chunks = metadata?.groundingChunks
   if (!Array.isArray(chunks)) return
@@ -226,6 +297,12 @@ const collectGeminiSources = (metadata, sourceMap) => {
   }
 }
 
+/**
+ * Safely parses JSON from a string, with fallback to extracting JSON objects/arrays.
+ * Handles malformed input by attempting to extract the first valid JSON structure.
+ * @param {string} text - String to parse as JSON
+ * @returns {Object|null} - Parsed object or null if parsing fails
+ */
 const safeJsonParse = text => {
   if (!text || typeof text !== 'string') return null
   try {
@@ -241,11 +318,24 @@ const safeJsonParse = text => {
   }
 }
 
+/**
+ * Resolves the base URL for OpenAI-compatible API requests.
+ * Handles provider-specific URLs and custom base URLs.
+ * @param {string} provider - The provider name (e.g., 'siliconflow', 'openai')
+ * @param {string} baseUrl - Custom base URL override
+ * @returns {string} - Resolved base URL
+ */
 const resolveOpenAIBase = (provider, baseUrl) => {
   if (provider === 'siliconflow') return SILICONFLOW_BASE
   return baseUrl || getPublicEnv('PUBLIC_OPENAI_BASE_URL') || OPENAI_DEFAULT_BASE
 }
 
+/**
+ * Builds a ChatOpenAI model instance for OpenAI-compatible APIs.
+ * Handles provider-specific configurations including SiliconFlow, thinking mode, and tools.
+ * @param {Object} params - Configuration parameters for the model
+ * @returns {ChatOpenAI} - Configured LangChain ChatOpenAI instance
+ */
 const buildOpenAIModel = ({
   provider,
   apiKey,
@@ -308,6 +398,12 @@ const buildOpenAIModel = ({
   return modelInstance
 }
 
+/**
+ * Builds a ChatOpenAI model instance specifically for SiliconFlow API.
+ * Configures SiliconFlow-specific settings including thinking mode and response format.
+ * @param {Object} params - Configuration parameters for the model
+ * @returns {ChatOpenAI} - Configured LangChain ChatOpenAI instance for SiliconFlow
+ */
 const buildSiliconFlowModel = ({
   apiKey,
   model,
@@ -370,6 +466,13 @@ const buildSiliconFlowModel = ({
 
   return modelInstance
 }
+
+/**
+ * Builds a ChatGoogleGenerativeAI model instance for Google Gemini API.
+ * Configures Gemini-specific settings including search retrieval tools and thinking config.
+ * @param {Object} params - Configuration parameters for the model
+ * @returns {ChatGoogleGenerativeAI} - Configured LangChain ChatGoogleGenerativeAI instance
+ */
 const buildGeminiModel = ({ apiKey, model, temperature, top_k, tools, thinking, streaming }) => {
   const resolvedKey = apiKey || getPublicEnv('PUBLIC_GOOGLE_API_KEY')
   if (!resolvedKey) {
@@ -401,6 +504,12 @@ const buildGeminiModel = ({ apiKey, model, temperature, top_k, tools, thinking, 
   return modelInstance
 }
 
+/**
+ * Updates the tool calls map with streaming tool call chunks.
+ * Accumulates function names and arguments across multiple chunks.
+ * @param {Map} toolCallsMap - Map storing tool call data indexed by tool call ID
+ * @param {Array} toolCalls - Array of tool call chunks from streaming response
+ */
 const updateToolCallsMap = (toolCallsMap, toolCalls) => {
   if (!Array.isArray(toolCalls)) return
   for (const toolCall of toolCalls) {
@@ -582,6 +691,28 @@ const streamOpenAICompatRaw = async ({
 }
 */
 
+/**
+ * Streams chat completion responses using LangChain library.
+ * Supports multiple providers (OpenAI, SiliconFlow, Gemini) with unified streaming interface.
+ * Handles text, thoughts, tool calls, and sources (for Gemini).
+ * @param {Object} params - Stream parameters
+ * @param {string} params.provider - AI provider ('openai', 'siliconflow', 'gemini')
+ * @param {string} params.apiKey - API key for authentication
+ * @param {string} params.baseUrl - Custom base URL
+ * @param {string} params.model - Model name/ID
+ * @param {Array} params.messages - Conversation messages
+ * @param {Array} params.tools - Optional tools for function calling
+ * @param {string} params.toolChoice - Tool choice strategy
+ * @param {Object} params.responseFormat - Response format specification
+ * @param {Object} params.thinking - Thinking mode configuration
+ * @param {number} params.temperature - Sampling temperature
+ * @param {number} params.top_k - Top-k sampling parameter
+ * @param {number} params.contextMessageLimit - Maximum context messages
+ * @param {Function} params.onChunk - Callback for each chunk
+ * @param {Function} params.onFinish - Callback when stream completes
+ * @param {Function} params.onError - Callback for errors
+ * @param {AbortSignal} params.signal - Abort signal for cancellation
+ */
 const streamWithLangChain = async ({
   provider,
   apiKey,
@@ -750,6 +881,12 @@ const streamWithLangChain = async ({
   }
 }
 
+/**
+ * Makes a non-streaming request to OpenAI-compatible API.
+ * Returns the complete response content as a string.
+ * @param {Object} params - Request parameters
+ * @returns {Promise<string>} - Response content as string
+ */
 const requestOpenAICompat = async ({
   provider,
   apiKey,
@@ -787,6 +924,12 @@ const requestOpenAICompat = async ({
     : normalizeTextContent(response.content)
 }
 
+/**
+ * Makes a non-streaming request to SiliconFlow API.
+ * Returns the complete response content as a string.
+ * @param {Object} params - Request parameters
+ * @returns {Promise<string>} - Response content as string
+ */
 const requestSiliconFlow = async ({
   provider,
   apiKey,
@@ -823,6 +966,13 @@ const requestSiliconFlow = async ({
     ? response.content
     : normalizeTextContent(response.content)
 }
+
+/**
+ * Makes a non-streaming request to Google Gemini API.
+ * Returns the complete response content as a string.
+ * @param {Object} params - Request parameters
+ * @returns {Promise<string>} - Response content as string
+ */
 const requestGemini = async ({
   apiKey,
   model,
@@ -852,6 +1002,16 @@ const requestGemini = async ({
     : normalizeTextContent(response.content)
 }
 
+/**
+ * Generates a concise title for a conversation based on the first user message.
+ * Uses the specified AI provider to create a title (max 5 words).
+ * @param {string} provider - AI provider to use
+ * @param {string} firstMessage - The first user message
+ * @param {string} apiKey - API key for authentication
+ * @param {string} baseUrl - Custom base URL
+ * @param {string} model - Model name/ID
+ * @returns {Promise<string>} - Generated conversation title
+ */
 const generateTitle = async (provider, firstMessage, apiKey, baseUrl, model) => {
   const promptMessages = [
     {
@@ -885,6 +1045,17 @@ const generateTitle = async (provider, firstMessage, apiKey, baseUrl, model) => 
   return content?.trim?.() || 'New Conversation'
 }
 
+/**
+ * Generates both a title and selects an appropriate space for a conversation.
+ * Returns an object with the generated title and selected space (or null if no space fits).
+ * @param {string} provider - AI provider to use
+ * @param {string} firstMessage - The first user message
+ * @param {Array} spaces - Available spaces to choose from
+ * @param {string} apiKey - API key for authentication
+ * @param {string} baseUrl - Custom base URL
+ * @param {string} model - Model name/ID
+ * @returns {Promise<{title: string, space: Object|null}>} - Generated title and selected space
+ */
 const generateTitleAndSpace = async (provider, firstMessage, spaces, apiKey, baseUrl, model) => {
   const spaceLabels = (spaces || []).map(s => s.label).join(', ')
   const promptMessages = [
@@ -928,6 +1099,16 @@ Return the result as a JSON object with keys "title" and "spaceLabel".`,
   return { title, space: selectedSpace }
 }
 
+/**
+ * Generates related follow-up questions based on the conversation history.
+ * Returns an array of 3 relevant questions that the user might ask next.
+ * @param {string} provider - AI provider to use
+ * @param {Array} messages - Conversation history messages
+ * @param {string} apiKey - API key for authentication
+ * @param {string} baseUrl - Custom base URL
+ * @param {string} model - Model name/ID
+ * @returns {Promise<Array<string>>} - Array of related follow-up questions
+ */
 const generateRelatedQuestions = async (provider, messages, apiKey, baseUrl, model) => {
   const promptMessages = [
     ...(messages || []),
@@ -965,6 +1146,12 @@ const generateRelatedQuestions = async (provider, messages, apiKey, baseUrl, mod
   return normalizeRelatedQuestions(parsed)
 }
 
+/**
+ * Factory function that creates a backend provider for a specific AI provider.
+ * Returns an object with methods for streaming, title generation, and related questions.
+ * @param {string} provider - The AI provider name ('openai', 'siliconflow', 'gemini')
+ * @returns {Object} - Provider interface with streaming and generation methods
+ */
 export const createBackendProvider = provider => ({
   streamChatCompletion: params => streamWithLangChain({ provider, ...params }),
   generateTitle: (firstMessage, apiKey, baseUrl, model) =>

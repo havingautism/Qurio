@@ -299,6 +299,26 @@ const collectGeminiSources = (metadata, sourceMap) => {
 }
 
 /**
+ * Collects source information from GLM web_search results.
+ * Extracts refer ID, title, URL, and content snippet from search results.
+ * @param {Array} webSearchResults - Array of web search result objects from GLM
+ * @param {Map} sourceMap - Map to store collected sources (refer -> {id, title, url, snippet})
+ */
+const collectGLMSources = (webSearchResults, sourceMap) => {
+  if (!Array.isArray(webSearchResults)) return
+  for (const result of webSearchResults) {
+    const refer = result?.refer
+    if (!refer || sourceMap.has(refer)) continue
+    sourceMap.set(refer, {
+      id: refer,
+      title: result?.title || refer,
+      url: result?.link || '',
+      snippet: result?.content?.substring(0, 200) || '',
+    })
+  }
+}
+
+/**
  * Safely parses JSON from a string, with fallback to extracting JSON objects/arrays.
  * Handles malformed input by attempting to extract the first valid JSON structure.
  * @param {string} text - String to parse as JSON
@@ -503,7 +523,9 @@ const buildGLMModel = ({
   if (top_k !== undefined) {
     modelKwargs.top_k = top_k
   }
-  if (tools && tools.length > 0) modelKwargs.tools = tools
+  if (tools && tools.length > 0) {
+    modelKwargs.tools = tools
+  }
   if (toolChoice) modelKwargs.tool_choice = toolChoice
   if (thinking?.extra_body) {
     modelKwargs.extra_body = { ...(modelKwargs.extra_body || {}), ...thinking.extra_body }
@@ -911,6 +933,12 @@ const streamWithLangChain = async ({
       const messageChunk = chunk?.message ?? chunk
       const contentValue = messageChunk?.content ?? chunk?.content
 
+      // Process GLM web_search results
+      if (provider === 'glm') {
+        const rawResp = messageChunk?.additional_kwargs?.__raw_response
+        collectGLMSources(rawResp?.web_search, sourcesMap)
+      }
+
       if (provider === 'gemini' && Array.isArray(contentValue)) {
         const parsed = parseGeminiParts(contentValue, {
           emitText,
@@ -945,6 +973,7 @@ const streamWithLangChain = async ({
     onFinish?.({
       content: fullContent,
       thought: fullThought || undefined,
+      sources: sourcesMap.size ? Array.from(sourcesMap.values()) : undefined,
       toolCalls: toolCallsMap.size ? Array.from(toolCallsMap.values()) : undefined,
     })
   } catch (error) {

@@ -149,12 +149,10 @@ export const PROVIDERS = {
       baseUrl: GLM_BASE_URL,
     }),
     getTools: () => undefined,
-    getThinking: isThinkingActive =>
-      isThinkingActive
-        ? {
-            type: 'enabled', // GLM thinking format: { type: "enabled" | "disabled" }
-          }
-        : undefined,
+    // GLM requires explicit { type: "disabled" } to suppress thinking content
+    getThinking: isThinkingActive => ({
+      type: isThinkingActive ? 'enabled' : 'disabled',
+    }),
     parseMessage: defaultParseMessage,
   },
 }

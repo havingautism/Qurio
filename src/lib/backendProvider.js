@@ -13,6 +13,7 @@ import { DynamicRetrievalMode } from '@google/generative-ai'
 // Default base URLs for different providers
 const OPENAI_DEFAULT_BASE = 'https://api.openai.com/v1'
 const SILICONFLOW_BASE = 'https://api.siliconflow.cn/v1'
+const GLM_BASE = 'https://open.bigmodel.cn/api/paas/v4'
 
 /**
  * Normalizes text content from various formats into a plain string.
@@ -468,6 +469,65 @@ const buildSiliconFlowModel = ({
 }
 
 /**
+ * Builds a ChatOpenAI model instance specifically for GLM (Zhipu AI) API.
+ * Configures GLM-specific settings including thinking mode and response format.
+ * @param {Object} params - Configuration parameters for the model
+ * @returns {ChatOpenAI} - Configured LangChain ChatOpenAI instance for GLM
+ */
+const buildGLMModel = ({
+  apiKey,
+  model,
+  temperature,
+  top_k,
+  tools,
+  toolChoice,
+  responseFormat,
+  thinking,
+  streaming = true,
+}) => {
+  const resolvedKey = apiKey || getPublicEnv('PUBLIC_GLM_API_KEY')
+  if (!resolvedKey) {
+    throw new Error('Missing API key')
+  }
+  const resolvedBase = GLM_BASE
+
+  const modelKwargs = {}
+  if (responseFormat) {
+    modelKwargs.response_format = responseFormat
+  }
+  // GLM thinking parameter format: { type: "enabled" | "disabled" }
+  if (thinking) {
+    const thinkingType = thinking.type || thinking.thinkingType || 'enabled'
+    modelKwargs.thinking = { type: thinkingType }
+  }
+  if (top_k !== undefined) {
+    modelKwargs.top_k = top_k
+  }
+  if (tools && tools.length > 0) modelKwargs.tools = tools
+  if (toolChoice) modelKwargs.tool_choice = toolChoice
+  if (thinking?.extra_body) {
+    modelKwargs.extra_body = { ...(modelKwargs.extra_body || {}), ...thinking.extra_body }
+  }
+  if (streaming) {
+    modelKwargs.stream_options = { include_usage: false }
+  }
+
+  let modelInstance = new ChatOpenAI({
+    apiKey: resolvedKey,
+    openAIApiKey: resolvedKey,
+    modelName: model,
+    temperature,
+    streaming,
+    streamUsage: false,
+    __includeRawResponse: true,
+    modelKwargs,
+    configuration: { baseURL: resolvedBase, dangerouslyAllowBrowser: true },
+  })
+
+  return modelInstance
+}
+
+/**
  * Builds a ChatGoogleGenerativeAI model instance for Google Gemini API.
  * Configures Gemini-specific settings including search retrieval tools and thinking config.
  * @param {Object} params - Configuration parameters for the model
@@ -755,6 +815,18 @@ const streamWithLangChain = async ({
       thinking,
       streaming: true,
     })
+  } else if (provider === 'glm') {
+    modelInstance = buildGLMModel({
+      apiKey,
+      model,
+      temperature,
+      top_k,
+      tools,
+      toolChoice,
+      responseFormat,
+      thinking,
+      streaming: true,
+    })
   } else {
     modelInstance = buildOpenAIModel({
       provider,
@@ -1003,6 +1075,44 @@ const requestGemini = async ({
 }
 
 /**
+ * Makes a non-streaming request to GLM (Zhipu AI) API.
+ * Returns the complete response content as a string.
+ * @param {Object} params - Request parameters
+ * @returns {Promise<string>} - Response content as string
+ */
+const requestGLM = async ({
+  apiKey,
+  model,
+  messages,
+  temperature,
+  top_k,
+  tools,
+  toolChoice,
+  responseFormat,
+  thinking,
+  signal,
+}) => {
+  const modelInstance = buildGLMModel({
+    apiKey,
+    model,
+    temperature,
+    top_k,
+    tools,
+    toolChoice,
+    responseFormat,
+    thinking,
+    streaming: false,
+  })
+
+  const langchainMessages = toLangChainMessages(messages || [])
+  const response = await modelInstance.invoke(langchainMessages, { signal })
+
+  return typeof response.content === 'string'
+    ? response.content
+    : normalizeTextContent(response.content)
+}
+
+/**
  * Generates a concise title for a conversation based on the first user message.
  * Uses the specified AI provider to create a title (max 5 words).
  * @param {string} provider - AI provider to use
@@ -1030,6 +1140,12 @@ const generateTitle = async (provider, firstMessage, apiKey, baseUrl, model) => 
       provider,
       apiKey,
       baseUrl,
+      model,
+      messages: promptMessages,
+    })
+  } else if (provider === 'glm') {
+    content = await requestGLM({
+      apiKey,
       model,
       messages: promptMessages,
     })
@@ -1082,6 +1198,13 @@ Return the result as a JSON object with keys "title" and "spaceLabel".`,
       messages: promptMessages,
       responseFormat,
     })
+  } else if (provider === 'glm') {
+    content = await requestGLM({
+      apiKey,
+      model,
+      messages: promptMessages,
+      responseFormat,
+    })
   } else {
     content = await requestOpenAICompat({
       provider,
@@ -1128,6 +1251,13 @@ const generateRelatedQuestions = async (provider, messages, apiKey, baseUrl, mod
       provider,
       apiKey,
       baseUrl,
+      model,
+      messages: promptMessages,
+      responseFormat,
+    })
+  } else if (provider === 'glm') {
+    content = await requestGLM({
+      apiKey,
       model,
       messages: promptMessages,
       responseFormat,

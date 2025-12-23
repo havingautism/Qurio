@@ -37,6 +37,7 @@ const ENV_VARS = {
   googleApiKey: getPublicEnv('PUBLIC_GOOGLE_API_KEY'),
   siliconFlowKey:
     getPublicEnv('PUBLIC_SILICONFLOW_API_KEY'),
+  glmKey: getPublicEnv('PUBLIC_GLM_API_KEY'),
 }
 
 // Minimal copy of supabase/init.sql for quick remediation in-app
@@ -148,6 +149,14 @@ const FALLBACK_MODEL_OPTIONS = {
     { value: 'deepseek-reasoner-lite', label: 'deepseek-reasoner-lite' },
     { value: 'gpt-4o', label: 'gpt-4o' },
   ],
+  glm: [
+    { value: 'glm-4.6', label: 'GLM-4.6' },
+    { value: 'glm-4.5', label: 'GLM-4.5' },
+    { value: 'glm-4.5-x', label: 'GLM-4.5-X' },
+    { value: 'glm-4.5-air', label: 'GLM-4.5-Air' },
+    { value: 'glm-4.5-flash', label: 'GLM-4.5-Flash (Free)' },
+    { value: 'glm-4.5v', label: 'GLM-4.5V (Vision)' },
+  ],
   __fallback__: [],
 }
 
@@ -160,6 +169,7 @@ const PROVIDER_LABELS = {
   gemini: 'Google Gemini',
   openai_compatibility: 'OpenAI Compatible',
   siliconflow: 'SiliconFlow',
+  glm: 'GLM (Zhipu AI)',
 }
 
 const INTERFACE_LANGUAGE_OPTIONS = [{ value: 'en', label: 'English' }]
@@ -229,6 +239,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
   const [OpenAICompatibilityKey, setOpenAICompatibilityKey] = useState('')
   const [OpenAICompatibilityUrl, setOpenAICompatibilityUrl] = useState('')
   const [SiliconFlowKey, setSiliconFlowKey] = useState('')
+  const [GlmKey, setGlmKey] = useState('')
   const [apiProvider, setApiProvider] = useState('gemini')
   const [googleApiKey, setGoogleApiKey] = useState('')
   const [supabaseUrl, setSupabaseUrl] = useState('')
@@ -368,6 +379,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
       if (settings.OpenAICompatibilityUrl)
         setOpenAICompatibilityUrl(settings.OpenAICompatibilityUrl)
       if (settings.SiliconFlowKey) setSiliconFlowKey(settings.SiliconFlowKey)
+      if (settings.GlmKey) setGlmKey(settings.GlmKey)
       if (settings.apiProvider) setApiProvider(settings.apiProvider)
       if (settings.googleApiKey) setGoogleApiKey(settings.googleApiKey)
       if (settings.contextMessageLimit) setContextMessageLimit(Number(settings.contextMessageLimit))
@@ -432,6 +444,8 @@ const SettingsModal = ({ isOpen, onClose }) => {
           apiKey: SiliconFlowKey,
           baseUrl: SILICONFLOW_BASE_URL,
         }
+      } else if (targetProvider === 'glm') {
+        credentials = { apiKey: GlmKey }
       } else if (targetProvider === 'openai_compatibility') {
         credentials = {
           apiKey: OpenAICompatibilityKey,
@@ -487,6 +501,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
       const hasValidCredentials =
         (apiProvider === 'gemini' && googleApiKey) ||
         (apiProvider === 'siliconflow' && SiliconFlowKey) ||
+        (apiProvider === 'glm' && GlmKey) ||
         (apiProvider === 'openai_compatibility' && OpenAICompatibilityKey)
 
       if (hasValidCredentials) {
@@ -515,6 +530,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
       const hasValidCredentials =
         (apiProvider === 'gemini' && googleApiKey) ||
         (apiProvider === 'siliconflow' && SiliconFlowKey) ||
+        (apiProvider === 'glm' && GlmKey) ||
         (apiProvider === 'openai_compatibility' && OpenAICompatibilityKey)
 
       if (hasValidCredentials) {
@@ -525,7 +541,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
         return () => clearTimeout(debounceTimer)
       }
     }
-  }, [googleApiKey, SiliconFlowKey])
+  }, [googleApiKey, SiliconFlowKey, GlmKey])
 
   const requiredTables = ['spaces', 'conversations', 'conversation_messages']
 
@@ -595,6 +611,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
       OpenAICompatibilityKey,
       OpenAICompatibilityUrl,
       SiliconFlowKey,
+      GlmKey,
       supabaseUrl,
       supabaseKey,
       contextMessageLimit,
@@ -887,6 +904,39 @@ const SettingsModal = ({ isOpen, onClose }) => {
                             <Check size={14} className="text-primary-500" />
                           )}
                         </button>
+                        <button
+                          onClick={() => {
+                            // Cancel any ongoing request before switching
+                            if (abortControllerRef.current) {
+                              abortControllerRef.current.abort()
+                              abortControllerRef.current = null
+                            }
+
+                            setApiProvider('glm')
+                            setIsProviderDropdownOpen(false)
+                            // Clear all model-related state when switching providers
+                            setModelsError(null)
+                            setDynamicModels([])
+                            setIsLoadingModels(false)
+                            setCurrentProvider('glm')
+                          }}
+                          className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
+                        >
+                          <div className="flex items-center gap-3">
+                            <img
+                              src={PROVIDER_ICONS.glm}
+                              alt="GLM"
+                              width={16}
+                              height={16}
+                              className="w-4 h-4"
+                              loading="lazy"
+                            />
+                            <span>GLM (Zhipu AI)</span>
+                          </div>
+                          {apiProvider === 'glm' && (
+                            <Check size={14} className="text-primary-500" />
+                          )}
+                        </button>
                       </div>
                     )}
                   </div>
@@ -1021,6 +1071,49 @@ const SettingsModal = ({ isOpen, onClose }) => {
                           </div>
                         )}
                         {renderEnvHint(Boolean(ENV_VARS.siliconFlowKey))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* GLM Settings */}
+                  {apiProvider === 'glm' && (
+                    <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                      <div className="flex flex-col gap-2">
+                        <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                          GLM (Zhipu AI) API Key
+                        </label>
+                        <div className="relative">
+                          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                            <Key size={16} />
+                          </div>
+                          <input
+                            type="password"
+                            value={GlmKey}
+                            onChange={e => setGlmKey(e.target.value)}
+                            placeholder="Your GLM API key"
+                            disabled={Boolean(ENV_VARS.glmKey)}
+                            className={clsx(
+                              'w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
+                              ENV_VARS.glmKey && 'opacity-70 cursor-not-allowed',
+                            )}
+                          />
+                        </div>
+                        {apiProvider === 'glm' && GlmKey && (
+                          <div className="flex items-center gap-2 mt-2">
+                            <button
+                              onClick={() => fetchModelsForProvider(apiProvider)}
+                              disabled={isLoadingModels}
+                              className="flex items-center gap-1 text-xs px-3 py-1 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-md transition-colors disabled:opacity-50"
+                            >
+                              <RefreshCw
+                                size={12}
+                                className={clsx(isLoadingModels && 'animate-spin')}
+                              />
+                              {isLoadingModels ? 'Refreshing...' : 'Refresh Models'}
+                            </button>
+                          </div>
+                        )}
+                        {renderEnvHint(Boolean(ENV_VARS.glmKey))}
                       </div>
                     </div>
                   )}

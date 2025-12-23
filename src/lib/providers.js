@@ -1,6 +1,6 @@
 import { createBackendProvider } from './backendProvider'
 import { getPublicEnv } from './publicEnv'
-import { SILICONFLOW_BASE_URL } from './providerConstants'
+import { SILICONFLOW_BASE_URL, GLM_BASE_URL } from './providerConstants'
 
 /**
  * Provider Registry
@@ -138,6 +138,23 @@ export const PROVIDERS = {
           : { includeThoughts: true, thinkingBudget: 1024 },
       }
     }, // Native Gemini thinking config
+    parseMessage: defaultParseMessage,
+  },
+  glm: {
+    ...createBackendProvider('glm'),
+    id: 'glm',
+    name: 'GLM (Zhipu AI)',
+    getCredentials: settings => ({
+      apiKey: settings.GlmKey || getPublicEnv('PUBLIC_GLM_API_KEY'),
+      baseUrl: GLM_BASE_URL,
+    }),
+    getTools: () => undefined,
+    getThinking: isThinkingActive =>
+      isThinkingActive
+        ? {
+            type: 'enabled', // GLM thinking format: { type: "enabled" | "disabled" }
+          }
+        : undefined,
     parseMessage: defaultParseMessage,
   },
 }

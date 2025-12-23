@@ -1,6 +1,6 @@
 import { createBackendProvider } from './backendProvider'
+import { GLM_BASE_URL, SILICONFLOW_BASE_URL } from './providerConstants'
 import { getPublicEnv } from './publicEnv'
-import { SILICONFLOW_BASE_URL, GLM_BASE_URL } from './providerConstants'
 
 /**
  * Provider Registry
@@ -148,7 +148,21 @@ export const PROVIDERS = {
       apiKey: settings.GlmKey || getPublicEnv('PUBLIC_GLM_API_KEY'),
       baseUrl: GLM_BASE_URL,
     }),
-    getTools: () => undefined,
+    getTools: isSearchActive =>
+      isSearchActive
+        ? [
+            {
+              type: 'web_search',
+              web_search: {
+                enable: true,
+                search_result: true,
+                // Add search_prompt to guide GLM to include citation markers
+                // search_prompt:
+                // 'When answering, mark the resources you have cited. If it is an academic article, use the format [a][b][c]; if it is a web resource (not an academic article), use the format [1][2][3]. Do not fabricate resources. Use the actual referenced resources as the basis.',
+              },
+            },
+          ]
+        : undefined,
     // GLM requires explicit { type: "disabled" } to suppress thinking content
     getThinking: isThinkingActive => ({
       type: isThinkingActive ? 'enabled' : 'disabled',

@@ -46,6 +46,12 @@ const normalizeTextContent = content => {
  * @param {Object} params - Parameters including messages, temperature, top_k, tools, and thinking config
  * @returns {Object} - Gemini API payload object
  */
+const normalizeGeminiTools = tools => {
+  if (Array.isArray(tools)) return tools
+
+  return []
+}
+
 const buildGeminiPayload = ({ messages, temperature, top_k, tools, thinking }) => {
   const systemTexts = (messages || [])
     .filter(m => m.role === 'system')
@@ -72,7 +78,8 @@ const buildGeminiPayload = ({ messages, temperature, top_k, tools, thinking }) =
   const payload = { contents }
   if (systemInstruction) payload.systemInstruction = systemInstruction
   if (Object.keys(generationConfig).length) payload.generationConfig = generationConfig
-  if (tools) payload.tools = tools
+  const normalizedTools = normalizeGeminiTools(tools)
+  if (normalizedTools.length) payload.tools = normalizedTools
   return payload
 }
 
@@ -285,16 +292,19 @@ const normalizeGeminiMessages = messages => {
  * Collects source information from Gemini grounding metadata.
  * Extracts URLs and titles from grounding chunks.
  * @param {Object} metadata - Gemini grounding metadata containing chunks
- * @param {Map} sourceMap - Map to store collected sources (url -> {url, title})
+ * @param {Array} sourcesList - Array to store collected sources in chunk order
  */
-const collectGeminiSources = (metadata, sourceMap) => {
+const collectGeminiSources = (metadata, sourcesList) => {
   const chunks = metadata?.groundingChunks
   if (!Array.isArray(chunks)) return
+  if (!Array.isArray(sourcesList)) return
+  if (sourcesList.length === chunks.length && sourcesList.length > 0) return
+  sourcesList.length = 0
   for (const chunk of chunks) {
     const web = chunk?.web
     const url = web?.uri
-    if (!url || sourceMap.has(url)) continue
-    sourceMap.set(url, { url, title: web?.title || url })
+    if (!url) continue
+    sourcesList.push({ url, title: web?.title || url })
   }
 }
 
@@ -527,8 +537,8 @@ const buildGLMModel = ({
     modelKwargs.tools = tools
   }
   if (toolChoice) modelKwargs.tool_choice = toolChoice
-  if (thinking?.extra_body) {
-    modelKwargs.extra_body = { ...(modelKwargs.extra_body || {}), ...thinking.extra_body }
+  if (thinking?.type) {
+    modelKwargs.extra_body = { thinking: { type: thinkingType } }
   }
   if (streaming) {
     modelKwargs.stream_options = { include_usage: false }
@@ -560,28 +570,23 @@ const buildGeminiModel = ({ apiKey, model, temperature, top_k, tools, thinking, 
   if (!resolvedKey) {
     throw new Error('Missing API key')
   }
-
-  let searchRetrievalTool = undefined
-  if (tools && tools.length > 0) {
-    searchRetrievalTool = {
-      googleSearchRetrieval: {
-        dynamicRetrievalConfig: {
-          mode: DynamicRetrievalMode.MODE_DYNAMIC,
-          dynamicThreshold: 0.7, // default is 0.7
-        },
-      },
-    }
-  }
-
-  let modelInstance = new ChatGoogleGenerativeAI({
+  console.log(tools)
+  const normalizedTools = normalizeGeminiTools(tools)
+  const baseModel = new ChatGoogleGenerativeAI({
     apiKey: resolvedKey,
     model,
     temperature,
     topK: top_k,
     streaming,
-    tools: tools || [],
     ...(thinking?.thinkingConfig && { thinkingConfig: thinking.thinkingConfig }),
-  }).bindTools(searchRetrievalTool)
+  })
+  let modelInstance = baseModel
+  if (normalizedTools.length) {
+    modelInstance = modelInstance.bindTools(normalizedTools)
+    if (!modelInstance.client) {
+      modelInstance.client = baseModel.client
+    }
+  }
 
   return modelInstance
 }
@@ -869,6 +874,7 @@ const streamWithLangChain = async ({
   let fullThought = ''
   const toolCallsMap = new Map()
   const sourcesMap = new Map()
+  const geminiSources = []
   let groundingSupports = undefined
   const emitText = text => {
     if (!text) return
@@ -899,7 +905,7 @@ const streamWithLangChain = async ({
       for await (const response of stream) {
         const groundingMetadata = response?.candidates?.[0]?.groundingMetadata
         if (groundingMetadata) {
-          collectGeminiSources(groundingMetadata, sourcesMap)
+          collectGeminiSources(groundingMetadata, geminiSources)
           if (Array.isArray(groundingMetadata.groundingSupports)) {
             groundingSupports = groundingMetadata.groundingSupports
           }
@@ -920,7 +926,7 @@ const streamWithLangChain = async ({
       onFinish?.({
         content: fullContent,
         thought: fullThought || undefined,
-        sources: sourcesMap.size ? Array.from(sourcesMap.values()) : undefined,
+        sources: geminiSources.length ? geminiSources : undefined,
         groundingSupports: groundingSupports?.length ? groundingSupports : undefined,
         toolCalls: toolCallsMap.size ? Array.from(toolCallsMap.values()) : undefined,
       })
@@ -1074,23 +1080,14 @@ const requestSiliconFlow = async ({
  * @param {Object} params - Request parameters
  * @returns {Promise<string>} - Response content as string
  */
-const requestGemini = async ({
-  apiKey,
-  model,
-  messages,
-  temperature,
-  top_k,
-  tools,
-  thinking,
-  signal,
-}) => {
+const requestGemini = async ({ apiKey, model, messages, temperature, top_k, signal }) => {
   const modelInstance = buildGeminiModel({
     apiKey,
     model,
     temperature,
     top_k,
-    tools,
-    thinking,
+    tools: [],
+    thinking: false,
     streaming: false,
   })
 
@@ -1126,10 +1123,12 @@ const requestGLM = async ({
     model,
     temperature,
     top_k,
-    tools,
+    tools: [],
     toolChoice,
     responseFormat,
-    thinking,
+    thinking: {
+      type: 'disabled',
+    },
     streaming: false,
   })
 

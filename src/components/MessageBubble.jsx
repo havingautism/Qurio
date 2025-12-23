@@ -63,6 +63,59 @@ const formatContentWithSources = (content, sources = []) => {
   })
 }
 
+const applyGroundingSupports = (content, groundingSupports = [], sources = []) => {
+  if (
+    typeof content !== 'string' ||
+    !Array.isArray(groundingSupports) ||
+    groundingSupports.length === 0 ||
+    !Array.isArray(sources) ||
+    sources.length === 0
+  ) {
+    return content
+  }
+  if (/\[\d+\]/.test(content)) return content
+
+  const markersByText = new Map()
+  for (const support of groundingSupports) {
+    const segmentText = support?.segment?.text
+    if (!segmentText || typeof segmentText !== 'string') continue
+    const chunkIndices = Array.isArray(support?.groundingChunkIndices)
+      ? support.groundingChunkIndices
+      : []
+    const sourceIndices = chunkIndices
+      .filter(idx => Number.isInteger(idx) && idx >= 0 && idx < sources.length)
+      .map(idx => idx)
+    if (sourceIndices.length === 0) continue
+    const set = markersByText.get(segmentText) || new Set()
+    for (const idx of sourceIndices) set.add(idx)
+    markersByText.set(segmentText, set)
+  }
+
+  if (markersByText.size === 0) return content
+
+  let updated = content
+  const supports = Array.from(markersByText.entries())
+    .map(([text, indices]) => ({
+      text,
+      indices: Array.from(indices).sort((a, b) => a - b),
+    }))
+    .sort((a, b) => b.text.length - a.text.length)
+
+  for (const support of supports) {
+    const marker = ` ${support.indices.map(idx => `[${idx + 1}]`).join('')}`
+    let searchFrom = 0
+    while (true) {
+      const matchIndex = updated.indexOf(support.text, searchFrom)
+      if (matchIndex === -1) break
+      const insertAt = matchIndex + support.text.length
+      updated = updated.slice(0, insertAt) + marker + updated.slice(insertAt)
+      searchFrom = insertAt + marker.length
+    }
+  }
+
+  return updated
+}
+
 /**
  * MessageBubble component that directly accesses messages from chatStore via index
  * Reduces props drilling and improves component independence
@@ -717,7 +770,12 @@ const MessageBubble = ({
   const parsed = provider.parseMessage(message)
   const thoughtContent = message.thinkingEnabled === false ? null : parsed.thought
   const mainContent = parsed.content
-  const contentWithCitations = formatContentWithSources(mainContent, message.sources)
+  const contentWithSupports = applyGroundingSupports(
+    mainContent,
+    message.groundingSupports,
+    message.sources,
+  )
+  const contentWithCitations = formatContentWithSources(contentWithSupports, message.sources)
   const hasThoughtText = !!(thoughtContent && String(thoughtContent).trim())
   const shouldShowThought = message.thinkingEnabled !== false && (isStreaming || hasThoughtText)
   const hasRelatedQuestions = Array.isArray(message.related) && message.related.length > 0

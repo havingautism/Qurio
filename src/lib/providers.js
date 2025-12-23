@@ -128,7 +128,13 @@ export const PROVIDERS = {
       apiKey: settings.googleApiKey || getPublicEnv('PUBLIC_GOOGLE_API_KEY'),
       baseUrl: undefined, // Native SDK usually handles its own endpoints
     }),
-    getTools: isSearchActive => (isSearchActive ? [{ googleSearch: {} }] : undefined), // Native Gemini Google Search tool
+    getTools: isSearchActive => {
+      let toolList = []
+      if (isSearchActive) {
+        toolList.push({ googleSearch: {} })
+      }
+      return toolList
+    }, // Native Gemini Google Search tool
     getThinking: (isThinkingActive, model) => {
       if (!isThinkingActive) return undefined
       const isGemini3Preview = model === 'gemini-3-pro-preview'
@@ -158,7 +164,7 @@ export const PROVIDERS = {
                 search_result: true,
                 // Add search_prompt to guide GLM to include citation markers
                 // search_prompt:
-                // 'When answering, mark the resources you have cited. If it is an academic article, use the format [a][b][c]; if it is a web resource (not an academic article), use the format [1][2][3]. Do not fabricate resources. Use the actual referenced resources as the basis.',
+                //   'When answering, mark the resources you have cited. If it is an academic article, use the format [a][b][c]; if it is a web resource (not an academic article), use the format [1][2][3]. Do not fabricate resources. Use the actual referenced resources as the basis.',
               },
             },
           ]

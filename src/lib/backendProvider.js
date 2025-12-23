@@ -496,10 +496,10 @@ const buildGLMModel = ({
     modelKwargs.response_format = responseFormat
   }
   // GLM thinking parameter format: { type: "enabled" | "disabled" }
-  if (thinking) {
-    const thinkingType = thinking.type || thinking.thinkingType || 'enabled'
-    modelKwargs.thinking = { type: thinkingType }
-  }
+  // GLM API defaults to {"type": "enabled"} when not specified, so we must explicitly set "disabled"
+  // for lightweight tasks (title generation, space selection, related questions)
+  const thinkingType = thinking?.type || 'disabled'
+  modelKwargs.thinking = { type: thinkingType }
   if (top_k !== undefined) {
     modelKwargs.top_k = top_k
   }

@@ -29,6 +29,7 @@ import DotLoader from './DotLoader'
 import MobileSourcesDrawer from './MobileSourcesDrawer'
 import DesktopSourcesSection from './DesktopSourcesSection'
 import useIsMobile from '../hooks/useIsMobile'
+import ShareModal from './ShareModal'
 
 const PROVIDER_META = {
   gemini: {
@@ -172,10 +173,11 @@ const MessageBubble = ({
   onQuote,
 }) => {
   // Get message directly from chatStore using shallow selector
-  const { messages, isLoading } = useChatStore(
+  const { messages, isLoading, conversationTitle } = useChatStore(
     useShallow(state => ({
       messages: state.messages,
       isLoading: state.isLoading,
+      conversationTitle: state.conversationTitle,
     })),
   )
 
@@ -245,6 +247,9 @@ const MessageBubble = ({
 
   // Selection Menu State
   const [selectionMenu, setSelectionMenu] = useState(null)
+
+  // Share Modal State
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false)
 
   // Detect mobile view
   const isMobile = useIsMobile()
@@ -1057,7 +1062,10 @@ const MessageBubble = ({
 
       {/* Action Bar */}
       <div className="flex items-center gap-4  border-t border-gray-200 dark:border-zinc-800 pt-4">
-        <button className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
+        <button
+          className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+          onClick={() => setIsShareModalOpen(true)}
+        >
           <Share2 size={16} />
           <span className="hidden sm:block">Share</span>
         </button>
@@ -1142,14 +1150,20 @@ const MessageBubble = ({
       )}
 
       {/* Mobile Sources Drawer */}
-      {isMobile && message.sources && message.sources.length > 0 && (
-        <MobileSourcesDrawer
-          isOpen={isMobileDrawerOpen}
-          onClose={() => setIsMobileDrawerOpen(false)}
-          sources={mobileDrawerSources}
-          title={mobileDrawerTitle}
-        />
-      )}
+      <MobileSourcesDrawer
+        isOpen={isMobileDrawerOpen}
+        onClose={() => setIsMobileDrawerOpen(false)}
+        sources={mobileDrawerSources}
+        title="Citation Sources"
+      />
+
+      <ShareModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        message={message}
+        conversationTitle={conversationTitle}
+      />
+
     </div>
   )
 }

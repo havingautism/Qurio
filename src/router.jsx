@@ -10,6 +10,7 @@ const SpacesView = React.lazy(() => import('./views/SpacesView'))
 const SpaceView = React.lazy(() => import('./views/SpaceView'))
 const LibraryView = React.lazy(() => import('./views/LibraryView'))
 const BookmarksView = React.lazy(() => import('./views/BookmarksView'))
+const ShareImageView = React.lazy(() => import('./views/ShareImageView'))
 
 const SuspensePage = ({ children }) => (
   <React.Suspense fallback={<div className="min-h-screen bg-background text-foreground" />}>
@@ -127,6 +128,16 @@ export const bookmarksRoute = createRoute({
   ),
 })
 
+export const shareImageRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: 'share',
+  component: () => (
+    <SuspensePage>
+      <ShareImageView />
+    </SuspensePage>
+  ),
+})
+
 export const routeTree = rootRoute.addChildren([
   homeRoute,
   newChatRoute,
@@ -135,6 +146,7 @@ export const routeTree = rootRoute.addChildren([
   spaceRoute,
   libraryRoute,
   bookmarksRoute,
+  shareImageRoute,
 ])
 
 const getBasePath = () =>

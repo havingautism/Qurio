@@ -62,8 +62,8 @@ const getHostname = url => {
 }
 
 /**
- * Groups consecutive citations [1][2][3] into [Source Name + N].
- * Also handles single citations.
+ * Converts citations [1][2][3] to clickable number links [1][2][3].
+ * Each number becomes a separate clickable link while keeping the simple number format.
  */
 const formatContentWithSources = (content, sources = []) => {
   if (typeof content !== 'string' || !Array.isArray(sources) || sources.length === 0) {
@@ -85,16 +85,14 @@ const formatContentWithSources = (content, sources = []) => {
 
     if (!primarySource) return match
 
-    // Multiple -> [Source + N] linked to first one
-    const count = indices.length
-    const remain = count - 1
-    // Use title, fallback to hostname
-    const title = primarySource.title || getHostname(primarySource.url)
-    const label = `${title}${remain > 0 ? ` +${remain}` : ''}`
+    // Create individual clickable links for each citation: [1][2][3]
+    // Each number links to its corresponding source
+    const citationLinks = indices.map(idx => {
+      const num = idx + 1
+      return `[${num}](citation:${idx})`
+    }).join('')
 
-    // Encode indices in the URL for the renderer to pick up
-    // Format: citation:index1,index2,index3...
-    return ` [${label}](citation:${indices.join(',')}) `
+    return ` ${citationLinks} `
   })
 }
 

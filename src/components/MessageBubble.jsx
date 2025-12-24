@@ -12,7 +12,7 @@ import {
   Pencil,
   Check,
   RefreshCw,
-  // Quote is already imported, avoid duplication if necessary, but here we just list it cleanly
+  Globe,
   Quote,
   X,
 } from 'lucide-react'
@@ -52,19 +52,47 @@ const PROVIDER_META = {
 
 const THINKING_STATUS_MESSAGES = ['Thinking', 'Analyzing', 'Working through it', 'Checking details']
 
+const getHostname = url => {
+  try {
+    const hostname = new URL(url).hostname
+    return hostname.replace(/^www\./, '')
+  } catch (e) {
+    return 'Source'
+  }
+}
+
 /**
- * Make inline [n] markers clickable to the corresponding source URL while keeping brackets.
+ * Converts citations [1][2][3] to clickable number links [1][2][3].
+ * Each number becomes a separate clickable link while keeping the simple number format.
  */
 const formatContentWithSources = (content, sources = []) => {
   if (typeof content !== 'string' || !Array.isArray(sources) || sources.length === 0) {
     return content
   }
-  return content.replace(/\[(\d+)\]/g, (match, p1) => {
-    const idx = Number(p1) - 1
-    const src = sources[idx]
-    if (!src?.url) return match
-    // Remove visible brackets
-    return `[${p1}](${src.url})`
+
+  // Regex to match one or more citations: [1] or [1][2] or [1] [2] or [1]  [2]
+  // We eagerly match sequences of [n] potentially separated by whitespace
+  const citationRegex = /\[(\d+)\](?:\s*\[(\d+)\])*/g
+
+  return content.replace(citationRegex, match => {
+    // Extract all numbers from the match
+    const indices = match.match(/\d+/g).map(n => Number(n) - 1)
+
+    if (indices.length === 0) return match
+
+    const primaryIdx = indices[0]
+    const primarySource = sources[primaryIdx]
+
+    if (!primarySource) return match
+
+    // Create individual clickable links for each citation: [1][2][3]
+    // Each number links to its corresponding source
+    const citationLinks = indices.map(idx => {
+      const num = idx + 1
+      return `[${num}](citation:${idx})`
+    }).join('')
+
+    return ` ${citationLinks} `
   })
 }
 
@@ -324,9 +352,7 @@ const MessageBubble = ({
   const handleMouseUp = e => {
     // Only handle mouse events on desktop
     if (isMobile) return
-
     if (e.target.closest('.selection-menu')) return
-
     if (!updateSelectionMenuFromSelection()) {
       setSelectionMenu(null)
     }
@@ -528,6 +554,7 @@ const MessageBubble = ({
               margin: 0,
               padding: '1rem',
               background: 'transparent',
+              borderRadius: 'inherit',
             }}
             codeTagProps={{
               style: {
@@ -623,16 +650,34 @@ const MessageBubble = ({
         </td>
       ),
       code: CodeBlock,
-      a: ({ node, children, ...props }) => (
-        <a
-          {...props}
-          target="_blank"
-          rel="noreferrer"
-          className="text-[12px] hover:bg-primary-300/50 rounded-lg dark:hover:bg-primary-700/50 dark:bg-primary-900/50 bg-primary-200/50 mx-0.5 py-0.5 px-1 text-primary-700 dark:text-primary-300"
-        >
-          {parseChildrenWithEmojis(children)}
-        </a>
-      ),
+      a: ({ href, children, ...props }) => {
+        if (href?.startsWith('citation:')) {
+          const indices = href
+            .replace('citation:', '')
+            .split(',')
+            .map(Number)
+            .filter(n => !isNaN(n))
+          return (
+            <CitationChip
+              indices={indices}
+              sources={message.sources}
+              isMobile={isMobile}
+              label={children} // Children of the link is the label [Title + N]
+            />
+          )
+        }
+        return (
+          <a
+            href={href}
+            {...props}
+            target="_blank"
+            rel="noreferrer"
+            className="text-[12px] hover:bg-primary-300/50 rounded-lg dark:hover:bg-primary-700/50 dark:bg-primary-900/50 bg-primary-200/50 mx-0.5 py-0.5 px-1 text-primary-700 dark:text-primary-300"
+          >
+            {parseChildrenWithEmojis(children)}
+          </a>
+        )
+      },
       hr: () => (
         <div className="relative my-6">
           <div className="h-px bg-linear-to-r from-transparent via-gray-300 to-transparent dark:via-zinc-700" />
@@ -642,7 +687,7 @@ const MessageBubble = ({
         </div>
       ),
     }),
-    [isDark], // Depend on isDark because CodeBlock uses it
+    [isDark, message.sources, isMobile], // Dependencies for markdownComponents
   )
 
   if (isUser) {
@@ -785,38 +830,6 @@ const MessageBubble = ({
   const shouldShowThought = message.thinkingEnabled !== false && (isStreaming || hasThoughtText)
   const hasRelatedQuestions = Array.isArray(message.related) && message.related.length > 0
   const isRelatedLoading = !!message.relatedLoading
-
-  // Removed duplicate definitions
-
-  // Wait, CodeBlock uses isDark. Since CodeBlock is defined inside component, it captures closure.
-  // We should pass CodeBlock to useMemo dependency if it's not stable.
-  // Actually, defining CodeBlock inside component makes it unstable too.
-  // Only way to make it stable is to memoize CodeBlock too or move it outside.
-  // Moving CodeBlock outside is hard because it uses `isDark`.
-  // So we memoize `markdownComponents` dependent on `isDark`.
-  // BUT `CodeBlock` function itself changes on every render because it's defined in the function body!
-  // So `markdownComponents` will also change if we include `CodeBlock` in it.
-  // NO, `CodeBlock` variable is new every render.
-  // We must memoize CodeBlock too or move it out.
-  // `isDark` is the only external dependency.
-
-  // Actually, we can just pass CodeBlock into useMemo dependency array.
-  // But CodeBlock is re-created every render.
-  // We need to use useCallback for CodeBlock? No, it's a component.
-  // We should useMemo for CodeBlock definition or move it out and pass isDark as prop?
-  // ReactMarkdown passes props to components. We can't easily pass extra props like isDark.
-  // We can use a context or just keep it simple:
-  // Let's rely on useMemo for markdownComponents, but we need CodeBlock to be stable-ish.
-  // If we mistakenly make CodeBlock unstable, markdownComponents useMemo won't help if we put CodeBlock in dep array.
-  // Actually, if we define markdownComponents with `code: CodeBlock` and `CodeBlock` is new every time,
-  // we effectively need to define `markdownComponents` every time IF we use `CodeBlock` directly.
-
-  // BETTER PLAN: Define `markdownComponents` with `useMemo` and inside that `useMemo`, define `CodeBlock`?
-  // No, `CodeBlock` is a component, it should be defined at top level or memoized.
-
-  // Let's use `useMemo` for `markdownComponents`, and inside `useMemo`, we use a wraper or just the function.
-  // Wait, if `CodeBlock` is defined inside `MessageBubble`, it captures `isDark`.
-  // If we move `CodeBlock` definition inside `useMemo`, it will be stable as long as dependencies don't change.
 
   return (
     <div
@@ -963,38 +976,7 @@ const MessageBubble = ({
         </div>
       )}
 
-      {/* Sources Section */}
-      {message.sources && message.sources.length > 0 && (
-        <div className="flex flex-wrap gap-2 items-stretch">
-          {(showAllSources ? message.sources : message.sources.slice(0, 4)).map((source, index) => (
-            <div
-              key={index}
-              className="bg-user-bubble dark:bg-zinc-800/50 hover:bg-gray-100 dark:hover:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg p-2.5 cursor-pointer transition-colors flex flex-col justify-between w-36 "
-              onClick={() => window.open(source.url, '_blank')}
-            >
-              {' '}
-              <div className="flex items-center gap-1.5 mt-1">
-                <div className="w-3.5 h-3.5 rounded-full bg-gray-200 dark:bg-zinc-700 flex items-center justify-center text-[9px] text-gray-600 dark:text-gray-300 shrink-0">
-                  {index + 1}
-                </div>{' '}
-                <div className="text-[11px] text-gray-600 dark:text-gray-300 line-clamp-2 leading-tight font-medium">
-                  {source.title}
-                </div>
-              </div>
-            </div>
-          ))}
-          {!showAllSources && message.sources.length > 4 && (
-            <div
-              onClick={() => setShowAllSources(true)}
-              className="bg-user-bubble dark:bg-zinc-800/50 hover:bg-gray-100 dark:hover:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg p-2.5 cursor-pointer transition-colors flex items-center justify-center w-24"
-            >
-              <span className="text-[11px] text-gray-500 dark:text-gray-400 font-medium text-center">
-                View {message.sources.length - 4} more
-              </span>
-            </div>
-          )}
-        </div>
-      )}
+      {/* Sources Section - REMOVED (Moved to toolbar) */}
 
       {/* Main Content */}
       <div
@@ -1034,7 +1016,7 @@ const MessageBubble = ({
             <EmojiDisplay emoji="🔮" size="1.2em" className="mb-1" />
             <span className="text-sm font-semibold">Related Questions</span>
           </div>
-          <div className="flex flex-col gap-1 md:gap-2 px-2">
+          <div className="flex flex-col gap-1 md:gap-2 ">
             {hasRelatedQuestions &&
               message.related.map((question, index) => (
                 <div
@@ -1107,36 +1089,229 @@ const MessageBubble = ({
             </>
           )}
         </button>
-        {/* <div className="flex-1" />
-        <button className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
-          <ThumbsUp size={16} />
-        </button>
-        <button className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
-          <ThumbsDown size={16} />
-        </button>
-        <button className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
-          <MoreHorizontal size={16} />
-        </button> */}
+        {/* Sources Dropdown Trigger */}
+        {message.sources && message.sources.length > 0 && (
+          <div className="relative inline-block text-left">
+            <button
+              onClick={() => setShowAllSources(!showAllSources)}
+              className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+            >
+              <Globe size={16} />
+              <span className="hidden sm:block">Sources</span>
+              <span className="flex items-center justify-center bg-gray-200 dark:bg-zinc-700 rounded-full text-[10px] w-5 h-5 text-gray-700 dark:text-gray-300">
+                {message.sources.length}
+              </span>
+            </button>
+
+            {showAllSources && (
+              <>
+                <div className="fixed inset-0 z-30" onClick={() => setShowAllSources(false)} />
+                <div className="absolute bottom-full left-0 mb-2 w-64 max-h-80 overflow-y-auto bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl z-40 p-1">
+                  <div className="p-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider border-b border-gray-100 dark:border-zinc-800 mb-1">
+                    {message.sources.length} Sources
+                  </div>
+                  {message.sources.map((source, idx) => (
+                    <a
+                      key={idx}
+                      href={source.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-start gap-3 p-2.5 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors group"
+                    >
+                      <div className="mt-0.5 shrink-0 w-4 h-4 rounded text-[10px] font-medium bg-gray-100 dark:bg-zinc-800 text-gray-500 dark:text-gray-400 flex items-center justify-center border border-gray-200 dark:border-zinc-700 group-hover:border-gray-300 dark:group-hover:border-zinc-600">
+                        {idx + 1}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-medium text-gray-800 dark:text-gray-200 line-clamp-2 leading-snug">
+                          {source.title}
+                        </div>
+                        <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 truncate">
+                          {getHostname(source.url)}
+                        </div>
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )
 }
 
-const PlusIcon = () => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width="20"
-    height="20"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M5 12h14" />
-    <path d="M12 5v14" />
-  </svg>
-)
+const CitationChip = ({ indices, sources, isMobile, label }) => {
+  const [isOpen, setIsOpen] = useState(false)
+  const [position, setPosition] = useState({ top: 0, left: 0 })
+  const containerRef = useRef(null)
+  const timeoutRef = useRef(null)
+
+  const updatePosition = useCallback(() => {
+    if (containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect()
+      const dropdownWidth = 256
+      const viewportWidth = window.innerWidth
+      const viewportHeight = window.innerHeight
+      const padding = 12
+      const inputEl = isMobile ? document.getElementById('chat-input-textarea') : null
+      const inputRect = inputEl?.getBoundingClientRect()
+      const inputSafeSpace = inputRect ? Math.max(0, viewportHeight - inputRect.top + 8) : 0
+      // Keep dropdown clear of the input area and safe area on mobile.
+      const bottomSafeSpace = isMobile ? Math.max(140, inputSafeSpace) : padding
+
+      // Horizontal Clamping
+      let left = rect.left + rect.width / 2
+      const minCenter = dropdownWidth / 2 + padding
+      const maxCenter = viewportWidth - dropdownWidth / 2 - padding
+      left = Math.max(minCenter, Math.min(left, maxCenter))
+
+      // Vertical Flipping
+      // Available space below the chip, EXCLUDING the bottom safe area/input bar
+      const spaceBelow = viewportHeight - rect.bottom - bottomSafeSpace
+      const spaceAbove = rect.top
+
+      // If we don't have enough space below for a full dropdown (approx 240px), flip up
+      // Default to flipping up on mobile if space allows, as it's cleaner above the finger/input
+      // But only if there is actually reasonable space above (e.g. >200px)
+      const preferUp = isMobile
+
+      let showAbove = false
+      if (preferUp && spaceAbove > 200) {
+        showAbove = true
+      } else if (spaceBelow < 250 && spaceAbove > spaceBelow) {
+        showAbove = true
+      }
+
+      const top = showAbove ? rect.top - 8 : rect.bottom + 8
+
+      const maxHeight = showAbove
+        ? Math.min(240, spaceAbove - padding - 8)
+        : Math.min(240, spaceBelow + (isMobile ? 0 : 0))
+
+      setPosition({ top, left, showAbove, maxHeight })
+    }
+  }, [isMobile])
+
+  const handleMouseEnter = () => {
+    if (isMobile) return
+    if (timeoutRef.current) clearTimeout(timeoutRef.current)
+    updatePosition()
+    setIsOpen(true)
+  }
+
+  const handleMouseLeave = () => {
+    if (isMobile) return
+    timeoutRef.current = setTimeout(() => {
+      setIsOpen(false)
+    }, 200)
+  }
+
+  const handleClick = e => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (isMobile) {
+      if (!isOpen) updatePosition()
+      setIsOpen(!isOpen)
+    }
+  }
+
+  // Update position on scroll/resize while open
+  useEffect(() => {
+    if (!isOpen) return
+    window.addEventListener('scroll', updatePosition, true)
+    window.addEventListener('resize', updatePosition)
+    return () => {
+      window.removeEventListener('scroll', updatePosition, true)
+      window.removeEventListener('resize', updatePosition)
+    }
+  }, [isOpen, updatePosition])
+
+  // Close on outside click/interaction
+  useEffect(() => {
+    if (!isOpen) return
+    const handleOutside = e => {
+      // If clicking inside the dropdown (portal) or the chip, do nothing
+      if (
+        e.target.closest('.citation-dropdown') ||
+        (containerRef.current && containerRef.current.contains(e.target))
+      ) {
+        return
+      }
+      setIsOpen(false)
+    }
+
+    document.addEventListener('touchstart', handleOutside)
+    document.addEventListener('mousedown', handleOutside)
+    return () => {
+      document.removeEventListener('touchstart', handleOutside)
+      document.removeEventListener('mousedown', handleOutside)
+    }
+  }, [isOpen])
+
+  return (
+    <>
+      <span
+        ref={containerRef}
+        className="relative inline-block"
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+      >
+        <span
+          onClick={handleClick}
+          className="text-[12px] bg-primary-200/50 dark:bg-primary-900/50 text-primary-700 dark:text-primary-300 hover:bg-primary-300/50 dark:hover:bg-primary-700/50 rounded-lg mx-0.5 py-0.5 px-1 cursor-pointer transition-colors"
+        >
+          {parseChildrenWithEmojis(label)}
+        </span>
+      </span>
+
+      {isOpen &&
+        createPortal(
+          <div
+            className="citation-dropdown fixed z-[9999] w-64 overflow-y-auto bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl flex flex-col py-1"
+            style={{
+              top: position.showAbove ? 'auto' : position.top,
+              bottom: position.showAbove ? window.innerHeight - position.top : 'auto',
+              left: position.left,
+              transform: 'translateX(-50%)',
+              maxHeight: position.maxHeight,
+            }}
+            onMouseEnter={() => {
+              if (timeoutRef.current) clearTimeout(timeoutRef.current)
+            }}
+            onMouseLeave={handleMouseLeave}
+          >
+            {indices.map(idx => {
+              const source = sources[idx]
+              if (!source) return null
+              return (
+                <a
+                  key={idx}
+                  href={source.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={e => e.stopPropagation()}
+                  className="flex items-start gap-2 p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors text-left"
+                >
+                  <span className="mt-0.5 shrink-0 w-3.5 h-3.5 rounded text-[9px] font-medium bg-gray-100 dark:bg-zinc-800 text-gray-500 dark:text-gray-400 flex items-center justify-center border border-gray-200 dark:border-zinc-700">
+                    {idx + 1}
+                  </span>
+                  <span className="flex-1 min-w-0">
+                    <span className="block text-xs font-medium text-gray-800 dark:text-gray-200 line-clamp-1">
+                      {source.title}
+                    </span>
+                    <span className="block text-[10px] text-gray-400 dark:text-gray-500 truncate">
+                      {getHostname(source.url)}
+                    </span>
+                  </span>
+                </a>
+              )
+            })}
+          </div>,
+          document.body,
+        )}
+    </>
+  )
+}
 
 export default MessageBubble

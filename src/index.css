@@ -46,6 +46,17 @@
   --color-primary-800: var(--color-primary-800);
   --color-primary-900: var(--color-primary-900);
   --color-primary-950: var(--color-primary-950);
+
+  --animate-slide-up: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+
+  @keyframes slide-up {
+    from {
+      transform: translateY(100%);
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
 }
 
 :root {

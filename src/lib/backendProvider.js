@@ -13,8 +13,8 @@ import { getPublicEnv } from './publicEnv'
 // Default base URLs for different providers
 const OPENAI_DEFAULT_BASE = 'https://api.openai.com/v1'
 const SILICONFLOW_BASE = 'https://api.siliconflow.cn/v1'
-const GLM_BASE = 'https://open.bigmodel.cn/api/paas/v4'
-const KIMI_BASE = 'https://api.moonshot.cn/v1'
+const GLM_BASE = getPublicEnv('PUBLIC_GLM_BASE_URL') || 'https://open.bigmodel.cn/api/paas/v4'
+const KIMI_BASE = getPublicEnv('PUBLIC_KIMI_BASE_URL') || 'https://api.moonshot.cn/v1'
 
 /**
  * Normalizes text content from various formats into a plain string.
@@ -342,7 +342,8 @@ const collectKimiSources = (toolResult, sourceMap) => {
   if (!parsed) return
 
   // Handle different possible response formats from Kimi web_search
-  const results = parsed?.results || parsed?.data || parsed?.items || (Array.isArray(parsed) ? parsed : [])
+  const results =
+    parsed?.results || parsed?.data || parsed?.items || (Array.isArray(parsed) ? parsed : [])
 
   if (!Array.isArray(results)) return
 

@@ -15,7 +15,6 @@ import {
   Globe,
   Quote,
   X,
-  ExternalLink,
 } from 'lucide-react'
 import { Streamdown } from 'streamdown'
 import remarkGfm from 'remark-gfm'
@@ -27,6 +26,9 @@ import { parseChildrenWithEmojis } from '../lib/emojiParser'
 import EmojiDisplay from './EmojiDisplay'
 import { PROVIDER_ICONS, getModelIcon } from '../lib/modelIcons'
 import DotLoader from './DotLoader'
+import MobileSourcesDrawer from './MobileSourcesDrawer'
+import DesktopSourcesSection from './DesktopSourcesSection'
+import useIsMobile from '../hooks/useIsMobile'
 
 const PROVIDER_META = {
   gemini: {
@@ -91,14 +93,13 @@ const formatContentWithSources = (content, sources = []) => {
 
     if (!primarySource) return match
 
-    // Create individual clickable links for each citation: [1][2][3]
-    // Each number links to its corresponding source
-    const citationLinks = indices.map(idx => {
-      const num = idx + 1
-      return `[${num}](citation:${idx})`
-    }).join('')
+    // Group consecutive citations: [1][2][3] -> [+3]
+    if (indices.length > 1) {
+      return ` [+${indices.length}](citation:${indices.join(',')}) `
+    }
 
-    return ` ${citationLinks} `
+    // Single citation: [1] -> [1]
+    return ` [${primaryIdx + 1}](citation:${primaryIdx}) `
   })
 }
 
@@ -244,18 +245,9 @@ const MessageBubble = ({
 
   // Selection Menu State
   const [selectionMenu, setSelectionMenu] = useState(null)
-  const [isMobile, setIsMobile] = useState(false)
 
-  // Detect mobile view based on screen size
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768) // md: breakpoint
-    }
-
-    checkMobile()
-    window.addEventListener('resize', checkMobile)
-    return () => window.removeEventListener('resize', checkMobile)
-  }, [])
+  // Detect mobile view
+  const isMobile = useIsMobile()
 
   // Calculate optimal menu position to avoid viewport edges and selection
   const calculateMenuPosition = selectionRect => {
@@ -440,7 +432,22 @@ const MessageBubble = ({
 
   const [isThoughtExpanded, setIsThoughtExpanded] = useState(false)
   const [thinkingStatusIndex, setThinkingStatusIndex] = useState(0)
-  const [showAllSources, setShowAllSources] = useState(false)
+
+  // Sources UI State
+  const [isSourcesOpen, setIsSourcesOpen] = useState(false) // Desktop
+  const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false) // Mobile
+  const [mobileDrawerSources, setMobileDrawerSources] = useState([]) // Sources to show in mobile drawer (all or specific)
+  const [mobileDrawerTitle, setMobileDrawerTitle] = useState('Sources')
+
+  const handleMobileSourceClick = useCallback(
+    (selectedSources, title = 'Sources') => {
+      setMobileDrawerSources(selectedSources || message.sources)
+      setMobileDrawerTitle(title)
+      setIsMobileDrawerOpen(true)
+    },
+    [message.sources],
+  )
+
   const isUser = message.role === 'user'
   const isStreaming =
     message?.isStreaming ??
@@ -668,6 +675,7 @@ const MessageBubble = ({
               indices={indices}
               sources={message.sources}
               isMobile={isMobile}
+              onMobileClick={sources => handleMobileSourceClick(sources, 'Citation Sources')}
               label={children} // Children of the link is the label [Title + N]
             />
           )
@@ -693,7 +701,7 @@ const MessageBubble = ({
         </div>
       ),
     }),
-    [isDark, message.sources, isMobile], // Dependencies for markdownComponents
+    [isDark, message.sources, isMobile, handleMobileSourceClick], // Dependencies for markdownComponents
   )
 
   if (isUser) {
@@ -1095,20 +1103,70 @@ const MessageBubble = ({
             </>
           )}
         </button>
-        {/* Sources Dropdown */}
+        {/* Sources Toggle */}
         {message.sources && message.sources.length > 0 && (
-          <SourcesDropdown sources={message.sources} />
+          <button
+            onClick={() => {
+              if (isMobile) {
+                handleMobileSourceClick(message.sources, 'All Sources')
+              } else {
+                setIsSourcesOpen(!isSourcesOpen)
+              }
+            }}
+            className={clsx(
+              'flex items-center gap-2 text-sm transition-colors',
+              isSourcesOpen
+                ? 'text-primary-600 dark:text-primary-400 font-medium bg-primary-50 dark:bg-primary-900/20 px-2 py-1 rounded-lg'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200',
+            )}
+          >
+            <Globe size={16} />
+            <span className="hidden sm:block">Sources</span>
+            <span
+              className={clsx(
+                'flex items-center justify-center rounded-full text-[10px] w-5 h-5 transition-colors',
+                isSourcesOpen
+                  ? 'bg-primary-200 dark:bg-primary-900/50 text-primary-700 dark:text-primary-300'
+                  : 'bg-gray-200 dark:bg-zinc-700 text-gray-700 dark:text-gray-300',
+              )}
+            >
+              {message.sources.length}
+            </span>
+          </button>
         )}
       </div>
+
+      {/* Desktop Sources Section (Collapsible) */}
+      {!isMobile && message.sources && message.sources.length > 0 && (
+        <DesktopSourcesSection sources={message.sources} isOpen={isSourcesOpen} />
+      )}
+
+      {/* Mobile Sources Drawer */}
+      {isMobile && message.sources && message.sources.length > 0 && (
+        <MobileSourcesDrawer
+          isOpen={isMobileDrawerOpen}
+          onClose={() => setIsMobileDrawerOpen(false)}
+          sources={mobileDrawerSources}
+          title={mobileDrawerTitle}
+        />
+      )}
     </div>
   )
 }
 
-const CitationChip = ({ indices, sources, isMobile, label }) => {
+const CitationChip = ({ indices, sources, isMobile, onMobileClick, label }) => {
   const [isOpen, setIsOpen] = useState(false)
   const [position, setPosition] = useState({ top: 0, left: 0 })
   const containerRef = useRef(null)
   const timeoutRef = useRef(null)
+
+  // Memoize the filtered sources for the drawer
+  const drawerSources = useMemo(() => {
+    return indices
+      .map(idx => sources[idx])
+      .filter(Boolean)
+      .map((source, i) => ({ ...source, originalIndex: indices[i] })) // Keep track if needed, though drawer re-indexes
+  }, [indices, sources])
 
   const updatePosition = useCallback(() => {
     if (containerRef.current) {
@@ -1157,7 +1215,8 @@ const CitationChip = ({ indices, sources, isMobile, label }) => {
   }, [isMobile])
 
   const handleMouseEnter = () => {
-    if (isMobile) return
+    // Double check mobile state to prevent hover on touch devices showing the desktop popover
+    if (isMobile || window.innerWidth < 768) return
     if (timeoutRef.current) clearTimeout(timeoutRef.current)
     updatePosition()
     setIsOpen(true)
@@ -1173,9 +1232,11 @@ const CitationChip = ({ indices, sources, isMobile, label }) => {
   const handleClick = e => {
     e.preventDefault()
     e.stopPropagation()
-    if (isMobile) {
-      if (!isOpen) updatePosition()
-      setIsOpen(!isOpen)
+    // Robust check: prop OR direct width check
+    if (isMobile || window.innerWidth < 768) {
+      if (onMobileClick) {
+        onMobileClick(drawerSources)
+      }
     }
   }
 
@@ -1229,9 +1290,10 @@ const CitationChip = ({ indices, sources, isMobile, label }) => {
       </span>
 
       {isOpen &&
+        !isMobile &&
         createPortal(
           <div
-            className="citation-dropdown fixed z-[9999] w-64 overflow-y-auto bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl flex flex-col py-1"
+            className="citation-dropdown fixed z-[9999] w-64 overflow-y-auto bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl flex flex-col p-1"
             style={{
               top: position.showAbove ? 'auto' : position.top,
               bottom: position.showAbove ? window.innerHeight - position.top : 'auto',
@@ -1254,7 +1316,7 @@ const CitationChip = ({ indices, sources, isMobile, label }) => {
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={e => e.stopPropagation()}
-                  className="flex items-start gap-2 p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors text-left"
+                  className="flex items-start gap-2 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors text-left"
                 >
                   <span className="mt-0.5 shrink-0 w-3.5 h-3.5 rounded text-[9px] font-medium bg-gray-100 dark:bg-zinc-800 text-gray-500 dark:text-gray-400 flex items-center justify-center border border-gray-200 dark:border-zinc-700">
                     {idx + 1}
@@ -1273,144 +1335,14 @@ const CitationChip = ({ indices, sources, isMobile, label }) => {
           </div>,
           document.body,
         )}
-    </>
-  )
-}
 
-// Sources dropdown with smart auto-positioning (flips up/down based on available space)
-const SourcesDropdown = ({ sources }) => {
-  const [isOpen, setIsOpen] = useState(false)
-  const [position, setPosition] = useState({ top: 0, left: 0, showAbove: false, maxHeight: 0 })
-  const triggerRef = useRef(null)
-  const isMobile = window.innerWidth < 768
-
-  const updatePosition = useCallback(() => {
-    if (triggerRef.current) {
-      const rect = triggerRef.current.getBoundingClientRect()
-      const dropdownWidth = 280
-      const viewportWidth = window.innerWidth
-      const viewportHeight = window.innerHeight
-      const padding = 12
-
-      // Horizontal: align left with trigger, clamp to viewport
-      let left = rect.left
-      left = Math.max(padding, Math.min(left, viewportWidth - dropdownWidth - padding))
-
-      // Vertical: check available space
-      const spaceBelow = viewportHeight - rect.bottom
-      const spaceAbove = rect.top
-
-      // Smart flipping logic
-      let showAbove = false
-      if (isMobile) {
-        // Mobile: prefer above if there's reasonable space
-        showAbove = spaceAbove > 200
-      } else {
-        // Desktop: flip up only if space below is limited
-        showAbove = spaceBelow < 280 && spaceAbove > spaceBelow
-      }
-
-      const top = showAbove ? rect.top - 8 : rect.bottom + 8
-      const maxHeight = showAbove
-        ? Math.min(320, spaceAbove - padding - 8)
-        : Math.min(320, spaceBelow - padding - 8)
-
-      setPosition({ top, left, showAbove, maxHeight })
-    }
-  }, [isMobile])
-
-  const handleClick = useCallback(() => {
-    if (!isOpen) updatePosition()
-    setIsOpen(!isOpen)
-  }, [isOpen, updatePosition])
-
-  // Close on outside click
-  useEffect(() => {
-    if (!isOpen) return
-    const handleOutside = e => {
-      if (
-        e.target.closest('.sources-dropdown') ||
-        (triggerRef.current && triggerRef.current.contains(e.target))
-      ) {
-        return
-      }
-      setIsOpen(false)
-    }
-
-    document.addEventListener('mousedown', handleOutside)
-    document.addEventListener('touchstart', handleOutside)
-    return () => {
-      document.removeEventListener('mousedown', handleOutside)
-      document.removeEventListener('touchstart', handleOutside)
-    }
-  }, [isOpen])
-
-  // Update position on scroll/resize
-  useEffect(() => {
-    if (!isOpen) return
-    window.addEventListener('scroll', updatePosition, true)
-    window.addEventListener('resize', updatePosition)
-    return () => {
-      window.removeEventListener('scroll', updatePosition, true)
-      window.removeEventListener('resize', updatePosition)
-    }
-  }, [isOpen, updatePosition])
-
-  return (
-    <>
-      <button
-        ref={triggerRef}
-        onClick={handleClick}
-        className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
-      >
-        <Globe size={16} />
-        <span className="hidden sm:block">Sources</span>
-        <span className="flex items-center justify-center bg-gray-200 dark:bg-zinc-700 rounded-full text-[10px] w-5 h-5 text-gray-700 dark:text-gray-300">
-          {sources.length}
-        </span>
-      </button>
-
-      {isOpen &&
-        createPortal(
-          <div
-            className="sources-dropdown fixed z-[9999] w-72 overflow-y-auto bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl"
-            style={{
-              top: position.showAbove ? 'auto' : position.top,
-              bottom: position.showAbove ? window.innerHeight - position.top : 'auto',
-              left: position.left,
-              maxHeight: position.maxHeight,
-            }}
-          >
-            <div className="p-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider border-b border-gray-100 dark:border-zinc-800 sticky top-0 bg-white dark:bg-zinc-900">
-              {sources.length} Sources
-            </div>
-            <div className="divide-y divide-gray-100 dark:divide-zinc-800">
-              {sources.map((source, idx) => (
-                <a
-                  key={idx}
-                  href={source.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-start gap-3 p-3 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors group"
-                >
-                  <div className="mt-0.5 shrink-0 w-5 h-5 rounded text-[11px] font-medium bg-gray-100 dark:bg-zinc-800 text-gray-500 dark:text-gray-400 flex items-center justify-center border border-gray-200 dark:border-zinc-700">
-                    {idx + 1}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-gray-800 dark:text-gray-200 line-clamp-2 leading-snug">
-                      {source.title}
-                    </div>
-                    <div className="text-xs text-gray-400 dark:text-gray-500 mt-1 truncate">
-                      {getHostname(source.url)}
-                    </div>
-                  </div>
-                  <ExternalLink size={14} className="shrink-0 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300" />
-                </a>
-              ))}
-            </div>
-          </div>,
-          document.body,
-        )}
+      {/* Mobile Drawer */}
+      <MobileSourcesDrawer
+        isOpen={isOpen && isMobile}
+        onClose={() => setIsOpen(false)}
+        sources={drawerSources}
+        title="Citation Sources"
+      />
     </>
   )
 }

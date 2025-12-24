@@ -5,7 +5,7 @@ import SiliconCloudIcon from '../assets/siliconcloud-color.svg?url'
 import DeepSeekIcon from '../assets/deepseek-color.svg?url'
 import QwenIcon from '../assets/qwen-color.svg?url'
 import KimiIcon from '../assets/kimi-color.svg?url'
-import GLMIcon from '../assets/glm-color.svg?url'
+// import GLMIcon from '../assets/glm-color.svg?url'
 import ChatGLMIcon from '../assets/chatglm-color.svg?url'
 import ZhipuIcon from '../assets/zhipu-color.svg?url'
 

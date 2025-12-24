@@ -7,8 +7,8 @@ import { getPublicEnv } from './publicEnv'
 const OPENAI_DEFAULT_BASE = 'https://api.openai.com/v1'
 const SILICONFLOW_BASE = 'https://api.siliconflow.cn/v1'
 const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta'
-const GLM_BASE = 'https://open.bigmodel.cn/api/paas/v4'
-const KIMI_BASE = 'https://api.moonshot.cn/v1'
+const GLM_BASE = getPublicEnv('PUBLIC_GLM_BASE_URL') || 'https://open.bigmodel.cn/api/paas/v4'
+const KIMI_BASE = getPublicEnv('PUBLIC_KIMI_BASE_URL') || 'https://api.moonshot.cn/v1'
 
 const withTimeout = (signal, timeoutMs = 10000) => {
   const controller = new AbortController()

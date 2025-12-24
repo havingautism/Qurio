@@ -14,6 +14,7 @@ export const PROVIDER_ICONS = {
   openai_compatibility: OpenAIIcon,
   siliconflow: SiliconCloudIcon,
   glm: ZhipuIcon,
+  kimi: KimiIcon,
 }
 
 export const getModelIcon = modelId => {

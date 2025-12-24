@@ -1,5 +1,5 @@
 import { createBackendProvider } from './backendProvider'
-import { GLM_BASE_URL, SILICONFLOW_BASE_URL } from './providerConstants'
+import { GLM_BASE_URL, SILICONFLOW_BASE_URL, KIMI_BASE_URL } from './providerConstants'
 import { getPublicEnv } from './publicEnv'
 
 /**
@@ -173,6 +173,47 @@ export const PROVIDERS = {
     getThinking: isThinkingActive => ({
       type: isThinkingActive ? 'enabled' : 'disabled',
     }),
+    parseMessage: defaultParseMessage,
+  },
+  kimi: {
+    ...createBackendProvider('kimi'),
+    id: 'kimi',
+    name: 'Kimi (Moonshot AI)',
+    getCredentials: settings => ({
+      apiKey: settings.KimiKey || getPublicEnv('PUBLIC_KIMI_API_KEY'),
+      baseUrl: KIMI_BASE_URL,
+    }),
+    getTools: isSearchActive =>
+      isSearchActive
+        ? [
+            {
+              type: 'function',
+              function: {
+                name: 'web_search',
+                description: 'Search the web for current information using Kimi web search tool',
+                parameters: {
+                  type: 'object',
+                  properties: {
+                    query: {
+                      type: 'string',
+                      description: 'The search query string',
+                    },
+                  },
+                  required: ['query'],
+                },
+              },
+            },
+          ]
+        : undefined,
+    getThinking: isThinkingActive =>
+      isThinkingActive
+        ? {
+            // Kimi k2-thinking model uses reasoning_content field
+            // Set max_tokens >= 16000 and temperature = 1.0 for best performance
+            max_tokens: 16000,
+            temperature: 1.0,
+          }
+        : undefined,
     parseMessage: defaultParseMessage,
   },
 }

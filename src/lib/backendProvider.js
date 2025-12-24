@@ -14,6 +14,7 @@ import { getPublicEnv } from './publicEnv'
 const OPENAI_DEFAULT_BASE = 'https://api.openai.com/v1'
 const SILICONFLOW_BASE = 'https://api.siliconflow.cn/v1'
 const GLM_BASE = 'https://open.bigmodel.cn/api/paas/v4'
+const KIMI_BASE = 'https://api.moonshot.cn/v1'
 
 /**
  * Normalizes text content from various formats into a plain string.
@@ -329,6 +330,35 @@ const collectGLMSources = (webSearchResults, sourceMap) => {
 }
 
 /**
+ * Collects source information from Kimi web_search tool results.
+ * Extracts title, URL, and snippet from search results returned by web_search tool.
+ * @param {string|Object} toolResult - JSON string or object containing web search results from Kimi
+ * @param {Map} sourceMap - Map to store collected sources (url -> {id, title, url, snippet})
+ */
+const collectKimiSources = (toolResult, sourceMap) => {
+  if (!toolResult) return
+  // Parse JSON if string
+  let parsed = typeof toolResult === 'string' ? safeJsonParse(toolResult) : toolResult
+  if (!parsed) return
+
+  // Handle different possible response formats from Kimi web_search
+  const results = parsed?.results || parsed?.data || parsed?.items || (Array.isArray(parsed) ? parsed : [])
+
+  if (!Array.isArray(results)) return
+
+  for (const result of results) {
+    const url = result?.url || result?.link || result?.href
+    if (!url || sourceMap.has(url)) continue
+    sourceMap.set(url, {
+      id: String(sourceMap.size + 1),
+      title: result?.title || url,
+      url: url,
+      snippet: result?.snippet || result?.description || result?.content?.substring(0, 200) || '',
+    })
+  }
+}
+
+/**
  * Safely parses JSON from a string, with fallback to extracting JSON objects/arrays.
  * Handles malformed input by attempting to extract the first valid JSON structure.
  * @param {string} text - String to parse as JSON
@@ -540,6 +570,66 @@ const buildGLMModel = ({
   if (thinking?.type) {
     modelKwargs.extra_body = { thinking: { type: thinkingType } }
   }
+  if (streaming) {
+    modelKwargs.stream_options = { include_usage: false }
+  }
+
+  let modelInstance = new ChatOpenAI({
+    apiKey: resolvedKey,
+    openAIApiKey: resolvedKey,
+    modelName: model,
+    temperature,
+    streaming,
+    streamUsage: false,
+    __includeRawResponse: true,
+    modelKwargs,
+    configuration: { baseURL: resolvedBase, dangerouslyAllowBrowser: true },
+  })
+
+  return modelInstance
+}
+
+/**
+ * Builds a ChatOpenAI model instance specifically for Kimi (Moonshot AI) API.
+ * Configures Kimi-specific settings including thinking mode and tools.
+ * @param {Object} params - Configuration parameters for the model
+ * @returns {ChatOpenAI} - Configured LangChain ChatOpenAI instance for Kimi
+ */
+const buildKimiModel = ({
+  apiKey,
+  model,
+  temperature,
+  top_k,
+  tools,
+  toolChoice,
+  responseFormat,
+  thinking,
+  streaming = true,
+}) => {
+  const resolvedKey = apiKey || getPublicEnv('PUBLIC_KIMI_API_KEY')
+  if (!resolvedKey) {
+    throw new Error('Missing API key')
+  }
+  const resolvedBase = KIMI_BASE
+
+  const modelKwargs = {}
+  if (responseFormat) {
+    modelKwargs.response_format = responseFormat
+  }
+  // Kimi k2-thinking model specific settings
+  if (thinking?.max_tokens) {
+    modelKwargs.max_tokens = thinking.max_tokens
+  }
+  if (thinking?.temperature) {
+    modelKwargs.temperature = thinking.temperature
+  }
+  if (top_k !== undefined) {
+    modelKwargs.top_k = top_k
+  }
+  if (tools && tools.length > 0) {
+    modelKwargs.tools = tools
+  }
+  if (toolChoice) modelKwargs.tool_choice = toolChoice
   if (streaming) {
     modelKwargs.stream_options = { include_usage: false }
   }
@@ -854,6 +944,18 @@ const streamWithLangChain = async ({
       thinking,
       streaming: true,
     })
+  } else if (provider === 'kimi') {
+    modelInstance = buildKimiModel({
+      apiKey,
+      model,
+      temperature,
+      top_k,
+      tools,
+      toolChoice,
+      responseFormat,
+      thinking,
+      streaming: true,
+    })
   } else {
     modelInstance = buildOpenAIModel({
       provider,
@@ -943,6 +1045,20 @@ const streamWithLangChain = async ({
       if (provider === 'glm') {
         const rawResp = messageChunk?.additional_kwargs?.__raw_response
         collectGLMSources(rawResp?.web_search, sourcesMap)
+      }
+
+      // Process Kimi web_search tool results
+      if (provider === 'kimi') {
+        // Kimi returns search results in tool responses
+        // Check if this is a tool response message
+        const toolResponses = messageChunk?.additional_kwargs?.tool_responses
+        if (Array.isArray(toolResponses)) {
+          for (const toolResp of toolResponses) {
+            if (toolResp?.name === 'web_search') {
+              collectKimiSources(toolResp?.output || toolResp?.content, sourcesMap)
+            }
+          }
+        }
       }
 
       if (provider === 'gemini' && Array.isArray(contentValue)) {
@@ -1141,6 +1257,44 @@ const requestGLM = async ({
 }
 
 /**
+ * Makes a non-streaming request to Kimi (Moonshot AI) API.
+ * Returns the complete response content as a string.
+ * @param {Object} params - Request parameters
+ * @returns {Promise<string>} - Response content as string
+ */
+const requestKimi = async ({
+  apiKey,
+  model,
+  messages,
+  temperature,
+  top_k,
+  tools,
+  toolChoice,
+  responseFormat,
+  thinking,
+  signal,
+}) => {
+  const modelInstance = buildKimiModel({
+    apiKey,
+    model,
+    temperature,
+    top_k,
+    tools: [],
+    toolChoice,
+    responseFormat,
+    thinking: undefined, // Disable thinking for title generation
+    streaming: false,
+  })
+
+  const langchainMessages = toLangChainMessages(messages || [])
+  const response = await modelInstance.invoke(langchainMessages, { signal })
+
+  return typeof response.content === 'string'
+    ? response.content
+    : normalizeTextContent(response.content)
+}
+
+/**
  * Generates a concise title for a conversation based on the first user message.
  * Uses the specified AI provider to create a title (max 5 words).
  * @param {string} provider - AI provider to use
@@ -1173,6 +1327,12 @@ const generateTitle = async (provider, firstMessage, apiKey, baseUrl, model) => 
     })
   } else if (provider === 'glm') {
     content = await requestGLM({
+      apiKey,
+      model,
+      messages: promptMessages,
+    })
+  } else if (provider === 'kimi') {
+    content = await requestKimi({
       apiKey,
       model,
       messages: promptMessages,
@@ -1228,6 +1388,13 @@ Return the result as a JSON object with keys "title" and "spaceLabel".`,
     })
   } else if (provider === 'glm') {
     content = await requestGLM({
+      apiKey,
+      model,
+      messages: promptMessages,
+      responseFormat,
+    })
+  } else if (provider === 'kimi') {
+    content = await requestKimi({
       apiKey,
       model,
       messages: promptMessages,

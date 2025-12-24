@@ -36,6 +36,7 @@ const ENV_VARS = {
   googleApiKey: getPublicEnv('PUBLIC_GOOGLE_API_KEY'),
   siliconFlowKey: getPublicEnv('PUBLIC_SILICONFLOW_API_KEY'),
   glmKey: getPublicEnv('PUBLIC_GLM_API_KEY'),
+  kimiKey: getPublicEnv('PUBLIC_KIMI_API_KEY'),
 }
 
 // Minimal copy of supabase/init.sql for quick remediation in-app
@@ -155,6 +156,14 @@ const FALLBACK_MODEL_OPTIONS = {
     { value: 'glm-4.5-flash', label: 'GLM-4.5-Flash (Free)' },
     { value: 'glm-4.5v', label: 'GLM-4.5V (Vision)' },
   ],
+  kimi: [
+    { value: 'kimi-k2-thinking', label: 'kimi-k2-thinking' },
+    { value: 'kimi-k2-latest', label: 'kimi-k2-latest' },
+    { value: 'kimi-k2-turbo-preview', label: 'kimi-k2-turbo-preview' },
+    { value: 'moonshot-v1-8k', label: 'moonshot-v1-8k' },
+    { value: 'moonshot-v1-32k', label: 'moonshot-v1-32k' },
+    { value: 'moonshot-v1-128k', label: 'moonshot-v1-128k' },
+  ],
   __fallback__: [],
 }
 
@@ -168,6 +177,7 @@ const PROVIDER_LABELS = {
   openai_compatibility: 'OpenAI Compatible',
   siliconflow: 'SiliconFlow',
   glm: 'GLM (Zhipu AI)',
+  kimi: 'Kimi (Moonshot AI)',
 }
 
 const INTERFACE_LANGUAGE_OPTIONS = [{ value: 'en', label: 'English' }]
@@ -238,6 +248,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
   const [OpenAICompatibilityUrl, setOpenAICompatibilityUrl] = useState('')
   const [SiliconFlowKey, setSiliconFlowKey] = useState('')
   const [GlmKey, setGlmKey] = useState('')
+  const [KimiKey, setKimiKey] = useState('')
   const [apiProvider, setApiProvider] = useState('gemini')
   const [googleApiKey, setGoogleApiKey] = useState('')
   const [supabaseUrl, setSupabaseUrl] = useState('')
@@ -381,6 +392,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
         setOpenAICompatibilityUrl(settings.OpenAICompatibilityUrl)
       if (settings.SiliconFlowKey) setSiliconFlowKey(settings.SiliconFlowKey)
       if (settings.GlmKey) setGlmKey(settings.GlmKey)
+      if (settings.KimiKey) setKimiKey(settings.KimiKey)
       if (settings.apiProvider) setApiProvider(settings.apiProvider)
       if (settings.googleApiKey) setGoogleApiKey(settings.googleApiKey)
       if (settings.contextMessageLimit) setContextMessageLimit(Number(settings.contextMessageLimit))
@@ -503,6 +515,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
         (apiProvider === 'gemini' && googleApiKey) ||
         (apiProvider === 'siliconflow' && SiliconFlowKey) ||
         (apiProvider === 'glm' && GlmKey) ||
+        (apiProvider === 'kimi' && KimiKey) ||
         (apiProvider === 'openai_compatibility' && OpenAICompatibilityKey)
 
       if (hasValidCredentials) {
@@ -532,6 +545,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
         (apiProvider === 'gemini' && googleApiKey) ||
         (apiProvider === 'siliconflow' && SiliconFlowKey) ||
         (apiProvider === 'glm' && GlmKey) ||
+        (apiProvider === 'kimi' && KimiKey) ||
         (apiProvider === 'openai_compatibility' && OpenAICompatibilityKey)
 
       if (hasValidCredentials) {
@@ -542,7 +556,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
         return () => clearTimeout(debounceTimer)
       }
     }
-  }, [googleApiKey, SiliconFlowKey, GlmKey])
+  }, [googleApiKey, SiliconFlowKey, GlmKey, KimiKey, apiProvider])
 
   const requiredTables = ['spaces', 'conversations', 'conversation_messages']
 
@@ -613,6 +627,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
       OpenAICompatibilityUrl,
       SiliconFlowKey,
       GlmKey,
+      KimiKey,
       supabaseUrl,
       supabaseKey,
       contextMessageLimit,
@@ -948,6 +963,41 @@ const SettingsModal = ({ isOpen, onClose }) => {
                             <Check size={14} className="text-primary-500" />
                           )}
                         </button>
+                        <button
+                          onClick={() => {
+                            // Cancel any ongoing request before switching
+                            if (abortControllerRef.current) {
+                              abortControllerRef.current.abort()
+                              abortControllerRef.current = null
+                            }
+
+                            setApiProvider('kimi')
+                            setIsProviderDropdownOpen(false)
+                            // Clear all model-related state when switching providers
+                            setModelsError(null)
+                            setDynamicModels([])
+                            setIsLoadingModels(false)
+                            setCurrentProvider('kimi')
+                          }}
+                          className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="flex items-center justify-center bg-white rounded-full p-0.5 shrink-0">
+                              <img
+                                src={PROVIDER_ICONS.kimi}
+                                alt="Kimi"
+                                width={16}
+                                height={16}
+                                className="w-4 h-4"
+                                loading="lazy"
+                              />
+                            </div>
+                            <span>Kimi (Moonshot AI)</span>
+                          </div>
+                          {apiProvider === 'kimi' && (
+                            <Check size={14} className="text-primary-500" />
+                          )}
+                        </button>
                       </div>
                     )}
                   </div>
@@ -1125,6 +1175,49 @@ const SettingsModal = ({ isOpen, onClose }) => {
                           </div>
                         )}
                         {renderEnvHint(Boolean(ENV_VARS.glmKey))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Kimi Settings */}
+                  {apiProvider === 'kimi' && (
+                    <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                      <div className="flex flex-col gap-2">
+                        <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                          Kimi (Moonshot AI) API Key
+                        </label>
+                        <div className="relative">
+                          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                            <Key size={16} />
+                          </div>
+                          <input
+                            type="password"
+                            value={KimiKey}
+                            onChange={e => setKimiKey(e.target.value)}
+                            placeholder="Your Kimi API key"
+                            disabled={Boolean(ENV_VARS.kimiKey)}
+                            className={clsx(
+                              'w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
+                              ENV_VARS.kimiKey && 'opacity-70 cursor-not-allowed',
+                            )}
+                          />
+                        </div>
+                        {apiProvider === 'kimi' && KimiKey && (
+                          <div className="flex items-center gap-2 mt-2">
+                            <button
+                              onClick={() => fetchModelsForProvider(apiProvider)}
+                              disabled={isLoadingModels}
+                              className="flex items-center gap-1 text-xs px-3 py-1 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-md transition-colors disabled:opacity-50"
+                            >
+                              <RefreshCw
+                                size={12}
+                                className={clsx(isLoadingModels && 'animate-spin')}
+                              />
+                              {isLoadingModels ? 'Refreshing...' : 'Refresh Models'}
+                            </button>
+                          </div>
+                        )}
+                        {renderEnvHint(Boolean(ENV_VARS.kimiKey))}
                       </div>
                     </div>
                   )}

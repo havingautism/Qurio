@@ -8,6 +8,7 @@ const OPENAI_DEFAULT_BASE = 'https://api.openai.com/v1'
 const SILICONFLOW_BASE = 'https://api.siliconflow.cn/v1'
 const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta'
 const GLM_BASE = 'https://open.bigmodel.cn/api/paas/v4'
+const KIMI_BASE = 'https://api.moonshot.cn/v1'
 
 const withTimeout = (signal, timeoutMs = 10000) => {
   const controller = new AbortController()
@@ -109,6 +110,34 @@ const fetchGLMModels = async ({ apiKey }, options = {}) => {
   }))
 }
 
+// Kimi (Moonshot AI) - fetch models from API endpoint (OpenAI-compatible)
+const fetchKimiModels = async ({ apiKey }, options = {}) => {
+  const resolvedKey = apiKey || getPublicEnv('PUBLIC_KIMI_API_KEY')
+  if (!resolvedKey) return []
+
+  const { controller, timeoutId } = withTimeout(options.signal)
+  const response = await fetch(`${KIMI_BASE}/models`, {
+    headers: { Authorization: `Bearer ${resolvedKey}` },
+    signal: controller.signal,
+  })
+
+  clearTimeout(timeoutId)
+
+  if (!response.ok) {
+    if (response.status === 403) {
+      throw new Error('Invalid API key or insufficient permissions')
+    }
+    const message = await response.text().catch(() => '')
+    throw new Error(message || `HTTP error! status: ${response.status}`)
+  }
+
+  const data = await response.json()
+  return (data?.data || []).map(model => ({
+    value: model.id,
+    label: model.id,
+  }))
+}
+
 // Get models for a specific provider
 export const getModelsForProvider = async (provider, credentials, options = {}) => {
   switch (provider) {
@@ -121,6 +150,8 @@ export const getModelsForProvider = async (provider, credentials, options = {}) 
       )
     case 'glm':
       return await fetchGLMModels({ apiKey: credentials.apiKey }, options)
+    case 'kimi':
+      return await fetchKimiModels({ apiKey: credentials.apiKey }, options)
     case 'openai_compatibility':
       return await fetchOpenAIModels(
         { apiKey: credentials.apiKey, baseUrl: credentials.baseUrl },

@@ -495,7 +495,7 @@ const MessageBubble = ({
           style={isDark ? oneDark : oneLight}
           language={language || 'text'}
           PreTag="div"
-          className="code-scrollbar text-sm sm:text-base"
+          className="code-scrollbar text-sm sm:text-base text-shadow-none!"
           customStyle={{
             margin: 0,
             padding: '1rem',
@@ -567,7 +567,7 @@ const MessageBubble = ({
             style={isDark ? oneDark : oneLight}
             language={match[1]}
             PreTag="div"
-            className="code-scrollbar text-sm sm:text-base"
+            className="code-scrollbar text-sm sm:text-base text-shadow-none!"
             customStyle={{
               margin: 0,
               padding: '1rem',

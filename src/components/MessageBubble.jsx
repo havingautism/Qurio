@@ -24,7 +24,7 @@ import clsx from 'clsx'
 import { getProvider } from '../lib/providers'
 import { parseChildrenWithEmojis } from '../lib/emojiParser'
 import EmojiDisplay from './EmojiDisplay'
-import { PROVIDER_ICONS, getModelIcon } from '../lib/modelIcons'
+import { renderProviderIcon, getModelIcon } from '../lib/modelIcons'
 import DotLoader from './DotLoader'
 import MobileSourcesDrawer from './MobileSourcesDrawer'
 import DesktopSourcesSection from './DesktopSourcesSection'
@@ -34,27 +34,27 @@ import ShareModal from './ShareModal'
 const PROVIDER_META = {
   gemini: {
     label: 'Google Gemini',
-    logo: PROVIDER_ICONS.gemini,
+    id: 'gemini',
     fallback: 'G',
   },
   openai_compatibility: {
     label: 'OpenAI Compatible',
-    logo: PROVIDER_ICONS.openai_compatibility,
+    id: 'openai_compatibility',
     fallback: 'O',
   },
   siliconflow: {
     label: 'SiliconFlow',
-    logo: PROVIDER_ICONS.siliconflow,
+    id: 'siliconflow',
     fallback: 'S',
   },
   glm: {
     label: 'GLM',
-    logo: PROVIDER_ICONS.glm,
+    id: 'glm',
     fallback: 'G',
   },
   kimi: {
     label: 'Kimi',
-    logo: PROVIDER_ICONS.kimi,
+    id: 'kimi',
     fallback: 'K',
   },
 }
@@ -829,7 +829,7 @@ const MessageBubble = ({
   const providerId = message.provider || apiProvider
   const providerMeta = PROVIDER_META[providerId] || {
     label: providerId || 'AI',
-    logo: null,
+    id: providerId,
     fallback: 'AI',
   }
   const resolvedModel = message.model || defaultModel || 'default model'
@@ -924,17 +924,13 @@ const MessageBubble = ({
         )}
       {/* Provider/Model Header */}
       <div className="flex items-center gap-3 text-gray-900 dark:text-gray-100">
-        <div className="w-10 h-10 rounded-full bg-gray-100  shadow-inner flex items-center justify-center overflow-hidden p-2">
-          {providerMeta.logo ? (
-            <img
-              src={providerMeta.logo}
-              alt={providerMeta.label}
-              width={40}
-              height={40}
-              className="w-full h-full object-contain"
-              loading="lazy"
-            />
-          ) : (
+        <div className=" rounded-full  shadow-inner flex items-center justify-center overflow-hidden">
+          {renderProviderIcon(providerMeta.id, {
+            size: 30,
+            alt: providerMeta.label,
+            wrapperClassName: 'p-0 w-10 h-10',
+            imgClassName: 'w-full h-full object-contain',
+          }) || (
             <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
               {providerMeta.fallback?.slice(0, 2).toUpperCase()}
             </span>
@@ -1163,7 +1159,6 @@ const MessageBubble = ({
         message={message}
         conversationTitle={conversationTitle}
       />
-
     </div>
   )
 }

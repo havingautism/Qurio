@@ -106,6 +106,7 @@ export const loadSettings = (overrides = {}) => {
   const localOpenAIUrl = localStorage.getItem('OpenAICompatibilityUrl')
   const localSiliconFlowKey = localStorage.getItem('SiliconFlowKey')
   const localGlmKey = localStorage.getItem('GlmKey')
+  const localKimiKey = localStorage.getItem('KimiKey')
 
   // Model configuration
   const localLiteModel = localStorage.getItem('liteModel')
@@ -153,6 +154,11 @@ export const loadSettings = (overrides = {}) => {
       getPublicEnv('PUBLIC_GLM_API_KEY') ||
       localGlmKey ||
       overrides.GlmKey ||
+      '',
+    KimiKey:
+      getPublicEnv('PUBLIC_KIMI_API_KEY') ||
+      localKimiKey ||
+      overrides.KimiKey ||
       '',
 
     // API Provider
@@ -217,6 +223,9 @@ export const saveSettings = async settings => {
   }
   if (settings.GlmKey !== undefined) {
     localStorage.setItem('GlmKey', settings.GlmKey)
+  }
+  if (settings.KimiKey !== undefined) {
+    localStorage.setItem('KimiKey', settings.KimiKey)
   }
   if (settings.apiProvider !== undefined) {
     localStorage.setItem('apiProvider', settings.apiProvider)

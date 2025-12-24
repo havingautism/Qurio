@@ -48,6 +48,11 @@ const PROVIDER_META = {
     logo: PROVIDER_ICONS.glm,
     fallback: 'G',
   },
+  kimi: {
+    label: 'Kimi',
+    logo: PROVIDER_ICONS.kimi,
+    fallback: 'K',
+  },
 }
 
 const THINKING_STATUS_MESSAGES = ['Thinking', 'Analyzing', 'Working through it', 'Checking details']

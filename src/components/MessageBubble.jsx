@@ -15,6 +15,7 @@ import {
   Globe,
   Quote,
   X,
+  ExternalLink,
 } from 'lucide-react'
 import { Streamdown } from 'streamdown'
 import remarkGfm from 'remark-gfm'
@@ -1094,52 +1095,9 @@ const MessageBubble = ({
             </>
           )}
         </button>
-        {/* Sources Dropdown Trigger */}
+        {/* Sources Dropdown */}
         {message.sources && message.sources.length > 0 && (
-          <div className="relative inline-block text-left">
-            <button
-              onClick={() => setShowAllSources(!showAllSources)}
-              className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
-            >
-              <Globe size={16} />
-              <span className="hidden sm:block">Sources</span>
-              <span className="flex items-center justify-center bg-gray-200 dark:bg-zinc-700 rounded-full text-[10px] w-5 h-5 text-gray-700 dark:text-gray-300">
-                {message.sources.length}
-              </span>
-            </button>
-
-            {showAllSources && (
-              <>
-                <div className="fixed inset-0 z-30" onClick={() => setShowAllSources(false)} />
-                <div className="absolute bottom-full left-0 mb-2 w-64 max-h-80 overflow-y-auto bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl z-40 p-1">
-                  <div className="p-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider border-b border-gray-100 dark:border-zinc-800 mb-1">
-                    {message.sources.length} Sources
-                  </div>
-                  {message.sources.map((source, idx) => (
-                    <a
-                      key={idx}
-                      href={source.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-start gap-3 p-2.5 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors group"
-                    >
-                      <div className="mt-0.5 shrink-0 w-4 h-4 rounded text-[10px] font-medium bg-gray-100 dark:bg-zinc-800 text-gray-500 dark:text-gray-400 flex items-center justify-center border border-gray-200 dark:border-zinc-700 group-hover:border-gray-300 dark:group-hover:border-zinc-600">
-                        {idx + 1}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-xs font-medium text-gray-800 dark:text-gray-200 line-clamp-2 leading-snug">
-                          {source.title}
-                        </div>
-                        <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 truncate">
-                          {getHostname(source.url)}
-                        </div>
-                      </div>
-                    </a>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
+          <SourcesDropdown sources={message.sources} />
         )}
       </div>
     </div>
@@ -1312,6 +1270,144 @@ const CitationChip = ({ indices, sources, isMobile, label }) => {
                 </a>
               )
             })}
+          </div>,
+          document.body,
+        )}
+    </>
+  )
+}
+
+// Sources dropdown with smart auto-positioning (flips up/down based on available space)
+const SourcesDropdown = ({ sources }) => {
+  const [isOpen, setIsOpen] = useState(false)
+  const [position, setPosition] = useState({ top: 0, left: 0, showAbove: false, maxHeight: 0 })
+  const triggerRef = useRef(null)
+  const isMobile = window.innerWidth < 768
+
+  const updatePosition = useCallback(() => {
+    if (triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect()
+      const dropdownWidth = 280
+      const viewportWidth = window.innerWidth
+      const viewportHeight = window.innerHeight
+      const padding = 12
+
+      // Horizontal: align left with trigger, clamp to viewport
+      let left = rect.left
+      left = Math.max(padding, Math.min(left, viewportWidth - dropdownWidth - padding))
+
+      // Vertical: check available space
+      const spaceBelow = viewportHeight - rect.bottom
+      const spaceAbove = rect.top
+
+      // Smart flipping logic
+      let showAbove = false
+      if (isMobile) {
+        // Mobile: prefer above if there's reasonable space
+        showAbove = spaceAbove > 200
+      } else {
+        // Desktop: flip up only if space below is limited
+        showAbove = spaceBelow < 280 && spaceAbove > spaceBelow
+      }
+
+      const top = showAbove ? rect.top - 8 : rect.bottom + 8
+      const maxHeight = showAbove
+        ? Math.min(320, spaceAbove - padding - 8)
+        : Math.min(320, spaceBelow - padding - 8)
+
+      setPosition({ top, left, showAbove, maxHeight })
+    }
+  }, [isMobile])
+
+  const handleClick = useCallback(() => {
+    if (!isOpen) updatePosition()
+    setIsOpen(!isOpen)
+  }, [isOpen, updatePosition])
+
+  // Close on outside click
+  useEffect(() => {
+    if (!isOpen) return
+    const handleOutside = e => {
+      if (
+        e.target.closest('.sources-dropdown') ||
+        (triggerRef.current && triggerRef.current.contains(e.target))
+      ) {
+        return
+      }
+      setIsOpen(false)
+    }
+
+    document.addEventListener('mousedown', handleOutside)
+    document.addEventListener('touchstart', handleOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleOutside)
+      document.removeEventListener('touchstart', handleOutside)
+    }
+  }, [isOpen])
+
+  // Update position on scroll/resize
+  useEffect(() => {
+    if (!isOpen) return
+    window.addEventListener('scroll', updatePosition, true)
+    window.addEventListener('resize', updatePosition)
+    return () => {
+      window.removeEventListener('scroll', updatePosition, true)
+      window.removeEventListener('resize', updatePosition)
+    }
+  }, [isOpen, updatePosition])
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        onClick={handleClick}
+        className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+      >
+        <Globe size={16} />
+        <span className="hidden sm:block">Sources</span>
+        <span className="flex items-center justify-center bg-gray-200 dark:bg-zinc-700 rounded-full text-[10px] w-5 h-5 text-gray-700 dark:text-gray-300">
+          {sources.length}
+        </span>
+      </button>
+
+      {isOpen &&
+        createPortal(
+          <div
+            className="sources-dropdown fixed z-[9999] w-72 overflow-y-auto bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl"
+            style={{
+              top: position.showAbove ? 'auto' : position.top,
+              bottom: position.showAbove ? window.innerHeight - position.top : 'auto',
+              left: position.left,
+              maxHeight: position.maxHeight,
+            }}
+          >
+            <div className="p-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider border-b border-gray-100 dark:border-zinc-800 sticky top-0 bg-white dark:bg-zinc-900">
+              {sources.length} Sources
+            </div>
+            <div className="divide-y divide-gray-100 dark:divide-zinc-800">
+              {sources.map((source, idx) => (
+                <a
+                  key={idx}
+                  href={source.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-start gap-3 p-3 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors group"
+                >
+                  <div className="mt-0.5 shrink-0 w-5 h-5 rounded text-[11px] font-medium bg-gray-100 dark:bg-zinc-800 text-gray-500 dark:text-gray-400 flex items-center justify-center border border-gray-200 dark:border-zinc-700">
+                    {idx + 1}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-gray-800 dark:text-gray-200 line-clamp-2 leading-snug">
+                      {source.title}
+                    </div>
+                    <div className="text-xs text-gray-400 dark:text-gray-500 mt-1 truncate">
+                      {getHostname(source.url)}
+                    </div>
+                  </div>
+                  <ExternalLink size={14} className="shrink-0 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300" />
+                </a>
+              ))}
+            </div>
           </div>,
           document.body,
         )}

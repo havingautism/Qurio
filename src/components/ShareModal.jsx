@@ -34,12 +34,10 @@ const ShareModal = ({ isOpen, onClose, message, conversationTitle }) => {
         scale: 2,
         backgroundColor: '#0f131c',
         onclone: clonedDoc => {
-          clonedDoc
-            .querySelectorAll('style, link[rel="stylesheet"]')
-            .forEach(node => {
-              if (node.dataset?.shareStyle === 'true') return
-              node.parentNode?.removeChild(node)
-            })
+          clonedDoc.querySelectorAll('style, link[rel="stylesheet"]').forEach(node => {
+            if (node.dataset?.shareStyle === 'true') return
+            node.parentNode?.removeChild(node)
+          })
         },
         logging: false,
       })

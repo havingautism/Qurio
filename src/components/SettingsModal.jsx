@@ -25,7 +25,7 @@ import { getModelsForProvider } from '../lib/models_api'
 import useScrollLock from '../hooks/useScrollLock'
 import { THEMES } from '../lib/themes'
 import { SILICONFLOW_BASE_URL } from '../lib/providerConstants'
-import { PROVIDER_ICONS, getModelIcon } from '../lib/modelIcons'
+import { renderProviderIcon, getModelIcon } from '../lib/modelIcons'
 import { getPublicEnv } from '../lib/publicEnv'
 
 const ENV_VARS = {
@@ -800,16 +800,10 @@ const SettingsModal = ({ isOpen, onClose }) => {
                         <Box size={16} className="text-gray-400" />
                       </div>
                       <div className="flex items-center gap-3">
-                        <div className="flex items-center justify-center bg-white rounded-full p-0.5 shrink-0">
-                          <img
-                            src={PROVIDER_ICONS[apiProvider]}
-                            alt={PROVIDER_LABELS[apiProvider] || apiProvider}
-                            width={16}
-                            height={16}
-                            className="w-4 h-4"
-                            loading="lazy"
-                          />
-                        </div>
+                        {renderProviderIcon(apiProvider, {
+                          size: 16,
+                          alt: PROVIDER_LABELS[apiProvider] || apiProvider,
+                        })}
                         <span>{PROVIDER_LABELS[apiProvider] || apiProvider}</span>
                       </div>
                       <ChevronDown
@@ -842,16 +836,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                           className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
                         >
                           <div className="flex items-center gap-3">
-                            <div className="flex items-center justify-center bg-white rounded-full p-0.5 shrink-0">
-                              <img
-                                src={PROVIDER_ICONS.gemini}
-                                alt="Google Gemini"
-                                width={16}
-                                height={16}
-                                className="w-4 h-4"
-                                loading="lazy"
-                              />
-                            </div>
+                            {renderProviderIcon('gemini', { size: 16, alt: 'Google Gemini' })}
                             <span>Google Gemini</span>
                           </div>
                           {apiProvider === 'gemini' && (
@@ -877,16 +862,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                           className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
                         >
                           <div className="flex items-center gap-3">
-                            <div className="flex items-center justify-center bg-white rounded-full p-0.5 shrink-0">
-                              <img
-                                src={PROVIDER_ICONS.openai_compatibility}
-                                alt="OpenAI"
-                                width={16}
-                                height={16}
-                                className="w-4 h-4"
-                                loading="lazy"
-                              />
-                            </div>
+                            {renderProviderIcon('openai_compatibility', { size: 16, alt: 'OpenAI' })}
                             <span>OpenAI Compatible</span>
                           </div>
                           {apiProvider === 'openai_compatibility' && (
@@ -912,16 +888,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                           className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
                         >
                           <div className="flex items-center gap-3">
-                            <div className="flex items-center justify-center bg-white rounded-full p-0.5 shrink-0">
-                              <img
-                                src={PROVIDER_ICONS.siliconflow}
-                                alt="SiliconFlow"
-                                width={16}
-                                height={16}
-                                className="w-4 h-4"
-                                loading="lazy"
-                              />
-                            </div>
+                            {renderProviderIcon('siliconflow', { size: 16, alt: 'SiliconFlow' })}
                             <span>SiliconFlow</span>
                           </div>
                           {apiProvider === 'siliconflow' && (
@@ -947,16 +914,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                           className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
                         >
                           <div className="flex items-center gap-3">
-                            <div className="flex items-center justify-center bg-white rounded-full p-0.5 shrink-0">
-                              <img
-                                src={PROVIDER_ICONS.glm}
-                                alt="GLM"
-                                width={16}
-                                height={16}
-                                className="w-4 h-4"
-                                loading="lazy"
-                              />
-                            </div>
+                            {renderProviderIcon('glm', { size: 16, alt: 'GLM' })}
                             <span>GLM (Zhipu AI)</span>
                           </div>
                           {apiProvider === 'glm' && (
@@ -982,16 +940,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                           className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
                         >
                           <div className="flex items-center gap-3">
-                            <div className="flex items-center justify-center bg-white rounded-full p-0.5 shrink-0">
-                              <img
-                                src={PROVIDER_ICONS.kimi}
-                                alt="Kimi"
-                                width={16}
-                                height={16}
-                                className="w-4 h-4"
-                                loading="lazy"
-                              />
-                            </div>
+                            {renderProviderIcon('kimi', { size: 16, alt: 'Kimi' })}
                             <span>Kimi (Moonshot AI)</span>
                           </div>
                           {apiProvider === 'kimi' && (

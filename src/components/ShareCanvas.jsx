@@ -118,6 +118,14 @@ export const SHARE_STYLE = `
     color: #a3acc0;
     font-size: 13px;
   }
+  .share-meta--right {
+    justify-content: flex-end;
+  }
+  .share-model {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
   .share-avatar {
     width: 44px;
     height: 44px;
@@ -274,6 +282,14 @@ export const SHARE_STYLE = `
     .share-meta {
       flex-wrap: wrap;
       gap: 8px;
+    }
+    .share-meta--right {
+      width: 100%;
+      justify-content: flex-start;
+    }
+    .share-avatar {
+      width: 38px;
+      height: 38px;
     }
     .share-title {
       font-size: 22px;
@@ -476,7 +492,7 @@ const ShareCanvas = ({ message, conversationTitle, captureRef, embed = false }) 
                 </span>
               </div>
             </div>
-            <div className="share-meta">
+            <div className="share-meta share-meta--right">
               {!isUser && (
                 <>
                   <div className="share-avatar">
@@ -486,7 +502,7 @@ const ShareCanvas = ({ message, conversationTitle, captureRef, embed = false }) 
                       <span>{providerMeta.fallback}</span>
                     )}
                   </div>
-                  <div>
+                  <div className="share-model">
                     <div style={{ fontWeight: 600 }}>{providerMeta.label}</div>
                     <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                       {getModelIcon(resolvedModel) && (

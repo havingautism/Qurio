@@ -51,17 +51,17 @@ const MobileSourcesDrawer = ({ isOpen, onClose, sources = [], title = 'Sources' 
         className="relative w-full max-w-md bg-white dark:bg-[#1E1E1E] rounded-t-3xl shadow-2xl flex flex-col max-h-[85vh] animate-slide-up"
       >
         {/* Drag Handle (Visual only) */}
-        <div
+        {/* <div
           className="w-full h-6 flex items-center justify-center shrink-0 cursor-grab active:cursor-grabbing"
           onClick={onClose}
         >
           <div className="w-12 h-1.5 bg-gray-300 dark:bg-zinc-700 rounded-full" />
-        </div>
+        </div> */}
 
         {/* Header */}
         <div className="px-5 py-4 flex items-center justify-between shrink-0 border-b border-gray-100 dark:border-zinc-800/50">
           <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center w-10 h-10 bg-orange-500/10 rounded-full text-orange-500">
+            <div className="flex items-center justify-center w-10 h-10 bg-primary-500/10 rounded-full text-primary-500">
               <Globe size={20} />
             </div>
             <div className="flex flex-col">

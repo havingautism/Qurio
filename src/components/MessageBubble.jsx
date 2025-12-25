@@ -547,66 +547,69 @@ const MessageBubble = ({
     return () => clearInterval(intervalId)
   }, [shouldShowThinkingStatus])
 
-  const CodeBlock = ({ inline, className, children, ...props }) => {
-    const match = /language-(\w+)/.exec(className || '')
-    const language = match ? match[1].toLowerCase() : ''
-    const langLabel = match ? match[1].toUpperCase() : 'CODE'
-    const codeText = String(children).replace(/\n$/, '')
+  const CodeBlock = useCallback(
+    ({ inline, className, children, ...props }) => {
+      const match = /language-(\w+)/.exec(className || '')
+      const language = match ? match[1].toLowerCase() : ''
+      const langLabel = match ? match[1].toUpperCase() : 'CODE'
+      const codeText = String(children).replace(/\n$/, '')
 
-    if (!inline && language === 'mermaid') {
-      return (
-        <div className="my-4">
-          <Streamdown mode="static" mermaid={mermaidOptions} controls={{ mermaid: true }}>
-            {`\`\`\`mermaid\n${codeText}\n\`\`\``}
-          </Streamdown>
-        </div>
-      )
-    }
-
-    if (!inline && match) {
-      return (
-        <div className="relative group my-4 border border-gray-200 dark:border-zinc-700 rounded-xl overflow-x-auto bg-user-bubble/50 dark:bg-zinc-800/30">
-          <div className="flex items-center font-mono! justify-between px-3 py-2 text-[11px] font-semibold bg-user-bubble/50 dark:bg-zinc-800/50 text-gray-600 dark:text-gray-300 border-b border-gray-200 dark:border-zinc-700">
-            <span>{langLabel}</span>
-            <button className="px-2 py-1 rounded bg-gray-200 dark:bg-zinc-700 text-gray-700 dark:text-gray-200 text-[11px] opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-              Copy
-            </button>
+      if (!inline && language === 'mermaid') {
+        return (
+          <div className="my-4">
+            <Streamdown mode="static" mermaid={mermaidOptions} controls={{ mermaid: true }}>
+              {`\`\`\`mermaid\n${codeText}\n\`\`\``}
+            </Streamdown>
           </div>
-          <SyntaxHighlighter
-            style={isDark ? oneDark : oneLight}
-            language={match[1]}
-            PreTag="div"
-            className="code-scrollbar text-sm sm:text-base text-shadow-none!"
-            customStyle={{
-              margin: 0,
-              padding: '1rem',
-              background: 'transparent',
-              borderRadius: 'inherit',
-            }}
-            codeTagProps={{
-              style: {
-                backgroundColor: 'transparent',
-                fontFamily:
-                  'JetBrainsMono, CascadiaCode, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
-              },
-            }}
-            {...props}
-          >
-            {codeText}
-          </SyntaxHighlighter>
-        </div>
-      )
-    }
+        )
+      }
 
-    return (
-      <code
-        className={`${className} bg-user-bubble dark:bg-zinc-800 px-1.5 py-0.5 rounded text-sm font-mono font-semibold text-black dark:text-white`}
-        {...props}
-      >
-        {children}
-      </code>
-    )
-  }
+      if (!inline && match) {
+        return (
+          <div className="relative group my-4 border border-gray-200 dark:border-zinc-700 rounded-xl overflow-x-auto bg-user-bubble/50 dark:bg-zinc-800/30">
+            <div className="flex items-center font-mono! justify-between px-3 py-2 text-[11px] font-semibold bg-user-bubble/50 dark:bg-zinc-800/50 text-gray-600 dark:text-gray-300 border-b border-gray-200 dark:border-zinc-700">
+              <span>{langLabel}</span>
+              <button className="px-2 py-1 rounded bg-gray-200 dark:bg-zinc-700 text-gray-700 dark:text-gray-200 text-[11px] opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                Copy
+              </button>
+            </div>
+            <SyntaxHighlighter
+              style={isDark ? oneDark : oneLight}
+              language={match[1]}
+              PreTag="div"
+              className="code-scrollbar text-sm sm:text-base text-shadow-none!"
+              customStyle={{
+                margin: 0,
+                padding: '1rem',
+                background: 'transparent',
+                borderRadius: 'inherit',
+              }}
+              codeTagProps={{
+                style: {
+                  backgroundColor: 'transparent',
+                  fontFamily:
+                    'JetBrainsMono, CascadiaCode, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+                },
+              }}
+              {...props}
+            >
+              {codeText}
+            </SyntaxHighlighter>
+          </div>
+        )
+      }
+
+      return (
+        <code
+          className={`${className} bg-user-bubble dark:bg-zinc-800 px-1.5 py-0.5 rounded text-sm font-mono font-semibold text-black dark:text-white`}
+          {...props}
+        >
+          {children}
+        </code>
+      )
+    },
+    [isDark, mermaidOptions],
+  )
 
   const markdownComponents = useMemo(
     () => ({
@@ -689,7 +692,9 @@ const MessageBubble = ({
               indices={indices}
               sources={message.sources}
               isMobile={isMobile}
-              onMobileClick={sources => handleMobileSourceClick(sources, t('sources.citationSources'))}
+              onMobileClick={sources =>
+                handleMobileSourceClick(sources, t('sources.citationSources'))
+              }
               label={children} // Children of the link is the label [Title + N]
             />
           )
@@ -715,7 +720,7 @@ const MessageBubble = ({
         </div>
       ),
     }),
-    [isDark, message.sources, isMobile, handleMobileSourceClick], // Dependencies for markdownComponents
+    [isDark, message.sources, isMobile, handleMobileSourceClick, CodeBlock, t], // Dependencies for markdownComponents
   )
 
   if (isUser) {
@@ -972,7 +977,9 @@ const MessageBubble = ({
           >
             <div className="flex items-center gap-2 font-medium text-gray-700 dark:text-gray-300">
               <EmojiDisplay emoji="🧠" size="1.2em" />
-              {!shouldShowThinkingStatus && <span className="text-sm">{t('messageBubble.thinkingProcess')}</span>}
+              {!shouldShowThinkingStatus && (
+                <span className="text-sm">{t('messageBubble.thinkingProcess')}</span>
+              )}
               {!shouldShowThinkingStatus && <Check size="1em" />}
               {shouldShowThinkingStatus && (
                 <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
@@ -1107,7 +1114,9 @@ const MessageBubble = ({
               >
                 <polyline points="20,6 9,17 4,12"></polyline>
               </svg>
-              <span className="text-green-600 dark:text-green-400 hidden sm:block">{t('message.copied')}</span>
+              <span className="text-green-600 dark:text-green-400 hidden sm:block">
+                {t('message.copied')}
+              </span>
             </>
           ) : (
             <>

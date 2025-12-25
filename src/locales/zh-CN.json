@@ -202,6 +202,62 @@
       "retesting": "重新测试中..."
     }
   },
+
+  "agents": {
+    "modal": {
+      "create": "创建",
+      "edit": "编辑"
+    },
+    "tabs": {
+      "general": "通用",
+      "model": "模型",
+      "personalization": "个性化"
+    },
+    "general": {
+      "avatar": "头像",
+      "name": "名称",
+      "namePlaceholder": "请输入名称...",
+      "description": "描述",
+      "descriptionPlaceholder": "请输入描述...",
+      "systemPrompt": "系统提示词",
+      "systemPromptPlaceholder": "请输入系统提示词..."
+    },
+    "defaults": {
+      "systemPrompt": "AI助手..."
+    },
+    "model": {
+      "crossProviderTitle": "跨提供者",
+      "crossProviderHint": "跨提供者提示词...",
+      "loading": "加载中...",
+      "noProvidersTitle": "未找到提供者",
+      "noProvidersHint": "未找到提供者 API Key",
+      "noProviders": "未找到提供者...",
+      "modelsLoaded": "加载 {{count}} 个模型",
+      "refresh": "刷新",
+      "defaultModel": "默认模型",
+      "defaultHelper": "默认助手",
+      "liteModel": "Lite 模型",
+      "liteHelper": "Lite 助手",
+      "providers": "提供者",
+      "models": "模型",
+      "noModels": "未找到模型",
+      "none": "无",
+      "notSelected": "未选择"
+    },
+    "actions": {
+      "delete": "删除",
+      "cancel": "取消",
+      "saving": "保存中...",
+      "save": "保存",
+      "create": "创建"
+    },
+    "validation": {
+      "nameRequired": "名称为必填项"
+    },
+    "errors": {
+      "saveFailed": "保存失败"
+    }
+  },
   "spaceModal": {
     "create": "创建新空间",
     "edit": "编辑空间",

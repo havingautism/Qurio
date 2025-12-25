@@ -7,6 +7,7 @@ import { getNodeEnv, getPublicEnv } from './lib/publicEnv'
 const HomeView = React.lazy(() => import('./views/HomeView'))
 const ConversationView = React.lazy(() => import('./views/ConversationView'))
 const SpacesView = React.lazy(() => import('./views/SpacesView'))
+const AgentsView = React.lazy(() => import('./views/AgentsView'))
 const SpaceView = React.lazy(() => import('./views/SpaceView'))
 const LibraryView = React.lazy(() => import('./views/LibraryView'))
 const BookmarksView = React.lazy(() => import('./views/BookmarksView'))
@@ -20,9 +21,7 @@ const SuspensePage = ({ children }) => (
 
 const NotFound = () => {
   const basepath = (
-    getNodeEnv() === 'development'
-      ? '/'
-      : getPublicEnv('PUBLIC_BASE_PATH') || '/Qurio'
+    getNodeEnv() === 'development' ? '/' : getPublicEnv('PUBLIC_BASE_PATH') || '/Qurio'
   ).replace(/\/$/, '')
   return (
     <div className="min-h-screen flex items-center justify-center bg-background text-foreground px-6 py-12">
@@ -98,6 +97,16 @@ export const spacesRoute = createRoute({
   ),
 })
 
+export const agentsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: 'agents',
+  component: () => (
+    <SuspensePage>
+      <AgentsView />
+    </SuspensePage>
+  ),
+})
+
 export const spaceRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: 'space/$spaceId',
@@ -143,6 +152,7 @@ export const routeTree = rootRoute.addChildren([
   newChatRoute,
   conversationRoute,
   spacesRoute,
+  agentsRoute,
   spaceRoute,
   libraryRoute,
   bookmarksRoute,
@@ -150,11 +160,10 @@ export const routeTree = rootRoute.addChildren([
 ])
 
 const getBasePath = () =>
-  (
-    getNodeEnv() === 'development'
-      ? '/'
-      : getPublicEnv('PUBLIC_BASE_PATH') || '/Qurio'
-  ).replace(/\/$/, '')
+  (getNodeEnv() === 'development' ? '/' : getPublicEnv('PUBLIC_BASE_PATH') || '/Qurio').replace(
+    /\/$/,
+    '',
+  )
 
 export const createAppRouter = () =>
   createRouter({

@@ -14,6 +14,7 @@ import {
   SquareStack,
   Sun,
   Trash2,
+  Bot,
 } from 'lucide-react'
 import React, { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -233,6 +234,7 @@ const Sidebar = ({
     { id: 'library', icon: Library },
     { id: 'bookmarks', icon: Bookmark },
     { id: 'spaces', icon: LayoutGrid },
+    { id: 'agents', icon: Bot },
   ]
 
   const navItems = useMemo(
@@ -471,8 +473,8 @@ const Sidebar = ({
         <div
           className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm md:hidden"
           onClick={onClose}
-        // onWheel={e => e.preventDefault()}
-        // onTouchMove={e => e.preventDefault()}
+          // onWheel={e => e.preventDefault()}
+          // onTouchMove={e => e.preventDefault()}
         />
       )}
 
@@ -523,6 +525,7 @@ const Sidebar = ({
                     if (item.id === 'library') onNavigate('library')
                     else if (item.id === 'spaces') onNavigate('spaces')
                     else if (item.id === 'bookmarks') onNavigate('bookmarks')
+                    else if (item.id === 'agents') onNavigate('agents')
                   }
                 }}
                 onMouseEnter={() => setHoveredTab(item.id)}
@@ -558,7 +561,7 @@ const Sidebar = ({
             <button
               onClick={onToggleTheme}
               className="w-10 h-10 flex items-center justify-center rounded-full bg-user-bubble dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-transform duration-200 hover:scale-110 active:scale-95 cursor-pointer"
-            //  title={`Current theme: ${theme}`}
+              //  title={`Current theme: ${theme}`}
             >
               {getThemeIcon()}
             </button>
@@ -597,7 +600,9 @@ const Sidebar = ({
                       ? t('sidebar.bookmarks')
                       : displayTab === 'spaces'
                         ? t('sidebar.spaces')
-                        : ''}
+                        : displayTab === 'agents'
+                          ? 'Agents'
+                          : ''}
                 </h2>
                 {/* View Full Page Button (Mobile Only, or always if useful)
                     The user requested this specifically for the extension area.
@@ -673,7 +678,7 @@ const Sidebar = ({
                                   ? 'bg-primary-500/10 dark:bg-primary-500/20 border border-primary-500/30 text-primary-700 dark:text-primary-300'
                                   : 'text-gray-700 dark:text-gray-300 hover:bg-primary-50 dark:hover:bg-zinc-800',
                                 isExpanded &&
-                                'bg-primary-50/70 dark:bg-primary-900/20  border-primary-200/60  dark:border-primary-800/60 ring-1 ring-primary-100/70 dark:ring-primary-800/60',
+                                  'bg-primary-50/70 dark:bg-primary-900/20  border-primary-200/60  dark:border-primary-800/60 ring-1 ring-primary-100/70 dark:ring-primary-800/60',
                               )}
                               title={conv.title}
                             >
@@ -751,7 +756,11 @@ const Sidebar = ({
                                       ? 'bg-primary-50 text-primary-500 border-primary-50 dark:bg-primary-600/20 dark:text-primary-500 dark:border-primary-50/30'
                                       : 'text-gray-500 dark:text-gray-400 hover:bg-primary-50 dark:hover:bg-zinc-700 hover:text-primary-600 dark:hover:text-primary-400',
                                   )}
-                                  title={conv.is_favorited ? t('sidebar.removeBookmark') : t('sidebar.addBookmark')}
+                                  title={
+                                    conv.is_favorited
+                                      ? t('sidebar.removeBookmark')
+                                      : t('sidebar.addBookmark')
+                                  }
                                 >
                                   <Bookmark
                                     size={13}
@@ -826,7 +835,7 @@ const Sidebar = ({
                               ? 'bg-primary-500/10 dark:bg-primary-500/20 border border-primary-500/30 text-primary-700 dark:text-primary-300'
                               : 'text-gray-700 dark:text-gray-300 hover:bg-primary-50 dark:hover:bg-zinc-800',
                             isExpanded &&
-                            'bg-primary-50/70 dark:bg-primary-900/20 border border-primary-200/60 dark:border-primary-800/60 ring-1 ring-primary-100/70 dark:ring-primary-800/60',
+                              'bg-primary-50/70 dark:bg-primary-900/20 border border-primary-200/60 dark:border-primary-800/60 ring-1 ring-primary-100/70 dark:ring-primary-800/60',
                           )}
                           title={conv.title}
                         >
@@ -900,7 +909,11 @@ const Sidebar = ({
                                   ? 'bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-200 dark:border-yellow-800/30'
                                   : 'text-gray-500 dark:text-gray-400 hover:bg-primary-50 dark:hover:bg-zinc-700 hover:text-primary-600 dark:hover:text-primary-400',
                               )}
-                              title={conv.is_favorited ? t('sidebar.removeBookmark') : t('sidebar.addBookmark')}
+                              title={
+                                conv.is_favorited
+                                  ? t('sidebar.removeBookmark')
+                                  : t('sidebar.addBookmark')
+                              }
                             >
                               <Bookmark
                                 size={13}
@@ -1051,7 +1064,9 @@ const Sidebar = ({
                               onClick={() => onOpenConversation && onOpenConversation(conv)}
                               title={conv.title}
                             >
-                              <div className="flex-1 truncate">{conv.title || t('sidebar.untitled')}</div>
+                              <div className="flex-1 truncate">
+                                {conv.title || t('sidebar.untitled')}
+                              </div>
                             </div>
                           </div>
                         ))}

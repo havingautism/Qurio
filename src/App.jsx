@@ -6,6 +6,7 @@ import { GitHubPagesRedirectHandler } from './components/GitHubPagesRedirectHand
 import SettingsModal from './components/SettingsModal'
 import Sidebar from './components/Sidebar'
 import SpaceModal from './components/SpaceModal'
+import AgentModal from './components/AgentModal'
 import { ToastProvider } from './contexts/ToastContext'
 import { listConversations } from './lib/conversationsService'
 import { loadSettings } from './lib/settings'
@@ -28,6 +29,10 @@ function App() {
   // Space Modal State
   const [isSpaceModalOpen, setIsSpaceModalOpen] = useState(false)
   const [editingSpace, setEditingSpace] = useState(null)
+
+  // Agent Modal State
+  const [isAgentModalOpen, setIsAgentModalOpen] = useState(false)
+  const [editingAgent, setEditingAgent] = useState(null)
 
   // Mobile Sidebar State
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
@@ -105,7 +110,6 @@ function App() {
 
     mediaQuery.addEventListener('change', handleChange)
     return () => mediaQuery.removeEventListener('change', handleChange)
-    return () => mediaQuery.removeEventListener('change', handleChange)
   }, [theme])
 
   // Apply User Configured Theme Color
@@ -146,6 +150,9 @@ function App() {
       case 'spaces':
         navigate({ to: '/spaces' })
         break
+      case 'agents':
+        navigate({ to: '/agents' })
+        break
       case 'library':
         navigate({ to: '/library' })
         break
@@ -180,6 +187,28 @@ function App() {
   const handleEditSpace = space => {
     setEditingSpace(space)
     setIsSpaceModalOpen(true)
+  }
+
+  const handleCreateAgent = () => {
+    setEditingAgent(null)
+    setIsAgentModalOpen(true)
+  }
+
+  const handleEditAgent = agent => {
+    setEditingAgent(agent)
+    setIsAgentModalOpen(true)
+  }
+
+  const handleSaveAgent = async agent => {
+    console.log('Saving agent:', agent)
+    // Mock save
+    setIsAgentModalOpen(false)
+  }
+
+  const handleDeleteAgent = async id => {
+    console.log('Deleting agent:', id)
+    // Mock delete
+    setIsAgentModalOpen(false)
   }
 
   const handleOpenConversation = conversation => {
@@ -298,53 +327,77 @@ function App() {
       <ToastProvider>
         <GitHubPagesRedirectHandler />
         <AppContext.Provider
-        value={{
-          spaces,
-          conversations,
-          conversationsLoading,
-          spacesLoading,
-          onNavigate: handleNavigate,
-          onNavigateToSpace: handleNavigateToSpace,
-          onOpenConversation: handleOpenConversation,
-          onCreateSpace: handleCreateSpace,
-          onEditSpace: handleEditSpace,
-          isSidebarPinned,
-          toggleSidebar: () => setIsSidebarOpen(prev => !prev),
-          showConfirmation,
-        }}
-      >
-        {isShareRoute ? (
-          <Outlet />
-        ) : (
-          <div className="flex h-dvh overflow-hidden bg-background text-foreground font-sans selection:bg-primary-500/30">
-            <Sidebar
-              isOpen={isSidebarOpen}
-              onClose={() => setIsSidebarOpen(false)}
-              onOpenSettings={() => setIsSettingsOpen(true)}
-              onNavigate={handleNavigate}
-              onNavigateToSpace={handleNavigateToSpace}
-              onCreateSpace={handleCreateSpace}
-              onEditSpace={handleEditSpace}
-              onOpenConversation={handleOpenConversation}
-              spaces={spaces}
-              spacesLoading={spacesLoading}
-              theme={theme}
-              onToggleTheme={cycleTheme}
-              isSidebarPinned={isSidebarPinned}
-              onPinChange={setIsSidebarPinned}
-              activeConversationId={activeConversationId}
-            />
-            <div
-              className={`flex-1 relative transition-all duration-300 ml-0 w-full flex flex-col overflow-hidden`}
-            >
-              {/* Mobile Header - Hide on Chat/Conversation routes as they have their own header */}
-              {!location.pathname.includes('/conversation/') &&
-                !location.pathname.includes('/new_chat') && (
-                  <div className="md:hidden h-14 shrink-0 border-b border-gray-200 dark:border-zinc-800 flex items-center justify-between px-4 bg-background z-30">
-                    <div className="flex items-center gap-3">
+          value={{
+            spaces,
+            conversations,
+            conversationsLoading,
+            spacesLoading,
+            onNavigate: handleNavigate,
+            onNavigateToSpace: handleNavigateToSpace,
+            onOpenConversation: handleOpenConversation,
+            onCreateSpace: handleCreateSpace,
+            onEditSpace: handleEditSpace,
+            onCreateAgent: handleCreateAgent,
+            onEditAgent: handleEditAgent,
+            isSidebarPinned,
+            toggleSidebar: () => setIsSidebarOpen(prev => !prev),
+            showConfirmation,
+          }}
+        >
+          {isShareRoute ? (
+            <Outlet />
+          ) : (
+            <div className="flex h-dvh overflow-hidden bg-background text-foreground font-sans selection:bg-primary-500/30">
+              <Sidebar
+                isOpen={isSidebarOpen}
+                onClose={() => setIsSidebarOpen(false)}
+                onOpenSettings={() => setIsSettingsOpen(true)}
+                onNavigate={handleNavigate}
+                onNavigateToSpace={handleNavigateToSpace}
+                onCreateSpace={handleCreateSpace}
+                onEditSpace={handleEditSpace}
+                onOpenConversation={handleOpenConversation}
+                spaces={spaces}
+                spacesLoading={spacesLoading}
+                theme={theme}
+                onToggleTheme={cycleTheme}
+                isSidebarPinned={isSidebarPinned}
+                onPinChange={setIsSidebarPinned}
+                activeConversationId={activeConversationId}
+              />
+              <div
+                className={`flex-1 relative transition-all duration-300 ml-0 w-full flex flex-col overflow-hidden`}
+              >
+                {/* Mobile Header - Hide on Chat/Conversation routes as they have their own header */}
+                {!location.pathname.includes('/conversation/') &&
+                  !location.pathname.includes('/new_chat') && (
+                    <div className="md:hidden h-14 shrink-0 border-b border-gray-200 dark:border-zinc-800 flex items-center justify-between px-4 bg-background z-30">
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={() => setIsSidebarOpen(true)}
+                          className="p-2 -ml-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="20"
+                            height="20"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <line x1="3" y1="12" x2="21" y2="12"></line>
+                            <line x1="3" y1="6" x2="21" y2="6"></line>
+                            <line x1="3" y1="18" x2="21" y2="18"></line>
+                          </svg>
+                        </button>
+                        <span className="font-semibold text-gray-900 dark:text-white">Qurio</span>
+                      </div>
                       <button
-                        onClick={() => setIsSidebarOpen(true)}
-                        className="p-2 -ml-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg"
+                        onClick={() => handleNavigate('home')}
+                        className="p-2 -mr-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg"
                       >
                         <svg
                           xmlns="http://www.w3.org/2000/svg"
@@ -357,66 +410,51 @@ function App() {
                           strokeLinecap="round"
                           strokeLinejoin="round"
                         >
-                          <line x1="3" y1="12" x2="21" y2="12"></line>
-                          <line x1="3" y1="6" x2="21" y2="6"></line>
-                          <line x1="3" y1="18" x2="21" y2="18"></line>
+                          <path d="M5 12h14"></path>
+                          <path d="M12 5v14"></path>
                         </svg>
                       </button>
-                      <span className="font-semibold text-gray-900 dark:text-white">Qurio</span>
                     </div>
-                    <button
-                      onClick={() => handleNavigate('home')}
-                      className="p-2 -mr-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg"
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="20"
-                        height="20"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <path d="M5 12h14"></path>
-                        <path d="M12 5v14"></path>
-                      </svg>
-                    </button>
-                  </div>
-                )}
-              <div className="flex-1 min-h-0 overflow-hidden">
-                <Outlet />
+                  )}
+                <div className="flex-1 min-h-0 overflow-hidden">
+                  <Outlet />
+                </div>
               </div>
+              <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+              <SpaceModal
+                isOpen={isSpaceModalOpen}
+                onClose={() => setIsSpaceModalOpen(false)}
+                editingSpace={editingSpace}
+                onSave={handleSaveSpace}
+                onDelete={handleDeleteSpace}
+              />
+              <AgentModal
+                isOpen={isAgentModalOpen}
+                onClose={() => setIsAgentModalOpen(false)}
+                editingAgent={editingAgent}
+                onSave={handleSaveAgent}
+                onDelete={handleDeleteAgent}
+              />
+              <ConfirmationModal
+                isOpen={confirmation.isOpen}
+                onClose={() => {
+                  setConfirmation(prev => ({ ...prev, isOpen: false }))
+                  confirmation.onClose?.()
+                }}
+                onConfirm={() => {
+                  setConfirmation(prev => ({ ...prev, isOpen: false }))
+                  confirmation.onConfirm?.()
+                }}
+                title={confirmation.title}
+                message={confirmation.message}
+                confirmText={confirmation.confirmText}
+                cancelText={confirmation.cancelText}
+                isDangerous={confirmation.isDangerous}
+              />
             </div>
-            <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
-            <SpaceModal
-              isOpen={isSpaceModalOpen}
-              onClose={() => setIsSpaceModalOpen(false)}
-              editingSpace={editingSpace}
-              onSave={handleSaveSpace}
-              onDelete={handleDeleteSpace}
-            />
-            <ConfirmationModal
-              isOpen={confirmation.isOpen}
-              onClose={() => {
-                setConfirmation(prev => ({ ...prev, isOpen: false }))
-                confirmation.onClose?.()
-              }}
-              onConfirm={() => {
-                setConfirmation(prev => ({ ...prev, isOpen: false }))
-                confirmation.onConfirm?.()
-              }}
-              title={confirmation.title}
-              message={confirmation.message}
-              confirmText={confirmation.confirmText}
-              cancelText={confirmation.cancelText}
-              isDangerous={confirmation.isDangerous}
-            />
-          </div>
-        )}
-      </AppContext.Provider>
-    </ToastProvider>
+          )}
+        </AppContext.Provider>
+      </ToastProvider>
     </I18nextProvider>
   )
 }

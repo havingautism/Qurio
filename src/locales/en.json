@@ -202,6 +202,61 @@
       "retesting": "Re-testing..."
     }
   },
+  "agents": {
+    "modal": {
+      "create": "Create Agent",
+      "edit": "Edit Agent"
+    },
+    "tabs": {
+      "general": "General",
+      "model": "Model",
+      "personalization": "Personalization"
+    },
+    "general": {
+      "avatar": "Avatar",
+      "name": "Name",
+      "namePlaceholder": "Agent name",
+      "description": "Description",
+      "descriptionPlaceholder": "Brief description of your agent",
+      "systemPrompt": "System Prompt",
+      "systemPromptPlaceholder": "You are a helpful assistant..."
+    },
+    "defaults": {
+      "systemPrompt": "You are a helpful AI assistant."
+    },
+    "model": {
+      "crossProviderTitle": "Cross-Provider Selection",
+      "crossProviderHint": "Pick any model from providers you have configured in Settings. The agent will use the correct provider automatically.",
+      "loading": "Loading available models...",
+      "noProvidersTitle": "No providers configured yet",
+      "noProvidersHint": "Add API keys in Settings to enable model selection here.",
+      "noProviders": "Configure at least one provider to select models.",
+      "modelsLoaded": "{{count}} models loaded",
+      "refresh": "Refresh",
+      "defaultModel": "Default Model",
+      "defaultHelper": "Primary chat responses",
+      "liteModel": "Lite Model",
+      "liteHelper": "Optional, faster responses for lightweight tasks",
+      "providers": "Providers",
+      "models": "Models",
+      "noModels": "No models available for this provider.",
+      "none": "None",
+      "notSelected": "Not selected"
+    },
+    "actions": {
+      "delete": "Delete Agent",
+      "cancel": "Cancel",
+      "saving": "Saving...",
+      "save": "Save Agent",
+      "create": "Create Agent"
+    },
+    "validation": {
+      "nameRequired": "Name is required"
+    },
+    "errors": {
+      "saveFailed": "Failed to save agent"
+    }
+  },
   "spaceModal": {
     "create": "Create New Space",
     "edit": "Edit Space",

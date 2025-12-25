@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { Search, PanelRightClose, Clock, MessageSquare, ArrowUpDown } from 'lucide-react'
 import clsx from 'clsx'
+import { useTranslation } from 'react-i18next'
 import useScrollLock from '../hooks/useScrollLock'
 
 /**
@@ -23,6 +24,7 @@ const QuestionTimelineSidebar = ({
   onToggle,
   className,
 }) => {
+  const { i18n } = useTranslation()
   useScrollLock(isOpen)
 
   const [searchQuery, setSearchQuery] = useState('')
@@ -92,13 +94,14 @@ const QuestionTimelineSidebar = ({
           const today = new Date()
           const yesterday = new Date(today)
           yesterday.setDate(yesterday.getDate() - 1)
+          const locale = i18n.language === 'zh-CN' ? 'zh-CN' : 'en-US'
 
           if (date.toDateString() === today.toDateString()) {
             groupKey = 'Today'
           } else if (date.toDateString() === yesterday.toDateString()) {
             groupKey = 'Yesterday'
           } else {
-            groupKey = date.toLocaleDateString('en-US', {
+            groupKey = date.toLocaleDateString(locale, {
               month: 'short',
               day: 'numeric',
               year: date.getFullYear() !== today.getFullYear() ? 'numeric' : undefined,
@@ -116,7 +119,7 @@ const QuestionTimelineSidebar = ({
     })
 
     return groups
-  }, [filteredItems])
+  }, [filteredItems, i18n.language])
 
   const timelineGroupedItems = useMemo(() => {
     const ascSorted = [...filteredItems].sort((a, b) => {
@@ -137,13 +140,14 @@ const QuestionTimelineSidebar = ({
           const today = new Date()
           const yesterday = new Date(today)
           yesterday.setDate(yesterday.getDate() - 1)
+          const locale = i18n.language === 'zh-CN' ? 'zh-CN' : 'en-US'
 
           if (date.toDateString() === today.toDateString()) {
             groupKey = 'Today'
           } else if (date.toDateString() === yesterday.toDateString()) {
             groupKey = 'Yesterday'
           } else {
-            groupKey = date.toLocaleDateString('en-US', {
+            groupKey = date.toLocaleDateString(locale, {
               month: 'short',
               day: 'numeric',
               year: date.getFullYear() !== today.getFullYear() ? 'numeric' : undefined,
@@ -161,7 +165,7 @@ const QuestionTimelineSidebar = ({
     })
 
     return groups
-  }, [filteredItems])
+  }, [filteredItems, i18n.language])
 
   const flatTimelineItems = useMemo(
     () => Object.values(timelineGroupedItems).flat(),
@@ -173,12 +177,13 @@ const QuestionTimelineSidebar = ({
 
     try {
       const date = new Date(timestamp)
-      const dateStr = date.toLocaleDateString(undefined, {
+      const locale = i18n.language === 'zh-CN' ? 'zh-CN' : 'en-US'
+      const dateStr = date.toLocaleDateString(locale, {
         year: 'numeric',
         month: '2-digit',
         day: '2-digit',
       })
-      const timeStr = date.toLocaleTimeString(undefined, {
+      const timeStr = date.toLocaleTimeString(locale, {
         hour: '2-digit',
         minute: '2-digit',
         hour12: false

@@ -1,5 +1,6 @@
 import { useNavigate } from '@tanstack/react-router'
 import { useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useShallow } from 'zustand/react/shallow'
 import html2canvas from 'html2canvas'
 import { ArrowLeft, Download } from 'lucide-react'
@@ -7,6 +8,7 @@ import useChatStore from '../lib/chatStore'
 import ShareCanvas, { SHARE_STYLE } from '../components/ShareCanvas'
 
 const ShareImageView = () => {
+  const { t, i18n } = useTranslation()
   const navigate = useNavigate()
   const captureRef = useRef(null)
   const [isGenerating, setIsGenerating] = useState(false)
@@ -74,7 +76,7 @@ const ShareImageView = () => {
       document.body.removeChild(link)
     } catch (err) {
       console.error('Failed to generate image:', err)
-      setError('Failed to generate image. Please try again.')
+      setError(t('views.shareImageView.failedToGenerate'))
     } finally {
       restoreStyles()
       setIsGenerating(false)
@@ -95,13 +97,13 @@ const ShareImageView = () => {
       <div className="share-toolbar">
         <button className="share-btn" onClick={handleBack}>
           <ArrowLeft size={16} />
-          Back
+          {t('views.shareImageView.back')}
         </button>
         {message && (
           <div className="share-actions">
             <button className="share-btn primary" onClick={handleDownload} disabled={isGenerating}>
               <Download size={16} />
-              {isGenerating ? 'Generating...' : 'Download PNG'}
+              {isGenerating ? t('views.shareImageView.generating') : t('views.shareImageView.downloadPng')}
             </button>
           </div>
         )}
@@ -110,14 +112,15 @@ const ShareImageView = () => {
         <ShareCanvas
           captureRef={captureRef}
           message={message}
-          conversationTitle={conversationTitle || 'Qurio Chat'}
+          conversationTitle={conversationTitle || t('views.shareImageView.defaultTitle')}
           embed={false}
+          language={i18n.language}
         />
       ) : (
         <div className="share-canvas-wrap">
           <div className="share-canvas">
-            <div className="share-title">Message not found</div>
-            <p>Return to the chat and try sharing again.</p>
+            <div className="share-title">{t('views.shareImageView.messageNotFound')}</div>
+            <p>{t('views.shareImageView.returnToChat')}</p>
           </div>
         </div>
       )}

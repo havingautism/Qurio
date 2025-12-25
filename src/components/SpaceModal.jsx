@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { X, Settings, Info } from 'lucide-react'
 import useScrollLock from '../hooks/useScrollLock'
 import EmojiDisplay from './EmojiDisplay'
@@ -7,6 +8,7 @@ import { useAppContext } from '../App'
 import clsx from 'clsx'
 
 const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) => {
+  const { t } = useTranslation()
   useScrollLock(isOpen)
   const { showConfirmation } = useAppContext()
   const [activeTab, setActiveTab] = useState('general')
@@ -23,11 +25,16 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
   const pickerRef = useRef(null)
   const buttonRef = useRef(null)
 
-  // Tab menu items
-  const menuItems = [
-    { id: 'general', label: 'General', icon: Info },
-    { id: 'advanced', label: 'Advanced', icon: Settings },
+  // Tab menu items - use constant keys for logic, translate labels for display
+  const TAB_ITEMS = [
+    { id: 'general', icon: Info },
+    { id: 'advanced', icon: Settings },
   ]
+
+  const menuItems = useMemo(
+    () => TAB_ITEMS.map(item => ({ ...item, label: t(`spaceModal.${item.id}`) })),
+    [t],
+  )
 
   // Close picker when clicking outside
   useEffect(() => {
@@ -74,7 +81,7 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
 
   const handleSave = async () => {
     if (!name.trim()) {
-      setError('Name is required')
+      setError(t('spaceModal.nameRequired'))
       return
     }
     setIsSaving(true)
@@ -90,7 +97,7 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
         top_k: topK,
       })
     } catch (err) {
-      setError(err.message || 'Failed to save space')
+      setError(err.message || t('spaceModal.saveFailed'))
       setIsSaving(false)
     }
   }
@@ -99,15 +106,15 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
     if (!editingSpace?.id) return
 
     showConfirmation({
-      title: 'Delete Space',
-      message: `Are you sure you want to delete "${editingSpace.label}"? This action cannot be undone. Conversations in this space will be moved to your default space.`,
-      confirmText: 'Delete',
+      title: t('spaceModal.deleteTitle'),
+      message: t('spaceModal.deleteMessage', { name: editingSpace.label }),
+      confirmText: t('spaceModal.deleteConfirm'),
       isDangerous: true,
       onConfirm: async () => {
         try {
           await onDelete?.(editingSpace.id)
         } catch (err) {
-          setError(err.message || 'Failed to delete space')
+          setError(err.message || t('spaceModal.deleteFailed'))
         }
       },
     })
@@ -121,7 +128,7 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
         {/* Header */}
         <div className="h-14 border-b border-gray-200 dark:border-zinc-800 flex items-center justify-between px-4 sm:px-6 shrink-0">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-            {editingSpace ? 'Edit Space' : 'Create New Space'}
+            {editingSpace ? t('spaceModal.edit') : t('spaceModal.create')}
           </h3>
           <button
             onClick={onClose}
@@ -161,7 +168,7 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
                 {/* Icon and Name Row - Fixed height */}
                 <div className="flex flex-col gap-2 shrink-0">
                   <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Icon & Name
+                    {t('spaceModal.iconName')}
                   </label>
                   <div className="flex items-center gap-3">
                     {/* Emoji Picker */}
@@ -195,7 +202,7 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
                       type="text"
                       value={name}
                       onChange={e => setName(e.target.value)}
-                      placeholder="e.g., Daily Life, Research..."
+                      placeholder={t('spaceModal.namePlaceholder')}
                       className="flex-1 h-12 px-4 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600"
                     />
                   </div>
@@ -204,12 +211,12 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
                 {/* Description Input - Fixed height */}
                 <div className="flex flex-col gap-2 shrink-0">
                   <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Description <span className="text-gray-400 font-normal">(Optional)</span>
+                    {t('spaceModal.description')} <span className="text-gray-400 font-normal">({t('spaceModal.descriptionOptional')})</span>
                   </label>
                   <textarea
                     value={description}
                     onChange={e => setDescription(e.target.value)}
-                    placeholder="What is this space for?"
+                    placeholder={t('spaceModal.descriptionPlaceholder')}
                     rows={2}
                     className="w-full px-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600 resize-none"
                   />
@@ -218,12 +225,12 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
                 {/* Prompt Input - Flexible height */}
                 <div className="flex flex-col gap-2 flex-1 min-h-0">
                   <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Space Prompt <span className="text-gray-400 font-normal">(Optional)</span>
+                    {t('spaceModal.spacePrompt')} <span className="text-gray-400 font-normal">({t('spaceModal.spacePromptOptional')})</span>
                   </label>
                   <textarea
                     value={prompt}
                     onChange={e => setPrompt(e.target.value)}
-                    placeholder="Provide guidance the assistant should follow inside this space."
+                    placeholder={t('spaceModal.promptPlaceholder')}
                     className="w-full flex-1 min-h-[120px] px-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600 resize-none"
                   />
                 </div>
@@ -239,7 +246,7 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
                   <div className="flex gap-4">
                     <div className="flex flex-col gap-2 flex-1">
                       <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                        Temperature <span className="text-gray-400 font-normal">({temperature})</span>
+                        {t('spaceModal.temperature')} <span className="text-gray-400 font-normal">({temperature})</span>
                       </label>
                       <div className="h-10 flex items-center px-1">
                         <input
@@ -254,7 +261,7 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
                       </div>
                     </div>
                     <div className="flex flex-col gap-2 w-24">
-                      <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Top K</label>
+                      <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('spaceModal.topK')}</label>
                       <input
                         type="number"
                         min="0"
@@ -263,7 +270,7 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
                           const val = e.target.value
                           setTopK(val === '' ? null : parseInt(val))
                         }}
-                        placeholder="Auto"
+                        placeholder={t('spaceModal.topKPlaceholder')}
                         className="w-full h-10 px-3 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600"
                       />
                     </div>
@@ -275,11 +282,11 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
                   <div className="flex items-start gap-2">
                     <Info size={16} className="text-blue-600 dark:text-blue-400 mt-0.5" />
                     <div className="text-sm text-blue-800 dark:text-blue-200">
-                      <p className="font-medium mb-1">Model Settings Info</p>
+                      <p className="font-medium mb-1">{t('spaceModal.modelSettingsInfo')}</p>
                       <ul className="text-xs space-y-1">
-                        <li>• <strong>Temperature:</strong> Controls randomness (0 = focused, 2 = creative)</li>
-                        <li>• <strong>Top K:</strong> Limits token selection (leave empty for auto)</li>
-                        <li>• These settings override global preferences for this space</li>
+                        <li>• <strong>{t('spaceModal.temperature')}:</strong> {t('spaceModal.temperatureInfo')}</li>
+                        <li>• <strong>{t('spaceModal.topK')}:</strong> {t('spaceModal.topKInfo')}</li>
+                        <li>• {t('spaceModal.overrideInfo')}</li>
                       </ul>
                     </div>
                   </div>
@@ -299,7 +306,7 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
                 onClick={handleDelete}
                 className="px-4 py-2 rounded-lg text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
               >
-                Delete
+                {t('sidebar.delete')}
               </button>
             )}
           </div>
@@ -309,14 +316,14 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
               disabled={isSaving}
               className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50"
             >
-              Cancel
+              {t('spaceModal.cancel')}
             </button>
             <button
               onClick={handleSave}
               disabled={isSaving}
               className="px-4 py-2 rounded-lg text-sm font-medium bg-primary-500 text-white hover:opacity-90 transition-opacity disabled:opacity-50"
             >
-              {isSaving ? 'Saving...' : editingSpace ? 'Save Changes' : 'Create Space'}
+              {isSaving ? t('spaceModal.saving') : editingSpace ? t('spaceModal.save') : t('spaceModal.createSpace')}
             </button>
           </div>
         </div>

@@ -427,7 +427,7 @@ const getImagesFromMessage = message => {
     .filter(Boolean)
 }
 
-const ShareCanvas = ({ message, conversationTitle, captureRef, embed = false }) => {
+const ShareCanvas = ({ message, conversationTitle, captureRef, embed = false, language = 'en-US' }) => {
   const settings = useMemo(() => loadSettings(), [])
   const providerId = message?.provider || settings.apiProvider
   const providerMeta = PROVIDER_META[providerId] || {
@@ -487,8 +487,8 @@ const ShareCanvas = ({ message, conversationTitle, captureRef, embed = false }) 
                 <span className="share-role">{isUser ? 'User' : 'Assistant'}</span>
                 <span>
                   {message?.created_at
-                    ? new Date(message.created_at).toLocaleString()
-                    : new Date().toLocaleString()}
+                    ? new Date(message.created_at).toLocaleString(language)
+                    : new Date().toLocaleString(language)}
                 </span>
               </div>
             </div>
@@ -567,7 +567,7 @@ const ShareCanvas = ({ message, conversationTitle, captureRef, embed = false }) 
 
           <div className="share-footer">
             <span>Qurio Chat Share</span>
-            <span>{new Date().toLocaleDateString()}</span>
+            <span>{new Date().toLocaleDateString(language)}</span>
           </div>
         </div>
       </div>

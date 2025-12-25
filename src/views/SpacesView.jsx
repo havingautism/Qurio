@@ -3,16 +3,20 @@ import clsx from 'clsx'
 import { Brain, Clock, DollarSign, Laptop, LayoutGrid, Plus } from 'lucide-react'
 import { useAppContext } from '../App'
 import EmojiDisplay from '../components/EmojiDisplay'
+import { useTranslation } from 'react-i18next'
 
 const SpacesView = () => {
   const { spaces, onCreateSpace, isSidebarPinned } = useAppContext()
   const navigate = useNavigate()
+  const { t, i18n } = useTranslation()
 
   // Helper to format date
   const formatDate = dateString => {
-    if (!dateString) return 'Just now'
+    if (!dateString) return t('views.spacesView.justNow')
     const date = new Date(dateString)
-    return date.toLocaleString('en-US', {
+    // Use current language for date formatting
+    const locale = i18n.language === 'zh-CN' ? 'zh-CN' : 'en-US'
+    return date.toLocaleString(locale, {
       month: 'short',
       day: 'numeric',
       year: 'numeric',
@@ -58,12 +62,12 @@ const SpacesView = () => {
         {/* Header */}
         <div className="flex items-center gap-3 mb-8">
           <LayoutGrid size={32} className="text-primary-500" />
-          <h1 className="text-3xl font-medium">Spaces</h1>
+          <h1 className="text-3xl font-medium">{t('views.spacesView.title')}</h1>
         </div>
 
         {/* My Spaces Section */}
         <div className="mb-12">
-          <h2 className="text-lg font-medium mb-4 text-gray-700 dark:text-gray-300">My Spaces</h2>
+          <h2 className="text-lg font-medium mb-4 text-gray-700 dark:text-gray-300">{t('views.spacesView.mySpaces')}</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {/* Create Card */}
             <div
@@ -74,9 +78,9 @@ const SpacesView = () => {
                 <Plus size={24} />
               </div>
               <div>
-                <h3 className="font-medium text-lg mb-1">Create a Space</h3>
+                <h3 className="font-medium text-lg mb-1">{t('views.spacesView.createSpace')}</h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Set sources and invite others
+                  {t('views.spacesView.createSpaceDescription')}
                 </p>
               </div>
             </div>
@@ -110,7 +114,7 @@ const SpacesView = () => {
 
         {/* Examples Section */}
         <div>
-          <h2 className="text-lg font-medium mb-4 text-gray-700 dark:text-gray-300">Examples</h2>
+          <h2 className="text-lg font-medium mb-4 text-gray-700 dark:text-gray-300">{t('views.spacesView.examples')}</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {exampleSpaces.map(ex => (
               <div

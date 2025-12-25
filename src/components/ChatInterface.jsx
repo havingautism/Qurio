@@ -1,5 +1,6 @@
 ﻿import { useLocation, useNavigate } from '@tanstack/react-router'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useShallow } from 'zustand/react/shallow'
 import useChatStore from '../lib/chatStore'
 import FancyLoader from './FancyLoader'
@@ -60,6 +61,7 @@ const ChatInterface = ({
 
   const navigate = useNavigate()
   const location = useLocation()
+  const { t } = useTranslation()
   const {
     messages,
     setMessages,
@@ -972,7 +974,7 @@ const ChatInterface = ({
                 onClick={handleRegenerateTitle}
                 disabled={isRegeneratingTitle || messages.length === 0}
                 className="hidden sm:block p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors disabled:opacity-50 disabled:hover:bg-transparent"
-                title="Regenerate title from last 3 messages"
+                title={t('chatInterface.regenerateTitle')}
               >
                 <Sparkles size={18} />
               </button>
@@ -984,7 +986,7 @@ const ChatInterface = ({
               <button
                 onClick={() => setIsTimelineSidebarOpen(true)}
                 className="xl:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-colors shrink-0"
-                title="Open question timeline"
+                title={t('chatInterface.openTimeline')}
               >
                 <PanelRightOpen size={20} />
               </button>
@@ -1114,6 +1116,7 @@ const InputBar = React.memo(
     editingLabel,
     scrollToBottom,
   }) => {
+    const { t } = useTranslation()
     const [inputValue, setInputValue] = useState('')
     const [attachments, setAttachments] = useState([])
     const textareaRef = useRef(null)
@@ -1250,7 +1253,7 @@ const InputBar = React.memo(
             ref={textareaRef}
             onChange={e => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask follow-up..."
+            placeholder={t('chatInterface.askFollowUp')}
             className="w-full bg-transparent border-none outline-none resize-none text-base placeholder-gray-500 dark:placeholder-gray-400 min-h-[44px] max-h-[200px] overflow-y-auto py-2"
             rows={1}
           />

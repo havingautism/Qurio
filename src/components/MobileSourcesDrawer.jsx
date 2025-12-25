@@ -1,18 +1,21 @@
 import { useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
+import { useTranslation } from 'react-i18next'
 import { X, Globe, ExternalLink } from 'lucide-react'
 import useScrollLock from '../hooks/useScrollLock'
 
-const getHostname = url => {
-  try {
-    const hostname = new URL(url).hostname
-    return hostname.replace(/^www\./, '')
-  } catch (e) {
-    return 'Source'
-  }
-}
+const MobileSourcesDrawer = ({ isOpen, onClose, sources = [], title }) => {
+  const { t } = useTranslation()
 
-const MobileSourcesDrawer = ({ isOpen, onClose, sources = [], title = 'Sources' }) => {
+  const getHostname = url => {
+    try {
+      const hostname = new URL(url).hostname
+      return hostname.replace(/^www\./, '')
+    } catch (e) {
+      return t('sources.source')
+    }
+  }
+
   useScrollLock(isOpen)
   const drawerRef = useRef(null)
 
@@ -50,14 +53,6 @@ const MobileSourcesDrawer = ({ isOpen, onClose, sources = [], title = 'Sources' 
         ref={drawerRef}
         className="relative w-full max-w-md bg-white dark:bg-[#1E1E1E] rounded-t-3xl shadow-2xl flex flex-col max-h-[85vh] animate-slide-up"
       >
-        {/* Drag Handle (Visual only) */}
-        {/* <div
-          className="w-full h-6 flex items-center justify-center shrink-0 cursor-grab active:cursor-grabbing"
-          onClick={onClose}
-        >
-          <div className="w-12 h-1.5 bg-gray-300 dark:bg-zinc-700 rounded-full" />
-        </div> */}
-
         {/* Header */}
         <div className="px-5 py-4 flex items-center justify-between shrink-0 border-b border-gray-100 dark:border-zinc-800/50">
           <div className="flex items-center gap-3">
@@ -66,10 +61,10 @@ const MobileSourcesDrawer = ({ isOpen, onClose, sources = [], title = 'Sources' 
             </div>
             <div className="flex flex-col">
               <h3 className="text-base font-bold text-gray-900 dark:text-gray-100 leading-none mb-1">
-                {title}
+                {title || t('sources.title')}
               </h3>
               <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">
-                {sources.length} results found
+                {t('sources.resultsFound', { count: sources.length })}
               </p>
             </div>
           </div>
@@ -85,7 +80,7 @@ const MobileSourcesDrawer = ({ isOpen, onClose, sources = [], title = 'Sources' 
         <div className="overflow-y-auto min-h-0 py-2">
           {sources.length === 0 ? (
             <div className="p-8 text-center text-gray-500 dark:text-gray-400">
-              No sources available
+              {t('sources.noSources')}
             </div>
           ) : (
             <div className="divide-y divide-gray-100 dark:divide-zinc-800/50">

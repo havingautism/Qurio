@@ -16,6 +16,7 @@ import {
   Trash2,
 } from 'lucide-react'
 import React, { useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useAppContext } from '../App'
 import { useToast } from '../contexts/ToastContext'
 import useScrollLock from '../hooks/useScrollLock'
@@ -48,6 +49,7 @@ const Sidebar = ({
   activeConversationId,
   onPinChange,
 }) => {
+  const { t, i18n } = useTranslation()
   useScrollLock(isOpen)
 
   const [isHovered, setIsHovered] = useState(false)
@@ -98,8 +100,10 @@ const Sidebar = ({
   }
 
   const formatDateTime = value => {
-    if (!value) return 'Recently'
-    return new Date(value).toLocaleString(undefined, {
+    if (!value) return t('sidebar.recently')
+    // Use current language for date formatting
+    const locale = i18n.language === 'zh-CN' ? 'zh-CN' : 'en-US'
+    return new Date(value).toLocaleString(locale, {
       month: 'short',
       day: 'numeric',
       year: 'numeric',
@@ -224,12 +228,17 @@ const Sidebar = ({
     }
   }, [activeTab])
 
-  const navItems = [
-    { id: 'library', icon: Library, label: 'Library' },
-    { id: 'bookmarks', icon: Bookmark, label: 'Bookmarks' },
-    // { id: 'discover', icon: Compass, label: 'Discover' },
-    { id: 'spaces', icon: LayoutGrid, label: 'Spaces' },
+  // Nav items - use constant keys for logic, translate labels for display
+  const NAV_ITEM_KEYS = [
+    { id: 'library', icon: Library },
+    { id: 'bookmarks', icon: Bookmark },
+    { id: 'spaces', icon: LayoutGrid },
   ]
+
+  const navItems = useMemo(
+    () => NAV_ITEM_KEYS.map(item => ({ ...item, label: t(`sidebar.${item.id}`) })),
+    [t],
+  )
 
   const getThemeIcon = () => {
     switch (theme) {
@@ -283,10 +292,10 @@ const Sidebar = ({
     if (!conversation) return
 
     showConfirmation({
-      title: 'Delete',
-      message: `Are you sure you want to delete "${conversation.title}"? This action cannot be undone.`,
-      confirmText: 'Delete',
-      cancelText: 'Cancel',
+      title: t('confirmation.delete'),
+      message: t('confirmation.deleteMessage', { title: conversation.title }),
+      confirmText: t('confirmation.delete'),
+      cancelText: t('confirmation.cancel'),
       isDangerous: true,
       onConfirm: async () => {
         const { success, error } = await deleteConversation(conversation.id)
@@ -304,7 +313,7 @@ const Sidebar = ({
           }
         } else {
           console.error('Failed to delete conversation:', error)
-          toast.error('Failed to delete conversation')
+          toast.error(t('sidebar.deleteFailed') || 'Failed to delete conversation')
         }
       },
     })
@@ -337,7 +346,7 @@ const Sidebar = ({
 
     if (error) {
       console.error('Failed to toggle favorite:', error)
-      toast.error('Failed to update favorite status')
+      toast.error(t('sidebar.failedToUpdateFavorite'))
       // Revert optimistic update
       setConversations(prev =>
         prev.map(c => (c.id === conversation.id ? { ...c, is_favorited: !newStatus } : c)),
@@ -351,7 +360,7 @@ const Sidebar = ({
         setBookmarkedConversations(prev => [{ ...conversation, is_favorited: true }, ...prev])
       }
     } else {
-      toast.success(newStatus ? 'Added to bookmarks' : 'Removed from bookmarks')
+      toast.success(newStatus ? t('sidebar.addedToBookmarks') : t('sidebar.removedFromBookmarks'))
     }
   }
 
@@ -412,6 +421,17 @@ const Sidebar = ({
 
   // Limit conversations per section for display
   const MAX_CONVERSATIONS_PER_SECTION = 1000 // Effectively no limit, showing all fetched
+
+  // Helper function to translate date group titles
+  const translateDateTitle = title => {
+    const keyMap = {
+      Today: 'today',
+      Yesterday: 'yesterday',
+      'Previous 7 Days': 'previous7Days',
+      Past: 'past',
+    }
+    return t(`sidebar.${keyMap[title] || 'past'}`)
+  }
 
   // No longer needed to filter client side for bookmarks tab display
   // But we still might want filteredConversations for logic if used elsewhere?
@@ -572,28 +592,28 @@ const Sidebar = ({
               <div className="flex items-center gap-2">
                 <h2 className="font-semibold text-lg text-foreground">
                   {displayTab === 'library'
-                    ? 'Library'
+                    ? t('sidebar.library')
                     : displayTab === 'bookmarks'
-                      ? 'Bookmarks'
+                      ? t('sidebar.bookmarks')
                       : displayTab === 'spaces'
-                        ? 'Spaces'
+                        ? t('sidebar.spaces')
                         : ''}
                 </h2>
-                {/* View Full Page Button (Mobile Only, or always if useful) 
+                {/* View Full Page Button (Mobile Only, or always if useful)
                     The user requested this specifically for the extension area.
-                    We will show it always or check conditions, but it's safest to show it 
+                    We will show it always or check conditions, but it's safest to show it
                     so users know they can go there. */}
                 <button
                   onClick={() => onNavigate(displayTab)}
                   className="md:hidden px-2 py-1 text-xs font-medium rounded bg-user-bubble dark:bg-zinc-800 hover:bg-user-bubble/10 dark:hover:bg-zinc-700 text-gray-700 dark:text-gray-200 transition-colors"
                 >
-                  See all
+                  {t('sidebar.seeAll')}
                 </button>
               </div>
               <button
                 onClick={() => setIsPinned(!isPinned)}
                 className="hidden md:block p-1.5 hover:bg-primary-50 dark:hover:bg-zinc-700 hover:text-primary-600 dark:hover:text-primary-400 rounded transition-colors"
-                title={isPinned ? 'Unpin sidebar' : 'Pin sidebar'}
+                title={isPinned ? t('sidebar.unpin') : t('sidebar.pin')}
               >
                 <Pin
                   size={16}
@@ -613,7 +633,7 @@ const Sidebar = ({
                   conversations.length === 0 && (
                     <div className="flex flex-col items-center gap-2 text-xs text-gray-500 dark:text-gray-400 px-2 py-3">
                       <Coffee size={24} className="text-black dark:text-white" />
-                      <div>No conversations yet.</div>
+                      <div>{t('sidebar.noConversations')}</div>
                     </div>
                   )}
                 {!isBookmarksLoading &&
@@ -621,7 +641,7 @@ const Sidebar = ({
                   displayConversations.length === 0 && (
                     <div className="flex flex-col items-center gap-2 text-xs text-gray-500 dark:text-gray-400 px-2 py-3">
                       <Coffee size={24} className="text-black dark:text-white" />
-                      <div>No bookmarked conversations.</div>
+                      <div>{t('sidebar.noBookmarks')}</div>
                     </div>
                   )}
 
@@ -630,7 +650,7 @@ const Sidebar = ({
                   groupedConversations.map(section => (
                     <div key={section.title} className="flex flex-col gap-1">
                       <div className="text-[10px] justify-center flex uppercase tracking-wide text-gray-400 px-2 mt-1">
-                        {section.title}
+                        {translateDateTitle(section.title)}
                       </div>
                       {section.items.map(conv => {
                         const isActive = conv.id === activeConversationId
@@ -731,14 +751,14 @@ const Sidebar = ({
                                       ? 'bg-primary-50 text-primary-500 border-primary-50 dark:bg-primary-600/20 dark:text-primary-500 dark:border-primary-50/30'
                                       : 'text-gray-500 dark:text-gray-400 hover:bg-primary-50 dark:hover:bg-zinc-700 hover:text-primary-600 dark:hover:text-primary-400',
                                   )}
-                                  title={conv.is_favorited ? 'Remove Bookmark' : 'Add Bookmark'}
+                                  title={conv.is_favorited ? t('sidebar.removeBookmark') : t('sidebar.addBookmark')}
                                 >
                                   <Bookmark
                                     size={13}
                                     className={conv.is_favorited ? 'fill-current' : ''}
                                   />
                                   <span className="truncate">
-                                    {conv.is_favorited ? 'Added' : 'Add'}
+                                    {conv.is_favorited ? t('sidebar.added') : t('sidebar.add')}
                                   </span>
                                 </button>
                                 <button
@@ -749,7 +769,7 @@ const Sidebar = ({
                                   className="py-1.5 rounded-md transition-colors flex items-center justify-center gap-1.5 font-medium border border-transparent text-gray-500 dark:text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400 hover:border-red-100 dark:hover:border-red-800/30"
                                 >
                                   <Trash2 size={13} />
-                                  <span>Delete</span>
+                                  <span>{t('sidebar.delete')}</span>
                                 </button>
                               </div>
                             )}
@@ -771,12 +791,12 @@ const Sidebar = ({
                         disabled={loadingMore}
                         className="w-full py-2 text-xs font-medium text-gray-700 dark:text-gray-200 bg-user-bubble dark:bg-zinc-800 hover:transform hover:translate-y-[-2px] rounded transition-colors flex items-center justify-center gap-2"
                       >
-                        {loadingMore ? <DotLoader /> : 'Load more'}
+                        {loadingMore ? <DotLoader /> : t('sidebar.loadMore')}
                       </button>
                     ) : (
                       <div className="flex items-center gap-2 text-[10px] text-gray-400 py-2">
                         <span className="flex-1 h-px bg-gray-200 dark:bg-zinc-800" />
-                        <span className="whitespace-nowrap">No more threads</span>
+                        <span className="whitespace-nowrap">{t('sidebar.noMoreThreads')}</span>
                         <span className="flex-1 h-px bg-gray-200 dark:bg-zinc-800" />
                       </div>
                     )}
@@ -880,14 +900,14 @@ const Sidebar = ({
                                   ? 'bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-200 dark:border-yellow-800/30'
                                   : 'text-gray-500 dark:text-gray-400 hover:bg-primary-50 dark:hover:bg-zinc-700 hover:text-primary-600 dark:hover:text-primary-400',
                               )}
-                              title={conv.is_favorited ? 'Remove Bookmark' : 'Add Bookmark'}
+                              title={conv.is_favorited ? t('sidebar.removeBookmark') : t('sidebar.addBookmark')}
                             >
                               <Bookmark
                                 size={13}
                                 className={conv.is_favorited ? 'fill-current' : ''}
                               />
                               <span className="truncate">
-                                {conv.is_favorited ? 'Saved' : 'Save'}
+                                {conv.is_favorited ? t('sidebar.saved') : t('sidebar.save')}
                               </span>
                             </button>
                             <button
@@ -898,7 +918,7 @@ const Sidebar = ({
                               className="py-1.5 rounded-md transition-colors flex items-center justify-center gap-1.5 font-medium border border-transparent text-gray-500 dark:text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400 hover:border-red-100 dark:hover:border-red-800/30"
                             >
                               <Trash2 size={13} />
-                              <span>Delete</span>
+                              <span>{t('sidebar.delete')}</span>
                             </button>
                           </div>
                         )}
@@ -925,12 +945,12 @@ const Sidebar = ({
                         disabled={bookmarksLoadingMore}
                         className="w-full py-2 text-xs font-medium text-gray-700 dark:text-gray-200 bg-user-bubble dark:bg-zinc-800 hover:bg-user-bubble/10 dark:hover:bg-zinc-700 rounded transition-colors flex items-center justify-center gap-2"
                       >
-                        {bookmarksLoadingMore ? <DotLoader /> : 'Load more'}
+                        {bookmarksLoadingMore ? <DotLoader /> : t('sidebar.loadMore')}
                       </button>
                     ) : (
                       <div className="flex items-center gap-2 text-[10px] text-gray-400 py-2">
                         <span className="flex-1 h-px bg-gray-200 dark:bg-zinc-800" />
-                        <span className="whitespace-nowrap">No more threads</span>
+                        <span className="whitespace-nowrap">{t('sidebar.noMoreThreads')}</span>
                         <span className="flex-1 h-px bg-gray-200 dark:bg-zinc-800" />
                       </div>
                     )}
@@ -949,7 +969,7 @@ const Sidebar = ({
                   <div className="w-8 h-8 rounded  flex items-center justify-center text-gray-700 dark:text-gray-100">
                     <Plus size={16} />
                   </div>
-                  <span className="text-sm font-medium">Create New Space</span>
+                  <span className="text-sm font-medium">{t('sidebar.createNewSpace')}</span>
                 </button>
 
                 <div className="h-px bg-gray-200 dark:bg-zinc-800 mb-2" />
@@ -963,7 +983,7 @@ const Sidebar = ({
                 {!spacesLoading && spaces.length === 0 && (
                   <div className="flex flex-col items-center gap-2 text-xs text-gray-500 dark:text-gray-400 px-2 py-3">
                     <Coffee size={24} className="text-black dark:text-white" />
-                    <div>No spaces yet.</div>
+                    <div>{t('sidebar.noSpacesYet')}</div>
                   </div>
                 )}
                 {visibleSpaces.map(space => (
@@ -1031,7 +1051,7 @@ const Sidebar = ({
                               onClick={() => onOpenConversation && onOpenConversation(conv)}
                               title={conv.title}
                             >
-                              <div className="flex-1 truncate">{conv.title || 'Untitled'}</div>
+                              <div className="flex-1 truncate">{conv.title || t('sidebar.untitled')}</div>
                             </div>
                           </div>
                         ))}
@@ -1051,7 +1071,7 @@ const Sidebar = ({
                                   {spaceConversations[space.id]?.loading ? (
                                     <DotLoader />
                                   ) : (
-                                    'Load more'
+                                    t('sidebar.loadMore')
                                   )}
                                 </button>
                                 // : (
@@ -1069,7 +1089,7 @@ const Sidebar = ({
                           spaceConversations[space.id]?.items?.length === 0 && (
                             <div className="flex flex-col items-center gap-1 text-[10px] text-gray-400 py-1 px-2">
                               <SquareStack size={18} className="text-black dark:text-white" />
-                              <div>No history</div>
+                              <div>{t('sidebar.noHistory')}</div>
                             </div>
                           )}
                       </div>
@@ -1093,12 +1113,12 @@ const Sidebar = ({
                         disabled={spacesLoadingMore}
                         className="w-full py-2 text-xs font-medium text-gray-700 dark:text-gray-200 bg-user-bubble dark:bg-zinc-800 hover:bg-user-bubble/10 dark:hover:bg-zinc-700 rounded transition-colors flex items-center justify-center gap-2"
                       >
-                        {spacesLoadingMore ? <DotLoader /> : 'Load more'}
+                        {spacesLoadingMore ? <DotLoader /> : t('sidebar.loadMore')}
                       </button>
                     ) : (
                       <div className="flex items-center gap-2 text-[10px] text-gray-400 py-2">
                         <span className="flex-1 h-px bg-gray-200 dark:bg-zinc-800" />
-                        <span className="whitespace-nowrap">No more spaces</span>
+                        <span className="whitespace-nowrap">{t('sidebar.noMoreSpaces')}</span>
                         <span className="flex-1 h-px bg-gray-200 dark:bg-zinc-800" />
                       </div>
                     )}

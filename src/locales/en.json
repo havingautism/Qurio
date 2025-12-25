@@ -363,6 +363,32 @@
       "createSpaceDescription": "Set sources and invite others",
       "examples": "Examples",
       "justNow": "Just now"
+    },
+    "widgets": {
+      "noteTitle": "Memo",
+      "notePlaceholder": "Type your notes here...",
+      "shortcutsTitle": "Common Sites",
+      "tipsTitle": "Daily Tips",
+      "tipsContent": "Make your laptop's battery last longer by enabling the Energy Saver.",
+      "dateTitle": "Date",
+      "week": "Week {{number}}",
+      "sunday": "Sunday",
+      "monday": "Monday",
+      "tuesday": "Tuesday",
+      "wednesday": "Wednesday",
+      "thursday": "Thursday",
+      "friday": "Friday",
+      "saturday": "Saturday",
+      "today": "Today",
+      "tomorrow": "Tom",
+      "weatherTitle": "Weather",
+      "location": "Shanghai",
+      "shanghai": "Shanghai",
+      "feelsLike": "Feels like",
+      "precip": "Precip",
+      "wind": "Wind",
+      "source": "Source",
+      "updated": "Updated"
     }
   }
 }

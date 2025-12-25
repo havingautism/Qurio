@@ -1285,7 +1285,7 @@ const InputBar = React.memo(
                 }`}
               >
                 <Brain size={18} />
-                <span className="hidden md:inline">Think</span>
+                <span className="hidden md:inline">{t('homeView.think')}</span>
               </button>
               <button
                 disabled={apiProvider === 'openai_compatibility' || apiProvider === 'siliconflow'}
@@ -1297,7 +1297,7 @@ const InputBar = React.memo(
                 }`}
               >
                 <Globe size={18} />
-                <span className="hidden md:inline">Search</span>
+                <span className="hidden md:inline">{t('homeView.search')}</span>
               </button>
             </div>
 

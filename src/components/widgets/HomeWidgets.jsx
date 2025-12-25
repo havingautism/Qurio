@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Cloud,
   Sun,
@@ -33,14 +34,15 @@ const WidgetCard = ({ children, className = '', title, action }) => (
 )
 
 const NoteWidget = () => {
+  const { t } = useTranslation()
   const [note, setNote] = useState('')
 
   return (
-    <WidgetCard title="Memo" action={<MoreHorizontal size={16} />} className="h-full min-h-[160px]">
+    <WidgetCard title={t('views.widgets.noteTitle')} action={<MoreHorizontal size={16} />} className="h-full min-h-[160px]">
       <textarea
         value={note}
         onChange={e => setNote(e.target.value)}
-        placeholder="Type your notes here..."
+        placeholder={t('views.widgets.notePlaceholder')}
         className="w-full h-full bg-transparent resize-none outline-none text-gray-700 dark:text-gray-200 placeholder-gray-400 text-sm font-medium"
       />
     </WidgetCard>
@@ -57,9 +59,11 @@ const ShortcutItem = ({ icon: Icon, color }) => (
 )
 
 const ShortcutsWidget = () => {
+  const { t } = useTranslation()
+
   return (
     <WidgetCard
-      title="Common Sites"
+      title={t('views.widgets.shortcutsTitle')}
       action={<MoreHorizontal size={16} />}
       className="h-full min-h-[160px]"
     >
@@ -77,21 +81,26 @@ const ShortcutsWidget = () => {
   )
 }
 
-const TipsWidget = () => (
-  <WidgetCard
-    title="Daily Tips"
-    action={<MoreHorizontal size={16} />}
-    className="h-full min-h-[160px]"
-  >
-    <div className="flex flex-col justify-center h-full gap-2">
-      <p className="text-lg font-medium text-gray-800 dark:text-gray-200">
-        {"Make your laptop's battery last longer by enabling the Energy Saver."}
-      </p>
-    </div>
-  </WidgetCard>
-)
+const TipsWidget = () => {
+  const { t } = useTranslation()
+
+  return (
+    <WidgetCard
+      title={t('views.widgets.tipsTitle')}
+      action={<MoreHorizontal size={16} />}
+      className="h-full min-h-[160px]"
+    >
+      <div className="flex flex-col justify-center h-full gap-2">
+        <p className="text-lg font-medium text-gray-800 dark:text-gray-200">
+          {t('views.widgets.tipsContent')}
+        </p>
+      </div>
+    </WidgetCard>
+  )
+}
 
 const DateWidget = () => {
+  const { t, i18n } = useTranslation()
   const [date, setDate] = useState(new Date())
 
   useEffect(() => {
@@ -99,7 +108,16 @@ const DateWidget = () => {
     return () => clearInterval(timer)
   }, [])
 
-  const weekDays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+  // Dynamic weekday names - recalculate on every render to ensure language changes take effect
+  const weekDays = [
+    t('views.widgets.sunday'),
+    t('views.widgets.monday'),
+    t('views.widgets.tuesday'),
+    t('views.widgets.wednesday'),
+    t('views.widgets.thursday'),
+    t('views.widgets.friday'),
+    t('views.widgets.saturday'),
+  ]
   const weekDay = weekDays[date.getDay()]
   const dateStr = `${date.getFullYear()} ${date.getMonth() + 1}/${date.getDate()}`
   const timeStr = date.toLocaleTimeString('en-US', {
@@ -118,7 +136,7 @@ const DateWidget = () => {
 
   return (
     <WidgetCard
-      title="Date"
+      title={t('views.widgets.dateTitle')}
       action={<MoreHorizontal size={16} />}
       className="h-full min-h-[160px] relative overflow-hidden group"
     >
@@ -128,11 +146,11 @@ const DateWidget = () => {
       <div className="flex flex-col h-full justify-between relative z-10">
         <div>
           <h2 className="text-3xl font-light text-gray-800 dark:text-white mb-1">{weekDay}</h2>
-          <p className="text-lg text-gray-500 dark:text-gray-400 font-mono tracking-wide">
+          <p className="text-lg text-gray-500 dark:text-gray-400 font-mono">
             {dateStr}
           </p>
           <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-            Week {getWeekNumber(date)}
+            {t('views.widgets.week', { number: getWeekNumber(date) })}
           </p>
         </div>
         <div className="text-4xl font-medium text-gray-800 dark:text-white mt-auto">{timeStr}</div>
@@ -142,23 +160,43 @@ const DateWidget = () => {
 }
 
 const WeatherWidget = () => {
+  const { t, i18n } = useTranslation()
+
   // Mock data
   const currentTemp = 7
-  // const weatherStatus = 'Cloudy'
-  const location = 'Shanghai'
-  const dateStr = 'Dec 6 Saturday'
+  const location = t('views.widgets.shanghai')
 
-  const forecast = [
-    { day: 'Today', icon: Sun, high: 17, low: 6 },
-    { day: 'Tom', icon: Sun, high: 20, low: 8 },
-    { day: 'Mon', icon: Sun, high: 15, low: 9 },
-    { day: 'Tue', icon: Cloud, high: 14, low: 8 },
-    { day: 'Wed', icon: Cloud, high: 20, low: 10 },
-  ]
+  // Generate dynamic date string based on language
+  const now = new Date()
+  const monthNames = {
+    'en-US': ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+    'zh-CN': ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'],
+  }
+  const weekDays = {
+    'en-US': ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+    'zh-CN': ['周日', '周一', '周二', '周三', '周四', '周五', '周六'],
+  }
+  const locale = i18n.language === 'zh-CN' ? 'zh-CN' : 'en-US'
+  const dateStr = `${monthNames[locale][now.getMonth()]} ${now.getDate()} ${weekDays[locale][now.getDay()]}`
+
+  // Use short weekday names directly without slicing
+  const shortWeekDays = {
+    'en-US': ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
+    'zh-CN': ['周一', '周二', '周三', '周四', '周五'],
+  }
+
+  // Use useMemo to recalculate forecast when language changes
+  const forecast = useMemo(() => [
+    { day: t('views.widgets.today'), icon: Sun, high: 17, low: 6 },
+    { day: t('views.widgets.tomorrow'), icon: Sun, high: 20, low: 8 },
+    { day: shortWeekDays[locale][0], icon: Sun, high: 15, low: 9 },
+    { day: shortWeekDays[locale][1], icon: Cloud, high: 14, low: 8 },
+    { day: shortWeekDays[locale][2], icon: Cloud, high: 20, low: 10 },
+  ], [t, i18n.language])
 
   return (
     <WidgetCard
-      title="Weather"
+      title={t('views.widgets.weatherTitle')}
       action={<MoreHorizontal size={16} />}
       className="h-full min-h-[340px]"
     >
@@ -177,13 +215,13 @@ const WeatherWidget = () => {
 
           <div className="grid grid-cols-2 gap-y-1 gap-x-4 mt-4 text-xs text-gray-500 dark:text-gray-400">
             <div className="flex items-center gap-1">
-              <Thermometer size={12} /> Feels like 8°C
+              <Thermometer size={12} /> {t('views.widgets.feelsLike')} 8°C
             </div>
             <div className="flex items-center gap-1">
-              <Droplets size={12} /> Precip 0.0mm
+              <Droplets size={12} /> {t('views.widgets.precip')} 0.0mm
             </div>
             <div className="flex items-center gap-1">
-              <Wind size={12} /> Wind 1.2 m/s
+              <Wind size={12} /> {t('views.widgets.wind')} 1.2 m/s
             </div>
           </div>
         </div>
@@ -204,8 +242,8 @@ const WeatherWidget = () => {
         </div>
 
         <div className="mt-4 text-[10px] text-gray-400 dark:text-gray-600 flex justify-between">
-          <span>Source: MET.no</span>
-          <span>Updated: 01:16</span>
+          <span>{t('views.widgets.source')}: MET.no</span>
+          <span>{t('views.widgets.updated')}: 01:16</span>
         </div>
       </div>
     </WidgetCard>

@@ -12,7 +12,7 @@ import {
   Paperclip,
   X,
 } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAppContext } from '../App'
 import ChatInterface from '../components/ChatInterface'
@@ -21,10 +21,11 @@ import Logo from '../components/Logo'
 import HomeWidgets from '../components/widgets/HomeWidgets'
 import useChatStore from '../lib/chatStore'
 import { loadSettings } from '../lib/settings'
+import { listSpaceAgents } from '../lib/spacesService'
 
 const HomeView = () => {
   const { t } = useTranslation()
-  const { toggleSidebar, isSidebarPinned, spaces } = useAppContext()
+  const { toggleSidebar, isSidebarPinned, spaces, agents = [] } = useAppContext()
   const [activeView, setActiveView] = useState('home')
 
   // Initial state for ChatInterface
@@ -50,6 +51,9 @@ const HomeView = () => {
   const [homeSelectedSpace, setHomeSelectedSpace] = useState(null)
   const homeSpaceSelectorRef = useRef(null)
   const [isHomeSpaceSelectorOpen, setIsHomeSpaceSelectorOpen] = useState(false)
+  const [homeAgentIds, setHomeAgentIds] = useState([])
+  const [homeAgentsLoading, setHomeAgentsLoading] = useState(false)
+  const [homeSelectedAgentId, setHomeSelectedAgentId] = useState(null)
   const homeContainerRef = useRef(null)
 
   // Reset conversation state when entering Home/New Chat view
@@ -117,10 +121,31 @@ const HomeView = () => {
   }, [])
 
   useEffect(() => {
+    const loadAgents = async () => {
+      if (!homeSelectedSpace?.id) {
+        setHomeAgentIds([])
+        setHomeSelectedAgentId(null)
+        return
+      }
+      setHomeAgentsLoading(true)
+      const { data, error } = await listSpaceAgents(homeSelectedSpace.id)
+      if (!error && data) {
+        setHomeAgentIds(data.map(item => item.agent_id))
+      } else {
+        setHomeAgentIds([])
+      }
+      setHomeSelectedAgentId(null)
+      setHomeAgentsLoading(false)
+    }
+    loadAgents()
+  }, [homeSelectedSpace?.id])
+
+  useEffect(() => {
     const handleClickOutside = event => {
       if (homeSpaceSelectorRef.current && !homeSpaceSelectorRef.current.contains(event.target)) {
         setIsHomeSpaceSelectorOpen(false)
       }
+      // no-op for agent selector; nested in space dropdown
     }
 
     if (isHomeSpaceSelectorOpen) {
@@ -196,6 +221,16 @@ const HomeView = () => {
   }
 
   const isHomeSpaceAuto = !homeSelectedSpace
+  const homeAgents = useMemo(() => {
+    if (!homeSelectedSpace?.id) return []
+    const idSet = new Set(homeAgentIds.map(id => String(id)))
+    return agents.filter(agent => idSet.has(String(agent.id)))
+  }, [agents, homeAgentIds, homeSelectedSpace?.id])
+
+  const selectedHomeAgent = useMemo(
+    () => homeAgents.find(agent => String(agent.id) === String(homeSelectedAgentId)) || null,
+    [homeAgents, homeSelectedAgentId],
+  )
 
   return (
     <div className="flex-1 h-full overflow-hidden bg-background text-foreground transition-colors duration-300 relative flex flex-col">
@@ -368,30 +403,70 @@ const HomeView = () => {
                             {spaces.length > 0 && (
                               <div className="h-px bg-gray-100 dark:bg-zinc-800 my-1" />
                             )}
-                            {spaces.map((space, idx) => {
-                              const isSelected = homeSelectedSpace?.label === space.label
-                              return (
-                                <button
-                                  key={idx}
-                                  onClick={() => handleSelectHomeSpace(space)}
-                                  className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left"
-                                >
-                                  <div className="flex items-center gap-3">
-                                    <span className="text-lg flex items-center justify-center">
-                                      <EmojiDisplay emoji={space.emoji} size="1.25rem" />
-                                    </span>
-                                    <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
-                                      {space.label}
-                                    </span>
+                              {spaces.map((space, idx) => {
+                                const isSelected = homeSelectedSpace?.label === space.label
+                                return (
+                                  <button
+                                    key={idx}
+                                    onClick={() => handleSelectHomeSpace(space)}
+                                    className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left"
+                                  >
+                                    <div className="flex items-center gap-3">
+                                      <span className="text-lg flex items-center justify-center">
+                                        <EmojiDisplay emoji={space.emoji} size="1.25rem" />
+                                      </span>
+                                      <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                                        {space.label}
+                                      </span>
+                                    </div>
+                                    {isSelected && <Check size={14} className="text-primary-500" />}
+                                  </button>
+                                )
+                              })}
+                              <div className="h-px bg-gray-100 dark:bg-zinc-800 my-1" />
+                              <div className="px-3 py-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                                {t('homeView.agentsLabel')}
+                              </div>
+                              {homeSelectedSpace ? (
+                                homeAgentsLoading ? (
+                                  <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
+                                    {t('homeView.agentsLoading')}
                                   </div>
-                                  {isSelected && <Check size={14} className="text-primary-500" />}
-                                </button>
-                              )
-                            })}
+                                ) : homeAgents.length === 0 ? (
+                                  <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
+                                    {t('homeView.agentsNone')}
+                                  </div>
+                                ) : (
+                                  homeAgents.map(agent => {
+                                    const isSelected = selectedHomeAgent?.id === agent.id
+                                    return (
+                                      <button
+                                        key={agent.id}
+                                        onClick={() => setHomeSelectedAgentId(agent.id)}
+                                        className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left"
+                                      >
+                                        <div className="flex items-center gap-3">
+                                          <span className="text-lg flex items-center justify-center">
+                                            <EmojiDisplay emoji={agent.emoji} size="1.25rem" />
+                                          </span>
+                                          <span className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate">
+                                            {agent.name}
+                                          </span>
+                                        </div>
+                                        {isSelected && <Check size={14} className="text-primary-500" />}
+                                      </button>
+                                    )
+                                  })
+                                )
+                              ) : (
+                                <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
+                                  {t('homeView.agentsNone')}
+                                </div>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      )}
-                    </div>
+                        )}
+                      </div>
                   </div>
 
                   <div className="flex gap-2">

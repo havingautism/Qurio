@@ -11,6 +11,7 @@ import {
   ArrowDown,
   ArrowRight,
   Brain,
+  Bot,
   Check,
   ChevronDown,
   Globe,
@@ -29,6 +30,7 @@ import QuestionTimelineSidebar from './QuestionTimelineSidebar'
 
 import { useSidebarOffset } from '../hooks/useSidebarOffset'
 import { listMessages } from '../lib/conversationsService'
+import { listSpaceAgents } from '../lib/spacesService'
 import { loadSettings } from '../lib/settings'
 import EmojiDisplay from './EmojiDisplay'
 
@@ -103,9 +105,15 @@ const ChatInterface = ({
   )
   const [isSelectorOpen, setIsSelectorOpen] = useState(false)
   const selectorRef = useRef(null)
+  const agentSelectorRef = useRef(null)
   const [isManualSpaceSelection, setIsManualSpaceSelection] = useState(
     initialSpaceSelection.mode === 'manual' && !!initialSpaceSelection.space,
   )
+  const { toggleSidebar, agents = [] } = useAppContext()
+  const [spaceAgentIds, setSpaceAgentIds] = useState([])
+  const [isAgentsLoading, setIsAgentsLoading] = useState(false)
+  const [selectedAgentId, setSelectedAgentId] = useState(null)
+  const [isAgentSelectorOpen, setIsAgentSelectorOpen] = useState(false)
 
   const [settings, setSettings] = useState(loadSettings())
   const isRelatedEnabled = Boolean(settings.enableRelatedQuestions)
@@ -129,6 +137,17 @@ const ChatInterface = ({
   const displaySpace = isManualSpaceSelection
     ? selectedSpace
     : selectedSpace || conversationSpace || null
+
+  const spaceAgents = React.useMemo(() => {
+    if (!displaySpace?.id) return []
+    const idSet = new Set(spaceAgentIds.map(id => String(id)))
+    return agents.filter(agent => idSet.has(String(agent.id)))
+  }, [agents, displaySpace?.id, spaceAgentIds])
+
+  const selectedAgent = React.useMemo(
+    () => spaceAgents.find(agent => String(agent.id) === String(selectedAgentId)) || null,
+    [spaceAgents, selectedAgentId],
+  )
 
   // Effect to handle initial message from homepage
   const hasInitialized = useRef(false)
@@ -344,16 +363,39 @@ const ChatInterface = ({
       if (selectorRef.current && !selectorRef.current.contains(event.target)) {
         setIsSelectorOpen(false)
       }
+      if (agentSelectorRef.current && !agentSelectorRef.current.contains(event.target)) {
+        setIsAgentSelectorOpen(false)
+      }
     }
 
-    if (isSelectorOpen) {
+    if (isSelectorOpen || isAgentSelectorOpen) {
       document.addEventListener('click', handleClickOutside)
     }
 
     return () => {
       document.removeEventListener('click', handleClickOutside)
     }
-  }, [isSelectorOpen])
+  }, [isAgentSelectorOpen, isSelectorOpen])
+
+  useEffect(() => {
+    const loadAgents = async () => {
+      if (!displaySpace?.id) {
+        setSpaceAgentIds([])
+        setSelectedAgentId(null)
+        return
+      }
+      setIsAgentsLoading(true)
+      const { data, error } = await listSpaceAgents(displaySpace.id)
+      if (!error && data) {
+        setSpaceAgentIds(data.map(item => item.agent_id))
+      } else {
+        setSpaceAgentIds([])
+      }
+      setSelectedAgentId(null)
+      setIsAgentsLoading(false)
+    }
+    loadAgents()
+  }, [displaySpace?.id])
 
   const handleSelectSpace = space => {
     setSelectedSpace(space)
@@ -870,7 +912,6 @@ const ChatInterface = ({
     setConversationTitle,
   ])
 
-  const { toggleSidebar } = useAppContext()
 
   // Create a ref for the messages scroll container
   const messagesContainerRef = useRef(null)
@@ -1059,14 +1100,24 @@ const ChatInterface = ({
               </button>
             )}
 
-            <InputBar
-              isLoading={isLoading}
-              apiProvider={settings.apiProvider}
-              isSearchActive={isSearchActive}
-              isThinkingActive={isThinkingActive}
-              onToggleSearch={() => setIsSearchActive(prev => !prev)}
-              onToggleThinking={() => setIsThinkingActive(prev => !prev)}
-              quotedText={quotedText}
+              <InputBar
+                isLoading={isLoading}
+                apiProvider={settings.apiProvider}
+                isSearchActive={isSearchActive}
+                isThinkingActive={isThinkingActive}
+                agents={spaceAgents}
+                agentsLoading={isAgentsLoading}
+                selectedAgent={selectedAgent}
+                onAgentSelect={agent => {
+                  setSelectedAgentId(agent?.id || null)
+                  setIsAgentSelectorOpen(false)
+                }}
+                isAgentSelectorOpen={isAgentSelectorOpen}
+                onAgentSelectorToggle={() => setIsAgentSelectorOpen(prev => !prev)}
+                agentSelectorRef={agentSelectorRef}
+                onToggleSearch={() => setIsSearchActive(prev => !prev)}
+                onToggleThinking={() => setIsThinkingActive(prev => !prev)}
+                quotedText={quotedText}
               onQuoteClear={() => {
                 setQuotedText(null)
                 setQuoteContext(null)
@@ -1101,13 +1152,20 @@ export default ChatInterface
 
 const InputBar = React.memo(
   ({
-    isLoading,
-    apiProvider,
-    isSearchActive,
-    isThinkingActive,
-    onToggleSearch,
-    onToggleThinking,
-    quotedText,
+      isLoading,
+      apiProvider,
+      isSearchActive,
+      isThinkingActive,
+      agents,
+      agentsLoading,
+      selectedAgent,
+      onAgentSelect,
+      isAgentSelectorOpen,
+      onAgentSelectorToggle,
+      agentSelectorRef,
+      onToggleSearch,
+      onToggleThinking,
+      quotedText,
     onQuoteClear,
     onSend,
     editingSeed,
@@ -1287,19 +1345,72 @@ const InputBar = React.memo(
                 <Brain size={18} />
                 <span className="hidden md:inline">{t('homeView.think')}</span>
               </button>
-              <button
-                disabled={apiProvider === 'openai_compatibility' || apiProvider === 'siliconflow'}
-                onClick={onToggleSearch}
-                className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
-                  isSearchActive
-                    ? 'text-primary-500 bg-gray-200 dark:bg-zinc-700'
-                    : 'text-gray-500 dark:text-gray-400'
-                }`}
-              >
-                <Globe size={18} />
-                <span className="hidden md:inline">{t('homeView.search')}</span>
-              </button>
-            </div>
+                <button
+                  disabled={apiProvider === 'openai_compatibility' || apiProvider === 'siliconflow'}
+                  onClick={onToggleSearch}
+                  className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
+                    isSearchActive
+                      ? 'text-primary-500 bg-gray-200 dark:bg-zinc-700'
+                      : 'text-gray-500 dark:text-gray-400'
+                  }`}
+                >
+                  <Globe size={18} />
+                  <span className="hidden md:inline">{t('homeView.search')}</span>
+                </button>
+                <div className="relative" ref={agentSelectorRef}>
+                  <button
+                    type="button"
+                    onClick={onAgentSelectorToggle}
+                    className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
+                      selectedAgent
+                        ? 'text-primary-500 bg-gray-200 dark:bg-zinc-700'
+                        : 'text-gray-500 dark:text-gray-400'
+                    }`}
+                    disabled={agentsLoading || agents.length === 0}
+                  >
+                    <Bot size={18} />
+                    <span className="hidden md:inline truncate max-w-[120px]">
+                      {agentsLoading
+                        ? t('chatInterface.agentsLoading')
+                        : selectedAgent?.name || t('chatInterface.agentsLabel')}
+                    </span>
+                    <ChevronDown size={14} />
+                  </button>
+                  {isAgentSelectorOpen && (
+                    <div className="absolute top-full left-0 mt-2 w-56 bg-white dark:bg-[#202222] border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl z-30 overflow-hidden">
+                      <div className="p-2 flex flex-col gap-1">
+                        {agents.length === 0 ? (
+                          <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
+                            {t('chatInterface.agentsNone')}
+                          </div>
+                        ) : (
+                          agents.map(agent => {
+                            const isSelected = selectedAgent?.id === agent.id
+                            return (
+                              <button
+                                key={agent.id}
+                                type="button"
+                                onClick={() => onAgentSelect(agent)}
+                                className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left"
+                              >
+                                <div className="flex items-center gap-3">
+                                  <span className="text-lg">
+                                    <EmojiDisplay emoji={agent.emoji} size="1.125rem" />
+                                  </span>
+                                  <span className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate">
+                                    {agent.name}
+                                  </span>
+                                </div>
+                                {isSelected && <Check size={14} className="text-primary-500" />}
+                              </button>
+                            )
+                          })
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
 
             <div className="flex gap-2">
               <button

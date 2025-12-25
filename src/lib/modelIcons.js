@@ -9,14 +9,14 @@ import KimiIcon from '../assets/kimi-icon.svg?url'
 import ChatGLMIcon from '../assets/chatglm-color.svg?url'
 import ZhipuIcon from '../assets/zhipu-color.svg?url'
 
-const DEFAULT_ICON_BG_CLASS = 'bg-white dark:bg-black'
+const DEFAULT_ICON_BG_CLASS = 'bg-[#f6f6f6b8] dark:bg-[#0d0d0d]'
 
 export const PROVIDER_ICON_META = {
-  gemini: { src: GeminiIcon, alt: 'Gemini', bgClassName: 'bg-white' },
-  openai_compatibility: { src: OpenAIIcon, alt: 'OpenAI', bgClassName: 'bg-white' },
-  siliconflow: { src: SiliconCloudIcon, alt: 'SiliconFlow', bgClassName: 'bg-white' },
-  glm: { src: ZhipuIcon, alt: 'GLM', bgClassName: 'bg-black' },
-  kimi: { src: KimiIcon, alt: 'Kimi', bgClassName: 'bg-black' },
+  gemini: { src: GeminiIcon, alt: 'Gemini', bgClassName: DEFAULT_ICON_BG_CLASS },
+  openai_compatibility: { src: OpenAIIcon, alt: 'OpenAI', bgClassName: 'bg-[#f6f6f6b8]' },
+  siliconflow: { src: SiliconCloudIcon, alt: 'SiliconFlow', bgClassName: DEFAULT_ICON_BG_CLASS },
+  glm: { src: ZhipuIcon, alt: 'GLM', bgClassName: DEFAULT_ICON_BG_CLASS },
+  kimi: { src: KimiIcon, alt: 'Kimi', bgClassName: 'bg-[#0d0d0d]' },
 }
 
 export const PROVIDER_ICONS = Object.fromEntries(
@@ -29,7 +29,7 @@ export const renderProviderIcon = (provider, options = {}) => {
 
   const { size = 16, alt, wrapperClassName = '', imgClassName = '' } = options
   const wrapperClasses = [
-    'flex items-center justify-center rounded-full p-0.5 shrink-0',
+    'flex items-center justify-center rounded-full p-2 shrink-0 shadow-inner',
     iconMeta.bgClassName,
     wrapperClassName,
   ]

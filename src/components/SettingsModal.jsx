@@ -68,6 +68,34 @@ CREATE TRIGGER trg_spaces_updated_at
 BEFORE UPDATE ON public.spaces
 FOR EACH ROW EXECUTE PROCEDURE public.set_updated_at();
 
+
+CREATE TABLE IF NOT EXISTS public.agents (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  emoji TEXT NOT NULL DEFAULT '',
+  name TEXT NOT NULL,
+  description TEXT,
+  prompt TEXT,
+  provider TEXT,
+  lite_model TEXT,
+  default_model TEXT,
+  response_language TEXT,
+  base_tone TEXT,
+  traits TEXT,
+  warmth TEXT,
+  enthusiasm TEXT,
+  headings TEXT,
+  emojis TEXT,
+  custom_instruction TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_agents_created_at ON public.agents(created_at DESC);
+
+CREATE TRIGGER trg_agents_updated_at
+BEFORE UPDATE ON public.agents
+FOR EACH ROW EXECUTE PROCEDURE public.set_updated_at();
+
 CREATE TABLE IF NOT EXISTS public.conversations (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   space_id UUID REFERENCES public.spaces(id) ON DELETE SET NULL,
@@ -126,7 +154,21 @@ CREATE TABLE IF NOT EXISTS public.attachments (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_attachments_message_id ON public.attachments(message_id);`
+CREATE INDEX IF NOT EXISTS idx_attachments_message_id ON public.attachments(message_id);
+
+CREATE TABLE IF NOT EXISTS public.space_agents (
+  space_id UUID NOT NULL REFERENCES public.spaces(id) ON DELETE CASCADE,
+  agent_id UUID NOT NULL REFERENCES public.agents(id) ON DELETE CASCADE,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  is_primary BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (space_id, agent_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_space_agents_agent_id ON public.space_agents(agent_id);
+CREATE INDEX IF NOT EXISTS idx_space_agents_space_order
+  ON public.space_agents(space_id, sort_order);
+`
 
 // Fallback model options for when API is unavailable or for providers without model listing
 const FALLBACK_MODEL_OPTIONS = {
@@ -637,7 +679,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
     }
   }, [googleApiKey, SiliconFlowKey, GlmKey, KimiKey, apiProvider])
 
-  const requiredTables = ['spaces', 'conversations', 'conversation_messages']
+  const requiredTables = ['spaces', 'agents', 'space_agents', 'conversations', 'conversation_messages']
 
   const getMissingTables = result => {
     if (!result?.tables) return requiredTables

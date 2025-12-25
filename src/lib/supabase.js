@@ -56,7 +56,7 @@ export const testConnection = async (supabaseUrl, supabaseKey) => {
       }
     }
 
-    const tables = ['spaces', 'conversations', 'conversation_messages']
+    const tables = ['spaces', 'agents', 'space_agents', 'conversations', 'conversation_messages']
     const results = {}
     for (const table of tables) {
       const { error } = await supabase.from(table).select('id').limit(1)

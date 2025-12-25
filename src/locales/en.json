@@ -241,7 +241,8 @@
       "models": "Models",
       "noModels": "No models available for this provider.",
       "none": "None",
-      "notSelected": "Not selected"
+      "notSelected": "Not selected",
+      "notFound": "Model not found"
     },
     "actions": {
       "delete": "Delete Agent",
@@ -267,6 +268,14 @@
     "descriptionOptional": "Description (Optional)",
     "spacePrompt": "Space Prompt",
     "spacePromptOptional": "Space Prompt (Optional)",
+    "agents": "Agents",
+    "agentsAvailable": "Available",
+    "agentsSelected": "Selected",
+    "agentsAdd": "Add",
+    "agentsRemove": "Remove",
+    "agentsEmpty": "No agents available.",
+    "agentsSelectedEmpty": "No agents selected.",
+    "agentsLoading": "Loading agents...",
     "descriptionPlaceholder": "What is this space for?",
     "promptPlaceholder": "Provide guidance the assistant should follow inside this space.",
     "namePlaceholder": "e.g., Daily Life, Research...",
@@ -312,7 +321,10 @@
     "spacesAuto": "Spaces: Auto",
     "spacesLabel": "Spaces: {{label}}",
     "auto": "Auto",
-    "title": "Where insight clicks."
+    "title": "Where insight clicks.",
+    "agentsLabel": "Agents",
+    "agentsNone": "No agents",
+    "agentsLoading": "Loading agents..."
   },
   "chat": {
     "thinking": "Thinking",
@@ -355,7 +367,10 @@
   "chatInterface": {
     "regenerateTitle": "Regenerate title from last 3 messages",
     "openTimeline": "Open question timeline",
-    "askFollowUp": "Ask follow-up..."
+    "askFollowUp": "Ask follow-up...",
+    "agentsLabel": "Agents",
+    "agentsNone": "No agents",
+    "agentsLoading": "Loading agents..."
   },
   "views": {
     "newThread": "New Thread",

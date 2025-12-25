@@ -5,12 +5,13 @@ import useScrollLock from '../hooks/useScrollLock'
 import EmojiDisplay from './EmojiDisplay'
 import CustomEmojiPicker from './CustomEmojiPicker'
 import { useAppContext } from '../App'
+import { listSpaceAgents } from '../lib/spacesService'
 import clsx from 'clsx'
 
 const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) => {
   const { t } = useTranslation()
   useScrollLock(isOpen)
-  const { showConfirmation } = useAppContext()
+  const { showConfirmation, agents = [], agentsLoading = false } = useAppContext()
   const [activeTab, setActiveTab] = useState('general')
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
@@ -22,6 +23,10 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState('')
+  const [selectedAgentIds, setSelectedAgentIds] = useState([])
+  const [availableSelectedIds, setAvailableSelectedIds] = useState([])
+  const [assignedSelectedIds, setAssignedSelectedIds] = useState([])
+  const [isAgentsLoading, setIsAgentsLoading] = useState(false)
   const pickerRef = useRef(null)
   const buttonRef = useRef(null)
 
@@ -34,6 +39,19 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
   const menuItems = useMemo(
     () => TAB_ITEMS.map(item => ({ ...item, label: t(`spaceModal.${item.id}`) })),
     [t],
+  )
+
+  const availableAgents = useMemo(
+    () => agents.filter(agent => !selectedAgentIds.includes(agent.id)),
+    [agents, selectedAgentIds],
+  )
+
+  const selectedAgents = useMemo(
+    () =>
+      selectedAgentIds
+        .map(id => agents.find(agent => String(agent.id) === String(id)))
+        .filter(Boolean),
+    [agents, selectedAgentIds],
   )
 
   // Close picker when clicking outside
@@ -76,8 +94,29 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
       setShowEmojiPicker(false)
       setError('')
       setIsSaving(false)
+      setAvailableSelectedIds([])
+      setAssignedSelectedIds([])
     }
   }, [isOpen, editingSpace])
+
+  useEffect(() => {
+    if (!isOpen) return
+    const loadAgents = async () => {
+      if (!editingSpace?.id) {
+        setSelectedAgentIds([])
+        return
+      }
+      setIsAgentsLoading(true)
+      const { data, error } = await listSpaceAgents(editingSpace.id)
+      if (!error && data) {
+        setSelectedAgentIds(data.map(item => item.agent_id))
+      } else {
+        setSelectedAgentIds([])
+      }
+      setIsAgentsLoading(false)
+    }
+    loadAgents()
+  }, [editingSpace?.id, isOpen])
 
   const handleSave = async () => {
     if (!name.trim()) {
@@ -95,11 +134,39 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
         prompt: prompt.trim(),
         temperature,
         top_k: topK,
+        agentIds: selectedAgentIds,
       })
     } catch (err) {
       setError(err.message || t('spaceModal.saveFailed'))
       setIsSaving(false)
     }
+  }
+
+  const toggleAvailableAgent = agentId => {
+    setAvailableSelectedIds(prev =>
+      prev.includes(agentId) ? prev.filter(id => id !== agentId) : [...prev, agentId],
+    )
+  }
+
+  const toggleAssignedAgent = agentId => {
+    setAssignedSelectedIds(prev =>
+      prev.includes(agentId) ? prev.filter(id => id !== agentId) : [...prev, agentId],
+    )
+  }
+
+  const handleAddAgents = () => {
+    if (!availableSelectedIds.length) return
+    setSelectedAgentIds(prev => [
+      ...prev,
+      ...availableSelectedIds.filter(id => !prev.includes(id)),
+    ])
+    setAvailableSelectedIds([])
+  }
+
+  const handleRemoveAgents = () => {
+    if (!assignedSelectedIds.length) return
+    setSelectedAgentIds(prev => prev.filter(id => !assignedSelectedIds.includes(id)))
+    setAssignedSelectedIds([])
   }
 
   const handleDelete = async () => {
@@ -233,6 +300,100 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
                     placeholder={t('spaceModal.promptPlaceholder')}
                     className="w-full flex-1 min-h-[120px] px-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600 resize-none"
                   />
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {t('spaceModal.agents')}
+                  </label>
+                  <div className="rounded-lg border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-3">
+                    {agentsLoading || isAgentsLoading ? (
+                      <div className="text-sm text-gray-500 dark:text-gray-400">
+                        {t('spaceModal.agentsLoading')}
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-3">
+                        <div className="rounded-lg border border-gray-200 dark:border-zinc-700">
+                          <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                            {t('spaceModal.agentsAvailable')}
+                          </div>
+                          <div className="max-h-40 overflow-y-auto">
+                            {availableAgents.length === 0 ? (
+                              <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
+                                {t('spaceModal.agentsEmpty')}
+                              </div>
+                            ) : (
+                              availableAgents.map(agent => (
+                                <label
+                                  key={agent.id}
+                                  className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 cursor-pointer"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={availableSelectedIds.includes(agent.id)}
+                                    onChange={() => toggleAvailableAgent(agent.id)}
+                                  />
+                                  <span className="truncate">
+                                    {agent.emoji ? `${agent.emoji} ` : ''}
+                                    {agent.name}
+                                  </span>
+                                </label>
+                              ))
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex md:flex-col items-center justify-center gap-2">
+                          <button
+                            type="button"
+                            onClick={handleAddAgents}
+                            disabled={availableSelectedIds.length === 0}
+                            className="px-3 py-1.5 rounded-lg text-xs font-medium bg-primary-500 text-white disabled:opacity-40"
+                          >
+                            {t('spaceModal.agentsAdd')}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleRemoveAgents}
+                            disabled={assignedSelectedIds.length === 0}
+                            className="px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-200 dark:border-zinc-700 text-gray-600 dark:text-gray-300 disabled:opacity-40"
+                          >
+                            {t('spaceModal.agentsRemove')}
+                          </button>
+                        </div>
+
+                        <div className="rounded-lg border border-gray-200 dark:border-zinc-700">
+                          <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                            {t('spaceModal.agentsSelected')}
+                          </div>
+                          <div className="max-h-40 overflow-y-auto">
+                            {selectedAgents.length === 0 ? (
+                              <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
+                                {t('spaceModal.agentsSelectedEmpty')}
+                              </div>
+                            ) : (
+                              selectedAgents.map(agent => (
+                                <label
+                                  key={agent.id}
+                                  className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 cursor-pointer"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={assignedSelectedIds.includes(agent.id)}
+                                    onChange={() => toggleAssignedAgent(agent.id)}
+                                  />
+                                  <span className="truncate">
+                                    {agent.emoji ? `${agent.emoji} ` : ''}
+                                    {agent.name}
+                                  </span>
+                                </label>
+                              ))
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             )}

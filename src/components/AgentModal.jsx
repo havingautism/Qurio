@@ -39,6 +39,23 @@ const FALLBACK_MODEL_OPTIONS = {
 }
 
 const PROVIDER_KEYS = ['gemini', 'openai_compatibility', 'siliconflow', 'glm', 'kimi']
+const MODEL_SEPARATOR = '::'
+
+const parseStoredModel = value => {
+  if (!value) return { provider: '', modelId: '' }
+  const index = value.indexOf(MODEL_SEPARATOR)
+  if (index === -1) return { provider: '', modelId: value }
+  return {
+    provider: value.slice(0, index),
+    modelId: value.slice(index + MODEL_SEPARATOR.length),
+  }
+}
+
+const encodeModelId = (providerKey, modelId) => {
+  if (!modelId) return ''
+  if (!providerKey) return modelId
+  return `${providerKey}${MODEL_SEPARATOR}${modelId}`
+}
 
 // Personalization Constants
 const LLM_ANSWER_LANGUAGE_KEYS = [
@@ -203,14 +220,25 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
     if (isOpen) {
       const settings = loadSettings()
       if (editingAgent) {
+        const parsedDefaultModel = parseStoredModel(editingAgent.defaultModel)
+        const parsedLiteModel = parseStoredModel(editingAgent.liteModel)
         setName(editingAgent.name)
         setDescription(editingAgent.description)
         setPrompt(editingAgent.prompt)
         setEmoji(editingAgent.emoji)
-        setProvider(editingAgent.provider || 'gemini')
-        setLiteModel(editingAgent.liteModel || '')
-        setDefaultModel(editingAgent.defaultModel || '')
-        setResponseLanguage(editingAgent.responseLanguage || settings.llmAnswerLanguage || 'English')
+        setProvider(
+          editingAgent.provider ||
+            parsedDefaultModel.provider ||
+            parsedLiteModel.provider ||
+            'gemini',
+        )
+        setLiteModel(parsedLiteModel.modelId || '')
+        setDefaultModel(parsedDefaultModel.modelId || '')
+        setDefaultModelProvider(parsedDefaultModel.provider || '')
+        setLiteModelProvider(parsedLiteModel.provider || '')
+        setResponseLanguage(
+          editingAgent.responseLanguage || settings.llmAnswerLanguage || 'English',
+        )
         setBaseTone(editingAgent.baseTone || settings.baseTone || 'technical')
         setTraits(editingAgent.traits || settings.traits || 'default')
         setWarmth(editingAgent.warmth || settings.warmth || 'default')
@@ -225,8 +253,8 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
         setPrompt(settings.systemPrompt || t('agents.defaults.systemPrompt'))
         setEmoji('??')
         setProvider(settings.apiProvider || 'gemini')
-        setLiteModel(settings.liteModel || '')
-        setDefaultModel(settings.defaultModel || '')
+        setLiteModel(parseStoredModel(settings.liteModel).modelId || '')
+        setDefaultModel(parseStoredModel(settings.defaultModel).modelId || '')
         setResponseLanguage(settings.llmAnswerLanguage || 'English')
         setBaseTone(settings.baseTone || 'technical')
         setTraits(settings.traits || 'default')
@@ -253,15 +281,18 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
 
     setIsSaving(true)
     try {
-      // Determine provider from default model if possible
-      let derivedProvider = provider
-      // Find which provider the defaultModel belongs to
-      for (const [pKey, models] of Object.entries(groupedModels)) {
-        if (models.some(m => m.value === defaultModel)) {
-          derivedProvider = pKey
-          break
-        }
+      const resolveProvider = (modelId, fallback) => {
+        if (!modelId) return fallback || ''
+        const derived = findProviderForModel(modelId)
+        return derived || fallback || ''
       }
+
+      const resolvedDefaultProvider = resolveProvider(
+        defaultModel,
+        defaultModelProvider || provider,
+      )
+      const resolvedLiteProvider = resolveProvider(liteModel, liteModelProvider || provider)
+      const derivedProvider = resolvedDefaultProvider || provider
 
       await onSave?.({
         id: editingAgent?.id,
@@ -270,8 +301,8 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
         prompt: prompt.trim(),
         emoji,
         provider: derivedProvider,
-        liteModel,
-        defaultModel,
+        liteModel: encodeModelId(resolvedLiteProvider, liteModel),
+        defaultModel: encodeModelId(resolvedDefaultProvider, defaultModel),
         responseLanguage,
         baseTone,
         traits,
@@ -433,25 +464,38 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
     return ''
   }
 
+  const getModelLabel = modelId => {
+    if (!modelId) return t('agents.model.notSelected')
+    const match = Object.values(groupedModels)
+      .flat()
+      .find(m => m.value === modelId)
+    if (match) return match.label
+    return t('agents.model.notFound')
+  }
+
   useEffect(() => {
     if (!isOpen) return
     const resolvedDefaultProvider = findProviderForModel(defaultModel)
     const resolvedLiteProvider = findProviderForModel(liteModel)
     if (resolvedDefaultProvider) {
       setDefaultModelProvider(resolvedDefaultProvider)
-    } else if (availableProviders.length > 0) {
-      setDefaultModelProvider(prev =>
-        availableProviders.includes(prev) ? prev : availableProviders[0],
-      )
+    } else if (!defaultModelProvider && availableProviders.length > 0) {
+      setDefaultModelProvider(availableProviders[0])
     }
     if (resolvedLiteProvider) {
       setLiteModelProvider(resolvedLiteProvider)
-    } else if (availableProviders.length > 0) {
-      setLiteModelProvider(prev =>
-        availableProviders.includes(prev) ? prev : availableProviders[0],
-      )
+    } else if (!liteModelProvider && availableProviders.length > 0) {
+      setLiteModelProvider(availableProviders[0])
     }
-  }, [availableProviders, defaultModel, groupedModels, isOpen, liteModel])
+  }, [
+    availableProviders,
+    defaultModel,
+    groupedModels,
+    isOpen,
+    liteModel,
+    defaultModelProvider,
+    liteModelProvider,
+  ])
 
   const renderModelPicker = ({
     label,
@@ -464,18 +508,13 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
   }) => {
     const providers = availableProviders.length > 0 ? availableProviders : PROVIDER_KEYS
     const activeModels = groupedModels[activeProvider] || []
-    const selectedLabel =
-      Object.values(groupedModels)
-        .flat()
-        .find(m => m.value === value)?.label || value || t('agents.model.notSelected')
+    const selectedLabel = getModelLabel(value)
 
     return (
       <div className="space-y-2">
         <div className="flex items-center justify-between gap-2">
           <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{label}</label>
-          <span className="text-xs text-gray-500 dark:text-gray-400 truncate">
-            {selectedLabel}
-          </span>
+          <span className="text-xs text-gray-500 dark:text-gray-400 truncate">{selectedLabel}</span>
         </div>
         <div className="rounded-lg border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-3">
           <div className="grid grid-cols-1 md:grid-cols-[180px_1fr] gap-3">
@@ -554,9 +593,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
               </div>
             </div>
           </div>
-          {helper && (
-            <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">{helper}</p>
-          )}
+          {helper && <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">{helper}</p>}
         </div>
       </div>
     )
@@ -621,7 +658,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                     >
                       <CustomEmojiPicker
                         onEmojiSelect={e => {
-                          setEmoji(e)
+                          setEmoji(e?.native || e)
                           setShowEmojiPicker(false)
                         }}
                         onClose={() => setShowEmojiPicker(false)}

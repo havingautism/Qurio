@@ -10,7 +10,14 @@ import AgentModal from './components/AgentModal'
 import { ToastProvider } from './contexts/ToastContext'
 import { listConversations } from './lib/conversationsService'
 import { loadSettings } from './lib/settings'
-import { createSpace, deleteSpace, listSpaces, updateSpace } from './lib/spacesService'
+import { createAgent, deleteAgent, listAgents, updateAgent } from './lib/agentsService'
+import {
+  createSpace,
+  deleteSpace,
+  listSpaces,
+  updateSpace,
+  updateSpaceAgents,
+} from './lib/spacesService'
 import { initSupabase } from './lib/supabase'
 import { applyTheme } from './lib/themes'
 import i18n from './lib/i18n' // Initialize i18next
@@ -39,6 +46,10 @@ function App() {
 
   // Spaces Data
   const [spaces, setSpaces] = useState([])
+
+  // Agents Data
+  const [agents, setAgents] = useState([])
+  const [agentsLoading, setAgentsLoading] = useState(false)
 
   // Conversations Data
   const [conversations, setConversations] = useState([])
@@ -200,15 +211,35 @@ function App() {
   }
 
   const handleSaveAgent = async agent => {
-    console.log('Saving agent:', agent)
-    // Mock save
-    setIsAgentModalOpen(false)
+    if (editingAgent) {
+      const { data, error } = await updateAgent(editingAgent.id, agent)
+      if (!error && data) {
+        setAgents(prev => prev.map(item => (item.id === data.id ? data : item)))
+      } else {
+        console.error('Update agent failed:', error)
+        throw error
+      }
+    } else {
+      const { data, error } = await createAgent(agent)
+      if (!error && data) {
+        setAgents(prev => [...prev, data])
+      } else {
+        console.error('Create agent failed:', error)
+        throw error
+      }
+    }
+    setEditingAgent(null)
   }
 
   const handleDeleteAgent = async id => {
-    console.log('Deleting agent:', id)
-    // Mock delete
+    const { error } = await deleteAgent(id)
+    if (!error) {
+      setAgents(prev => prev.filter(agent => agent.id !== id))
+    } else {
+      console.error('Delete agent failed:', error)
+    }
     setIsAgentModalOpen(false)
+    setEditingAgent(null)
   }
 
   const handleOpenConversation = conversation => {
@@ -244,6 +275,27 @@ function App() {
     load()
   }, [])
 
+  // Load agents from Supabase on mount
+  useEffect(() => {
+    const load = async () => {
+      setAgentsLoading(true)
+      try {
+        initSupabase()
+        const { data, error } = await listAgents()
+        if (!error && data) {
+          setAgents(data)
+        } else {
+          console.error('Failed to fetch agents:', error)
+        }
+      } catch (err) {
+        console.error('Unexpected error fetching agents:', err)
+      } finally {
+        setAgentsLoading(false)
+      }
+    }
+    load()
+  }, [])
+
   // Load conversations from Supabase on mount
   useEffect(() => {
     const loadConversations = async () => {
@@ -272,17 +324,20 @@ function App() {
   }, [])
 
   const handleSaveSpace = async payload => {
+    const { agentIds = [], ...spacePayload } = payload || {}
     if (editingSpace) {
-      const { data, error } = await updateSpace(editingSpace.id, payload)
+      const { data, error } = await updateSpace(editingSpace.id, spacePayload)
       if (!error && data) {
         setSpaces(prev => prev.map(s => (s.id === data.id ? data : s)))
+        await updateSpaceAgents(data.id, agentIds)
       } else {
         console.error('Update space failed:', error)
       }
     } else {
-      const { data, error } = await createSpace(payload)
+      const { data, error } = await createSpace(spacePayload)
       if (!error && data) {
         setSpaces(prev => [...prev, data])
+        await updateSpaceAgents(data.id, agentIds)
       } else {
         console.error('Create space failed:', error)
       }
@@ -329,9 +384,11 @@ function App() {
         <AppContext.Provider
           value={{
             spaces,
+            agents,
             conversations,
             conversationsLoading,
             spacesLoading,
+            agentsLoading,
             onNavigate: handleNavigate,
             onNavigateToSpace: handleNavigateToSpace,
             onOpenConversation: handleOpenConversation,

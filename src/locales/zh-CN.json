@@ -34,7 +34,8 @@
     "removeBookmark": "取消收藏",
     "addedToBookmarks": "已添加到收藏",
     "removedFromBookmarks": "已从收藏中移除",
-    "untitled": "无标题"
+    "untitled": "无标题",
+    "agents": "Agent"
   },
   "settings": {
     "title": "设置",
@@ -202,7 +203,6 @@
       "retesting": "重新测试中..."
     }
   },
-
   "agents": {
     "modal": {
       "create": "创建",
@@ -242,7 +242,8 @@
       "models": "模型",
       "noModels": "未找到模型",
       "none": "无",
-      "notSelected": "未选择"
+      "notSelected": "未选择",
+      "notFound": "找不到模型"
     },
     "actions": {
       "delete": "删除",
@@ -268,6 +269,14 @@
     "descriptionOptional": "描述（可选）",
     "spacePrompt": "空间提示词",
     "spacePromptOptional": "空间提示词（可选）",
+    "agents": "Agent",
+    "agentsAvailable": "可用",
+    "agentsSelected": "已选择",
+    "agentsAdd": "添加",
+    "agentsRemove": "移除",
+    "agentsEmpty": "暂无可用 Agent",
+    "agentsSelectedEmpty": "未选择 Agent",
+      "agentsLoading": "加载 Agent...",
     "descriptionPlaceholder": "这个空间是做什么用的？",
     "promptPlaceholder": "为 AI 助手提供在此空间内应遵循的指导。",
     "namePlaceholder": "例如：日常生活、研究...",
@@ -313,7 +322,11 @@
     "spacesAuto": "空间：自动",
     "spacesLabel": "空间：{{label}}",
     "auto": "自动",
-    "title": "洞察由此开启。"
+    "title": "洞察由此开启。",
+    "agents": "Agent",
+    "agentsLabel": "Agent",
+    "agentsNone": "暂无 Agent",
+    "agentsLoading": "加载 Agent..."
   },
   "chat": {
     "thinking": "思考中",
@@ -356,7 +369,10 @@
   "chatInterface": {
     "regenerateTitle": "根据最近 3 条消息重新生成标题",
     "openTimeline": "打开问题时间轴",
-    "askFollowUp": "追问..."
+    "askFollowUp": "追问...",
+    "agentsLabel": "Agent",
+    "agentsNone": "暂无 Agent",
+    "agentsLoading": "加载 Agent..."
   },
   "views": {
     "newThread": "新对话",

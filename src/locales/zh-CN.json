@@ -363,6 +363,32 @@
       "createSpaceDescription": "设置来源并邀请他人",
       "examples": "示例",
       "justNow": "刚刚"
+    },
+    "widgets": {
+      "noteTitle": "备忘录",
+      "notePlaceholder": "在此输入笔记...",
+      "shortcutsTitle": "常用网站",
+      "tipsTitle": "每日贴士",
+      "tipsContent": "通过启用节能模式，让您的笔记本电脑电池续航更久。",
+      "dateTitle": "日期",
+      "week": "第 {{number}} 周",
+      "sunday": "星期日",
+      "monday": "星期一",
+      "tuesday": "星期二",
+      "wednesday": "星期三",
+      "thursday": "星期四",
+      "friday": "星期五",
+      "saturday": "星期六",
+      "today": "今天",
+      "tomorrow": "明天",
+      "weatherTitle": "天气",
+      "location": "上海",
+      "shanghai": "上海",
+      "feelsLike": "体感",
+      "precip": "降水",
+      "wind": "风速",
+      "source": "来源",
+      "updated": "更新"
     }
   }
 }

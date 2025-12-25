@@ -60,8 +60,6 @@ const PROVIDER_META = {
   },
 }
 
-const THINKING_STATUS_MESSAGES = ['Thinking', 'Analyzing', 'Working through it', 'Checking details']
-
 const getHostname = url => {
   try {
     const hostname = new URL(url).hostname
@@ -440,6 +438,14 @@ const MessageBubble = ({
   const [thinkingStatusIndex, setThinkingStatusIndex] = useState(0)
 
   const { t } = useTranslation()
+
+  // Dynamic thinking status messages using translations
+  const THINKING_STATUS_MESSAGES = [
+    t('chat.thinking'),
+    t('chat.analyzing'),
+    t('chat.workingThroughIt'),
+    t('chat.checkingDetails'),
+  ]
 
   // Sources UI State
   const [isSourcesOpen, setIsSourcesOpen] = useState(false) // Desktop

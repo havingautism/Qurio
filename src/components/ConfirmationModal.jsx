@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import useScrollLock from '../hooks/useScrollLock'
 
 const ConfirmationModal = ({
@@ -6,10 +7,11 @@ const ConfirmationModal = ({
   onConfirm,
   title,
   message,
-  confirmText = 'Confirm',
-  cancelText = 'Cancel',
+  confirmText,
+  cancelText,
   isDangerous = false,
 }) => {
+  const { t } = useTranslation()
   useScrollLock(isOpen)
   if (!isOpen) return null
 
@@ -24,7 +26,7 @@ const ConfirmationModal = ({
             onClick={onClose}
             className="px-4 py-2 rounded-lg text-gray-300 hover:bg-white/5 transition-colors text-sm font-medium"
           >
-            {cancelText}
+            {cancelText || t('confirmation.cancel')}
           </button>
           <button
             onClick={onConfirm}
@@ -32,7 +34,7 @@ const ConfirmationModal = ({
               isDangerous ? 'bg-red-500/80 hover:bg-red-500' : 'bg-blue-500 hover:bg-blue-600'
             }`}
           >
-            {confirmText}
+            {confirmText || t('confirmation.confirm')}
           </button>
         </div>
       </div>

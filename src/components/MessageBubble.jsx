@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { createPortal } from 'react-dom'
+import { useTranslation } from 'react-i18next'
 import { useShallow } from 'zustand/react/shallow'
 import useChatStore from '../lib/chatStore'
 
@@ -438,19 +439,21 @@ const MessageBubble = ({
   const [isThoughtExpanded, setIsThoughtExpanded] = useState(false)
   const [thinkingStatusIndex, setThinkingStatusIndex] = useState(0)
 
+  const { t } = useTranslation()
+
   // Sources UI State
   const [isSourcesOpen, setIsSourcesOpen] = useState(false) // Desktop
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false) // Mobile
   const [mobileDrawerSources, setMobileDrawerSources] = useState([]) // Sources to show in mobile drawer (all or specific)
-  const [mobileDrawerTitle, setMobileDrawerTitle] = useState('Sources')
+  const [mobileDrawerTitle, setMobileDrawerTitle] = useState(t('sources.title'))
 
   const handleMobileSourceClick = useCallback(
-    (selectedSources, title = 'Sources') => {
+    (selectedSources, title) => {
       setMobileDrawerSources(selectedSources || message.sources)
-      setMobileDrawerTitle(title)
+      setMobileDrawerTitle(title || t('sources.title'))
       setIsMobileDrawerOpen(true)
     },
-    [message.sources],
+    [message.sources, t],
   )
 
   const isUser = message.role === 'user'
@@ -680,7 +683,7 @@ const MessageBubble = ({
               indices={indices}
               sources={message.sources}
               isMobile={isMobile}
-              onMobileClick={sources => handleMobileSourceClick(sources, 'Citation Sources')}
+              onMobileClick={sources => handleMobileSourceClick(sources, t('sources.citationSources'))}
               label={children} // Children of the link is the label [Title + N]
             />
           )
@@ -765,7 +768,7 @@ const MessageBubble = ({
           >
             {quoteToRender && (
               <div className="mb-2 p-3 bg-white/20 dark:bg-black/20 rounded-3xl text-sm">
-                <div className="font-medium  mb-1">Quoting:</div>
+                <div className="font-medium  mb-1">{t('messageBubble.quoting')}</div>
                 <div className="line-clamp-2 italic ">{quoteToRender.text}</div>
               </div>
             )}
@@ -816,7 +819,7 @@ const MessageBubble = ({
                 setIsCopied(true)
               }}
               className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300  rounded-lg transition-colors"
-              title="Copy"
+              title={t('messageBubble.copy')}
             >
               {isCopied ? <Check size={14} /> : <Copy size={14} />}
             </button>
@@ -963,7 +966,7 @@ const MessageBubble = ({
           >
             <div className="flex items-center gap-2 font-medium text-gray-700 dark:text-gray-300">
               <EmojiDisplay emoji="🧠" size="1.2em" />
-              {!shouldShowThinkingStatus && <span className="text-sm">Thinking Process</span>}
+              {!shouldShowThinkingStatus && <span className="text-sm">{t('messageBubble.thinkingProcess')}</span>}
               {!shouldShowThinkingStatus && <Check size="1em" />}
               {shouldShowThinkingStatus && (
                 <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
@@ -1029,7 +1032,7 @@ const MessageBubble = ({
         <div className="border-t border-gray-200 dark:border-zinc-800 pt-4">
           <div className="flex items-center gap-3 mb-3 text-gray-900 dark:text-gray-100">
             <EmojiDisplay emoji="🔮" size="1.2em" className="mb-1" />
-            <span className="text-sm font-semibold">Related Questions</span>
+            <span className="text-sm font-semibold">{t('messageBubble.relatedQuestions')}</span>
           </div>
           <div className="flex flex-col gap-1 md:gap-2 ">
             {hasRelatedQuestions &&
@@ -1063,14 +1066,14 @@ const MessageBubble = ({
           onClick={() => setIsShareModalOpen(true)}
         >
           <Share2 size={16} />
-          <span className="hidden sm:block">Share</span>
+          <span className="hidden sm:block">{t('message.share')}</span>
         </button>
         <button
           className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
           onClick={() => onRegenerateAnswer && onRegenerateAnswer()}
         >
           <RefreshCw size={16} />
-          <span className="hidden sm:block">Regenerate</span>
+          <span className="hidden sm:block">{t('message.regenerate')}</span>
         </button>
         <button
           className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
@@ -1098,12 +1101,12 @@ const MessageBubble = ({
               >
                 <polyline points="20,6 9,17 4,12"></polyline>
               </svg>
-              <span className="text-green-600 dark:text-green-400 hidden sm:block">Copied</span>
+              <span className="text-green-600 dark:text-green-400 hidden sm:block">{t('message.copied')}</span>
             </>
           ) : (
             <>
               <Copy size={16} />
-              <span className="hidden sm:block">Copy</span>
+              <span className="hidden sm:block">{t('message.copy')}</span>
             </>
           )}
         </button>
@@ -1112,7 +1115,7 @@ const MessageBubble = ({
           <button
             onClick={() => {
               if (isMobile) {
-                handleMobileSourceClick(message.sources, 'All Sources')
+                handleMobileSourceClick(message.sources, t('sources.allSources'))
               } else {
                 setIsSourcesOpen(!isSourcesOpen)
               }
@@ -1125,7 +1128,7 @@ const MessageBubble = ({
             )}
           >
             <Globe size={16} />
-            <span className="hidden sm:block">Sources</span>
+            <span className="hidden sm:block">{t('sources.title')}</span>
             <span
               className={clsx(
                 'flex items-center justify-center rounded-full text-[10px] w-5 h-5 transition-colors',
@@ -1150,7 +1153,7 @@ const MessageBubble = ({
         isOpen={isMobileDrawerOpen}
         onClose={() => setIsMobileDrawerOpen(false)}
         sources={mobileDrawerSources}
-        title="Citation Sources"
+        title={mobileDrawerTitle}
       />
 
       <ShareModal
@@ -1164,6 +1167,7 @@ const MessageBubble = ({
 }
 
 const CitationChip = ({ indices, sources, isMobile, onMobileClick, label }) => {
+  const { t } = useTranslation()
   const [isOpen, setIsOpen] = useState(false)
   const [position, setPosition] = useState({ top: 0, left: 0 })
   const containerRef = useRef(null)
@@ -1350,7 +1354,7 @@ const CitationChip = ({ indices, sources, isMobile, onMobileClick, label }) => {
         isOpen={isOpen && isMobile}
         onClose={() => setIsOpen(false)}
         sources={drawerSources}
-        title="Citation Sources"
+        title={t('sources.citationSources')}
       />
     </>
   )

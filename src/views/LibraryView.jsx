@@ -15,7 +15,8 @@ import {
   Trash2,
   X,
 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useAppContext } from '../App'
 import DropdownMenu from '../components/DropdownMenu'
 import EmojiDisplay from '../components/EmojiDisplay'
@@ -24,19 +25,21 @@ import { useToast } from '../contexts/ToastContext'
 import { listConversations, toggleFavorite } from '../lib/conversationsService'
 import { deleteConversation } from '../lib/supabase'
 
-const SORT_OPTIONS = [
-  { label: 'Newest', value: 'created_at', ascending: false },
-  { label: 'Oldest', value: 'created_at', ascending: true },
-  { label: 'Title (A-Z)', value: 'title', ascending: true },
-  { label: 'Title (Z-A)', value: 'title', ascending: false },
+// Sort option keys (constant for logic)
+const SORT_OPTION_KEYS = [
+  { key: 'newest', value: 'created_at', ascending: false },
+  { key: 'oldest', value: 'created_at', ascending: true },
+  { key: 'titleAZ', value: 'title', ascending: true },
+  { key: 'titleZA', value: 'title', ascending: false },
 ]
 
 const LibraryView = () => {
+  const { t, i18n } = useTranslation()
   const { spaces, isSidebarPinned, showConfirmation } = useAppContext()
   const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState('')
   const [activeSearchQuery, setActiveSearchQuery] = useState('') // Query actually sent to server
-  const [sortOption, setSortOption] = useState(SORT_OPTIONS[0])
+  const [sortOption, setSortOption] = useState(SORT_OPTION_KEYS[0])
   const [isSortOpen, setIsSortOpen] = useState(false)
   const [openMenuId, setOpenMenuId] = useState(null)
   const [menuAnchorEl, setMenuAnchorEl] = useState(null)
@@ -47,6 +50,16 @@ const LibraryView = () => {
   const [currentPage, setCurrentPage] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
   const limit = 10
+
+  // Translated sort options for rendering
+  const sortOptions = useMemo(
+    () =>
+      SORT_OPTION_KEYS.map(option => ({
+        ...option,
+        label: t(`views.${option.key}`),
+      })),
+    [t],
+  )
 
   useEffect(() => {
     // Reset to page 1 when sort or active search changes
@@ -118,7 +131,9 @@ const LibraryView = () => {
   // Format date helper
   const formatDate = dateString => {
     const date = new Date(dateString)
-    return date.toLocaleString(undefined, {
+    // Use current language for date formatting
+    const locale = i18n.language === 'zh-CN' ? 'zh-CN' : 'en-US'
+    return date.toLocaleString(locale, {
       month: 'short',
       day: 'numeric',
       year: 'numeric',
@@ -135,9 +150,11 @@ const LibraryView = () => {
 
     if (error) {
       console.error('Failed to toggle favorite:', error)
-      toast.error('Failed to update favorite status')
+      toast.error(t('errors.generic'))
     } else {
-      toast.success(newStatus ? 'Added to bookmarks' : 'Removed from bookmarks')
+      toast.success(
+        newStatus ? t('views.addBookmark') : t('views.removeBookmark'),
+      )
       // Refresh data
       window.dispatchEvent(new Event('conversations-changed'))
     }
@@ -149,20 +166,20 @@ const LibraryView = () => {
     if (!conversation) return
 
     showConfirmation({
-      title: 'Delete Conversation',
-      message: `Are you sure you want to delete "${conversation.title}"? This action cannot be undone.`,
-      confirmText: 'Delete',
+      title: t('confirmation.delete'),
+      message: t('confirmation.deleteMessage', { title: conversation.title }),
+      confirmText: t('confirmation.delete'),
       isDangerous: true,
       onConfirm: async () => {
         const { success, error } = await deleteConversation(conversation.id)
 
         if (success) {
-          toast.success('Conversation deleted successfully')
+          toast.success(t('views.libraryView.conversationDeleted'))
           // Refresh data
           window.dispatchEvent(new Event('conversations-changed'))
         } else {
           console.error('Failed to delete conversation:', error)
-          toast.error('Failed to delete conversation')
+          toast.error(t('views.libraryView.failedToDelete'))
         }
       },
     })
@@ -180,14 +197,14 @@ const LibraryView = () => {
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-3">
             <LibraryIcon size={32} className="text-primary-500" />
-            <h1 className="text-3xl font-medium">Library</h1>
+            <h1 className="text-3xl font-medium">{t('views.libraryView.title')}</h1>
           </div>
           <button
             onClick={() => navigate({ to: '/new_chat' })}
             className="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors text-sm font-medium"
           >
             <Plus size={16} />
-            <span>New Thread</span>
+            <span>{t('views.newThread')}</span>
           </button>
         </div>
 
@@ -203,7 +220,7 @@ const LibraryView = () => {
             </button>
             <input
               type="text"
-              placeholder="Search your Threads..."
+              placeholder={t('views.libraryView.searchPlaceholder')}
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               onKeyDown={handleKeyDown}
@@ -259,7 +276,9 @@ const LibraryView = () => {
                 onClick={() => setIsSortOpen(!isSortOpen)}
                 className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 text-xs font-medium transition-colors"
               >
-                <span>Sort: {sortOption.label}</span>
+                <span>
+                  {t('views.sort')}: {sortOptions.find(o => o.key === sortOption.key)?.label}
+                </span>
                 <ChevronDown size={12} />
               </button>
 
@@ -268,25 +287,25 @@ const LibraryView = () => {
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => setIsSortOpen(false)} />
                   <div className="absolute right-0 top-full mt-2 w-40 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-xl shadow-lg z-20 overflow-hidden py-1">
-                    {SORT_OPTIONS.map(option => (
+                    {sortOptions.map(option => (
                       <button
-                        key={option.label}
+                        key={option.key}
                         onClick={() => {
-                          setSortOption(option)
+                          setSortOption(SORT_OPTION_KEYS.find(o => o.key === option.key))
                           setIsSortOpen(false)
                         }}
                         className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-zinc-800 flex items-center justify-between group"
                       >
                         <span
                           className={
-                            sortOption.label === option.label
+                            sortOption.key === option.key
                               ? 'text-primary-500'
                               : 'text-gray-700 dark:text-gray-300'
                           }
                         >
                           {option.label}
                         </span>
-                        {sortOption.label === option.label && (
+                        {sortOption.key === option.key && (
                           <Check size={14} className="text-primary-500" />
                         )}
                       </button>
@@ -306,7 +325,7 @@ const LibraryView = () => {
             </div>
           ) : filteredConversations.length === 0 ? (
             <div className="text-center py-12 text-gray-500">
-              No threads found matching your search.
+              {t('views.libraryView.noThreadsFound')}
             </div>
           ) : (
             filteredConversations.map(conv => {
@@ -332,7 +351,7 @@ const LibraryView = () => {
                     <div className="flex-1 min-w-0">
                       {/* Title */}
                       <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-1 truncate flex items-center gap-2">
-                        {conv.title || 'Untitled Thread'}
+                        {conv.title || t('views.untitledThread')}
                         {conv.is_favorited && (
                           <Bookmark size={14} className="text-primary-500 fill-current shrink-0" />
                         )}
@@ -401,7 +420,7 @@ const LibraryView = () => {
               </button>
 
               <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                Page {currentPage} of {totalPages}
+                {t('views.pageOf', { current: currentPage, total: totalPages })}
               </span>
 
               <button
@@ -430,7 +449,7 @@ const LibraryView = () => {
           if (!activeConv) return []
           return [
             {
-              label: activeConv.is_favorited ? 'Remove Bookmark' : 'Add Bookmark',
+              label: activeConv.is_favorited ? t('views.removeBookmark') : t('views.addBookmark'),
               icon: (
                 <Bookmark size={14} className={activeConv.is_favorited ? 'fill-current' : ''} />
               ),
@@ -438,7 +457,7 @@ const LibraryView = () => {
               className: activeConv.is_favorited ? 'text-yellow-500' : '',
             },
             {
-              label: 'Delete conversation',
+              label: t('views.deleteConversation'),
               icon: <Trash2 size={14} />,
               danger: true,
               onClick: () => handleDeleteConversation(activeConv),

@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   X,
   Settings,
@@ -172,72 +173,45 @@ const getModelOptionsForProvider = (provider, dynamicModels) =>
     ? dynamicModels
     : FALLBACK_MODEL_OPTIONS[provider] || FALLBACK_MODEL_OPTIONS.__fallback__
 
-const PROVIDER_LABELS = {
-  gemini: 'Google Gemini',
-  openai_compatibility: 'OpenAI Compatible',
-  siliconflow: 'SiliconFlow',
-  glm: 'GLM (Zhipu AI)',
-  kimi: 'Kimi (Moonshot AI)',
-}
+// Constant keys for logic - labels will be translated with useMemo
+const PROVIDER_KEYS = ['gemini', 'openai_compatibility', 'siliconflow', 'glm', 'kimi']
 
-const INTERFACE_LANGUAGE_OPTIONS = [{ value: 'en', label: 'English' }]
+const INTERFACE_LANGUAGE_KEYS = ['en', 'zh-CN']
 
-const LLM_ANSWER_LANGUAGE_OPTIONS = [
-  { value: 'English', label: 'English' },
-  { value: 'Chinese (Simplified)', label: 'Chinese (Simplified)' },
-  { value: 'Chinese (Traditional)', label: 'Chinese (Traditional)' },
-  { value: 'Japanese', label: 'Japanese' },
-  { value: 'Korean', label: 'Korean' },
-  { value: 'Spanish', label: 'Spanish' },
-  { value: 'French', label: 'French' },
-  { value: 'German', label: 'German' },
-  { value: 'Portuguese', label: 'Portuguese' },
-  { value: 'Italian', label: 'Italian' },
+const LLM_ANSWER_LANGUAGE_KEYS = [
+  'English',
+  'Chinese (Simplified)',
+  'Chinese (Traditional)',
+  'Japanese',
+  'Korean',
+  'Spanish',
+  'French',
+  'German',
+  'Portuguese',
+  'Italian',
 ]
 
-const STYLE_BASE_TONE_OPTIONS = [
-  { value: 'technical', label: 'Technical' },
-  { value: 'friendly', label: 'Friendly' },
-  { value: 'professional', label: 'Professional' },
-  { value: 'academic', label: 'Academic' },
-  { value: 'creative', label: 'Creative' },
+const STYLE_BASE_TONE_KEYS = [
+  'technical',
+  'friendly',
+  'professional',
+  'academic',
+  'creative',
 ]
 
-const STYLE_TRAIT_OPTIONS = [
-  { value: 'default', label: 'Default' },
-  { value: 'concise', label: 'Concise' },
-  { value: 'structured', label: 'Structured' },
-  { value: 'detailed', label: 'Detailed' },
-  { value: 'actionable', label: 'Actionable' },
-]
+const STYLE_TRAIT_KEYS = ['default', 'concise', 'structured', 'detailed', 'actionable']
 
-const STYLE_WARMTH_OPTIONS = [
-  { value: 'default', label: 'Default' },
-  { value: 'gentle', label: 'Gentle' },
-  { value: 'empathetic', label: 'Empathetic' },
-  { value: 'direct', label: 'Direct' },
-]
+const STYLE_WARMTH_KEYS = ['default', 'gentle', 'empathetic', 'direct']
 
-const STYLE_ENTHUSIASM_OPTIONS = [
-  { value: 'default', label: 'Default' },
-  { value: 'low', label: 'Low' },
-  { value: 'high', label: 'High' },
-]
+const STYLE_ENTHUSIASM_KEYS = ['default', 'low', 'high']
 
-const STYLE_HEADINGS_OPTIONS = [
-  { value: 'default', label: 'Default' },
-  { value: 'minimal', label: 'Minimal' },
-  { value: 'structured', label: 'Headings & Lists' },
-]
+const STYLE_HEADINGS_KEYS = ['default', 'minimal', 'structured']
 
-const STYLE_EMOJI_OPTIONS = [
-  { value: 'default', label: 'Default' },
-  { value: 'none', label: 'None' },
-  { value: 'light', label: 'Light' },
-  { value: 'moderate', label: 'Moderate' },
-]
+const STYLE_EMOJI_KEYS = ['default', 'none', 'light', 'moderate']
 
 const SettingsModal = ({ isOpen, onClose }) => {
+  const { t, i18n } = useTranslation()
+
   const renderEnvHint = hasEnv =>
     hasEnv ? (
       <p className="text-emerald-600 text-xs dark:text-emerald-400">Loaded from environment</p>
@@ -369,15 +343,119 @@ const SettingsModal = ({ isOpen, onClose }) => {
     isEmojisDropdownOpen,
   ])
 
-  const menuItems = [
-    { id: 'general', label: 'General', icon: Settings },
-    { id: 'chat', label: 'Chat', icon: MessageSquare },
-    { id: 'interface', label: 'Interface', icon: Monitor },
-    // { id: 'model', label: 'Model', icon: Box },
-    { id: 'personalization', label: 'Personalization', icon: Palette },
-    { id: 'account', label: 'Account', icon: User },
-    { id: 'about', label: 'About', icon: Info },
+  // Menu items - use constant keys for logic, translate labels for display
+  const MENU_ITEM_KEYS = [
+    { id: 'general', icon: Settings },
+    { id: 'chat', icon: MessageSquare },
+    { id: 'interface', icon: Monitor },
+    { id: 'personalization', icon: Palette },
+    { id: 'account', icon: User },
+    { id: 'about', icon: Info },
   ]
+
+  const menuItems = useMemo(
+    () => MENU_ITEM_KEYS.map(item => ({ ...item, label: t(`settings.menu.${item.id}`) })),
+    [t],
+  )
+
+  // Provider options with translated labels
+  const providerOptions = useMemo(
+    () =>
+      PROVIDER_KEYS.map(key => ({
+        key,
+        value: key,
+        label: t(`settings.providers.${key}`),
+      })),
+    [t],
+  )
+
+  // Interface language options with translated labels
+  const interfaceLanguageOptions = useMemo(
+    () =>
+      INTERFACE_LANGUAGE_KEYS.map(key => ({
+        key,
+        value: key,
+        label: t(`settings.language.${key}`),
+      })),
+    [t],
+  )
+
+  // LLM answer language options (use value as is for display)
+  const llmAnswerLanguageOptions = useMemo(
+    () =>
+      LLM_ANSWER_LANGUAGE_KEYS.map(key => ({
+        key,
+        value: key,
+        label: key,
+      })),
+    [],
+  )
+
+  // Style base tone options with translated labels
+  const styleBaseToneOptions = useMemo(
+    () =>
+      STYLE_BASE_TONE_KEYS.map(key => ({
+        key,
+        value: key,
+        label: t(`settings.baseToneOptions.${key}`),
+      })),
+    [t],
+  )
+
+  // Style traits options with translated labels
+  const styleTraitOptions = useMemo(
+    () =>
+      STYLE_TRAIT_KEYS.map(key => ({
+        key,
+        value: key,
+        label: t(`settings.traitsOptions.${key}`),
+      })),
+    [t],
+  )
+
+  // Style warmth options with translated labels
+  const styleWarmthOptions = useMemo(
+    () =>
+      STYLE_WARMTH_KEYS.map(key => ({
+        key,
+        value: key,
+        label: t(`settings.warmthOptions.${key}`),
+      })),
+    [t],
+  )
+
+  // Style enthusiasm options with translated labels
+  const styleEnthusiasmOptions = useMemo(
+    () =>
+      STYLE_ENTHUSIASM_KEYS.map(key => ({
+        key,
+        value: key,
+        label: t(`settings.enthusiasmOptions.${key}`),
+      })),
+    [t],
+  )
+
+  // Style headings options with translated labels
+  const styleHeadingsOptions = useMemo(
+    () =>
+      STYLE_HEADINGS_KEYS.map(key => ({
+        key,
+        value: key,
+        label: t(`settings.headingsOptions.${key}`),
+      })),
+    [t],
+  )
+
+  // Style emoji options with translated labels
+  const styleEmojiOptions = useMemo(
+    () =>
+      STYLE_EMOJI_KEYS.map(key => ({
+        key,
+        value: key,
+        label: t(`settings.emojisOptions.${key}`),
+      })),
+    [t],
+  )
 
   // TODO: useEffect to load settings from Supabase/LocalStorage on mount
   // Load settings when modal opens
@@ -402,7 +480,8 @@ const SettingsModal = ({ isOpen, onClose }) => {
       if (settings.themeColor) setThemeColor(settings.themeColor)
       if (typeof settings.enableRelatedQuestions === 'boolean')
         setEnableRelatedQuestions(settings.enableRelatedQuestions)
-      if (settings.interfaceLanguage) setInterfaceLanguage(settings.interfaceLanguage)
+      // Initialize interfaceLanguage from i18n.language (which reads from localStorage)
+      setInterfaceLanguage(i18n.language)
       if (settings.llmAnswerLanguage) setLlmAnswerLanguage(settings.llmAnswerLanguage)
       if (settings.baseTone) setBaseTone(settings.baseTone)
       if (settings.traits) setTraits(settings.traits)
@@ -413,7 +492,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
       if (typeof settings.customInstruction === 'string')
         setCustomInstruction(settings.customInstruction)
     }
-  }, [isOpen])
+  }, [isOpen, i18n])
 
   useScrollLock(isOpen)
 
@@ -655,7 +734,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
       <div className="w-full h-screen md:max-w-4xl md:h-[80vh] bg-white dark:bg-[#191a1a] rounded-none md:rounded-2xl shadow-2xl flex flex-col md:flex-row overflow-hidden border-0 md:border border-gray-200 dark:border-zinc-800">
         {/* Mobile Header */}
         <div className="md:hidden h-14 border-b border-gray-200 dark:border-zinc-800 flex items-center justify-between px-4 bg-white dark:bg-[#191a1a] shrink-0">
-          <h2 className="text-base font-semibold text-gray-900 dark:text-white">Settings</h2>
+          <h2 className="text-base font-semibold text-gray-900 dark:text-white">{t('settings.title')}</h2>
           <button
             onClick={onClose}
             className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-500 transition-colors"
@@ -667,7 +746,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
         {/* Sidebar */}
         <div className="w-full md:w-64 bg-primary-50 dark:bg-background/70 border-b md:border-b-0 md:border-r border-gray-200 dark:border-zinc-800 px-1 py-1 sm:py-4 sm:px-4 flex flex-row md:flex-col gap-2 overflow-x-auto md:overflow-visible no-scrollbar shrink-0">
           <h2 className="text-xl font-bold mb-0 md:mb-6 px-2 text-gray-900 dark:text-white hidden md:block">
-            Settings
+            {t('settings.title')}
           </h2>
           <nav className="flex flex-row md:flex-col gap-1 w-full md:w-auto">
             {menuItems.map(item => (
@@ -710,10 +789,10 @@ const SettingsModal = ({ isOpen, onClose }) => {
                 {/* ... existing general settings ... */}
                 <div className="flex flex-col gap-2">
                   <label className="text-sm font-medium text-gray-900 dark:text-white">
-                    Interface Language
+                    {t('settings.interfaceLanguage')}
                   </label>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Only English is supported right now.
+                    {t('settings.interfaceLanguageHint')}
                   </p>
                   <div className="relative w-full" ref={interfaceLanguageDropdownRef}>
                     <button
@@ -735,7 +814,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                         <Monitor size={16} className="text-gray-400" />
                       </div>
                       <span>
-                        {INTERFACE_LANGUAGE_OPTIONS.find(
+                        {interfaceLanguageOptions.find(
                           option => option.value === interfaceLanguage,
                         )?.label || interfaceLanguage}
                       </span>
@@ -750,11 +829,12 @@ const SettingsModal = ({ isOpen, onClose }) => {
 
                     {isInterfaceLanguageDropdownOpen && (
                       <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg shadow-xl z-20 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
-                        {INTERFACE_LANGUAGE_OPTIONS.map(option => (
+                        {interfaceLanguageOptions.map(option => (
                           <button
-                            key={option.value}
+                            key={option.key}
                             onClick={() => {
                               setInterfaceLanguage(option.value)
+                              i18n.changeLanguage(option.value)
                               setIsInterfaceLanguageDropdownOpen(false)
                             }}
                             className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
@@ -773,10 +853,10 @@ const SettingsModal = ({ isOpen, onClose }) => {
                 <div className="flex flex-col gap-6">
                   <div className="flex flex-col gap-1">
                     <label className="text-sm font-medium text-gray-900 dark:text-white">
-                      API Provider
+                      {t('settings.apiProvider')}
                     </label>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Choose your preferred AI provider.
+                      {t('settings.apiProviderHint')}
                     </p>
                   </div>
 
@@ -802,9 +882,9 @@ const SettingsModal = ({ isOpen, onClose }) => {
                       <div className="flex items-center gap-3">
                         {renderProviderIcon(apiProvider, {
                           size: 16,
-                          alt: PROVIDER_LABELS[apiProvider] || apiProvider,
+                          alt: t(`settings.providers.${apiProvider}`),
                         })}
-                        <span>{PROVIDER_LABELS[apiProvider] || apiProvider}</span>
+                        <span>{t(`settings.providers.${apiProvider}`)}</span>
                       </div>
                       <ChevronDown
                         size={16}
@@ -817,136 +897,35 @@ const SettingsModal = ({ isOpen, onClose }) => {
 
                     {isProviderDropdownOpen && (
                       <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg shadow-xl z-20 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
-                        <button
-                          onClick={() => {
-                            // Cancel any ongoing request before switching
-                            if (abortControllerRef.current) {
-                              abortControllerRef.current.abort()
-                              abortControllerRef.current = null
-                            }
+                        {providerOptions.map(option => (
+                          <button
+                            key={option.key}
+                            onClick={() => {
+                              // Cancel any ongoing request before switching
+                              if (abortControllerRef.current) {
+                                abortControllerRef.current.abort()
+                                abortControllerRef.current = null
+                              }
 
-                            setApiProvider('gemini')
-                            setIsProviderDropdownOpen(false)
-                            // Clear all model-related state when switching providers
-                            setModelsError(null)
-                            setDynamicModels([])
-                            setIsLoadingModels(false)
-                            setCurrentProvider('gemini')
-                          }}
-                          className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
-                        >
-                          <div className="flex items-center gap-3">
-                            {renderProviderIcon('gemini', { size: 16, alt: 'Google Gemini' })}
-                            <span>Google Gemini</span>
-                          </div>
-                          {apiProvider === 'gemini' && (
-                            <Check size={14} className="text-primary-500" />
-                          )}
-                        </button>
-                        <button
-                          onClick={() => {
-                            // Cancel any ongoing request before switching
-                            if (abortControllerRef.current) {
-                              abortControllerRef.current.abort()
-                              abortControllerRef.current = null
-                            }
-
-                            setApiProvider('openai_compatibility')
-                            setIsProviderDropdownOpen(false)
-                            // Clear all model-related state when switching providers
-                            setModelsError(null)
-                            setDynamicModels([])
-                            setIsLoadingModels(false)
-                            setCurrentProvider('openai_compatibility')
-                          }}
-                          className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
-                        >
-                          <div className="flex items-center gap-3">
-                            {renderProviderIcon('openai_compatibility', { size: 16, alt: 'OpenAI' })}
-                            <span>OpenAI Compatible</span>
-                          </div>
-                          {apiProvider === 'openai_compatibility' && (
-                            <Check size={14} className="text-primary-500" />
-                          )}
-                        </button>
-                        <button
-                          onClick={() => {
-                            // Cancel any ongoing request before switching
-                            if (abortControllerRef.current) {
-                              abortControllerRef.current.abort()
-                              abortControllerRef.current = null
-                            }
-
-                            setApiProvider('siliconflow')
-                            setIsProviderDropdownOpen(false)
-                            // Clear all model-related state when switching providers
-                            setModelsError(null)
-                            setDynamicModels([])
-                            setIsLoadingModels(false)
-                            setCurrentProvider('siliconflow')
-                          }}
-                          className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
-                        >
-                          <div className="flex items-center gap-3">
-                            {renderProviderIcon('siliconflow', { size: 16, alt: 'SiliconFlow' })}
-                            <span>SiliconFlow</span>
-                          </div>
-                          {apiProvider === 'siliconflow' && (
-                            <Check size={14} className="text-primary-500" />
-                          )}
-                        </button>
-                        <button
-                          onClick={() => {
-                            // Cancel any ongoing request before switching
-                            if (abortControllerRef.current) {
-                              abortControllerRef.current.abort()
-                              abortControllerRef.current = null
-                            }
-
-                            setApiProvider('glm')
-                            setIsProviderDropdownOpen(false)
-                            // Clear all model-related state when switching providers
-                            setModelsError(null)
-                            setDynamicModels([])
-                            setIsLoadingModels(false)
-                            setCurrentProvider('glm')
-                          }}
-                          className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
-                        >
-                          <div className="flex items-center gap-3">
-                            {renderProviderIcon('glm', { size: 16, alt: 'GLM' })}
-                            <span>GLM (Zhipu AI)</span>
-                          </div>
-                          {apiProvider === 'glm' && (
-                            <Check size={14} className="text-primary-500" />
-                          )}
-                        </button>
-                        <button
-                          onClick={() => {
-                            // Cancel any ongoing request before switching
-                            if (abortControllerRef.current) {
-                              abortControllerRef.current.abort()
-                              abortControllerRef.current = null
-                            }
-
-                            setApiProvider('kimi')
-                            setIsProviderDropdownOpen(false)
-                            // Clear all model-related state when switching providers
-                            setModelsError(null)
-                            setDynamicModels([])
-                            setIsLoadingModels(false)
-                            setCurrentProvider('kimi')
-                          }}
-                          className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
-                        >
-                          <div className="flex items-center gap-3">
-                            {renderProviderIcon('kimi', { size: 16, alt: 'Kimi' })}
-                            <span>Kimi (Moonshot AI)</span>
-                          </div>
-                          {apiProvider === 'kimi' && (
-                            <Check size={14} className="text-primary-500" />
-                          )}
-                        </button>
+                              setApiProvider(option.value)
+                              setIsProviderDropdownOpen(false)
+                              // Clear all model-related state when switching providers
+                              setModelsError(null)
+                              setDynamicModels([])
+                              setIsLoadingModels(false)
+                              setCurrentProvider(option.value)
+                            }}
+                            className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
+                          >
+                            <div className="flex items-center gap-3">
+                              {renderProviderIcon(option.value, { size: 16, alt: option.label })}
+                              <span>{option.label}</span>
+                            </div>
+                            {apiProvider === option.value && (
+                              <Check size={14} className="text-primary-500" />
+                            )}
+                          </button>
+                        ))}
                       </div>
                     )}
                   </div>
@@ -955,7 +934,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                   {apiProvider === 'gemini' && (
                     <div className="flex flex-col gap-2 animate-in fade-in slide-in-from-top-2 duration-200">
                       <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                        Google API Key
+                        {t('settings.googleApiKey')}
                       </label>
                       <div className="relative">
                         <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
@@ -965,7 +944,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                           type="password"
                           value={googleApiKey}
                           onChange={e => setGoogleApiKey(e.target.value)}
-                          placeholder="AIzaSy..."
+                          placeholder={t('settings.googleApiKeyPlaceholder')}
                           disabled={Boolean(ENV_VARS.googleApiKey)}
                           className={clsx(
                             'w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
@@ -984,11 +963,15 @@ const SettingsModal = ({ isOpen, onClose }) => {
                               size={12}
                               className={clsx(isLoadingModels && 'animate-spin')}
                             />
-                            {isLoadingModels ? 'Refreshing...' : 'Refresh Models'}
+                            {isLoadingModels ? t('settings.refreshing') : t('settings.refreshModels')}
                           </button>
                         </div>
                       )}
-                      {renderEnvHint(Boolean(ENV_VARS.googleApiKey))}
+                      {ENV_VARS.googleApiKey && (
+                        <p className="text-emerald-600 text-xs dark:text-emerald-400">
+                          {t('settings.loadedFromEnvironment')}
+                        </p>
+                      )}
                     </div>
                   )}
 
@@ -997,7 +980,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                     <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-top-2 duration-200">
                       <div className="flex flex-col gap-2">
                         <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                          OpenAI Compatible API Key
+                          {t('settings.openaiApiKey')}
                         </label>
                         <div className="relative">
                           <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
@@ -1007,7 +990,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                             type="password"
                             value={OpenAICompatibilityKey}
                             onChange={e => setOpenAICompatibilityKey(e.target.value)}
-                            placeholder="sk-..."
+                            placeholder={t('settings.openaiApiKeyPlaceholder')}
                             disabled={Boolean(ENV_VARS.openAIKey)}
                             className={clsx(
                               'w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
@@ -1019,7 +1002,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                       </div>
                       <div className="flex flex-col gap-2">
                         <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                          Base URL
+                          {t('settings.baseUrl')}
                         </label>
                         <div className="relative">
                           <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
@@ -1029,7 +1012,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                             type="text"
                             value={OpenAICompatibilityUrl}
                             onChange={e => setOpenAICompatibilityUrl(e.target.value)}
-                            placeholder="https://api.openai.com/v1"
+                            placeholder={t('settings.baseUrlPlaceholder')}
                             disabled={Boolean(ENV_VARS.openAIBaseUrl)}
                             className={clsx(
                               'w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
@@ -1047,7 +1030,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                     <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-top-2 duration-200">
                       <div className="flex flex-col gap-2">
                         <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                          SiliconFlow API Key
+                          {t('settings.siliconflowApiKey')}
                         </label>
                         <div className="relative">
                           <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
@@ -1057,7 +1040,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                             type="password"
                             value={SiliconFlowKey}
                             onChange={e => setSiliconFlowKey(e.target.value)}
-                            placeholder="sk-..."
+                            placeholder={t('settings.siliconflowApiKeyPlaceholder')}
                             disabled={Boolean(ENV_VARS.siliconFlowKey)}
                             className={clsx(
                               'w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
@@ -1076,11 +1059,15 @@ const SettingsModal = ({ isOpen, onClose }) => {
                                 size={12}
                                 className={clsx(isLoadingModels && 'animate-spin')}
                               />
-                              {isLoadingModels ? 'Refreshing...' : 'Refresh Models'}
+                              {isLoadingModels ? t('settings.refreshing') : t('settings.refreshModels')}
                             </button>
                           </div>
                         )}
-                        {renderEnvHint(Boolean(ENV_VARS.siliconFlowKey))}
+                        {ENV_VARS.siliconFlowKey && (
+                          <p className="text-emerald-600 text-xs dark:text-emerald-400">
+                            {t('settings.loadedFromEnvironment')}
+                          </p>
+                        )}
                       </div>
                     </div>
                   )}
@@ -1090,7 +1077,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                     <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-top-2 duration-200">
                       <div className="flex flex-col gap-2">
                         <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                          GLM (Zhipu AI) API Key
+                          {t('settings.glmApiKey')}
                         </label>
                         <div className="relative">
                           <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
@@ -1100,7 +1087,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                             type="password"
                             value={GlmKey}
                             onChange={e => setGlmKey(e.target.value)}
-                            placeholder="Your GLM API key"
+                            placeholder={t('settings.glmApiKeyPlaceholder')}
                             disabled={Boolean(ENV_VARS.glmKey)}
                             className={clsx(
                               'w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
@@ -1119,11 +1106,15 @@ const SettingsModal = ({ isOpen, onClose }) => {
                                 size={12}
                                 className={clsx(isLoadingModels && 'animate-spin')}
                               />
-                              {isLoadingModels ? 'Refreshing...' : 'Refresh Models'}
+                              {isLoadingModels ? t('settings.refreshing') : t('settings.refreshModels')}
                             </button>
                           </div>
                         )}
-                        {renderEnvHint(Boolean(ENV_VARS.glmKey))}
+                        {ENV_VARS.glmKey && (
+                          <p className="text-emerald-600 text-xs dark:text-emerald-400">
+                            {t('settings.loadedFromEnvironment')}
+                          </p>
+                        )}
                       </div>
                     </div>
                   )}
@@ -1133,7 +1124,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                     <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-top-2 duration-200">
                       <div className="flex flex-col gap-2">
                         <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                          Kimi (Moonshot AI) API Key
+                          {t('settings.kimiApiKey')}
                         </label>
                         <div className="relative">
                           <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
@@ -1143,7 +1134,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                             type="password"
                             value={KimiKey}
                             onChange={e => setKimiKey(e.target.value)}
-                            placeholder="Your Kimi API key"
+                            placeholder={t('settings.kimiApiKeyPlaceholder')}
                             disabled={Boolean(ENV_VARS.kimiKey)}
                             className={clsx(
                               'w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
@@ -1162,11 +1153,15 @@ const SettingsModal = ({ isOpen, onClose }) => {
                                 size={12}
                                 className={clsx(isLoadingModels && 'animate-spin')}
                               />
-                              {isLoadingModels ? 'Refreshing...' : 'Refresh Models'}
+                              {isLoadingModels ? t('settings.refreshing') : t('settings.refreshModels')}
                             </button>
                           </div>
                         )}
-                        {renderEnvHint(Boolean(ENV_VARS.kimiKey))}
+                        {ENV_VARS.kimiKey && (
+                          <p className="text-emerald-600 text-xs dark:text-emerald-400">
+                            {t('settings.loadedFromEnvironment')}
+                          </p>
+                        )}
                       </div>
                     </div>
                   )}
@@ -1176,22 +1171,22 @@ const SettingsModal = ({ isOpen, onClose }) => {
                 <div className="flex flex-col gap-6">
                   <div className="flex flex-col gap-1">
                     <label className="text-sm font-medium text-gray-900 dark:text-white">
-                      Model Configuration
+                      {t('settings.modelConfiguration')}
                     </label>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Choose different models for different tasks, or enter a custom model ID.
+                      {t('settings.modelConfigurationHint')}
                     </p>
                     {apiProvider !== 'openai_compatibility' && (
                       <div className="flex items-center gap-2 text-xs">
                         {isLoadingModels && (
                           <div className="flex items-center gap-1 text-gray-500">
                             <div className="w-3 h-3 border border-gray-300 border-t-transparent rounded-full animate-spin"></div>
-                            <span>Loading models...</span>
+                            <span>{t('settings.loadingModels')}</span>
                           </div>
                         )}
                         {!isLoadingModels && dynamicModels.length > 0 && (
                           <span className="text-emerald-600 dark:text-emerald-400">
-                            ✓ {dynamicModels.length} models loaded
+                            ✓ {t('settings.modelsLoaded', { count: dynamicModels.length })}
                           </span>
                         )}
                         {modelsError && (
@@ -1199,7 +1194,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                             className="text-primary-600 dark:text-primary-400"
                             title={modelsError}
                           >
-                            ⚠ Using fallback models
+                            ⚠ {t('settings.usingFallbackModels')}
                           </span>
                         )}
                       </div>
@@ -1216,7 +1211,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                       const dropdownRef = useRef(null)
                       const isCustom = !modelOptions.some(opt => opt.value === value)
                       const currentLabel =
-                        modelOptions.find(opt => opt.value === value)?.label || 'Custom...'
+                        modelOptions.find(opt => opt.value === value)?.label || t('settings.customModel')
 
                       useEffect(() => {
                         const handleClickOutside = event => {
@@ -1273,7 +1268,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                               </div>
                             </div>
                             <span className="text-[10px] px-2 py-1 rounded-full bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-zinc-700">
-                              {isCustom ? 'Custom' : 'Preset'}
+                              {isCustom ? t('settings.custom') : t('settings.preset')}
                             </span>
                           </div>
 
@@ -1345,7 +1340,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                                     }}
                                     className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
                                   >
-                                    <span>Custom...</span>
+                                    <span>{t('settings.customModel')}</span>
                                     {isCustom && <Check size={14} className="text-primary-500" />}
                                   </button>
                                 </div>
@@ -1356,13 +1351,13 @@ const SettingsModal = ({ isOpen, onClose }) => {
                           {isCustom && (
                             <div className="flex flex-col gap-1 animate-in fade-in slide-in-from-top-1 duration-200">
                               <label className="text-[11px] text-gray-500 dark:text-gray-400">
-                                Custom model ID
+                                {t('settings.customModelId')}
                               </label>
                               <input
                                 type="text"
                                 value={value}
                                 onChange={e => onChange(e.target.value)}
-                                placeholder="Enter your own model id"
+                                placeholder={t('settings.customModelIdPlaceholder')}
                                 className="w-full px-3 py-2 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm bg-gray-50 dark:bg-zinc-950 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
                               />
                             </div>
@@ -1374,14 +1369,14 @@ const SettingsModal = ({ isOpen, onClose }) => {
                     return (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <ModelCard
-                          label="Lite"
-                          helper="Titles, related questions, space suggestions"
+                          label={t('settings.liteModel')}
+                          helper={t('settings.liteModelHelper')}
                           value={liteModel}
                           onChange={setLiteModel}
                         />
                         <ModelCard
-                          label="Default"
-                          helper="Primary chat responses"
+                          label={t('settings.defaultModel')}
+                          helper={t('settings.defaultModelHelper')}
                           value={defaultModel}
                           onChange={setDefaultModel}
                         />
@@ -1396,17 +1391,17 @@ const SettingsModal = ({ isOpen, onClose }) => {
                 <div className="flex flex-col gap-6">
                   <div className="flex flex-col gap-1">
                     <label className="text-sm font-medium text-gray-900 dark:text-white">
-                      Supabase Configuration
+                      {t('settings.supabaseConfiguration')}
                     </label>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Used for syncing and storing chat history.
+                      {t('settings.supabaseConfigurationHint')}
                     </p>
                   </div>
 
                   <div className="flex flex-col gap-4">
                     <div className="flex flex-col gap-2">
                       <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                        Supabase URL
+                        {t('settings.supabaseUrl')}
                       </label>
                       <div className="relative">
                         <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
@@ -1429,7 +1424,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
 
                     <div className="flex flex-col gap-2">
                       <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                        Anon Key
+                        {t('settings.supabaseKey')}
                       </label>
                       <div className="relative">
                         <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
@@ -1457,7 +1452,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                       disabled={testing || !supabaseUrl || !supabaseKey}
                       className="self-end px-4 py-2 text-xs font-medium text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {testing ? 'Testing...' : 'Test Connection & Database Tables'}
+                      {testing ? t('settings.testing') : t('settings.testConnectionAndTables')}
                     </button>
 
                     {testResult && (
@@ -1479,18 +1474,18 @@ const SettingsModal = ({ isOpen, onClose }) => {
                           <div className="space-y-1 text-xs">
                             <div className="flex items-center gap-2">
                               <span>{testResult.tables.spaces ? '✅' : '❌'}</span>
-                              <span className="text-gray-700 dark:text-gray-300">spaces table</span>
+                              <span className="text-gray-700 dark:text-gray-300">{t('settings.spacesTable')}</span>
                             </div>
                             <div className="flex items-center gap-2">
                               <span>{testResult.tables.conversations ? '✅' : '❌'}</span>
                               <span className="text-gray-700 dark:text-gray-300">
-                                chat_sessions table
+                                {t('settings.chatSessionsTable')}
                               </span>
                             </div>
                             <div className="flex items-center gap-2">
                               <span>{testResult.tables.conversation_messages ? '✅' : '❌'}</span>
                               <span className="text-gray-700 dark:text-gray-300">
-                                messages table
+                                {t('settings.messagesTable')}
                               </span>
                             </div>
                           </div>
@@ -1506,10 +1501,10 @@ const SettingsModal = ({ isOpen, onClose }) => {
               <div className="flex flex-col gap-8 max-w-2xl">
                 <div className="flex flex-col gap-1">
                   <label className="text-sm font-medium text-gray-900 dark:text-white">
-                    Theme Color
+                    {t('settings.themeColor')}
                   </label>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Customize the look and feel of your workspace.
+                    {t('settings.themeColorHint')}
                   </p>
                 </div>
 
@@ -1560,16 +1555,16 @@ const SettingsModal = ({ isOpen, onClose }) => {
               <div className="flex flex-col gap-8 max-w-2xl">
                 <div className="flex flex-col gap-1">
                   <label className="text-sm font-medium text-gray-900 dark:text-white">
-                    Response Style
+                    {t('settings.responseStyle')}
                   </label>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Fine-tune how replies sound and how they are structured.
+                    {t('settings.responseStyleHint')}
                   </p>
                 </div>
 
                 <div className="flex flex-col gap-2">
                   <label className="text-sm font-medium text-gray-900 dark:text-white">
-                    Base Style and Tone
+                    {t('settings.styleBaseTone')}
                   </label>
                   <div className="relative w-full" ref={baseToneDropdownRef}>
                     <button
@@ -1591,7 +1586,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                         <Palette size={16} className="text-gray-400" />
                       </div>
                       <span>
-                        {STYLE_BASE_TONE_OPTIONS.find(option => option.value === baseTone)?.label ||
+                        {styleBaseToneOptions.find(option => option.value === baseTone)?.label ||
                           baseTone}
                       </span>
                       <ChevronDown
@@ -1605,9 +1600,9 @@ const SettingsModal = ({ isOpen, onClose }) => {
 
                     {isBaseToneDropdownOpen && (
                       <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg shadow-xl z-20 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
-                        {STYLE_BASE_TONE_OPTIONS.map(option => (
+                        {styleBaseToneOptions.map(option => (
                           <button
-                            key={option.value}
+                            key={option.key}
                             onClick={() => {
                               setBaseTone(option.value)
                               setIsBaseToneDropdownOpen(false)
@@ -1627,7 +1622,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
 
                 <div className="flex flex-col gap-2">
                   <label className="text-sm font-medium text-gray-900 dark:text-white">
-                    Traits
+                    {t('settings.traits')}
                   </label>
                   <div className="relative w-full" ref={traitsDropdownRef}>
                     <button
@@ -1649,7 +1644,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                         <Box size={16} className="text-gray-400" />
                       </div>
                       <span>
-                        {STYLE_TRAIT_OPTIONS.find(option => option.value === traits)?.label ||
+                        {styleTraitOptions.find(option => option.value === traits)?.label ||
                           traits}
                       </span>
                       <ChevronDown
@@ -1663,9 +1658,9 @@ const SettingsModal = ({ isOpen, onClose }) => {
 
                     {isTraitsDropdownOpen && (
                       <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg shadow-xl z-20 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
-                        {STYLE_TRAIT_OPTIONS.map(option => (
+                        {styleTraitOptions.map(option => (
                           <button
-                            key={option.value}
+                            key={option.key}
                             onClick={() => {
                               setTraits(option.value)
                               setIsTraitsDropdownOpen(false)
@@ -1685,7 +1680,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
 
                 <div className="flex flex-col gap-2">
                   <label className="text-sm font-medium text-gray-900 dark:text-white">
-                    Warmth and Care
+                    {t('settings.warmth')}
                   </label>
                   <div className="relative w-full" ref={warmthDropdownRef}>
                     <button
@@ -1707,7 +1702,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                         <User size={16} className="text-gray-400" />
                       </div>
                       <span>
-                        {STYLE_WARMTH_OPTIONS.find(option => option.value === warmth)?.label ||
+                        {styleWarmthOptions.find(option => option.value === warmth)?.label ||
                           warmth}
                       </span>
                       <ChevronDown
@@ -1721,9 +1716,9 @@ const SettingsModal = ({ isOpen, onClose }) => {
 
                     {isWarmthDropdownOpen && (
                       <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg shadow-xl z-20 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
-                        {STYLE_WARMTH_OPTIONS.map(option => (
+                        {styleWarmthOptions.map(option => (
                           <button
-                            key={option.value}
+                            key={option.key}
                             onClick={() => {
                               setWarmth(option.value)
                               setIsWarmthDropdownOpen(false)
@@ -1743,7 +1738,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
 
                 <div className="flex flex-col gap-2">
                   <label className="text-sm font-medium text-gray-900 dark:text-white">
-                    Enthusiasm
+                    {t('settings.enthusiasm')}
                   </label>
                   <div className="relative w-full" ref={enthusiasmDropdownRef}>
                     <button
@@ -1765,7 +1760,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                         <MessageSquare size={16} className="text-gray-400" />
                       </div>
                       <span>
-                        {STYLE_ENTHUSIASM_OPTIONS.find(option => option.value === enthusiasm)
+                        {styleEnthusiasmOptions.find(option => option.value === enthusiasm)
                           ?.label || enthusiasm}
                       </span>
                       <ChevronDown
@@ -1779,9 +1774,9 @@ const SettingsModal = ({ isOpen, onClose }) => {
 
                     {isEnthusiasmDropdownOpen && (
                       <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg shadow-xl z-20 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
-                        {STYLE_ENTHUSIASM_OPTIONS.map(option => (
+                        {styleEnthusiasmOptions.map(option => (
                           <button
-                            key={option.value}
+                            key={option.key}
                             onClick={() => {
                               setEnthusiasm(option.value)
                               setIsEnthusiasmDropdownOpen(false)
@@ -1801,7 +1796,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
 
                 <div className="flex flex-col gap-2">
                   <label className="text-sm font-medium text-gray-900 dark:text-white">
-                    Headings and Lists
+                    {t('settings.headings')}
                   </label>
                   <div className="relative w-full" ref={headingsDropdownRef}>
                     <button
@@ -1823,7 +1818,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                         <Info size={16} className="text-gray-400" />
                       </div>
                       <span>
-                        {STYLE_HEADINGS_OPTIONS.find(option => option.value === headings)?.label ||
+                        {styleHeadingsOptions.find(option => option.value === headings)?.label ||
                           headings}
                       </span>
                       <ChevronDown
@@ -1837,9 +1832,9 @@ const SettingsModal = ({ isOpen, onClose }) => {
 
                     {isHeadingsDropdownOpen && (
                       <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg shadow-xl z-20 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
-                        {STYLE_HEADINGS_OPTIONS.map(option => (
+                        {styleHeadingsOptions.map(option => (
                           <button
-                            key={option.value}
+                            key={option.key}
                             onClick={() => {
                               setHeadings(option.value)
                               setIsHeadingsDropdownOpen(false)
@@ -1859,7 +1854,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
 
                 <div className="flex flex-col gap-2">
                   <label className="text-sm font-medium text-gray-900 dark:text-white">
-                    Emojis
+                    {t('settings.emojis')}
                   </label>
                   <div className="relative w-full" ref={emojisDropdownRef}>
                     <button
@@ -1881,7 +1876,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                         <Smile size={16} className="text-gray-400" />
                       </div>
                       <span>
-                        {STYLE_EMOJI_OPTIONS.find(option => option.value === emojis)?.label ||
+                        {styleEmojiOptions.find(option => option.value === emojis)?.label ||
                           emojis}
                       </span>
                       <ChevronDown
@@ -1895,9 +1890,9 @@ const SettingsModal = ({ isOpen, onClose }) => {
 
                     {isEmojisDropdownOpen && (
                       <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg shadow-xl z-20 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
-                        {STYLE_EMOJI_OPTIONS.map(option => (
+                        {styleEmojiOptions.map(option => (
                           <button
-                            key={option.value}
+                            key={option.key}
                             onClick={() => {
                               setEmojis(option.value)
                               setIsEmojisDropdownOpen(false)
@@ -1917,15 +1912,15 @@ const SettingsModal = ({ isOpen, onClose }) => {
 
                 <div className="flex flex-col gap-2">
                   <label className="text-sm font-medium text-gray-900 dark:text-white">
-                    Custom Instruction
+                    {t('settings.customInstruction')}
                   </label>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Optional extra guidance appended to the style prompt.
+                    {t('settings.customInstructionHint')}
                   </p>
                   <textarea
                     value={customInstruction}
                     onChange={e => setCustomInstruction(e.target.value)}
-                    placeholder="Add any extra style notes here..."
+                    placeholder={t('settings.customInstructionPlaceholder')}
                     rows={4}
                     className="w-full p-4 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600 resize-none"
                   />
@@ -1938,10 +1933,10 @@ const SettingsModal = ({ isOpen, onClose }) => {
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex flex-col gap-1">
                     <label className="text-sm font-semibold text-gray-900 dark:text-white">
-                      Related Questions
+                      {t('settings.relatedQuestions')}
                     </label>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Automatically generate follow-up suggestions after the assistant responds.
+                      {t('settings.relatedQuestionsHint')}
                     </p>
                   </div>
                   <button
@@ -1967,11 +1962,10 @@ const SettingsModal = ({ isOpen, onClose }) => {
 
                 <div className="flex flex-col gap-2">
                   <label className="text-sm font-medium text-gray-900 dark:text-white">
-                    Context Messages
+                    {t('settings.contextMessages')}
                   </label>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                    How many recent messages to send with each request (excluding spaces/system
-                    prompts).
+                    {t('settings.contextMessagesHint')}
                   </p>
                   <input
                     type="number"
@@ -1987,10 +1981,10 @@ const SettingsModal = ({ isOpen, onClose }) => {
 
                 <div className="flex flex-col gap-2">
                   <label className="text-sm font-medium text-gray-900 dark:text-white">
-                    LLM Answer Language
+                    {t('settings.llmAnswerLanguage')}
                   </label>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Appended to the system prompt for reply language control.
+                    {t('settings.llmAnswerLanguageHint')}
                   </p>
                   <div className="relative w-full" ref={llmLanguageDropdownRef}>
                     <button
@@ -2012,7 +2006,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                         <MessageSquare size={16} className="text-gray-400" />
                       </div>
                       <span>
-                        {LLM_ANSWER_LANGUAGE_OPTIONS.find(
+                        {llmAnswerLanguageOptions.find(
                           option => option.value === llmAnswerLanguage,
                         )?.label || llmAnswerLanguage}
                       </span>
@@ -2027,9 +2021,9 @@ const SettingsModal = ({ isOpen, onClose }) => {
 
                     {isLlmLanguageDropdownOpen && (
                       <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg shadow-xl z-20 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
-                        {LLM_ANSWER_LANGUAGE_OPTIONS.map(option => (
+                        {llmAnswerLanguageOptions.map(option => (
                           <button
-                            key={option.value}
+                            key={option.key}
                             onClick={() => {
                               setLlmAnswerLanguage(option.value)
                               setIsLlmLanguageDropdownOpen(false)
@@ -2053,10 +2047,10 @@ const SettingsModal = ({ isOpen, onClose }) => {
               <div className="flex flex-col gap-8 max-w-2xl">
                 <div className="flex flex-col gap-1">
                   <label className="text-sm font-medium text-gray-900 dark:text-white">
-                    Model Configuration
+                    {t('settings.modelConfiguration')}
                   </label>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Configure the specific model ID for your selected provider.
+                    {t('settings.modelConfigurationHint2')}
                   </p>
                 </div>
 
@@ -2108,12 +2102,11 @@ const SettingsModal = ({ isOpen, onClose }) => {
                   <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
                     Qurio
                     <span className="px-2 py-0.5 rounded-full bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 text-[10px] font-bold tracking-wide uppercase border border-primary-200 dark:border-primary-800">
-                      Beta
+                      {t('settings.about.beta')}
                     </span>
                   </h1>
                   <p className="text-sm text-gray-500 dark:text-gray-400 max-w-md leading-relaxed">
-                    An advanced AI assistant interface designed for clarity, speed, and precision.
-                    Built with the latest web technologies for a seamless experience.
+                    {t('settings.about.description')}
                   </p>
                 </div>
 
@@ -2140,7 +2133,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
 
                 <div className="mt-8 pt-8 border-t border-gray-100 dark:border-zinc-800 w-full max-w-xs flex flex-col gap-1">
                   <p className="text-xs text-gray-400 dark:text-gray-500 font-medium">
-                    Designed & Built by
+                    {t('settings.about.designedAndBuiltBy')}
                   </p>
                   <p className="text-sm font-semibold text-gray-900 dark:text-white">
                     havingautism & allabouturmind
@@ -2148,7 +2141,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                 </div>
 
                 <p className="text-[10px] text-gray-300 dark:text-gray-600 mt-auto">
-                  v0.1.0 • © 2025 All rights reserved
+                  {t('settings.about.version')}
                 </p>
               </div>
             )}
@@ -2160,13 +2153,13 @@ const SettingsModal = ({ isOpen, onClose }) => {
               onClick={onClose}
               className="px-4 cursor-pointer py-2 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-zinc-800 transition-colors"
             >
-              Cancel
+              {t('settings.cancel')}
             </button>
             <button
               onClick={handleSave}
               className="px-4 cursor-pointer py-2 rounded-lg text-sm font-medium bg-primary-500 text-white  hover:opacity-90 transition-opacity"
             >
-              Save Changes
+              {t('settings.saveChanges')}
             </button>
           </div>
         </div>
@@ -2181,11 +2174,10 @@ const SettingsModal = ({ isOpen, onClose }) => {
             <div className="flex items-start justify-between gap-3">
               <div className="space-y-1">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  Complete Supabase setup
+                  {t('settings.initModal.title')}
                 </h3>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  We could not verify all required tables. Please run the init.sql once in Supabase,
-                  then re-test.
+                  {t('settings.initModal.description')}
                 </p>
               </div>
               <button
@@ -2201,8 +2193,8 @@ const SettingsModal = ({ isOpen, onClose }) => {
               <div className="rounded-lg border border-primary-200 dark:border-primary-900/40 bg-primary-50 dark:bg-primary-900/20 p-4 space-y-2">
                 <div className="text-sm font-medium text-primary-900 dark:text-primary-100">
                   {initModalResult.connection
-                    ? 'Connection ok, but schema needs setup.'
-                    : 'Connection failed. Check URL/key, then run init.sql.'}
+                    ? t('settings.initModal.connectionOk')
+                    : t('settings.initModal.connectionFailed')}
                 </div>
                 {initModalResult.tables && (
                   <div className="flex flex-wrap gap-2 text-xs text-primary-800 dark:text-primary-100">
@@ -2218,7 +2210,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                               : 'border-primary-200 dark:border-primary-900/40 bg-primary-100/70 dark:bg-primary-900/40',
                           )}
                         >
-                          {exists ? 'Ready' : 'Missing'} · {table}
+                          {exists ? t('settings.initModal.ready') : t('settings.initModal.missing')} · {table}
                         </span>
                       )
                     })}
@@ -2226,7 +2218,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                 )}
                 {getMissingTables(initModalResult).length > 0 && (
                   <div className="text-xs text-primary-800 dark:text-primary-100">
-                    Missing: {getMissingTables(initModalResult).join(', ')}
+                    {t('settings.initModal.missingLabel')} {getMissingTables(initModalResult).join(', ')}
                   </div>
                 )}
               </div>
@@ -2234,11 +2226,11 @@ const SettingsModal = ({ isOpen, onClose }) => {
 
             <div className="space-y-2">
               <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
-                Quick fix steps
+                {t('settings.initModal.quickFixSteps')}
               </h4>
               <ol className="list-decimal list-inside text-sm text-gray-700 dark:text-gray-300 space-y-1">
-                <li>Copy the SQL below and run it once in Supabase SQL Editor.</li>
-                <li>Click “Re-test” to verify the required tables.</li>
+                <li>{t('settings.initModal.step1')}</li>
+                <li>{t('settings.initModal.step2')}</li>
               </ol>
             </div>
 
@@ -2248,7 +2240,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                 className="absolute top-3 right-3 flex items-center gap-1 px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-zinc-800 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-zinc-700 transition-colors"
               >
                 <Copy size={14} />
-                {copiedInitSql ? 'Copied' : 'Copy SQL'}
+                {copiedInitSql ? t('settings.initModal.copied') : t('settings.initModal.copySql')}
               </button>
               <pre className="max-h-64 overflow-auto text-xs bg-gray-900 text-gray-100 rounded-lg p-4 border border-gray-800 whitespace-pre-wrap">
                 {INIT_SQL_SCRIPT}
@@ -2260,7 +2252,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                 onClick={() => setIsInitModalOpen(false)}
                 className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
               >
-                Close
+                {t('settings.initModal.close')}
               </button>
               <button
                 onClick={handleRetestAfterInit}
@@ -2268,7 +2260,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                 className="px-4 py-2 rounded-lg text-sm font-medium bg-primary-500 text-white hover:bg-primary-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 <RefreshCw size={16} className={retestingDb ? 'animate-spin' : ''} />
-                {retestingDb ? 'Re-testing...' : 'Re-test'}
+                {retestingDb ? t('settings.initModal.retesting') : t('settings.initModal.retest')}
               </button>
             </div>
           </div>

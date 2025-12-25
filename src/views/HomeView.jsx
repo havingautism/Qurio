@@ -13,6 +13,7 @@ import {
   X,
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useAppContext } from '../App'
 import ChatInterface from '../components/ChatInterface'
 import EmojiDisplay from '../components/EmojiDisplay'
@@ -22,6 +23,7 @@ import useChatStore from '../lib/chatStore'
 import { loadSettings } from '../lib/settings'
 
 const HomeView = () => {
+  const { t } = useTranslation()
   const { toggleSidebar, isSidebarPinned, spaces } = useAppContext()
   const [activeView, setActiveView] = useState('home')
 
@@ -223,7 +225,7 @@ const HomeView = () => {
               >
                 <Menu size={20} />
               </button>
-              <span className="font-semibold text-gray-900 dark:text-white">Qurio</span>
+              <span className="font-semibold text-gray-900 dark:text-white">{t('app.name')}</span>
             </div>
             {/* Space for right button if needed, or just spacer */}
             <div className="w-8" />
@@ -236,7 +238,7 @@ const HomeView = () => {
             </div>
             {/* Title */}
             <h1 className="home-title text-3xl md:text-5xl font-serif! font-medium text-center mb-4 mt-0 sm:mb-8 text-[#1f2937] dark:text-white">
-              Where insight clicks.
+              {t('app.tagline')}
             </h1>
 
             {/* Search Box */}
@@ -279,7 +281,7 @@ const HomeView = () => {
                       handleStartChat()
                     }
                   }}
-                  placeholder="Ask anything..."
+                  placeholder={t('homeView.askAnything')}
                   className="w-full bg-transparent border-none outline-none resize-none text-lg placeholder-gray-400 dark:placeholder-gray-500 min-h-[60px] max-h-[200px] overflow-y-auto"
                   rows={1}
                 />
@@ -313,7 +315,7 @@ const HomeView = () => {
                       }`}
                     >
                       <Brain size={18} />
-                      <span className="hidden md:inline">Think</span>
+                      <span className="hidden md:inline">{t('homeView.think')}</span>
                     </button>
                     <button
                       disabled={
@@ -329,7 +331,7 @@ const HomeView = () => {
                       }`}
                     >
                       <Globe size={18} />
-                      <span className="hidden md:inline">Search</span>
+                      <span className="hidden md:inline">{t('homeView.search')}</span>
                     </button>
 
                     <div className="relative" ref={homeSpaceSelectorRef}>
@@ -344,8 +346,8 @@ const HomeView = () => {
                         <LayoutGrid size={18} />
                         <span className="hidden md:inline">
                           {isHomeSpaceAuto || !homeSelectedSpace
-                            ? 'Spaces: Auto'
-                            : `Spaces: ${homeSelectedSpace.label}`}
+                            ? t('homeView.spacesAuto')
+                            : t('homeView.spacesLabel', { label: homeSelectedSpace.label })}
                         </span>
                         <ChevronDown size={14} />
                       </button>
@@ -360,7 +362,7 @@ const HomeView = () => {
                                   : 'text-gray-700 dark:text-gray-200'
                               }`}
                             >
-                              <span className="text-sm font-medium">Auto</span>
+                              <span className="text-sm font-medium">{t('homeView.auto')}</span>
                               {isHomeSpaceAuto && <Check size={14} className="text-primary-500" />}
                             </button>
                             {spaces.length > 0 && (

@@ -12,6 +12,7 @@ import {
   Trash2,
 } from 'lucide-react'
 import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useAppContext } from '../App'
 import DropdownMenu from '../components/DropdownMenu'
 import EmojiDisplay from '../components/EmojiDisplay'
@@ -21,22 +22,34 @@ import { useInfiniteScroll } from '../hooks/useInfiniteScroll'
 import { listBookmarkedConversations, toggleFavorite } from '../lib/conversationsService'
 import { deleteConversation } from '../lib/supabase'
 
-const SORT_OPTIONS = [
-  { label: 'Newest', value: 'created_at', ascending: false },
-  { label: 'Oldest', value: 'created_at', ascending: true },
-  { label: 'Title (A-Z)', value: 'title', ascending: true },
-  { label: 'Title (Z-A)', value: 'title', ascending: false },
+// Sort option keys (constant for logic)
+const SORT_OPTION_KEYS = [
+  { key: 'newest', value: 'created_at', ascending: false },
+  { key: 'oldest', value: 'created_at', ascending: true },
+  { key: 'titleAZ', value: 'title', ascending: true },
+  { key: 'titleZA', value: 'title', ascending: false },
 ]
 
 const BookmarksView = () => {
+  const { t, i18n } = useTranslation()
   const { spaces, isSidebarPinned, showConfirmation } = useAppContext()
   const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState('')
-  const [sortOption, setSortOption] = useState(SORT_OPTIONS[0])
+  const [sortOption, setSortOption] = useState(SORT_OPTION_KEYS[0])
   const [isSortOpen, setIsSortOpen] = useState(false)
   const [openMenuId, setOpenMenuId] = useState(null)
   const [menuAnchorEl, setMenuAnchorEl] = useState(null)
   const toast = useToast()
+
+  // Translated sort options for rendering
+  const sortOptions = useMemo(
+    () =>
+      SORT_OPTION_KEYS.map(option => ({
+        ...option,
+        label: t(`views.${option.key}`),
+      })),
+    [t],
+  )
 
   // Use infinite scroll hook
   const {
@@ -76,7 +89,9 @@ const BookmarksView = () => {
   // Format date helper
   const formatDate = dateString => {
     const date = new Date(dateString)
-    return date.toLocaleString(undefined, {
+    // Use current language for date formatting
+    const locale = i18n.language === 'zh-CN' ? 'zh-CN' : 'en-US'
+    return date.toLocaleString(locale, {
       month: 'short',
       day: 'numeric',
       year: 'numeric',
@@ -93,9 +108,9 @@ const BookmarksView = () => {
 
     if (error) {
       console.error('Failed to toggle favorite:', error)
-      toast.error('Failed to update favorite status')
+      toast.error(t('sidebar.failedToUpdateFavorite'))
     } else {
-      toast.success(newStatus ? 'Added to bookmarks' : 'Removed from bookmarks')
+      toast.success(newStatus ? t('views.addBookmark') : t('views.removeBookmark'))
       // Refresh data
       window.dispatchEvent(new Event('conversations-changed'))
     }
@@ -107,20 +122,20 @@ const BookmarksView = () => {
     if (!conversation) return
 
     showConfirmation({
-      title: 'Delete Conversation',
-      message: `Are you sure you want to delete "${conversation.title}"? This action cannot be undone.`,
-      confirmText: 'Delete',
+      title: t('confirmation.delete'),
+      message: t('confirmation.deleteMessage', { title: conversation.title }),
+      confirmText: t('confirmation.delete'),
       isDangerous: true,
       onConfirm: async () => {
         const { success, error } = await deleteConversation(conversation.id)
 
         if (success) {
-          toast.success('Conversation deleted successfully')
+          toast.success(t('views.libraryView.conversationDeleted'))
           // Refresh data
           window.dispatchEvent(new Event('conversations-changed'))
         } else {
           console.error('Failed to delete conversation:', error)
-          toast.error('Failed to delete conversation')
+          toast.error(t('views.libraryView.failedToDelete'))
         }
       },
     })
@@ -138,14 +153,14 @@ const BookmarksView = () => {
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-3">
             <Bookmark size={32} className="text-primary-500 fill-current" />
-            <h1 className="text-3xl font-medium">Bookmarks</h1>
+            <h1 className="text-3xl font-medium">{t('views.bookmarksView.title')}</h1>
           </div>
           <button
             onClick={() => navigate({ to: '/new_chat' })}
             className="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors text-sm font-medium"
           >
             <Plus size={16} />
-            <span>New Thread</span>
+            <span>{t('views.newThread')}</span>
           </button>
         </div>
 
@@ -156,7 +171,7 @@ const BookmarksView = () => {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
             <input
               type="text"
-              placeholder="Search your Bookmarks..."
+              placeholder={t('views.bookmarksView.searchPlaceholder')}
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               className="w-full bg-gray-100 dark:bg-zinc-900 border border-transparent focus:border-gray-300 dark:focus:border-zinc-700 rounded-xl py-3 pl-10 pr-4 outline-none transition-all placeholder-gray-500"
@@ -179,7 +194,9 @@ const BookmarksView = () => {
                 onClick={() => setIsSortOpen(!isSortOpen)}
                 className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 text-xs font-medium transition-colors"
               >
-                <span>Sort: {sortOption.label}</span>
+                <span>
+                  {t('views.sort')}: {sortOptions.find(o => o.key === sortOption.key)?.label}
+                </span>
                 <ChevronDown size={12} />
               </button>
 
@@ -188,25 +205,25 @@ const BookmarksView = () => {
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => setIsSortOpen(false)} />
                   <div className="absolute right-0 top-full mt-2 w-40 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-xl shadow-lg z-20 overflow-hidden py-1">
-                    {SORT_OPTIONS.map(option => (
+                    {sortOptions.map(option => (
                       <button
-                        key={option.label}
+                        key={option.key}
                         onClick={() => {
-                          setSortOption(option)
+                          setSortOption(SORT_OPTION_KEYS.find(o => o.key === option.key))
                           setIsSortOpen(false)
                         }}
                         className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-zinc-800 flex items-center justify-between group"
                       >
                         <span
                           className={
-                            sortOption.label === option.label
+                            sortOption.key === option.key
                               ? 'text-primary-500'
                               : 'text-gray-700 dark:text-gray-300'
                           }
                         >
                           {option.label}
                         </span>
-                        {sortOption.label === option.label && (
+                        {sortOption.key === option.key && (
                           <Check size={14} className="text-primary-500" />
                         )}
                       </button>
@@ -227,7 +244,7 @@ const BookmarksView = () => {
           ) : filteredConversations.length === 0 ? (
             <div className="text-center py-12 text-gray-500 flex flex-col items-center gap-3">
               <Coffee size={56} className="text-black dark:text-white" />
-              <p className="text-sm">No bookmarks yet. Save one to see it here.</p>
+              <p className="text-sm">{t('views.bookmarksView.noBookmarks')}</p>
               {/* <button
                 onClick={() => navigate({ to: '/new_chat' })}
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-primary-500 text-white hover:bg-primary-600 transition-colors"
@@ -260,7 +277,7 @@ const BookmarksView = () => {
                     <div className="flex-1 min-w-0">
                       {/* Title */}
                       <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-1 truncate">
-                        {conv.title || 'Untitled Thread'}
+                        {conv.title || t('views.untitledThread')}
                       </h3>
 
                       {/* Metadata */}
@@ -311,13 +328,13 @@ const BookmarksView = () => {
           {!loading && loadingMore && (
             <div className="flex flex-col items-center gap-3 py-8">
               <FancyLoader />
-              <span className="text-sm text-gray-400">Loading more bookmarks...</span>
+              <span className="text-sm text-gray-400">{t('views.bookmarksView.loadingMore')}</span>
             </div>
           )}
 
           {/* No More Data Message */}
           {!loading && !hasMore && conversations.length > 0 && (
-            <div className="text-center py-8 text-gray-400 text-sm">No more bookmarks to load</div>
+            <div className="text-center py-8 text-gray-400 text-sm">{t('views.bookmarksView.noMoreToLoad')}</div>
           )}
         </div>
       </div>
@@ -335,7 +352,7 @@ const BookmarksView = () => {
           if (!activeConv) return []
           return [
             {
-              label: activeConv.is_favorited ? 'Remove Bookmark' : 'Add Bookmark',
+              label: activeConv.is_favorited ? t('views.removeBookmark') : t('views.addBookmark'),
               icon: (
                 <Bookmark size={14} className={activeConv.is_favorited ? 'fill-current' : ''} />
               ),
@@ -343,7 +360,7 @@ const BookmarksView = () => {
               className: activeConv.is_favorited ? 'text-yellow-500' : '',
             },
             {
-              label: 'Delete conversation',
+              label: t('views.deleteConversation'),
               icon: <Trash2 size={14} />,
               danger: true,
               onClick: () => handleDeleteConversation(activeConv),

@@ -1,5 +1,6 @@
 import { Outlet, useLocation, useNavigate } from '@tanstack/react-router'
 import React, { useEffect, useState } from 'react'
+import { I18nextProvider } from 'react-i18next'
 import ConfirmationModal from './components/ConfirmationModal'
 import { GitHubPagesRedirectHandler } from './components/GitHubPagesRedirectHandler'
 import SettingsModal from './components/SettingsModal'
@@ -11,6 +12,7 @@ import { loadSettings } from './lib/settings'
 import { createSpace, deleteSpace, listSpaces, updateSpace } from './lib/spacesService'
 import { initSupabase } from './lib/supabase'
 import { applyTheme } from './lib/themes'
+import i18n from './lib/i18n' // Initialize i18next
 
 export const AppContext = React.createContext(null)
 export const useAppContext = () => React.useContext(AppContext)
@@ -292,9 +294,10 @@ function App() {
   // Remove old route sync logic - React Router handles this automatically
 
   return (
-    <ToastProvider>
-      <GitHubPagesRedirectHandler />
-      <AppContext.Provider
+    <I18nextProvider i18n={i18n}>
+      <ToastProvider>
+        <GitHubPagesRedirectHandler />
+        <AppContext.Provider
         value={{
           spaces,
           conversations,
@@ -414,6 +417,7 @@ function App() {
         )}
       </AppContext.Provider>
     </ToastProvider>
+    </I18nextProvider>
   )
 }
 

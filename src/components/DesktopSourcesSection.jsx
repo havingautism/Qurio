@@ -1,13 +1,17 @@
-const getHostname = url => {
-  try {
-    const hostname = new URL(url).hostname
-    return hostname.replace(/^www\./, '')
-  } catch (e) {
-    return 'Source'
-  }
-}
+import { useTranslation } from 'react-i18next'
 
 const DesktopSourcesSection = ({ sources = [], isOpen }) => {
+  const { t } = useTranslation()
+
+  const getHostname = url => {
+    try {
+      const hostname = new URL(url).hostname
+      return hostname.replace(/^www\./, '')
+    } catch (e) {
+      return t('sources.source')
+    }
+  }
+
   return (
     <div
       className={`grid transition-all duration-300 ease-spring overflow-hidden w-full ${

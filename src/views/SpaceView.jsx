@@ -11,6 +11,7 @@ import {
   Trash2,
 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useAppContext } from '../App'
 import DropdownMenu from '../components/DropdownMenu'
 import EmojiDisplay from '../components/EmojiDisplay'
@@ -21,6 +22,7 @@ import { deleteConversation, removeConversationFromSpace } from '../lib/supabase
 import { spaceRoute } from '../router'
 
 const SpaceView = () => {
+  const { t, i18n } = useTranslation()
   const { spaceId } = spaceRoute.useParams()
   const navigate = useNavigate()
   const { spaces, isSidebarPinned, onEditSpace, onOpenConversation, showConfirmation } =
@@ -74,7 +76,7 @@ const SpaceView = () => {
         }
       } else {
         console.error('Failed to load conversations by space:', error)
-        toast.error('Failed to load conversations')
+        toast.error(t('views.spaceView.failedToLoad'))
       }
       setLoading(false)
     }
@@ -98,26 +100,26 @@ const SpaceView = () => {
       if (!conversation) return
 
       showConfirmation({
-        title: 'Delete Conversation',
-        message: `Are you sure you want to delete "${conversation.title}"? This action cannot be undone.`,
-        confirmText: 'Delete',
+        title: t('confirmation.delete'),
+        message: t('confirmation.deleteMessage', { title: conversation.title }),
+        confirmText: t('confirmation.delete'),
         isDangerous: true,
         onConfirm: async () => {
           const { success, error } = await deleteConversation(conversation.id)
 
           if (success) {
-            toast.success('Conversation deleted successfully')
+            toast.success(t('views.spaceView.conversationDeleted'))
             setCurrentPage(1)
             // Notify Sidebar to refresh its conversation list
             window.dispatchEvent(new Event('conversations-changed'))
           } else {
             console.error('Failed to delete conversation:', error)
-            toast.error('Failed to delete conversation')
+            toast.error(t('views.spaceView.failedToDelete'))
           }
         },
       })
     },
-    [showConfirmation, toast],
+    [showConfirmation, toast, t],
   )
 
   const handleRemoveFromSpace = useCallback(
@@ -125,16 +127,16 @@ const SpaceView = () => {
       const { data, error } = await removeConversationFromSpace(conversation.id)
 
       if (!error && data) {
-        toast.success('Conversation removed from space')
+        toast.success(t('views.spaceView.removedFromSpace'))
         setCurrentPage(1)
         // Notify Sidebar to refresh its conversation list
         window.dispatchEvent(new Event('conversations-changed'))
       } else {
         console.error('Failed to remove conversation from space:', error)
-        toast.error('Failed to remove conversation from space')
+        toast.error(t('views.spaceView.failedToRemove'))
       }
     },
-    [toast],
+    [toast, t],
   )
 
   const handleToggleFavorite = useCallback(
@@ -144,14 +146,14 @@ const SpaceView = () => {
 
       if (error) {
         console.error('Failed to toggle favorite:', error)
-        toast.error('Failed to update favorite status')
+        toast.error(t('sidebar.failedToUpdateFavorite'))
       } else {
-        toast.success(newStatus ? 'Added to bookmarks' : 'Removed from bookmarks')
+        toast.success(newStatus ? t('views.addBookmark') : t('views.removeBookmark'))
         // Notify Sidebar to refresh its conversation list
         window.dispatchEvent(new Event('conversations-changed'))
       }
     },
-    [toast],
+    [toast, t],
   )
 
   if (!activeSpace) {
@@ -186,7 +188,7 @@ const SpaceView = () => {
             <button
               onClick={() => onEditSpace && onEditSpace(activeSpace)}
               className="w-10 h-10 flex items-center justify-center rounded-full bg-user-bubble dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-transform duration-200 hover:scale-110 active:scale-95 cursor-pointer"
-              title="Edit space"
+              title={t('views.editSpace')}
             >
               <Pencil size={16} />
             </button>
@@ -196,7 +198,7 @@ const SpaceView = () => {
         {activeSpace.prompt && (
           <div className="w-full bg-user-bubble/50 dark:bg-zinc-900 border border-dashed border-gray-300 dark:border-zinc-700 rounded-xl p-4">
             <div className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
-              Space Prompt
+              {t('views.spaceView.spacePrompt')}
             </div>
             <p className="text-sm text-gray-700 dark:text-gray-200 leading-relaxed whitespace-pre-line">
               {activeSpace.prompt}
@@ -208,7 +210,7 @@ const SpaceView = () => {
         <div className="flex flex-col gap-4">
           <div className="flex items-center gap-2 text-gray-900 dark:text-white font-medium">
             <Layers size={18} />
-            <span>My Topics</span>
+            <span>{t('views.spaceView.myTopics')}</span>
           </div>
 
           {/* Topics List */}
@@ -219,7 +221,7 @@ const SpaceView = () => {
               </div>
             )}
             {!loading && conversations.length === 0 && (
-              <div className="text-sm text-gray-500 dark:text-gray-400">No conversations yet.</div>
+              <div className="text-sm text-gray-500 dark:text-gray-400">{t('views.spaceView.noThreadsFound')}</div>
             )}
             {!loading &&
               conversations.map((conv, i) => (
@@ -232,13 +234,19 @@ const SpaceView = () => {
                   <div className="flex justify-between items-start gap-4">
                     <div className="flex-1">
                       <h3 className="font-medium text-gray-900 dark:text-gray-100 group-hover:text-primary-500 transition-colors flex items-center gap-2">
-                        {conv.title || 'Untitled'}
+                        {conv.title || t('views.untitled')}
                         {conv.is_favorited && (
                           <Bookmark size={14} className="text-yellow-500 fill-current" />
                         )}
                       </h3>
                       <div className="flex items-center gap-2 mt-2 text-xs text-gray-400">
-                        <span>{new Date(conv.created_at).toLocaleDateString()}</span>
+                        <span>
+                          {new Date(conv.created_at).toLocaleDateString(i18n.language === 'zh-CN' ? 'zh-CN' : 'en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                          })}
+                        </span>
                       </div>
                     </div>
 
@@ -268,7 +276,7 @@ const SpaceView = () => {
                         }}
                         items={[
                           {
-                            label: conv.is_favorited ? 'Remove Bookmark' : 'Add Bookmark',
+                            label: conv.is_favorited ? t('views.removeBookmark') : t('views.addBookmark'),
                             icon: (
                               <Bookmark
                                 size={14}
@@ -279,12 +287,12 @@ const SpaceView = () => {
                             className: conv.is_favorited ? 'text-yellow-500' : '',
                           },
                           {
-                            label: 'Remove from space',
+                            label: t('views.removeFromSpace'),
                             icon: <LogOut size={14} />,
                             onClick: () => handleRemoveFromSpace(conv),
                           },
                           {
-                            label: 'Delete conversation',
+                            label: t('views.deleteConversation'),
                             icon: <Trash2 size={14} />,
                             danger: true,
                             onClick: () => handleDeleteConversation(conv),
@@ -313,20 +321,20 @@ const SpaceView = () => {
                 onClick={() => handlePageChange(currentPage - 1)}
                 disabled={currentPage === 1}
                 className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                title="Previous Page"
+                title={t('views.previousPage')}
               >
                 <ChevronLeft size={20} />
               </button>
 
               <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                Page {currentPage} of {totalPages}
+                {t('views.pageOf', { current: currentPage, total: totalPages })}
               </span>
 
               <button
                 onClick={() => handlePageChange(currentPage + 1)}
                 disabled={currentPage === totalPages}
                 className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                title="Next Page"
+                title={t('views.nextPage')}
               >
                 <ChevronRight size={20} />
               </button>

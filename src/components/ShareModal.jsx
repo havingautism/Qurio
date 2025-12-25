@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { useTranslation } from 'react-i18next'
 import html2canvas from 'html2canvas'
 import { X, Download, Copy, Linkedin, Twitter } from 'lucide-react'
 import ShareCanvas from './ShareCanvas'
@@ -14,6 +15,7 @@ import ShareCanvas from './ShareCanvas'
  * @param {string} props.conversationTitle - Conversation title
  */
 const ShareModal = ({ isOpen, onClose, message, conversationTitle }) => {
+  const { t, i18n } = useTranslation()
   const captureRef = useRef(null)
   const [copySuccess, setCopySuccess] = useState(false)
 
@@ -69,7 +71,7 @@ const ShareModal = ({ isOpen, onClose, message, conversationTitle }) => {
       <div className="bg-[#18181b] border border-zinc-800 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
         {/* Header */}
         <div className="flex items-center justify-between p-4 sm:p-5 border-b border-zinc-800">
-          <h2 className="text-lg sm:text-xl font-semibold text-white">Share Preview</h2>
+          <h2 className="text-lg sm:text-xl font-semibold text-white">{t('shareModal.title')}</h2>
           <button
             onClick={onClose}
             className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
@@ -87,10 +89,11 @@ const ShareModal = ({ isOpen, onClose, message, conversationTitle }) => {
                 message={message}
                 conversationTitle={conversationTitle || 'Qurio Chat'}
                 embed
+                language={i18n.language}
               />
             </div>
           ) : (
-            <div className="text-zinc-500">Message not found.</div>
+            <div className="text-zinc-500">{t('shareModal.messageNotFound')}</div>
           )}
         </div>
 
@@ -103,7 +106,7 @@ const ShareModal = ({ isOpen, onClose, message, conversationTitle }) => {
               className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-xl font-medium transition-colors"
             >
               <Download size={20} />
-              Download Image
+              {t('shareModal.downloadImage')}
             </button>
           </div>
 
@@ -111,23 +114,23 @@ const ShareModal = ({ isOpen, onClose, message, conversationTitle }) => {
           <div className="flex justify-center gap-6 sm:gap-8 px-2 sm:px-4">
             <ShareAction
               icon={<Copy size={20} />}
-              label={copySuccess ? 'Copied!' : 'Copy Link'}
+              label={copySuccess ? t('shareModal.copied') : t('shareModal.copyLink')}
               onClick={handleCopy}
               active={copySuccess}
             />
             <ShareAction
               icon={<Twitter size={20} />}
-              label="X (Twitter)"
+              label={t('shareModal.twitter')}
               onClick={() => handleSocialShare('twitter')}
             />
             <ShareAction
               icon={<Linkedin size={20} />}
-              label="LinkedIn"
+              label={t('shareModal.linkedin')}
               onClick={() => handleSocialShare('linkedin')}
             />
             <ShareAction
               icon={<div className="font-bold text-lg leading-none">R</div>}
-              label="Reddit"
+              label={t('shareModal.reddit')}
               onClick={() => handleSocialShare('reddit')}
             />
           </div>

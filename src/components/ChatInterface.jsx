@@ -113,17 +113,19 @@ const ChatInterface = ({
   )
   const { toggleSidebar, agents: appAgents = [], defaultAgent } = useAppContext()
   const [spaceAgentIds, setSpaceAgentIds] = useState([])
+  const [spacePrimaryAgentId, setSpacePrimaryAgentId] = useState(null)
   const [isAgentsLoading, setIsAgentsLoading] = useState(false)
   const [selectedAgentId, setSelectedAgentId] = useState(null)
   const [isAgentSelectorOpen, setIsAgentSelectorOpen] = useState(false)
-  const pendingAgentIdRef = useRef(null)
-  const lastConversationAgentRef = useRef({ id: null, name: null })
+  const [pendingAgentId, setPendingAgentId] = useState(null)
+  const [agentLoadingDots, setAgentLoadingDots] = useState('')
 
   const [settings, setSettings] = useState(loadSettings())
   const isRelatedEnabled = Boolean(settings.enableRelatedQuestions)
   const [isLoadingHistory, setIsLoadingHistory] = useState(false)
   const hasPushedConversation = useRef(false)
   const lastConversationId = useRef(null) // Track the last conversationId we navigated to
+  const loadedMessagesRef = useRef(new Set())
   const messageRefs = useRef({})
   const bottomRef = useRef(null)
   const [showScrollButton, setShowScrollButton] = useState(false)
@@ -160,37 +162,28 @@ const ChatInterface = ({
     return list
   }, [spaceAgents, defaultAgent])
 
-  const resolveLastConversationAgentId = useCallback(() => {
-    if (lastConversationAgentRef.current.id) {
-      return lastConversationAgentRef.current.id
-    }
-    if (lastConversationAgentRef.current.name) {
-      const lowered = String(lastConversationAgentRef.current.name).trim().toLowerCase()
-      const matched = appAgents.find(
-        agent => (agent.name || '').trim().toLowerCase() === lowered,
-      )
-      return matched?.id || null
-    }
-    return null
-  }, [appAgents])
-
   const selectedAgent = React.useMemo(() => {
     const agent =
       selectableAgents.find(agent => String(agent.id) === String(selectedAgentId)) || null
     return agent
   }, [selectableAgents, selectedAgentId])
 
+  const isAgentResolving = isAgentsLoading || pendingAgentId !== null
+  const baseAgentsLoadingLabel = t('chatInterface.agentsLoading')
+  const agentsLoadingLabel = `${baseAgentsLoadingLabel.replace(/\.\.\.$/, '')}${agentLoadingDots}`
+
   useEffect(() => {
-    const lastAgentMessage = [...messages]
-      .reverse()
-      .find(msg => msg.role === 'ai' && (msg.agentId || msg.agentName))
-    if (lastAgentMessage) {
-      lastConversationAgentRef.current = {
-        id: lastAgentMessage.agentId || null,
-        name: lastAgentMessage.agentName || null,
-      }
+    if (!isAgentResolving) {
+      setAgentLoadingDots('')
+      return
     }
-  }, [messages])
+    let step = 0
+    const interval = setInterval(() => {
+      step = (step + 1) % 4
+      setAgentLoadingDots('.'.repeat(step))
+    }, 450)
+    return () => clearInterval(interval)
+  }, [isAgentResolving])
 
   const effectiveAgent = React.useMemo(
     () => selectedAgent || defaultAgent || null,
@@ -270,7 +263,7 @@ const ChatInterface = ({
         (!initialMessage && initialAttachments.length === 0) ||
         conversationId || // Already have a conversation, don't create new one
         activeConversation?.id || // If an existing conversation is provided, skip auto-send
-        isAgentsLoading // Wait for agents to load before processing initial message
+        isAgentResolving // Wait for agents to load before processing initial message
       ) {
         return
       }
@@ -299,7 +292,7 @@ const ChatInterface = ({
     initialToggles,
     conversationId,
     activeConversation?.id,
-    isAgentsLoading,
+    isAgentResolving,
     selectedAgentId,
     selectedAgent,
   ])
@@ -339,6 +332,11 @@ const ChatInterface = ({
         return
       }
 
+      if (loadedMessagesRef.current.has(activeConversation.id)) {
+        setIsLoadingHistory(false)
+        return
+      }
+
       // If we're navigating to a conversation that we just created (conversationId matches),
       // check if we already have messages in the store
       if (activeConversation.id === conversationId && messages.length > 0) {
@@ -364,6 +362,7 @@ const ChatInterface = ({
       hasInitialized.current = false
 
       setIsLoadingHistory(true)
+      loadedMessagesRef.current.add(activeConversation.id)
       if (activeConversation.id !== conversationId) {
         // Clear stale messages while the new conversation history loads
         setMessages([])
@@ -391,6 +390,8 @@ const ChatInterface = ({
         setSelectedSpace(null)
         setIsManualSpaceSelection(false)
       }
+      const conversationLastAgentId =
+        activeConversation?.last_agent_id ?? activeConversation?.lastAgentId ?? null
       const { data, error } = await listMessages(activeConversation.id)
       if (!error && data) {
         const mapped = data.map(m => {
@@ -420,38 +421,19 @@ const ChatInterface = ({
           }
         })
         setMessages(mapped)
-        const lastAgentMessage = [...mapped]
-          .reverse()
-          .find(msg => msg.role === 'ai' && (msg.agentId || msg.agentName))
-        if (lastAgentMessage) {
-          lastConversationAgentRef.current = {
-            id: lastAgentMessage.agentId || null,
-            name: lastAgentMessage.agentName || null,
-          }
-          const matchedAgent = lastAgentMessage.agentId
-            ? appAgents.find(agent => String(agent.id) === String(lastAgentMessage.agentId))
-            : appAgents.find(
-                agent =>
-                  (agent.name || '').trim().toLowerCase() ===
-                  String(lastAgentMessage.agentName || '')
-                    .trim()
-                    .toLowerCase(),
-              )
-          const resolvedAgentId = matchedAgent?.id || lastAgentMessage.agentId || null
-          if (displaySpace?.id) {
-            const allowedIds = new Set(spaceAgentIds.map(id => String(id)))
-            if (resolvedAgentId && allowedIds.has(String(resolvedAgentId))) {
-              setSelectedAgentId(resolvedAgentId)
-            } else {
-              setSelectedAgentId(defaultAgent?.id || null)
-            }
-          } else {
-            setSelectedAgentId(resolvedAgentId || defaultAgent?.id || null)
-          }
+        const resolvedAgentId = conversationLastAgentId || null
+        if (resolvedAgentId) {
+          setSelectedAgentId(resolvedAgentId)
+          setPendingAgentId(resolvedAgentId)
+        } else {
+          setPendingAgentId(null)
+          setSelectedAgentId(defaultAgent?.id || null)
         }
+        loadedMessagesRef.current.add(activeConversation.id)
       } else {
         console.error('Failed to load conversation messages:', error)
         setMessages([])
+        loadedMessagesRef.current.delete(activeConversation.id)
       }
       setIsLoadingHistory(false)
     }
@@ -466,11 +448,9 @@ const ChatInterface = ({
     selectedSpace,
     isManualSpaceSelection,
     appAgents,
-    displaySpace?.id,
-    spaceAgentIds,
     defaultAgent?.id,
-    resolveLastConversationAgentId,
   ])
+
 
   useEffect(() => {
     // Check if conversationId has changed (new conversation created)
@@ -517,7 +497,7 @@ const ChatInterface = ({
   useEffect(() => {
     // Store pending agent selection when we don't have an active conversation
     if (!activeConversation && initialAgentSelection) {
-      pendingAgentIdRef.current = initialAgentSelection.id
+      setPendingAgentId(initialAgentSelection.id)
     }
   }, [initialAgentSelection, activeConversation])
 
@@ -542,70 +522,105 @@ const ChatInterface = ({
   }, [isAgentSelectorOpen, isSelectorOpen])
 
   useEffect(() => {
+    let isMounted = true
     const loadAgents = async () => {
       if (!displaySpace?.id) {
+        if (!isMounted) return
         setSpaceAgentIds([])
-        setSelectedAgentId(defaultAgent?.id || null)
-        pendingAgentIdRef.current = null
+        setSpacePrimaryAgentId(null)
+        setIsAgentsLoading(false)
         return
       }
       setIsAgentsLoading(true)
-      const { data, error } = await listSpaceAgents(displaySpace.id)
-      if (!error && data) {
-        const newAgentIds = data.map(item => item.agent_id)
-        const primaryAgentId = data.find(item => item.is_primary)?.agent_id || null
-        const isDefaultSelection =
-          defaultAgent && String(selectedAgentId) === String(defaultAgent.id)
-        const hasSelectedAgent =
-          isDefaultSelection ||
-          (selectedAgentId ? newAgentIds.map(String).includes(String(selectedAgentId)) : false)
-        setSpaceAgentIds(newAgentIds)
-
-        // Check if there's a pending agent selection to apply
-        if (pendingAgentIdRef.current) {
-          if (newAgentIds.map(String).includes(String(pendingAgentIdRef.current))) {
-            setSelectedAgentId(pendingAgentIdRef.current)
-            pendingAgentIdRef.current = null
-            return
-          }
-          pendingAgentIdRef.current = null
-          setSelectedAgentId(defaultAgent?.id || null)
-          return
-        } else if (!hasSelectedAgent) {
-          if (selectedAgentId && !isDefaultSelection) {
-            setSelectedAgentId(defaultAgent?.id || null)
-            return
-          }
-          if (activeConversation?.id) {
-            return
-          }
-          if (!isManualSpaceSelection && primaryAgentId) {
-            setSelectedAgentId(primaryAgentId)
-          } else {
-            setSelectedAgentId(null)
-          }
+      try {
+        const { data, error } = await listSpaceAgents(displaySpace.id)
+        if (!isMounted) return
+        if (!error && data) {
+          const newAgentIds = data.map(item => item.agent_id)
+          const primaryAgentId = data.find(item => item.is_primary)?.agent_id || null
+          setSpaceAgentIds(newAgentIds)
+          setSpacePrimaryAgentId(primaryAgentId)
+        } else {
+          setSpaceAgentIds([])
+          setSpacePrimaryAgentId(null)
         }
-      } else {
+      } catch (err) {
+        if (!isMounted) return
         setSpaceAgentIds([])
-        setSelectedAgentId(null)
-        pendingAgentIdRef.current = null
+        setSpacePrimaryAgentId(null)
+      } finally {
+        if (isMounted) {
+          setIsAgentsLoading(false)
+        }
       }
-      setIsAgentsLoading(false)
     }
     loadAgents()
+    return () => {
+      isMounted = false
+    }
+  }, [displaySpace?.id])
+
+  useEffect(() => {
+    if (!displaySpace?.id) {
+      setSelectedAgentId(defaultAgent?.id || null)
+      setPendingAgentId(null)
+      return
+    }
+    if (isAgentsLoading) return
+
+    const agentIdStrings = spaceAgentIds.map(String)
+    const isDefaultSelection =
+      defaultAgent && String(selectedAgentId) === String(defaultAgent.id)
+    const hasSelectedAgent =
+      isDefaultSelection ||
+      (selectedAgentId ? agentIdStrings.includes(String(selectedAgentId)) : false)
+
+    let nextSelectedAgentId = selectedAgentId
+    if (pendingAgentId) {
+      if (agentIdStrings.includes(String(pendingAgentId))) {
+        nextSelectedAgentId = pendingAgentId
+      } else {
+        nextSelectedAgentId = defaultAgent?.id || null
+      }
+    } else if (!hasSelectedAgent) {
+      if (selectedAgentId && !isDefaultSelection) {
+        nextSelectedAgentId = defaultAgent?.id || null
+      } else if (!activeConversation?.id) {
+        if (!isManualSpaceSelection && spacePrimaryAgentId) {
+          nextSelectedAgentId = spacePrimaryAgentId
+        } else {
+          nextSelectedAgentId = defaultAgent?.id || null
+        }
+      } else {
+        nextSelectedAgentId = defaultAgent?.id || null
+      }
+    }
+
+    if (nextSelectedAgentId !== selectedAgentId) {
+      setSelectedAgentId(nextSelectedAgentId)
+    }
+    if (pendingAgentId) {
+      setPendingAgentId(null)
+    }
   }, [
     displaySpace?.id,
-    isManualSpaceSelection,
+    isAgentsLoading,
+    spaceAgentIds,
+    spacePrimaryAgentId,
     selectedAgentId,
-    activeConversation?.id,
+    pendingAgentId,
     defaultAgent?.id,
+    isManualSpaceSelection,
+    activeConversation?.id,
   ])
 
   const handleSelectSpace = space => {
     setSelectedSpace(space)
     setIsManualSpaceSelection(true)
     setIsSelectorOpen(false)
-    pendingAgentIdRef.current = resolveLastConversationAgentId()
+    const conversationLastAgentId =
+      activeConversation?.last_agent_id ?? activeConversation?.lastAgentId ?? null
+    setPendingAgentId(conversationLastAgentId)
     if (conversationId || activeConversation?.id) {
       updateConversation(conversationId || activeConversation.id, {
         space_id: space?.id || null,
@@ -622,7 +637,7 @@ const ChatInterface = ({
     setSelectedSpace(null)
     setIsManualSpaceSelection(true) // Keep as true because selecting "None" is a manual action
     setIsSelectorOpen(false)
-    pendingAgentIdRef.current = null // Clear pending agent when clearing space
+    setPendingAgentId(null) // Clear pending agent when clearing space
     setSelectedAgentId(defaultAgent?.id || null)
     if (conversationId || activeConversation?.id) {
       updateConversation(conversationId || activeConversation.id, {
@@ -904,7 +919,9 @@ const ChatInterface = ({
             setIsManualSpaceSelection(false)
           },
           onAgentResolved: agent => {
-            setSelectedAgentId(agent?.id || null)
+            const nextAgentId = agent?.id || null
+            setSelectedAgentId(nextAgentId)
+            setPendingAgentId(nextAgentId)
           },
         },
         spaces,
@@ -1329,7 +1346,9 @@ const ChatInterface = ({
               isSearchActive={isSearchActive}
               isThinkingActive={isThinkingActive}
               agents={selectableAgents}
-              agentsLoading={isAgentsLoading}
+              agentsLoading={isAgentResolving}
+              agentsLoadingLabel={agentsLoadingLabel}
+              agentsLoadingDots={agentLoadingDots}
               selectedAgent={effectiveAgent}
               onAgentSelect={agent => {
                 setSelectedAgentId(agent?.id || null)
@@ -1381,6 +1400,8 @@ const InputBar = React.memo(
     isThinkingActive,
     agents,
     agentsLoading,
+    agentsLoadingLabel,
+    agentsLoadingDots,
     selectedAgent,
     onAgentSelect,
     isAgentSelectorOpen,
@@ -1600,9 +1621,14 @@ const InputBar = React.memo(
                   disabled={agentsLoading || agents.length === 0}
                 >
                   <Smile size={18} />
+                  {agentsLoading && (
+                    <span className="inline-flex text-[10px] leading-none opacity-70 animate-pulse">
+                      {agentsLoadingDots || '...'}
+                    </span>
+                  )}
                   <span className="hidden md:inline truncate max-w-[120px]">
                     {agentsLoading
-                      ? t('chatInterface.agentsLoading')
+                      ? agentsLoadingLabel || t('chatInterface.agentsLoading')
                       : getAgentDisplayName(selectedAgent, t) || t('chatInterface.agentsLabel')}
                   </span>
                   <ChevronDown size={14} />

@@ -1033,6 +1033,16 @@ const finalizeMessage = async (
     }
   }
 
+  if (currentStore.conversationId && selectedAgent?.id) {
+    try {
+      await updateConversation(currentStore.conversationId, {
+        last_agent_id: selectedAgent.id,
+      })
+    } catch (error) {
+      console.error('Failed to update conversation last agent:', error)
+    }
+  }
+
   // Update conversation in database (only on first turn to set title/space)
   if (isFirstTurn && currentStore.conversationId) {
     await updateConversation(currentStore.conversationId, {

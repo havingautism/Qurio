@@ -64,6 +64,7 @@ FOR EACH ROW EXECUTE PROCEDURE public.set_updated_at();
 CREATE TABLE IF NOT EXISTS public.conversations (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   space_id UUID REFERENCES public.spaces(id) ON DELETE SET NULL,
+  last_agent_id UUID REFERENCES public.agents(id) ON DELETE SET NULL,
   title TEXT NOT NULL DEFAULT 'New Conversation',
   api_provider TEXT NOT NULL DEFAULT 'gemini',
   is_search_enabled BOOLEAN NOT NULL DEFAULT FALSE,

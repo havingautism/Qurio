@@ -51,6 +51,7 @@ Tracks each chat session and its relationship to spaces.
 | --------------------- | ----------- | -------------------------------------- |
 | `id`                  | uuid        | Primary key                            |
 | `space_id`            | uuid        | FK -> `spaces.id`, nullable for "None" |
+| `last_agent_id`       | uuid        | FK -> `agents.id`, last agent used     |
 | `title`               | text        | AI-generated or user-edited            |
 | `api_provider`        | text        | e.g. `gemini`, `openai_compatibility`  |
 | `is_search_enabled`   | boolean     | Snapshot from the UI toggle            |

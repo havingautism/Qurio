@@ -117,6 +117,7 @@ const ChatInterface = ({
   const [selectedAgentId, setSelectedAgentId] = useState(null)
   const [isAgentSelectorOpen, setIsAgentSelectorOpen] = useState(false)
   const pendingAgentIdRef = useRef(null)
+  const lastConversationAgentRef = useRef({ id: null, name: null })
 
   const [settings, setSettings] = useState(loadSettings())
   const isRelatedEnabled = Boolean(settings.enableRelatedQuestions)
@@ -130,12 +131,12 @@ const ChatInterface = ({
   const isSwitchingConversation = Boolean(
     activeConversation?.id && activeConversation.id !== conversationId,
   )
+  const lastLoadedConversationIdRef = useRef(null)
   const conversationSpace = React.useMemo(() => {
     if (!activeConversation?.space_id) return null
     const sid = String(activeConversation.space_id)
     return spaces.find(s => String(s.id) === sid) || null
   }, [activeConversation?.space_id, spaces])
-
   // If user has manually selected a space (or None), use that; otherwise use conversation's space
   const displaySpace = isManualSpaceSelection
     ? selectedSpace
@@ -159,11 +160,37 @@ const ChatInterface = ({
     return list
   }, [spaceAgents, defaultAgent])
 
+  const resolveLastConversationAgentId = useCallback(() => {
+    if (lastConversationAgentRef.current.id) {
+      return lastConversationAgentRef.current.id
+    }
+    if (lastConversationAgentRef.current.name) {
+      const lowered = String(lastConversationAgentRef.current.name).trim().toLowerCase()
+      const matched = appAgents.find(
+        agent => (agent.name || '').trim().toLowerCase() === lowered,
+      )
+      return matched?.id || null
+    }
+    return null
+  }, [appAgents])
+
   const selectedAgent = React.useMemo(() => {
     const agent =
       selectableAgents.find(agent => String(agent.id) === String(selectedAgentId)) || null
     return agent
   }, [selectableAgents, selectedAgentId])
+
+  useEffect(() => {
+    const lastAgentMessage = [...messages]
+      .reverse()
+      .find(msg => msg.role === 'ai' && (msg.agentId || msg.agentName))
+    if (lastAgentMessage) {
+      lastConversationAgentRef.current = {
+        id: lastAgentMessage.agentId || null,
+        name: lastAgentMessage.agentName || null,
+      }
+    }
+  }, [messages])
 
   const effectiveAgent = React.useMemo(
     () => selectedAgent || defaultAgent || null,
@@ -323,9 +350,12 @@ const ChatInterface = ({
         ) {
           setConversationTitle(activeConversation.title)
         }
-        if (conversationSpace) {
+        if (conversationSpace && !isManualSpaceSelection) {
           setSelectedSpace(conversationSpace)
           setIsManualSpaceSelection(!!conversationSpace)
+        } else if (!conversationSpace && !selectedSpace && !isManualSpaceSelection) {
+          setSelectedSpace(null)
+          setIsManualSpaceSelection(false)
         }
         return
       }
@@ -347,10 +377,17 @@ const ChatInterface = ({
       } else if (!conversationTitle) {
         setConversationTitle('')
       }
+      const isNewConversation =
+        activeConversation?.id && activeConversation.id !== lastLoadedConversationIdRef.current
+      if (isNewConversation) {
+        lastLoadedConversationIdRef.current = activeConversation.id
+      }
       if (conversationSpace) {
-        setSelectedSpace(conversationSpace)
-        setIsManualSpaceSelection(!!conversationSpace)
-      } else if (!selectedSpace) {
+        if (isNewConversation || !isManualSpaceSelection) {
+          setSelectedSpace(conversationSpace)
+          setIsManualSpaceSelection(!!conversationSpace)
+        }
+      } else if (!selectedSpace && (isNewConversation || !isManualSpaceSelection)) {
         setSelectedSpace(null)
         setIsManualSpaceSelection(false)
       }
@@ -383,6 +420,35 @@ const ChatInterface = ({
           }
         })
         setMessages(mapped)
+        const lastAgentMessage = [...mapped]
+          .reverse()
+          .find(msg => msg.role === 'ai' && (msg.agentId || msg.agentName))
+        if (lastAgentMessage) {
+          lastConversationAgentRef.current = {
+            id: lastAgentMessage.agentId || null,
+            name: lastAgentMessage.agentName || null,
+          }
+          const matchedAgent = lastAgentMessage.agentId
+            ? appAgents.find(agent => String(agent.id) === String(lastAgentMessage.agentId))
+            : appAgents.find(
+                agent =>
+                  (agent.name || '').trim().toLowerCase() ===
+                  String(lastAgentMessage.agentName || '')
+                    .trim()
+                    .toLowerCase(),
+              )
+          const resolvedAgentId = matchedAgent?.id || lastAgentMessage.agentId || null
+          if (displaySpace?.id) {
+            const allowedIds = new Set(spaceAgentIds.map(id => String(id)))
+            if (resolvedAgentId && allowedIds.has(String(resolvedAgentId))) {
+              setSelectedAgentId(resolvedAgentId)
+            } else {
+              setSelectedAgentId(defaultAgent?.id || null)
+            }
+          } else {
+            setSelectedAgentId(resolvedAgentId || defaultAgent?.id || null)
+          }
+        }
       } else {
         console.error('Failed to load conversation messages:', error)
         setMessages([])
@@ -399,6 +465,11 @@ const ChatInterface = ({
     messages.length,
     selectedSpace,
     isManualSpaceSelection,
+    appAgents,
+    displaySpace?.id,
+    spaceAgentIds,
+    defaultAgent?.id,
+    resolveLastConversationAgentId,
   ])
 
   useEffect(() => {
@@ -462,11 +533,11 @@ const ChatInterface = ({
     }
 
     if (isSelectorOpen || isAgentSelectorOpen) {
-      document.addEventListener('click', handleClickOutside)
+      document.addEventListener('mousedown', handleClickOutside)
     }
 
     return () => {
-      document.removeEventListener('click', handleClickOutside)
+      document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [isAgentSelectorOpen, isSelectorOpen])
 
@@ -474,7 +545,7 @@ const ChatInterface = ({
     const loadAgents = async () => {
       if (!displaySpace?.id) {
         setSpaceAgentIds([])
-        setSelectedAgentId(null)
+        setSelectedAgentId(defaultAgent?.id || null)
         pendingAgentIdRef.current = null
         return
       }
@@ -495,8 +566,19 @@ const ChatInterface = ({
           if (newAgentIds.map(String).includes(String(pendingAgentIdRef.current))) {
             setSelectedAgentId(pendingAgentIdRef.current)
             pendingAgentIdRef.current = null
+            return
           }
-        } else if (!hasSelectedAgent && !activeConversation?.id) {
+          pendingAgentIdRef.current = null
+          setSelectedAgentId(defaultAgent?.id || null)
+          return
+        } else if (!hasSelectedAgent) {
+          if (selectedAgentId && !isDefaultSelection) {
+            setSelectedAgentId(defaultAgent?.id || null)
+            return
+          }
+          if (activeConversation?.id) {
+            return
+          }
           if (!isManualSpaceSelection && primaryAgentId) {
             setSelectedAgentId(primaryAgentId)
           } else {
@@ -523,7 +605,7 @@ const ChatInterface = ({
     setSelectedSpace(space)
     setIsManualSpaceSelection(true)
     setIsSelectorOpen(false)
-    pendingAgentIdRef.current = null // Clear pending agent when manually switching space
+    pendingAgentIdRef.current = resolveLastConversationAgentId()
     if (conversationId || activeConversation?.id) {
       updateConversation(conversationId || activeConversation.id, {
         space_id: space?.id || null,
@@ -541,6 +623,7 @@ const ChatInterface = ({
     setIsManualSpaceSelection(true) // Keep as true because selecting "None" is a manual action
     setIsSelectorOpen(false)
     pendingAgentIdRef.current = null // Clear pending agent when clearing space
+    setSelectedAgentId(defaultAgent?.id || null)
     if (conversationId || activeConversation?.id) {
       updateConversation(conversationId || activeConversation.id, {
         space_id: null,
@@ -1074,9 +1157,11 @@ const ChatInterface = ({
             {/* Space Selector */}
             <div className="relative" ref={selectorRef}>
               <button
-                onClick={() => setIsSelectorOpen(!isSelectorOpen)}
+                onMouseDown={e => {
+                  e.stopPropagation()
+                  setIsSelectorOpen(prev => !prev)
+                }}
                 className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors text-sm font-medium text-gray-700 dark:text-gray-300"
-                disabled={isMetaLoading}
               >
                 <LayoutGrid size={16} className="text-gray-400 hidden sm:inline" />
                 {isMetaLoading ? (
@@ -1098,9 +1183,13 @@ const ChatInterface = ({
 
               {/* Dropdown */}
               {isSelectorOpen && (
-                <div className="absolute bottom-full left-0 mb-2 w-56 bg-white dark:bg-[#202222] border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl z-30 overflow-hidden">
+                <div
+                  className="absolute top-full left-0 mt-2 w-56 bg-white dark:bg-[#202222] border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl z-30 overflow-hidden"
+                  onMouseDown={e => e.stopPropagation()}
+                >
                   <div className="p-2 flex flex-col gap-1">
                     <button
+                      type="button"
                       onClick={handleClearSpaceSelection}
                       className={`flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left ${
                         !displaySpace ? 'text-primary-500' : 'text-gray-700 dark:text-gray-200'
@@ -1114,6 +1203,7 @@ const ChatInterface = ({
                       const isSelected = selectedSpace?.label === space.label
                       return (
                         <button
+                          type="button"
                           key={idx}
                           onClick={() => handleSelectSpace(space)}
                           className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left"

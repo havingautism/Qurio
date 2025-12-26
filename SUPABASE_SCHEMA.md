@@ -4,15 +4,14 @@ The UI is organized around spaces, chat sessions, and per-message controls (sear
 
 ## 1. `spaces`
 
-| Column        | Type        | Notes                                                       |
-| ------------- | ----------- | ----------------------------------------------------------- |
-| `id`          | uuid        | Primary key                                                 |
-| `emoji`       | text        | Space icon                                                  |
-| `label`       | text        | Display name                                                |
-| `description` | text        | Optional summary                                            |
-| `prompt`      | text        | Guidance injected as system prompt when the space is active |
-| `created_at`  | timestamptz |                                                             |
-| `updated_at`  | timestamptz |                                                             |
+| Column        | Type        | Notes               |
+| ------------- | ----------- | ------------------- |
+| `id`          | uuid        | Primary key         |
+| `emoji`       | text        | Space icon          |
+| `label`       | text        | Display name        |
+| `description` | text        | Optional summary    |
+| `created_at`  | timestamptz |                     |
+| `updated_at`  | timestamptz |                     |
 
 ## 2. `agents`
 

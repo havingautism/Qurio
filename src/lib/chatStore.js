@@ -185,25 +185,30 @@ const buildAgentPrompt = (agent, settings) => {
  * @returns {Object} Model configuration { provider, model }
  */
 const getModelConfigForAgent = (agent, settings, task = 'streamChatCompletion') => {
-  // If agent has provider and model config, use it
-  // Support both snake_case (from DB) and camelCase (from mapAgent)
-  const defaultModel = agent.default_model || agent.defaultModel
-  const liteModel = agent.lite_model || agent.liteModel
+  // Check if agent exists and has valid config first
+  if (agent && agent.provider) {
+    // Support both snake_case (from DB) and camelCase (from mapAgent)
+    // Use ?? to preserve empty strings (only null/undefined should trigger fallback)
+    const defaultModel = agent.default_model ?? agent.defaultModel
+    const liteModel = agent.lite_model ?? agent.liteModel
 
-  if (agent && agent.provider && defaultModel) {
-    // Decode model IDs (they may be encoded with provider prefix like "glm::glm-4.7")
-    const decodedDefaultModel = decodeModelId(defaultModel)
-    const decodedLiteModel = liteModel ? decodeModelId(liteModel) : ''
+    // Check if agent has a valid (non-empty) model configured
+    // Empty string means "not configured", so we should fall back to global settings
+    if (defaultModel && defaultModel.trim() !== '') {
+      // Decode model IDs (they may be encoded with provider prefix like "glm::glm-4.7")
+      const decodedDefaultModel = decodeModelId(defaultModel)
+      const decodedLiteModel = liteModel ? decodeModelId(liteModel) : ''
 
-    // For lite tasks, use lite_model if available
-    const model =
-      task === 'generateTitle' || task === 'generateTitleAndSpace' || task === 'generateRelatedQuestions'
-        ? (decodedLiteModel || decodedDefaultModel)
-        : decodedDefaultModel
+      // For lite tasks, use lite_model if available
+      const model =
+        task === 'generateTitle' || task === 'generateTitleAndSpace' || task === 'generateRelatedQuestions'
+          ? (decodedLiteModel || decodedDefaultModel)
+          : decodedDefaultModel
 
-    return {
-      provider: agent.provider,
-      model,
+      return {
+        provider: agent.provider,
+        model,
+      }
     }
   }
 
@@ -266,8 +271,7 @@ const handleEditingAndHistory = (messages, editingInfo, userMessage, historyOver
 // ========================================
 
 /**
- * Preselects a space for auto mode before the first request so the space prompt
- * can be applied to the initial message.
+ * Preselects a space for auto mode before the first request.
  * @param {string} firstMessage - Raw user text
  * @param {Object} settings - User settings and API configuration
  * @param {Array} spaces - Available spaces for auto-selection
@@ -395,7 +399,7 @@ const persistUserMessage = async (convId, editingInfo, content, set) => {
  * Prepares AI message placeholder and conversation context for API call
  * @param {Array} historyForSend - Message history to send to AI
  * @param {Object} userMessage - Current user message
- * @param {Object} spaceInfo - Space selection and prompt information
+ * @param {Object} spaceInfo - Space selection information
  * @param {Object} selectedAgent - Currently selected agent (optional)
  * @param {Object} settings - User settings
  * @param {Function} set - Zustand set function
@@ -450,7 +454,7 @@ const prepareAIPlaceholder = (historyForSend, userMessageForSend, spaceInfo, sel
  * @param {Object} toggles - Feature toggles (search, thinking)
  * @param {Object} callbacks - Optional callback functions for title/space generation
  * @param {Array} spaces - Available spaces for auto-generation
- * @param {Object} spaceInfo - Space selection and prompt information
+ * @param {Object} spaceInfo - Space selection information
  * @param {Object} selectedAgent - Currently selected agent (optional)
  * @param {string|null} preselectedTitle - Preselected title for auto mode (optional)
  * @param {Function} get - Zustand get function
@@ -877,7 +881,6 @@ const finalizeMessage = async (
 
     const { data: insertedAi } = await addMessage({
       conversation_id: currentStore.conversationId,
-      agent_id: selectedAgent?.id || null,
       role: 'assistant',
       provider: modelConfig.provider,
       model: modelConfig.model,

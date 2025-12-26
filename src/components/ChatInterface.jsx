@@ -41,6 +41,7 @@ const ChatInterface = ({
   initialAttachments = [],
   initialToggles = {},
   initialSpaceSelection = { mode: 'auto', space: null },
+  initialAgentSelection = null,
   onTitleAndSpaceGenerated,
   isSidebarPinned = false,
 }) => {
@@ -114,6 +115,7 @@ const ChatInterface = ({
   const [isAgentsLoading, setIsAgentsLoading] = useState(false)
   const [selectedAgentId, setSelectedAgentId] = useState(null)
   const [isAgentSelectorOpen, setIsAgentSelectorOpen] = useState(false)
+  const pendingAgentIdRef = useRef(null)
 
   const [settings, setSettings] = useState(loadSettings())
   const isRelatedEnabled = Boolean(settings.enableRelatedQuestions)
@@ -139,13 +141,19 @@ const ChatInterface = ({
     : selectedSpace || conversationSpace || null
 
   const spaceAgents = React.useMemo(() => {
-    if (!displaySpace?.id) return []
+    if (!displaySpace?.id) {
+      return []
+    }
     const idSet = new Set(spaceAgentIds.map(id => String(id)))
-    return agents.filter(agent => idSet.has(String(agent.id)))
+    const filteredAgents = agents.filter(agent => idSet.has(String(agent.id)))
+    return filteredAgents
   }, [agents, displaySpace?.id, spaceAgentIds])
 
   const selectedAgent = React.useMemo(
-    () => spaceAgents.find(agent => String(agent.id) === String(selectedAgentId)) || null,
+    () => {
+      const agent = spaceAgents.find(agent => String(agent.id) === String(selectedAgentId)) || null
+      return agent
+    },
     [spaceAgents, selectedAgentId],
   )
 
@@ -160,9 +168,10 @@ const ChatInterface = ({
         return encodedModel.slice(index + MODEL_SEPARATOR.length)
       }
 
-      if (selectedAgent?.provider && selectedAgent.defaultModel) {
+      // Check if agent has a valid (non-empty) model configured
+      if (selectedAgent?.provider && selectedAgent.defaultModel && selectedAgent.defaultModel.trim() !== '') {
         const defaultModel = selectedAgent.defaultModel
-        const liteModel = selectedAgent.liteModel
+        const liteModel = selectedAgent.liteModel ?? ''
         const decodedDefaultModel = decodeModelId(defaultModel)
         const decodedLiteModel = liteModel ? decodeModelId(liteModel) : ''
 
@@ -210,8 +219,14 @@ const ChatInterface = ({
         isProcessingInitial.current ||
         (!initialMessage && initialAttachments.length === 0) ||
         conversationId || // Already have a conversation, don't create new one
-        activeConversation?.id // If an existing conversation is provided, skip auto-send
+        activeConversation?.id || // If an existing conversation is provided, skip auto-send
+        isAgentsLoading // Wait for agents to load before processing initial message
       ) {
+        return
+      }
+
+      // If user selected an agent from homepage, wait for it to be loaded
+      if (initialAgentSelection && !selectedAgent) {
         return
       }
 
@@ -228,7 +243,7 @@ const ChatInterface = ({
     }
 
     processInitialMessage()
-  }, [initialMessage, initialAttachments, initialToggles, conversationId, activeConversation?.id])
+  }, [initialMessage, initialAttachments, initialToggles, conversationId, activeConversation?.id, isAgentsLoading, selectedAgentId, selectedAgent])
 
   // Load existing conversation messages when switching conversations
   useEffect(() => {
@@ -391,6 +406,13 @@ const ChatInterface = ({
     }
   }, [initialSpaceSelection, activeConversation, selectedSpace, isManualSpaceSelection])
 
+  useEffect(() => {
+    // Store pending agent selection when we don't have an active conversation
+    if (!activeConversation && initialAgentSelection) {
+      pendingAgentIdRef.current = initialAgentSelection.id
+    }
+  }, [initialAgentSelection, activeConversation])
+
   // Handle click outside to close selector
   useEffect(() => {
     const handleClickOutside = event => {
@@ -416,16 +438,34 @@ const ChatInterface = ({
       if (!displaySpace?.id) {
         setSpaceAgentIds([])
         setSelectedAgentId(null)
+        pendingAgentIdRef.current = null
         return
       }
       setIsAgentsLoading(true)
       const { data, error } = await listSpaceAgents(displaySpace.id)
       if (!error && data) {
-        setSpaceAgentIds(data.map(item => item.agent_id))
+        const newAgentIds = data.map(item => item.agent_id)
+        setSpaceAgentIds(newAgentIds)
+
+        // Check if there's a pending agent selection to apply
+        if (pendingAgentIdRef.current) {
+          if (newAgentIds.map(String).includes(String(pendingAgentIdRef.current))) {
+            setSelectedAgentId(pendingAgentIdRef.current)
+            pendingAgentIdRef.current = null
+          }
+        } else if (selectedAgentId && !newAgentIds.map(String).includes(String(selectedAgentId))) {
+          // Only clear current selection if:
+          // 1. It's not in the new list AND
+          // 2. We don't have an active conversation (don't clear during conversation creation)
+          if (!activeConversation?.id) {
+            setSelectedAgentId(null)
+          }
+        }
       } else {
         setSpaceAgentIds([])
+        setSelectedAgentId(null)
+        pendingAgentIdRef.current = null
       }
-      setSelectedAgentId(null)
       setIsAgentsLoading(false)
     }
     loadAgents()
@@ -435,6 +475,7 @@ const ChatInterface = ({
     setSelectedSpace(space)
     setIsManualSpaceSelection(true)
     setIsSelectorOpen(false)
+    pendingAgentIdRef.current = null // Clear pending agent when manually switching space
     if (conversationId || activeConversation?.id) {
       updateConversation(conversationId || activeConversation.id, {
         space_id: space?.id || null,
@@ -451,6 +492,7 @@ const ChatInterface = ({
     setSelectedSpace(null)
     setIsManualSpaceSelection(true) // Keep as true because selecting "None" is a manual action
     setIsSelectorOpen(false)
+    pendingAgentIdRef.current = null // Clear pending agent when clearing space
     if (conversationId || activeConversation?.id) {
       updateConversation(conversationId || activeConversation.id, {
         space_id: null,
@@ -750,6 +792,9 @@ const ChatInterface = ({
       onTitleAndSpaceGenerated,
       spaces,
       quoteContext,
+      agents,
+      spaceAgentIds,
+      spaceAgents,
     ],
   )
 
@@ -1424,6 +1469,17 @@ const InputBar = React.memo(
                   {isAgentSelectorOpen && (
                     <div className="absolute bottom-full left-0 mb-2 w-56 bg-white dark:bg-[#202222] border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl z-30 overflow-hidden">
                       <div className="p-2 flex flex-col gap-1">
+                        {/* None option to deselect agent */}
+                        <button
+                          type="button"
+                          onClick={() => onAgentSelect(null)}
+                          className={`flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left ${
+                            !selectedAgent ? 'text-primary-500' : 'text-gray-700 dark:text-gray-200'
+                          }`}
+                        >
+                          <span className="text-sm font-medium">None</span>
+                          {!selectedAgent && <Check size={14} className="text-primary-500" />}
+                        </button>
                         {agents.length === 0 ? (
                           <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
                             {t('chatInterface.agentsNone')}

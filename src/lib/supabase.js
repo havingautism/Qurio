@@ -114,21 +114,21 @@ export const fetchSpaces = async () => {
   return { data: data || [], error }
 }
 
-export const createSpace = async ({ emoji = '', label, description = '', prompt = '' }) => {
+export const createSpace = async ({ emoji = '', label, description = '' }) => {
   const supabase = getSupabaseClient()
   if (!supabase) return { data: null, error: new Error('Supabase not configured') }
   if (!label) return { data: null, error: new Error('Label is required') }
 
   const { data, error } = await supabase
     .from(spacesTable)
-    .insert([{ emoji, label, description, prompt }])
+    .insert([{ emoji, label, description }])
     .select()
     .single()
 
   return { data, error }
 }
 
-export const updateSpace = async (id, { emoji, label, description, prompt }) => {
+export const updateSpace = async (id, { emoji, label, description }) => {
   const supabase = getSupabaseClient()
   if (!supabase) return { data: null, error: new Error('Supabase not configured') }
   if (!id) return { data: null, error: new Error('Space id is required') }
@@ -137,7 +137,6 @@ export const updateSpace = async (id, { emoji, label, description, prompt }) => 
   if (emoji !== undefined) updatePayload.emoji = emoji
   if (label !== undefined) updatePayload.label = label
   if (description !== undefined) updatePayload.description = description
-  if (prompt !== undefined) updatePayload.prompt = prompt
 
   const { data, error } = await supabase
     .from(spacesTable)

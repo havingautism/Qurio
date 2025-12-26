@@ -601,7 +601,7 @@ const Sidebar = ({
                       : displayTab === 'spaces'
                         ? t('sidebar.spaces')
                         : displayTab === 'agents'
-                          ? 'Agents'
+                          ? t('sidebar.agents')
                           : ''}
                 </h2>
                 {/* View Full Page Button (Mobile Only, or always if useful)

@@ -35,7 +35,7 @@
     "addedToBookmarks": "已添加到收藏",
     "removedFromBookmarks": "已从收藏中移除",
     "untitled": "无标题",
-    "agents": "Agent"
+    "agents": "智能体"
   },
   "settings": {
     "title": "设置",
@@ -269,14 +269,14 @@
     "descriptionOptional": "描述（可选）",
     "spacePrompt": "空间提示词",
     "spacePromptOptional": "空间提示词（可选）",
-    "agents": "Agent",
+    "agents": "智能体",
     "agentsAvailable": "可用",
     "agentsSelected": "已选择",
     "agentsAdd": "添加",
     "agentsRemove": "移除",
-    "agentsEmpty": "暂无可用 Agent",
-    "agentsSelectedEmpty": "未选择 Agent",
-      "agentsLoading": "加载 Agent...",
+    "agentsEmpty": "暂无可用智能体",
+    "agentsSelectedEmpty": "未选择智能体",
+      "agentsLoading": "加载智能体中...",
     "descriptionPlaceholder": "这个空间是做什么用的？",
     "promptPlaceholder": "为 AI 助手提供在此空间内应遵循的指导。",
     "namePlaceholder": "例如：日常生活、研究...",
@@ -323,10 +323,10 @@
     "spacesLabel": "空间：{{label}}",
     "auto": "自动",
     "title": "洞察由此开启。",
-    "agents": "Agent",
-    "agentsLabel": "Agent",
-    "agentsNone": "暂无 Agent",
-    "agentsLoading": "加载 Agent..."
+    "agents": "智能体",
+    "agentsLabel": "智能体",
+    "agentsNone": "暂无智能体",
+    "agentsLoading": "加载智能体中..."
   },
   "chat": {
     "thinking": "思考中",
@@ -370,9 +370,17 @@
     "regenerateTitle": "根据最近 3 条消息重新生成标题",
     "openTimeline": "打开问题时间轴",
     "askFollowUp": "追问...",
-    "agentsLabel": "Agent",
-    "agentsNone": "暂无 Agent",
-    "agentsLoading": "加载 Agent..."
+    "agentsLabel": "智能体",
+    "agentsNone": "暂无智能体",
+    "agentsLoading": "加载智能体中..."
+  },
+  "agentsView": {
+    "title": "智能体",
+    "myAgents": "我的智能体",
+    "createAgent": "创建智能体",
+    "createAgentDescription": "自定义 AI 助手，具有特定的提示词和模型设置。",
+    "loading": "加载智能体中...",
+    "defaultProvider": "默认"
   },
   "views": {
     "newThread": "新对话",

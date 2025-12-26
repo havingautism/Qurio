@@ -1,9 +1,11 @@
 import clsx from 'clsx'
 import { Bot, Plus, Sparkles } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useAppContext } from '../App'
 import EmojiDisplay from '../components/EmojiDisplay'
 
 const AgentsView = () => {
+  const { t } = useTranslation()
   const { onCreateAgent, onEditAgent, isSidebarPinned, agents, agentsLoading } = useAppContext()
 
   return (
@@ -17,12 +19,12 @@ const AgentsView = () => {
         {/* Header */}
         <div className="flex items-center gap-3 mb-8">
           <Bot size={32} className="text-primary-500" />
-          <h1 className="text-3xl font-medium">Agents</h1>
+          <h1 className="text-3xl font-medium">{t('agentsView.title')}</h1>
         </div>
 
         {/* My Agents Section */}
         <div className="mb-12">
-          <h2 className="text-lg font-medium mb-4 text-gray-700 dark:text-gray-300">My Agents</h2>
+          <h2 className="text-lg font-medium mb-4 text-gray-700 dark:text-gray-300">{t('agentsView.myAgents')}</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {/* Create Card */}
             <div
@@ -33,9 +35,9 @@ const AgentsView = () => {
                 <Plus size={24} />
               </div>
               <div>
-                <h3 className="font-medium text-lg mb-1">Create Agent</h3>
+                <h3 className="font-medium text-lg mb-1">{t('agentsView.createAgent')}</h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Custom AI assistant with specific prompt and model settings.
+                  {t('agentsView.createAgentDescription')}
                 </p>
               </div>
             </div>
@@ -43,7 +45,7 @@ const AgentsView = () => {
             {/* Agent Cards */}
             {agentsLoading && agents.length === 0 ? (
               <div className="col-span-full text-sm text-gray-500 dark:text-gray-400">
-                Loading agents...
+                {t('agentsView.loading')}
               </div>
             ) : (
               agents.map(agent => (
@@ -62,7 +64,7 @@ const AgentsView = () => {
                     </p>
                     <div className="mt-2 flex items-center gap-2 text-xs text-gray-400">
                       <Sparkles size={12} />
-                      <span className="capitalize">{agent.provider || 'Default'}</span>
+                      <span className="capitalize">{agent.provider || t('agentsView.defaultProvider')}</span>
                     </div>
                   </div>
                 </div>

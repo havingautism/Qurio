@@ -9,6 +9,7 @@
     "library": "Library",
     "bookmarks": "Bookmarks",
     "spaces": "Spaces",
+    "agents": "Agents",
     "seeAll": "See all",
     "pin": "Pin sidebar",
     "unpin": "Unpin sidebar",
@@ -371,6 +372,14 @@
     "agentsLabel": "Agents",
     "agentsNone": "No agents",
     "agentsLoading": "Loading agents..."
+  },
+  "agentsView": {
+    "title": "Agents",
+    "myAgents": "My Agents",
+    "createAgent": "Create Agent",
+    "createAgentDescription": "Custom AI assistant with specific prompt and model settings.",
+    "loading": "Loading agents...",
+    "defaultProvider": "Default"
   },
   "views": {
     "newThread": "New Thread",

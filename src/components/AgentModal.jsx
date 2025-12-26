@@ -498,6 +498,14 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
     liteModel,
   ])
 
+  // Sync lite model provider with default model provider
+  // When default model provider changes, update lite model provider to match
+  useEffect(() => {
+    if (defaultModelProvider && liteModelProvider !== defaultModelProvider) {
+      setLiteModelProvider(defaultModelProvider)
+    }
+  }, [defaultModelProvider])
+
   const renderModelPicker = ({
     label,
     helper,
@@ -506,6 +514,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
     activeProvider,
     onProviderChange,
     allowEmpty = false,
+    hideProviderSelector = false,
   }) => {
     const providers = availableProviders.length > 0 ? availableProviders : PROVIDER_KEYS
     const activeModels = groupedModels[activeProvider] || []
@@ -518,7 +527,8 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
           <span className="text-xs text-gray-500 dark:text-gray-400 truncate">{selectedLabel}</span>
         </div>
         <div className="rounded-lg border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-3">
-          <div className="grid grid-cols-1 md:grid-cols-[180px_1fr] gap-3">
+          <div className={`grid gap-3 ${hideProviderSelector ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-[180px_1fr]'}`}>
+            {!hideProviderSelector && (
             <div className="flex flex-col gap-2">
               <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
                 {t('agents.model.providers')}
@@ -542,6 +552,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                 ))}
               </div>
             </div>
+            )}
             <div className="flex flex-col gap-2">
               <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
                 {t('agents.model.models')}
@@ -761,6 +772,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                     activeProvider: liteModelProvider || provider,
                     onProviderChange: setLiteModelProvider,
                     allowEmpty: true,
+                    hideProviderSelector: !!defaultModel,
                   })}
                 </>
               )}

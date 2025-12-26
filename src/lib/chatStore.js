@@ -5,6 +5,21 @@ import { getProvider } from '../lib/providers'
 import { getModelForTask } from '../lib/modelSelector.js'
 import { loadSettings } from './settings'
 
+// Model separator used in encoded model IDs (e.g., "glm::glm-4.7")
+const MODEL_SEPARATOR = '::'
+
+/**
+ * Decodes a model ID that was encoded with provider prefix
+ * @param {string} encodedModel - Encoded model ID (e.g., "glm::glm-4.7")
+ * @returns {string} Decoded model ID (e.g., "glm-4.7")
+ */
+const decodeModelId = encodedModel => {
+  if (!encodedModel) return ''
+  const index = encodedModel.indexOf(MODEL_SEPARATOR)
+  if (index === -1) return encodedModel
+  return encodedModel.slice(index + MODEL_SEPARATOR.length)
+}
+
 // ================================================================================
 // CHAT STORE HELPER FUNCTIONS
 // These functions are organized by functionality to improve maintainability
@@ -104,6 +119,101 @@ const getLanguageInstruction = settings => {
   return trimmedLanguage ? `Reply in ${trimmedLanguage}.` : ''
 }
 
+/**
+ * Builds system prompt from Agent configuration
+ * Combines agent prompt with personalization settings
+ * @param {Object} agent - Agent object with prompt and personalization settings
+ * @param {Object} settings - Global settings for fallback
+ * @returns {string|null} Combined system prompt or null
+ */
+const buildAgentPrompt = (agent, settings) => {
+  if (!agent) return null
+
+  const parts = []
+
+  // 1. Agent's base prompt
+  const agentPrompt = typeof agent.prompt === 'string' ? agent.prompt.trim() : ''
+  if (agentPrompt) {
+    parts.push(agentPrompt)
+  }
+
+  // 2. Personalization settings (from agent, fallback to global settings)
+  // Support both snake_case (from DB) and camelCase (from mapAgent)
+  const baseTone = agent.base_tone || agent.baseTone || settings?.styleBaseTone || ''
+  const traits = agent.traits || settings?.styleTraits || ''
+  const warmth = agent.warmth || agent.warmth || settings?.styleWarmth || ''
+  const enthusiasm = agent.enthusiasm || agent.enthusiasm || settings?.styleEnthusiasm || ''
+  const headings = agent.headings || agent.headings || settings?.styleHeadings || ''
+  const emojis = agent.emojis || agent.emojis || settings?.styleEmojis || ''
+  const customInstruction = agent.custom_instruction || agent.customInstruction || settings?.customInstruction || ''
+
+  // Build style prompt from personalization settings
+  const styleParts = []
+  if (baseTone) styleParts.push(`Base Tone: ${baseTone}`)
+  if (traits) styleParts.push(`Traits: ${traits}`)
+  if (warmth) styleParts.push(`Warmth: ${warmth}`)
+  if (enthusiasm) styleParts.push(`Enthusiasm: ${enthusiasm}`)
+  if (headings) styleParts.push(`Headings: ${headings}`)
+  if (emojis) styleParts.push(`Emojis: ${emojis}`)
+  if (customInstruction) styleParts.push(`Custom Instruction: ${customInstruction}`)
+
+  if (styleParts.length > 0) {
+    parts.push(`### Response Style Guidelines:\n${styleParts.join('\n')}`)
+  }
+
+  // 3. Language instruction (from agent if set, otherwise from settings)
+  // Support both snake_case (from DB) and camelCase (from mapAgent)
+  const agentLanguage = typeof (agent.response_language || agent.responseLanguage) === 'string'
+    ? (agent.response_language || agent.responseLanguage).trim()
+    : ''
+  const globalLanguage = getLanguageInstruction(settings)
+  const languageInstruction = agentLanguage ? `Reply in ${agentLanguage}.` : globalLanguage
+
+  if (languageInstruction) {
+    parts.push(languageInstruction)
+  }
+
+  return parts.length > 0 ? parts.join('\n\n') : null
+}
+
+/**
+ * Gets model configuration for a given agent
+ * Falls back to global settings if agent doesn't have specific config
+ * @param {Object} agent - Agent object with model settings
+ * @param {Object} settings - Global settings for fallback
+ * @param {string} task - Task type (streamChatCompletion, generateTitle, etc.)
+ * @returns {Object} Model configuration { provider, model }
+ */
+const getModelConfigForAgent = (agent, settings, task = 'streamChatCompletion') => {
+  // If agent has provider and model config, use it
+  // Support both snake_case (from DB) and camelCase (from mapAgent)
+  const defaultModel = agent.default_model || agent.defaultModel
+  const liteModel = agent.lite_model || agent.liteModel
+
+  if (agent && agent.provider && defaultModel) {
+    // Decode model IDs (they may be encoded with provider prefix like "glm::glm-4.7")
+    const decodedDefaultModel = decodeModelId(defaultModel)
+    const decodedLiteModel = liteModel ? decodeModelId(liteModel) : ''
+
+    // For lite tasks, use lite_model if available
+    const model =
+      task === 'generateTitle' || task === 'generateTitleAndSpace' || task === 'generateRelatedQuestions'
+        ? (decodedLiteModel || decodedDefaultModel)
+        : decodedDefaultModel
+
+    return {
+      provider: agent.provider,
+      model,
+    }
+  }
+
+  // Fallback to global settings
+  return {
+    provider: settings?.apiProvider,
+    model: getModelForTask(task, settings),
+  }
+}
+
 const applyLanguageInstructionToText = (text, instruction) => {
   if (!instruction) return text
   const baseText = typeof text === 'string' ? text.trim() : ''
@@ -161,12 +271,14 @@ const handleEditingAndHistory = (messages, editingInfo, userMessage, historyOver
  * @param {string} firstMessage - Raw user text
  * @param {Object} settings - User settings and API configuration
  * @param {Array} spaces - Available spaces for auto-selection
+ * @param {Object} selectedAgent - Currently selected agent (optional)
  * @returns {Promise<{ title: string, space: Object|null }>}
  */
-const preselectSpaceForAuto = async (firstMessage, settings, spaces) => {
-  const provider = getProvider(settings.apiProvider)
+const preselectSpaceForAuto = async (firstMessage, settings, spaces, selectedAgent = null) => {
+  // Use agent's model config if available, otherwise fall back to global settings
+  const modelConfig = getModelConfigForAgent(selectedAgent, settings, 'generateTitleAndSpace')
+  const provider = getProvider(modelConfig.provider)
   const credentials = provider.getCredentials(settings)
-  const model = getModelForTask('generateTitleAndSpace', settings)
   const languageInstruction = getLanguageInstruction(settings)
   const promptText = applyLanguageInstructionToText(firstMessage, languageInstruction)
   return provider.generateTitleAndSpace(
@@ -174,7 +286,7 @@ const preselectSpaceForAuto = async (firstMessage, settings, spaces) => {
     spaces || [],
     credentials.apiKey,
     credentials.baseUrl,
-    model,
+    modelConfig.model,
   )
 }
 
@@ -182,15 +294,17 @@ const preselectSpaceForAuto = async (firstMessage, settings, spaces) => {
  * Preselects a title for manual space before the first request.
  * @param {string} firstMessage - Raw user text
  * @param {Object} settings - User settings and API configuration
+ * @param {Object} selectedAgent - Currently selected agent (optional)
  * @returns {Promise<string>}
  */
-const preselectTitleForManual = async (firstMessage, settings) => {
-  const provider = getProvider(settings.apiProvider)
+const preselectTitleForManual = async (firstMessage, settings, selectedAgent = null) => {
+  // Use agent's model config if available, otherwise fall back to global settings
+  const modelConfig = getModelConfigForAgent(selectedAgent, settings, 'generateTitle')
+  const provider = getProvider(modelConfig.provider)
   const credentials = provider.getCredentials(settings)
-  const model = getModelForTask('generateTitle', settings)
   const languageInstruction = getLanguageInstruction(settings)
   const promptText = applyLanguageInstructionToText(firstMessage, languageInstruction)
-  return provider.generateTitle(promptText, credentials.apiKey, credentials.baseUrl, model)
+  return provider.generateTitle(promptText, credentials.apiKey, credentials.baseUrl, modelConfig.model)
 }
 
 /**
@@ -282,20 +396,28 @@ const persistUserMessage = async (convId, editingInfo, content, set) => {
  * @param {Array} historyForSend - Message history to send to AI
  * @param {Object} userMessage - Current user message
  * @param {Object} spaceInfo - Space selection and prompt information
+ * @param {Object} selectedAgent - Currently selected agent (optional)
+ * @param {Object} settings - User settings
  * @param {Function} set - Zustand set function
  * @returns {Object} Contains conversationMessages (for API) and aiMessagePlaceholder (for UI)
  */
-const prepareAIPlaceholder = (historyForSend, userMessageForSend, spaceInfo, set, toggles) => {
-  const { responseStylePrompt, llmAnswerLanguage } = loadSettings()
+const prepareAIPlaceholder = (historyForSend, userMessageForSend, spaceInfo, selectedAgent, settings, set, toggles) => {
+  let resolvedPrompt = null
 
-  const spacePrompt =
-    typeof spaceInfo.selectedSpace?.prompt === 'string' ? spaceInfo.selectedSpace.prompt.trim() : ''
-  const stylePrompt = typeof responseStylePrompt === 'string' ? responseStylePrompt.trim() : ''
-  const trimmedLanguage = typeof llmAnswerLanguage === 'string' ? llmAnswerLanguage.trim() : ''
-  const languagePrompt = trimmedLanguage ? `Reply in ${trimmedLanguage}.` : ''
+  // Priority: Agent prompt > Global settings
+  if (selectedAgent) {
+    // Use agent's prompt with personalization
+    resolvedPrompt = buildAgentPrompt(selectedAgent, settings)
+  } else {
+    // Fallback to global response style settings
+    const { responseStylePrompt, llmAnswerLanguage } = settings
+    const stylePrompt = typeof responseStylePrompt === 'string' ? responseStylePrompt.trim() : ''
+    const trimmedLanguage = typeof llmAnswerLanguage === 'string' ? llmAnswerLanguage.trim() : ''
+    const languagePrompt = trimmedLanguage ? `Reply in ${trimmedLanguage}.` : ''
 
-  const combinedPrompt = [spacePrompt, stylePrompt, languagePrompt].filter(Boolean).join('\n\n')
-  const resolvedPrompt = combinedPrompt ? combinedPrompt : null
+    const combinedPrompt = [stylePrompt, languagePrompt].filter(Boolean).join('\n\n')
+    resolvedPrompt = combinedPrompt || null
+  }
 
   const conversationMessagesBase = [
     ...(resolvedPrompt ? [{ role: 'system', content: resolvedPrompt }] : []),
@@ -329,6 +451,7 @@ const prepareAIPlaceholder = (historyForSend, userMessageForSend, spaceInfo, set
  * @param {Object} callbacks - Optional callback functions for title/space generation
  * @param {Array} spaces - Available spaces for auto-generation
  * @param {Object} spaceInfo - Space selection and prompt information
+ * @param {Object} selectedAgent - Currently selected agent (optional)
  * @param {string|null} preselectedTitle - Preselected title for auto mode (optional)
  * @param {Function} get - Zustand get function
  * @param {Function} set - Zustand set function
@@ -343,6 +466,7 @@ const callAIAPI = async (
   callbacks,
   spaces,
   spaceInfo,
+  selectedAgent,
   preselectedTitle,
   get,
   set,
@@ -400,11 +524,10 @@ const callAIAPI = async (
     rafId = schedule(flushPending)
   }
   try {
-    // Get AI provider and credentials
-    const provider = getProvider(settings.apiProvider)
+    // Get model configuration: Agent priority, global fallback
+    const modelConfig = getModelConfigForAgent(selectedAgent, settings, 'streamChatCompletion')
+    const provider = getProvider(modelConfig.provider)
     const credentials = provider.getCredentials(settings)
-    // Use dynamic model selection for main conversation
-    const model = getModelForTask('streamChatCompletion', settings)
 
     // Tag the placeholder with provider/model so UI can show it while streaming
     set(state => {
@@ -413,8 +536,8 @@ const callAIAPI = async (
       if (lastMsgIndex < 0) return { messages: updated }
       const lastMsg = { ...updated[lastMsgIndex] }
       if (lastMsg.role === 'ai') {
-        lastMsg.provider = settings.apiProvider
-        lastMsg.model = model
+        lastMsg.provider = modelConfig.provider
+        lastMsg.model = modelConfig.model
         updated[lastMsgIndex] = lastMsg
       }
       return { messages: updated }
@@ -427,7 +550,7 @@ const callAIAPI = async (
     // Prepare API parameters
     const params = {
       ...credentials,
-      model,
+      model: modelConfig.model,
       temperature: spaceTemperature ?? undefined,
       top_k: spaceTopK ?? undefined,
       contextMessageLimit: settings.contextMessageLimit,
@@ -439,7 +562,7 @@ const callAIAPI = async (
         ...(m.name && { name: m.name }),
       })),
       tools: provider.getTools(toggles.search),
-      thinking: provider.getThinking(toggles.thinking, model),
+      thinking: provider.getThinking(toggles.thinking, modelConfig.model),
       onChunk: chunk => {
         if (typeof chunk === 'object' && chunk !== null) {
           if (chunk.type === 'thought') {
@@ -471,7 +594,7 @@ const callAIAPI = async (
           spaceInfo,
           preselectedTitle,
           toggles,
-          model,
+          selectedAgent,
         )
       },
       onError: err => {
@@ -517,6 +640,8 @@ const callAIAPI = async (
  * @param {string} [firstUserText] - Raw text of the initial user message
  * @param {Object} spaceInfo - Space selection information
  * @param {string|null} preselectedTitle - Preselected title for auto mode (optional)
+ * @param {Object} toggles - Feature toggles (search, thinking, related)
+ * @param {Object} selectedAgent - Currently selected agent (optional)
  */
 const finalizeMessage = async (
   result,
@@ -530,7 +655,7 @@ const finalizeMessage = async (
   spaceInfo,
   preselectedTitle,
   toggles = {},
-  modelUsed = null,
+  selectedAgent = null,
 ) => {
   const normalizedThought = typeof result?.thought === 'string' ? result.thought.trim() : ''
   const normalizeContent = content => {
@@ -551,6 +676,9 @@ const finalizeMessage = async (
     return content ? String(content) : ''
   }
 
+  // Get model configuration: Agent priority, global fallback
+  const modelConfig = getModelConfigForAgent(selectedAgent, settings, 'streamChatCompletion')
+
   // Replace streamed placeholder with finalized content (e.g., with citations/grounding)
   set(state => {
     const updated = [...state.messages]
@@ -565,8 +693,8 @@ const finalizeMessage = async (
       if (result?.toolCalls) {
         lastMsg.tool_calls = result.toolCalls
       }
-      lastMsg.provider = settings.apiProvider
-      lastMsg.model = modelUsed || getModelForTask('streamChatCompletion', settings)
+      lastMsg.provider = modelConfig.provider
+      lastMsg.model = modelConfig.model
       updated[lastMsgIndex] = lastMsg
     }
     return { messages: updated }
@@ -600,7 +728,8 @@ const finalizeMessage = async (
       set({ conversationTitle: resolvedTitle })
     } else if (spaceInfo?.isManualSpaceSelection && spaceInfo?.selectedSpace) {
       // Generate title only when space is manually selected
-      const provider = getProvider(settings.apiProvider)
+      const titleModelConfig = getModelConfigForAgent(selectedAgent, settings, 'generateTitle')
+      const provider = getProvider(titleModelConfig.provider)
       const credentials = provider.getCredentials(settings)
       const languageInstruction = getLanguageInstruction(settings)
       const promptText = applyLanguageInstructionToText(firstMessageText, languageInstruction)
@@ -608,12 +737,13 @@ const finalizeMessage = async (
         promptText,
         credentials.apiKey,
         credentials.baseUrl,
-        getModelForTask('generateTitle', settings),
+        titleModelConfig.model,
       )
       set({ conversationTitle: resolvedTitle })
     } else if (callbacks?.onTitleAndSpaceGenerated) {
       // Use callback to generate both title and space
-      const provider = getProvider(settings.apiProvider)
+      const titleModelConfig = getModelConfigForAgent(selectedAgent, settings, 'generateTitleAndSpace')
+      const provider = getProvider(titleModelConfig.provider)
       const credentials = provider.getCredentials(settings)
       const languageInstruction = getLanguageInstruction(settings)
       const promptText = applyLanguageInstructionToText(firstMessageText, languageInstruction)
@@ -627,7 +757,8 @@ const finalizeMessage = async (
       resolvedSpace = space || null
     } else {
       // Generate both title and space automatically
-      const provider = getProvider(settings.apiProvider)
+      const titleModelConfig = getModelConfigForAgent(selectedAgent, settings, 'generateTitleAndSpace')
+      const provider = getProvider(titleModelConfig.provider)
       const credentials = provider.getCredentials(settings)
       const languageInstruction = getLanguageInstruction(settings)
       const promptText = applyLanguageInstructionToText(firstMessageText, languageInstruction)
@@ -636,7 +767,7 @@ const finalizeMessage = async (
         spaces || [],
         credentials.apiKey,
         credentials.baseUrl,
-        getModelForTask('generateTitleAndSpace', settings), // Use the appropriate model for this task
+        titleModelConfig.model,
       )
       resolvedTitle = title
       set({ conversationTitle: title })
@@ -670,15 +801,15 @@ const finalizeMessage = async (
         relatedMessages.unshift({ role: 'system', content: languageInstruction })
       }
 
-      const provider = getProvider(settings.apiProvider)
+      // Use agent's model config if available, otherwise fall back to global settings
+      const modelConfig = getModelConfigForAgent(selectedAgent, settings, 'generateRelatedQuestions')
+      const provider = getProvider(modelConfig.provider)
       const credentials = provider.getCredentials(settings)
-      // Get the appropriate model for related questions task
-      const model = getModelForTask('generateRelatedQuestions', settings)
       related = await provider.generateRelatedQuestions(
         relatedMessages, // Only use the last 2 messages (User + AI) for context
         credentials.apiKey,
         credentials.baseUrl,
-        model, // Pass the selected model for this task
+        modelConfig.model, // Use the configured model for this task
       )
     } catch (error) {
       console.error('Failed to generate related questions:', error)
@@ -746,9 +877,10 @@ const finalizeMessage = async (
 
     const { data: insertedAi } = await addMessage({
       conversation_id: currentStore.conversationId,
+      agent_id: selectedAgent?.id || null,
       role: 'assistant',
-      provider: settings.apiProvider,
-      model: modelUsed || getModelForTask('streamChatCompletion', settings),
+      provider: modelConfig.provider,
+      model: modelConfig.model,
       content: contentForPersistence,
       thinking_process: thoughtForPersistence,
       tool_calls: result.toolCalls || null,
@@ -859,11 +991,12 @@ const useChatStore = create((set, get) => ({
    * @param {string} params.text - The message text to send
    * @param {Array} params.attachments - File attachments (optional)
    * @param {Object} params.toggles - Feature toggles { search, thinking }
-   * @param {Object} params.settings - User settings and API configuration
    * @param {Object} params.spaceInfo - Space selection information { selectedSpace, isManualSpaceSelection }
+   * @param {Object|null} params.selectedAgent - Currently selected agent (optional)
    * @param {Object|null} params.editingInfo - Information about message being edited { index, targetId, partnerId }
    * @param {Object|null} params.callbacks - Callback functions { onTitleAndSpaceGenerated, onSpaceResolved, onConversationReady }
    * @param {Array} params.spaces - Available spaces for auto-generation (optional)
+   * @param {Object} params.quoteContext - Quote context { text, sourceContent, sourceRole }
    *
    * @returns {Promise<void>}
    *
@@ -884,6 +1017,7 @@ const useChatStore = create((set, get) => ({
     toggles, // { search, thinking }
     settings, // passed from component to ensure freshness
     spaceInfo, // { selectedSpace, isManualSpaceSelection }
+    selectedAgent = null, // Currently selected agent (optional)
     editingInfo, // { index, targetId, partnerId } (optional)
     callbacks, // { onTitleAndSpaceGenerated, onSpaceResolved } (optional)
     spaces = [], // passed from component
@@ -936,7 +1070,7 @@ const useChatStore = create((set, get) => ({
       set({ isMetaLoading: true })
       try {
         if (shouldPreselect) {
-          const { title, space } = await preselectSpaceForAuto(text, settings, spaces)
+          const { title, space } = await preselectSpaceForAuto(text, settings, spaces, selectedAgent)
           if (space) {
             resolvedSpaceInfo = { ...spaceInfo, selectedSpace: space }
             callbacks?.onSpaceResolved?.(space)
@@ -946,7 +1080,7 @@ const useChatStore = create((set, get) => ({
             set({ conversationTitle: title })
           }
         } else if (shouldPreselectTitleForManual) {
-          const title = await preselectTitleForManual(text, settings)
+          const title = await preselectTitleForManual(text, settings, selectedAgent)
           if (title) {
             preselectedTitle = title
             set({ conversationTitle: title })
@@ -995,6 +1129,8 @@ const useChatStore = create((set, get) => ({
       historyForSend,
       userMessageForSend,
       resolvedSpaceInfo,
+      selectedAgent,
+      settings,
       set,
       toggles,
     )
@@ -1008,6 +1144,7 @@ const useChatStore = create((set, get) => ({
       callbacks,
       spaces,
       resolvedSpaceInfo,
+      selectedAgent,
       preselectedTitle,
       get,
       set,

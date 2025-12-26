@@ -19,7 +19,6 @@ CREATE TABLE IF NOT EXISTS public.spaces (
   emoji TEXT NOT NULL DEFAULT '',
   label TEXT NOT NULL,
   description TEXT,
-  prompt TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -82,6 +81,7 @@ FOR EACH ROW EXECUTE PROCEDURE public.set_updated_at();
 CREATE TABLE IF NOT EXISTS public.conversation_messages (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   conversation_id UUID NOT NULL REFERENCES public.conversations(id) ON DELETE CASCADE,
+  agent_id UUID REFERENCES public.agents(id) ON DELETE SET NULL,
   role TEXT NOT NULL CHECK (role IN ('system', 'user', 'assistant', 'tool')),
   content JSONB NOT NULL,
   provider TEXT,

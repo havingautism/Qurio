@@ -15,7 +15,6 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
   const [activeTab, setActiveTab] = useState('general')
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
-  const [prompt, setPrompt] = useState('')
 
   const [emoji, setEmoji] = useState('🌍') // Default emoji
   const [temperature, setTemperature] = useState(1.0)
@@ -79,14 +78,12 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
       if (editingSpace) {
         setName(editingSpace.label || '')
         setDescription(editingSpace.description || '')
-        setPrompt(editingSpace.prompt || '')
         setEmoji(editingSpace.emoji || '🌍')
         setTemperature(editingSpace.temperature ?? 1.0)
         setTopK(editingSpace.top_k ?? null)
       } else {
         setName('')
         setDescription('')
-        setPrompt('')
         setEmoji('🌍')
         setTemperature(1.0)
         setTopK(null)
@@ -126,12 +123,10 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
     setIsSaving(true)
     setError('')
     try {
-      await onSave?.({
+        await onSave?.({
         emoji,
         label: name.trim(),
         description: description.trim(),
-
-        prompt: prompt.trim(),
         temperature,
         top_k: topK,
         agentIds: selectedAgentIds,
@@ -286,19 +281,6 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
                     placeholder={t('spaceModal.descriptionPlaceholder')}
                     rows={2}
                     className="w-full px-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600 resize-none"
-                  />
-                </div>
-
-                {/* Prompt Input - Flexible height */}
-                <div className="flex flex-col gap-2 flex-1 min-h-0">
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    {t('spaceModal.spacePrompt')} <span className="text-gray-400 font-normal">({t('spaceModal.spacePromptOptional')})</span>
-                  </label>
-                  <textarea
-                    value={prompt}
-                    onChange={e => setPrompt(e.target.value)}
-                    placeholder={t('spaceModal.promptPlaceholder')}
-                    className="w-full flex-1 min-h-[120px] px-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600 resize-none"
                   />
                 </div>
 

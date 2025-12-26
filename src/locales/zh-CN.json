@@ -25,6 +25,8 @@
     "createNewSpace": "创建新空间",
     "noSpacesYet": "暂无空间。",
     "noHistory": "暂无历史",
+    "createNewAgent": "创建新智能体",
+    "noAgentsYet": "暂无智能体。",
     "delete": "删除",
     "add": "添加",
     "added": "已添加",

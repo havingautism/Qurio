@@ -56,10 +56,20 @@ export const testConnection = async (supabaseUrl, supabaseKey) => {
       }
     }
 
-    const tables = ['spaces', 'agents', 'space_agents', 'conversations', 'conversation_messages']
+    // Define select field for each table (space_agents has no 'id' column)
+    const tableFields = {
+      spaces: 'id',
+      agents: 'id',
+      space_agents: 'space_id',
+      conversations: 'id',
+      conversation_messages: 'id',
+    }
+
+    const tables = Object.keys(tableFields)
     const results = {}
     for (const table of tables) {
-      const { error } = await supabase.from(table).select('id').limit(1)
+      const field = tableFields[table]
+      const { error } = await supabase.from(table).select(field).limit(1)
       results[table] = !error
     }
 

@@ -45,6 +45,10 @@ const Sidebar = ({
   onOpenConversation,
   spaces,
   spacesLoading = false,
+  agents = [],
+  agentsLoading = false,
+  onCreateAgent,
+  onEditAgent,
   theme,
   onToggleTheme,
   activeConversationId,
@@ -1154,6 +1158,70 @@ const Sidebar = ({
                     </button>
                   </div>
                 )} */}
+              </div>
+            )}
+            {/* AGENTS TAB CONTENT */}
+            {displayTab === 'agents' && (
+              <div className="flex flex-col gap-2 overflow-y-auto overscroll-contain flex-1 min-h-0 px-2">
+                {/* Create New Agent */}
+                <button
+                  onClick={onCreateAgent}
+                  className="flex items-center gap-3 bg-user-bubble hover:scale-105 dark:bg-zinc-800 transition-transform p-2 rounded-lg hover:bg-user-bubble dark:hover:bg-user-bubble/10 text-gray-600 dark:text-gray-300 w-full text-left cursor-pointer"
+                >
+                  <div className="w-8 h-8 rounded flex items-center justify-center text-gray-700 dark:text-gray-100">
+                    <Plus size={16} />
+                  </div>
+                  <span className="text-sm font-medium">{t('sidebar.createNewAgent')}</span>
+                </button>
+
+                <div className="h-px bg-gray-200 dark:bg-zinc-800 mb-2" />
+
+                {/* Agents List */}
+                {agentsLoading && (
+                  <div className="flex justify-center py-2">
+                    <DotLoader />
+                  </div>
+                )}
+                {!agentsLoading && agents.length === 0 && (
+                  <div className="flex flex-col items-center gap-2 text-xs text-gray-500 dark:text-gray-400 px-2 py-3">
+                    <Bot size={24} className="text-black dark:text-white" />
+                    <div>{t('sidebar.noAgentsYet')}</div>
+                  </div>
+                )}
+                {agents.map(agent => (
+                  <div
+                    key={agent.id}
+                    onClick={() => onEditAgent && onEditAgent(agent)}
+                    className="flex items-center justify-between p-2 rounded cursor-pointer transition-colors group hover:bg-primary-50 dark:hover:bg-zinc-800"
+                  >
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <div className="w-8 h-8 rounded bg-transparent flex items-center justify-center text-lg shrink-0">
+                        <EmojiDisplay emoji={agent.emoji} />
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">
+                          {agent.name}
+                        </span>
+                        {agent.description && (
+                          <span className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                            {agent.description}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Edit Button (Visible on Hover) */}
+                    <button
+                      onClick={e => {
+                        e.stopPropagation()
+                        onEditAgent && onEditAgent(agent)
+                      }}
+                      className="p-1.5 rounded-md ml-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:bg-primary-50 dark:hover:bg-zinc-800 text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors shrink-0"
+                    >
+                      <Settings size={16} />
+                    </button>
+                  </div>
+                ))}
               </div>
             )}
           </div>

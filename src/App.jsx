@@ -416,6 +416,10 @@ function App() {
                 onOpenConversation={handleOpenConversation}
                 spaces={spaces}
                 spacesLoading={spacesLoading}
+                agents={agents}
+                agentsLoading={agentsLoading}
+                onCreateAgent={handleCreateAgent}
+                onEditAgent={handleEditAgent}
                 theme={theme}
                 onToggleTheme={cycleTheme}
                 isSidebarPinned={isSidebarPinned}

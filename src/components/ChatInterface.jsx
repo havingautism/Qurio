@@ -25,7 +25,7 @@ import {
 import { useAppContext } from '../App'
 import { updateConversation } from '../lib/conversationsService'
 import { getModelForTask } from '../lib/modelSelector.js'
-import { getProvider } from '../lib/providers'
+import { getProvider, providerSupportsSearch } from '../lib/providers'
 import QuestionTimelineSidebar from './QuestionTimelineSidebar'
 
 import { useSidebarOffset } from '../hooks/useSidebarOffset'
@@ -149,6 +149,42 @@ const ChatInterface = ({
     [spaceAgents, selectedAgentId],
   )
 
+  // Helper to get model config for agent or fallback to global settings
+  const getModelConfig = React.useCallback(
+    (task = 'streamChatCompletion') => {
+      const MODEL_SEPARATOR = '::'
+      const decodeModelId = encodedModel => {
+        if (!encodedModel) return ''
+        const index = encodedModel.indexOf(MODEL_SEPARATOR)
+        if (index === -1) return encodedModel
+        return encodedModel.slice(index + MODEL_SEPARATOR.length)
+      }
+
+      if (selectedAgent?.provider && selectedAgent.defaultModel) {
+        const defaultModel = selectedAgent.defaultModel
+        const liteModel = selectedAgent.liteModel
+        const decodedDefaultModel = decodeModelId(defaultModel)
+        const decodedLiteModel = liteModel ? decodeModelId(liteModel) : ''
+
+        const model =
+          task === 'generateTitle' || task === 'generateTitleAndSpace' || task === 'generateRelatedQuestions'
+            ? (decodedLiteModel || decodedDefaultModel)
+            : decodedDefaultModel
+
+        return {
+          provider: selectedAgent.provider,
+          model,
+        }
+      }
+
+      return {
+        provider: settings.apiProvider,
+        model: getModelForTask(task, settings),
+      }
+    },
+    [selectedAgent, settings],
+  )
+
   // Effect to handle initial message from homepage
   const hasInitialized = useRef(false)
   const isProcessingInitial = useRef(false)
@@ -156,10 +192,8 @@ const ChatInterface = ({
   useEffect(() => {
     const handleSettingsChange = () => {
       setSettings(loadSettings())
-      if (
-        settings.apiProvider === 'openai_compatibility' ||
-        settings.apiProvider === 'siliconflow'
-      ) {
+      const newSettings = loadSettings()
+      if (!providerSupportsSearch(newSettings.apiProvider)) {
         setIsSearchActive(false)
       }
     }
@@ -687,6 +721,7 @@ const ChatInterface = ({
         toggles: { search: searchActive, thinking: thinkingActive, related: relatedActive },
         settings,
         spaceInfo: { selectedSpace, isManualSpaceSelection },
+        selectedAgent,
         editingInfo,
         callbacks: {
           onTitleAndSpaceGenerated,
@@ -710,6 +745,7 @@ const ChatInterface = ({
       sendMessage,
       settings,
       selectedSpace,
+      selectedAgent,
       isManualSpaceSelection,
       onTitleAndSpaceGenerated,
       spaces,
@@ -881,14 +917,14 @@ const ChatInterface = ({
 
     setIsRegeneratingTitle(true)
     try {
-      const provider = getProvider(settings.apiProvider)
+      const modelConfig = getModelConfig('generateTitle')
+      const provider = getProvider(modelConfig.provider)
       const credentials = provider.getCredentials(settings)
-      const model = getModelForTask('generateTitle', settings)
       const newTitle = await provider.generateTitle(
         contextText,
         credentials.apiKey,
         credentials.baseUrl,
-        model,
+        modelConfig.model,
       )
       if (!newTitle) return
       setConversationTitle(newTitle)
@@ -906,6 +942,7 @@ const ChatInterface = ({
     activeConversation?.id,
     conversationId,
     extractPlainText,
+    getModelConfig,
     isRegeneratingTitle,
     messages,
     settings,
@@ -965,7 +1002,7 @@ const ChatInterface = ({
 
               {/* Dropdown */}
               {isSelectorOpen && (
-                <div className="absolute top-full left-0 mt-2 w-56 bg-white dark:bg-[#202222] border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl z-30 overflow-hidden">
+                <div className="absolute bottom-full left-0 mb-2 w-56 bg-white dark:bg-[#202222] border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl z-30 overflow-hidden">
                   <div className="p-2 flex flex-col gap-1">
                     <button
                       onClick={handleClearSpaceSelection}
@@ -1346,7 +1383,11 @@ const InputBar = React.memo(
                 <span className="hidden md:inline">{t('homeView.think')}</span>
               </button>
                 <button
-                  disabled={apiProvider === 'openai_compatibility' || apiProvider === 'siliconflow'}
+                  disabled={
+                    selectedAgent?.provider
+                      ? !providerSupportsSearch(selectedAgent.provider)
+                      : !providerSupportsSearch(apiProvider)
+                  }
                   onClick={onToggleSearch}
                   className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
                     isSearchActive
@@ -1360,7 +1401,11 @@ const InputBar = React.memo(
                 <div className="relative" ref={agentSelectorRef}>
                   <button
                     type="button"
-                    onClick={onAgentSelectorToggle}
+                    onClick={e => {
+                      e.stopPropagation()
+                      e.preventDefault()
+                      onAgentSelectorToggle()
+                    }}
                     className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
                       selectedAgent
                         ? 'text-primary-500 bg-gray-200 dark:bg-zinc-700'
@@ -1377,7 +1422,7 @@ const InputBar = React.memo(
                     <ChevronDown size={14} />
                   </button>
                   {isAgentSelectorOpen && (
-                    <div className="absolute top-full left-0 mt-2 w-56 bg-white dark:bg-[#202222] border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl z-30 overflow-hidden">
+                    <div className="absolute bottom-full left-0 mb-2 w-56 bg-white dark:bg-[#202222] border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl z-30 overflow-hidden">
                       <div className="p-2 flex flex-col gap-1">
                         {agents.length === 0 ? (
                           <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">

@@ -477,12 +477,15 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
     if (!isOpen) return
     const resolvedDefaultProvider = findProviderForModel(defaultModel)
     const resolvedLiteProvider = findProviderForModel(liteModel)
-    if (resolvedDefaultProvider) {
+
+    // Only auto-resolve provider if not already set or if model changed
+    // This prevents overwriting user's manual provider selection
+    if (resolvedDefaultProvider && !defaultModelProvider) {
       setDefaultModelProvider(resolvedDefaultProvider)
     } else if (!defaultModelProvider && availableProviders.length > 0) {
       setDefaultModelProvider(availableProviders[0])
     }
-    if (resolvedLiteProvider) {
+    if (resolvedLiteProvider && !liteModelProvider) {
       setLiteModelProvider(resolvedLiteProvider)
     } else if (!liteModelProvider && availableProviders.length > 0) {
       setLiteModelProvider(availableProviders[0])
@@ -493,8 +496,6 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
     groupedModels,
     isOpen,
     liteModel,
-    defaultModelProvider,
-    liteModelProvider,
   ])
 
   const renderModelPicker = ({

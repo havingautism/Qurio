@@ -228,3 +228,17 @@ export const PROVIDERS = {
 export const getProvider = providerName => {
   return PROVIDERS[providerName] || PROVIDERS.gemini
 }
+
+/**
+ * Check if a provider supports search functionality.
+ * Determined by whether getTools returns a non-empty array when search is active.
+ *
+ * @param {string} providerName
+ * @returns {boolean} True if search is supported
+ */
+export const providerSupportsSearch = providerName => {
+  const provider = getProvider(providerName)
+  if (!provider || !provider.getTools) return false
+  const tools = provider.getTools(true)
+  return tools && tools.length > 0
+}

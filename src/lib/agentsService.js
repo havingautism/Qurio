@@ -6,6 +6,7 @@ const mapAgent = agent => {
   if (!agent) return agent
   return {
     id: agent.id,
+    isDefault: agent.is_default ?? agent.isDefault ?? false,
     name: agent.name,
     description: agent.description,
     prompt: agent.prompt,
@@ -21,6 +22,10 @@ const mapAgent = agent => {
     headings: agent.headings ?? '',
     emojis: agent.emojis ?? '',
     customInstruction: agent.custom_instruction ?? agent.customInstruction ?? '',
+    temperature: agent.temperature ?? null,
+    topP: agent.top_p ?? agent.topP ?? null,
+    frequencyPenalty: agent.frequency_penalty ?? agent.frequencyPenalty ?? null,
+    presencePenalty: agent.presence_penalty ?? agent.presencePenalty ?? null,
     createdAt: agent.created_at ?? agent.createdAt ?? null,
     updatedAt: agent.updated_at ?? agent.updatedAt ?? null,
   }
@@ -43,6 +48,7 @@ export const createAgent = async ({
   description = '',
   prompt = '',
   emoji = '',
+  isDefault = false,
   provider = '',
   liteModel = '',
   defaultModel = '',
@@ -54,6 +60,10 @@ export const createAgent = async ({
   headings = '',
   emojis = '',
   customInstruction = '',
+  temperature = null,
+  topP = null,
+  frequencyPenalty = null,
+  presencePenalty = null,
 }) => {
   const supabase = getSupabaseClient()
   if (!supabase) return { data: null, error: new Error('Supabase not configured') }
@@ -64,6 +74,7 @@ export const createAgent = async ({
     description,
     prompt,
     emoji,
+    is_default: isDefault,
     provider,
     lite_model: liteModel,
     default_model: defaultModel,
@@ -75,6 +86,10 @@ export const createAgent = async ({
     headings,
     emojis,
     custom_instruction: customInstruction,
+    temperature,
+    top_p: topP,
+    frequency_penalty: frequencyPenalty,
+    presence_penalty: presencePenalty,
   }
 
   const { data, error } = await supabase.from(table).insert([payload]).select().single()
@@ -105,6 +120,13 @@ export const updateAgent = async (id, payload) => {
   if (payload.emojis !== undefined) updatePayload.emojis = payload.emojis
   if (payload.customInstruction !== undefined)
     updatePayload.custom_instruction = payload.customInstruction
+  if (payload.isDefault !== undefined) updatePayload.is_default = payload.isDefault
+  if (payload.temperature !== undefined) updatePayload.temperature = payload.temperature
+  if (payload.topP !== undefined) updatePayload.top_p = payload.topP
+  if (payload.frequencyPenalty !== undefined)
+    updatePayload.frequency_penalty = payload.frequencyPenalty
+  if (payload.presencePenalty !== undefined)
+    updatePayload.presence_penalty = payload.presencePenalty
 
   const { data, error } = await supabase
     .from(table)

@@ -44,7 +44,7 @@ const normalizeTextContent = content => {
 /**
  * Builds a payload for Google Gemini API requests.
  * Separates system instructions from conversation contents and applies generation config.
- * @param {Object} params - Parameters including messages, temperature, top_k, tools, and thinking config
+ * @param {Object} params - Parameters including messages, temperature, top_k, top_p, tools, and thinking config
  * @returns {Object} - Gemini API payload object
  */
 const normalizeGeminiTools = tools => {
@@ -53,7 +53,7 @@ const normalizeGeminiTools = tools => {
   return []
 }
 
-const buildGeminiPayload = ({ messages, temperature, top_k, tools, thinking }) => {
+const buildGeminiPayload = ({ messages, temperature, top_k, top_p, tools, thinking }) => {
   const systemTexts = (messages || [])
     .filter(m => m.role === 'system')
     .map(m => normalizeTextContent(m.content))
@@ -72,6 +72,7 @@ const buildGeminiPayload = ({ messages, temperature, top_k, tools, thinking }) =
   const generationConfig = {}
   if (temperature !== undefined) generationConfig.temperature = temperature
   if (top_k !== undefined) generationConfig.topK = top_k
+  if (top_p !== undefined) generationConfig.topP = top_p
   if (thinking?.thinkingConfig) {
     generationConfig.thinkingConfig = thinking.thinkingConfig
   }
@@ -405,6 +406,9 @@ const buildOpenAIModel = ({
   model,
   temperature,
   top_k,
+  top_p,
+  frequency_penalty,
+  presence_penalty,
   tools,
   toolChoice,
   responseFormat,
@@ -441,6 +445,9 @@ const buildOpenAIModel = ({
   if (top_k !== undefined && provider !== 'siliconflow') {
     modelKwargs.top_k = top_k
   }
+  if (top_p !== undefined) modelKwargs.top_p = top_p
+  if (frequency_penalty !== undefined) modelKwargs.frequency_penalty = frequency_penalty
+  if (presence_penalty !== undefined) modelKwargs.presence_penalty = presence_penalty
   if (streaming) {
     modelKwargs.stream_options = { include_usage: false }
   }
@@ -471,6 +478,9 @@ const buildSiliconFlowModel = ({
   model,
   temperature,
   top_k,
+  top_p,
+  frequency_penalty,
+  presence_penalty,
   tools,
   toolChoice,
   responseFormat,
@@ -494,6 +504,9 @@ const buildSiliconFlowModel = ({
   if (top_k !== undefined) {
     modelKwargs.top_k = top_k
   }
+  if (top_p !== undefined) modelKwargs.top_p = top_p
+  if (frequency_penalty !== undefined) modelKwargs.frequency_penalty = frequency_penalty
+  if (presence_penalty !== undefined) modelKwargs.presence_penalty = presence_penalty
   if (tools && tools.length > 0) modelKwargs.tools = tools
   if (toolChoice) modelKwargs.tool_choice = toolChoice
   if (thinking?.extra_body) {
@@ -540,6 +553,9 @@ const buildGLMModel = ({
   model,
   temperature,
   top_k,
+  top_p,
+  frequency_penalty,
+  presence_penalty,
   tools,
   toolChoice,
   responseFormat,
@@ -564,6 +580,9 @@ const buildGLMModel = ({
   if (top_k !== undefined) {
     modelKwargs.top_k = top_k
   }
+  if (top_p !== undefined) modelKwargs.top_p = top_p
+  if (frequency_penalty !== undefined) modelKwargs.frequency_penalty = frequency_penalty
+  if (presence_penalty !== undefined) modelKwargs.presence_penalty = presence_penalty
   if (tools && tools.length > 0) {
     modelKwargs.tools = tools
   }
@@ -601,6 +620,9 @@ const buildKimiModel = ({
   model,
   temperature,
   top_k,
+  top_p,
+  frequency_penalty,
+  presence_penalty,
   tools,
   toolChoice,
   responseFormat,
@@ -627,6 +649,9 @@ const buildKimiModel = ({
   if (top_k !== undefined) {
     modelKwargs.top_k = top_k
   }
+  if (top_p !== undefined) modelKwargs.top_p = top_p
+  if (frequency_penalty !== undefined) modelKwargs.frequency_penalty = frequency_penalty
+  if (presence_penalty !== undefined) modelKwargs.presence_penalty = presence_penalty
   if (tools && tools.length > 0) {
     modelKwargs.tools = tools
   }
@@ -656,7 +681,16 @@ const buildKimiModel = ({
  * @param {Object} params - Configuration parameters for the model
  * @returns {ChatGoogleGenerativeAI} - Configured LangChain ChatGoogleGenerativeAI instance
  */
-const buildGeminiModel = ({ apiKey, model, temperature, top_k, tools, thinking, streaming }) => {
+const buildGeminiModel = ({
+  apiKey,
+  model,
+  temperature,
+  top_k,
+  top_p,
+  tools,
+  thinking,
+  streaming,
+}) => {
   const resolvedKey = apiKey || getPublicEnv('PUBLIC_GOOGLE_API_KEY')
   if (!resolvedKey) {
     throw new Error('Missing API key')
@@ -668,6 +702,7 @@ const buildGeminiModel = ({ apiKey, model, temperature, top_k, tools, thinking, 
     model,
     temperature,
     topK: top_k,
+    ...(top_p !== undefined ? { topP: top_p } : {}),
     streaming,
     ...(thinking?.thinkingConfig && { thinkingConfig: thinking.thinkingConfig }),
   })
@@ -885,6 +920,9 @@ const streamOpenAICompatRaw = async ({
  * @param {Object} params.thinking - Thinking mode configuration
  * @param {number} params.temperature - Sampling temperature
  * @param {number} params.top_k - Top-k sampling parameter
+ * @param {number} params.top_p - Top-p sampling parameter
+ * @param {number} params.frequency_penalty - Frequency penalty
+ * @param {number} params.presence_penalty - Presence penalty
  * @param {number} params.contextMessageLimit - Maximum context messages
  * @param {Function} params.onChunk - Callback for each chunk
  * @param {Function} params.onFinish - Callback when stream completes
@@ -903,6 +941,9 @@ const streamWithLangChain = async ({
   thinking,
   temperature,
   top_k,
+  top_p,
+  frequency_penalty,
+  presence_penalty,
   contextMessageLimit,
   onChunk,
   onFinish,
@@ -919,6 +960,7 @@ const streamWithLangChain = async ({
       model,
       temperature,
       top_k,
+      top_p,
       tools,
       thinking,
       streaming: true,
@@ -929,6 +971,9 @@ const streamWithLangChain = async ({
       model,
       temperature,
       top_k,
+      top_p,
+      frequency_penalty,
+      presence_penalty,
       tools,
       thinking,
       streaming: true,
@@ -939,6 +984,9 @@ const streamWithLangChain = async ({
       model,
       temperature,
       top_k,
+      top_p,
+      frequency_penalty,
+      presence_penalty,
       tools,
       toolChoice,
       responseFormat,
@@ -951,6 +999,9 @@ const streamWithLangChain = async ({
       model,
       temperature,
       top_k,
+      top_p,
+      frequency_penalty,
+      presence_penalty,
       tools,
       toolChoice,
       responseFormat,
@@ -965,6 +1016,9 @@ const streamWithLangChain = async ({
       model,
       temperature,
       top_k,
+      top_p,
+      frequency_penalty,
+      presence_penalty,
       tools,
       toolChoice,
       responseFormat,
@@ -999,6 +1053,7 @@ const streamWithLangChain = async ({
         messages: trimmedMessages,
         temperature,
         top_k,
+        top_p,
         tools,
         thinking,
       })
@@ -1119,6 +1174,9 @@ const requestOpenAICompat = async ({
   messages,
   temperature,
   top_k,
+  top_p,
+  frequency_penalty,
+  presence_penalty,
   tools,
   toolChoice,
   responseFormat,
@@ -1133,6 +1191,9 @@ const requestOpenAICompat = async ({
     model,
     temperature,
     top_k,
+    top_p,
+    frequency_penalty,
+    presence_penalty,
     tools,
     toolChoice,
     responseFormat,
@@ -1162,6 +1223,9 @@ const requestSiliconFlow = async ({
   messages,
   temperature,
   top_k,
+  top_p,
+  frequency_penalty,
+  presence_penalty,
   tools,
   toolChoice,
   responseFormat,
@@ -1176,6 +1240,9 @@ const requestSiliconFlow = async ({
     model,
     temperature,
     top_k,
+    top_p,
+    frequency_penalty,
+    presence_penalty,
     tools,
     toolChoice,
     responseFormat,
@@ -1197,12 +1264,21 @@ const requestSiliconFlow = async ({
  * @param {Object} params - Request parameters
  * @returns {Promise<string>} - Response content as string
  */
-const requestGemini = async ({ apiKey, model, messages, temperature, top_k, signal }) => {
+const requestGemini = async ({
+  apiKey,
+  model,
+  messages,
+  temperature,
+  top_k,
+  top_p,
+  signal,
+}) => {
   const modelInstance = buildGeminiModel({
     apiKey,
     model,
     temperature,
     top_k,
+    top_p,
     tools: [],
     thinking: false,
     streaming: false,
@@ -1229,6 +1305,9 @@ const requestGLM = async ({
   messages,
   temperature,
   top_k,
+  top_p,
+  frequency_penalty,
+  presence_penalty,
   tools,
   toolChoice,
   responseFormat,
@@ -1240,6 +1319,9 @@ const requestGLM = async ({
     model,
     temperature,
     top_k,
+    top_p,
+    frequency_penalty,
+    presence_penalty,
     tools: [],
     toolChoice,
     responseFormat,
@@ -1269,6 +1351,9 @@ const requestKimi = async ({
   messages,
   temperature,
   top_k,
+  top_p,
+  frequency_penalty,
+  presence_penalty,
   tools,
   toolChoice,
   responseFormat,
@@ -1280,6 +1365,9 @@ const requestKimi = async ({
     model,
     temperature,
     top_k,
+    top_p,
+    frequency_penalty,
+    presence_penalty,
     tools: [],
     toolChoice,
     responseFormat,
@@ -1419,6 +1507,117 @@ Return the result as a JSON object with keys "title" and "spaceLabel".`,
 }
 
 /**
+ * Generates a title and selects a space + agent for a conversation.
+ * Returns an object with title, selected space label, and agent name (optional).
+ * @param {string} provider - AI provider to use
+ * @param {string} firstMessage - The first user message
+ * @param {Array} spacesWithAgents - Array of { label, description, agents: [{name,description?}] }
+ * @param {string} apiKey - API key for authentication
+ * @param {string} baseUrl - Custom base URL
+ * @param {string} model - Model name/ID
+ * @returns {Promise<{title: string, spaceLabel: string|null, agentName: string|null}>}
+ */
+const generateTitleSpaceAndAgent = async (
+  provider,
+  firstMessage,
+  spacesWithAgents,
+  apiKey,
+  baseUrl,
+  model,
+) => {
+  const sanitizeOptionText = text =>
+    String(text || '')
+      .replace(/[\r\n]+/g, ' ')
+      .replace(/[{}]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+  const spaceLines = (spacesWithAgents || []).map(space => {
+    const agentEntries = (space.agents || []).map(agent => {
+      if (typeof agent === 'string') {
+        return { name: agent }
+      }
+      return {
+        name: typeof agent?.name === 'string' ? agent.name : '',
+        description: agent?.description ?? '',
+      }
+    })
+    const agentTokens = agentEntries
+      .map(agent => {
+        const name = sanitizeOptionText(agent.name)
+        const description = sanitizeOptionText(agent.description)
+        if (name && description) return `${name} - ${description}`
+        if (name) return name
+        return ''
+      })
+      .filter(Boolean)
+      .join(',')
+    const spaceLabel = sanitizeOptionText(space.label)
+    const spaceDescription = sanitizeOptionText(space.description)
+    const spaceToken = spaceDescription ? `${spaceLabel} - ${spaceDescription}` : spaceLabel
+    return `${spaceToken}:{${agentTokens}}`
+  })
+  const promptMessages = [
+    {
+      role: 'system',
+      content: `You are a helpful assistant.
+1. Generate a short, concise title (max 5 words) for this conversation based on the user's first message.
+2. Select the most appropriate space from the list below and return its spaceLabel (the space name only, without the description).
+3. If the chosen space has agents, select the best matching agent by agentName (agent name only). Otherwise return null.
+Return the result as JSON with keys "title", "spaceLabel", and "agentName".`,
+    },
+    {
+      role: 'user',
+      content: `${firstMessage}\n\nSpaces and agents:\n${spaceLines.join('\n')}`,
+    },
+  ]
+
+  const responseFormat = provider !== 'gemini' ? { type: 'json_object' } : undefined
+  let content = undefined
+  if (provider === 'gemini') {
+    content = await requestGemini({ apiKey, model, messages: promptMessages })
+  } else if (provider === 'siliconflow') {
+    content = await requestSiliconFlow({
+      provider,
+      apiKey,
+      baseUrl,
+      model,
+      messages: promptMessages,
+      responseFormat,
+    })
+  } else if (provider === 'glm') {
+    content = await requestGLM({
+      apiKey,
+      model,
+      messages: promptMessages,
+      responseFormat,
+    })
+  } else if (provider === 'kimi') {
+    content = await requestKimi({
+      apiKey,
+      model,
+      messages: promptMessages,
+      responseFormat,
+    })
+  } else {
+    content = await requestOpenAICompat({
+      provider,
+      apiKey,
+      baseUrl,
+      model,
+      messages: promptMessages,
+      responseFormat,
+    })
+  }
+
+  const parsed = safeJsonParse(content) || {}
+  return {
+    title: parsed.title || 'New Conversation',
+    spaceLabel: parsed.spaceLabel || null,
+    agentName: parsed.agentName || null,
+  }
+}
+
+/**
  * Generates related follow-up questions based on the conversation history.
  * Returns an array of 3 relevant questions that the user might ask next.
  * @param {string} provider - AI provider to use
@@ -1484,6 +1683,15 @@ export const createBackendProvider = provider => ({
     generateTitle(provider, firstMessage, apiKey, baseUrl, model),
   generateTitleAndSpace: (firstMessage, spaces, apiKey, baseUrl, model) =>
     generateTitleAndSpace(provider, firstMessage, spaces, apiKey, baseUrl, model),
+  generateTitleSpaceAndAgent: (firstMessage, spacesWithAgents, apiKey, baseUrl, model) =>
+    generateTitleSpaceAndAgent(
+      provider,
+      firstMessage,
+      spacesWithAgents,
+      apiKey,
+      baseUrl,
+      model,
+    ),
   generateRelatedQuestions: (messages, apiKey, baseUrl, model) =>
     generateRelatedQuestions(provider, messages, apiKey, baseUrl, model),
 })

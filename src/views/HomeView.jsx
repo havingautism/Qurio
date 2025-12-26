@@ -3,7 +3,7 @@ import clsx from 'clsx'
 import gsap from 'gsap'
 import {
   ArrowRight,
-  Bot,
+  Smile,
   Brain,
   Check,
   ChevronDown,
@@ -21,13 +21,14 @@ import EmojiDisplay from '../components/EmojiDisplay'
 import Logo from '../components/Logo'
 import HomeWidgets from '../components/widgets/HomeWidgets'
 import useChatStore from '../lib/chatStore'
+import { getAgentDisplayName } from '../lib/agentDisplay'
 import { loadSettings } from '../lib/settings'
 import { listSpaceAgents } from '../lib/spacesService'
 import { providerSupportsSearch } from '../lib/providers'
 
 const HomeView = () => {
   const { t } = useTranslation()
-  const { toggleSidebar, isSidebarPinned, spaces, agents = [] } = useAppContext()
+  const { toggleSidebar, isSidebarPinned, spaces, agents: appAgents = [] } = useAppContext()
   const [activeView, setActiveView] = useState('home')
 
   // Initial state for ChatInterface
@@ -233,8 +234,8 @@ const HomeView = () => {
   const homeAgents = useMemo(() => {
     if (!homeSelectedSpace?.id) return []
     const idSet = new Set(homeAgentIds.map(id => String(id)))
-    return agents.filter(agent => idSet.has(String(agent.id)))
-  }, [agents, homeAgentIds, homeSelectedSpace?.id])
+    return appAgents.filter(agent => idSet.has(String(agent.id)))
+  }, [appAgents, homeAgentIds, homeSelectedSpace?.id])
 
   const selectedHomeAgent = useMemo(
     () => homeAgents.find(agent => String(agent.id) === String(homeSelectedAgentId)) || null,
@@ -395,7 +396,7 @@ const HomeView = () => {
                         }`}
                         disabled={homeAgentsLoading || homeAgents.length === 0}
                       >
-                        <Bot size={18} />
+                        <Smile size={18} />
                         <span className="hidden md:inline truncate max-w-[120px]">
                           {homeAgentsLoading
                             ? t('homeView.agentsLoading')
@@ -414,11 +415,15 @@ const HomeView = () => {
                                 setIsHomeAgentSelectorOpen(false)
                               }}
                               className={`flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left ${
-                                !selectedHomeAgent ? 'text-primary-500' : 'text-gray-700 dark:text-gray-200'
+                                !selectedHomeAgent
+                                  ? 'text-primary-500'
+                                  : 'text-gray-700 dark:text-gray-200'
                               }`}
                             >
                               <span className="text-sm font-medium">None</span>
-                              {!selectedHomeAgent && <Check size={14} className="text-primary-500" />}
+                              {!selectedHomeAgent && (
+                                <Check size={14} className="text-primary-500" />
+                              )}
                             </button>
                             {homeAgents.length === 0 ? (
                               <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
@@ -442,7 +447,7 @@ const HomeView = () => {
                                         <EmojiDisplay emoji={agent.emoji} size="1.125rem" />
                                       </span>
                                       <span className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate">
-                                        {agent.name}
+                                        {getAgentDisplayName(agent, t)}
                                       </span>
                                     </div>
                                     {isSelected && <Check size={14} className="text-primary-500" />}
@@ -489,70 +494,72 @@ const HomeView = () => {
                             {spaces.length > 0 && (
                               <div className="h-px bg-gray-100 dark:bg-zinc-800 my-1" />
                             )}
-                              {spaces.map((space, idx) => {
-                                const isSelected = homeSelectedSpace?.label === space.label
-                                return (
-                                  <button
-                                    key={idx}
-                                    onClick={() => handleSelectHomeSpace(space)}
-                                    className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left"
-                                  >
-                                    <div className="flex items-center gap-3">
-                                      <span className="text-lg flex items-center justify-center">
-                                        <EmojiDisplay emoji={space.emoji} size="1.25rem" />
-                                      </span>
-                                      <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
-                                        {space.label}
-                                      </span>
-                                    </div>
-                                    {isSelected && <Check size={14} className="text-primary-500" />}
-                                  </button>
-                                )
-                              })}
-                              <div className="h-px bg-gray-100 dark:bg-zinc-800 my-1" />
-                              <div className="px-3 py-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
-                                {t('homeView.agentsLabel')}
-                              </div>
-                              {homeSelectedSpace ? (
-                                homeAgentsLoading ? (
-                                  <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
-                                    {t('homeView.agentsLoading')}
+                            {spaces.map((space, idx) => {
+                              const isSelected = homeSelectedSpace?.label === space.label
+                              return (
+                                <button
+                                  key={idx}
+                                  onClick={() => handleSelectHomeSpace(space)}
+                                  className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left"
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <span className="text-lg flex items-center justify-center">
+                                      <EmojiDisplay emoji={space.emoji} size="1.25rem" />
+                                    </span>
+                                    <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                                      {space.label}
+                                    </span>
                                   </div>
-                                ) : homeAgents.length === 0 ? (
-                                  <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
-                                    {t('homeView.agentsNone')}
-                                  </div>
-                                ) : (
-                                  homeAgents.map(agent => {
-                                    const isSelected = selectedHomeAgent?.id === agent.id
-                                    return (
-                                      <button
-                                        key={agent.id}
-                                        onClick={() => setHomeSelectedAgentId(agent.id)}
-                                        className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left"
-                                      >
-                                        <div className="flex items-center gap-3">
-                                          <span className="text-lg flex items-center justify-center">
-                                            <EmojiDisplay emoji={agent.emoji} size="1.25rem" />
-                                          </span>
-                                          <span className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate">
-                                            {agent.name}
-                                          </span>
-                                        </div>
-                                        {isSelected && <Check size={14} className="text-primary-500" />}
-                                      </button>
-                                    )
-                                  })
-                                )
-                              ) : (
+                                  {isSelected && <Check size={14} className="text-primary-500" />}
+                                </button>
+                              )
+                            })}
+                            <div className="h-px bg-gray-100 dark:bg-zinc-800 my-1" />
+                            <div className="px-3 py-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                              {t('homeView.agentsLabel')}
+                            </div>
+                            {homeSelectedSpace ? (
+                              homeAgentsLoading ? (
+                                <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
+                                  {t('homeView.agentsLoading')}
+                                </div>
+                              ) : homeAgents.length === 0 ? (
                                 <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
                                   {t('homeView.agentsNone')}
                                 </div>
-                              )}
-                            </div>
+                              ) : (
+                                homeAgents.map(agent => {
+                                  const isSelected = selectedHomeAgent?.id === agent.id
+                                  return (
+                                    <button
+                                      key={agent.id}
+                                      onClick={() => setHomeSelectedAgentId(agent.id)}
+                                      className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left"
+                                    >
+                                      <div className="flex items-center gap-3">
+                                        <span className="text-lg flex items-center justify-center">
+                                          <EmojiDisplay emoji={agent.emoji} size="1.25rem" />
+                                        </span>
+                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate">
+                                          {getAgentDisplayName(agent, t)}
+                                        </span>
+                                      </div>
+                                      {isSelected && (
+                                        <Check size={14} className="text-primary-500" />
+                                      )}
+                                    </button>
+                                  )
+                                })
+                              )
+                            ) : (
+                              <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
+                                {t('homeView.agentsNone')}
+                              </div>
+                            )}
                           </div>
-                        )}
-                      </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   <div className="flex gap-2">

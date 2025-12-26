@@ -6,6 +6,7 @@ import EmojiDisplay from './EmojiDisplay'
 import CustomEmojiPicker from './CustomEmojiPicker'
 import clsx from 'clsx'
 import { getModelsForProvider } from '../lib/models_api'
+import { useAppContext } from '../App'
 import { loadSettings } from '../lib/settings'
 import { SILICONFLOW_BASE_URL } from '../lib/providerConstants'
 import { getModelIcon, renderProviderIcon } from '../lib/modelIcons'
@@ -91,6 +92,7 @@ const ENV_VARS = {
 
 const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) => {
   const { t } = useTranslation()
+  const { defaultAgent, agents = [] } = useAppContext()
   useScrollLock(isOpen)
 
   const [activeTab, setActiveTab] = useState('general')
@@ -127,6 +129,11 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
   const [headings, setHeadings] = useState('default')
   const [emojis, setEmojis] = useState('default')
   const [customInstruction, setCustomInstruction] = useState('')
+  const [temperature, setTemperature] = useState(null)
+  const [topP, setTopP] = useState(null)
+  const [frequencyPenalty, setFrequencyPenalty] = useState(null)
+  const [presencePenalty, setPresencePenalty] = useState(null)
+  const [isAdvancedOpen, setIsAdvancedOpen] = useState(false)
 
   // Dropdown states
   const [isResponseLanguageOpen, setIsResponseLanguageOpen] = useState(false)
@@ -220,6 +227,18 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
     if (isOpen) {
       const settings = loadSettings()
       if (editingAgent) {
+        const resolvedTopP = editingAgent.topP ?? editingAgent.top_p ?? null
+        const hasAdvancedOverrides =
+          (editingAgent.temperature !== null && editingAgent.temperature !== undefined) ||
+          (resolvedTopP !== null && resolvedTopP !== undefined) ||
+          (editingAgent.frequencyPenalty !== null &&
+            editingAgent.frequencyPenalty !== undefined) ||
+          (editingAgent.frequency_penalty !== null &&
+            editingAgent.frequency_penalty !== undefined) ||
+          (editingAgent.presencePenalty !== null &&
+            editingAgent.presencePenalty !== undefined) ||
+          (editingAgent.presence_penalty !== null &&
+            editingAgent.presence_penalty !== undefined)
         const parsedDefaultModel = parseStoredModel(editingAgent.defaultModel)
         const parsedLiteModel = parseStoredModel(editingAgent.liteModel)
         setName(editingAgent.name)
@@ -237,32 +256,58 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
         setDefaultModelProvider(parsedDefaultModel.provider || '')
         setLiteModelProvider(parsedLiteModel.provider || '')
         setResponseLanguage(
-          editingAgent.responseLanguage || settings.llmAnswerLanguage || 'English',
+          editingAgent.responseLanguage ||
+            defaultAgent?.responseLanguage ||
+            settings.llmAnswerLanguage ||
+            'English',
         )
-        setBaseTone(editingAgent.baseTone || settings.baseTone || 'technical')
-        setTraits(editingAgent.traits || settings.traits || 'default')
-        setWarmth(editingAgent.warmth || settings.warmth || 'default')
-        setEnthusiasm(editingAgent.enthusiasm || settings.enthusiasm || 'default')
-        setHeadings(editingAgent.headings || settings.headings || 'default')
-        setEmojis(editingAgent.emojis || settings.emojis || 'default')
+        setBaseTone(editingAgent.baseTone || defaultAgent?.baseTone || settings.baseTone || 'technical')
+        setTraits(editingAgent.traits || defaultAgent?.traits || settings.traits || 'default')
+        setWarmth(editingAgent.warmth || defaultAgent?.warmth || settings.warmth || 'default')
+        setEnthusiasm(
+          editingAgent.enthusiasm ||
+            defaultAgent?.enthusiasm ||
+            settings.enthusiasm ||
+            'default',
+        )
+        setHeadings(editingAgent.headings || defaultAgent?.headings || settings.headings || 'default')
+        setEmojis(editingAgent.emojis || defaultAgent?.emojis || settings.emojis || 'default')
         setCustomInstruction(editingAgent.customInstruction || '')
+        setTemperature(editingAgent.temperature ?? null)
+        setTopP(resolvedTopP)
+        setFrequencyPenalty(
+          editingAgent.frequencyPenalty ?? editingAgent.frequency_penalty ?? null,
+        )
+        setPresencePenalty(
+          editingAgent.presencePenalty ?? editingAgent.presence_penalty ?? null,
+        )
+        setIsAdvancedOpen(!!hasAdvancedOverrides)
       } else {
         // Reset defaults
         setName('')
         setDescription('')
-        setPrompt(settings.systemPrompt || t('agents.defaults.systemPrompt'))
-        setEmoji('??')
-        setProvider(settings.apiProvider || 'gemini')
-        setLiteModel(parseStoredModel(settings.liteModel).modelId || '')
-        setDefaultModel(parseStoredModel(settings.defaultModel).modelId || '')
-        setResponseLanguage(settings.llmAnswerLanguage || 'English')
-        setBaseTone(settings.baseTone || 'technical')
-        setTraits(settings.traits || 'default')
-        setWarmth(settings.warmth || 'default')
-        setEnthusiasm(settings.enthusiasm || 'default')
-        setHeadings(settings.headings || 'default')
-        setEmojis(settings.emojis || 'default')
-        setCustomInstruction(settings.customInstruction || '')
+        setPrompt(defaultAgent?.prompt || settings.systemPrompt || t('agents.defaults.systemPrompt'))
+        setEmoji('🤻')
+        setProvider(defaultAgent?.provider || settings.apiProvider || 'gemini')
+        setLiteModel(
+          parseStoredModel(defaultAgent?.liteModel || settings.liteModel).modelId || '',
+        )
+        setDefaultModel(
+          parseStoredModel(defaultAgent?.defaultModel || settings.defaultModel).modelId || '',
+        )
+        setResponseLanguage(defaultAgent?.responseLanguage || settings.llmAnswerLanguage || 'English')
+        setBaseTone(defaultAgent?.baseTone || settings.baseTone || 'technical')
+        setTraits(defaultAgent?.traits || settings.traits || 'default')
+        setWarmth(defaultAgent?.warmth || settings.warmth || 'default')
+        setEnthusiasm(defaultAgent?.enthusiasm || settings.enthusiasm || 'default')
+        setHeadings(defaultAgent?.headings || settings.headings || 'default')
+        setEmojis(defaultAgent?.emojis || settings.emojis || 'default')
+        setCustomInstruction(defaultAgent?.customInstruction || settings.customInstruction || '')
+        setTemperature(null)
+        setTopP(null)
+        setFrequencyPenalty(null)
+        setPresencePenalty(null)
+        setIsAdvancedOpen(false)
       }
       setActiveTab('general')
       setError('')
@@ -271,12 +316,24 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
       // Load API keys and fetch models
       loadKeysAndFetchModels()
     }
-  }, [isOpen, editingAgent, t])
+  }, [isOpen, editingAgent, t, defaultAgent])
 
   const handleSaveWrapper = async () => {
-    if (!name.trim()) {
+    if (!editingAgent?.isDefault && !name.trim()) {
       setError(t('agents.validation.nameRequired'))
       return
+    }
+    if (!editingAgent?.isDefault) {
+      const normalizedName = name.trim().toLowerCase()
+      const duplicateName = agents.some(
+        agent =>
+          agent.id !== editingAgent?.id &&
+          (agent.name || '').trim().toLowerCase() === normalizedName,
+      )
+      if (duplicateName) {
+        setError(t('agents.validation.nameDuplicate'))
+        return
+      }
     }
 
     setIsSaving(true)
@@ -296,8 +353,10 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
 
       await onSave?.({
         id: editingAgent?.id,
-        name: name.trim(),
-        description: description.trim(),
+        name: editingAgent?.isDefault ? editingAgent?.name || name.trim() : name.trim(),
+        description: editingAgent?.isDefault
+          ? editingAgent?.description || description.trim()
+          : description.trim(),
         prompt: prompt.trim(),
         emoji,
         provider: derivedProvider,
@@ -311,11 +370,15 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
         headings,
         emojis,
         customInstruction: customInstruction.trim(),
+        temperature,
+        topP,
+        frequencyPenalty,
+        presencePenalty,
       })
       onClose()
     } catch (err) {
       console.error('Failed to save agent agent:', err)
-      setError(t('agents.errors.saveFailed'))
+      setError(err.message || t('agents.errors.saveFailed'))
     } finally {
       setIsSaving(false)
     }
@@ -473,6 +536,18 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
     return t('agents.model.notFound')
   }
 
+  const hasAdvancedOverrides =
+    temperature !== null ||
+    topP !== null ||
+    frequencyPenalty !== null ||
+    presencePenalty !== null
+
+  useEffect(() => {
+    if (hasAdvancedOverrides) {
+      setIsAdvancedOpen(true)
+    }
+  }, [hasAdvancedOverrides])
+
   useEffect(() => {
     if (!isOpen) return
     const resolvedDefaultProvider = findProviderForModel(defaultModel)
@@ -498,13 +573,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
     liteModel,
   ])
 
-  // Sync lite model provider with default model provider
-  // When default model provider changes, update lite model provider to match
-  useEffect(() => {
-    if (defaultModelProvider && liteModelProvider !== defaultModelProvider) {
-      setLiteModelProvider(defaultModelProvider)
-    }
-  }, [defaultModelProvider])
+  // Keep lite provider independent so users can mix providers between default and lite models.
 
   const renderModelPicker = ({
     label,
@@ -611,7 +680,84 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
     )
   }
 
+  const renderAdvancedControl = ({
+    label,
+    param,
+    description,
+    value,
+    onChange,
+    min,
+    max,
+    step,
+    defaultValue,
+  }) => {
+    const isEnabled = value !== null && value !== undefined
+    const displayValue = isEnabled ? value : ''
+    return (
+      <div className="flex flex-col gap-2">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-gray-800 dark:text-gray-100">
+                {label}
+              </span>
+              <span className="px-2 py-0.5 text-xs rounded-md bg-gray-100 dark:bg-zinc-800 text-gray-500 dark:text-gray-400 font-mono">
+                {param}
+              </span>
+            </div>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{description}</p>
+          </div>
+          <input
+            type="checkbox"
+            checked={isEnabled}
+            onChange={e => {
+              if (e.target.checked) {
+                onChange(defaultValue)
+              } else {
+                onChange(null)
+              }
+            }}
+            className="h-4 w-4 shrink-0"
+          />
+        </div>
+        <div className="flex items-center gap-3">
+          <input
+            type="range"
+            min={min}
+            max={max}
+            step={step}
+            value={isEnabled ? value : defaultValue}
+            onChange={e => onChange(parseFloat(e.target.value))}
+            disabled={!isEnabled}
+            className="flex-1 accent-black dark:accent-white cursor-pointer disabled:opacity-40"
+          />
+          <input
+            type="number"
+            min={min}
+            max={max}
+            step={step}
+            value={displayValue}
+            onChange={e => {
+              const next = e.target.value
+              if (next === '') {
+                onChange(null)
+              } else {
+                onChange(parseFloat(next))
+              }
+            }}
+            placeholder={t('agents.advanced.auto')}
+            disabled={!isEnabled}
+            className="w-20 h-10 px-3 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600 disabled:opacity-40"
+          />
+        </div>
+      </div>
+    )
+  }
+
   if (!isOpen) return null
+
+  const displayName = editingAgent?.isDefault ? t('agents.defaults.name') : name
+  const displayDescription = editingAgent?.isDefault ? t('agents.defaults.description') : description
 
   return (
     <div className="fixed inset-0 z-100 flex items-start md:items-center justify-center bg-black/50 backdrop-blur-sm p-0 md:p-4 overflow-y-auto md:overflow-hidden">
@@ -685,9 +831,10 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                   {t('agents.general.name')}
                 </label>
                 <input
-                  value={name}
+                  value={displayName}
                   onChange={e => setName(e.target.value)}
                   placeholder={t('agents.general.namePlaceholder')}
+                  disabled={editingAgent?.isDefault}
                   className="w-full px-4 py-2 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20"
                 />
               </div>
@@ -697,9 +844,10 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                   {t('agents.general.description')}
                 </label>
                 <input
-                  value={description}
+                  value={displayDescription}
                   onChange={e => setDescription(e.target.value)}
                   placeholder={t('agents.general.descriptionPlaceholder')}
+                  disabled={editingAgent?.isDefault}
                   className="w-full px-4 py-2 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20"
                 />
               </div>
@@ -772,7 +920,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                     activeProvider: liteModelProvider || provider,
                     onProviderChange: setLiteModelProvider,
                     allowEmpty: true,
-                    hideProviderSelector: !!defaultModel,
+                    hideProviderSelector: false,
                   })}
                 </>
               )}
@@ -887,13 +1035,98 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                   className="w-full px-4 py-2 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20 resize-none text-sm"
                 />
               </div>
+
+              <div className="rounded-xl border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (hasAdvancedOverrides) return
+                    setIsAdvancedOpen(prev => !prev)
+                  }}
+                  className={clsx(
+                    'w-full flex items-center justify-between px-4 py-3 text-sm font-medium',
+                    isAdvancedOpen ? 'text-gray-900 dark:text-gray-100' : 'text-gray-600 dark:text-gray-400',
+                  )}
+                >
+                  <span>{t('agents.advanced.title')}</span>
+                  <div className="flex items-center gap-3">
+                    <ChevronDown
+                      size={16}
+                      className={clsx('text-gray-400 transition-transform', isAdvancedOpen && 'rotate-180')}
+                    />
+                  </div>
+                </button>
+
+                {isAdvancedOpen && (
+                  <div className="px-4 pb-4 pt-4 border-t border-gray-200 dark:border-zinc-700 space-y-5">
+                    {renderAdvancedControl({
+                      label: t('agents.advanced.frequencyPenaltyLabel'),
+                      param: t('agents.advanced.frequencyPenaltyParam'),
+                      description: t('agents.advanced.frequencyPenaltyDesc'),
+                      value: frequencyPenalty,
+                      onChange: setFrequencyPenalty,
+                      min: -2,
+                      max: 2,
+                      step: 0.1,
+                      defaultValue: 0,
+                    })}
+                    {renderAdvancedControl({
+                      label: t('agents.advanced.presencePenaltyLabel'),
+                      param: t('agents.advanced.presencePenaltyParam'),
+                      description: t('agents.advanced.presencePenaltyDesc'),
+                      value: presencePenalty,
+                      onChange: setPresencePenalty,
+                      min: -2,
+                      max: 2,
+                      step: 0.1,
+                      defaultValue: 0,
+                    })}
+                    {renderAdvancedControl({
+                      label: t('agents.advanced.temperatureLabel'),
+                      param: t('agents.advanced.temperatureParam'),
+                      description: t('agents.advanced.temperatureDesc'),
+                      value: temperature,
+                      onChange: setTemperature,
+                      min: 0,
+                      max: 2,
+                      step: 0.1,
+                      defaultValue: 1,
+                    })}
+                    {renderAdvancedControl({
+                      label: t('agents.advanced.topPLabel'),
+                      param: t('agents.advanced.topPParam'),
+                      description: t('agents.advanced.topPDesc'),
+                      value: topP,
+                      onChange: setTopP,
+                      min: 0,
+                      max: 1,
+                      step: 0.01,
+                      defaultValue: 1,
+                    })}
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTemperature(null)
+                          setTopP(null)
+                          setFrequencyPenalty(null)
+                          setPresencePenalty(null)
+                        }}
+                        className="text-xs font-medium text-gray-600 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400"
+                      >
+                        {t('agents.advanced.reset')}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
 
         {/* Footer */}
         <div className="h-16 border-t border-gray-200 dark:border-zinc-800 flex items-center justify-between px-6 shrink-0 bg-white dark:bg-[#191a1a]">
-          {editingAgent && onDelete ? (
+          {editingAgent && onDelete && !editingAgent.isDefault ? (
             <button
               onClick={() => onDelete(editingAgent.id)}
               className="px-4 py-2 rounded-lg text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"

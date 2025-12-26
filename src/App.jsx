@@ -1,5 +1,5 @@
 import { Outlet, useLocation, useNavigate } from '@tanstack/react-router'
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { I18nextProvider } from 'react-i18next'
 import ConfirmationModal from './components/ConfirmationModal'
 import { GitHubPagesRedirectHandler } from './components/GitHubPagesRedirectHandler'
@@ -232,6 +232,10 @@ function App() {
   }
 
   const handleDeleteAgent = async id => {
+    const target = agents.find(agent => agent.id === id)
+    if (target?.isDefault) {
+      return
+    }
     const { error } = await deleteAgent(id)
     if (!error) {
       setAgents(prev => prev.filter(agent => agent.id !== id))
@@ -275,6 +279,8 @@ function App() {
     load()
   }, [])
 
+  const creatingDefaultAgentRef = useRef(false)
+
   // Load agents from Supabase on mount
   useEffect(() => {
     const load = async () => {
@@ -283,7 +289,92 @@ function App() {
         initSupabase()
         const { data, error } = await listAgents()
         if (!error && data) {
-          setAgents(data)
+          const settings = loadSettings()
+          let nextAgents = data
+          const defaultAgents = data.filter(agent => agent.isDefault)
+          if (defaultAgents.length > 1) {
+            const keepDefault = defaultAgents[0]
+            const demoteDefaults = defaultAgents.slice(1)
+            await Promise.all(
+              demoteDefaults.map(agent => updateAgent(agent.id, { isDefault: false })),
+            )
+            nextAgents = data.map(agent =>
+              agent.id === keepDefault.id
+                ? keepDefault
+                : agent.isDefault
+                  ? { ...agent, isDefault: false }
+                  : agent,
+            )
+          }
+          const existingDefault = nextAgents.find(agent => agent.isDefault)
+          if (!existingDefault && !creatingDefaultAgentRef.current) {
+            creatingDefaultAgentRef.current = true
+            const { data: createdDefault, error: createError } = await createAgent({
+              name: 'Default Agent',
+              description: 'Fallback agent (non-editable).',
+              prompt: settings.systemPrompt || '',
+              emoji: '',
+              isDefault: true,
+              provider: settings.apiProvider || 'gemini',
+              liteModel: settings.liteModel || '',
+              defaultModel: settings.defaultModel || '',
+              responseLanguage: settings.llmAnswerLanguage || '',
+              baseTone: settings.baseTone || '',
+              traits: settings.traits || '',
+              warmth: settings.warmth || '',
+              enthusiasm: settings.enthusiasm || '',
+              headings: settings.headings || '',
+              emojis: settings.emojis || '',
+              customInstruction: settings.customInstruction || '',
+              temperature: null,
+              topP: null,
+              frequencyPenalty: null,
+              presencePenalty: null,
+            })
+            if (!createError && createdDefault) {
+              nextAgents = [...data, createdDefault]
+            } else {
+              console.error('Create default agent failed:', createError)
+              creatingDefaultAgentRef.current = false
+            }
+          } else {
+            const patch = {}
+            if (!existingDefault.provider && settings.apiProvider)
+              patch.provider = settings.apiProvider
+            if (!existingDefault.description)
+              patch.description = 'Fallback agent (non-editable).'
+            if (!existingDefault.defaultModel && settings.defaultModel)
+              patch.defaultModel = settings.defaultModel
+            if (!existingDefault.liteModel && settings.liteModel)
+              patch.liteModel = settings.liteModel
+            if (!existingDefault.prompt && settings.systemPrompt)
+              patch.prompt = settings.systemPrompt
+            if (!existingDefault.responseLanguage && settings.llmAnswerLanguage)
+              patch.responseLanguage = settings.llmAnswerLanguage
+            if (!existingDefault.baseTone && settings.baseTone) patch.baseTone = settings.baseTone
+            if (!existingDefault.traits && settings.traits) patch.traits = settings.traits
+            if (!existingDefault.warmth && settings.warmth) patch.warmth = settings.warmth
+            if (!existingDefault.enthusiasm && settings.enthusiasm)
+              patch.enthusiasm = settings.enthusiasm
+            if (!existingDefault.headings && settings.headings) patch.headings = settings.headings
+            if (!existingDefault.emojis && settings.emojis) patch.emojis = settings.emojis
+            if (!existingDefault.customInstruction && settings.customInstruction)
+              patch.customInstruction = settings.customInstruction
+            if (Object.keys(patch).length > 0) {
+              const { data: updatedDefault, error: updateError } = await updateAgent(
+                existingDefault.id,
+                patch,
+              )
+              if (!updateError && updatedDefault) {
+                nextAgents = data.map(agent =>
+                  agent.id === updatedDefault.id ? updatedDefault : agent,
+                )
+              } else {
+                console.error('Update default agent failed:', updateError)
+              }
+            }
+          }
+          setAgents(nextAgents)
         } else {
           console.error('Failed to fetch agents:', error)
         }
@@ -324,12 +415,12 @@ function App() {
   }, [])
 
   const handleSaveSpace = async payload => {
-    const { agentIds = [], ...spacePayload } = payload || {}
+    const { agentIds = [], defaultAgentId = null, ...spacePayload } = payload || {}
     if (editingSpace) {
       const { data, error } = await updateSpace(editingSpace.id, spacePayload)
       if (!error && data) {
         setSpaces(prev => prev.map(s => (s.id === data.id ? data : s)))
-        await updateSpaceAgents(data.id, agentIds)
+        await updateSpaceAgents(data.id, agentIds, defaultAgentId)
       } else {
         console.error('Update space failed:', error)
       }
@@ -337,7 +428,7 @@ function App() {
       const { data, error } = await createSpace(spacePayload)
       if (!error && data) {
         setSpaces(prev => [...prev, data])
-        await updateSpaceAgents(data.id, agentIds)
+        await updateSpaceAgents(data.id, agentIds, defaultAgentId)
       } else {
         console.error('Create space failed:', error)
       }
@@ -385,6 +476,7 @@ function App() {
           value={{
             spaces,
             agents,
+            defaultAgent: agents.find(agent => agent.isDefault) || null,
             conversations,
             conversationsLoading,
             spacesLoading,

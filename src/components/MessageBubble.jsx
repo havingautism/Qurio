@@ -847,6 +847,10 @@ const MessageBubble = ({
     fallback: 'AI',
   }
   const resolvedModel = message.model || defaultModel || 'default model'
+  const agentName = message.agentName ?? message.agent_name ?? null
+  const agentEmoji = message.agentEmoji ?? message.agent_emoji ?? ''
+  const agentIsDefault = message.agentIsDefault ?? message.agent_is_default ?? false
+  const displayAgentName = agentIsDefault ? t('agents.defaults.name') : agentName
 
   // Parse content using provider-specific logic
   const provider = getProvider(providerId)
@@ -938,34 +942,71 @@ const MessageBubble = ({
         )}
       {/* Provider/Model Header */}
       <div className="flex items-center gap-3 text-gray-900 dark:text-gray-100">
-        <div className=" rounded-full  shadow-inner flex items-center justify-center overflow-hidden">
-          {renderProviderIcon(providerMeta.id, {
-            size: 30,
-            alt: providerMeta.label,
-            wrapperClassName: 'p-0 w-10 h-10',
-            imgClassName: 'w-full h-full object-contain',
-          }) || (
-            <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
-              {providerMeta.fallback?.slice(0, 2).toUpperCase()}
-            </span>
-          )}
-        </div>
-        <div className="flex flex-col leading-tight">
-          <span className="text-sm font-semibold">{providerMeta.label}</span>
-          <div className="flex items-center gap-1.5">
-            {getModelIcon(resolvedModel) && (
-              <img
-                src={getModelIcon(resolvedModel)}
-                alt=""
-                width={14}
-                height={14}
-                className="w-3.5 h-3.5 object-contain"
-                loading="lazy"
-              />
-            )}
-            <span className="text-xs text-gray-500 dark:text-gray-400">{resolvedModel}</span>
-          </div>
-        </div>
+        {agentName ? (
+          <>
+            <div className="rounded-full shadow-inner flex items-center justify-center overflow-hidden w-10 h-10 bg-gray-100 dark:bg-zinc-800">
+              <EmojiDisplay emoji={agentEmoji} size="1.25rem" />
+            </div>
+            <div className="flex flex-col leading-tight">
+              <span className="text-sm font-semibold">{displayAgentName}</span>
+              <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+                {renderProviderIcon(providerMeta.id, {
+                  size: 12,
+                  alt: providerMeta.label,
+                  wrapperClassName: 'p-0 w-3 h-3',
+                  imgClassName: 'w-full h-full object-contain',
+                }) || (
+                  <span className="text-[10px] font-semibold">
+                    {providerMeta.fallback?.slice(0, 2).toUpperCase()}
+                  </span>
+                )}
+                <span>{providerMeta.label}</span>
+                {getModelIcon(resolvedModel) && (
+                  <img
+                    src={getModelIcon(resolvedModel)}
+                    alt=""
+                    width={12}
+                    height={12}
+                    className="w-3 h-3 object-contain"
+                    loading="lazy"
+                  />
+                )}
+                <span>{resolvedModel}</span>
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className=" rounded-full  shadow-inner flex items-center justify-center overflow-hidden">
+              {renderProviderIcon(providerMeta.id, {
+                size: 30,
+                alt: providerMeta.label,
+                wrapperClassName: 'p-0 w-10 h-10',
+                imgClassName: 'w-full h-full object-contain',
+              }) || (
+                <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                  {providerMeta.fallback?.slice(0, 2).toUpperCase()}
+                </span>
+              )}
+            </div>
+            <div className="flex flex-col leading-tight">
+              <span className="text-sm font-semibold">{providerMeta.label}</span>
+              <div className="flex items-center gap-1.5">
+                {getModelIcon(resolvedModel) && (
+                  <img
+                    src={getModelIcon(resolvedModel)}
+                    alt=""
+                    width={14}
+                    height={14}
+                    className="w-3.5 h-3.5 object-contain"
+                    loading="lazy"
+                  />
+                )}
+                <span className="text-xs text-gray-500 dark:text-gray-400">{resolvedModel}</span>
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Thinking Process Section */}
@@ -973,7 +1014,7 @@ const MessageBubble = ({
         <div className="border border-gray-200 dark:border-zinc-700 rounded-xl overflow-hidden">
           <button
             onClick={() => setIsThoughtExpanded(!isThoughtExpanded)}
-            className="w-full flex items-center justify-between p-2 bg-user-bubble dark:bg-zinc-800/50 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
+            className="w-full flex items-center justify-between p-2 bg-user-bubble/30 dark:bg-zinc-800/50 hover:bg-user-bubble dark:hover:bg-zinc-800 transition-colors"
           >
             <div className="flex items-center gap-2 font-medium text-gray-700 dark:text-gray-300">
               <EmojiDisplay emoji="🧠" size="1.2em" />

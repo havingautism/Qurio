@@ -11,7 +11,7 @@ import {
   ArrowDown,
   ArrowRight,
   Brain,
-  Bot,
+  Smile,
   Check,
   ChevronDown,
   Globe,
@@ -32,6 +32,7 @@ import { useSidebarOffset } from '../hooks/useSidebarOffset'
 import { listMessages } from '../lib/conversationsService'
 import { listSpaceAgents } from '../lib/spacesService'
 import { loadSettings } from '../lib/settings'
+import { getAgentDisplayName } from '../lib/agentDisplay'
 import EmojiDisplay from './EmojiDisplay'
 
 const ChatInterface = ({
@@ -110,7 +111,7 @@ const ChatInterface = ({
   const [isManualSpaceSelection, setIsManualSpaceSelection] = useState(
     initialSpaceSelection.mode === 'manual' && !!initialSpaceSelection.space,
   )
-  const { toggleSidebar, agents = [] } = useAppContext()
+  const { toggleSidebar, agents: appAgents = [], defaultAgent } = useAppContext()
   const [spaceAgentIds, setSpaceAgentIds] = useState([])
   const [isAgentsLoading, setIsAgentsLoading] = useState(false)
   const [selectedAgentId, setSelectedAgentId] = useState(null)
@@ -145,17 +146,32 @@ const ChatInterface = ({
       return []
     }
     const idSet = new Set(spaceAgentIds.map(id => String(id)))
-    const filteredAgents = agents.filter(agent => idSet.has(String(agent.id)))
+    const filteredAgents = appAgents.filter(agent => idSet.has(String(agent.id)))
     return filteredAgents
-  }, [agents, displaySpace?.id, spaceAgentIds])
+  }, [appAgents, displaySpace?.id, spaceAgentIds])
 
-  const selectedAgent = React.useMemo(
-    () => {
-      const agent = spaceAgents.find(agent => String(agent.id) === String(selectedAgentId)) || null
-      return agent
-    },
-    [spaceAgents, selectedAgentId],
+  const selectableAgents = React.useMemo(() => {
+    const list = [...spaceAgents]
+    if (defaultAgent) {
+      const hasDefault = list.some(agent => String(agent.id) === String(defaultAgent.id))
+      if (!hasDefault) list.unshift(defaultAgent)
+    }
+    return list
+  }, [spaceAgents, defaultAgent])
+
+  const selectedAgent = React.useMemo(() => {
+    const agent =
+      selectableAgents.find(agent => String(agent.id) === String(selectedAgentId)) || null
+    return agent
+  }, [selectableAgents, selectedAgentId])
+
+  const effectiveAgent = React.useMemo(
+    () => selectedAgent || defaultAgent || null,
+    [selectedAgent, defaultAgent],
   )
+
+  const effectiveProvider = effectiveAgent?.provider || settings.apiProvider
+  const effectiveDefaultModel = effectiveAgent?.defaultModel || settings.defaultModel
 
   // Helper to get model config for agent or fallback to global settings
   const getModelConfig = React.useCallback(
@@ -169,19 +185,25 @@ const ChatInterface = ({
       }
 
       // Check if agent has a valid (non-empty) model configured
-      if (selectedAgent?.provider && selectedAgent.defaultModel && selectedAgent.defaultModel.trim() !== '') {
-        const defaultModel = selectedAgent.defaultModel
-        const liteModel = selectedAgent.liteModel ?? ''
+      if (
+        effectiveAgent?.provider &&
+        effectiveAgent.defaultModel &&
+        effectiveAgent.defaultModel.trim() !== ''
+      ) {
+        const defaultModel = effectiveAgent.defaultModel
+        const liteModel = effectiveAgent.liteModel ?? ''
         const decodedDefaultModel = decodeModelId(defaultModel)
         const decodedLiteModel = liteModel ? decodeModelId(liteModel) : ''
 
         const model =
-          task === 'generateTitle' || task === 'generateTitleAndSpace' || task === 'generateRelatedQuestions'
-            ? (decodedLiteModel || decodedDefaultModel)
+          task === 'generateTitle' ||
+          task === 'generateTitleAndSpace' ||
+          task === 'generateRelatedQuestions'
+            ? decodedLiteModel || decodedDefaultModel
             : decodedDefaultModel
 
         return {
-          provider: selectedAgent.provider,
+          provider: effectiveAgent.provider,
           model,
         }
       }
@@ -191,7 +213,7 @@ const ChatInterface = ({
         model: getModelForTask(task, settings),
       }
     },
-    [selectedAgent, settings],
+    [effectiveAgent, settings],
   )
 
   // Effect to handle initial message from homepage
@@ -202,14 +224,15 @@ const ChatInterface = ({
     const handleSettingsChange = () => {
       setSettings(loadSettings())
       const newSettings = loadSettings()
-      if (!providerSupportsSearch(newSettings.apiProvider)) {
+      const nextProvider = effectiveAgent?.provider || newSettings.apiProvider
+      if (!providerSupportsSearch(nextProvider)) {
         setIsSearchActive(false)
       }
     }
 
     window.addEventListener('settings-changed', handleSettingsChange)
     return () => window.removeEventListener('settings-changed', handleSettingsChange)
-  }, [])
+  }, [effectiveAgent?.provider])
 
   useEffect(() => {
     const processInitialMessage = async () => {
@@ -243,7 +266,16 @@ const ChatInterface = ({
     }
 
     processInitialMessage()
-  }, [initialMessage, initialAttachments, initialToggles, conversationId, activeConversation?.id, isAgentsLoading, selectedAgentId, selectedAgent])
+  }, [
+    initialMessage,
+    initialAttachments,
+    initialToggles,
+    conversationId,
+    activeConversation?.id,
+    isAgentsLoading,
+    selectedAgentId,
+    selectedAgent,
+  ])
 
   // Load existing conversation messages when switching conversations
   useEffect(() => {
@@ -341,7 +373,11 @@ const ChatInterface = ({
             sources: m.sources || undefined,
             groundingSupports: m.grounding_supports || undefined,
             provider: m.provider || activeConversation?.api_provider,
-            model: m.model || settings.defaultModel,
+            model: m.model || effectiveDefaultModel,
+            agentId: m.agent_id ?? m.agentId ?? null,
+            agentName: m.agent_name ?? m.agentName ?? null,
+            agentEmoji: m.agent_emoji ?? m.agentEmoji ?? '',
+            agentIsDefault: m.agent_is_default ?? m.agentIsDefault ?? false,
             thinkingEnabled:
               m.is_thinking_enabled ?? m.generated_with_thinking ?? (thought ? true : undefined),
           }
@@ -358,6 +394,7 @@ const ChatInterface = ({
     activeConversation,
     conversationSpace,
     settings,
+    effectiveDefaultModel,
     conversationTitle,
     messages.length,
     selectedSpace,
@@ -445,6 +482,12 @@ const ChatInterface = ({
       const { data, error } = await listSpaceAgents(displaySpace.id)
       if (!error && data) {
         const newAgentIds = data.map(item => item.agent_id)
+        const primaryAgentId = data.find(item => item.is_primary)?.agent_id || null
+        const isDefaultSelection =
+          defaultAgent && String(selectedAgentId) === String(defaultAgent.id)
+        const hasSelectedAgent =
+          isDefaultSelection ||
+          (selectedAgentId ? newAgentIds.map(String).includes(String(selectedAgentId)) : false)
         setSpaceAgentIds(newAgentIds)
 
         // Check if there's a pending agent selection to apply
@@ -453,11 +496,10 @@ const ChatInterface = ({
             setSelectedAgentId(pendingAgentIdRef.current)
             pendingAgentIdRef.current = null
           }
-        } else if (selectedAgentId && !newAgentIds.map(String).includes(String(selectedAgentId))) {
-          // Only clear current selection if:
-          // 1. It's not in the new list AND
-          // 2. We don't have an active conversation (don't clear during conversation creation)
-          if (!activeConversation?.id) {
+        } else if (!hasSelectedAgent && !activeConversation?.id) {
+          if (!isManualSpaceSelection && primaryAgentId) {
+            setSelectedAgentId(primaryAgentId)
+          } else {
             setSelectedAgentId(null)
           }
         }
@@ -469,7 +511,13 @@ const ChatInterface = ({
       setIsAgentsLoading(false)
     }
     loadAgents()
-  }, [displaySpace?.id])
+  }, [
+    displaySpace?.id,
+    isManualSpaceSelection,
+    selectedAgentId,
+    activeConversation?.id,
+    defaultAgent?.id,
+  ])
 
   const handleSelectSpace = space => {
     setSelectedSpace(space)
@@ -763,13 +811,17 @@ const ChatInterface = ({
         toggles: { search: searchActive, thinking: thinkingActive, related: relatedActive },
         settings,
         spaceInfo: { selectedSpace, isManualSpaceSelection },
-        selectedAgent,
+        selectedAgent: effectiveAgent,
+        agents: appAgents,
         editingInfo,
         callbacks: {
           onTitleAndSpaceGenerated,
           onSpaceResolved: space => {
             setSelectedSpace(space)
             setIsManualSpaceSelection(false)
+          },
+          onAgentResolved: agent => {
+            setSelectedAgentId(agent?.id || null)
           },
         },
         spaces,
@@ -787,12 +839,12 @@ const ChatInterface = ({
       sendMessage,
       settings,
       selectedSpace,
-      selectedAgent,
+      effectiveAgent,
       isManualSpaceSelection,
       onTitleAndSpaceGenerated,
       spaces,
       quoteContext,
-      agents,
+      appAgents,
       spaceAgentIds,
       spaceAgents,
     ],
@@ -994,7 +1046,6 @@ const ChatInterface = ({
     setConversationTitle,
   ])
 
-
   // Create a ref for the messages scroll container
   const messagesContainerRef = useRef(null)
 
@@ -1130,8 +1181,8 @@ const ChatInterface = ({
             )}
             {!isLoadingHistory && !isSwitchingConversation && (
               <MessageList
-                apiProvider={settings.apiProvider}
-                defaultModel={settings.defaultModel}
+                apiProvider={effectiveProvider}
+                defaultModel={effectiveDefaultModel}
                 onRelatedClick={handleRelatedClick}
                 onMessageRef={registerMessageRef}
                 onEdit={handleEdit}
@@ -1182,24 +1233,24 @@ const ChatInterface = ({
               </button>
             )}
 
-              <InputBar
-                isLoading={isLoading}
-                apiProvider={settings.apiProvider}
-                isSearchActive={isSearchActive}
-                isThinkingActive={isThinkingActive}
-                agents={spaceAgents}
-                agentsLoading={isAgentsLoading}
-                selectedAgent={selectedAgent}
-                onAgentSelect={agent => {
-                  setSelectedAgentId(agent?.id || null)
-                  setIsAgentSelectorOpen(false)
-                }}
-                isAgentSelectorOpen={isAgentSelectorOpen}
-                onAgentSelectorToggle={() => setIsAgentSelectorOpen(prev => !prev)}
-                agentSelectorRef={agentSelectorRef}
-                onToggleSearch={() => setIsSearchActive(prev => !prev)}
-                onToggleThinking={() => setIsThinkingActive(prev => !prev)}
-                quotedText={quotedText}
+            <InputBar
+              isLoading={isLoading}
+              apiProvider={effectiveProvider}
+              isSearchActive={isSearchActive}
+              isThinkingActive={isThinkingActive}
+              agents={selectableAgents}
+              agentsLoading={isAgentsLoading}
+              selectedAgent={effectiveAgent}
+              onAgentSelect={agent => {
+                setSelectedAgentId(agent?.id || null)
+                setIsAgentSelectorOpen(false)
+              }}
+              isAgentSelectorOpen={isAgentSelectorOpen}
+              onAgentSelectorToggle={() => setIsAgentSelectorOpen(prev => !prev)}
+              agentSelectorRef={agentSelectorRef}
+              onToggleSearch={() => setIsSearchActive(prev => !prev)}
+              onToggleThinking={() => setIsThinkingActive(prev => !prev)}
+              quotedText={quotedText}
               onQuoteClear={() => {
                 setQuotedText(null)
                 setQuoteContext(null)
@@ -1234,20 +1285,20 @@ export default ChatInterface
 
 const InputBar = React.memo(
   ({
-      isLoading,
-      apiProvider,
-      isSearchActive,
-      isThinkingActive,
-      agents,
-      agentsLoading,
-      selectedAgent,
-      onAgentSelect,
-      isAgentSelectorOpen,
-      onAgentSelectorToggle,
-      agentSelectorRef,
-      onToggleSearch,
-      onToggleThinking,
-      quotedText,
+    isLoading,
+    apiProvider,
+    isSearchActive,
+    isThinkingActive,
+    agents,
+    agentsLoading,
+    selectedAgent,
+    onAgentSelect,
+    isAgentSelectorOpen,
+    onAgentSelectorToggle,
+    agentSelectorRef,
+    onToggleSearch,
+    onToggleThinking,
+    quotedText,
     onQuoteClear,
     onSend,
     editingSeed,
@@ -1427,91 +1478,80 @@ const InputBar = React.memo(
                 <Brain size={18} />
                 <span className="hidden md:inline">{t('homeView.think')}</span>
               </button>
+              <button
+                disabled={
+                  selectedAgent?.provider
+                    ? !providerSupportsSearch(selectedAgent.provider)
+                    : !providerSupportsSearch(apiProvider)
+                }
+                onClick={onToggleSearch}
+                className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
+                  isSearchActive
+                    ? 'text-primary-500 bg-gray-200 dark:bg-zinc-700'
+                    : 'text-gray-500 dark:text-gray-400'
+                }`}
+              >
+                <Globe size={18} />
+                <span className="hidden md:inline">{t('homeView.search')}</span>
+              </button>
+              <div className="relative" ref={agentSelectorRef}>
                 <button
-                  disabled={
-                    selectedAgent?.provider
-                      ? !providerSupportsSearch(selectedAgent.provider)
-                      : !providerSupportsSearch(apiProvider)
-                  }
-                  onClick={onToggleSearch}
+                  type="button"
+                  onClick={e => {
+                    e.stopPropagation()
+                    e.preventDefault()
+                    onAgentSelectorToggle()
+                  }}
                   className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
-                    isSearchActive
+                    selectedAgent
                       ? 'text-primary-500 bg-gray-200 dark:bg-zinc-700'
                       : 'text-gray-500 dark:text-gray-400'
                   }`}
+                  disabled={agentsLoading || agents.length === 0}
                 >
-                  <Globe size={18} />
-                  <span className="hidden md:inline">{t('homeView.search')}</span>
+                  <Smile size={18} />
+                  <span className="hidden md:inline truncate max-w-[120px]">
+                    {agentsLoading
+                      ? t('chatInterface.agentsLoading')
+                      : getAgentDisplayName(selectedAgent, t) || t('chatInterface.agentsLabel')}
+                  </span>
+                  <ChevronDown size={14} />
                 </button>
-                <div className="relative" ref={agentSelectorRef}>
-                  <button
-                    type="button"
-                    onClick={e => {
-                      e.stopPropagation()
-                      e.preventDefault()
-                      onAgentSelectorToggle()
-                    }}
-                    className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
-                      selectedAgent
-                        ? 'text-primary-500 bg-gray-200 dark:bg-zinc-700'
-                        : 'text-gray-500 dark:text-gray-400'
-                    }`}
-                    disabled={agentsLoading || agents.length === 0}
-                  >
-                    <Bot size={18} />
-                    <span className="hidden md:inline truncate max-w-[120px]">
-                      {agentsLoading
-                        ? t('chatInterface.agentsLoading')
-                        : selectedAgent?.name || t('chatInterface.agentsLabel')}
-                    </span>
-                    <ChevronDown size={14} />
-                  </button>
-                  {isAgentSelectorOpen && (
-                    <div className="absolute bottom-full left-0 mb-2 w-56 bg-white dark:bg-[#202222] border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl z-30 overflow-hidden">
-                      <div className="p-2 flex flex-col gap-1">
-                        {/* None option to deselect agent */}
-                        <button
-                          type="button"
-                          onClick={() => onAgentSelect(null)}
-                          className={`flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left ${
-                            !selectedAgent ? 'text-primary-500' : 'text-gray-700 dark:text-gray-200'
-                          }`}
-                        >
-                          <span className="text-sm font-medium">None</span>
-                          {!selectedAgent && <Check size={14} className="text-primary-500" />}
-                        </button>
-                        {agents.length === 0 ? (
-                          <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
-                            {t('chatInterface.agentsNone')}
-                          </div>
-                        ) : (
-                          agents.map(agent => {
-                            const isSelected = selectedAgent?.id === agent.id
-                            return (
-                              <button
-                                key={agent.id}
-                                type="button"
-                                onClick={() => onAgentSelect(agent)}
-                                className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left"
-                              >
-                                <div className="flex items-center gap-3">
-                                  <span className="text-lg">
-                                    <EmojiDisplay emoji={agent.emoji} size="1.125rem" />
-                                  </span>
-                                  <span className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate">
-                                    {agent.name}
-                                  </span>
-                                </div>
-                                {isSelected && <Check size={14} className="text-primary-500" />}
-                              </button>
-                            )
-                          })
-                        )}
-                      </div>
+                {isAgentSelectorOpen && (
+                  <div className="absolute bottom-full left-0 mb-2 w-56 bg-white dark:bg-[#202222] border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl z-30 overflow-hidden">
+                    <div className="p-2 flex flex-col gap-1">
+                      {agents.length === 0 ? (
+                        <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
+                          {t('chatInterface.agentsNone')}
+                        </div>
+                      ) : (
+                        agents.map(agent => {
+                          const isSelected = selectedAgent?.id === agent.id
+                          return (
+                            <button
+                              key={agent.id}
+                              type="button"
+                              onClick={() => onAgentSelect(agent)}
+                              className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left"
+                            >
+                              <div className="flex items-center gap-3">
+                                <span className="text-lg">
+                                  <EmojiDisplay emoji={agent.emoji} size="1.125rem" />
+                                </span>
+                                <span className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate">
+                                  {getAgentDisplayName(agent, t)}
+                                </span>
+                              </div>
+                              {isSelected && <Check size={14} className="text-primary-500" />}
+                            </button>
+                          )
+                        })
+                      )}
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
+            </div>
 
             <div className="flex gap-2">
               <button

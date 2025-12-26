@@ -14,13 +14,14 @@ import {
   SquareStack,
   Sun,
   Trash2,
-  Bot,
+  Smile,
 } from 'lucide-react'
 import React, { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAppContext } from '../App'
 import { useToast } from '../contexts/ToastContext'
 import useScrollLock from '../hooks/useScrollLock'
+import { getAgentDisplayDescription, getAgentDisplayName } from '../lib/agentDisplay'
 import {
   listBookmarkedConversations,
   listConversations,
@@ -238,7 +239,7 @@ const Sidebar = ({
     { id: 'library', icon: Library },
     { id: 'bookmarks', icon: Bookmark },
     { id: 'spaces', icon: LayoutGrid },
-    { id: 'agents', icon: Bot },
+    { id: 'agents', icon: Smile },
   ]
 
   const navItems = useMemo(
@@ -1184,7 +1185,7 @@ const Sidebar = ({
                 )}
                 {!agentsLoading && agents.length === 0 && (
                   <div className="flex flex-col items-center gap-2 text-xs text-gray-500 dark:text-gray-400 px-2 py-3">
-                    <Bot size={24} className="text-black dark:text-white" />
+                    <Smile size={24} className="text-black dark:text-white" />
                     <div>{t('sidebar.noAgentsYet')}</div>
                   </div>
                 )}
@@ -1200,11 +1201,11 @@ const Sidebar = ({
                       </div>
                       <div className="flex flex-col min-w-0">
                         <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">
-                          {agent.name}
+                          {getAgentDisplayName(agent, t)}
                         </span>
-                        {agent.description && (
+                        {getAgentDisplayDescription(agent, t) && (
                           <span className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                            {agent.description}
+                            {getAgentDisplayDescription(agent, t)}
                           </span>
                         )}
                       </div>

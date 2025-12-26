@@ -30,6 +30,7 @@ FOR EACH ROW EXECUTE PROCEDURE public.set_updated_at();
 -- 2) Agents
 CREATE TABLE IF NOT EXISTS public.agents (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  is_default BOOLEAN NOT NULL DEFAULT FALSE,
   emoji TEXT NOT NULL DEFAULT '',
   name TEXT NOT NULL,
   description TEXT,
@@ -45,6 +46,10 @@ CREATE TABLE IF NOT EXISTS public.agents (
   headings TEXT,
   emojis TEXT,
   custom_instruction TEXT,
+  temperature DOUBLE PRECISION,
+  top_p DOUBLE PRECISION,
+  frequency_penalty DOUBLE PRECISION,
+  presence_penalty DOUBLE PRECISION,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -85,6 +90,10 @@ CREATE TABLE IF NOT EXISTS public.conversation_messages (
   content JSONB NOT NULL,
   provider TEXT,
   model TEXT,
+  agent_id UUID,
+  agent_name TEXT,
+  agent_emoji TEXT,
+  agent_is_default BOOLEAN NOT NULL DEFAULT FALSE,
   thinking_process TEXT,
   tool_calls JSONB,
   related_questions JSONB,

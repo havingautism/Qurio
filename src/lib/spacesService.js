@@ -18,8 +18,6 @@ export const createSpace = async ({
   emoji = '',
   label,
   description = '',
-  temperature = null,
-  top_k = null,
 }) => {
   const supabase = getSupabaseClient()
   if (!supabase) return { data: null, error: new Error('Supabase not configured') }
@@ -27,14 +25,14 @@ export const createSpace = async ({
 
   const { data, error } = await supabase
     .from(table)
-    .insert([{ emoji, label, description, temperature, top_k }])
+    .insert([{ emoji, label, description }])
     .select()
     .single()
 
   return { data, error }
 }
 
-export const updateSpace = async (id, { emoji, label, description, temperature, top_k }) => {
+export const updateSpace = async (id, { emoji, label, description }) => {
   const supabase = getSupabaseClient()
   if (!supabase) return { data: null, error: new Error('Supabase not configured') }
   if (!id) return { data: null, error: new Error('Space id is required') }
@@ -43,8 +41,6 @@ export const updateSpace = async (id, { emoji, label, description, temperature, 
   if (emoji !== undefined) payload.emoji = emoji
   if (label !== undefined) payload.label = label
   if (description !== undefined) payload.description = description
-  if (temperature !== undefined) payload.temperature = temperature
-  if (top_k !== undefined) payload.top_k = top_k
 
   const { data, error } = await supabase.from(table).update(payload).eq('id', id).select().single()
 
@@ -67,14 +63,14 @@ export const listSpaceAgents = async spaceId => {
 
   const { data, error } = await supabase
     .from('space_agents')
-    .select('agent_id, sort_order')
+    .select('agent_id, sort_order, is_primary')
     .eq('space_id', spaceId)
     .order('sort_order', { ascending: true })
 
   return { data: data || [], error }
 }
 
-export const updateSpaceAgents = async (spaceId, agentIds = []) => {
+export const updateSpaceAgents = async (spaceId, agentIds = [], primaryAgentId = null) => {
   const supabase = getSupabaseClient()
   if (!supabase) return { success: false, error: new Error('Supabase not configured') }
   if (!spaceId) return { success: false, error: new Error('Space id is required') }
@@ -91,6 +87,7 @@ export const updateSpaceAgents = async (spaceId, agentIds = []) => {
     space_id: spaceId,
     agent_id: agentId,
     sort_order: index,
+    is_primary: primaryAgentId ? String(agentId) === String(primaryAgentId) : false,
   }))
 
   const { error: insertError } = await supabase.from('space_agents').insert(rows)

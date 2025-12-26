@@ -225,7 +225,9 @@
       "systemPromptPlaceholder": "You are a helpful assistant..."
     },
     "defaults": {
-      "systemPrompt": "You are a helpful AI assistant."
+      "name": "Default Agent",
+      "description": "System default agent",
+      "systemPrompt": "Respond concisely with a friendly tone and add relevant emojis (2-4) to each reply while keeping clarity and avoiding repetition."
     },
     "model": {
       "crossProviderTitle": "Cross-Provider Selection",
@@ -247,6 +249,23 @@
       "notSelected": "Not selected",
       "notFound": "Model not found"
     },
+    "advanced": {
+      "title": "Advanced",
+      "auto": "Auto",
+      "reset": "Reset to defaults",
+      "frequencyPenaltyLabel": "Lexical diversity",
+      "frequencyPenaltyParam": "frequency_penalty",
+      "frequencyPenaltyDesc": "Higher values encourage more varied wording; lower values favor repetition.",
+      "presencePenaltyLabel": "Expression variety",
+      "presencePenaltyParam": "presence_penalty",
+      "presencePenaltyDesc": "Higher values push new concepts; lower values keep phrasing consistent.",
+      "temperatureLabel": "Creativity",
+      "temperatureParam": "temperature",
+      "temperatureDesc": "Higher values increase randomness; lower values stay focused.",
+      "topPLabel": "Open-endedness",
+      "topPParam": "top_p",
+      "topPDesc": "Higher values allow more options; lower values pick the most likely."
+    },
     "actions": {
       "delete": "Delete Agent",
       "cancel": "Cancel",
@@ -255,7 +274,8 @@
       "create": "Create Agent"
     },
     "validation": {
-      "nameRequired": "Name is required"
+      "nameRequired": "Name is required",
+      "nameDuplicate": "An agent with this name already exists"
     },
     "errors": {
       "saveFailed": "Failed to save agent"
@@ -265,7 +285,6 @@
     "create": "Create New Space",
     "edit": "Edit Space",
     "general": "General",
-    "advanced": "Advanced",
     "iconName": "Icon & Name",
     "description": "Description",
     "descriptionOptional": "Description (Optional)",
@@ -274,6 +293,7 @@
     "agents": "Agents",
     "agentsAvailable": "Available",
     "agentsSelected": "Selected",
+    "defaultAgent": "Default",
     "agentsAdd": "Add",
     "agentsRemove": "Remove",
     "agentsEmpty": "No agents available.",
@@ -282,18 +302,12 @@
     "descriptionPlaceholder": "What is this space for?",
     "promptPlaceholder": "Provide guidance the assistant should follow inside this space.",
     "namePlaceholder": "e.g., Daily Life, Research...",
-    "temperature": "Temperature",
-    "topK": "Top K",
-    "topKPlaceholder": "Auto",
-    "modelSettingsInfo": "Model Settings Info",
-    "temperatureInfo": "Controls randomness (0 = focused, 2 = creative)",
-    "topKInfo": "Limits token selection (leave empty for auto)",
-    "overrideInfo": "These settings override global preferences for this space",
     "cancel": "Cancel",
     "save": "Save Changes",
     "createSpace": "Create Space",
     "saving": "Saving...",
     "nameRequired": "Name is required",
+    "nameDuplicate": "A space with this name already exists",
     "saveFailed": "Failed to save space",
     "deleteFailed": "Failed to delete space",
     "deleteTitle": "Delete Space",

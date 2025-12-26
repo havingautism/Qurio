@@ -20,6 +20,7 @@ Stores reusable agent presets. These can be bound to multiple spaces later.
 | Column               | Type        | Notes                               |
 | -------------------- | ----------- | ----------------------------------- |
 | `id`                 | uuid        | Primary key                         |
+| `is_default`         | boolean     | Non-deletable default agent         |
 | `emoji`              | text        | Agent avatar emoji                  |
 | `name`               | text        | Display name                        |
 | `description`        | text        | Optional summary                    |
@@ -35,6 +36,10 @@ Stores reusable agent presets. These can be bound to multiple spaces later.
 | `headings`           | text        | Style headings                      |
 | `emojis`             | text        | Style emoji usage                   |
 | `custom_instruction` | text        | Additional guidance                 |
+| `temperature`        | float8      | Sampling temperature override       |
+| `top_p`              | float8      | Top-p sampling override             |
+| `frequency_penalty`  | float8      | Repetition penalty                  |
+| `presence_penalty`   | float8      | Novelty penalty                     |
 | `created_at`         | timestamptz |                                     |
 | `updated_at`         | timestamptz |                                     |
 
@@ -66,6 +71,10 @@ Stores the ordered transcript, including attachments, tool metadata, and (now) a
 | `content`            | jsonb       | Flexible payload (text blocks, attachments, citations) |
 | `provider`           | text        | Provider used for this message (e.g., `gemini`)        |
 | `model`              | text        | Model id used for this message                         |
+| `agent_id`           | uuid        | Agent id used for this message                         |
+| `agent_name`         | text        | Agent display name at send time                        |
+| `agent_emoji`        | text        | Agent avatar emoji at send time                        |
+| `agent_is_default`   | boolean     | Whether the agent was the default fallback             |
 | `thinking_process`   | text        | Raw reasoning text stored separately from `content`    |
 | `tool_calls`         | jsonb       | Optional structured tool-call info                     |
 | `related_questions`  | jsonb       | Array of generated follow-ups for the assistant reply  |

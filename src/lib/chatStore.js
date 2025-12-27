@@ -337,7 +337,8 @@ const handleEditingAndHistory = (messages, editingInfo, userMessage, historyOver
 // ========================================
 
 /**
- * Preselects a space for auto mode before the first request.
+ * Preselects title, space, and agent for auto mode before the first request.
+ * Uses AI to intelligently select the most appropriate title, space, and agent based on the user's message.
  * @param {string} firstMessage - Raw user text
  * @param {Object} settings - User settings and API configuration
  * @param {Array} spaces - Available spaces for auto-selection
@@ -345,7 +346,7 @@ const handleEditingAndHistory = (messages, editingInfo, userMessage, historyOver
  * @param {Object} selectedAgent - Currently selected agent (optional)
  * @returns {Promise<{ title: string, space: Object|null, agent: Object|null }>}
  */
-const preselectSpaceForAuto = async (
+const preselectTitleSpaceAndAgentForAuto = async (
   firstMessage,
   settings,
   spaces,
@@ -561,6 +562,7 @@ const callAIAPI = async (
   set,
   historyLengthBeforeSend,
   firstUserText,
+  isAgentAutoMode = false,
 ) => {
   let streamedThought = ''
   let pendingText = ''
@@ -691,6 +693,7 @@ const callAIAPI = async (
           toggles,
           selectedAgent,
           agents,
+          isAgentAutoMode,
         )
       },
       onError: err => {
@@ -738,6 +741,8 @@ const callAIAPI = async (
  * @param {string|null} preselectedTitle - Preselected title for auto mode (optional)
  * @param {Object} toggles - Feature toggles (search, thinking, related)
  * @param {Object} selectedAgent - Currently selected agent (optional)
+ * @param {Array} agents - Available agents list for resolving defaults
+ * @param {boolean} [isAgentAutoMode] - Whether agent selection is in auto mode
  */
 const finalizeMessage = async (
   result,
@@ -752,6 +757,8 @@ const finalizeMessage = async (
   preselectedTitle,
   toggles = {},
   selectedAgent = null,
+  agents = [],
+  isAgentAutoMode = false,
 ) => {
   const normalizedThought = typeof result?.thought === 'string' ? result.thought.trim() : ''
   const normalizeContent = content => {
@@ -1033,38 +1040,42 @@ const finalizeMessage = async (
     }
   }
 
-  if (currentStore.conversationId && selectedAgent?.id) {
+  // Update conversation in database
+  if (currentStore.conversationId) {
     try {
-      await updateConversation(currentStore.conversationId, {
-        last_agent_id: selectedAgent.id,
-      })
+      if (isFirstTurn) {
+        // First turn: update title, space, agent_selection_mode, and last_agent_id
+        await updateConversation(currentStore.conversationId, {
+          title: resolvedTitle,
+          space_id: resolvedSpace ? resolvedSpace.id : null,
+          last_agent_id: selectedAgent?.id || null,
+          agent_selection_mode: isAgentAutoMode ? 'auto' : 'manual',
+        })
+        window.dispatchEvent(new Event('conversations-changed'))
+
+        // Dispatch a specific event for conversation update
+        window.dispatchEvent(
+          new CustomEvent('conversation-space-updated', {
+            detail: {
+              conversationId: currentStore.conversationId,
+              space: resolvedSpace,
+            },
+          }),
+        )
+
+        // Notify callback if space was resolved (only on first turn or when space changed)
+        if (callbacks?.onSpaceResolved && resolvedSpace) {
+          callbacks.onSpaceResolved(resolvedSpace)
+        }
+      } else if (selectedAgent?.id) {
+        // Subsequent turns: only update last_agent_id
+        await updateConversation(currentStore.conversationId, {
+          last_agent_id: selectedAgent.id,
+        })
+      }
     } catch (error) {
-      console.error('Failed to update conversation last agent:', error)
+      console.error('Failed to update conversation:', error)
     }
-  }
-
-  // Update conversation in database (only on first turn to set title/space)
-  if (isFirstTurn && currentStore.conversationId) {
-    await updateConversation(currentStore.conversationId, {
-      title: resolvedTitle,
-      space_id: resolvedSpace ? resolvedSpace.id : null,
-    })
-    window.dispatchEvent(new Event('conversations-changed'))
-
-    // Dispatch a specific event for conversation update
-    window.dispatchEvent(
-      new CustomEvent('conversation-space-updated', {
-        detail: {
-          conversationId: currentStore.conversationId,
-          space: resolvedSpace,
-        },
-      }),
-    )
-  }
-
-  // Notify callback if space was resolved
-  if (callbacks?.onSpaceResolved && resolvedSpace) {
-    callbacks.onSpaceResolved(resolvedSpace)
   }
 }
 
@@ -1087,6 +1098,8 @@ const useChatStore = create((set, get) => ({
   isLoading: false,
   /** Loading state for preselecting space/title in auto mode */
   isMetaLoading: false,
+  /** Loading state for preselecting agent in auto mode */
+  isAgentPreselecting: false,
 
   // ========================================
   // STATE SETTERS
@@ -1104,6 +1117,8 @@ const useChatStore = create((set, get) => ({
   setIsLoading: isLoading => set({ isLoading }),
   /** Sets meta loading state */
   setIsMetaLoading: isMetaLoading => set({ isMetaLoading }),
+  /** Sets agent preselecting loading state */
+  setIsAgentPreselecting: isAgentPreselecting => set({ isAgentPreselecting }),
 
   /** Resets conversation to initial state */
   resetConversation: () =>
@@ -1113,6 +1128,7 @@ const useChatStore = create((set, get) => ({
       conversationTitle: '',
       isLoading: false,
       isMetaLoading: false,
+      isAgentPreselecting: false,
     }),
 
   // ========================================
@@ -1128,6 +1144,7 @@ const useChatStore = create((set, get) => ({
    * @param {Object} params.toggles - Feature toggles { search, thinking }
    * @param {Object} params.spaceInfo - Space selection information { selectedSpace, isManualSpaceSelection }
    * @param {Object|null} params.selectedAgent - Currently selected agent (optional)
+   * @param {boolean} params.isAgentAutoMode - Whether agent selection is in auto mode (agent preselects every message, space/title only on first turn)
    * @param {Array} params.agents - Available agents list (optional)
    * @param {Object|null} params.editingInfo - Information about message being edited { index, targetId, partnerId }
    * @param {Object|null} params.callbacks - Callback functions { onTitleAndSpaceGenerated, onSpaceResolved, onAgentResolved, onConversationReady }
@@ -1140,7 +1157,9 @@ const useChatStore = create((set, get) => ({
    * 1. Validates input and checks for ongoing operations
    * 2. Constructs user message with attachments
    * 3. Handles message editing and history context
-   * 4. Preselects auto space (if needed) before first request
+   * 4. Preselects space/agent/title:
+   *    - Space & Title: only on first turn (isFirstTurn = true)
+   *    - Agent: every message when isAgentAutoMode = true, otherwise uses selectedAgent
    * 5. Ensures conversation exists in database
    * 6. Persists user message
    * 7. Prepares AI message placeholder for streaming
@@ -1154,6 +1173,7 @@ const useChatStore = create((set, get) => ({
     settings, // passed from component to ensure freshness
     spaceInfo, // { selectedSpace, isManualSpaceSelection }
     selectedAgent = null, // Currently selected agent (optional)
+    isAgentAutoMode = false, // Whether agent selection is in auto mode
     agents = [], // available agents list for resolving defaults
     editingInfo, // { index, targetId, partnerId } (optional)
     callbacks, // { onTitleAndSpaceGenerated, onSpaceResolved } (optional)
@@ -1195,20 +1215,29 @@ const useChatStore = create((set, get) => ({
         ? editingInfo.index
         : messages.length
 
-    // Step 4: Preselect space/title before first request (if needed)
+    // Step 4: Preselect space/agent/title
+    // - Space & Title: only on first turn (isFirstTurn = true)
+    // - Agent: every message when isAgentAutoMode = true, otherwise uses selectedAgent
     let resolvedSpaceInfo = spaceInfo
-    let resolvedAgent = selectedAgent
+    // Only use selectedAgent if user manually selected one (not auto mode)
+    // In auto mode, let AI choose or fallback to space default/global default
+    let resolvedAgent = isAgentAutoMode ? null : selectedAgent
     let preselectedTitle = null
     const isFirstTurn = historyLengthBeforeSend === 0
-    const shouldPreselect =
-      !spaceInfo?.isManualSpaceSelection && !spaceInfo?.selectedSpace && text.trim()
+    // Only preselect space/title on first turn, never reload in existing conversations
+    const shouldPreselectSpaceTitle =
+      isFirstTurn && !spaceInfo?.isManualSpaceSelection && !spaceInfo?.selectedSpace && text.trim()
     const shouldPreselectTitleForManual =
       isFirstTurn && spaceInfo?.isManualSpaceSelection && spaceInfo?.selectedSpace
-    if (shouldPreselect || shouldPreselectTitleForManual) {
+    // In auto mode, always preselect agent (including first turn)
+    const shouldPreselectAgent = isAgentAutoMode && text.trim()
+
+    // Preselect space & title with loading indicator (only on first turn)
+    if (shouldPreselectSpaceTitle || shouldPreselectTitleForManual) {
       set({ isMetaLoading: true })
       try {
-        if (shouldPreselect) {
-          const { title, space, agent } = await preselectSpaceForAuto(
+        if (shouldPreselectSpaceTitle) {
+          const { title, space, agent } = await preselectTitleSpaceAndAgentForAuto(
             text,
             settings,
             spaces,
@@ -1227,11 +1256,68 @@ const useChatStore = create((set, get) => ({
             preselectedTitle = title
             set({ conversationTitle: title })
           }
+
+          // Fallback: if AI didn't return an agent but returned a space, use space's default agent
+          if (!agent && space) {
+            try {
+              const { data: spaceAgentData } = await listSpaceAgents(space.id)
+              const primaryAgentId = spaceAgentData?.find(item => item.is_primary)?.agent_id || null
+              if (primaryAgentId) {
+                const matchedAgent = (agents || []).find(
+                  agent => String(agent.id) === String(primaryAgentId),
+                )
+                if (matchedAgent) {
+                  resolvedAgent = matchedAgent
+                  callbacks?.onAgentResolved?.(matchedAgent)
+                }
+              }
+            } catch (error) {
+              console.error('Failed to get space default agent:', error)
+            }
+          }
+
+          // Final fallback: if still no agent and no space was selected, use global default agent
+          if (!resolvedAgent && !space) {
+            const globalDefaultAgent = agents?.find(agent => agent.isDefault)
+            if (globalDefaultAgent) {
+              resolvedAgent = globalDefaultAgent
+              callbacks?.onAgentResolved?.(globalDefaultAgent)
+            }
+          }
         } else if (shouldPreselectTitleForManual) {
           const title = await preselectTitleForManual(text, settings, selectedAgent)
           if (title) {
             preselectedTitle = title
             set({ conversationTitle: title })
+          }
+
+          // For manual space selection, if no agent is selected yet, use space's default agent
+          const currentSpace = spaceInfo?.selectedSpace
+          if (!resolvedAgent && currentSpace) {
+            try {
+              const { data: spaceAgentData } = await listSpaceAgents(currentSpace.id)
+              const primaryAgentId = spaceAgentData?.find(item => item.is_primary)?.agent_id || null
+              if (primaryAgentId) {
+                const matchedAgent = (agents || []).find(
+                  agent => String(agent.id) === String(primaryAgentId),
+                )
+                if (matchedAgent) {
+                  resolvedAgent = matchedAgent
+                  callbacks?.onAgentResolved?.(matchedAgent)
+                }
+              }
+            } catch (error) {
+              console.error('Failed to get space default agent:', error)
+            }
+          }
+
+          // Final fallback: if still no agent, use global default agent
+          if (!resolvedAgent) {
+            const globalDefaultAgent = agents?.find(agent => agent.isDefault)
+            if (globalDefaultAgent) {
+              resolvedAgent = globalDefaultAgent
+              callbacks?.onAgentResolved?.(globalDefaultAgent)
+            }
           }
         }
       } catch (error) {
@@ -1241,7 +1327,97 @@ const useChatStore = create((set, get) => ({
       }
     }
 
-    // Step 5: Resolve default agent for auto-selected space (if needed)
+    // Preselect agent silently without affecting title/space loading state
+    if (shouldPreselectAgent && !shouldPreselectSpaceTitle) {
+      set({ isAgentPreselecting: true })
+      try {
+        // Get the current space for agent preselection
+        const currentSpaceForAgent = resolvedSpaceInfo?.selectedSpace || spaceInfo?.selectedSpace
+        let agentPreselected = false
+
+        if (currentSpaceForAgent) {
+          // Build space-agent options for the current space
+          const spaceAgents = await buildSpaceAgentOptions([currentSpaceForAgent], agents)
+          const spaceWithAgents = {
+            label: currentSpaceForAgent.label,
+            description: currentSpaceForAgent.description,
+            agents: spaceAgents[0]?.agents || [],
+          }
+
+          const modelConfig = getModelConfigForAgent(selectedAgent, settings, 'generateTitleAndSpace')
+          const provider = getProvider(modelConfig.provider)
+          const credentials = provider.getCredentials(settings)
+          const languageInstruction = getLanguageInstruction(selectedAgent)
+          const promptText = applyLanguageInstructionToText(text, languageInstruction)
+
+          if (provider.generateAgentForAuto) {
+            const { agentName } = await provider.generateAgentForAuto(
+              promptText,
+              spaceWithAgents,
+              credentials.apiKey,
+              credentials.baseUrl,
+              modelConfig.model,
+            )
+            if (agentName) {
+              // Find the agent from the current space's agents
+              const agentCandidate = (spaceWithAgents.agents || []).find(a => {
+                const name = typeof a === 'string' ? a : a?.name
+                return String(name) === String(agentName)
+              })
+              if (agentCandidate) {
+                // Find the full agent object from the agents list
+                const agentNameForMatch = typeof agentCandidate === 'string' ? agentCandidate : agentCandidate?.name
+                const matchedAgent = (agents || []).find(a => String(a.name) === String(agentNameForMatch))
+                if (matchedAgent) {
+                  resolvedAgent = matchedAgent
+                  agentPreselected = true
+                  callbacks?.onAgentResolved?.(matchedAgent)
+                }
+              }
+            }
+          }
+        }
+
+        // Fallback: if AI didn't return an agent, use space's default agent or global default agent
+        if (!agentPreselected && !resolvedAgent) {
+          if (currentSpaceForAgent) {
+            // Try to use the space's default agent (is_primary)
+            try {
+              const { data: spaceAgentData } = await listSpaceAgents(currentSpaceForAgent.id)
+              const primaryAgentId = spaceAgentData?.find(item => item.is_primary)?.agent_id || null
+              if (primaryAgentId) {
+                const matchedAgent = (agents || []).find(
+                  agent => String(agent.id) === String(primaryAgentId),
+                )
+                if (matchedAgent) {
+                  resolvedAgent = matchedAgent
+                  callbacks?.onAgentResolved?.(matchedAgent)
+                }
+              }
+            } catch (error) {
+              console.error('Failed to get space default agent:', error)
+            }
+          }
+
+          // If still no agent and no space, use global default agent as final fallback
+          if (!resolvedAgent && !currentSpaceForAgent) {
+            const globalDefaultAgent = agents?.find(agent => agent.isDefault)
+            if (globalDefaultAgent) {
+              resolvedAgent = globalDefaultAgent
+              callbacks?.onAgentResolved?.(globalDefaultAgent)
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Agent preselection failed:', error)
+      } finally {
+        set({ isAgentPreselecting: false })
+      }
+    }
+
+    // Step 5: Final fallback for agent (defensive)
+    // This should rarely be needed since we've already handled fallback in previous steps,
+    // but it serves as a safety net for edge cases.
     if (
       !spaceInfo?.isManualSpaceSelection &&
       !resolvedAgent &&
@@ -1322,6 +1498,7 @@ const useChatStore = create((set, get) => ({
       set,
       historyLengthBeforeSend,
       text,
+      isAgentAutoMode,
     )
   },
 }))

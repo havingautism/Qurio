@@ -337,9 +337,14 @@
     "spaces": "Spaces",
     "spacesAuto": "Spaces: Auto",
     "spacesLabel": "Spaces: {{label}}",
+    "spacesNone": "Spaces: None",
     "auto": "Auto",
+    "none": "None",
+    "default": "Default",
     "title": "Where insight clicks.",
+    "agents": "Agents",
     "agentsLabel": "Agents",
+    "agentsAuto": "Agents: Auto",
     "agentsNone": "No agents",
     "agentsLoading": "Loading agents..."
   },
@@ -387,7 +392,9 @@
     "askFollowUp": "Ask follow-up...",
     "agentsLabel": "Agents",
     "agentsNone": "No agents",
-    "agentsLoading": "Loading agents..."
+    "agentsLoading": "Loading agents...",
+    "agentAuto": "Auto",
+    "default": "Default"
   },
   "agentsView": {
     "title": "Agents",

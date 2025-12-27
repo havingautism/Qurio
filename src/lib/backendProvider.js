@@ -1618,6 +1618,112 @@ Return the result as JSON with keys "title", "spaceLabel", and "agentName".`,
 }
 
 /**
+ * Generates only the agent selection for auto mode (not title or space).
+ * This is used for subsequent messages when agent auto mode is enabled.
+ * Selects from agents within the current space only.
+ * @param {string} provider - AI provider to use
+ * @param {string} userMessage - The user's current message
+ * @param {Object} currentSpace - The current space with its agents
+ * @param {string} apiKey - API key for authentication
+ * @param {string} baseUrl - Custom base URL
+ * @param {string} model - Model name/ID
+ * @returns {Promise<{agentName: string|null}>} - Selected agent name or null
+ */
+const generateAgentForAuto = async (
+  provider,
+  userMessage,
+  currentSpace,
+  apiKey,
+  baseUrl,
+  model,
+) => {
+  const sanitizeOptionText = text =>
+    String(text || '')
+      .replace(/[\r\n]+/g, ' ')
+      .replace(/[{}]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+
+  // Build agent list from current space only
+  const agentEntries = (currentSpace?.agents || []).map(agent => {
+    if (typeof agent === 'string') {
+      return { name: agent }
+    }
+    return {
+      name: typeof agent?.name === 'string' ? agent.name : '',
+      description: agent?.description ?? '',
+    }
+  })
+
+  const agentTokens = agentEntries
+    .map(agent => {
+      const name = sanitizeOptionText(agent.name)
+      const description = sanitizeOptionText(agent.description)
+      if (name && description) return `${name} - ${description}`
+      if (name) return name
+      return ''
+    })
+    .filter(Boolean)
+    .join('\n')
+
+  const promptMessages = [
+    {
+      role: 'system',
+      content: `You are a helpful assistant.
+Select the best matching agent for the user's message from the "${currentSpace?.label || 'Default'}" space. Consider the agent's name and description to determine which one is most appropriate. If no agent is a good match, return null.
+Return the result as JSON with key "agentName" (agent name only, or null if no match).`,
+    },
+    {
+      role: 'user',
+      content: `${userMessage}\n\nAvailable agents in ${currentSpace?.label || 'this space'}:\n${agentTokens}`,
+    },
+  ]
+
+  const responseFormat = provider !== 'gemini' ? { type: 'json_object' } : undefined
+  let content = undefined
+  if (provider === 'gemini') {
+    content = await requestGemini({ apiKey, model, messages: promptMessages })
+  } else if (provider === 'siliconflow') {
+    content = await requestSiliconFlow({
+      provider,
+      apiKey,
+      baseUrl,
+      model,
+      messages: promptMessages,
+      responseFormat,
+    })
+  } else if (provider === 'glm') {
+    content = await requestGLM({
+      apiKey,
+      model,
+      messages: promptMessages,
+      responseFormat,
+    })
+  } else if (provider === 'kimi') {
+    content = await requestKimi({
+      apiKey,
+      model,
+      messages: promptMessages,
+      responseFormat,
+    })
+  } else {
+    content = await requestOpenAICompat({
+      provider,
+      apiKey,
+      baseUrl,
+      model,
+      messages: promptMessages,
+      responseFormat,
+    })
+  }
+
+  const parsed = safeJsonParse(content) || {}
+  return {
+    agentName: parsed.agentName || null,
+  }
+}
+
+/**
  * Generates related follow-up questions based on the conversation history.
  * Returns an array of 3 relevant questions that the user might ask next.
  * @param {string} provider - AI provider to use
@@ -1688,6 +1794,15 @@ export const createBackendProvider = provider => ({
       provider,
       firstMessage,
       spacesWithAgents,
+      apiKey,
+      baseUrl,
+      model,
+    ),
+  generateAgentForAuto: (userMessage, currentSpace, apiKey, baseUrl, model) =>
+    generateAgentForAuto(
+      provider,
+      userMessage,
+      currentSpace,
       apiKey,
       baseUrl,
       model,

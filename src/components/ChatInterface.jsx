@@ -76,6 +76,7 @@ const ChatInterface = ({
     isLoading,
     setIsLoading,
     isMetaLoading,
+    isAgentPreselecting,
     sendMessage,
   } = useChatStore(
     useShallow(state => ({
@@ -88,6 +89,7 @@ const ChatInterface = ({
       isLoading: state.isLoading,
       setIsLoading: state.setIsLoading,
       isMetaLoading: state.isMetaLoading,
+      isAgentPreselecting: state.isAgentPreselecting,
       sendMessage: state.sendMessage,
     })),
   )
@@ -109,13 +111,16 @@ const ChatInterface = ({
   const selectorRef = useRef(null)
   const agentSelectorRef = useRef(null)
   const [isManualSpaceSelection, setIsManualSpaceSelection] = useState(
-    initialSpaceSelection.mode === 'manual' && !!initialSpaceSelection.space,
+    initialSpaceSelection.mode === 'manual',
   )
   const { toggleSidebar, agents: appAgents = [], defaultAgent } = useAppContext()
   const [spaceAgentIds, setSpaceAgentIds] = useState([])
   const [spacePrimaryAgentId, setSpacePrimaryAgentId] = useState(null)
   const [isAgentsLoading, setIsAgentsLoading] = useState(false)
   const [selectedAgentId, setSelectedAgentId] = useState(null)
+  const [isAgentAutoMode, setIsAgentAutoMode] = useState(
+    activeConversation?.agent_selection_mode !== 'manual',
+  )
   const [isAgentSelectorOpen, setIsAgentSelectorOpen] = useState(false)
   const [pendingAgentId, setPendingAgentId] = useState(null)
   const [agentLoadingDots, setAgentLoadingDots] = useState('')
@@ -144,6 +149,38 @@ const ChatInterface = ({
     ? selectedSpace
     : selectedSpace || conversationSpace || null
 
+  // Function to reload space agents (used when space changes or settings change)
+  const reloadSpaceAgents = useCallback(async () => {
+    if (!displaySpace?.id) {
+      setSpaceAgentIds([])
+      setSpacePrimaryAgentId(null)
+      if (!pendingAgentId && !selectedAgentId) {
+        setSelectedAgentId(defaultAgent?.id || null)
+      }
+      setIsAgentsLoading(false)
+      return
+    }
+    setIsAgentsLoading(true)
+    try {
+      const { data, error } = await listSpaceAgents(displaySpace.id)
+      if (!error && data) {
+        const newAgentIds = data.map(item => item.agent_id)
+        const primaryAgentId = data.find(item => item.is_primary)?.agent_id || null
+        setSpaceAgentIds(newAgentIds)
+        setSpacePrimaryAgentId(primaryAgentId)
+      } else {
+        setSpaceAgentIds([])
+        setSpacePrimaryAgentId(null)
+      }
+    } catch (err) {
+      console.error('Failed to reload space agents:', err)
+      setSpaceAgentIds([])
+      setSpacePrimaryAgentId(null)
+    } finally {
+      setIsAgentsLoading(false)
+    }
+  }, [displaySpace?.id, defaultAgent?.id, pendingAgentId, selectedAgentId])
+
   const spaceAgents = React.useMemo(() => {
     if (!displaySpace?.id) {
       return []
@@ -155,11 +192,15 @@ const ChatInterface = ({
 
   const selectableAgents = React.useMemo(() => {
     const list = [...spaceAgents]
-    if (defaultAgent) {
+    // Only include default agent if no space is selected (space is None)
+    // When a space is selected, only show agents that are explicitly added to that space
+    if (!displaySpace && defaultAgent) {
       const hasDefault = list.some(agent => String(agent.id) === String(defaultAgent.id))
       if (!hasDefault) list.unshift(defaultAgent)
     }
-    if (selectedAgentId) {
+    // Only include selected agent if it's not already in the list AND no space is selected
+    // When a space is selected, don't force-add agents that aren't in that space
+    if (!displaySpace && selectedAgentId) {
       const hasSelected = list.some(agent => String(agent.id) === String(selectedAgentId))
       if (!hasSelected) {
         const selected = appAgents.find(agent => String(agent.id) === String(selectedAgentId))
@@ -167,7 +208,7 @@ const ChatInterface = ({
       }
     }
     return list
-  }, [spaceAgents, defaultAgent, selectedAgentId, appAgents])
+  }, [spaceAgents, defaultAgent, selectedAgentId, appAgents, displaySpace])
 
   const selectedAgent = React.useMemo(() => {
     const agent =
@@ -175,18 +216,22 @@ const ChatInterface = ({
     return agent
   }, [selectableAgents, selectedAgentId])
 
-  useEffect(() => {
-    const lastAgentMessage = [...messages]
-      .reverse()
-      .find(msg => msg.role === 'ai' && msg.agentId)
-    const nextAgentId = lastAgentMessage?.agentId || null
-    if (nextAgentId && String(nextAgentId) !== String(selectedAgentId)) {
-      setSelectedAgentId(nextAgentId)
-      setPendingAgentId(nextAgentId)
-    }
-  }, [messages, selectedAgentId])
+  // Agent selection is fully user-controlled:
+  // - Auto mode: updated via onAgentResolved callback (preselection before sending)
+  // - Manual mode: user's choice is preserved, no auto updates
+  // useEffect(() => {
+  //   const lastAgentMessage = [...messages]
+  //     .reverse()
+  //     .find(msg => msg.role === 'ai' && msg.agentId)
+  //   const nextAgentId = lastAgentMessage?.agentId || null
+  //   if (nextAgentId && String(nextAgentId) !== String(selectedAgentId)) {
+  //     setSelectedAgentId(nextAgentId)
+  //     setPendingAgentId(nextAgentId)
+  //   }
+  // }, [messages, selectedAgentId])
 
-  const isAgentResolving = isAgentsLoading || pendingAgentId !== null
+  // Agent resolving includes: space agents loading, pending agent from UI, or agent preselection in auto mode
+  const isAgentResolving = isAgentsLoading || pendingAgentId !== null || isAgentPreselecting
   const baseAgentsLoadingLabel = t('chatInterface.agentsLoading')
   const agentsLoadingLabel = `${baseAgentsLoadingLabel.replace(/\.\.\.$/, '')}${agentLoadingDots}`
 
@@ -266,11 +311,25 @@ const ChatInterface = ({
       if (!providerSupportsSearch(nextProvider)) {
         setIsSearchActive(false)
       }
+      // Reload space agents when settings change (e.g., default agent changed in space settings)
+      reloadSpaceAgents()
+    }
+
+    const handleSpaceAgentsChange = (event) => {
+      const { spaceId } = event.detail || {}
+      // Only reload if the changed space matches the current display space
+      if (displaySpace?.id && String(displaySpace.id) === String(spaceId)) {
+        reloadSpaceAgents()
+      }
     }
 
     window.addEventListener('settings-changed', handleSettingsChange)
-    return () => window.removeEventListener('settings-changed', handleSettingsChange)
-  }, [effectiveAgent?.provider])
+    window.addEventListener('space-agents-changed', handleSpaceAgentsChange)
+    return () => {
+      window.removeEventListener('settings-changed', handleSettingsChange)
+      window.removeEventListener('space-agents-changed', handleSpaceAgentsChange)
+    }
+  }, [effectiveAgent?.provider, reloadSpaceAgents, displaySpace?.id])
 
   useEffect(() => {
     const processInitialMessage = async () => {
@@ -439,6 +498,10 @@ const ChatInterface = ({
           }
         })
         setMessages(mapped)
+        // Restore agent selection mode from conversation
+        const agentSelectionMode =
+          activeConversation?.agent_selection_mode ?? activeConversation?.agentSelectionMode ?? 'auto'
+        setIsAgentAutoMode(agentSelectionMode !== 'manual')
         const resolvedAgentId = conversationLastAgentId || null
         if (resolvedAgentId) {
           setSelectedAgentId(resolvedAgentId)
@@ -500,8 +563,10 @@ const ChatInterface = ({
     // Only apply initialSpaceSelection when we don't have an active conversation
     // This prevents overriding the space when loading existing conversations
     if (!activeConversation) {
-      if (initialSpaceSelection?.mode === 'manual' && initialSpaceSelection.space) {
-        setSelectedSpace(initialSpaceSelection.space)
+      if (initialSpaceSelection?.mode === 'manual') {
+        // Manual mode: user selected a specific space OR explicitly chose "None"
+        // Both cases should prevent automatic space preselection
+        setSelectedSpace(initialSpaceSelection.space || null)
         setIsManualSpaceSelection(true)
       } else if (initialSpaceSelection?.mode === 'auto') {
         if (!selectedSpace && !isManualSpaceSelection) {
@@ -514,8 +579,16 @@ const ChatInterface = ({
 
   useEffect(() => {
     // Store pending agent selection when we don't have an active conversation
-    if (!activeConversation && initialAgentSelection) {
-      setPendingAgentId(initialAgentSelection.id)
+    if (!activeConversation) {
+      if (initialAgentSelection) {
+        // Manual mode: user selected a specific agent
+        setPendingAgentId(initialAgentSelection.id)
+        setIsAgentAutoMode(false)
+      } else {
+        // Auto mode: null initialAgentSelection means auto
+        setIsAgentAutoMode(true)
+        setSelectedAgentId(null)
+      }
     }
   }, [initialAgentSelection, activeConversation])
 
@@ -542,44 +615,14 @@ const ChatInterface = ({
   useEffect(() => {
     let isMounted = true
     const loadAgents = async () => {
-      if (!displaySpace?.id) {
-        if (!isMounted) return
-        setSpaceAgentIds([])
-        setSpacePrimaryAgentId(null)
-        if (!pendingAgentId && !selectedAgentId) {
-          setSelectedAgentId(defaultAgent?.id || null)
-        }
-        setIsAgentsLoading(false)
-        return
-      }
-      setIsAgentsLoading(true)
-      try {
-        const { data, error } = await listSpaceAgents(displaySpace.id)
-        if (!isMounted) return
-        if (!error && data) {
-          const newAgentIds = data.map(item => item.agent_id)
-          const primaryAgentId = data.find(item => item.is_primary)?.agent_id || null
-          setSpaceAgentIds(newAgentIds)
-          setSpacePrimaryAgentId(primaryAgentId)
-        } else {
-          setSpaceAgentIds([])
-          setSpacePrimaryAgentId(null)
-        }
-      } catch (err) {
-        if (!isMounted) return
-        setSpaceAgentIds([])
-        setSpacePrimaryAgentId(null)
-      } finally {
-        if (isMounted) {
-          setIsAgentsLoading(false)
-        }
-      }
+      if (!isMounted) return
+      await reloadSpaceAgents()
     }
     loadAgents()
     return () => {
       isMounted = false
     }
-  }, [displaySpace?.id])
+  }, [displaySpace?.id, reloadSpaceAgents])
 
   useEffect(() => {
     if (!displaySpace?.id) {
@@ -932,6 +975,7 @@ const ChatInterface = ({
         settings,
         spaceInfo: { selectedSpace, isManualSpaceSelection },
         selectedAgent: effectiveAgent,
+        isAgentAutoMode,
         agents: appAgents,
         editingInfo,
         callbacks: {
@@ -941,10 +985,14 @@ const ChatInterface = ({
             setIsManualSpaceSelection(false)
           },
           onAgentResolved: agent => {
-            const nextAgentId = agent?.id || null
-            setPendingAgentId(nextAgentId)
-            if (displaySpace?.id) {
-              setSelectedAgentId(nextAgentId)
+            // Only update selected agent if in auto mode
+            // In manual mode, respect user's explicit choice
+            if (isAgentAutoMode) {
+              const nextAgentId = agent?.id || null
+              setPendingAgentId(nextAgentId)
+              if (displaySpace?.id) {
+                setSelectedAgentId(nextAgentId)
+              }
             }
           },
         },
@@ -964,6 +1012,7 @@ const ChatInterface = ({
       settings,
       selectedSpace,
       effectiveAgent,
+      isAgentAutoMode,
       isManualSpaceSelection,
       onTitleAndSpaceGenerated,
       spaces,
@@ -1373,9 +1422,16 @@ const ChatInterface = ({
               agentsLoading={isAgentResolving}
               agentsLoadingLabel={agentsLoadingLabel}
               agentsLoadingDots={agentLoadingDots}
-              selectedAgent={effectiveAgent}
+              selectedAgent={selectedAgent}
+              isAgentAutoMode={isAgentAutoMode}
               onAgentSelect={agent => {
                 setSelectedAgentId(agent?.id || null)
+                setIsAgentAutoMode(false)
+                setIsAgentSelectorOpen(false)
+              }}
+              onAgentAutoModeToggle={() => {
+                setSelectedAgentId(null) // Clear selected agent when entering auto mode
+                setIsAgentAutoMode(true)
                 setIsAgentSelectorOpen(false)
               }}
               isAgentSelectorOpen={isAgentSelectorOpen}
@@ -1403,6 +1459,7 @@ const ChatInterface = ({
                 editingIndex !== null ? extractUserQuestion(messages[editingIndex]) : ''
               }
               scrollToBottom={scrollToBottom}
+              spacePrimaryAgentId={spacePrimaryAgentId}
             />
             <div className="text-center mt-2 text-xs text-gray-400 dark:text-gray-500">
               Qurio can make mistakes. Please use with caution.
@@ -1427,7 +1484,9 @@ const InputBar = React.memo(
     agentsLoadingLabel,
     agentsLoadingDots,
     selectedAgent,
+    isAgentAutoMode,
     onAgentSelect,
+    onAgentAutoModeToggle,
     isAgentSelectorOpen,
     onAgentSelectorToggle,
     agentSelectorRef,
@@ -1441,6 +1500,7 @@ const InputBar = React.memo(
     showEditing,
     editingLabel,
     scrollToBottom,
+    spacePrimaryAgentId,
   }) => {
     const { t } = useTranslation()
     const [inputValue, setInputValue] = useState('')
@@ -1638,11 +1698,11 @@ const InputBar = React.memo(
                     onAgentSelectorToggle()
                   }}
                   className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
-                    selectedAgent
+                    selectedAgent || isAgentAutoMode
                       ? 'text-primary-500 bg-gray-200 dark:bg-zinc-700'
                       : 'text-gray-500 dark:text-gray-400'
                   }`}
-                  disabled={agentsLoading || agents.length === 0}
+                  disabled={agentsLoading}
                 >
                   <Smile size={18} />
                   {agentsLoading && (
@@ -1653,20 +1713,41 @@ const InputBar = React.memo(
                   <span className="hidden md:inline truncate max-w-[120px]">
                     {agentsLoading
                       ? agentsLoadingLabel || t('chatInterface.agentsLoading')
-                      : getAgentDisplayName(selectedAgent, t) || t('chatInterface.agentsLabel')}
+                      : isAgentAutoMode
+                        ? t('chatInterface.agentAuto')
+                        : getAgentDisplayName(selectedAgent, t) || t('chatInterface.agentsLabel')}
                   </span>
                   <ChevronDown size={14} />
                 </button>
                 {isAgentSelectorOpen && (
                   <div className="absolute bottom-full left-0 mb-2 w-56 bg-white dark:bg-[#202222] border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl z-30 overflow-hidden">
                     <div className="p-2 flex flex-col gap-1">
+                      {/* Auto mode option */}
+                      <button
+                        type="button"
+                        onClick={() => onAgentAutoModeToggle()}
+                        className={`flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left ${
+                          isAgentAutoMode ? 'text-primary-500' : 'text-gray-700 dark:text-gray-200'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="text-lg">🤖</span>
+                          <span className="text-sm font-medium truncate">
+                            {t('chatInterface.agentAuto')}
+                          </span>
+                        </div>
+                        {isAgentAutoMode && <Check size={14} className="text-primary-500" />}
+                      </button>
+                      <div className="h-px bg-gray-100 dark:bg-zinc-800 my-1" />
+                      {/* Manual agent options */}
                       {agents.length === 0 ? (
                         <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
                           {t('chatInterface.agentsNone')}
                         </div>
                       ) : (
                         agents.map(agent => {
-                          const isSelected = selectedAgent?.id === agent.id
+                          const isSelected = !isAgentAutoMode && selectedAgent?.id === agent.id
+                          const isDefault = agent.isDefault || String(agent.id) === String(spacePrimaryAgentId)
                           return (
                             <button
                               key={agent.id}
@@ -1674,13 +1755,18 @@ const InputBar = React.memo(
                               onClick={() => onAgentSelect(agent)}
                               className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left"
                             >
-                              <div className="flex items-center gap-3">
+                              <div className="flex items-center gap-2">
                                 <span className="text-lg">
                                   <EmojiDisplay emoji={agent.emoji} size="1.125rem" />
                                 </span>
                                 <span className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate">
                                   {getAgentDisplayName(agent, t)}
                                 </span>
+                                {isDefault && (
+                                  <span className="text-xs px-1.5 py-0.5 bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 rounded-md font-medium">
+                                    {t('chatInterface.default')}
+                                  </span>
+                                )}
                               </div>
                               {isSelected && <Check size={14} className="text-primary-500" />}
                             </button>

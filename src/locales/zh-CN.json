@@ -337,10 +337,14 @@
     "spaces": "空间",
     "spacesAuto": "空间：自动",
     "spacesLabel": "空间：{{label}}",
+    "spacesNone": "空间：无",
     "auto": "自动",
+    "none": "无",
+    "default": "默认",
     "title": "洞察由此开启。",
     "agents": "智能体",
     "agentsLabel": "智能体",
+    "agentsAuto": "智能体：自动",
     "agentsNone": "暂无智能体",
     "agentsLoading": "加载智能体中..."
   },
@@ -388,7 +392,9 @@
     "askFollowUp": "追问...",
     "agentsLabel": "智能体",
     "agentsNone": "暂无智能体",
-    "agentsLoading": "加载智能体中..."
+    "agentsLoading": "加载智能体中...",
+    "agentAuto": "自动",
+    "default": "默认"
   },
   "agentsView": {
     "title": "智能体",

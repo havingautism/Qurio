@@ -246,6 +246,10 @@
       "models": "Models",
       "noModels": "No models available for this provider.",
       "none": "None",
+      "sourceList": "List",
+      "sourceCustom": "Custom",
+      "custom": "Custom",
+      "customPlaceholder": "Enter model ID",
       "notSelected": "Not selected",
       "notFound": "Model not found"
     },

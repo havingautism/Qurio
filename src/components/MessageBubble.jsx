@@ -955,7 +955,8 @@ const MessageBubble = ({
                 {renderProviderIcon(providerMeta.id, {
                   size: 12,
                   alt: providerMeta.label,
-                  wrapperClassName: 'p-0 w-3 h-3',
+                  compact: true,
+                  wrapperClassName: 'w-3 h-3',
                   imgClassName: 'w-full h-full object-contain',
                 }) || (
                   <span className="text-[10px] font-semibold">

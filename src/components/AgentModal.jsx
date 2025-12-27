@@ -4,6 +4,7 @@ import { X, Info, Check, ChevronDown, RefreshCw } from 'lucide-react'
 import useScrollLock from '../hooks/useScrollLock'
 import EmojiDisplay from './EmojiDisplay'
 import CustomEmojiPicker from './CustomEmojiPicker'
+import Checkbox from './ui/Checkbox'
 import clsx from 'clsx'
 import { getModelsForProvider } from '../lib/models_api'
 import { useAppContext } from '../App'
@@ -113,6 +114,12 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
   const [availableProviders, setAvailableProviders] = useState([])
   const [defaultModelProvider, setDefaultModelProvider] = useState('')
   const [liteModelProvider, setLiteModelProvider] = useState('')
+  const [isDefaultProviderOpen, setIsDefaultProviderOpen] = useState(false)
+  const [isLiteProviderOpen, setIsLiteProviderOpen] = useState(false)
+  const [defaultModelSource, setDefaultModelSource] = useState('list')
+  const [liteModelSource, setLiteModelSource] = useState('list')
+  const [defaultCustomModel, setDefaultCustomModel] = useState('')
+  const [liteCustomModel, setLiteCustomModel] = useState('')
   const [modelsError, setModelsError] = useState('')
 
   // Dynamic Models State
@@ -154,6 +161,8 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
   const enthusiasmRef = useRef(null)
   const headingsRef = useRef(null)
   const emojisRef = useRef(null)
+  const defaultProviderRef = useRef(null)
+  const liteProviderRef = useRef(null)
 
   // State for error and saving
   const [isSaving, setIsSaving] = useState(false)
@@ -231,14 +240,11 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
         const hasAdvancedOverrides =
           (editingAgent.temperature !== null && editingAgent.temperature !== undefined) ||
           (resolvedTopP !== null && resolvedTopP !== undefined) ||
-          (editingAgent.frequencyPenalty !== null &&
-            editingAgent.frequencyPenalty !== undefined) ||
+          (editingAgent.frequencyPenalty !== null && editingAgent.frequencyPenalty !== undefined) ||
           (editingAgent.frequency_penalty !== null &&
             editingAgent.frequency_penalty !== undefined) ||
-          (editingAgent.presencePenalty !== null &&
-            editingAgent.presencePenalty !== undefined) ||
-          (editingAgent.presence_penalty !== null &&
-            editingAgent.presence_penalty !== undefined)
+          (editingAgent.presencePenalty !== null && editingAgent.presencePenalty !== undefined) ||
+          (editingAgent.presence_penalty !== null && editingAgent.presence_penalty !== undefined)
         const parsedDefaultModel = parseStoredModel(editingAgent.defaultModel)
         const parsedLiteModel = parseStoredModel(editingAgent.liteModel)
         setName(editingAgent.name)
@@ -251,8 +257,16 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
             parsedLiteModel.provider ||
             'gemini',
         )
-        setLiteModel(parsedLiteModel.modelId || '')
-        setDefaultModel(parsedDefaultModel.modelId || '')
+        const nextDefaultModel = parsedDefaultModel.modelId || ''
+        const nextLiteModel = parsedLiteModel.modelId || ''
+        setLiteModel(nextLiteModel)
+        setDefaultModel(nextDefaultModel)
+        setDefaultModelSource(editingAgent?.defaultModelSource || 'list')
+        setLiteModelSource(editingAgent?.liteModelSource || 'list')
+        setDefaultCustomModel(
+          editingAgent?.defaultModelSource === 'custom' ? nextDefaultModel : '',
+        )
+        setLiteCustomModel(editingAgent?.liteModelSource === 'custom' ? nextLiteModel : '')
         setDefaultModelProvider(parsedDefaultModel.provider || '')
         setLiteModelProvider(parsedLiteModel.provider || '')
         setResponseLanguage(
@@ -261,41 +275,46 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
             settings.llmAnswerLanguage ||
             'English',
         )
-        setBaseTone(editingAgent.baseTone || defaultAgent?.baseTone || settings.baseTone || 'technical')
+        setBaseTone(
+          editingAgent.baseTone || defaultAgent?.baseTone || settings.baseTone || 'technical',
+        )
         setTraits(editingAgent.traits || defaultAgent?.traits || settings.traits || 'default')
         setWarmth(editingAgent.warmth || defaultAgent?.warmth || settings.warmth || 'default')
         setEnthusiasm(
-          editingAgent.enthusiasm ||
-            defaultAgent?.enthusiasm ||
-            settings.enthusiasm ||
-            'default',
+          editingAgent.enthusiasm || defaultAgent?.enthusiasm || settings.enthusiasm || 'default',
         )
-        setHeadings(editingAgent.headings || defaultAgent?.headings || settings.headings || 'default')
+        setHeadings(
+          editingAgent.headings || defaultAgent?.headings || settings.headings || 'default',
+        )
         setEmojis(editingAgent.emojis || defaultAgent?.emojis || settings.emojis || 'default')
         setCustomInstruction(editingAgent.customInstruction || '')
         setTemperature(editingAgent.temperature ?? null)
         setTopP(resolvedTopP)
-        setFrequencyPenalty(
-          editingAgent.frequencyPenalty ?? editingAgent.frequency_penalty ?? null,
-        )
-        setPresencePenalty(
-          editingAgent.presencePenalty ?? editingAgent.presence_penalty ?? null,
-        )
+        setFrequencyPenalty(editingAgent.frequencyPenalty ?? editingAgent.frequency_penalty ?? null)
+        setPresencePenalty(editingAgent.presencePenalty ?? editingAgent.presence_penalty ?? null)
         setIsAdvancedOpen(!!hasAdvancedOverrides)
       } else {
         // Reset defaults
         setName('')
         setDescription('')
-        setPrompt(defaultAgent?.prompt || settings.systemPrompt || t('agents.defaults.systemPrompt'))
+        setPrompt(
+          defaultAgent?.prompt || settings.systemPrompt || t('agents.defaults.systemPrompt'),
+        )
         setEmoji('🤻')
         setProvider(defaultAgent?.provider || settings.apiProvider || 'gemini')
-        setLiteModel(
-          parseStoredModel(defaultAgent?.liteModel || settings.liteModel).modelId || '',
+        const nextLiteModel =
+          parseStoredModel(defaultAgent?.liteModel || settings.liteModel).modelId || ''
+        const nextDefaultModel =
+          parseStoredModel(defaultAgent?.defaultModel || settings.defaultModel).modelId || ''
+        setLiteModel(nextLiteModel)
+        setDefaultModel(nextDefaultModel)
+        setDefaultModelSource('list')
+        setLiteModelSource('list')
+        setDefaultCustomModel('')
+        setLiteCustomModel('')
+        setResponseLanguage(
+          defaultAgent?.responseLanguage || settings.llmAnswerLanguage || 'English',
         )
-        setDefaultModel(
-          parseStoredModel(defaultAgent?.defaultModel || settings.defaultModel).modelId || '',
-        )
-        setResponseLanguage(defaultAgent?.responseLanguage || settings.llmAnswerLanguage || 'English')
         setBaseTone(defaultAgent?.baseTone || settings.baseTone || 'technical')
         setTraits(defaultAgent?.traits || settings.traits || 'default')
         setWarmth(defaultAgent?.warmth || settings.warmth || 'default')
@@ -362,6 +381,8 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
         provider: derivedProvider,
         liteModel: encodeModelId(resolvedLiteProvider, liteModel),
         defaultModel: encodeModelId(resolvedDefaultProvider, defaultModel),
+        defaultModelSource,
+        liteModelSource,
         responseLanguage,
         baseTone,
         traits,
@@ -406,6 +427,10 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
       if (headingsRef.current && !headingsRef.current.contains(event.target))
         setIsHeadingsOpen(false)
       if (emojisRef.current && !emojisRef.current.contains(event.target)) setIsEmojisOpen(false)
+      if (defaultProviderRef.current && !defaultProviderRef.current.contains(event.target))
+        setIsDefaultProviderOpen(false)
+      if (liteProviderRef.current && !liteProviderRef.current.contains(event.target))
+        setIsLiteProviderOpen(false)
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
@@ -418,6 +443,8 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
     isEnthusiasmOpen,
     isHeadingsOpen,
     isEmojisOpen,
+    isDefaultProviderOpen,
+    isLiteProviderOpen,
   ])
 
   const renderDropdown = (
@@ -537,10 +564,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
   }
 
   const hasAdvancedOverrides =
-    temperature !== null ||
-    topP !== null ||
-    frequencyPenalty !== null ||
-    presencePenalty !== null
+    temperature !== null || topP !== null || frequencyPenalty !== null || presencePenalty !== null
 
   useEffect(() => {
     if (hasAdvancedOverrides) {
@@ -565,13 +589,31 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
     } else if (!liteModelProvider && availableProviders.length > 0) {
       setLiteModelProvider(availableProviders[0])
     }
-  }, [
-    availableProviders,
-    defaultModel,
-    groupedModels,
-    isOpen,
-    liteModel,
-  ])
+  }, [availableProviders, defaultModel, groupedModels, isOpen, liteModel])
+
+  useEffect(() => {
+    if (!defaultModel) return
+    if (defaultModelSource !== 'list') return
+    const existsInList = Object.values(groupedModels)
+      .flat()
+      .some(model => model.value === defaultModel)
+    if (!existsInList) {
+      setDefaultModelSource('custom')
+      setDefaultCustomModel(defaultModel)
+    }
+  }, [defaultModel, defaultModelSource, groupedModels])
+
+  useEffect(() => {
+    if (!liteModel) return
+    if (liteModelSource !== 'list') return
+    const existsInList = Object.values(groupedModels)
+      .flat()
+      .some(model => model.value === liteModel)
+    if (!existsInList) {
+      setLiteModelSource('custom')
+      setLiteCustomModel(liteModel)
+    }
+  }, [liteModel, liteModelSource, groupedModels])
 
   // Keep lite provider independent so users can mix providers between default and lite models.
 
@@ -582,55 +624,129 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
     onChange,
     activeProvider,
     onProviderChange,
+    isProviderOpen,
+    setIsProviderOpen,
+    providerRef,
+    customValue,
+    onCustomValueChange,
+    modelSource,
+    onModelSourceChange,
+    sourceName,
     allowEmpty = false,
     hideProviderSelector = false,
   }) => {
     const providers = availableProviders.length > 0 ? availableProviders : PROVIDER_KEYS
     const activeModels = groupedModels[activeProvider] || []
     const selectedLabel = getModelLabel(value)
+    const showList = modelSource === 'list'
+    const displayLabel = showList
+      ? selectedLabel
+      : customValue || value || t('agents.model.custom')
 
     return (
       <div className="space-y-2">
         <div className="flex items-center justify-between gap-2">
-          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{label}</label>
-          <span className="text-xs text-gray-500 dark:text-gray-400 truncate">{selectedLabel}</span>
+          <div className="flex items-center gap-3">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{label}</label>
+            <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <input
+                  type="radio"
+                  name={sourceName}
+                  checked={modelSource === 'list'}
+                  onChange={() => {
+                    onModelSourceChange('list')
+                    const existsInList = activeModels.some(m => m.value === value)
+                    if (!existsInList) onChange('')
+                  }}
+                  className="h-3 w-3"
+                />
+                <span>{t('agents.model.sourceList')}</span>
+              </label>
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <input
+                  type="radio"
+                  name={sourceName}
+                  checked={modelSource === 'custom'}
+                  onChange={() => {
+                    onModelSourceChange('custom')
+                    const nextValue = value || customValue || ''
+                    onCustomValueChange(nextValue)
+                    onChange(nextValue)
+                  }}
+                  className="h-3 w-3"
+                />
+                <span>{t('agents.model.sourceCustom')}</span>
+              </label>
+            </div>
+          </div>
+          <span className="text-xs text-gray-500 dark:text-gray-400 truncate">{displayLabel}</span>
         </div>
         <div className="rounded-lg border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-3">
-          <div className={`grid gap-3 ${hideProviderSelector ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-[180px_1fr]'}`}>
+          <div className="flex flex-col gap-3">
             {!hideProviderSelector && (
-            <div className="flex flex-col gap-2">
-              <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                {t('agents.model.providers')}
-              </span>
-              <div className="flex md:flex-col gap-2 overflow-x-auto md:overflow-visible">
-                {providers.map(key => (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => onProviderChange(key)}
+              <div className="flex flex-col gap-2 relative" ref={providerRef}>
+                <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                  {t('agents.model.providers')}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsProviderOpen(!isProviderOpen)}
+                  className="w-full flex items-center justify-between px-3 py-2 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                >
+                  <div className="flex items-center gap-3">
+                    {renderProviderIcon(activeProvider, {
+                      size: 16,
+                      alt: t(`settings.providers.${activeProvider}`),
+                    })}
+                    <span>{t(`settings.providers.${activeProvider}`)}</span>
+                  </div>
+                  <ChevronDown
+                    size={16}
                     className={clsx(
-                      'flex items-center gap-2 px-3 py-2 rounded-lg text-sm border transition-colors whitespace-nowrap',
-                      activeProvider === key
-                        ? 'border-primary-500 bg-primary-50 text-primary-700 dark:bg-primary-900/20 dark:text-primary-300'
-                        : 'border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100 dark:border-zinc-700 dark:bg-zinc-800 dark:text-gray-300 dark:hover:bg-zinc-700',
+                      'text-gray-400 transition-transform',
+                      isProviderOpen && 'rotate-180',
                     )}
-                  >
-                    {renderProviderIcon(key, { size: 14, className: 'shrink-0' })}
-                    <span>{t(`settings.providers.${key}`)}</span>
-                  </button>
-                ))}
+                  />
+                </button>
+                {isProviderOpen && (
+                  <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg shadow-xl z-20 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+                    {providers.map(key => (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => {
+                          onProviderChange(key)
+                          setIsProviderOpen(false)
+                        }}
+                        className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
+                      >
+                        <div className="flex items-center gap-3">
+                          {renderProviderIcon(key, {
+                            size: 16,
+                            alt: t(`settings.providers.${key}`),
+                          })}
+                          <span>{t(`settings.providers.${key}`)}</span>
+                        </div>
+                        {activeProvider === key && <Check size={14} className="text-primary-500" />}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
-            </div>
             )}
             <div className="flex flex-col gap-2">
               <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
                 {t('agents.model.models')}
               </span>
-              <div className="max-h-56 overflow-y-auto rounded-lg border border-gray-200 dark:border-zinc-700">
+              {showList ? (
+                <div className="max-h-56 overflow-y-auto rounded-lg border border-gray-200 dark:border-zinc-700">
                 {allowEmpty && (
                   <button
                     type="button"
-                    onClick={() => onChange('')}
+                    onClick={() => {
+                      onChange('')
+                    }}
                     className={clsx(
                       'w-full text-left px-4 py-2 text-sm flex items-center justify-between',
                       value === ''
@@ -647,7 +763,9 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                     <button
                       key={model.value}
                       type="button"
-                      onClick={() => onChange(model.value)}
+                      onClick={() => {
+                        onChange(model.value)
+                      }}
                       className={clsx(
                         'w-full text-left px-4 py-2 text-sm flex items-center justify-between gap-2',
                         value === model.value
@@ -672,9 +790,20 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                   </div>
                 )}
               </div>
+              ) : (
+                <input
+                  value={customValue}
+                  onChange={e => {
+                    const nextValue = e.target.value
+                    onCustomValueChange(nextValue)
+                    onChange(nextValue)
+                  }}
+                  placeholder={t('agents.model.customPlaceholder')}
+                  className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                />
+              )}
             </div>
           </div>
-          {helper && <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">{helper}</p>}
         </div>
       </div>
     )
@@ -698,26 +827,23 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-gray-800 dark:text-gray-100">
-                {label}
-              </span>
+              <span className="text-sm font-medium text-gray-800 dark:text-gray-100">{label}</span>
               <span className="px-2 py-0.5 text-xs rounded-md bg-gray-100 dark:bg-zinc-800 text-gray-500 dark:text-gray-400 font-mono">
                 {param}
               </span>
             </div>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{description}</p>
           </div>
-          <input
-            type="checkbox"
+          <Checkbox
             checked={isEnabled}
-            onChange={e => {
-              if (e.target.checked) {
+            onChange={checked => {
+              if (checked) {
                 onChange(defaultValue)
               } else {
                 onChange(null)
               }
             }}
-            className="h-4 w-4 shrink-0"
+            className="shrink-0"
           />
         </div>
         <div className="flex items-center gap-3">
@@ -757,7 +883,9 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
   if (!isOpen) return null
 
   const displayName = editingAgent?.isDefault ? t('agents.defaults.name') : name
-  const displayDescription = editingAgent?.isDefault ? t('agents.defaults.description') : description
+  const displayDescription = editingAgent?.isDefault
+    ? t('agents.defaults.description')
+    : description
 
   return (
     <div className="fixed inset-0 z-100 flex items-start md:items-center justify-center bg-black/50 backdrop-blur-sm p-0 md:p-4 overflow-y-auto md:overflow-hidden">
@@ -796,63 +924,60 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6">
           {activeTab === 'general' && (
-            <div className="space-y-6">
+            <div className="flex flex-col gap-6 h-full">
               <div className="flex flex-col gap-2">
                 <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  {t('agents.general.avatar')}
+                  {t('agents.general.avatar')} & {t('agents.general.name')}
                 </label>
-                <div className="relative inline-block w-fit">
-                  <button
-                    ref={buttonRef}
-                    onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                    className="w-16 h-16 rounded-2xl bg-gray-100 dark:bg-zinc-800 flex items-center justify-center text-3xl hover:bg-gray-200 dark:hover:bg-zinc-700 transition-colors border border-gray-200 dark:border-zinc-700"
-                  >
-                    <EmojiDisplay emoji={emoji} />
-                  </button>
-                  {showEmojiPicker && (
-                    <div
-                      ref={pickerRef}
-                      className="absolute top-full left-0 mt-2 z-50 rounded-xl overflow-hidden shadow-2xl"
+                <div className="flex items-center gap-3">
+                  <div className="relative inline-block w-fit">
+                    <button
+                      ref={buttonRef}
+                      onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                      className="w-12 h-12 rounded-xl bg-gray-100 dark:bg-zinc-800 flex items-center justify-center text-2xl hover:bg-gray-200 dark:hover:bg-zinc-700 transition-colors border border-gray-200 dark:border-zinc-700"
                     >
-                      <CustomEmojiPicker
-                        onEmojiSelect={e => {
-                          setEmoji(e?.native || e)
-                          setShowEmojiPicker(false)
-                        }}
-                        onClose={() => setShowEmojiPicker(false)}
-                      />
-                    </div>
-                  )}
+                      <EmojiDisplay emoji={emoji} />
+                    </button>
+                    {showEmojiPicker && (
+                      <div
+                        ref={pickerRef}
+                        className="absolute top-full left-0 mt-2 z-50 rounded-xl overflow-hidden shadow-2xl"
+                      >
+                        <CustomEmojiPicker
+                          onEmojiSelect={e => {
+                            setEmoji(e?.native || e)
+                            setShowEmojiPicker(false)
+                          }}
+                          onClose={() => setShowEmojiPicker(false)}
+                        />
+                      </div>
+                    )}
+                  </div>
+                  <input
+                    value={displayName}
+                    onChange={e => setName(e.target.value)}
+                    placeholder={t('agents.general.namePlaceholder')}
+                    disabled={editingAgent?.isDefault}
+                    className="flex-1 px-4 py-2.5 h-12 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                  />
                 </div>
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  {t('agents.general.name')}
-                </label>
-                <input
-                  value={displayName}
-                  onChange={e => setName(e.target.value)}
-                  placeholder={t('agents.general.namePlaceholder')}
-                  disabled={editingAgent?.isDefault}
-                  className="w-full px-4 py-2 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-                />
               </div>
 
               <div className="flex flex-col gap-2">
                 <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                   {t('agents.general.description')}
                 </label>
-                <input
+                <textarea
                   value={displayDescription}
                   onChange={e => setDescription(e.target.value)}
                   placeholder={t('agents.general.descriptionPlaceholder')}
                   disabled={editingAgent?.isDefault}
-                  className="w-full px-4 py-2 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                  rows={2}
+                  className="w-full px-4 py-2 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20 resize-none"
                 />
               </div>
 
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-2 flex-1 min-h-0">
                 <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                   {t('agents.general.systemPrompt')}
                 </label>
@@ -861,7 +986,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                   onChange={e => setPrompt(e.target.value)}
                   placeholder={t('agents.general.systemPromptPlaceholder')}
                   rows={6}
-                  className="w-full px-4 py-2 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20 resize-none font-mono text-sm"
+                  className="w-full flex-1 min-h-0 px-4 py-2 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20 resize-none font-mono text-sm"
                 />
               </div>
             </div>
@@ -910,6 +1035,14 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                     onChange: setDefaultModel,
                     activeProvider: defaultModelProvider || provider,
                     onProviderChange: setDefaultModelProvider,
+                    isProviderOpen: isDefaultProviderOpen,
+                    setIsProviderOpen: setIsDefaultProviderOpen,
+                    providerRef: defaultProviderRef,
+                    customValue: defaultCustomModel,
+                    onCustomValueChange: setDefaultCustomModel,
+                    modelSource: defaultModelSource,
+                    onModelSourceChange: setDefaultModelSource,
+                    sourceName: 'default-model-source',
                   })}
 
                   {renderModelPicker({
@@ -919,6 +1052,14 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                     onChange: setLiteModel,
                     activeProvider: liteModelProvider || provider,
                     onProviderChange: setLiteModelProvider,
+                    isProviderOpen: isLiteProviderOpen,
+                    setIsProviderOpen: setIsLiteProviderOpen,
+                    providerRef: liteProviderRef,
+                    customValue: liteCustomModel,
+                    onCustomValueChange: setLiteCustomModel,
+                    modelSource: liteModelSource,
+                    onModelSourceChange: setLiteModelSource,
+                    sourceName: 'lite-model-source',
                     allowEmpty: true,
                     hideProviderSelector: false,
                   })}
@@ -1045,14 +1186,19 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                   }}
                   className={clsx(
                     'w-full flex items-center justify-between px-4 py-3 text-sm font-medium',
-                    isAdvancedOpen ? 'text-gray-900 dark:text-gray-100' : 'text-gray-600 dark:text-gray-400',
+                    isAdvancedOpen
+                      ? 'text-gray-900 dark:text-gray-100'
+                      : 'text-gray-600 dark:text-gray-400',
                   )}
                 >
                   <span>{t('agents.advanced.title')}</span>
                   <div className="flex items-center gap-3">
                     <ChevronDown
                       size={16}
-                      className={clsx('text-gray-400 transition-transform', isAdvancedOpen && 'rotate-180')}
+                      className={clsx(
+                        'text-gray-400 transition-transform',
+                        isAdvancedOpen && 'rotate-180',
+                      )}
                     />
                   </div>
                 </button>

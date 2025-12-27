@@ -5,6 +5,7 @@ import SiliconCloudIcon from '../assets/siliconcloud-color.svg?url'
 import DeepSeekIcon from '../assets/deepseek-color.svg?url'
 import QwenIcon from '../assets/qwen-color.svg?url'
 import KimiIcon from '../assets/kimi-icon.svg?url'
+import GoogleIcon from '../assets/google-color.svg?url'
 // import GLMIcon from '../assets/glm-color.svg?url'
 import ChatGLMIcon from '../assets/chatglm-color.svg?url'
 import ZhipuIcon from '../assets/zhipu-color.svg?url'
@@ -12,7 +13,7 @@ import ZhipuIcon from '../assets/zhipu-color.svg?url'
 const DEFAULT_ICON_BG_CLASS = 'bg-[#f6f6f6b8] dark:bg-[#0d0d0d]'
 
 export const PROVIDER_ICON_META = {
-  gemini: { src: GeminiIcon, alt: 'Gemini', bgClassName: DEFAULT_ICON_BG_CLASS },
+  gemini: { src: GoogleIcon, alt: 'Gemini', bgClassName: DEFAULT_ICON_BG_CLASS },
   openai_compatibility: { src: OpenAIIcon, alt: 'OpenAI', bgClassName: 'bg-[#f6f6f6b8]' },
   siliconflow: { src: SiliconCloudIcon, alt: 'SiliconFlow', bgClassName: DEFAULT_ICON_BG_CLASS },
   glm: { src: ZhipuIcon, alt: 'GLM', bgClassName: DEFAULT_ICON_BG_CLASS },
@@ -27,12 +28,11 @@ export const renderProviderIcon = (provider, options = {}) => {
   const iconMeta = PROVIDER_ICON_META[provider]
   if (!iconMeta?.src) return null
 
-  const { size = 16, alt, wrapperClassName = '', imgClassName = '' } = options
-  const wrapperClasses = [
-    'flex items-center justify-center rounded-full p-2 shrink-0 shadow-inner',
-    iconMeta.bgClassName,
-    wrapperClassName,
-  ]
+  const { size = 16, alt, wrapperClassName = '', imgClassName = '', compact = false } = options
+  const baseClasses = compact
+    ? 'flex items-center justify-center rounded-full shrink-0'
+    : 'flex items-center justify-center rounded-full p-2 shrink-0 shadow-inner'
+  const wrapperClasses = [baseClasses, iconMeta.bgClassName, wrapperClassName]
     .filter(Boolean)
     .join(' ')
   const resolvedImgClassName =

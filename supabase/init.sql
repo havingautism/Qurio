@@ -36,6 +36,8 @@ CREATE TABLE IF NOT EXISTS public.agents (
   description TEXT,
   prompt TEXT,
   provider TEXT,
+  default_model_source TEXT NOT NULL DEFAULT 'list',
+  lite_model_source TEXT NOT NULL DEFAULT 'list',
   lite_model TEXT,
   default_model TEXT,
   response_language TEXT,

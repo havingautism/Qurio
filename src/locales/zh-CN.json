@@ -246,6 +246,10 @@
       "models": "模型",
       "noModels": "未找到模型",
       "none": "无",
+      "sourceList": "列表",
+      "sourceCustom": "自定义",
+      "custom": "自定义",
+      "customPlaceholder": "请输入模型 ID",
       "notSelected": "未选择",
       "notFound": "找不到模型"
     },

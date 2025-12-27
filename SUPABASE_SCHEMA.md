@@ -26,6 +26,8 @@ Stores reusable agent presets. These can be bound to multiple spaces later.
 | `description`        | text        | Optional summary                    |
 | `prompt`             | text        | System prompt template              |
 | `provider`           | text        | Default provider for the agent      |
+| `default_model_source` | text      | `list` or `custom`                  |
+| `lite_model_source`    | text      | `list` or `custom`                  |
 | `lite_model`         | text        | Optional lightweight model override |
 | `default_model`      | text        | Default model id                    |
 | `response_language`  | text        | LLM answer language preset          |

@@ -187,6 +187,25 @@ const resolveAgentForSpace = (agentName, space, spaceAgents, agents) => {
   )
 }
 
+const getSpaceDefaultAgent = async (space, agents) => {
+  if (!space?.id) return null
+  try {
+    const { data } = await listSpaceAgents(space.id)
+    const primaryAgentId = data?.find(item => item.is_primary)?.agent_id || null
+    if (!primaryAgentId) return null
+    return (agents || []).find(agent => String(agent.id) === String(primaryAgentId)) || null
+  } catch (error) {
+    console.error('Failed to get space default agent:', error)
+    return null
+  }
+}
+
+const resolveFallbackAgent = async (space, agents) => {
+  const spaceDefault = await getSpaceDefaultAgent(space, agents)
+  if (spaceDefault) return spaceDefault
+  return (agents || []).find(agent => agent.isDefault) || null
+}
+
 /**
  * Builds system prompt from Agent configuration
  * Combines agent prompt with personalization settings
@@ -1257,32 +1276,12 @@ const useChatStore = create((set, get) => ({
             set({ conversationTitle: title })
           }
 
-          // Fallback: if AI didn't return an agent but returned a space, use space's default agent
-          if (!agent && space) {
-            try {
-              const { data: spaceAgentData } = await listSpaceAgents(space.id)
-              const primaryAgentId = spaceAgentData?.find(item => item.is_primary)?.agent_id || null
-              if (primaryAgentId) {
-                const matchedAgent = (agents || []).find(
-                  agent => String(agent.id) === String(primaryAgentId),
-                )
-                if (matchedAgent) {
-                  resolvedAgent = matchedAgent
-                  callbacks?.onAgentResolved?.(matchedAgent)
-                }
-              }
-            } catch (error) {
-              console.error('Failed to get space default agent:', error)
-            }
-          }
-
-          // Final fallback: if still no agent, use global default agent
-          // This covers both cases: (1) space has no agents, (2) no space was selected
+          // Fallback: use space default agent, then global default agent
           if (!resolvedAgent) {
-            const globalDefaultAgent = agents?.find(agent => agent.isDefault)
-            if (globalDefaultAgent) {
-              resolvedAgent = globalDefaultAgent
-              callbacks?.onAgentResolved?.(globalDefaultAgent)
+            const fallbackAgent = await resolveFallbackAgent(space, agents)
+            if (fallbackAgent) {
+              resolvedAgent = fallbackAgent
+              callbacks?.onAgentResolved?.(fallbackAgent)
             }
           }
         } else if (shouldPreselectTitleForManual) {
@@ -1292,32 +1291,12 @@ const useChatStore = create((set, get) => ({
             set({ conversationTitle: title })
           }
 
-          // For manual space selection, if no agent is selected yet, use space's default agent
-          const currentSpace = spaceInfo?.selectedSpace
-          if (!resolvedAgent && currentSpace) {
-            try {
-              const { data: spaceAgentData } = await listSpaceAgents(currentSpace.id)
-              const primaryAgentId = spaceAgentData?.find(item => item.is_primary)?.agent_id || null
-              if (primaryAgentId) {
-                const matchedAgent = (agents || []).find(
-                  agent => String(agent.id) === String(primaryAgentId),
-                )
-                if (matchedAgent) {
-                  resolvedAgent = matchedAgent
-                  callbacks?.onAgentResolved?.(matchedAgent)
-                }
-              }
-            } catch (error) {
-              console.error('Failed to get space default agent:', error)
-            }
-          }
-
-          // Final fallback: if still no agent, use global default agent
+          // For manual space selection, fallback to space default agent, then global default
           if (!resolvedAgent) {
-            const globalDefaultAgent = agents?.find(agent => agent.isDefault)
-            if (globalDefaultAgent) {
-              resolvedAgent = globalDefaultAgent
-              callbacks?.onAgentResolved?.(globalDefaultAgent)
+            const fallbackAgent = await resolveFallbackAgent(spaceInfo?.selectedSpace, agents)
+            if (fallbackAgent) {
+              resolvedAgent = fallbackAgent
+              callbacks?.onAgentResolved?.(fallbackAgent)
             }
           }
         }
@@ -1379,34 +1358,12 @@ const useChatStore = create((set, get) => ({
           }
         }
 
-        // Fallback: if AI didn't return an agent, use space's default agent or global default agent
+        // Fallback: space default agent, then global default agent
         if (!agentPreselected && !resolvedAgent) {
-          if (currentSpaceForAgent) {
-            // Try to use the space's default agent (is_primary)
-            try {
-              const { data: spaceAgentData } = await listSpaceAgents(currentSpaceForAgent.id)
-              const primaryAgentId = spaceAgentData?.find(item => item.is_primary)?.agent_id || null
-              if (primaryAgentId) {
-                const matchedAgent = (agents || []).find(
-                  agent => String(agent.id) === String(primaryAgentId),
-                )
-                if (matchedAgent) {
-                  resolvedAgent = matchedAgent
-                  callbacks?.onAgentResolved?.(matchedAgent)
-                }
-              }
-            } catch (error) {
-              console.error('Failed to get space default agent:', error)
-            }
-          }
-
-          // If still no agent and no space, use global default agent as final fallback
-          if (!resolvedAgent && !currentSpaceForAgent) {
-            const globalDefaultAgent = agents?.find(agent => agent.isDefault)
-            if (globalDefaultAgent) {
-              resolvedAgent = globalDefaultAgent
-              callbacks?.onAgentResolved?.(globalDefaultAgent)
-            }
+          const fallbackAgent = await resolveFallbackAgent(currentSpaceForAgent, agents)
+          if (fallbackAgent) {
+            resolvedAgent = fallbackAgent
+            callbacks?.onAgentResolved?.(fallbackAgent)
           }
         }
       } catch (error) {
@@ -1417,27 +1374,11 @@ const useChatStore = create((set, get) => ({
     }
 
     // Step 5: Final fallback for agent (defensive)
-    // This should rarely be needed since we've already handled fallback in previous steps,
-    // but it serves as a safety net for edge cases.
-    if (
-      !spaceInfo?.isManualSpaceSelection &&
-      !resolvedAgent &&
-      resolvedSpaceInfo?.selectedSpace?.id
-    ) {
-      try {
-        const { data } = await listSpaceAgents(resolvedSpaceInfo.selectedSpace.id)
-        const primaryAgentId = data?.find(item => item.is_primary)?.agent_id || null
-        if (primaryAgentId) {
-          const matchedAgent = (agents || []).find(
-            agent => String(agent.id) === String(primaryAgentId),
-          )
-          if (matchedAgent) {
-            resolvedAgent = matchedAgent
-            callbacks?.onAgentResolved?.(matchedAgent)
-          }
-        }
-      } catch (error) {
-        console.error('Failed to resolve default agent:', error)
+    if (!resolvedAgent) {
+      const fallbackAgent = await resolveFallbackAgent(resolvedSpaceInfo?.selectedSpace, agents)
+      if (fallbackAgent) {
+        resolvedAgent = fallbackAgent
+        callbacks?.onAgentResolved?.(fallbackAgent)
       }
     }
 

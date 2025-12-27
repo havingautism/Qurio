@@ -629,6 +629,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
   const renderModelPicker = ({
     label,
     helper,
+    hint,
     value,
     onChange,
     activeProvider,
@@ -654,40 +655,47 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
 
     return (
       <div className="space-y-2">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-3">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{label}</label>
-            <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
-              <label className="flex items-center gap-1.5 cursor-pointer">
-                <input
-                  type="radio"
-                  name={sourceName}
-                  checked={modelSource === 'list'}
-                  onChange={() => {
-                    onModelSourceChange('list')
-                    const existsInList = activeModels.some(m => m.value === value)
-                    if (!existsInList) onChange('')
-                  }}
-                  className="h-3 w-3"
-                />
-                <span>{t('agents.model.sourceList')}</span>
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-3">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                {label}
               </label>
-              <label className="flex items-center gap-1.5 cursor-pointer">
-                <input
-                  type="radio"
-                  name={sourceName}
-                  checked={modelSource === 'custom'}
-                  onChange={() => {
-                    onModelSourceChange('custom')
-                    const nextValue = value || customValue || ''
-                    onCustomValueChange(nextValue)
-                    onChange(nextValue)
-                  }}
-                  className="h-3 w-3"
-                />
-                <span>{t('agents.model.sourceCustom')}</span>
-              </label>
+              <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <input
+                    type="radio"
+                    name={sourceName}
+                    checked={modelSource === 'list'}
+                    onChange={() => {
+                      onModelSourceChange('list')
+                      const existsInList = activeModels.some(m => m.value === value)
+                      if (!existsInList) onChange('')
+                    }}
+                    className="h-3 w-3"
+                  />
+                  <span>{t('agents.model.sourceList')}</span>
+                </label>
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <input
+                    type="radio"
+                    name={sourceName}
+                    checked={modelSource === 'custom'}
+                    onChange={() => {
+                      onModelSourceChange('custom')
+                      const nextValue = value || customValue || ''
+                      onCustomValueChange(nextValue)
+                      onChange(nextValue)
+                    }}
+                    className="h-3 w-3"
+                  />
+                  <span>{t('agents.model.sourceCustom')}</span>
+                </label>
+              </div>
             </div>
+            {hint && (
+              <p className="text-xs text-gray-500 dark:text-gray-400 max-w-2xl">{hint}</p>
+            )}
           </div>
           <span className="text-xs text-gray-500 dark:text-gray-400 truncate">{displayLabel}</span>
         </div>
@@ -1057,6 +1065,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                   {renderModelPicker({
                     label: t('agents.model.liteModel'),
                     helper: t('agents.model.liteHelper'),
+                    hint: t('agents.model.liteHint'),
                     value: liteModel,
                     onChange: setLiteModel,
                     activeProvider: liteModelProvider || provider,

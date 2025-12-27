@@ -236,7 +236,7 @@
       "systemPrompt": "Respond concisely with a friendly tone and add relevant emojis (2-4) to each reply while keeping clarity and avoiding repetition."
     },
     "model": {
-      "crossProviderTitle": "Cross-Provider Selection",
+      "crossProviderTitle": "API Provider",
       "crossProviderHint": "Pick any model from providers you have configured in Settings. The agent will use the correct provider automatically.",
       "loading": "Loading available models...",
       "noProvidersTitle": "No providers configured yet",
@@ -248,6 +248,7 @@
       "defaultHelper": "Primary chat responses",
       "liteModel": "Lite Model",
       "liteHelper": "Optional, faster responses for lightweight tasks",
+      "liteHint": "Use a model that supports JSON structured output; lightweight and fast models are recommended.",
       "providers": "Providers",
       "models": "Models",
       "noModels": "No models available for this provider.",

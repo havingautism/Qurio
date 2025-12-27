@@ -159,14 +159,32 @@ const ChatInterface = ({
       const hasDefault = list.some(agent => String(agent.id) === String(defaultAgent.id))
       if (!hasDefault) list.unshift(defaultAgent)
     }
+    if (selectedAgentId) {
+      const hasSelected = list.some(agent => String(agent.id) === String(selectedAgentId))
+      if (!hasSelected) {
+        const selected = appAgents.find(agent => String(agent.id) === String(selectedAgentId))
+        if (selected) list.unshift(selected)
+      }
+    }
     return list
-  }, [spaceAgents, defaultAgent])
+  }, [spaceAgents, defaultAgent, selectedAgentId, appAgents])
 
   const selectedAgent = React.useMemo(() => {
     const agent =
       selectableAgents.find(agent => String(agent.id) === String(selectedAgentId)) || null
     return agent
   }, [selectableAgents, selectedAgentId])
+
+  useEffect(() => {
+    const lastAgentMessage = [...messages]
+      .reverse()
+      .find(msg => msg.role === 'ai' && msg.agentId)
+    const nextAgentId = lastAgentMessage?.agentId || null
+    if (nextAgentId && String(nextAgentId) !== String(selectedAgentId)) {
+      setSelectedAgentId(nextAgentId)
+      setPendingAgentId(nextAgentId)
+    }
+  }, [messages, selectedAgentId])
 
   const isAgentResolving = isAgentsLoading || pendingAgentId !== null
   const baseAgentsLoadingLabel = t('chatInterface.agentsLoading')
@@ -528,6 +546,9 @@ const ChatInterface = ({
         if (!isMounted) return
         setSpaceAgentIds([])
         setSpacePrimaryAgentId(null)
+        if (!pendingAgentId && !selectedAgentId) {
+          setSelectedAgentId(defaultAgent?.id || null)
+        }
         setIsAgentsLoading(false)
         return
       }
@@ -562,8 +583,9 @@ const ChatInterface = ({
 
   useEffect(() => {
     if (!displaySpace?.id) {
-      setSelectedAgentId(defaultAgent?.id || null)
-      setPendingAgentId(null)
+      if (!pendingAgentId && !selectedAgentId) {
+        setSelectedAgentId(defaultAgent?.id || null)
+      }
       return
     }
     if (isAgentsLoading) return
@@ -920,8 +942,10 @@ const ChatInterface = ({
           },
           onAgentResolved: agent => {
             const nextAgentId = agent?.id || null
-            setSelectedAgentId(nextAgentId)
             setPendingAgentId(nextAgentId)
+            if (displaySpace?.id) {
+              setSelectedAgentId(nextAgentId)
+            }
           },
         },
         spaces,

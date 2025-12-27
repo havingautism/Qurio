@@ -1276,8 +1276,9 @@ const useChatStore = create((set, get) => ({
             }
           }
 
-          // Final fallback: if still no agent and no space was selected, use global default agent
-          if (!resolvedAgent && !space) {
+          // Final fallback: if still no agent, use global default agent
+          // This covers both cases: (1) space has no agents, (2) no space was selected
+          if (!resolvedAgent) {
             const globalDefaultAgent = agents?.find(agent => agent.isDefault)
             if (globalDefaultAgent) {
               resolvedAgent = globalDefaultAgent

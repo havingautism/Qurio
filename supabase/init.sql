@@ -19,7 +19,6 @@ CREATE TABLE IF NOT EXISTS public.spaces (
   emoji TEXT NOT NULL DEFAULT '',
   label TEXT NOT NULL,
   description TEXT,
-  prompt TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -28,10 +27,44 @@ CREATE TRIGGER trg_spaces_updated_at
 BEFORE UPDATE ON public.spaces
 FOR EACH ROW EXECUTE PROCEDURE public.set_updated_at();
 
--- 2) Conversations (chat sessions)
+-- 2) Agents
+CREATE TABLE IF NOT EXISTS public.agents (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  is_default BOOLEAN NOT NULL DEFAULT FALSE,
+  emoji TEXT NOT NULL DEFAULT '',
+  name TEXT NOT NULL,
+  description TEXT,
+  prompt TEXT,
+  provider TEXT,
+  lite_model TEXT,
+  default_model TEXT,
+  response_language TEXT,
+  base_tone TEXT,
+  traits TEXT,
+  warmth TEXT,
+  enthusiasm TEXT,
+  headings TEXT,
+  emojis TEXT,
+  custom_instruction TEXT,
+  temperature DOUBLE PRECISION,
+  top_p DOUBLE PRECISION,
+  frequency_penalty DOUBLE PRECISION,
+  presence_penalty DOUBLE PRECISION,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_agents_created_at ON public.agents(created_at DESC);
+
+CREATE TRIGGER trg_agents_updated_at
+BEFORE UPDATE ON public.agents
+FOR EACH ROW EXECUTE PROCEDURE public.set_updated_at();
+
+-- 3) Conversations (chat sessions)
 CREATE TABLE IF NOT EXISTS public.conversations (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   space_id UUID REFERENCES public.spaces(id) ON DELETE SET NULL,
+  last_agent_id UUID REFERENCES public.agents(id) ON DELETE SET NULL,
   title TEXT NOT NULL DEFAULT 'New Conversation',
   api_provider TEXT NOT NULL DEFAULT 'gemini',
   is_search_enabled BOOLEAN NOT NULL DEFAULT FALSE,
@@ -50,7 +83,7 @@ CREATE TRIGGER trg_conversations_updated_at
 BEFORE UPDATE ON public.conversations
 FOR EACH ROW EXECUTE PROCEDURE public.set_updated_at();
 
--- 3) Conversation messages
+-- 4) Conversation messages
 CREATE TABLE IF NOT EXISTS public.conversation_messages (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   conversation_id UUID NOT NULL REFERENCES public.conversations(id) ON DELETE CASCADE,
@@ -58,6 +91,10 @@ CREATE TABLE IF NOT EXISTS public.conversation_messages (
   content JSONB NOT NULL,
   provider TEXT,
   model TEXT,
+  agent_id UUID,
+  agent_name TEXT,
+  agent_emoji TEXT,
+  agent_is_default BOOLEAN NOT NULL DEFAULT FALSE,
   thinking_process TEXT,
   tool_calls JSONB,
   related_questions JSONB,
@@ -69,7 +106,7 @@ CREATE TABLE IF NOT EXISTS public.conversation_messages (
 CREATE INDEX IF NOT EXISTS idx_messages_conversation_created_at
   ON public.conversation_messages(conversation_id, created_at);
 
--- 4) Conversation events (optional audit of mid-session state changes)
+-- 5) Conversation events (optional audit of mid-session state changes)
 CREATE TABLE IF NOT EXISTS public.conversation_events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   conversation_id UUID NOT NULL REFERENCES public.conversations(id) ON DELETE CASCADE,
@@ -81,7 +118,7 @@ CREATE TABLE IF NOT EXISTS public.conversation_events (
 CREATE INDEX IF NOT EXISTS idx_events_conversation_created_at
   ON public.conversation_events(conversation_id, created_at);
 
--- 5) Attachments (files/images tied to messages)
+-- 6) Attachments (files/images tied to messages)
 CREATE TABLE IF NOT EXISTS public.attachments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   message_id UUID NOT NULL REFERENCES public.conversation_messages(id) ON DELETE CASCADE,
@@ -91,3 +128,17 @@ CREATE TABLE IF NOT EXISTS public.attachments (
 );
 
 CREATE INDEX IF NOT EXISTS idx_attachments_message_id ON public.attachments(message_id);
+
+-- 7) Space <-> Agents (many-to-many binding)
+CREATE TABLE IF NOT EXISTS public.space_agents (
+  space_id UUID NOT NULL REFERENCES public.spaces(id) ON DELETE CASCADE,
+  agent_id UUID NOT NULL REFERENCES public.agents(id) ON DELETE CASCADE,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  is_primary BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (space_id, agent_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_space_agents_agent_id ON public.space_agents(agent_id);
+CREATE INDEX IF NOT EXISTS idx_space_agents_space_order
+  ON public.space_agents(space_id, sort_order);

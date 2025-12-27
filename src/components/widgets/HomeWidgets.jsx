@@ -6,7 +6,7 @@ import {
   MoreHorizontal,
   Github,
   Youtube,
-  Bot,
+  Smile,
   Code,
   BookOpen,
   Terminal,
@@ -38,7 +38,11 @@ const NoteWidget = () => {
   const [note, setNote] = useState('')
 
   return (
-    <WidgetCard title={t('views.widgets.noteTitle')} action={<MoreHorizontal size={16} />} className="h-full min-h-[160px]">
+    <WidgetCard
+      title={t('views.widgets.noteTitle')}
+      action={<MoreHorizontal size={16} />}
+      className="h-full min-h-[160px]"
+    >
       <textarea
         value={note}
         onChange={e => setNote(e.target.value)}
@@ -69,11 +73,11 @@ const ShortcutsWidget = () => {
     >
       <div className="grid grid-cols-4 gap-4 place-items-center h-full">
         <ShortcutItem icon={Terminal} color="text-emerald-500" />
-        <ShortcutItem icon={Bot} color="text-sky-500" />
+        <ShortcutItem icon={Smile} color="text-sky-500" />
         <ShortcutItem icon={Github} color="text-gray-700 dark:text-white" />
         <ShortcutItem icon={Youtube} color="text-red-500" />
         <ShortcutItem icon={Code} color="text-purple-500" />
-        <ShortcutItem icon={Bot} color="text-primary-500" />
+        <ShortcutItem icon={Smile} color="text-primary-500" />
         <ShortcutItem icon={BookOpen} color="text-primary-500" />
         <ShortcutItem icon={MoreHorizontal} color="text-gray-400" />
       </div>
@@ -146,9 +150,7 @@ const DateWidget = () => {
       <div className="flex flex-col h-full justify-between relative z-10">
         <div>
           <h2 className="text-3xl font-light text-gray-800 dark:text-white mb-1">{weekDay}</h2>
-          <p className="text-lg text-gray-500 dark:text-gray-400 font-mono">
-            {dateStr}
-          </p>
+          <p className="text-lg text-gray-500 dark:text-gray-400 font-mono">{dateStr}</p>
           <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
             {t('views.widgets.week', { number: getWeekNumber(date) })}
           </p>
@@ -170,7 +172,20 @@ const WeatherWidget = () => {
   const now = new Date()
   const monthNames = {
     'en-US': ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
-    'zh-CN': ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'],
+    'zh-CN': [
+      '1月',
+      '2月',
+      '3月',
+      '4月',
+      '5月',
+      '6月',
+      '7月',
+      '8月',
+      '9月',
+      '10月',
+      '11月',
+      '12月',
+    ],
   }
   const weekDays = {
     'en-US': ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
@@ -186,13 +201,16 @@ const WeatherWidget = () => {
   }
 
   // Use useMemo to recalculate forecast when language changes
-  const forecast = useMemo(() => [
-    { day: t('views.widgets.today'), icon: Sun, high: 17, low: 6 },
-    { day: t('views.widgets.tomorrow'), icon: Sun, high: 20, low: 8 },
-    { day: shortWeekDays[locale][0], icon: Sun, high: 15, low: 9 },
-    { day: shortWeekDays[locale][1], icon: Cloud, high: 14, low: 8 },
-    { day: shortWeekDays[locale][2], icon: Cloud, high: 20, low: 10 },
-  ], [t, i18n.language])
+  const forecast = useMemo(
+    () => [
+      { day: t('views.widgets.today'), icon: Sun, high: 17, low: 6 },
+      { day: t('views.widgets.tomorrow'), icon: Sun, high: 20, low: 8 },
+      { day: shortWeekDays[locale][0], icon: Sun, high: 15, low: 9 },
+      { day: shortWeekDays[locale][1], icon: Cloud, high: 14, low: 8 },
+      { day: shortWeekDays[locale][2], icon: Cloud, high: 20, low: 10 },
+    ],
+    [t, i18n.language],
+  )
 
   return (
     <WidgetCard
@@ -207,7 +225,7 @@ const WeatherWidget = () => {
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{dateStr}</p>
 
           <div className="flex items-center gap-4">
-            <Bot size={48} className="text-yellow-500" /> {/* Should be moon or sun icon */}
+            <Smile size={48} className="text-yellow-500" /> {/* Should be moon or sun icon */}
             <span className="text-5xl font-light text-gray-800 dark:text-white">
               {currentTemp}°C
             </span>

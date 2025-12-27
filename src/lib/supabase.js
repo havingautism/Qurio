@@ -56,10 +56,20 @@ export const testConnection = async (supabaseUrl, supabaseKey) => {
       }
     }
 
-    const tables = ['spaces', 'conversations', 'conversation_messages']
+    // Define select field for each table (space_agents has no 'id' column)
+    const tableFields = {
+      spaces: 'id',
+      agents: 'id',
+      space_agents: 'space_id',
+      conversations: 'id',
+      conversation_messages: 'id',
+    }
+
+    const tables = Object.keys(tableFields)
     const results = {}
     for (const table of tables) {
-      const { error } = await supabase.from(table).select('id').limit(1)
+      const field = tableFields[table]
+      const { error } = await supabase.from(table).select(field).limit(1)
       results[table] = !error
     }
 
@@ -104,21 +114,21 @@ export const fetchSpaces = async () => {
   return { data: data || [], error }
 }
 
-export const createSpace = async ({ emoji = '', label, description = '', prompt = '' }) => {
+export const createSpace = async ({ emoji = '', label, description = '' }) => {
   const supabase = getSupabaseClient()
   if (!supabase) return { data: null, error: new Error('Supabase not configured') }
   if (!label) return { data: null, error: new Error('Label is required') }
 
   const { data, error } = await supabase
     .from(spacesTable)
-    .insert([{ emoji, label, description, prompt }])
+    .insert([{ emoji, label, description }])
     .select()
     .single()
 
   return { data, error }
 }
 
-export const updateSpace = async (id, { emoji, label, description, prompt }) => {
+export const updateSpace = async (id, { emoji, label, description }) => {
   const supabase = getSupabaseClient()
   if (!supabase) return { data: null, error: new Error('Supabase not configured') }
   if (!id) return { data: null, error: new Error('Space id is required') }
@@ -127,7 +137,6 @@ export const updateSpace = async (id, { emoji, label, description, prompt }) => 
   if (emoji !== undefined) updatePayload.emoji = emoji
   if (label !== undefined) updatePayload.label = label
   if (description !== undefined) updatePayload.description = description
-  if (prompt !== undefined) updatePayload.prompt = prompt
 
   const { data, error } = await supabase
     .from(spacesTable)

@@ -9,6 +9,7 @@
     "library": "Library",
     "bookmarks": "Bookmarks",
     "spaces": "Spaces",
+    "agents": "Agents",
     "seeAll": "See all",
     "pin": "Pin sidebar",
     "unpin": "Unpin sidebar",
@@ -25,6 +26,8 @@
     "createNewSpace": "Create New Space",
     "noSpacesYet": "No spaces yet.",
     "noHistory": "No history",
+    "createNewAgent": "Create New Agent",
+    "noAgentsYet": "No agents yet.",
     "delete": "Delete",
     "add": "Add",
     "added": "Added",
@@ -202,31 +205,109 @@
       "retesting": "Re-testing..."
     }
   },
+  "agents": {
+    "modal": {
+      "create": "Create Agent",
+      "edit": "Edit Agent"
+    },
+    "tabs": {
+      "general": "General",
+      "model": "Model",
+      "personalization": "Personalization"
+    },
+    "general": {
+      "avatar": "Avatar",
+      "name": "Name",
+      "namePlaceholder": "Agent name",
+      "description": "Description",
+      "descriptionPlaceholder": "Brief description of your agent",
+      "systemPrompt": "System Prompt",
+      "systemPromptPlaceholder": "You are a helpful assistant..."
+    },
+    "defaults": {
+      "name": "Default Agent",
+      "description": "System default agent",
+      "systemPrompt": "Respond concisely with a friendly tone and add relevant emojis (2-4) to each reply while keeping clarity and avoiding repetition."
+    },
+    "model": {
+      "crossProviderTitle": "Cross-Provider Selection",
+      "crossProviderHint": "Pick any model from providers you have configured in Settings. The agent will use the correct provider automatically.",
+      "loading": "Loading available models...",
+      "noProvidersTitle": "No providers configured yet",
+      "noProvidersHint": "Add API keys in Settings to enable model selection here.",
+      "noProviders": "Configure at least one provider to select models.",
+      "modelsLoaded": "{{count}} models loaded",
+      "refresh": "Refresh",
+      "defaultModel": "Default Model",
+      "defaultHelper": "Primary chat responses",
+      "liteModel": "Lite Model",
+      "liteHelper": "Optional, faster responses for lightweight tasks",
+      "providers": "Providers",
+      "models": "Models",
+      "noModels": "No models available for this provider.",
+      "none": "None",
+      "notSelected": "Not selected",
+      "notFound": "Model not found"
+    },
+    "advanced": {
+      "title": "Advanced",
+      "auto": "Auto",
+      "reset": "Reset to defaults",
+      "frequencyPenaltyLabel": "Lexical diversity",
+      "frequencyPenaltyParam": "frequency_penalty",
+      "frequencyPenaltyDesc": "Higher values encourage more varied wording; lower values favor repetition.",
+      "presencePenaltyLabel": "Expression variety",
+      "presencePenaltyParam": "presence_penalty",
+      "presencePenaltyDesc": "Higher values push new concepts; lower values keep phrasing consistent.",
+      "temperatureLabel": "Creativity",
+      "temperatureParam": "temperature",
+      "temperatureDesc": "Higher values increase randomness; lower values stay focused.",
+      "topPLabel": "Open-endedness",
+      "topPParam": "top_p",
+      "topPDesc": "Higher values allow more options; lower values pick the most likely."
+    },
+    "actions": {
+      "delete": "Delete Agent",
+      "cancel": "Cancel",
+      "saving": "Saving...",
+      "save": "Save Agent",
+      "create": "Create Agent"
+    },
+    "validation": {
+      "nameRequired": "Name is required",
+      "nameDuplicate": "An agent with this name already exists"
+    },
+    "errors": {
+      "saveFailed": "Failed to save agent"
+    }
+  },
   "spaceModal": {
     "create": "Create New Space",
     "edit": "Edit Space",
     "general": "General",
-    "advanced": "Advanced",
     "iconName": "Icon & Name",
     "description": "Description",
     "descriptionOptional": "Description (Optional)",
     "spacePrompt": "Space Prompt",
     "spacePromptOptional": "Space Prompt (Optional)",
+    "agents": "Agents",
+    "agentsAvailable": "Available",
+    "agentsSelected": "Selected",
+    "defaultAgent": "Default",
+    "agentsAdd": "Add",
+    "agentsRemove": "Remove",
+    "agentsEmpty": "No agents available.",
+    "agentsSelectedEmpty": "No agents selected.",
+    "agentsLoading": "Loading agents...",
     "descriptionPlaceholder": "What is this space for?",
     "promptPlaceholder": "Provide guidance the assistant should follow inside this space.",
     "namePlaceholder": "e.g., Daily Life, Research...",
-    "temperature": "Temperature",
-    "topK": "Top K",
-    "topKPlaceholder": "Auto",
-    "modelSettingsInfo": "Model Settings Info",
-    "temperatureInfo": "Controls randomness (0 = focused, 2 = creative)",
-    "topKInfo": "Limits token selection (leave empty for auto)",
-    "overrideInfo": "These settings override global preferences for this space",
     "cancel": "Cancel",
     "save": "Save Changes",
     "createSpace": "Create Space",
     "saving": "Saving...",
     "nameRequired": "Name is required",
+    "nameDuplicate": "A space with this name already exists",
     "saveFailed": "Failed to save space",
     "deleteFailed": "Failed to delete space",
     "deleteTitle": "Delete Space",
@@ -257,7 +338,10 @@
     "spacesAuto": "Spaces: Auto",
     "spacesLabel": "Spaces: {{label}}",
     "auto": "Auto",
-    "title": "Where insight clicks."
+    "title": "Where insight clicks.",
+    "agentsLabel": "Agents",
+    "agentsNone": "No agents",
+    "agentsLoading": "Loading agents..."
   },
   "chat": {
     "thinking": "Thinking",
@@ -300,7 +384,18 @@
   "chatInterface": {
     "regenerateTitle": "Regenerate title from last 3 messages",
     "openTimeline": "Open question timeline",
-    "askFollowUp": "Ask follow-up..."
+    "askFollowUp": "Ask follow-up...",
+    "agentsLabel": "Agents",
+    "agentsNone": "No agents",
+    "agentsLoading": "Loading agents..."
+  },
+  "agentsView": {
+    "title": "Agents",
+    "myAgents": "My Agents",
+    "createAgent": "Create Agent",
+    "createAgentDescription": "Custom AI assistant with specific prompt and model settings.",
+    "loading": "Loading agents...",
+    "defaultProvider": "Default"
   },
   "views": {
     "newThread": "New Thread",

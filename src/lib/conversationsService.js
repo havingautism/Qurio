@@ -24,7 +24,7 @@ export const listConversations = async (options = {}) => {
   // Build query
   let query = supabase
     .from(table)
-    .select('id,title,created_at,space_id,api_provider,is_favorited', {
+    .select('id,title,created_at,space_id,api_provider,is_favorited,last_agent_id', {
       count: 'exact',
     })
     .order(sortBy, { ascending })
@@ -94,7 +94,7 @@ export const listBookmarkedConversations = async (options = {}) => {
   // Build query with cursor support and is_favorited filter
   let query = supabase
     .from(table)
-    .select('id,title,created_at,space_id,api_provider,is_favorited')
+    .select('id,title,created_at,space_id,api_provider,is_favorited,last_agent_id')
     .eq('is_favorited', true)
     .order(sortBy, { ascending })
     .limit(limit)
@@ -137,7 +137,7 @@ export const getConversation = async id => {
   if (!supabase) return { data: null, error: new Error('Supabase not configured') }
   const { data, error } = await supabase
     .from(table)
-    .select('id,title,created_at,space_id,api_provider,is_favorited')
+    .select('id,title,created_at,space_id,api_provider,is_favorited,last_agent_id')
     .eq('id', id)
     .single()
   return { data, error }
@@ -171,7 +171,7 @@ export const listConversationsBySpace = async (spaceId, options = {}) => {
   // Build query with cursor or page-based pagination
   let query = supabase
     .from(table)
-    .select('id,title,created_at,space_id,is_favorited', { count: 'exact' })
+    .select('id,title,created_at,space_id,is_favorited,last_agent_id', { count: 'exact' })
     .eq('space_id', spaceId)
     .order(sortBy, { ascending })
     .limit(limit)

@@ -11,6 +11,7 @@ import {
   ArrowDown,
   ArrowRight,
   Brain,
+  Smile,
   Check,
   ChevronDown,
   Globe,
@@ -24,12 +25,14 @@ import {
 import { useAppContext } from '../App'
 import { updateConversation } from '../lib/conversationsService'
 import { getModelForTask } from '../lib/modelSelector.js'
-import { getProvider } from '../lib/providers'
+import { getProvider, providerSupportsSearch } from '../lib/providers'
 import QuestionTimelineSidebar from './QuestionTimelineSidebar'
 
 import { useSidebarOffset } from '../hooks/useSidebarOffset'
 import { listMessages } from '../lib/conversationsService'
+import { listSpaceAgents } from '../lib/spacesService'
 import { loadSettings } from '../lib/settings'
+import { getAgentDisplayName } from '../lib/agentDisplay'
 import EmojiDisplay from './EmojiDisplay'
 
 const ChatInterface = ({
@@ -39,6 +42,7 @@ const ChatInterface = ({
   initialAttachments = [],
   initialToggles = {},
   initialSpaceSelection = { mode: 'auto', space: null },
+  initialAgentSelection = null,
   onTitleAndSpaceGenerated,
   isSidebarPinned = false,
 }) => {
@@ -103,15 +107,25 @@ const ChatInterface = ({
   )
   const [isSelectorOpen, setIsSelectorOpen] = useState(false)
   const selectorRef = useRef(null)
+  const agentSelectorRef = useRef(null)
   const [isManualSpaceSelection, setIsManualSpaceSelection] = useState(
     initialSpaceSelection.mode === 'manual' && !!initialSpaceSelection.space,
   )
+  const { toggleSidebar, agents: appAgents = [], defaultAgent } = useAppContext()
+  const [spaceAgentIds, setSpaceAgentIds] = useState([])
+  const [spacePrimaryAgentId, setSpacePrimaryAgentId] = useState(null)
+  const [isAgentsLoading, setIsAgentsLoading] = useState(false)
+  const [selectedAgentId, setSelectedAgentId] = useState(null)
+  const [isAgentSelectorOpen, setIsAgentSelectorOpen] = useState(false)
+  const [pendingAgentId, setPendingAgentId] = useState(null)
+  const [agentLoadingDots, setAgentLoadingDots] = useState('')
 
   const [settings, setSettings] = useState(loadSettings())
   const isRelatedEnabled = Boolean(settings.enableRelatedQuestions)
   const [isLoadingHistory, setIsLoadingHistory] = useState(false)
   const hasPushedConversation = useRef(false)
   const lastConversationId = useRef(null) // Track the last conversationId we navigated to
+  const loadedMessagesRef = useRef(new Set())
   const messageRefs = useRef({})
   const bottomRef = useRef(null)
   const [showScrollButton, setShowScrollButton] = useState(false)
@@ -119,16 +133,126 @@ const ChatInterface = ({
   const isSwitchingConversation = Boolean(
     activeConversation?.id && activeConversation.id !== conversationId,
   )
+  const lastLoadedConversationIdRef = useRef(null)
   const conversationSpace = React.useMemo(() => {
     if (!activeConversation?.space_id) return null
     const sid = String(activeConversation.space_id)
     return spaces.find(s => String(s.id) === sid) || null
   }, [activeConversation?.space_id, spaces])
-
   // If user has manually selected a space (or None), use that; otherwise use conversation's space
   const displaySpace = isManualSpaceSelection
     ? selectedSpace
     : selectedSpace || conversationSpace || null
+
+  const spaceAgents = React.useMemo(() => {
+    if (!displaySpace?.id) {
+      return []
+    }
+    const idSet = new Set(spaceAgentIds.map(id => String(id)))
+    const filteredAgents = appAgents.filter(agent => idSet.has(String(agent.id)))
+    return filteredAgents
+  }, [appAgents, displaySpace?.id, spaceAgentIds])
+
+  const selectableAgents = React.useMemo(() => {
+    const list = [...spaceAgents]
+    if (defaultAgent) {
+      const hasDefault = list.some(agent => String(agent.id) === String(defaultAgent.id))
+      if (!hasDefault) list.unshift(defaultAgent)
+    }
+    if (selectedAgentId) {
+      const hasSelected = list.some(agent => String(agent.id) === String(selectedAgentId))
+      if (!hasSelected) {
+        const selected = appAgents.find(agent => String(agent.id) === String(selectedAgentId))
+        if (selected) list.unshift(selected)
+      }
+    }
+    return list
+  }, [spaceAgents, defaultAgent, selectedAgentId, appAgents])
+
+  const selectedAgent = React.useMemo(() => {
+    const agent =
+      selectableAgents.find(agent => String(agent.id) === String(selectedAgentId)) || null
+    return agent
+  }, [selectableAgents, selectedAgentId])
+
+  useEffect(() => {
+    const lastAgentMessage = [...messages]
+      .reverse()
+      .find(msg => msg.role === 'ai' && msg.agentId)
+    const nextAgentId = lastAgentMessage?.agentId || null
+    if (nextAgentId && String(nextAgentId) !== String(selectedAgentId)) {
+      setSelectedAgentId(nextAgentId)
+      setPendingAgentId(nextAgentId)
+    }
+  }, [messages, selectedAgentId])
+
+  const isAgentResolving = isAgentsLoading || pendingAgentId !== null
+  const baseAgentsLoadingLabel = t('chatInterface.agentsLoading')
+  const agentsLoadingLabel = `${baseAgentsLoadingLabel.replace(/\.\.\.$/, '')}${agentLoadingDots}`
+
+  useEffect(() => {
+    if (!isAgentResolving) {
+      setAgentLoadingDots('')
+      return
+    }
+    let step = 0
+    const interval = setInterval(() => {
+      step = (step + 1) % 4
+      setAgentLoadingDots('.'.repeat(step))
+    }, 450)
+    return () => clearInterval(interval)
+  }, [isAgentResolving])
+
+  const effectiveAgent = React.useMemo(
+    () => selectedAgent || defaultAgent || null,
+    [selectedAgent, defaultAgent],
+  )
+
+  const effectiveProvider = effectiveAgent?.provider || settings.apiProvider
+  const effectiveDefaultModel = effectiveAgent?.defaultModel || settings.defaultModel
+
+  // Helper to get model config for agent or fallback to global settings
+  const getModelConfig = React.useCallback(
+    (task = 'streamChatCompletion') => {
+      const MODEL_SEPARATOR = '::'
+      const decodeModelId = encodedModel => {
+        if (!encodedModel) return ''
+        const index = encodedModel.indexOf(MODEL_SEPARATOR)
+        if (index === -1) return encodedModel
+        return encodedModel.slice(index + MODEL_SEPARATOR.length)
+      }
+
+      // Check if agent has a valid (non-empty) model configured
+      if (
+        effectiveAgent?.provider &&
+        effectiveAgent.defaultModel &&
+        effectiveAgent.defaultModel.trim() !== ''
+      ) {
+        const defaultModel = effectiveAgent.defaultModel
+        const liteModel = effectiveAgent.liteModel ?? ''
+        const decodedDefaultModel = decodeModelId(defaultModel)
+        const decodedLiteModel = liteModel ? decodeModelId(liteModel) : ''
+
+        const model =
+          task === 'generateTitle' ||
+          task === 'generateTitleAndSpace' ||
+          task === 'generateRelatedQuestions'
+            ? decodedLiteModel || decodedDefaultModel
+            : decodedDefaultModel
+
+        return {
+          provider: effectiveAgent.provider,
+          model,
+        }
+      }
+
+      return {
+        provider: settings.apiProvider,
+        model: getModelForTask(task, settings),
+      }
+    },
+    [effectiveAgent, settings],
+  )
 
   // Effect to handle initial message from homepage
   const hasInitialized = useRef(false)
@@ -137,17 +261,16 @@ const ChatInterface = ({
   useEffect(() => {
     const handleSettingsChange = () => {
       setSettings(loadSettings())
-      if (
-        settings.apiProvider === 'openai_compatibility' ||
-        settings.apiProvider === 'siliconflow'
-      ) {
+      const newSettings = loadSettings()
+      const nextProvider = effectiveAgent?.provider || newSettings.apiProvider
+      if (!providerSupportsSearch(nextProvider)) {
         setIsSearchActive(false)
       }
     }
 
     window.addEventListener('settings-changed', handleSettingsChange)
     return () => window.removeEventListener('settings-changed', handleSettingsChange)
-  }, [])
+  }, [effectiveAgent?.provider])
 
   useEffect(() => {
     const processInitialMessage = async () => {
@@ -157,8 +280,14 @@ const ChatInterface = ({
         isProcessingInitial.current ||
         (!initialMessage && initialAttachments.length === 0) ||
         conversationId || // Already have a conversation, don't create new one
-        activeConversation?.id // If an existing conversation is provided, skip auto-send
+        activeConversation?.id || // If an existing conversation is provided, skip auto-send
+        isAgentResolving // Wait for agents to load before processing initial message
       ) {
+        return
+      }
+
+      // If user selected an agent from homepage, wait for it to be loaded
+      if (initialAgentSelection && !selectedAgent) {
         return
       }
 
@@ -175,7 +304,16 @@ const ChatInterface = ({
     }
 
     processInitialMessage()
-  }, [initialMessage, initialAttachments, initialToggles, conversationId, activeConversation?.id])
+  }, [
+    initialMessage,
+    initialAttachments,
+    initialToggles,
+    conversationId,
+    activeConversation?.id,
+    isAgentResolving,
+    selectedAgentId,
+    selectedAgent,
+  ])
 
   // Load existing conversation messages when switching conversations
   useEffect(() => {
@@ -212,6 +350,11 @@ const ChatInterface = ({
         return
       }
 
+      if (loadedMessagesRef.current.has(activeConversation.id)) {
+        setIsLoadingHistory(false)
+        return
+      }
+
       // If we're navigating to a conversation that we just created (conversationId matches),
       // check if we already have messages in the store
       if (activeConversation.id === conversationId && messages.length > 0) {
@@ -223,9 +366,12 @@ const ChatInterface = ({
         ) {
           setConversationTitle(activeConversation.title)
         }
-        if (conversationSpace) {
+        if (conversationSpace && !isManualSpaceSelection) {
           setSelectedSpace(conversationSpace)
           setIsManualSpaceSelection(!!conversationSpace)
+        } else if (!conversationSpace && !selectedSpace && !isManualSpaceSelection) {
+          setSelectedSpace(null)
+          setIsManualSpaceSelection(false)
         }
         return
       }
@@ -234,6 +380,7 @@ const ChatInterface = ({
       hasInitialized.current = false
 
       setIsLoadingHistory(true)
+      loadedMessagesRef.current.add(activeConversation.id)
       if (activeConversation.id !== conversationId) {
         // Clear stale messages while the new conversation history loads
         setMessages([])
@@ -247,13 +394,22 @@ const ChatInterface = ({
       } else if (!conversationTitle) {
         setConversationTitle('')
       }
+      const isNewConversation =
+        activeConversation?.id && activeConversation.id !== lastLoadedConversationIdRef.current
+      if (isNewConversation) {
+        lastLoadedConversationIdRef.current = activeConversation.id
+      }
       if (conversationSpace) {
-        setSelectedSpace(conversationSpace)
-        setIsManualSpaceSelection(!!conversationSpace)
-      } else if (!selectedSpace) {
+        if (isNewConversation || !isManualSpaceSelection) {
+          setSelectedSpace(conversationSpace)
+          setIsManualSpaceSelection(!!conversationSpace)
+        }
+      } else if (!selectedSpace && (isNewConversation || !isManualSpaceSelection)) {
         setSelectedSpace(null)
         setIsManualSpaceSelection(false)
       }
+      const conversationLastAgentId =
+        activeConversation?.last_agent_id ?? activeConversation?.lastAgentId ?? null
       const { data, error } = await listMessages(activeConversation.id)
       if (!error && data) {
         const mapped = data.map(m => {
@@ -273,15 +429,29 @@ const ChatInterface = ({
             sources: m.sources || undefined,
             groundingSupports: m.grounding_supports || undefined,
             provider: m.provider || activeConversation?.api_provider,
-            model: m.model || settings.defaultModel,
+            model: m.model || effectiveDefaultModel,
+            agentId: m.agent_id ?? m.agentId ?? null,
+            agentName: m.agent_name ?? m.agentName ?? null,
+            agentEmoji: m.agent_emoji ?? m.agentEmoji ?? '',
+            agentIsDefault: m.agent_is_default ?? m.agentIsDefault ?? false,
             thinkingEnabled:
               m.is_thinking_enabled ?? m.generated_with_thinking ?? (thought ? true : undefined),
           }
         })
         setMessages(mapped)
+        const resolvedAgentId = conversationLastAgentId || null
+        if (resolvedAgentId) {
+          setSelectedAgentId(resolvedAgentId)
+          setPendingAgentId(resolvedAgentId)
+        } else {
+          setPendingAgentId(null)
+          setSelectedAgentId(defaultAgent?.id || null)
+        }
+        loadedMessagesRef.current.add(activeConversation.id)
       } else {
         console.error('Failed to load conversation messages:', error)
         setMessages([])
+        loadedMessagesRef.current.delete(activeConversation.id)
       }
       setIsLoadingHistory(false)
     }
@@ -290,11 +460,15 @@ const ChatInterface = ({
     activeConversation,
     conversationSpace,
     settings,
+    effectiveDefaultModel,
     conversationTitle,
     messages.length,
     selectedSpace,
     isManualSpaceSelection,
+    appAgents,
+    defaultAgent?.id,
   ])
+
 
   useEffect(() => {
     // Check if conversationId has changed (new conversation created)
@@ -338,27 +512,137 @@ const ChatInterface = ({
     }
   }, [initialSpaceSelection, activeConversation, selectedSpace, isManualSpaceSelection])
 
+  useEffect(() => {
+    // Store pending agent selection when we don't have an active conversation
+    if (!activeConversation && initialAgentSelection) {
+      setPendingAgentId(initialAgentSelection.id)
+    }
+  }, [initialAgentSelection, activeConversation])
+
   // Handle click outside to close selector
   useEffect(() => {
     const handleClickOutside = event => {
       if (selectorRef.current && !selectorRef.current.contains(event.target)) {
         setIsSelectorOpen(false)
       }
+      if (agentSelectorRef.current && !agentSelectorRef.current.contains(event.target)) {
+        setIsAgentSelectorOpen(false)
+      }
     }
 
-    if (isSelectorOpen) {
-      document.addEventListener('click', handleClickOutside)
+    if (isSelectorOpen || isAgentSelectorOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
     }
 
     return () => {
-      document.removeEventListener('click', handleClickOutside)
+      document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [isSelectorOpen])
+  }, [isAgentSelectorOpen, isSelectorOpen])
+
+  useEffect(() => {
+    let isMounted = true
+    const loadAgents = async () => {
+      if (!displaySpace?.id) {
+        if (!isMounted) return
+        setSpaceAgentIds([])
+        setSpacePrimaryAgentId(null)
+        if (!pendingAgentId && !selectedAgentId) {
+          setSelectedAgentId(defaultAgent?.id || null)
+        }
+        setIsAgentsLoading(false)
+        return
+      }
+      setIsAgentsLoading(true)
+      try {
+        const { data, error } = await listSpaceAgents(displaySpace.id)
+        if (!isMounted) return
+        if (!error && data) {
+          const newAgentIds = data.map(item => item.agent_id)
+          const primaryAgentId = data.find(item => item.is_primary)?.agent_id || null
+          setSpaceAgentIds(newAgentIds)
+          setSpacePrimaryAgentId(primaryAgentId)
+        } else {
+          setSpaceAgentIds([])
+          setSpacePrimaryAgentId(null)
+        }
+      } catch (err) {
+        if (!isMounted) return
+        setSpaceAgentIds([])
+        setSpacePrimaryAgentId(null)
+      } finally {
+        if (isMounted) {
+          setIsAgentsLoading(false)
+        }
+      }
+    }
+    loadAgents()
+    return () => {
+      isMounted = false
+    }
+  }, [displaySpace?.id])
+
+  useEffect(() => {
+    if (!displaySpace?.id) {
+      if (!pendingAgentId && !selectedAgentId) {
+        setSelectedAgentId(defaultAgent?.id || null)
+      }
+      return
+    }
+    if (isAgentsLoading) return
+
+    const agentIdStrings = spaceAgentIds.map(String)
+    const isDefaultSelection =
+      defaultAgent && String(selectedAgentId) === String(defaultAgent.id)
+    const hasSelectedAgent =
+      isDefaultSelection ||
+      (selectedAgentId ? agentIdStrings.includes(String(selectedAgentId)) : false)
+
+    let nextSelectedAgentId = selectedAgentId
+    if (pendingAgentId) {
+      if (agentIdStrings.includes(String(pendingAgentId))) {
+        nextSelectedAgentId = pendingAgentId
+      } else {
+        nextSelectedAgentId = defaultAgent?.id || null
+      }
+    } else if (!hasSelectedAgent) {
+      if (selectedAgentId && !isDefaultSelection) {
+        nextSelectedAgentId = defaultAgent?.id || null
+      } else if (!activeConversation?.id) {
+        if (!isManualSpaceSelection && spacePrimaryAgentId) {
+          nextSelectedAgentId = spacePrimaryAgentId
+        } else {
+          nextSelectedAgentId = defaultAgent?.id || null
+        }
+      } else {
+        nextSelectedAgentId = defaultAgent?.id || null
+      }
+    }
+
+    if (nextSelectedAgentId !== selectedAgentId) {
+      setSelectedAgentId(nextSelectedAgentId)
+    }
+    if (pendingAgentId) {
+      setPendingAgentId(null)
+    }
+  }, [
+    displaySpace?.id,
+    isAgentsLoading,
+    spaceAgentIds,
+    spacePrimaryAgentId,
+    selectedAgentId,
+    pendingAgentId,
+    defaultAgent?.id,
+    isManualSpaceSelection,
+    activeConversation?.id,
+  ])
 
   const handleSelectSpace = space => {
     setSelectedSpace(space)
     setIsManualSpaceSelection(true)
     setIsSelectorOpen(false)
+    const conversationLastAgentId =
+      activeConversation?.last_agent_id ?? activeConversation?.lastAgentId ?? null
+    setPendingAgentId(conversationLastAgentId)
     if (conversationId || activeConversation?.id) {
       updateConversation(conversationId || activeConversation.id, {
         space_id: space?.id || null,
@@ -375,6 +659,8 @@ const ChatInterface = ({
     setSelectedSpace(null)
     setIsManualSpaceSelection(true) // Keep as true because selecting "None" is a manual action
     setIsSelectorOpen(false)
+    setPendingAgentId(null) // Clear pending agent when clearing space
+    setSelectedAgentId(defaultAgent?.id || null)
     if (conversationId || activeConversation?.id) {
       updateConversation(conversationId || activeConversation.id, {
         space_id: null,
@@ -645,12 +931,21 @@ const ChatInterface = ({
         toggles: { search: searchActive, thinking: thinkingActive, related: relatedActive },
         settings,
         spaceInfo: { selectedSpace, isManualSpaceSelection },
+        selectedAgent: effectiveAgent,
+        agents: appAgents,
         editingInfo,
         callbacks: {
           onTitleAndSpaceGenerated,
           onSpaceResolved: space => {
             setSelectedSpace(space)
             setIsManualSpaceSelection(false)
+          },
+          onAgentResolved: agent => {
+            const nextAgentId = agent?.id || null
+            setPendingAgentId(nextAgentId)
+            if (displaySpace?.id) {
+              setSelectedAgentId(nextAgentId)
+            }
           },
         },
         spaces,
@@ -668,10 +963,14 @@ const ChatInterface = ({
       sendMessage,
       settings,
       selectedSpace,
+      effectiveAgent,
       isManualSpaceSelection,
       onTitleAndSpaceGenerated,
       spaces,
       quoteContext,
+      appAgents,
+      spaceAgentIds,
+      spaceAgents,
     ],
   )
 
@@ -839,14 +1138,14 @@ const ChatInterface = ({
 
     setIsRegeneratingTitle(true)
     try {
-      const provider = getProvider(settings.apiProvider)
+      const modelConfig = getModelConfig('generateTitle')
+      const provider = getProvider(modelConfig.provider)
       const credentials = provider.getCredentials(settings)
-      const model = getModelForTask('generateTitle', settings)
       const newTitle = await provider.generateTitle(
         contextText,
         credentials.apiKey,
         credentials.baseUrl,
-        model,
+        modelConfig.model,
       )
       if (!newTitle) return
       setConversationTitle(newTitle)
@@ -864,13 +1163,12 @@ const ChatInterface = ({
     activeConversation?.id,
     conversationId,
     extractPlainText,
+    getModelConfig,
     isRegeneratingTitle,
     messages,
     settings,
     setConversationTitle,
   ])
-
-  const { toggleSidebar } = useAppContext()
 
   // Create a ref for the messages scroll container
   const messagesContainerRef = useRef(null)
@@ -900,9 +1198,11 @@ const ChatInterface = ({
             {/* Space Selector */}
             <div className="relative" ref={selectorRef}>
               <button
-                onClick={() => setIsSelectorOpen(!isSelectorOpen)}
+                onMouseDown={e => {
+                  e.stopPropagation()
+                  setIsSelectorOpen(prev => !prev)
+                }}
                 className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors text-sm font-medium text-gray-700 dark:text-gray-300"
-                disabled={isMetaLoading}
               >
                 <LayoutGrid size={16} className="text-gray-400 hidden sm:inline" />
                 {isMetaLoading ? (
@@ -924,9 +1224,13 @@ const ChatInterface = ({
 
               {/* Dropdown */}
               {isSelectorOpen && (
-                <div className="absolute top-full left-0 mt-2 w-56 bg-white dark:bg-[#202222] border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl z-30 overflow-hidden">
+                <div
+                  className="absolute top-full left-0 mt-2 w-56 bg-white dark:bg-[#202222] border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl z-30 overflow-hidden"
+                  onMouseDown={e => e.stopPropagation()}
+                >
                   <div className="p-2 flex flex-col gap-1">
                     <button
+                      type="button"
                       onClick={handleClearSpaceSelection}
                       className={`flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left ${
                         !displaySpace ? 'text-primary-500' : 'text-gray-700 dark:text-gray-200'
@@ -940,6 +1244,7 @@ const ChatInterface = ({
                       const isSelected = selectedSpace?.label === space.label
                       return (
                         <button
+                          type="button"
                           key={idx}
                           onClick={() => handleSelectSpace(space)}
                           className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left"
@@ -1007,8 +1312,8 @@ const ChatInterface = ({
             )}
             {!isLoadingHistory && !isSwitchingConversation && (
               <MessageList
-                apiProvider={settings.apiProvider}
-                defaultModel={settings.defaultModel}
+                apiProvider={effectiveProvider}
+                defaultModel={effectiveDefaultModel}
                 onRelatedClick={handleRelatedClick}
                 onMessageRef={registerMessageRef}
                 onEdit={handleEdit}
@@ -1061,9 +1366,21 @@ const ChatInterface = ({
 
             <InputBar
               isLoading={isLoading}
-              apiProvider={settings.apiProvider}
+              apiProvider={effectiveProvider}
               isSearchActive={isSearchActive}
               isThinkingActive={isThinkingActive}
+              agents={selectableAgents}
+              agentsLoading={isAgentResolving}
+              agentsLoadingLabel={agentsLoadingLabel}
+              agentsLoadingDots={agentLoadingDots}
+              selectedAgent={effectiveAgent}
+              onAgentSelect={agent => {
+                setSelectedAgentId(agent?.id || null)
+                setIsAgentSelectorOpen(false)
+              }}
+              isAgentSelectorOpen={isAgentSelectorOpen}
+              onAgentSelectorToggle={() => setIsAgentSelectorOpen(prev => !prev)}
+              agentSelectorRef={agentSelectorRef}
               onToggleSearch={() => setIsSearchActive(prev => !prev)}
               onToggleThinking={() => setIsThinkingActive(prev => !prev)}
               quotedText={quotedText}
@@ -1105,6 +1422,15 @@ const InputBar = React.memo(
     apiProvider,
     isSearchActive,
     isThinkingActive,
+    agents,
+    agentsLoading,
+    agentsLoadingLabel,
+    agentsLoadingDots,
+    selectedAgent,
+    onAgentSelect,
+    isAgentSelectorOpen,
+    onAgentSelectorToggle,
+    agentSelectorRef,
     onToggleSearch,
     onToggleThinking,
     quotedText,
@@ -1288,7 +1614,11 @@ const InputBar = React.memo(
                 <span className="hidden md:inline">{t('homeView.think')}</span>
               </button>
               <button
-                disabled={apiProvider === 'openai_compatibility' || apiProvider === 'siliconflow'}
+                disabled={
+                  selectedAgent?.provider
+                    ? !providerSupportsSearch(selectedAgent.provider)
+                    : !providerSupportsSearch(apiProvider)
+                }
                 onClick={onToggleSearch}
                 className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
                   isSearchActive
@@ -1299,6 +1629,68 @@ const InputBar = React.memo(
                 <Globe size={18} />
                 <span className="hidden md:inline">{t('homeView.search')}</span>
               </button>
+              <div className="relative" ref={agentSelectorRef}>
+                <button
+                  type="button"
+                  onClick={e => {
+                    e.stopPropagation()
+                    e.preventDefault()
+                    onAgentSelectorToggle()
+                  }}
+                  className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
+                    selectedAgent
+                      ? 'text-primary-500 bg-gray-200 dark:bg-zinc-700'
+                      : 'text-gray-500 dark:text-gray-400'
+                  }`}
+                  disabled={agentsLoading || agents.length === 0}
+                >
+                  <Smile size={18} />
+                  {agentsLoading && (
+                    <span className="inline-flex text-[10px] leading-none opacity-70 animate-pulse">
+                      {agentsLoadingDots || '...'}
+                    </span>
+                  )}
+                  <span className="hidden md:inline truncate max-w-[120px]">
+                    {agentsLoading
+                      ? agentsLoadingLabel || t('chatInterface.agentsLoading')
+                      : getAgentDisplayName(selectedAgent, t) || t('chatInterface.agentsLabel')}
+                  </span>
+                  <ChevronDown size={14} />
+                </button>
+                {isAgentSelectorOpen && (
+                  <div className="absolute bottom-full left-0 mb-2 w-56 bg-white dark:bg-[#202222] border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl z-30 overflow-hidden">
+                    <div className="p-2 flex flex-col gap-1">
+                      {agents.length === 0 ? (
+                        <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
+                          {t('chatInterface.agentsNone')}
+                        </div>
+                      ) : (
+                        agents.map(agent => {
+                          const isSelected = selectedAgent?.id === agent.id
+                          return (
+                            <button
+                              key={agent.id}
+                              type="button"
+                              onClick={() => onAgentSelect(agent)}
+                              className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left"
+                            >
+                              <div className="flex items-center gap-3">
+                                <span className="text-lg">
+                                  <EmojiDisplay emoji={agent.emoji} size="1.125rem" />
+                                </span>
+                                <span className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate">
+                                  {getAgentDisplayName(agent, t)}
+                                </span>
+                              </div>
+                              {isSelected && <Check size={14} className="text-primary-500" />}
+                            </button>
+                          )
+                        })
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="flex gap-2">

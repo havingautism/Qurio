@@ -14,12 +14,14 @@ import {
   SquareStack,
   Sun,
   Trash2,
+  Smile,
 } from 'lucide-react'
 import React, { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAppContext } from '../App'
 import { useToast } from '../contexts/ToastContext'
 import useScrollLock from '../hooks/useScrollLock'
+import { getAgentDisplayDescription, getAgentDisplayName } from '../lib/agentDisplay'
 import {
   listBookmarkedConversations,
   listConversations,
@@ -44,6 +46,10 @@ const Sidebar = ({
   onOpenConversation,
   spaces,
   spacesLoading = false,
+  agents = [],
+  agentsLoading = false,
+  onCreateAgent,
+  onEditAgent,
   theme,
   onToggleTheme,
   activeConversationId,
@@ -233,6 +239,7 @@ const Sidebar = ({
     { id: 'library', icon: Library },
     { id: 'bookmarks', icon: Bookmark },
     { id: 'spaces', icon: LayoutGrid },
+    { id: 'agents', icon: Smile },
   ]
 
   const navItems = useMemo(
@@ -471,8 +478,8 @@ const Sidebar = ({
         <div
           className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm md:hidden"
           onClick={onClose}
-        // onWheel={e => e.preventDefault()}
-        // onTouchMove={e => e.preventDefault()}
+          // onWheel={e => e.preventDefault()}
+          // onTouchMove={e => e.preventDefault()}
         />
       )}
 
@@ -523,6 +530,7 @@ const Sidebar = ({
                     if (item.id === 'library') onNavigate('library')
                     else if (item.id === 'spaces') onNavigate('spaces')
                     else if (item.id === 'bookmarks') onNavigate('bookmarks')
+                    else if (item.id === 'agents') onNavigate('agents')
                   }
                 }}
                 onMouseEnter={() => setHoveredTab(item.id)}
@@ -558,7 +566,7 @@ const Sidebar = ({
             <button
               onClick={onToggleTheme}
               className="w-10 h-10 flex items-center justify-center rounded-full bg-user-bubble dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-transform duration-200 hover:scale-110 active:scale-95 cursor-pointer"
-            //  title={`Current theme: ${theme}`}
+              //  title={`Current theme: ${theme}`}
             >
               {getThemeIcon()}
             </button>
@@ -597,7 +605,9 @@ const Sidebar = ({
                       ? t('sidebar.bookmarks')
                       : displayTab === 'spaces'
                         ? t('sidebar.spaces')
-                        : ''}
+                        : displayTab === 'agents'
+                          ? t('sidebar.agents')
+                          : ''}
                 </h2>
                 {/* View Full Page Button (Mobile Only, or always if useful)
                     The user requested this specifically for the extension area.
@@ -673,7 +683,7 @@ const Sidebar = ({
                                   ? 'bg-primary-500/10 dark:bg-primary-500/20 border border-primary-500/30 text-primary-700 dark:text-primary-300'
                                   : 'text-gray-700 dark:text-gray-300 hover:bg-primary-50 dark:hover:bg-zinc-800',
                                 isExpanded &&
-                                'bg-primary-50/70 dark:bg-primary-900/20  border-primary-200/60  dark:border-primary-800/60 ring-1 ring-primary-100/70 dark:ring-primary-800/60',
+                                  'bg-primary-50/70 dark:bg-primary-900/20  border-primary-200/60  dark:border-primary-800/60 ring-1 ring-primary-100/70 dark:ring-primary-800/60',
                               )}
                               title={conv.title}
                             >
@@ -751,7 +761,11 @@ const Sidebar = ({
                                       ? 'bg-primary-50 text-primary-500 border-primary-50 dark:bg-primary-600/20 dark:text-primary-500 dark:border-primary-50/30'
                                       : 'text-gray-500 dark:text-gray-400 hover:bg-primary-50 dark:hover:bg-zinc-700 hover:text-primary-600 dark:hover:text-primary-400',
                                   )}
-                                  title={conv.is_favorited ? t('sidebar.removeBookmark') : t('sidebar.addBookmark')}
+                                  title={
+                                    conv.is_favorited
+                                      ? t('sidebar.removeBookmark')
+                                      : t('sidebar.addBookmark')
+                                  }
                                 >
                                   <Bookmark
                                     size={13}
@@ -826,7 +840,7 @@ const Sidebar = ({
                               ? 'bg-primary-500/10 dark:bg-primary-500/20 border border-primary-500/30 text-primary-700 dark:text-primary-300'
                               : 'text-gray-700 dark:text-gray-300 hover:bg-primary-50 dark:hover:bg-zinc-800',
                             isExpanded &&
-                            'bg-primary-50/70 dark:bg-primary-900/20 border border-primary-200/60 dark:border-primary-800/60 ring-1 ring-primary-100/70 dark:ring-primary-800/60',
+                              'bg-primary-50/70 dark:bg-primary-900/20 border border-primary-200/60 dark:border-primary-800/60 ring-1 ring-primary-100/70 dark:ring-primary-800/60',
                           )}
                           title={conv.title}
                         >
@@ -900,7 +914,11 @@ const Sidebar = ({
                                   ? 'bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-200 dark:border-yellow-800/30'
                                   : 'text-gray-500 dark:text-gray-400 hover:bg-primary-50 dark:hover:bg-zinc-700 hover:text-primary-600 dark:hover:text-primary-400',
                               )}
-                              title={conv.is_favorited ? t('sidebar.removeBookmark') : t('sidebar.addBookmark')}
+                              title={
+                                conv.is_favorited
+                                  ? t('sidebar.removeBookmark')
+                                  : t('sidebar.addBookmark')
+                              }
                             >
                               <Bookmark
                                 size={13}
@@ -1051,7 +1069,9 @@ const Sidebar = ({
                               onClick={() => onOpenConversation && onOpenConversation(conv)}
                               title={conv.title}
                             >
-                              <div className="flex-1 truncate">{conv.title || t('sidebar.untitled')}</div>
+                              <div className="flex-1 truncate">
+                                {conv.title || t('sidebar.untitled')}
+                              </div>
                             </div>
                           </div>
                         ))}
@@ -1139,6 +1159,70 @@ const Sidebar = ({
                     </button>
                   </div>
                 )} */}
+              </div>
+            )}
+            {/* AGENTS TAB CONTENT */}
+            {displayTab === 'agents' && (
+              <div className="flex flex-col gap-2 overflow-y-auto overscroll-contain flex-1 min-h-0 px-2">
+                {/* Create New Agent */}
+                <button
+                  onClick={onCreateAgent}
+                  className="flex items-center gap-3 bg-user-bubble hover:scale-105 dark:bg-zinc-800 transition-transform p-2 rounded-lg hover:bg-user-bubble dark:hover:bg-user-bubble/10 text-gray-600 dark:text-gray-300 w-full text-left cursor-pointer"
+                >
+                  <div className="w-8 h-8 rounded flex items-center justify-center text-gray-700 dark:text-gray-100">
+                    <Plus size={16} />
+                  </div>
+                  <span className="text-sm font-medium">{t('sidebar.createNewAgent')}</span>
+                </button>
+
+                <div className="h-px bg-gray-200 dark:bg-zinc-800 mb-2" />
+
+                {/* Agents List */}
+                {agentsLoading && (
+                  <div className="flex justify-center py-2">
+                    <DotLoader />
+                  </div>
+                )}
+                {!agentsLoading && agents.length === 0 && (
+                  <div className="flex flex-col items-center gap-2 text-xs text-gray-500 dark:text-gray-400 px-2 py-3">
+                    <Smile size={24} className="text-black dark:text-white" />
+                    <div>{t('sidebar.noAgentsYet')}</div>
+                  </div>
+                )}
+                {agents.map(agent => (
+                  <div
+                    key={agent.id}
+                    onClick={() => onEditAgent && onEditAgent(agent)}
+                    className="flex items-center justify-between p-2 rounded cursor-pointer transition-colors group hover:bg-primary-50 dark:hover:bg-zinc-800"
+                  >
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <div className="w-8 h-8 rounded bg-transparent flex items-center justify-center text-lg shrink-0">
+                        <EmojiDisplay emoji={agent.emoji} />
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">
+                          {getAgentDisplayName(agent, t)}
+                        </span>
+                        {getAgentDisplayDescription(agent, t) && (
+                          <span className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                            {getAgentDisplayDescription(agent, t)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Edit Button (Visible on Hover) */}
+                    <button
+                      onClick={e => {
+                        e.stopPropagation()
+                        onEditAgent && onEditAgent(agent)
+                      }}
+                      className="p-1.5 rounded-md ml-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:bg-primary-50 dark:hover:bg-zinc-800 text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors shrink-0"
+                    >
+                      <Settings size={16} />
+                    </button>
+                  </div>
+                ))}
               </div>
             )}
           </div>

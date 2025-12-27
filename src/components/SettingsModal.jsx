@@ -6,14 +6,12 @@ import {
   MessageSquare,
   Monitor,
   Box,
-  Palette,
   User,
   Info,
   Key,
   Link,
   ChevronDown,
   Check,
-  Smile,
   Github,
   RefreshCw,
   Copy,
@@ -22,11 +20,9 @@ import Logo from './Logo'
 import clsx from 'clsx'
 import { saveSettings, loadSettings } from '../lib/settings'
 import { testConnection } from '../lib/supabase'
-import { getModelsForProvider } from '../lib/models_api'
 import useScrollLock from '../hooks/useScrollLock'
 import { THEMES } from '../lib/themes'
-import { SILICONFLOW_BASE_URL } from '../lib/providerConstants'
-import { renderProviderIcon, getModelIcon } from '../lib/modelIcons'
+import { renderProviderIcon } from '../lib/modelIcons'
 import { getPublicEnv } from '../lib/publicEnv'
 
 const ENV_VARS = {
@@ -68,9 +64,43 @@ CREATE TRIGGER trg_spaces_updated_at
 BEFORE UPDATE ON public.spaces
 FOR EACH ROW EXECUTE PROCEDURE public.set_updated_at();
 
+
+CREATE TABLE IF NOT EXISTS public.agents (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  is_default BOOLEAN NOT NULL DEFAULT FALSE,
+  emoji TEXT NOT NULL DEFAULT '',
+  name TEXT NOT NULL,
+  description TEXT,
+  prompt TEXT,
+  provider TEXT,
+  lite_model TEXT,
+  default_model TEXT,
+  response_language TEXT,
+  base_tone TEXT,
+  traits TEXT,
+  warmth TEXT,
+  enthusiasm TEXT,
+  headings TEXT,
+  emojis TEXT,
+  custom_instruction TEXT,
+  temperature DOUBLE PRECISION,
+  top_p DOUBLE PRECISION,
+  frequency_penalty DOUBLE PRECISION,
+  presence_penalty DOUBLE PRECISION,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_agents_created_at ON public.agents(created_at DESC);
+
+CREATE TRIGGER trg_agents_updated_at
+BEFORE UPDATE ON public.agents
+FOR EACH ROW EXECUTE PROCEDURE public.set_updated_at();
+
 CREATE TABLE IF NOT EXISTS public.conversations (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   space_id UUID REFERENCES public.spaces(id) ON DELETE SET NULL,
+  last_agent_id UUID REFERENCES public.agents(id) ON DELETE SET NULL,
   title TEXT NOT NULL DEFAULT 'New Conversation',
   api_provider TEXT NOT NULL DEFAULT 'gemini',
   is_search_enabled BOOLEAN NOT NULL DEFAULT FALSE,
@@ -96,6 +126,10 @@ CREATE TABLE IF NOT EXISTS public.conversation_messages (
   content JSONB NOT NULL,
   provider TEXT,
   model TEXT,
+  agent_id UUID,
+  agent_name TEXT,
+  agent_emoji TEXT,
+  agent_is_default BOOLEAN NOT NULL DEFAULT FALSE,
   thinking_process TEXT,
   tool_calls JSONB,
   related_questions JSONB,
@@ -126,88 +160,26 @@ CREATE TABLE IF NOT EXISTS public.attachments (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_attachments_message_id ON public.attachments(message_id);`
+CREATE INDEX IF NOT EXISTS idx_attachments_message_id ON public.attachments(message_id);
 
-// Fallback model options for when API is unavailable or for providers without model listing
-const FALLBACK_MODEL_OPTIONS = {
-  gemini: [
-    { value: 'gemini-3-pro-preview', label: 'Gemini 3 Pro Preview' },
-    { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
-    { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
-    { value: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite' },
-  ],
-  openai_compatibility: [
-    { value: 'gpt-4o', label: 'gpt-4o' },
-    { value: 'gpt-4o-mini', label: 'gpt-4o-mini' },
-    { value: 'gpt-4.1', label: 'gpt-4.1' },
-    { value: 'gpt-4.1-mini', label: 'gpt-4.1-mini' },
-    { value: 'o3-mini', label: 'o3-mini' },
-  ],
-  siliconflow: [
-    { value: 'deepseek-chat', label: 'deepseek-chat' },
-    { value: 'deepseek-reasoner', label: 'deepseek-reasoner' },
-    { value: 'deepseek-reasoner-lite', label: 'deepseek-reasoner-lite' },
-    { value: 'gpt-4o', label: 'gpt-4o' },
-  ],
-  glm: [
-    { value: 'glm-4.6', label: 'GLM-4.6' },
-    { value: 'glm-4.5', label: 'GLM-4.5' },
-    { value: 'glm-4.5-x', label: 'GLM-4.5-X' },
-    { value: 'glm-4.5-air', label: 'GLM-4.5-Air' },
-    { value: 'glm-4.5-flash', label: 'GLM-4.5-Flash (Free)' },
-    { value: 'glm-4.5v', label: 'GLM-4.5V (Vision)' },
-  ],
-  kimi: [
-    { value: 'kimi-k2-thinking', label: 'kimi-k2-thinking' },
-    { value: 'kimi-k2-latest', label: 'kimi-k2-latest' },
-    { value: 'kimi-k2-turbo-preview', label: 'kimi-k2-turbo-preview' },
-    { value: 'moonshot-v1-8k', label: 'moonshot-v1-8k' },
-    { value: 'moonshot-v1-32k', label: 'moonshot-v1-32k' },
-    { value: 'moonshot-v1-128k', label: 'moonshot-v1-128k' },
-  ],
-  __fallback__: [],
-}
+CREATE TABLE IF NOT EXISTS public.space_agents (
+  space_id UUID NOT NULL REFERENCES public.spaces(id) ON DELETE CASCADE,
+  agent_id UUID NOT NULL REFERENCES public.agents(id) ON DELETE CASCADE,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  is_primary BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (space_id, agent_id)
+);
 
-const getModelOptionsForProvider = (provider, dynamicModels) =>
-  dynamicModels && dynamicModels.length > 0
-    ? dynamicModels
-    : FALLBACK_MODEL_OPTIONS[provider] || FALLBACK_MODEL_OPTIONS.__fallback__
+CREATE INDEX IF NOT EXISTS idx_space_agents_agent_id ON public.space_agents(agent_id);
+CREATE INDEX IF NOT EXISTS idx_space_agents_space_order
+  ON public.space_agents(space_id, sort_order);
+`
 
 // Constant keys for logic - labels will be translated with useMemo
 const PROVIDER_KEYS = ['gemini', 'openai_compatibility', 'siliconflow', 'glm', 'kimi']
 
 const INTERFACE_LANGUAGE_KEYS = ['en', 'zh-CN']
-
-const LLM_ANSWER_LANGUAGE_KEYS = [
-  'English',
-  'Chinese (Simplified)',
-  'Chinese (Traditional)',
-  'Japanese',
-  'Korean',
-  'Spanish',
-  'French',
-  'German',
-  'Portuguese',
-  'Italian',
-]
-
-const STYLE_BASE_TONE_KEYS = [
-  'technical',
-  'friendly',
-  'professional',
-  'academic',
-  'creative',
-]
-
-const STYLE_TRAIT_KEYS = ['default', 'concise', 'structured', 'detailed', 'actionable']
-
-const STYLE_WARMTH_KEYS = ['default', 'gentle', 'empathetic', 'direct']
-
-const STYLE_ENTHUSIASM_KEYS = ['default', 'low', 'high']
-
-const STYLE_HEADINGS_KEYS = ['default', 'minimal', 'structured']
-
-const STYLE_EMOJI_KEYS = ['default', 'none', 'light', 'moderate']
 
 const SettingsModal = ({ isOpen, onClose }) => {
   const { t, i18n } = useTranslation()
@@ -233,49 +205,15 @@ const SettingsModal = ({ isOpen, onClose }) => {
   const providerDropdownRef = useRef(null)
   const [isInterfaceLanguageDropdownOpen, setIsInterfaceLanguageDropdownOpen] = useState(false)
   const interfaceLanguageDropdownRef = useRef(null)
-  const [isLlmLanguageDropdownOpen, setIsLlmLanguageDropdownOpen] = useState(false)
-  const llmLanguageDropdownRef = useRef(null)
   const [contextMessageLimit, setContextMessageLimit] = useState(12)
-  const [modelId, setModelId] = useState('')
-  // Model configuration states
-  const [liteModel, setLiteModel] = useState('gemini-2.5-flash')
-  const [defaultModel, setDefaultModel] = useState('gemini-2.5-flash')
   const [themeColor, setThemeColor] = useState('violet')
   const [enableRelatedQuestions, setEnableRelatedQuestions] = useState(false)
   const [interfaceLanguage, setInterfaceLanguage] = useState('en')
-  const [llmAnswerLanguage, setLlmAnswerLanguage] = useState('English')
-  const [baseTone, setBaseTone] = useState('technical')
-  const [traits, setTraits] = useState('default')
-  const [warmth, setWarmth] = useState('default')
-  const [enthusiasm, setEnthusiasm] = useState('default')
-  const [headings, setHeadings] = useState('default')
-  const [emojis, setEmojis] = useState('default')
-  const [customInstruction, setCustomInstruction] = useState('')
-  const [isBaseToneDropdownOpen, setIsBaseToneDropdownOpen] = useState(false)
-  const baseToneDropdownRef = useRef(null)
-  const [isTraitsDropdownOpen, setIsTraitsDropdownOpen] = useState(false)
-  const traitsDropdownRef = useRef(null)
-  const [isWarmthDropdownOpen, setIsWarmthDropdownOpen] = useState(false)
-  const warmthDropdownRef = useRef(null)
-  const [isEnthusiasmDropdownOpen, setIsEnthusiasmDropdownOpen] = useState(false)
-  const enthusiasmDropdownRef = useRef(null)
-  const [isHeadingsDropdownOpen, setIsHeadingsDropdownOpen] = useState(false)
-  const headingsDropdownRef = useRef(null)
-  const [isEmojisDropdownOpen, setIsEmojisDropdownOpen] = useState(false)
-  const emojisDropdownRef = useRef(null)
 
-  // Dynamic model states
-  const [dynamicModels, setDynamicModels] = useState([])
-  const [isLoadingModels, setIsLoadingModels] = useState(false)
-  const [modelsError, setModelsError] = useState(null)
-  const [currentProvider, setCurrentProvider] = useState(null) // Track current provider for loading
   const [isInitModalOpen, setIsInitModalOpen] = useState(false)
   const [initModalResult, setInitModalResult] = useState(null)
   const [copiedInitSql, setCopiedInitSql] = useState(false)
   const [retestingDb, setRetestingDb] = useState(false)
-
-  // AbortController for cancelling requests
-  const abortControllerRef = useRef(null)
 
   // Handle click outside provider dropdown
   useEffect(() => {
@@ -289,42 +227,11 @@ const SettingsModal = ({ isOpen, onClose }) => {
       ) {
         setIsInterfaceLanguageDropdownOpen(false)
       }
-      if (
-        llmLanguageDropdownRef.current &&
-        !llmLanguageDropdownRef.current.contains(event.target)
-      ) {
-        setIsLlmLanguageDropdownOpen(false)
-      }
-      if (baseToneDropdownRef.current && !baseToneDropdownRef.current.contains(event.target)) {
-        setIsBaseToneDropdownOpen(false)
-      }
-      if (traitsDropdownRef.current && !traitsDropdownRef.current.contains(event.target)) {
-        setIsTraitsDropdownOpen(false)
-      }
-      if (warmthDropdownRef.current && !warmthDropdownRef.current.contains(event.target)) {
-        setIsWarmthDropdownOpen(false)
-      }
-      if (enthusiasmDropdownRef.current && !enthusiasmDropdownRef.current.contains(event.target)) {
-        setIsEnthusiasmDropdownOpen(false)
-      }
-      if (headingsDropdownRef.current && !headingsDropdownRef.current.contains(event.target)) {
-        setIsHeadingsDropdownOpen(false)
-      }
-      if (emojisDropdownRef.current && !emojisDropdownRef.current.contains(event.target)) {
-        setIsEmojisDropdownOpen(false)
-      }
+      return
     }
 
     if (
-      isProviderDropdownOpen ||
-      isInterfaceLanguageDropdownOpen ||
-      isLlmLanguageDropdownOpen ||
-      isBaseToneDropdownOpen ||
-      isTraitsDropdownOpen ||
-      isWarmthDropdownOpen ||
-      isEnthusiasmDropdownOpen ||
-      isHeadingsDropdownOpen ||
-      isEmojisDropdownOpen
+      isProviderDropdownOpen || isInterfaceLanguageDropdownOpen
     ) {
       document.addEventListener('mousedown', handleClickOutside)
     }
@@ -334,13 +241,6 @@ const SettingsModal = ({ isOpen, onClose }) => {
   }, [
     isProviderDropdownOpen,
     isInterfaceLanguageDropdownOpen,
-    isLlmLanguageDropdownOpen,
-    isBaseToneDropdownOpen,
-    isTraitsDropdownOpen,
-    isWarmthDropdownOpen,
-    isEnthusiasmDropdownOpen,
-    isHeadingsDropdownOpen,
-    isEmojisDropdownOpen,
   ])
 
   // Menu items - use constant keys for logic, translate labels for display
@@ -348,7 +248,6 @@ const SettingsModal = ({ isOpen, onClose }) => {
     { id: 'general', icon: Settings },
     { id: 'chat', icon: MessageSquare },
     { id: 'interface', icon: Monitor },
-    { id: 'personalization', icon: Palette },
     { id: 'account', icon: User },
     { id: 'about', icon: Info },
   ]
@@ -380,82 +279,6 @@ const SettingsModal = ({ isOpen, onClose }) => {
     [t],
   )
 
-  // LLM answer language options (use value as is for display)
-  const llmAnswerLanguageOptions = useMemo(
-    () =>
-      LLM_ANSWER_LANGUAGE_KEYS.map(key => ({
-        key,
-        value: key,
-        label: key,
-      })),
-    [],
-  )
-
-  // Style base tone options with translated labels
-  const styleBaseToneOptions = useMemo(
-    () =>
-      STYLE_BASE_TONE_KEYS.map(key => ({
-        key,
-        value: key,
-        label: t(`settings.baseToneOptions.${key}`),
-      })),
-    [t],
-  )
-
-  // Style traits options with translated labels
-  const styleTraitOptions = useMemo(
-    () =>
-      STYLE_TRAIT_KEYS.map(key => ({
-        key,
-        value: key,
-        label: t(`settings.traitsOptions.${key}`),
-      })),
-    [t],
-  )
-
-  // Style warmth options with translated labels
-  const styleWarmthOptions = useMemo(
-    () =>
-      STYLE_WARMTH_KEYS.map(key => ({
-        key,
-        value: key,
-        label: t(`settings.warmthOptions.${key}`),
-      })),
-    [t],
-  )
-
-  // Style enthusiasm options with translated labels
-  const styleEnthusiasmOptions = useMemo(
-    () =>
-      STYLE_ENTHUSIASM_KEYS.map(key => ({
-        key,
-        value: key,
-        label: t(`settings.enthusiasmOptions.${key}`),
-      })),
-    [t],
-  )
-
-  // Style headings options with translated labels
-  const styleHeadingsOptions = useMemo(
-    () =>
-      STYLE_HEADINGS_KEYS.map(key => ({
-        key,
-        value: key,
-        label: t(`settings.headingsOptions.${key}`),
-      })),
-    [t],
-  )
-
-  // Style emoji options with translated labels
-  const styleEmojiOptions = useMemo(
-    () =>
-      STYLE_EMOJI_KEYS.map(key => ({
-        key,
-        value: key,
-        label: t(`settings.emojisOptions.${key}`),
-      })),
-    [t],
-  )
 
   // TODO: useEffect to load settings from Supabase/LocalStorage on mount
   // Load settings when modal opens
@@ -474,170 +297,18 @@ const SettingsModal = ({ isOpen, onClose }) => {
       if (settings.apiProvider) setApiProvider(settings.apiProvider)
       if (settings.googleApiKey) setGoogleApiKey(settings.googleApiKey)
       if (settings.contextMessageLimit) setContextMessageLimit(Number(settings.contextMessageLimit))
-      // Load model configuration
-      if (settings.liteModel) setLiteModel(settings.liteModel)
-      if (settings.defaultModel) setDefaultModel(settings.defaultModel)
       if (settings.themeColor) setThemeColor(settings.themeColor)
       if (typeof settings.enableRelatedQuestions === 'boolean')
         setEnableRelatedQuestions(settings.enableRelatedQuestions)
       // Initialize interfaceLanguage from i18n.language (which reads from localStorage)
       setInterfaceLanguage(i18n.language)
-      if (settings.llmAnswerLanguage) setLlmAnswerLanguage(settings.llmAnswerLanguage)
-      if (settings.baseTone) setBaseTone(settings.baseTone)
-      if (settings.traits) setTraits(settings.traits)
-      if (settings.warmth) setWarmth(settings.warmth)
-      if (settings.enthusiasm) setEnthusiasm(settings.enthusiasm)
-      if (settings.headings) setHeadings(settings.headings)
-      if (settings.emojis) setEmojis(settings.emojis)
-      if (typeof settings.customInstruction === 'string')
-        setCustomInstruction(settings.customInstruction)
     }
   }, [isOpen, i18n])
 
   useScrollLock(isOpen)
 
-  // Cleanup abort controller when component unmounts
-  useEffect(() => {
-    return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort()
-      }
-    }
-  }, [])
 
-  // Function to fetch models for the current provider
-  const fetchModelsForProvider = async provider => {
-    // Use the current provider if not specified
-    const targetProvider = provider || apiProvider
-
-    // Cancel previous request
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort()
-    }
-
-    // Create new AbortController for this request
-    const controller = new AbortController()
-    abortControllerRef.current = controller
-
-    // Set current provider immediately
-    const currentProviderRef = targetProvider
-    setCurrentProvider(currentProviderRef)
-
-    setIsLoadingModels(true)
-    setModelsError(null)
-
-    try {
-      let credentials = {}
-
-      if (targetProvider === 'gemini') {
-        credentials = { apiKey: googleApiKey }
-      } else if (targetProvider === 'siliconflow') {
-        credentials = {
-          apiKey: SiliconFlowKey,
-          baseUrl: SILICONFLOW_BASE_URL,
-        }
-      } else if (targetProvider === 'glm') {
-        credentials = { apiKey: GlmKey }
-      } else if (targetProvider === 'openai_compatibility') {
-        credentials = {
-          apiKey: OpenAICompatibilityKey,
-          baseUrl: OpenAICompatibilityUrl,
-        }
-      }
-
-      if (!credentials.apiKey) {
-        setDynamicModels([])
-        setIsLoadingModels(false)
-        return
-      }
-
-      const models = await getModelsForProvider(targetProvider, credentials, {
-        signal: controller.signal,
-      })
-
-      // Check if request was aborted
-      if (controller.signal.aborted) {
-        console.log('Request was aborted')
-        return
-      }
-
-      // Update states regardless of provider change since we want to show the fetched models
-      console.log(`Successfully fetched ${models.length} models for ${targetProvider}`)
-      setDynamicModels(models)
-      setModelsError(null)
-    } catch (error) {
-      if (error.name === 'AbortError') {
-        console.log('Request was cancelled')
-        return
-      }
-
-      console.error('Failed to fetch models:', error)
-
-      // Only update error state if request wasn't aborted
-      if (!controller.signal.aborted) {
-        setModelsError(error.message)
-        setDynamicModels([])
-      }
-    } finally {
-      // Always update loading state when request completes
-      if (!controller.signal.aborted) {
-        setIsLoadingModels(false)
-      }
-    }
-  }
-
-  // Fetch models when provider changes or when modal opens with valid credentials
-  useEffect(() => {
-    if (isOpen) {
-      // Check if we should fetch models for this provider
-      const hasValidCredentials =
-        (apiProvider === 'gemini' && googleApiKey) ||
-        (apiProvider === 'siliconflow' && SiliconFlowKey) ||
-        (apiProvider === 'glm' && GlmKey) ||
-        (apiProvider === 'kimi' && KimiKey) ||
-        (apiProvider === 'openai_compatibility' && OpenAICompatibilityKey)
-
-      if (hasValidCredentials) {
-        // Clear previous state when provider changes
-        setModelsError(null)
-        setDynamicModels([])
-        setIsLoadingModels(false)
-
-        const debounceTimer = setTimeout(() => {
-          fetchModelsForProvider(apiProvider)
-        }, 500) // Debounce to avoid too many API calls
-
-        return () => clearTimeout(debounceTimer)
-      } else {
-        // No valid credentials, clear model state
-        setDynamicModels([])
-        setModelsError(null)
-        setIsLoadingModels(false)
-      }
-    }
-  }, [apiProvider, isOpen])
-
-  // Fetch models when credentials change for current provider (excluding apiProvider to avoid duplicate calls)
-  useEffect(() => {
-    if (isOpen && apiProvider) {
-      const hasValidCredentials =
-        (apiProvider === 'gemini' && googleApiKey) ||
-        (apiProvider === 'siliconflow' && SiliconFlowKey) ||
-        (apiProvider === 'glm' && GlmKey) ||
-        (apiProvider === 'kimi' && KimiKey) ||
-        (apiProvider === 'openai_compatibility' && OpenAICompatibilityKey)
-
-      if (hasValidCredentials) {
-        const debounceTimer = setTimeout(() => {
-          fetchModelsForProvider(apiProvider)
-        }, 1000)
-
-        return () => clearTimeout(debounceTimer)
-      }
-    }
-  }, [googleApiKey, SiliconFlowKey, GlmKey, KimiKey, apiProvider])
-
-  const requiredTables = ['spaces', 'conversations', 'conversation_messages']
+  const requiredTables = ['spaces', 'agents', 'space_agents', 'conversations', 'conversation_messages']
 
   const getMissingTables = result => {
     if (!result?.tables) return requiredTables
@@ -710,20 +381,9 @@ const SettingsModal = ({ isOpen, onClose }) => {
       supabaseUrl,
       supabaseKey,
       contextMessageLimit,
-      // Save model configuration
-      liteModel,
-      defaultModel,
       themeColor,
       enableRelatedQuestions,
       interfaceLanguage,
-      llmAnswerLanguage,
-      baseTone,
-      traits,
-      warmth,
-      enthusiasm,
-      headings,
-      emojis,
-      customInstruction,
     })
 
     onClose()
@@ -799,13 +459,6 @@ const SettingsModal = ({ isOpen, onClose }) => {
                       onClick={() => {
                         const nextOpen = !isInterfaceLanguageDropdownOpen
                         setIsProviderDropdownOpen(false)
-                        setIsLlmLanguageDropdownOpen(false)
-                        setIsBaseToneDropdownOpen(false)
-                        setIsTraitsDropdownOpen(false)
-                        setIsWarmthDropdownOpen(false)
-                        setIsEnthusiasmDropdownOpen(false)
-                        setIsHeadingsDropdownOpen(false)
-                        setIsEmojisDropdownOpen(false)
                         setIsInterfaceLanguageDropdownOpen(nextOpen)
                       }}
                       className="w-full flex items-center justify-between pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-zinc-800"
@@ -865,13 +518,6 @@ const SettingsModal = ({ isOpen, onClose }) => {
                       onClick={() => {
                         const nextOpen = !isProviderDropdownOpen
                         setIsInterfaceLanguageDropdownOpen(false)
-                        setIsLlmLanguageDropdownOpen(false)
-                        setIsBaseToneDropdownOpen(false)
-                        setIsTraitsDropdownOpen(false)
-                        setIsWarmthDropdownOpen(false)
-                        setIsEnthusiasmDropdownOpen(false)
-                        setIsHeadingsDropdownOpen(false)
-                        setIsEmojisDropdownOpen(false)
                         setIsProviderDropdownOpen(nextOpen)
                       }}
                       className="w-full flex items-center justify-between pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-zinc-800"
@@ -901,19 +547,8 @@ const SettingsModal = ({ isOpen, onClose }) => {
                           <button
                             key={option.key}
                             onClick={() => {
-                              // Cancel any ongoing request before switching
-                              if (abortControllerRef.current) {
-                                abortControllerRef.current.abort()
-                                abortControllerRef.current = null
-                              }
-
                               setApiProvider(option.value)
                               setIsProviderDropdownOpen(false)
-                              // Clear all model-related state when switching providers
-                              setModelsError(null)
-                              setDynamicModels([])
-                              setIsLoadingModels(false)
-                              setCurrentProvider(option.value)
                             }}
                             className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
                           >
@@ -952,21 +587,6 @@ const SettingsModal = ({ isOpen, onClose }) => {
                           )}
                         />
                       </div>
-                      {apiProvider === 'gemini' && googleApiKey && (
-                        <div className="flex items-center gap-2 mt-2">
-                          <button
-                            onClick={() => fetchModelsForProvider(apiProvider)}
-                            disabled={isLoadingModels}
-                            className="flex items-center gap-1 text-xs px-3 py-1 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-md transition-colors disabled:opacity-50"
-                          >
-                            <RefreshCw
-                              size={12}
-                              className={clsx(isLoadingModels && 'animate-spin')}
-                            />
-                            {isLoadingModels ? t('settings.refreshing') : t('settings.refreshModels')}
-                          </button>
-                        </div>
-                      )}
                       {ENV_VARS.googleApiKey && (
                         <p className="text-emerald-600 text-xs dark:text-emerald-400">
                           {t('settings.loadedFromEnvironment')}
@@ -1048,21 +668,6 @@ const SettingsModal = ({ isOpen, onClose }) => {
                             )}
                           />
                         </div>
-                        {apiProvider === 'siliconflow' && SiliconFlowKey && (
-                          <div className="flex items-center gap-2 mt-2">
-                            <button
-                              onClick={() => fetchModelsForProvider(apiProvider)}
-                              disabled={isLoadingModels}
-                              className="flex items-center gap-1 text-xs px-3 py-1 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-md transition-colors disabled:opacity-50"
-                            >
-                              <RefreshCw
-                                size={12}
-                                className={clsx(isLoadingModels && 'animate-spin')}
-                              />
-                              {isLoadingModels ? t('settings.refreshing') : t('settings.refreshModels')}
-                            </button>
-                          </div>
-                        )}
                         {ENV_VARS.siliconFlowKey && (
                           <p className="text-emerald-600 text-xs dark:text-emerald-400">
                             {t('settings.loadedFromEnvironment')}
@@ -1095,21 +700,6 @@ const SettingsModal = ({ isOpen, onClose }) => {
                             )}
                           />
                         </div>
-                        {apiProvider === 'glm' && GlmKey && (
-                          <div className="flex items-center gap-2 mt-2">
-                            <button
-                              onClick={() => fetchModelsForProvider(apiProvider)}
-                              disabled={isLoadingModels}
-                              className="flex items-center gap-1 text-xs px-3 py-1 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-md transition-colors disabled:opacity-50"
-                            >
-                              <RefreshCw
-                                size={12}
-                                className={clsx(isLoadingModels && 'animate-spin')}
-                              />
-                              {isLoadingModels ? t('settings.refreshing') : t('settings.refreshModels')}
-                            </button>
-                          </div>
-                        )}
                         {ENV_VARS.glmKey && (
                           <p className="text-emerald-600 text-xs dark:text-emerald-400">
                             {t('settings.loadedFromEnvironment')}
@@ -1142,21 +732,6 @@ const SettingsModal = ({ isOpen, onClose }) => {
                             )}
                           />
                         </div>
-                        {apiProvider === 'kimi' && KimiKey && (
-                          <div className="flex items-center gap-2 mt-2">
-                            <button
-                              onClick={() => fetchModelsForProvider(apiProvider)}
-                              disabled={isLoadingModels}
-                              className="flex items-center gap-1 text-xs px-3 py-1 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-md transition-colors disabled:opacity-50"
-                            >
-                              <RefreshCw
-                                size={12}
-                                className={clsx(isLoadingModels && 'animate-spin')}
-                              />
-                              {isLoadingModels ? t('settings.refreshing') : t('settings.refreshModels')}
-                            </button>
-                          </div>
-                        )}
                         {ENV_VARS.kimiKey && (
                           <p className="text-emerald-600 text-xs dark:text-emerald-400">
                             {t('settings.loadedFromEnvironment')}
@@ -1166,225 +741,6 @@ const SettingsModal = ({ isOpen, onClose }) => {
                     </div>
                   )}
                 </div>
-                <div className="h-px bg-gray-100 dark:bg-zinc-800" />
-                {/* Model Configuration */}
-                <div className="flex flex-col gap-6">
-                  <div className="flex flex-col gap-1">
-                    <label className="text-sm font-medium text-gray-900 dark:text-white">
-                      {t('settings.modelConfiguration')}
-                    </label>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {t('settings.modelConfigurationHint')}
-                    </p>
-                    {apiProvider !== 'openai_compatibility' && (
-                      <div className="flex items-center gap-2 text-xs">
-                        {isLoadingModels && (
-                          <div className="flex items-center gap-1 text-gray-500">
-                            <div className="w-3 h-3 border border-gray-300 border-t-transparent rounded-full animate-spin"></div>
-                            <span>{t('settings.loadingModels')}</span>
-                          </div>
-                        )}
-                        {!isLoadingModels && dynamicModels.length > 0 && (
-                          <span className="text-emerald-600 dark:text-emerald-400">
-                            ✓ {t('settings.modelsLoaded', { count: dynamicModels.length })}
-                          </span>
-                        )}
-                        {modelsError && (
-                          <span
-                            className="text-primary-600 dark:text-primary-400"
-                            title={modelsError}
-                          >
-                            ⚠ {t('settings.usingFallbackModels')}
-                          </span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  {(() => {
-                    const modelOptions = getModelOptionsForProvider(apiProvider, dynamicModels)
-
-                    const ModelCard = ({ label, helper, value, onChange }) => {
-                      const [isOpen, setIsOpen] = useState(false)
-                      const [showTooltip, setShowTooltip] = useState(false)
-                      const [tooltipPos, setTooltipPos] = useState({ top: 0, left: 0 })
-                      const dropdownRef = useRef(null)
-                      const isCustom = !modelOptions.some(opt => opt.value === value)
-                      const currentLabel =
-                        modelOptions.find(opt => opt.value === value)?.label || t('settings.customModel')
-
-                      useEffect(() => {
-                        const handleClickOutside = event => {
-                          if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-                            setIsOpen(false)
-                          }
-                        }
-
-                        if (isOpen) {
-                          document.addEventListener('mousedown', handleClickOutside)
-                        }
-                        return () => {
-                          document.removeEventListener('mousedown', handleClickOutside)
-                        }
-                      }, [isOpen])
-
-                      const handleMouseEnter = e => {
-                        const rect = e.currentTarget.getBoundingClientRect()
-                        setTooltipPos({
-                          top: rect.top - 8,
-                          left: rect.left + rect.width / 2,
-                        })
-                        setShowTooltip(true)
-                      }
-
-                      return (
-                        <div className="flex flex-col gap-3 p-4 border border-gray-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 shadow-sm transition-all hover:shadow-md">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                                {label}
-                              </p>
-                              <div
-                                className="relative flex items-center"
-                                onMouseEnter={handleMouseEnter}
-                                onMouseLeave={() => setShowTooltip(false)}
-                              >
-                                <Info
-                                  size={13}
-                                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 cursor-help transition-colors"
-                                />
-                                {showTooltip && (
-                                  <div
-                                    className="fixed z-9999 -translate-x-1/2 -translate-y-full w-48 p-2 bg-gray-900 dark:bg-zinc-700 text-white dark:text-gray-100 text-[11px] rounded-lg shadow-xl pointer-events-none animate-in fade-in zoom-in-95 duration-100"
-                                    style={{
-                                      top: tooltipPos.top,
-                                      left: tooltipPos.left,
-                                    }}
-                                  >
-                                    {helper}
-                                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900 dark:border-t-zinc-700" />
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                            <span className="text-[10px] px-2 py-1 rounded-full bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-zinc-700">
-                              {isCustom ? t('settings.custom') : t('settings.preset')}
-                            </span>
-                          </div>
-
-                          <div className="relative" ref={dropdownRef}>
-                            <button
-                              onClick={() => setIsOpen(!isOpen)}
-                              className={clsx(
-                                'w-full flex items-center justify-between px-3 py-2.5 bg-gray-50 dark:bg-zinc-950 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm transition-all text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-zinc-800',
-                                isOpen && 'ring-2 ring-primary-500/20 border-primary-500',
-                              )}
-                            >
-                              <div className="flex items-center gap-2">
-                                {getModelIcon(value) && (
-                                  <img
-                                    src={getModelIcon(value)}
-                                    alt=""
-                                    width={14}
-                                    height={14}
-                                    className="w-3.5 h-3.5"
-                                    loading="lazy"
-                                  />
-                                )}
-                                <span>{currentLabel}</span>
-                              </div>
-                              <ChevronDown
-                                size={16}
-                                className={clsx(
-                                  'text-gray-400 transition-transform duration-200',
-                                  isOpen && 'rotate-180',
-                                )}
-                              />
-                            </button>
-
-                            {isOpen && (
-                              <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg shadow-xl z-20 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
-                                <div className="max-h-[200px] overflow-y-auto">
-                                  {modelOptions.map(opt => (
-                                    <button
-                                      key={opt.value}
-                                      onClick={() => {
-                                        onChange(opt.value)
-                                        setIsOpen(false)
-                                      }}
-                                      className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
-                                    >
-                                      <div className="flex items-center gap-2">
-                                        {getModelIcon(opt.value) && (
-                                          <img
-                                            src={getModelIcon(opt.value)}
-                                            alt=""
-                                            width={14}
-                                            height={14}
-                                            className="w-3.5 h-3.5"
-                                            loading="lazy"
-                                          />
-                                        )}
-                                        <span>{opt.label}</span>
-                                      </div>
-                                      {value === opt.value && (
-                                        <Check size={14} className="text-primary-500" />
-                                      )}
-                                    </button>
-                                  ))}
-                                  <div className="h-px bg-gray-100 dark:bg-zinc-800 my-1" />
-                                  <button
-                                    onClick={() => {
-                                      onChange('') // Clear value for custom input
-                                      setIsOpen(false)
-                                    }}
-                                    className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
-                                  >
-                                    <span>{t('settings.customModel')}</span>
-                                    {isCustom && <Check size={14} className="text-primary-500" />}
-                                  </button>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-
-                          {isCustom && (
-                            <div className="flex flex-col gap-1 animate-in fade-in slide-in-from-top-1 duration-200">
-                              <label className="text-[11px] text-gray-500 dark:text-gray-400">
-                                {t('settings.customModelId')}
-                              </label>
-                              <input
-                                type="text"
-                                value={value}
-                                onChange={e => onChange(e.target.value)}
-                                placeholder={t('settings.customModelIdPlaceholder')}
-                                className="w-full px-3 py-2 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm bg-gray-50 dark:bg-zinc-950 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
-                              />
-                            </div>
-                          )}
-                        </div>
-                      )
-                    }
-
-                    return (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <ModelCard
-                          label={t('settings.liteModel')}
-                          helper={t('settings.liteModelHelper')}
-                          value={liteModel}
-                          onChange={setLiteModel}
-                        />
-                        <ModelCard
-                          label={t('settings.defaultModel')}
-                          helper={t('settings.defaultModelHelper')}
-                          value={defaultModel}
-                          onChange={setDefaultModel}
-                        />
-                      </div>
-                    )
-                  })()}
-                </div>
-
                 <div className="h-px bg-gray-100 dark:bg-zinc-800" />
 
                 {/* Supabase Config */}
@@ -1507,423 +863,39 @@ const SettingsModal = ({ isOpen, onClose }) => {
                     {t('settings.themeColorHint')}
                   </p>
                 </div>
-
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                  {Object.entries(THEMES).map(([key, theme]) => (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {Object.entries(THEMES).map(([themeKey, theme]) => (
                     <button
-                      key={key}
-                      onClick={() => setThemeColor(key)}
+                      key={themeKey}
+                      type="button"
+                      onClick={() => setThemeColor(themeKey)}
                       className={clsx(
-                        'relative flex flex-col items-center gap-3 p-4 rounded-xl border transition-all',
-                        themeColor === key
-                          ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/10 ring-1 ring-primary-500/20'
-                          : 'border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-gray-50 dark:hover:bg-zinc-800',
+                        'flex items-center justify-between gap-3 px-4 py-3 rounded-lg border text-left transition-colors',
+                        themeColor === themeKey
+                          ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
+                          : 'border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-900 hover:bg-gray-100 dark:hover:bg-zinc-800',
                       )}
                     >
-                      <div className="flex gap-1">
-                        <div
-                          className="w-6 h-6 rounded-full shadow-sm"
+                      <div className="flex items-center gap-3">
+                        <span
+                          className="h-8 w-8 rounded-full border border-black/5 dark:border-white/10"
                           style={{ backgroundColor: theme.colors['--color-primary-500'] }}
+                          aria-hidden="true"
                         />
-                        <div
-                          className="w-6 h-6 rounded-full shadow-sm -ml-2"
-                          style={{ backgroundColor: theme.colors['--color-primary-300'] }}
-                        />
-                      </div>
-                      <span
-                        className={clsx(
-                          'text-sm font-medium',
-                          themeColor === key
-                            ? 'text-primary-700 dark:text-primary-300'
-                            : 'text-gray-700 dark:text-gray-300',
-                        )}
-                      >
-                        {theme.label}
-                      </span>
-                      {themeColor === key && (
-                        <div className="absolute top-3 right-3 text-primary-500">
-                          <Check size={16} />
+                        <div className="flex flex-col">
+                          <span className="text-sm font-medium text-gray-900 dark:text-white">
+                            {theme.label}
+                          </span>
+                          <span className="text-xs text-gray-500 dark:text-gray-400">
+                            {theme.colors['--color-primary-500']}
+                          </span>
                         </div>
+                      </div>
+                      {themeColor === themeKey && (
+                        <Check size={16} className="text-primary-500" />
                       )}
                     </button>
                   ))}
-                </div>
-              </div>
-            )}
-
-            {activeTab === 'personalization' && (
-              <div className="flex flex-col gap-8 max-w-2xl">
-                <div className="flex flex-col gap-1">
-                  <label className="text-sm font-medium text-gray-900 dark:text-white">
-                    {t('settings.responseStyle')}
-                  </label>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {t('settings.responseStyleHint')}
-                  </p>
-                </div>
-
-                <div className="flex flex-col gap-2">
-                  <label className="text-sm font-medium text-gray-900 dark:text-white">
-                    {t('settings.styleBaseTone')}
-                  </label>
-                  <div className="relative w-full" ref={baseToneDropdownRef}>
-                    <button
-                      onClick={() => {
-                        const nextOpen = !isBaseToneDropdownOpen
-                        setIsProviderDropdownOpen(false)
-                        setIsInterfaceLanguageDropdownOpen(false)
-                        setIsLlmLanguageDropdownOpen(false)
-                        setIsTraitsDropdownOpen(false)
-                        setIsWarmthDropdownOpen(false)
-                        setIsEnthusiasmDropdownOpen(false)
-                        setIsHeadingsDropdownOpen(false)
-                        setIsEmojisDropdownOpen(false)
-                        setIsBaseToneDropdownOpen(nextOpen)
-                      }}
-                      className="w-full flex items-center justify-between pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-zinc-800"
-                    >
-                      <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center">
-                        <Palette size={16} className="text-gray-400" />
-                      </div>
-                      <span>
-                        {styleBaseToneOptions.find(option => option.value === baseTone)?.label ||
-                          baseTone}
-                      </span>
-                      <ChevronDown
-                        size={16}
-                        className={clsx(
-                          'text-gray-400 transition-transform duration-200',
-                          isBaseToneDropdownOpen && 'rotate-180',
-                        )}
-                      />
-                    </button>
-
-                    {isBaseToneDropdownOpen && (
-                      <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg shadow-xl z-20 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
-                        {styleBaseToneOptions.map(option => (
-                          <button
-                            key={option.key}
-                            onClick={() => {
-                              setBaseTone(option.value)
-                              setIsBaseToneDropdownOpen(false)
-                            }}
-                            className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
-                          >
-                            <span>{option.label}</span>
-                            {baseTone === option.value && (
-                              <Check size={14} className="text-primary-500" />
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-2">
-                  <label className="text-sm font-medium text-gray-900 dark:text-white">
-                    {t('settings.traits')}
-                  </label>
-                  <div className="relative w-full" ref={traitsDropdownRef}>
-                    <button
-                      onClick={() => {
-                        const nextOpen = !isTraitsDropdownOpen
-                        setIsProviderDropdownOpen(false)
-                        setIsInterfaceLanguageDropdownOpen(false)
-                        setIsLlmLanguageDropdownOpen(false)
-                        setIsBaseToneDropdownOpen(false)
-                        setIsWarmthDropdownOpen(false)
-                        setIsEnthusiasmDropdownOpen(false)
-                        setIsHeadingsDropdownOpen(false)
-                        setIsEmojisDropdownOpen(false)
-                        setIsTraitsDropdownOpen(nextOpen)
-                      }}
-                      className="w-full flex items-center justify-between pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-zinc-800"
-                    >
-                      <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center">
-                        <Box size={16} className="text-gray-400" />
-                      </div>
-                      <span>
-                        {styleTraitOptions.find(option => option.value === traits)?.label ||
-                          traits}
-                      </span>
-                      <ChevronDown
-                        size={16}
-                        className={clsx(
-                          'text-gray-400 transition-transform duration-200',
-                          isTraitsDropdownOpen && 'rotate-180',
-                        )}
-                      />
-                    </button>
-
-                    {isTraitsDropdownOpen && (
-                      <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg shadow-xl z-20 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
-                        {styleTraitOptions.map(option => (
-                          <button
-                            key={option.key}
-                            onClick={() => {
-                              setTraits(option.value)
-                              setIsTraitsDropdownOpen(false)
-                            }}
-                            className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
-                          >
-                            <span>{option.label}</span>
-                            {traits === option.value && (
-                              <Check size={14} className="text-primary-500" />
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-2">
-                  <label className="text-sm font-medium text-gray-900 dark:text-white">
-                    {t('settings.warmth')}
-                  </label>
-                  <div className="relative w-full" ref={warmthDropdownRef}>
-                    <button
-                      onClick={() => {
-                        const nextOpen = !isWarmthDropdownOpen
-                        setIsProviderDropdownOpen(false)
-                        setIsInterfaceLanguageDropdownOpen(false)
-                        setIsLlmLanguageDropdownOpen(false)
-                        setIsBaseToneDropdownOpen(false)
-                        setIsTraitsDropdownOpen(false)
-                        setIsEnthusiasmDropdownOpen(false)
-                        setIsHeadingsDropdownOpen(false)
-                        setIsEmojisDropdownOpen(false)
-                        setIsWarmthDropdownOpen(nextOpen)
-                      }}
-                      className="w-full flex items-center justify-between pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-zinc-800"
-                    >
-                      <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center">
-                        <User size={16} className="text-gray-400" />
-                      </div>
-                      <span>
-                        {styleWarmthOptions.find(option => option.value === warmth)?.label ||
-                          warmth}
-                      </span>
-                      <ChevronDown
-                        size={16}
-                        className={clsx(
-                          'text-gray-400 transition-transform duration-200',
-                          isWarmthDropdownOpen && 'rotate-180',
-                        )}
-                      />
-                    </button>
-
-                    {isWarmthDropdownOpen && (
-                      <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg shadow-xl z-20 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
-                        {styleWarmthOptions.map(option => (
-                          <button
-                            key={option.key}
-                            onClick={() => {
-                              setWarmth(option.value)
-                              setIsWarmthDropdownOpen(false)
-                            }}
-                            className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
-                          >
-                            <span>{option.label}</span>
-                            {warmth === option.value && (
-                              <Check size={14} className="text-primary-500" />
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-2">
-                  <label className="text-sm font-medium text-gray-900 dark:text-white">
-                    {t('settings.enthusiasm')}
-                  </label>
-                  <div className="relative w-full" ref={enthusiasmDropdownRef}>
-                    <button
-                      onClick={() => {
-                        const nextOpen = !isEnthusiasmDropdownOpen
-                        setIsProviderDropdownOpen(false)
-                        setIsInterfaceLanguageDropdownOpen(false)
-                        setIsLlmLanguageDropdownOpen(false)
-                        setIsBaseToneDropdownOpen(false)
-                        setIsTraitsDropdownOpen(false)
-                        setIsWarmthDropdownOpen(false)
-                        setIsHeadingsDropdownOpen(false)
-                        setIsEmojisDropdownOpen(false)
-                        setIsEnthusiasmDropdownOpen(nextOpen)
-                      }}
-                      className="w-full flex items-center justify-between pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-zinc-800"
-                    >
-                      <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center">
-                        <MessageSquare size={16} className="text-gray-400" />
-                      </div>
-                      <span>
-                        {styleEnthusiasmOptions.find(option => option.value === enthusiasm)
-                          ?.label || enthusiasm}
-                      </span>
-                      <ChevronDown
-                        size={16}
-                        className={clsx(
-                          'text-gray-400 transition-transform duration-200',
-                          isEnthusiasmDropdownOpen && 'rotate-180',
-                        )}
-                      />
-                    </button>
-
-                    {isEnthusiasmDropdownOpen && (
-                      <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg shadow-xl z-20 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
-                        {styleEnthusiasmOptions.map(option => (
-                          <button
-                            key={option.key}
-                            onClick={() => {
-                              setEnthusiasm(option.value)
-                              setIsEnthusiasmDropdownOpen(false)
-                            }}
-                            className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
-                          >
-                            <span>{option.label}</span>
-                            {enthusiasm === option.value && (
-                              <Check size={14} className="text-primary-500" />
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-2">
-                  <label className="text-sm font-medium text-gray-900 dark:text-white">
-                    {t('settings.headings')}
-                  </label>
-                  <div className="relative w-full" ref={headingsDropdownRef}>
-                    <button
-                      onClick={() => {
-                        const nextOpen = !isHeadingsDropdownOpen
-                        setIsProviderDropdownOpen(false)
-                        setIsInterfaceLanguageDropdownOpen(false)
-                        setIsLlmLanguageDropdownOpen(false)
-                        setIsBaseToneDropdownOpen(false)
-                        setIsTraitsDropdownOpen(false)
-                        setIsWarmthDropdownOpen(false)
-                        setIsEnthusiasmDropdownOpen(false)
-                        setIsEmojisDropdownOpen(false)
-                        setIsHeadingsDropdownOpen(nextOpen)
-                      }}
-                      className="w-full flex items-center justify-between pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-zinc-800"
-                    >
-                      <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center">
-                        <Info size={16} className="text-gray-400" />
-                      </div>
-                      <span>
-                        {styleHeadingsOptions.find(option => option.value === headings)?.label ||
-                          headings}
-                      </span>
-                      <ChevronDown
-                        size={16}
-                        className={clsx(
-                          'text-gray-400 transition-transform duration-200',
-                          isHeadingsDropdownOpen && 'rotate-180',
-                        )}
-                      />
-                    </button>
-
-                    {isHeadingsDropdownOpen && (
-                      <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg shadow-xl z-20 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
-                        {styleHeadingsOptions.map(option => (
-                          <button
-                            key={option.key}
-                            onClick={() => {
-                              setHeadings(option.value)
-                              setIsHeadingsDropdownOpen(false)
-                            }}
-                            className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
-                          >
-                            <span>{option.label}</span>
-                            {headings === option.value && (
-                              <Check size={14} className="text-primary-500" />
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-2">
-                  <label className="text-sm font-medium text-gray-900 dark:text-white">
-                    {t('settings.emojis')}
-                  </label>
-                  <div className="relative w-full" ref={emojisDropdownRef}>
-                    <button
-                      onClick={() => {
-                        const nextOpen = !isEmojisDropdownOpen
-                        setIsProviderDropdownOpen(false)
-                        setIsInterfaceLanguageDropdownOpen(false)
-                        setIsLlmLanguageDropdownOpen(false)
-                        setIsBaseToneDropdownOpen(false)
-                        setIsTraitsDropdownOpen(false)
-                        setIsWarmthDropdownOpen(false)
-                        setIsEnthusiasmDropdownOpen(false)
-                        setIsHeadingsDropdownOpen(false)
-                        setIsEmojisDropdownOpen(nextOpen)
-                      }}
-                      className="w-full flex items-center justify-between pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-zinc-800"
-                    >
-                      <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center">
-                        <Smile size={16} className="text-gray-400" />
-                      </div>
-                      <span>
-                        {styleEmojiOptions.find(option => option.value === emojis)?.label ||
-                          emojis}
-                      </span>
-                      <ChevronDown
-                        size={16}
-                        className={clsx(
-                          'text-gray-400 transition-transform duration-200',
-                          isEmojisDropdownOpen && 'rotate-180',
-                        )}
-                      />
-                    </button>
-
-                    {isEmojisDropdownOpen && (
-                      <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg shadow-xl z-20 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
-                        {styleEmojiOptions.map(option => (
-                          <button
-                            key={option.key}
-                            onClick={() => {
-                              setEmojis(option.value)
-                              setIsEmojisDropdownOpen(false)
-                            }}
-                            className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
-                          >
-                            <span>{option.label}</span>
-                            {emojis === option.value && (
-                              <Check size={14} className="text-primary-500" />
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-2">
-                  <label className="text-sm font-medium text-gray-900 dark:text-white">
-                    {t('settings.customInstruction')}
-                  </label>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {t('settings.customInstructionHint')}
-                  </p>
-                  <textarea
-                    value={customInstruction}
-                    onChange={e => setCustomInstruction(e.target.value)}
-                    placeholder={t('settings.customInstructionPlaceholder')}
-                    rows={4}
-                    className="w-full p-4 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600 resize-none"
-                  />
                 </div>
               </div>
             )}
@@ -1979,117 +951,6 @@ const SettingsModal = ({ isOpen, onClose }) => {
                   />
                 </div>
 
-                <div className="flex flex-col gap-2">
-                  <label className="text-sm font-medium text-gray-900 dark:text-white">
-                    {t('settings.llmAnswerLanguage')}
-                  </label>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {t('settings.llmAnswerLanguageHint')}
-                  </p>
-                  <div className="relative w-full" ref={llmLanguageDropdownRef}>
-                    <button
-                      onClick={() => {
-                        const nextOpen = !isLlmLanguageDropdownOpen
-                        setIsProviderDropdownOpen(false)
-                        setIsInterfaceLanguageDropdownOpen(false)
-                        setIsBaseToneDropdownOpen(false)
-                        setIsTraitsDropdownOpen(false)
-                        setIsWarmthDropdownOpen(false)
-                        setIsEnthusiasmDropdownOpen(false)
-                        setIsHeadingsDropdownOpen(false)
-                        setIsEmojisDropdownOpen(false)
-                        setIsLlmLanguageDropdownOpen(nextOpen)
-                      }}
-                      className="w-full flex items-center justify-between pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-zinc-800"
-                    >
-                      <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center">
-                        <MessageSquare size={16} className="text-gray-400" />
-                      </div>
-                      <span>
-                        {llmAnswerLanguageOptions.find(
-                          option => option.value === llmAnswerLanguage,
-                        )?.label || llmAnswerLanguage}
-                      </span>
-                      <ChevronDown
-                        size={16}
-                        className={clsx(
-                          'text-gray-400 transition-transform duration-200',
-                          isLlmLanguageDropdownOpen && 'rotate-180',
-                        )}
-                      />
-                    </button>
-
-                    {isLlmLanguageDropdownOpen && (
-                      <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg shadow-xl z-20 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
-                        {llmAnswerLanguageOptions.map(option => (
-                          <button
-                            key={option.key}
-                            onClick={() => {
-                              setLlmAnswerLanguage(option.value)
-                              setIsLlmLanguageDropdownOpen(false)
-                            }}
-                            className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
-                          >
-                            <span>{option.label}</span>
-                            {llmAnswerLanguage === option.value && (
-                              <Check size={14} className="text-primary-500" />
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {activeTab === 'model' && (
-              <div className="flex flex-col gap-8 max-w-2xl">
-                <div className="flex flex-col gap-1">
-                  <label className="text-sm font-medium text-gray-900 dark:text-white">
-                    {t('settings.modelConfiguration')}
-                  </label>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {t('settings.modelConfigurationHint2')}
-                  </p>
-                </div>
-
-                <div className="flex flex-col gap-2">
-                  <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                    {apiProvider === 'gemini'
-                      ? 'Gemini Model ID'
-                      : apiProvider === 'siliconflow'
-                        ? 'SiliconFlow Model ID'
-                        : 'OpenAI Model ID'}
-                  </label>
-                  <div className="relative">
-                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                      <Box size={16} />
-                    </div>
-                    <input
-                      type="text"
-                      value={modelId}
-                      onChange={e => setModelId(e.target.value)}
-                      placeholder={
-                        apiProvider === 'gemini'
-                          ? 'gemini-2.0-flash-exp'
-                          : apiProvider === 'siliconflow'
-                            ? 'deepseek-chat'
-                            : 'gpt-4o'
-                      }
-                      className="w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600"
-                    />
-                  </div>
-                  <p className="text-[10px] text-gray-400">
-                    Enter the specific model identifier you wish to use (e.g.,{' '}
-                    {apiProvider === 'gemini'
-                      ? 'gemini-1.5-pro'
-                      : apiProvider === 'siliconflow'
-                        ? 'deepseek-reasoner'
-                        : 'gpt-3.5-turbo'}
-                    ).
-                  </p>
-                </div>
               </div>
             )}
             {activeTab === 'about' && (

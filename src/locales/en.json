@@ -480,9 +480,13 @@
     "widgets": {
       "noteTitle": "Memo",
       "notePlaceholder": "Type your notes here...",
+      "noteSaving": "Saving...",
+      "noteSaved": "Saved",
+      "noteSaveFailed": "Save failed",
       "shortcutsTitle": "Common Sites",
       "tipsTitle": "Daily Tips",
       "tipsContent": "Make your laptop's battery last longer by enabling the Energy Saver.",
+      "tipsLoading": "Refreshing today's tip...",
       "dateTitle": "Date",
       "week": "Week {{number}}",
       "sunday": "Sunday",

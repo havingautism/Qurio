@@ -2,7 +2,6 @@ import { create } from 'zustand'
 import { createConversation, addMessage, updateConversation } from '../lib/conversationsService'
 import { deleteMessageById } from '../lib/supabase'
 import { getProvider } from '../lib/providers'
-import { getModelForTask } from '../lib/modelSelector.js'
 import { buildResponseStylePromptFromAgent, loadSettings } from './settings'
 import { listSpaceAgents } from './spacesService'
 
@@ -239,50 +238,53 @@ const buildAgentPrompt = agent => {
 
 /**
  * Gets model configuration for a given agent
- * Falls back to global settings if agent doesn't have specific config
+ * Falls back to system default agent, then global settings if needed
  * @param {Object} agent - Agent object with model settings
  * @param {Object} settings - Global settings for fallback
  * @param {string} task - Task type (streamChatCompletion, generateTitle, etc.)
+ * @param {Object} fallbackAgent - System default agent for fallback
  * @returns {Object} Model configuration { provider, model }
  */
-const getModelConfigForAgent = (agent, settings, task = 'streamChatCompletion') => {
-  // Check if agent exists and has valid config first
-  if (agent && agent.provider) {
-    // Support both snake_case (from DB) and camelCase (from mapAgent)
-    // Use ?? to preserve empty strings (only null/undefined should trigger fallback)
-    const defaultModel = agent.default_model ?? agent.defaultModel
-    const liteModel = agent.lite_model ?? agent.liteModel
+const getModelConfigForAgent = (agent, settings, task = 'streamChatCompletion', fallbackAgent) => {
+  const resolveFromAgent = candidate => {
+    if (!candidate?.provider) return null
 
-    // Check if agent has a valid (non-empty) model configured
-    // Empty string means "not configured", so we should fall back to global settings
-    if (defaultModel && defaultModel.trim() !== '') {
-      // Decode model IDs (they may be encoded with provider prefix like "glm::glm-4.7")
-      const decodedDefaultModel = decodeModelId(defaultModel)
-      const decodedLiteModel = liteModel ? decodeModelId(liteModel) : ''
-      const defaultProvider = getProviderFromEncodedModel(defaultModel)
-      const liteProvider = getProviderFromEncodedModel(liteModel)
-      const isLiteTask =
-        task === 'generateTitle' ||
-        task === 'generateTitleAndSpace' ||
-        task === 'generateRelatedQuestions'
+    const defaultModel = candidate.default_model ?? candidate.defaultModel
+    const liteModel = candidate.lite_model ?? candidate.liteModel
+    const hasDefault = typeof defaultModel === 'string' && defaultModel.trim() !== ''
+    const hasLite = typeof liteModel === 'string' && liteModel.trim() !== ''
 
-      // For lite tasks, use lite_model if available
-      const model = isLiteTask ? decodedLiteModel || decodedDefaultModel : decodedDefaultModel
-      const provider = isLiteTask
-        ? liteProvider || defaultProvider || agent.provider
-        : defaultProvider || agent.provider
+    if (!hasDefault && !hasLite) return null
 
-      return {
-        provider,
-        model,
-      }
-    }
+    const decodedDefaultModel = hasDefault ? decodeModelId(defaultModel) : ''
+    const decodedLiteModel = hasLite ? decodeModelId(liteModel) : ''
+    const defaultProvider = getProviderFromEncodedModel(defaultModel)
+    const liteProvider = getProviderFromEncodedModel(liteModel)
+    const isLiteTask =
+      task === 'generateTitle' ||
+      task === 'generateTitleAndSpace' ||
+      task === 'generateRelatedQuestions'
+
+    const model = isLiteTask
+      ? decodedLiteModel || decodedDefaultModel
+      : decodedDefaultModel || decodedLiteModel
+    const provider = isLiteTask
+      ? liteProvider || defaultProvider || candidate.provider
+      : defaultProvider || liteProvider || candidate.provider
+
+    if (!model) return null
+    return { provider, model }
   }
 
-  // Fallback to global settings
+  const primary = resolveFromAgent(agent)
+  if (primary) return primary
+
+  const fallback = resolveFromAgent(fallbackAgent)
+  if (fallback) return fallback
+
   return {
-    provider: settings?.apiProvider,
-    model: getModelForTask(task, settings),
+    provider: fallbackAgent?.provider || '',
+    model: '',
   }
 }
 
@@ -356,8 +358,14 @@ const preselectTitleSpaceAndAgentForAuto = async (
 ) => {
   // Use selected agent if available, otherwise use global default agent for preselection
   // Global default agent always exists (cannot be deleted)
-  const agentForPreselection = selectedAgent || agents?.find(agent => agent.isDefault)
-  const modelConfig = getModelConfigForAgent(agentForPreselection, settings, 'generateTitleAndSpace')
+  const fallbackAgent = agents?.find(agent => agent.isDefault)
+  const agentForPreselection = selectedAgent || fallbackAgent
+  const modelConfig = getModelConfigForAgent(
+    agentForPreselection,
+    settings,
+    'generateTitleAndSpace',
+    fallbackAgent,
+  )
   const provider = getProvider(modelConfig.provider)
   const credentials = provider.getCredentials(settings)
   const languageInstruction = getLanguageInstruction(agentForPreselection)
@@ -402,8 +410,9 @@ const preselectTitleSpaceAndAgentForAuto = async (
 const preselectTitleForManual = async (firstMessage, settings, selectedAgent = null, agents = []) => {
   // Use selected agent if available, otherwise use global default agent for title generation
   // Global default agent always exists (cannot be deleted)
-  const agentForTitle = selectedAgent || agents?.find(agent => agent.isDefault)
-  const modelConfig = getModelConfigForAgent(agentForTitle, settings, 'generateTitle')
+  const fallbackAgent = agents?.find(agent => agent.isDefault)
+  const agentForTitle = selectedAgent || fallbackAgent
+  const modelConfig = getModelConfigForAgent(agentForTitle, settings, 'generateTitle', fallbackAgent)
   const provider = getProvider(modelConfig.provider)
   const credentials = provider.getCredentials(settings)
   const languageInstruction = getLanguageInstruction(agentForTitle)
@@ -421,7 +430,14 @@ const preselectTitleForManual = async (firstMessage, settings, selectedAgent = n
  * @returns {{ id: string, data: object|null, isNew: boolean }} Conversation info
  * @throws {Error} If conversation creation fails
  */
-const ensureConversationExists = async (conversationId, settings, toggles, spaceInfo, set) => {
+const ensureConversationExists = async (
+  conversationId,
+  settings,
+  toggles,
+  spaceInfo,
+  set,
+  providerOverride,
+) => {
   // If conversation already exists, return it
   if (conversationId) {
     return { id: conversationId, data: null, isNew: false }
@@ -431,7 +447,7 @@ const ensureConversationExists = async (conversationId, settings, toggles, space
   const creationPayload = {
     space_id: spaceInfo.selectedSpace ? spaceInfo.selectedSpace.id : null,
     title: 'New Conversation',
-    api_provider: settings.apiProvider,
+    api_provider: providerOverride || '',
   }
 
   const { data, error } = await createConversation(creationPayload)
@@ -621,7 +637,13 @@ const callAIAPI = async (
   }
   try {
     // Get model configuration: Agent priority, global fallback
-    const modelConfig = getModelConfigForAgent(selectedAgent, settings, 'streamChatCompletion')
+    const fallbackAgent = agents?.find(agent => agent.isDefault)
+    const modelConfig = getModelConfigForAgent(
+      selectedAgent,
+      settings,
+      'streamChatCompletion',
+      fallbackAgent,
+    )
     const provider = getProvider(modelConfig.provider)
     const credentials = provider.getCredentials(settings)
 
@@ -767,7 +789,8 @@ const finalizeMessage = async (
 ) => {
   // Ensure we always have an agent (use global default as last resort)
   // Global default agent always exists (cannot be deleted)
-  const safeAgent = selectedAgent || agents?.find(agent => agent.isDefault)
+  const fallbackAgent = agents?.find(agent => agent.isDefault)
+  const safeAgent = selectedAgent || fallbackAgent
 
   const normalizedThought = typeof result?.thought === 'string' ? result.thought.trim() : ''
   const normalizeContent = content => {
@@ -788,8 +811,13 @@ const finalizeMessage = async (
     return content ? String(content) : ''
   }
 
-  // Get model configuration: Agent priority, global fallback
-  const modelConfig = getModelConfigForAgent(safeAgent, settings, 'streamChatCompletion')
+  // Get model configuration: Agent priority, system default agent fallback
+  const modelConfig = getModelConfigForAgent(
+    safeAgent,
+    settings,
+    'streamChatCompletion',
+    fallbackAgent,
+  )
 
   // Replace streamed placeholder with finalized content (e.g., with citations/grounding)
   set(state => {
@@ -841,7 +869,12 @@ const finalizeMessage = async (
       set({ conversationTitle: resolvedTitle })
     } else if (spaceInfo?.isManualSpaceSelection && spaceInfo?.selectedSpace) {
       // Generate title only when space is manually selected
-      const titleModelConfig = getModelConfigForAgent(safeAgent, settings, 'generateTitle')
+      const titleModelConfig = getModelConfigForAgent(
+        safeAgent,
+        settings,
+        'generateTitle',
+        fallbackAgent,
+      )
       const provider = getProvider(titleModelConfig.provider)
       const credentials = provider.getCredentials(settings)
       const languageInstruction = getLanguageInstruction(safeAgent)
@@ -855,7 +888,12 @@ const finalizeMessage = async (
       set({ conversationTitle: resolvedTitle })
     } else if (callbacks?.onTitleAndSpaceGenerated) {
       // Use callback to generate both title and space
-      const titleModelConfig = getModelConfigForAgent(safeAgent, settings, 'generateTitleAndSpace')
+      const titleModelConfig = getModelConfigForAgent(
+        safeAgent,
+        settings,
+        'generateTitleAndSpace',
+        fallbackAgent,
+      )
       const provider = getProvider(titleModelConfig.provider)
       const credentials = provider.getCredentials(settings)
       const languageInstruction = getLanguageInstruction(safeAgent)
@@ -870,7 +908,12 @@ const finalizeMessage = async (
       resolvedSpace = space || null
     } else {
       // Generate both title and space automatically
-      const titleModelConfig = getModelConfigForAgent(safeAgent, settings, 'generateTitleAndSpace')
+      const titleModelConfig = getModelConfigForAgent(
+        safeAgent,
+        settings,
+        'generateTitleAndSpace',
+        fallbackAgent,
+      )
       const provider = getProvider(titleModelConfig.provider)
       const credentials = provider.getCredentials(settings)
       const languageInstruction = getLanguageInstruction(safeAgent)
@@ -940,7 +983,12 @@ const finalizeMessage = async (
       }
 
       // Use agent's model config if available, otherwise fall back to global settings
-      const modelConfig = getModelConfigForAgent(safeAgent, settings, 'generateRelatedQuestions')
+      const modelConfig = getModelConfigForAgent(
+        safeAgent,
+        settings,
+        'generateRelatedQuestions',
+        fallbackAgent,
+      )
       const provider = getProvider(modelConfig.provider)
       const credentials = provider.getCredentials(settings)
       related = await provider.generateRelatedQuestions(
@@ -1316,8 +1364,14 @@ const useChatStore = create((set, get) => ({
 
           // Use selected agent if available, otherwise use global default agent for agent preselection
           // Global default agent always exists (cannot be deleted)
-          const agentForPreselection = selectedAgent || agents?.find(agent => agent.isDefault)
-          const modelConfig = getModelConfigForAgent(agentForPreselection, settings, 'generateTitleAndSpace')
+          const fallbackAgent = agents?.find(agent => agent.isDefault)
+          const agentForPreselection = selectedAgent || fallbackAgent
+          const modelConfig = getModelConfigForAgent(
+            agentForPreselection,
+            settings,
+            'generateTitleAndSpace',
+            fallbackAgent,
+          )
           const provider = getProvider(modelConfig.provider)
           const credentials = provider.getCredentials(settings)
           const languageInstruction = getLanguageInstruction(agentForPreselection)
@@ -1378,12 +1432,15 @@ const useChatStore = create((set, get) => ({
     // Step 6: Ensure Conversation Exists
     let convInfo
     try {
+      const fallbackAgent = agents?.find(agent => agent.isDefault)
+      const providerOverride = resolvedAgent?.provider || fallbackAgent?.provider || ''
       convInfo = await ensureConversationExists(
         conversationId,
         settings,
         toggles,
         resolvedSpaceInfo,
         set,
+        providerOverride,
       )
     } catch (convError) {
       return // Early return on conversation creation failure
@@ -1396,7 +1453,8 @@ const useChatStore = create((set, get) => ({
           id: convId,
           title: 'New Conversation',
           space_id: resolvedSpaceInfo?.selectedSpace?.id || null,
-          api_provider: settings.apiProvider,
+          api_provider:
+            resolvedAgent?.provider || agents?.find(agent => agent.isDefault)?.provider || '',
         },
       )
     }

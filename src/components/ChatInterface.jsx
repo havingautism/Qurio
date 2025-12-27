@@ -24,7 +24,6 @@ import {
 } from 'lucide-react'
 import { useAppContext } from '../App'
 import { updateConversation } from '../lib/conversationsService'
-import { getModelForTask } from '../lib/modelSelector.js'
 import { getProvider, providerSupportsSearch } from '../lib/providers'
 import QuestionTimelineSidebar from './QuestionTimelineSidebar'
 
@@ -253,10 +252,12 @@ const ChatInterface = ({
     [selectedAgent, defaultAgent],
   )
 
-  const effectiveProvider = effectiveAgent?.provider || settings.apiProvider
-  const effectiveDefaultModel = effectiveAgent?.defaultModel || settings.defaultModel
+  const fallbackProvider = defaultAgent?.provider || ''
+  const fallbackDefaultModel = defaultAgent?.defaultModel || ''
+  const effectiveProvider = effectiveAgent?.provider || fallbackProvider
+  const effectiveDefaultModel = effectiveAgent?.defaultModel || fallbackDefaultModel
 
-  // Helper to get model config for agent or fallback to global settings
+  // Helper to get model config for agent or fallback to global default agent
   const getModelConfig = React.useCallback(
     (task = 'streamChatCompletion') => {
       const MODEL_SEPARATOR = '::'
@@ -266,37 +267,53 @@ const ChatInterface = ({
         if (index === -1) return encodedModel
         return encodedModel.slice(index + MODEL_SEPARATOR.length)
       }
+      const getProviderFromEncodedModel = encodedModel => {
+        if (!encodedModel) return ''
+        const index = encodedModel.indexOf(MODEL_SEPARATOR)
+        if (index === -1) return ''
+        return encodedModel.slice(0, index)
+      }
 
-      // Check if agent has a valid (non-empty) model configured
-      if (
-        effectiveAgent?.provider &&
-        effectiveAgent.defaultModel &&
-        effectiveAgent.defaultModel.trim() !== ''
-      ) {
-        const defaultModel = effectiveAgent.defaultModel
-        const liteModel = effectiveAgent.liteModel ?? ''
-        const decodedDefaultModel = decodeModelId(defaultModel)
-        const decodedLiteModel = liteModel ? decodeModelId(liteModel) : ''
+      const resolveFromAgent = agent => {
+        if (!agent) return null
+        const defaultModel = agent.defaultModel
+        const liteModel = agent.liteModel ?? ''
+        const hasDefault = typeof defaultModel === 'string' && defaultModel.trim() !== ''
+        const hasLite = typeof liteModel === 'string' && liteModel.trim() !== ''
+        if (!hasDefault && !hasLite) return null
 
-        const model =
+        const decodedDefaultModel = hasDefault ? decodeModelId(defaultModel) : ''
+        const decodedLiteModel = hasLite ? decodeModelId(liteModel) : ''
+        const defaultProvider = getProviderFromEncodedModel(defaultModel)
+        const liteProvider = getProviderFromEncodedModel(liteModel)
+        const isLiteTask =
           task === 'generateTitle' ||
           task === 'generateTitleAndSpace' ||
           task === 'generateRelatedQuestions'
-            ? decodedLiteModel || decodedDefaultModel
-            : decodedDefaultModel
 
-        return {
-          provider: effectiveAgent.provider,
-          model,
-        }
+        const model = isLiteTask
+          ? decodedLiteModel || decodedDefaultModel
+          : decodedDefaultModel || decodedLiteModel
+        const provider = isLiteTask
+          ? liteProvider || defaultProvider || agent.provider
+          : defaultProvider || liteProvider || agent.provider
+
+        if (!model) return null
+        return { provider, model }
       }
+
+      const primaryConfig = resolveFromAgent(effectiveAgent)
+      if (primaryConfig) return primaryConfig
+
+      const fallbackConfig = resolveFromAgent(defaultAgent)
+      if (fallbackConfig) return fallbackConfig
 
       return {
-        provider: settings.apiProvider,
-        model: getModelForTask(task, settings),
+        provider: fallbackProvider,
+        model: '',
       }
     },
-    [effectiveAgent, settings],
+    [defaultAgent, effectiveAgent, fallbackProvider],
   )
 
   // Effect to handle initial message from homepage
@@ -307,8 +324,8 @@ const ChatInterface = ({
     const handleSettingsChange = () => {
       setSettings(loadSettings())
       const newSettings = loadSettings()
-      const nextProvider = effectiveAgent?.provider || newSettings.apiProvider
-      if (!providerSupportsSearch(nextProvider)) {
+      const nextProvider = effectiveAgent?.provider || defaultAgent?.provider
+      if (!nextProvider || !providerSupportsSearch(nextProvider)) {
         setIsSearchActive(false)
       }
       // Reload space agents when settings change (e.g., default agent changed in space settings)
@@ -1675,9 +1692,12 @@ const InputBar = React.memo(
               </button>
               <button
                 disabled={
-                  selectedAgent?.provider
-                    ? !providerSupportsSearch(selectedAgent.provider)
-                    : !providerSupportsSearch(apiProvider)
+                  !(
+                    selectedAgent?.provider || defaultAgent?.provider
+                  ) ||
+                  !providerSupportsSearch(
+                    selectedAgent?.provider || defaultAgent?.provider,
+                  )
                 }
                 onClick={onToggleSearch}
                 className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${

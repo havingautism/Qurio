@@ -480,9 +480,13 @@
     "widgets": {
       "noteTitle": "备忘录",
       "notePlaceholder": "在此输入笔记...",
+      "noteSaving": "保存中...",
+      "noteSaved": "已保存",
+      "noteSaveFailed": "保存失败",
       "shortcutsTitle": "常用网站",
       "tipsTitle": "每日贴士",
       "tipsContent": "通过启用节能模式，让您的笔记本电脑电池续航更久。",
+      "tipsLoading": "正在刷新今日贴士...",
       "dateTitle": "日期",
       "week": "第 {{number}} 周",
       "sunday": "星期日",

@@ -416,9 +416,12 @@ const HomeView = () => {
                     </button>
                     <button
                       disabled={
-                        selectedHomeAgent?.provider
-                          ? !providerSupportsSearch(selectedHomeAgent.provider)
-                          : !providerSupportsSearch(settings.apiProvider)
+                        !(
+                          selectedHomeAgent?.provider || defaultAgent?.provider
+                        ) ||
+                        !providerSupportsSearch(
+                          selectedHomeAgent?.provider || defaultAgent?.provider,
+                        )
                       }
                       value={isHomeSearchActive}
                       onClick={() => setIsHomeSearchActive(!isHomeSearchActive)}

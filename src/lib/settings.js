@@ -145,9 +145,10 @@ export const loadSettings = (overrides = {}) => {
   const localGlmKey = localStorage.getItem('GlmKey')
   const localKimiKey = localStorage.getItem('KimiKey')
 
-  // Model configuration
-  const localLiteModel = localStorage.getItem('liteModel')
-  const localDefaultModel = localStorage.getItem('defaultModel')
+  // Model configuration (legacy keys now owned by system default agent)
+  localStorage.removeItem('apiProvider')
+  localStorage.removeItem('liteModel')
+  localStorage.removeItem('defaultModel')
   const localSystemPrompt = localStorage.getItem('systemPrompt')
   const localContextMessageLimit = localStorage.getItem('contextMessageLimit')
   const localThemeColor = localStorage.getItem('themeColor')
@@ -198,17 +199,17 @@ export const loadSettings = (overrides = {}) => {
       overrides.KimiKey ||
       '',
 
-    // API Provider
-    apiProvider: localStorage.getItem('apiProvider') || overrides.apiProvider || 'gemini',
+    // API Provider (UI helper only; not used for model/provider fallback)
+    apiProvider: overrides.apiProvider || 'gemini',
     googleApiKey:
       getPublicEnv('PUBLIC_GOOGLE_API_KEY') ||
       localStorage.getItem('googleApiKey') ||
       overrides.googleApiKey ||
       '',
 
-    // Model configuration
-    liteModel: localLiteModel || overrides.liteModel || 'gemini-2.5-flash',
-    defaultModel: localDefaultModel || overrides.defaultModel || 'gemini-2.5-flash',
+    // Model configuration (legacy; kept empty to avoid fallback)
+    liteModel: overrides.liteModel || '',
+    defaultModel: overrides.defaultModel || '',
 
     // Chat behavior
     systemPrompt: localSystemPrompt || overrides.systemPrompt || '',
@@ -264,19 +265,11 @@ export const saveSettings = async settings => {
   if (settings.KimiKey !== undefined) {
     localStorage.setItem('KimiKey', settings.KimiKey)
   }
-  if (settings.apiProvider !== undefined) {
-    localStorage.setItem('apiProvider', settings.apiProvider)
-  }
+  // apiProvider is no longer persisted (UI helper only).
   if (settings.googleApiKey !== undefined) {
     localStorage.setItem('googleApiKey', settings.googleApiKey)
   }
-  // Save model configuration
-  if (settings.liteModel !== undefined) {
-    localStorage.setItem('liteModel', settings.liteModel)
-  }
-  if (settings.defaultModel !== undefined) {
-    localStorage.setItem('defaultModel', settings.defaultModel)
-  }
+  // Model configuration is no longer persisted in settings.
   if (settings.systemPrompt !== undefined) {
     localStorage.setItem('systemPrompt', settings.systemPrompt)
   }

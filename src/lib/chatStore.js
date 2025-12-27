@@ -3,7 +3,7 @@ import { createConversation, addMessage, updateConversation } from '../lib/conve
 import { deleteMessageById } from '../lib/supabase'
 import { getProvider } from '../lib/providers'
 import { getModelForTask } from '../lib/modelSelector.js'
-import { loadSettings } from './settings'
+import { buildResponseStylePromptFromAgent, loadSettings } from './settings'
 import { listSpaceAgents } from './spacesService'
 
 // Model separator used in encoded model IDs (e.g., "glm::glm-4.7")
@@ -221,36 +221,18 @@ const buildAgentPrompt = agent => {
   // 1. Agent's base prompt
   const agentPrompt = typeof agent.prompt === 'string' ? agent.prompt.trim() : ''
   if (agentPrompt) {
-    parts.push(agentPrompt)
+    parts.push(`## Agent Prompt\n${agentPrompt}`)
   }
 
   // 2. Personalization settings (agent only)
-  // Support both snake_case (from DB) and camelCase (from mapAgent)
-  const baseTone = agent.base_tone || agent.baseTone || ''
-  const traits = agent.traits || ''
-  const warmth = agent.warmth || ''
-  const enthusiasm = agent.enthusiasm || ''
-  const headings = agent.headings || ''
-  const emojis = agent.emojis || ''
-  const customInstruction = agent.custom_instruction || agent.customInstruction || ''
-
-  // Build style prompt from personalization settings
-  const styleParts = []
-  if (baseTone) styleParts.push(`Base Tone: ${baseTone}`)
-  if (traits) styleParts.push(`Traits: ${traits}`)
-  if (warmth) styleParts.push(`Warmth: ${warmth}`)
-  if (enthusiasm) styleParts.push(`Enthusiasm: ${enthusiasm}`)
-  if (headings) styleParts.push(`Headings: ${headings}`)
-  if (emojis) styleParts.push(`Emojis: ${emojis}`)
-  if (customInstruction) styleParts.push(`Custom Instruction: ${customInstruction}`)
-
-  if (styleParts.length > 0) {
-    parts.push(`### Response Style Guidelines:\n${styleParts.join('\n')}`)
+  const stylePrompt = buildResponseStylePromptFromAgent(agent)
+  if (stylePrompt) {
+    parts.push(stylePrompt)
   }
 
   // 3. Language instruction (agent only)
   const languageInstruction = getLanguageInstruction(agent)
-  if (languageInstruction) parts.push(languageInstruction)
+  if (languageInstruction) parts.push(`## Language\n${languageInstruction}`)
 
   return parts.length > 0 ? parts.join('\n\n') : null
 }

@@ -73,12 +73,19 @@ const LLM_ANSWER_LANGUAGE_KEYS = [
   'Italian',
 ]
 
-const STYLE_BASE_TONE_KEYS = ['technical', 'friendly', 'professional', 'academic', 'creative']
-const STYLE_TRAIT_KEYS = ['default', 'concise', 'structured', 'detailed', 'actionable']
-const STYLE_WARMTH_KEYS = ['default', 'gentle', 'empathetic', 'direct']
-const STYLE_ENTHUSIASM_KEYS = ['default', 'low', 'high']
-const STYLE_HEADINGS_KEYS = ['default', 'minimal', 'structured']
-const STYLE_EMOJI_KEYS = ['default', 'none', 'light', 'moderate']
+const STYLE_BASE_TONE_KEYS = [
+  'technical',
+  'friendly',
+  'professional',
+  'academic',
+  'creative',
+  'casual',
+]
+const STYLE_TRAIT_KEYS = ['default', 'concise', 'structured', 'detailed', 'actionable', 'analytical']
+const STYLE_WARMTH_KEYS = ['default', 'gentle', 'empathetic', 'direct', 'supportive']
+const STYLE_ENTHUSIASM_KEYS = ['default', 'low', 'medium', 'high']
+const STYLE_HEADINGS_KEYS = ['default', 'minimal', 'structured', 'detailed']
+const STYLE_EMOJI_KEYS = ['default', 'none', 'light', 'moderate', 'expressive']
 
 const ENV_VARS = {
   supabaseUrl: getPublicEnv('PUBLIC_SUPABASE_URL'),

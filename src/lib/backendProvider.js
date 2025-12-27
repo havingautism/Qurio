@@ -1397,8 +1397,11 @@ const generateTitle = async (provider, firstMessage, apiKey, baseUrl, model) => 
   const promptMessages = [
     {
       role: 'system',
-      content:
-        "Generate a short, concise title (max 5 words) for this conversation based on the user's first message. Do not use quotes.",
+      content: `## Task
+Generate a short, concise title (max 5 words) for this conversation based on the user's first message. Do not use quotes.
+
+## Output
+Return only the title text.`,
     },
     { role: 'user', content: firstMessage },
   ]
@@ -1455,8 +1458,11 @@ const generateTitleAndSpace = async (provider, firstMessage, spaces, apiKey, bas
     {
       role: 'system',
       content: `You are a helpful assistant.
+## Task
 1. Generate a short, concise title (max 5 words) for this conversation based on the user's first message.
 2. Select the most appropriate space from the following list: [${spaceLabels}]. If none fit well, return null.
+
+## Output
 Return the result as a JSON object with keys "title" and "spaceLabel".`,
     },
     { role: 'user', content: firstMessage },
@@ -1560,9 +1566,12 @@ const generateTitleSpaceAndAgent = async (
     {
       role: 'system',
       content: `You are a helpful assistant.
+## Task
 1. Generate a short, concise title (max 5 words) for this conversation based on the user's first message.
 2. Select the most appropriate space from the list below and return its spaceLabel (the space name only, without the description).
 3. If the chosen space has agents, select the best matching agent by agentName (agent name only). Otherwise return null.
+
+## Output
 Return the result as JSON with keys "title", "spaceLabel", and "agentName".`,
     },
     {
@@ -1670,7 +1679,10 @@ const generateAgentForAuto = async (
     {
       role: 'system',
       content: `You are a helpful assistant.
+## Task
 Select the best matching agent for the user's message from the "${currentSpace?.label || 'Default'}" space. Consider the agent's name and description to determine which one is most appropriate. If no agent is a good match, return null.
+
+## Output
 Return the result as JSON with key "agentName" (agent name only, or null if no match).`,
     },
     {

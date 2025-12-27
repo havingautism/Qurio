@@ -106,41 +106,47 @@
       "friendly": "友好型",
       "professional": "专业型",
       "academic": "学术型",
-      "creative": "创意型"
+      "creative": "创意型",
+      "casual": "随意"
     },
-    "traits": "特质",
+    "traits": "回复侧重",
     "traitsOptions": {
       "default": "默认",
       "concise": "简洁",
-      "structured": "结构化",
+      "structured": "结构化推理",
       "detailed": "详细",
-      "actionable": "可操作"
+      "actionable": "可操作",
+      "analytical": "分析型"
     },
     "warmth": "温暖与关怀",
     "warmthOptions": {
       "default": "默认",
       "gentle": "温和",
       "empathetic": "共情",
-      "direct": "直接"
+      "direct": "直接",
+      "supportive": "支持型"
     },
     "enthusiasm": "热情度",
     "enthusiasmOptions": {
       "default": "默认",
       "low": "低",
+      "medium": "中等",
       "high": "高"
     },
-    "headings": "标题和列表",
+    "headings": "排版",
     "headingsOptions": {
       "default": "默认",
       "minimal": "最少",
-      "structured": "标题和列表"
+      "structured": "标题与列表",
+      "detailed": "标题 + 总结"
     },
     "emojis": "表情符号",
     "emojisOptions": {
       "default": "默认",
       "none": "无",
       "light": "少量",
-      "moderate": "中等"
+      "moderate": "中等",
+      "expressive": "丰富"
     },
     "customInstruction": "自定义指令",
     "customInstructionHint": "附加到风格提示词的可选额外指导。",

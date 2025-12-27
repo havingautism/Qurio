@@ -372,11 +372,13 @@ const preselectTitleSpaceAndAgentForAuto = async (
   agents,
   selectedAgent = null,
 ) => {
-  // Use agent's model config if available, otherwise fall back to global settings
-  const modelConfig = getModelConfigForAgent(selectedAgent, settings, 'generateTitleAndSpace')
+  // Use selected agent if available, otherwise use global default agent for preselection
+  // Global default agent always exists (cannot be deleted)
+  const agentForPreselection = selectedAgent || agents?.find(agent => agent.isDefault)
+  const modelConfig = getModelConfigForAgent(agentForPreselection, settings, 'generateTitleAndSpace')
   const provider = getProvider(modelConfig.provider)
   const credentials = provider.getCredentials(settings)
-  const languageInstruction = getLanguageInstruction(selectedAgent)
+  const languageInstruction = getLanguageInstruction(agentForPreselection)
   const promptText = applyLanguageInstructionToText(firstMessage, languageInstruction)
   const spaceAgents = await buildSpaceAgentOptions(spaces, agents)
   if (spaceAgents.length && provider.generateTitleSpaceAndAgent) {
@@ -415,12 +417,14 @@ const preselectTitleSpaceAndAgentForAuto = async (
  * @param {Object} selectedAgent - Currently selected agent (optional)
  * @returns {Promise<string>}
  */
-const preselectTitleForManual = async (firstMessage, settings, selectedAgent = null) => {
-  // Use agent's model config if available, otherwise fall back to global settings
-  const modelConfig = getModelConfigForAgent(selectedAgent, settings, 'generateTitle')
+const preselectTitleForManual = async (firstMessage, settings, selectedAgent = null, agents = []) => {
+  // Use selected agent if available, otherwise use global default agent for title generation
+  // Global default agent always exists (cannot be deleted)
+  const agentForTitle = selectedAgent || agents?.find(agent => agent.isDefault)
+  const modelConfig = getModelConfigForAgent(agentForTitle, settings, 'generateTitle')
   const provider = getProvider(modelConfig.provider)
   const credentials = provider.getCredentials(settings)
-  const languageInstruction = getLanguageInstruction(selectedAgent)
+  const languageInstruction = getLanguageInstruction(agentForTitle)
   const promptText = applyLanguageInstructionToText(firstMessage, languageInstruction)
   return provider.generateTitle(promptText, credentials.apiKey, credentials.baseUrl, modelConfig.model)
 }
@@ -779,6 +783,10 @@ const finalizeMessage = async (
   agents = [],
   isAgentAutoMode = false,
 ) => {
+  // Ensure we always have an agent (use global default as last resort)
+  // Global default agent always exists (cannot be deleted)
+  const safeAgent = selectedAgent || agents?.find(agent => agent.isDefault)
+
   const normalizedThought = typeof result?.thought === 'string' ? result.thought.trim() : ''
   const normalizeContent = content => {
     if (typeof content === 'string') return content
@@ -799,7 +807,7 @@ const finalizeMessage = async (
   }
 
   // Get model configuration: Agent priority, global fallback
-  const modelConfig = getModelConfigForAgent(selectedAgent, settings, 'streamChatCompletion')
+  const modelConfig = getModelConfigForAgent(safeAgent, settings, 'streamChatCompletion')
 
   // Replace streamed placeholder with finalized content (e.g., with citations/grounding)
   set(state => {
@@ -825,7 +833,7 @@ const finalizeMessage = async (
   // Generate title and space if this is the first turn
   let resolvedTitle = currentStore.conversationTitle
   let resolvedSpace = spaceInfo?.selectedSpace || null
-  let resolvedAgent = selectedAgent || null
+  let resolvedAgent = safeAgent || null
 
   const isFirstTurn =
     typeof isFirstTurnOverride === 'boolean'
@@ -851,10 +859,10 @@ const finalizeMessage = async (
       set({ conversationTitle: resolvedTitle })
     } else if (spaceInfo?.isManualSpaceSelection && spaceInfo?.selectedSpace) {
       // Generate title only when space is manually selected
-      const titleModelConfig = getModelConfigForAgent(selectedAgent, settings, 'generateTitle')
+      const titleModelConfig = getModelConfigForAgent(safeAgent, settings, 'generateTitle')
       const provider = getProvider(titleModelConfig.provider)
       const credentials = provider.getCredentials(settings)
-      const languageInstruction = getLanguageInstruction(selectedAgent)
+      const languageInstruction = getLanguageInstruction(safeAgent)
       const promptText = applyLanguageInstructionToText(firstMessageText, languageInstruction)
       resolvedTitle = await provider.generateTitle(
         promptText,
@@ -865,10 +873,10 @@ const finalizeMessage = async (
       set({ conversationTitle: resolvedTitle })
     } else if (callbacks?.onTitleAndSpaceGenerated) {
       // Use callback to generate both title and space
-      const titleModelConfig = getModelConfigForAgent(selectedAgent, settings, 'generateTitleAndSpace')
+      const titleModelConfig = getModelConfigForAgent(safeAgent, settings, 'generateTitleAndSpace')
       const provider = getProvider(titleModelConfig.provider)
       const credentials = provider.getCredentials(settings)
-      const languageInstruction = getLanguageInstruction(selectedAgent)
+      const languageInstruction = getLanguageInstruction(safeAgent)
       const promptText = applyLanguageInstructionToText(firstMessageText, languageInstruction)
       const { title, space } = await callbacks.onTitleAndSpaceGenerated(
         promptText,
@@ -880,10 +888,10 @@ const finalizeMessage = async (
       resolvedSpace = space || null
     } else {
       // Generate both title and space automatically
-      const titleModelConfig = getModelConfigForAgent(selectedAgent, settings, 'generateTitleAndSpace')
+      const titleModelConfig = getModelConfigForAgent(safeAgent, settings, 'generateTitleAndSpace')
       const provider = getProvider(titleModelConfig.provider)
       const credentials = provider.getCredentials(settings)
-      const languageInstruction = getLanguageInstruction(selectedAgent)
+      const languageInstruction = getLanguageInstruction(safeAgent)
       const promptText = applyLanguageInstructionToText(firstMessageText, languageInstruction)
       if (!resolvedAgent && provider.generateTitleSpaceAndAgent) {
         const spaceAgents = await buildSpaceAgentOptions(spaces, agents)
@@ -943,14 +951,14 @@ const finalizeMessage = async (
         role: m.role === 'ai' ? 'assistant' : m.role,
         content: normalizeContent(m.content),
       }))
-      const languageInstruction = getLanguageInstruction(selectedAgent)
+      const languageInstruction = getLanguageInstruction(safeAgent)
       const relatedMessages = sanitizedMessages.slice(-2)
       if (languageInstruction) {
         relatedMessages.unshift({ role: 'system', content: languageInstruction })
       }
 
       // Use agent's model config if available, otherwise fall back to global settings
-      const modelConfig = getModelConfigForAgent(selectedAgent, settings, 'generateRelatedQuestions')
+      const modelConfig = getModelConfigForAgent(safeAgent, settings, 'generateRelatedQuestions')
       const provider = getProvider(modelConfig.provider)
       const credentials = provider.getCredentials(settings)
       related = await provider.generateRelatedQuestions(
@@ -1028,10 +1036,10 @@ const finalizeMessage = async (
       role: 'assistant',
       provider: modelConfig.provider,
       model: modelConfig.model,
-      agent_id: selectedAgent?.id || null,
-      agent_name: selectedAgent?.name || null,
-      agent_emoji: selectedAgent?.emoji || '',
-      agent_is_default: !!selectedAgent?.isDefault,
+      agent_id: safeAgent?.id || null,
+      agent_name: safeAgent?.name || null,
+      agent_emoji: safeAgent?.emoji || '',
+      agent_is_default: !!safeAgent?.isDefault,
       content: contentForPersistence,
       thinking_process: thoughtForPersistence,
       tool_calls: result.toolCalls || null,
@@ -1067,7 +1075,7 @@ const finalizeMessage = async (
         await updateConversation(currentStore.conversationId, {
           title: resolvedTitle,
           space_id: resolvedSpace ? resolvedSpace.id : null,
-          last_agent_id: selectedAgent?.id || null,
+          last_agent_id: safeAgent?.id || null,
           agent_selection_mode: isAgentAutoMode ? 'auto' : 'manual',
         })
         window.dispatchEvent(new Event('conversations-changed'))
@@ -1086,10 +1094,10 @@ const finalizeMessage = async (
         if (callbacks?.onSpaceResolved && resolvedSpace) {
           callbacks.onSpaceResolved(resolvedSpace)
         }
-      } else if (selectedAgent?.id) {
+      } else if (safeAgent?.id) {
         // Subsequent turns: only update last_agent_id
         await updateConversation(currentStore.conversationId, {
-          last_agent_id: selectedAgent.id,
+          last_agent_id: safeAgent.id,
         })
       }
     } catch (error) {
@@ -1285,7 +1293,7 @@ const useChatStore = create((set, get) => ({
             }
           }
         } else if (shouldPreselectTitleForManual) {
-          const title = await preselectTitleForManual(text, settings, selectedAgent)
+          const title = await preselectTitleForManual(text, settings, selectedAgent, agents)
           if (title) {
             preselectedTitle = title
             set({ conversationTitle: title })
@@ -1324,10 +1332,13 @@ const useChatStore = create((set, get) => ({
             agents: spaceAgents[0]?.agents || [],
           }
 
-          const modelConfig = getModelConfigForAgent(selectedAgent, settings, 'generateTitleAndSpace')
+          // Use selected agent if available, otherwise use global default agent for agent preselection
+          // Global default agent always exists (cannot be deleted)
+          const agentForPreselection = selectedAgent || agents?.find(agent => agent.isDefault)
+          const modelConfig = getModelConfigForAgent(agentForPreselection, settings, 'generateTitleAndSpace')
           const provider = getProvider(modelConfig.provider)
           const credentials = provider.getCredentials(settings)
-          const languageInstruction = getLanguageInstruction(selectedAgent)
+          const languageInstruction = getLanguageInstruction(agentForPreselection)
           const promptText = applyLanguageInstructionToText(text, languageInstruction)
 
           if (provider.generateAgentForAuto) {

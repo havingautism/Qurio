@@ -594,6 +594,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
   useEffect(() => {
     if (!defaultModel) return
     if (defaultModelSource !== 'list') return
+    if (isLoadingModels || Object.keys(groupedModels).length === 0) return
     const existsInList = Object.values(groupedModels)
       .flat()
       .some(model => model.value === defaultModel)
@@ -606,6 +607,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
   useEffect(() => {
     if (!liteModel) return
     if (liteModelSource !== 'list') return
+    if (isLoadingModels || Object.keys(groupedModels).length === 0) return
     const existsInList = Object.values(groupedModels)
       .flat()
       .some(model => model.value === liteModel)

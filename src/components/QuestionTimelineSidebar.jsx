@@ -186,7 +186,7 @@ const QuestionTimelineSidebar = ({
       const timeStr = date.toLocaleTimeString(locale, {
         hour: '2-digit',
         minute: '2-digit',
-        hour12: false
+        hour12: false,
       })
       return `${dateStr} ${timeStr}`
     } catch (e) {
@@ -236,9 +236,8 @@ const QuestionTimelineSidebar = ({
     }
   }, [isLargeScreen, isOpen])
 
-
   // Removed unused activeIndicator logic
-  const updateActiveIndicator = useCallback(() => { }, [])
+  const updateActiveIndicator = useCallback(() => {}, [])
 
   const getIndexFromTouch = useCallback(
     touch => {
@@ -368,10 +367,10 @@ const QuestionTimelineSidebar = ({
           isLargeScreen
             ? 'absolute left-full top-0 h-full w-75 ml-16 bg-transparent border-none shadow-none z-30'
             : [
-              'fixed right-0 top-0 h-dvh w-75', // Fixed width for mobile sidebar instead of variable
-              'bg-background z-50',
-              isOpen ? 'translate-x-0' : 'translate-x-full',
-            ],
+                'fixed right-0 top-0 h-dvh w-75', // Fixed width for mobile sidebar instead of variable
+                'bg-background z-50',
+                isOpen ? 'translate-x-0' : 'translate-x-full',
+              ],
           className,
         )}
       >
@@ -398,14 +397,14 @@ const QuestionTimelineSidebar = ({
           <div className="flex-1 flex items-center justify-center px-6">
             {flatTimelineItems.length === 0 ? (
               <div className="text-center py-6">
-                <MessageSquare size={40} className="mx-auto text-gray-300 dark:text-zinc-600 mb-3" />
+                <MessageSquare
+                  size={40}
+                  className="mx-auto text-gray-300 dark:text-zinc-600 mb-3"
+                />
                 <p className="text-sm text-gray-500 dark:text-gray-400">No questions yet</p>
               </div>
             ) : (
-              <div
-                ref={timelineRailRef}
-                className="relative h-[55vh] w-full touch-none"
-              >
+              <div ref={timelineRailRef} className="relative h-[55vh] w-full touch-none">
                 {/* Visual Axis Container */}
                 <div className="flex h-full flex-col justify-center items-end gap-3 py-1 pr-1">
                   {flatTimelineItems.map(item => {
@@ -416,14 +415,17 @@ const QuestionTimelineSidebar = ({
                     const isVisuallyActive = isPreview || (!dragPreviewId && isActive)
 
                     return (
-                      <div key={item.id} className="group relative flex items-center justify-end h-2 w-full">
+                      <div
+                        key={item.id}
+                        className="group relative flex items-center justify-end h-2 w-full"
+                      >
                         {/* Horizontal Line Indicator */}
                         <div
                           className={clsx(
                             'h-[2px] rounded-full transition-all duration-300 ease-spring',
                             isVisuallyActive
                               ? 'w-8 bg-primary-500 shadow-[0_0_8px_rgba(var(--primary-500-rgb),0.5)]'
-                              : 'w-2 bg-gray-300 dark:bg-zinc-600'
+                              : 'w-2 bg-gray-300 dark:bg-zinc-600',
                           )}
                         />
 
@@ -432,9 +434,9 @@ const QuestionTimelineSidebar = ({
                           className={clsx(
                             'pointer-events-auto absolute right-8 top-1/2 -translate-y-1/2 z-50',
                             'transition-all duration-200',
-                            (isPreview || (isActive && !dragPreviewId))
+                            isPreview || (isActive && !dragPreviewId)
                               ? 'opacity-100 translate-x-0 scale-100'
-                              : 'opacity-0 translate-x-4 scale-95 pointer-events-none'
+                              : 'opacity-0 translate-x-4 scale-95 pointer-events-none',
                           )}
                         >
                           <div className="w-auto min-w-[240px] max-w-[280px] rounded-2xl border border-gray-200/80 dark:border-zinc-700/80 bg-user-bubble/95 dark:bg-zinc-800/95 px-4 py-3 shadow-xl backdrop-blur-md">
@@ -456,7 +458,6 @@ const QuestionTimelineSidebar = ({
             )}
           </div>
         )}
-
       </div>
 
       {/* Floating toggle button for desktop when sidebar is closed */}
@@ -479,11 +480,9 @@ const QuestionTimelineSidebar = ({
     return (
       <div className="pointer-events-none fixed right-8 top-1/2 z-40 -translate-y-1/2 w-8">
         {/* The Rail Container */}
-        <div
-          className="relative flex flex-col items-end gap-1.5 py-4 pr-1"
-        >
+        <div className="relative flex flex-col items-end gap-1.5 py-4 pr-1">
           {/* Timeline Items */}
-          {flatTimelineItems.map((item) => {
+          {flatTimelineItems.map(item => {
             const isActive = activeId === item.id
             const timeLabel = formatTime(item.timestamp)
 
@@ -497,10 +496,10 @@ const QuestionTimelineSidebar = ({
                 {/* The Horizontal Line */}
                 <div
                   className={clsx(
-                    "h-[2px] rounded-full transition-all duration-300 ease-spring",
+                    'h-[2px] rounded-full transition-all duration-300 ease-spring',
                     isActive
-                      ? "w-5 bg-primary-500 shadow-[0_0_8px_rgba(var(--primary-500-rgb),0.4)]"
-                      : "w-2 bg-gray-300 dark:bg-zinc-600 group-hover:bg-primary-400 group-hover:w-4"
+                      ? 'w-5 bg-primary-500 shadow-[0_0_8px_rgba(var(--primary-500-rgb),0.4)]'
+                      : 'w-2 bg-gray-300 dark:bg-zinc-600 group-hover:bg-primary-400 group-hover:w-4',
                   )}
                 />
 
@@ -510,7 +509,7 @@ const QuestionTimelineSidebar = ({
                     'pointer-events-auto absolute right-full mr-4 top-1/2 -translate-y-1/2',
                     'opacity-0 translate-x-2 pointer-events-none',
                     'transition-all duration-200',
-                    'group-hover:opacity-100 group-hover:translate-x-0 group-hover:pointer-events-auto'
+                    'group-hover:opacity-100 group-hover:translate-x-0 group-hover:pointer-events-auto',
                   )}
                 >
                   <div className="w-64 p-3 rounded-xl border border-gray-200/80 dark:border-zinc-700/80 bg-white/90 dark:bg-zinc-800/90 shadow-xl backdrop-blur-sm">
@@ -559,18 +558,15 @@ const QuestionCard = React.memo(({ item, isActive, onClick, time }) => {
           <div
             className={clsx(
               'w-2 h-2 rounded-full mt-1.5 transition-colors',
-              isActive ? 'bg-primary-500' : 'bg-transparent group-hover:bg-gray-300 dark:group-hover:bg-zinc-600',
+              isActive
+                ? 'bg-primary-500'
+                : 'bg-transparent group-hover:bg-gray-300 dark:group-hover:bg-zinc-600',
             )}
           />
         </div>
 
         <div className="flex-1 min-w-0">
-          <p
-            className={clsx(
-              'text-sm leading-relaxed break-words',
-              isActive ? 'font-medium' : ''
-            )}
-          >
+          <p className={clsx('text-sm leading-relaxed break-words', isActive ? 'font-medium' : '')}>
             {item.label}
           </p>
 

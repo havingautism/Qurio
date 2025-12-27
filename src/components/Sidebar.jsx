@@ -1189,7 +1189,9 @@ const Sidebar = ({
                     <div>{t('sidebar.noAgentsYet')}</div>
                   </div>
                 )}
-                {agents.map(agent => (
+                {[...agents]
+                  .sort((a, b) => Number(Boolean(b.isDefault)) - Number(Boolean(a.isDefault)))
+                  .map(agent => (
                   <div
                     key={agent.id}
                     onClick={() => onEditAgent && onEditAgent(agent)}

@@ -1397,8 +1397,11 @@ const generateTitle = async (provider, firstMessage, apiKey, baseUrl, model) => 
   const promptMessages = [
     {
       role: 'system',
-      content:
-        "Generate a short, concise title (max 5 words) for this conversation based on the user's first message. Do not use quotes.",
+      content: `## Task
+Generate a short, concise title (max 5 words) for this conversation based on the user's first message. Do not use quotes.
+
+## Output
+Return only the title text.`,
     },
     { role: 'user', content: firstMessage },
   ]
@@ -1455,8 +1458,11 @@ const generateTitleAndSpace = async (provider, firstMessage, spaces, apiKey, bas
     {
       role: 'system',
       content: `You are a helpful assistant.
+## Task
 1. Generate a short, concise title (max 5 words) for this conversation based on the user's first message.
 2. Select the most appropriate space from the following list: [${spaceLabels}]. If none fit well, return null.
+
+## Output
 Return the result as a JSON object with keys "title" and "spaceLabel".`,
     },
     { role: 'user', content: firstMessage },
@@ -1560,9 +1566,12 @@ const generateTitleSpaceAndAgent = async (
     {
       role: 'system',
       content: `You are a helpful assistant.
+## Task
 1. Generate a short, concise title (max 5 words) for this conversation based on the user's first message.
 2. Select the most appropriate space from the list below and return its spaceLabel (the space name only, without the description).
 3. If the chosen space has agents, select the best matching agent by agentName (agent name only). Otherwise return null.
+
+## Output
 Return the result as JSON with keys "title", "spaceLabel", and "agentName".`,
     },
     {
@@ -1613,6 +1622,115 @@ Return the result as JSON with keys "title", "spaceLabel", and "agentName".`,
   return {
     title: parsed.title || 'New Conversation',
     spaceLabel: parsed.spaceLabel || null,
+    agentName: parsed.agentName || null,
+  }
+}
+
+/**
+ * Generates only the agent selection for auto mode (not title or space).
+ * This is used for subsequent messages when agent auto mode is enabled.
+ * Selects from agents within the current space only.
+ * @param {string} provider - AI provider to use
+ * @param {string} userMessage - The user's current message
+ * @param {Object} currentSpace - The current space with its agents
+ * @param {string} apiKey - API key for authentication
+ * @param {string} baseUrl - Custom base URL
+ * @param {string} model - Model name/ID
+ * @returns {Promise<{agentName: string|null}>} - Selected agent name or null
+ */
+const generateAgentForAuto = async (
+  provider,
+  userMessage,
+  currentSpace,
+  apiKey,
+  baseUrl,
+  model,
+) => {
+  const sanitizeOptionText = text =>
+    String(text || '')
+      .replace(/[\r\n]+/g, ' ')
+      .replace(/[{}]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+
+  // Build agent list from current space only
+  const agentEntries = (currentSpace?.agents || []).map(agent => {
+    if (typeof agent === 'string') {
+      return { name: agent }
+    }
+    return {
+      name: typeof agent?.name === 'string' ? agent.name : '',
+      description: agent?.description ?? '',
+    }
+  })
+
+  const agentTokens = agentEntries
+    .map(agent => {
+      const name = sanitizeOptionText(agent.name)
+      const description = sanitizeOptionText(agent.description)
+      if (name && description) return `${name} - ${description}`
+      if (name) return name
+      return ''
+    })
+    .filter(Boolean)
+    .join('\n')
+
+  const promptMessages = [
+    {
+      role: 'system',
+      content: `You are a helpful assistant.
+## Task
+Select the best matching agent for the user's message from the "${currentSpace?.label || 'Default'}" space. Consider the agent's name and description to determine which one is most appropriate. If no agent is a good match, return null.
+
+## Output
+Return the result as JSON with key "agentName" (agent name only, or null if no match).`,
+    },
+    {
+      role: 'user',
+      content: `${userMessage}\n\nAvailable agents in ${currentSpace?.label || 'this space'}:\n${agentTokens}`,
+    },
+  ]
+
+  const responseFormat = provider !== 'gemini' ? { type: 'json_object' } : undefined
+  let content = undefined
+  if (provider === 'gemini') {
+    content = await requestGemini({ apiKey, model, messages: promptMessages })
+  } else if (provider === 'siliconflow') {
+    content = await requestSiliconFlow({
+      provider,
+      apiKey,
+      baseUrl,
+      model,
+      messages: promptMessages,
+      responseFormat,
+    })
+  } else if (provider === 'glm') {
+    content = await requestGLM({
+      apiKey,
+      model,
+      messages: promptMessages,
+      responseFormat,
+    })
+  } else if (provider === 'kimi') {
+    content = await requestKimi({
+      apiKey,
+      model,
+      messages: promptMessages,
+      responseFormat,
+    })
+  } else {
+    content = await requestOpenAICompat({
+      provider,
+      apiKey,
+      baseUrl,
+      model,
+      messages: promptMessages,
+      responseFormat,
+    })
+  }
+
+  const parsed = safeJsonParse(content) || {}
+  return {
     agentName: parsed.agentName || null,
   }
 }
@@ -1688,6 +1806,15 @@ export const createBackendProvider = provider => ({
       provider,
       firstMessage,
       spacesWithAgents,
+      apiKey,
+      baseUrl,
+      model,
+    ),
+  generateAgentForAuto: (userMessage, currentSpace, apiKey, baseUrl, model) =>
+    generateAgentForAuto(
+      provider,
+      userMessage,
+      currentSpace,
       apiKey,
       baseUrl,
       model,

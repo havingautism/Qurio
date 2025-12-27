@@ -12,6 +12,8 @@ const mapAgent = agent => {
     prompt: agent.prompt,
     emoji: agent.emoji,
     provider: agent.provider,
+    defaultModelSource: agent.default_model_source ?? agent.defaultModelSource ?? 'list',
+    liteModelSource: agent.lite_model_source ?? agent.liteModelSource ?? 'list',
     liteModel: agent.lite_model ?? agent.liteModel ?? '',
     defaultModel: agent.default_model ?? agent.defaultModel ?? '',
     responseLanguage: agent.response_language ?? agent.responseLanguage ?? '',
@@ -50,6 +52,8 @@ export const createAgent = async ({
   emoji = '',
   isDefault = false,
   provider = '',
+  defaultModelSource = 'list',
+  liteModelSource = 'list',
   liteModel = '',
   defaultModel = '',
   responseLanguage = '',
@@ -76,6 +80,8 @@ export const createAgent = async ({
     emoji,
     is_default: isDefault,
     provider,
+    default_model_source: defaultModelSource,
+    lite_model_source: liteModelSource,
     lite_model: liteModel,
     default_model: defaultModel,
     response_language: responseLanguage,
@@ -108,6 +114,10 @@ export const updateAgent = async (id, payload) => {
   if (payload.prompt !== undefined) updatePayload.prompt = payload.prompt
   if (payload.emoji !== undefined) updatePayload.emoji = payload.emoji
   if (payload.provider !== undefined) updatePayload.provider = payload.provider
+  if (payload.defaultModelSource !== undefined)
+    updatePayload.default_model_source = payload.defaultModelSource
+  if (payload.liteModelSource !== undefined)
+    updatePayload.lite_model_source = payload.liteModelSource
   if (payload.liteModel !== undefined) updatePayload.lite_model = payload.liteModel
   if (payload.defaultModel !== undefined) updatePayload.default_model = payload.defaultModel
   if (payload.responseLanguage !== undefined)

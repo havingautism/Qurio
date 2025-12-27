@@ -948,12 +948,15 @@ const MessageBubble = ({
               <EmojiDisplay emoji={agentEmoji} size="1.25rem" />
             </div>
             <div className="flex flex-col leading-tight">
-              <span className="text-sm font-semibold">{displayAgentName}</span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-sm font-semibold">{displayAgentName}</span>
+              </div>
               <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
                 {renderProviderIcon(providerMeta.id, {
                   size: 12,
                   alt: providerMeta.label,
-                  wrapperClassName: 'p-0 w-3 h-3',
+                  compact: true,
+                  wrapperClassName: 'w-3 h-3',
                   imgClassName: 'w-full h-full object-contain',
                 }) || (
                   <span className="text-[10px] font-semibold">

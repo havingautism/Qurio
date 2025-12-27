@@ -134,6 +134,8 @@ export const updateSpaceAgents = async (spaceId, agentIds = [], primaryAgentId =
   if (deleteError) return { success: false, error: deleteError }
   if (!agentIds.length) {
     invalidateSpaceAgentsCache(spaceId)
+    // Notify ChatInterface to reload space agents
+    window.dispatchEvent(new CustomEvent('space-agents-changed', { detail: { spaceId } }))
     return { success: true, error: null }
   }
 
@@ -146,5 +148,9 @@ export const updateSpaceAgents = async (spaceId, agentIds = [], primaryAgentId =
 
   const { error: insertError } = await supabase.from('space_agents').insert(rows)
   invalidateSpaceAgentsCache(spaceId)
+  // Notify ChatInterface to reload space agents
+  if (!insertError) {
+    window.dispatchEvent(new CustomEvent('space-agents-changed', { detail: { spaceId } }))
+  }
   return { success: !insertError, error: insertError }
 }

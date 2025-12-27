@@ -30,6 +30,7 @@ const STYLE_PROMPTS = {
     professional: 'Use a professional, business-appropriate tone.',
     academic: 'Use an academic, formal tone with clear reasoning.',
     creative: 'Use a creative, vivid tone when appropriate.',
+    casual: 'Use a casual, conversational tone.',
   },
   traits: {
     default: '',
@@ -37,28 +38,33 @@ const STYLE_PROMPTS = {
     structured: 'Prefer structured answers with clear sections.',
     detailed: 'Provide thorough explanations with necessary detail.',
     actionable: 'Prioritize actionable steps and concrete recommendations.',
+    analytical: 'Use an analytical mindset and highlight trade-offs.',
   },
   warmth: {
     default: '',
     gentle: 'Be gentle and considerate in phrasing.',
     empathetic: 'Show empathy and acknowledge user intent or concerns.',
     direct: 'Keep warmth minimal and focus on direct delivery.',
+    supportive: 'Be supportive and reassuring when appropriate.',
   },
   enthusiasm: {
     default: '',
     low: 'Keep enthusiasm low and neutral.',
+    medium: 'Maintain a balanced, positive tone.',
     high: 'Use an upbeat, energetic tone.',
   },
   headings: {
     default: '',
     minimal: 'Use minimal formatting and avoid excessive headings.',
     structured: 'Use headings and lists to improve scanability.',
+    detailed: 'Use clear headings, lists, and short summaries.',
   },
   emojis: {
     default: '',
     none: 'Avoid using emojis.',
     light: 'Use emojis sparingly.',
     moderate: 'Use a moderate amount of emojis when fitting.',
+    expressive: 'Feel free to use emojis to add warmth and clarity.',
   },
 }
 
@@ -87,7 +93,38 @@ const buildResponseStylePrompt = settings => {
   if (customInstruction) rules.push(customInstruction)
 
   if (rules.length === 0) return ''
-  return `Response style:\n${rules.map(rule => `- ${rule}`).join('\n')}`
+  return `## Response Style\n${rules.map(rule => `- ${rule}`).join('\n')}`
+}
+
+export const buildResponseStylePromptFromAgent = agent => {
+  if (!agent) return ''
+  const rules = []
+  const baseTone = agent.base_tone || agent.baseTone
+  const traits = agent.traits
+  const warmth = agent.warmth
+  const enthusiasm = agent.enthusiasm
+  const headings = agent.headings
+  const emojis = agent.emojis
+  const customInstruction = agent.custom_instruction || agent.customInstruction
+
+  const baseTonePrompt = STYLE_PROMPTS.baseTone[baseTone]
+  if (baseTonePrompt) rules.push(baseTonePrompt)
+  const traitPrompt = STYLE_PROMPTS.traits[traits]
+  if (traitPrompt) rules.push(traitPrompt)
+  const warmthPrompt = STYLE_PROMPTS.warmth[warmth]
+  if (warmthPrompt) rules.push(warmthPrompt)
+  const enthusiasmPrompt = STYLE_PROMPTS.enthusiasm[enthusiasm]
+  if (enthusiasmPrompt) rules.push(enthusiasmPrompt)
+  const headingsPrompt = STYLE_PROMPTS.headings[headings]
+  if (headingsPrompt) rules.push(headingsPrompt)
+  const emojisPrompt = STYLE_PROMPTS.emojis[emojis]
+  if (emojisPrompt) rules.push(emojisPrompt)
+
+  const trimmedCustom = typeof customInstruction === 'string' ? customInstruction.trim() : ''
+  if (trimmedCustom) rules.push(trimmedCustom)
+
+  if (rules.length === 0) return ''
+  return `## Response Style\n${rules.map(rule => `- ${rule}`).join('\n')}`
 }
 
 export const loadSettings = (overrides = {}) => {

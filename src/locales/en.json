@@ -106,41 +106,47 @@
       "friendly": "Friendly",
       "professional": "Professional",
       "academic": "Academic",
-      "creative": "Creative"
+      "creative": "Creative",
+      "casual": "Casual"
     },
-    "traits": "Traits",
+    "traits": "Response Focus",
     "traitsOptions": {
       "default": "Default",
       "concise": "Concise",
-      "structured": "Structured",
+      "structured": "Structured reasoning",
       "detailed": "Detailed",
-      "actionable": "Actionable"
+      "actionable": "Actionable",
+      "analytical": "Analytical"
     },
     "warmth": "Warmth and Care",
     "warmthOptions": {
       "default": "Default",
       "gentle": "Gentle",
       "empathetic": "Empathetic",
-      "direct": "Direct"
+      "direct": "Direct",
+      "supportive": "Supportive"
     },
     "enthusiasm": "Enthusiasm",
     "enthusiasmOptions": {
       "default": "Default",
       "low": "Low",
+      "medium": "Medium",
       "high": "High"
     },
-    "headings": "Headings and Lists",
+    "headings": "Formatting",
     "headingsOptions": {
       "default": "Default",
       "minimal": "Minimal",
-      "structured": "Headings & Lists"
+      "structured": "Headings & Lists",
+      "detailed": "Headings + Summary"
     },
     "emojis": "Emojis",
     "emojisOptions": {
       "default": "Default",
       "none": "None",
       "light": "Light",
-      "moderate": "Moderate"
+      "moderate": "Moderate",
+      "expressive": "Expressive"
     },
     "customInstruction": "Custom Instruction",
     "customInstructionHint": "Optional extra guidance appended to the style prompt.",
@@ -246,6 +252,10 @@
       "models": "Models",
       "noModels": "No models available for this provider.",
       "none": "None",
+      "sourceList": "List",
+      "sourceCustom": "Custom",
+      "custom": "Custom",
+      "customPlaceholder": "Enter model ID",
       "notSelected": "Not selected",
       "notFound": "Model not found"
     },
@@ -337,9 +347,14 @@
     "spaces": "Spaces",
     "spacesAuto": "Spaces: Auto",
     "spacesLabel": "Spaces: {{label}}",
+    "spacesNone": "Spaces: None",
     "auto": "Auto",
+    "none": "None",
+    "default": "Default",
     "title": "Where insight clicks.",
+    "agents": "Agents",
     "agentsLabel": "Agents",
+    "agentsAuto": "Agents: Auto",
     "agentsNone": "No agents",
     "agentsLoading": "Loading agents..."
   },
@@ -387,7 +402,9 @@
     "askFollowUp": "Ask follow-up...",
     "agentsLabel": "Agents",
     "agentsNone": "No agents",
-    "agentsLoading": "Loading agents..."
+    "agentsLoading": "Loading agents...",
+    "agentAuto": "Auto",
+    "default": "Default"
   },
   "agentsView": {
     "title": "Agents",

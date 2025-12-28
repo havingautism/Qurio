@@ -126,6 +126,7 @@ const ChatInterface = ({
   const [isAgentSelectorOpen, setIsAgentSelectorOpen] = useState(false)
   const [pendingAgentId, setPendingAgentId] = useState(null)
   const [agentLoadingDots, setAgentLoadingDots] = useState('')
+  const manualSpaceOverrideRef = useRef({ conversationId: null, spaceId: null })
   const initialAgentSelectionId = initialAgentSelection?.id || null
   const initialAgentAppliedRef = useRef({
     key: null,
@@ -479,8 +480,10 @@ const ChatInterface = ({
         ) {
           setConversationTitle(activeConversation.title)
         }
-        setSelectedSpace(conversationSpace || null)
-        setIsManualSpaceSelection(!!conversationSpace)
+        if (manualSpaceOverrideRef.current.conversationId !== activeConversation.id) {
+          setSelectedSpace(conversationSpace || null)
+          setIsManualSpaceSelection(!!conversationSpace)
+        }
         const agentSelectionMode =
           activeConversation?.agent_selection_mode ??
           activeConversation?.agentSelectionMode ??
@@ -521,8 +524,10 @@ const ChatInterface = ({
         ) {
           setConversationTitle(activeConversation.title)
         }
-        setSelectedSpace(conversationSpace || null)
-        setIsManualSpaceSelection(!!conversationSpace)
+        if (manualSpaceOverrideRef.current.conversationId !== activeConversation.id) {
+          setSelectedSpace(conversationSpace || null)
+          setIsManualSpaceSelection(!!conversationSpace)
+        }
         setIsLoadingHistory(false)
         return
       }
@@ -551,8 +556,10 @@ const ChatInterface = ({
         lastLoadedConversationIdRef.current = activeConversation.id
       }
       if (isNewConversation || activeConversation.id !== conversationId) {
-        setSelectedSpace(conversationSpace || null)
-        setIsManualSpaceSelection(!!conversationSpace)
+        if (manualSpaceOverrideRef.current.conversationId !== activeConversation.id) {
+          setSelectedSpace(conversationSpace || null)
+          setIsManualSpaceSelection(!!conversationSpace)
+        }
       }
       const conversationLastAgentId =
         activeConversation?.last_agent_id ?? activeConversation?.lastAgentId ?? null
@@ -812,6 +819,10 @@ const ChatInterface = ({
     setSelectedSpace(space)
     setIsManualSpaceSelection(true)
     setIsSelectorOpen(false)
+    manualSpaceOverrideRef.current = {
+      conversationId: activeConversation?.id || conversationId || null,
+      spaceId: space?.id || null,
+    }
     const conversationLastAgentId =
       activeConversation?.last_agent_id ?? activeConversation?.lastAgentId ?? null
     setPendingAgentId(conversationLastAgentId)
@@ -822,6 +833,14 @@ const ChatInterface = ({
         .then(() => {
           // Trigger event to refresh sidebar
           window.dispatchEvent(new Event('conversations-changed'))
+          window.dispatchEvent(
+            new CustomEvent('conversation-space-updated', {
+              detail: {
+                conversationId: conversationId || activeConversation?.id,
+                space,
+              },
+            }),
+          )
         })
         .catch(err => console.error('Failed to update conversation space:', err))
     }
@@ -831,6 +850,10 @@ const ChatInterface = ({
     setSelectedSpace(null)
     setIsManualSpaceSelection(true) // Keep as true because selecting "None" is a manual action
     setIsSelectorOpen(false)
+    manualSpaceOverrideRef.current = {
+      conversationId: activeConversation?.id || conversationId || null,
+      spaceId: null,
+    }
     setPendingAgentId(null) // Clear pending agent when clearing space
     setSelectedAgentId(defaultAgent?.id || null)
     if (conversationId || activeConversation?.id) {
@@ -840,6 +863,14 @@ const ChatInterface = ({
         .then(() => {
           // Trigger event to refresh sidebar
           window.dispatchEvent(new Event('conversations-changed'))
+          window.dispatchEvent(
+            new CustomEvent('conversation-space-updated', {
+              detail: {
+                conversationId: conversationId || activeConversation?.id,
+                space: null,
+              },
+            }),
+          )
         })
         .catch(err => console.error('Failed to clear conversation space:', err))
     }

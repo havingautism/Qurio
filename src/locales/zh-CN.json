@@ -109,6 +109,7 @@
     },
     "responseStyle": "回复风格",
     "responseStyleHint": "微调回复的语气和结构方式。",
+    "respondLanguage": "回复语言",
     "baseToneOptions": {
       "technical": "技术型",
       "friendly": "友好型",

@@ -109,6 +109,7 @@
     },
     "responseStyle": "Response Style",
     "responseStyleHint": "Fine-tune how replies sound and how they are structured.",
+    "respondLanguage": "Respond Language",
     "baseToneOptions": {
       "technical": "Technical",
       "friendly": "Friendly",

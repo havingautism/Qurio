@@ -1133,7 +1133,7 @@ const finalizeMessage = async (
           credentials.baseUrl,
           modelConfig.model, // Use the configured model for this task
         ),
-        10000,
+        20000,
         'Related questions',
       )
     } catch (error) {

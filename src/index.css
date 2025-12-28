@@ -2,6 +2,102 @@
 @variant dark (&:where(.dark, .dark *));
 @source "../node_modules/streamdown/dist/*.js";
 
+@font-face {
+  font-family: 'Google Sans Flex Local';
+  src: url('../public/fonts/GoogleSansFlex_24pt-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Google Sans Flex Local';
+  src: url('../public/fonts/GoogleSansFlex_24pt-Medium.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Google Sans Flex Local';
+  src: url('../public/fonts/GoogleSansFlex_24pt-SemiBold.ttf') format('truetype');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Google Sans Flex Local';
+  src: url('../public/fonts/GoogleSansFlex_24pt-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Google Sans Code Local';
+  src: url('../public/fonts/GoogleSansCode-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Google Sans Code Local';
+  src: url('../public/fonts/GoogleSansCode-Medium.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Google Sans Code Local';
+  src: url('../public/fonts/GoogleSansCode-SemiBold.ttf') format('truetype');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Google Sans Code Local';
+  src: url('../public/fonts/GoogleSansCode-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Noto Sans SC Local';
+  src: url('../public/fonts/NotoSansSC-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Noto Sans SC Local';
+  src: url('../public/fonts/NotoSansSC-Medium.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Noto Sans SC Local';
+  src: url('../public/fonts/NotoSansSC-SemiBold.ttf') format('truetype');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Noto Sans SC Local';
+  src: url('../public/fonts/NotoSansSC-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* CSS variables for sidebar width */
 :root {
   --sidebar-width: 0px;
@@ -21,16 +117,16 @@
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-user-bubble: var(--user-bubble);
   --font-sans:
-    var(--font-geist-sans), var(--font-noto-sc), system-ui, -apple-system, 'Segoe UI', Roboto,
+    var(--font-google-sans-flex), var(--font-noto-sc), system-ui, -apple-system, 'Segoe UI', Roboto,
     'PingFang SC', 'Hiragino Sans', 'Microsoft YaHei', sans-serif;
 
   --font-sans-serif:
-    var(--font-geist-sans), var(--font-noto-sc), system-ui, -apple-system, 'Segoe UI',
+    var(--font-google-sans-flex), var(--font-noto-sc), system-ui, -apple-system, 'Segoe UI',
     'PingFang SC', 'Hiragino Sans', 'Microsoft YaHei', sans-serif;
 
   /* 代码 / Prompt / Log */
   --font-mono:
-    var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, 'SF Mono', 'Cascadia Code',
+    var(--font-google-sans-code), ui-monospace, SFMono-Regular, 'SF Mono', 'Cascadia Code',
     'Segoe UI Mono', 'Source Code Pro', Menlo, Consolas, monospace;
 
   /* Custom Primary Palette (formerly Brown) - Default Map to Variables */
@@ -60,9 +156,16 @@
   }
 
   @keyframes shake {
-    0%, 100% { transform: rotate(0deg); }
-    25% { transform: rotate(-4deg); }
-    75% { transform: rotate(4deg); }
+    0%,
+    100% {
+      transform: rotate(0deg);
+    }
+    25% {
+      transform: rotate(-4deg);
+    }
+    75% {
+      transform: rotate(4deg);
+    }
   }
 }
 
@@ -93,9 +196,9 @@
 
   --user-bubble: #f7f2f1;
 
-  --font-geist-sans: 'Geist';
-  --font-noto-sc: 'Noto Sans SC';
-  --font-jetbrains-mono: 'JetBrains Mono';
+  --font-google-sans-flex: 'Google Sans Flex Local';
+  --font-google-sans-code: 'Google Sans Code Local';
+  --font-noto-sc: 'Noto Sans SC Local';
 
   /* Glow defaults (Fox Rust) */
   --theme-glow-1: rgba(234, 205, 196, 0.35);

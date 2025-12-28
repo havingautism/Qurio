@@ -5,7 +5,7 @@ import App from './App'
 import { getNodeEnv, getPublicEnv } from './lib/publicEnv'
 
 const HomeView = React.lazy(() => import('./views/HomeView'))
-const ConversationView = React.lazy(() => import('./views/ConversationView'))
+import ConversationView from './views/ConversationView'
 const SpacesView = React.lazy(() => import('./views/SpacesView'))
 const AgentsView = React.lazy(() => import('./views/AgentsView'))
 const SpaceView = React.lazy(() => import('./views/SpaceView'))

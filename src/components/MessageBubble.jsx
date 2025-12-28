@@ -504,7 +504,7 @@ const MessageBubble = ({
           style={isDark ? oneDark : oneLight}
           language={language || 'text'}
           PreTag="div"
-          className="code-scrollbar text-sm sm:text-base text-shadow-none!"
+          className="code-scrollbar text-sm sm:text-base text-shadow-none! font-mono"
           customStyle={{
             margin: 0,
             padding: '1rem',
@@ -513,8 +513,6 @@ const MessageBubble = ({
           codeTagProps={{
             style: {
               backgroundColor: 'transparent',
-              fontFamily:
-                'JetBrainsMono, CascadiaCode, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
             },
           }}
         >
@@ -577,7 +575,7 @@ const MessageBubble = ({
               style={isDark ? oneDark : oneLight}
               language={match[1]}
               PreTag="div"
-              className="code-scrollbar text-sm sm:text-base text-shadow-none!"
+              className="code-scrollbar text-sm sm:text-base text-shadow-none! font-mono"
               customStyle={{
                 margin: 0,
                 padding: '1rem',
@@ -587,8 +585,6 @@ const MessageBubble = ({
               codeTagProps={{
                 style: {
                   backgroundColor: 'transparent',
-                  fontFamily:
-                    'JetBrainsMono, CascadiaCode, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
                 },
               }}
               {...props}

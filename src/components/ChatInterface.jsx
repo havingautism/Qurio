@@ -44,6 +44,7 @@ const ChatInterface = ({
   initialToggles = {},
   initialSpaceSelection = { mode: 'auto', space: null },
   initialAgentSelection = null,
+  initialIsAgentAutoMode = true,
   onTitleAndSpaceGenerated,
   isSidebarPinned = false,
 }) => {
@@ -105,9 +106,8 @@ const ChatInterface = ({
   const [isSearchActive, setIsSearchActive] = useState(false)
   const [isThinkingActive, setIsThinkingActive] = useState(false)
 
-  const [selectedSpace, setSelectedSpace] = useState(
-    initialSpaceSelection.mode === 'manual' ? initialSpaceSelection.space : null,
-  )
+  const isPlaceholderConversation = Boolean(activeConversation?._isPlaceholder)
+  const [selectedSpace, setSelectedSpace] = useState(initialSpaceSelection.space || null)
   const [isSelectorOpen, setIsSelectorOpen] = useState(false)
   const selectorRef = useRef(null)
   const agentSelectorRef = useRef(null)
@@ -119,16 +119,25 @@ const ChatInterface = ({
   const [spacePrimaryAgentId, setSpacePrimaryAgentId] = useState(null)
   const [isAgentsLoading, setIsAgentsLoading] = useState(false)
   const [selectedAgentId, setSelectedAgentId] = useState(null)
-  const [isAgentAutoMode, setIsAgentAutoMode] = useState(
-    activeConversation?.agent_selection_mode !== 'manual',
-  )
+  const [isAgentAutoMode, setIsAgentAutoMode] = useState(() => {
+    if (isPlaceholderConversation) return initialIsAgentAutoMode
+    return activeConversation?.agent_selection_mode !== 'manual'
+  })
   const [isAgentSelectorOpen, setIsAgentSelectorOpen] = useState(false)
   const [pendingAgentId, setPendingAgentId] = useState(null)
   const [agentLoadingDots, setAgentLoadingDots] = useState('')
+  const initialAgentSelectionId = initialAgentSelection?.id || null
+  const initialAgentAppliedRef = useRef({
+    key: null,
+    agentId: null,
+    isAgentAutoMode: null,
+  })
 
   const [settings, setSettings] = useState(loadSettings())
   const isRelatedEnabled = Boolean(settings.enableRelatedQuestions)
   const [isLoadingHistory, setIsLoadingHistory] = useState(false)
+  const [showHistoryLoader, setShowHistoryLoader] = useState(false)
+  const historyLoaderTimeoutRef = useRef(null)
   const hasPushedConversation = useRef(false)
   const lastConversationId = useRef(null) // Track the last conversationId we navigated to
   const loadedMessagesRef = useRef(new Set())
@@ -140,6 +149,26 @@ const ChatInterface = ({
     activeConversation?.id && activeConversation.id !== conversationId,
   )
   const lastLoadedConversationIdRef = useRef(null)
+
+  useEffect(() => {
+    const shouldShow = isLoadingHistory || isSwitchingConversation
+    if (shouldShow) {
+      if (historyLoaderTimeoutRef.current) return
+      historyLoaderTimeoutRef.current = setTimeout(() => {
+        setShowHistoryLoader(true)
+        historyLoaderTimeoutRef.current = null
+      }, 200)
+      return
+    }
+
+    if (historyLoaderTimeoutRef.current) {
+      clearTimeout(historyLoaderTimeoutRef.current)
+      historyLoaderTimeoutRef.current = null
+    }
+    if (showHistoryLoader) {
+      setShowHistoryLoader(false)
+    }
+  }, [isLoadingHistory, isSwitchingConversation, showHistoryLoader])
   const conversationSpace = React.useMemo(() => {
     if (!activeConversation?.space_id) return null
     const sid = String(activeConversation.space_id)
@@ -397,6 +426,15 @@ const ChatInterface = ({
   useEffect(() => {
     const loadHistory = async () => {
       if (!activeConversation?.id) {
+        const hasLocalConversation = conversationId && messages.length > 0
+        const hasInitialPayload =
+          !conversationId && (hasInitialized.current || initialMessage || initialAttachments.length > 0)
+
+        if (hasLocalConversation || hasInitialPayload) {
+          setIsLoadingHistory(false)
+          return
+        }
+
         // When switching to new chat, always clear conversationId and reset navigation flag
         // This ensures that when a new conversation is created, it can navigate correctly
 
@@ -428,7 +466,46 @@ const ChatInterface = ({
         return
       }
 
-      if (loadedMessagesRef.current.has(activeConversation.id)) {
+      if (
+        loadedMessagesRef.current.has(activeConversation.id) &&
+        lastLoadedConversationIdRef.current === activeConversation.id
+      ) {
+        if (activeConversation.id !== conversationId) {
+          setConversationId(activeConversation.id)
+        }
+        if (
+          activeConversation.title &&
+          (activeConversation.title !== 'New Conversation' || conversationTitle === 'New Conversation')
+        ) {
+          setConversationTitle(activeConversation.title)
+        }
+        setSelectedSpace(conversationSpace || null)
+        setIsManualSpaceSelection(!!conversationSpace)
+        const agentSelectionMode =
+          activeConversation?.agent_selection_mode ??
+          activeConversation?.agentSelectionMode ??
+          'auto'
+        setIsAgentAutoMode(agentSelectionMode !== 'manual')
+        const resolvedAgentId =
+          activeConversation?.last_agent_id ?? activeConversation?.lastAgentId ?? null
+        if (resolvedAgentId) {
+          setSelectedAgentId(resolvedAgentId)
+          setPendingAgentId(resolvedAgentId)
+        } else {
+          setPendingAgentId(null)
+          setSelectedAgentId(defaultAgent?.id || null)
+        }
+        setIsLoadingHistory(false)
+        return
+      }
+
+      if (
+        hasInitialized.current &&
+        messages.length > 0 &&
+        activeConversation.id !== conversationId &&
+        !loadedMessagesRef.current.has(activeConversation.id)
+      ) {
+        setConversationId(activeConversation.id)
         setIsLoadingHistory(false)
         return
       }
@@ -444,13 +521,9 @@ const ChatInterface = ({
         ) {
           setConversationTitle(activeConversation.title)
         }
-        if (conversationSpace && !isManualSpaceSelection) {
-          setSelectedSpace(conversationSpace)
-          setIsManualSpaceSelection(!!conversationSpace)
-        } else if (!conversationSpace && !selectedSpace && !isManualSpaceSelection) {
-          setSelectedSpace(null)
-          setIsManualSpaceSelection(false)
-        }
+        setSelectedSpace(conversationSpace || null)
+        setIsManualSpaceSelection(!!conversationSpace)
+        setIsLoadingHistory(false)
         return
       }
 
@@ -477,14 +550,9 @@ const ChatInterface = ({
       if (isNewConversation) {
         lastLoadedConversationIdRef.current = activeConversation.id
       }
-      if (conversationSpace) {
-        if (isNewConversation || !isManualSpaceSelection) {
-          setSelectedSpace(conversationSpace)
-          setIsManualSpaceSelection(!!conversationSpace)
-        }
-      } else if (!selectedSpace && (isNewConversation || !isManualSpaceSelection)) {
-        setSelectedSpace(null)
-        setIsManualSpaceSelection(false)
+      if (isNewConversation || activeConversation.id !== conversationId) {
+        setSelectedSpace(conversationSpace || null)
+        setIsManualSpaceSelection(!!conversationSpace)
       }
       const conversationLastAgentId =
         activeConversation?.last_agent_id ?? activeConversation?.lastAgentId ?? null
@@ -570,47 +638,89 @@ const ChatInterface = ({
       conversationId && isOnNewChatPage && !hasPushedConversation.current && idChanged
 
     if (shouldNavigate) {
+      const params = { conversationId: String(conversationId) }
       navigate({
-        to: '/conversation/$conversationId',
-        params: { conversationId: String(conversationId) },
+        to: '/new_chat',
         replace: true,
+        mask: { to: '/conversation/$conversationId', params },
+        state: { maskedConversationId: String(conversationId) },
       })
       hasPushedConversation.current = true
     }
   }, [conversationId, location.pathname, navigate])
 
   useEffect(() => {
-    // Only apply initialSpaceSelection when we don't have an active conversation
-    // This prevents overriding the space when loading existing conversations
-    if (!activeConversation) {
-      if (initialSpaceSelection?.mode === 'manual') {
-        // Manual mode: user selected a specific space OR explicitly chose "None"
-        // Both cases should prevent automatic space preselection
-        setSelectedSpace(initialSpaceSelection.space || null)
-        setIsManualSpaceSelection(true)
-      } else if (initialSpaceSelection?.mode === 'auto') {
-        if (!selectedSpace && !isManualSpaceSelection) {
-          setSelectedSpace(null)
-          setIsManualSpaceSelection(false)
-        }
+    const canAdoptInitialSpace =
+      !activeConversation ||
+      isPlaceholderConversation ||
+      (!activeConversation?.space_id && !selectedSpace && !isManualSpaceSelection)
+
+    if (!canAdoptInitialSpace) return
+
+    if (initialSpaceSelection?.mode === 'manual') {
+      // Manual mode: user selected a specific space OR explicitly chose "None"
+      // Both cases should prevent automatic space preselection
+      setSelectedSpace(initialSpaceSelection.space || null)
+      setIsManualSpaceSelection(true)
+      return
+    }
+
+    if (initialSpaceSelection?.mode === 'auto') {
+      if (initialSpaceSelection?.space) {
+        setSelectedSpace(initialSpaceSelection.space)
+        setIsManualSpaceSelection(false)
+      } else if (!selectedSpace && !isManualSpaceSelection) {
+        setSelectedSpace(null)
+        setIsManualSpaceSelection(false)
       }
     }
-  }, [initialSpaceSelection, activeConversation, selectedSpace, isManualSpaceSelection])
+  }, [
+    initialSpaceSelection,
+    activeConversation,
+    isPlaceholderConversation,
+    selectedSpace,
+    isManualSpaceSelection,
+  ])
 
   useEffect(() => {
-    // Store pending agent selection when we don't have an active conversation
-    if (!activeConversation) {
-      if (initialAgentSelection) {
-        // Manual mode: user selected a specific agent
-        setPendingAgentId(initialAgentSelection.id)
-        setIsAgentAutoMode(false)
-      } else {
-        // Auto mode: null initialAgentSelection means auto
-        setIsAgentAutoMode(true)
+    const conversationKey = activeConversation?.id || conversationId || 'new'
+    const hasStoredAgent = Boolean(activeConversation?.last_agent_id) && !isPlaceholderConversation
+    if (hasStoredAgent) return
+
+    const lastApplied = initialAgentAppliedRef.current
+    if (
+      lastApplied.key === conversationKey &&
+      lastApplied.agentId === initialAgentSelectionId &&
+      lastApplied.isAgentAutoMode === initialIsAgentAutoMode
+    ) {
+      return
+    }
+
+    if (initialAgentSelectionId) {
+      setPendingAgentId(initialAgentSelectionId)
+      if (!initialIsAgentAutoMode) {
+        setSelectedAgentId(initialAgentSelectionId)
+      }
+    } else {
+      setPendingAgentId(null)
+      if (initialIsAgentAutoMode) {
         setSelectedAgentId(null)
       }
     }
-  }, [initialAgentSelection, activeConversation])
+    setIsAgentAutoMode(initialIsAgentAutoMode)
+    initialAgentAppliedRef.current = {
+      key: conversationKey,
+      agentId: initialAgentSelectionId,
+      isAgentAutoMode: initialIsAgentAutoMode,
+    }
+  }, [
+    initialAgentSelectionId,
+    activeConversation?.id,
+    activeConversation?.last_agent_id,
+    initialIsAgentAutoMode,
+    isPlaceholderConversation,
+    conversationId,
+  ])
 
   // Handle click outside to close selector
   useEffect(() => {
@@ -1373,22 +1483,20 @@ const ChatInterface = ({
           className="flex-1 overflow-y-auto sm:p-2 relative no-scrollbar"
         >
           <div className="w-full px-0 sm:px-5 max-w-3xl mx-auto">
-            {(isLoadingHistory || isSwitchingConversation) && (
+            {showHistoryLoader && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
                 <FancyLoader />
               </div>
             )}
-            {!isLoadingHistory && !isSwitchingConversation && (
-              <MessageList
-                apiProvider={effectiveProvider}
-                defaultModel={effectiveDefaultModel}
-                onRelatedClick={handleRelatedClick}
-                onMessageRef={registerMessageRef}
-                onEdit={handleEdit}
-                onQuote={handleQuote}
-                onRegenerateAnswer={handleRegenerateAnswer}
-              />
-            )}
+            <MessageList
+              apiProvider={effectiveProvider}
+              defaultModel={effectiveDefaultModel}
+              onRelatedClick={handleRelatedClick}
+              onMessageRef={registerMessageRef}
+              onEdit={handleEdit}
+              onQuote={handleQuote}
+              onRegenerateAnswer={handleRegenerateAnswer}
+            />
             {/* Bottom Anchor */}
             <div ref={bottomRef} className="h-1" />
           </div>

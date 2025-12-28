@@ -8,7 +8,7 @@ const HomeWidgets = () => {
     <div className="w-full max-w-5xl mt-8">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Column 1 */}
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-7 sm:gap-4">
           <NoteWidget />
           <TipsWidget />
         </div>

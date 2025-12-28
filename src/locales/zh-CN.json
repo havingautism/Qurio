@@ -3,7 +3,9 @@
     "loading": "加载中...",
     "cancel": "取消",
     "save": "保存",
-    "delete": "删除"
+    "delete": "删除",
+    "uploadImage": "上传图片",
+    "uploadDocument": "上传文档（敬请期待）"
   },
   "app": {
     "name": "Qurio",

@@ -551,7 +551,7 @@ const Sidebar = ({
                 >
                   <item.icon size={20} />
                 </div>
-                <span className="text-[11px] font-medium font-sans overflow-hidden transition-all duration-300 ease-in-out max-h-[20px] opacity-100 mt-1 md:max-h-0 md:opacity-0 md:mt-0 md:group-hover:max-h-[20px] md:group-hover:opacity-100 md:group-hover:mt-1">
+                <span className="text-[11px] font-semibold font-sans overflow-hidden transition-all duration-300 ease-in-out max-h-[20px] opacity-100 mt-1 md:max-h-0 md:opacity-0 md:mt-0 md:group-hover:max-h-[20px] md:group-hover:opacity-100 md:group-hover:mt-1">
                   {item.label}
                 </span>
               </button>
@@ -1192,39 +1192,39 @@ const Sidebar = ({
                 {[...agents]
                   .sort((a, b) => Number(Boolean(b.isDefault)) - Number(Boolean(a.isDefault)))
                   .map(agent => (
-                  <div
-                    key={agent.id}
-                    onClick={() => onEditAgent && onEditAgent(agent)}
-                    className="flex items-center justify-between p-2 rounded cursor-pointer transition-colors group hover:bg-primary-50 dark:hover:bg-zinc-800"
-                  >
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <div className="w-8 h-8 rounded bg-transparent flex items-center justify-center text-lg shrink-0">
-                        <EmojiDisplay emoji={agent.emoji} />
-                      </div>
-                      <div className="flex flex-col min-w-0">
-                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">
-                          {getAgentDisplayName(agent, t)}
-                        </span>
-                        {getAgentDisplayDescription(agent, t) && (
-                          <span className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                            {getAgentDisplayDescription(agent, t)}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Edit Button (Visible on Hover) */}
-                    <button
-                      onClick={e => {
-                        e.stopPropagation()
-                        onEditAgent && onEditAgent(agent)
-                      }}
-                      className="p-1.5 rounded-md ml-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:bg-primary-50 dark:hover:bg-zinc-800 text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors shrink-0"
+                    <div
+                      key={agent.id}
+                      onClick={() => onEditAgent && onEditAgent(agent)}
+                      className="flex items-center justify-between p-2 rounded cursor-pointer transition-colors group hover:bg-primary-50 dark:hover:bg-zinc-800"
                     >
-                      <Settings size={16} />
-                    </button>
-                  </div>
-                ))}
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <div className="w-8 h-8 rounded bg-transparent flex items-center justify-center text-lg shrink-0">
+                          <EmojiDisplay emoji={agent.emoji} />
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">
+                            {getAgentDisplayName(agent, t)}
+                          </span>
+                          {getAgentDisplayDescription(agent, t) && (
+                            <span className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                              {getAgentDisplayDescription(agent, t)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Edit Button (Visible on Hover) */}
+                      <button
+                        onClick={e => {
+                          e.stopPropagation()
+                          onEditAgent && onEditAgent(agent)
+                        }}
+                        className="p-1.5 rounded-md ml-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:bg-primary-50 dark:hover:bg-zinc-800 text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors shrink-0"
+                      >
+                        <Settings size={16} />
+                      </button>
+                    </div>
+                  ))}
               </div>
             )}
           </div>

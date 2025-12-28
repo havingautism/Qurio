@@ -234,6 +234,18 @@ export const addMessage = async message => {
   return { data, error }
 }
 
+export const updateMessageById = async (id, payload) => {
+  const supabase = getSupabaseClient()
+  if (!supabase) return { data: null, error: new Error('Supabase not configured') }
+  const { data, error } = await supabase
+    .from('conversation_messages')
+    .update(payload)
+    .eq('id', id)
+    .select()
+    .single()
+  return { data, error }
+}
+
 export const toggleFavorite = async (id, isFavorited) => {
   const supabase = getSupabaseClient()
   if (!supabase) return { data: null, error: new Error('Supabase not configured') }

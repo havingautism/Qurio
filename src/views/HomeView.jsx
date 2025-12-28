@@ -6,7 +6,9 @@ import {
   Brain,
   Check,
   ChevronDown,
+  FileText,
   Globe,
+  Image,
   LayoutGrid,
   Menu,
   Paperclip,
@@ -71,6 +73,8 @@ const HomeView = () => {
   const [isHomeAgentAuto, setIsHomeAgentAuto] = useState(true) // Default to auto mode
   const homeContainerRef = useRef(null)
   const [isHomeMobile, setIsHomeMobile] = useState(() => window.innerWidth < 768)
+  const [isHomeUploadMenuOpen, setIsHomeUploadMenuOpen] = useState(false)
+  const homeUploadMenuRef = useRef(null)
 
   useScrollLock(isHomeSpaceSelectorOpen && isHomeMobile)
 
@@ -207,6 +211,17 @@ const HomeView = () => {
     return () => document.removeEventListener('click', handleClickOutside)
   }, [isHomeSpaceSelectorOpen, isHomeMobile])
 
+  useEffect(() => {
+    if (!isHomeUploadMenuOpen) return
+    const handleClickOutside = event => {
+      if (homeUploadMenuRef.current && !homeUploadMenuRef.current.contains(event.target)) {
+        setIsHomeUploadMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [isHomeUploadMenuOpen])
+
   const handleFileChange = e => {
     const files = Array.from(e.target.files)
     if (files.length === 0) return
@@ -231,7 +246,8 @@ const HomeView = () => {
     e.target.value = ''
   }
 
-  const handleHomeFileUpload = () => {
+  const handleHomeImageUpload = () => {
+    setIsHomeUploadMenuOpen(false)
     fileInputRef.current?.click()
   }
 
@@ -508,7 +524,7 @@ const HomeView = () => {
                           onClick={() =>
                             setHomeAttachments(homeAttachments.filter((_, i) => i !== idx))
                           }
-                          className="absolute -top-1.5 -right-1.5 bg-gray-900 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity shadow-md"
+                          className="absolute -top-1.5 -right-1.5 bg-gray-900 text-white rounded-full p-0.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shadow-md"
                         >
                           <X size={12} />
                         </button>
@@ -544,16 +560,42 @@ const HomeView = () => {
                       multiple
                       className="hidden"
                     />
-                    <button
-                      onClick={handleHomeFileUpload}
-                      className={`p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
-                        homeAttachments.length > 0
-                          ? 'text-primary-500'
-                          : 'text-gray-500 dark:text-gray-400'
-                      }`}
-                    >
-                      <Paperclip size={18} />
-                    </button>
+                    <div className="relative" ref={homeUploadMenuRef}>
+                      <button
+                        type="button"
+                        onClick={() => setIsHomeUploadMenuOpen(prev => !prev)}
+                        className={`p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
+                          homeAttachments.length > 0
+                            ? 'text-primary-500'
+                            : 'text-gray-500 dark:text-gray-400'
+                        }`}
+                      >
+                        <Paperclip size={18} />
+                      </button>
+                      {isHomeUploadMenuOpen && (
+                        <div className="absolute top-full left-0 mt-2 w-48 bg-white dark:bg-[#202222] border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl z-50 overflow-hidden">
+                          <div className="p-2 flex flex-col gap-1">
+                            <button
+                              type="button"
+                              onClick={handleHomeImageUpload}
+                              className="flex items-center gap-2 w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left text-sm text-gray-700 dark:text-gray-200"
+                            >
+                              <Image size={16} />
+                              {t('common.uploadImage')}
+                            </button>
+                            <button
+                              type="button"
+                              disabled
+                              onClick={() => setIsHomeUploadMenuOpen(false)}
+                              className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-left text-sm text-gray-400 dark:text-gray-500 cursor-not-allowed"
+                            >
+                              <FileText size={16} />
+                              {t('common.uploadDocument')}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                     <button
                       onClick={() => setIsHomeThinkingActive(!isHomeThinkingActive)}
                       className={`p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${

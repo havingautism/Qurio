@@ -103,11 +103,19 @@ export const fetchHomeShortcuts = async () => {
   return { data: data || [], error }
 }
 
-export const upsertHomeShortcut = async ({ id, title, url, icon_type = 'lucide', icon_name, icon_url, color, position }) => {
+export const upsertHomeShortcut = async ({
+  id,
+  title,
+  url,
+  icon_type = 'lucide',
+  icon_name,
+  icon_url,
+  position,
+}) => {
   const supabase = getSupabaseClient()
   if (!supabase) return { data: null, error: new Error('Supabase not configured') }
 
-  const payload = { title, url, icon_type, icon_name, icon_url, color, position }
+  const payload = { title, url, icon_type, icon_name, icon_url, position }
 
   if (id) {
     const { data, error } = await supabase
@@ -137,7 +145,7 @@ export const reorderHomeShortcuts = async shortcuts => {
 
   // Update each shortcut's position individually
   const promises = shortcuts.map((shortcut, index) =>
-    supabase.from(shortcutsTable).update({ position: index }).eq('id', shortcut.id)
+    supabase.from(shortcutsTable).update({ position: index }).eq('id', shortcut.id),
   )
 
   const results = await Promise.all(promises)

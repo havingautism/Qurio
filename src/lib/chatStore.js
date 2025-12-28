@@ -1,5 +1,10 @@
 import { create } from 'zustand'
-import { createConversation, addMessage, updateConversation } from '../lib/conversationsService'
+import {
+  createConversation,
+  addMessage,
+  updateConversation,
+  updateMessageById,
+} from '../lib/conversationsService'
 import { deleteMessageById } from '../lib/supabase'
 import { getProvider } from '../lib/providers'
 import { buildResponseStylePromptFromAgent, loadSettings } from './settings'
@@ -863,6 +868,14 @@ const finalizeMessage = async (
 
   const firstMessageText = firstUserText ?? fallbackFirstUserText
 
+  const withTimeout = (promise, ms, label) =>
+    Promise.race([
+      promise,
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error(`${label} timed out`)), ms),
+      ),
+    ])
+
   if (isFirstTurn) {
     if (typeof preselectedTitle === 'string' && preselectedTitle.trim()) {
       resolvedTitle = preselectedTitle.trim()
@@ -956,6 +969,128 @@ const finalizeMessage = async (
     }
   }
 
+  let insertedAiId = null
+
+  // Attach sources to the last AI message (for Gemini search)
+  if (result.sources && result.sources.length > 0) {
+    set(state => {
+      const updated = [...state.messages]
+      const lastMsgIndex = updated.length - 1
+      if (lastMsgIndex >= 0 && updated[lastMsgIndex].role === 'ai') {
+        updated[lastMsgIndex] = {
+          ...updated[lastMsgIndex],
+          sources: result.sources,
+        }
+      }
+      return { messages: updated }
+    })
+  }
+
+  if (result.groundingSupports && result.groundingSupports.length > 0) {
+    set(state => {
+      const updated = [...state.messages]
+      const lastMsgIndex = updated.length - 1
+      if (lastMsgIndex >= 0 && updated[lastMsgIndex].role === 'ai') {
+        updated[lastMsgIndex] = {
+          ...updated[lastMsgIndex],
+          groundingSupports: result.groundingSupports,
+        }
+      }
+      return { messages: updated }
+    })
+  }
+
+  // Persist AI message in database before related questions
+  if (currentStore.conversationId) {
+    const fallbackThoughtFromState = (() => {
+      const aiMessages = (currentStore.messages || []).filter(m => m.role === 'ai')
+      const latestAi = aiMessages[aiMessages.length - 1]
+      const thoughtValue = latestAi?.thought
+      return typeof thoughtValue === 'string' ? thoughtValue.trim() : ''
+    })()
+
+    const thoughtForPersistence = normalizedThought || fallbackThoughtFromState || null
+    const contentForPersistence =
+      typeof result.content !== 'undefined'
+        ? result.content
+        : (currentStore.messages?.[currentStore.messages.length - 1]?.content ?? '')
+
+    const { data: insertedAi } = await addMessage({
+      conversation_id: currentStore.conversationId,
+      role: 'assistant',
+      provider: modelConfig.provider,
+      model: modelConfig.model,
+      agent_id: safeAgent?.id || null,
+      agent_name: safeAgent?.name || null,
+      agent_emoji: safeAgent?.emoji || '',
+      agent_is_default: !!safeAgent?.isDefault,
+      content: contentForPersistence,
+      thinking_process: thoughtForPersistence,
+      tool_calls: result.toolCalls || null,
+      related_questions: null,
+      sources: result.sources || null,
+      grounding_supports: result.groundingSupports || null,
+      created_at: new Date().toISOString(),
+    })
+
+    insertedAiId = insertedAi?.id || null
+    if (insertedAi) {
+      set(state => {
+        const updated = [...state.messages]
+        for (let i = updated.length - 1; i >= 0; i--) {
+          if (updated[i].role === 'ai' && !updated[i].id) {
+            updated[i] = {
+              ...updated[i],
+              id: insertedAi.id,
+              created_at: insertedAi.created_at,
+            }
+            break
+          }
+        }
+        return { messages: updated }
+      })
+    }
+  }
+
+  // Update conversation in database
+  if (currentStore.conversationId) {
+    try {
+      if (isFirstTurn) {
+        // First turn: update title, space, agent_selection_mode, and last_agent_id
+        await updateConversation(currentStore.conversationId, {
+          title: resolvedTitle,
+          space_id: resolvedSpace ? resolvedSpace.id : null,
+          api_provider: resolvedAgent?.provider || safeAgent?.provider || '',
+          last_agent_id: safeAgent?.id || null,
+          agent_selection_mode: isAgentAutoMode ? 'auto' : 'manual',
+        })
+        window.dispatchEvent(new Event('conversations-changed'))
+
+        // Dispatch a specific event for conversation update
+        window.dispatchEvent(
+          new CustomEvent('conversation-space-updated', {
+            detail: {
+              conversationId: currentStore.conversationId,
+              space: resolvedSpace,
+            },
+          }),
+        )
+
+        // Notify callback if space was resolved (only on first turn or when space changed)
+        if (callbacks?.onSpaceResolved && resolvedSpace) {
+          callbacks.onSpaceResolved(resolvedSpace)
+        }
+      } else if (safeAgent?.id) {
+        // Subsequent turns: only update last_agent_id
+        await updateConversation(currentStore.conversationId, {
+          last_agent_id: safeAgent.id,
+        })
+      }
+    } catch (error) {
+      console.error('Failed to update conversation:', error)
+    }
+  }
+
   // Generate related questions (only if enabled)
   let related = []
   if (toggles?.related) {
@@ -991,11 +1126,15 @@ const finalizeMessage = async (
       )
       const provider = getProvider(modelConfig.provider)
       const credentials = provider.getCredentials(settings)
-      related = await provider.generateRelatedQuestions(
-        relatedMessages, // Only use the last 2 messages (User + AI) for context
-        credentials.apiKey,
-        credentials.baseUrl,
-        modelConfig.model, // Use the configured model for this task
+      related = await withTimeout(
+        provider.generateRelatedQuestions(
+          relatedMessages, // Only use the last 2 messages (User + AI) for context
+          credentials.apiKey,
+          credentials.baseUrl,
+          modelConfig.model, // Use the configured model for this task
+        ),
+        10000,
+        'Related questions',
       )
     } catch (error) {
       console.error('Failed to generate related questions:', error)
@@ -1012,21 +1151,6 @@ const finalizeMessage = async (
         return { messages: updated }
       })
     }
-  }
-
-  // Attach sources to the last AI message (for Gemini search)
-  if (result.sources && result.sources.length > 0) {
-    set(state => {
-      const updated = [...state.messages]
-      const lastMsgIndex = updated.length - 1
-      if (lastMsgIndex >= 0 && updated[lastMsgIndex].role === 'ai') {
-        updated[lastMsgIndex] = {
-          ...updated[lastMsgIndex],
-          sources: result.sources,
-        }
-      }
-      return { messages: updated }
-    })
   }
 
   if (related && related.length > 0) {
@@ -1046,92 +1170,13 @@ const finalizeMessage = async (
     })
   }
 
-  // Persist AI message in database
-  if (currentStore.conversationId) {
-    const fallbackThoughtFromState = (() => {
-      const aiMessages = (currentStore.messages || []).filter(m => m.role === 'ai')
-      const latestAi = aiMessages[aiMessages.length - 1]
-      const thoughtValue = latestAi?.thought
-      return typeof thoughtValue === 'string' ? thoughtValue.trim() : ''
-    })()
-
-    const thoughtForPersistence = normalizedThought || fallbackThoughtFromState || null
-    const contentForPersistence =
-      typeof result.content !== 'undefined'
-        ? result.content
-        : (currentStore.messages?.[currentStore.messages.length - 1]?.content ?? '')
-
-    const { data: insertedAi } = await addMessage({
-      conversation_id: currentStore.conversationId,
-      role: 'assistant',
-      provider: modelConfig.provider,
-      model: modelConfig.model,
-      agent_id: safeAgent?.id || null,
-      agent_name: safeAgent?.name || null,
-      agent_emoji: safeAgent?.emoji || '',
-      agent_is_default: !!safeAgent?.isDefault,
-      content: contentForPersistence,
-      thinking_process: thoughtForPersistence,
-      tool_calls: result.toolCalls || null,
-      related_questions: related || null,
-      sources: result.sources || null,
-      grounding_supports: result.groundingSupports || null,
-      created_at: new Date().toISOString(),
-    })
-
-    if (insertedAi) {
-      set(state => {
-        const updated = [...state.messages]
-        for (let i = updated.length - 1; i >= 0; i--) {
-          if (updated[i].role === 'ai' && !updated[i].id) {
-            updated[i] = {
-              ...updated[i],
-              id: insertedAi.id,
-              created_at: insertedAi.created_at,
-            }
-            break
-          }
-        }
-        return { messages: updated }
-      })
-    }
-  }
-
-  // Update conversation in database
-  if (currentStore.conversationId) {
+  if (insertedAiId && related && related.length > 0) {
     try {
-      if (isFirstTurn) {
-        // First turn: update title, space, agent_selection_mode, and last_agent_id
-        await updateConversation(currentStore.conversationId, {
-          title: resolvedTitle,
-          space_id: resolvedSpace ? resolvedSpace.id : null,
-          last_agent_id: safeAgent?.id || null,
-          agent_selection_mode: isAgentAutoMode ? 'auto' : 'manual',
-        })
-        window.dispatchEvent(new Event('conversations-changed'))
-
-        // Dispatch a specific event for conversation update
-        window.dispatchEvent(
-          new CustomEvent('conversation-space-updated', {
-            detail: {
-              conversationId: currentStore.conversationId,
-              space: resolvedSpace,
-            },
-          }),
-        )
-
-        // Notify callback if space was resolved (only on first turn or when space changed)
-        if (callbacks?.onSpaceResolved && resolvedSpace) {
-          callbacks.onSpaceResolved(resolvedSpace)
-        }
-      } else if (safeAgent?.id) {
-        // Subsequent turns: only update last_agent_id
-        await updateConversation(currentStore.conversationId, {
-          last_agent_id: safeAgent.id,
-        })
-      }
+      await updateMessageById(insertedAiId, {
+        related_questions: related,
+      })
     } catch (error) {
-      console.error('Failed to update conversation:', error)
+      console.error('Failed to persist related questions:', error)
     }
   }
 }
@@ -1157,6 +1202,8 @@ const useChatStore = create((set, get) => ({
   isMetaLoading: false,
   /** Loading state for preselecting agent in auto mode */
   isAgentPreselecting: false,
+  /** Optimistic selection info for newly created conversations */
+  optimisticSelection: null,
 
   // ========================================
   // STATE SETTERS
@@ -1176,6 +1223,10 @@ const useChatStore = create((set, get) => ({
   setIsMetaLoading: isMetaLoading => set({ isMetaLoading }),
   /** Sets agent preselecting loading state */
   setIsAgentPreselecting: isAgentPreselecting => set({ isAgentPreselecting }),
+  /** Sets optimistic selection info */
+  setOptimisticSelection: optimisticSelection => set({ optimisticSelection }),
+  /** Clears optimistic selection info */
+  clearOptimisticSelection: () => set({ optimisticSelection: null }),
 
   /** Resets conversation to initial state */
   resetConversation: () =>
@@ -1186,6 +1237,7 @@ const useChatStore = create((set, get) => ({
       isLoading: false,
       isMetaLoading: false,
       isAgentPreselecting: false,
+      optimisticSelection: null,
     }),
 
   // ========================================
@@ -1272,7 +1324,36 @@ const useChatStore = create((set, get) => ({
         ? editingInfo.index
         : messages.length
 
-    // Step 4: Preselect space/agent/title
+    // Step 4: Ensure conversation exists early to sync ID
+    let convInfo
+    try {
+      const fallbackAgent = agents?.find(agent => agent.isDefault)
+      const providerOverride = selectedAgent?.provider || fallbackAgent?.provider || ''
+      convInfo = await ensureConversationExists(
+        conversationId,
+        settings,
+        toggles,
+        spaceInfo,
+        set,
+        providerOverride,
+      )
+    } catch (convError) {
+      return // Early return on conversation creation failure
+    }
+    const convId = convInfo.id
+
+    if (convInfo.isNew && callbacks?.onConversationReady) {
+      callbacks.onConversationReady(
+        convInfo.data || {
+          id: convId,
+          title: 'New Conversation',
+          space_id: spaceInfo?.selectedSpace?.id || null,
+          api_provider: selectedAgent?.provider || agents?.find(agent => agent.isDefault)?.provider || '',
+        },
+      )
+    }
+
+    // Step 5: Preselect space/agent/title
     // - Space & Title: only on first turn (isFirstTurn = true)
     // - Agent: every message when isAgentAutoMode = true, otherwise uses selectedAgent
     let resolvedSpaceInfo = spaceInfo
@@ -1420,7 +1501,7 @@ const useChatStore = create((set, get) => ({
       }
     }
 
-    // Step 5: Final fallback for agent (defensive)
+    // Step 6: Final fallback for agent (defensive)
     if (!resolvedAgent) {
       const fallbackAgent = await resolveFallbackAgent(resolvedSpaceInfo?.selectedSpace, agents)
       if (fallbackAgent) {
@@ -1429,42 +1510,25 @@ const useChatStore = create((set, get) => ({
       }
     }
 
-    // Step 6: Ensure Conversation Exists
-    let convInfo
-    try {
-      const fallbackAgent = agents?.find(agent => agent.isDefault)
-      const providerOverride = resolvedAgent?.provider || fallbackAgent?.provider || ''
-      convInfo = await ensureConversationExists(
-        conversationId,
-        settings,
-        toggles,
-        resolvedSpaceInfo,
-        set,
-        providerOverride,
-      )
-    } catch (convError) {
-      return // Early return on conversation creation failure
-    }
-    const convId = convInfo.id
-
-    if (convInfo.isNew && callbacks?.onConversationReady) {
-      callbacks.onConversationReady(
-        convInfo.data || {
-          id: convId,
-          title: 'New Conversation',
-          space_id: resolvedSpaceInfo?.selectedSpace?.id || null,
-          api_provider:
-            resolvedAgent?.provider || agents?.find(agent => agent.isDefault)?.provider || '',
+    // Cache optimistic selections for route handoff on first turn
+    if (isFirstTurn) {
+      set({
+        optimisticSelection: {
+          conversationId: convId,
+          space: resolvedSpaceInfo?.selectedSpace || null,
+          isManualSpaceSelection: !!resolvedSpaceInfo?.isManualSpaceSelection,
+          agentId: resolvedAgent?.id || null,
+          isAgentAutoMode,
         },
-      )
+      })
     }
 
-    // Step 6: Persist User Message
+    // Step 7: Persist User Message
     if (convId) {
       await persistUserMessage(convId, editingInfo, userMessage.content, set)
     }
 
-    // Step 7: Prepare AI Placeholder
+    // Step 8: Prepare AI Placeholder
     const { conversationMessages, aiMessagePlaceholder } = prepareAIPlaceholder(
       historyForSend,
       userMessageForSend,
@@ -1475,7 +1539,7 @@ const useChatStore = create((set, get) => ({
       toggles,
     )
 
-    // Step 8: Call API & Stream
+    // Step 9: Call API & Stream
     await callAIAPI(
       conversationMessages,
       aiMessagePlaceholder,

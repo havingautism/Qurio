@@ -3,7 +3,9 @@
     "loading": "Loading...",
     "cancel": "Cancel",
     "save": "Save",
-    "delete": "Delete"
+    "delete": "Delete",
+    "uploadImage": "Upload image",
+    "uploadDocument": "Upload document (coming soon)"
   },
   "app": {
     "name": "Qurio",

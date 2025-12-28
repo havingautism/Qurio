@@ -83,7 +83,7 @@ const ShortcutModal = ({ isOpen, onClose, shortcut, onSave, onDelete, currentPos
         <div className="flex-1 overflow-y-auto max-h-[70vh] p-5 space-y-6">
           {/* 1. Preview Section */}
           <div className="flex flex-col items-center justify-center py-2">
-            <div className="w-20 h-20 flex items-center justify-center rounded-[20px] bg-gray-100 dark:bg-white/10 shadow-lg mb-3 ring-1 ring-black/5 dark:ring-white/10">
+            <div className="w-20 h-20 flex items-center justify-center rounded-[20px] bg-white  shadow-lg mb-3 ring-1 ring-black/5 dark:ring-white/10">
               {iconType === 'emoji' && <span className="text-4xl leading-none">{iconEmoji}</span>}
               {iconType === 'favicon' && (
                 <div className="w-10 h-10 flex items-center justify-center">

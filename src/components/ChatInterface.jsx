@@ -14,7 +14,9 @@ import {
   Smile,
   Check,
   ChevronDown,
+  FileText,
   Globe,
+  Image,
   LayoutGrid,
   Menu,
   PanelRightOpen,
@@ -1524,6 +1526,8 @@ const InputBar = React.memo(
     const [attachments, setAttachments] = useState([])
     const textareaRef = useRef(null)
     const fileInputRef = useRef(null)
+    const [isUploadMenuOpen, setIsUploadMenuOpen] = useState(false)
+    const uploadMenuRef = useRef(null)
 
     useEffect(() => {
       setInputValue(editingSeed?.text || '')
@@ -1539,6 +1543,17 @@ const InputBar = React.memo(
         textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`
       }
     }, [inputValue])
+
+    useEffect(() => {
+      if (!isUploadMenuOpen) return
+      const handleClickOutside = event => {
+        if (uploadMenuRef.current && !uploadMenuRef.current.contains(event.target)) {
+          setIsUploadMenuOpen(false)
+        }
+      }
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }, [isUploadMenuOpen])
 
     const handleFileChange = e => {
       const files = Array.from(e.target.files)
@@ -1561,6 +1576,11 @@ const InputBar = React.memo(
       })
 
       e.target.value = ''
+    }
+
+    const handleUploadImage = () => {
+      setIsUploadMenuOpen(false)
+      fileInputRef.current?.click()
     }
 
     const handleSend = () => {
@@ -1641,7 +1661,7 @@ const InputBar = React.memo(
                   </div>
                   <button
                     onClick={() => setAttachments(attachments.filter((_, i) => i !== idx))}
-                    className="absolute -top-1.5 -right-1.5 bg-gray-900 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity shadow-md"
+                    className="absolute -top-1.5 -right-1.5 bg-gray-900 text-white rounded-full p-0.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shadow-md"
                   >
                     <X size={12} />
                   </button>
@@ -1671,14 +1691,40 @@ const InputBar = React.memo(
                 multiple
                 className="hidden"
               />
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
-                  attachments.length > 0 ? 'text-primary-500' : 'text-gray-500 dark:text-gray-400'
-                }`}
-              >
-                <Paperclip size={18} />
-              </button>
+              <div className="relative" ref={uploadMenuRef}>
+                <button
+                  type="button"
+                  onClick={() => setIsUploadMenuOpen(prev => !prev)}
+                  className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
+                    attachments.length > 0 ? 'text-primary-500' : 'text-gray-500 dark:text-gray-400'
+                  }`}
+                >
+                  <Paperclip size={18} />
+                </button>
+                {isUploadMenuOpen && (
+                  <div className="absolute bottom-full left-0 mb-2 w-48 bg-white dark:bg-[#202222] border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl z-30 overflow-hidden">
+                    <div className="p-2 flex flex-col gap-1">
+                      <button
+                        type="button"
+                        onClick={handleUploadImage}
+                        className="flex items-center gap-2 w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left text-sm text-gray-700 dark:text-gray-200"
+                      >
+                        <Image size={16} />
+                        {t('common.uploadImage')}
+                      </button>
+                      <button
+                        type="button"
+                        disabled
+                        onClick={() => setIsUploadMenuOpen(false)}
+                        className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-left text-sm text-gray-400 dark:text-gray-500 cursor-not-allowed"
+                      >
+                        <FileText size={16} />
+                        {t('common.uploadDocument')}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
               <button
                 onClick={onToggleThinking}
                 className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${

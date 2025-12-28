@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Plus, ChevronLeft, ChevronRight, StickyNote } from 'lucide-react'
+import { Plus, ChevronLeft, ChevronRight, StickyNote, Pencil } from 'lucide-react'
 import WidgetCard from './WidgetCard'
 import NoteModal from './NoteModal'
 import { fetchHomeNotes, upsertHomeNote, deleteHomeNote } from '../../../lib/homeWidgetsService'
@@ -80,24 +80,24 @@ const NoteWidget = () => {
         <div className="relative w-full h-full flex items-center justify-center mx-auto px-8 sm:px-10 md:px-6">
           {/* Navigation Controls - inside stack for proper spacing */}
           {notes.length > 1 && (
-            <div className="absolute top-1/2 -translate-y-1/2 left-0 z-30 transition-opacity md:opacity-0 md:pointer-events-none md:group-hover:opacity-100 md:group-hover:pointer-events-auto">
+            <div className="absolute top-1/2 -translate-y-1/2 left-0 z-30 transition-opacity md:opacity-0 md:pointer-events-none md:group-hover:opacity-100 md:group-hover:pointer-events-auto pl-1">
               <button
                 onClick={prevNote}
                 disabled={currentIndex === 0}
-                className="p-1 bg-black/20 hover:bg-black/40 text-white rounded-full disabled:opacity-0 transition-all backdrop-blur-sm"
+                className="flex items-center justify-center w-8 h-14 bg-black/20 hover:bg-black/40 text-white rounded-xl disabled:opacity-0 transition-all backdrop-blur-sm"
               >
-                <ChevronLeft size={20} />
+                <ChevronLeft size={24} />
               </button>
             </div>
           )}
           {notes.length > 1 && (
-            <div className="absolute top-1/2 -translate-y-1/2 right-0 z-30 transition-opacity md:opacity-0 md:pointer-events-none md:group-hover:opacity-100 md:group-hover:pointer-events-auto">
+            <div className="absolute top-1/2 -translate-y-1/2 right-0 z-30 transition-opacity md:opacity-0 md:pointer-events-none md:group-hover:opacity-100 md:group-hover:pointer-events-auto pr-1">
               <button
                 onClick={nextNote}
                 disabled={currentIndex === notes.length - 1}
-                className="p-1 bg-black/20 hover:bg-black/40 text-white rounded-full disabled:opacity-0 transition-all backdrop-blur-sm"
+                className="flex items-center justify-center w-8 h-14 bg-black/20 hover:bg-black/40 text-white rounded-xl disabled:opacity-0 transition-all backdrop-blur-sm"
               >
-                <ChevronRight size={20} />
+                <ChevronRight size={24} />
               </button>
             </div>
           )}
@@ -145,15 +145,27 @@ const NoteWidget = () => {
             return (
               <div
                 key={note.id}
-                onClick={() => isActive && openEditModal(note)}
-                className={`absolute w-full max-w-[85%] sm:max-w-[90%] h-full transition-all duration-300 ease-out origin-bottom ${isActive ? 'cursor-pointer hover:-translate-y-2' : ''}`}
+                className={`absolute w-full max-w-[85%] sm:max-w-[90%] h-full transition-all duration-300 ease-out origin-bottom ${isActive ? 'hover:-translate-y-2' : ''}`}
                 style={style}
               >
-                {/* "+" button on active note */}
+                {/* Action buttons on active note */}
                 {isActive && (
-                  <div className="absolute top-0 right-0 z-20 p-2">
+                  <div className="absolute top-0 right-2 z-20 p-2 flex gap-2">
                     <button
-                      onClick={e => { e.stopPropagation(); openNewNoteModal() }}
+                      onClick={e => {
+                        e.stopPropagation()
+                        openEditModal(note)
+                      }}
+                      className="bg-white/80 hover:bg-white text-gray-700 p-1.5 rounded-full shadow-lg transition-transform hover:scale-105 backdrop-blur-sm"
+                      title={t('common.edit', 'Edit')}
+                    >
+                      <Pencil size={16} />
+                    </button>
+                    <button
+                      onClick={e => {
+                        e.stopPropagation()
+                        openNewNoteModal(e)
+                      }}
                       className="bg-primary-500 hover:bg-primary-600 text-white p-1.5 rounded-full shadow-lg transition-transform hover:scale-105"
                       title={t('views.widgets.newNote', 'New Note')}
                     >

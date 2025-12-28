@@ -562,8 +562,8 @@ const ShortcutsWidget = () => {
                                     window.open(shortcut.url, '_blank', 'noopener,noreferrer')
                                   }
                                 }}
-                                className={`w-14 h-14 flex items-center justify-center rounded-2xl bg-gray-100 dark:bg-white/10 transition-all duration-300 shadow-sm cursor-pointer
-                                  ${!isEditMode && 'hover:bg-gray-200 dark:hover:bg-white/20 hover:scale-105'}
+                                className={`w-14 h-14 flex items-center justify-center rounded-2xl bg-white  transition-all duration-300 shadow-sm cursor-pointer
+                                  ${!isEditMode && 'hover:bg-white/70 dark:hover:bg-white/70 hover:scale-105'}
                                   ${isEditMode && 'cursor-grab group'}
                                 `}
                               >

@@ -466,7 +466,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
                 className={clsx(
-                  'flex items-center gap-1 sm:gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap',
+                  'flex items-center gap-1 sm:gap-3 px-3 py-2 rounded-lg text-sm font-semibold transition-colors whitespace-nowrap',
                   activeTab === item.id
                     ? 'bg-primary-100 dark:bg-zinc-800 text-primary-600 dark:text-primary-400'
                     : 'text-gray-600 dark:text-gray-400 hover:bg-primary-100 dark:hover:bg-zinc-800',

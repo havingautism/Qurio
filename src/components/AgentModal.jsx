@@ -81,7 +81,14 @@ const STYLE_BASE_TONE_KEYS = [
   'creative',
   'casual',
 ]
-const STYLE_TRAIT_KEYS = ['default', 'concise', 'structured', 'detailed', 'actionable', 'analytical']
+const STYLE_TRAIT_KEYS = [
+  'default',
+  'concise',
+  'structured',
+  'detailed',
+  'actionable',
+  'analytical',
+]
 const STYLE_WARMTH_KEYS = ['default', 'gentle', 'empathetic', 'direct', 'supportive']
 const STYLE_ENTHUSIASM_KEYS = ['default', 'low', 'medium', 'high']
 const STYLE_HEADINGS_KEYS = ['default', 'minimal', 'structured', 'detailed']
@@ -270,9 +277,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
         setDefaultModel(nextDefaultModel)
         setDefaultModelSource(editingAgent?.defaultModelSource || 'list')
         setLiteModelSource(editingAgent?.liteModelSource || 'list')
-        setDefaultCustomModel(
-          editingAgent?.defaultModelSource === 'custom' ? nextDefaultModel : '',
-        )
+        setDefaultCustomModel(editingAgent?.defaultModelSource === 'custom' ? nextDefaultModel : '')
         setLiteCustomModel(editingAgent?.liteModelSource === 'custom' ? nextLiteModel : '')
         setDefaultModelProvider(parsedDefaultModel.provider || '')
         setLiteModelProvider(parsedLiteModel.provider || '')
@@ -309,10 +314,8 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
         )
         setEmoji('🤻')
         setProvider(defaultAgent?.provider || 'gemini')
-        const nextLiteModel =
-          parseStoredModel(defaultAgent?.liteModel).modelId || ''
-        const nextDefaultModel =
-          parseStoredModel(defaultAgent?.defaultModel).modelId || ''
+        const nextLiteModel = parseStoredModel(defaultAgent?.liteModel).modelId || ''
+        const nextDefaultModel = parseStoredModel(defaultAgent?.defaultModel).modelId || ''
         setLiteModel(nextLiteModel)
         setDefaultModel(nextDefaultModel)
         setDefaultModelSource('list')
@@ -649,15 +652,13 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
     const activeModels = groupedModels[activeProvider] || []
     const selectedLabel = getModelLabel(value)
     const showList = modelSource === 'list'
-    const displayLabel = showList
-      ? selectedLabel
-      : customValue || value || t('agents.model.custom')
+    const displayLabel = showList ? selectedLabel : customValue || value || t('agents.model.custom')
 
     return (
       <div className="space-y-2">
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
+          <div className="flex flex-col gap-1 w-full sm:w-auto">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:gap-3 gap-2">
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                 {label}
               </label>
@@ -693,11 +694,11 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                 </label>
               </div>
             </div>
-            {hint && (
-              <p className="text-xs text-gray-500 dark:text-gray-400 max-w-2xl">{hint}</p>
-            )}
+            {hint && <p className="text-xs text-gray-500 dark:text-gray-400 max-w-2xl">{hint}</p>}
           </div>
-          <span className="text-xs text-gray-500 dark:text-gray-400 truncate">{displayLabel}</span>
+          <span className="text-xs text-gray-500 dark:text-gray-400 truncate text-left sm:text-right w-full sm:w-auto">
+            {displayLabel}
+          </span>
         </div>
         <div className="rounded-lg border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-3">
           <div className="flex flex-col gap-3">
@@ -758,55 +759,55 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
               </span>
               {showList ? (
                 <div className="max-h-56 overflow-y-auto rounded-lg border border-gray-200 dark:border-zinc-700">
-                {allowEmpty && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onChange('')
-                    }}
-                    className={clsx(
-                      'w-full text-left px-4 py-2 text-sm flex items-center justify-between',
-                      value === ''
-                        ? 'bg-primary-50 text-primary-700 dark:bg-primary-900/20 dark:text-primary-200'
-                        : 'text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-zinc-800',
-                    )}
-                  >
-                    <span>{t('agents.model.none')}</span>
-                    {value === '' && <Check size={14} className="text-primary-500 shrink-0" />}
-                  </button>
-                )}
-                {activeModels.length > 0 ? (
-                  activeModels.map(model => (
+                  {allowEmpty && (
                     <button
-                      key={model.value}
                       type="button"
                       onClick={() => {
-                        onChange(model.value)
+                        onChange('')
                       }}
                       className={clsx(
-                        'w-full text-left px-4 py-2 text-sm flex items-center justify-between gap-2',
-                        value === model.value
+                        'w-full text-left px-4 py-2 text-sm flex items-center justify-between',
+                        value === ''
                           ? 'bg-primary-50 text-primary-700 dark:bg-primary-900/20 dark:text-primary-200'
                           : 'text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-zinc-800',
                       )}
                     >
-                      <div className="flex items-center gap-2 truncate">
-                        {getModelIcon(model.value) && (
-                          <img src={getModelIcon(model.value)} alt="" className="w-4 h-4" />
-                        )}
-                        <span className="truncate">{model.label}</span>
-                      </div>
-                      {value === model.value && (
-                        <Check size={14} className="text-primary-500 shrink-0" />
-                      )}
+                      <span>{t('agents.model.none')}</span>
+                      {value === '' && <Check size={14} className="text-primary-500 shrink-0" />}
                     </button>
-                  ))
-                ) : (
-                  <div className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
-                    {t('agents.model.noModels')}
-                  </div>
-                )}
-              </div>
+                  )}
+                  {activeModels.length > 0 ? (
+                    activeModels.map(model => (
+                      <button
+                        key={model.value}
+                        type="button"
+                        onClick={() => {
+                          onChange(model.value)
+                        }}
+                        className={clsx(
+                          'w-full text-left px-4 py-2 text-sm flex items-center justify-between gap-2',
+                          value === model.value
+                            ? 'bg-primary-50 text-primary-700 dark:bg-primary-900/20 dark:text-primary-200'
+                            : 'text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-zinc-800',
+                        )}
+                      >
+                        <div className="flex items-center gap-2 truncate">
+                          {getModelIcon(model.value) && (
+                            <img src={getModelIcon(model.value)} alt="" className="w-4 h-4" />
+                          )}
+                          <span className="truncate">{model.label}</span>
+                        </div>
+                        {value === model.value && (
+                          <Check size={14} className="text-primary-500 shrink-0" />
+                        )}
+                      </button>
+                    ))
+                  ) : (
+                    <div className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+                      {t('agents.model.noModels')}
+                    </div>
+                  )}
+                </div>
               ) : (
                 <input
                   value={customValue}
@@ -975,7 +976,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                     onChange={e => setName(e.target.value)}
                     placeholder={t('agents.general.namePlaceholder')}
                     disabled={editingAgent?.isDefault}
-                    className="flex-1 px-4 py-2.5 h-12 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                    className="flex-1 px-4 py-2.5 h-12 text-sm bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20"
                   />
                 </div>
               </div>
@@ -990,7 +991,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                   placeholder={t('agents.general.descriptionPlaceholder')}
                   disabled={editingAgent?.isDefault}
                   rows={2}
-                  className="w-full px-4 py-2 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20 resize-none"
+                  className="w-full px-4 py-2 text-sm bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20 resize-none"
                 />
               </div>
 
@@ -1003,7 +1004,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                   onChange={e => setPrompt(e.target.value)}
                   placeholder={t('agents.general.systemPromptPlaceholder')}
                   rows={6}
-                  className="w-full flex-1 min-h-0 px-4 py-2 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20 resize-none font-mono text-sm"
+                  className="w-full flex-1 min-h-0 px-4 py-2 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20 resize-none  text-sm"
                 />
               </div>
             </div>
@@ -1090,9 +1091,16 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
           )}
 
           {activeTab === 'personalization' && (
-            <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6">
+              <div className="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-lg flex gap-3 text-sm text-blue-700 dark:text-blue-300">
+                <Info size={18} className="shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-medium">{t('settings.responseStyle')}</p>
+                  <p className="opacity-90">{t('settings.responseStyleHint')}</p>
+                </div>
+              </div>
               {renderDropdown(
-                t('settings.responseStyle'),
+                t('settings.respondLanguage'),
                 responseLanguage,
                 setResponseLanguage,
                 LLM_ANSWER_LANGUAGE_KEYS,

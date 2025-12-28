@@ -99,8 +99,7 @@ const TipsWidget = () => {
         return
       }
 
-      const language =
-        settings.llmAnswerLanguage || (languageKey === 'zh-CN' ? 'Simplified Chinese' : 'English')
+      const language = defaultAgent?.responseLanguage || ''
       const categoryLabel =
         categories.find(category => category.key === categoryKey)?.label ||
         t('views.widgets.tipsCategoryGeneral')

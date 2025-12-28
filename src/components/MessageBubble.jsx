@@ -945,7 +945,7 @@ const MessageBubble = ({
         {agentName ? (
           <>
             <div className="rounded-full shadow-inner flex items-center justify-center overflow-hidden w-10 h-10 bg-gray-100 dark:bg-zinc-800">
-              <EmojiDisplay emoji={agentEmoji} size="1.25rem" />
+              <EmojiDisplay emoji={agentEmoji} size="1.5rem" />
             </div>
             <div className="flex flex-col leading-tight">
               <div className="flex items-center gap-1.5">

@@ -332,7 +332,7 @@ const ChatInterface = ({
       reloadSpaceAgents()
     }
 
-    const handleSpaceAgentsChange = (event) => {
+    const handleSpaceAgentsChange = event => {
       const { spaceId } = event.detail || {}
       // Only reload if the changed space matches the current display space
       if (displaySpace?.id && String(displaySpace.id) === String(spaceId)) {
@@ -517,7 +517,9 @@ const ChatInterface = ({
         setMessages(mapped)
         // Restore agent selection mode from conversation
         const agentSelectionMode =
-          activeConversation?.agent_selection_mode ?? activeConversation?.agentSelectionMode ?? 'auto'
+          activeConversation?.agent_selection_mode ??
+          activeConversation?.agentSelectionMode ??
+          'auto'
         setIsAgentAutoMode(agentSelectionMode !== 'manual')
         const resolvedAgentId = conversationLastAgentId || null
         if (resolvedAgentId) {
@@ -548,7 +550,6 @@ const ChatInterface = ({
     appAgents,
     defaultAgent?.id,
   ])
-
 
   useEffect(() => {
     // Check if conversationId has changed (new conversation created)
@@ -651,8 +652,7 @@ const ChatInterface = ({
     if (isAgentsLoading) return
 
     const agentIdStrings = spaceAgentIds.map(String)
-    const isDefaultSelection =
-      defaultAgent && String(selectedAgentId) === String(defaultAgent.id)
+    const isDefaultSelection = defaultAgent && String(selectedAgentId) === String(defaultAgent.id)
     const hasSelectedAgent =
       isDefaultSelection ||
       (selectedAgentId ? agentIdStrings.includes(String(selectedAgentId)) : false)
@@ -1585,7 +1585,7 @@ const InputBar = React.memo(
     return (
       <div className="w-full max-w-3xl relative group">
         <div className="absolute inset-0 input-glow-veil rounded-xl blur-2xl opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-500 pointer-events-none" />
-        <div className="relative bg-user-bubble dark:bg-zinc-800 border border-transparent focus-within:border-gray-300 dark:focus-within:border-zinc-600 rounded-xl transition-all duration-300 p-3 shadow-sm hover:shadow-lg group-hover:shadow-lg focus-within:shadow-xl">
+        <div className="relative bg-white dark:bg-zinc-800 border border-transparent focus-within:border-gray-300 dark:focus-within:border-zinc-600 rounded-xl transition-all duration-300 p-3 shadow-sm hover:shadow-lg group-hover:shadow-lg focus-within:shadow-xl">
           {showEditing && (
             <div className="flex items-center justify-between bg-gray-200 dark:bg-zinc-700/50 rounded-lg px-3 py-2 mb-2 ">
               <div className="flex items-center gap-3 overflow-hidden">
@@ -1691,14 +1691,7 @@ const InputBar = React.memo(
                 <span className="hidden md:inline">{t('homeView.think')}</span>
               </button>
               <button
-                disabled={
-                  !(
-                    selectedAgent?.provider || defaultAgent?.provider
-                  ) ||
-                  !providerSupportsSearch(
-                    selectedAgent?.provider || defaultAgent?.provider,
-                  )
-                }
+                disabled={!apiProvider || !providerSupportsSearch(apiProvider)}
                 onClick={onToggleSearch}
                 className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
                   isSearchActive
@@ -1724,7 +1717,11 @@ const InputBar = React.memo(
                   }`}
                   disabled={agentsLoading}
                 >
-                  <Smile size={18} />
+                  {isAgentAutoMode || !selectedAgent ? (
+                    <Smile size={18} />
+                  ) : (
+                    <EmojiDisplay emoji={selectedAgent.emoji} size="1.125rem" />
+                  )}
                   {agentsLoading && (
                     <span className="inline-flex text-[10px] leading-none opacity-70 animate-pulse">
                       {agentsLoadingDots || '...'}
@@ -1767,7 +1764,8 @@ const InputBar = React.memo(
                       ) : (
                         agents.map(agent => {
                           const isSelected = !isAgentAutoMode && selectedAgent?.id === agent.id
-                          const isDefault = agent.isDefault || String(agent.id) === String(spacePrimaryAgentId)
+                          const isDefault =
+                            agent.isDefault || String(agent.id) === String(spacePrimaryAgentId)
                           return (
                             <button
                               key={agent.id}

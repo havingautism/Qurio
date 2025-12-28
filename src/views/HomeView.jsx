@@ -29,7 +29,13 @@ import { providerSupportsSearch } from '../lib/providers'
 
 const HomeView = () => {
   const { t } = useTranslation()
-  const { toggleSidebar, isSidebarPinned, spaces, agents: appAgents = [], defaultAgent } = useAppContext()
+  const {
+    toggleSidebar,
+    isSidebarPinned,
+    spaces,
+    agents: appAgents = [],
+    defaultAgent,
+  } = useAppContext()
   const [activeView, setActiveView] = useState('home')
 
   // Initial state for ChatInterface
@@ -128,7 +134,7 @@ const HomeView = () => {
       setSettings(newSettings)
     }
 
-    const handleSpaceAgentsChange = async (event) => {
+    const handleSpaceAgentsChange = async event => {
       const { spaceId } = event.detail || {}
       // Only reload if the changed space matches the current home selected space
       if (homeSelectedSpace?.id && String(homeSelectedSpace.id) === String(spaceId)) {
@@ -402,8 +408,7 @@ const HomeView = () => {
                 ) : (
                   isSelected &&
                   homeAgents.map(agent => {
-                    const isAgentSelected =
-                      !isHomeAgentAuto && selectedHomeAgent?.id === agent.id
+                    const isAgentSelected = !isHomeAgentAuto && selectedHomeAgent?.id === agent.id
                     const isDefault =
                       agent.isDefault || String(agent.id) === String(homePrimaryAgentId)
                     return (
@@ -487,7 +492,7 @@ const HomeView = () => {
             {/* Search Box */}
             <div className="home-search-box w-full relative group z-20">
               <div className="absolute inset-0 input-glow-veil rounded-xl blur-2xl opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-500 pointer-events-none" />
-              <div className="relative bg-user-bubble dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-xl shadow-sm hover:shadow-md transition-all duration-300 p-4">
+              <div className="relative bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-xl shadow-sm hover:shadow-md transition-all duration-300 p-4">
                 {homeAttachments.length > 0 && (
                   <div className="flex gap-2 mb-3 px-1 overflow-x-auto py-1">
                     {homeAttachments.map((att, idx) => (
@@ -562,9 +567,7 @@ const HomeView = () => {
                     </button>
                     <button
                       disabled={
-                        !(
-                          selectedHomeAgent?.provider || defaultAgent?.provider
-                        ) ||
+                        !(selectedHomeAgent?.provider || defaultAgent?.provider) ||
                         !providerSupportsSearch(
                           selectedHomeAgent?.provider || defaultAgent?.provider,
                         )
@@ -591,9 +594,7 @@ const HomeView = () => {
                         }`}
                       >
                         <LayoutGrid size={18} />
-                        <span className="hidden md:inline">
-                          {homeSpaceButtonLabel}
-                        </span>
+                        <span className="hidden md:inline">{homeSpaceButtonLabel}</span>
                         <ChevronDown size={14} />
                       </button>
                       {!isHomeMobile && isHomeSpaceSelectorOpen && (
@@ -603,7 +604,8 @@ const HomeView = () => {
                       )}
                     </div>
 
-                    {isHomeMobile && isHomeSpaceSelectorOpen &&
+                    {isHomeMobile &&
+                      isHomeSpaceSelectorOpen &&
                       createPortal(
                         <div className="fixed inset-0 z-[9999] flex items-end justify-center">
                           <div

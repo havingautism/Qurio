@@ -249,3 +249,56 @@ export const deleteMessageById = async id => {
 
   return { data, error }
 }
+
+// ---------------------------------------------------------------------------
+// Settings Sync
+// ---------------------------------------------------------------------------
+
+export const fetchRemoteSettings = async () => {
+  const supabase = getSupabaseClient()
+  if (!supabase) return { data: null, error: new Error('Supabase not configured') }
+
+  const { data, error } = await supabase.from('user_settings').select('*')
+  if (error || !data) return { data: null, error }
+
+  // Convert array [{key: 'k', value: 'v'}] to object {k: v}
+  const settings = data.reduce((acc, item) => {
+    acc[item.key] = item.value
+    return acc
+  }, {})
+
+  return { data: settings, error: null }
+}
+
+export const saveRemoteSettings = async settings => {
+  const supabase = getSupabaseClient()
+  if (!supabase) return { error: new Error('Supabase not configured') }
+
+  // Prepare upsert payload
+  // Only save keys that we want to persist remotely (API keys, etc.)
+  const KEYS_TO_SYNC = [
+    'OpenAICompatibilityKey',
+    'OpenAICompatibilityUrl',
+    'SiliconFlowKey',
+    'GlmKey',
+    'KimiKey',
+    'googleApiKey',
+    // We do NOT sync Supabase credentials to the DB itself usually, but user might want to?
+    // Syncing supabase credentials to the database that requires them to be accessed is paradoxical if you don't have them.
+    // But syncing them allows other devices (once connected) to update them? No.
+    // Typically we only sync the API keys for models.
+  ]
+
+  const updates = KEYS_TO_SYNC.filter(key => settings[key] !== undefined).map(key => ({
+    key,
+    value: settings[key] || '',
+    updated_at: new Date().toISOString(),
+  }))
+
+  if (updates.length > 0) {
+    const { error } = await supabase.from('user_settings').upsert(updates)
+    return { error }
+  }
+
+  return { error: null }
+}

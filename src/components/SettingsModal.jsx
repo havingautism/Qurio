@@ -1,29 +1,29 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
-import { useTranslation } from 'react-i18next'
+import clsx from 'clsx'
 import {
-  X,
-  Settings,
-  MessageSquare,
-  Monitor,
   Box,
-  User,
+  Check,
+  ChevronDown,
+  Copy,
+  Github,
   Info,
   Key,
   Link,
-  ChevronDown,
-  Check,
-  Github,
+  MessageSquare,
+  Monitor,
   RefreshCw,
-  Copy,
+  Settings,
+  User,
+  X,
 } from 'lucide-react'
-import Logo from './Logo'
-import clsx from 'clsx'
-import { saveSettings, loadSettings } from '../lib/settings'
-import { testConnection } from '../lib/supabase'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import useScrollLock from '../hooks/useScrollLock'
-import { THEMES } from '../lib/themes'
 import { renderProviderIcon } from '../lib/modelIcons'
 import { getPublicEnv } from '../lib/publicEnv'
+import { loadSettings, saveSettings } from '../lib/settings'
+import { fetchRemoteSettings, saveRemoteSettings, testConnection } from '../lib/supabase'
+import { THEMES } from '../lib/themes'
+import Logo from './Logo'
 
 const ENV_VARS = {
   supabaseUrl: getPublicEnv('PUBLIC_SUPABASE_URL'),
@@ -190,6 +190,20 @@ CREATE INDEX IF NOT EXISTS idx_home_notes_updated_at
 CREATE TRIGGER trg_home_notes_updated_at
 BEFORE UPDATE ON public.home_notes
 FOR EACH ROW EXECUTE PROCEDURE public.set_updated_at();
+
+CREATE TABLE IF NOT EXISTS public.user_settings (
+  key TEXT PRIMARY KEY,
+  value TEXT,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TRIGGER trg_user_settings_updated_at
+BEFORE UPDATE ON public.user_settings
+FOR EACH ROW EXECUTE PROCEDURE public.set_updated_at();
+
+-- Enable RLS (Security Best Practice)
+-- ALTER TABLE public.user_settings ENABLE ROW LEVEL SECURITY;
+-- CREATE POLICY "Allow all actions for authenticated users" ON public.user_settings FOR ALL USING (auth.role() = 'authenticated');
 `
 
 // Constant keys for logic - labels will be translated with useMemo
@@ -246,18 +260,13 @@ const SettingsModal = ({ isOpen, onClose }) => {
       return
     }
 
-    if (
-      isProviderDropdownOpen || isInterfaceLanguageDropdownOpen
-    ) {
+    if (isProviderDropdownOpen || isInterfaceLanguageDropdownOpen) {
       document.addEventListener('mousedown', handleClickOutside)
     }
     return () => {
       document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [
-    isProviderDropdownOpen,
-    isInterfaceLanguageDropdownOpen,
-  ])
+  }, [isProviderDropdownOpen, isInterfaceLanguageDropdownOpen])
 
   // Menu items - use constant keys for logic, translate labels for display
   const MENU_ITEM_KEYS = [
@@ -295,7 +304,6 @@ const SettingsModal = ({ isOpen, onClose }) => {
     [t],
   )
 
-
   // TODO: useEffect to load settings from Supabase/LocalStorage on mount
   // Load settings when modal opens
   useEffect(() => {
@@ -318,13 +326,32 @@ const SettingsModal = ({ isOpen, onClose }) => {
         setEnableRelatedQuestions(settings.enableRelatedQuestions)
       // Initialize interfaceLanguage from i18n.language (which reads from localStorage)
       setInterfaceLanguage(i18n.language)
+
+      // Fetch Remote (Async Update)
+      if (settings.supabaseUrl && settings.supabaseKey) {
+        fetchRemoteSettings().then(({ data }) => {
+          if (data) {
+            if (data.OpenAICompatibilityKey) setOpenAICompatibilityKey(data.OpenAICompatibilityKey)
+            if (data.OpenAICompatibilityUrl) setOpenAICompatibilityUrl(data.OpenAICompatibilityUrl)
+            if (data.SiliconFlowKey) setSiliconFlowKey(data.SiliconFlowKey)
+            if (data.GlmKey) setGlmKey(data.GlmKey)
+            if (data.KimiKey) setKimiKey(data.KimiKey)
+            if (data.googleApiKey) setGoogleApiKey(data.googleApiKey)
+          }
+        })
+      }
     }
   }, [isOpen, i18n])
 
   useScrollLock(isOpen)
 
-
-  const requiredTables = ['spaces', 'agents', 'space_agents', 'conversations', 'conversation_messages']
+  const requiredTables = [
+    'spaces',
+    'agents',
+    'space_agents',
+    'conversations',
+    'conversation_messages',
+  ]
 
   const getMissingTables = result => {
     if (!result?.tables) return requiredTables
@@ -386,7 +413,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
 
     // TODO: Validate inputs
 
-    await saveSettings({
+    const newSettings = {
       apiProvider,
       googleApiKey,
       OpenAICompatibilityKey,
@@ -400,7 +427,14 @@ const SettingsModal = ({ isOpen, onClose }) => {
       themeColor,
       enableRelatedQuestions,
       interfaceLanguage,
-    })
+    }
+
+    await saveSettings(newSettings)
+
+    // Save Remote (if connected)
+    if (supabaseUrl && supabaseKey) {
+      await saveRemoteSettings(newSettings)
+    }
 
     onClose()
   }
@@ -410,7 +444,9 @@ const SettingsModal = ({ isOpen, onClose }) => {
       <div className="w-full h-screen md:max-w-4xl md:h-[80vh] bg-white dark:bg-[#191a1a] rounded-none md:rounded-2xl shadow-2xl flex flex-col md:flex-row overflow-hidden border-0 md:border border-gray-200 dark:border-zinc-800">
         {/* Mobile Header */}
         <div className="md:hidden h-14 border-b border-gray-200 dark:border-zinc-800 flex items-center justify-between px-4 bg-white dark:bg-[#191a1a] shrink-0">
-          <h2 className="text-base font-semibold text-gray-900 dark:text-white">{t('settings.title')}</h2>
+          <h2 className="text-base font-semibold text-gray-900 dark:text-white">
+            {t('settings.title')}
+          </h2>
           <button
             onClick={onClose}
             className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-500 transition-colors"
@@ -483,9 +519,8 @@ const SettingsModal = ({ isOpen, onClose }) => {
                         <Monitor size={16} className="text-gray-400" />
                       </div>
                       <span>
-                        {interfaceLanguageOptions.find(
-                          option => option.value === interfaceLanguage,
-                        )?.label || interfaceLanguage}
+                        {interfaceLanguageOptions.find(option => option.value === interfaceLanguage)
+                          ?.label || interfaceLanguage}
                       </span>
                       <ChevronDown
                         size={16}
@@ -846,7 +881,9 @@ const SettingsModal = ({ isOpen, onClose }) => {
                           <div className="space-y-1 text-xs">
                             <div className="flex items-center gap-2">
                               <span>{testResult.tables.spaces ? '✅' : '❌'}</span>
-                              <span className="text-gray-700 dark:text-gray-300">{t('settings.spacesTable')}</span>
+                              <span className="text-gray-700 dark:text-gray-300">
+                                {t('settings.spacesTable')}
+                              </span>
                             </div>
                             <div className="flex items-center gap-2">
                               <span>{testResult.tables.conversations ? '✅' : '❌'}</span>
@@ -907,9 +944,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                           </span>
                         </div>
                       </div>
-                      {themeColor === themeKey && (
-                        <Check size={16} className="text-primary-500" />
-                      )}
+                      {themeColor === themeKey && <Check size={16} className="text-primary-500" />}
                     </button>
                   ))}
                 </div>
@@ -966,7 +1001,6 @@ const SettingsModal = ({ isOpen, onClose }) => {
                     className="w-32 mt-1 px-3 py-2 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600"
                   />
                 </div>
-
               </div>
             )}
             {activeTab === 'about' && (
@@ -1087,7 +1121,8 @@ const SettingsModal = ({ isOpen, onClose }) => {
                               : 'border-primary-200 dark:border-primary-900/40 bg-primary-100/70 dark:bg-primary-900/40',
                           )}
                         >
-                          {exists ? t('settings.initModal.ready') : t('settings.initModal.missing')} · {table}
+                          {exists ? t('settings.initModal.ready') : t('settings.initModal.missing')}{' '}
+                          · {table}
                         </span>
                       )
                     })}
@@ -1095,7 +1130,8 @@ const SettingsModal = ({ isOpen, onClose }) => {
                 )}
                 {getMissingTables(initModalResult).length > 0 && (
                   <div className="text-xs text-primary-800 dark:text-primary-100">
-                    {t('settings.initModal.missingLabel')} {getMissingTables(initModalResult).join(', ')}
+                    {t('settings.initModal.missingLabel')}{' '}
+                    {getMissingTables(initModalResult).join(', ')}
                   </div>
                 )}
               </div>

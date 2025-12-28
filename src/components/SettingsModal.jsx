@@ -176,6 +176,20 @@ CREATE TABLE IF NOT EXISTS public.space_agents (
 CREATE INDEX IF NOT EXISTS idx_space_agents_agent_id ON public.space_agents(agent_id);
 CREATE INDEX IF NOT EXISTS idx_space_agents_space_order
   ON public.space_agents(space_id, sort_order);
+
+CREATE TABLE IF NOT EXISTS public.home_notes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  content TEXT NOT NULL DEFAULT '',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_home_notes_updated_at
+  ON public.home_notes(updated_at DESC);
+
+CREATE TRIGGER trg_home_notes_updated_at
+BEFORE UPDATE ON public.home_notes
+FOR EACH ROW EXECUTE PROCEDURE public.set_updated_at();
 `
 
 // Constant keys for logic - labels will be translated with useMemo

@@ -308,11 +308,11 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
           defaultAgent?.prompt || settings.systemPrompt || t('agents.defaults.systemPrompt'),
         )
         setEmoji('🤻')
-        setProvider(defaultAgent?.provider || settings.apiProvider || 'gemini')
+        setProvider(defaultAgent?.provider || 'gemini')
         const nextLiteModel =
-          parseStoredModel(defaultAgent?.liteModel || settings.liteModel).modelId || ''
+          parseStoredModel(defaultAgent?.liteModel).modelId || ''
         const nextDefaultModel =
-          parseStoredModel(defaultAgent?.defaultModel || settings.defaultModel).modelId || ''
+          parseStoredModel(defaultAgent?.defaultModel).modelId || ''
         setLiteModel(nextLiteModel)
         setDefaultModel(nextDefaultModel)
         setDefaultModelSource('list')

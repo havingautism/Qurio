@@ -3,7 +3,6 @@ import { Streamdown } from 'streamdown'
 import remarkGfm from 'remark-gfm'
 import { parseChildrenWithEmojis } from '../lib/emojiParser'
 import { getProvider } from '../lib/providers'
-import { loadSettings } from '../lib/settings'
 import { PROVIDER_ICONS, getModelIcon } from '../lib/modelIcons'
 
 const PROVIDER_META = {
@@ -428,14 +427,13 @@ const getImagesFromMessage = message => {
 }
 
 const ShareCanvas = ({ message, conversationTitle, captureRef, embed = false, language = 'en-US' }) => {
-  const settings = useMemo(() => loadSettings(), [])
-  const providerId = message?.provider || settings.apiProvider
+  const providerId = message?.provider || ''
   const providerMeta = PROVIDER_META[providerId] || {
     label: providerId || 'AI',
     logo: null,
     fallback: 'AI',
   }
-  const resolvedModel = message?.model || settings.defaultModel || 'default model'
+  const resolvedModel = message?.model || 'default model'
   const isUser = message?.role === 'user'
   const images = useMemo(() => getImagesFromMessage(message), [message])
 

@@ -1442,6 +1442,67 @@ Return only the title text.`,
 }
 
 /**
+ * Generates a daily tip for the home page widget.
+ * @param {string} provider - AI provider to use
+ * @param {string} language - Preferred response language
+ * @param {string} category - Tip category or direction
+ * @param {string} apiKey - API key for authentication
+ * @param {string} baseUrl - Custom base URL
+ * @param {string} model - Model name/ID
+ * @returns {Promise<string>} - Generated tip text
+ */
+const generateDailyTip = async (provider, language, category, apiKey, baseUrl, model) => {
+  const languageBlock = language ? `\n\n## Language\nReply in ${language}.` : ''
+  const categoryBlock = category ? `\n\n## Category\n${category}` : ''
+  const promptMessages = [
+    {
+      role: 'system',
+      content: `## Task
+Generate a short, practical tip for today. Keep it to 1-2 sentences and avoid emojis.${categoryBlock}${languageBlock}
+
+## Output
+Return only the tip text.`,
+    },
+    { role: 'user', content: 'Daily tip.' },
+  ]
+
+  let content = undefined
+  if (provider === 'gemini') {
+    content = await requestGemini({ apiKey, model, messages: promptMessages })
+  } else if (provider === 'siliconflow') {
+    content = await requestSiliconFlow({
+      provider,
+      apiKey,
+      baseUrl,
+      model,
+      messages: promptMessages,
+    })
+  } else if (provider === 'glm') {
+    content = await requestGLM({
+      apiKey,
+      model,
+      messages: promptMessages,
+    })
+  } else if (provider === 'kimi') {
+    content = await requestKimi({
+      apiKey,
+      model,
+      messages: promptMessages,
+    })
+  } else {
+    content = await requestOpenAICompat({
+      provider,
+      apiKey,
+      baseUrl,
+      model,
+      messages: promptMessages,
+    })
+  }
+
+  return (content && content.trim?.()) || ''
+}
+
+/**
  * Generates both a title and selects an appropriate space for a conversation.
  * Returns an object with the generated title and selected space (or null if no space fits).
  * @param {string} provider - AI provider to use
@@ -1799,6 +1860,8 @@ export const createBackendProvider = provider => ({
   streamChatCompletion: params => streamWithLangChain({ provider, ...params }),
   generateTitle: (firstMessage, apiKey, baseUrl, model) =>
     generateTitle(provider, firstMessage, apiKey, baseUrl, model),
+  generateDailyTip: (language, category, apiKey, baseUrl, model) =>
+    generateDailyTip(provider, language, category, apiKey, baseUrl, model),
   generateTitleAndSpace: (firstMessage, spaces, apiKey, baseUrl, model) =>
     generateTitleAndSpace(provider, firstMessage, spaces, apiKey, baseUrl, model),
   generateTitleSpaceAndAgent: (firstMessage, spacesWithAgents, apiKey, baseUrl, model) =>

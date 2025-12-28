@@ -315,9 +315,9 @@ function App() {
               prompt: settings.systemPrompt || '',
               emoji: '',
               isDefault: true,
-              provider: settings.apiProvider || 'gemini',
-              liteModel: settings.liteModel || '',
-              defaultModel: settings.defaultModel || '',
+              provider: 'gemini',
+              liteModel: '',
+              defaultModel: '',
               responseLanguage: settings.llmAnswerLanguage || '',
               baseTone: settings.baseTone || '',
               traits: settings.traits || '',
@@ -339,14 +339,8 @@ function App() {
             }
           } else {
             const patch = {}
-            if (!existingDefault.provider && settings.apiProvider)
-              patch.provider = settings.apiProvider
             if (!existingDefault.description)
               patch.description = 'Fallback agent (non-editable).'
-            if (!existingDefault.defaultModel && settings.defaultModel)
-              patch.defaultModel = settings.defaultModel
-            if (!existingDefault.liteModel && settings.liteModel)
-              patch.liteModel = settings.liteModel
             if (!existingDefault.prompt && settings.systemPrompt)
               patch.prompt = settings.systemPrompt
             if (!existingDefault.responseLanguage && settings.llmAnswerLanguage)

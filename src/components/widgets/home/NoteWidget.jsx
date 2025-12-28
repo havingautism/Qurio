@@ -1,42 +1,193 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { MoreHorizontal } from 'lucide-react'
+import { Plus, ChevronLeft, ChevronRight, StickyNote } from 'lucide-react'
 import WidgetCard from './WidgetCard'
-// Temporarily disable memo persistence to Supabase.
-// import { fetchHomeNote, upsertHomeNote } from '../../../lib/homeWidgetsService'
-
-const SAVE_IDLE = 'idle'
-const SAVE_SAVING = 'saving'
-const SAVE_SAVED = 'saved'
-const SAVE_ERROR = 'error'
+import NoteModal from './NoteModal'
+import { fetchHomeNotes, upsertHomeNote, deleteHomeNote } from '../../../lib/homeWidgetsService'
 
 const NoteWidget = () => {
   const { t } = useTranslation()
-  const [note, setNote] = useState('')
-  // const [noteId, setNoteId] = useState(null)
-  // const [saveState, setSaveState] = useState(SAVE_IDLE)
-  // const saveTimerRef = useRef(null)
-  // const loadedRef = useRef(false)
-  // const saveStatusTimerRef = useRef(null)
+  const [notes, setNotes] = useState([])
+  const [currentIndex, setCurrentIndex] = useState(0)
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [editingNote, setEditingNote] = useState(null)
+  const [isLoading, setIsLoading] = useState(false)
 
-  // Persistence is disabled for now.
+  // Load notes on mount
+  // Load notes on mount
+  const loadNotes = async () => {
+    setIsLoading(true)
+    const { data } = await fetchHomeNotes()
+    if (data) {
+      setNotes(data)
+      // Reset index if out of bounds
+      if (currentIndex >= data.length) {
+        setCurrentIndex(Math.max(0, data.length - 1))
+      }
+    }
+    setIsLoading(false)
+  }
+
+  useEffect(() => {
+    loadNotes()
+  }, [])
+
+  const handleSave = async noteToSave => {
+    const { data, error } = await upsertHomeNote(noteToSave)
+    if (!error && data) {
+      loadNotes()
+      setIsModalOpen(false)
+    }
+  }
+
+  const handleDelete = async id => {
+    const { error } = await deleteHomeNote(id)
+    if (!error) {
+      loadNotes()
+      setIsModalOpen(false)
+    }
+  }
+
+  const openNewNoteModal = e => {
+    e.stopPropagation()
+    setEditingNote(null) // New note
+    setIsModalOpen(true)
+  }
+
+  const openEditModal = note => {
+    setEditingNote(note)
+    setIsModalOpen(true)
+  }
+
+  const nextNote = e => {
+    e.stopPropagation()
+    if (currentIndex < notes.length - 1) {
+      setCurrentIndex(prev => prev + 1)
+    }
+  }
+
+  const prevNote = e => {
+    e.stopPropagation()
+    if (currentIndex > 0) {
+      setCurrentIndex(prev => prev - 1)
+    }
+  }
 
   return (
-    <WidgetCard
-      title={t('views.widgets.noteTitle')}
-      action={<MoreHorizontal size={16} />}
-      className="h-full min-h-[160px]"
-    >
-      <div className="flex flex-col h-full">
-        <textarea
-          value={note}
-          onChange={e => setNote(e.target.value)}
-          placeholder={t('views.widgets.notePlaceholder')}
-          className="w-full h-full bg-transparent resize-none outline-none text-gray-700 dark:text-gray-200 placeholder-gray-400 text-sm font-medium"
-        />
-        {/* Save status hidden while persistence is disabled */}
+    <>
+      <div
+        className="relative h-[200px] w-full perspective-1000 group"
+      >
+        {/* Header / Actions */}
+        <div className="absolute top-0 right-0 z-20 p-2">
+          <button
+            onClick={openNewNoteModal}
+            className="bg-primary-500 hover:bg-primary-600 text-white p-1.5 rounded-full shadow-lg transition-transform hover:scale-105"
+            title={t('views.widgets.newNote', 'New Note')}
+          >
+            <Plus size={16} />
+          </button>
+        </div>
+
+        {/* Notes Stack */}
+        <div className="relative w-full h-full flex items-center justify-center">
+          {notes.length === 0 && !isLoading && (
+            <div
+              onClick={openNewNoteModal}
+              className="flex flex-col items-center justify-center text-gray-500 dark:text-gray-400 cursor-pointer hover:text-primary-500 transition-colors bg-user-bubble dark:bg-[#1e1e1e]/60 backdrop-blur-md border-2 border-dashed border-gray-200 dark:border-white/10 rounded-2xl w-full h-full"
+            >
+              <StickyNote size={32} className="mb-2 opacity-50" />
+              <span className="text-sm font-medium">
+                {t('views.widgets.createFirstNote', 'Create a Note')}
+              </span>
+            </div>
+          )}
+
+          {notes.map((note, index) => {
+            const offset = index - currentIndex
+            const isActive = index === currentIndex
+
+            // Visible range: active, 1 before, 2 after
+            if (Math.abs(offset) > 2) return null
+
+            let zIndex = 10 - Math.abs(offset)
+            let scale = 1 - Math.abs(offset) * 0.04
+            // Keep stack inside the card width to avoid covering neighbors
+            let translateX = offset * 14
+            let translateY = offset * 3
+            let rotate = offset * 1
+            let opacity = 1 - Math.abs(offset) * 0.12
+
+            // Previous notes: stack to left, slightly visible
+            if (offset < 0) {
+              translateX = offset * 14
+              rotate = offset * 1
+            }
+
+            // Stacked effect logic
+            const style = {
+              transform: `translateX(${translateX}px) translateY(${translateY}px) scale(${scale}) rotate(${rotate}deg)`,
+              zIndex: zIndex,
+              opacity: opacity,
+            }
+
+            return (
+              <div
+                key={note.id}
+                onClick={() => isActive && openEditModal(note)}
+                className={`absolute w-full h-full transition-all duration-300 ease-out origin-bottom ${isActive ? 'cursor-pointer hover:-translate-y-2' : ''}`}
+                style={style}
+              >
+                <div className="mx-auto w-full max-w-[92%] md:max-w-full">
+                  <WidgetCard className="h-full w-full pointer-events-none select-none overflow-hidden bg-yellow-100! dark:bg-yellow-900/20! border-yellow-200! dark:border-yellow-700/30!">
+                  <div className="p-1 h-full flex flex-col pointer-events-none">
+                    <p className="text-sm text-gray-800 dark:text-yellow-100 font-medium whitespace-pre-wrap line-clamp-6 leading-relaxed font-handwriting">
+                      {note.content}
+                    </p>
+                    <span className="mt-auto text-[10px] text-gray-500 dark:text-yellow-500/60 pt-2 block">
+                      {new Date(note.updated_at || new Date()).toLocaleDateString()}
+                    </span>
+                  </div>
+                  </WidgetCard>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Navigation Controls */}
+        {notes.length > 1 && (
+          <div className="absolute top-1/2 -translate-y-1/2 -left-4 z-30 transition-opacity md:opacity-0 md:pointer-events-none md:group-hover:opacity-100 md:group-hover:pointer-events-auto">
+            <button
+              onClick={prevNote}
+              disabled={currentIndex === 0}
+              className="p-1 bg-black/20 hover:bg-black/40 text-white rounded-full disabled:opacity-0 transition-all backdrop-blur-sm"
+            >
+              <ChevronLeft size={20} />
+            </button>
+          </div>
+        )}
+        {notes.length > 1 && (
+          <div className="absolute top-1/2 -translate-y-1/2 -right-4 z-30 transition-opacity md:opacity-0 md:pointer-events-none md:group-hover:opacity-100 md:group-hover:pointer-events-auto">
+            <button
+              onClick={nextNote}
+              disabled={currentIndex === notes.length - 1}
+              className="p-1 bg-black/20 hover:bg-black/40 text-white rounded-full disabled:opacity-0 transition-all backdrop-blur-sm"
+            >
+              <ChevronRight size={20} />
+            </button>
+          </div>
+        )}
       </div>
-    </WidgetCard>
+
+      <NoteModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        note={editingNote}
+        onSave={handleSave}
+        onDelete={handleDelete}
+      />
+    </>
   )
 }
 

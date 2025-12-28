@@ -3,8 +3,11 @@ import { MoreHorizontal, Github, Youtube, Smile, Code, BookOpen, Terminal } from
 import WidgetCard from './WidgetCard'
 
 const ShortcutItem = ({ icon: Icon, color }) => (
-  <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 transition-colors cursor-pointer group">
-    <Icon size={24} className={`group-hover:scale-110 transition-transform duration-200 ${color}`} />
+  <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-white dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 transition-colors cursor-pointer group">
+    <Icon
+      size={24}
+      className={`group-hover:scale-110 transition-transform duration-200 ${color}`}
+    />
   </div>
 )
 

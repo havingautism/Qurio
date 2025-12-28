@@ -6,9 +6,9 @@ const WidgetCard = ({ children, className = '', title, action }) => (
       <div className="flex justify-between items-center mb-3">
         {title && <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">{title}</h3>}
         {action && (
-          <button className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
+          <div className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
             {action}
-          </button>
+          </div>
         )}
       </div>
     )}

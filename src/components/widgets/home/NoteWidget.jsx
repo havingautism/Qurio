@@ -75,20 +75,33 @@ const NoteWidget = () => {
 
   return (
     <>
-      <div className="relative h-[200px] w-full perspective-1000 group">
-        {/* Header / Actions */}
-        <div className="absolute top-0 right-0 z-20 p-2">
-          <button
-            onClick={openNewNoteModal}
-            className="bg-primary-500 hover:bg-primary-600 text-white p-1.5 rounded-full shadow-lg transition-transform hover:scale-105"
-            title={t('views.widgets.newNote', 'New Note')}
-          >
-            <Plus size={16} />
-          </button>
-        </div>
-
+      <div className="relative h-[140px] sm:h-[150px] md:h-[160px] w-full perspective-1000 group overflow-x-clip">
         {/* Notes Stack */}
-        <div className="relative w-full h-full flex items-center justify-center">
+        <div className="relative w-full h-full flex items-center justify-center mx-auto px-8 sm:px-10 md:px-6">
+          {/* Navigation Controls - inside stack for proper spacing */}
+          {notes.length > 1 && (
+            <div className="absolute top-1/2 -translate-y-1/2 left-0 z-30 transition-opacity md:opacity-0 md:pointer-events-none md:group-hover:opacity-100 md:group-hover:pointer-events-auto">
+              <button
+                onClick={prevNote}
+                disabled={currentIndex === 0}
+                className="p-1 bg-black/20 hover:bg-black/40 text-white rounded-full disabled:opacity-0 transition-all backdrop-blur-sm"
+              >
+                <ChevronLeft size={20} />
+              </button>
+            </div>
+          )}
+          {notes.length > 1 && (
+            <div className="absolute top-1/2 -translate-y-1/2 right-0 z-30 transition-opacity md:opacity-0 md:pointer-events-none md:group-hover:opacity-100 md:group-hover:pointer-events-auto">
+              <button
+                onClick={nextNote}
+                disabled={currentIndex === notes.length - 1}
+                className="p-1 bg-black/20 hover:bg-black/40 text-white rounded-full disabled:opacity-0 transition-all backdrop-blur-sm"
+              >
+                <ChevronRight size={20} />
+              </button>
+            </div>
+          )}
+
           {notes.length === 0 && !isLoading && (
             <div
               onClick={openNewNoteModal}
@@ -111,14 +124,14 @@ const NoteWidget = () => {
             let zIndex = 10 - Math.abs(offset)
             let scale = 1 - Math.abs(offset) * 0.04
             // Keep stack inside the card width to avoid covering neighbors
-            let translateX = offset * 14
-            let translateY = offset * 3
+            let translateX = offset * 8
+            let translateY = offset * 1
             let rotate = offset * 1
             let opacity = 1 - Math.abs(offset) * 0.12
 
             // Previous notes: stack to left, slightly visible
             if (offset < 0) {
-              translateX = offset * 14
+              translateX = offset * 8
               rotate = offset * 1
             }
 
@@ -133,10 +146,22 @@ const NoteWidget = () => {
               <div
                 key={note.id}
                 onClick={() => isActive && openEditModal(note)}
-                className={`absolute w-full h-full transition-all duration-300 ease-out origin-bottom ${isActive ? 'cursor-pointer hover:-translate-y-2' : ''}`}
+                className={`absolute w-full max-w-[85%] sm:max-w-[90%] h-full transition-all duration-300 ease-out origin-bottom ${isActive ? 'cursor-pointer hover:-translate-y-2' : ''}`}
                 style={style}
               >
-                <div className="mx-auto w-full max-w-[92%] md:max-w-full">
+                {/* "+" button on active note */}
+                {isActive && (
+                  <div className="absolute top-0 right-0 z-20 p-2">
+                    <button
+                      onClick={e => { e.stopPropagation(); openNewNoteModal() }}
+                      className="bg-primary-500 hover:bg-primary-600 text-white p-1.5 rounded-full shadow-lg transition-transform hover:scale-105"
+                      title={t('views.widgets.newNote', 'New Note')}
+                    >
+                      <Plus size={16} />
+                    </button>
+                  </div>
+                )}
+                <div className="mx-auto w-full">
                   <WidgetCard className="h-full w-full pointer-events-none select-none overflow-hidden bg-yellow-100! dark:bg-[#3f2c06]! border-yellow-200! dark:border-yellow-700/50!">
                     <div className="p-1 h-full flex flex-col pointer-events-none">
                       <p className="text-sm text-gray-800 dark:text-yellow-100 font-medium whitespace-pre-wrap line-clamp-6 leading-relaxed font-handwriting">
@@ -152,30 +177,6 @@ const NoteWidget = () => {
             )
           })}
         </div>
-
-        {/* Navigation Controls */}
-        {notes.length > 1 && (
-          <div className="absolute top-1/2 -translate-y-1/2 -left-4 z-30 transition-opacity md:opacity-0 md:pointer-events-none md:group-hover:opacity-100 md:group-hover:pointer-events-auto">
-            <button
-              onClick={prevNote}
-              disabled={currentIndex === 0}
-              className="p-1 bg-black/20 hover:bg-black/40 text-white rounded-full disabled:opacity-0 transition-all backdrop-blur-sm"
-            >
-              <ChevronLeft size={20} />
-            </button>
-          </div>
-        )}
-        {notes.length > 1 && (
-          <div className="absolute top-1/2 -translate-y-1/2 -right-4 z-30 transition-opacity md:opacity-0 md:pointer-events-none md:group-hover:opacity-100 md:group-hover:pointer-events-auto">
-            <button
-              onClick={nextNote}
-              disabled={currentIndex === notes.length - 1}
-              className="p-1 bg-black/20 hover:bg-black/40 text-white rounded-full disabled:opacity-0 transition-all backdrop-blur-sm"
-            >
-              <ChevronRight size={20} />
-            </button>
-          </div>
-        )}
       </div>
 
       <NoteModal

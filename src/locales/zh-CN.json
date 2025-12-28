@@ -1,4 +1,10 @@
 {
+  "common": {
+    "loading": "加载中...",
+    "cancel": "取消",
+    "save": "保存",
+    "delete": "删除"
+  },
   "app": {
     "name": "Qurio",
     "tagline": "洞察由此开启。"
@@ -477,13 +483,33 @@
       "examples": "示例",
       "justNow": "刚刚"
     },
+    "icons": {
+      "emoji": "表情符号",
+      "favicon": "网站图标",
+      "custom": "自定义链接"
+    },
     "widgets": {
       "noteTitle": "备忘录",
       "notePlaceholder": "在此输入笔记...",
       "noteSaving": "保存中...",
       "noteSaved": "已保存",
       "noteSaveFailed": "保存失败",
+      "newNote": "新建笔记",
+      "editNote": "编辑笔记",
+      "createFirstNote": "创建笔记",
       "shortcutsTitle": "常用网站",
+      "addShortcut": "添加快捷方式",
+      "addFirstShortcut": "添加快捷方式",
+      "moreShortcuts": "个更多快捷方式",
+      "newShortcut": "新建快捷方式",
+      "editShortcut": "编辑快捷方式",
+      "shortcutTitle": "标题",
+      "shortcutTitlePlaceholder": "例如：GitHub",
+      "shortcutUrl": "网址",
+      "iconType": "图标类型",
+      "selectIcon": "选择图标",
+      "iconUrl": "图标地址",
+      "preview": "预览",
       "tipsTitle": "每日贴士",
       "tipsContent": "通过启用节能模式，让您的笔记本电脑电池续航更久。",
       "tipsLoading": "正在刷新今日贴士...",

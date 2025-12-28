@@ -127,6 +127,13 @@ export const buildResponseStylePromptFromAgent = agent => {
   return `## Response Style\n${rules.map(rule => `- ${rule}`).join('\n')}`
 }
 
+// In-memory cache for sensitive settings (API keys) fetched from Supabase
+let memorySettings = {}
+
+export const updateMemorySettings = settings => {
+  Object.assign(memorySettings, settings)
+}
+
 export const loadSettings = (overrides = {}) => {
   // Supabase Env Vars
   const envSupabaseUrl = getPublicEnv('PUBLIC_SUPABASE_URL')
@@ -136,25 +143,19 @@ export const loadSettings = (overrides = {}) => {
   const envOpenAIKey = getPublicEnv('PUBLIC_OPENAI_API_KEY')
   const envOpenAIBaseUrl = getPublicEnv('PUBLIC_OPENAI_BASE_URL')
 
-  // LocalStorage
+  // LocalStorage - Only load non-sensitive or essential connection configs
   const localSupabaseUrl = localStorage.getItem('supabaseUrl')
   const localSupabaseKey = localStorage.getItem('supabaseKey')
-  const localOpenAIKey = localStorage.getItem('OpenAICompatibilityKey')
-  const localOpenAIUrl = localStorage.getItem('OpenAICompatibilityUrl')
-  const localSiliconFlowKey = localStorage.getItem('SiliconFlowKey')
-  const localGlmKey = localStorage.getItem('GlmKey')
-  const localKimiKey = localStorage.getItem('KimiKey')
 
-  // Model configuration (legacy keys now owned by system default agent)
-  localStorage.removeItem('apiProvider')
-  localStorage.removeItem('liteModel')
-  localStorage.removeItem('defaultModel')
+  // Model configuration
   const localSystemPrompt = localStorage.getItem('systemPrompt')
   const localContextMessageLimit = localStorage.getItem('contextMessageLimit')
   const localThemeColor = localStorage.getItem('themeColor')
   const localEnableRelatedQuestions = localStorage.getItem('enableRelatedQuestions')
   const localInterfaceLanguage = localStorage.getItem('interfaceLanguage')
   const localLlmAnswerLanguage = localStorage.getItem('llmAnswerLanguage')
+
+  // Style settings
   const localStyleBaseTone = localStorage.getItem('styleBaseTone')
   const localStyleTraits = localStorage.getItem('styleTraits')
   const localStyleWarmth = localStorage.getItem('styleWarmth')
@@ -162,6 +163,7 @@ export const loadSettings = (overrides = {}) => {
   const localStyleHeadings = localStorage.getItem('styleHeadings')
   const localStyleEmojis = localStorage.getItem('styleEmojis')
   const localStyleCustomInstruction = localStorage.getItem('styleCustomInstruction')
+
   const parsedContextLimit = parseInt(localContextMessageLimit, 10)
   const resolvedContextLimit = Number.isFinite(parsedContextLimit)
     ? parsedContextLimit
@@ -174,40 +176,16 @@ export const loadSettings = (overrides = {}) => {
         : true
 
   const settings = {
-    // Supabase
+    // Supabase (Must be local/env to connect)
     supabaseUrl: envSupabaseUrl || localSupabaseUrl || overrides.supabaseUrl || '',
     supabaseKey: envSupabaseKey || localSupabaseKey || overrides.supabaseKey || '',
 
-    // OpenAI
-    OpenAICompatibilityKey:
-      envOpenAIKey || localOpenAIKey || overrides.OpenAICompatibilityKey || '',
-    OpenAICompatibilityUrl:
-      envOpenAIBaseUrl || localOpenAIUrl || overrides.OpenAICompatibilityUrl || '',
-    SiliconFlowKey:
-      getPublicEnv('PUBLIC_SILICONFLOW_API_KEY') ||
-      localSiliconFlowKey ||
-      overrides.SiliconFlowKey ||
-      '',
-    GlmKey:
-      getPublicEnv('PUBLIC_GLM_API_KEY') ||
-      localGlmKey ||
-      overrides.GlmKey ||
-      '',
-    KimiKey:
-      getPublicEnv('PUBLIC_KIMI_API_KEY') ||
-      localKimiKey ||
-      overrides.KimiKey ||
-      '',
+    // Init with Env/Local (for migration), but Memory wins below
+    // We intentionally don't read API keys from LS here to prefer Memory/Env
+    // But for migration, maybe we should check LS if Memory is empty?
+    // No, user wants to Stop storing in LS.
 
-    // API Provider (UI helper only; not used for model/provider fallback)
-    apiProvider: overrides.apiProvider || 'gemini',
-    googleApiKey:
-      getPublicEnv('PUBLIC_GOOGLE_API_KEY') ||
-      localStorage.getItem('googleApiKey') ||
-      overrides.googleApiKey ||
-      '',
-
-    // Model configuration (legacy; kept empty to avoid fallback)
+    // Model configuration
     liteModel: overrides.liteModel || '',
     defaultModel: overrides.defaultModel || '',
 
@@ -218,6 +196,8 @@ export const loadSettings = (overrides = {}) => {
     enableRelatedQuestions: resolvedRelatedQuestionsPreference,
     interfaceLanguage: localInterfaceLanguage || overrides.interfaceLanguage || 'en',
     llmAnswerLanguage: localLlmAnswerLanguage || overrides.llmAnswerLanguage || 'English',
+
+    // Style
     baseTone: localStyleBaseTone || overrides.baseTone || DEFAULT_STYLE_SETTINGS.baseTone,
     traits: localStyleTraits || overrides.traits || DEFAULT_STYLE_SETTINGS.traits,
     warmth: localStyleWarmth || overrides.warmth || DEFAULT_STYLE_SETTINGS.warmth,
@@ -232,44 +212,53 @@ export const loadSettings = (overrides = {}) => {
     ...overrides,
   }
 
+  // Merge Memory Settings (API Keys from Supabase)
+  // This overrides everything else for keys
+  const mergedSettings = { ...settings, ...memorySettings }
+
+  // Fallback to Env if memory is empty
+  if (!mergedSettings.OpenAICompatibilityKey)
+    mergedSettings.OpenAICompatibilityKey = envOpenAIKey || ''
+  if (!mergedSettings.OpenAICompatibilityUrl)
+    mergedSettings.OpenAICompatibilityUrl = envOpenAIBaseUrl || ''
+  if (!mergedSettings.SiliconFlowKey)
+    mergedSettings.SiliconFlowKey = getPublicEnv('PUBLIC_SILICONFLOW_API_KEY') || ''
+  if (!mergedSettings.GlmKey) mergedSettings.GlmKey = getPublicEnv('PUBLIC_GLM_API_KEY') || ''
+  if (!mergedSettings.KimiKey) mergedSettings.KimiKey = getPublicEnv('PUBLIC_KIMI_API_KEY') || ''
+  if (!mergedSettings.googleApiKey)
+    mergedSettings.googleApiKey = getPublicEnv('PUBLIC_GOOGLE_API_KEY') || ''
+
   return {
-    ...settings,
-    responseStylePrompt: buildResponseStylePrompt(settings),
+    ...mergedSettings,
+    responseStylePrompt: buildResponseStylePrompt(mergedSettings),
   }
 }
 
 /**
- * Save user settings to LocalStorage
- *
- * @param {Object} settings - The settings object.
+ * Save user settings
+ * - Non-sensitive -> LocalStorage
+ * - Sensitive -> Memory Only (and caller handles Remote Save)
  */
 export const saveSettings = async settings => {
-  if (settings.supabaseUrl !== undefined) {
-    localStorage.setItem('supabaseUrl', settings.supabaseUrl)
-  }
-  if (settings.supabaseKey !== undefined) {
-    localStorage.setItem('supabaseKey', settings.supabaseKey)
-  }
-  if (settings.OpenAICompatibilityKey !== undefined) {
-    localStorage.setItem('OpenAICompatibilityKey', settings.OpenAICompatibilityKey)
-  }
-  if (settings.OpenAICompatibilityUrl !== undefined) {
-    localStorage.setItem('OpenAICompatibilityUrl', settings.OpenAICompatibilityUrl)
-  }
-  if (settings.SiliconFlowKey !== undefined) {
-    localStorage.setItem('SiliconFlowKey', settings.SiliconFlowKey)
-  }
-  if (settings.GlmKey !== undefined) {
-    localStorage.setItem('GlmKey', settings.GlmKey)
-  }
-  if (settings.KimiKey !== undefined) {
-    localStorage.setItem('KimiKey', settings.KimiKey)
-  }
-  // apiProvider is no longer persisted (UI helper only).
-  if (settings.googleApiKey !== undefined) {
-    localStorage.setItem('googleApiKey', settings.googleApiKey)
-  }
-  // Model configuration is no longer persisted in settings.
+  // Update Memory Cache
+  updateMemorySettings(settings)
+
+  // Persist Non-Sensitive to LocalStorage
+  if (settings.supabaseUrl !== undefined) localStorage.setItem('supabaseUrl', settings.supabaseUrl)
+  if (settings.supabaseKey !== undefined) localStorage.setItem('supabaseKey', settings.supabaseKey)
+
+  // CLEANUP: Remove Sensitive Keys from LocalStorage (Security)
+  const SENSITIVE_KEYS = [
+    'OpenAICompatibilityKey',
+    'OpenAICompatibilityUrl',
+    'SiliconFlowKey',
+    'GlmKey',
+    'KimiKey',
+    'googleApiKey',
+  ]
+  SENSITIVE_KEYS.forEach(key => localStorage.removeItem(key))
+
+  // ... (Save other non-sensitive preferences)
   if (settings.systemPrompt !== undefined) {
     localStorage.setItem('systemPrompt', settings.systemPrompt)
   }
@@ -311,5 +300,5 @@ export const saveSettings = async settings => {
   }
 
   window.dispatchEvent(new Event('settings-changed'))
-  console.log('Settings saved:', settings)
+  console.log('Settings saved (Sensitive keys in memory only)')
 }

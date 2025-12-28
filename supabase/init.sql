@@ -160,3 +160,15 @@ CREATE INDEX IF NOT EXISTS idx_home_notes_updated_at
 CREATE TRIGGER trg_home_notes_updated_at
 BEFORE UPDATE ON public.home_notes
 FOR EACH ROW EXECUTE PROCEDURE public.set_updated_at();
+
+-- 9) User Settings (Key-Value Store for API Keys etc.)
+CREATE TABLE IF NOT EXISTS public.user_settings (
+  key TEXT PRIMARY KEY,
+  value TEXT,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TRIGGER trg_user_settings_updated_at
+BEFORE UPDATE ON public.user_settings
+FOR EACH ROW EXECUTE PROCEDURE public.set_updated_at();
+

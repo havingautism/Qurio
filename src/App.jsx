@@ -1,16 +1,17 @@
 import { Outlet, useLocation, useNavigate } from '@tanstack/react-router'
 import React, { useEffect, useRef, useState } from 'react'
 import { I18nextProvider } from 'react-i18next'
+import AgentModal from './components/AgentModal'
 import ConfirmationModal from './components/ConfirmationModal'
 import { GitHubPagesRedirectHandler } from './components/GitHubPagesRedirectHandler'
 import SettingsModal from './components/SettingsModal'
 import Sidebar from './components/Sidebar'
 import SpaceModal from './components/SpaceModal'
-import AgentModal from './components/AgentModal'
 import { ToastProvider } from './contexts/ToastContext'
-import { listConversations } from './lib/conversationsService'
-import { loadSettings } from './lib/settings'
 import { createAgent, deleteAgent, listAgents, updateAgent } from './lib/agentsService'
+import { listConversations } from './lib/conversationsService'
+import i18n from './lib/i18n' // Initialize i18next
+import { loadSettings, updateMemorySettings } from './lib/settings'
 import {
   createSpace,
   deleteSpace,
@@ -18,9 +19,8 @@ import {
   updateSpace,
   updateSpaceAgents,
 } from './lib/spacesService'
-import { initSupabase } from './lib/supabase'
+import { fetchRemoteSettings, initSupabase } from './lib/supabase'
 import { applyTheme } from './lib/themes'
-import i18n from './lib/i18n' // Initialize i18next
 
 export const AppContext = React.createContext(null)
 export const useAppContext = () => React.useContext(AppContext)
@@ -142,6 +142,28 @@ function App() {
 
     window.addEventListener('settings-changed', handleSettingsChange)
     return () => window.removeEventListener('settings-changed', handleSettingsChange)
+    window.addEventListener('settings-changed', handleSettingsChange)
+    return () => window.removeEventListener('settings-changed', handleSettingsChange)
+  }, [])
+
+  // Sync Remote Settings to Memory on Mount
+  useEffect(() => {
+    const syncRemoteSettings = async () => {
+      // 1. Ensure Client is initialized (reads from LocalStorage/Env)
+      initSupabase()
+
+      // 2. Fetch API Keys from DB
+      const { data } = await fetchRemoteSettings()
+
+      // 3. Update Memory Cache if found
+      if (data) {
+        updateMemorySettings(data)
+        // Trigger re-render of components relying on settings
+        window.dispatchEvent(new Event('settings-changed'))
+      }
+    }
+
+    syncRemoteSettings()
   }, [])
 
   const cycleTheme = () => {
@@ -339,8 +361,7 @@ function App() {
             }
           } else {
             const patch = {}
-            if (!existingDefault.description)
-              patch.description = 'Fallback agent (non-editable).'
+            if (!existingDefault.description) patch.description = 'Fallback agent (non-editable).'
             if (!existingDefault.prompt && settings.systemPrompt)
               patch.prompt = settings.systemPrompt
             if (!existingDefault.responseLanguage && settings.llmAnswerLanguage)

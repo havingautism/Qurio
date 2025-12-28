@@ -48,6 +48,7 @@
   --color-primary-950: var(--color-primary-950);
 
   --animate-slide-up: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-shake: shake 0.5s ease-in-out infinite;
 
   @keyframes slide-up {
     from {
@@ -56,6 +57,12 @@
     to {
       transform: translateY(0);
     }
+  }
+
+  @keyframes shake {
+    0%, 100% { transform: rotate(0deg); }
+    25% { transform: rotate(-4deg); }
+    75% { transform: rotate(4deg); }
   }
 }
 

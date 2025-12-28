@@ -3,7 +3,7 @@ import data from '@emoji-mart/data'
 import { Search } from 'lucide-react'
 import EmojiDisplay from './EmojiDisplay'
 
-const CustomEmojiPicker = ({ onEmojiSelect }) => {
+const CustomEmojiPicker = ({ onEmojiSelect, className = '' }) => {
   const [search, setSearch] = useState('')
 
   // Extract categories and emojis from the data
@@ -39,7 +39,7 @@ const CustomEmojiPicker = ({ onEmojiSelect }) => {
   }, [search, categories, emojis])
 
   return (
-    <div className="w-80 h-80 bg-white dark:bg-[#191a1a] border border-gray-200 dark:border-zinc-800 rounded-xl shadow-2xl flex flex-col overflow-hidden">
+    <div className={`w-80 h-80 bg-white dark:bg-[#191a1a] border border-gray-200 dark:border-zinc-800 rounded-xl shadow-2xl flex flex-col overflow-hidden ${className}`}>
       {/* Search Bar */}
       <div className="p-3 border-b border-gray-100 dark:border-zinc-800">
         <div className="relative">

@@ -1,4 +1,10 @@
 {
+  "common": {
+    "loading": "Loading...",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete"
+  },
   "app": {
     "name": "Qurio",
     "tagline": "Where insight clicks."
@@ -477,13 +483,33 @@
       "examples": "Examples",
       "justNow": "Just now"
     },
+    "icons": {
+      "emoji": "Emoji",
+      "favicon": "Website Icon",
+      "custom": "Custom URL"
+    },
     "widgets": {
       "noteTitle": "Memo",
       "notePlaceholder": "Type your notes here...",
       "noteSaving": "Saving...",
       "noteSaved": "Saved",
       "noteSaveFailed": "Save failed",
+      "newNote": "New Note",
+      "editNote": "Edit Note",
+      "createFirstNote": "Create a Note",
       "shortcutsTitle": "Common Sites",
+      "addShortcut": "Add Shortcut",
+      "addFirstShortcut": "Add Shortcut",
+      "moreShortcuts": "more shortcuts",
+      "newShortcut": "New Shortcut",
+      "editShortcut": "Edit Shortcut",
+      "shortcutTitle": "Title",
+      "shortcutTitlePlaceholder": "e.g., GitHub",
+      "shortcutUrl": "URL",
+      "iconType": "Icon Type",
+      "selectIcon": "Select Icon",
+      "iconUrl": "Icon URL",
+      "preview": "Preview",
       "tipsTitle": "Daily Tips",
       "tipsContent": "Make your laptop's battery last longer by enabling the Energy Saver.",
       "tipsLoading": "Refreshing today's tip...",

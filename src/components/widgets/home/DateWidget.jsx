@@ -51,9 +51,7 @@ const DateWidget = () => {
             {t('views.widgets.week', { number: getWeekNumber(date) })}
           </p>
         </div>
-        <div className="text-4xl font-medium text-gray-800 dark:text-white mt-auto">
-          {timeStr}
-        </div>
+        <div className="text-4xl font-medium text-gray-800 dark:text-white mt-auto">{timeStr}</div>
       </div>
     </WidgetCard>
   )

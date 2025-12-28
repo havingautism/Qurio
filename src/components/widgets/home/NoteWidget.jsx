@@ -75,9 +75,7 @@ const NoteWidget = () => {
 
   return (
     <>
-      <div
-        className="relative h-[200px] w-full perspective-1000 group"
-      >
+      <div className="relative h-[200px] w-full perspective-1000 group">
         {/* Header / Actions */}
         <div className="absolute top-0 right-0 z-20 p-2">
           <button
@@ -139,15 +137,15 @@ const NoteWidget = () => {
                 style={style}
               >
                 <div className="mx-auto w-full max-w-[92%] md:max-w-full">
-                  <WidgetCard className="h-full w-full pointer-events-none select-none overflow-hidden bg-yellow-100! dark:bg-yellow-900/20! border-yellow-200! dark:border-yellow-700/30!">
-                  <div className="p-1 h-full flex flex-col pointer-events-none">
-                    <p className="text-sm text-gray-800 dark:text-yellow-100 font-medium whitespace-pre-wrap line-clamp-6 leading-relaxed font-handwriting">
-                      {note.content}
-                    </p>
-                    <span className="mt-auto text-[10px] text-gray-500 dark:text-yellow-500/60 pt-2 block">
-                      {new Date(note.updated_at || new Date()).toLocaleDateString()}
-                    </span>
-                  </div>
+                  <WidgetCard className="h-full w-full pointer-events-none select-none overflow-hidden bg-yellow-100! dark:bg-[#3f2c06]! border-yellow-200! dark:border-yellow-700/50!">
+                    <div className="p-1 h-full flex flex-col pointer-events-none">
+                      <p className="text-sm text-gray-800 dark:text-yellow-100 font-medium whitespace-pre-wrap line-clamp-6 leading-relaxed font-handwriting">
+                        {note.content}
+                      </p>
+                      <span className="mt-auto text-[10px] text-gray-500 dark:text-yellow-500/60 pt-2 block">
+                        {new Date(note.updated_at || new Date()).toLocaleDateString()}
+                      </span>
+                    </div>
                   </WidgetCard>
                 </div>
               </div>

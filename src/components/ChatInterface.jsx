@@ -134,6 +134,11 @@ const ChatInterface = ({
     agentId: null,
     isAgentAutoMode: null,
   })
+  const manualAgentSelectionRef = useRef({
+    conversationId: null,
+    mode: null,
+    agentId: null,
+  })
 
   const [settings, setSettings] = useState(loadSettings())
   const isRelatedEnabled = Boolean(settings.enableRelatedQuestions)
@@ -425,6 +430,13 @@ const ChatInterface = ({
         return
       }
 
+      const initialSendKey = conversationIdToSend
+        ? `initialMessageSent:${conversationIdToSend}`
+        : null
+      if (initialSendKey && sessionStorage.getItem(initialSendKey)) {
+        return
+      }
+
       // Check if this is an existing conversation with messages
       // If so, skip auto-send (we're just viewing history)
       const hasExistingMessages = messages.length > 0
@@ -433,12 +445,7 @@ const ChatInterface = ({
       }
 
       // Only wait for auto-mode agent resolution; manual selection can proceed.
-      if (
-        initialIsAgentAutoMode &&
-        initialAgentSelection &&
-        !selectedAgent &&
-        isAgentResolving
-      ) {
+      if (initialIsAgentAutoMode && initialAgentSelection && !selectedAgent && isAgentResolving) {
         return
       }
 
@@ -460,8 +467,14 @@ const ChatInterface = ({
       await new Promise(resolve => setTimeout(resolve, 0))
 
       // Trigger send immediately
-      await handleSendMessage(initialMessage, initialAttachments, initialToggles)
-      isProcessingInitial.current = false
+      try {
+        await handleSendMessage(initialMessage, initialAttachments, initialToggles)
+        if (initialSendKey) {
+          sessionStorage.setItem(initialSendKey, '1')
+        }
+      } finally {
+        isProcessingInitial.current = false
+      }
     }
 
     processInitialMessage()
@@ -475,7 +488,7 @@ const ChatInterface = ({
     selectedAgentId,
     selectedAgent,
     messages.length,
-    loadedMessagesRef.current,
+    isLoadingHistory,
   ])
 
   // Load existing conversation messages when switching conversations
@@ -553,19 +566,23 @@ const ChatInterface = ({
           setConversationTitle(activeConversation.title)
         }
         // Space is synced by unified logic above
-        const agentSelectionMode =
-          activeConversation?.agent_selection_mode ??
-          activeConversation?.agentSelectionMode ??
-          'auto'
-        setIsAgentAutoMode(agentSelectionMode !== 'manual')
-        const resolvedAgentId =
-          activeConversation?.last_agent_id ?? activeConversation?.lastAgentId ?? null
-        if (resolvedAgentId) {
-          setSelectedAgentId(resolvedAgentId)
-          setPendingAgentId(resolvedAgentId)
-        } else {
-          setPendingAgentId(null)
-          setSelectedAgentId(defaultAgent?.id || null)
+        const shouldSyncAgent =
+          manualAgentSelectionRef.current.conversationId !== activeConversation.id
+        if (shouldSyncAgent) {
+          const agentSelectionMode =
+            activeConversation?.agent_selection_mode ??
+            activeConversation?.agentSelectionMode ??
+            'auto'
+          setIsAgentAutoMode(agentSelectionMode !== 'manual')
+          const resolvedAgentId =
+            activeConversation?.last_agent_id ?? activeConversation?.lastAgentId ?? null
+          if (resolvedAgentId) {
+            setSelectedAgentId(resolvedAgentId)
+            setPendingAgentId(resolvedAgentId)
+          } else {
+            setPendingAgentId(null)
+            setSelectedAgentId(defaultAgent?.id || null)
+          }
         }
         setIsLoadingHistory(false)
         return
@@ -664,19 +681,23 @@ const ChatInterface = ({
           }
         })
         setMessages(mapped)
-        // Restore agent selection mode from conversation
-        const agentSelectionMode =
-          activeConversation?.agent_selection_mode ??
-          activeConversation?.agentSelectionMode ??
-          'auto'
-        setIsAgentAutoMode(agentSelectionMode !== 'manual')
-        const resolvedAgentId = conversationLastAgentId || null
-        if (resolvedAgentId) {
-          setSelectedAgentId(resolvedAgentId)
-          setPendingAgentId(resolvedAgentId)
-        } else {
-          setPendingAgentId(null)
-          setSelectedAgentId(defaultAgent?.id || null)
+        // Restore agent selection mode from conversation unless user just picked manually
+        const shouldSyncAgent =
+          manualAgentSelectionRef.current.conversationId !== activeConversation.id
+        if (shouldSyncAgent) {
+          const agentSelectionMode =
+            activeConversation?.agent_selection_mode ??
+            activeConversation?.agentSelectionMode ??
+            'auto'
+          setIsAgentAutoMode(agentSelectionMode !== 'manual')
+          const resolvedAgentId = conversationLastAgentId || null
+          if (resolvedAgentId) {
+            setSelectedAgentId(resolvedAgentId)
+            setPendingAgentId(resolvedAgentId)
+          } else {
+            setPendingAgentId(null)
+            setSelectedAgentId(defaultAgent?.id || null)
+          }
         }
         loadedMessagesRef.current.add(activeConversation.id)
       } else {
@@ -737,6 +758,10 @@ const ChatInterface = ({
     const conversationKey = activeConversation?.id || conversationId || 'new'
     const hasStoredAgent = Boolean(activeConversation?.last_agent_id) && !isPlaceholderConversation
     if (hasStoredAgent) return
+
+    if (manualAgentSelectionRef.current.conversationId === conversationKey) {
+      return
+    }
 
     const lastApplied = initialAgentAppliedRef.current
     if (
@@ -1712,7 +1737,7 @@ const ChatInterface = ({
               isSearchActive={isSearchActive}
               isThinkingActive={isThinkingActive}
               agents={selectableAgents}
-              agentsLoading={isAgentResolving}
+              agentsLoading={isAgentsLoading}
               agentsLoadingLabel={agentsLoadingLabel}
               agentsLoadingDots={agentLoadingDots}
               selectedAgent={selectedAgent}
@@ -1720,12 +1745,38 @@ const ChatInterface = ({
               onAgentSelect={agent => {
                 setSelectedAgentId(agent?.id || null)
                 setIsAgentAutoMode(false)
+                setPendingAgentId(null)
                 setIsAgentSelectorOpen(false)
+                const targetConversationId = activeConversation?.id || conversationId
+                manualAgentSelectionRef.current = {
+                  conversationId: targetConversationId || null,
+                  mode: 'manual',
+                  agentId: agent?.id || null,
+                }
+                if (targetConversationId) {
+                  updateConversation(targetConversationId, {
+                    last_agent_id: agent?.id || null,
+                    agent_selection_mode: 'manual',
+                  }).catch(err => console.error('Failed to update agent selection mode:', err))
+                }
               }}
               onAgentAutoModeToggle={() => {
                 setSelectedAgentId(null) // Clear selected agent when entering auto mode
                 setIsAgentAutoMode(true)
+                setPendingAgentId(null)
                 setIsAgentSelectorOpen(false)
+                const targetConversationId = activeConversation?.id || conversationId
+                manualAgentSelectionRef.current = {
+                  conversationId: targetConversationId || null,
+                  mode: 'auto',
+                  agentId: null,
+                }
+                if (targetConversationId) {
+                  updateConversation(targetConversationId, {
+                    last_agent_id: null,
+                    agent_selection_mode: 'auto',
+                  }).catch(err => console.error('Failed to update agent selection mode:', err))
+                }
               }}
               isAgentSelectorOpen={isAgentSelectorOpen}
               onAgentSelectorToggle={() => setIsAgentSelectorOpen(prev => !prev)}

@@ -16,6 +16,14 @@ const SILICONFLOW_BASE = 'https://api.siliconflow.cn/v1'
 const GLM_BASE = getPublicEnv('PUBLIC_GLM_BASE_URL') || 'https://open.bigmodel.cn/api/paas/v4'
 const KIMI_BASE = getPublicEnv('PUBLIC_KIMI_BASE_URL') || 'https://api.moonshot.cn/v1'
 
+const resolveAbsoluteBase = baseUrl => {
+  if (!baseUrl || typeof baseUrl !== 'string') return baseUrl
+  if (baseUrl.startsWith('/')) {
+    const origin = typeof window !== 'undefined' ? window.location?.origin : ''
+    return origin ? `${origin}${baseUrl}` : baseUrl
+  }
+  return baseUrl
+}
 /**
  * Normalizes text content from various formats into a plain string.
  * Handles strings, arrays of parts, and objects with parts property.
@@ -421,7 +429,7 @@ const buildOpenAIModel = ({
   if (!resolvedKey) {
     throw new Error('Missing API key')
   }
-  const resolvedBase = resolveOpenAIBase(provider, baseUrl)
+  const resolvedBase = resolveAbsoluteBase(resolveOpenAIBase(provider, baseUrl))
 
   const modelKwargs = {}
   if (provider === 'siliconflow') {
@@ -463,7 +471,15 @@ const buildOpenAIModel = ({
     streamUsage: false,
     __includeRawResponse: true,
     modelKwargs,
-    configuration: { baseURL: resolvedBase, dangerouslyAllowBrowser: true },
+    configuration: {
+      baseURL: resolvedBase,
+      dangerouslyAllowBrowser: true,
+      defaultHeaders: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': '*',
+      },
+    },
   })
 
   return modelInstance
@@ -527,7 +543,15 @@ const buildSiliconFlowModel = ({
     streamUsage: false,
     __includeRawResponse: true,
     modelKwargs,
-    configuration: { baseURL: resolvedBase, dangerouslyAllowBrowser: true },
+    configuration: {
+      baseURL: resolvedBase,
+      dangerouslyAllowBrowser: true,
+      defaultHeaders: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': '*',
+      },
+    },
   })
 
   // const bindParams = {}
@@ -595,6 +619,7 @@ const buildGLMModel = ({
   if (streaming) {
     modelKwargs.stream_options = { include_usage: false }
   }
+  const origin = window.location.origin
 
   let modelInstance = new ChatOpenAI({
     apiKey: resolvedKey,
@@ -605,7 +630,16 @@ const buildGLMModel = ({
     streamUsage: false,
     __includeRawResponse: true,
     modelKwargs,
-    configuration: { baseURL: resolvedBase, dangerouslyAllowBrowser: true },
+    configuration: {
+      baseURL: resolvedBase,
+      dangerouslyAllowBrowser: true,
+      defaultHeaders: {
+        'Access-Control-Allow-Origin': origin,
+        'Access-Control-Allow-Methods': ['GET', 'POST', 'OPTIONS'],
+        'Access-Control-Allow-Headers': ['Content-Type', 'Authorization', 'X-Requested-With'],
+        'Access-Control-Allow-Credentials': true,
+      },
+    },
   })
 
   return modelInstance
@@ -635,7 +669,7 @@ const buildKimiModel = ({
   if (!resolvedKey) {
     throw new Error('Missing API key')
   }
-  const resolvedBase = KIMI_BASE
+  const resolvedBase = resolveAbsoluteBase(KIMI_BASE)
 
   const modelKwargs = {}
   if (responseFormat) {
@@ -671,7 +705,15 @@ const buildKimiModel = ({
     streamUsage: false,
     __includeRawResponse: true,
     modelKwargs,
-    configuration: { baseURL: resolvedBase, dangerouslyAllowBrowser: true },
+    configuration: {
+      baseURL: resolvedBase,
+      dangerouslyAllowBrowser: true,
+      defaultHeaders: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': '*',
+      },
+    },
   })
 
   return modelInstance
@@ -1266,15 +1308,7 @@ const requestSiliconFlow = async ({
  * @param {Object} params - Request parameters
  * @returns {Promise<string>} - Response content as string
  */
-const requestGemini = async ({
-  apiKey,
-  model,
-  messages,
-  temperature,
-  top_k,
-  top_p,
-  signal,
-}) => {
+const requestGemini = async ({ apiKey, model, messages, temperature, top_k, top_p, signal }) => {
   const modelInstance = buildGeminiModel({
     apiKey,
     model,
@@ -1867,23 +1901,9 @@ export const createBackendProvider = provider => ({
   generateTitleAndSpace: (firstMessage, spaces, apiKey, baseUrl, model) =>
     generateTitleAndSpace(provider, firstMessage, spaces, apiKey, baseUrl, model),
   generateTitleSpaceAndAgent: (firstMessage, spacesWithAgents, apiKey, baseUrl, model) =>
-    generateTitleSpaceAndAgent(
-      provider,
-      firstMessage,
-      spacesWithAgents,
-      apiKey,
-      baseUrl,
-      model,
-    ),
+    generateTitleSpaceAndAgent(provider, firstMessage, spacesWithAgents, apiKey, baseUrl, model),
   generateAgentForAuto: (userMessage, currentSpace, apiKey, baseUrl, model) =>
-    generateAgentForAuto(
-      provider,
-      userMessage,
-      currentSpace,
-      apiKey,
-      baseUrl,
-      model,
-    ),
+    generateAgentForAuto(provider, userMessage, currentSpace, apiKey, baseUrl, model),
   generateRelatedQuestions: (messages, apiKey, baseUrl, model) =>
     generateRelatedQuestions(provider, messages, apiKey, baseUrl, model),
 })

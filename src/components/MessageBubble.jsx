@@ -25,7 +25,7 @@ import clsx from 'clsx'
 import { getProvider } from '../lib/providers'
 import { parseChildrenWithEmojis } from '../lib/emojiParser'
 import EmojiDisplay from './EmojiDisplay'
-import { renderProviderIcon, getModelIcon } from '../lib/modelIcons'
+import { renderProviderIcon, getModelIcon, getModelIconClassName } from '../lib/modelIcons'
 import DotLoader from './DotLoader'
 import MobileSourcesDrawer from './MobileSourcesDrawer'
 import DesktopSourcesSection from './DesktopSourcesSection'
@@ -966,7 +966,7 @@ const MessageBubble = ({
                     alt=""
                     width={12}
                     height={12}
-                    className="w-3 h-3 object-contain"
+                    className={clsx('w-3 h-3 object-contain', getModelIconClassName(resolvedModel))}
                     loading="lazy"
                   />
                 )}
@@ -997,7 +997,10 @@ const MessageBubble = ({
                     alt=""
                     width={14}
                     height={14}
-                    className="w-3.5 h-3.5 object-contain"
+                    className={clsx(
+                      'w-3.5 h-3.5 object-contain',
+                      getModelIconClassName(resolvedModel),
+                    )}
                     loading="lazy"
                   />
                 )}

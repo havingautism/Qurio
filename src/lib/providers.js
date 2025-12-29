@@ -1,5 +1,5 @@
 import { createBackendProvider } from './backendProvider'
-import { GLM_BASE_URL, SILICONFLOW_BASE_URL, KIMI_BASE_URL } from './providerConstants'
+import { GLM_BASE_URL, SILICONFLOW_BASE_URL } from './providerConstants'
 import { getPublicEnv } from './publicEnv'
 
 /**
@@ -178,10 +178,10 @@ export const PROVIDERS = {
   kimi: {
     ...createBackendProvider('kimi'),
     id: 'kimi',
-    name: 'Kimi (Moonshot AI)',
+    name: 'Moonshot AI',
     getCredentials: settings => ({
       apiKey: settings.KimiKey || getPublicEnv('PUBLIC_KIMI_API_KEY'),
-      baseUrl: KIMI_BASE_URL,
+      baseUrl: getPublicEnv('PUBLIC_KIMI_BASE_URL'),
     }),
     getTools: isSearchActive =>
       isSearchActive

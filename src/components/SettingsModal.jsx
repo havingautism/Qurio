@@ -8,6 +8,7 @@ import {
   Info,
   Key,
   Link,
+  Loader2,
   MessageSquare,
   Monitor,
   RefreshCw,
@@ -237,6 +238,8 @@ const SettingsModal = ({ isOpen, onClose }) => {
   const interfaceLanguageDropdownRef = useRef(null)
   const [contextMessageLimit, setContextMessageLimit] = useState(12)
   const [themeColor, setThemeColor] = useState('violet')
+  const [fontSize, setFontSize] = useState('medium')
+  const [isSaving, setIsSaving] = useState(false)
   const [enableRelatedQuestions, setEnableRelatedQuestions] = useState(false)
   const [interfaceLanguage, setInterfaceLanguage] = useState('en')
 
@@ -322,6 +325,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
       if (settings.googleApiKey) setGoogleApiKey(settings.googleApiKey)
       if (settings.contextMessageLimit) setContextMessageLimit(Number(settings.contextMessageLimit))
       if (settings.themeColor) setThemeColor(settings.themeColor)
+      if (settings.fontSize) setFontSize(settings.fontSize)
       if (typeof settings.enableRelatedQuestions === 'boolean')
         setEnableRelatedQuestions(settings.enableRelatedQuestions)
       // Initialize interfaceLanguage from i18n.language (which reads from localStorage)
@@ -399,44 +403,50 @@ const SettingsModal = ({ isOpen, onClose }) => {
   }
 
   const handleSave = async () => {
-    // Validate database before saving to guide users through setup
-    if (supabaseUrl && supabaseKey) {
-      setTesting(true)
-      const result = await testConnection(supabaseUrl, supabaseKey)
-      setTestResult(result)
-      setTesting(false)
-      if (!result.success) {
-        openInitSqlModal(result)
-        return
+    setIsSaving(true)
+    try {
+      // Validate database before saving to guide users through setup
+      if (supabaseUrl && supabaseKey) {
+        setTesting(true)
+        const result = await testConnection(supabaseUrl, supabaseKey)
+        setTestResult(result)
+        setTesting(false)
+        if (!result.success) {
+          openInitSqlModal(result)
+          return
+        }
       }
+
+      // TODO: Validate inputs
+
+      const newSettings = {
+        apiProvider,
+        googleApiKey,
+        OpenAICompatibilityKey,
+        OpenAICompatibilityUrl,
+        SiliconFlowKey,
+        GlmKey,
+        KimiKey,
+        supabaseUrl,
+        supabaseKey,
+        contextMessageLimit,
+        themeColor,
+        fontSize,
+        enableRelatedQuestions,
+        interfaceLanguage,
+      }
+
+      await saveSettings(newSettings)
+
+      // Save Remote (if connected)
+      if (supabaseUrl && supabaseKey) {
+        await saveRemoteSettings(newSettings)
+      }
+
+      onClose()
+    } finally {
+      setIsSaving(false)
     }
-
-    // TODO: Validate inputs
-
-    const newSettings = {
-      apiProvider,
-      googleApiKey,
-      OpenAICompatibilityKey,
-      OpenAICompatibilityUrl,
-      SiliconFlowKey,
-      GlmKey,
-      KimiKey,
-      supabaseUrl,
-      supabaseKey,
-      contextMessageLimit,
-      themeColor,
-      enableRelatedQuestions,
-      interfaceLanguage,
-    }
-
-    await saveSettings(newSettings)
-
-    // Save Remote (if connected)
-    if (supabaseUrl && supabaseKey) {
-      await saveRemoteSettings(newSettings)
-    }
-
-    onClose()
   }
 
   return (
@@ -948,6 +958,32 @@ const SettingsModal = ({ isOpen, onClose }) => {
                     </button>
                   ))}
                 </div>
+
+                <div className="flex flex-col gap-1 mt-8">
+                  <label className="text-sm font-medium text-gray-900 dark:text-white">
+                    {t('settings.messageFontSize')}
+                  </label>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {t('settings.messageFontSizeHint')}
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-2">
+                  {['small', 'medium', 'large', 'extra-large'].map(size => (
+                    <button
+                      key={size}
+                      type="button"
+                      onClick={() => setFontSize(size)}
+                      className={clsx(
+                        'flex items-center justify-center px-4 py-2.5 rounded-lg border text-sm font-medium transition-all',
+                        fontSize === size
+                          ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400'
+                          : 'border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-900 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-zinc-800',
+                      )}
+                    >
+                      {t(`settings.fontSize.${size}`)}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -1068,8 +1104,10 @@ const SettingsModal = ({ isOpen, onClose }) => {
             </button>
             <button
               onClick={handleSave}
-              className="px-4 cursor-pointer py-2 rounded-lg text-sm font-medium bg-primary-500 text-white  hover:opacity-90 transition-opacity"
+              disabled={isSaving}
+              className="px-4 cursor-pointer py-2 rounded-lg text-sm font-medium bg-primary-500 text-white hover:opacity-90 transition-opacity flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
+              {isSaving && <Loader2 size={16} className="animate-spin" />}
               {t('settings.saveChanges')}
             </button>
           </div>

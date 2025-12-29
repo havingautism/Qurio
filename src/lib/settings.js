@@ -154,6 +154,7 @@ export const loadSettings = (overrides = {}) => {
   const localEnableRelatedQuestions = localStorage.getItem('enableRelatedQuestions')
   const localInterfaceLanguage = localStorage.getItem('interfaceLanguage')
   const localLlmAnswerLanguage = localStorage.getItem('llmAnswerLanguage')
+  const localFontSize = localStorage.getItem('fontSize')
 
   // Style settings
   const localStyleBaseTone = localStorage.getItem('styleBaseTone')
@@ -196,6 +197,7 @@ export const loadSettings = (overrides = {}) => {
     enableRelatedQuestions: resolvedRelatedQuestionsPreference,
     interfaceLanguage: localInterfaceLanguage || overrides.interfaceLanguage || 'en',
     llmAnswerLanguage: localLlmAnswerLanguage || overrides.llmAnswerLanguage || 'English',
+    fontSize: localFontSize || overrides.fontSize || 'medium',
 
     // Style
     baseTone: localStyleBaseTone || overrides.baseTone || DEFAULT_STYLE_SETTINGS.baseTone,
@@ -297,6 +299,9 @@ export const saveSettings = async settings => {
   }
   if (settings.customInstruction !== undefined) {
     localStorage.setItem('styleCustomInstruction', settings.customInstruction)
+  }
+  if (settings.fontSize !== undefined) {
+    localStorage.setItem('fontSize', settings.fontSize)
   }
 
   window.dispatchEvent(new Event('settings-changed'))

@@ -101,6 +101,7 @@
 /* CSS variables for sidebar width */
 :root {
   --sidebar-width: 0px;
+  --message-font-size: 16px;
 }
 
 /* Apply transform to elements that need to move with sidebar */
@@ -259,6 +260,14 @@ h6 {
 .message-content code,
 .message-content pre {
   font-family: var(--font-mono);
+}
+
+.message-content {
+  font-size: var(--message-font-size) !important;
+}
+
+.message-content p {
+  font-size: var(--message-font-size) !important;
 }
 
 /* Custom Scrollbar for Tables */

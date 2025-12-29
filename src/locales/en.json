@@ -70,6 +70,14 @@
     "theme": "Theme",
     "themeColor": "Theme Color",
     "themeColorHint": "Customize the look and feel of your workspace.",
+    "messageFontSize": "Message Font Size",
+    "messageFontSizeHint": "Adjust the font size for chat messages",
+    "fontSize": {
+      "small": "Small",
+      "medium": "Medium",
+      "large": "Large",
+      "extra-large": "Extra Large"
+    },
     "themeLight": "Light",
     "themeDark": "Dark",
     "themeSystem": "System",

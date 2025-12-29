@@ -70,6 +70,14 @@
     "theme": "主题",
     "themeColor": "主题颜色",
     "themeColorHint": "自定义您工作区的外观和感觉。",
+    "messageFontSize": "消息字体大小",
+    "messageFontSizeHint": "调整聊天消息的显示字体大小",
+    "fontSize": {
+      "small": "小",
+      "medium": "中",
+      "large": "大",
+      "extra-large": "特大"
+    },
     "themeLight": "浅色",
     "themeDark": "深色",
     "themeSystem": "跟随系统",

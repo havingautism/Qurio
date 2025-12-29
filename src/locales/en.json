@@ -357,7 +357,14 @@
     "confirm": "Confirm",
     "cancel": "Cancel",
     "delete": "Delete",
-    "deleteMessage": "Are you sure you want to delete \"{{title}}\"? This action cannot be undone."
+    "deleteMessage": "Are you sure you want to delete \"{{title}}\"? This action cannot be undone.",
+    "resendTitle": "Resend message?",
+    "resendMessage": "This will resend the same question.",
+    "regenerateTitle": "Regenerate answer?",
+    "regenerateMessage": "This will regenerate the assistant response.",
+    "deleteMessageTitle": "Delete message?",
+    "deleteUserMessage": "Delete this question? This action cannot be undone.",
+    "deleteAssistantMessage": "Delete this answer? This action cannot be undone."
   },
   "homeView": {
     "askAnything": "Ask anything...",
@@ -389,7 +396,8 @@
     "copy": "Copy",
     "share": "Share",
     "quote": "Quote",
-    "regenerate": "Regenerate"
+    "regenerate": "Regenerate",
+    "resend": "Resend"
   },
   "sources": {
     "title": "Sources",

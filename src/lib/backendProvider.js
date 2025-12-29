@@ -326,6 +326,8 @@ const collectGLMSources = (webSearchResults, sourceMap) => {
       title: result?.title || refer,
       url: result?.link || '',
       snippet: result?.content?.substring(0, 200) || '',
+      icon: result?.icon || '',
+      media: result?.media || '',
     })
   }
 }

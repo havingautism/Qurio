@@ -34,6 +34,7 @@ import { getAgentDisplayName } from '../lib/agentDisplay'
 import { listMessages } from '../lib/conversationsService'
 import { loadSettings } from '../lib/settings'
 import { listSpaceAgents } from '../lib/spacesService'
+import { deleteMessageById } from '../lib/supabase'
 import EmojiDisplay from './EmojiDisplay'
 
 const ChatInterface = ({
@@ -1304,6 +1305,34 @@ const ChatInterface = ({
     handleSendMessage(text, msgAttachments, null, { editingInfoOverride })
   }, [extractUserQuestion, handleSendMessage, isLoading, messages])
 
+  const handleResendMessage = useCallback(
+    userIndex => {
+      if (isLoading) return
+
+      const userMsg = messages[userIndex]
+      if (!userMsg || userMsg.role !== 'user') return
+
+      const nextMsg = messages[userIndex + 1]
+      const hasPartner = nextMsg && nextMsg.role === 'ai'
+
+      const msgAttachments = Array.isArray(userMsg.content)
+        ? userMsg.content.filter(c => c.type === 'image_url')
+        : []
+
+      const text = extractUserQuestion(userMsg)
+      if (!text.trim() && msgAttachments.length === 0) return
+
+      const editingInfoOverride = {
+        index: userIndex,
+        targetId: userMsg.id || null,
+        partnerId: hasPartner ? nextMsg.id || null : null,
+      }
+
+      handleSendMessage(text, msgAttachments, null, { editingInfoOverride })
+    },
+    [extractUserQuestion, handleSendMessage, isLoading, messages],
+  )
+
   const handleRegenerateAnswer = useCallback(
     aiIndex => {
       if (isLoading) return
@@ -1338,6 +1367,60 @@ const ChatInterface = ({
       handleSendMessage,
       isLoading,
       messages,
+      setEditingIndex,
+      setEditingPartnerId,
+      setEditingPartnerTimestamp,
+      setEditingTargetId,
+      setEditingTargetTimestamp,
+    ],
+  )
+
+  const handleDeleteMessage = useCallback(
+    async index => {
+      if (isLoading) return
+      const target = messages[index]
+      if (!target) return
+
+      if (target.id) {
+        try {
+          await deleteMessageById(target.id)
+        } catch (err) {
+          console.error('Failed to delete message:', err)
+        }
+      }
+
+      setMessages(prev => prev.filter((_, idx) => idx !== index))
+
+      if (editingIndex !== null) {
+        if (editingIndex === index) {
+          setEditingIndex(null)
+          setEditingSeed({ text: '', attachments: [] })
+          setEditingTargetId(null)
+          setEditingTargetTimestamp(null)
+          setEditingPartnerId(null)
+          setEditingPartnerTimestamp(null)
+        } else if (editingIndex > index) {
+          setEditingIndex(editingIndex - 1)
+        }
+      }
+
+      if (editingTargetId && target.id === editingTargetId) {
+        setEditingTargetId(null)
+        setEditingTargetTimestamp(null)
+      }
+
+      if (editingPartnerId && target.id === editingPartnerId) {
+        setEditingPartnerId(null)
+        setEditingPartnerTimestamp(null)
+      }
+    },
+    [
+      editingIndex,
+      editingPartnerId,
+      editingTargetId,
+      isLoading,
+      messages,
+      setMessages,
       setEditingIndex,
       setEditingPartnerId,
       setEditingPartnerTimestamp,
@@ -1577,6 +1660,8 @@ const ChatInterface = ({
               onEdit={handleEdit}
               onQuote={handleQuote}
               onRegenerateAnswer={handleRegenerateAnswer}
+              onResend={handleResendMessage}
+              onDelete={handleDeleteMessage}
             />
             {/* Bottom Anchor */}
             <div ref={bottomRef} className="h-1" />

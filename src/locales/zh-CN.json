@@ -357,7 +357,14 @@
     "confirm": "确认",
     "cancel": "取消",
     "delete": "删除",
-    "deleteMessage": "确定要删除「{{title}}」吗？此操作无法撤销。"
+    "deleteMessage": "确定要删除「{{title}}」吗？此操作无法撤销。",
+    "resendTitle": "重新发送消息？",
+    "resendMessage": "将按原内容重新发送问题。",
+    "regenerateTitle": "重新生成回答？",
+    "regenerateMessage": "将重新生成助手回复。",
+    "deleteMessageTitle": "删除消息？",
+    "deleteUserMessage": "确定要删除这个问题吗？此操作无法撤销。",
+    "deleteAssistantMessage": "确定要删除这个回答吗？此操作无法撤销。"
   },
   "homeView": {
     "askAnything": "问任何问题...",
@@ -389,7 +396,8 @@
     "copy": "复制",
     "share": "分享",
     "quote": "引用",
-    "regenerate": "重新生成"
+    "regenerate": "重新生成",
+    "resend": "重新发送"
   },
   "sources": {
     "title": "来源",

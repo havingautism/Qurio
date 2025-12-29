@@ -15,6 +15,7 @@ import {
   RefreshCw,
   Globe,
   Quote,
+  Trash2,
   X,
 } from 'lucide-react'
 import { Streamdown } from 'streamdown'
@@ -31,6 +32,7 @@ import MobileSourcesDrawer from './MobileSourcesDrawer'
 import DesktopSourcesSection from './DesktopSourcesSection'
 import useIsMobile from '../hooks/useIsMobile'
 import ShareModal from './ShareModal'
+import { useAppContext } from '../App'
 
 const PROVIDER_META = {
   gemini: {
@@ -168,6 +170,8 @@ const MessageBubble = ({
   messageId,
   bubbleRef,
   onEdit,
+  onResend,
+  onDelete,
   onRegenerateAnswer,
   onQuote,
 }) => {
@@ -438,6 +442,7 @@ const MessageBubble = ({
   const [thinkingStatusIndex, setThinkingStatusIndex] = useState(0)
 
   const { t } = useTranslation()
+  const { showConfirmation } = useAppContext()
 
   // Dynamic thinking status messages using translations
   const THINKING_STATUS_MESSAGES = [
@@ -822,6 +827,21 @@ const MessageBubble = ({
             </button>
             <button
               onClick={() => {
+                if (!onResend) return
+                showConfirmation({
+                  title: t('confirmation.resendTitle'),
+                  message: t('confirmation.resendMessage'),
+                  confirmText: t('message.resend'),
+                  onConfirm: onResend,
+                })
+              }}
+              className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300  rounded-lg transition-colors"
+              title={t('message.resend')}
+            >
+              <RefreshCw size={14} />
+            </button>
+            <button
+              onClick={() => {
                 copyToClipboard(contentToRender)
                 setIsCopied(true)
               }}
@@ -829,6 +849,22 @@ const MessageBubble = ({
               title={t('messageBubble.copy')}
             >
               {isCopied ? <Check size={14} /> : <Copy size={14} />}
+            </button>
+            <button
+              onClick={() => {
+                if (!onDelete) return
+                showConfirmation({
+                  title: t('confirmation.deleteMessageTitle'),
+                  message: t('confirmation.deleteUserMessage'),
+                  confirmText: t('confirmation.delete'),
+                  isDangerous: true,
+                  onConfirm: onDelete,
+                })
+              }}
+              className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg transition-colors"
+              title={t('common.delete')}
+            >
+              <Trash2 size={14} />
             </button>
           </div>
         </div>
@@ -1126,7 +1162,15 @@ const MessageBubble = ({
         </button>
         <button
           className="flex items-center gap-2 text-sm font-mono text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
-          onClick={() => onRegenerateAnswer && onRegenerateAnswer()}
+          onClick={() => {
+            if (!onRegenerateAnswer) return
+            showConfirmation({
+              title: t('confirmation.regenerateTitle'),
+              message: t('confirmation.regenerateMessage'),
+              confirmText: t('message.regenerate'),
+              onConfirm: onRegenerateAnswer,
+            })
+          }}
         >
           <RefreshCw size={16} />
           <span className="hidden sm:block">{t('message.regenerate')}</span>
@@ -1199,6 +1243,22 @@ const MessageBubble = ({
             </span>
           </button>
         )}
+        <button
+          className="flex items-center gap-2 text-sm font-mono text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors ml-auto"
+          onClick={() => {
+            if (!onDelete) return
+            showConfirmation({
+              title: t('confirmation.deleteMessageTitle'),
+              message: t('confirmation.deleteAssistantMessage'),
+              confirmText: t('confirmation.delete'),
+              isDangerous: true,
+              onConfirm: onDelete,
+            })
+          }}
+        >
+          <Trash2 size={16} />
+          <span className="hidden sm:block">{t('common.delete')}</span>
+        </button>
       </div>
 
       {/* Desktop Sources Section (Collapsible) */}

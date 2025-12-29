@@ -114,6 +114,7 @@
       "openai_compatibility": "OpenAI 兼容",
       "siliconflow": "SiliconFlow",
       "glm": "GLM (智谱 AI)",
+      "modelscope": "魔塔社区",
       "kimi": "Kimi (月之暗面)"
     },
     "responseStyle": "回复风格",
@@ -201,6 +202,8 @@
     "siliconflowApiKeyPlaceholder": "sk-...",
     "glmApiKey": "GLM (智谱 AI) API 密钥",
     "glmApiKeyPlaceholder": "您的 GLM API 密钥",
+    "modelscopeApiKey": "魔塔社区 API 密钥",
+    "modelscopeApiKeyPlaceholder": "您的魔塔社区 API 密钥",
     "kimiApiKey": "Kimi (月之暗面) API 密钥",
     "kimiApiKeyPlaceholder": "您的 Kimi API 密钥",
     "loadedFromEnvironment": "从环境变量加载",

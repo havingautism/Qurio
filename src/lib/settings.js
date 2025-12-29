@@ -226,6 +226,8 @@ export const loadSettings = (overrides = {}) => {
   if (!mergedSettings.SiliconFlowKey)
     mergedSettings.SiliconFlowKey = getPublicEnv('PUBLIC_SILICONFLOW_API_KEY') || ''
   if (!mergedSettings.GlmKey) mergedSettings.GlmKey = getPublicEnv('PUBLIC_GLM_API_KEY') || ''
+  if (!mergedSettings.ModelScopeKey)
+    mergedSettings.ModelScopeKey = getPublicEnv('PUBLIC_MODELSCOPE_API_KEY') || ''
   if (!mergedSettings.KimiKey) mergedSettings.KimiKey = getPublicEnv('PUBLIC_KIMI_API_KEY') || ''
   if (!mergedSettings.googleApiKey)
     mergedSettings.googleApiKey = getPublicEnv('PUBLIC_GOOGLE_API_KEY') || ''
@@ -255,6 +257,7 @@ export const saveSettings = async settings => {
     'OpenAICompatibilityUrl',
     'SiliconFlowKey',
     'GlmKey',
+    'ModelScopeKey',
     'KimiKey',
     'googleApiKey',
   ]

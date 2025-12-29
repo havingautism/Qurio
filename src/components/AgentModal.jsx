@@ -34,6 +34,7 @@ const FALLBACK_MODEL_OPTIONS = {
     { value: 'glm-4', label: 'GLM-4' },
     { value: 'glm-4-flash', label: 'GLM-4 Flash' },
   ],
+  modelscope: [],
   kimi: [
     { value: 'moonshot-v1-8k', label: 'Moonshot V1 8K' },
     { value: 'moonshot-v1-32k', label: 'Moonshot V1 32K' },
@@ -41,7 +42,14 @@ const FALLBACK_MODEL_OPTIONS = {
   __fallback__: [],
 }
 
-const PROVIDER_KEYS = ['gemini', 'openai_compatibility', 'siliconflow', 'glm', 'kimi']
+const PROVIDER_KEYS = [
+  'gemini',
+  'openai_compatibility',
+  'siliconflow',
+  'glm',
+  'modelscope',
+  'kimi',
+]
 const MODEL_SEPARATOR = '::'
 
 const parseStoredModel = value => {
@@ -103,6 +111,7 @@ const ENV_VARS = {
   googleApiKey: getPublicEnv('PUBLIC_GOOGLE_API_KEY'),
   siliconFlowKey: getPublicEnv('PUBLIC_SILICONFLOW_API_KEY'),
   glmKey: getPublicEnv('PUBLIC_GLM_API_KEY'),
+  modelscopeKey: getPublicEnv('PUBLIC_MODELSCOPE_API_KEY'),
   kimiKey: getPublicEnv('PUBLIC_KIMI_API_KEY'),
 }
 
@@ -194,6 +203,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
       openai_compatibility: settings.OpenAICompatibilityKey,
       siliconflow: settings.SiliconFlowKey,
       glm: settings.GlmKey,
+      modelscope: settings.ModelScopeKey,
       kimi: settings.KimiKey,
       // URLs for providers that need it
       openai_compatibility_url: settings.OpenAICompatibilityUrl,
@@ -206,6 +216,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
       else if (key === 'siliconflow')
         credentials = { apiKey: keys.siliconflow, baseUrl: SILICONFLOW_BASE_URL }
       else if (key === 'glm') credentials = { apiKey: keys.glm }
+      else if (key === 'modelscope') credentials = { apiKey: keys.modelscope }
       else if (key === 'kimi') credentials = { apiKey: keys.kimi }
       else if (key === 'openai_compatibility')
         credentials = { apiKey: keys.openai_compatibility, baseUrl: keys.openai_compatibility_url }

@@ -8,6 +8,8 @@ const OPENAI_DEFAULT_BASE = 'https://api.openai.com/v1'
 const SILICONFLOW_BASE = 'https://api.siliconflow.cn/v1'
 const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta'
 const GLM_BASE = getPublicEnv('PUBLIC_GLM_BASE_URL') || 'https://open.bigmodel.cn/api/paas/v4'
+const MODELSCOPE_BASE =
+  getPublicEnv('PUBLIC_MODELSCOPE_BASE_URL') || 'https://api-inference.modelscope.cn/v1'
 const KIMI_BASE = getPublicEnv('PUBLIC_KIMI_BASE_URL') || 'https://api.moonshot.cn/v1'
 
 const withTimeout = (signal, timeoutMs = 10000) => {
@@ -110,6 +112,9 @@ const fetchGLMModels = async ({ apiKey }, options = {}) => {
   }))
 }
 
+// ModelScope - intentionally skip fetching models for now.
+const fetchModelScopeModels = async () => []
+
 // Kimi (Moonshot AI) - fetch models from API endpoint (OpenAI-compatible)
 const fetchKimiModels = async ({ apiKey }, options = {}) => {
   const resolvedKey = apiKey || getPublicEnv('PUBLIC_KIMI_API_KEY')
@@ -150,6 +155,8 @@ export const getModelsForProvider = async (provider, credentials, options = {}) 
       )
     case 'glm':
       return await fetchGLMModels({ apiKey: credentials.apiKey }, options)
+    case 'modelscope':
+      return await fetchModelScopeModels()
     case 'kimi':
       return await fetchKimiModels({ apiKey: credentials.apiKey }, options)
     case 'openai_compatibility':

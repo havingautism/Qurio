@@ -55,6 +55,11 @@ const PROVIDER_META = {
     id: 'glm',
     fallback: 'G',
   },
+  modelscope: {
+    label: '魔塔社区',
+    id: 'modelscope',
+    fallback: 'M',
+  },
   kimi: {
     label: 'Kimi',
     id: 'kimi',

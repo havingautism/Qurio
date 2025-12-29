@@ -26,6 +26,11 @@ const PROVIDER_META = {
     logo: PROVIDER_ICONS.glm,
     fallback: 'G',
   },
+  modelscope: {
+    label: '魔塔社区',
+    logo: PROVIDER_ICONS.glm,
+    fallback: 'M',
+  },
   kimi: {
     label: 'Kimi',
     logo: PROVIDER_ICONS.kimi,

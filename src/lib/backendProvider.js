@@ -14,6 +14,8 @@ import { getPublicEnv } from './publicEnv'
 const OPENAI_DEFAULT_BASE = 'https://api.openai.com/v1'
 const SILICONFLOW_BASE = 'https://api.siliconflow.cn/v1'
 const GLM_BASE = getPublicEnv('PUBLIC_GLM_BASE_URL') || 'https://open.bigmodel.cn/api/paas/v4'
+const MODELSCOPE_BASE =
+  getPublicEnv('PUBLIC_MODELSCOPE_BASE_URL') || 'https://api-inference.modelscope.cn/v1'
 const KIMI_BASE = getPublicEnv('PUBLIC_KIMI_BASE_URL') || 'https://api.moonshot.cn/v1'
 
 const resolveAbsoluteBase = baseUrl => {
@@ -646,6 +648,80 @@ const buildGLMModel = ({
 }
 
 /**
+ * Builds a ChatOpenAI model instance for ModelScope using GLM-compatible settings.
+ * Configures thinking mode and response format in the same way as GLM.
+ * @param {Object} params - Configuration parameters for the model
+ * @returns {ChatOpenAI} - Configured LangChain ChatOpenAI instance for ModelScope
+ */
+const buildModelScopeModel = ({
+  apiKey,
+  model,
+  temperature,
+  top_k,
+  top_p,
+  frequency_penalty,
+  presence_penalty,
+  tools,
+  toolChoice,
+  responseFormat,
+  thinking,
+  streaming = true,
+}) => {
+  const resolvedKey = apiKey || getPublicEnv('PUBLIC_MODELSCOPE_API_KEY')
+  if (!resolvedKey) {
+    throw new Error('Missing API key')
+  }
+  const resolvedBase = MODELSCOPE_BASE
+
+  const modelKwargs = {}
+  if (responseFormat) {
+    modelKwargs.response_format = responseFormat
+  }
+  const thinkingType = thinking?.type || 'disabled'
+  modelKwargs.thinking = { type: thinkingType }
+  if (top_k !== undefined) {
+    modelKwargs.top_k = top_k
+  }
+  if (top_p !== undefined) modelKwargs.top_p = top_p
+  if (frequency_penalty !== undefined) modelKwargs.frequency_penalty = frequency_penalty
+  if (presence_penalty !== undefined) modelKwargs.presence_penalty = presence_penalty
+  if (tools && tools.length > 0) {
+    modelKwargs.tools = tools
+  }
+  if (toolChoice) modelKwargs.tool_choice = toolChoice
+  if (thinking?.type) {
+    modelKwargs.extra_body = { thinking: { type: thinkingType } }
+  }
+  if (streaming) {
+    modelKwargs.stream_options = { include_usage: false }
+  }
+  const origin = window.location.origin
+
+  let modelInstance = new ChatOpenAI({
+    apiKey: resolvedKey,
+    openAIApiKey: resolvedKey,
+    modelName: model,
+    temperature,
+    streaming,
+    streamUsage: false,
+    __includeRawResponse: true,
+    modelKwargs,
+    configuration: {
+      baseURL: resolvedBase,
+      dangerouslyAllowBrowser: true,
+      defaultHeaders: {
+        'Access-Control-Allow-Origin': origin,
+        'Access-Control-Allow-Methods': ['GET', 'POST', 'OPTIONS'],
+        'Access-Control-Allow-Headers': ['Content-Type', 'Authorization', 'X-Requested-With'],
+        'Access-Control-Allow-Credentials': true,
+      },
+    },
+  })
+
+  return modelInstance
+}
+
+/**
  * Builds a ChatOpenAI model instance specifically for Kimi (Moonshot AI) API.
  * Configures Kimi-specific settings including thinking mode and tools.
  * @param {Object} params - Configuration parameters for the model
@@ -1039,6 +1115,21 @@ const streamWithLangChain = async ({
       thinking,
       streaming: stream,
     })
+  } else if (provider === 'modelscope') {
+    modelInstance = buildModelScopeModel({
+      apiKey,
+      model,
+      temperature,
+      top_k,
+      top_p,
+      frequency_penalty,
+      presence_penalty,
+      tools,
+      toolChoice,
+      responseFormat,
+      thinking,
+      streaming: stream,
+    })
   } else if (provider === 'kimi') {
     modelInstance = buildKimiModel({
       apiKey,
@@ -1144,7 +1235,7 @@ const streamWithLangChain = async ({
       const contentValue = messageChunk?.content ?? chunk?.content
 
       // Process GLM web_search results
-      if (provider === 'glm') {
+      if (provider === 'glm' || provider === 'modelscope') {
         const rawResp = messageChunk?.additional_kwargs?.__raw_response
         collectGLMSources(rawResp?.web_search, sourcesMap)
       }
@@ -1378,6 +1469,52 @@ const requestGLM = async ({
 }
 
 /**
+ * Makes a non-streaming request to ModelScope API.
+ * Returns the complete response content as a string.
+ * @param {Object} params - Request parameters
+ * @returns {Promise<string>} - Response content as string
+ */
+const requestModelScope = async ({
+  apiKey,
+  model,
+  messages,
+  temperature,
+  top_k,
+  top_p,
+  frequency_penalty,
+  presence_penalty,
+  tools,
+  toolChoice,
+  responseFormat,
+  thinking,
+  signal,
+}) => {
+  const modelInstance = buildModelScopeModel({
+    apiKey,
+    model,
+    temperature,
+    top_k,
+    top_p,
+    frequency_penalty,
+    presence_penalty,
+    tools: [],
+    toolChoice,
+    responseFormat,
+    thinking: {
+      type: 'disabled',
+    },
+    streaming: false,
+  })
+
+  const langchainMessages = toLangChainMessages(messages || [])
+  const response = await modelInstance.invoke(langchainMessages, { signal })
+
+  return typeof response.content === 'string'
+    ? response.content
+    : normalizeTextContent(response.content)
+}
+
+/**
  * Makes a non-streaming request to Kimi (Moonshot AI) API.
  * Returns the complete response content as a string.
  * @param {Object} params - Request parameters
@@ -1461,6 +1598,12 @@ Return only the title text.`,
       model,
       messages: promptMessages,
     })
+  } else if (provider === 'modelscope') {
+    content = await requestModelScope({
+      apiKey,
+      model,
+      messages: promptMessages,
+    })
   } else if (provider === 'kimi') {
     content = await requestKimi({
       apiKey,
@@ -1517,6 +1660,12 @@ Return only the tip text.`,
     })
   } else if (provider === 'glm') {
     content = await requestGLM({
+      apiKey,
+      model,
+      messages: promptMessages,
+    })
+  } else if (provider === 'modelscope') {
+    content = await requestModelScope({
       apiKey,
       model,
       messages: promptMessages,
@@ -1582,6 +1731,13 @@ Return the result as a JSON object with keys "title" and "spaceLabel".`,
     })
   } else if (provider === 'glm') {
     content = await requestGLM({
+      apiKey,
+      model,
+      messages: promptMessages,
+      responseFormat,
+    })
+  } else if (provider === 'modelscope') {
+    content = await requestModelScope({
       apiKey,
       model,
       messages: promptMessages,
@@ -1699,6 +1855,13 @@ Return the result as JSON with keys "title", "spaceLabel", and "agentName".`,
       messages: promptMessages,
       responseFormat,
     })
+  } else if (provider === 'modelscope') {
+    content = await requestModelScope({
+      apiKey,
+      model,
+      messages: promptMessages,
+      responseFormat,
+    })
   } else if (provider === 'kimi') {
     content = await requestKimi({
       apiKey,
@@ -1810,6 +1973,13 @@ Return the result as JSON with key "agentName" (agent name only, or null if no m
       messages: promptMessages,
       responseFormat,
     })
+  } else if (provider === 'modelscope') {
+    content = await requestModelScope({
+      apiKey,
+      model,
+      messages: promptMessages,
+      responseFormat,
+    })
   } else if (provider === 'kimi') {
     content = await requestKimi({
       apiKey,
@@ -1869,6 +2039,13 @@ const generateRelatedQuestions = async (provider, messages, apiKey, baseUrl, mod
     })
   } else if (provider === 'glm') {
     content = await requestGLM({
+      apiKey,
+      model,
+      messages: promptMessages,
+      responseFormat,
+    })
+  } else if (provider === 'modelscope') {
+    content = await requestModelScope({
       apiKey,
       model,
       messages: promptMessages,

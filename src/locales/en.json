@@ -114,6 +114,7 @@
       "openai_compatibility": "OpenAI Compatible",
       "siliconflow": "SiliconFlow",
       "glm": "GLM (Zhipu AI)",
+      "modelscope": "ModelScope",
       "kimi": "Kimi (Moonshot AI)"
     },
     "responseStyle": "Response Style",
@@ -201,6 +202,8 @@
     "siliconflowApiKeyPlaceholder": "sk-...",
     "glmApiKey": "GLM (Zhipu AI) API Key",
     "glmApiKeyPlaceholder": "Your GLM API key",
+    "modelscopeApiKey": "ModelScope API Key",
+    "modelscopeApiKeyPlaceholder": "Your ModelScope API key",
     "kimiApiKey": "Kimi (Moonshot AI) API Key",
     "kimiApiKeyPlaceholder": "Your Kimi API key",
     "loadedFromEnvironment": "Loaded from environment",

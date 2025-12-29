@@ -9,6 +9,7 @@ import GoogleIcon from '../assets/google-color.svg?url'
 import MoonshotIcon from '../assets/moonshot.svg?url'
 import ChatGLMIcon from '../assets/chatglm-color.svg?url'
 import ZhipuIcon from '../assets/zhipu-color.svg?url'
+import ModelScopeIcon from '../assets/modelscope-color.svg?url'
 
 const DEFAULT_ICON_BG_CLASS = 'bg-[#f6f6f6b8] dark:bg-[#0d0d0d]'
 
@@ -22,6 +23,7 @@ export const PROVIDER_ICON_META = {
   },
   siliconflow: { src: SiliconCloudIcon, alt: 'SiliconFlow', bgClassName: DEFAULT_ICON_BG_CLASS },
   glm: { src: ZhipuIcon, alt: 'GLM', bgClassName: DEFAULT_ICON_BG_CLASS },
+  modelscope: { src: ModelScopeIcon, alt: 'ModelScope', bgClassName: DEFAULT_ICON_BG_CLASS },
   kimi: {
     src: MoonshotIcon,
     alt: 'Moonshot',

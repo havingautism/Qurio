@@ -10,6 +10,8 @@ export default defineConfig(({ env }) => {
 
   const openAIBaseUrl = envVars.parsed.PUBLIC_OPENAI_BASE_URL || process.env.PUBLIC_OPENAI_BASE_URL
   const glmBaseUrl = envVars.parsed.PUBLIC_GLM_BASE_URL || process.env.PUBLIC_GLM_BASE_URL
+  const modelscopeBaseUrl =
+    envVars.parsed.PUBLIC_MODELSCOPE_BASE_URL || process.env.PUBLIC_MODELSCOPE_BASE_URL
   const kimiBaseUrl = envVars.parsed.PUBLIC_KIMI_BASE_URL || process.env.PUBLIC_KIMI_BASE_URL
   // Base path for GitHub Pages (set to "/Qurio/" for project page). Allow override via env.
   // In development, use root path to avoid issues with chunk loading
@@ -35,7 +37,7 @@ export default defineConfig(({ env }) => {
     server: {
       host: '0.0.0.0',
       proxy:
-        openAIBaseUrl || glmBaseUrl || kimiBaseUrl
+        openAIBaseUrl || glmBaseUrl || modelscopeBaseUrl || kimiBaseUrl
           ? {
               ...(openAIBaseUrl && {
                 '/api/openaiCompatible': {
@@ -49,6 +51,13 @@ export default defineConfig(({ env }) => {
                   target: glmBaseUrl,
                   changeOrigin: true,
                   pathRewrite: { '^/api/glm': '' },
+                },
+              }),
+              ...(modelscopeBaseUrl && {
+                '/api/modelscope': {
+                  target: modelscopeBaseUrl,
+                  changeOrigin: true,
+                  pathRewrite: { '^/api/modelscope': '' },
                 },
               }),
               ...(kimiBaseUrl && {

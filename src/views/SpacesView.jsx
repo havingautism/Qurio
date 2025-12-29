@@ -1,9 +1,9 @@
 import { useNavigate } from '@tanstack/react-router'
 import clsx from 'clsx'
 import { Brain, Clock, DollarSign, Laptop, LayoutGrid, Plus } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useAppContext } from '../App'
 import EmojiDisplay from '../components/EmojiDisplay'
-import { useTranslation } from 'react-i18next'
 
 const SpacesView = () => {
   const { spaces, onCreateSpace, isSidebarPinned } = useAppContext()
@@ -55,7 +55,7 @@ const SpacesView = () => {
     <div
       className={clsx(
         'flex-1 h-full overflow-y-auto bg-background text-foreground transition-all duration-300',
-        isSidebarPinned ? 'ml-0 sm:ml-80' : 'ml-0 sm:ml-16',
+        isSidebarPinned ? 'ml-0 sm:ml-72' : 'ml-0 sm:ml-16',
       )}
     >
       <div className="w-full max-w-5xl mx-auto sm:px-6 sm:py-8 px-3 py-5">
@@ -67,7 +67,9 @@ const SpacesView = () => {
 
         {/* My Spaces Section */}
         <div className="mb-12">
-          <h2 className="text-lg font-medium mb-4 text-gray-700 dark:text-gray-300">{t('views.spacesView.mySpaces')}</h2>
+          <h2 className="text-lg font-medium mb-4 text-gray-700 dark:text-gray-300">
+            {t('views.spacesView.mySpaces')}
+          </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {/* Create Card */}
             <div
@@ -114,7 +116,9 @@ const SpacesView = () => {
 
         {/* Examples Section */}
         <div>
-          <h2 className="text-lg font-medium mb-4 text-gray-700 dark:text-gray-300">{t('views.spacesView.examples')}</h2>
+          <h2 className="text-lg font-medium mb-4 text-gray-700 dark:text-gray-300">
+            {t('views.spacesView.examples')}
+          </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {exampleSpaces.map(ex => (
               <div

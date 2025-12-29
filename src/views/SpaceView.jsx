@@ -164,7 +164,7 @@ const SpaceView = () => {
     <div
       className={clsx(
         'flex flex-col items-center min-h-0 h-full overflow-y-auto p-6 pb-24 bg-background text-foreground transition-all duration-300',
-        isSidebarPinned ? 'ml-0 sm:ml-80' : 'ml-0 sm:ml-16',
+        isSidebarPinned ? 'ml-0 sm:ml-72' : 'ml-0 sm:ml-16',
       )}
     >
       <div className="w-full max-w-3xl flex flex-col gap-8">
@@ -210,7 +210,9 @@ const SpaceView = () => {
               </div>
             )}
             {!loading && conversations.length === 0 && (
-              <div className="text-sm text-gray-500 dark:text-gray-400">{t('views.spaceView.noThreadsFound')}</div>
+              <div className="text-sm text-gray-500 dark:text-gray-400">
+                {t('views.spaceView.noThreadsFound')}
+              </div>
             )}
             {!loading &&
               conversations.map((conv, i) => (
@@ -230,11 +232,14 @@ const SpaceView = () => {
                       </h3>
                       <div className="flex items-center gap-2 mt-2 text-xs text-gray-400">
                         <span>
-                          {new Date(conv.created_at).toLocaleDateString(i18n.language === 'zh-CN' ? 'zh-CN' : 'en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric',
-                          })}
+                          {new Date(conv.created_at).toLocaleDateString(
+                            i18n.language === 'zh-CN' ? 'zh-CN' : 'en-US',
+                            {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric',
+                            },
+                          )}
                         </span>
                       </div>
                     </div>
@@ -265,7 +270,9 @@ const SpaceView = () => {
                         }}
                         items={[
                           {
-                            label: conv.is_favorited ? t('views.removeBookmark') : t('views.addBookmark'),
+                            label: conv.is_favorited
+                              ? t('views.removeBookmark')
+                              : t('views.addBookmark'),
                             icon: (
                               <Bookmark
                                 size={14}

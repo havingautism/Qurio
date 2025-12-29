@@ -145,7 +145,7 @@ const BookmarksView = () => {
     <div
       className={clsx(
         'flex-1 h-full overflow-y-auto bg-background text-foreground transition-all duration-300',
-        isSidebarPinned ? 'ml-0 sm:ml-80' : 'ml-0 sm:ml-16',
+        isSidebarPinned ? 'ml-0 sm:ml-72' : 'ml-0 sm:ml-16',
       )}
     >
       <div className="w-full max-w-5xl mx-auto sm:px-6 sm:py-8 px-3 py-5">
@@ -334,7 +334,9 @@ const BookmarksView = () => {
 
           {/* No More Data Message */}
           {!loading && !hasMore && conversations.length > 0 && (
-            <div className="text-center py-8 text-gray-400 text-sm">{t('views.bookmarksView.noMoreToLoad')}</div>
+            <div className="text-center py-8 text-gray-400 text-sm">
+              {t('views.bookmarksView.noMoreToLoad')}
+            </div>
           )}
         </div>
       </div>

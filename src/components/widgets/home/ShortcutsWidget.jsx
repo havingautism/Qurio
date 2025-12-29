@@ -562,8 +562,8 @@ const ShortcutsWidget = () => {
                                     window.open(shortcut.url, '_blank', 'noopener,noreferrer')
                                   }
                                 }}
-                                className={`w-14 h-14 flex items-center justify-center rounded-2xl bg-white  transition-all duration-300 shadow-sm cursor-pointer
-                                  ${!isEditMode && 'hover:bg-white/70 dark:hover:bg-white/70 hover:scale-105'}
+                                className={`w-14 h-14 flex items-center justify-center rounded-2xl bg-white dark:bg-zinc-800 transition-all duration-300 shadow-sm cursor-pointer
+                                  ${!isEditMode && 'hover:bg-gray-50 dark:hover:bg-zinc-700 hover:scale-105'}
                                   ${isEditMode && 'cursor-grab group'}
                                 `}
                               >
@@ -630,22 +630,19 @@ const ShortcutsWidget = () => {
               position: 'fixed',
               left: dragState.currentX - dragState.offsetX,
               top: dragState.currentY - dragState.offsetY,
-              width: 64, // roughly w-16
-              height: 64,
+              width: 56, // matched to icon size
+              height: 56,
               pointerEvents: 'none',
               zIndex: 9999,
               transform: `rotate(5deg) scale(1.1)`,
               opacity: 0.9,
               touchAction: 'none',
             }}
-            className="flex flex-col items-center justify-center p-2"
+            className="flex items-center justify-center p-0"
           >
-            <div className="w-12 h-12 flex items-center justify-center rounded-xl bg-gray-100 dark:bg-white/10 shadow-2xl ring-2 ring-primary-500">
-              <ShortcutIcon shortcut={dragState.item} />
+            <div className="w-14 h-14 flex items-center justify-center rounded-2xl bg-white dark:bg-zinc-800 shadow-2xl ring-2 ring-primary-500">
+              <ShortcutIcon shortcut={dragState.item} size={28} />
             </div>
-            <span className="text-xs mt-1 truncate max-w-full text-center text-gray-600 dark:text-gray-300 font-bold">
-              {dragState.item.title}
-            </span>
           </div>,
           document.body,
         )}

@@ -1,5 +1,5 @@
 ﻿import { useLocation, useNavigate } from '@tanstack/react-router'
-import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useShallow } from 'zustand/react/shallow'
 import useChatStore from '../lib/chatStore'
@@ -11,7 +11,6 @@ import {
   ArrowDown,
   ArrowRight,
   Brain,
-  Smile,
   Check,
   ChevronDown,
   FileText,
@@ -21,6 +20,7 @@ import {
   Menu,
   PanelRightOpen,
   Paperclip,
+  Smile,
   Sparkles,
   X,
 } from 'lucide-react'
@@ -30,10 +30,10 @@ import { getProvider, providerSupportsSearch } from '../lib/providers'
 import QuestionTimelineSidebar from './QuestionTimelineSidebar'
 
 import { useSidebarOffset } from '../hooks/useSidebarOffset'
-import { listMessages } from '../lib/conversationsService'
-import { listSpaceAgents } from '../lib/spacesService'
-import { loadSettings } from '../lib/settings'
 import { getAgentDisplayName } from '../lib/agentDisplay'
+import { listMessages } from '../lib/conversationsService'
+import { loadSettings } from '../lib/settings'
+import { listSpaceAgents } from '../lib/spacesService'
 import EmojiDisplay from './EmojiDisplay'
 
 const ChatInterface = ({
@@ -480,7 +480,8 @@ const ChatInterface = ({
       if (!activeConversation?.id) {
         const hasLocalConversation = conversationId && messages.length > 0
         const hasInitialPayload =
-          !conversationId && (hasInitialized.current || initialMessage || initialAttachments.length > 0)
+          !conversationId &&
+          (hasInitialized.current || initialMessage || initialAttachments.length > 0)
 
         if (hasLocalConversation || hasInitialPayload) {
           setIsLoadingHistory(false)
@@ -542,7 +543,8 @@ const ChatInterface = ({
         }
         if (
           activeConversation.title &&
-          (activeConversation.title !== 'New Conversation' || conversationTitle === 'New Conversation')
+          (activeConversation.title !== 'New Conversation' ||
+            conversationTitle === 'New Conversation')
         ) {
           setConversationTitle(activeConversation.title)
         }
@@ -1422,10 +1424,11 @@ const ChatInterface = ({
   return (
     <div
       className={clsx(
-        'flex-1 h-full bg-background text-foreground transition-all duration-300 flex flex-col md:ml-20 lg:ml-10 sm:px-4',
-        // 大屏幕固定左移
+        'flex-1 h-full bg-background text-foreground transition-all duration-300 flex flex-col sm:px-4',
+        isSidebarPinned ? 'md:ml-72' : 'md:ml-16',
+        // Fixed left shift for large screens
         // 'xl:-translate-x-30',
-        // 小屏幕跟随sidebar状态动态移动
+        // Dynamic movement follows sidebar state for small screens
         !isXLScreen && 'sidebar-shift',
       )}
     >

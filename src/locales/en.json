@@ -4,6 +4,7 @@
     "cancel": "Cancel",
     "save": "Save",
     "delete": "Delete",
+    "done": "Done",
     "uploadImage": "Upload image",
     "uploadDocument": "Upload document (coming soon)"
   },
@@ -489,7 +490,9 @@
     "icons": {
       "emoji": "Emoji",
       "favicon": "Website Icon",
-      "custom": "Custom URL"
+      "custom": "Custom URL",
+      "searchPlaceholder": "Search emojis...",
+      "noResults": "No emojis found"
     },
     "widgets": {
       "noteTitle": "Memo",
@@ -506,13 +509,20 @@
       "moreShortcuts": "more shortcuts",
       "newShortcut": "New Shortcut",
       "editShortcut": "Edit Shortcut",
-      "shortcutTitle": "Title",
+      "details": "Details",
+      "shortcutTitle": "Name",
       "shortcutTitlePlaceholder": "e.g., GitHub",
+      "urlPlaceholder": "https://example.com",
       "shortcutUrl": "URL",
       "iconType": "Icon Type",
       "selectIcon": "Select Icon",
       "iconUrl": "Icon URL",
+      "iconUrlPlaceholder": "https://example.com/image.png",
+      "imageUrlHint": "Paste a direct link to an image.",
+      "faviconHint": "We will automatically fetch the icon from the URL you provided.",
       "preview": "Preview",
+      "appearance": "Appearance",
+      "editShortcuts": "Edit Shortcuts",
       "tipsTitle": "Daily Tips",
       "tipsContent": "Make your laptop's battery last longer by enabling the Energy Saver.",
       "tipsLoading": "Refreshing today's tip...",

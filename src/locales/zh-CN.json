@@ -4,6 +4,7 @@
     "cancel": "取消",
     "save": "保存",
     "delete": "删除",
+    "done": "完成",
     "uploadImage": "上传图片",
     "uploadDocument": "上传文档（敬请期待）"
   },
@@ -489,7 +490,9 @@
     "icons": {
       "emoji": "表情符号",
       "favicon": "网站图标",
-      "custom": "自定义链接"
+      "custom": "自定义链接",
+      "searchPlaceholder": "搜索表情符号...",
+      "noResults": "没有找到符合条件的表情符号"
     },
     "widgets": {
       "noteTitle": "备忘录",
@@ -506,13 +509,20 @@
       "moreShortcuts": "个更多快捷方式",
       "newShortcut": "新建快捷方式",
       "editShortcut": "编辑快捷方式",
-      "shortcutTitle": "标题",
+      "details": "详细信息",
+      "shortcutTitle": "名称",
       "shortcutTitlePlaceholder": "例如：GitHub",
+      "urlPlaceholder": "https://example.com",
       "shortcutUrl": "网址",
       "iconType": "图标类型",
       "selectIcon": "选择图标",
       "iconUrl": "图标地址",
+      "iconUrlPlaceholder": "https://example.com/image.png",
+      "imageUrlHint": "粘贴图片的直接链接。",
+      "faviconHint": "我们将自动从您提供的网址中获取图标。",
       "preview": "预览",
+      "appearance": "外观",
+      "editShortcuts": "编辑快捷方式",
       "tipsTitle": "每日贴士",
       "tipsContent": "通过启用节能模式，让您的笔记本电脑电池续航更久。",
       "tipsLoading": "正在刷新今日贴士...",

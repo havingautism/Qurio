@@ -1,9 +1,11 @@
-import { useState, useMemo } from 'react'
 import data from '@emoji-mart/data'
 import { Search } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import EmojiDisplay from './EmojiDisplay'
 
 const CustomEmojiPicker = ({ onEmojiSelect, className = '' }) => {
+  const { t } = useTranslation()
   const [search, setSearch] = useState('')
 
   // Extract categories and emojis from the data
@@ -39,7 +41,9 @@ const CustomEmojiPicker = ({ onEmojiSelect, className = '' }) => {
   }, [search, categories, emojis])
 
   return (
-    <div className={`w-80 h-80 bg-white dark:bg-[#191a1a] border border-gray-200 dark:border-zinc-800 rounded-xl shadow-2xl flex flex-col overflow-hidden ${className}`}>
+    <div
+      className={`w-80 h-80 bg-white dark:bg-[#191a1a] border border-gray-200 dark:border-zinc-800 rounded-xl shadow-2xl flex flex-col overflow-hidden ${className}`}
+    >
       {/* Search Bar */}
       <div className="p-3 border-b border-gray-100 dark:border-zinc-800">
         <div className="relative">
@@ -48,7 +52,7 @@ const CustomEmojiPicker = ({ onEmojiSelect, className = '' }) => {
             type="text"
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Search emojis..."
+            placeholder={t('views.icons.searchPlaceholder')}
             className="w-full pl-9 pr-4 py-2 bg-gray-100 dark:bg-zinc-800/50 rounded-lg text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
             autoFocus
           />
@@ -87,7 +91,7 @@ const CustomEmojiPicker = ({ onEmojiSelect, className = '' }) => {
           </div>
         ))}
         {filteredCategories.length === 0 && (
-          <div className="text-center py-8 text-gray-400 text-sm">No emojis found</div>
+          <div className="text-center py-8 text-gray-400 text-sm">{t('views.icons.noResults')}</div>
         )}
       </div>
     </div>

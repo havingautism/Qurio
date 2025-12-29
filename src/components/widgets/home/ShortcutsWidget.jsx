@@ -442,9 +442,9 @@ const ShortcutsWidget = () => {
               <button
                 onClick={() => setIsEditMode(false)}
                 className="px-3 py-1 text-sm font-medium text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-full transition-colors"
-                title={t('common.done', 'Done')}
+                title={t('common.done')}
               >
-                {t('common.done', 'Done')}
+                {t('common.done')}
               </button>
             ) : (
               <>
@@ -452,7 +452,7 @@ const ShortcutsWidget = () => {
                   <button
                     onClick={() => setIsEditMode(true)}
                     className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors rounded-full hover:bg-gray-100 dark:hover:bg-zinc-800"
-                    title={t('views.widgets.editShortcuts', 'Edit Shortcuts')}
+                    title={t('views.widgets.editShortcuts')}
                   >
                     <Settings size={16} />
                   </button>
@@ -463,7 +463,7 @@ const ShortcutsWidget = () => {
                     setIsModalOpen(true)
                   }}
                   className="bg-primary-500 hover:bg-primary-600 text-white p-1.5 rounded-full shadow-lg transition-transform hover:scale-105"
-                  title={t('views.widgets.addShortcut', 'Add Shortcut')}
+                  title={t('views.widgets.addShortcut')}
                 >
                   <Plus size={16} />
                 </button>
@@ -475,7 +475,7 @@ const ShortcutsWidget = () => {
       >
         {isLoading ? (
           <div className="flex items-center justify-center h-full">
-            <div className="text-gray-400 text-sm">{t('common.loading', 'Loading...')}</div>
+            <div className="text-gray-400 text-sm">{t('common.loading')}</div>
           </div>
         ) : shortcuts.length === 0 ? (
           <div
@@ -486,9 +486,7 @@ const ShortcutsWidget = () => {
             className="flex flex-col items-center justify-center h-full cursor-pointer text-gray-400 hover:text-primary-500 transition-colors"
           >
             <Plus size={32} className="mb-2 opacity-50" />
-            <span className="text-sm font-medium">
-              {t('views.widgets.addFirstShortcut', 'Add Shortcut')}
-            </span>
+            <span className="text-sm font-medium">{t('views.widgets.addFirstShortcut')}</span>
           </div>
         ) : (
           <div

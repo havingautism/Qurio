@@ -533,7 +533,7 @@ function App() {
           {isShareRoute ? (
             <Outlet />
           ) : (
-            <div className="flex h-dvh overflow-hidden bg-background text-foreground font-sans selection:bg-primary-500/30">
+            <div className="fixed inset-0 flex overflow-hidden bg-background text-foreground font-sans selection:bg-primary-500/30">
               <Sidebar
                 isOpen={isSidebarOpen}
                 onClose={() => setIsSidebarOpen(false)}

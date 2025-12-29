@@ -114,6 +114,7 @@
       "openai_compatibility": "OpenAI 兼容",
       "siliconflow": "SiliconFlow",
       "glm": "GLM (智谱 AI)",
+      "modelscope": "魔塔社区",
       "kimi": "Kimi (月之暗面)"
     },
     "responseStyle": "回复风格",
@@ -201,6 +202,8 @@
     "siliconflowApiKeyPlaceholder": "sk-...",
     "glmApiKey": "GLM (智谱 AI) API 密钥",
     "glmApiKeyPlaceholder": "您的 GLM API 密钥",
+    "modelscopeApiKey": "魔塔社区 API 密钥",
+    "modelscopeApiKeyPlaceholder": "您的魔塔社区 API 密钥",
     "kimiApiKey": "Kimi (月之暗面) API 密钥",
     "kimiApiKeyPlaceholder": "您的 Kimi API 密钥",
     "loadedFromEnvironment": "从环境变量加载",
@@ -276,7 +279,17 @@
       "custom": "自定义",
       "customPlaceholder": "请输入模型 ID",
       "notSelected": "未选择",
-      "notFound": "找不到模型"
+      "notFound": "找不到模型",
+      "testDefault": "测试默认模型",
+      "testLite": "测试轻量模型",
+      "testing": "测试中...",
+      "testConnectivityOk": "连通性正常",
+      "testStructuredOk": "结构化输出正常",
+      "testMissingModel": "请先选择模型。",
+      "testMissingKey": "该 Provider 缺少 API Key。",
+      "testTimeout": "测试超时。",
+      "testInvalidJson": "结构化输出不是有效的 JSON。",
+      "testFailed": "测试失败：{{message}}"
     },
     "advanced": {
       "title": "高级设定",

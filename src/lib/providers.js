@@ -1,5 +1,5 @@
 import { createBackendProvider } from './backendProvider'
-import { GLM_BASE_URL, SILICONFLOW_BASE_URL } from './providerConstants'
+import { GLM_BASE_URL, MODELSCOPE_BASE_URL, SILICONFLOW_BASE_URL } from './providerConstants'
 import { getPublicEnv } from './publicEnv'
 
 /**
@@ -170,6 +170,31 @@ export const PROVIDERS = {
           ]
         : undefined,
     // GLM requires explicit { type: "disabled" } to suppress thinking content
+    getThinking: isThinkingActive => ({
+      type: isThinkingActive ? 'enabled' : 'disabled',
+    }),
+    parseMessage: defaultParseMessage,
+  },
+  modelscope: {
+    ...createBackendProvider('modelscope'),
+    id: 'modelscope',
+    name: 'ModelScope',
+    getCredentials: settings => ({
+      apiKey: settings.ModelScopeKey || getPublicEnv('PUBLIC_MODELSCOPE_API_KEY'),
+      baseUrl: MODELSCOPE_BASE_URL,
+    }),
+    getTools: isSearchActive =>
+      isSearchActive
+        ? [
+            {
+              type: 'web_search',
+              web_search: {
+                enable: true,
+                search_result: true,
+              },
+            },
+          ]
+        : undefined,
     getThinking: isThinkingActive => ({
       type: isThinkingActive ? 'enabled' : 'disabled',
     }),

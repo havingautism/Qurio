@@ -34,6 +34,7 @@ const ENV_VARS = {
   googleApiKey: getPublicEnv('PUBLIC_GOOGLE_API_KEY'),
   siliconFlowKey: getPublicEnv('PUBLIC_SILICONFLOW_API_KEY'),
   glmKey: getPublicEnv('PUBLIC_GLM_API_KEY'),
+  modelscopeKey: getPublicEnv('PUBLIC_MODELSCOPE_API_KEY'),
   kimiKey: getPublicEnv('PUBLIC_KIMI_API_KEY'),
 }
 
@@ -208,7 +209,7 @@ FOR EACH ROW EXECUTE PROCEDURE public.set_updated_at();
 `
 
 // Constant keys for logic - labels will be translated with useMemo
-const PROVIDER_KEYS = ['gemini', 'openai_compatibility', 'siliconflow', 'glm', 'kimi']
+const PROVIDER_KEYS = ['gemini', 'openai_compatibility', 'siliconflow', 'glm', 'modelscope', 'kimi']
 
 const INTERFACE_LANGUAGE_KEYS = ['en', 'zh-CN']
 
@@ -225,6 +226,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
   const [OpenAICompatibilityUrl, setOpenAICompatibilityUrl] = useState('')
   const [SiliconFlowKey, setSiliconFlowKey] = useState('')
   const [GlmKey, setGlmKey] = useState('')
+  const [ModelScopeKey, setModelScopeKey] = useState('')
   const [KimiKey, setKimiKey] = useState('')
   const [apiProvider, setApiProvider] = useState('gemini')
   const [googleApiKey, setGoogleApiKey] = useState('')
@@ -320,6 +322,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
         setOpenAICompatibilityUrl(settings.OpenAICompatibilityUrl)
       if (settings.SiliconFlowKey) setSiliconFlowKey(settings.SiliconFlowKey)
       if (settings.GlmKey) setGlmKey(settings.GlmKey)
+      if (settings.ModelScopeKey) setModelScopeKey(settings.ModelScopeKey)
       if (settings.KimiKey) setKimiKey(settings.KimiKey)
       if (settings.apiProvider) setApiProvider(settings.apiProvider)
       if (settings.googleApiKey) setGoogleApiKey(settings.googleApiKey)
@@ -339,6 +342,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
             if (data.OpenAICompatibilityUrl) setOpenAICompatibilityUrl(data.OpenAICompatibilityUrl)
             if (data.SiliconFlowKey) setSiliconFlowKey(data.SiliconFlowKey)
             if (data.GlmKey) setGlmKey(data.GlmKey)
+            if (data.ModelScopeKey) setModelScopeKey(data.ModelScopeKey)
             if (data.KimiKey) setKimiKey(data.KimiKey)
             if (data.googleApiKey) setGoogleApiKey(data.googleApiKey)
           }
@@ -426,6 +430,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
         OpenAICompatibilityUrl,
         SiliconFlowKey,
         GlmKey,
+        ModelScopeKey,
         KimiKey,
         supabaseUrl,
         supabaseKey,
@@ -762,6 +767,38 @@ const SettingsModal = ({ isOpen, onClose }) => {
                           />
                         </div>
                         {ENV_VARS.glmKey && (
+                          <p className="text-emerald-600 text-xs dark:text-emerald-400">
+                            {t('settings.loadedFromEnvironment')}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ModelScope Settings */}
+                  {apiProvider === 'modelscope' && (
+                    <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                      <div className="flex flex-col gap-2">
+                        <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                          {t('settings.modelscopeApiKey')}
+                        </label>
+                        <div className="relative">
+                          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                            <Key size={16} />
+                          </div>
+                          <input
+                            type="password"
+                            value={ModelScopeKey}
+                            onChange={e => setModelScopeKey(e.target.value)}
+                            placeholder={t('settings.modelscopeApiKeyPlaceholder')}
+                            disabled={Boolean(ENV_VARS.modelscopeKey)}
+                            className={clsx(
+                              'w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
+                              ENV_VARS.modelscopeKey && 'opacity-70 cursor-not-allowed',
+                            )}
+                          />
+                        </div>
+                        {ENV_VARS.modelscopeKey && (
                           <p className="text-emerald-600 text-xs dark:text-emerald-400">
                             {t('settings.loadedFromEnvironment')}
                           </p>

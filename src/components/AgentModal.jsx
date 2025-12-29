@@ -11,6 +11,7 @@ import { useAppContext } from '../App'
 import { loadSettings } from '../lib/settings'
 import { SILICONFLOW_BASE_URL } from '../lib/providerConstants'
 import { getModelIcon, getModelIconClassName, renderProviderIcon } from '../lib/modelIcons'
+import { getProvider } from '../lib/providers'
 import { getPublicEnv } from '../lib/publicEnv'
 
 // Logic reused from SettingsModal
@@ -135,6 +136,8 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
   const [defaultCustomModel, setDefaultCustomModel] = useState('')
   const [liteCustomModel, setLiteCustomModel] = useState('')
   const [modelsError, setModelsError] = useState('')
+  const [defaultTestState, setDefaultTestState] = useState({ status: 'idle', message: '' })
+  const [liteTestState, setLiteTestState] = useState({ status: 'idle', message: '' })
 
   // Dynamic Models State
   // Structure: { [provider]: [ { value, label } ] }
@@ -341,6 +344,8 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
       setActiveTab('general')
       setError('')
       setIsSaving(false)
+      setDefaultTestState({ status: 'idle', message: '' })
+      setLiteTestState({ status: 'idle', message: '' })
 
       // Load API keys and fetch models
       loadKeysAndFetchModels()
@@ -637,6 +642,121 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
 
   // Keep lite provider independent so users can mix providers between default and lite models.
 
+  const resolveProvider = (modelId, fallback) => {
+    if (!modelId) return fallback || ''
+    const derived = findProviderForModel(modelId)
+    return derived || fallback || ''
+  }
+
+  const parseJsonFromText = text => {
+    if (!text) return null
+    try {
+      return JSON.parse(text)
+    } catch {
+      const match = text.match(/\{[\s\S]*\}/)
+      if (!match) return null
+      try {
+        return JSON.parse(match[0])
+      } catch {
+        return null
+      }
+    }
+  }
+
+  const runModelTest = async ({ modelId, providerKey, structured }) => {
+    if (!modelId) {
+      throw new Error(t('agents.model.testMissingModel'))
+    }
+    const providerAdapter = getProvider(providerKey)
+    const settings = loadSettings()
+    const credentials = providerAdapter?.getCredentials?.(settings) || {}
+    const apiKey = credentials.apiKey
+    if (!apiKey) {
+      throw new Error(t('agents.model.testMissingKey'))
+    }
+    const responseFormat =
+      structured && providerKey !== 'gemini' ? { type: 'json_object' } : undefined
+    const prompt = structured
+      ? 'Return a JSON object with keys "ok" and "echo". Set ok to true.'
+      : 'Reply with "pong".'
+
+    return new Promise((resolve, reject) => {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => {
+        controller.abort()
+        reject(new Error(t('agents.model.testTimeout')))
+      }, 20000)
+
+      providerAdapter
+        .streamChatCompletion({
+          apiKey,
+          baseUrl: credentials.baseUrl,
+          model: modelId,
+          messages: [{ role: 'user', content: prompt }],
+          responseFormat,
+          stream: false,
+          temperature: 0,
+          onFinish: result => {
+            clearTimeout(timeoutId)
+            resolve(result?.content || '')
+          },
+          onError: err => {
+            clearTimeout(timeoutId)
+            reject(err)
+          },
+          signal: controller.signal,
+        })
+        .catch(err => {
+          clearTimeout(timeoutId)
+          reject(err)
+        })
+    })
+  }
+
+  const handleDefaultModelTest = async () => {
+    const resolvedProvider = resolveProvider(defaultModel, defaultModelProvider || provider)
+    setDefaultTestState({ status: 'loading', message: t('agents.model.testing') })
+    try {
+      await runModelTest({
+        modelId: defaultModel,
+        providerKey: resolvedProvider,
+        structured: false,
+      })
+      setDefaultTestState({ status: 'success', message: t('agents.model.testConnectivityOk') })
+    } catch (err) {
+      setDefaultTestState({
+        status: 'error',
+        message: t('agents.model.testFailed', { message: err?.message || 'Unknown error' }),
+      })
+    }
+  }
+
+  const handleLiteModelTest = async () => {
+    const resolvedProvider = resolveProvider(liteModel, liteModelProvider || provider)
+    setLiteTestState({ status: 'loading', message: t('agents.model.testing') })
+    try {
+      await runModelTest({ modelId: liteModel, providerKey: resolvedProvider, structured: false })
+      const structuredText = await runModelTest({
+        modelId: liteModel,
+        providerKey: resolvedProvider,
+        structured: true,
+      })
+      const parsed = parseJsonFromText(structuredText)
+      if (!parsed) {
+        throw new Error(t('agents.model.testInvalidJson'))
+      }
+      setLiteTestState({
+        status: 'success',
+        message: `${t('agents.model.testConnectivityOk')} • ${t('agents.model.testStructuredOk')}`,
+      })
+    } catch (err) {
+      setLiteTestState({
+        status: 'error',
+        message: t('agents.model.testFailed', { message: err?.message || 'Unknown error' }),
+      })
+    }
+  }
+
   const renderModelPicker = ({
     label,
     helper,
@@ -655,6 +775,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
     sourceName,
     allowEmpty = false,
     hideProviderSelector = false,
+    testAction,
   }) => {
     const providers = availableProviders.length > 0 ? availableProviders : PROVIDER_KEYS
     const activeModels = groupedModels[activeProvider] || []
@@ -663,48 +784,122 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
     const displayLabel = showList ? selectedLabel : customValue || value || t('agents.model.custom')
 
     return (
-      <div className="space-y-2">
-        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
-          <div className="flex flex-col gap-1 w-full sm:w-auto">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:gap-3 gap-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+      <div className="space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+          <div className="flex flex-col gap-2 w-full sm:w-auto">
+            <div className="flex flex-wrap items-center gap-3 w-full">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300 shrink-0">
                 {label}
               </label>
-              <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
-                <label className="flex items-center gap-1.5 cursor-pointer">
-                  <input
-                    type="radio"
-                    name={sourceName}
-                    checked={modelSource === 'list'}
-                    onChange={() => {
-                      onModelSourceChange('list')
-                      const existsInList = activeModels.some(m => m.value === value)
-                      if (!existsInList) onChange('')
-                    }}
-                    className="h-3 w-3"
-                  />
-                  <span>{t('agents.model.sourceList')}</span>
-                </label>
-                <label className="flex items-center gap-1.5 cursor-pointer">
-                  <input
-                    type="radio"
-                    name={sourceName}
-                    checked={modelSource === 'custom'}
-                    onChange={() => {
-                      onModelSourceChange('custom')
-                      const nextValue = value || customValue || ''
-                      onCustomValueChange(nextValue)
-                      onChange(nextValue)
-                    }}
-                    className="h-3 w-3"
-                  />
-                  <span>{t('agents.model.sourceCustom')}</span>
-                </label>
+
+              {/* Desktop: Inline Segmented Control */}
+              <div className="hidden sm:flex bg-gray-100 dark:bg-zinc-800 p-0.5 rounded-lg border border-gray-200 dark:border-zinc-700">
+                <button
+                  type="button"
+                  onClick={() => {
+                    onModelSourceChange('list')
+                    const existsInList = activeModels.some(m => m.value === value)
+                    if (!existsInList) onChange('')
+                  }}
+                  className={clsx(
+                    'px-3 py-1 text-xs font-medium rounded-md transition-all',
+                    modelSource === 'list'
+                      ? 'bg-white dark:bg-zinc-700 text-gray-900 dark:text-gray-100 shadow-sm'
+                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300',
+                  )}
+                >
+                  {t('agents.model.sourceList')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onModelSourceChange('custom')
+                    const nextValue = value || customValue || ''
+                    onCustomValueChange(nextValue)
+                    onChange(nextValue)
+                  }}
+                  className={clsx(
+                    'px-3 py-1 text-xs font-medium rounded-md transition-all',
+                    modelSource === 'custom'
+                      ? 'bg-white dark:bg-zinc-700 text-gray-900 dark:text-gray-100 shadow-sm'
+                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300',
+                  )}
+                >
+                  {t('agents.model.sourceCustom')}
+                </button>
               </div>
+
+              {testAction && (
+                <button
+                  type="button"
+                  onClick={testAction.onClick}
+                  disabled={testAction.status === 'loading'}
+                  className="ml-auto sm:ml-0 px-3 py-1.5 rounded-lg bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400 border border-primary-200 dark:border-primary-800 text-xs font-medium hover:bg-primary-100 dark:hover:bg-primary-900/40 transition-colors disabled:opacity-60 flex items-center gap-1.5"
+                >
+                  {testAction.status === 'loading' && (
+                    <RefreshCw size={12} className="animate-spin" />
+                  )}
+                  {testAction.status === 'loading' ? t('agents.model.testing') : testAction.label}
+                </button>
+              )}
             </div>
+
+            {/* Mobile: Full Width Segmented Control */}
+            <div className="flex sm:hidden w-full bg-gray-100 dark:bg-zinc-800 p-1 rounded-lg border border-gray-200 dark:border-zinc-700">
+              <button
+                type="button"
+                onClick={() => {
+                  onModelSourceChange('list')
+                  const existsInList = activeModels.some(m => m.value === value)
+                  if (!existsInList) onChange('')
+                }}
+                className={clsx(
+                  'flex-1 py-1.5 text-xs font-medium rounded-md transition-all',
+                  modelSource === 'list'
+                    ? 'bg-white dark:bg-zinc-700 text-gray-900 dark:text-gray-100 shadow-sm'
+                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300',
+                )}
+              >
+                {t('agents.model.sourceList')}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onModelSourceChange('custom')
+                  const nextValue = value || customValue || ''
+                  onCustomValueChange(nextValue)
+                  onChange(nextValue)
+                }}
+                className={clsx(
+                  'flex-1 py-1.5 text-xs font-medium rounded-md transition-all',
+                  modelSource === 'custom'
+                    ? 'bg-white dark:bg-zinc-700 text-gray-900 dark:text-gray-100 shadow-sm'
+                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300',
+                )}
+              >
+                {t('agents.model.sourceCustom')}
+              </button>
+            </div>
+
             {hint && <p className="text-xs text-gray-500 dark:text-gray-400 max-w-2xl">{hint}</p>}
+            {testAction?.message && (
+              <p
+                className={clsx(
+                  'text-xs flex items-center gap-1.5',
+                  testAction.status === 'error'
+                    ? 'text-red-500'
+                    : testAction.status === 'success'
+                      ? 'text-emerald-500'
+                      : 'text-gray-500 dark:text-gray-400',
+                )}
+              >
+                {testAction.status === 'success' && <Check size={12} />}
+                {testAction.status === 'error' && <X size={12} />}
+                {testAction.message}
+              </p>
+            )}
           </div>
-          <span className="text-xs text-gray-500 dark:text-gray-400 truncate text-left sm:text-right w-full sm:w-auto">
+          <span className="text-xs text-gray-500 dark:text-gray-400 truncate text-left sm:text-right w-full sm:w-auto mt-1 sm:mt-0">
             {displayLabel}
           </span>
         </div>
@@ -1073,6 +1268,12 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                     modelSource: defaultModelSource,
                     onModelSourceChange: setDefaultModelSource,
                     sourceName: 'default-model-source',
+                    testAction: {
+                      label: t('agents.model.testDefault'),
+                      onClick: handleDefaultModelTest,
+                      status: defaultTestState.status,
+                      message: defaultTestState.message,
+                    },
                   })}
 
                   {renderModelPicker({
@@ -1093,6 +1294,12 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                     sourceName: 'lite-model-source',
                     allowEmpty: true,
                     hideProviderSelector: false,
+                    testAction: {
+                      label: t('agents.model.testLite'),
+                      onClick: handleLiteModelTest,
+                      status: liteTestState.status,
+                      message: liteTestState.message,
+                    },
                   })}
                 </>
               )}

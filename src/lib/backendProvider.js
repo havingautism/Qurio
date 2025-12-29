@@ -990,6 +990,7 @@ const streamWithLangChain = async ({
   presence_penalty,
   contextMessageLimit,
   onChunk,
+  stream = true,
   onFinish,
   onError,
   signal,
@@ -1007,7 +1008,7 @@ const streamWithLangChain = async ({
       top_p,
       tools,
       thinking,
-      streaming: true,
+      streaming: stream,
     })
   } else if (provider === 'siliconflow') {
     modelInstance = buildSiliconFlowModel({
@@ -1018,9 +1019,10 @@ const streamWithLangChain = async ({
       top_p,
       frequency_penalty,
       presence_penalty,
+      responseFormat,
       tools,
       thinking,
-      streaming: true,
+      streaming: stream,
     })
   } else if (provider === 'glm') {
     modelInstance = buildGLMModel({
@@ -1035,7 +1037,7 @@ const streamWithLangChain = async ({
       toolChoice,
       responseFormat,
       thinking,
-      streaming: true,
+      streaming: stream,
     })
   } else if (provider === 'kimi') {
     modelInstance = buildKimiModel({
@@ -1050,7 +1052,7 @@ const streamWithLangChain = async ({
       toolChoice,
       responseFormat,
       thinking,
-      streaming: true,
+      streaming: stream,
     })
   } else {
     modelInstance = buildOpenAIModel({
@@ -1067,7 +1069,7 @@ const streamWithLangChain = async ({
       toolChoice,
       responseFormat,
       thinking,
-      streaming: true,
+      streaming: stream,
     })
   }
 

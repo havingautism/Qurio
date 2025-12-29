@@ -276,7 +276,17 @@
       "custom": "Custom",
       "customPlaceholder": "Enter model ID",
       "notSelected": "Not selected",
-      "notFound": "Model not found"
+      "notFound": "Model not found",
+      "testDefault": "Test default model",
+      "testLite": "Test lite model",
+      "testing": "Testing...",
+      "testConnectivityOk": "Connectivity OK",
+      "testStructuredOk": "Structured output OK",
+      "testMissingModel": "Select a model first.",
+      "testMissingKey": "Missing API key for this provider.",
+      "testTimeout": "Test timed out.",
+      "testInvalidJson": "Structured output is not valid JSON.",
+      "testFailed": "Test failed: {{message}}"
     },
     "advanced": {
       "title": "Advanced",

@@ -276,7 +276,17 @@
       "custom": "自定义",
       "customPlaceholder": "请输入模型 ID",
       "notSelected": "未选择",
-      "notFound": "找不到模型"
+      "notFound": "找不到模型",
+      "testDefault": "测试默认模型",
+      "testLite": "测试轻量模型",
+      "testing": "测试中...",
+      "testConnectivityOk": "连通性正常",
+      "testStructuredOk": "结构化输出正常",
+      "testMissingModel": "请先选择模型。",
+      "testMissingKey": "该 Provider 缺少 API Key。",
+      "testTimeout": "测试超时。",
+      "testInvalidJson": "结构化输出不是有效的 JSON。",
+      "testFailed": "测试失败：{{message}}"
     },
     "advanced": {
       "title": "高级设定",

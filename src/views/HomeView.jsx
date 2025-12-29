@@ -17,8 +17,8 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
+import { useNavigate } from '@tanstack/react-router'
 import { useAppContext } from '../App'
-import ChatInterface from '../components/ChatInterface'
 import EmojiDisplay from '../components/EmojiDisplay'
 import Logo from '../components/Logo'
 import useScrollLock from '../hooks/useScrollLock'
@@ -28,9 +28,11 @@ import { getAgentDisplayName } from '../lib/agentDisplay'
 import { loadSettings } from '../lib/settings'
 import { listSpaceAgents } from '../lib/spacesService'
 import { providerSupportsSearch } from '../lib/providers'
+import { createConversation } from '../lib/conversationsService'
 
 const HomeView = () => {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const {
     toggleSidebar,
     isSidebarPinned,
@@ -38,21 +40,7 @@ const HomeView = () => {
     agents: appAgents = [],
     defaultAgent,
   } = useAppContext()
-  const [activeView, setActiveView] = useState('home')
 
-  // Initial state for ChatInterface
-  const [initialMessage, setInitialMessage] = useState('')
-  const [initialAttachments, setInitialAttachments] = useState([])
-  const [initialToggles, setInitialToggles] = useState({
-    search: false,
-    thinking: false,
-    related: false,
-  })
-  const [initialSpaceSelection, setInitialSpaceSelection] = useState({
-    mode: 'auto',
-    space: null,
-  })
-  const [initialAgentSelection, setInitialAgentSelection] = useState(null)
   const [settings, setSettings] = useState(loadSettings())
   const fileInputRef = useRef(null)
 
@@ -85,16 +73,6 @@ const HomeView = () => {
 
   useGSAP(
     () => {
-      if (
-        activeView === 'chat' ||
-        activeView === 'space' ||
-        activeView === 'spaces' ||
-        activeView === 'bookmarks' ||
-        activeView === 'library' ||
-        activeView === 'conversations'
-      )
-        return
-
       const tl = gsap.timeline()
 
       // Animate Title
@@ -129,7 +107,7 @@ const HomeView = () => {
           '-=0.4',
         )
     },
-    { dependencies: [activeView], scope: homeContainerRef },
+    { scope: homeContainerRef },
   )
 
   useEffect(() => {
@@ -287,45 +265,60 @@ const HomeView = () => {
   const handleStartChat = async () => {
     if (!homeInput.trim() && homeAttachments.length === 0) return
 
-    // Set initial state for ChatInterface
-    setInitialMessage(homeInput)
-    setInitialAttachments(homeAttachments)
-    setInitialToggles({
-      search: isHomeSearchActive,
-      thinking: isHomeThinkingActive,
-      related: Boolean(settings.enableRelatedQuestions),
-    })
+    try {
+      // Determine space selection
+      const selectedSpace = isHomeSpaceAuto ? null : homeSelectedSpace
+      const selectedAgent = isHomeAgentAuto ? null : selectedHomeAgent
 
-    // Two states: auto (AI selects space), manual (user selected space)
-    let spaceMode, spaceValue
-    if (isHomeSpaceAuto) {
-      spaceMode = 'auto'
-      spaceValue = null
-    } else {
-      spaceMode = 'manual'
-      spaceValue = homeSelectedSpace
+      // Create conversation in database first
+      const { data: conversation, error } = await createConversation({
+        space_id: selectedSpace?.id || null,
+        title: 'New Conversation',
+        api_provider: selectedAgent?.provider || defaultAgent?.provider || '',
+      })
+
+      if (error || !conversation) {
+        console.error('Failed to create conversation:', error)
+        return
+      }
+
+      // Prepare initial chat state to pass via router state
+      const chatState = {
+        initialMessage: homeInput,
+        initialAttachments: homeAttachments,
+        initialToggles: {
+          search: isHomeSearchActive,
+          thinking: isHomeThinkingActive,
+          related: Boolean(settings.enableRelatedQuestions),
+        },
+        initialSpaceSelection: {
+          mode: isHomeSpaceAuto ? 'auto' : 'manual',
+          space: selectedSpace,
+        },
+        initialAgentSelection: selectedAgent,
+        initialIsAgentAutoMode: isHomeAgentAuto,
+      }
+
+      // Navigate to the conversation route with state
+      navigate({
+        to: '/conversation/$conversationId',
+        params: { conversationId: conversation.id },
+        state: chatState,
+      })
+
+      // Reset home input
+      setHomeInput('')
+      setHomeAttachments([])
+      setIsHomeSearchActive(false)
+      setIsHomeThinkingActive(false)
+      setHomeSelectedSpace(null)
+      setHomeSpaceSelectionType('auto')
+      setHomeSelectedAgentId(null)
+      setIsHomeAgentAuto(true) // Reset to auto mode for next chat
+      setHomeExpandedSpaceId(null)
+    } catch (err) {
+      console.error('Failed to start chat:', err)
     }
-
-    setInitialSpaceSelection({
-      mode: spaceMode,
-      space: spaceValue,
-    })
-    // Pass agent selection info: null for auto mode, agent object for manual mode
-    setInitialAgentSelection(isHomeAgentAuto ? null : selectedHomeAgent)
-
-    // Switch to chat view
-    setActiveView('chat')
-
-    // Reset home input
-    setHomeInput('')
-    setHomeAttachments([])
-    setIsHomeSearchActive(false)
-    setIsHomeThinkingActive(false)
-    setHomeSelectedSpace(null)
-    setHomeSpaceSelectionType('auto')
-    setHomeSelectedAgentId(null)
-    setIsHomeAgentAuto(true) // Reset to auto mode for next chat
-    setHomeExpandedSpaceId(null)
   }
 
   const isHomeSpaceAuto = homeSpaceSelectionType === 'auto'
@@ -462,38 +455,27 @@ const HomeView = () => {
 
   return (
     <div className="flex-1 h-full overflow-hidden bg-background text-foreground transition-colors duration-300 relative flex flex-col">
-      {activeView === 'chat' ? (
-        <ChatInterface
-          spaces={spaces}
-          initialMessage={initialMessage}
-          initialAttachments={initialAttachments}
-          initialToggles={initialToggles}
-          initialSpaceSelection={initialSpaceSelection}
-          initialAgentSelection={initialAgentSelection}
-          isSidebarPinned={isSidebarPinned}
-        />
-      ) : (
-        <div
-          ref={homeContainerRef}
-          className={clsx(
-            'flex-1 h-full overflow-y-auto p-4 transition-all duration-300 flex flex-col items-center',
-            isSidebarPinned ? 'md:ml-20' : 'md:ml-16',
-          )}
-        >
-          {/* Mobile Header for Home View */}
-          <div className="md:hidden w-full h-14 shrink-0 border-b border-gray-200 dark:border-zinc-800 flex items-center justify-between px-4 bg-background z-30 fixed top-0 left-0">
-            <div className="flex items-center gap-3">
-              <button
-                onClick={toggleSidebar}
-                className="p-2 -ml-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg"
-              >
-                <Menu size={20} />
-              </button>
-              <span className="font-semibold text-gray-900 dark:text-white">{t('app.name')}</span>
-            </div>
-            {/* Space for right button if needed, or just spacer */}
-            <div className="w-8" />
+      <div
+        ref={homeContainerRef}
+        className={clsx(
+          'flex-1 h-full overflow-y-auto p-4 transition-all duration-300 flex flex-col items-center',
+          isSidebarPinned ? 'md:ml-20' : 'md:ml-16',
+        )}
+      >
+        {/* Mobile Header for Home View */}
+        <div className="md:hidden w-full h-14 shrink-0 border-b border-gray-200 dark:border-zinc-800 flex items-center justify-between px-4 bg-background z-30 fixed top-0 left-0">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={toggleSidebar}
+              className="p-2 -ml-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg"
+            >
+              <Menu size={20} />
+            </button>
+            <span className="font-semibold text-gray-900 dark:text-white">{t('app.name')}</span>
           </div>
+          {/* Space for right button if needed, or just spacer */}
+          <div className="w-8" />
+        </div>
 
           {/* Main Container */}
           <div className="w-full max-w-3xl flex flex-col items-center gap-4 sm:gap-8 sm:mt-14">
@@ -700,8 +682,7 @@ const HomeView = () => {
               <HomeWidgets />
             </div>
           </div>
-        </div>
-      )}
+      </div>
     </div>
   )
 }

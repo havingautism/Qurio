@@ -1,5 +1,5 @@
 ﻿import { useLocation, useNavigate } from '@tanstack/react-router'
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useShallow } from 'zustand/react/shallow'
 import useChatStore from '../lib/chatStore'
@@ -139,8 +139,6 @@ const ChatInterface = ({
   const [isLoadingHistory, setIsLoadingHistory] = useState(false)
   const [showHistoryLoader, setShowHistoryLoader] = useState(false)
   const historyLoaderTimeoutRef = useRef(null)
-  const hasPushedConversation = useRef(false)
-  const lastConversationId = useRef(null) // Track the last conversationId we navigated to
   const loadedMessagesRef = useRef(new Set())
   const messageRefs = useRef({})
   const bottomRef = useRef(null)
@@ -150,6 +148,29 @@ const ChatInterface = ({
     activeConversation?.id && activeConversation.id !== conversationId,
   )
   const lastLoadedConversationIdRef = useRef(null)
+
+  // Track the last synced conversation ID to avoid redundant updates
+  const lastSyncedConversationIdRef = useRef(null)
+
+  // Sync conversationId from props/activeConversation to chatStore
+  // This ensures that when navigating from HomeView with a newly created conversation,
+  // the chatStore's conversationId is set correctly
+  useEffect(() => {
+    const targetConversationId = activeConversation?.id || conversationId || null
+
+    // Reset the sync tracking if we're switching to a different conversation
+    if (targetConversationId !== lastSyncedConversationIdRef.current) {
+      // Check if the store's conversationId is different from the target
+      if (targetConversationId && targetConversationId !== conversationId) {
+        setConversationId(targetConversationId)
+        lastSyncedConversationIdRef.current = targetConversationId
+      } else if (!targetConversationId && conversationId) {
+        // Clear conversationId when switching to new chat
+        setConversationId(null)
+        lastSyncedConversationIdRef.current = null
+      }
+    }
+  }, [activeConversation?.id, conversationId, setConversationId])
 
   useEffect(() => {
     const shouldShow = isLoadingHistory || isSwitchingConversation
@@ -170,15 +191,18 @@ const ChatInterface = ({
       setShowHistoryLoader(false)
     }
   }, [isLoadingHistory, isSwitchingConversation, showHistoryLoader])
-  const conversationSpace = React.useMemo(() => {
+  const conversationSpace = useMemo(() => {
     if (!activeConversation?.space_id) return null
     const sid = String(activeConversation.space_id)
     return spaces.find(s => String(s.id) === sid) || null
   }, [activeConversation?.space_id, spaces])
   // If user has manually selected a space (or None), use that; otherwise use conversation's space
-  const displaySpace = isManualSpaceSelection
-    ? selectedSpace
-    : selectedSpace || conversationSpace || null
+  const displaySpace = useMemo(() => {
+    const result = isManualSpaceSelection
+      ? selectedSpace
+      : selectedSpace || conversationSpace || null
+    return result
+  }, [isManualSpaceSelection, selectedSpace, conversationSpace])
 
   // Function to reload space agents (used when space changes or settings change)
   const reloadSpaceAgents = useCallback(async () => {
@@ -212,7 +236,7 @@ const ChatInterface = ({
     }
   }, [displaySpace?.id, defaultAgent?.id, pendingAgentId, selectedAgentId])
 
-  const spaceAgents = React.useMemo(() => {
+  const spaceAgents = useMemo(() => {
     if (!displaySpace?.id) {
       return []
     }
@@ -221,7 +245,7 @@ const ChatInterface = ({
     return filteredAgents
   }, [appAgents, displaySpace?.id, spaceAgentIds])
 
-  const selectableAgents = React.useMemo(() => {
+  const selectableAgents = useMemo(() => {
     const list = [...spaceAgents]
     // Only include default agent if no space is selected (space is None)
     // When a space is selected, only show agents that are explicitly added to that space
@@ -241,7 +265,7 @@ const ChatInterface = ({
     return list
   }, [spaceAgents, defaultAgent, selectedAgentId, appAgents, displaySpace])
 
-  const selectedAgent = React.useMemo(() => {
+  const selectedAgent = useMemo(() => {
     const agent =
       selectableAgents.find(agent => String(agent.id) === String(selectedAgentId)) || null
     return agent
@@ -279,7 +303,7 @@ const ChatInterface = ({
     return () => clearInterval(interval)
   }, [isAgentResolving])
 
-  const effectiveAgent = React.useMemo(
+  const effectiveAgent = useMemo(
     () => selectedAgent || defaultAgent || null,
     [selectedAgent, defaultAgent],
   )
@@ -387,10 +411,25 @@ const ChatInterface = ({
         hasInitialized.current ||
         isProcessingInitial.current ||
         (!initialMessage && initialAttachments.length === 0) ||
-        conversationId || // Already have a conversation, don't create new one
-        activeConversation?.id || // If an existing conversation is provided, skip auto-send
         isAgentResolving // Wait for agents to load before processing initial message
       ) {
+        return
+      }
+
+      // IMPORTANT: Use the prop conversationId from URL/activeConversation, not the store's conversationId
+      // The store's conversationId might be stale or null
+      const conversationIdToSend = activeConversation?.id || conversationId || null
+
+      // If we don't have a conversation to send to, wait
+      if (!conversationIdToSend) {
+        return
+      }
+
+      // Check if this is an existing conversation with messages
+      // If so, skip auto-send (we're just viewing history)
+      const hasExistingMessages = messages.length > 0
+      const hasLoadedHistory = loadedMessagesRef.current.has(activeConversation?.id)
+      if (hasExistingMessages || hasLoadedHistory) {
         return
       }
 
@@ -405,6 +444,16 @@ const ChatInterface = ({
       // Set initial state
       if (initialToggles.search) setIsSearchActive(true)
       if (initialToggles.thinking) setIsThinkingActive(true)
+
+      // CRITICAL: Sync conversationId to store IMMEDIATELY before sending
+      // This ensures sendMessage uses the correct conversation ID
+      if (conversationId !== conversationIdToSend) {
+        // Sync synchronously (not in useEffect) to ensure it's set before sending
+        setConversationId(conversationIdToSend)
+      }
+
+      // Small delay to ensure state update is processed
+      await new Promise(resolve => setTimeout(resolve, 0))
 
       // Trigger send immediately
       await handleSendMessage(initialMessage, initialAttachments, initialToggles)
@@ -421,6 +470,8 @@ const ChatInterface = ({
     isAgentResolving,
     selectedAgentId,
     selectedAgent,
+    messages.length,
+    loadedMessagesRef.current,
   ])
 
   // Load existing conversation messages when switching conversations
@@ -445,7 +496,6 @@ const ChatInterface = ({
 
         setIsLoadingHistory(false)
         setConversationId(null)
-        hasPushedConversation.current = false
 
         // If we're in a brand new chat kicked off from the home input (not from an old conversation),
         // avoid clearing the just-added first message bubble.
@@ -467,6 +517,22 @@ const ChatInterface = ({
         return
       }
 
+      // Sync space state for the active conversation
+      // This ensures space is always up-to-date, even when activeConversation updates from placeholder
+      const currentSpaceId = conversationSpace?.id || null
+      const needsSync =
+        manualSpaceOverrideRef.current.conversationId !== activeConversation.id ||
+        manualSpaceOverrideRef.current.spaceId !== currentSpaceId
+
+      if (needsSync) {
+        setSelectedSpace(conversationSpace)
+        setIsManualSpaceSelection(true)
+        manualSpaceOverrideRef.current = {
+          conversationId: activeConversation.id,
+          spaceId: currentSpaceId,
+        }
+      }
+
       if (
         loadedMessagesRef.current.has(activeConversation.id) &&
         lastLoadedConversationIdRef.current === activeConversation.id
@@ -480,10 +546,7 @@ const ChatInterface = ({
         ) {
           setConversationTitle(activeConversation.title)
         }
-        if (manualSpaceOverrideRef.current.conversationId !== activeConversation.id) {
-          setSelectedSpace(conversationSpace || null)
-          setIsManualSpaceSelection(!!conversationSpace)
-        }
+        // Space is synced by unified logic above
         const agentSelectionMode =
           activeConversation?.agent_selection_mode ??
           activeConversation?.agentSelectionMode ??
@@ -508,9 +571,9 @@ const ChatInterface = ({
         activeConversation.id !== conversationId &&
         !loadedMessagesRef.current.has(activeConversation.id)
       ) {
-        setConversationId(activeConversation.id)
-        setIsLoadingHistory(false)
-        return
+        // IMPORTANT: Don't return early - we need to load the new conversation's messages
+        // Clear the flag to allow loading, but continue with the loading logic below
+        hasInitialized.current = false
       }
 
       // If we're navigating to a conversation that we just created (conversationId matches),
@@ -524,10 +587,14 @@ const ChatInterface = ({
         ) {
           setConversationTitle(activeConversation.title)
         }
-        if (manualSpaceOverrideRef.current.conversationId !== activeConversation.id) {
-          setSelectedSpace(conversationSpace || null)
-          setIsManualSpaceSelection(!!conversationSpace)
-        }
+        // Space is synced by unified logic above
+        setIsLoadingHistory(false)
+        return
+      }
+
+      // IMPORTANT: Don't clear messages if we're currently processing an initial message
+      // The initial message flow adds messages optimistically, and we don't want to lose them
+      if (isProcessingInitial.current) {
         setIsLoadingHistory(false)
         return
       }
@@ -555,12 +622,7 @@ const ChatInterface = ({
       if (isNewConversation) {
         lastLoadedConversationIdRef.current = activeConversation.id
       }
-      if (isNewConversation || activeConversation.id !== conversationId) {
-        if (manualSpaceOverrideRef.current.conversationId !== activeConversation.id) {
-          setSelectedSpace(conversationSpace || null)
-          setIsManualSpaceSelection(!!conversationSpace)
-        }
-      }
+      // Space is synced by unified logic above
       const conversationLastAgentId =
         activeConversation?.last_agent_id ?? activeConversation?.lastAgentId ?? null
       const { data, error } = await listMessages(activeConversation.id)
@@ -627,34 +689,6 @@ const ChatInterface = ({
     appAgents,
     defaultAgent?.id,
   ])
-
-  useEffect(() => {
-    // Check if conversationId has changed (new conversation created)
-    const idChanged = conversationId !== lastConversationId.current
-    if (idChanged) {
-      lastConversationId.current = conversationId
-      // Reset the flag when conversationId changes to allow navigation to the new conversation
-      hasPushedConversation.current = false
-    }
-
-    // Check if we're on a new chat page (not on a specific conversation route)
-    const isOnNewChatPage = location.pathname === '/new_chat' || location.pathname === '/'
-
-    // Only navigate if we have a conversationId AND it has just changed (to avoid navigating on stale IDs)
-    const shouldNavigate =
-      conversationId && isOnNewChatPage && !hasPushedConversation.current && idChanged
-
-    if (shouldNavigate) {
-      const params = { conversationId: String(conversationId) }
-      navigate({
-        to: '/new_chat',
-        replace: true,
-        mask: { to: '/conversation/$conversationId', params },
-        state: { maskedConversationId: String(conversationId) },
-      })
-      hasPushedConversation.current = true
-    }
-  }, [conversationId, location.pathname, navigate])
 
   useEffect(() => {
     const canAdoptInitialSpace =
@@ -763,7 +797,12 @@ const ChatInterface = ({
 
   useEffect(() => {
     if (!displaySpace?.id) {
-      if (!pendingAgentId && !selectedAgentId) {
+      // When no space is selected, handle pending agent and set to default if needed
+      if (pendingAgentId) {
+        // Apply pending agent (should be the default agent when space preselection fails)
+        setSelectedAgentId(pendingAgentId)
+        setPendingAgentId(null)
+      } else if (!selectedAgentId) {
         setSelectedAgentId(defaultAgent?.id || null)
       }
       return
@@ -1018,7 +1057,7 @@ const ChatInterface = ({
     return () => observer.disconnect()
   }, [messages])
 
-  const questionNavItems = React.useMemo(
+  const questionNavItems = useMemo(
     () =>
       messages
         .map((msg, idx) => {
@@ -1150,9 +1189,7 @@ const ChatInterface = ({
             if (isAgentAutoMode) {
               const nextAgentId = agent?.id || null
               setPendingAgentId(nextAgentId)
-              if (displaySpace?.id) {
-                setSelectedAgentId(nextAgentId)
-              }
+              setSelectedAgentId(nextAgentId)
             }
           },
         },

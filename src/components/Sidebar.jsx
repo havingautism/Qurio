@@ -237,9 +237,10 @@ const Sidebar = ({
   // Nav items - use constant keys for logic, translate labels for display
   const NAV_ITEM_KEYS = [
     { id: 'library', icon: Library },
-    { id: 'bookmarks', icon: Bookmark },
+
     { id: 'spaces', icon: LayoutGrid },
     { id: 'agents', icon: Smile },
+    { id: 'bookmarks', icon: Bookmark },
   ]
 
   const navItems = useMemo(

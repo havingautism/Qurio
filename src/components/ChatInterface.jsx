@@ -410,8 +410,7 @@ const ChatInterface = ({
       if (
         hasInitialized.current ||
         isProcessingInitial.current ||
-        (!initialMessage && initialAttachments.length === 0) ||
-        isAgentResolving // Wait for agents to load before processing initial message
+        (!initialMessage && initialAttachments.length === 0)
       ) {
         return
       }
@@ -428,13 +427,17 @@ const ChatInterface = ({
       // Check if this is an existing conversation with messages
       // If so, skip auto-send (we're just viewing history)
       const hasExistingMessages = messages.length > 0
-      const hasLoadedHistory = loadedMessagesRef.current.has(activeConversation?.id)
-      if (hasExistingMessages || hasLoadedHistory) {
+      if (hasExistingMessages) {
         return
       }
 
-      // If user selected an agent from homepage, wait for it to be loaded
-      if (initialAgentSelection && !selectedAgent) {
+      // Only wait for auto-mode agent resolution; manual selection can proceed.
+      if (
+        initialIsAgentAutoMode &&
+        initialAgentSelection &&
+        !selectedAgent &&
+        isAgentResolving
+      ) {
         return
       }
 
@@ -629,6 +632,10 @@ const ChatInterface = ({
         activeConversation?.last_agent_id ?? activeConversation?.lastAgentId ?? null
       const { data, error } = await listMessages(activeConversation.id)
       if (!error && data) {
+        if (messages.length > 0 && (isProcessingInitial.current || hasInitialized.current)) {
+          setIsLoadingHistory(false)
+          return
+        }
         const mapped = data.map(m => {
           const { content: cleanedContent, thought: thoughtFromContent } = splitThoughtFromContent(
             m.content,
@@ -1169,13 +1176,16 @@ const ChatInterface = ({
       quoteTextRef.current = ''
       quoteSourceRef.current = ''
 
+      const agentForSend =
+        selectedAgent || (!isAgentAutoMode && initialAgentSelection) || defaultAgent || null
+
       await sendMessage({
         text: textToSend,
         attachments: attToSend,
         toggles: { search: searchActive, thinking: thinkingActive, related: relatedActive },
         settings,
         spaceInfo: { selectedSpace, isManualSpaceSelection },
-        selectedAgent: effectiveAgent,
+        selectedAgent: agentForSend,
         isAgentAutoMode,
         agents: appAgents,
         editingInfo,

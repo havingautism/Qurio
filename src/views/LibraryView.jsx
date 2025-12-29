@@ -152,9 +152,7 @@ const LibraryView = () => {
       console.error('Failed to toggle favorite:', error)
       toast.error(t('errors.generic'))
     } else {
-      toast.success(
-        newStatus ? t('views.addBookmark') : t('views.removeBookmark'),
-      )
+      toast.success(newStatus ? t('views.addBookmark') : t('views.removeBookmark'))
       // Refresh data
       window.dispatchEvent(new Event('conversations-changed'))
     }
@@ -189,7 +187,7 @@ const LibraryView = () => {
     <div
       className={clsx(
         'flex-1 h-full overflow-y-auto bg-background text-foreground transition-all duration-300',
-        isSidebarPinned ? 'ml-0 sm:ml-80' : 'ml-0 sm:ml-16',
+        isSidebarPinned ? 'ml-0 sm:ml-72' : 'ml-0 sm:ml-16',
       )}
     >
       <div className="w-full max-w-5xl mx-auto sm:px-6 sm:py-8 px-3 py-5">

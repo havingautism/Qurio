@@ -3,7 +3,7 @@ import { Streamdown } from 'streamdown'
 import remarkGfm from 'remark-gfm'
 import { parseChildrenWithEmojis } from '../lib/emojiParser'
 import { getProvider } from '../lib/providers'
-import { PROVIDER_ICONS, getModelIcon } from '../lib/modelIcons'
+import { PROVIDER_ICONS, getModelIcon, getModelIconClassName } from '../lib/modelIcons'
 
 const PROVIDER_META = {
   gemini: {
@@ -508,6 +508,7 @@ const ShareCanvas = ({ message, conversationTitle, captureRef, embed = false, la
                           src={getModelIcon(resolvedModel)}
                           alt=""
                           style={{ width: 14, height: 14 }}
+                          className={getModelIconClassName(resolvedModel)}
                         />
                       )}
                       <span>{resolvedModel}</span>

@@ -1,4 +1,5 @@
 import { useGSAP } from '@gsap/react'
+import { useNavigate } from '@tanstack/react-router'
 import clsx from 'clsx'
 import gsap from 'gsap'
 import {
@@ -18,19 +19,20 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { useAppContext } from '../App'
-import ChatInterface from '../components/ChatInterface'
 import EmojiDisplay from '../components/EmojiDisplay'
 import Logo from '../components/Logo'
-import useScrollLock from '../hooks/useScrollLock'
 import HomeWidgets from '../components/widgets/HomeWidgets'
-import useChatStore from '../lib/chatStore'
+import useScrollLock from '../hooks/useScrollLock'
 import { getAgentDisplayName } from '../lib/agentDisplay'
+import useChatStore from '../lib/chatStore'
+import { createConversation } from '../lib/conversationsService'
+import { providerSupportsSearch } from '../lib/providers'
 import { loadSettings } from '../lib/settings'
 import { listSpaceAgents } from '../lib/spacesService'
-import { providerSupportsSearch } from '../lib/providers'
 
 const HomeView = () => {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const {
     toggleSidebar,
     isSidebarPinned,
@@ -38,21 +40,7 @@ const HomeView = () => {
     agents: appAgents = [],
     defaultAgent,
   } = useAppContext()
-  const [activeView, setActiveView] = useState('home')
 
-  // Initial state for ChatInterface
-  const [initialMessage, setInitialMessage] = useState('')
-  const [initialAttachments, setInitialAttachments] = useState([])
-  const [initialToggles, setInitialToggles] = useState({
-    search: false,
-    thinking: false,
-    related: false,
-  })
-  const [initialSpaceSelection, setInitialSpaceSelection] = useState({
-    mode: 'auto',
-    space: null,
-  })
-  const [initialAgentSelection, setInitialAgentSelection] = useState(null)
   const [settings, setSettings] = useState(loadSettings())
   const fileInputRef = useRef(null)
 
@@ -85,16 +73,6 @@ const HomeView = () => {
 
   useGSAP(
     () => {
-      if (
-        activeView === 'chat' ||
-        activeView === 'space' ||
-        activeView === 'spaces' ||
-        activeView === 'bookmarks' ||
-        activeView === 'library' ||
-        activeView === 'conversations'
-      )
-        return
-
       const tl = gsap.timeline()
 
       // Animate Title
@@ -129,7 +107,7 @@ const HomeView = () => {
           '-=0.4',
         )
     },
-    { dependencies: [activeView], scope: homeContainerRef },
+    { scope: homeContainerRef },
   )
 
   useEffect(() => {
@@ -287,45 +265,60 @@ const HomeView = () => {
   const handleStartChat = async () => {
     if (!homeInput.trim() && homeAttachments.length === 0) return
 
-    // Set initial state for ChatInterface
-    setInitialMessage(homeInput)
-    setInitialAttachments(homeAttachments)
-    setInitialToggles({
-      search: isHomeSearchActive,
-      thinking: isHomeThinkingActive,
-      related: Boolean(settings.enableRelatedQuestions),
-    })
+    try {
+      // Determine space selection
+      const selectedSpace = isHomeSpaceAuto ? null : homeSelectedSpace
+      const selectedAgent = isHomeAgentAuto ? null : selectedHomeAgent
 
-    // Two states: auto (AI selects space), manual (user selected space)
-    let spaceMode, spaceValue
-    if (isHomeSpaceAuto) {
-      spaceMode = 'auto'
-      spaceValue = null
-    } else {
-      spaceMode = 'manual'
-      spaceValue = homeSelectedSpace
+      // Create conversation in database first
+      const { data: conversation, error } = await createConversation({
+        space_id: selectedSpace?.id || null,
+        title: 'New Conversation',
+        api_provider: selectedAgent?.provider || defaultAgent?.provider || '',
+      })
+
+      if (error || !conversation) {
+        console.error('Failed to create conversation:', error)
+        return
+      }
+
+      // Prepare initial chat state to pass via router state
+      const chatState = {
+        initialMessage: homeInput,
+        initialAttachments: homeAttachments,
+        initialToggles: {
+          search: isHomeSearchActive,
+          thinking: isHomeThinkingActive,
+          related: Boolean(settings.enableRelatedQuestions),
+        },
+        initialSpaceSelection: {
+          mode: isHomeSpaceAuto ? 'auto' : 'manual',
+          space: selectedSpace,
+        },
+        initialAgentSelection: selectedAgent,
+        initialIsAgentAutoMode: isHomeAgentAuto,
+      }
+
+      // Navigate to the conversation route with state
+      navigate({
+        to: '/conversation/$conversationId',
+        params: { conversationId: conversation.id },
+        state: chatState,
+      })
+
+      // Reset home input
+      setHomeInput('')
+      setHomeAttachments([])
+      setIsHomeSearchActive(false)
+      setIsHomeThinkingActive(false)
+      setHomeSelectedSpace(null)
+      setHomeSpaceSelectionType('auto')
+      setHomeSelectedAgentId(null)
+      setIsHomeAgentAuto(true) // Reset to auto mode for next chat
+      setHomeExpandedSpaceId(null)
+    } catch (err) {
+      console.error('Failed to start chat:', err)
     }
-
-    setInitialSpaceSelection({
-      mode: spaceMode,
-      space: spaceValue,
-    })
-    // Pass agent selection info: null for auto mode, agent object for manual mode
-    setInitialAgentSelection(isHomeAgentAuto ? null : selectedHomeAgent)
-
-    // Switch to chat view
-    setActiveView('chat')
-
-    // Reset home input
-    setHomeInput('')
-    setHomeAttachments([])
-    setIsHomeSearchActive(false)
-    setIsHomeThinkingActive(false)
-    setHomeSelectedSpace(null)
-    setHomeSpaceSelectionType('auto')
-    setHomeSelectedAgentId(null)
-    setIsHomeAgentAuto(true) // Reset to auto mode for next chat
-    setHomeExpandedSpaceId(null)
   }
 
   const isHomeSpaceAuto = homeSpaceSelectionType === 'auto'
@@ -462,246 +455,232 @@ const HomeView = () => {
 
   return (
     <div className="flex-1 h-full overflow-hidden bg-background text-foreground transition-colors duration-300 relative flex flex-col">
-      {activeView === 'chat' ? (
-        <ChatInterface
-          spaces={spaces}
-          initialMessage={initialMessage}
-          initialAttachments={initialAttachments}
-          initialToggles={initialToggles}
-          initialSpaceSelection={initialSpaceSelection}
-          initialAgentSelection={initialAgentSelection}
-          isSidebarPinned={isSidebarPinned}
-        />
-      ) : (
-        <div
-          ref={homeContainerRef}
-          className={clsx(
-            'flex-1 h-full overflow-y-auto p-4 transition-all duration-300 flex flex-col items-center',
-            isSidebarPinned ? 'md:ml-20' : 'md:ml-16',
-          )}
-        >
-          {/* Mobile Header for Home View */}
-          <div className="md:hidden w-full h-14 shrink-0 border-b border-gray-200 dark:border-zinc-800 flex items-center justify-between px-4 bg-background z-30 fixed top-0 left-0">
-            <div className="flex items-center gap-3">
-              <button
-                onClick={toggleSidebar}
-                className="p-2 -ml-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg"
-              >
-                <Menu size={20} />
-              </button>
-              <span className="font-semibold text-gray-900 dark:text-white">{t('app.name')}</span>
-            </div>
-            {/* Space for right button if needed, or just spacer */}
-            <div className="w-8" />
+      <div
+        ref={homeContainerRef}
+        className={clsx(
+          'flex-1 h-full overflow-y-auto p-4 transition-all duration-300 flex flex-col items-center',
+          isSidebarPinned ? 'md:ml-72' : 'md:ml-16',
+        )}
+      >
+        {/* Mobile Header for Home View */}
+        <div className="md:hidden w-full h-14 shrink-0 border-b border-gray-200 dark:border-zinc-800 flex items-center justify-between px-4 bg-background z-30 fixed top-0 left-0">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={toggleSidebar}
+              className="p-2 -ml-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg"
+            >
+              <Menu size={20} />
+            </button>
+            <span className="font-semibold text-gray-900 dark:text-white">{t('app.name')}</span>
           </div>
+          {/* Space for right button if needed, or just spacer */}
+          <div className="w-8" />
+        </div>
 
-          {/* Main Container */}
-          <div className="w-full max-w-3xl flex flex-col items-center gap-4 sm:gap-8 sm:mt-14">
-            <div className="p-4 block sm:hidden mt-10 rounded-3xl mb-2">
-              <Logo size={128} className="text-gray-900 dark:text-white" priority />
-            </div>
-            {/* Title */}
-            <h1 className="home-title text-3xl md:text-5xl font-serif! font-medium text-center mb-4 mt-0 sm:mb-8 text-[#1f2937] dark:text-white">
-              {t('app.tagline')}
-            </h1>
+        {/* Main Container */}
+        <div className="w-full max-w-3xl flex flex-col items-center gap-4 sm:gap-8 sm:mt-14">
+          <div className="p-4 block sm:hidden mt-10 rounded-3xl mb-2">
+            <Logo size={128} className="text-gray-900 dark:text-white" priority />
+          </div>
+          {/* Title */}
+          <h1 className="home-title text-3xl md:text-5xl font-serif! font-medium text-center mb-4 mt-0 sm:mb-8 text-[#1f2937] dark:text-white">
+            {t('app.tagline')}
+          </h1>
 
-            {/* Search Box */}
-            <div className="home-search-box w-full relative group z-20">
-              <div className="absolute inset-0 input-glow-veil rounded-xl blur-2xl opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-500 pointer-events-none" />
-              <div className="relative bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-xl shadow-sm hover:shadow-md transition-all duration-300 p-4">
-                {homeAttachments.length > 0 && (
-                  <div className="flex gap-2 mb-3 px-1 overflow-x-auto py-1">
-                    {homeAttachments.map((att, idx) => (
-                      <div key={idx} className="relative group shrink-0">
-                        <div className="w-16 h-16 rounded-xl overflow-hidden border border-gray-200 dark:border-zinc-700 shadow-sm">
-                          <img
-                            src={att.image_url.url}
-                            alt="attachment"
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                        <button
-                          onClick={() =>
-                            setHomeAttachments(homeAttachments.filter((_, i) => i !== idx))
-                          }
-                          className="absolute -top-1.5 -right-1.5 bg-gray-900 text-white rounded-full p-0.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shadow-md"
-                        >
-                          <X size={12} />
-                        </button>
+          {/* Search Box */}
+          <div className="home-search-box w-full relative group z-20">
+            <div className="absolute inset-0 input-glow-veil rounded-xl blur-2xl opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-500 pointer-events-none" />
+            <div className="relative bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-xl shadow-sm hover:shadow-md transition-all duration-300 p-4">
+              {homeAttachments.length > 0 && (
+                <div className="flex gap-2 mb-3 px-1 overflow-x-auto py-1">
+                  {homeAttachments.map((att, idx) => (
+                    <div key={idx} className="relative group shrink-0">
+                      <div className="w-16 h-16 rounded-xl overflow-hidden border border-gray-200 dark:border-zinc-700 shadow-sm">
+                        <img
+                          src={att.image_url.url}
+                          alt="attachment"
+                          className="w-full h-full object-cover"
+                        />
                       </div>
-                    ))}
+                      <button
+                        onClick={() =>
+                          setHomeAttachments(homeAttachments.filter((_, i) => i !== idx))
+                        }
+                        className="absolute -top-1.5 -right-1.5 bg-gray-900 text-white rounded-full p-0.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shadow-md"
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <textarea
+                value={homeInput}
+                onChange={e => {
+                  setHomeInput(e.target.value)
+                  e.target.style.height = 'auto'
+                  e.target.style.height = `${e.target.scrollHeight}px`
+                }}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault()
+                    handleStartChat()
+                  }
+                }}
+                placeholder={t('homeView.askAnything')}
+                className="w-full bg-transparent border-none outline-none resize-none text-lg placeholder-gray-400 dark:placeholder-gray-500 min-h-[60px] max-h-[200px] overflow-y-auto"
+                rows={1}
+              />
+
+              <div className="flex justify-between items-center mt-2">
+                <div className="flex gap-2">
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileChange}
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                  />
+                  <div className="relative" ref={homeUploadMenuRef}>
+                    <button
+                      type="button"
+                      onClick={() => setIsHomeUploadMenuOpen(prev => !prev)}
+                      className={`p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
+                        homeAttachments.length > 0
+                          ? 'text-primary-500'
+                          : 'text-gray-500 dark:text-gray-400'
+                      }`}
+                    >
+                      <Paperclip size={18} />
+                    </button>
+                    {isHomeUploadMenuOpen && (
+                      <div className="absolute top-full left-0 mt-2 w-48 bg-white dark:bg-[#202222] border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl z-50 overflow-hidden">
+                        <div className="p-2 flex flex-col gap-1">
+                          <button
+                            type="button"
+                            onClick={handleHomeImageUpload}
+                            className="flex items-center gap-2 w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left text-sm text-gray-700 dark:text-gray-200"
+                          >
+                            <Image size={16} />
+                            {t('common.uploadImage')}
+                          </button>
+                          <button
+                            type="button"
+                            disabled
+                            onClick={() => setIsHomeUploadMenuOpen(false)}
+                            className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-left text-sm text-gray-400 dark:text-gray-500 cursor-not-allowed"
+                          >
+                            <FileText size={16} />
+                            {t('common.uploadDocument')}
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                )}
-                <textarea
-                  value={homeInput}
-                  onChange={e => {
-                    setHomeInput(e.target.value)
-                    e.target.style.height = 'auto'
-                    e.target.style.height = `${e.target.scrollHeight}px`
-                  }}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault()
-                      handleStartChat()
+                  <button
+                    onClick={() => setIsHomeThinkingActive(!isHomeThinkingActive)}
+                    className={`p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
+                      isHomeThinkingActive
+                        ? 'text-primary-500 bg-gray-100 dark:bg-zinc-800'
+                        : 'text-gray-500 dark:text-gray-400'
+                    }`}
+                  >
+                    <Brain size={18} />
+                    <span className="hidden md:inline">{t('homeView.think')}</span>
+                  </button>
+                  <button
+                    disabled={
+                      !(selectedHomeAgent?.provider || defaultAgent?.provider) ||
+                      !providerSupportsSearch(selectedHomeAgent?.provider || defaultAgent?.provider)
                     }
-                  }}
-                  placeholder={t('homeView.askAnything')}
-                  className="w-full bg-transparent border-none outline-none resize-none text-lg placeholder-gray-400 dark:placeholder-gray-500 min-h-[60px] max-h-[200px] overflow-y-auto"
-                  rows={1}
-                />
+                    value={isHomeSearchActive}
+                    onClick={() => setIsHomeSearchActive(!isHomeSearchActive)}
+                    className={`p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
+                      isHomeSearchActive
+                        ? 'text-primary-500 bg-gray-100 dark:bg-zinc-800'
+                        : 'text-gray-500 dark:text-gray-400'
+                    }`}
+                  >
+                    <Globe size={18} />
+                    <span className="hidden md:inline">{t('homeView.search')}</span>
+                  </button>
 
-                <div className="flex justify-between items-center mt-2">
-                  <div className="flex gap-2">
-                    <input
-                      type="file"
-                      ref={fileInputRef}
-                      onChange={handleFileChange}
-                      accept="image/*"
-                      multiple
-                      className="hidden"
-                    />
-                    <div className="relative" ref={homeUploadMenuRef}>
-                      <button
-                        type="button"
-                        onClick={() => setIsHomeUploadMenuOpen(prev => !prev)}
-                        className={`p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
-                          homeAttachments.length > 0
-                            ? 'text-primary-500'
-                            : 'text-gray-500 dark:text-gray-400'
-                        }`}
-                      >
-                        <Paperclip size={18} />
-                      </button>
-                      {isHomeUploadMenuOpen && (
-                        <div className="absolute top-full left-0 mt-2 w-48 bg-white dark:bg-[#202222] border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl z-50 overflow-hidden">
-                          <div className="p-2 flex flex-col gap-1">
-                            <button
-                              type="button"
-                              onClick={handleHomeImageUpload}
-                              className="flex items-center gap-2 w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left text-sm text-gray-700 dark:text-gray-200"
-                            >
-                              <Image size={16} />
-                              {t('common.uploadImage')}
-                            </button>
-                            <button
-                              type="button"
-                              disabled
-                              onClick={() => setIsHomeUploadMenuOpen(false)}
-                              className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-left text-sm text-gray-400 dark:text-gray-500 cursor-not-allowed"
-                            >
-                              <FileText size={16} />
-                              {t('common.uploadDocument')}
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
+                  <div className="relative" ref={homeSpaceSelectorRef}>
                     <button
-                      onClick={() => setIsHomeThinkingActive(!isHomeThinkingActive)}
-                      className={`p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
-                        isHomeThinkingActive
-                          ? 'text-primary-500 bg-gray-100 dark:bg-zinc-800'
-                          : 'text-gray-500 dark:text-gray-400'
+                      onClick={() => setIsHomeSpaceSelectorOpen(!isHomeSpaceSelectorOpen)}
+                      className={`px-3 py-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
+                        isHomeSpaceAuto
+                          ? 'text-gray-500 dark:text-gray-400'
+                          : 'text-primary-500 bg-gray-100 dark:bg-zinc-800'
                       }`}
                     >
-                      <Brain size={18} />
-                      <span className="hidden md:inline">{t('homeView.think')}</span>
+                      <LayoutGrid size={18} />
+                      <span className="hidden md:inline">{homeSpaceButtonLabel}</span>
+                      <ChevronDown size={14} />
                     </button>
-                    <button
-                      disabled={
-                        !(selectedHomeAgent?.provider || defaultAgent?.provider) ||
-                        !providerSupportsSearch(
-                          selectedHomeAgent?.provider || defaultAgent?.provider,
-                        )
-                      }
-                      value={isHomeSearchActive}
-                      onClick={() => setIsHomeSearchActive(!isHomeSearchActive)}
-                      className={`p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
-                        isHomeSearchActive
-                          ? 'text-primary-500 bg-gray-100 dark:bg-zinc-800'
-                          : 'text-gray-500 dark:text-gray-400'
-                      }`}
-                    >
-                      <Globe size={18} />
-                      <span className="hidden md:inline">{t('homeView.search')}</span>
-                    </button>
+                    {!isHomeMobile && isHomeSpaceSelectorOpen && (
+                      <div className="absolute top-full left-0 mt-2 w-60 bg-white dark:bg-[#202222] border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl z-50">
+                        {renderHomeSpaceMenuContent()}
+                      </div>
+                    )}
+                  </div>
 
-                    <div className="relative" ref={homeSpaceSelectorRef}>
-                      <button
-                        onClick={() => setIsHomeSpaceSelectorOpen(!isHomeSpaceSelectorOpen)}
-                        className={`px-3 py-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
-                          isHomeSpaceAuto
-                            ? 'text-gray-500 dark:text-gray-400'
-                            : 'text-primary-500 bg-gray-100 dark:bg-zinc-800'
-                        }`}
-                      >
-                        <LayoutGrid size={18} />
-                        <span className="hidden md:inline">{homeSpaceButtonLabel}</span>
-                        <ChevronDown size={14} />
-                      </button>
-                      {!isHomeMobile && isHomeSpaceSelectorOpen && (
-                        <div className="absolute top-full left-0 mt-2 w-60 bg-white dark:bg-[#202222] border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl z-50">
-                          {renderHomeSpaceMenuContent()}
-                        </div>
-                      )}
-                    </div>
-
-                    {isHomeMobile &&
-                      isHomeSpaceSelectorOpen &&
-                      createPortal(
-                        <div className="fixed inset-0 z-[9999] flex items-end justify-center">
-                          <div
-                            className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
-                            onClick={() => setIsHomeSpaceSelectorOpen(false)}
-                            aria-hidden="true"
-                          />
-                          <div className="relative w-full max-w-md bg-white dark:bg-[#1E1E1E] rounded-t-3xl shadow-2xl flex flex-col max-h-[85vh] animate-slide-up">
-                            <div className="px-5 py-4 flex items-center justify-between shrink-0 border-b border-gray-100 dark:border-zinc-800/50">
-                              <div className="flex flex-col">
-                                <h3 className="text-base font-bold text-gray-900 dark:text-gray-100 leading-none mb-1">
-                                  {t('homeView.spaces')}
-                                </h3>
-                                <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">
-                                  {t('homeView.agents')}
-                                </p>
-                              </div>
-                              <button
-                                onClick={() => setIsHomeSpaceSelectorOpen(false)}
-                                className="p-2 -mr-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-full hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
-                              >
-                                <X size={20} />
-                              </button>
+                  {isHomeMobile &&
+                    isHomeSpaceSelectorOpen &&
+                    createPortal(
+                      <div className="fixed inset-0 z-[9999] flex items-end justify-center">
+                        <div
+                          className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
+                          onClick={() => setIsHomeSpaceSelectorOpen(false)}
+                          aria-hidden="true"
+                        />
+                        <div className="relative w-full max-w-md bg-white dark:bg-[#1E1E1E] rounded-t-3xl shadow-2xl flex flex-col max-h-[85vh] animate-slide-up">
+                          <div className="px-5 py-4 flex items-center justify-between shrink-0 border-b border-gray-100 dark:border-zinc-800/50">
+                            <div className="flex flex-col">
+                              <h3 className="text-base font-bold text-gray-900 dark:text-gray-100 leading-none mb-1">
+                                {t('homeView.spaces')}
+                              </h3>
+                              <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">
+                                {t('homeView.agents')}
+                              </p>
                             </div>
-                            <div className="overflow-y-auto min-h-0 py-2">
-                              {renderHomeSpaceMenuContent()}
-                            </div>
-                            <div className="h-6 shrink-0" />
+                            <button
+                              onClick={() => setIsHomeSpaceSelectorOpen(false)}
+                              className="p-2 -mr-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-full hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
+                            >
+                              <X size={20} />
+                            </button>
                           </div>
-                        </div>,
-                        document.body,
-                      )}
-                  </div>
+                          <div className="overflow-y-auto min-h-0 py-2">
+                            {renderHomeSpaceMenuContent()}
+                          </div>
+                          <div className="h-6 shrink-0" />
+                        </div>
+                      </div>,
+                      document.body,
+                    )}
+                </div>
 
-                  <div className="flex gap-2">
-                    <button
-                      onClick={handleStartChat}
-                      disabled={!homeInput.trim() && homeAttachments.length === 0}
-                      className="p-2 bg-primary-500 hover:bg-primary-600 text-white rounded-full transition-colors disabled:opacity-50  disabled:hover:bg-primary-500"
-                    >
-                      <ArrowRight size={18} />
-                    </button>
-                  </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleStartChat}
+                    disabled={!homeInput.trim() && homeAttachments.length === 0}
+                    className="p-2 bg-primary-500 hover:bg-primary-600 text-white rounded-full transition-colors disabled:opacity-50  disabled:hover:bg-primary-500"
+                  >
+                    <ArrowRight size={18} />
+                  </button>
                 </div>
               </div>
             </div>
+          </div>
 
-            {/* Widgets Section */}
-            <div className="home-widgets w-full">
-              <HomeWidgets />
-            </div>
+          {/* Widgets Section */}
+          <div className="home-widgets w-full">
+            <HomeWidgets />
           </div>
         </div>
-      )}
+      </div>
     </div>
   )
 }

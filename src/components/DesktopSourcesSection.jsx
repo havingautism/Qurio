@@ -36,13 +36,18 @@ const DesktopSourcesSection = ({ sources = [], isOpen }) => {
                   {source.title}
                 </div>
                 <div className="flex items-center gap-1.5">
-                  {/* <img
-                    src={`https://www.google.com/s2/favicons?domain=${getHostname(source.url)}&sz=128`}
-                    alt=""
-                    className="w-3 h-3 opacity-60 grayscale group-hover:grayscale-0 transition-all rounded-full"
-                  /> */}
+                  {(source.icon || source.url) && (
+                    <img
+                      src={
+                        source.icon ||
+                        `https://www.google.com/s2/favicons?domain=${getHostname(source.url)}&sz=128`
+                      }
+                      alt=""
+                      className="w-3 h-3 opacity-60 grayscale group-hover:grayscale-0 transition-all rounded-full"
+                    />
+                  )}
                   <div className="text-[10px] text-gray-400 dark:text-gray-500 truncate">
-                    {getHostname(source.url)}
+                    {source.media || getHostname(source.url)}
                   </div>
                 </div>
               </div>

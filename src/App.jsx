@@ -142,8 +142,30 @@ function App() {
 
     window.addEventListener('settings-changed', handleSettingsChange)
     return () => window.removeEventListener('settings-changed', handleSettingsChange)
-    window.addEventListener('settings-changed', handleSettingsChange)
-    return () => window.removeEventListener('settings-changed', handleSettingsChange)
+  }, [])
+
+  // Apply User Configured Message Font Size
+  useEffect(() => {
+    const applyFontSize = () => {
+      const settings = loadSettings()
+      const fontSizeMap = {
+        small: '14px',
+        medium: '16px',
+        large: '18px',
+        'extra-large': '20px',
+      }
+      if (settings.fontSize && fontSizeMap[settings.fontSize]) {
+        document.documentElement.style.setProperty(
+          '--message-font-size',
+          fontSizeMap[settings.fontSize],
+        )
+      }
+    }
+
+    applyFontSize()
+
+    window.addEventListener('settings-changed', applyFontSize)
+    return () => window.removeEventListener('settings-changed', applyFontSize)
   }, [])
 
   // Sync Remote Settings to Memory on Mount

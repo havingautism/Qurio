@@ -125,6 +125,20 @@ const normalizeMessageForSend = message => {
   return message
 }
 
+const sanitizeJson = value => {
+  if (value === undefined) return null
+  try {
+    return JSON.parse(JSON.stringify(value))
+  } catch (error) {
+    if (typeof value === 'string') return value
+    try {
+      return String(value)
+    } catch (stringError) {
+      return null
+    }
+  }
+}
+
 const getLanguageInstruction = agent => {
   const trimmedLanguage =
     typeof (agent?.response_language || agent?.responseLanguage) === 'string'
@@ -488,7 +502,7 @@ const persistUserMessage = async (convId, editingInfo, content, set) => {
   const { data: insertedUser } = await addMessage({
     conversation_id: convId,
     role: 'user',
-    content,
+    content: sanitizeJson(content),
     created_at: new Date().toISOString(),
   })
 
@@ -1015,7 +1029,7 @@ const finalizeMessage = async (
         ? result.content
         : (currentStore.messages?.[currentStore.messages.length - 1]?.content ?? '')
 
-    const { data: insertedAi } = await addMessage({
+    const aiPayload = {
       conversation_id: currentStore.conversationId,
       role: 'assistant',
       provider: modelConfig.provider,
@@ -1024,14 +1038,39 @@ const finalizeMessage = async (
       agent_name: safeAgent?.name || null,
       agent_emoji: safeAgent?.emoji || '',
       agent_is_default: !!safeAgent?.isDefault,
-      content: contentForPersistence,
+      content: sanitizeJson(contentForPersistence),
       thinking_process: thoughtForPersistence,
-      tool_calls: result.toolCalls || null,
+      tool_calls: sanitizeJson(result.toolCalls || null),
       related_questions: null,
-      sources: result.sources || null,
-      grounding_supports: result.groundingSupports || null,
+      sources: sanitizeJson(result.sources || null),
+      grounding_supports: sanitizeJson(result.groundingSupports || null),
       created_at: new Date().toISOString(),
-    })
+    }
+    let insertedAi = null
+    const { data: insertedAiRow, error: insertAiError } = await addMessage(aiPayload)
+    if (insertAiError) {
+      console.error('Failed to persist AI message:', insertAiError)
+      const { data: retryAiRow, error: retryAiError } = await addMessage({
+        conversation_id: aiPayload.conversation_id,
+        role: aiPayload.role,
+        provider: aiPayload.provider,
+        model: aiPayload.model,
+        agent_id: aiPayload.agent_id,
+        agent_name: aiPayload.agent_name,
+        agent_emoji: aiPayload.agent_emoji,
+        agent_is_default: aiPayload.agent_is_default,
+        content: aiPayload.content,
+        thinking_process: aiPayload.thinking_process,
+        created_at: aiPayload.created_at,
+      })
+      if (retryAiError) {
+        console.error('Failed to persist AI message (retry):', retryAiError)
+      } else {
+        insertedAi = retryAiRow || null
+      }
+    } else {
+      insertedAi = insertedAiRow || null
+    }
 
     insertedAiId = insertedAi?.id || null
     if (insertedAi) {

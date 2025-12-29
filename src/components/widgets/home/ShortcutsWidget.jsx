@@ -442,9 +442,9 @@ const ShortcutsWidget = () => {
               <button
                 onClick={() => setIsEditMode(false)}
                 className="px-3 py-1 text-sm font-medium text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-full transition-colors"
-                title={t('common.done', 'Done')}
+                title={t('common.done')}
               >
-                {t('common.done', 'Done')}
+                {t('common.done')}
               </button>
             ) : (
               <>
@@ -452,7 +452,7 @@ const ShortcutsWidget = () => {
                   <button
                     onClick={() => setIsEditMode(true)}
                     className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors rounded-full hover:bg-gray-100 dark:hover:bg-zinc-800"
-                    title={t('views.widgets.editShortcuts', 'Edit Shortcuts')}
+                    title={t('views.widgets.editShortcuts')}
                   >
                     <Settings size={16} />
                   </button>
@@ -463,7 +463,7 @@ const ShortcutsWidget = () => {
                     setIsModalOpen(true)
                   }}
                   className="bg-primary-500 hover:bg-primary-600 text-white p-1.5 rounded-full shadow-lg transition-transform hover:scale-105"
-                  title={t('views.widgets.addShortcut', 'Add Shortcut')}
+                  title={t('views.widgets.addShortcut')}
                 >
                   <Plus size={16} />
                 </button>
@@ -475,7 +475,7 @@ const ShortcutsWidget = () => {
       >
         {isLoading ? (
           <div className="flex items-center justify-center h-full">
-            <div className="text-gray-400 text-sm">{t('common.loading', 'Loading...')}</div>
+            <div className="text-gray-400 text-sm">{t('common.loading')}</div>
           </div>
         ) : shortcuts.length === 0 ? (
           <div
@@ -486,9 +486,7 @@ const ShortcutsWidget = () => {
             className="flex flex-col items-center justify-center h-full cursor-pointer text-gray-400 hover:text-primary-500 transition-colors"
           >
             <Plus size={32} className="mb-2 opacity-50" />
-            <span className="text-sm font-medium">
-              {t('views.widgets.addFirstShortcut', 'Add Shortcut')}
-            </span>
+            <span className="text-sm font-medium">{t('views.widgets.addFirstShortcut')}</span>
           </div>
         ) : (
           <div
@@ -562,8 +560,8 @@ const ShortcutsWidget = () => {
                                     window.open(shortcut.url, '_blank', 'noopener,noreferrer')
                                   }
                                 }}
-                                className={`w-14 h-14 flex items-center justify-center rounded-2xl bg-white  transition-all duration-300 shadow-sm cursor-pointer
-                                  ${!isEditMode && 'hover:bg-white/70 dark:hover:bg-white/70 hover:scale-105'}
+                                className={`w-14 h-14 flex items-center justify-center rounded-2xl bg-white dark:bg-zinc-300 transition-all duration-300 shadow-sm cursor-pointer
+                                  ${!isEditMode && 'hover:bg-gray-50 dark:hover:bg-zinc-700 hover:scale-105'}
                                   ${isEditMode && 'cursor-grab group'}
                                 `}
                               >
@@ -630,22 +628,19 @@ const ShortcutsWidget = () => {
               position: 'fixed',
               left: dragState.currentX - dragState.offsetX,
               top: dragState.currentY - dragState.offsetY,
-              width: 64, // roughly w-16
-              height: 64,
+              width: 56, // matched to icon size
+              height: 56,
               pointerEvents: 'none',
               zIndex: 9999,
               transform: `rotate(5deg) scale(1.1)`,
               opacity: 0.9,
               touchAction: 'none',
             }}
-            className="flex flex-col items-center justify-center p-2"
+            className="flex items-center justify-center p-0"
           >
-            <div className="w-12 h-12 flex items-center justify-center rounded-xl bg-gray-100 dark:bg-white/10 shadow-2xl ring-2 ring-primary-500">
-              <ShortcutIcon shortcut={dragState.item} />
+            <div className="w-14 h-14 flex items-center justify-center rounded-2xl bg-white dark:bg-zinc-800 shadow-2xl ring-2 ring-primary-500">
+              <ShortcutIcon shortcut={dragState.item} size={28} />
             </div>
-            <span className="text-xs mt-1 truncate max-w-full text-center text-gray-600 dark:text-gray-300 font-bold">
-              {dragState.item.title}
-            </span>
           </div>,
           document.body,
         )}

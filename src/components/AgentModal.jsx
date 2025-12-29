@@ -10,7 +10,7 @@ import { getModelsForProvider } from '../lib/models_api'
 import { useAppContext } from '../App'
 import { loadSettings } from '../lib/settings'
 import { SILICONFLOW_BASE_URL } from '../lib/providerConstants'
-import { getModelIcon, renderProviderIcon } from '../lib/modelIcons'
+import { getModelIcon, getModelIconClassName, renderProviderIcon } from '../lib/modelIcons'
 import { getPublicEnv } from '../lib/publicEnv'
 
 // Logic reused from SettingsModal
@@ -475,7 +475,11 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
       >
         <div className="flex items-center gap-2 overflow-hidden">
           {isGrouped && getModelIcon(value) && (
-            <img src={getModelIcon(value)} alt="" className="w-4 h-4 shrink-0" />
+            <img
+              src={getModelIcon(value)}
+              alt=""
+              className={clsx('w-4 h-4 shrink-0', getModelIconClassName(value))}
+            />
           )}
           <span className="truncate">
             {isGrouped
@@ -515,7 +519,11 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                     >
                       <div className="flex items-center gap-2 truncate">
                         {getModelIcon(opt.value) && (
-                          <img src={getModelIcon(opt.value)} alt="" className="w-4 h-4 shrink-0" />
+                          <img
+                            src={getModelIcon(opt.value)}
+                            alt=""
+                            className={clsx('w-4 h-4 shrink-0', getModelIconClassName(opt.value))}
+                          />
                         )}
                         <span className="truncate">{opt.label}</span>
                       </div>
@@ -793,7 +801,11 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                       >
                         <div className="flex items-center gap-2 truncate">
                           {getModelIcon(model.value) && (
-                            <img src={getModelIcon(model.value)} alt="" className="w-4 h-4" />
+                            <img
+                              src={getModelIcon(model.value)}
+                              alt=""
+                              className={clsx('w-4 h-4', getModelIconClassName(model.value))}
+                            />
                           )}
                           <span className="truncate">{model.label}</span>
                         </div>

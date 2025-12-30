@@ -9,6 +9,13 @@ import clsx from 'clsx'
 import { getModelsForProvider } from '../lib/models_api'
 import { useAppContext } from '../App'
 import { loadSettings } from '../lib/settings'
+import {
+  DEEP_RESEARCH_AGENT_DESCRIPTION,
+  DEEP_RESEARCH_AGENT_NAME,
+  DEEP_RESEARCH_AGENT_PROMPT,
+  DEEP_RESEARCH_EMOJI,
+  DEEP_RESEARCH_PROFILE,
+} from '../lib/deepResearchDefaults'
 import { SILICONFLOW_BASE_URL } from '../lib/providerConstants'
 import { getModelIcon, getModelIconClassName, renderProviderIcon } from '../lib/modelIcons'
 import { getProvider } from '../lib/providers'
@@ -42,14 +49,7 @@ const FALLBACK_MODEL_OPTIONS = {
   __fallback__: [],
 }
 
-const PROVIDER_KEYS = [
-  'gemini',
-  'openai_compatibility',
-  'siliconflow',
-  'glm',
-  'modelscope',
-  'kimi',
-]
+const PROVIDER_KEYS = ['gemini', 'openai_compatibility', 'siliconflow', 'glm', 'modelscope', 'kimi']
 const MODEL_SEPARATOR = '::'
 
 const parseStoredModel = value => {
@@ -119,6 +119,8 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
   const { t } = useTranslation()
   const { defaultAgent, agents = [] } = useAppContext()
   useScrollLock(isOpen)
+  const isDeepResearchAgent = Boolean(editingAgent?.isDeepResearchSystem)
+  const isGeneralLocked = Boolean(editingAgent?.isDefault || isDeepResearchAgent)
 
   const [activeTab, setActiveTab] = useState('general')
 
@@ -364,11 +366,11 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
   }, [isOpen, editingAgent, t, defaultAgent])
 
   const handleSaveWrapper = async () => {
-    if (!editingAgent?.isDefault && !name.trim()) {
+    if (!editingAgent?.isDefault && !isDeepResearchAgent && !name.trim()) {
       setError(t('agents.validation.nameRequired'))
       return
     }
-    if (!editingAgent?.isDefault) {
+    if (!editingAgent?.isDefault && !isDeepResearchAgent) {
       const normalizedName = name.trim().toLowerCase()
       const duplicateName = agents.some(
         agent =>
@@ -396,26 +398,43 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
       const resolvedLiteProvider = resolveProvider(liteModel, liteModelProvider || provider)
       const derivedProvider = resolvedDefaultProvider || provider
 
+      const resolvedName = isDeepResearchAgent
+        ? DEEP_RESEARCH_AGENT_NAME
+        : editingAgent?.isDefault
+          ? editingAgent?.name || name.trim()
+          : name.trim()
+      const resolvedDescription = isDeepResearchAgent
+        ? DEEP_RESEARCH_AGENT_DESCRIPTION
+        : editingAgent?.isDefault
+          ? editingAgent?.description || description.trim()
+          : description.trim()
+      const resolvedPrompt = isDeepResearchAgent ? DEEP_RESEARCH_AGENT_PROMPT : prompt.trim()
+      const resolvedEmoji = isDeepResearchAgent ? DEEP_RESEARCH_EMOJI : emoji
+      const resolvedBaseTone = isDeepResearchAgent ? DEEP_RESEARCH_PROFILE.baseTone : baseTone
+      const resolvedTraits = isDeepResearchAgent ? DEEP_RESEARCH_PROFILE.traits : traits
+      const resolvedWarmth = isDeepResearchAgent ? DEEP_RESEARCH_PROFILE.warmth : warmth
+      const resolvedEnthusiasm = isDeepResearchAgent ? DEEP_RESEARCH_PROFILE.enthusiasm : enthusiasm
+      const resolvedHeadings = isDeepResearchAgent ? DEEP_RESEARCH_PROFILE.headings : headings
+      const resolvedEmojis = isDeepResearchAgent ? DEEP_RESEARCH_PROFILE.emojis : emojis
+
       await onSave?.({
         id: editingAgent?.id,
-        name: editingAgent?.isDefault ? editingAgent?.name || name.trim() : name.trim(),
-        description: editingAgent?.isDefault
-          ? editingAgent?.description || description.trim()
-          : description.trim(),
-        prompt: prompt.trim(),
-        emoji,
+        name: resolvedName,
+        description: resolvedDescription,
+        prompt: resolvedPrompt,
+        emoji: resolvedEmoji,
         provider: derivedProvider,
         liteModel: encodeModelId(resolvedLiteProvider, liteModel),
         defaultModel: encodeModelId(resolvedDefaultProvider, defaultModel),
         defaultModelSource,
         liteModelSource,
         responseLanguage,
-        baseTone,
-        traits,
-        warmth,
-        enthusiasm,
-        headings,
-        emojis,
+        baseTone: resolvedBaseTone,
+        traits: resolvedTraits,
+        warmth: resolvedWarmth,
+        enthusiasm: resolvedEnthusiasm,
+        headings: resolvedHeadings,
+        emojis: resolvedEmojis,
         customInstruction: customInstruction.trim(),
         temperature,
         topP,
@@ -482,12 +501,17 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
     setIsOpen,
     ref,
     isGrouped = false,
+    disabled = false,
   ) => (
     <div className="flex flex-col gap-2 relative" ref={ref}>
       <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{label}</label>
       <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between px-3 py-2 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+        onClick={() => !disabled && setIsOpen(!isOpen)}
+        disabled={disabled}
+        className={clsx(
+          'w-full flex items-center justify-between px-3 py-2 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500/20',
+          disabled && 'opacity-50 cursor-not-allowed',
+        )}
       >
         <div className="flex items-center gap-2 overflow-hidden">
           {isGrouped && getModelIcon(value) && (
@@ -1118,10 +1142,16 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
 
   if (!isOpen) return null
 
-  const displayName = editingAgent?.isDefault ? t('agents.defaults.name') : name
+  const displayName = editingAgent?.isDefault
+    ? t('agents.defaults.name')
+    : isDeepResearchAgent
+      ? t('deepResearch.agentName')
+      : name
   const displayDescription = editingAgent?.isDefault
     ? t('agents.defaults.description')
-    : description
+    : isDeepResearchAgent
+      ? t('deepResearch.agentDescription')
+      : description
 
   return (
     <div className="fixed inset-0 z-100 flex items-start md:items-center justify-center bg-black/50 backdrop-blur-sm p-0 md:p-4 overflow-y-auto md:overflow-hidden">
@@ -1169,8 +1199,12 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                   <div className="relative inline-block w-fit">
                     <button
                       ref={buttonRef}
-                      onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                      className="w-12 h-12 rounded-xl bg-gray-100 dark:bg-zinc-800 flex items-center justify-center text-2xl hover:bg-gray-200 dark:hover:bg-zinc-700 transition-colors border border-gray-200 dark:border-zinc-700"
+                      onClick={() => {
+                        if (isGeneralLocked) return
+                        setShowEmojiPicker(!showEmojiPicker)
+                      }}
+                      disabled={isGeneralLocked}
+                      className="w-12 h-12 rounded-xl bg-gray-100 dark:bg-zinc-800 flex items-center justify-center text-2xl hover:bg-gray-200 dark:hover:bg-zinc-700 transition-colors border border-gray-200 dark:border-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <EmojiDisplay emoji={emoji} />
                     </button>
@@ -1193,8 +1227,8 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                     value={displayName}
                     onChange={e => setName(e.target.value)}
                     placeholder={t('agents.general.namePlaceholder')}
-                    disabled={editingAgent?.isDefault}
-                    className="flex-1 px-4 py-2.5 h-12 text-sm bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                    disabled={isGeneralLocked}
+                    className="flex-1 px-4 py-2.5 h-12 text-sm bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                 </div>
               </div>
@@ -1207,9 +1241,9 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                   value={displayDescription}
                   onChange={e => setDescription(e.target.value)}
                   placeholder={t('agents.general.descriptionPlaceholder')}
-                  disabled={editingAgent?.isDefault}
+                  disabled={isGeneralLocked}
                   rows={2}
-                  className="w-full px-4 py-2 text-sm bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20 resize-none"
+                  className="w-full px-4 py-2 text-sm bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20 resize-none disabled:opacity-50 disabled:cursor-not-allowed"
                 />
               </div>
 
@@ -1222,7 +1256,8 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                   onChange={e => setPrompt(e.target.value)}
                   placeholder={t('agents.general.systemPromptPlaceholder')}
                   rows={6}
-                  className="w-full flex-1 min-h-0 px-4 py-2 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20 resize-none  text-sm"
+                  disabled={isDeepResearchAgent}
+                  className="w-full flex-1 min-h-0 px-4 py-2 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20 resize-none text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 />
               </div>
             </div>
@@ -1351,6 +1386,8 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                   isBaseToneOpen,
                   setIsBaseToneOpen,
                   baseToneRef,
+                  false,
+                  isDeepResearchAgent,
                 )}
                 {renderDropdown(
                   t('settings.traits'),
@@ -1363,6 +1400,8 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                   isTraitsOpen,
                   setIsTraitsOpen,
                   traitsRef,
+                  false,
+                  isDeepResearchAgent,
                 )}
               </div>
 
@@ -1378,6 +1417,8 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                   isWarmthOpen,
                   setIsWarmthOpen,
                   warmthRef,
+                  false,
+                  isDeepResearchAgent,
                 )}
                 {renderDropdown(
                   t('settings.enthusiasm'),
@@ -1390,6 +1431,8 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                   isEnthusiasmOpen,
                   setIsEnthusiasmOpen,
                   enthusiasmRef,
+                  false,
+                  isDeepResearchAgent,
                 )}
               </div>
 
@@ -1405,6 +1448,8 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                   isHeadingsOpen,
                   setIsHeadingsOpen,
                   headingsRef,
+                  false,
+                  isDeepResearchAgent,
                 )}
                 {renderDropdown(
                   t('settings.emojis'),
@@ -1417,6 +1462,8 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                   isEmojisOpen,
                   setIsEmojisOpen,
                   emojisRef,
+                  false,
+                  isDeepResearchAgent,
                 )}
               </div>
 

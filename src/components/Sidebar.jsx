@@ -22,6 +22,7 @@ import { useAppContext } from '../App'
 import { useToast } from '../contexts/ToastContext'
 import useScrollLock from '../hooks/useScrollLock'
 import { getAgentDisplayDescription, getAgentDisplayName } from '../lib/agentDisplay'
+import { getSpaceDisplayLabel } from '../lib/spaceDisplay'
 import {
   listBookmarkedConversations,
   listConversations,
@@ -1031,7 +1032,7 @@ const Sidebar = ({
                           <EmojiDisplay emoji={space.emoji} />
                         </div>
                         <span className="text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-gray-200 transition-colors truncate">
-                          {space.label}
+                          {getSpaceDisplayLabel(space, t)}
                         </span>
                       </div>
 

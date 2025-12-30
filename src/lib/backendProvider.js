@@ -1623,6 +1623,110 @@ Return only the title text.`,
 }
 
 /**
+ * Generates a structured deep research plan using a lightweight model.
+ * Uses a ReAct-inspired JSON schema for downstream execution.
+ * @param {string} provider - AI provider to use
+ * @param {string} userMessage - The user's current message
+ * @param {string} apiKey - API key for authentication
+ * @param {string} baseUrl - Custom base URL
+ * @param {string} model - Model name/ID
+ * @returns {Promise<string>} - JSON string representing the research plan
+ */
+const generateResearchPlan = async (provider, userMessage, apiKey, baseUrl, model) => {
+  const promptMessages = [
+    {
+      role: 'system',
+      content: `You are a task planner whose output will be executed step-by-step by another agent.
+
+Create a detailed, execution-ready research plan in ReAct-inspired format.
+Return ONLY valid JSON that conforms exactly to this schema:
+{
+  "goal": "string",
+  "assumptions": ["string"],
+  "plan": [
+   {
+  "step": 1,
+  "thought": "short reasoning",
+  "action": "what to do",
+  "expected_output": "what this step should produce",
+  "deliverable_format": "bullet list / table / checklist / JSON / paragraph",
+  "acceptance_criteria": ["must include ...", "must exclude ..."],
+  "depth": "low|medium|high"
+}
+  ],
+  "risks": ["string"],
+  "success_criteria": ["string"]
+}
+
+Rules:
+- Use 4–6 steps.
+- Each step must be executable independently by another agent without additional reasoning.
+- Actions must include sub-steps or constraints if ambiguity is possible.
+- Expected_output must describe format, depth, and purpose (e.g. 'a bullet list of 5 items explaining X').
+- Avoid abstract verbs like 'research', 'analyze', or 'consider' without explanation.
+- If key information is missing, step 1 must request clarification and pause further planning.
+- Output JSON only. No markdown, no commentary.`,
+    },
+    { role: 'user', content: userMessage },
+  ]
+
+  const responseFormat = provider !== 'gemini' ? { type: 'json_object' } : undefined
+  let content = undefined
+  if (provider === 'gemini') {
+    content = await requestGemini({ apiKey, model, messages: promptMessages })
+  } else if (provider === 'siliconflow') {
+    content = await requestSiliconFlow({
+      provider,
+      apiKey,
+      baseUrl,
+      model,
+      messages: promptMessages,
+      responseFormat,
+    })
+  } else if (provider === 'glm') {
+    content = await requestGLM({
+      apiKey,
+      model,
+      messages: promptMessages,
+      responseFormat,
+    })
+  } else if (provider === 'modelscope') {
+    content = await requestModelScope({
+      apiKey,
+      model,
+      messages: promptMessages,
+      responseFormat,
+    })
+  } else if (provider === 'kimi') {
+    content = await requestKimi({
+      apiKey,
+      model,
+      messages: promptMessages,
+      responseFormat,
+    })
+  } else {
+    content = await requestOpenAICompat({
+      provider,
+      apiKey,
+      baseUrl,
+      model,
+      messages: promptMessages,
+      responseFormat,
+    })
+  }
+
+  const parsed = safeJsonParse(content)
+  if (parsed) {
+    try {
+      return JSON.stringify(parsed, null, 2)
+    } catch {
+      return content?.trim?.() || ''
+    }
+  }
+  return content?.trim?.() || ''
+}
+
+/**
  * Generates a daily tip for the home page widget.
  * @param {string} provider - AI provider to use
  * @param {string} language - Preferred response language
@@ -2075,6 +2179,8 @@ export const createBackendProvider = provider => ({
   streamChatCompletion: params => streamWithLangChain({ provider, ...params }),
   generateTitle: (firstMessage, apiKey, baseUrl, model) =>
     generateTitle(provider, firstMessage, apiKey, baseUrl, model),
+  generateResearchPlan: (userMessage, apiKey, baseUrl, model) =>
+    generateResearchPlan(provider, userMessage, apiKey, baseUrl, model),
   generateDailyTip: (language, category, apiKey, baseUrl, model) =>
     generateDailyTip(provider, language, category, apiKey, baseUrl, model),
   generateTitleAndSpace: (firstMessage, spaces, apiKey, baseUrl, model) =>

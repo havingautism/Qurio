@@ -4,6 +4,7 @@ import {
   addMessage,
   updateConversation,
   updateMessageById,
+  addConversationEvent,
 } from '../lib/conversationsService'
 import { deleteMessageById } from '../lib/supabase'
 import { getProvider } from '../lib/providers'
@@ -282,7 +283,8 @@ const getModelConfigForAgent = (agent, settings, task = 'streamChatCompletion', 
     const isLiteTask =
       task === 'generateTitle' ||
       task === 'generateTitleAndSpace' ||
-      task === 'generateRelatedQuestions'
+      task === 'generateRelatedQuestions' ||
+      task === 'generateResearchPlan'
 
     const model = isLiteTask
       ? decodedLiteModel || decodedDefaultModel
@@ -311,6 +313,31 @@ const applyLanguageInstructionToText = (text, instruction) => {
   if (!instruction) return text
   const baseText = typeof text === 'string' ? text.trim() : ''
   return baseText ? `${baseText}\n\n${instruction}` : instruction
+}
+
+const generateDeepResearchPlan = async (
+  userMessage,
+  settings,
+  selectedAgent,
+  agents,
+  fallbackAgent,
+) => {
+  const agentForPlan = selectedAgent || fallbackAgent
+  const modelConfig = getModelConfigForAgent(
+    agentForPlan,
+    settings,
+    'generateResearchPlan',
+    fallbackAgent,
+  )
+  const provider = getProvider(modelConfig.provider)
+  if (!provider?.generateResearchPlan || !modelConfig.model) return ''
+  const credentials = provider.getCredentials(settings)
+  return provider.generateResearchPlan(
+    userMessage,
+    credentials.apiKey,
+    credentials.baseUrl,
+    modelConfig.model,
+  )
 }
 
 // ========================================
@@ -439,6 +466,49 @@ const preselectTitleForManual = async (firstMessage, settings, selectedAgent = n
   return provider.generateTitle(promptText, credentials.apiKey, credentials.baseUrl, modelConfig.model)
 }
 
+const normalizeDeepResearchTitle = (title, settings) => {
+  const raw = typeof title === 'string' ? title.trim() : ''
+  const cleaned = raw.replace(/^["'“”‘’]+|["'“”‘’]+$/g, '').trim()
+  const languageHint = String(settings?.llmAnswerLanguage || '').toLowerCase()
+  const isChinese =
+    settings?.interfaceLanguage === 'zh' ||
+    languageHint.includes('chinese') ||
+    languageHint.includes('中文') ||
+    /[\u4e00-\u9fff]/.test(cleaned)
+
+  if (!cleaned) {
+    return isChinese ? '深入研究报告' : 'Deep Research Report'
+  }
+
+  if (isChinese) {
+    return cleaned.endsWith('报告') ? cleaned : `${cleaned}报告`
+  }
+
+  return /report$/i.test(cleaned) ? cleaned : `${cleaned} Report`
+}
+
+const preselectTitleForDeepResearch = async (
+  firstMessage,
+  settings,
+  selectedAgent = null,
+  agents = [],
+) => {
+  const fallbackAgent = agents?.find(agent => agent.isDefault)
+  const agentForTitle = selectedAgent || fallbackAgent
+  const modelConfig = getModelConfigForAgent(agentForTitle, settings, 'generateTitle', fallbackAgent)
+  const provider = getProvider(modelConfig.provider)
+  const credentials = provider.getCredentials(settings)
+  const languageInstruction = getLanguageInstruction(agentForTitle)
+  const promptText = applyLanguageInstructionToText(firstMessage, languageInstruction)
+  const rawTitle = await provider.generateTitle(
+    promptText,
+    credentials.apiKey,
+    credentials.baseUrl,
+    modelConfig.model,
+  )
+  return normalizeDeepResearchTitle(rawTitle, settings)
+}
+
 /**
  * Ensures a conversation exists in the database, creating one if necessary
  * @param {string|null} conversationId - Existing conversation ID or null
@@ -456,6 +526,7 @@ const ensureConversationExists = async (
   spaceInfo,
   set,
   providerOverride,
+  selectedAgent,
 ) => {
   // If conversation already exists, return it
   if (conversationId) {
@@ -467,6 +538,8 @@ const ensureConversationExists = async (
     space_id: spaceInfo.selectedSpace ? spaceInfo.selectedSpace.id : null,
     title: 'New Conversation',
     api_provider: providerOverride || '',
+    agent_selection_mode: toggles?.deepResearch ? 'manual' : 'auto',
+    last_agent_id: toggles?.deepResearch ? selectedAgent?.id || null : null,
   }
 
   const { data, error } = await createConversation(creationPayload)
@@ -475,6 +548,11 @@ const ensureConversationExists = async (
     set({ conversationId: data.id })
     // Notify other components that conversations list changed
     window.dispatchEvent(new Event('conversations-changed'))
+    if (toggles?.deepResearch) {
+      addConversationEvent(data.id, 'deep_research', { enabled: true }).catch(err =>
+        console.error('Failed to record deep research event:', err),
+      )
+    }
     return { id: data.id, data, isNew: true }
   } else {
     console.error('Create conversation failed:', error)
@@ -540,7 +618,15 @@ const persistUserMessage = async (convId, editingInfo, content, set) => {
  * @param {Function} set - Zustand set function
  * @returns {Object} Contains conversationMessages (for API) and aiMessagePlaceholder (for UI)
  */
-const prepareAIPlaceholder = (historyForSend, userMessageForSend, spaceInfo, selectedAgent, settings, set, toggles) => {
+const prepareAIPlaceholder = (
+  historyForSend,
+  userMessageForSend,
+  spaceInfo,
+  selectedAgent,
+  settings,
+  set,
+  toggles,
+) => {
   const resolvedPrompt = buildAgentPrompt(selectedAgent)
 
   const conversationMessagesBase = [
@@ -556,7 +642,10 @@ const prepareAIPlaceholder = (historyForSend, userMessageForSend, spaceInfo, sel
     role: 'ai',
     content: '',
     created_at: new Date().toISOString(),
-    thinkingEnabled: !!toggles?.thinking,
+    thinkingEnabled: !!(toggles?.thinking || toggles?.deepResearch),
+    deepResearch: !!toggles?.deepResearch,
+    researchPlan: '',
+    researchPlanLoading: !!toggles?.deepResearch,
     agentId: selectedAgent?.id || null,
     agentName: selectedAgent?.name || null,
     agentEmoji: selectedAgent?.emoji || '',
@@ -665,6 +754,49 @@ const callAIAPI = async (
     )
     const provider = getProvider(modelConfig.provider)
     const credentials = provider.getCredentials(settings)
+    const thinkingActive = !!(toggles?.thinking || toggles?.deepResearch)
+    let planContent = ''
+
+    if (toggles?.deepResearch && firstUserText) {
+      try {
+        planContent = await generateDeepResearchPlan(
+          firstUserText,
+          settings,
+          selectedAgent,
+          agents,
+          fallbackAgent,
+        )
+      } catch (planError) {
+        console.error('Deep research plan generation failed:', planError)
+      }
+    }
+
+    if (toggles?.deepResearch) {
+      set(state => {
+        const updated = [...state.messages]
+        const lastMsgIndex = updated.length - 1
+        if (lastMsgIndex < 0) return { messages: updated }
+        const lastMsg = { ...updated[lastMsgIndex] }
+        if (lastMsg.role === 'ai') {
+          lastMsg.researchPlan = planContent || ''
+          lastMsg.researchPlanLoading = false
+          updated[lastMsgIndex] = lastMsg
+        }
+        return { messages: updated }
+      })
+    }
+
+    const planMessage = planContent
+      ? [
+          {
+            role: 'system',
+            content: `## Deep Research Plan (from lite model)\n${planContent}`,
+          },
+        ]
+      : []
+    const conversationMessagesWithPlan = planMessage.length
+      ? [...planMessage, ...conversationMessages]
+      : conversationMessages
 
     // Tag the placeholder with provider/model so UI can show it while streaming
     set(state => {
@@ -697,7 +829,7 @@ const callAIAPI = async (
       frequency_penalty: agentFrequencyPenalty ?? undefined,
       presence_penalty: agentPresencePenalty ?? undefined,
       contextMessageLimit: settings.contextMessageLimit,
-      messages: conversationMessages.map(m => ({
+      messages: conversationMessagesWithPlan.map(m => ({
         role: m.role === 'ai' ? 'assistant' : m.role,
         content: m.content,
         ...(m.tool_calls && { tool_calls: m.tool_calls }),
@@ -705,7 +837,7 @@ const callAIAPI = async (
         ...(m.name && { name: m.name }),
       })),
       tools: provider.getTools(toggles.search),
-      thinking: provider.getThinking(toggles.thinking, modelConfig.model),
+      thinking: provider.getThinking(thinkingActive, modelConfig.model),
       onChunk: chunk => {
         if (typeof chunk === 'object' && chunk !== null) {
           if (chunk.type === 'thought') {
@@ -1023,7 +1155,16 @@ const finalizeMessage = async (
       return typeof thoughtValue === 'string' ? thoughtValue.trim() : ''
     })()
 
-    const thoughtForPersistence = normalizedThought || fallbackThoughtFromState || null
+    const baseThought = normalizedThought || fallbackThoughtFromState || null
+    const planForPersistence = (() => {
+      const aiMessages = (currentStore.messages || []).filter(m => m.role === 'ai')
+      const latestAi = aiMessages[aiMessages.length - 1]
+      return typeof latestAi?.researchPlan === 'string' ? latestAi.researchPlan : null
+    })()
+    const thoughtForPersistence =
+      toggles?.deepResearch && planForPersistence
+        ? JSON.stringify({ plan: planForPersistence, thought: baseThought })
+        : baseThought
     const contentForPersistence =
       typeof result.content !== 'undefined'
         ? result.content
@@ -1375,6 +1516,7 @@ const useChatStore = create((set, get) => ({
         spaceInfo,
         set,
         providerOverride,
+        selectedAgent,
       )
     } catch (convError) {
       return // Early return on conversation creation failure
@@ -1401,23 +1543,45 @@ const useChatStore = create((set, get) => ({
     let resolvedAgent = isAgentAutoMode ? null : selectedAgent
     let preselectedTitle = null
     const isFirstTurn = historyLengthBeforeSend === 0
+    const isDeepResearchMode = !!toggles?.deepResearch
     // Only preselect space/title on first turn, never reload in existing conversations
     const shouldPreselectSpaceTitle =
-      isFirstTurn && !spaceInfo?.isManualSpaceSelection && !spaceInfo?.selectedSpace && text.trim()
+      isFirstTurn &&
+      !isDeepResearchMode &&
+      !spaceInfo?.isManualSpaceSelection &&
+      !spaceInfo?.selectedSpace &&
+      text.trim()
     const shouldPreselectTitleForManual =
-      isFirstTurn && spaceInfo?.isManualSpaceSelection && spaceInfo?.selectedSpace
+      isFirstTurn &&
+      !isDeepResearchMode &&
+      spaceInfo?.isManualSpaceSelection &&
+      spaceInfo?.selectedSpace
     // In auto mode, always preselect agent (including first turn)
-    const shouldPreselectAgent = isAgentAutoMode && text.trim()
+    const shouldPreselectAgent = isAgentAutoMode && text.trim() && !isDeepResearchMode
+    const shouldPreselectDeepResearchTitle = isFirstTurn && isDeepResearchMode && text.trim()
 
     // Preselect space & title with loading indicator (only on first turn)
-    if (shouldPreselectSpaceTitle || shouldPreselectTitleForManual) {
+    if (
+      shouldPreselectSpaceTitle ||
+      shouldPreselectTitleForManual ||
+      shouldPreselectDeepResearchTitle
+    ) {
       set({ isMetaLoading: true })
       try {
-        if (shouldPreselectSpaceTitle) {
+        if (shouldPreselectDeepResearchTitle) {
+          const title = await preselectTitleForDeepResearch(text, settings, selectedAgent, agents)
+          if (title) {
+            preselectedTitle = title
+            set({ conversationTitle: title })
+          }
+        } else if (shouldPreselectSpaceTitle) {
+          const selectableSpaces = toggles?.deepResearch
+            ? spaces
+            : (spaces || []).filter(space => !space?.isDeepResearchSystem)
           const { title, space, agent } = await preselectTitleSpaceAndAgentForAuto(
             text,
             settings,
-            spaces,
+            selectableSpaces,
             agents,
             selectedAgent,
           )

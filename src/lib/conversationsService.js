@@ -246,6 +246,26 @@ export const updateMessageById = async (id, payload) => {
   return { data, error }
 }
 
+export const addConversationEvent = async (conversationId, eventType, payload = null) => {
+  const supabase = getSupabaseClient()
+  if (!supabase) return { data: null, error: new Error('Supabase not configured') }
+  if (!conversationId) return { data: null, error: new Error('Conversation id is required') }
+  if (!eventType) return { data: null, error: new Error('Event type is required') }
+  const { data, error } = await supabase
+    .from('conversation_events')
+    .insert([
+      {
+        conversation_id: conversationId,
+        event_type: eventType,
+        payload,
+        created_at: new Date().toISOString(),
+      },
+    ])
+    .select()
+    .single()
+  return { data, error }
+}
+
 export const toggleFavorite = async (id, isFavorited) => {
   const supabase = getSupabaseClient()
   if (!supabase) return { data: null, error: new Error('Supabase not configured') }

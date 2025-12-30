@@ -448,6 +448,10 @@ const MessageBubble = ({
 
   const { t } = useTranslation()
   const { showConfirmation } = useAppContext()
+  const isUser = message.role === 'user'
+  const isDeepResearch = !!message?.deepResearch
+  const planContent =
+    typeof message?.researchPlan === 'string' ? message.researchPlan.trim() : ''
 
   // Dynamic thinking status messages using translations
   const THINKING_STATUS_MESSAGES = [
@@ -456,6 +460,70 @@ const MessageBubble = ({
     t('chat.workingThroughIt'),
     t('chat.checkingDetails'),
   ]
+  const DEEP_RESEARCH_STATUS_MESSAGES = [
+    t('chat.deepResearchPlanning'),
+    t('chat.deepResearchSynthesizing'),
+    t('chat.deepResearchDrafting'),
+    t('chat.deepResearchRefining'),
+  ]
+  const planMarkdown = useMemo(() => {
+    if (!planContent) return ''
+    const trimmed = planContent.trim()
+    if (!trimmed) return ''
+    try {
+      const parsed = JSON.parse(trimmed)
+      const goal = parsed.goal ? `**${t('messageBubble.researchGoal')}:** ${parsed.goal}` : ''
+      const assumptions = Array.isArray(parsed.assumptions)
+        ? parsed.assumptions.filter(Boolean).map(item => `- ${item}`).join('\n')
+        : ''
+      const steps = Array.isArray(parsed.plan)
+        ? parsed.plan
+            .map(step => {
+              if (!step) return ''
+              const title = step.step ? `**${step.step}.**` : '**-**'
+              const action = step.action ? ` ${step.action}` : ''
+              const expected = step.expected_output
+                ? `\n  - ${t('messageBubble.researchExpected')}: ${step.expected_output}`
+                : ''
+              const thought = step.thought
+                ? `\n  - ${t('messageBubble.researchThought')}: ${step.thought}`
+                : ''
+              return `${title}${action}${thought}${expected}`.trim()
+            })
+            .filter(Boolean)
+            .join('\n')
+        : ''
+      const risks = Array.isArray(parsed.risks)
+        ? parsed.risks.filter(Boolean).map(item => `- ${item}`).join('\n')
+        : ''
+      const success = Array.isArray(parsed.success_criteria)
+        ? parsed.success_criteria.filter(Boolean).map(item => `- ${item}`).join('\n')
+        : ''
+
+      const sections = []
+      sections.push(`### ${t('messageBubble.researchPlan')}`)
+      if (goal) sections.push(goal)
+      if (assumptions) {
+        sections.push(`**${t('messageBubble.researchAssumptions')}:**`)
+        sections.push(assumptions)
+      }
+      if (steps) {
+        sections.push(`**${t('messageBubble.researchSteps')}:**`)
+        sections.push(steps)
+      }
+      if (risks) {
+        sections.push(`**${t('messageBubble.researchRisks')}:**`)
+        sections.push(risks)
+      }
+      if (success) {
+        sections.push(`**${t('messageBubble.researchSuccessCriteria')}:**`)
+        sections.push(success)
+      }
+      return sections.filter(Boolean).join('\n\n')
+    } catch {
+      return `${t('messageBubble.researchPlan')}\n\n${trimmed}`
+    }
+  }, [planContent, t])
 
   // Sources UI State
   const [isSourcesOpen, setIsSourcesOpen] = useState(false) // Desktop
@@ -472,7 +540,6 @@ const MessageBubble = ({
     [message.sources, t],
   )
 
-  const isUser = message.role === 'user'
   const isStreaming =
     message?.isStreaming ??
     (isLoading && message.role === 'ai' && messageIndex === messages.length - 1)
@@ -499,8 +566,8 @@ const MessageBubble = ({
   })()
   const shouldShowThinkingStatus =
     message.role === 'ai' && message.thinkingEnabled !== false && isStreaming && !hasMainText
-  const thinkingStatusText =
-    THINKING_STATUS_MESSAGES[thinkingStatusIndex] || THINKING_STATUS_MESSAGES[0]
+  const statusMessages = isDeepResearch ? DEEP_RESEARCH_STATUS_MESSAGES : THINKING_STATUS_MESSAGES
+  const thinkingStatusText = statusMessages[thinkingStatusIndex] || statusMessages[0]
   const renderPlainCodeBlock = useCallback(
     (codeText, language) => (
       <div className="relative group my-4 border border-gray-200 dark:border-zinc-700 rounded-xl overflow-x-auto bg-user-bubble/20 dark:bg-zinc-800/30">
@@ -550,10 +617,10 @@ const MessageBubble = ({
     if (!shouldShowThinkingStatus) return undefined
     setThinkingStatusIndex(0)
     const intervalId = setInterval(() => {
-      setThinkingStatusIndex(prev => (prev + 1) % THINKING_STATUS_MESSAGES.length)
+      setThinkingStatusIndex(prev => (prev + 1) % statusMessages.length)
     }, 1800)
     return () => clearInterval(intervalId)
-  }, [shouldShowThinkingStatus])
+  }, [shouldShowThinkingStatus, statusMessages.length])
 
   const CodeBlock = useCallback(
     ({ inline, className, children, ...props }) => {
@@ -901,7 +968,10 @@ const MessageBubble = ({
   )
   const contentWithCitations = formatContentWithSources(contentWithSupports, message.sources)
   const hasThoughtText = !!(thoughtContent && String(thoughtContent).trim())
-  const shouldShowThought = message.thinkingEnabled !== false && (isStreaming || hasThoughtText)
+  const hasPlanText = !!planMarkdown
+  const shouldShowThought =
+    message.thinkingEnabled !== false && (isStreaming || hasThoughtText || hasPlanText)
+  const thinkingEmoji = isDeepResearch ? '🔬' : '🧠'
   const hasRelatedQuestions = Array.isArray(message.related) && message.related.length > 0
   const isRelatedLoading = !!message.relatedLoading
 
@@ -1060,7 +1130,7 @@ const MessageBubble = ({
             className="w-full flex items-center justify-between p-2 bg-user-bubble/30 dark:bg-zinc-800/50 hover:bg-user-bubble dark:hover:bg-zinc-800 transition-colors"
           >
             <div className="flex items-center gap-2 font-medium text-gray-700 dark:text-gray-300">
-              <EmojiDisplay emoji="🧠" size="1.2em" />
+              <EmojiDisplay emoji={thinkingEmoji} size="1.2em" />
               {!shouldShowThinkingStatus && (
                 <span className="text-sm">{t('messageBubble.thinkingProcess')}</span>
               )}
@@ -1077,14 +1147,14 @@ const MessageBubble = ({
             </div>
           </button>
 
-          {isThoughtExpanded && hasThoughtText && (
+          {isThoughtExpanded && (hasThoughtText || hasPlanText) && (
             <div className="p-4 bg-user-bubble/30 font-stretch-semi-condensed dark:bg-zinc-800/30 border-t border-gray-200 dark:border-zinc-700 text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
               <Streamdown
                 mermaid={mermaidOptions}
                 remarkPlugins={[remarkGfm]}
                 components={markdownComponents}
               >
-                {thoughtContent}
+                {[planMarkdown, thoughtContent].filter(Boolean).join('\n\n')}
               </Streamdown>
             </div>
           )}

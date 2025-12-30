@@ -16,6 +16,7 @@ export const TASK_MAPPING = {
   generateTitle: TASK_TYPES.LITE,
   generateRelatedQuestions: TASK_TYPES.LITE,
   generateTitleAndSpace: TASK_TYPES.LITE,
+  generateResearchPlan: TASK_TYPES.LITE,
 
   // Main conversation tasks - use defaultModel
   streamChatCompletion: TASK_TYPES.DEFAULT,

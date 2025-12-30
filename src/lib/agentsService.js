@@ -10,6 +10,7 @@ const mapAgent = agent => {
     name: agent.name,
     description: agent.description,
     prompt: agent.prompt,
+    isDeepResearch: agent.is_deep_research ?? agent.isDeepResearch ?? false,
     emoji: agent.emoji,
     provider: agent.provider,
     defaultModelSource: agent.default_model_source ?? agent.defaultModelSource ?? 'list',
@@ -49,6 +50,7 @@ export const createAgent = async ({
   name,
   description = '',
   prompt = '',
+  isDeepResearch = false,
   emoji = '',
   isDefault = false,
   provider = '',
@@ -77,6 +79,7 @@ export const createAgent = async ({
     name,
     description,
     prompt,
+    is_deep_research: isDeepResearch,
     emoji,
     is_default: isDefault,
     provider,
@@ -112,6 +115,8 @@ export const updateAgent = async (id, payload) => {
   if (payload.name !== undefined) updatePayload.name = payload.name
   if (payload.description !== undefined) updatePayload.description = payload.description
   if (payload.prompt !== undefined) updatePayload.prompt = payload.prompt
+  if (payload.isDeepResearch !== undefined)
+    updatePayload.is_deep_research = payload.isDeepResearch
   if (payload.emoji !== undefined) updatePayload.emoji = payload.emoji
   if (payload.provider !== undefined) updatePayload.provider = payload.provider
   if (payload.defaultModelSource !== undefined)

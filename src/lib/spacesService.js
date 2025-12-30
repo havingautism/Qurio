@@ -38,13 +38,19 @@ export const listSpaces = async () => {
     .select('*')
     .order('created_at', { ascending: true })
 
-  return { data: data || [], error }
+  const mapped = (data || []).map(space => ({
+    ...space,
+    isDeepResearch: space.is_deep_research ?? space.isDeepResearch ?? false,
+  }))
+
+  return { data: mapped, error }
 }
 
 export const createSpace = async ({
   emoji = '',
   label,
   description = '',
+  isDeepResearch = false,
 }) => {
   const supabase = getSupabaseClient()
   if (!supabase) return { data: null, error: new Error('Supabase not configured') }
@@ -52,14 +58,14 @@ export const createSpace = async ({
 
   const { data, error } = await supabase
     .from(table)
-    .insert([{ emoji, label, description }])
+    .insert([{ emoji, label, description, is_deep_research: isDeepResearch }])
     .select()
     .single()
 
   return { data, error }
 }
 
-export const updateSpace = async (id, { emoji, label, description }) => {
+export const updateSpace = async (id, { emoji, label, description, isDeepResearch }) => {
   const supabase = getSupabaseClient()
   if (!supabase) return { data: null, error: new Error('Supabase not configured') }
   if (!id) return { data: null, error: new Error('Space id is required') }
@@ -68,6 +74,7 @@ export const updateSpace = async (id, { emoji, label, description }) => {
   if (emoji !== undefined) payload.emoji = emoji
   if (label !== undefined) payload.label = label
   if (description !== undefined) payload.description = description
+  if (isDeepResearch !== undefined) payload.is_deep_research = isDeepResearch
 
   const { data, error } = await supabase.from(table).update(payload).eq('id', id).select().single()
 
@@ -126,20 +133,56 @@ export const updateSpaceAgents = async (spaceId, agentIds = [], primaryAgentId =
   if (!supabase) return { success: false, error: new Error('Supabase not configured') }
   if (!spaceId) return { success: false, error: new Error('Space id is required') }
 
-  const { error: deleteError } = await supabase
-    .from('space_agents')
-    .delete()
-    .eq('space_id', spaceId)
+  const { data: existingSpaces, error: spaceLookupError } = await supabase
+    .from('spaces')
+    .select('id')
+    .eq('id', spaceId)
+    .limit(1)
+  if (spaceLookupError) return { success: false, error: spaceLookupError }
+  if (!existingSpaces || existingSpaces.length === 0) {
+    await supabase.from('space_agents').delete().eq('space_id', spaceId)
+    invalidateSpaceAgentsCache(spaceId)
+    return { success: false, error: new Error('Space not found') }
+  }
 
-  if (deleteError) return { success: false, error: deleteError }
-  if (!agentIds.length) {
+  const normalizedAgentIds = (agentIds || []).filter(Boolean)
+  if (!normalizedAgentIds.length) {
+    const { error: deleteError } = await supabase
+      .from('space_agents')
+      .delete()
+      .eq('space_id', spaceId)
+
+    if (deleteError) return { success: false, error: deleteError }
     invalidateSpaceAgentsCache(spaceId)
     // Notify ChatInterface to reload space agents
     window.dispatchEvent(new CustomEvent('space-agents-changed', { detail: { spaceId } }))
     return { success: true, error: null }
   }
 
-  const rows = agentIds.map((agentId, index) => ({
+  const { data: existingAgents, error: agentLookupError } = await supabase
+    .from('agents')
+    .select('id')
+    .in('id', normalizedAgentIds)
+
+  if (agentLookupError) return { success: false, error: agentLookupError }
+
+  const existingIds = new Set((existingAgents || []).map(row => String(row.id)))
+  const validAgentIds = normalizedAgentIds.filter(id => existingIds.has(String(id)))
+
+  const { error: deleteError } = await supabase
+    .from('space_agents')
+    .delete()
+    .eq('space_id', spaceId)
+
+  if (deleteError) return { success: false, error: deleteError }
+  if (!validAgentIds.length) {
+    invalidateSpaceAgentsCache(spaceId)
+    // Notify ChatInterface to reload space agents
+    window.dispatchEvent(new CustomEvent('space-agents-changed', { detail: { spaceId } }))
+    return { success: true, error: null }
+  }
+
+  const rows = validAgentIds.map((agentId, index) => ({
     space_id: spaceId,
     agent_id: agentId,
     sort_order: index,

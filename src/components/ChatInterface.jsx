@@ -31,6 +31,7 @@ import QuestionTimelineSidebar from './QuestionTimelineSidebar'
 
 import { useSidebarOffset } from '../hooks/useSidebarOffset'
 import { getAgentDisplayName } from '../lib/agentDisplay'
+import { getSpaceDisplayLabel } from '../lib/spaceDisplay'
 import { listMessages } from '../lib/conversationsService'
 import { loadSettings } from '../lib/settings'
 import { listSpaceAgents } from '../lib/spacesService'
@@ -106,6 +107,7 @@ const ChatInterface = ({
   // New state for toggles and attachments
   const [isSearchActive, setIsSearchActive] = useState(false)
   const [isThinkingActive, setIsThinkingActive] = useState(false)
+  const [isDeepResearchActive, setIsDeepResearchActive] = useState(false)
 
   const isPlaceholderConversation = Boolean(activeConversation?._isPlaceholder)
   const [selectedSpace, setSelectedSpace] = useState(initialSpaceSelection.space || null)
@@ -115,7 +117,13 @@ const ChatInterface = ({
   const [isManualSpaceSelection, setIsManualSpaceSelection] = useState(
     initialSpaceSelection.mode === 'manual',
   )
-  const { toggleSidebar, agents: appAgents = [], defaultAgent } = useAppContext()
+  const {
+    toggleSidebar,
+    agents: appAgents = [],
+    defaultAgent,
+    deepResearchSpace,
+    deepResearchAgent,
+  } = useAppContext()
   const [spaceAgentIds, setSpaceAgentIds] = useState([])
   const [spacePrimaryAgentId, setSpacePrimaryAgentId] = useState(null)
   const [isAgentsLoading, setIsAgentsLoading] = useState(false)
@@ -209,6 +217,44 @@ const ChatInterface = ({
       : selectedSpace || conversationSpace || null
     return result
   }, [isManualSpaceSelection, selectedSpace, conversationSpace])
+  const isDeepResearchConversation = Boolean(
+    deepResearchSpace?.id &&
+      displaySpace?.id &&
+      String(displaySpace.id) === String(deepResearchSpace.id),
+  )
+  const availableSpaces = useMemo(() => {
+    if (isDeepResearchConversation) return spaces
+    const deepResearchId = deepResearchSpace?.id ? String(deepResearchSpace.id) : null
+    return spaces.filter(
+      space =>
+        !(space?.isDeepResearchSystem || space?.isDeepResearch || space?.is_deep_research) &&
+        (!deepResearchId || String(space.id) !== deepResearchId),
+    )
+  }, [spaces, isDeepResearchConversation, deepResearchSpace?.id])
+
+  useEffect(() => {
+    if (!isDeepResearchConversation) return
+    if (deepResearchSpace && deepResearchSpace.id !== selectedSpace?.id) {
+      setSelectedSpace(deepResearchSpace)
+      setIsManualSpaceSelection(true)
+    }
+    if (deepResearchAgent?.id && deepResearchAgent.id !== selectedAgentId) {
+      setSelectedAgentId(deepResearchAgent.id)
+      setPendingAgentId(deepResearchAgent.id)
+      setIsAgentAutoMode(false)
+    }
+    if (!isDeepResearchActive) {
+      setIsDeepResearchActive(true)
+      setIsThinkingActive(false)
+    }
+  }, [
+    isDeepResearchConversation,
+    deepResearchSpace,
+    deepResearchAgent,
+    selectedSpace?.id,
+    selectedAgentId,
+    isDeepResearchActive,
+  ])
 
   // Function to reload space agents (used when space changes or settings change)
   const reloadSpaceAgents = useCallback(async () => {
@@ -252,6 +298,9 @@ const ChatInterface = ({
   }, [appAgents, displaySpace?.id, spaceAgentIds])
 
   const selectableAgents = useMemo(() => {
+    if (isDeepResearchConversation && deepResearchAgent) {
+      return [deepResearchAgent]
+    }
     const list = [...spaceAgents]
     // Only include default agent if no space is selected (space is None)
     // When a space is selected, only show agents that are explicitly added to that space
@@ -269,7 +318,15 @@ const ChatInterface = ({
       }
     }
     return list
-  }, [spaceAgents, defaultAgent, selectedAgentId, appAgents, displaySpace])
+  }, [
+    spaceAgents,
+    defaultAgent,
+    selectedAgentId,
+    appAgents,
+    displaySpace,
+    isDeepResearchConversation,
+    deepResearchAgent,
+  ])
 
   const selectedAgent = useMemo(() => {
     const agent =
@@ -351,7 +408,8 @@ const ChatInterface = ({
         const isLiteTask =
           task === 'generateTitle' ||
           task === 'generateTitleAndSpace' ||
-          task === 'generateRelatedQuestions'
+          task === 'generateRelatedQuestions' ||
+          task === 'generateResearchPlan'
 
         const model = isLiteTask
           ? decodedLiteModel || decodedDefaultModel
@@ -454,7 +512,12 @@ const ChatInterface = ({
 
       // Set initial state
       if (initialToggles.search) setIsSearchActive(true)
-      if (initialToggles.thinking) setIsThinkingActive(true)
+      if (initialToggles.deepResearch) {
+        setIsDeepResearchActive(true)
+        setIsThinkingActive(false)
+      } else if (initialToggles.thinking) {
+        setIsThinkingActive(true)
+      }
 
       // CRITICAL: Sync conversationId to store IMMEDIATELY before sending
       // This ensures sendMessage uses the correct conversation ID
@@ -658,7 +721,18 @@ const ChatInterface = ({
           const { content: cleanedContent, thought: thoughtFromContent } = splitThoughtFromContent(
             m.content,
           )
-          const thought = m.thinking_process ?? m.thought ?? thoughtFromContent ?? undefined
+          const rawThought = m.thinking_process ?? m.thought ?? thoughtFromContent ?? undefined
+          let thought = rawThought
+          let researchPlan = null
+          if (typeof rawThought === 'string') {
+            try {
+              const parsedThought = JSON.parse(rawThought)
+              if (parsedThought && typeof parsedThought === 'object') {
+                if (typeof parsedThought.thought === 'string') thought = parsedThought.thought
+                if (typeof parsedThought.plan === 'string') researchPlan = parsedThought.plan
+              }
+            } catch {}
+          }
 
           return {
             id: m.id,
@@ -666,6 +740,8 @@ const ChatInterface = ({
             role: m.role === 'assistant' ? 'ai' : m.role,
             content: cleanedContent,
             thought,
+            researchPlan: researchPlan || '',
+            deepResearch: !!researchPlan,
             related: m.related_questions || undefined,
             tool_calls: m.tool_calls || undefined,
             sources: m.sources || undefined,
@@ -677,7 +753,9 @@ const ChatInterface = ({
             agentEmoji: m.agent_emoji ?? m.agentEmoji ?? '',
             agentIsDefault: m.agent_is_default ?? m.agentIsDefault ?? false,
             thinkingEnabled:
-              m.is_thinking_enabled ?? m.generated_with_thinking ?? (thought ? true : undefined),
+              m.is_thinking_enabled ??
+              m.generated_with_thinking ??
+              (thought || researchPlan ? true : undefined),
           }
         })
         setMessages(mapped)
@@ -831,6 +909,16 @@ const ChatInterface = ({
   }, [displaySpace?.id, reloadSpaceAgents])
 
   useEffect(() => {
+    if (!isDeepResearchConversation || !deepResearchAgent?.id) return
+    if (selectedAgentId !== deepResearchAgent.id) {
+      setSelectedAgentId(deepResearchAgent.id)
+    }
+    if (pendingAgentId) {
+      setPendingAgentId(null)
+    }
+  }, [isDeepResearchConversation, deepResearchAgent?.id, selectedAgentId, pendingAgentId])
+
+  useEffect(() => {
     if (!displaySpace?.id) {
       // When no space is selected, handle pending agent and set to default if needed
       if (pendingAgentId) {
@@ -890,6 +978,13 @@ const ChatInterface = ({
   ])
 
   const handleSelectSpace = space => {
+    if (isDeepResearchConversation) return
+    const isDeepResearchSpace =
+      space?.isDeepResearchSystem ||
+      space?.isDeepResearch ||
+      space?.is_deep_research ||
+      (deepResearchSpace?.id && String(space?.id) === String(deepResearchSpace.id))
+    if (isDeepResearchSpace) return
     setSelectedSpace(space)
     setIsManualSpaceSelection(true)
     setIsSelectorOpen(false)
@@ -921,6 +1016,7 @@ const ChatInterface = ({
   }
 
   const handleClearSpaceSelection = () => {
+    if (isDeepResearchConversation) return
     setSelectedSpace(null)
     setIsManualSpaceSelection(true) // Keep as true because selecting "None" is a manual action
     setIsSelectorOpen(false)
@@ -1165,7 +1261,11 @@ const ChatInterface = ({
       const attToSend = attOverride !== null ? attOverride : []
       const searchActive = togglesOverride ? togglesOverride.search : isSearchActive
       const thinkingActive = togglesOverride ? togglesOverride.thinking : isThinkingActive
+      const deepResearchActive = togglesOverride
+        ? togglesOverride.deepResearch
+        : isDeepResearchActive
       const relatedActive = togglesOverride ? togglesOverride.related : isRelatedEnabled
+      const resolvedThinkingActive = deepResearchActive ? false : thinkingActive
 
       if (!textToSend.trim() && attToSend.length === 0) return
       if (isLoading) return
@@ -1202,17 +1302,29 @@ const ChatInterface = ({
       quoteTextRef.current = ''
       quoteSourceRef.current = ''
 
+      const resolvedDeepResearchAgent =
+        deepResearchActive && deepResearchAgent ? deepResearchAgent : null
       const agentForSend =
-        selectedAgent || (!isAgentAutoMode && initialAgentSelection) || defaultAgent || null
+        resolvedDeepResearchAgent ||
+        selectedAgent ||
+        (!isAgentAutoMode && initialAgentSelection) ||
+        defaultAgent ||
+        null
+      const agentAutoModeForSend = deepResearchActive ? false : isAgentAutoMode
 
       await sendMessage({
         text: textToSend,
         attachments: attToSend,
-        toggles: { search: searchActive, thinking: thinkingActive, related: relatedActive },
+        toggles: {
+          search: searchActive,
+          thinking: resolvedThinkingActive,
+          deepResearch: deepResearchActive,
+          related: relatedActive,
+        },
         settings,
         spaceInfo: { selectedSpace, isManualSpaceSelection },
         selectedAgent: agentForSend,
-        isAgentAutoMode,
+        isAgentAutoMode: agentAutoModeForSend,
         agents: appAgents,
         editingInfo,
         callbacks: {
@@ -1238,6 +1350,7 @@ const ChatInterface = ({
     [
       isSearchActive,
       isThinkingActive,
+      isDeepResearchActive,
       isRelatedEnabled,
       isLoading,
       editingIndex,
@@ -1248,6 +1361,8 @@ const ChatInterface = ({
       selectedSpace,
       effectiveAgent,
       isAgentAutoMode,
+      deepResearchAgent,
+      defaultAgent,
       isManualSpaceSelection,
       onTitleAndSpaceGenerated,
       spaces,
@@ -1538,6 +1653,9 @@ const ChatInterface = ({
 
   // Create a ref for the messages scroll container
   const messagesContainerRef = useRef(null)
+  const inputAgent =
+    isDeepResearchConversation && deepResearchAgent ? deepResearchAgent : selectedAgent
+  const inputAgentAutoMode = isDeepResearchConversation ? false : isAgentAutoMode
 
   return (
     <div
@@ -1567,9 +1685,14 @@ const ChatInterface = ({
               <button
                 onMouseDown={e => {
                   e.stopPropagation()
+                  if (isDeepResearchConversation) return
                   setIsSelectorOpen(prev => !prev)
                 }}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors text-sm font-medium text-gray-700 dark:text-gray-300"
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors text-sm font-medium text-gray-700 dark:text-gray-300 ${
+                  isDeepResearchConversation
+                    ? 'opacity-60 cursor-not-allowed'
+                    : 'hover:bg-gray-100 dark:hover:bg-zinc-800'
+                }`}
               >
                 <LayoutGrid size={16} className="text-gray-400 hidden sm:inline" />
                 {isMetaLoading ? (
@@ -1580,7 +1703,7 @@ const ChatInterface = ({
                       <EmojiDisplay emoji={displaySpace.emoji} size="1.125rem" />
                     </span>
                     <span className="hidden opacity-0 w-0 md:inline md:opacity-100 md:w-auto truncate max-w-[200px] transition-all">
-                      {displaySpace.label}
+                      {getSpaceDisplayLabel(displaySpace, t)}
                     </span>
                   </div>
                 ) : (
@@ -1607,7 +1730,7 @@ const ChatInterface = ({
                       {!displaySpace && <Check size={14} className="text-primary-500" />}
                     </button>
                     <div className="h-px bg-gray-100 dark:bg-zinc-800 my-1" />
-                    {spaces.map((space, idx) => {
+                    {availableSpaces.map((space, idx) => {
                       const isSelected = selectedSpace?.label === space.label
                       return (
                         <button
@@ -1621,7 +1744,7 @@ const ChatInterface = ({
                               <EmojiDisplay emoji={space.emoji} size="1.125rem" />
                             </span>
                             <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
-                              {space.label}
+                              {getSpaceDisplayLabel(space, t)}
                             </span>
                           </div>
                           {isSelected && <Check size={14} className="text-primary-500" />}
@@ -1736,13 +1859,17 @@ const ChatInterface = ({
               apiProvider={effectiveProvider}
               isSearchActive={isSearchActive}
               isThinkingActive={isThinkingActive}
+              isDeepResearchActive={isDeepResearchActive}
+              isDeepResearchToggleLocked={isDeepResearchConversation}
               agents={selectableAgents}
               agentsLoading={isAgentsLoading}
               agentsLoadingLabel={agentsLoadingLabel}
               agentsLoadingDots={agentLoadingDots}
-              selectedAgent={selectedAgent}
-              isAgentAutoMode={isAgentAutoMode}
+              selectedAgent={inputAgent}
+              isAgentAutoMode={inputAgentAutoMode}
+              isAgentSelectionLocked={isDeepResearchConversation}
               onAgentSelect={agent => {
+                if (isDeepResearchConversation) return
                 setSelectedAgentId(agent?.id || null)
                 setIsAgentAutoMode(false)
                 setPendingAgentId(null)
@@ -1761,6 +1888,7 @@ const ChatInterface = ({
                 }
               }}
               onAgentAutoModeToggle={() => {
+                if (isDeepResearchConversation) return
                 setSelectedAgentId(null) // Clear selected agent when entering auto mode
                 setIsAgentAutoMode(true)
                 setPendingAgentId(null)
@@ -1779,10 +1907,23 @@ const ChatInterface = ({
                 }
               }}
               isAgentSelectorOpen={isAgentSelectorOpen}
-              onAgentSelectorToggle={() => setIsAgentSelectorOpen(prev => !prev)}
+              onAgentSelectorToggle={() => {
+                if (isDeepResearchConversation) return
+                setIsAgentSelectorOpen(prev => !prev)
+              }}
               agentSelectorRef={agentSelectorRef}
               onToggleSearch={() => setIsSearchActive(prev => !prev)}
-              onToggleThinking={() => setIsThinkingActive(prev => !prev)}
+              onToggleThinking={() =>
+                setIsThinkingActive(prev => {
+                  const next = !prev
+                  if (next) setIsDeepResearchActive(false)
+                  return next
+                })
+              }
+              onToggleDeepResearch={() => {
+                if (isDeepResearchConversation) return
+                navigate({ to: '/new_chat', state: { presetDeepResearch: true } })
+              }}
               quotedText={quotedText}
               onQuoteClear={() => {
                 setQuotedText(null)
@@ -1823,12 +1964,15 @@ const InputBar = React.memo(
     apiProvider,
     isSearchActive,
     isThinkingActive,
+    isDeepResearchActive,
+    isDeepResearchToggleLocked,
     agents,
     agentsLoading,
     agentsLoadingLabel,
     agentsLoadingDots,
     selectedAgent,
     isAgentAutoMode,
+    isAgentSelectionLocked,
     onAgentSelect,
     onAgentAutoModeToggle,
     isAgentSelectorOpen,
@@ -1836,6 +1980,7 @@ const InputBar = React.memo(
     agentSelectorRef,
     onToggleSearch,
     onToggleThinking,
+    onToggleDeepResearch,
     quotedText,
     onQuoteClear,
     onSend,
@@ -2062,6 +2207,18 @@ const InputBar = React.memo(
                 <span className="hidden md:inline">{t('homeView.think')}</span>
               </button>
               <button
+                onClick={onToggleDeepResearch}
+                disabled={isDeepResearchToggleLocked}
+                className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
+                  isDeepResearchActive
+                    ? 'text-primary-500 bg-gray-200 dark:bg-zinc-700'
+                    : 'text-gray-500 dark:text-gray-400'
+                } ${isDeepResearchToggleLocked ? 'opacity-60 cursor-not-allowed' : ''}`}
+              >
+                <Sparkles size={18} />
+                <span className="hidden md:inline">{t('homeView.deepResearch')}</span>
+              </button>
+              <button
                 disabled={!apiProvider || !providerSupportsSearch(apiProvider)}
                 onClick={onToggleSearch}
                 className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
@@ -2086,7 +2243,7 @@ const InputBar = React.memo(
                       ? 'text-primary-500 bg-gray-200 dark:bg-zinc-700'
                       : 'text-gray-500 dark:text-gray-400'
                   }`}
-                  disabled={agentsLoading}
+                  disabled={agentsLoading || isAgentSelectionLocked}
                 >
                   {isAgentAutoMode || !selectedAgent ? (
                     <Smile size={18} />

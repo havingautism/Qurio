@@ -10,6 +10,15 @@ import SpaceModal from './components/SpaceModal'
 import { ToastProvider } from './contexts/ToastContext'
 import { createAgent, deleteAgent, listAgents, updateAgent } from './lib/agentsService'
 import { listConversations } from './lib/conversationsService'
+import {
+  DEEP_RESEARCH_AGENT_DESCRIPTION,
+  DEEP_RESEARCH_AGENT_NAME,
+  DEEP_RESEARCH_AGENT_PROMPT,
+  DEEP_RESEARCH_EMOJI,
+  DEEP_RESEARCH_PROFILE,
+  DEEP_RESEARCH_SPACE_DESCRIPTION,
+  DEEP_RESEARCH_SPACE_LABEL,
+} from './lib/deepResearchDefaults'
 import i18n from './lib/i18n' // Initialize i18next
 import { loadSettings, updateMemorySettings } from './lib/settings'
 import {
@@ -24,6 +33,10 @@ import { applyTheme } from './lib/themes'
 
 export const AppContext = React.createContext(null)
 export const useAppContext = () => React.useContext(AppContext)
+
+const isDeepResearchSpace = space => space?.isDeepResearch || space?.is_deep_research
+
+const isDeepResearchAgent = agent => agent?.isDeepResearch || agent?.is_deep_research
 
 function App() {
   const location = useLocation()
@@ -49,12 +62,12 @@ function App() {
 
   // Agents Data
   const [agents, setAgents] = useState([])
-  const [agentsLoading, setAgentsLoading] = useState(false)
+  const [agentsLoading, setAgentsLoading] = useState(true)
 
   // Conversations Data
   const [conversations, setConversations] = useState([])
   const [conversationsLoading, setConversationsLoading] = useState(false)
-  const [spacesLoading, setSpacesLoading] = useState(false)
+  const [spacesLoading, setSpacesLoading] = useState(true)
 
   // Sidebar pin state
   const [isSidebarPinned, setIsSidebarPinned] = useState(() => {
@@ -258,7 +271,15 @@ function App() {
     if (editingAgent) {
       const { data, error } = await updateAgent(editingAgent.id, agent)
       if (!error && data) {
-        setAgents(prev => prev.map(item => (item.id === data.id ? data : item)))
+        const isDeepResearch =
+          editingAgent?.isDeepResearchSystem || isDeepResearchAgent(data)
+        setAgents(prev =>
+          prev.map(item =>
+            item.id === data.id
+              ? { ...data, isDeepResearchSystem: isDeepResearch }
+              : item,
+          ),
+        )
       } else {
         console.error('Update agent failed:', error)
         throw error
@@ -310,7 +331,12 @@ function App() {
         initSupabase()
         const { data, error } = await listSpaces()
         if (!error && data) {
-          setSpaces(data)
+          const annotated = data.map(space => ({
+            ...space,
+            isDeepResearchSystem: isDeepResearchSpace(space),
+            isDeepResearch: isDeepResearchSpace(space),
+          }))
+          setSpaces(annotated)
         } else {
           console.error('Failed to fetch spaces:', error)
         }
@@ -324,6 +350,7 @@ function App() {
   }, [])
 
   const creatingDefaultAgentRef = useRef(false)
+  const cleaningDuplicatesRef = useRef(false)
 
   // Load agents from Supabase on mount
   useEffect(() => {
@@ -334,7 +361,11 @@ function App() {
         const { data, error } = await listAgents()
         if (!error && data) {
           const settings = loadSettings()
-          let nextAgents = data
+          let nextAgents = data.map(agent => ({
+            ...agent,
+            isDeepResearchSystem: isDeepResearchAgent(agent),
+            isDeepResearch: isDeepResearchAgent(agent),
+          }))
           const defaultAgents = data.filter(agent => agent.isDefault)
           if (defaultAgents.length > 1) {
             const keepDefault = defaultAgents[0]
@@ -423,6 +454,205 @@ function App() {
     }
     load()
   }, [])
+
+  const ensuringDeepResearchRef = useRef(false)
+
+  useEffect(() => {
+    const ensureDeepResearchAssets = async () => {
+      if (ensuringDeepResearchRef.current) return
+      if (spacesLoading || agentsLoading) return
+      if (!spaces.length && !agents.length) return
+
+      const settings = loadSettings()
+      const defaultAgent = agents.find(agent => agent.isDefault) || null
+      const candidateAgents = agents.filter(agent => isDeepResearchAgent(agent))
+      const candidateSpaces = spaces.filter(space => isDeepResearchSpace(space))
+      const existingAgent = candidateAgents[0] || null
+      const existingSpace = candidateSpaces[0] || null
+
+      if (existingAgent && existingSpace) {
+        return
+      }
+
+      ensuringDeepResearchRef.current = true
+      try {
+        let deepAgent = existingAgent
+        if (!deepAgent) {
+          const { data: createdAgent, error: agentError } = await createAgent({
+            name: DEEP_RESEARCH_AGENT_NAME,
+            description: DEEP_RESEARCH_AGENT_DESCRIPTION,
+            prompt: DEEP_RESEARCH_AGENT_PROMPT,
+            emoji: DEEP_RESEARCH_EMOJI,
+            isDefault: false,
+            isDeepResearch: true,
+            provider: defaultAgent?.provider || 'gemini',
+            liteModel: defaultAgent?.liteModel || '',
+            defaultModel: defaultAgent?.defaultModel || '',
+            responseLanguage: settings.llmAnswerLanguage || '',
+            baseTone: DEEP_RESEARCH_PROFILE.baseTone,
+            traits: DEEP_RESEARCH_PROFILE.traits,
+            warmth: DEEP_RESEARCH_PROFILE.warmth,
+            enthusiasm: DEEP_RESEARCH_PROFILE.enthusiasm,
+            headings: DEEP_RESEARCH_PROFILE.headings,
+            emojis: DEEP_RESEARCH_PROFILE.emojis,
+            customInstruction: settings.customInstruction || '',
+            temperature: null,
+            topP: null,
+            frequencyPenalty: null,
+            presencePenalty: null,
+          })
+          if (!agentError && createdAgent) {
+            deepAgent = { ...createdAgent, isDeepResearchSystem: true }
+            setAgents(prev => [...prev, deepAgent])
+          } else {
+            console.error('Create deep research agent failed:', agentError)
+          }
+        } else {
+          if (!existingAgent.isDeepResearchSystem) {
+            setAgents(prev =>
+              prev.map(agent =>
+                agent.id === existingAgent.id
+                  ? { ...agent, isDeepResearchSystem: true }
+                  : agent,
+              ),
+            )
+          }
+        }
+
+        if (deepAgent?.id) {
+          const patch = {}
+          if (deepAgent.name !== DEEP_RESEARCH_AGENT_NAME) patch.name = DEEP_RESEARCH_AGENT_NAME
+          if (deepAgent.description !== DEEP_RESEARCH_AGENT_DESCRIPTION)
+            patch.description = DEEP_RESEARCH_AGENT_DESCRIPTION
+          if (deepAgent.prompt !== DEEP_RESEARCH_AGENT_PROMPT)
+            patch.prompt = DEEP_RESEARCH_AGENT_PROMPT
+          if (deepAgent.emoji !== DEEP_RESEARCH_EMOJI) patch.emoji = DEEP_RESEARCH_EMOJI
+          if (!deepAgent.isDeepResearch) patch.isDeepResearch = true
+          if (deepAgent.baseTone !== DEEP_RESEARCH_PROFILE.baseTone)
+            patch.baseTone = DEEP_RESEARCH_PROFILE.baseTone
+          if (deepAgent.traits !== DEEP_RESEARCH_PROFILE.traits)
+            patch.traits = DEEP_RESEARCH_PROFILE.traits
+          if (deepAgent.warmth !== DEEP_RESEARCH_PROFILE.warmth)
+            patch.warmth = DEEP_RESEARCH_PROFILE.warmth
+          if (deepAgent.enthusiasm !== DEEP_RESEARCH_PROFILE.enthusiasm)
+            patch.enthusiasm = DEEP_RESEARCH_PROFILE.enthusiasm
+          if (deepAgent.headings !== DEEP_RESEARCH_PROFILE.headings)
+            patch.headings = DEEP_RESEARCH_PROFILE.headings
+          if (deepAgent.emojis !== DEEP_RESEARCH_PROFILE.emojis)
+            patch.emojis = DEEP_RESEARCH_PROFILE.emojis
+          if (Object.keys(patch).length > 0) {
+            const { data: updatedAgent, error: updateError } = await updateAgent(
+              deepAgent.id,
+              patch,
+            )
+            if (!updateError && updatedAgent) {
+              deepAgent = { ...updatedAgent, isDeepResearchSystem: true }
+              setAgents(prev =>
+                prev.map(agent => (agent.id === updatedAgent.id ? deepAgent : agent)),
+              )
+            } else {
+              console.error('Update deep research agent failed:', updateError)
+            }
+          }
+        }
+
+        let deepSpace = existingSpace
+        if (!deepSpace) {
+          const { data: createdSpace, error: spaceError } = await createSpace({
+            emoji: DEEP_RESEARCH_EMOJI,
+            label: DEEP_RESEARCH_SPACE_LABEL,
+            description: DEEP_RESEARCH_SPACE_DESCRIPTION,
+            isDeepResearch: true,
+          })
+          if (!spaceError && createdSpace) {
+            deepSpace = { ...createdSpace, isDeepResearchSystem: true }
+            setSpaces(prev => [...prev, deepSpace])
+          } else {
+            console.error('Create deep research space failed:', spaceError)
+          }
+        } else {
+          if (!existingSpace.isDeepResearchSystem) {
+            setSpaces(prev =>
+              prev.map(space =>
+                space.id === existingSpace.id ? { ...space, isDeepResearchSystem: true } : space,
+              ),
+            )
+          }
+        }
+
+        if (deepSpace?.id) {
+          const patch = {}
+          if (deepSpace.label !== DEEP_RESEARCH_SPACE_LABEL) patch.label = DEEP_RESEARCH_SPACE_LABEL
+          if (deepSpace.description !== DEEP_RESEARCH_SPACE_DESCRIPTION)
+            patch.description = DEEP_RESEARCH_SPACE_DESCRIPTION
+          if (deepSpace.emoji !== DEEP_RESEARCH_EMOJI) patch.emoji = DEEP_RESEARCH_EMOJI
+          if (!deepSpace.isDeepResearch) patch.isDeepResearch = true
+          if (Object.keys(patch).length > 0) {
+            const { data: updatedSpace, error: updateError } = await updateSpace(
+              deepSpace.id,
+              patch,
+            )
+            if (!updateError && updatedSpace) {
+              deepSpace = { ...updatedSpace, isDeepResearchSystem: true }
+              setSpaces(prev =>
+                prev.map(space => (space.id === updatedSpace.id ? deepSpace : space)),
+              )
+            } else {
+              console.error('Update deep research space failed:', updateError)
+            }
+          }
+        }
+
+        if (deepSpace?.id && deepAgent?.id) {
+          await updateSpaceAgents(deepSpace.id, [deepAgent.id], deepAgent.id)
+        }
+      } finally {
+        ensuringDeepResearchRef.current = false
+      }
+    }
+
+    ensureDeepResearchAssets()
+  }, [agents, agentsLoading, spaces, spacesLoading])
+
+  useEffect(() => {
+    const cleanupDuplicates = async () => {
+      if (cleaningDuplicatesRef.current) return
+      if (agentsLoading || spacesLoading) return
+      if (!agents.length && !spaces.length) return
+      cleaningDuplicatesRef.current = true
+
+      try {
+        const defaultAgents = agents.filter(agent => agent.isDefault)
+        if (defaultAgents.length > 1) {
+          const sortedDefaults = [...defaultAgents].sort((a, b) => {
+            const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0
+            const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0
+            return aTime - bTime
+          })
+          const [keepDefault, ...removeDefaults] = sortedDefaults
+          for (const agent of removeDefaults) {
+            const { error } = await deleteAgent(agent.id)
+            if (!error) {
+              setAgents(prev => prev.filter(item => item.id !== agent.id))
+            } else {
+              console.error('Failed to delete duplicate default agent:', error)
+            }
+          }
+          if (keepDefault) {
+            setAgents(prev =>
+              prev.map(agent =>
+                agent.id === keepDefault.id ? { ...agent, isDefault: true } : agent,
+              ),
+            )
+          }
+        }
+      } finally {
+        cleaningDuplicatesRef.current = false
+      }
+    }
+
+    cleanupDuplicates()
+  }, [agents, agentsLoading, spaces, spacesLoading])
 
   // Load conversations from Supabase on mount
   useEffect(() => {
@@ -514,6 +744,10 @@ function App() {
             spaces,
             agents,
             defaultAgent: agents.find(agent => agent.isDefault) || null,
+            deepResearchSpace:
+              spaces.find(space => space.isDeepResearchSystem) || null,
+            deepResearchAgent:
+              agents.find(agent => agent.isDeepResearchSystem) || null,
             conversations,
             conversationsLoading,
             spacesLoading,

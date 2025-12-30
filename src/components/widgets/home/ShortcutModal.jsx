@@ -12,7 +12,7 @@ const ShortcutModal = ({ isOpen, onClose, shortcut, onSave, onDelete, currentPos
   const { t } = useTranslation()
   const [title, setTitle] = useState('')
   const [url, setUrl] = useState('')
-  const [iconType, setIconType] = useState('emoji')
+  const [iconType, setIconType] = useState('favicon')
   const [iconEmoji, setIconEmoji] = useState(DEFAULT_EMOJI)
   const [iconUrl, setIconUrl] = useState('')
   const [useFaviconFallback, setUseFaviconFallback] = useState(false)
@@ -30,7 +30,7 @@ const ShortcutModal = ({ isOpen, onClose, shortcut, onSave, onDelete, currentPos
     } else {
       setTitle('')
       setUrl('')
-      setIconType('emoji')
+      setIconType('favicon')
       setIconEmoji(DEFAULT_EMOJI)
       setIconUrl('')
       setUseFaviconFallback(false)
@@ -82,7 +82,6 @@ const ShortcutModal = ({ isOpen, onClose, shortcut, onSave, onDelete, currentPos
           {/* 1. Preview Section */}
           <div className="flex flex-col items-center justify-center py-2">
             <div className="w-20 h-20 flex items-center justify-center rounded-[20px] bg-white  shadow-lg mb-3 ring-1 ring-black/5 dark:ring-white/10">
-              {iconType === 'emoji' && <span className="text-4xl leading-none">{iconEmoji}</span>}
               {iconType === 'favicon' && (
                 <div className="w-10 h-10 flex items-center justify-center">
                   {url ? (
@@ -106,6 +105,7 @@ const ShortcutModal = ({ isOpen, onClose, shortcut, onSave, onDelete, currentPos
                   )}
                 </div>
               )}
+              {iconType === 'emoji' && <span className="text-4xl leading-none">{iconEmoji}</span>}
               {iconType === 'custom' &&
                 (iconUrl ? (
                   <img
@@ -159,8 +159,8 @@ const ShortcutModal = ({ isOpen, onClose, shortcut, onSave, onDelete, currentPos
             {/* Segmented Control */}
             <div className="flex p-1 bg-gray-100 dark:bg-white/5 rounded-xl">
               {[
-                { id: 'emoji', label: t('views.icons.emoji') },
                 { id: 'favicon', label: t('views.icons.favicon') },
+                { id: 'emoji', label: t('views.icons.emoji') },
                 { id: 'custom', label: t('views.icons.custom') },
               ].map(type => (
                 <button
@@ -180,13 +180,6 @@ const ShortcutModal = ({ isOpen, onClose, shortcut, onSave, onDelete, currentPos
 
             {/* Dynamic Input Area */}
             <div className="min-h-[100px] flex justify-center">
-              {iconType === 'emoji' && (
-                <CustomEmojiPicker
-                  onEmojiSelect={({ native }) => setIconEmoji(native)}
-                  className="w-full"
-                />
-              )}
-
               {iconType === 'custom' && (
                 <div className="w-full pt-2">
                   <div className="relative mb-2">
@@ -205,7 +198,12 @@ const ShortcutModal = ({ isOpen, onClose, shortcut, onSave, onDelete, currentPos
                   <p className="text-xs text-gray-500 px-1">{t('views.widgets.imageUrlHint')}</p>
                 </div>
               )}
-
+              {iconType === 'emoji' && (
+                <CustomEmojiPicker
+                  onEmojiSelect={({ native }) => setIconEmoji(native)}
+                  className="w-full"
+                />
+              )}
               {iconType === 'favicon' && (
                 <div className="text-center py-6 px-4 text-gray-500 dark:text-gray-400 text-sm bg-gray-50 dark:bg-white/5 rounded-xl w-full border border-dashed border-gray-200 dark:border-white/10">
                   {t('views.widgets.faviconHint')}

@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS public.spaces (
   emoji TEXT NOT NULL DEFAULT '',
   label TEXT NOT NULL,
   description TEXT,
+  is_deep_research BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -35,6 +36,7 @@ CREATE TABLE IF NOT EXISTS public.agents (
   name TEXT NOT NULL,
   description TEXT,
   prompt TEXT,
+  is_deep_research BOOLEAN NOT NULL DEFAULT FALSE,
   provider TEXT,
   default_model_source TEXT NOT NULL DEFAULT 'list',
   lite_model_source TEXT NOT NULL DEFAULT 'list',
@@ -171,4 +173,105 @@ CREATE TABLE IF NOT EXISTS public.user_settings (
 CREATE TRIGGER trg_user_settings_updated_at
 BEFORE UPDATE ON public.user_settings
 FOR EACH ROW EXECUTE PROCEDURE public.set_updated_at();
+
+-- 10) Seed: Deep Research Space + Agent
+INSERT INTO public.agents (
+  is_default,
+  emoji,
+  name,
+  description,
+  prompt,
+  is_deep_research,
+  provider,
+  default_model_source,
+  lite_model_source,
+  lite_model,
+  default_model,
+  response_language,
+  base_tone,
+  traits,
+  warmth,
+  enthusiasm,
+  headings,
+  emojis,
+  custom_instruction,
+  temperature,
+  top_p,
+  frequency_penalty,
+  presence_penalty,
+  created_at,
+  updated_at
+)
+SELECT
+  FALSE,
+  '🔬',
+  'Deep Research Agent',
+  'Deep research agent (deep-research)',
+  'You are a deep research assistant. You will receive a research plan produced by a lightweight model. Treat the plan as the outline of the answer, and expand every section in depth. For each plan item, explicitly address it with thorough explanations, evidence, and reasoning. Do not skip or compress any item. Add background, definitions, step-by-step analysis, trade-offs, risks, and actionable recommendations. If sources are available, cite them. If information is missing, state assumptions and uncertainty. Use clear headings that mirror the plan structure. Prioritize completeness over brevity and deliver a long, detailed response. Match the user''s language unless a response language override is set.',
+  TRUE,
+  'gemini',
+  'list',
+  'list',
+  '',
+  '',
+  '',
+  'academic',
+  'detailed',
+  'direct',
+  'low',
+  'detailed',
+  'none',
+  '',
+  NULL,
+  NULL,
+  NULL,
+  NULL,
+  NOW(),
+  NOW()
+WHERE NOT EXISTS (
+  SELECT 1 FROM public.agents
+  WHERE name = 'Deep Research Agent' OR description LIKE '%deep-research%'
+);
+
+INSERT INTO public.spaces (
+  emoji,
+  label,
+  description,
+  is_deep_research,
+  created_at,
+  updated_at
+)
+SELECT
+  '🔬',
+  'Deep Research',
+  'System space (deep-research)',
+  TRUE,
+  NOW(),
+  NOW()
+WHERE NOT EXISTS (
+  SELECT 1 FROM public.spaces
+  WHERE label = 'Deep Research' OR description LIKE '%deep-research%'
+);
+
+INSERT INTO public.space_agents (
+  space_id,
+  agent_id,
+  sort_order,
+  is_primary,
+  created_at
+)
+SELECT
+  s.id,
+  a.id,
+  0,
+  TRUE,
+  NOW()
+FROM public.spaces s
+JOIN public.agents a
+  ON (a.name = 'Deep Research Agent' OR a.description LIKE '%deep-research%')
+WHERE (s.label = 'Deep Research' OR s.description LIKE '%deep-research%')
+  AND NOT EXISTS (
+    SELECT 1 FROM public.space_agents sa
+    WHERE sa.space_id = s.id AND sa.agent_id = a.id
+  );
 

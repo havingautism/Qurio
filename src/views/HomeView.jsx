@@ -1,5 +1,5 @@
 import { useGSAP } from '@gsap/react'
-import { useNavigate } from '@tanstack/react-router'
+import { useLocation, useNavigate } from '@tanstack/react-router'
 import clsx from 'clsx'
 import gsap from 'gsap'
 import {
@@ -13,6 +13,7 @@ import {
   LayoutGrid,
   Menu,
   Paperclip,
+  Sparkles,
   X,
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -24,14 +25,16 @@ import Logo from '../components/Logo'
 import HomeWidgets from '../components/widgets/HomeWidgets'
 import useScrollLock from '../hooks/useScrollLock'
 import { getAgentDisplayName } from '../lib/agentDisplay'
+import { getSpaceDisplayLabel } from '../lib/spaceDisplay'
 import useChatStore from '../lib/chatStore'
-import { createConversation } from '../lib/conversationsService'
+import { addConversationEvent, createConversation } from '../lib/conversationsService'
 import { providerSupportsSearch } from '../lib/providers'
 import { loadSettings } from '../lib/settings'
 import { listSpaceAgents } from '../lib/spacesService'
 
 const HomeView = () => {
   const { t } = useTranslation()
+  const location = useLocation()
   const navigate = useNavigate()
   const {
     toggleSidebar,
@@ -39,6 +42,8 @@ const HomeView = () => {
     spaces,
     agents: appAgents = [],
     defaultAgent,
+    deepResearchSpace,
+    deepResearchAgent,
   } = useAppContext()
 
   const [settings, setSettings] = useState(loadSettings())
@@ -48,6 +53,7 @@ const HomeView = () => {
   const [homeInput, setHomeInput] = useState('')
   const [isHomeSearchActive, setIsHomeSearchActive] = useState(false)
   const [isHomeThinkingActive, setIsHomeThinkingActive] = useState(false)
+  const [isHomeDeepResearchActive, setIsHomeDeepResearchActive] = useState(false)
   const [homeAttachments, setHomeAttachments] = useState([])
   const [homeSelectedSpace, setHomeSelectedSpace] = useState(null)
   const homeSpaceSelectorRef = useRef(null)
@@ -151,6 +157,23 @@ const HomeView = () => {
   }, [])
 
   useEffect(() => {
+    if (location?.state?.presetDeepResearch) {
+      setIsHomeDeepResearchActive(true)
+      setIsHomeThinkingActive(false)
+    }
+  }, [location?.state?.presetDeepResearch])
+
+  useEffect(() => {
+    if (!isHomeDeepResearchActive || !deepResearchSpace || !deepResearchAgent) return
+    setHomeSelectedSpace(deepResearchSpace)
+    setHomeSpaceSelectionType('space')
+    setHomeSelectedAgentId(deepResearchAgent.id)
+    setIsHomeAgentAuto(false)
+    setHomeExpandedSpaceId(null)
+    setIsHomeSpaceSelectorOpen(false)
+  }, [isHomeDeepResearchActive, deepResearchSpace, deepResearchAgent])
+
+  useEffect(() => {
     const loadAgents = async () => {
       if (!homeSelectedSpace?.id) {
         setHomeAgentIds([])
@@ -239,6 +262,11 @@ const HomeView = () => {
   }
 
   const handleToggleHomeSpace = space => {
+    if (
+      !isHomeDeepResearchActive &&
+      (space?.isDeepResearchSystem || space?.isDeepResearch || space?.is_deep_research)
+    )
+      return
     setHomeSelectedSpace(space)
     setHomeSpaceSelectionType('space')
     setIsHomeAgentAuto(true)
@@ -264,11 +292,14 @@ const HomeView = () => {
 
   const handleStartChat = async () => {
     if (!homeInput.trim() && homeAttachments.length === 0) return
+    const resolvedThinkingActive = isHomeDeepResearchActive ? false : isHomeThinkingActive
+    const resolvedSpace = isHomeDeepResearchActive ? deepResearchSpace : homeSelectedSpace
+    const resolvedAgent = isHomeDeepResearchActive ? deepResearchAgent : selectedHomeAgent
 
     try {
       // Determine space selection
-      const selectedSpace = isHomeSpaceAuto ? null : homeSelectedSpace
-      const selectedAgent = isHomeAgentAuto ? null : selectedHomeAgent
+      const selectedSpace = isHomeSpaceAuto ? null : resolvedSpace
+      const selectedAgent = isHomeAgentAuto ? null : resolvedAgent
 
       // Create conversation in database first
       const { data: conversation, error } = await createConversation({
@@ -281,6 +312,11 @@ const HomeView = () => {
         console.error('Failed to create conversation:', error)
         return
       }
+      if (isHomeDeepResearchActive) {
+        addConversationEvent(conversation.id, 'deep_research', { enabled: true }).catch(err =>
+          console.error('Failed to record deep research event:', err),
+        )
+      }
 
       // Prepare initial chat state to pass via router state
       const chatState = {
@@ -288,15 +324,16 @@ const HomeView = () => {
         initialAttachments: homeAttachments,
         initialToggles: {
           search: isHomeSearchActive,
-          thinking: isHomeThinkingActive,
+          thinking: resolvedThinkingActive,
+          deepResearch: isHomeDeepResearchActive,
           related: Boolean(settings.enableRelatedQuestions),
         },
         initialSpaceSelection: {
-          mode: isHomeSpaceAuto ? 'auto' : 'manual',
+          mode: isHomeDeepResearchActive ? 'manual' : isHomeSpaceAuto ? 'auto' : 'manual',
           space: selectedSpace,
         },
         initialAgentSelection: selectedAgent,
-        initialIsAgentAutoMode: isHomeAgentAuto,
+        initialIsAgentAutoMode: isHomeDeepResearchActive ? false : isHomeAgentAuto,
       }
 
       // Navigate to the conversation route with state
@@ -311,6 +348,7 @@ const HomeView = () => {
       setHomeAttachments([])
       setIsHomeSearchActive(false)
       setIsHomeThinkingActive(false)
+      setIsHomeDeepResearchActive(false)
       setHomeSelectedSpace(null)
       setHomeSpaceSelectionType('auto')
       setHomeSelectedAgentId(null)
@@ -322,6 +360,8 @@ const HomeView = () => {
   }
 
   const isHomeSpaceAuto = homeSpaceSelectionType === 'auto'
+  const isHomeDeepResearchLocked =
+    isHomeDeepResearchActive && deepResearchSpace && deepResearchAgent
   const homeAgents = useMemo(() => {
     // In Auto mode or when no space selected, return empty
     if (!homeSelectedSpace?.id) return []
@@ -340,13 +380,43 @@ const HomeView = () => {
   }, [homeAgents, homeSelectedAgentId, isHomeAgentAuto, appAgents])
 
   const homeSpaceButtonLabel = useMemo(() => {
+    if (isHomeDeepResearchActive) {
+      const spaceLabel = deepResearchSpace
+        ? getSpaceDisplayLabel(deepResearchSpace, t)
+        : t('homeView.spacesNone')
+      const agentLabel = deepResearchAgent
+        ? getAgentDisplayName(deepResearchAgent, t)
+        : t('homeView.agentsLabel')
+      return `${t('homeView.spacesLabel', { label: spaceLabel })}  ${agentLabel}`
+    }
     if (isHomeSpaceAuto) return t('homeView.spacesAuto')
-    const spaceLabel = homeSelectedSpace?.label || t('homeView.spacesNone')
+    const spaceLabel = homeSelectedSpace
+      ? getSpaceDisplayLabel(homeSelectedSpace, t)
+      : t('homeView.spacesNone')
     const agentLabel = isHomeAgentAuto
       ? t('homeView.agentsAuto')
       : getAgentDisplayName(selectedHomeAgent, t) || t('homeView.agentsLabel')
     return `${t('homeView.spacesLabel', { label: spaceLabel })} · ${agentLabel}`
-  }, [isHomeSpaceAuto, homeSelectedSpace?.label, isHomeAgentAuto, selectedHomeAgent, t])
+  }, [
+    isHomeDeepResearchActive,
+    deepResearchSpace,
+    deepResearchAgent,
+    isHomeSpaceAuto,
+    homeSelectedSpace,
+    isHomeAgentAuto,
+    selectedHomeAgent,
+    t,
+  ])
+
+  const availableHomeSpaces = useMemo(() => {
+    if (isHomeDeepResearchActive) return spaces
+    const deepResearchId = deepResearchSpace?.id ? String(deepResearchSpace.id) : null
+    return spaces.filter(
+      space =>
+        !(space?.isDeepResearchSystem || space?.isDeepResearch || space?.is_deep_research) &&
+          (!deepResearchId || String(space.id) !== String(deepResearchId)),
+    )
+  }, [spaces, isHomeDeepResearchActive, deepResearchSpace?.id])
 
   const renderHomeSpaceMenuContent = () => (
     <div className="p-2 flex flex-col gap-1">
@@ -359,8 +429,8 @@ const HomeView = () => {
         <span className="text-sm font-medium">{t('homeView.auto')}</span>
         {isHomeSpaceAuto && <Check size={14} className="text-primary-500" />}
       </button>
-      {spaces.length > 0 && <div className="h-px bg-gray-100 dark:bg-zinc-800 my-1" />}
-      {spaces.map((space, idx) => {
+      {availableHomeSpaces.length > 0 && <div className="h-px bg-gray-100 dark:bg-zinc-800 my-1" />}
+      {availableHomeSpaces.map((space, idx) => {
         const isSelected = homeSelectedSpace?.label === space.label
         return (
           <div key={idx} className="rounded-lg">
@@ -373,7 +443,7 @@ const HomeView = () => {
                   <EmojiDisplay emoji={space.emoji} size="1.25rem" />
                 </span>
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
-                  {space.label}
+                  {getSpaceDisplayLabel(space, t)}
                 </span>
               </div>
               <div className="flex items-center gap-2">
@@ -579,7 +649,18 @@ const HomeView = () => {
                     )}
                   </div>
                   <button
-                    onClick={() => setIsHomeThinkingActive(!isHomeThinkingActive)}
+                    onClick={() =>
+                      setIsHomeThinkingActive(prev => {
+                        const next = !prev
+                        if (next) {
+                          if (isHomeDeepResearchActive) {
+                            setIsHomeDeepResearchActive(false)
+                          }
+                          handleSelectHomeSpaceAuto()
+                        }
+                        return next
+                      })
+                    }
                     className={`p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
                       isHomeThinkingActive
                         ? 'text-primary-500 bg-gray-100 dark:bg-zinc-800'
@@ -588,6 +669,27 @@ const HomeView = () => {
                   >
                     <Brain size={18} />
                     <span className="hidden md:inline">{t('homeView.think')}</span>
+                  </button>
+                  <button
+                    onClick={() =>
+                      setIsHomeDeepResearchActive(prev => {
+                        const next = !prev
+                        if (next) {
+                          setIsHomeThinkingActive(false)
+                        } else {
+                          handleSelectHomeSpaceAuto()
+                        }
+                        return next
+                      })
+                    }
+                    className={`p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
+                      isHomeDeepResearchActive
+                        ? 'text-primary-500 bg-gray-100 dark:bg-zinc-800'
+                        : 'text-gray-500 dark:text-gray-400'
+                    }`}
+                  >
+                    <Sparkles size={18} />
+                    <span className="hidden md:inline">{t('homeView.deepResearch')}</span>
                   </button>
                   <button
                     disabled={
@@ -608,25 +710,30 @@ const HomeView = () => {
 
                   <div className="relative" ref={homeSpaceSelectorRef}>
                     <button
-                      onClick={() => setIsHomeSpaceSelectorOpen(!isHomeSpaceSelectorOpen)}
-                      className={`px-3 py-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
+                      disabled={isHomeDeepResearchLocked}
+                      onClick={() => {
+                        if (isHomeDeepResearchLocked) return
+                        setIsHomeSpaceSelectorOpen(!isHomeSpaceSelectorOpen)
+                      }}
+                      className={`px-3 py-2 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
                         isHomeSpaceAuto
                           ? 'text-gray-500 dark:text-gray-400'
                           : 'text-primary-500 bg-gray-100 dark:bg-zinc-800'
-                      }`}
+                      } ${isHomeDeepResearchLocked ? 'opacity-60 cursor-not-allowed' : 'hover:bg-gray-100 dark:hover:bg-zinc-800'}`}
                     >
                       <LayoutGrid size={18} />
                       <span className="hidden md:inline">{homeSpaceButtonLabel}</span>
                       <ChevronDown size={14} />
                     </button>
-                    {!isHomeMobile && isHomeSpaceSelectorOpen && (
+                    {!isHomeDeepResearchLocked && !isHomeMobile && isHomeSpaceSelectorOpen && (
                       <div className="absolute top-full left-0 mt-2 w-60 bg-white dark:bg-[#202222] border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl z-50">
                         {renderHomeSpaceMenuContent()}
                       </div>
                     )}
                   </div>
 
-                  {isHomeMobile &&
+                  {!isHomeDeepResearchLocked &&
+                    isHomeMobile &&
                     isHomeSpaceSelectorOpen &&
                     createPortal(
                       <div className="fixed inset-0 z-[9999] flex items-end justify-center">

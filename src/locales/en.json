@@ -323,6 +323,12 @@
       "saveFailed": "Failed to save agent"
     }
   },
+  "deepResearch": {
+    "agentName": "Deep Research Agent",
+    "agentDescription": "System deep research agent",
+    "spaceName": "Deep Research",
+    "spaceDescription": "System deep research space"
+  },
   "spaceModal": {
     "create": "Create New Space",
     "edit": "Edit Space",
@@ -382,6 +388,7 @@
   "homeView": {
     "askAnything": "Ask anything...",
     "think": "Think",
+    "deepResearch": "Deep research",
     "search": "Search",
     "spaces": "Spaces",
     "spacesAuto": "Spaces: Auto",
@@ -399,6 +406,10 @@
   },
   "chat": {
     "thinking": "Thinking",
+    "deepResearchPlanning": "Planning research",
+    "deepResearchSynthesizing": "Synthesizing sources",
+    "deepResearchDrafting": "Drafting response",
+    "deepResearchRefining": "Refining answer",
     "analyzing": "Analyzing",
     "workingThroughIt": "Working through it",
     "checkingDetails": "Checking details"
@@ -427,6 +438,14 @@
   },
   "messageBubble": {
     "thinkingProcess": "Thinking Process",
+    "researchPlan": "Research Plan",
+    "researchGoal": "Goal",
+    "researchAssumptions": "Assumptions",
+    "researchSteps": "Plan",
+    "researchThought": "Reasoning",
+    "researchExpected": "Expected output",
+    "researchRisks": "Risks",
+    "researchSuccessCriteria": "Success criteria",
     "relatedQuestions": "Related Questions",
     "quoting": "Quoting:",
     "edit": "Edit",

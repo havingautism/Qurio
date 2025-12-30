@@ -323,6 +323,12 @@
       "saveFailed": "保存失败"
     }
   },
+  "deepResearch": {
+    "agentName": "深度研究智能体",
+    "agentDescription": "深度研究智能体",
+    "spaceName": "深度研究空间",
+    "spaceDescription": "深度研究空间"
+  },
   "spaceModal": {
     "create": "创建新空间",
     "edit": "编辑空间",
@@ -382,6 +388,7 @@
   "homeView": {
     "askAnything": "问任何问题...",
     "think": "思考",
+    "deepResearch": "深入研究",
     "search": "搜索",
     "spaces": "空间",
     "spacesAuto": "空间：自动",
@@ -399,6 +406,10 @@
   },
   "chat": {
     "thinking": "思考中",
+    "deepResearchPlanning": "深入研究：规划",
+    "deepResearchSynthesizing": "深入研究：综合",
+    "deepResearchDrafting": "深入研究：草稿",
+    "deepResearchRefining": "深入研究：精炼",
     "analyzing": "分析中",
     "workingThroughIt": "正在推理",
     "checkingDetails": "正在检查细节"
@@ -427,6 +438,14 @@
   },
   "messageBubble": {
     "thinkingProcess": "思考过程",
+    "researchPlan": "深入研究：规划",
+    "researchGoal": "目标",
+    "researchAssumptions": "假设",
+    "researchSteps": "步骤",
+    "researchThought": "思考",
+    "researchExpected": "预期结果",
+    "researchRisks": "风险",
+    "researchSuccessCriteria": "成功标准",
     "relatedQuestions": "相关问题",
     "quoting": "引用：",
     "edit": "编辑",

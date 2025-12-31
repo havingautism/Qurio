@@ -1760,7 +1760,7 @@ Return ONLY valid JSON that conforms exactly to this schema:
 }
 
 Rules:
-- Use 4鈥? steps.
+- Use 4-6 steps.
 - Each step must be executable independently by another agent without additional reasoning.
 - Actions must include sub-steps or constraints if ambiguity is possible.
 - Expected_output must describe format, depth, and purpose (e.g. 'a bullet list of 5 items explaining X').
@@ -1783,12 +1783,7 @@ Rules:
     responseFormat,
     thinking: { type: 'disabled' },
     onChunk: chunk => {
-      const text =
-        typeof chunk === 'string'
-          ? chunk
-          : chunk?.type === 'text'
-            ? chunk.content
-            : ''
+      const text = typeof chunk === 'string' ? chunk : chunk?.type === 'text' ? chunk.content : ''
       if (!text) return
       fullContent += text
       onChunk?.(text, fullContent)

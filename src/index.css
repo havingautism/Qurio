@@ -368,3 +368,73 @@ h6 {
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
+@keyframes blob-float {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+  33% {
+    transform: translate(-30px, 30px) scale(1.1);
+  }
+  66% {
+    transform: translate(30px, -20px) scale(0.9);
+  }
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+}
+
+@keyframes blob-float-alt {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+  33% {
+    transform: translate(40px, -40px) scale(1.2);
+  }
+  66% {
+    transform: translate(-20px, 30px) scale(0.8);
+  }
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+}
+
+@keyframes twinkle {
+  0%,
+  100% {
+    opacity: 0.2;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+}
+
+@keyframes diagonal-shine {
+  0% {
+    top: 120%;
+    left: -120%;
+  }
+  50%,
+  100% {
+    top: -120%;
+    left: 120%;
+  }
+}
+
+.animate-blob-float {
+  animation: blob-float 15s ease-in-out infinite;
+}
+
+.animate-blob-float-alt {
+  animation: blob-float-alt 18s ease-in-out infinite;
+}
+
+.animate-twinkle {
+  animation: twinkle var(--duration, 3s) ease-in-out infinite;
+}
+
+.animate-diagonal-shine {
+  animation: diagonal-shine 8s ease-in-out infinite;
+}

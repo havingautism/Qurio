@@ -5,7 +5,7 @@ import DateWidget from './home/DateWidget'
 
 const HomeWidgets = () => {
   return (
-    <div className="w-full max-w-5xl mt-8">
+    <div className="w-full max-w-5xl">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Column 1 */}
         <div className="flex flex-col gap-7 sm:gap-4">

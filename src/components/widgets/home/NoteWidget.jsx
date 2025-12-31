@@ -75,12 +75,12 @@ const NoteWidget = () => {
 
   return (
     <>
-      <div className="relative h-[140px] sm:h-[150px] md:h-[160px] w-full perspective-1000 group overflow-x-clip">
+      <div className="relative h-[140px] sm:h-[150px] md:h-[160px] w-full perspective-1000 group overflow-x-clip mb-2 sm:mb-0">
         {/* Notes Stack */}
-        <div className="relative w-full h-full flex items-center justify-center mx-auto px-8 sm:px-10 md:px-6">
+        <div className="relative w-full h-full flex items-center justify-center mx-auto px-4 sm:px-10 md:px-6">
           {/* Navigation Controls - inside stack for proper spacing */}
           {notes.length > 1 && (
-            <div className="absolute top-1/2 -translate-y-1/2 left-0 z-30 transition-opacity md:opacity-0 md:pointer-events-none md:group-hover:opacity-100 md:group-hover:pointer-events-auto pl-1">
+            <div className="absolute top-4/5 sm:top-1/2 -translate-y-1/2 left-0 z-30 transition-opacity md:opacity-0 md:pointer-events-none md:group-hover:opacity-100 md:group-hover:pointer-events-auto pl-1">
               <button
                 onClick={prevNote}
                 disabled={currentIndex === 0}
@@ -91,7 +91,7 @@ const NoteWidget = () => {
             </div>
           )}
           {notes.length > 1 && (
-            <div className="absolute top-1/2 -translate-y-1/2 right-0 z-30 transition-opacity md:opacity-0 md:pointer-events-none md:group-hover:opacity-100 md:group-hover:pointer-events-auto pr-1">
+            <div className="absolute top-4/5 sm:top-1/2 -translate-y-1/2 right-0 z-30 transition-opacity md:opacity-0 md:pointer-events-none md:group-hover:opacity-100 md:group-hover:pointer-events-auto pr-1">
               <button
                 onClick={nextNote}
                 disabled={currentIndex === notes.length - 1}
@@ -145,12 +145,12 @@ const NoteWidget = () => {
             return (
               <div
                 key={note.id}
-                className={`absolute w-full max-w-[85%] sm:max-w-[90%] h-full transition-all duration-300 ease-out origin-bottom ${isActive ? 'hover:-translate-y-2' : ''}`}
+                className={`absolute w-full  h-full transition-all duration-300 ease-out origin-bottom ${isActive ? 'hover:-translate-y-2' : ''}`}
                 style={style}
               >
                 {/* Action buttons on active note */}
                 {isActive && (
-                  <div className="absolute top-0 right-2 z-20 p-2 flex gap-2">
+                  <div className="absolute top-0 right-5 z-20 p-2 flex gap-2">
                     <button
                       onClick={e => {
                         e.stopPropagation()
@@ -173,9 +173,9 @@ const NoteWidget = () => {
                     </button>
                   </div>
                 )}
-                <div className="mx-auto w-full">
+                <div className="mx-auto w-full ">
                   <WidgetCard className="h-full w-full pointer-events-none select-none overflow-hidden bg-yellow-100! dark:bg-[#3f2c06]! border-yellow-200! dark:border-yellow-700/50!">
-                    <div className="p-1 h-full flex flex-col pointer-events-none">
+                    <div className="px-6 py-2 h-full flex flex-col pointer-events-none">
                       <p className="text-sm text-gray-800 dark:text-yellow-100 font-medium whitespace-pre-wrap line-clamp-6 leading-relaxed font-handwriting">
                         {note.content}
                       </p>

@@ -43,8 +43,8 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
   const buttonRef = useRef(null)
   const isDeepResearchSpace = Boolean(
     editingSpace?.isDeepResearchSystem ||
-      editingSpace?.isDeepResearch ||
-      editingSpace?.is_deep_research,
+    editingSpace?.isDeepResearch ||
+    editingSpace?.is_deep_research,
   )
 
   const availableAgents = useMemo(

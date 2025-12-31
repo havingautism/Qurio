@@ -570,8 +570,30 @@ const HomeView = () => {
     </div>
   )
 
+  // Use deterministic values to satisfy React purity rules while maintaining variety
+  const deepResearchParticles = useMemo(() => {
+    return [
+      { id: 0, top: '10%', left: '20%', duration: '3s', delay: '0s' },
+      { id: 1, top: '40%', left: '80%', duration: '4.5s', delay: '1.2s' },
+      { id: 2, top: '70%', left: '15%', duration: '3.8s', delay: '2.5s' },
+      { id: 3, top: '25%', left: '60%', duration: '5s', delay: '0.5s' },
+      { id: 4, top: '85%', left: '50%', duration: '4s', delay: '3s' },
+      { id: 5, top: '15%', left: '90%', duration: '3.2s', delay: '1.8s' },
+      { id: 6, top: '55%', left: '30%', duration: '4.2s', delay: '2.2s' },
+      { id: 7, top: '90%', left: '75%', duration: '3.5s', delay: '0.8s' },
+      { id: 8, top: '35%', left: '40%', duration: '4.8s', delay: '4s' },
+      { id: 9, top: '65%', left: '85%', duration: '3.6s', delay: '1.5s' },
+    ]
+  }, [])
+
   return (
     <div className="flex-1 h-full overflow-hidden bg-background text-foreground transition-colors duration-300 relative flex flex-col">
+      {/* Immersive Animated Background Blobs - Global for HomeView */}
+      <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden select-none opacity-40 dark:opacity-20">
+        <div className="absolute h-[600px] w-[600px] -left-40 -top-40 bg-linear-to-br from-orange-400/30 to-magenta-500/30 rounded-full blur-[120px] animate-blob-float" />
+        <div className="absolute h-[700px] w-[700px] -right-40 -bottom-40 bg-linear-to-tr from-primary-500/20 to-blue-600/20 rounded-full blur-[140px] animate-blob-float-alt" />
+      </div>
+
       <div
         ref={homeContainerRef}
         className={clsx(
@@ -800,42 +822,62 @@ const HomeView = () => {
             </div>
           </div>
 
-          <div className="w-full flex justify-center py-2">
-            <button
-              type="button"
+          <div className="w-full flex justify-center ">
+            <div
+              className="relative group cursor-pointer w-full"
               onClick={() => {
                 resetDeepResearchForm()
                 setIsDeepResearchModalOpen(true)
               }}
-              className="group relative w-full sm:w-auto px-6 py-3 rounded-2xl overflow-hidden transition-all duration-500 hover:scale-[1.02] active:scale-[0.98]"
             >
-              {/* Animated Gradient Background */}
-              <div className="absolute inset-0 bg-gradient-to-r from-primary-600 via-primary-500 to-primary-700 opacity-90 group-hover:opacity-100 transition-opacity" />
-
-              {/* Shimmer Effect */}
-              <div className="absolute inset-0 translate-x-[-100%] group-hover:translate-x-[100%] bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-1000 ease-in-out" />
-
-              {/* Glow Effect */}
-              <div className="absolute inset-0 opacity-0 group-hover:opacity-40 blur-xl bg-primary-400 transition-opacity duration-500 shadow-[0_0_30px_rgba(var(--color-primary-500),0.5)]" />
-
-              <div className="relative flex items-center justify-center gap-2.5 text-white">
-                <div className="p-1 bg-white/20 rounded-lg backdrop-blur-sm group-hover:rotate-12 transition-transform duration-300">
-                  <Sparkles size={18} className="animate-pulse" />
+              {/* Glass Card - Subtle/Refined Style */}
+              <div className="relative z-10  h-30 md:h-35 rounded-3xl border border-gray-200 dark:border-zinc-700/30 backdrop-blur-md bg-white/60 dark:bg-zinc-900/60 p-6 shadow-md dark:shadow-2xl overflow-hidden transition-all duration-500 group-hover:scale-[1.02] group-hover:shadow-2xl group-active:scale-[0.98]">
+                {/* Magical Twinkle Particles */}
+                <div className="absolute inset-0 z-0 pointer-events-none opacity-60">
+                  {deepResearchParticles.map(p => (
+                    <div
+                      key={p.id}
+                      className="absolute w-1 h-1 dark:bg-white bg-primary-500 rounded-full animate-twinkle"
+                      style={{
+                        top: p.top,
+                        left: p.left,
+                        '--duration': p.duration,
+                        animationDelay: p.delay,
+                      }}
+                    />
+                  ))}
                 </div>
-                <div className="flex flex-col items-start leading-tight">
-                  <span className="text-sm font-bold tracking-tight">
-                    {t('homeView.deepResearchEntry')}
-                  </span>
-                  <span className="text-[10px] font-medium opacity-80 group-hover:opacity-100 transition-opacity">
-                    {t('homeView.deepResearchEntryHint')}
-                  </span>
+
+                {/* Shine Sweep Effect */}
+                <div className="absolute inset-x-0 h-48 bg-linear-to-b from-transparent via-white/30 to-transparent blur-[25px] -rotate-45 -translate-y-full group-hover:animate-diagonal-shine pointer-events-none" />
+
+                <div className="relative z-20 h-full flex flex-col justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-white/20 dark:bg-zinc-800/30 rounded-xl backdrop-blur-sm shadow-sm group-hover:rotate-12 transition-transform duration-300">
+                      <Sparkles
+                        size={20}
+                        className="text-primary-600 dark:text-primary-400 animate-pulse"
+                      />
+                    </div>
+                    <div>
+                      <h3 className="text-xl md:text-2xl font-black tracking-tight text-gray-900 dark:text-white leading-none">
+                        {t('homeView.deepResearchEntry')}
+                      </h3>
+                      <div className="h-1 w-8 bg-primary-500 mt-1 rounded-full transform origin-left group-hover:scale-x-150 transition-transform duration-500" />
+                    </div>
+                  </div>
+
+                  <div className="flex items-end justify-between">
+                    <p className="text-xs md:text-sm font-bold text-gray-700 dark:text-gray-300 leading-tight pr-6 drop-shadow-sm">
+                      {t('homeView.deepResearchEntryHint')}
+                    </p>
+                    <div className="p-2.5 bg-primary-500 hover:bg-primary-600 rounded-2xl text-white shadow-lg transform group-hover:translate-x-1.5 transition-all duration-300">
+                      <ArrowRight size={18} />
+                    </div>
+                  </div>
                 </div>
-                <ArrowRight
-                  size={16}
-                  className="ml-1 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300"
-                />
               </div>
-            </button>
+            </div>
           </div>
 
           {/* Widgets Section */}

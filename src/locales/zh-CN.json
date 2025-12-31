@@ -390,7 +390,7 @@
     "think": "思考",
     "deepResearch": "深入研究",
     "deepResearchEntry": "深入研究",
-    "deepResearchEntryHint": "问卷式设置",
+    "deepResearchEntryHint": "问卷式引导",
     "deepResearchModalTitle": "深入研究步骤",
     "deepResearchStepLabel": "第 {{step}} 步 / 共 {{total}} 步",
     "deepResearchQuestionTitle": "研究问题",

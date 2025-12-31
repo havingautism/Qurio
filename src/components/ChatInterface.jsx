@@ -219,8 +219,8 @@ const ChatInterface = ({
   }, [isManualSpaceSelection, selectedSpace, conversationSpace])
   const isDeepResearchConversation = Boolean(
     deepResearchSpace?.id &&
-      displaySpace?.id &&
-      String(displaySpace.id) === String(deepResearchSpace.id),
+    displaySpace?.id &&
+    String(displaySpace.id) === String(deepResearchSpace.id),
   )
   const availableSpaces = useMemo(() => {
     if (isDeepResearchConversation) return spaces
@@ -1873,12 +1873,12 @@ const ChatInterface = ({
               )}
 
               <InputBar
-              isLoading={isLoading}
-              apiProvider={effectiveProvider}
-              isSearchActive={isSearchActive}
-              isThinkingActive={isThinkingActive}
-              isFollowUpLocked={isDeepResearchInputLocked}
-              agents={selectableAgents}
+                isLoading={isLoading}
+                apiProvider={effectiveProvider}
+                isSearchActive={isSearchActive}
+                isThinkingActive={isThinkingActive}
+                isFollowUpLocked={isDeepResearchInputLocked}
+                agents={selectableAgents}
                 agentsLoading={isAgentsLoading}
                 agentsLoadingLabel={agentsLoadingLabel}
                 agentsLoadingDots={agentLoadingDots}
@@ -2087,7 +2087,7 @@ const InputBar = React.memo(
     return (
       <div className="w-full max-w-3xl relative group">
         <div className="absolute inset-0 input-glow-veil rounded-xl blur-2xl opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-500 pointer-events-none" />
-        <div className="relative bg-white dark:bg-zinc-800 border border-transparent focus-within:border-gray-300 dark:focus-within:border-zinc-600 rounded-xl transition-all duration-300 p-3 shadow-sm hover:shadow-lg group-hover:shadow-lg focus-within:shadow-xl">
+        <div className="relative bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700/50 focus-within:border-primary-500/50 rounded-2xl transition-all duration-300 p-3 shadow-md hover:shadow-lg group-hover:shadow-lg focus-within:shadow-xl">
           {showEditing && (
             <div className="flex items-center justify-between bg-gray-200 dark:bg-zinc-700/50 rounded-lg px-3 py-2 mb-2 ">
               <div className="flex items-center gap-3 overflow-hidden">

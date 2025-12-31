@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
+﻿import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { useShallow } from 'zustand/react/shallow'
@@ -10,6 +10,7 @@ import {
   ChevronRight,
   ChevronDown,
   CornerRightDown,
+  Download,
   Pencil,
   Check,
   RefreshCw,
@@ -193,6 +194,8 @@ const MessageBubble = ({
   const message = messages[messageIndex]
   const [isDark, setIsDark] = useState(document.documentElement.classList.contains('dark'))
   const mainContentRef = useRef(null)
+  const researchExportRef = useRef(null)
+  const thoughtExportRef = useRef(null)
   const containerRef = useRef(null) // Local ref for the wrapper
   const prevStreamingRef = useRef(false)
 
@@ -220,6 +223,69 @@ const MessageBubble = ({
     } catch (err) {
       console.error('Failed to copy text: ', err)
     }
+  }
+
+  const escapeHtml = value =>
+    String(value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;')
+
+  const getExportSectionHtml = (label, html) => {
+    if (!html) return ''
+    return `<h2>${escapeHtml(label)}</h2>${html}`
+  }
+
+  const buildExportHtml = () => {
+    const planHtml = planMarkdown ? researchExportRef.current?.innerHTML?.trim() || '' : ''
+    const thoughtHtml = thoughtContent ? thoughtExportRef.current?.innerHTML?.trim() || '' : ''
+    const hasAnswer = Boolean(mainContentRef.current?.innerText?.trim())
+    const answerHtml = hasAnswer ? mainContentRef.current?.innerHTML?.trim() || '' : ''
+    const sections = [
+      getExportSectionHtml(t('messageBubble.researchProcess'), planHtml),
+      getExportSectionHtml(t('messageBubble.thinkingProcess'), thoughtHtml),
+      getExportSectionHtml(t('messageBubble.answer'), answerHtml),
+    ].filter(Boolean)
+    return sections.join('<hr />')
+  }
+
+  const getExportBaseName = () => {
+    const rawTitle = conversationTitle || t('messageBubble.researchReportTitle')
+    return String(rawTitle || 'deep-research-report')
+      .replace(/[\\/:*?"<>|]+/g, '')
+      .trim()
+  }
+
+  const handleDownloadWord = () => {
+    const exportHtml = buildExportHtml()
+    if (!exportHtml) return
+    const html = `<!doctype html><html><head><meta charset="utf-8"><style>body{font-family:Arial,sans-serif;padding:24px;}h2{margin:20px 0 12px;}pre{white-space:pre-wrap;font-family:inherit;}</style></head><body>${exportHtml}</body></html>`
+    const blob = new Blob([html], { type: 'application/msword' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `${getExportBaseName()}.doc`
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
+  }
+
+  const handleDownloadPdf = () => {
+    const exportHtml = buildExportHtml()
+    if (!exportHtml) return
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(
+      getExportBaseName(),
+    )}</title><style>body{font-family:Arial,sans-serif;padding:24px;}h2{margin:20px 0 12px;}pre{white-space:pre-wrap;font-family:inherit;}</style></head><body>${exportHtml}</body></html>`
+    const printWindow = window.open('', '_blank', 'width=900,height=650')
+    if (!printWindow) return
+    printWindow.document.open()
+    printWindow.document.write(html)
+    printWindow.document.close()
+    printWindow.focus()
+    printWindow.print()
   }
 
   // Effect to handle copy success timeout with proper cleanup
@@ -258,6 +324,8 @@ const MessageBubble = ({
 
   // Share Modal State
   const [isShareModalOpen, setIsShareModalOpen] = useState(false)
+  const [isDownloadMenuOpen, setIsDownloadMenuOpen] = useState(false)
+  const downloadMenuRef = useRef(null)
 
   // Detect mobile view
   const isMobile = useIsMobile()
@@ -443,15 +511,29 @@ const MessageBubble = ({
     return () => observer.disconnect()
   }, [])
 
+  useEffect(() => {
+    if (!isDownloadMenuOpen) return
+    const handleOutside = event => {
+      if (downloadMenuRef.current && downloadMenuRef.current.contains(event.target)) return
+      setIsDownloadMenuOpen(false)
+    }
+    document.addEventListener('mousedown', handleOutside)
+    document.addEventListener('touchstart', handleOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleOutside)
+      document.removeEventListener('touchstart', handleOutside)
+    }
+  }, [isDownloadMenuOpen])
+
   const [isThoughtExpanded, setIsThoughtExpanded] = useState(false)
+  const [isResearchExpanded, setIsResearchExpanded] = useState(false)
   const [thinkingStatusIndex, setThinkingStatusIndex] = useState(0)
 
   const { t } = useTranslation()
   const { showConfirmation } = useAppContext()
   const isUser = message.role === 'user'
   const isDeepResearch = !!message?.deepResearch
-  const planContent =
-    typeof message?.researchPlan === 'string' ? message.researchPlan.trim() : ''
+  const planContent = typeof message?.researchPlan === 'string' ? message.researchPlan.trim() : ''
 
   // Dynamic thinking status messages using translations
   const THINKING_STATUS_MESSAGES = [
@@ -474,7 +556,10 @@ const MessageBubble = ({
       const parsed = JSON.parse(trimmed)
       const goal = parsed.goal ? `**${t('messageBubble.researchGoal')}:** ${parsed.goal}` : ''
       const assumptions = Array.isArray(parsed.assumptions)
-        ? parsed.assumptions.filter(Boolean).map(item => `- ${item}`).join('\n')
+        ? parsed.assumptions
+            .filter(Boolean)
+            .map(item => `- ${item}`)
+            .join('\n')
         : ''
       const steps = Array.isArray(parsed.plan)
         ? parsed.plan
@@ -494,10 +579,16 @@ const MessageBubble = ({
             .join('\n')
         : ''
       const risks = Array.isArray(parsed.risks)
-        ? parsed.risks.filter(Boolean).map(item => `- ${item}`).join('\n')
+        ? parsed.risks
+            .filter(Boolean)
+            .map(item => `- ${item}`)
+            .join('\n')
         : ''
       const success = Array.isArray(parsed.success_criteria)
-        ? parsed.success_criteria.filter(Boolean).map(item => `- ${item}`).join('\n')
+        ? parsed.success_criteria
+            .filter(Boolean)
+            .map(item => `- ${item}`)
+            .join('\n')
         : ''
 
       const sections = []
@@ -564,10 +655,15 @@ const MessageBubble = ({
     }
     return false
   })()
-  const shouldShowThinkingStatus =
+  const baseThinkingStatusActive =
     message.role === 'ai' && message.thinkingEnabled !== false && isStreaming && !hasMainText
-  const statusMessages = isDeepResearch ? DEEP_RESEARCH_STATUS_MESSAGES : THINKING_STATUS_MESSAGES
-  const thinkingStatusText = statusMessages[thinkingStatusIndex] || statusMessages[0]
+  const researchStatusText = DEEP_RESEARCH_STATUS_MESSAGES[0]
+  const thinkingStatusText =
+    THINKING_STATUS_MESSAGES[thinkingStatusIndex] || THINKING_STATUS_MESSAGES[0]
+  const statusMessageCount = Math.max(
+    DEEP_RESEARCH_STATUS_MESSAGES.length,
+    THINKING_STATUS_MESSAGES.length,
+  )
   const renderPlainCodeBlock = useCallback(
     (codeText, language) => (
       <div className="relative group my-4 border border-gray-200 dark:border-zinc-700 rounded-xl overflow-x-auto bg-user-bubble/20 dark:bg-zinc-800/30">
@@ -614,13 +710,13 @@ const MessageBubble = ({
   )
 
   useEffect(() => {
-    if (!shouldShowThinkingStatus) return undefined
+    if (!baseThinkingStatusActive) return undefined
     setThinkingStatusIndex(0)
     const intervalId = setInterval(() => {
-      setThinkingStatusIndex(prev => (prev + 1) % statusMessages.length)
+      setThinkingStatusIndex(prev => (prev + 1) % statusMessageCount)
     }, 1800)
     return () => clearInterval(intervalId)
-  }, [shouldShowThinkingStatus, statusMessages.length])
+  }, [baseThinkingStatusActive, statusMessageCount])
 
   const CodeBlock = useCallback(
     ({ inline, className, children, ...props }) => {
@@ -969,11 +1065,27 @@ const MessageBubble = ({
   const contentWithCitations = formatContentWithSources(contentWithSupports, message.sources)
   const hasThoughtText = !!(thoughtContent && String(thoughtContent).trim())
   const hasPlanText = !!planMarkdown
-  const shouldShowThought =
-    message.thinkingEnabled !== false && (isStreaming || hasThoughtText || hasPlanText)
-  const thinkingEmoji = isDeepResearch ? '🔬' : '🧠'
+  const researchPlanLoading = Boolean(message?.researchPlanLoading)
+  const shouldShowResearch =
+    isDeepResearch &&
+    message.thinkingEnabled !== false &&
+    (hasPlanText || researchPlanLoading || (baseThinkingStatusActive && !hasThoughtText))
+  const shouldShowThought = isDeepResearch
+    ? hasThoughtText || (!researchPlanLoading && baseThinkingStatusActive)
+    : message.thinkingEnabled !== false && (isStreaming || hasThoughtText || hasPlanText)
+  const shouldShowThinking =
+    !isDeepResearch &&
+    message.thinkingEnabled !== false &&
+    (isStreaming || hasThoughtText || hasPlanText)
+  const shouldShowResearchStatus =
+    isDeepResearch && baseThinkingStatusActive && researchPlanLoading
+  const shouldShowThoughtStatus =
+    baseThinkingStatusActive &&
+    (!isDeepResearch || (!researchPlanLoading && (hasPlanText || hasThoughtText)))
+  const thinkingEmoji = isDeepResearch ? '🧐' : '🧠'
   const hasRelatedQuestions = Array.isArray(message.related) && message.related.length > 0
   const isRelatedLoading = !!message.relatedLoading
+  const shouldShowRelated = !isDeepResearch && (hasRelatedQuestions || isRelatedLoading)
 
   return (
     <div
@@ -1123,42 +1235,118 @@ const MessageBubble = ({
       </div>
 
       {/* Thinking Process Section */}
-      {shouldShowThought && (
-        <div className="border border-gray-200 dark:border-zinc-700 rounded-xl overflow-hidden">
-          <button
-            onClick={() => setIsThoughtExpanded(!isThoughtExpanded)}
-            className="w-full flex items-center justify-between p-2 bg-user-bubble/30 dark:bg-zinc-800/50 hover:bg-user-bubble dark:hover:bg-zinc-800 transition-colors"
-          >
-            <div className="flex items-center gap-2 font-medium text-gray-700 dark:text-gray-300">
-              <EmojiDisplay emoji={thinkingEmoji} size="1.2em" />
-              {!shouldShowThinkingStatus && (
-                <span className="text-sm">{t('messageBubble.thinkingProcess')}</span>
-              )}
-              {!shouldShowThinkingStatus && <Check size="1em" />}
-              {shouldShowThinkingStatus && (
-                <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                  <span className="text-left mr-4">{thinkingStatusText}</span>
-                  <DotLoader />
+      {isDeepResearch ? (
+        <>
+          {shouldShowResearch && (
+            <div className="border border-gray-200 dark:border-zinc-700 rounded-xl overflow-hidden">
+              <button
+                onClick={() => setIsResearchExpanded(!isResearchExpanded)}
+                className="w-full flex items-center justify-between p-2 bg-user-bubble/30 dark:bg-zinc-800/50 hover:bg-user-bubble dark:hover:bg-zinc-800 transition-colors"
+              >
+                <div className="flex items-center gap-2 font-medium text-gray-700 dark:text-gray-300">
+                  <EmojiDisplay emoji={'📋'} size="1.2em" />
+                  <span className="text-sm">{t('messageBubble.researchProcess')}</span>
+                  {!shouldShowResearchStatus && <Check size="1em" />}
+                  {shouldShowResearchStatus && (
+                    <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                      <span className="text-left mr-4">{researchStatusText}</span>
+                      <DotLoader />
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center gap-3">
+                  {isResearchExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                </div>
+              </button>
+
+              {isResearchExpanded && (hasPlanText || shouldShowResearchStatus) && (
+                <div className="p-4 bg-user-bubble/30 font-stretch-semi-condensed dark:bg-zinc-800/30 border-t border-gray-200 dark:border-zinc-700 text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+                  <Streamdown
+                    mermaid={mermaidOptions}
+                    remarkPlugins={[remarkGfm]}
+                    components={markdownComponents}
+                  >
+                    {planMarkdown}
+                  </Streamdown>
                 </div>
               )}
             </div>
-            <div className="flex items-center gap-3">
-              {isThoughtExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-            </div>
-          </button>
+          )}
 
-          {isThoughtExpanded && (hasThoughtText || hasPlanText) && (
-            <div className="p-4 bg-user-bubble/30 font-stretch-semi-condensed dark:bg-zinc-800/30 border-t border-gray-200 dark:border-zinc-700 text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
-              <Streamdown
-                mermaid={mermaidOptions}
-                remarkPlugins={[remarkGfm]}
-                components={markdownComponents}
+          {shouldShowThought && (
+            <div className="border border-gray-200 dark:border-zinc-700 rounded-xl overflow-hidden">
+              <button
+                onClick={() => setIsThoughtExpanded(!isThoughtExpanded)}
+                className="w-full flex items-center justify-between p-2 bg-user-bubble/30 dark:bg-zinc-800/50 hover:bg-user-bubble dark:hover:bg-zinc-800 transition-colors"
               >
-                {[planMarkdown, thoughtContent].filter(Boolean).join('\n\n')}
-              </Streamdown>
+                <div className="flex items-center gap-2 font-medium text-gray-700 dark:text-gray-300">
+                  <EmojiDisplay emoji={'🧠'} size="1.2em" />
+                  <span className="text-sm">{t('messageBubble.thinkingProcess')}</span>
+                  {!shouldShowThoughtStatus && <Check size="1em" />}
+                  {shouldShowThoughtStatus && (
+                    <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                      <span className="text-left mr-4">{thinkingStatusText}</span>
+                      <DotLoader />
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center gap-3">
+                  {isThoughtExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                </div>
+              </button>
+
+              {isThoughtExpanded && (hasThoughtText || shouldShowThoughtStatus) && (
+                <div className="p-4 bg-user-bubble/30 font-stretch-semi-condensed dark:bg-zinc-800/30 border-t border-gray-200 dark:border-zinc-700 text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+                  <Streamdown
+                    mermaid={mermaidOptions}
+                    remarkPlugins={[remarkGfm]}
+                    components={markdownComponents}
+                  >
+                    {thoughtContent}
+                  </Streamdown>
+                </div>
+              )}
             </div>
           )}
-        </div>
+        </>
+      ) : (
+        shouldShowThinking && (
+          <div className="border border-gray-200 dark:border-zinc-700 rounded-xl overflow-hidden">
+            <button
+              onClick={() => setIsThoughtExpanded(!isThoughtExpanded)}
+              className="w-full flex items-center justify-between p-2 bg-user-bubble/30 dark:bg-zinc-800/50 hover:bg-user-bubble dark:hover:bg-zinc-800 transition-colors"
+            >
+              <div className="flex items-center gap-2 font-medium text-gray-700 dark:text-gray-300">
+                <EmojiDisplay emoji={'🧠'} size="1.2em" />
+                {!baseThinkingStatusActive && (
+                  <span className="text-sm">{t('messageBubble.thinkingProcess')}</span>
+                )}
+                {!baseThinkingStatusActive && <Check size="1em" />}
+                {baseThinkingStatusActive && (
+                  <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                    <span className="text-left mr-4">{thinkingStatusText}</span>
+                    <DotLoader />
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center gap-3">
+                {isThoughtExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+              </div>
+            </button>
+
+            {isThoughtExpanded && (hasThoughtText || hasPlanText) && (
+              <div className="p-4 bg-user-bubble/30 font-stretch-semi-condensed dark:bg-zinc-800/30 border-t border-gray-200 dark:border-zinc-700 text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+                <Streamdown
+                  mermaid={mermaidOptions}
+                  remarkPlugins={[remarkGfm]}
+                  components={markdownComponents}
+                >
+                  {[planMarkdown, thoughtContent].filter(Boolean).join('\n\n')}
+                </Streamdown>
+              </div>
+            )}
+          </div>
+        )
       )}
 
       {/* Sources Section - REMOVED (Moved to toolbar) */}
@@ -1195,7 +1383,7 @@ const MessageBubble = ({
       </div>
 
       {/* Related Questions */}
-      {(hasRelatedQuestions || isRelatedLoading) && (
+      {shouldShowRelated && (
         <div className="border-t border-gray-200 dark:border-zinc-800 pt-4">
           <div className="flex items-center gap-3 mb-3 text-gray-900 dark:text-gray-100">
             <EmojiDisplay emoji="🔮" size="1.2em" className="mb-1" />
@@ -1287,6 +1475,49 @@ const MessageBubble = ({
             </>
           )}
         </button>
+        {isDeepResearch && (
+          <div className="relative" ref={downloadMenuRef}>
+            <button
+              className="flex items-center gap-2 text-sm font-mono text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+              onClick={() => setIsDownloadMenuOpen(prev => !prev)}
+            >
+              <Download size={16} />
+              <span className="hidden sm:block">{t('messageBubble.download')}</span>
+              <ChevronDown size={14} />
+            </button>
+            {isDownloadMenuOpen && (
+              <div
+                className={clsx(
+                  'absolute left-0 w-44 bg-white dark:bg-[#202222] border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl z-30 overflow-hidden',
+                  isMobile ? 'bottom-full mb-2' : 'mt-2',
+                )}
+              >
+                <div className="p-2 flex flex-col gap-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleDownloadPdf()
+                      setIsDownloadMenuOpen(false)
+                    }}
+                    className="flex items-center gap-2 w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left text-sm text-gray-700 dark:text-gray-200"
+                  >
+                    {t('messageBubble.downloadPdf')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleDownloadWord()
+                      setIsDownloadMenuOpen(false)
+                    }}
+                    className="flex items-center gap-2 w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left text-sm text-gray-700 dark:text-gray-200"
+                  >
+                    {t('messageBubble.downloadWord')}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
         {/* Sources Toggle */}
         {message.sources && message.sources.length > 0 && (
           <button
@@ -1348,6 +1579,19 @@ const MessageBubble = ({
         sources={mobileDrawerSources}
         title={mobileDrawerTitle}
       />
+
+      <div className="hidden" aria-hidden="true">
+        <div ref={researchExportRef}>
+          <Streamdown mermaid={mermaidOptions} remarkPlugins={[remarkGfm]}>
+            {planMarkdown}
+          </Streamdown>
+        </div>
+        <div ref={thoughtExportRef}>
+          <Streamdown mermaid={mermaidOptions} remarkPlugins={[remarkGfm]}>
+            {thoughtContent}
+          </Streamdown>
+        </div>
+      </div>
 
       <ShareModal
         isOpen={isShareModalOpen}

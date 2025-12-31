@@ -1222,6 +1222,12 @@ const ChatInterface = ({
   const [editingPartnerTimestamp, setEditingPartnerTimestamp] = useState(null)
   const [editingTargetId, setEditingTargetId] = useState(null)
   const [editingPartnerId, setEditingPartnerId] = useState(null)
+  const hasDeepResearchHistory = useMemo(
+    () => messages.some(message => message.role === 'user'),
+    [messages],
+  )
+  const isDeepResearchFollowUpLocked = isDeepResearchConversation && hasDeepResearchHistory
+  const isDeepResearchInputLocked = isDeepResearchFollowUpLocked && editingIndex === null
 
   const handleEdit = useCallback(
     index => {
@@ -1264,8 +1270,15 @@ const ChatInterface = ({
       const deepResearchActive = togglesOverride
         ? togglesOverride.deepResearch
         : isDeepResearchActive
-      const relatedActive = togglesOverride ? togglesOverride.related : isRelatedEnabled
+      const relatedActive = deepResearchActive
+        ? false
+        : togglesOverride
+          ? togglesOverride.related
+          : isRelatedEnabled
       const resolvedThinkingActive = deepResearchActive ? false : thinkingActive
+
+      const isEditing = Boolean(editingInfoOverride || editingIndex !== null)
+      if (isDeepResearchFollowUpLocked && !isEditing) return
 
       if (!textToSend.trim() && attToSend.length === 0) return
       if (isLoading) return
@@ -1351,6 +1364,7 @@ const ChatInterface = ({
       isSearchActive,
       isThinkingActive,
       isDeepResearchActive,
+      isDeepResearchFollowUpLocked,
       isRelatedEnabled,
       isLoading,
       editingIndex,
@@ -1374,8 +1388,11 @@ const ChatInterface = ({
   )
 
   const handleRelatedClick = useCallback(
-    q => handleSendMessage(q, [], null, { skipMeta: true }),
-    [handleSendMessage],
+    q => {
+      if (isDeepResearchFollowUpLocked) return
+      handleSendMessage(q, [], null, { skipMeta: true })
+    },
+    [handleSendMessage, isDeepResearchFollowUpLocked],
   )
 
   const handleQuote = useCallback(payload => {
@@ -1842,115 +1859,112 @@ const ChatInterface = ({
         />
 
         {/* Input Area */}
-        <div className="w-full shrink-0 bg-background pt-0 pb-[calc(0.75rem+env(safe-area-inset-bottom))] px-2 sm:px-0 flex justify-center z-20">
-          <div className="w-full max-w-3xl relative">
-            {/* Scroll to bottom button - positioned relative to input area */}
-            {showScrollButton && (
-              <button
-                onClick={() => scrollToBottom('smooth')}
-                className="absolute bottom-40 left-1/2 -translate-x-1/2 p-2 bg-background border border-border rounded-full shadow-lg hover:bg-muted transition-all duration-300 animate-in fade-in slide-in-from-bottom-2 z-30"
-              >
-                <ArrowDown size={20} className="text-foreground" />
-              </button>
-            )}
+        {!isDeepResearchInputLocked && (
+          <div className="w-full shrink-0 bg-background pt-0 pb-[calc(0.75rem+env(safe-area-inset-bottom))] px-2 sm:px-0 flex justify-center z-20">
+            <div className="w-full max-w-3xl relative">
+              {/* Scroll to bottom button - positioned relative to input area */}
+              {showScrollButton && (
+                <button
+                  onClick={() => scrollToBottom('smooth')}
+                  className="absolute bottom-40 left-1/2 -translate-x-1/2 p-2 bg-background border border-border rounded-full shadow-lg hover:bg-muted transition-all duration-300 animate-in fade-in slide-in-from-bottom-2 z-30"
+                >
+                  <ArrowDown size={20} className="text-foreground" />
+                </button>
+              )}
 
-            <InputBar
+              <InputBar
               isLoading={isLoading}
               apiProvider={effectiveProvider}
               isSearchActive={isSearchActive}
               isThinkingActive={isThinkingActive}
-              isDeepResearchActive={isDeepResearchActive}
-              isDeepResearchToggleLocked={isDeepResearchConversation}
+              isFollowUpLocked={isDeepResearchInputLocked}
               agents={selectableAgents}
-              agentsLoading={isAgentsLoading}
-              agentsLoadingLabel={agentsLoadingLabel}
-              agentsLoadingDots={agentLoadingDots}
-              selectedAgent={inputAgent}
-              isAgentAutoMode={inputAgentAutoMode}
-              isAgentSelectionLocked={isDeepResearchConversation}
-              onAgentSelect={agent => {
-                if (isDeepResearchConversation) return
-                setSelectedAgentId(agent?.id || null)
-                setIsAgentAutoMode(false)
-                setPendingAgentId(null)
-                setIsAgentSelectorOpen(false)
-                const targetConversationId = activeConversation?.id || conversationId
-                manualAgentSelectionRef.current = {
-                  conversationId: targetConversationId || null,
-                  mode: 'manual',
-                  agentId: agent?.id || null,
+                agentsLoading={isAgentsLoading}
+                agentsLoadingLabel={agentsLoadingLabel}
+                agentsLoadingDots={agentLoadingDots}
+                selectedAgent={inputAgent}
+                isAgentAutoMode={inputAgentAutoMode}
+                isAgentSelectionLocked={isDeepResearchConversation}
+                onAgentSelect={agent => {
+                  if (isDeepResearchConversation) return
+                  setSelectedAgentId(agent?.id || null)
+                  setIsAgentAutoMode(false)
+                  setPendingAgentId(null)
+                  setIsAgentSelectorOpen(false)
+                  const targetConversationId = activeConversation?.id || conversationId
+                  manualAgentSelectionRef.current = {
+                    conversationId: targetConversationId || null,
+                    mode: 'manual',
+                    agentId: agent?.id || null,
+                  }
+                  if (targetConversationId) {
+                    updateConversation(targetConversationId, {
+                      last_agent_id: agent?.id || null,
+                      agent_selection_mode: 'manual',
+                    }).catch(err => console.error('Failed to update agent selection mode:', err))
+                  }
+                }}
+                onAgentAutoModeToggle={() => {
+                  if (isDeepResearchConversation) return
+                  setSelectedAgentId(null) // Clear selected agent when entering auto mode
+                  setIsAgentAutoMode(true)
+                  setPendingAgentId(null)
+                  setIsAgentSelectorOpen(false)
+                  const targetConversationId = activeConversation?.id || conversationId
+                  manualAgentSelectionRef.current = {
+                    conversationId: targetConversationId || null,
+                    mode: 'auto',
+                    agentId: null,
+                  }
+                  if (targetConversationId) {
+                    updateConversation(targetConversationId, {
+                      last_agent_id: null,
+                      agent_selection_mode: 'auto',
+                    }).catch(err => console.error('Failed to update agent selection mode:', err))
+                  }
+                }}
+                isAgentSelectorOpen={isAgentSelectorOpen}
+                onAgentSelectorToggle={() => {
+                  if (isDeepResearchConversation) return
+                  setIsAgentSelectorOpen(prev => !prev)
+                }}
+                agentSelectorRef={agentSelectorRef}
+                onToggleSearch={() => setIsSearchActive(prev => !prev)}
+                onToggleThinking={() =>
+                  setIsThinkingActive(prev => {
+                    const next = !prev
+                    if (next) setIsDeepResearchActive(false)
+                    return next
+                  })
                 }
-                if (targetConversationId) {
-                  updateConversation(targetConversationId, {
-                    last_agent_id: agent?.id || null,
-                    agent_selection_mode: 'manual',
-                  }).catch(err => console.error('Failed to update agent selection mode:', err))
+                quotedText={quotedText}
+                onQuoteClear={() => {
+                  setQuotedText(null)
+                  setQuoteContext(null)
+                  quoteTextRef.current = ''
+                  quoteSourceRef.current = ''
+                }}
+                onSend={(text, attachments) =>
+                  handleSendMessage(text, attachments, null, { skipMeta: false })
                 }
-              }}
-              onAgentAutoModeToggle={() => {
-                if (isDeepResearchConversation) return
-                setSelectedAgentId(null) // Clear selected agent when entering auto mode
-                setIsAgentAutoMode(true)
-                setPendingAgentId(null)
-                setIsAgentSelectorOpen(false)
-                const targetConversationId = activeConversation?.id || conversationId
-                manualAgentSelectionRef.current = {
-                  conversationId: targetConversationId || null,
-                  mode: 'auto',
-                  agentId: null,
+                editingSeed={editingSeed}
+                onEditingClear={() => {
+                  setEditingIndex(null)
+                  setEditingSeed({ text: '', attachments: [] })
+                }}
+                showEditing={editingIndex !== null && messages[editingIndex]}
+                editingLabel={
+                  editingIndex !== null ? extractUserQuestion(messages[editingIndex]) : ''
                 }
-                if (targetConversationId) {
-                  updateConversation(targetConversationId, {
-                    last_agent_id: null,
-                    agent_selection_mode: 'auto',
-                  }).catch(err => console.error('Failed to update agent selection mode:', err))
-                }
-              }}
-              isAgentSelectorOpen={isAgentSelectorOpen}
-              onAgentSelectorToggle={() => {
-                if (isDeepResearchConversation) return
-                setIsAgentSelectorOpen(prev => !prev)
-              }}
-              agentSelectorRef={agentSelectorRef}
-              onToggleSearch={() => setIsSearchActive(prev => !prev)}
-              onToggleThinking={() =>
-                setIsThinkingActive(prev => {
-                  const next = !prev
-                  if (next) setIsDeepResearchActive(false)
-                  return next
-                })
-              }
-              onToggleDeepResearch={() => {
-                if (isDeepResearchConversation) return
-                navigate({ to: '/new_chat', state: { presetDeepResearch: true } })
-              }}
-              quotedText={quotedText}
-              onQuoteClear={() => {
-                setQuotedText(null)
-                setQuoteContext(null)
-                quoteTextRef.current = ''
-                quoteSourceRef.current = ''
-              }}
-              onSend={(text, attachments) =>
-                handleSendMessage(text, attachments, null, { skipMeta: false })
-              }
-              editingSeed={editingSeed}
-              onEditingClear={() => {
-                setEditingIndex(null)
-                setEditingSeed({ text: '', attachments: [] })
-              }}
-              showEditing={editingIndex !== null && messages[editingIndex]}
-              editingLabel={
-                editingIndex !== null ? extractUserQuestion(messages[editingIndex]) : ''
-              }
-              scrollToBottom={scrollToBottom}
-              spacePrimaryAgentId={spacePrimaryAgentId}
-            />
-            <div className="text-center mt-2 text-xs text-gray-400 dark:text-gray-500">
-              Qurio can make mistakes. Please use with caution.
+                scrollToBottom={scrollToBottom}
+                spacePrimaryAgentId={spacePrimaryAgentId}
+              />
+              <div className="text-center mt-2 text-xs text-gray-400 dark:text-gray-500">
+                Qurio can make mistakes. Please use with caution.
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   )
@@ -1964,8 +1978,7 @@ const InputBar = React.memo(
     apiProvider,
     isSearchActive,
     isThinkingActive,
-    isDeepResearchActive,
-    isDeepResearchToggleLocked,
+    isFollowUpLocked,
     agents,
     agentsLoading,
     agentsLoadingLabel,
@@ -1980,7 +1993,6 @@ const InputBar = React.memo(
     agentSelectorRef,
     onToggleSearch,
     onToggleThinking,
-    onToggleDeepResearch,
     quotedText,
     onQuoteClear,
     onSend,
@@ -2054,7 +2066,7 @@ const InputBar = React.memo(
     }
 
     const handleSend = () => {
-      if (isLoading) return
+      if (isFollowUpLocked || isLoading) return
       const text = inputValue
       const hasContent = text.trim() || attachments.length > 0
       if (!hasContent) return
@@ -2146,8 +2158,13 @@ const InputBar = React.memo(
             ref={textareaRef}
             onChange={e => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={t('chatInterface.askFollowUp')}
-            className="w-full bg-transparent border-none outline-none resize-none text-base placeholder-gray-500 dark:placeholder-gray-400 min-h-[44px] max-h-[200px] overflow-y-auto py-2"
+            placeholder={
+              isFollowUpLocked
+                ? t('chatInterface.deepResearchSingleTurn')
+                : t('chatInterface.askFollowUp')
+            }
+            disabled={isFollowUpLocked}
+            className="w-full bg-transparent border-none outline-none resize-none text-base placeholder-gray-500 dark:placeholder-gray-400 min-h-[44px] max-h-[200px] overflow-y-auto py-2 disabled:cursor-not-allowed"
             rows={1}
           />
 
@@ -2205,18 +2222,6 @@ const InputBar = React.memo(
               >
                 <Brain size={18} />
                 <span className="hidden md:inline">{t('homeView.think')}</span>
-              </button>
-              <button
-                onClick={onToggleDeepResearch}
-                disabled={isDeepResearchToggleLocked}
-                className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
-                  isDeepResearchActive
-                    ? 'text-primary-500 bg-gray-200 dark:bg-zinc-700'
-                    : 'text-gray-500 dark:text-gray-400'
-                } ${isDeepResearchToggleLocked ? 'opacity-60 cursor-not-allowed' : ''}`}
-              >
-                <Sparkles size={18} />
-                <span className="hidden md:inline">{t('homeView.deepResearch')}</span>
               </button>
               <button
                 disabled={!apiProvider || !providerSupportsSearch(apiProvider)}
@@ -2328,7 +2333,9 @@ const InputBar = React.memo(
             <div className="flex gap-2">
               <button
                 onClick={handleSend}
-                disabled={isLoading || (!inputValue.trim() && attachments.length === 0)}
+                disabled={
+                  isFollowUpLocked || isLoading || (!inputValue.trim() && attachments.length === 0)
+                }
                 className="p-2 bg-primary-500 dark:bg-primary-800 hover:bg-primary-600 text-white rounded-full transition-colors disabled:opacity-50  disabled:hover:bg-primary-500"
               >
                 <ArrowRight size={18} />

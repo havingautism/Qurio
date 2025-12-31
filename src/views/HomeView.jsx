@@ -1,5 +1,5 @@
 import { useGSAP } from '@gsap/react'
-import { useLocation, useNavigate } from '@tanstack/react-router'
+import { useNavigate } from '@tanstack/react-router'
 import clsx from 'clsx'
 import gsap from 'gsap'
 import {
@@ -34,7 +34,6 @@ import { listSpaceAgents } from '../lib/spacesService'
 
 const HomeView = () => {
   const { t } = useTranslation()
-  const location = useLocation()
   const navigate = useNavigate()
   const {
     toggleSidebar,
@@ -53,7 +52,6 @@ const HomeView = () => {
   const [homeInput, setHomeInput] = useState('')
   const [isHomeSearchActive, setIsHomeSearchActive] = useState(false)
   const [isHomeThinkingActive, setIsHomeThinkingActive] = useState(false)
-  const [isHomeDeepResearchActive, setIsHomeDeepResearchActive] = useState(false)
   const [homeAttachments, setHomeAttachments] = useState([])
   const [homeSelectedSpace, setHomeSelectedSpace] = useState(null)
   const homeSpaceSelectorRef = useRef(null)
@@ -69,8 +67,16 @@ const HomeView = () => {
   const [isHomeMobile, setIsHomeMobile] = useState(() => window.innerWidth < 768)
   const [isHomeUploadMenuOpen, setIsHomeUploadMenuOpen] = useState(false)
   const homeUploadMenuRef = useRef(null)
+  const [isDeepResearchModalOpen, setIsDeepResearchModalOpen] = useState(false)
+  const [deepResearchStep, setDeepResearchStep] = useState(1)
+  const [deepResearchQuestion, setDeepResearchQuestion] = useState('')
+  const [deepResearchScope, setDeepResearchScope] = useState('')
+  const [deepResearchScopeAuto, setDeepResearchScopeAuto] = useState(true)
+  const [deepResearchOutput, setDeepResearchOutput] = useState('')
+  const [deepResearchOutputAuto, setDeepResearchOutputAuto] = useState(true)
+  const deepResearchModalRef = useRef(null)
 
-  useScrollLock(isHomeSpaceSelectorOpen && isHomeMobile)
+  useScrollLock((isHomeSpaceSelectorOpen && isHomeMobile) || isDeepResearchModalOpen)
 
   // Reset conversation state when entering Home/New Chat view
   useEffect(() => {
@@ -155,23 +161,6 @@ const HomeView = () => {
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
   }, [])
-
-  useEffect(() => {
-    if (location?.state?.presetDeepResearch) {
-      setIsHomeDeepResearchActive(true)
-      setIsHomeThinkingActive(false)
-    }
-  }, [location?.state?.presetDeepResearch])
-
-  useEffect(() => {
-    if (!isHomeDeepResearchActive || !deepResearchSpace || !deepResearchAgent) return
-    setHomeSelectedSpace(deepResearchSpace)
-    setHomeSpaceSelectionType('space')
-    setHomeSelectedAgentId(deepResearchAgent.id)
-    setIsHomeAgentAuto(false)
-    setHomeExpandedSpaceId(null)
-    setIsHomeSpaceSelectorOpen(false)
-  }, [isHomeDeepResearchActive, deepResearchSpace, deepResearchAgent])
 
   useEffect(() => {
     const loadAgents = async () => {
@@ -262,11 +251,6 @@ const HomeView = () => {
   }
 
   const handleToggleHomeSpace = space => {
-    if (
-      !isHomeDeepResearchActive &&
-      (space?.isDeepResearchSystem || space?.isDeepResearch || space?.is_deep_research)
-    )
-      return
     setHomeSelectedSpace(space)
     setHomeSpaceSelectionType('space')
     setIsHomeAgentAuto(true)
@@ -290,11 +274,102 @@ const HomeView = () => {
     setIsHomeSpaceSelectorOpen(false)
   }
 
+  const resetDeepResearchForm = () => {
+    setDeepResearchStep(1)
+    setDeepResearchQuestion('')
+    setDeepResearchScope('')
+    setDeepResearchScopeAuto(true)
+    setDeepResearchOutput('')
+    setDeepResearchOutputAuto(true)
+  }
+
+  const closeDeepResearchModal = () => {
+    setIsDeepResearchModalOpen(false)
+    resetDeepResearchForm()
+  }
+
+  const buildDeepResearchPrompt = () => {
+    const autoLabel = t('homeView.auto')
+    const scopeValue =
+      deepResearchScopeAuto || !deepResearchScope.trim() ? autoLabel : deepResearchScope.trim()
+    const outputValue =
+      deepResearchOutputAuto || !deepResearchOutput.trim() ? autoLabel : deepResearchOutput.trim()
+
+    return [
+      `${t('homeView.deepResearchQuestionLabel')}: ${deepResearchQuestion.trim()}`,
+      `${t('homeView.deepResearchScopeLabel')}: ${scopeValue}`,
+      `${t('homeView.deepResearchOutputLabel')}: ${outputValue}`,
+    ].join('\n')
+  }
+
+  const handleStartDeepResearch = async () => {
+    if (!deepResearchQuestion.trim()) return
+    if (!deepResearchSpace || !deepResearchAgent) {
+      console.error('Deep research space or agent missing.')
+      return
+    }
+
+    try {
+      const { data: conversation, error } = await createConversation({
+        space_id: deepResearchSpace.id,
+        title: 'Deep Research',
+        api_provider: deepResearchAgent.provider || defaultAgent?.provider || '',
+      })
+
+      if (error || !conversation) {
+        console.error('Failed to create deep research conversation:', error)
+        return
+      }
+
+      addConversationEvent(conversation.id, 'deep_research', { enabled: true }).catch(err =>
+        console.error('Failed to record deep research event:', err),
+      )
+
+      const chatState = {
+        initialMessage: buildDeepResearchPrompt(),
+        initialAttachments: [],
+        initialToggles: {
+          search: false,
+          thinking: false,
+          deepResearch: true,
+          related: false,
+        },
+        initialSpaceSelection: {
+          mode: 'manual',
+          space: deepResearchSpace,
+        },
+        initialAgentSelection: deepResearchAgent,
+        initialIsAgentAutoMode: false,
+      }
+
+      navigate({
+        to: '/conversation/$conversationId',
+        params: { conversationId: conversation.id },
+        state: chatState,
+      })
+
+      closeDeepResearchModal()
+    } catch (err) {
+      console.error('Failed to start deep research:', err)
+    }
+  }
+
+  useEffect(() => {
+    if (!isDeepResearchModalOpen) return
+    const handleKeyDown = event => {
+      if (event.key === 'Escape') {
+        closeDeepResearchModal()
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [isDeepResearchModalOpen, closeDeepResearchModal])
+
   const handleStartChat = async () => {
     if (!homeInput.trim() && homeAttachments.length === 0) return
-    const resolvedThinkingActive = isHomeDeepResearchActive ? false : isHomeThinkingActive
-    const resolvedSpace = isHomeDeepResearchActive ? deepResearchSpace : homeSelectedSpace
-    const resolvedAgent = isHomeDeepResearchActive ? deepResearchAgent : selectedHomeAgent
+    const resolvedThinkingActive = isHomeThinkingActive
+    const resolvedSpace = homeSelectedSpace
+    const resolvedAgent = selectedHomeAgent
 
     try {
       // Determine space selection
@@ -312,12 +387,6 @@ const HomeView = () => {
         console.error('Failed to create conversation:', error)
         return
       }
-      if (isHomeDeepResearchActive) {
-        addConversationEvent(conversation.id, 'deep_research', { enabled: true }).catch(err =>
-          console.error('Failed to record deep research event:', err),
-        )
-      }
-
       // Prepare initial chat state to pass via router state
       const chatState = {
         initialMessage: homeInput,
@@ -325,15 +394,15 @@ const HomeView = () => {
         initialToggles: {
           search: isHomeSearchActive,
           thinking: resolvedThinkingActive,
-          deepResearch: isHomeDeepResearchActive,
+          deepResearch: false,
           related: Boolean(settings.enableRelatedQuestions),
         },
         initialSpaceSelection: {
-          mode: isHomeDeepResearchActive ? 'manual' : isHomeSpaceAuto ? 'auto' : 'manual',
+          mode: isHomeSpaceAuto ? 'auto' : 'manual',
           space: selectedSpace,
         },
         initialAgentSelection: selectedAgent,
-        initialIsAgentAutoMode: isHomeDeepResearchActive ? false : isHomeAgentAuto,
+        initialIsAgentAutoMode: isHomeAgentAuto,
       }
 
       // Navigate to the conversation route with state
@@ -348,7 +417,6 @@ const HomeView = () => {
       setHomeAttachments([])
       setIsHomeSearchActive(false)
       setIsHomeThinkingActive(false)
-      setIsHomeDeepResearchActive(false)
       setHomeSelectedSpace(null)
       setHomeSpaceSelectionType('auto')
       setHomeSelectedAgentId(null)
@@ -360,8 +428,6 @@ const HomeView = () => {
   }
 
   const isHomeSpaceAuto = homeSpaceSelectionType === 'auto'
-  const isHomeDeepResearchLocked =
-    isHomeDeepResearchActive && deepResearchSpace && deepResearchAgent
   const homeAgents = useMemo(() => {
     // In Auto mode or when no space selected, return empty
     if (!homeSelectedSpace?.id) return []
@@ -380,15 +446,6 @@ const HomeView = () => {
   }, [homeAgents, homeSelectedAgentId, isHomeAgentAuto, appAgents])
 
   const homeSpaceButtonLabel = useMemo(() => {
-    if (isHomeDeepResearchActive) {
-      const spaceLabel = deepResearchSpace
-        ? getSpaceDisplayLabel(deepResearchSpace, t)
-        : t('homeView.spacesNone')
-      const agentLabel = deepResearchAgent
-        ? getAgentDisplayName(deepResearchAgent, t)
-        : t('homeView.agentsLabel')
-      return `${t('homeView.spacesLabel', { label: spaceLabel })}  ${agentLabel}`
-    }
     if (isHomeSpaceAuto) return t('homeView.spacesAuto')
     const spaceLabel = homeSelectedSpace
       ? getSpaceDisplayLabel(homeSelectedSpace, t)
@@ -397,26 +454,16 @@ const HomeView = () => {
       ? t('homeView.agentsAuto')
       : getAgentDisplayName(selectedHomeAgent, t) || t('homeView.agentsLabel')
     return `${t('homeView.spacesLabel', { label: spaceLabel })} · ${agentLabel}`
-  }, [
-    isHomeDeepResearchActive,
-    deepResearchSpace,
-    deepResearchAgent,
-    isHomeSpaceAuto,
-    homeSelectedSpace,
-    isHomeAgentAuto,
-    selectedHomeAgent,
-    t,
-  ])
+  }, [isHomeSpaceAuto, homeSelectedSpace, isHomeAgentAuto, selectedHomeAgent, t])
 
   const availableHomeSpaces = useMemo(() => {
-    if (isHomeDeepResearchActive) return spaces
     const deepResearchId = deepResearchSpace?.id ? String(deepResearchSpace.id) : null
     return spaces.filter(
       space =>
         !(space?.isDeepResearchSystem || space?.isDeepResearch || space?.is_deep_research) &&
-          (!deepResearchId || String(space.id) !== String(deepResearchId)),
+        (!deepResearchId || String(space.id) !== String(deepResearchId)),
     )
-  }, [spaces, isHomeDeepResearchActive, deepResearchSpace?.id])
+  }, [spaces, deepResearchSpace?.id])
 
   const renderHomeSpaceMenuContent = () => (
     <div className="p-2 flex flex-col gap-1">
@@ -653,9 +700,6 @@ const HomeView = () => {
                       setIsHomeThinkingActive(prev => {
                         const next = !prev
                         if (next) {
-                          if (isHomeDeepResearchActive) {
-                            setIsHomeDeepResearchActive(false)
-                          }
                           handleSelectHomeSpaceAuto()
                         }
                         return next
@@ -669,27 +713,6 @@ const HomeView = () => {
                   >
                     <Brain size={18} />
                     <span className="hidden md:inline">{t('homeView.think')}</span>
-                  </button>
-                  <button
-                    onClick={() =>
-                      setIsHomeDeepResearchActive(prev => {
-                        const next = !prev
-                        if (next) {
-                          setIsHomeThinkingActive(false)
-                        } else {
-                          handleSelectHomeSpaceAuto()
-                        }
-                        return next
-                      })
-                    }
-                    className={`p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
-                      isHomeDeepResearchActive
-                        ? 'text-primary-500 bg-gray-100 dark:bg-zinc-800'
-                        : 'text-gray-500 dark:text-gray-400'
-                    }`}
-                  >
-                    <Sparkles size={18} />
-                    <span className="hidden md:inline">{t('homeView.deepResearch')}</span>
                   </button>
                   <button
                     disabled={
@@ -710,30 +733,25 @@ const HomeView = () => {
 
                   <div className="relative" ref={homeSpaceSelectorRef}>
                     <button
-                      disabled={isHomeDeepResearchLocked}
-                      onClick={() => {
-                        if (isHomeDeepResearchLocked) return
-                        setIsHomeSpaceSelectorOpen(!isHomeSpaceSelectorOpen)
-                      }}
+                      onClick={() => setIsHomeSpaceSelectorOpen(!isHomeSpaceSelectorOpen)}
                       className={`px-3 py-2 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
                         isHomeSpaceAuto
                           ? 'text-gray-500 dark:text-gray-400'
                           : 'text-primary-500 bg-gray-100 dark:bg-zinc-800'
-                      } ${isHomeDeepResearchLocked ? 'opacity-60 cursor-not-allowed' : 'hover:bg-gray-100 dark:hover:bg-zinc-800'}`}
+                      } hover:bg-gray-100 dark:hover:bg-zinc-800`}
                     >
                       <LayoutGrid size={18} />
                       <span className="hidden md:inline">{homeSpaceButtonLabel}</span>
                       <ChevronDown size={14} />
                     </button>
-                    {!isHomeDeepResearchLocked && !isHomeMobile && isHomeSpaceSelectorOpen && (
+                    {!isHomeMobile && isHomeSpaceSelectorOpen && (
                       <div className="absolute top-full left-0 mt-2 w-60 bg-white dark:bg-[#202222] border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl z-50">
                         {renderHomeSpaceMenuContent()}
                       </div>
                     )}
                   </div>
 
-                  {!isHomeDeepResearchLocked &&
-                    isHomeMobile &&
+                  {isHomeMobile &&
                     isHomeSpaceSelectorOpen &&
                     createPortal(
                       <div className="fixed inset-0 z-[9999] flex items-end justify-center">
@@ -782,10 +800,234 @@ const HomeView = () => {
             </div>
           </div>
 
+          <div className="w-full flex justify-center py-2">
+            <button
+              type="button"
+              onClick={() => {
+                resetDeepResearchForm()
+                setIsDeepResearchModalOpen(true)
+              }}
+              className="group relative w-full sm:w-auto px-6 py-3 rounded-2xl overflow-hidden transition-all duration-500 hover:scale-[1.02] active:scale-[0.98]"
+            >
+              {/* Animated Gradient Background */}
+              <div className="absolute inset-0 bg-gradient-to-r from-primary-600 via-primary-500 to-primary-700 opacity-90 group-hover:opacity-100 transition-opacity" />
+
+              {/* Shimmer Effect */}
+              <div className="absolute inset-0 translate-x-[-100%] group-hover:translate-x-[100%] bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-1000 ease-in-out" />
+
+              {/* Glow Effect */}
+              <div className="absolute inset-0 opacity-0 group-hover:opacity-40 blur-xl bg-primary-400 transition-opacity duration-500 shadow-[0_0_30px_rgba(var(--color-primary-500),0.5)]" />
+
+              <div className="relative flex items-center justify-center gap-2.5 text-white">
+                <div className="p-1 bg-white/20 rounded-lg backdrop-blur-sm group-hover:rotate-12 transition-transform duration-300">
+                  <Sparkles size={18} className="animate-pulse" />
+                </div>
+                <div className="flex flex-col items-start leading-tight">
+                  <span className="text-sm font-bold tracking-tight">
+                    {t('homeView.deepResearchEntry')}
+                  </span>
+                  <span className="text-[10px] font-medium opacity-80 group-hover:opacity-100 transition-opacity">
+                    {t('homeView.deepResearchEntryHint')}
+                  </span>
+                </div>
+                <ArrowRight
+                  size={16}
+                  className="ml-1 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300"
+                />
+              </div>
+            </button>
+          </div>
+
           {/* Widgets Section */}
           <div className="home-widgets w-full">
             <HomeWidgets />
           </div>
+          {isDeepResearchModalOpen &&
+            createPortal(
+              <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center">
+                <div
+                  className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
+                  onClick={closeDeepResearchModal}
+                />
+                <div
+                  ref={deepResearchModalRef}
+                  className="relative w-full max-w-xl bg-white dark:bg-[#1E1E1E] rounded-t-3xl sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] sm:max-h-[85vh] animate-slide-up sm:animate-none"
+                  onClick={e => e.stopPropagation()}
+                >
+                  {/* Mobile Pull Handle */}
+                  <div className="sm:hidden flex justify-center py-2 shrink-0">
+                    <div className="w-10 h-1 bg-gray-300 dark:bg-zinc-700 rounded-full" />
+                  </div>
+
+                  <div className="px-5 py-4 flex items-center justify-between border-b border-gray-100 dark:border-zinc-800/60 shrink-0">
+                    <div className="flex items-center gap-2 text-gray-900 dark:text-gray-100">
+                      <div className="p-1.5 bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 rounded-lg">
+                        <Sparkles size={18} />
+                      </div>
+                      <h3 className="text-base font-bold">
+                        {t('homeView.deepResearchModalTitle')}
+                      </h3>
+                    </div>
+                    <button
+                      onClick={closeDeepResearchModal}
+                      className="p-2 -mr-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-full hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
+                    >
+                      <X size={20} />
+                    </button>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto px-5 py-6">
+                    {/* Step Progress */}
+                    <div className="flex items-center gap-2 mb-8">
+                      {[1, 2, 3].map(step => (
+                        <div key={step} className="flex-1 flex items-center gap-2">
+                          <div
+                            className={clsx(
+                              'h-1.5 flex-1 rounded-full transition-all duration-300',
+                              step <= deepResearchStep
+                                ? 'bg-primary-500'
+                                : 'bg-gray-100 dark:bg-zinc-800',
+                            )}
+                          />
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="space-y-6">
+                      {deepResearchStep === 1 && (
+                        <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                          <div className="space-y-1">
+                            <label className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                              {t('homeView.deepResearchQuestionTitle')}
+                            </label>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              {t('homeView.deepResearchQuestionHint')}
+                            </p>
+                          </div>
+                          <textarea
+                            value={deepResearchQuestion}
+                            onChange={event => setDeepResearchQuestion(event.target.value)}
+                            placeholder={t('homeView.deepResearchQuestionPlaceholder')}
+                            autoFocus
+                            className="w-full bg-gray-50 dark:bg-zinc-800/50 border border-gray-200 dark:border-zinc-700/50 rounded-2xl px-4 py-3 text-sm placeholder-gray-400 dark:placeholder-gray-500 min-h-[120px] resize-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all outline-none"
+                          />
+                        </div>
+                      )}
+
+                      {deepResearchStep === 2 && (
+                        <div className="space-y-3 animate-in fade-in slide-in-from-right-4 duration-300">
+                          <div className="flex items-center justify-between">
+                            <label className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                              {t('homeView.deepResearchScopeTitle')}
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setDeepResearchScopeAuto(prev => !prev)
+                                if (!deepResearchScopeAuto) setDeepResearchScope('')
+                              }}
+                              className={clsx(
+                                'flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold transition-all',
+                                deepResearchScopeAuto
+                                  ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400'
+                                  : 'bg-gray-100 dark:bg-zinc-800 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-zinc-700',
+                              )}
+                            >
+                              <span>{t('homeView.auto')}</span>
+                              {deepResearchScopeAuto && <Check size={14} />}
+                            </button>
+                          </div>
+                          <textarea
+                            value={deepResearchScope}
+                            onChange={event => setDeepResearchScope(event.target.value)}
+                            placeholder={t('homeView.deepResearchScopePlaceholder')}
+                            disabled={deepResearchScopeAuto}
+                            className="w-full bg-gray-50 dark:bg-zinc-800/50 border border-gray-200 dark:border-zinc-700/50 rounded-2xl px-4 py-3 text-sm placeholder-gray-400 dark:placeholder-gray-500 min-h-[120px] resize-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                          />
+                        </div>
+                      )}
+
+                      {deepResearchStep === 3 && (
+                        <div className="space-y-3 animate-in fade-in slide-in-from-right-4 duration-300">
+                          <div className="flex items-center justify-between">
+                            <label className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                              {t('homeView.deepResearchOutputTitle')}
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setDeepResearchOutputAuto(prev => !prev)
+                                if (!deepResearchOutputAuto) setDeepResearchOutput('')
+                              }}
+                              className={clsx(
+                                'flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold transition-all',
+                                deepResearchOutputAuto
+                                  ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400'
+                                  : 'bg-gray-100 dark:bg-zinc-800 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-zinc-700',
+                              )}
+                            >
+                              <span>{t('homeView.auto')}</span>
+                              {deepResearchOutputAuto && <Check size={14} />}
+                            </button>
+                          </div>
+                          <textarea
+                            value={deepResearchOutput}
+                            onChange={event => setDeepResearchOutput(event.target.value)}
+                            placeholder={t('homeView.deepResearchOutputPlaceholder')}
+                            disabled={deepResearchOutputAuto}
+                            className="w-full bg-gray-50 dark:bg-zinc-800/50 border border-gray-200 dark:border-zinc-700/50 rounded-2xl px-4 py-3 text-sm placeholder-gray-400 dark:placeholder-gray-500 min-h-[120px] resize-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="px-5 py-6 border-t border-gray-100 dark:border-zinc-800/60 bg-gray-50/50 dark:bg-zinc-900/30 shrink-0">
+                    <div className="flex items-center justify-between gap-3">
+                      <button
+                        type="button"
+                        onClick={closeDeepResearchModal}
+                        className="px-5 py-2.5 text-sm font-bold text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+                      >
+                        {t('common.cancel')}
+                      </button>
+                      <div className="flex items-center gap-2">
+                        {deepResearchStep > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => setDeepResearchStep(step => Math.max(1, step - 1))}
+                            className="px-5 py-2.5 text-sm font-bold rounded-xl border border-gray-200 dark:border-zinc-700 text-gray-600 dark:text-gray-300 hover:bg-white dark:hover:bg-zinc-800 transition-all"
+                          >
+                            {t('homeView.deepResearchBack')}
+                          </button>
+                        )}
+                        {deepResearchStep < 3 ? (
+                          <button
+                            type="button"
+                            disabled={!deepResearchQuestion.trim()}
+                            onClick={() => setDeepResearchStep(step => Math.min(3, step + 1))}
+                            className="px-6 py-2.5 text-sm font-bold rounded-xl bg-primary-500 text-white hover:bg-primary-600 shadow-lg shadow-primary-500/20 transition-all disabled:opacity-50 disabled:shadow-none"
+                          >
+                            {t('homeView.deepResearchNext')}
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled={!deepResearchQuestion.trim()}
+                            onClick={handleStartDeepResearch}
+                            className="px-6 py-2.5 text-sm font-bold rounded-xl bg-primary-500 text-white hover:bg-primary-600 shadow-lg shadow-primary-500/20 transition-all disabled:opacity-50 disabled:shadow-none flex items-center gap-2"
+                          >
+                            <Sparkles size={16} />
+                            {t('homeView.deepResearchStart')}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>,
+              document.body,
+            )}
         </div>
       </div>
     </div>

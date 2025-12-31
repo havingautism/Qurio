@@ -1726,6 +1726,84 @@ Rules:
   return content?.trim?.() || ''
 }
 
+const streamResearchPlan = async (
+  provider,
+  userMessage,
+  apiKey,
+  baseUrl,
+  model,
+  { onChunk, onFinish, onError, signal } = {},
+) => {
+  const promptMessages = [
+    {
+      role: 'system',
+      content: `You are a task planner whose output will be executed step-by-step by another agent.
+
+Create a detailed, execution-ready research plan in ReAct-inspired format.
+Return ONLY valid JSON that conforms exactly to this schema:
+{
+  "goal": "string",
+  "assumptions": ["string"],
+  "plan": [
+   {
+  "step": 1,
+  "thought": "short reasoning",
+  "action": "what to do",
+  "expected_output": "what this step should produce",
+  "deliverable_format": "bullet list / table / checklist / JSON / paragraph",
+  "acceptance_criteria": ["must include ...", "must exclude ..."],
+  "depth": "low|medium|high"
+}
+  ],
+  "risks": ["string"],
+  "success_criteria": ["string"]
+}
+
+Rules:
+- Use 4鈥? steps.
+- Each step must be executable independently by another agent without additional reasoning.
+- Actions must include sub-steps or constraints if ambiguity is possible.
+- Expected_output must describe format, depth, and purpose (e.g. 'a bullet list of 5 items explaining X').
+- Avoid abstract verbs like 'research', 'analyze', or 'consider' without explanation.
+- If key information is missing, step 1 must request clarification and pause further planning.
+- Output JSON only. No markdown, no commentary.`,
+    },
+    { role: 'user', content: userMessage },
+  ]
+
+  const responseFormat = provider !== 'gemini' ? { type: 'json_object' } : undefined
+  let fullContent = ''
+
+  await streamWithLangChain({
+    provider,
+    apiKey,
+    baseUrl,
+    model,
+    messages: promptMessages,
+    responseFormat,
+    thinking: { type: 'disabled' },
+    onChunk: chunk => {
+      const text =
+        typeof chunk === 'string'
+          ? chunk
+          : chunk?.type === 'text'
+            ? chunk.content
+            : ''
+      if (!text) return
+      fullContent += text
+      onChunk?.(text, fullContent)
+    },
+    onFinish: result => {
+      if (result?.content) fullContent = result.content
+      onFinish?.(fullContent)
+    },
+    onError,
+    signal,
+  })
+
+  return fullContent
+}
+
 /**
  * Generates a daily tip for the home page widget.
  * @param {string} provider - AI provider to use
@@ -2181,6 +2259,8 @@ export const createBackendProvider = provider => ({
     generateTitle(provider, firstMessage, apiKey, baseUrl, model),
   generateResearchPlan: (userMessage, apiKey, baseUrl, model) =>
     generateResearchPlan(provider, userMessage, apiKey, baseUrl, model),
+  streamResearchPlan: (userMessage, apiKey, baseUrl, model, callbacks) =>
+    streamResearchPlan(provider, userMessage, apiKey, baseUrl, model, callbacks),
   generateDailyTip: (language, category, apiKey, baseUrl, model) =>
     generateDailyTip(provider, language, category, apiKey, baseUrl, model),
   generateTitleAndSpace: (firstMessage, spaces, apiKey, baseUrl, model) =>

@@ -321,6 +321,7 @@ const generateDeepResearchPlan = async (
   selectedAgent,
   agents,
   fallbackAgent,
+  callbacks = {},
 ) => {
   const agentForPlan = selectedAgent || fallbackAgent
   const modelConfig = getModelConfigForAgent(
@@ -332,12 +333,35 @@ const generateDeepResearchPlan = async (
   const provider = getProvider(modelConfig.provider)
   if (!provider?.generateResearchPlan || !modelConfig.model) return ''
   const credentials = provider.getCredentials(settings)
-  return provider.generateResearchPlan(
+  if (provider.streamResearchPlan) {
+    let streamContent = ''
+    await provider.streamResearchPlan(userMessage, credentials.apiKey, credentials.baseUrl, modelConfig.model, {
+      onChunk: (delta, full) => {
+        if (full) {
+          streamContent = full
+        } else if (delta) {
+          streamContent += delta
+        }
+        callbacks.onChunk?.(streamContent)
+      },
+      onFinish: finalContent => {
+        if (finalContent) streamContent = finalContent
+        callbacks.onFinish?.(streamContent)
+      },
+      onError: callbacks.onError,
+    })
+    return streamContent
+  }
+
+  const content = await provider.generateResearchPlan(
     userMessage,
     credentials.apiKey,
     credentials.baseUrl,
     modelConfig.model,
   )
+  callbacks.onChunk?.(content)
+  callbacks.onFinish?.(content)
+  return content
 }
 
 // ========================================
@@ -757,6 +781,21 @@ const callAIAPI = async (
     const thinkingActive = !!(toggles?.thinking || toggles?.deepResearch)
     let planContent = ''
 
+    const updateResearchPlan = content => {
+      set(state => {
+        const updated = [...state.messages]
+        const lastMsgIndex = updated.length - 1
+        if (lastMsgIndex < 0) return { messages: updated }
+        const lastMsg = { ...updated[lastMsgIndex] }
+        if (lastMsg.role === 'ai') {
+          lastMsg.researchPlan = content || ''
+          lastMsg.researchPlanLoading = true
+          updated[lastMsgIndex] = lastMsg
+        }
+        return { messages: updated }
+      })
+    }
+
     if (toggles?.deepResearch && firstUserText) {
       try {
         planContent = await generateDeepResearchPlan(
@@ -765,6 +804,12 @@ const callAIAPI = async (
           selectedAgent,
           agents,
           fallbackAgent,
+          {
+            onChunk: content => {
+              planContent = content || ''
+              updateResearchPlan(planContent)
+            },
+          },
         )
       } catch (planError) {
         console.error('Deep research plan generation failed:', planError)

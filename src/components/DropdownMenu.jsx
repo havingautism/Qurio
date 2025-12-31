@@ -126,20 +126,22 @@ const DropdownMenu = ({ isOpen, onClose, items, anchorEl }) => {
   useEffect(() => {
     if (!isOpen) {
       // Remove all highlight classes including !important variants
-      document.querySelectorAll('[class*="bg-primary-500"], [class*="!bg-primary-500"]').forEach(el => {
-        el.classList.remove(
-          'bg-primary-500/10',
-          '!bg-primary-500/10',
-          'border',
-          '!border',
-          'border-primary-500/30',
-          '!border-primary-500/30',
-          'dark:bg-primary-500/20',
-          'dark:!bg-primary-500/20',
-          'dark:border-primary-500/40',
-          'dark:!border-primary-500/40',
-        )
-      })
+      document
+        .querySelectorAll('[class*="bg-primary-500"], [class*="!bg-primary-500"]')
+        .forEach(el => {
+          el.classList.remove(
+            'bg-primary-500/10',
+            '!bg-primary-500/10',
+            'border',
+            '!border',
+            'border-primary-500/30',
+            '!border-primary-500/30',
+            'dark:bg-primary-500/20',
+            'dark:!bg-primary-500/20',
+            'dark:border-primary-500/40',
+            'dark:!border-primary-500/40',
+          )
+        })
     }
   }, [isOpen])
 

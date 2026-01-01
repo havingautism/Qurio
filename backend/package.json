@@ -1,0 +1,19 @@
+{
+  "name": "qurio-backend",
+  "version": "1.0.0",
+  "description": "Qurio backend API server with Express.js and LangChain",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "dependencies": {
+    "express": "^5.0.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "@langchain/openai": "^0.4.3",
+    "@langchain/google-genai": "^0.1.1",
+    "@langchain/core": "^0.3.23"
+  }
+}

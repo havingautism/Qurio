@@ -1,4 +1,4 @@
-import { createBackendProvider } from './backendProvider'
+import { createBackendProvider } from './backendProviderForBackend'
 import { GLM_BASE_URL, MODELSCOPE_BASE_URL, SILICONFLOW_BASE_URL } from './providerConstants'
 import { getPublicEnv } from './publicEnv'
 

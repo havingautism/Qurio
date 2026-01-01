@@ -17,7 +17,12 @@ const ResearchTimelineController = ({
     let rafId = null
     const collectHeadings = () => {
       const headingNodes = Array.from(container.querySelectorAll('[data-heading-id]'))
-      const nextItems = headingNodes.map(node => {
+      const nextItems = headingNodes
+        .filter(node => {
+          const tag = node.tagName?.toLowerCase?.() || ''
+          return tag === 'h1' || tag === 'h2'
+        })
+        .map(node => {
         const id = node.getAttribute('data-heading-id') || node.id
         const label = node.textContent?.trim() || ''
         const tag = node.tagName?.toLowerCase?.() || ''

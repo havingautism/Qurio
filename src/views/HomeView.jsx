@@ -329,7 +329,7 @@ const HomeView = () => {
         initialMessage: buildDeepResearchPrompt(),
         initialAttachments: [],
         initialToggles: {
-          search: false,
+          search: true,
           thinking: false,
           deepResearch: true,
           related: false,

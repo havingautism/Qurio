@@ -1670,6 +1670,14 @@ User message contains:
    - high: 5+ paragraphs (~600+ words)
 6. Step 1 must list assumptions if needed; all steps use these assumptions
 7. Steps must be sequential, each with a clear, unique purpose, and executable using previous outputs
+8. For each step, determine if search is needed:
+   - Add "requires_search": true if the step needs up-to-date data, benchmarks, or external verification
+   - Add "requires_search": false if the step relies on stable knowledge, definitions, or established concepts
+   - Examples:
+     * "Define HTTP" → requires_search: false (stable concept)
+     * "Compare latest AI framework benchmarks" → requires_search: true (current data needed)
+     * "Explain React component lifecycle" → requires_search: false (stable knowledge)
+     * "List current React job market trends" → requires_search: true (time-sensitive)
 
 ## Deliverable Formats
 paragraph, bullet_list, numbered_list, table, checklist, code_example, pros_and_cons
@@ -1698,7 +1706,8 @@ Output:
       "expected_output": "A paragraph clearly defining React and its core characteristics",
       "deliverable_format": "paragraph",
       "acceptance_criteria": ["Must mention component-based architecture", "Must mention virtual DOM"],
-      "depth": "medium"
+      "depth": "medium",
+      "requires_search": false
     },
     {
       "step": 2,
@@ -1707,7 +1716,8 @@ Output:
       "expected_output": "Paragraphs explaining each concept and their relationships",
       "deliverable_format": "paragraph",
       "acceptance_criteria": ["Each concept has examples", "Relationships are clearly explained"],
-      "depth": "high"
+      "depth": "high",
+      "requires_search": false
     },
     {
       "step": 3,
@@ -1716,7 +1726,8 @@ Output:
       "expected_output": "5-7 bullet points of React use cases with brief explanation",
       "deliverable_format": "bullet_list",
       "acceptance_criteria": ["At least 5 scenarios", "Each scenario explains why React is suitable"],
-      "depth": "low"
+      "depth": "low",
+      "requires_search": false
     }
   ],
   "risks": ["Confusing React with React Native", "Technical details may be too deep"],
@@ -1745,7 +1756,8 @@ Output:
       "expected_output": "A table highlighting key differences in data model, query language, transaction support",
       "deliverable_format": "table",
       "acceptance_criteria": ["At least 5 comparison dimensions", "Each difference explained"],
-      "depth": "medium"
+      "depth": "medium",
+      "requires_search": false
     },
     {
       "step": 2,
@@ -1754,7 +1766,8 @@ Output:
       "expected_output": "Two bullet lists with at least 4 specific scenarios each",
       "deliverable_format": "bullet_list",
       "acceptance_criteria": ["Scenarios are concrete (e.g., 'e-commerce order system')"],
-      "depth": "medium"
+      "depth": "medium",
+      "requires_search": false
     },
     {
       "step": 3,
@@ -1763,7 +1776,8 @@ Output:
       "expected_output": "Paragraph describing performance differences with typical metrics",
       "deliverable_format": "paragraph",
       "acceptance_criteria": ["Include concrete numbers or scale", "Explain factors affecting performance"],
-      "depth": "high"
+      "depth": "high",
+      "requires_search": true
     },
     {
       "step": 4,
@@ -1772,7 +1786,8 @@ Output:
       "expected_output": "Checklist with framework steps and 3-5 common mistakes",
       "deliverable_format": "checklist",
       "acceptance_criteria": ["Framework is actionable", "Mistakes are specific"],
-      "depth": "medium"
+      "depth": "medium",
+      "requires_search": false
     }
   ],
   "risks": ["Over-simplifying comparison", "Technical details may be outdated"],
@@ -1794,7 +1809,8 @@ Return ONLY valid JSON, no markdown, no commentary:
       "expected_output": "what this step produces, with format and detail",
       "deliverable_format": "paragraph|bullet_list|numbered_list|table|checklist|code_example|pros_and_cons",
       "acceptance_criteria": ["must include X", "must cover Y"],
-      "depth": "low|medium|high"
+      "depth": "low|medium|high",
+      "requires_search": true|false
     }
   ],
   "risks": ["potential issues to avoid"],
@@ -1905,6 +1921,14 @@ User message contains:
    - high: 5+ paragraphs (~600+ words)
 6. Step 1 must list assumptions if needed; all steps use these assumptions
 7. Steps must be sequential, each with a clear, unique purpose, and executable using previous outputs
+8. For each step, determine if search is needed:
+   - Add "requires_search": true if the step needs up-to-date data, benchmarks, or external verification
+   - Add "requires_search": false if the step relies on stable knowledge, definitions, or established concepts
+   - Examples:
+     * "Define HTTP" → requires_search: false (stable concept)
+     * "Compare latest AI framework benchmarks" → requires_search: true (current data needed)
+     * "Explain React component lifecycle" → requires_search: false (stable knowledge)
+     * "List current React job market trends" → requires_search: true (time-sensitive)
 
 ## Deliverable Formats
 paragraph, bullet_list, numbered_list, table, checklist, code_example, pros_and_cons
@@ -1933,7 +1957,8 @@ Output:
       "expected_output": "A paragraph clearly defining React and its core characteristics",
       "deliverable_format": "paragraph",
       "acceptance_criteria": ["Must mention component-based architecture", "Must mention virtual DOM"],
-      "depth": "medium"
+      "depth": "medium",
+      "requires_search": false
     },
     {
       "step": 2,
@@ -1942,7 +1967,8 @@ Output:
       "expected_output": "Paragraphs explaining each concept and their relationships",
       "deliverable_format": "paragraph",
       "acceptance_criteria": ["Each concept has examples", "Relationships are clearly explained"],
-      "depth": "high"
+      "depth": "high",
+      "requires_search": false
     },
     {
       "step": 3,
@@ -1951,7 +1977,8 @@ Output:
       "expected_output": "5-7 bullet points of React use cases with brief explanation",
       "deliverable_format": "bullet_list",
       "acceptance_criteria": ["At least 5 scenarios", "Each scenario explains why React is suitable"],
-      "depth": "low"
+      "depth": "low",
+      "requires_search": false
     }
   ],
   "risks": ["Confusing React with React Native", "Technical details may be too deep"],
@@ -1980,7 +2007,8 @@ Output:
       "expected_output": "A table highlighting key differences in data model, query language, transaction support",
       "deliverable_format": "table",
       "acceptance_criteria": ["At least 5 comparison dimensions", "Each difference explained"],
-      "depth": "medium"
+      "depth": "medium",
+      "requires_search": false
     },
     {
       "step": 2,
@@ -1989,7 +2017,8 @@ Output:
       "expected_output": "Two bullet lists with at least 4 specific scenarios each",
       "deliverable_format": "bullet_list",
       "acceptance_criteria": ["Scenarios are concrete (e.g., 'e-commerce order system')"],
-      "depth": "medium"
+      "depth": "medium",
+      "requires_search": false
     },
     {
       "step": 3,
@@ -1998,7 +2027,8 @@ Output:
       "expected_output": "Paragraph describing performance differences with typical metrics",
       "deliverable_format": "paragraph",
       "acceptance_criteria": ["Include concrete numbers or scale", "Explain factors affecting performance"],
-      "depth": "high"
+      "depth": "high",
+      "requires_search": true
     },
     {
       "step": 4,
@@ -2007,7 +2037,8 @@ Output:
       "expected_output": "Checklist with framework steps and 3-5 common mistakes",
       "deliverable_format": "checklist",
       "acceptance_criteria": ["Framework is actionable", "Mistakes are specific"],
-      "depth": "medium"
+      "depth": "medium",
+      "requires_search": false
     }
   ],
   "risks": ["Over-simplifying comparison", "Technical details may be outdated"],
@@ -2029,7 +2060,8 @@ Return ONLY valid JSON, no markdown, no commentary:
       "expected_output": "what this step produces, with format and detail",
       "deliverable_format": "paragraph|bullet_list|numbered_list|table|checklist|code_example|pros_and_cons",
       "acceptance_criteria": ["must include X", "must cover Y"],
-      "depth": "low|medium|high"
+      "depth": "low|medium|high",
+      "requires_search": true|false
     }
   ],
   "risks": ["potential issues to avoid"],

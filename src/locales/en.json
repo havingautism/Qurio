@@ -470,6 +470,7 @@
     "researchDeliverableFormat": "Format",
     "researchAcceptanceCriteria": "Acceptance criteria",
     "researchDepth": "Depth",
+    "researchRequiresSearch": "Requires search",
     "researchRisks": "Risks",
     "researchSuccessCriteria": "Success criteria",
     "researchComplexity": "Complexity",

@@ -38,22 +38,14 @@ For EACH plan item:
 - You MUST address the item explicitly and completely.
 - You MUST NOT merge, skip, summarize, or compress any plan item.
 
-For each plan item, include ALL of the following subsections:
-1. Background and context (definitions, prior knowledge, why this step matters)
-2. Step-by-step analysis of what needs to be done
-3. Evidence, examples, or reasoning supporting the approach
-4. Trade-offs, alternatives, and edge cases
-5. Risks, limitations, and uncertainty
-6. Actionable recommendations or conclusions
+For each plan item, expand fully while:
+- Being comprehensive: cover all important aspects relevant to the topic
+- Being well-structured: use clear headings and logical flow
+- Being evidence-based: support claims with reasoning or sources when available
+- Being actionable: provide clear conclusions or recommendations
+- Adapting your structure to the content, not following a fixed template
 
-Additional rules:
-- Each plan item should result in multiple paragraphs of content.
-- Avoid vague statements. Explain HOW and WHY, not just WHAT.
-- If information is missing, explicitly state assumptions and their implications.
-- If sources are available, cite them.
-- Prioritize completeness and clarity over brevity.
-- Do NOT shorten content to save tokens.
-- Do NOT assume the reader can infer missing steps.
+Let the nature of each topic guide your organization. Some sections may benefit from historical context, others from technical analysis, others from comparison. Focus on what matters most for each specific item.
 
 Use clear headings that mirror the original plan structure.
 Match the user's language unless a response language override is set.

@@ -555,6 +555,11 @@ const MessageBubble = ({
     try {
       const parsed = JSON.parse(trimmed)
       const goal = parsed.goal ? `**${t('messageBubble.researchGoal')}:** ${parsed.goal}` : ''
+
+      // New fields: complexity and question_type
+      const complexity = parsed.complexity ? `**${t('messageBubble.researchComplexity')}:** ${parsed.complexity}` : ''
+      const questionType = parsed.question_type ? `**${t('messageBubble.researchQuestionType')}:** ${parsed.question_type}` : ''
+
       const assumptions = Array.isArray(parsed.assumptions)
         ? parsed.assumptions
             .filter(Boolean)
@@ -573,10 +578,23 @@ const MessageBubble = ({
               const thought = step.thought
                 ? `\n  - ${t('messageBubble.researchThought')}: ${step.thought}`
                 : ''
-              return `${title}${action}${thought}${expected}`.trim()
+              // New fields: deliverable_format, acceptance_criteria, depth
+              const format = step.deliverable_format
+                ? `\n  - ${t('messageBubble.researchDeliverableFormat')}: ${step.deliverable_format}`
+                : ''
+              const criteria = Array.isArray(step.acceptance_criteria)
+                ? step.acceptance_criteria
+                    .filter(Boolean)
+                    .map(item => `\n  - ${t('messageBubble.researchAcceptanceCriteria')}: ${item}`)
+                    .join('')
+                : ''
+              const depth = step.depth
+                ? `\n  - ${t('messageBubble.researchDepth')}: ${step.depth}`
+                : ''
+              return `${title}${action}${thought}${expected}${format}${depth}${criteria}`.trim()
             })
             .filter(Boolean)
-            .join('\n')
+            .join('\n\n')
         : ''
       const risks = Array.isArray(parsed.risks)
         ? parsed.risks
@@ -594,6 +612,9 @@ const MessageBubble = ({
       const sections = []
       sections.push(`### ${t('messageBubble.researchPlan')}`)
       if (goal) sections.push(goal)
+      // Add new fields after goal
+      if (complexity) sections.push(complexity)
+      if (questionType) sections.push(questionType)
       if (assumptions) {
         sections.push(`**${t('messageBubble.researchAssumptions')}:**`)
         sections.push(assumptions)

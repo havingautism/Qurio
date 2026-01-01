@@ -6,6 +6,7 @@
 
 import express from 'express'
 import { streamChat } from '../services/streamChatService.js'
+import { createSseStream, getSseConfig } from '../utils/sse.js'
 
 const router = express.Router()
 
@@ -75,25 +76,22 @@ router.post('/stream-chat', async (req, res) => {
       })
     }
 
-    console.log(`[API] streamChat: provider=${provider}, messages=${messages.length}`)
-
-    // Set SSE headers
-    console.log('[API] Setting SSE headers...')
-    res.setHeader('Content-Type', 'text/event-stream')
-    res.setHeader('Cache-Control', 'no-cache')
-    res.setHeader('Connection', 'keep-alive')
-    res.setHeader('X-Accel-Buffering', 'no')
-    res.flushHeaders()
+    const sse = createSseStream(res, getSseConfig())
+    // Send an initial comment to ensure the connection is established
+    sse.writeComment('ok')
 
     // Create abort controller for client disconnect
     const controller = new AbortController()
-    req.on('close', () => {
-      console.log('[API] Client disconnected')
+    req.on('aborted', () => {
       controller.abort()
+    })
+    res.on('close', () => {
+      if (!res.writableEnded && !res.writableFinished) {
+        controller.abort()
+      }
     })
 
     // Stream response
-    console.log('[API] Starting stream iteration...')
     let chunkCount = 0
     for await (const chunk of streamChat({
       provider,
@@ -114,14 +112,11 @@ router.post('/stream-chat', async (req, res) => {
       signal: controller.signal,
     })) {
       chunkCount++
-      if (chunkCount === 1 || chunk.type === 'done' || chunk.type === 'error') {
-        console.log('[API] Sending chunk:', chunk.type, 'count:', chunkCount)
-      }
-      res.write(`data: ${JSON.stringify(chunk)}\n\n`)
+      // No per-chunk logging.
+      sse.sendEvent(chunk)
     }
 
-    console.log('[API] Stream completed, total chunks:', chunkCount)
-    res.end()
+    sse.close()
   } catch (error) {
     console.error('[API] streamChat error:', error)
     if (!res.headersSent) {

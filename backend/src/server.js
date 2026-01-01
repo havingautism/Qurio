@@ -6,19 +6,37 @@
 import express from 'express'
 import cors from 'cors'
 import dotenv from 'dotenv'
+import fs from 'fs'
+import path from 'path'
 
-// Load environment variables
+// Load environment variables (.env then .env.local override if present)
 dotenv.config()
+const envLocalPath = path.resolve(process.cwd(), '.env.local')
+if (fs.existsSync(envLocalPath)) {
+  dotenv.config({ path: envLocalPath, override: true })
+}
 
 const app = express()
 const PORT = process.env.PORT || 3001
+const HOST = process.env.HOST || '198.18.0.1'
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000'
+const FRONTEND_URLS = process.env.FRONTEND_URLS || ''
+const ALLOWED_ORIGINS = new Set(
+  [FRONTEND_URL, ...FRONTEND_URLS.split(',')].map(origin => origin.trim()).filter(Boolean),
+)
 
 // Middleware
-app.use(cors({
-  origin: FRONTEND_URL,
-  credentials: true
-}))
+app.use(
+  cors({
+    origin(origin, callback) {
+      if (!origin || ALLOWED_ORIGINS.has(origin)) {
+        return callback(null, true)
+      }
+      return callback(new Error(`CORS blocked origin: ${origin}`))
+    },
+    credentials: true,
+  }),
+)
 app.use(express.json())
 
 // Health check endpoint
@@ -56,7 +74,7 @@ app.use((err, req, res, next) => {
 })
 
 // Start server
-app.listen(PORT, () => {
-  console.log(`🚀 Qurio backend running on http://localhost:${PORT}`)
-  console.log(`📡 API endpoints available at http://localhost:${PORT}/api`)
+app.listen(PORT, HOST, () => {
+  console.log(`🚀 Qurio backend running on http://${HOST}:${PORT}`)
+  console.log(`📡 API endpoints available at http://${HOST}:${PORT}/api`)
 })

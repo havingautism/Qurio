@@ -4,7 +4,7 @@
  */
 
 // Backend URL - can be overridden via environment variable
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'
+const BACKEND_URL = import.meta.env.PUBLIC_BACKEND_URL || 'http://localhost:3001'
 
 /**
  * Generate a title for a conversation based on the first user message
@@ -19,15 +19,15 @@ export const generateTitleViaBackend = async (provider, message, apiKey, baseUrl
   const response = await fetch(`${BACKEND_URL}/api/title`, {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
     },
     body: JSON.stringify({
       provider,
       message,
       apiKey,
       baseUrl,
-      model
-    })
+      model,
+    }),
   })
 
   if (!response.ok) {
@@ -48,11 +48,18 @@ export const generateTitleViaBackend = async (provider, message, apiKey, baseUrl
  * @param {string} model - Optional model name
  * @returns {Promise<{tip: string}>}
  */
-export const generateDailyTipViaBackend = async (provider, language, category, apiKey, baseUrl, model) => {
+export const generateDailyTipViaBackend = async (
+  provider,
+  language,
+  category,
+  apiKey,
+  baseUrl,
+  model,
+) => {
   const response = await fetch(`${BACKEND_URL}/api/daily-tip`, {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
     },
     body: JSON.stringify({
       provider,
@@ -60,8 +67,8 @@ export const generateDailyTipViaBackend = async (provider, language, category, a
       category,
       apiKey,
       baseUrl,
-      model
-    })
+      model,
+    }),
   })
 
   if (!response.ok) {
@@ -85,15 +92,15 @@ export const generateResearchPlanViaBackend = async (provider, message, apiKey, 
   const response = await fetch(`${BACKEND_URL}/api/research-plan`, {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
     },
     body: JSON.stringify({
       provider,
       message,
       apiKey,
       baseUrl,
-      model
-    })
+      model,
+    }),
   })
 
   if (!response.ok) {
@@ -114,11 +121,18 @@ export const generateResearchPlanViaBackend = async (provider, message, apiKey, 
  * @param {string} model - Optional model name
  * @returns {Promise<{title: string, spaceLabel: string|null, agentName: string|null}>}
  */
-export const generateTitleSpaceAndAgentViaBackend = async (provider, message, spacesWithAgents, apiKey, baseUrl, model) => {
+export const generateTitleSpaceAndAgentViaBackend = async (
+  provider,
+  message,
+  spacesWithAgents,
+  apiKey,
+  baseUrl,
+  model,
+) => {
   const response = await fetch(`${BACKEND_URL}/api/title-space-agent`, {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
     },
     body: JSON.stringify({
       provider,
@@ -126,8 +140,8 @@ export const generateTitleSpaceAndAgentViaBackend = async (provider, message, sp
       spacesWithAgents,
       apiKey,
       baseUrl,
-      model
-    })
+      model,
+    }),
   })
 
   if (!response.ok) {
@@ -161,11 +175,18 @@ export const checkBackendHealth = async () => {
  * @param {string} model - Optional model name
  * @returns {Promise<{title: string, space: object|null}>}
  */
-export const generateTitleAndSpaceViaBackend = async (provider, message, spaces, apiKey, baseUrl, model) => {
+export const generateTitleAndSpaceViaBackend = async (
+  provider,
+  message,
+  spaces,
+  apiKey,
+  baseUrl,
+  model,
+) => {
   const response = await fetch(`${BACKEND_URL}/api/title-and-space`, {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
     },
     body: JSON.stringify({
       provider,
@@ -173,8 +194,8 @@ export const generateTitleAndSpaceViaBackend = async (provider, message, spaces,
       spaces,
       apiKey,
       baseUrl,
-      model
-    })
+      model,
+    }),
   })
 
   if (!response.ok) {
@@ -195,11 +216,18 @@ export const generateTitleAndSpaceViaBackend = async (provider, message, spaces,
  * @param {string} model - Optional model name
  * @returns {Promise<{agentName: string|null}>}
  */
-export const generateAgentForAutoViaBackend = async (provider, message, currentSpace, apiKey, baseUrl, model) => {
+export const generateAgentForAutoViaBackend = async (
+  provider,
+  message,
+  currentSpace,
+  apiKey,
+  baseUrl,
+  model,
+) => {
   const response = await fetch(`${BACKEND_URL}/api/agent-for-auto`, {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
     },
     body: JSON.stringify({
       provider,
@@ -207,8 +235,8 @@ export const generateAgentForAutoViaBackend = async (provider, message, currentS
       currentSpace,
       apiKey,
       baseUrl,
-      model
-    })
+      model,
+    }),
   })
 
   if (!response.ok) {
@@ -228,19 +256,25 @@ export const generateAgentForAutoViaBackend = async (provider, message, currentS
  * @param {string} model - Optional model name
  * @returns {Promise<{questions: string[]}>}
  */
-export const generateRelatedQuestionsViaBackend = async (provider, messages, apiKey, baseUrl, model) => {
+export const generateRelatedQuestionsViaBackend = async (
+  provider,
+  messages,
+  apiKey,
+  baseUrl,
+  model,
+) => {
   const response = await fetch(`${BACKEND_URL}/api/related-questions`, {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
     },
     body: JSON.stringify({
       provider,
       messages,
       apiKey,
       baseUrl,
-      model
-    })
+      model,
+    }),
   })
 
   if (!response.ok) {
@@ -276,7 +310,7 @@ export const generateRelatedQuestionsViaBackend = async (provider, messages, api
  * @param {AbortSignal} params.signal - Optional abort signal
  * @returns {Promise<void>}
  */
-export const streamChatViaBackend = async (params) => {
+export const streamChatViaBackend = async params => {
   const {
     provider,
     apiKey,
@@ -313,7 +347,7 @@ export const streamChatViaBackend = async (params) => {
     const response = await fetch(`${BACKEND_URL}/api/stream-chat`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         provider,

@@ -482,7 +482,10 @@
     "thinking": "思考中",
     "analyzing": "分析中",
     "workingThroughIt": "正在推理",
-    "checkingDetails": "正在检查细节"
+    "checkingDetails": "正在检查细节",
+    "researchGoalLabel": "研究目标",
+    "researchScopeLabel": "研究范围",
+    "researchRequirementsLabel": "输出要求"
   },
   "chatInterface": {
     "regenerateTitle": "根据最近 3 条消息重新生成标题",

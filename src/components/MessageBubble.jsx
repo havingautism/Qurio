@@ -809,6 +809,29 @@ const MessageBubble = ({
     [isDark, mermaidOptions],
   )
 
+  const headingCounterRef = useRef(0)
+
+  const getNextHeadingId = useCallback(() => {
+    const id = `heading-${messageIndex}-${headingCounterRef.current}`
+    headingCounterRef.current += 1
+    return id
+  }, [messageIndex])
+
+  const createHeadingComponent = (Tag, className, withAnchors) => {
+    return ({ node, children, ...props }) => {
+      const headingId = withAnchors ? getNextHeadingId() : undefined
+      return (
+        <Tag
+          className={className}
+          {...(headingId ? { id: headingId, 'data-heading-id': headingId } : {})}
+          {...props}
+        >
+          {parseChildrenWithEmojis(children)}
+        </Tag>
+      )
+    }
+  }
+
   const markdownComponents = useMemo(
     () => ({
       p: ({ node, children, ...props }) => (
@@ -816,21 +839,9 @@ const MessageBubble = ({
           {parseChildrenWithEmojis(children)}
         </p>
       ),
-      h1: ({ node, children, ...props }) => (
-        <h1 className="text-2xl font-bold mb-4 mt-6" {...props}>
-          {parseChildrenWithEmojis(children)}
-        </h1>
-      ),
-      h2: ({ node, children, ...props }) => (
-        <h2 className="text-xl font-bold mb-3 mt-5" {...props}>
-          {parseChildrenWithEmojis(children)}
-        </h2>
-      ),
-      h3: ({ node, children, ...props }) => (
-        <h3 className="text-lg font-bold mb-2 mt-4" {...props}>
-          {parseChildrenWithEmojis(children)}
-        </h3>
-      ),
+      h1: createHeadingComponent('h1', 'text-2xl font-bold mb-4 mt-6', false),
+      h2: createHeadingComponent('h2', 'text-xl font-bold mb-3 mt-5', false),
+      h3: createHeadingComponent('h3', 'text-lg font-bold mb-2 mt-4', false),
       ul: ({ node, ...props }) => <ul className="list-disc pl-5 mb-4 space-y-1" {...props} />,
       ol: ({ node, ...props }) => <ol className="list-decimal pl-5 mb-4 space-y-1" {...props} />,
       li: ({ node, children, ...props }) => (
@@ -921,6 +932,16 @@ const MessageBubble = ({
     [isDark, message.sources, isMobile, handleMobileSourceClick, CodeBlock, t], // Dependencies for markdownComponents
   )
 
+  const markdownComponentsWithAnchors = useMemo(() => {
+    headingCounterRef.current = 0
+    return {
+      ...markdownComponents,
+      h1: createHeadingComponent('h1', 'text-2xl font-bold mb-4 mt-6', true),
+      h2: createHeadingComponent('h2', 'text-xl font-bold mb-3 mt-5', true),
+      h3: createHeadingComponent('h3', 'text-lg font-bold mb-2 mt-4', true),
+    }
+  }, [markdownComponents, createHeadingComponent, message.content, messageIndex])
+
   if (isUser) {
     let contentToRender = message.content
     let imagesToRender = []
@@ -933,6 +954,12 @@ const MessageBubble = ({
       imagesToRender = message.content.filter(c => c.type === 'image_url')
     }
 
+    // Check if this user message initiated a Deep Research task
+    const nextMessage = messages[messageIndex + 1]
+    const isDeepResearchContext =
+      nextMessage?.agentName === 'Deep Research Agent' ||
+      nextMessage?.agent_name === 'Deep Research Agent'
+
     return (
       <div
         id={messageId}
@@ -940,7 +967,10 @@ const MessageBubble = ({
           containerRef.current = el
           if (typeof bubbleRef === 'function') bubbleRef(el)
         }}
-        className="flex justify-end items-center w-full mt-8 group px-3 sm:px-0"
+        className={clsx(
+          'flex items-center w-full mt-8 group px-3 sm:px-0',
+          isDeepResearchContext ? 'justify-center' : 'justify-end',
+        )}
         onMouseUp={handleMouseUp}
         onTouchEnd={handleTouchEnd}
         onContextMenu={handleContextMenu}
@@ -967,103 +997,160 @@ const MessageBubble = ({
             </div>,
             document.body,
           )}
-        <div className="flex flex-col items-end gap-2 max-w-[90%] md:max-w-[75%]">
+        <div
+          className={clsx(
+            'flex flex-col gap-2 w-full',
+            isDeepResearchContext ? 'items-center w-full' : 'items-end',
+          )}
+        >
           {/* Message Content */}
-          <div
-            className={clsx(
-              'relative px-5 py-3.5 rounded-3xl text-base',
-              'bg-primary-500 dark:bg-primary-900 text-white dark:text-gray-100',
-            )}
-          >
-            {quoteToRender && (
-              <div className="mb-2 p-3 bg-white/20 dark:bg-black/20 rounded-3xl text-sm">
-                <div className="font-medium  mb-1">{t('messageBubble.quoting')}</div>
-                <div className="line-clamp-2 italic ">{quoteToRender.text}</div>
+          {(() => {
+            if (isDeepResearchContext) {
+              let displayContent = contentToRender
+              // Clean up the display content to only show the actual question
+              // Remove "Research question:" prefix
+              displayContent = displayContent.replace(/Research question:\s*/i, '')
+              // Remove "Research scope:..." and everything after
+              displayContent = displayContent.split(/Research scope:/i)[0]
+              // Remove "Output requirements:..." and everything after (just in case)
+              displayContent = displayContent.split(/Output requirements:/i)[0]
+              displayContent = displayContent.trim()
+
+              return (
+                <div className="w-full max-w-2xl bg-white dark:bg-[#18181b]/50 backdrop-blur-sm rounded-2xl p-5 border border-gray-200 dark:border-zinc-800 shadow-sm mb-6 sm:mb-10 cursor-text select-text">
+                  <div className="flex flex-col gap-4">
+                    <div>
+                      <div className="text-gray-500 dark:text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                        <EmojiDisplay emoji="🎯" size="1.1em" />
+                        {t('messageBubble.researchGoalLabel')}
+                      </div>
+                      <div className="text-base font-medium text-gray-900 dark:text-gray-100 leading-relaxed font-sans">
+                        {displayContent}
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 mt-1">
+                      <div className="flex-1 bg-gray-50 dark:bg-zinc-800/50 rounded-lg p-3 border border-gray-100 dark:border-zinc-700/50">
+                        <div className="text-gray-400 dark:text-gray-500 text-[10px] font-bold uppercase tracking-wider mb-1">
+                          {t('messageBubble.researchScopeLabel')}
+                        </div>
+                        <div className="text-gray-700 dark:text-gray-300 text-sm font-medium">
+                          Auto
+                        </div>
+                      </div>
+                      <div className="flex-1 bg-gray-50 dark:bg-zinc-800/50 rounded-lg p-3 border border-gray-100 dark:border-zinc-700/50">
+                        <div className="text-gray-400 dark:text-gray-500 text-[10px] font-bold uppercase tracking-wider mb-1">
+                          {t('messageBubble.researchRequirementsLabel')}
+                        </div>
+                        <div className="text-gray-700 dark:text-gray-300 text-sm font-medium">
+                          Auto
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )
+            }
+            return (
+              <div
+                className={clsx(
+                  'relative px-5 py-3.5 rounded-3xl text-base',
+                  'bg-primary-500 dark:bg-primary-900 text-white dark:text-gray-100',
+                )}
+              >
+                {quoteToRender && (
+                  <div className="mb-2 p-3 bg-white/20 dark:bg-black/20 rounded-3xl text-sm">
+                    <div className="font-medium  mb-1">{t('messageBubble.quoting')}</div>
+                    <div className="line-clamp-2 italic ">{quoteToRender.text}</div>
+                  </div>
+                )}
+                {imagesToRender.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {imagesToRender.map((img, idx) => (
+                      <img
+                        key={idx}
+                        src={img?.url || img?.image_url?.url}
+                        alt="User uploaded"
+                        className="max-w-full h-auto rounded-lg max-h-60 object-cover cursor-zoom-in"
+                        onClick={event => {
+                          event.stopPropagation()
+                          setActiveImageUrl(img?.url || img?.image_url?.url)
+                        }}
+                      />
+                    ))}
+                  </div>
+                )}
+                <div
+                  className="message-content whitespace-pre-wrap wrap-break-word"
+                  // Prevent native selection menu on mobile
+                  style={{
+                    WebkitTouchCallout: isMobile ? 'none' : 'default',
+                    WebkitUserSelect: isMobile ? 'text' : 'auto',
+                    KhtmlUserSelect: isMobile ? 'text' : 'auto',
+                    MozUserSelect: isMobile ? 'text' : 'auto',
+                    MsUserSelect: isMobile ? 'text' : 'auto',
+                    userSelect: isMobile ? 'text' : 'auto',
+                  }}
+                >
+                  {contentToRender}
+                </div>
               </div>
-            )}
-            {imagesToRender.length > 0 && (
-              <div className="flex flex-wrap gap-2 mb-2">
-                {imagesToRender.map((img, idx) => (
-                  <img
-                    key={idx}
-                    src={img?.url || img?.image_url?.url}
-                    alt="User uploaded"
-                    className="max-w-full h-auto rounded-lg max-h-60 object-cover cursor-zoom-in"
-                    onClick={event => {
-                      event.stopPropagation()
-                      setActiveImageUrl(img?.url || img?.image_url?.url)
-                    }}
-                  />
-                ))}
-              </div>
-            )}
-            <div
-              className="message-content whitespace-pre-wrap wrap-break-word"
-              // Prevent native selection menu on mobile
-              style={{
-                WebkitTouchCallout: isMobile ? 'none' : 'default',
-                WebkitUserSelect: isMobile ? 'text' : 'auto',
-                KhtmlUserSelect: isMobile ? 'text' : 'auto',
-                MozUserSelect: isMobile ? 'text' : 'auto',
-                MsUserSelect: isMobile ? 'text' : 'auto',
-                userSelect: isMobile ? 'text' : 'auto',
-              }}
-            >
-              {contentToRender}
-            </div>
-          </div>
+            )
+          })()}
 
           {/* Action Buttons */}
-          <div className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 flex gap-2 transition-opacity duration-200 px-1">
-            <button
-              onClick={() => onEdit && onEdit()}
-              className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300  rounded-lg transition-colors"
-              title="Edit"
-            >
-              <Pencil size={14} />
-            </button>
-            <button
-              onClick={() => {
-                if (!onResend) return
-                showConfirmation({
-                  title: t('confirmation.resendTitle'),
-                  message: t('confirmation.resendMessage'),
-                  confirmText: t('message.resend'),
-                  onConfirm: onResend,
-                })
-              }}
-              className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300  rounded-lg transition-colors"
-              title={t('message.resend')}
-            >
-              <RefreshCw size={14} />
-            </button>
-            <button
-              onClick={() => {
-                copyToClipboard(contentToRender)
-                setIsCopied(true)
-              }}
-              className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300  rounded-lg transition-colors"
-              title={t('messageBubble.copy')}
-            >
-              {isCopied ? <Check size={14} /> : <Copy size={14} />}
-            </button>
-            <button
-              onClick={() => {
-                if (!onDelete) return
-                showConfirmation({
-                  title: t('confirmation.deleteMessageTitle'),
-                  message: t('confirmation.deleteUserMessage'),
-                  confirmText: t('confirmation.delete'),
-                  isDangerous: true,
-                  onConfirm: onDelete,
-                })
-              }}
-              className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg transition-colors"
-              title={t('common.delete')}
-            >
-              <Trash2 size={14} />
-            </button>
-          </div>
+          {!isDeepResearchContext && (
+            <div className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 flex gap-2 transition-opacity duration-200 px-1">
+              <button
+                onClick={() => onEdit && onEdit()}
+                className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300  rounded-lg transition-colors"
+                title="Edit"
+              >
+                <Pencil size={14} />
+              </button>
+              <button
+                onClick={() => {
+                  if (!onResend) return
+                  showConfirmation({
+                    title: t('confirmation.resendTitle'),
+                    message: t('confirmation.resendMessage'),
+                    confirmText: t('message.resend'),
+                    onConfirm: onResend,
+                  })
+                }}
+                className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300  rounded-lg transition-colors"
+                title={t('message.resend')}
+              >
+                <RefreshCw size={14} />
+              </button>
+              <button
+                onClick={() => {
+                  copyToClipboard(contentToRender)
+                  setIsCopied(true)
+                }}
+                className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300  rounded-lg transition-colors"
+                title={t('messageBubble.copy')}
+              >
+                {isCopied ? <Check size={14} /> : <Copy size={14} />}
+              </button>
+              <button
+                onClick={() => {
+                  if (!onDelete) return
+                  showConfirmation({
+                    title: t('confirmation.deleteMessageTitle'),
+                    message: t('confirmation.deleteUserMessage'),
+                    confirmText: t('confirmation.delete'),
+                    isDangerous: true,
+                    onConfirm: onDelete,
+                  })
+                }}
+                className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg transition-colors"
+                title={t('common.delete')}
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+          )}
         </div>
       </div>
     )
@@ -1411,7 +1498,7 @@ const MessageBubble = ({
           <Streamdown
             mermaid={mermaidOptions}
             remarkPlugins={[remarkGfm]}
-            components={markdownComponents}
+            components={markdownComponentsWithAnchors}
           >
             {contentWithCitations}
           </Streamdown>

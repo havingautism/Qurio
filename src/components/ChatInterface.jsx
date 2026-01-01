@@ -27,7 +27,8 @@ import {
 import { useAppContext } from '../App'
 import { updateConversation } from '../lib/conversationsService'
 import { getProvider, providerSupportsSearch, resolveThinkingToggleRule } from '../lib/providers'
-import QuestionTimelineSidebar from './QuestionTimelineSidebar'
+import QuestionTimelineController from './QuestionTimelineController'
+import ResearchTimelineController from './ResearchTimelineController'
 
 import { useSidebarOffset } from '../hooks/useSidebarOffset'
 import { getAgentDisplayName } from '../lib/agentDisplay'
@@ -1064,25 +1065,6 @@ const ChatInterface = ({
     }
   }, [])
 
-  const jumpToMessage = id => {
-    const node = messageRefs.current[id]
-    if (!node || !messagesContainerRef.current) return
-
-    // Get the container's position and scroll
-    const containerRect = messagesContainerRef.current.getBoundingClientRect()
-    const nodeRect = node.getBoundingClientRect()
-
-    // Calculate relative position within container
-    const yOffset = 20 // Offset from top of container
-    const scrollTop =
-      nodeRect.top - containerRect.top + messagesContainerRef.current.scrollTop - yOffset
-
-    messagesContainerRef.current.scrollTo({
-      top: scrollTop,
-      behavior: 'smooth',
-    })
-  }
-
   const extractUserQuestion = msg => {
     if (!msg) return ''
     if (typeof msg.content === 'string') return msg.content
@@ -1132,7 +1114,6 @@ const ChatInterface = ({
     return { content: cleaned, thought }
   }
 
-  const [activeQuestionId, setActiveQuestionId] = useState(null)
   const [isTimelineSidebarOpen, setIsTimelineSidebarOpen] = useState(false)
   const [isXLScreen, setIsXLScreen] = useState(false)
 
@@ -1150,71 +1131,17 @@ const ChatInterface = ({
   // Update CSS variable for sidebar width when sidebar is open
   useSidebarOffset(isTimelineSidebarOpen)
 
-  useEffect(() => {
-    const observerCallback = entries => {
-      entries.forEach(entry => {
-        if (entry.isIntersecting && entry.intersectionRatio > 0.1) {
-          // When a message comes into view, check if it's a user message (question)
-          // or if it belongs to a question block.
-          // Since we want to highlight the question even when reading the answer,
-          // we need to find the closest preceding question.
-
-          const id = entry.target.id // message-0, message-1, etc.
-          if (!id) return
-
-          const index = parseInt(id.replace('message-', ''), 10)
-          if (isNaN(index)) return
-
-          // Find the question for this message
-          // If this message is a user message, it IS the question.
-          // If it's an AI message, the question is likely index - 1.
-          const message = messages[index]
-          if (!message) return
-
-          let targetQuestionId = null
-          if (message.role === 'user') {
-            targetQuestionId = id
-          } else if (index > 0 && messages[index - 1].role === 'user') {
-            targetQuestionId = `message-${index - 1}`
-          }
-
-          if (targetQuestionId) {
-            setActiveQuestionId(targetQuestionId)
-          }
-        }
-      })
+  const extractPlainText = useCallback(content => {
+    if (!content) return ''
+    if (typeof content === 'string') return content
+    if (Array.isArray(content)) {
+      return content
+        .filter(c => c.type === 'text' && typeof c.text === 'string')
+        .map(c => c.text)
+        .join('\n')
     }
-
-    const observer = new IntersectionObserver(observerCallback, {
-      root: messagesContainerRef.current, // Use messages container as root
-      rootMargin: '-10% 0px -60% 0px', // Trigger when element is near the top
-      threshold: [0.1],
-    })
-
-    Object.values(messageRefs.current).forEach(el => {
-      if (el) observer.observe(el)
-    })
-
-    return () => observer.disconnect()
-  }, [messages])
-
-  const questionNavItems = useMemo(
-    () =>
-      messages
-        .map((msg, idx) => {
-          if (msg.role !== 'user') return null
-          const text = extractUserQuestion(msg).trim()
-          if (!text) return null
-          return {
-            id: `message-${idx}`,
-            index: idx + 1,
-            label: text.length > 120 ? `${text.slice(0, 117)}...` : text,
-            timestamp: msg.created_at,
-          }
-        })
-        .filter(Boolean),
-    [messages],
-  )
+    return ''
+  }, [])
 
   // Scroll to bottom helper
   const scrollToBottom = useCallback((behavior = 'smooth') => {
@@ -1596,18 +1523,6 @@ const ChatInterface = ({
     ],
   )
 
-  const extractPlainText = useCallback(content => {
-    if (!content) return ''
-    if (typeof content === 'string') return content
-    if (Array.isArray(content)) {
-      return content
-        .filter(c => c.type === 'text' && typeof c.text === 'string')
-        .map(c => c.text)
-        .join('\n')
-    }
-    return ''
-  }, [])
-
   // Handle scroll to show/hide button
   useEffect(() => {
     const handleScroll = () => {
@@ -1860,13 +1775,22 @@ const ChatInterface = ({
         {/* </div> */}
 
         {/* New Timeline Sidebar */}
-        <QuestionTimelineSidebar
-          items={questionNavItems}
-          onJump={jumpToMessage}
-          activeId={activeQuestionId}
-          isOpen={isTimelineSidebarOpen}
-          onToggle={setIsTimelineSidebarOpen}
-        />
+        {isDeepResearchConversation ? (
+          <ResearchTimelineController
+            messages={messages}
+            messagesContainerRef={messagesContainerRef}
+            isOpen={isTimelineSidebarOpen}
+            onToggle={setIsTimelineSidebarOpen}
+          />
+        ) : (
+          <QuestionTimelineController
+            messages={messages}
+            messageRefs={messageRefs}
+            messagesContainerRef={messagesContainerRef}
+            isOpen={isTimelineSidebarOpen}
+            onToggle={setIsTimelineSidebarOpen}
+          />
+        )}
 
         {/* Input Area */}
         {!isDeepResearchInputLocked && (

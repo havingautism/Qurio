@@ -252,8 +252,8 @@
       "systemPromptPlaceholder": "请输入系统提示词..."
     },
     "defaults": {
-      "name": "默认智能体",
-      "description": "系统兜底智能体",
+      "name": "默认Agent",
+      "description": "系统默认Agent",
       "systemPrompt": "Respond concisely with a friendly tone and add relevant emojis (2-4) to each reply while keeping clarity and avoiding repetition."
     },
     "model": {
@@ -324,8 +324,8 @@
     }
   },
   "deepResearch": {
-    "agentName": "深度研究智能体",
-    "agentDescription": "深度研究智能体",
+    "agentName": "深度研究Agent",
+    "agentDescription": "深度研究Agent",
     "spaceName": "深度研究空间",
     "spaceDescription": "深度研究空间"
   },

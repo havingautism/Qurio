@@ -212,20 +212,9 @@ export const PROVIDERS = {
       isSearchActive
         ? [
             {
-              type: 'function',
+              type: 'builtin_function',
               function: {
-                name: 'web_search',
-                description: 'Search the web for current information using Kimi web search tool',
-                parameters: {
-                  type: 'object',
-                  properties: {
-                    query: {
-                      type: 'string',
-                      description: 'The search query string',
-                    },
-                  },
-                  required: ['query'],
-                },
+                name: '$web_search',
               },
             },
           ]
@@ -266,4 +255,15 @@ export const providerSupportsSearch = providerName => {
   if (!provider || !provider.getTools) return false
   const tools = provider.getTools(true)
   return tools && tools.length > 0
+}
+
+export const resolveThinkingToggleRule = (providerName, modelName) => {
+  const normalizedModel = (modelName || '').toLowerCase()
+  const hasKimi = normalizedModel.includes('kimi')
+  const hasThinking = normalizedModel.includes('thinking')
+  const isLocked = hasKimi
+  return {
+    isLocked,
+    isThinkingActive: hasKimi && hasThinking,
+  }
 }

@@ -28,7 +28,7 @@ import { getAgentDisplayName } from '../lib/agentDisplay'
 import { getSpaceDisplayLabel } from '../lib/spaceDisplay'
 import useChatStore from '../lib/chatStore'
 import { addConversationEvent, createConversation } from '../lib/conversationsService'
-import { providerSupportsSearch } from '../lib/providers'
+import { providerSupportsSearch, resolveThinkingToggleRule } from '../lib/providers'
 import { loadSettings } from '../lib/settings'
 import { listSpaceAgents } from '../lib/spacesService'
 
@@ -445,6 +445,39 @@ const HomeView = () => {
     return appAgents.find(agent => String(agent.id) === String(homeSelectedAgentId)) || null
   }, [homeAgents, homeSelectedAgentId, isHomeAgentAuto, appAgents])
 
+  const homeModelConfig = useMemo(() => {
+    const MODEL_SEPARATOR = '::'
+    const decodeModelId = encodedModel => {
+      if (!encodedModel) return ''
+      const index = encodedModel.indexOf(MODEL_SEPARATOR)
+      if (index === -1) return encodedModel
+      return encodedModel.slice(index + MODEL_SEPARATOR.length)
+    }
+    const resolveFromAgent = agent => {
+      if (!agent) return null
+      const defaultModel = agent.defaultModel
+      const liteModel = agent.liteModel ?? ''
+      const hasDefault = typeof defaultModel === 'string' && defaultModel.trim() !== ''
+      const hasLite = typeof liteModel === 'string' && liteModel.trim() !== ''
+      if (!hasDefault && !hasLite) return null
+      const decodedDefaultModel = hasDefault ? decodeModelId(defaultModel) : ''
+      const decodedLiteModel = hasLite ? decodeModelId(liteModel) : ''
+      const model = decodedDefaultModel || decodedLiteModel
+      if (!model) return null
+      return { model }
+    }
+    return resolveFromAgent(selectedHomeAgent) || resolveFromAgent(defaultAgent) || { model: '' }
+  }, [selectedHomeAgent, defaultAgent])
+
+  const homeResolvedModel = homeModelConfig?.model || ''
+  const homeThinkingRule = resolveThinkingToggleRule('', homeResolvedModel)
+  const isHomeThinkingLocked = homeThinkingRule.isLocked
+
+  useEffect(() => {
+    if (!isHomeThinkingLocked) return
+    setIsHomeThinkingActive(homeThinkingRule.isThinkingActive)
+  }, [isHomeThinkingLocked, homeThinkingRule.isThinkingActive])
+
   const homeSpaceButtonLabel = useMemo(() => {
     if (isHomeSpaceAuto) return t('homeView.spacesAuto')
     const spaceLabel = homeSelectedSpace
@@ -718,6 +751,7 @@ const HomeView = () => {
                     )}
                   </div>
                   <button
+                    disabled={isHomeThinkingLocked}
                     onClick={() =>
                       setIsHomeThinkingActive(prev => {
                         const next = !prev
@@ -727,18 +761,19 @@ const HomeView = () => {
                         return next
                       })
                     }
-                    className={`p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
+                    className={`p-2 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
                       isHomeThinkingActive
                         ? 'text-primary-500 bg-gray-100 dark:bg-zinc-800'
                         : 'text-gray-500 dark:text-gray-400'
-                    }`}
+                    } ${isHomeThinkingLocked ? 'opacity-60 cursor-not-allowed' : 'hover:bg-gray-100 dark:hover:bg-zinc-800'}`}
                   >
                     <Brain size={18} />
                     <span className="hidden md:inline">{t('homeView.think')}</span>
                   </button>
                   <button
                     disabled={
-                      !(selectedHomeAgent?.provider || defaultAgent?.provider) ||
+                      !isHomeSpaceAuto &&
+                      Boolean(selectedHomeAgent?.provider || defaultAgent?.provider) &&
                       !providerSupportsSearch(selectedHomeAgent?.provider || defaultAgent?.provider)
                     }
                     value={isHomeSearchActive}

@@ -26,7 +26,7 @@ import {
 } from 'lucide-react'
 import { useAppContext } from '../App'
 import { updateConversation } from '../lib/conversationsService'
-import { getProvider, providerSupportsSearch } from '../lib/providers'
+import { getProvider, providerSupportsSearch, resolveThinkingToggleRule } from '../lib/providers'
 import QuestionTimelineSidebar from './QuestionTimelineSidebar'
 
 import { useSidebarOffset } from '../hooks/useSidebarOffset'
@@ -435,6 +435,16 @@ const ChatInterface = ({
     },
     [defaultAgent, effectiveAgent, fallbackProvider],
   )
+
+  const activeModelConfig = getModelConfig('streamChatCompletion')
+  const resolvedModelName = activeModelConfig?.model || effectiveDefaultModel || ''
+  const thinkingRule = resolveThinkingToggleRule(effectiveProvider, resolvedModelName)
+  const isThinkingLocked = thinkingRule.isLocked
+
+  useEffect(() => {
+    if (!isThinkingLocked) return
+    setIsThinkingActive(thinkingRule.isThinkingActive)
+  }, [isThinkingLocked, thinkingRule.isThinkingActive])
 
   // Effect to handle initial message from homepage
   const hasInitialized = useRef(false)
@@ -1877,6 +1887,7 @@ const ChatInterface = ({
                 apiProvider={effectiveProvider}
                 isSearchActive={isSearchActive}
                 isThinkingActive={isThinkingActive}
+                isThinkingLocked={isThinkingLocked}
                 isFollowUpLocked={isDeepResearchInputLocked}
                 agents={selectableAgents}
                 agentsLoading={isAgentsLoading}
@@ -1978,6 +1989,7 @@ const InputBar = React.memo(
     apiProvider,
     isSearchActive,
     isThinkingActive,
+    isThinkingLocked,
     isFollowUpLocked,
     agents,
     agentsLoading,
@@ -2213,12 +2225,13 @@ const InputBar = React.memo(
                 )}
               </div>
               <button
+                disabled={isThinkingLocked}
                 onClick={onToggleThinking}
-                className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
+                className={`p-2 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
                   isThinkingActive
                     ? 'text-primary-500 bg-gray-200 dark:bg-zinc-700'
                     : 'text-gray-500 dark:text-gray-400'
-                }`}
+                } ${isThinkingLocked ? 'opacity-60 cursor-not-allowed' : 'hover:bg-gray-200 dark:hover:bg-zinc-700'}`}
               >
                 <Brain size={18} />
                 <span className="hidden md:inline">{t('homeView.think')}</span>

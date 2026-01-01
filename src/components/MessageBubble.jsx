@@ -557,8 +557,12 @@ const MessageBubble = ({
       const goal = parsed.goal ? `**${t('messageBubble.researchGoal')}:** ${parsed.goal}` : ''
 
       // New fields: complexity and question_type
-      const complexity = parsed.complexity ? `**${t('messageBubble.researchComplexity')}:** ${parsed.complexity}` : ''
-      const questionType = parsed.question_type ? `**${t('messageBubble.researchQuestionType')}:** ${parsed.question_type}` : ''
+      const complexity = parsed.complexity
+        ? `**${t('messageBubble.researchComplexity')}:** ${parsed.complexity}`
+        : ''
+      const questionType = parsed.question_type
+        ? `**${t('messageBubble.researchQuestionType')}:** ${parsed.question_type}`
+        : ''
 
       const assumptions = Array.isArray(parsed.assumptions)
         ? parsed.assumptions
@@ -591,9 +595,10 @@ const MessageBubble = ({
               const depth = step.depth
                 ? `\n  - ${t('messageBubble.researchDepth')}: ${step.depth}`
                 : ''
-              const requiresSearch = step.requires_search !== undefined
-                ? `\n  - ${t('messageBubble.researchRequiresSearch')}: ${step.requires_search ? '✅' : '❌'}`
-                : ''
+              const requiresSearch =
+                step.requires_search !== undefined
+                  ? `\n  - ${t('messageBubble.researchRequiresSearch')}: ${step.requires_search ? '✅' : '❌'}`
+                  : ''
               return `${title}${action}${thought}${expected}${format}${depth}${requiresSearch}${criteria}`.trim()
             })
             .filter(Boolean)
@@ -1074,7 +1079,15 @@ const MessageBubble = ({
   const agentName = message.agentName ?? message.agent_name ?? null
   const agentEmoji = message.agentEmoji ?? message.agent_emoji ?? ''
   const agentIsDefault = message.agentIsDefault ?? message.agent_is_default ?? false
-  const displayAgentName = agentIsDefault ? t('agents.defaults.name') : agentName
+  const agentIsDeepResearch =
+    message.agent_name == 'Deep Research Agent' || message.agentName == 'Deep Research Agent'
+      ? true
+      : false
+  const displayAgentName = agentIsDefault
+    ? t('agents.defaults.name')
+    : agentIsDeepResearch
+      ? t('deepResearch.agentName')
+      : agentName
 
   // Parse content using provider-specific logic
   const provider = getProvider(providerId)
@@ -1101,8 +1114,7 @@ const MessageBubble = ({
     !isDeepResearch &&
     message.thinkingEnabled !== false &&
     (isStreaming || hasThoughtText || hasPlanText)
-  const shouldShowResearchStatus =
-    isDeepResearch && baseThinkingStatusActive && researchPlanLoading
+  const shouldShowResearchStatus = isDeepResearch && baseThinkingStatusActive && researchPlanLoading
   const shouldShowThoughtStatus =
     baseThinkingStatusActive &&
     (!isDeepResearch || (!researchPlanLoading && (hasPlanText || hasThoughtText)))

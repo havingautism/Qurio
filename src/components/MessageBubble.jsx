@@ -591,7 +591,10 @@ const MessageBubble = ({
               const depth = step.depth
                 ? `\n  - ${t('messageBubble.researchDepth')}: ${step.depth}`
                 : ''
-              return `${title}${action}${thought}${expected}${format}${depth}${criteria}`.trim()
+              const requiresSearch = step.requires_search !== undefined
+                ? `\n  - ${t('messageBubble.researchRequiresSearch')}: ${step.requires_search ? '✅' : '❌'}`
+                : ''
+              return `${title}${action}${thought}${expected}${format}${depth}${requiresSearch}${criteria}`.trim()
             })
             .filter(Boolean)
             .join('\n\n')

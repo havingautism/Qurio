@@ -470,6 +470,7 @@
     "researchDeliverableFormat": "输出格式",
     "researchAcceptanceCriteria": "验收标准",
     "researchDepth": "深度",
+    "researchRequiresSearch": "需要搜索",
     "researchRisks": "风险",
     "researchSuccessCriteria": "成功标准",
     "researchComplexity": "复杂度",

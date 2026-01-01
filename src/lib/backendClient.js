@@ -112,6 +112,144 @@ export const generateResearchPlanViaBackend = async (provider, message, apiKey, 
 }
 
 /**
+ * Stream research plan generation
+ * Uses Server-Sent Events (SSE) for streaming responses
+ * @param {Object} params - Stream parameters
+ * @param {string} params.provider - AI provider name
+ * @param {string} params.message - User message about research
+ * @param {string} params.apiKey - API key for the provider
+ * @param {string} params.baseUrl - Optional custom base URL
+ * @param {string} params.model - Optional model name
+ * @param {object} params.responseFormat - Optional response format
+ * @param {object} params.thinking - Optional thinking config
+ * @param {number} params.temperature - Optional temperature
+ * @param {number} params.top_k - Optional top_k
+ * @param {number} params.top_p - Optional top_p
+ * @param {number} params.frequency_penalty - Optional frequency penalty
+ * @param {number} params.presence_penalty - Optional presence penalty
+ * @param {number} params.contextMessageLimit - Optional context message limit
+ * @param {Function} params.onChunk - Callback for each chunk (chunk) => void
+ * @param {Function} params.onFinish - Callback when stream completes (result) => void
+ * @param {Function} params.onError - Callback for errors (error) => void
+ * @param {AbortSignal} params.signal - Optional abort signal
+ * @returns {Promise<void>}
+ */
+export const streamResearchPlanViaBackend = async params => {
+  const {
+    provider,
+    message,
+    apiKey,
+    baseUrl,
+    model,
+    responseFormat,
+    thinking,
+    temperature,
+    top_k,
+    top_p,
+    frequency_penalty,
+    presence_penalty,
+    contextMessageLimit,
+    onChunk,
+    onFinish,
+    onError,
+    signal,
+  } = params
+
+  if (!provider) {
+    throw new Error('Missing required field: provider')
+  }
+  if (!apiKey) {
+    throw new Error('Missing required field: apiKey')
+  }
+  if (!message) {
+    throw new Error('Missing required field: message')
+  }
+
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/research-plan-stream`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        provider,
+        message,
+        apiKey,
+        baseUrl,
+        model,
+        responseFormat,
+        thinking,
+        temperature,
+        top_k,
+        top_p,
+        frequency_penalty,
+        presence_penalty,
+        contextMessageLimit,
+      }),
+      signal,
+    })
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: 'Unknown error' }))
+      throw new Error(error.message || `Backend error: ${response.status}`)
+    }
+
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+
+    while (true) {
+      const { done, value } = await reader.read()
+
+      if (done) {
+        break
+      }
+
+      buffer += decoder.decode(value, { stream: true })
+
+      // Process complete SSE messages
+      const lines = buffer.split('\n')
+      buffer = lines.pop() || '' // Keep incomplete line in buffer
+
+      for (const line of lines) {
+        if (!line.trim() || !line.startsWith('data: ')) continue
+
+        const data = line.slice(6) // Remove 'data: ' prefix
+        if (!data.trim()) continue
+
+        try {
+          const chunk = JSON.parse(data)
+
+          if (chunk.type === 'error') {
+            onError?.(new Error(chunk.error || 'Stream error'))
+            return
+          }
+
+          if (chunk.type === 'done') {
+            onFinish?.({
+              content: chunk.content,
+              thought: chunk.thought,
+              sources: chunk.sources,
+              groundingSupports: chunk.groundingSupports,
+              toolCalls: chunk.toolCalls,
+            })
+            return
+          }
+
+          // Regular chunk (text, thought, etc.)
+          onChunk?.(chunk)
+        } catch (e) {
+          console.error('Failed to parse SSE chunk:', data, e)
+        }
+      }
+    }
+  } catch (error) {
+    if (error.name === 'AbortError') return
+    onError?.(error)
+  }
+}
+
+/**
  * Generate title, select space, and optionally select agent
  * @param {string} provider - AI provider name
  * @param {string} message - User's first message
@@ -421,7 +559,7 @@ export const streamChatViaBackend = async params => {
           }
 
           // Regular chunk (text, thought, etc.)
-          console.log('[streamChatViaBackend] Calling onChunk with:', chunk)
+          // console.log('[streamChatViaBackend] Calling onChunk with:', chunk)
           onChunk?.(chunk)
         } catch (e) {
           console.error('Failed to parse SSE chunk:', data, e)

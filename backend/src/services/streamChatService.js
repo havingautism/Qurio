@@ -5,7 +5,7 @@
 
 import { ChatOpenAI } from '@langchain/openai'
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai'
-import { AIMessage, HumanMessage, SystemMessage, ToolMessage } from '@langchain/core/messages'
+import { normalizeTextContent, safeJsonParse, toLangChainMessages } from './serviceUtils.js'
 
 // Default base URLs
 const OPENAI_DEFAULT_BASE = 'https://api.openai.com/v1'
@@ -24,100 +24,7 @@ const DEFAULT_MODELS = {
   kimi: 'moonshot-v1-8k',
 }
 
-/**
- * Safely parse JSON from string
- */
-const safeJsonParse = text => {
-  if (!text || typeof text !== 'string') return null
-  try {
-    return JSON.parse(text)
-  } catch {
-    const match = text.match(/\{[\s\S]*\}|\[[\s\S]*\]/)
-    if (!match) return null
-    try {
-      return JSON.parse(match[0])
-    } catch {
-      return null
-    }
-  }
-}
-
-/**
- * Normalize text content to string
- */
-const normalizeTextContent = content => {
-  if (typeof content === 'string') return content
-  if (Array.isArray(content)) {
-    return content
-      .map(part => {
-        if (typeof part === 'string') return part
-        if (part?.type === 'text' && part.text) return part.text
-        if (part?.text) return part.text
-        return ''
-      })
-      .filter(Boolean)
-      .join('\n')
-  }
-  return content ? String(content) : ''
-}
-
-/**
- * Normalize message content parts
- */
-const normalizeParts = content => {
-  if (!Array.isArray(content)) return content
-
-  const parts = content
-    .map(part => {
-      if (typeof part === 'string') return { type: 'text', text: part }
-      if (part?.type === 'text' && part.text) return { type: 'text', text: part.text }
-      if (part?.type === 'quote' && part.text) return { type: 'text', text: part.text }
-      if (part?.type === 'image_url') {
-        const url = part.image_url?.url || part.url
-        if (!url) return null
-        return { type: 'image_url', image_url: { url } }
-      }
-      if (part?.text) return { type: 'text', text: part.text }
-      return null
-    })
-    .filter(Boolean)
-
-  if (parts.length === 1 && parts[0].type === 'text') {
-    return parts[0].text
-  }
-  return parts
-}
-
-/**
- * Convert message format to LangChain messages
- */
-const toLangChainMessages = messages => {
-  return (messages || []).map(message => {
-    const role = message.role === 'ai' ? 'assistant' : message.role
-    const content = normalizeParts(message.content)
-
-    if (role === 'system') return new SystemMessage(content)
-    if (role === 'assistant') {
-      const additional_kwargs = message.tool_calls ? { tool_calls: message.tool_calls } : undefined
-      return new AIMessage({ content, additional_kwargs })
-    }
-    if (role === 'tool') {
-      return new ToolMessage({ content, tool_call_id: message.tool_call_id })
-    }
-    return new HumanMessage(content)
-  })
-}
-
-/**
- * Normalize Gemini messages - system messages first
- */
-const normalizeGeminiMessages = messages => {
-  if (!Array.isArray(messages) || messages.length === 0) return messages
-  const systemMessages = messages.filter(m => m?.role === 'system')
-  const nonSystemMessages = messages.filter(m => m?.role !== 'system')
-  if (systemMessages.length === 0) return messages
-  return [...systemMessages, ...nonSystemMessages]
-}
+ 
 
 /**
  * Apply context limit to messages
@@ -149,10 +56,16 @@ const buildGeminiPayload = ({ messages, temperature, top_k, top_p, tools, thinki
   if (temperature !== undefined) generationConfig.temperature = temperature
   if (top_k !== undefined) generationConfig.topK = top_k
   if (top_p !== undefined) generationConfig.topP = top_p
+  if (thinking?.thinkingConfig) {
+    generationConfig.thinkingConfig = thinking.thinkingConfig
+  }
 
   const payload = { contents }
   if (Object.keys(generationConfig).length > 0) {
     payload.generationConfig = generationConfig
+  }
+  if (Array.isArray(tools) && tools.length > 0) {
+    payload.tools = tools
   }
 
   return payload
@@ -166,9 +79,13 @@ const parseGeminiParts = (contentValue, { emitText, emitThought, handleTaggedTex
 
   let hasProcessed = false
   for (const part of contentValue) {
-    if (part?.type === 'text') {
-      handleTaggedText(part.text)
-      hasProcessed = true
+    const text = typeof part?.text === 'string' ? part.text : ''
+    if (!text) continue
+    hasProcessed = true
+    if (part?.thought) {
+      emitThought(text)
+    } else {
+      handleTaggedText(text)
     }
   }
   return hasProcessed
@@ -178,40 +95,42 @@ const parseGeminiParts = (contentValue, { emitText, emitThought, handleTaggedTex
  * Factory for handleTaggedText function
  */
 const handleTaggedTextFactory = ({ emitText, emitThought }) => {
-  const THOUGHT_START = '<thought>'
-  const THOUGHT_END = '</thought>'
-  const SOURCE_START = '<source>'
-  const SOURCE_END = '</source>'
-
+  let inThoughtBlock = false
   return text => {
-    if (!text) return
-
     let remaining = text
-    let depth = 0
-
     while (remaining) {
-      const thoughtStartIdx = remaining.indexOf(THOUGHT_START)
-      const thoughtEndIdx = remaining.indexOf(THOUGHT_END)
-
-      if (thoughtStartIdx === -1 && thoughtEndIdx === -1) {
-        emitText(remaining)
-        break
-      }
-
-      if (thoughtStartIdx !== -1 && (thoughtEndIdx === -1 || thoughtStartIdx < thoughtEndIdx)) {
-        if (thoughtStartIdx > 0) {
-          emitText(remaining.slice(0, thoughtStartIdx))
+      if (!inThoughtBlock) {
+        const matchIndex = remaining.search(/<think>|<thought>/i)
+        if (matchIndex === -1) {
+          emitText(remaining)
+          return
         }
-        depth++
-        remaining = remaining.slice(thoughtStartIdx + THOUGHT_START.length)
-      } else if (thoughtEndIdx !== -1) {
-        if (thoughtEndIdx > 0) {
-          emitThought(remaining.slice(0, thoughtEndIdx))
+        emitText(remaining.slice(0, matchIndex))
+        remaining = remaining.slice(matchIndex)
+        const openMatch = remaining.match(/^<(think|thought)>/i)
+        if (openMatch) {
+          remaining = remaining.slice(openMatch[0].length)
+          inThoughtBlock = true
+        } else {
+          emitText(remaining)
+          return
         }
-        depth--
-        remaining = remaining.slice(thoughtEndIdx + THOUGHT_END.length)
       } else {
-        break
+        const matchIndex = remaining.search(/<\/think>|<\/thought>/i)
+        if (matchIndex === -1) {
+          emitThought(remaining)
+          return
+        }
+        emitThought(remaining.slice(0, matchIndex))
+        remaining = remaining.slice(matchIndex)
+        const closeMatch = remaining.match(/^<\/(think|thought)>/i)
+        if (closeMatch) {
+          remaining = remaining.slice(closeMatch[0].length)
+          inThoughtBlock = false
+        } else {
+          emitThought(remaining)
+          return
+        }
       }
     }
   }
@@ -226,14 +145,15 @@ const collectGLMSources = (webSearch, sourcesMap) => {
   if (!Array.isArray(results)) return
 
   for (const item of results) {
-    if (!item || !item.link) continue
-    const url = item.link
-    if (sourcesMap.has(url)) continue
-
-    sourcesMap.set(url, {
-      url,
-      title: item.title || '',
-      snippet: item.content || item.snippet || '',
+    const refer = item?.refer || item?.id || item?.link
+    if (!refer || sourcesMap.has(refer)) continue
+    sourcesMap.set(refer, {
+      id: refer,
+      title: item?.title || refer,
+      url: item?.link || '',
+      snippet: item?.content?.substring(0, 200) || item?.snippet || '',
+      icon: item?.icon || '',
+      media: item?.media || '',
     })
   }
 }
@@ -243,19 +163,21 @@ const collectGLMSources = (webSearch, sourcesMap) => {
  */
 const collectKimiSources = (toolOutput, sourcesMap) => {
   if (!toolOutput) return
+  const parsed = typeof toolOutput === 'string' ? safeJsonParse(toolOutput) : toolOutput
+  if (!parsed) return
 
-  const results = toolOutput.results || toolOutput
+  const results =
+    parsed?.results || parsed?.data || parsed?.items || (Array.isArray(parsed) ? parsed : [])
   if (!Array.isArray(results)) return
 
   for (const item of results) {
-    if (!item || !item.url) continue
-    const url = item.url
-    if (sourcesMap.has(url)) continue
-
+    const url = item?.url || item?.link || item?.href
+    if (!url || sourcesMap.has(url)) continue
     sourcesMap.set(url, {
+      id: String(sourcesMap.size + 1),
+      title: item?.title || url,
       url,
-      title: item.title || '',
-      snippet: item.content || item.snippet || '',
+      snippet: item?.snippet || item?.description || item?.content?.substring(0, 200) || '',
     })
   }
 }
@@ -264,21 +186,16 @@ const collectKimiSources = (toolOutput, sourcesMap) => {
  * Collect Gemini grounding sources
  */
 const collectGeminiSources = (groundingMetadata, geminiSources) => {
-  if (!groundingMetadata) return
-
-  const chunks = groundingMetadata.groundingChunks || []
+  const chunks = groundingMetadata?.groundingChunks
+  if (!Array.isArray(chunks)) return
+  if (!Array.isArray(geminiSources)) return
+  if (geminiSources.length === chunks.length && geminiSources.length > 0) return
+  geminiSources.length = 0
   for (const chunk of chunks) {
-    if (!chunk || !chunk.web) continue
-    const uri = chunk.web.uri
-    if (!uri) continue
-
-    if (!geminiSources.find(s => s.url === uri)) {
-      geminiSources.push({
-        url: uri,
-        title: chunk.web.title || '',
-        snippet: chunk.web.snippet || '',
-      })
-    }
+    const web = chunk?.web
+    const url = web?.uri
+    if (!url) continue
+    geminiSources.push({ url, title: web?.title || url })
   }
 }
 
@@ -338,16 +255,28 @@ const buildSiliconFlowModel = ({
 
   const modelKwargs = {}
   modelKwargs.response_format = responseFormat || { type: 'text' }
+  if (thinking) {
+    const budget = thinking.budget_tokens || thinking.budgetTokens || 1024
+    modelKwargs.extra_body = { thinking_budget: budget }
+    modelKwargs.enable_thinking = true
+    modelKwargs.thinking_budget = budget
+  }
   if (top_k !== undefined) modelKwargs.top_k = top_k
   if (top_p !== undefined) modelKwargs.top_p = top_p
   if (frequency_penalty !== undefined) modelKwargs.frequency_penalty = frequency_penalty
   if (presence_penalty !== undefined) modelKwargs.presence_penalty = presence_penalty
+  if (tools && tools.length > 0) modelKwargs.tools = tools
+  if (toolChoice) modelKwargs.tool_choice = toolChoice
+  if (streaming) {
+    modelKwargs.stream_options = { include_usage: false }
+  }
 
   return new ChatOpenAI({
     apiKey,
     modelName: model || DEFAULT_MODELS.siliconflow,
     temperature,
     streaming,
+    __includeRawResponse: true,
     modelKwargs,
     configuration: { baseURL: SILICONFLOW_BASE },
   })
@@ -371,17 +300,27 @@ const buildGLMModel = ({
 
   const modelKwargs = {}
   if (responseFormat) modelKwargs.response_format = responseFormat
-  modelKwargs.thinking = { type: thinking?.type || 'disabled' }
+  const thinkingType = thinking?.type || 'disabled'
+  modelKwargs.thinking = { type: thinkingType }
+  if (thinking?.type) {
+    modelKwargs.extra_body = { thinking: { type: thinkingType } }
+  }
   if (top_k !== undefined) modelKwargs.top_k = top_k
   if (top_p !== undefined) modelKwargs.top_p = top_p
   if (frequency_penalty !== undefined) modelKwargs.frequency_penalty = frequency_penalty
   if (presence_penalty !== undefined) modelKwargs.presence_penalty = presence_penalty
+  if (tools && tools.length > 0) modelKwargs.tools = tools
+  if (toolChoice) modelKwargs.tool_choice = toolChoice
+  if (streaming) {
+    modelKwargs.stream_options = { include_usage: false }
+  }
 
   return new ChatOpenAI({
     apiKey,
     modelName: model || DEFAULT_MODELS.glm,
     temperature,
     streaming,
+    __includeRawResponse: true,
     modelKwargs,
     configuration: { baseURL: GLM_BASE },
   })
@@ -405,17 +344,27 @@ const buildModelScopeModel = ({
 
   const modelKwargs = {}
   if (responseFormat) modelKwargs.response_format = responseFormat
-  modelKwargs.thinking = { type: thinking?.type || 'disabled' }
+  const thinkingType = thinking?.type || 'disabled'
+  modelKwargs.thinking = { type: thinkingType }
+  if (thinking?.type) {
+    modelKwargs.extra_body = { thinking: { type: thinkingType } }
+  }
   if (top_k !== undefined) modelKwargs.top_k = top_k
   if (top_p !== undefined) modelKwargs.top_p = top_p
   if (frequency_penalty !== undefined) modelKwargs.frequency_penalty = frequency_penalty
   if (presence_penalty !== undefined) modelKwargs.presence_penalty = presence_penalty
+  if (tools && tools.length > 0) modelKwargs.tools = tools
+  if (toolChoice) modelKwargs.tool_choice = toolChoice
+  if (streaming) {
+    modelKwargs.stream_options = { include_usage: false }
+  }
 
   return new ChatOpenAI({
     apiKey,
     modelName: model || DEFAULT_MODELS.modelscope,
     temperature,
     streaming,
+    __includeRawResponse: true,
     modelKwargs,
     configuration: { baseURL: MODELSCOPE_BASE },
   })
@@ -443,12 +392,18 @@ const buildKimiModel = ({
   if (top_p !== undefined) modelKwargs.top_p = top_p
   if (frequency_penalty !== undefined) modelKwargs.frequency_penalty = frequency_penalty
   if (presence_penalty !== undefined) modelKwargs.presence_penalty = presence_penalty
+  if (tools && tools.length > 0) modelKwargs.tools = tools
+  if (toolChoice) modelKwargs.tool_choice = toolChoice
+  if (streaming) {
+    modelKwargs.stream_options = { include_usage: false }
+  }
 
   return new ChatOpenAI({
     apiKey,
     modelName: model || DEFAULT_MODELS.kimi,
     temperature,
     streaming,
+    __includeRawResponse: true,
     modelKwargs,
     configuration: { baseURL: KIMI_BASE },
   })
@@ -482,12 +437,16 @@ const buildOpenAIModel = ({
   if (top_p !== undefined) modelKwargs.top_p = top_p
   if (frequency_penalty !== undefined) modelKwargs.frequency_penalty = frequency_penalty
   if (presence_penalty !== undefined) modelKwargs.presence_penalty = presence_penalty
+  if (streaming) {
+    modelKwargs.stream_options = { include_usage: false }
+  }
 
   return new ChatOpenAI({
     apiKey,
     modelName: model || DEFAULT_MODELS.openai,
     temperature,
     streaming,
+    __includeRawResponse: true,
     modelKwargs,
     configuration: { baseURL: resolvedBase },
   })
@@ -502,7 +461,10 @@ const buildOpenAIModel = ({
  * Returns an async generator that yields SSE events
  */
 export const streamChat = async function* (params) {
-  console.log('[streamChat] Starting with provider:', params.provider)
+  const debugStream = process.env.DEBUG_STREAM === '1'
+  if (debugStream) {
+    console.log('[streamChat] Starting with provider:', params.provider)
+  }
 
   const {
     provider,
@@ -523,11 +485,16 @@ export const streamChat = async function* (params) {
     stream = true,
     signal,
   } = params
+  const debugSources = process.env.DEBUG_SOURCES === '1'
+  let loggedAdditional = false
+  let loggedGemini = false
 
   const trimmedMessages = applyContextLimitRaw(messages, contextMessageLimit)
   const langchainMessages = toLangChainMessages(trimmedMessages)
 
-  console.log('[streamChat] Messages prepared, count:', langchainMessages.length)
+  if (debugStream) {
+    console.log('[streamChat] Messages prepared, count:', langchainMessages.length)
+  }
 
   let modelInstance = undefined
   if (provider === 'gemini') {
@@ -619,7 +586,9 @@ export const streamChat = async function* (params) {
     })
   }
 
-  console.log('[streamChat] Model created, calling stream()...')
+  if (debugStream) {
+    console.log('[streamChat] Model created, calling stream()...')
+  }
 
   let fullContent = ''
   let fullThought = ''
@@ -659,6 +628,13 @@ export const streamChat = async function* (params) {
 
       for await (const response of stream) {
         const groundingMetadata = response?.candidates?.[0]?.groundingMetadata
+        if (debugSources && groundingMetadata && !loggedGemini) {
+          loggedGemini = true
+          console.log(
+            '[streamChat] gemini groundingMetadata:',
+            JSON.stringify(groundingMetadata).slice(0, 2000),
+          )
+        }
         if (groundingMetadata) {
           collectGeminiSources(groundingMetadata, geminiSources)
           if (Array.isArray(groundingMetadata.groundingSupports)) {
@@ -697,24 +673,45 @@ export const streamChat = async function* (params) {
 
     const stream = await modelInstance.stream(langchainMessages, signal ? { signal } : undefined)
 
-    console.log('[streamChat] Stream created, iterating chunks...')
+    if (debugStream) {
+      console.log('[streamChat] Stream created, iterating chunks...')
+    }
 
-    for await (const chunk of stream) {
-      const messageChunk = chunk?.message ?? chunk
-      const contentValue = messageChunk?.content ?? chunk?.content
+      for await (const chunk of stream) {
+        const messageChunk = chunk?.message ?? chunk
+        const contentValue = messageChunk?.content ?? chunk?.content
+        if (debugSources && !loggedAdditional && messageChunk?.additional_kwargs) {
+          loggedAdditional = true
+          console.log(
+            '[streamChat] additional_kwargs:',
+            JSON.stringify(messageChunk.additional_kwargs).slice(0, 2000),
+          )
+        }
 
       // Debug log
-      console.log('[streamChat] chunk:', JSON.stringify({ contentValue }).slice(0, 200))
+      // console.log('[streamChat] chunk:', JSON.stringify({ contentValue }).slice(0, 200))
 
       // Process GLM web_search results
       if (provider === 'glm' || provider === 'modelscope') {
         const rawResp = messageChunk?.additional_kwargs?.__raw_response
+        if (debugSources && rawResp?.web_search) {
+          console.log(
+            '[streamChat] web_search payload:',
+            JSON.stringify(rawResp.web_search).slice(0, 2000),
+          )
+        }
         collectGLMSources(rawResp?.web_search, sourcesMap)
       }
 
       // Process Kimi web_search tool results
       if (provider === 'kimi') {
         const toolResponses = messageChunk?.additional_kwargs?.tool_responses
+        if (debugSources && Array.isArray(toolResponses) && toolResponses.length > 0) {
+          console.log(
+            '[streamChat] tool_responses payload:',
+            JSON.stringify(toolResponses).slice(0, 2000),
+          )
+        }
         if (Array.isArray(toolResponses)) {
           for (const toolResp of toolResponses) {
             if (toolResp?.name === 'web_search') {
@@ -766,7 +763,9 @@ export const streamChat = async function* (params) {
     }
 
     // Final result
-    console.log('[streamChat] Stream completed, yielding done. Content length:', fullContent.length)
+    if (debugStream) {
+      console.log('[streamChat] Stream completed, yielding done. Content length:', fullContent.length)
+    }
     yield {
       type: 'done',
       content: fullContent,
@@ -775,7 +774,7 @@ export const streamChat = async function* (params) {
       toolCalls: toolCallsMap.size ? Array.from(toolCallsMap.values()) : undefined,
     }
   } catch (error) {
-    console.log('[streamChat] Error caught:', error.message)
+    console.error('[streamChat] Error caught:', error.message)
     if (signal?.aborted) return
     yield {
       type: 'error',

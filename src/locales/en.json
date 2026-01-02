@@ -242,7 +242,8 @@
     "tabs": {
       "general": "General",
       "model": "Model",
-      "personalization": "Personalization"
+      "personalization": "Personalization",
+      "tools": "Tools"
     },
     "general": {
       "avatar": "Avatar",
@@ -316,6 +317,19 @@
       "saving": "Saving...",
       "save": "Save Agent",
       "create": "Create Agent"
+    },
+    "tools": {
+      "title": "Tool Access",
+      "hint": "Select which local tools this agent can call.",
+      "loading": "Loading tools...",
+      "empty": "No tools available.",
+      "categories": {
+        "math": "Math",
+        "time": "Time",
+        "text": "Text",
+        "json": "JSON",
+        "other": "Other"
+      }
     },
     "validation": {
       "nameRequired": "Name is required",

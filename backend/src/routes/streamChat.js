@@ -30,7 +30,8 @@ const router = express.Router()
  *   "top_p": 0.9 (optional),
  *   "frequency_penalty": 0 (optional),
  *   "presence_penalty": 0 (optional),
- *   "contextMessageLimit": 10 (optional)
+ *   "contextMessageLimit": 10 (optional),
+ *   "toolIds": ["calculator", "local_time"] (optional)
  * }
  *
  * Response: Server-Sent Events stream
@@ -57,7 +58,12 @@ router.post('/stream-chat', async (req, res) => {
       frequency_penalty,
       presence_penalty,
       contextMessageLimit,
+      toolIds,
     } = req.body
+
+    if (process.env.DEBUG_TOOLS === '1') {
+      console.log('[API] streamChat toolIds:', Array.isArray(toolIds) ? toolIds : [])
+    }
 
     if (!provider) {
       return res.status(400).json({ error: 'Missing required field: provider' })
@@ -109,6 +115,7 @@ router.post('/stream-chat', async (req, res) => {
       frequency_penalty,
       presence_penalty,
       contextMessageLimit,
+      toolIds,
       signal: controller.signal,
     })) {
       chunkCount++

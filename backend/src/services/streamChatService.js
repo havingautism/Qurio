@@ -6,6 +6,7 @@
 import { ChatOpenAI } from '@langchain/openai'
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai'
 import { normalizeTextContent, safeJsonParse, toLangChainMessages } from './serviceUtils.js'
+import { executeToolByName, getToolDefinitionsByIds, isLocalToolName } from './toolsService.js'
 
 // Default base URLs
 const OPENAI_DEFAULT_BASE = 'https://api.openai.com/v1'
@@ -569,6 +570,7 @@ export const streamChat = async function* (params) {
     contextMessageLimit,
     stream = true,
     signal,
+    toolIds = [],
   } = params
   const debugSources = process.env.DEBUG_SOURCES === '1'
   let loggedAdditional = false
@@ -582,6 +584,21 @@ export const streamChat = async function* (params) {
   }
 
   let modelInstance = undefined
+  const agentToolDefinitions = provider === 'gemini' ? [] : getToolDefinitionsByIds(toolIds)
+  const combinedTools = [...(Array.isArray(tools) ? tools : []), ...agentToolDefinitions].filter(
+    Boolean,
+  )
+  const normalizedTools = []
+  const toolNames = new Set()
+  for (const tool of combinedTools) {
+    const name = tool?.function?.name
+    if (name && toolNames.has(name)) continue
+    if (name) toolNames.add(name)
+    normalizedTools.push(tool)
+  }
+  const effectiveToolChoice =
+    toolChoice !== undefined ? toolChoice : normalizedTools.length > 0 ? 'auto' : undefined
+
   if (provider === 'gemini') {
     modelInstance = buildGeminiModel({
       apiKey,
@@ -589,7 +606,7 @@ export const streamChat = async function* (params) {
       temperature,
       top_k,
       top_p,
-      tools,
+      tools: normalizedTools,
       thinking,
       streaming: stream,
     })
@@ -603,7 +620,8 @@ export const streamChat = async function* (params) {
       frequency_penalty,
       presence_penalty,
       responseFormat,
-      tools,
+      tools: normalizedTools,
+      toolChoice: effectiveToolChoice,
       thinking,
       streaming: stream,
     })
@@ -616,8 +634,8 @@ export const streamChat = async function* (params) {
       top_p,
       frequency_penalty,
       presence_penalty,
-      tools,
-      toolChoice,
+      tools: normalizedTools,
+      toolChoice: effectiveToolChoice,
       responseFormat,
       thinking,
       streaming: stream,
@@ -631,8 +649,8 @@ export const streamChat = async function* (params) {
       top_p,
       frequency_penalty,
       presence_penalty,
-      tools,
-      toolChoice,
+      tools: normalizedTools,
+      toolChoice: effectiveToolChoice,
       responseFormat,
       thinking,
       streaming: stream,
@@ -646,8 +664,8 @@ export const streamChat = async function* (params) {
       top_p,
       frequency_penalty,
       presence_penalty,
-      tools,
-      toolChoice,
+      tools: normalizedTools,
+      toolChoice: effectiveToolChoice,
       responseFormat,
       thinking,
       streaming: stream,
@@ -663,8 +681,8 @@ export const streamChat = async function* (params) {
       top_p,
       frequency_penalty,
       presence_penalty,
-      tools,
-      toolChoice,
+      tools: normalizedTools,
+      toolChoice: effectiveToolChoice,
       responseFormat,
       thinking,
       streaming: stream,
@@ -681,12 +699,44 @@ export const streamChat = async function* (params) {
           top_p,
           frequency_penalty,
           presence_penalty,
-          tools,
-          toolChoice,
+          tools: normalizedTools,
+          toolChoice: effectiveToolChoice,
           responseFormat,
           thinking,
           streaming: false,
         })
+      : null
+  const nonStreamingGlmModel =
+    (provider === 'glm' || provider === 'modelscope') && stream && normalizedTools.length > 0
+      ? provider === 'glm'
+        ? buildGLMModel({
+            apiKey,
+            model,
+            temperature,
+            top_k,
+            top_p,
+            frequency_penalty,
+            presence_penalty,
+            tools: normalizedTools,
+            toolChoice: effectiveToolChoice,
+            responseFormat,
+            thinking,
+            streaming: false,
+          })
+        : buildModelScopeModel({
+            apiKey,
+            model,
+            temperature,
+            top_k,
+            top_p,
+            frequency_penalty,
+            presence_penalty,
+            tools: normalizedTools,
+            toolChoice: effectiveToolChoice,
+            responseFormat,
+            thinking,
+            streaming: false,
+          })
       : null
 
   if (debugStream) {
@@ -821,11 +871,105 @@ export const streamChat = async function* (params) {
             for (const toolCall of assistantToolCalls) {
               const rawArgs = getToolCallArguments(toolCall)
               const toolArgs = typeof rawArgs === 'string' ? rawArgs : JSON.stringify(rawArgs ?? {})
+              const toolName = toolCall.function.name
+              if (isLocalToolName(toolName)) {
+                const parsedArgs =
+                  typeof rawArgs === 'string' ? safeJsonParse(rawArgs) : rawArgs || {}
+                const result = await executeToolByName(toolName, parsedArgs || {})
+                currentMessages.push({
+                  role: 'tool',
+                  tool_call_id: toolCall.id,
+                  name: toolName,
+                  content: JSON.stringify(result),
+                })
+                continue
+              }
               currentMessages.push({
                 role: 'tool',
                 tool_call_id: toolCall.id,
                 name: toolCall.function.name,
                 content: toolArgs,
+              })
+            }
+          }
+
+          preProcessedToolCall = true
+          continue
+        }
+
+        const contentValue = getResponseContent(response)
+        const chunkText = normalizeTextContent(contentValue)
+        if (chunkText) {
+          handleTaggedText(chunkText)
+          while (chunks.length > 0) {
+            yield chunks.shift()
+          }
+        }
+
+        const reasoning = getResponseReasoning(response)
+        if (reasoning) {
+          emitThought(String(reasoning))
+          while (chunks.length > 0) {
+            yield chunks.shift()
+          }
+        }
+
+        yield {
+          type: 'done',
+          content: fullContent,
+          thought: fullThought || undefined,
+          sources: sourcesMap.size ? Array.from(sourcesMap.values()) : undefined,
+          toolCalls: undefined,
+        }
+        return
+      }
+      if (nonStreamingGlmModel && !preProcessedToolCall) {
+        const nonStreamMessages = toLangChainMessages(currentMessages)
+        const response = await nonStreamingGlmModel.invoke(
+          nonStreamMessages,
+          signal ? { signal } : undefined,
+        )
+
+        const finishReason = getFinishReasonFromResponse(response)
+        const toolCalls = getToolCallsFromResponse(response)
+
+        if (finishReason === 'tool_calls' && Array.isArray(toolCalls) && toolCalls.length > 0) {
+          const assistantToolCalls = toolCalls
+            .map(toolCall => ({
+              id: toolCall.id,
+              type: toolCall.type,
+              function: toolCall.function
+                ? { name: toolCall.function.name, arguments: toolCall.function.arguments || '' }
+                : undefined,
+            }))
+            .filter(toolCall => toolCall?.id && toolCall?.function?.name)
+
+          if (assistantToolCalls.length > 0) {
+            currentMessages = [
+              ...currentMessages,
+              { role: 'assistant', content: '', tool_calls: assistantToolCalls },
+            ]
+
+            for (const toolCall of assistantToolCalls) {
+              const rawArgs = getToolCallArguments(toolCall)
+              const parsedArgs =
+                typeof rawArgs === 'string' ? safeJsonParse(rawArgs) : rawArgs || {}
+              const toolName = toolCall.function.name
+              if (!isLocalToolName(toolName)) {
+                currentMessages.push({
+                  role: 'tool',
+                  tool_call_id: toolCall.id,
+                  name: toolName,
+                  content: JSON.stringify({ error: `Unknown tool: ${toolName}` }),
+                })
+                continue
+              }
+              const result = await executeToolByName(toolName, parsedArgs || {})
+              currentMessages.push({
+                role: 'tool',
+                tool_call_id: toolCall.id,
+                name: toolName,
+                content: JSON.stringify(result),
               })
             }
           }
@@ -956,20 +1100,28 @@ export const streamChat = async function* (params) {
           handleTaggedText(chunkText)
         }
 
-        const toolCalls = messageChunk?.additional_kwargs?.tool_calls
-        if (toolCalls) {
-          if (provider === 'kimi') {
-            mergeToolCallsByIndex(toolCallsByIndex, toolCalls)
-          } else {
-            updateToolCallsMap(toolCallsMap, toolCalls)
-          }
+        const toolCalls =
+          messageChunk?.tool_calls ||
+          messageChunk?.additional_kwargs?.tool_calls ||
+          messageChunk?.additional_kwargs?.tool_calls
+        if (Array.isArray(toolCalls)) {
+          mergeToolCallsByIndex(toolCallsByIndex, toolCalls)
+          updateToolCallsMap(toolCallsMap, toolCalls)
+        }
+
+        const rawToolCalls =
+          messageChunk?.additional_kwargs?.__raw_response?.choices?.[0]?.delta?.tool_calls ||
+          messageChunk?.additional_kwargs?.__raw_response?.choices?.[0]?.tool_calls
+        if (Array.isArray(rawToolCalls)) {
+          mergeToolCallsByIndex(toolCallsByIndex, rawToolCalls)
+          updateToolCallsMap(toolCallsMap, rawToolCalls)
         }
 
         if (provider === 'kimi') {
-          const rawToolCalls =
+          const kimiToolCalls =
             messageChunk?.additional_kwargs?.__raw_response?.choices?.[0]?.delta?.tool_calls
-          if (Array.isArray(rawToolCalls)) {
-            mergeToolCallsByIndex(toolCallsByIndex, rawToolCalls)
+          if (Array.isArray(kimiToolCalls)) {
+            mergeToolCallsByIndex(toolCallsByIndex, kimiToolCalls)
           }
           collectKimiSourcesFromToolCalls(toolCallsByIndex.filter(Boolean), sourcesMap)
         }
@@ -994,7 +1146,9 @@ export const streamChat = async function* (params) {
         const toolCallsList = toolCallsByIndex.filter(Boolean)
         finalToolCalls = toolCallsList.length ? toolCallsList : null
 
-        if (lastFinishReason === 'tool_calls' && toolCallsList.length > 0) {
+        const shouldHandleToolCalls =
+          (lastFinishReason === 'tool_calls' || !lastFinishReason) && toolCallsList.length > 0
+        if (shouldHandleToolCalls) {
           const assistantToolCalls = toolCallsList
             .map(toolCall => ({
               id: toolCall.id,
@@ -1014,6 +1168,19 @@ export const streamChat = async function* (params) {
             for (const toolCall of assistantToolCalls) {
               const rawArgs = getToolCallArguments(toolCall)
               const toolArgs = typeof rawArgs === 'string' ? rawArgs : JSON.stringify(rawArgs ?? {})
+              const toolName = toolCall.function.name
+              if (isLocalToolName(toolName)) {
+                const parsedArgs =
+                  typeof rawArgs === 'string' ? safeJsonParse(rawArgs) : rawArgs || {}
+                const result = await executeToolByName(toolName, parsedArgs || {})
+                currentMessages.push({
+                  role: 'tool',
+                  tool_call_id: toolCall.id,
+                  name: toolName,
+                  content: JSON.stringify(result),
+                })
+                continue
+              }
               currentMessages.push({
                 role: 'tool',
                 tool_call_id: toolCall.id,
@@ -1026,7 +1193,53 @@ export const streamChat = async function* (params) {
           }
         }
       } else {
-        finalToolCalls = toolCallsMap.size ? Array.from(toolCallsMap.values()) : null
+        const toolCallsList = toolCallsByIndex.filter(Boolean)
+        finalToolCalls = toolCallsList.length ? toolCallsList : null
+        const shouldHandleToolCalls =
+          (lastFinishReason === 'tool_calls' || !lastFinishReason) && toolCallsList.length > 0
+        if (shouldHandleToolCalls) {
+          const assistantToolCalls = toolCallsList
+            .map(toolCall => ({
+              id: toolCall.id,
+              type: toolCall.type,
+              function: toolCall.function
+                ? { name: toolCall.function.name, arguments: toolCall.function.arguments || '' }
+                : undefined,
+            }))
+            .filter(toolCall => toolCall?.id && toolCall?.function?.name)
+
+          if (assistantToolCalls.length > 0) {
+            currentMessages = [
+              ...currentMessages,
+              { role: 'assistant', content: '', tool_calls: assistantToolCalls },
+            ]
+
+            for (const toolCall of assistantToolCalls) {
+              const rawArgs = getToolCallArguments(toolCall)
+              const parsedArgs =
+                typeof rawArgs === 'string' ? safeJsonParse(rawArgs) : rawArgs || {}
+              const toolName = toolCall.function.name
+              if (!isLocalToolName(toolName)) {
+                currentMessages.push({
+                  role: 'tool',
+                  tool_call_id: toolCall.id,
+                  name: toolName,
+                  content: JSON.stringify({ error: `Unknown tool: ${toolName}` }),
+                })
+                continue
+              }
+              const result = await executeToolByName(toolName, parsedArgs || {})
+              currentMessages.push({
+                role: 'tool',
+                tool_call_id: toolCall.id,
+                name: toolName,
+                content: JSON.stringify(result),
+              })
+            }
+
+            continue
+          }
+        }
       }
 
       break

@@ -54,6 +54,7 @@ CREATE TABLE IF NOT EXISTS public.agents (
   top_p DOUBLE PRECISION,
   frequency_penalty DOUBLE PRECISION,
   presence_penalty DOUBLE PRECISION,
+  tool_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

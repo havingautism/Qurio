@@ -29,6 +29,7 @@ const mapAgent = agent => {
     topP: agent.top_p ?? agent.topP ?? null,
     frequencyPenalty: agent.frequency_penalty ?? agent.frequencyPenalty ?? null,
     presencePenalty: agent.presence_penalty ?? agent.presencePenalty ?? null,
+    toolIds: agent.tool_ids ?? agent.toolIds ?? [],
     createdAt: agent.created_at ?? agent.createdAt ?? null,
     updatedAt: agent.updated_at ?? agent.updatedAt ?? null,
   }
@@ -70,6 +71,7 @@ export const createAgent = async ({
   topP = null,
   frequencyPenalty = null,
   presencePenalty = null,
+  toolIds = [],
 }) => {
   const supabase = getSupabaseClient()
   if (!supabase) return { data: null, error: new Error('Supabase not configured') }
@@ -99,6 +101,7 @@ export const createAgent = async ({
     top_p: topP,
     frequency_penalty: frequencyPenalty,
     presence_penalty: presencePenalty,
+    tool_ids: toolIds,
   }
 
   const { data, error } = await supabase.from(table).insert([payload]).select().single()
@@ -142,6 +145,7 @@ export const updateAgent = async (id, payload) => {
     updatePayload.frequency_penalty = payload.frequencyPenalty
   if (payload.presencePenalty !== undefined)
     updatePayload.presence_penalty = payload.presencePenalty
+  if (payload.toolIds !== undefined) updatePayload.tool_ids = payload.toolIds
 
   const { data, error } = await supabase
     .from(table)

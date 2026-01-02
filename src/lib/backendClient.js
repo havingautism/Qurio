@@ -128,6 +128,7 @@ export const generateResearchPlanViaBackend = async (provider, message, apiKey, 
  * @param {number} params.frequency_penalty - Optional frequency penalty
  * @param {number} params.presence_penalty - Optional presence penalty
  * @param {number} params.contextMessageLimit - Optional context message limit
+ * @param {Array} params.toolIds - Optional tool ids to enable
  * @param {Function} params.onChunk - Callback for each chunk (chunk) => void
  * @param {Function} params.onFinish - Callback when stream completes (result) => void
  * @param {Function} params.onError - Callback for errors (error) => void
@@ -149,6 +150,7 @@ export const streamResearchPlanViaBackend = async params => {
     frequency_penalty,
     presence_penalty,
     contextMessageLimit,
+    toolIds,
     onChunk,
     onFinish,
     onError,
@@ -185,6 +187,7 @@ export const streamResearchPlanViaBackend = async params => {
         frequency_penalty,
         presence_penalty,
         contextMessageLimit,
+        toolIds,
       }),
       signal,
     })
@@ -433,6 +436,7 @@ export const generateRelatedQuestionsViaBackend = async (
  * @param {string} params.model - Optional model name
  * @param {Array} params.messages - Conversation messages
  * @param {Array} params.tools - Optional tools
+ * @param {Array} params.toolIds - Optional tool ids to enable
  * @param {object} params.toolChoice - Optional tool choice
  * @param {object} params.responseFormat - Optional response format
  * @param {object} params.thinking - Optional thinking config
@@ -456,6 +460,7 @@ export const streamChatViaBackend = async params => {
     model,
     messages,
     tools,
+    toolIds,
     toolChoice,
     responseFormat,
     thinking,
@@ -494,6 +499,7 @@ export const streamChatViaBackend = async params => {
         model,
         messages,
         tools,
+        toolIds,
         toolChoice,
         responseFormat,
         thinking,
@@ -570,4 +576,14 @@ export const streamChatViaBackend = async params => {
     if (error.name === 'AbortError') return
     onError?.(error)
   }
+}
+
+export const listToolsViaBackend = async () => {
+  const response = await fetch(`${BACKEND_URL}/api/tools`)
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: 'Unknown error' }))
+    throw new Error(error.message || `Backend error: ${response.status}`)
+  }
+  const data = await response.json()
+  return data?.tools || []
 }

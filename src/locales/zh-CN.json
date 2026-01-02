@@ -242,7 +242,8 @@
     "tabs": {
       "general": "通用",
       "model": "模型",
-      "personalization": "个性化"
+      "personalization": "个性化",
+      "tools": "工具"
     },
     "general": {
       "avatar": "头像",
@@ -316,6 +317,19 @@
       "saving": "保存中...",
       "save": "保存",
       "create": "创建"
+    },
+    "tools": {
+      "title": "工具权限",
+      "hint": "选择该智能体可调用的本地工具。",
+      "loading": "正在加载工具...",
+      "empty": "暂无可用工具。",
+      "categories": {
+        "math": "数学",
+        "time": "时间",
+        "text": "文本",
+        "json": "JSON",
+        "other": "其他"
+      }
     },
     "validation": {
       "nameRequired": "名称为必填项",

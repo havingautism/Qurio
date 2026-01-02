@@ -866,6 +866,13 @@ const callAIAPI = async (
       selectedAgent?.presencePenalty ?? selectedAgent?.presence_penalty
 
     // Prepare API parameters
+    const resolvedAgent = selectedAgent || defaultAgent || null
+    const resolvedToolIds = (() => {
+      if (resolvedAgent?.toolIds?.length) return resolvedAgent.toolIds
+      if (resolvedAgent?.tool_ids?.length) return resolvedAgent.tool_ids
+      return []
+    })()
+
     const params = {
       ...credentials,
       model: modelConfig.model,
@@ -882,6 +889,7 @@ const callAIAPI = async (
         ...(m.name && { name: m.name }),
       })),
       tools: provider.getTools(toggles.search),
+      toolIds: resolvedToolIds,
       thinking: provider.getThinking(thinkingActive, modelConfig.model),
       onChunk: chunk => {
         if (typeof chunk === 'object' && chunk !== null) {

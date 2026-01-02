@@ -20,6 +20,7 @@ import { SILICONFLOW_BASE_URL } from '../lib/providerConstants'
 import { getModelIcon, getModelIconClassName, renderProviderIcon } from '../lib/modelIcons'
 import { getProvider } from '../lib/providers'
 import { getPublicEnv } from '../lib/publicEnv'
+import { listToolsViaBackend } from '../lib/backendClient'
 
 // Logic reused from SettingsModal
 const FALLBACK_MODEL_OPTIONS = {
@@ -170,6 +171,11 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
   const [presencePenalty, setPresencePenalty] = useState(null)
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false)
 
+  // Tools Tab
+  const [availableTools, setAvailableTools] = useState([])
+  const [toolsLoading, setToolsLoading] = useState(false)
+  const [selectedToolIds, setSelectedToolIds] = useState([])
+
   // Dropdown states
   const [isResponseLanguageOpen, setIsResponseLanguageOpen] = useState(false)
   const [isBaseToneOpen, setIsBaseToneOpen] = useState(false)
@@ -195,6 +201,29 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
   // State for error and saving
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState('')
+
+  const toolsByCategory = useMemo(() => {
+    const groups = {}
+    for (const tool of availableTools) {
+      const category = tool.category || 'other'
+      if (!groups[category]) groups[category] = []
+      groups[category].push(tool)
+    }
+    return Object.entries(groups)
+  }, [availableTools])
+
+  const loadToolsList = async () => {
+    setToolsLoading(true)
+    try {
+      const tools = await listToolsViaBackend()
+      setAvailableTools(Array.isArray(tools) ? tools : [])
+    } catch (err) {
+      console.error('Failed to load tools list:', err)
+      setAvailableTools([])
+    } finally {
+      setToolsLoading(false)
+    }
+  }
 
   const loadKeysAndFetchModels = async () => {
     setIsLoadingModels(true)
@@ -353,7 +382,12 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
         setFrequencyPenalty(null)
         setPresencePenalty(null)
         setIsAdvancedOpen(false)
+        setSelectedToolIds([])
       }
+      if (editingAgent) {
+        setSelectedToolIds(editingAgent?.toolIds || [])
+      }
+      loadToolsList()
       setActiveTab('general')
       setError('')
       setIsSaving(false)
@@ -440,6 +474,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
         topP,
         frequencyPenalty,
         presencePenalty,
+        toolIds: selectedToolIds,
       })
       onClose()
     } catch (err) {
@@ -1171,7 +1206,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
 
         {/* Tabs */}
         <div className="flex border-b border-gray-200 dark:border-zinc-800 px-6 shrink-0 gap-6">
-          {['general', 'model', 'personalization'].map(tab => (
+          {['general', 'model', 'personalization', 'tools'].map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -1569,6 +1604,68 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                   </div>
                 )}
               </div>
+            </div>
+          )}
+          {activeTab === 'tools' && (
+            <div className="space-y-4">
+              <div className="bg-gray-50 dark:bg-zinc-900/60 p-4 rounded-lg text-sm text-gray-600 dark:text-gray-300">
+                <p className="font-medium">{t('agents.tools.title')}</p>
+                <p className="opacity-90">{t('agents.tools.hint')}</p>
+              </div>
+              {toolsLoading ? (
+                <div className="text-sm text-gray-500 dark:text-gray-400">
+                  {t('agents.tools.loading')}
+                </div>
+              ) : toolsByCategory.length === 0 ? (
+                <div className="text-sm text-gray-500 dark:text-gray-400">
+                  {t('agents.tools.empty')}
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {toolsByCategory.map(([category, items]) => (
+                    <div key={category} className="space-y-3">
+                      <div className="text-xs uppercase tracking-wide text-gray-400">
+                        {t(`agents.tools.categories.${category}`, category)}
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {items.map(tool => {
+                          const checked = selectedToolIds.includes(tool.id)
+                          return (
+                            <label
+                              key={tool.id}
+                              className={clsx(
+                                'flex items-start gap-3 p-3 rounded-lg border transition-colors cursor-pointer',
+                                checked
+                                  ? 'border-primary-400 bg-primary-50/40 dark:bg-primary-900/20'
+                                  : 'border-gray-200 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-800/40',
+                              )}
+                            >
+                              <Checkbox
+                                checked={checked}
+                                onChange={() => {
+                                  setSelectedToolIds(prev =>
+                                    prev.includes(tool.id)
+                                      ? prev.filter(id => id !== tool.id)
+                                      : [...prev, tool.id],
+                                  )
+                                }}
+                              />
+                              <div className="space-y-1">
+                                <div className="text-sm font-medium text-gray-800 dark:text-gray-100">
+                                  {tool.name}
+                                </div>
+                                <div className="text-xs text-gray-500 dark:text-gray-400">
+                                  {tool.description}
+                                </div>
+                              </div>
+                            </label>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>

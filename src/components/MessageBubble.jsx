@@ -490,6 +490,23 @@ const MessageBubble = ({
     }
   }, [planContent, t])
 
+  const providerId = message.provider || apiProvider
+  const provider = getProvider(providerId)
+  const parsed = provider.parseMessage(message)
+  const thoughtContent = message.thinkingEnabled === false ? null : parsed.thought
+  const mainContent = parsed.content
+
+  const { handleDownloadPdf, handleDownloadWord } = useMessageExport({
+    message,
+    planMarkdown,
+    thoughtContent,
+    mainContentRef,
+    researchExportRef,
+    thoughtExportRef,
+    conversationTitle,
+    t,
+  })
+
   // Sources UI State
   const [isSourcesOpen, setIsSourcesOpen] = useState(false) // Desktop
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false) // Mobile
@@ -958,7 +975,6 @@ const MessageBubble = ({
     )
   }
 
-  const providerId = message.provider || apiProvider
   const providerMeta = PROVIDER_META[providerId] || {
     label: providerId || 'AI',
     id: providerId,
@@ -978,11 +994,6 @@ const MessageBubble = ({
       ? t('deepResearch.agentName')
       : agentName
 
-  // Parse content using provider-specific logic
-  const provider = getProvider(providerId)
-  const parsed = provider.parseMessage(message)
-  const thoughtContent = message.thinkingEnabled === false ? null : parsed.thought
-  const mainContent = parsed.content
   const contentWithSupports = applyGroundingSupports(
     mainContent,
     message.groundingSupports,
@@ -1011,17 +1022,6 @@ const MessageBubble = ({
   const hasRelatedQuestions = Array.isArray(message.related) && message.related.length > 0
   const isRelatedLoading = !!message.relatedLoading
   const shouldShowRelated = !isDeepResearch && (hasRelatedQuestions || isRelatedLoading)
-  const { handleDownloadPdf, handleDownloadWord } = useMessageExport({
-    message,
-    planMarkdown,
-    thoughtContent,
-    mainContentRef,
-    researchExportRef,
-    thoughtExportRef,
-    conversationTitle,
-    t,
-  })
-
   return (
     <div
       id={messageId}

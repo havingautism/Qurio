@@ -238,11 +238,30 @@ const MessageBubble = ({
     return `<h2>${escapeHtml(label)}</h2>${html}`
   }
 
+  const shouldExportOnlyAnswer = () => {
+    if (message?.deepResearch) return true
+    if (message?.agent_name === 'Deep Research Agent' || message?.agentName === 'Deep Research Agent')
+      return true
+    if (message?.researchPlan) return true
+    if (typeof message?.thinking_process !== 'string') return false
+    const raw = message.thinking_process.trim()
+    if (!raw || raw[0] !== '{' || raw[raw.length - 1] !== '}') return false
+    try {
+      const parsed = JSON.parse(raw)
+      return Boolean(parsed?.plan)
+    } catch {
+      return false
+    }
+  }
+
   const buildExportHtml = () => {
     const planHtml = planMarkdown ? researchExportRef.current?.innerHTML?.trim() || '' : ''
     const thoughtHtml = thoughtContent ? thoughtExportRef.current?.innerHTML?.trim() || '' : ''
     const hasAnswer = Boolean(mainContentRef.current?.innerText?.trim())
     const answerHtml = hasAnswer ? mainContentRef.current?.innerHTML?.trim() || '' : ''
+    if (shouldExportOnlyAnswer()) {
+      return answerHtml || ''
+    }
     const sections = [
       getExportSectionHtml(t('messageBubble.researchProcess'), planHtml),
       getExportSectionHtml(t('messageBubble.thinkingProcess'), thoughtHtml),
@@ -532,7 +551,10 @@ const MessageBubble = ({
   const { t } = useTranslation()
   const { showConfirmation } = useAppContext()
   const isUser = message.role === 'user'
-  const isDeepResearch = !!message?.deepResearch
+  const isDeepResearch =
+    !!message?.deepResearch ||
+    message?.agent_name === 'Deep Research Agent' ||
+    message?.agentName === 'Deep Research Agent'
   const planContent = typeof message?.researchPlan === 'string' ? message.researchPlan.trim() : ''
 
   // Dynamic thinking status messages using translations
@@ -1006,15 +1028,41 @@ const MessageBubble = ({
           {/* Message Content */}
           {(() => {
             if (isDeepResearchContext) {
-              let displayContent = contentToRender
-              // Clean up the display content to only show the actual question
-              // Remove "Research question:" prefix
-              displayContent = displayContent.replace(/Research question:\s*/i, '')
-              // Remove "Research scope:..." and everything after
-              displayContent = displayContent.split(/Research scope:/i)[0]
-              // Remove "Output requirements:..." and everything after (just in case)
-              displayContent = displayContent.split(/Output requirements:/i)[0]
-              displayContent = displayContent.trim()
+              const rawContent = String(contentToRender || '').trim()
+              const questionLabel = t('homeView.deepResearchQuestionLabel')
+              const scopeLabel = t('homeView.deepResearchScopeLabel')
+              const outputLabel = t('homeView.deepResearchOutputLabel')
+              const labelPattern = label =>
+                new RegExp(`^\\s*${label.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}\\s*:\\s*(.+)$`)
+              const lines = rawContent.split(/\r?\n/).map(line => line.trim())
+              const matchLine = lines.find(line => labelPattern(questionLabel).test(line))
+              let displayContent = ''
+              if (matchLine) {
+                const match = matchLine.match(labelPattern(questionLabel))
+                displayContent = match?.[1]?.trim() || ''
+              }
+              if (!displayContent) {
+                const escapeLabel = label =>
+                  label.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')
+                let cleaned = rawContent
+                  .replace(new RegExp(`${escapeLabel(questionLabel)}\\s*:\\s*`, 'i'), '')
+                  .replace(/Research question:\s*/i, '')
+                const scopeIndex = cleaned.search(
+                  new RegExp(`\\n\\s*${escapeLabel(scopeLabel)}\\s*:`, 'i'),
+                )
+                const outputIndex = cleaned.search(
+                  new RegExp(`\\n\\s*${escapeLabel(outputLabel)}\\s*:`, 'i'),
+                )
+                const engScopeIndex = cleaned.search(/\n\s*Research scope\s*:/i)
+                const engOutputIndex = cleaned.search(/\n\s*Output requirements\s*:/i)
+                const cutIndex = [scopeIndex, outputIndex, engScopeIndex, engOutputIndex]
+                  .filter(index => index >= 0)
+                  .sort((a, b) => a - b)[0]
+                if (cutIndex !== undefined) {
+                  cleaned = cleaned.slice(0, cutIndex)
+                }
+                displayContent = cleaned.trim()
+              }
 
               return (
                 <div className="w-full max-w-2xl bg-white dark:bg-[#18181b]/50 backdrop-blur-sm rounded-2xl p-5 border border-gray-200 dark:border-zinc-800 shadow-sm mb-6 sm:mb-10 cursor-text select-text">

@@ -12,17 +12,20 @@ import { useAppContext } from '../App'
 import { updateConversation } from '../lib/conversationsService'
 import { getProvider, providerSupportsSearch, resolveThinkingToggleRule } from '../lib/providers'
 import QuestionTimelineController from './QuestionTimelineController'
+import ResearchTimelineController from './ResearchTimelineController'
 
 import { useSidebarOffset } from '../hooks/useSidebarOffset'
 import useChatHistory from '../hooks/chat/useChatHistory'
 import useSpaceManagement from '../hooks/chat/useSpaceManagement'
 import useAgentManagement from '../hooks/chat/useAgentManagement'
+import { getAgentDisplayName } from '../lib/agentDisplay'
+import { getSpaceDisplayLabel } from '../lib/spaceDisplay'
 import { loadSettings } from '../lib/settings'
 import { deleteMessageById } from '../lib/supabase'
 import ChatInputBar from './chat/ChatInputBar'
 import ChatHeader from './chat/ChatHeader'
 
-const ChatInterface = ({
+const DeepResearchChatInterface = ({
   spaces = [],
   activeConversation = null,
   initialMessage = '',
@@ -91,12 +94,19 @@ const ChatInterface = ({
   // New state for toggles and attachments
   const [isSearchActive, setIsSearchActive] = useState(false)
   const [isThinkingActive, setIsThinkingActive] = useState(false)
+  const [isDeepResearchActive, setIsDeepResearchActive] = useState(false)
 
   const isPlaceholderConversation = Boolean(activeConversation?._isPlaceholder)
 
-  const { toggleSidebar, agents: appAgents = [], defaultAgent } = useAppContext()
+  const {
+    toggleSidebar,
+    agents: appAgents = [],
+    defaultAgent,
+    deepResearchSpace,
+    deepResearchAgent,
+  } = useAppContext()
 
-  // Space management hook (must be called after useAppContext)
+  // Space management hook (must be called after useAppContext for deepResearchSpace)
   const {
     selectedSpace,
     isManualSpaceSelection,
@@ -104,6 +114,7 @@ const ChatInterface = ({
     selectorRef,
     displaySpace,
     availableSpaces,
+    isDeepResearchConversation,
     conversationSpace,
     setSelectedSpace,
     setIsManualSpaceSelection,
@@ -115,7 +126,7 @@ const ChatInterface = ({
     spaces,
     initialSpaceSelection,
     activeConversation,
-    deepResearchSpace: null,
+    deepResearchSpace,
     conversationId,
   })
 
@@ -148,8 +159,8 @@ const ChatInterface = ({
     isPlaceholderConversation,
     activeConversation,
     conversationId,
-    isDeepResearchConversation: false,
-    deepResearchAgent: null,
+    isDeepResearchConversation,
+    deepResearchAgent,
     selectedSpace,
     isManualSpaceSelection,
     isAgentPreselecting,
@@ -210,6 +221,27 @@ const ChatInterface = ({
   // conversationSpace is provided by useSpaceManagement hook
   // Function to reload space agents (used when space changes or settings change)
 
+  // Handle deep research agent (space is handled by useSpaceManagement hook)
+  useEffect(() => {
+    if (isDeepResearchConversation) {
+      // Enter deep research mode
+      if (deepResearchAgent?.id && deepResearchAgent.id !== selectedAgentId) {
+        setSelectedAgentId(deepResearchAgent.id)
+        setPendingAgentId(deepResearchAgent.id)
+        setIsAgentAutoMode(false)
+      }
+      if (!isDeepResearchActive) {
+        setIsDeepResearchActive(true)
+        setIsThinkingActive(false)
+      }
+    } else {
+      // Exit deep research mode - reset to normal
+      if (isDeepResearchActive) {
+        setIsDeepResearchActive(false)
+      }
+    }
+  }, [isDeepResearchConversation, deepResearchAgent, selectedAgentId, isDeepResearchActive])
+
   // reloadSpaceAgents is now provided by useAgentManagement hook
 
   const spaceAgents = useMemo(() => {
@@ -222,6 +254,9 @@ const ChatInterface = ({
   }, [appAgents, displaySpace?.id, spaceAgentIds])
 
   const selectableAgents = useMemo(() => {
+    if (isDeepResearchConversation && deepResearchAgent) {
+      return [deepResearchAgent]
+    }
     const list = [...spaceAgents]
     // Only include default agent if no space is selected (space is None)
     // When a space is selected, only show agents that are explicitly added to that space
@@ -245,6 +280,8 @@ const ChatInterface = ({
     selectedAgentId,
     appAgents,
     displaySpace,
+    isDeepResearchConversation,
+    deepResearchAgent,
   ])
 
   const selectedAgent = useMemo(() => {
@@ -413,7 +450,12 @@ const ChatInterface = ({
 
       // Set initial state
       if (initialToggles.search) setIsSearchActive(true)
-      if (initialToggles.thinking) setIsThinkingActive(true)
+      if (initialToggles.deepResearch) {
+        setIsDeepResearchActive(true)
+        setIsThinkingActive(false)
+      } else if (initialToggles.thinking) {
+        setIsThinkingActive(true)
+      }
 
       // CRITICAL: Sync conversationId to store IMMEDIATELY before sending
       // This ensures sendMessage uses the correct conversation ID
@@ -731,6 +773,16 @@ const ChatInterface = ({
   }, [displaySpace?.id, reloadSpaceAgents])
 
   useEffect(() => {
+    if (!isDeepResearchConversation || !deepResearchAgent?.id) return
+    if (selectedAgentId !== deepResearchAgent.id) {
+      setSelectedAgentId(deepResearchAgent.id)
+    }
+    if (pendingAgentId) {
+      setPendingAgentId(null)
+    }
+  }, [isDeepResearchConversation, deepResearchAgent?.id, selectedAgentId, pendingAgentId])
+
+  useEffect(() => {
     if (!displaySpace?.id) {
       // When no space is selected, handle pending agent and set to default if needed
       if (pendingAgentId) {
@@ -853,6 +905,12 @@ const ChatInterface = ({
   const [editingPartnerTimestamp, setEditingPartnerTimestamp] = useState(null)
   const [editingTargetId, setEditingTargetId] = useState(null)
   const [editingPartnerId, setEditingPartnerId] = useState(null)
+  const hasDeepResearchHistory = useMemo(
+    () => messages.some(message => message.role === 'user'),
+    [messages],
+  )
+  const isDeepResearchFollowUpLocked = isDeepResearchConversation && hasDeepResearchHistory
+  const isDeepResearchInputLocked = isDeepResearchFollowUpLocked && editingIndex === null
 
   const handleEdit = useCallback(
     index => {
@@ -892,7 +950,18 @@ const ChatInterface = ({
       const attToSend = attOverride !== null ? attOverride : []
       const searchActive = togglesOverride ? togglesOverride.search : isSearchActive
       const thinkingActive = togglesOverride ? togglesOverride.thinking : isThinkingActive
-      const relatedActive = togglesOverride ? togglesOverride.related : isRelatedEnabled
+      const deepResearchActive = togglesOverride
+        ? togglesOverride.deepResearch
+        : isDeepResearchActive
+      const relatedActive = deepResearchActive
+        ? false
+        : togglesOverride
+          ? togglesOverride.related
+          : isRelatedEnabled
+      const resolvedThinkingActive = deepResearchActive ? false : thinkingActive
+
+      const isEditing = Boolean(editingInfoOverride || editingIndex !== null)
+      if (isDeepResearchFollowUpLocked && !isEditing) return
 
       if (!textToSend.trim() && attToSend.length === 0) return
       if (isLoading) return
@@ -929,21 +998,29 @@ const ChatInterface = ({
       quoteTextRef.current = ''
       quoteSourceRef.current = ''
 
+      const resolvedDeepResearchAgent =
+        deepResearchActive && deepResearchAgent ? deepResearchAgent : null
       const agentForSend =
-        selectedAgent || (!isAgentAutoMode && initialAgentSelection) || defaultAgent || null
+        resolvedDeepResearchAgent ||
+        selectedAgent ||
+        (!isAgentAutoMode && initialAgentSelection) ||
+        defaultAgent ||
+        null
+      const agentAutoModeForSend = deepResearchActive ? false : isAgentAutoMode
 
       await sendMessage({
         text: textToSend,
         attachments: attToSend,
         toggles: {
           search: searchActive,
-          thinking: thinkingActive,
+          thinking: resolvedThinkingActive,
+          deepResearch: deepResearchActive,
           related: relatedActive,
         },
         settings,
         spaceInfo: { selectedSpace, isManualSpaceSelection },
         selectedAgent: agentForSend,
-        isAgentAutoMode,
+        isAgentAutoMode: agentAutoModeForSend,
         agents: appAgents,
         editingInfo,
         callbacks: {
@@ -969,6 +1046,8 @@ const ChatInterface = ({
     [
       isSearchActive,
       isThinkingActive,
+      isDeepResearchActive,
+      isDeepResearchFollowUpLocked,
       isRelatedEnabled,
       isLoading,
       editingIndex,
@@ -979,6 +1058,7 @@ const ChatInterface = ({
       selectedSpace,
       effectiveAgent,
       isAgentAutoMode,
+      deepResearchAgent,
       defaultAgent,
       isManualSpaceSelection,
       onTitleAndSpaceGenerated,
@@ -992,9 +1072,10 @@ const ChatInterface = ({
 
   const handleRelatedClick = useCallback(
     q => {
+      if (isDeepResearchFollowUpLocked) return
       handleSendMessage(q, [], null, { skipMeta: true })
     },
-    [handleSendMessage],
+    [handleSendMessage, isDeepResearchFollowUpLocked],
   )
 
   const handleQuote = useCallback(payload => {
@@ -1278,8 +1359,9 @@ const ChatInterface = ({
 
   // Create a ref for the messages scroll container
   const messagesContainerRef = useRef(null)
-  const inputAgent = selectedAgent
-  const inputAgentAutoMode = isAgentAutoMode
+  const inputAgent =
+    isDeepResearchConversation && deepResearchAgent ? deepResearchAgent : selectedAgent
+  const inputAgentAutoMode = isDeepResearchConversation ? false : isAgentAutoMode
 
   return (
     <div
@@ -1303,7 +1385,7 @@ const ChatInterface = ({
           isSelectorOpen={isSelectorOpen}
           setIsSelectorOpen={setIsSelectorOpen}
           selectorRef={selectorRef}
-          isDeepResearchConversation={false}
+          isDeepResearchConversation={isDeepResearchConversation}
           onSelectSpace={handleSelectSpace}
           onClearSpaceSelection={handleClearSpaceSelection}
           conversationTitle={conversationTitle}
@@ -1341,6 +1423,16 @@ const ChatInterface = ({
           </div>
         </div>
 
+        {/* Scroll to bottom button */}
+        {showScrollButton && (
+          <button
+            onClick={() => scrollToBottom('smooth')}
+            className="absolute bottom-8 left-1/2 -translate-x-1/2 p-2 bg-background border border-border rounded-full shadow-lg hover:bg-muted transition-all duration-300 animate-in fade-in slide-in-from-bottom-2 z-30"
+          >
+            <ArrowDown size={20} className="text-foreground" />
+          </button>
+        )}
+
         {/* Bottom Spacer to ensure messages aren't hidden by Input Area */}
 
         {/* Timeline Sidebar - Keep original QuestionNavigator for fallback on smaller screens */}
@@ -1358,114 +1450,124 @@ const ChatInterface = ({
         {/* </div> */}
 
         {/* New Timeline Sidebar */}
-        <QuestionTimelineController
-          messages={messages}
-          messageRefs={messageRefs}
-          messagesContainerRef={messagesContainerRef}
-          isOpen={isTimelineSidebarOpen}
-          onToggle={setIsTimelineSidebarOpen}
-        />
+        {isDeepResearchConversation ? (
+          <ResearchTimelineController
+            messages={messages}
+            messagesContainerRef={messagesContainerRef}
+            isOpen={isTimelineSidebarOpen}
+            onToggle={setIsTimelineSidebarOpen}
+          />
+        ) : (
+          <QuestionTimelineController
+            messages={messages}
+            messageRefs={messageRefs}
+            messagesContainerRef={messagesContainerRef}
+            isOpen={isTimelineSidebarOpen}
+            onToggle={setIsTimelineSidebarOpen}
+          />
+        )}
 
         {/* Input Area */}
-        <div className="w-full shrink-0 bg-background pt-0 pb-[calc(0.75rem+env(safe-area-inset-bottom))] px-2 sm:px-0 flex justify-center z-20">
-          <div className="w-full max-w-3xl relative">
-            {/* Scroll to bottom button - positioned relative to input area */}
-            {showScrollButton && (
-              <button
-                onClick={() => scrollToBottom('smooth')}
-                className="absolute bottom-40 left-1/2 -translate-x-1/2 p-2 bg-background border border-border rounded-full shadow-lg hover:bg-muted transition-all duration-300 animate-in fade-in slide-in-from-bottom-2 z-30"
-              >
-                <ArrowDown size={20} className="text-foreground" />
-              </button>
-            )}
-
-            <ChatInputBar
-              isLoading={isLoading}
-              apiProvider={effectiveProvider}
-              isSearchActive={isSearchActive}
-              isThinkingActive={isThinkingActive}
-              isThinkingLocked={isThinkingLocked}
-              isFollowUpLocked={false}
-              agents={selectableAgents}
-              agentsLoading={isAgentsLoading}
-              agentsLoadingLabel={agentsLoadingLabel}
-              agentsLoadingDots={agentLoadingDots}
-              selectedAgent={inputAgent}
-              isAgentAutoMode={inputAgentAutoMode}
-              isAgentSelectionLocked={false}
-              onAgentSelect={agent => {
-                setSelectedAgentId(agent?.id || null)
-                setIsAgentAutoMode(false)
-                setPendingAgentId(null)
-                setIsAgentSelectorOpen(false)
-                const targetConversationId = activeConversation?.id || conversationId
-                manualAgentSelectionRef.current = {
-                  conversationId: targetConversationId || null,
-                  mode: 'manual',
-                  agentId: agent?.id || null,
+        {!isDeepResearchInputLocked && (
+          <div className="w-full shrink-0 bg-background pt-0 pb-[calc(0.75rem+env(safe-area-inset-bottom))] px-2 sm:px-0 flex justify-center z-20">
+            <div className="w-full max-w-3xl relative">
+              <ChatInputBar
+                isLoading={isLoading}
+                apiProvider={effectiveProvider}
+                isSearchActive={isSearchActive}
+                isThinkingActive={isThinkingActive}
+                isThinkingLocked={isThinkingLocked}
+                isFollowUpLocked={isDeepResearchInputLocked}
+                agents={selectableAgents}
+                agentsLoading={isAgentsLoading}
+                agentsLoadingLabel={agentsLoadingLabel}
+                agentsLoadingDots={agentLoadingDots}
+                selectedAgent={inputAgent}
+                isAgentAutoMode={inputAgentAutoMode}
+                isAgentSelectionLocked={isDeepResearchConversation}
+                onAgentSelect={agent => {
+                  if (isDeepResearchConversation) return
+                  setSelectedAgentId(agent?.id || null)
+                  setIsAgentAutoMode(false)
+                  setPendingAgentId(null)
+                  setIsAgentSelectorOpen(false)
+                  const targetConversationId = activeConversation?.id || conversationId
+                  manualAgentSelectionRef.current = {
+                    conversationId: targetConversationId || null,
+                    mode: 'manual',
+                    agentId: agent?.id || null,
+                  }
+                  if (targetConversationId) {
+                    updateConversation(targetConversationId, {
+                      last_agent_id: agent?.id || null,
+                      agent_selection_mode: 'manual',
+                    }).catch(err => console.error('Failed to update agent selection mode:', err))
+                  }
+                }}
+                onAgentAutoModeToggle={() => {
+                  if (isDeepResearchConversation) return
+                  setSelectedAgentId(null) // Clear selected agent when entering auto mode
+                  setIsAgentAutoMode(true)
+                  setPendingAgentId(null)
+                  setIsAgentSelectorOpen(false)
+                  const targetConversationId = activeConversation?.id || conversationId
+                  manualAgentSelectionRef.current = {
+                    conversationId: targetConversationId || null,
+                    mode: 'auto',
+                    agentId: null,
+                  }
+                  if (targetConversationId) {
+                    updateConversation(targetConversationId, {
+                      last_agent_id: null,
+                      agent_selection_mode: 'auto',
+                    }).catch(err => console.error('Failed to update agent selection mode:', err))
+                  }
+                }}
+                isAgentSelectorOpen={isAgentSelectorOpen}
+                onAgentSelectorToggle={() => {
+                  if (isDeepResearchConversation) return
+                  setIsAgentSelectorOpen(prev => !prev)
+                }}
+                agentSelectorRef={agentSelectorRef}
+                onToggleSearch={() => setIsSearchActive(prev => !prev)}
+                onToggleThinking={() =>
+                  setIsThinkingActive(prev => {
+                    const next = !prev
+                    if (next) setIsDeepResearchActive(false)
+                    return next
+                  })
                 }
-                if (targetConversationId) {
-                  updateConversation(targetConversationId, {
-                    last_agent_id: agent?.id || null,
-                    agent_selection_mode: 'manual',
-                  }).catch(err => console.error('Failed to update agent selection mode:', err))
+                quotedText={quotedText}
+                onQuoteClear={() => {
+                  setQuotedText(null)
+                  setQuoteContext(null)
+                  quoteTextRef.current = ''
+                  quoteSourceRef.current = ''
+                }}
+                onSend={(text, attachments) =>
+                  handleSendMessage(text, attachments, null, { skipMeta: false })
                 }
-              }}
-              onAgentAutoModeToggle={() => {
-                setSelectedAgentId(null) // Clear selected agent when entering auto mode
-                setIsAgentAutoMode(true)
-                setPendingAgentId(null)
-                setIsAgentSelectorOpen(false)
-                const targetConversationId = activeConversation?.id || conversationId
-                manualAgentSelectionRef.current = {
-                  conversationId: targetConversationId || null,
-                  mode: 'auto',
-                  agentId: null,
+                editingSeed={editingSeed}
+                onEditingClear={() => {
+                  setEditingIndex(null)
+                  setEditingSeed({ text: '', attachments: [] })
+                }}
+                showEditing={editingIndex !== null && messages[editingIndex]}
+                editingLabel={
+                  editingIndex !== null ? extractUserQuestion(messages[editingIndex]) : ''
                 }
-                if (targetConversationId) {
-                  updateConversation(targetConversationId, {
-                    last_agent_id: null,
-                    agent_selection_mode: 'auto',
-                  }).catch(err => console.error('Failed to update agent selection mode:', err))
-                }
-              }}
-              isAgentSelectorOpen={isAgentSelectorOpen}
-              onAgentSelectorToggle={() => {
-                setIsAgentSelectorOpen(prev => !prev)
-              }}
-              agentSelectorRef={agentSelectorRef}
-              onToggleSearch={() => setIsSearchActive(prev => !prev)}
-              onToggleThinking={() => setIsThinkingActive(prev => !prev)}
-              quotedText={quotedText}
-              onQuoteClear={() => {
-                setQuotedText(null)
-                setQuoteContext(null)
-                quoteTextRef.current = ''
-                quoteSourceRef.current = ''
-              }}
-              onSend={(text, attachments) =>
-                handleSendMessage(text, attachments, null, { skipMeta: false })
-              }
-              editingSeed={editingSeed}
-              onEditingClear={() => {
-                setEditingIndex(null)
-                setEditingSeed({ text: '', attachments: [] })
-              }}
-              showEditing={editingIndex !== null && messages[editingIndex]}
-              editingLabel={
-                editingIndex !== null ? extractUserQuestion(messages[editingIndex]) : ''
-              }
-              scrollToBottom={scrollToBottom}
-              spacePrimaryAgentId={spacePrimaryAgentId}
-            />
-            <div className="text-center mt-2 text-xs text-gray-400 dark:text-gray-500">
-              Qurio can make mistakes. Please use with caution.
+                scrollToBottom={scrollToBottom}
+                spacePrimaryAgentId={spacePrimaryAgentId}
+              />
+              <div className="text-center mt-2 text-xs text-gray-400 dark:text-gray-500">
+                Qurio can make mistakes. Please use with caution.
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   )
 }
 
-export default ChatInterface
+export default DeepResearchChatInterface

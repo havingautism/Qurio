@@ -159,6 +159,7 @@ const ChatInterface = ({
     initialIsAgentAutoMode,
     isPlaceholderConversation,
     activeConversation,
+    conversationId,
     isDeepResearchConversation,
     deepResearchAgent,
     selectedSpace,
@@ -223,15 +224,22 @@ const ChatInterface = ({
 
   // Handle deep research agent (space is handled by useSpaceManagement hook)
   useEffect(() => {
-    if (!isDeepResearchConversation) return
-    if (deepResearchAgent?.id && deepResearchAgent.id !== selectedAgentId) {
-      setSelectedAgentId(deepResearchAgent.id)
-      setPendingAgentId(deepResearchAgent.id)
-      setIsAgentAutoMode(false)
-    }
-    if (!isDeepResearchActive) {
-      setIsDeepResearchActive(true)
-      setIsThinkingActive(false)
+    if (isDeepResearchConversation) {
+      // Enter deep research mode
+      if (deepResearchAgent?.id && deepResearchAgent.id !== selectedAgentId) {
+        setSelectedAgentId(deepResearchAgent.id)
+        setPendingAgentId(deepResearchAgent.id)
+        setIsAgentAutoMode(false)
+      }
+      if (!isDeepResearchActive) {
+        setIsDeepResearchActive(true)
+        setIsThinkingActive(false)
+      }
+    } else {
+      // Exit deep research mode - reset to normal
+      if (isDeepResearchActive) {
+        setIsDeepResearchActive(false)
+      }
     }
   }, [isDeepResearchConversation, deepResearchAgent, selectedAgentId, isDeepResearchActive])
 

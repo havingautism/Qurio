@@ -13,6 +13,7 @@ import { listSpaceAgents } from '../../lib/spacesService'
  * @param {boolean} params.initialIsAgentAutoMode - Whether initial agent mode is auto
  * @param {boolean} params.isPlaceholderConversation - Whether conversation is a placeholder
  * @param {object} params.activeConversation - Current active conversation
+ * @param {string} params.conversationId - Current conversation ID
  * @param {boolean} params.isDeepResearchConversation - Whether this is a deep research conversation
  * @param {object} params.deepResearchAgent - Deep research agent configuration
  * @param {object} params.selectedSpace - Currently selected space
@@ -47,6 +48,7 @@ const useAgentManagement = ({
   initialIsAgentAutoMode,
   isPlaceholderConversation,
   activeConversation,
+  conversationId,
   isDeepResearchConversation,
   deepResearchAgent,
   selectedSpace,

@@ -24,8 +24,6 @@ const DEFAULT_MODELS = {
   kimi: 'moonshot-v1-8k',
 }
 
- 
-
 /**
  * Apply context limit to messages
  */
@@ -246,8 +244,7 @@ const mergeToolCallsByIndex = (toolCallsByIndex, newToolCalls) => {
   if (!Array.isArray(newToolCalls)) return
 
   for (const toolCall of newToolCalls) {
-    const index =
-      typeof toolCall?.index === 'number' ? toolCall.index : toolCallsByIndex.length
+    const index = typeof toolCall?.index === 'number' ? toolCall.index : toolCallsByIndex.length
     const current = toolCallsByIndex[index] || {}
     const currentFunction = current.function || {}
     const nextFunction = toolCall?.function || {}
@@ -266,6 +263,37 @@ const mergeToolCallsByIndex = (toolCallsByIndex, newToolCalls) => {
       },
     }
   }
+}
+
+const getToolCallsFromResponse = response => {
+  const raw = response?.additional_kwargs?.__raw_response
+  const choice = raw?.choices?.[0]
+  const message = choice?.message
+  return (
+    message?.tool_calls || response?.additional_kwargs?.tool_calls || response?.tool_calls || null
+  )
+}
+
+const getFinishReasonFromResponse = response => {
+  const raw = response?.additional_kwargs?.__raw_response
+  return raw?.choices?.[0]?.finish_reason || null
+}
+
+const getResponseContent = response => {
+  const raw = response?.additional_kwargs?.__raw_response
+  const message = raw?.choices?.[0]?.message
+  return message?.content ?? response?.content
+}
+
+const getResponseReasoning = response => {
+  const raw = response?.additional_kwargs?.__raw_response
+  return (
+    raw?.choices?.[0]?.message?.reasoning_content ||
+    raw?.choices?.[0]?.message?.reasoning ||
+    response?.additional_kwargs?.reasoning_content ||
+    response?.additional_kwargs?.reasoning ||
+    null
+  )
 }
 
 // ============================================================================
@@ -643,6 +671,24 @@ export const streamChat = async function* (params) {
     })
   }
 
+  const nonStreamingKimiModel =
+    provider === 'kimi' && stream
+      ? buildKimiModel({
+          apiKey,
+          model,
+          temperature,
+          top_k,
+          top_p,
+          frequency_penalty,
+          presence_penalty,
+          tools,
+          toolChoice,
+          responseFormat,
+          thinking,
+          streaming: false,
+        })
+      : null
+
   if (debugStream) {
     console.log('[streamChat] Model created, calling stream()...')
   }
@@ -681,9 +727,9 @@ export const streamChat = async function* (params) {
         thinking,
       })
       const streamResponse = await modelInstance.client.generateContentStream(payload, { signal })
-      const stream = streamResponse?.stream || streamResponse
+      const streamIterator = streamResponse?.stream || streamResponse
 
-      for await (const response of stream) {
+      for await (const response of streamIterator) {
         const groundingMetadata = response?.candidates?.[0]?.groundingMetadata
         if (debugSources && groundingMetadata && !loggedGemini) {
           loggedGemini = true
@@ -732,16 +778,95 @@ export const streamChat = async function* (params) {
     let lastFinishReason = null
     let safetyCounter = 0
 
+    let preProcessedToolCall = false
+
     while (true) {
       safetyCounter += 1
       if (safetyCounter > 3) break
+
+      if (provider === 'kimi' && stream && !preProcessedToolCall) {
+        const nonStreamMessages = toLangChainMessages(currentMessages)
+        const response = await nonStreamingKimiModel.invoke(
+          nonStreamMessages,
+          signal ? { signal } : undefined,
+        )
+
+        const finishReason = getFinishReasonFromResponse(response)
+        const toolCalls = getToolCallsFromResponse(response)
+
+        if (debugSources && response?.additional_kwargs?.__raw_response) {
+          console.log(
+            '[streamChat] kimi non-stream __raw_response:',
+            JSON.stringify(response.additional_kwargs.__raw_response).slice(0, 4000),
+          )
+        }
+
+        if (finishReason === 'tool_calls' && Array.isArray(toolCalls) && toolCalls.length > 0) {
+          const assistantToolCalls = toolCalls
+            .map(toolCall => ({
+              id: toolCall.id,
+              type: toolCall.type,
+              function: toolCall.function
+                ? { name: toolCall.function.name, arguments: toolCall.function.arguments || '' }
+                : undefined,
+            }))
+            .filter(toolCall => toolCall?.id && toolCall?.function?.name)
+
+          if (assistantToolCalls.length > 0) {
+            currentMessages = [
+              ...currentMessages,
+              { role: 'assistant', content: '', tool_calls: assistantToolCalls },
+            ]
+
+            for (const toolCall of assistantToolCalls) {
+              const rawArgs = getToolCallArguments(toolCall)
+              const toolArgs = typeof rawArgs === 'string' ? rawArgs : JSON.stringify(rawArgs ?? {})
+              currentMessages.push({
+                role: 'tool',
+                tool_call_id: toolCall.id,
+                name: toolCall.function.name,
+                content: toolArgs,
+              })
+            }
+          }
+
+          preProcessedToolCall = true
+          continue
+        }
+
+        const contentValue = getResponseContent(response)
+        const chunkText = normalizeTextContent(contentValue)
+        if (chunkText) {
+          handleTaggedText(chunkText)
+          while (chunks.length > 0) {
+            yield chunks.shift()
+          }
+        }
+
+        const reasoning = getResponseReasoning(response)
+        if (reasoning) {
+          emitThought(String(reasoning))
+          while (chunks.length > 0) {
+            yield chunks.shift()
+          }
+        }
+
+        yield {
+          type: 'done',
+          content: fullContent,
+          thought: fullThought || undefined,
+          sources: sourcesMap.size ? Array.from(sourcesMap.values()) : undefined,
+          toolCalls: undefined,
+        }
+        return
+      }
 
       const toolCallsMap = new Map()
       const toolCallsByIndex = []
       lastFinishReason = null
 
       const langchainMessages = toLangChainMessages(currentMessages)
-      const stream = await modelInstance.stream(
+      const streamIterator = await modelInstance.stream(
         langchainMessages,
         signal ? { signal } : undefined,
       )
@@ -750,7 +875,7 @@ export const streamChat = async function* (params) {
         console.log('[streamChat] Stream created, iterating chunks...')
       }
 
-      for await (const chunk of stream) {
+      for await (const chunk of streamIterator) {
         const messageChunk = chunk?.message ?? chunk
         const contentValue = messageChunk?.content ?? chunk?.content
         if (debugSources && !loggedAdditional && messageChunk?.additional_kwargs) {
@@ -888,12 +1013,12 @@ export const streamChat = async function* (params) {
 
             for (const toolCall of assistantToolCalls) {
               const rawArgs = getToolCallArguments(toolCall)
-              const parsedArgs = typeof rawArgs === 'string' ? safeJsonParse(rawArgs) : rawArgs
+              const toolArgs = typeof rawArgs === 'string' ? rawArgs : JSON.stringify(rawArgs ?? {})
               currentMessages.push({
                 role: 'tool',
                 tool_call_id: toolCall.id,
                 name: toolCall.function.name,
-                content: JSON.stringify(parsedArgs ?? {}),
+                content: toolArgs,
               })
             }
 
@@ -909,7 +1034,10 @@ export const streamChat = async function* (params) {
 
     // Final result
     if (debugStream) {
-      console.log('[streamChat] Stream completed, yielding done. Content length:', fullContent.length)
+      console.log(
+        '[streamChat] Stream completed, yielding done. Content length:',
+        fullContent.length,
+      )
     }
     yield {
       type: 'done',

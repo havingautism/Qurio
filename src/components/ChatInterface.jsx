@@ -7,23 +7,7 @@ import FancyLoader from './FancyLoader'
 import MessageList from './MessageList'
 // import QuestionNavigator from './QuestionNavigator'
 import clsx from 'clsx'
-import {
-  ArrowDown,
-  ArrowRight,
-  Brain,
-  Check,
-  ChevronDown,
-  FileText,
-  Globe,
-  Image,
-  LayoutGrid,
-  Menu,
-  PanelRightOpen,
-  Paperclip,
-  Smile,
-  Sparkles,
-  X,
-} from 'lucide-react'
+import { ArrowDown, ArrowRight, FileText, Globe, Image, Paperclip, Smile, X } from 'lucide-react'
 import { useAppContext } from '../App'
 import { updateConversation } from '../lib/conversationsService'
 import { getProvider, providerSupportsSearch, resolveThinkingToggleRule } from '../lib/providers'
@@ -31,13 +15,16 @@ import QuestionTimelineController from './QuestionTimelineController'
 import ResearchTimelineController from './ResearchTimelineController'
 
 import { useSidebarOffset } from '../hooks/useSidebarOffset'
+import useChatHistory from '../hooks/chat/useChatHistory'
+import useSpaceManagement from '../hooks/chat/useSpaceManagement'
+import useAgentManagement from '../hooks/chat/useAgentManagement'
 import { getAgentDisplayName } from '../lib/agentDisplay'
 import { getSpaceDisplayLabel } from '../lib/spaceDisplay'
-import { listMessages } from '../lib/conversationsService'
 import { loadSettings } from '../lib/settings'
-import { listSpaceAgents } from '../lib/spacesService'
 import { deleteMessageById } from '../lib/supabase'
 import EmojiDisplay from './EmojiDisplay'
+import ChatInputBar from './chat/ChatInputBar'
+import ChatHeader from './chat/ChatHeader'
 
 const ChatInterface = ({
   spaces = [],
@@ -111,13 +98,7 @@ const ChatInterface = ({
   const [isDeepResearchActive, setIsDeepResearchActive] = useState(false)
 
   const isPlaceholderConversation = Boolean(activeConversation?._isPlaceholder)
-  const [selectedSpace, setSelectedSpace] = useState(initialSpaceSelection.space || null)
-  const [isSelectorOpen, setIsSelectorOpen] = useState(false)
-  const selectorRef = useRef(null)
-  const agentSelectorRef = useRef(null)
-  const [isManualSpaceSelection, setIsManualSpaceSelection] = useState(
-    initialSpaceSelection.mode === 'manual',
-  )
+
   const {
     toggleSidebar,
     agents: appAgents = [],
@@ -125,43 +106,93 @@ const ChatInterface = ({
     deepResearchSpace,
     deepResearchAgent,
   } = useAppContext()
-  const [spaceAgentIds, setSpaceAgentIds] = useState([])
-  const [spacePrimaryAgentId, setSpacePrimaryAgentId] = useState(null)
-  const [isAgentsLoading, setIsAgentsLoading] = useState(false)
-  const [selectedAgentId, setSelectedAgentId] = useState(null)
-  const [isAgentAutoMode, setIsAgentAutoMode] = useState(() => {
-    if (isPlaceholderConversation) return initialIsAgentAutoMode
-    return activeConversation?.agent_selection_mode !== 'manual'
+
+  // Space management hook (must be called after useAppContext for deepResearchSpace)
+  const {
+    selectedSpace,
+    isManualSpaceSelection,
+    isSelectorOpen,
+    selectorRef,
+    displaySpace,
+    availableSpaces,
+    isDeepResearchConversation,
+    conversationSpace,
+    setSelectedSpace,
+    setIsManualSpaceSelection,
+    setIsSelectorOpen,
+    handleSelectSpace,
+    handleClearSpaceSelection,
+    manualSpaceOverrideRef,
+  } = useSpaceManagement({
+    spaces,
+    initialSpaceSelection,
+    activeConversation,
+    deepResearchSpace,
+    conversationId,
   })
-  const [isAgentSelectorOpen, setIsAgentSelectorOpen] = useState(false)
-  const [pendingAgentId, setPendingAgentId] = useState(null)
-  const [agentLoadingDots, setAgentLoadingDots] = useState('')
-  const manualSpaceOverrideRef = useRef({ conversationId: null, spaceId: null })
+
+  // Agent management hook
+  const {
+    spaceAgentIds,
+    spacePrimaryAgentId,
+    isAgentsLoading,
+    agentsLoadingLabel,
+    agentLoadingDots,
+    isAgentResolving,
+    selectedAgentId,
+    isAgentAutoMode,
+    isAgentSelectorOpen,
+    pendingAgentId,
+    setSelectedAgentId,
+    setIsAgentAutoMode,
+    setIsAgentSelectorOpen,
+    setPendingAgentId,
+    reloadSpaceAgents,
+    manualAgentSelectionRef,
+    agentSelectorRef,
+    initialAgentAppliedRef,
+  } = useAgentManagement({
+    appAgents,
+    defaultAgent,
+    displaySpace,
+    initialAgentSelection,
+    initialIsAgentAutoMode,
+    isPlaceholderConversation,
+    activeConversation,
+    isDeepResearchConversation,
+    deepResearchAgent,
+    selectedSpace,
+    isManualSpaceSelection,
+    isAgentPreselecting,
+    t,
+  })
+
+  // Chat history hook (manages message loading and history state)
+  const isSwitchingConversation = Boolean(
+    activeConversation?.id && activeConversation.id !== conversationId,
+  )
+  const {
+    isLoadingHistory,
+    showHistoryLoader,
+    loadConversationMessages,
+    hasLoadedMessages,
+    loadedMessagesRef,
+    setIsLoadingHistory,
+  } = useChatHistory({
+    activeConversation,
+    conversationId,
+    effectiveDefaultModel: defaultAgent?.model || 'gpt-4o',
+    isSwitchingConversation,
+  })
+
   const initialAgentSelectionId = initialAgentSelection?.id || null
-  const initialAgentAppliedRef = useRef({
-    key: null,
-    agentId: null,
-    isAgentAutoMode: null,
-  })
-  const manualAgentSelectionRef = useRef({
-    conversationId: null,
-    mode: null,
-    agentId: null,
-  })
 
   const [settings, setSettings] = useState(loadSettings())
   const isRelatedEnabled = Boolean(settings.enableRelatedQuestions)
-  const [isLoadingHistory, setIsLoadingHistory] = useState(false)
-  const [showHistoryLoader, setShowHistoryLoader] = useState(false)
-  const historyLoaderTimeoutRef = useRef(null)
-  const loadedMessagesRef = useRef(new Set())
   const messageRefs = useRef({})
   const bottomRef = useRef(null)
   const [showScrollButton, setShowScrollButton] = useState(false)
   const [isRegeneratingTitle, setIsRegeneratingTitle] = useState(false)
-  const isSwitchingConversation = Boolean(
-    activeConversation?.id && activeConversation.id !== conversationId,
-  )
   const lastLoadedConversationIdRef = useRef(null)
 
   // Track the last synced conversation ID to avoid redundant updates
@@ -187,58 +218,12 @@ const ChatInterface = ({
     }
   }, [activeConversation?.id, conversationId, setConversationId])
 
-  useEffect(() => {
-    const shouldShow = isLoadingHistory || isSwitchingConversation
-    if (shouldShow) {
-      if (historyLoaderTimeoutRef.current) return
-      historyLoaderTimeoutRef.current = setTimeout(() => {
-        setShowHistoryLoader(true)
-        historyLoaderTimeoutRef.current = null
-      }, 200)
-      return
-    }
+  // conversationSpace is provided by useSpaceManagement hook
+  // Function to reload space agents (used when space changes or settings change)
 
-    if (historyLoaderTimeoutRef.current) {
-      clearTimeout(historyLoaderTimeoutRef.current)
-      historyLoaderTimeoutRef.current = null
-    }
-    if (showHistoryLoader) {
-      setShowHistoryLoader(false)
-    }
-  }, [isLoadingHistory, isSwitchingConversation, showHistoryLoader])
-  const conversationSpace = useMemo(() => {
-    if (!activeConversation?.space_id) return null
-    const sid = String(activeConversation.space_id)
-    return spaces.find(s => String(s.id) === sid) || null
-  }, [activeConversation?.space_id, spaces])
-  // If user has manually selected a space (or None), use that; otherwise use conversation's space
-  const displaySpace = useMemo(() => {
-    const result = isManualSpaceSelection
-      ? selectedSpace
-      : selectedSpace || conversationSpace || null
-    return result
-  }, [isManualSpaceSelection, selectedSpace, conversationSpace])
-  const isDeepResearchConversation = Boolean(
-    deepResearchSpace?.id &&
-    displaySpace?.id &&
-    String(displaySpace.id) === String(deepResearchSpace.id),
-  )
-  const availableSpaces = useMemo(() => {
-    if (isDeepResearchConversation) return spaces
-    const deepResearchId = deepResearchSpace?.id ? String(deepResearchSpace.id) : null
-    return spaces.filter(
-      space =>
-        !(space?.isDeepResearchSystem || space?.isDeepResearch || space?.is_deep_research) &&
-        (!deepResearchId || String(space.id) !== deepResearchId),
-    )
-  }, [spaces, isDeepResearchConversation, deepResearchSpace?.id])
-
+  // Handle deep research agent (space is handled by useSpaceManagement hook)
   useEffect(() => {
     if (!isDeepResearchConversation) return
-    if (deepResearchSpace && deepResearchSpace.id !== selectedSpace?.id) {
-      setSelectedSpace(deepResearchSpace)
-      setIsManualSpaceSelection(true)
-    }
     if (deepResearchAgent?.id && deepResearchAgent.id !== selectedAgentId) {
       setSelectedAgentId(deepResearchAgent.id)
       setPendingAgentId(deepResearchAgent.id)
@@ -248,46 +233,9 @@ const ChatInterface = ({
       setIsDeepResearchActive(true)
       setIsThinkingActive(false)
     }
-  }, [
-    isDeepResearchConversation,
-    deepResearchSpace,
-    deepResearchAgent,
-    selectedSpace?.id,
-    selectedAgentId,
-    isDeepResearchActive,
-  ])
+  }, [isDeepResearchConversation, deepResearchAgent, selectedAgentId, isDeepResearchActive])
 
-  // Function to reload space agents (used when space changes or settings change)
-  const reloadSpaceAgents = useCallback(async () => {
-    if (!displaySpace?.id) {
-      setSpaceAgentIds([])
-      setSpacePrimaryAgentId(null)
-      if (!pendingAgentId && !selectedAgentId) {
-        setSelectedAgentId(defaultAgent?.id || null)
-      }
-      setIsAgentsLoading(false)
-      return
-    }
-    setIsAgentsLoading(true)
-    try {
-      const { data, error } = await listSpaceAgents(displaySpace.id)
-      if (!error && data) {
-        const newAgentIds = data.map(item => item.agent_id)
-        const primaryAgentId = data.find(item => item.is_primary)?.agent_id || null
-        setSpaceAgentIds(newAgentIds)
-        setSpacePrimaryAgentId(primaryAgentId)
-      } else {
-        setSpaceAgentIds([])
-        setSpacePrimaryAgentId(null)
-      }
-    } catch (err) {
-      console.error('Failed to reload space agents:', err)
-      setSpaceAgentIds([])
-      setSpacePrimaryAgentId(null)
-    } finally {
-      setIsAgentsLoading(false)
-    }
-  }, [displaySpace?.id, defaultAgent?.id, pendingAgentId, selectedAgentId])
+  // reloadSpaceAgents is now provided by useAgentManagement hook
 
   const spaceAgents = useMemo(() => {
     if (!displaySpace?.id) {
@@ -349,23 +297,7 @@ const ChatInterface = ({
   //   }
   // }, [messages, selectedAgentId])
 
-  // Agent resolving includes: space agents loading, pending agent from UI, or agent preselection in auto mode
-  const isAgentResolving = isAgentsLoading || pendingAgentId !== null || isAgentPreselecting
-  const baseAgentsLoadingLabel = t('chatInterface.agentsLoading')
-  const agentsLoadingLabel = `${baseAgentsLoadingLabel.replace(/\.\.\.$/, '')}${agentLoadingDots}`
-
-  useEffect(() => {
-    if (!isAgentResolving) {
-      setAgentLoadingDots('')
-      return
-    }
-    let step = 0
-    const interval = setInterval(() => {
-      step = (step + 1) % 4
-      setAgentLoadingDots('.'.repeat(step))
-    }, 450)
-    return () => clearInterval(interval)
-  }, [isAgentResolving])
+  // agentsLoadingLabel is now provided by useAgentManagement hook
 
   const effectiveAgent = useMemo(
     () => selectedAgent || defaultAgent || null,
@@ -459,25 +391,13 @@ const ChatInterface = ({
       if (!nextProvider || !providerSupportsSearch(nextProvider)) {
         setIsSearchActive(false)
       }
-      // Reload space agents when settings change (e.g., default agent changed in space settings)
-      reloadSpaceAgents()
-    }
-
-    const handleSpaceAgentsChange = event => {
-      const { spaceId } = event.detail || {}
-      // Only reload if the changed space matches the current display space
-      if (displaySpace?.id && String(displaySpace.id) === String(spaceId)) {
-        reloadSpaceAgents()
-      }
     }
 
     window.addEventListener('settings-changed', handleSettingsChange)
-    window.addEventListener('space-agents-changed', handleSpaceAgentsChange)
     return () => {
       window.removeEventListener('settings-changed', handleSettingsChange)
-      window.removeEventListener('space-agents-changed', handleSpaceAgentsChange)
     }
-  }, [effectiveAgent?.provider, reloadSpaceAgents, displaySpace?.id])
+  }, [effectiveAgent?.provider, defaultAgent?.provider])
 
   useEffect(() => {
     const processInitialMessage = async () => {
@@ -722,53 +642,12 @@ const ChatInterface = ({
       // Space is synced by unified logic above
       const conversationLastAgentId =
         activeConversation?.last_agent_id ?? activeConversation?.lastAgentId ?? null
-      const { data, error } = await listMessages(activeConversation.id)
-      if (!error && data) {
+      const { data: mapped, error } = await loadConversationMessages(activeConversation.id)
+      if (!error && mapped) {
         if (messages.length > 0 && (isProcessingInitial.current || hasInitialized.current)) {
           setIsLoadingHistory(false)
           return
         }
-        const mapped = data.map(m => {
-          const { content: cleanedContent, thought: thoughtFromContent } = splitThoughtFromContent(
-            m.content,
-          )
-          const rawThought = m.thinking_process ?? m.thought ?? thoughtFromContent ?? undefined
-          let thought = rawThought
-          let researchPlan = null
-          if (typeof rawThought === 'string') {
-            try {
-              const parsedThought = JSON.parse(rawThought)
-              if (parsedThought && typeof parsedThought === 'object') {
-                if (typeof parsedThought.thought === 'string') thought = parsedThought.thought
-                if (typeof parsedThought.plan === 'string') researchPlan = parsedThought.plan
-              }
-            } catch {}
-          }
-
-          return {
-            id: m.id,
-            created_at: m.created_at,
-            role: m.role === 'assistant' ? 'ai' : m.role,
-            content: cleanedContent,
-            thought,
-            researchPlan: researchPlan || '',
-            deepResearch: !!researchPlan,
-            related: m.related_questions || undefined,
-            tool_calls: m.tool_calls || undefined,
-            sources: m.sources || undefined,
-            groundingSupports: m.grounding_supports || undefined,
-            provider: m.provider || activeConversation?.api_provider,
-            model: m.model || effectiveDefaultModel,
-            agentId: m.agent_id ?? m.agentId ?? null,
-            agentName: m.agent_name ?? m.agentName ?? null,
-            agentEmoji: m.agent_emoji ?? m.agentEmoji ?? '',
-            agentIsDefault: m.agent_is_default ?? m.agentIsDefault ?? false,
-            thinkingEnabled:
-              m.is_thinking_enabled ??
-              m.generated_with_thinking ??
-              (thought || researchPlan ? true : undefined),
-          }
-        })
         setMessages(mapped)
         // Restore agent selection mode from conversation unless user just picked manually
         const shouldSyncAgent =
@@ -808,39 +687,6 @@ const ChatInterface = ({
     isManualSpaceSelection,
     appAgents,
     defaultAgent?.id,
-  ])
-
-  useEffect(() => {
-    const canAdoptInitialSpace =
-      !activeConversation ||
-      isPlaceholderConversation ||
-      (!activeConversation?.space_id && !selectedSpace && !isManualSpaceSelection)
-
-    if (!canAdoptInitialSpace) return
-
-    if (initialSpaceSelection?.mode === 'manual') {
-      // Manual mode: user selected a specific space OR explicitly chose "None"
-      // Both cases should prevent automatic space preselection
-      setSelectedSpace(initialSpaceSelection.space || null)
-      setIsManualSpaceSelection(true)
-      return
-    }
-
-    if (initialSpaceSelection?.mode === 'auto') {
-      if (initialSpaceSelection?.space) {
-        setSelectedSpace(initialSpaceSelection.space)
-        setIsManualSpaceSelection(false)
-      } else if (!selectedSpace && !isManualSpaceSelection) {
-        setSelectedSpace(null)
-        setIsManualSpaceSelection(false)
-      }
-    }
-  }, [
-    initialSpaceSelection,
-    activeConversation,
-    isPlaceholderConversation,
-    selectedSpace,
-    isManualSpaceSelection,
   ])
 
   useEffect(() => {
@@ -988,75 +834,7 @@ const ChatInterface = ({
     activeConversation?.id,
   ])
 
-  const handleSelectSpace = space => {
-    if (isDeepResearchConversation) return
-    const isDeepResearchSpace =
-      space?.isDeepResearchSystem ||
-      space?.isDeepResearch ||
-      space?.is_deep_research ||
-      (deepResearchSpace?.id && String(space?.id) === String(deepResearchSpace.id))
-    if (isDeepResearchSpace) return
-    setSelectedSpace(space)
-    setIsManualSpaceSelection(true)
-    setIsSelectorOpen(false)
-    manualSpaceOverrideRef.current = {
-      conversationId: activeConversation?.id || conversationId || null,
-      spaceId: space?.id || null,
-    }
-    const conversationLastAgentId =
-      activeConversation?.last_agent_id ?? activeConversation?.lastAgentId ?? null
-    setPendingAgentId(conversationLastAgentId)
-    if (conversationId || activeConversation?.id) {
-      updateConversation(conversationId || activeConversation.id, {
-        space_id: space?.id || null,
-      })
-        .then(() => {
-          // Trigger event to refresh sidebar
-          window.dispatchEvent(new Event('conversations-changed'))
-          window.dispatchEvent(
-            new CustomEvent('conversation-space-updated', {
-              detail: {
-                conversationId: conversationId || activeConversation?.id,
-                space,
-              },
-            }),
-          )
-        })
-        .catch(err => console.error('Failed to update conversation space:', err))
-    }
-  }
-
-  const handleClearSpaceSelection = () => {
-    if (isDeepResearchConversation) return
-    setSelectedSpace(null)
-    setIsManualSpaceSelection(true) // Keep as true because selecting "None" is a manual action
-    setIsSelectorOpen(false)
-    manualSpaceOverrideRef.current = {
-      conversationId: activeConversation?.id || conversationId || null,
-      spaceId: null,
-    }
-    setPendingAgentId(null) // Clear pending agent when clearing space
-    setSelectedAgentId(defaultAgent?.id || null)
-    if (conversationId || activeConversation?.id) {
-      updateConversation(conversationId || activeConversation.id, {
-        space_id: null,
-      })
-        .then(() => {
-          // Trigger event to refresh sidebar
-          window.dispatchEvent(new Event('conversations-changed'))
-          window.dispatchEvent(
-            new CustomEvent('conversation-space-updated', {
-              detail: {
-                conversationId: conversationId || activeConversation?.id,
-                space: null,
-              },
-            }),
-          )
-        })
-        .catch(err => console.error('Failed to clear conversation space:', err))
-    }
-  }
-
+  // handleSelectSpace and handleClearSpaceSelection are now provided by useSpaceManagement hook
   const registerMessageRef = useCallback((id, msg, el) => {
     if (el) {
       messageRefs.current[id] = el
@@ -1073,45 +851,6 @@ const ChatInterface = ({
       return textPart?.text || ''
     }
     return ''
-  }
-
-  const splitThoughtFromContent = rawContent => {
-    if (rawContent && typeof rawContent === 'object' && !Array.isArray(rawContent)) {
-      const contentValue =
-        typeof rawContent.content !== 'undefined' ? rawContent.content : rawContent
-      const thoughtValue =
-        rawContent.thought ?? rawContent.thinking_process ?? rawContent.thinkingProcess ?? null
-
-      if (typeof contentValue === 'string') {
-        const thoughtMatch = /<thought>([\s\S]*?)(?:<\/thought>|$)/.exec(contentValue)
-        if (thoughtMatch) {
-          const cleaned = contentValue.replace(/<thought>[\s\S]*?(?:<\/thought>|$)/, '').trim()
-          const combinedThought = thoughtValue || thoughtMatch[1]?.trim() || null
-          return { content: cleaned, thought: combinedThought }
-        }
-      }
-
-      if (
-        Object.prototype.hasOwnProperty.call(rawContent, 'thought') ||
-        Object.prototype.hasOwnProperty.call(rawContent, 'thinking_process') ||
-        Object.prototype.hasOwnProperty.call(rawContent, 'thinkingProcess')
-      ) {
-        return {
-          content: contentValue,
-          thought: thoughtValue,
-        }
-      }
-    }
-
-    if (typeof rawContent !== 'string') return { content: rawContent, thought: null }
-
-    const thoughtMatch = /<thought>([\s\S]*?)(?:<\/thought>|$)/.exec(rawContent)
-    if (!thoughtMatch) return { content: rawContent, thought: null }
-
-    const cleaned = rawContent.replace(/<thought>[\s\S]*?(?:<\/thought>|$)/, '').trim()
-    const thought = thoughtMatch[1]?.trim() || null
-
-    return { content: cleaned, thought }
   }
 
   const [isTimelineSidebarOpen, setIsTimelineSidebarOpen] = useState(false)
@@ -1612,124 +1351,25 @@ const ChatInterface = ({
     >
       <div className="w-full relative flex flex-col flex-1 min-h-0">
         {/* Title Bar */}
-        <div className="shrink-0 z-20 w-full border-b border-gray-200 dark:border-zinc-800 bg-background/80 backdrop-blur-md pb-2 pt-[calc(0.5rem+env(safe-area-inset-top))] transition-all flex justify-center">
-          <div className="w-full max-w-3xl flex items-center gap-1 px-3">
-            {/* Mobile Menu Button */}
-            <button
-              onClick={toggleSidebar}
-              className="md:hidden p-2 -ml-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg shrink-0"
-            >
-              <Menu size={20} />
-            </button>
-
-            {/* Space Selector */}
-            <div className="relative" ref={selectorRef}>
-              <button
-                onMouseDown={e => {
-                  e.stopPropagation()
-                  if (isDeepResearchConversation) return
-                  setIsSelectorOpen(prev => !prev)
-                }}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors text-sm font-medium text-gray-700 dark:text-gray-300 ${
-                  isDeepResearchConversation
-                    ? 'opacity-60 cursor-not-allowed'
-                    : 'hover:bg-gray-100 dark:hover:bg-zinc-800'
-                }`}
-              >
-                <LayoutGrid size={16} className="text-gray-400 hidden sm:inline" />
-                {isMetaLoading ? (
-                  <span className="text-gray-500 animate-pulse">...</span>
-                ) : displaySpace ? (
-                  <div className="flex items-center gap-1">
-                    <span className="text-lg">
-                      <EmojiDisplay emoji={displaySpace.emoji} size="1.125rem" />
-                    </span>
-                    <span className="hidden opacity-0 w-0 md:inline md:opacity-100 md:w-auto truncate max-w-[200px] transition-all">
-                      {getSpaceDisplayLabel(displaySpace, t)}
-                    </span>
-                  </div>
-                ) : (
-                  <span className="text-gray-500 text-xs sm:text-s">None</span>
-                )}
-                <ChevronDown size={14} className="text-gray-400" />
-              </button>
-
-              {/* Dropdown */}
-              {isSelectorOpen && (
-                <div
-                  className="absolute top-full left-0 mt-2 w-56 bg-white dark:bg-[#202222] border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl z-30 overflow-hidden"
-                  onMouseDown={e => e.stopPropagation()}
-                >
-                  <div className="p-2 flex flex-col gap-1">
-                    <button
-                      type="button"
-                      onClick={handleClearSpaceSelection}
-                      className={`flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left ${
-                        !displaySpace ? 'text-primary-500' : 'text-gray-700 dark:text-gray-200'
-                      }`}
-                    >
-                      <span className="text-sm font-medium">None</span>
-                      {!displaySpace && <Check size={14} className="text-primary-500" />}
-                    </button>
-                    <div className="h-px bg-gray-100 dark:bg-zinc-800 my-1" />
-                    {availableSpaces.map((space, idx) => {
-                      const isSelected = selectedSpace?.label === space.label
-                      return (
-                        <button
-                          type="button"
-                          key={idx}
-                          onClick={() => handleSelectSpace(space)}
-                          className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left"
-                        >
-                          <div className="flex items-center gap-3">
-                            <span className="text-lg">
-                              <EmojiDisplay emoji={space.emoji} size="1.125rem" />
-                            </span>
-                            <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
-                              {getSpaceDisplayLabel(space, t)}
-                            </span>
-                          </div>
-                          {isSelected && <Check size={14} className="text-primary-500" />}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="flex items-center gap-2 flex-1 min-w-0">
-              <h1 className="text-m sm:text-xl font-medium text-gray-800 dark:text-gray-100 truncate flex items-center gap-2">
-                {isMetaLoading ? (
-                  <span className="inline-block h-5 w-40 sm:w-56 rounded-md bg-gray-200 dark:bg-zinc-700 animate-pulse" />
-                ) : (
-                  conversationTitle || 'New Conversation'
-                )}
-                {isRegeneratingTitle && <span className="animate-pulse">...</span>}
-              </h1>
-              <button
-                onClick={handleRegenerateTitle}
-                disabled={isRegeneratingTitle || messages.length === 0}
-                className="hidden sm:block p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors disabled:opacity-50 disabled:hover:bg-transparent"
-                title={t('chatInterface.regenerateTitle')}
-              >
-                <Sparkles size={18} />
-              </button>
-            </div>
-
-            {/* Timeline Button - only show on screens where sidebar can be toggled (xl and below) */}
-            {/* Timeline Button - only show on screens where sidebar can be toggled (xl and below), and hide when open */}
-            {!isTimelineSidebarOpen && (
-              <button
-                onClick={() => setIsTimelineSidebarOpen(true)}
-                className="xl:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-colors shrink-0"
-                title={t('chatInterface.openTimeline')}
-              >
-                <PanelRightOpen size={20} />
-              </button>
-            )}
-          </div>
-        </div>
+        <ChatHeader
+          toggleSidebar={toggleSidebar}
+          isMetaLoading={isMetaLoading}
+          displaySpace={displaySpace}
+          availableSpaces={availableSpaces}
+          selectedSpace={selectedSpace}
+          isSelectorOpen={isSelectorOpen}
+          setIsSelectorOpen={setIsSelectorOpen}
+          selectorRef={selectorRef}
+          isDeepResearchConversation={isDeepResearchConversation}
+          onSelectSpace={handleSelectSpace}
+          onClearSpaceSelection={handleClearSpaceSelection}
+          conversationTitle={conversationTitle}
+          isRegeneratingTitle={isRegeneratingTitle}
+          onRegenerateTitle={handleRegenerateTitle}
+          messages={messages}
+          isTimelineSidebarOpen={isTimelineSidebarOpen}
+          onToggleTimeline={() => setIsTimelineSidebarOpen(true)}
+        />
 
         {/* Messages Scroll Container */}
         <div
@@ -1806,7 +1446,7 @@ const ChatInterface = ({
                 </button>
               )}
 
-              <InputBar
+              <ChatInputBar
                 isLoading={isLoading}
                 apiProvider={effectiveProvider}
                 isSearchActive={isSearchActive}
@@ -1906,383 +1546,3 @@ const ChatInterface = ({
 }
 
 export default ChatInterface
-
-const InputBar = React.memo(
-  ({
-    isLoading,
-    apiProvider,
-    isSearchActive,
-    isThinkingActive,
-    isThinkingLocked,
-    isFollowUpLocked,
-    agents,
-    agentsLoading,
-    agentsLoadingLabel,
-    agentsLoadingDots,
-    selectedAgent,
-    isAgentAutoMode,
-    isAgentSelectionLocked,
-    onAgentSelect,
-    onAgentAutoModeToggle,
-    isAgentSelectorOpen,
-    onAgentSelectorToggle,
-    agentSelectorRef,
-    onToggleSearch,
-    onToggleThinking,
-    quotedText,
-    onQuoteClear,
-    onSend,
-    editingSeed,
-    onEditingClear,
-    showEditing,
-    editingLabel,
-    scrollToBottom,
-    spacePrimaryAgentId,
-  }) => {
-    const { t } = useTranslation()
-    const [inputValue, setInputValue] = useState('')
-    const [attachments, setAttachments] = useState([])
-    const textareaRef = useRef(null)
-    const fileInputRef = useRef(null)
-    const [isUploadMenuOpen, setIsUploadMenuOpen] = useState(false)
-    const uploadMenuRef = useRef(null)
-
-    useEffect(() => {
-      setInputValue(editingSeed?.text || '')
-      setAttachments(editingSeed?.attachments || [])
-      if (editingSeed?.text || (editingSeed?.attachments || []).length > 0) {
-        window.requestAnimationFrame(() => textareaRef.current?.focus())
-      }
-    }, [editingSeed])
-
-    React.useLayoutEffect(() => {
-      if (textareaRef.current) {
-        textareaRef.current.style.height = 'auto'
-        textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`
-      }
-    }, [inputValue])
-
-    useEffect(() => {
-      if (!isUploadMenuOpen) return
-      const handleClickOutside = event => {
-        if (uploadMenuRef.current && !uploadMenuRef.current.contains(event.target)) {
-          setIsUploadMenuOpen(false)
-        }
-      }
-      document.addEventListener('mousedown', handleClickOutside)
-      return () => document.removeEventListener('mousedown', handleClickOutside)
-    }, [isUploadMenuOpen])
-
-    const handleFileChange = e => {
-      const files = Array.from(e.target.files)
-      if (files.length === 0) return
-
-      files.forEach(file => {
-        if (!file.type.startsWith('image/')) return
-
-        const reader = new FileReader()
-        reader.onload = evt => {
-          setAttachments(prev => [
-            ...prev,
-            {
-              type: 'image_url',
-              image_url: { url: evt.target.result },
-            },
-          ])
-        }
-        reader.readAsDataURL(file)
-      })
-
-      e.target.value = ''
-    }
-
-    const handleUploadImage = () => {
-      setIsUploadMenuOpen(false)
-      fileInputRef.current?.click()
-    }
-
-    const handleSend = () => {
-      if (isFollowUpLocked || isLoading) return
-      const text = inputValue
-      const hasContent = text.trim() || attachments.length > 0
-      if (!hasContent) return
-      onSend(text, attachments)
-      setInputValue('')
-      setAttachments([])
-      onEditingClear?.()
-      scrollToBottom('auto')
-    }
-
-    const handleKeyDown = e => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault()
-        handleSend()
-      }
-    }
-
-    return (
-      <div className="w-full max-w-3xl relative group">
-        <div className="absolute inset-0 input-glow-veil rounded-xl blur-2xl opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-500 pointer-events-none" />
-        <div className="relative bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700/50 focus-within:border-primary-500/50 rounded-2xl transition-all duration-300 p-3 shadow-md hover:shadow-lg group-hover:shadow-lg focus-within:shadow-xl">
-          {showEditing && (
-            <div className="flex items-center justify-between bg-gray-200 dark:bg-zinc-700/50 rounded-lg px-3 py-2 mb-2 ">
-              <div className="flex items-center gap-3 overflow-hidden">
-                <div className="flex flex-col">
-                  <span className="text-xs font-semibold text-primary-600 dark:text-primary-400 uppercase tracking-wide">
-                    Editing
-                  </span>
-                  <span className="text-sm text-gray-600 dark:text-gray-300 truncate max-w-[200px] md:max-w-md">
-                    {editingLabel}
-                  </span>
-                </div>
-              </div>
-              <button
-                onClick={() => onEditingClear?.()}
-                className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors rounded-full hover:bg-gray-300 dark:hover:bg-zinc-600"
-              >
-                <X size={14} />
-              </button>
-            </div>
-          )}
-
-          {quotedText && (
-            <div className="flex items-center justify-between bg-gray-200 dark:bg-zinc-700/50 rounded-lg px-3 py-2 mb-2">
-              <div className="flex items-center gap-3 overflow-hidden">
-                <div className="flex flex-col min-w-0">
-                  <span className="text-xs font-semibold text-primary-600 dark:text-primary-400 uppercase tracking-wide">
-                    Quote
-                  </span>
-                  <span className="text-sm text-gray-600 dark:text-gray-300 truncate max-w-[200px] md:max-w-md italic">
-                    &quot;{quotedText}&quot;
-                  </span>
-                </div>
-              </div>
-              <button
-                onClick={onQuoteClear}
-                className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors rounded-full hover:bg-gray-300 dark:hover:bg-zinc-600"
-              >
-                <X size={14} />
-              </button>
-            </div>
-          )}
-
-          {attachments.length > 0 && (
-            <div className="flex gap-2 mb-3 px-1 overflow-x-auto py-1">
-              {attachments.map((att, idx) => (
-                <div key={idx} className="relative group shrink-0">
-                  <div className="w-16 h-16 rounded-xl overflow-hidden border border-gray-200 dark:border-zinc-700 shadow-sm">
-                    <img
-                      src={att.image_url.url}
-                      alt="attachment"
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <button
-                    onClick={() => setAttachments(attachments.filter((_, i) => i !== idx))}
-                    className="absolute -top-1.5 -right-1.5 bg-gray-900 text-white rounded-full p-0.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shadow-md"
-                  >
-                    <X size={12} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <textarea
-            id="chat-input-textarea"
-            value={inputValue}
-            ref={textareaRef}
-            onChange={e => setInputValue(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={
-              isFollowUpLocked
-                ? t('chatInterface.deepResearchSingleTurn')
-                : t('chatInterface.askFollowUp')
-            }
-            disabled={isFollowUpLocked}
-            className="w-full bg-transparent border-none outline-none resize-none text-base placeholder-gray-500 dark:placeholder-gray-400 min-h-[44px] max-h-[200px] overflow-y-auto py-2 disabled:cursor-not-allowed"
-            rows={1}
-          />
-
-          <div className="flex justify-between items-center mt-2">
-            <div className="flex gap-2">
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleFileChange}
-                accept="image/*"
-                multiple
-                className="hidden"
-              />
-              <div className="relative" ref={uploadMenuRef}>
-                <button
-                  type="button"
-                  onClick={() => setIsUploadMenuOpen(prev => !prev)}
-                  className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
-                    attachments.length > 0 ? 'text-primary-500' : 'text-gray-500 dark:text-gray-400'
-                  }`}
-                >
-                  <Paperclip size={18} />
-                </button>
-                {isUploadMenuOpen && (
-                  <div className="absolute bottom-full left-0 mb-2 w-48 bg-white dark:bg-[#202222] border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl z-30 overflow-hidden">
-                    <div className="p-2 flex flex-col gap-1">
-                      <button
-                        type="button"
-                        onClick={handleUploadImage}
-                        className="flex items-center gap-2 w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left text-sm text-gray-700 dark:text-gray-200"
-                      >
-                        <Image size={16} />
-                        {t('common.uploadImage')}
-                      </button>
-                      <button
-                        type="button"
-                        disabled
-                        onClick={() => setIsUploadMenuOpen(false)}
-                        className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-left text-sm text-gray-400 dark:text-gray-500 cursor-not-allowed"
-                      >
-                        <FileText size={16} />
-                        {t('common.uploadDocument')}
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-              <button
-                disabled={isThinkingLocked}
-                onClick={onToggleThinking}
-                className={`p-2 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
-                  isThinkingActive
-                    ? 'text-primary-500 bg-gray-200 dark:bg-zinc-700'
-                    : 'text-gray-500 dark:text-gray-400'
-                } ${isThinkingLocked ? 'opacity-60 cursor-not-allowed' : 'hover:bg-gray-200 dark:hover:bg-zinc-700'}`}
-              >
-                <Brain size={18} />
-                <span className="hidden md:inline">{t('homeView.think')}</span>
-              </button>
-              <button
-                disabled={!apiProvider || !providerSupportsSearch(apiProvider)}
-                onClick={onToggleSearch}
-                className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
-                  isSearchActive
-                    ? 'text-primary-500 bg-gray-200 dark:bg-zinc-700'
-                    : 'text-gray-500 dark:text-gray-400'
-                }`}
-              >
-                <Globe size={18} />
-                <span className="hidden md:inline">{t('homeView.search')}</span>
-              </button>
-              <div className="relative" ref={agentSelectorRef}>
-                <button
-                  type="button"
-                  onClick={e => {
-                    e.stopPropagation()
-                    e.preventDefault()
-                    onAgentSelectorToggle()
-                  }}
-                  className={`p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
-                    selectedAgent || isAgentAutoMode
-                      ? 'text-primary-500 bg-gray-200 dark:bg-zinc-700'
-                      : 'text-gray-500 dark:text-gray-400'
-                  }`}
-                  disabled={agentsLoading || isAgentSelectionLocked}
-                >
-                  {isAgentAutoMode || !selectedAgent ? (
-                    <Smile size={18} />
-                  ) : (
-                    <EmojiDisplay emoji={selectedAgent.emoji} size="1.125rem" />
-                  )}
-                  {agentsLoading && (
-                    <span className="inline-flex text-[10px] leading-none opacity-70 animate-pulse">
-                      {agentsLoadingDots || '...'}
-                    </span>
-                  )}
-                  <span className="hidden md:inline truncate max-w-[120px]">
-                    {agentsLoading
-                      ? agentsLoadingLabel || t('chatInterface.agentsLoading')
-                      : isAgentAutoMode
-                        ? t('chatInterface.agentAuto')
-                        : getAgentDisplayName(selectedAgent, t) || t('chatInterface.agentsLabel')}
-                  </span>
-                  <ChevronDown size={14} />
-                </button>
-                {isAgentSelectorOpen && (
-                  <div className="absolute bottom-full left-0 mb-2 w-56 bg-white dark:bg-[#202222] border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl z-30 overflow-hidden">
-                    <div className="p-2 flex flex-col gap-1">
-                      {/* Auto mode option */}
-                      <button
-                        type="button"
-                        onClick={() => onAgentAutoModeToggle()}
-                        className={`flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left ${
-                          isAgentAutoMode ? 'text-primary-500' : 'text-gray-700 dark:text-gray-200'
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <span className="text-lg">🤖</span>
-                          <span className="text-sm font-medium truncate">
-                            {t('chatInterface.agentAuto')}
-                          </span>
-                        </div>
-                        {isAgentAutoMode && <Check size={14} className="text-primary-500" />}
-                      </button>
-                      <div className="h-px bg-gray-100 dark:bg-zinc-800 my-1" />
-                      {/* Manual agent options */}
-                      {agents.length === 0 ? (
-                        <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
-                          {t('chatInterface.agentsNone')}
-                        </div>
-                      ) : (
-                        agents.map(agent => {
-                          const isSelected = !isAgentAutoMode && selectedAgent?.id === agent.id
-                          const isDefault =
-                            agent.isDefault || String(agent.id) === String(spacePrimaryAgentId)
-                          return (
-                            <button
-                              key={agent.id}
-                              type="button"
-                              onClick={() => onAgentSelect(agent)}
-                              className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left"
-                            >
-                              <div className="flex items-center gap-2">
-                                <span className="text-lg">
-                                  <EmojiDisplay emoji={agent.emoji} size="1.125rem" />
-                                </span>
-                                <span className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate">
-                                  {getAgentDisplayName(agent, t)}
-                                </span>
-                                {isDefault && (
-                                  <span className="text-xs px-1.5 py-0.5 bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 rounded-md font-medium">
-                                    {t('chatInterface.default')}
-                                  </span>
-                                )}
-                              </div>
-                              {isSelected && <Check size={14} className="text-primary-500" />}
-                            </button>
-                          )
-                        })
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="flex gap-2">
-              <button
-                onClick={handleSend}
-                disabled={
-                  isFollowUpLocked || isLoading || (!inputValue.trim() && attachments.length === 0)
-                }
-                className="p-2 bg-primary-500 dark:bg-primary-800 hover:bg-primary-600 text-white rounded-full transition-colors disabled:opacity-50  disabled:hover:bg-primary-500"
-              >
-                <ArrowRight size={18} />
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    )
-  },
-)
-
-InputBar.displayName = 'InputBar'

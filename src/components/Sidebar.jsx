@@ -203,7 +203,6 @@ const Sidebar = ({
       } = await listBookmarkedConversations({
         limit: SIDEBAR_FETCH_LIMIT,
         cursor: isInitial ? null : bookmarkNextCursor,
-        excludeSpaceIds: deepResearchSpaceId ? [deepResearchSpaceId] : [],
       })
 
       if (!error && data) {
@@ -377,6 +376,7 @@ const Sidebar = ({
         const { success, error } = await deleteConversation(conversation.id)
 
         if (success) {
+          closeActions()
           // Refresh list
           fetchConversations(true)
           if (deepResearchSpaceId) {
@@ -400,8 +400,6 @@ const Sidebar = ({
 
   const handleToggleFavorite = async conversation => {
     const newStatus = !conversation.is_favorited
-    const isDeepResearchConversation =
-      deepResearchSpaceId && String(conversation.space_id) === String(deepResearchSpaceId)
     // Optimistic update
     setConversations(prev =>
       prev.map(c => (c.id === conversation.id ? { ...c, is_favorited: newStatus } : c)),
@@ -417,19 +415,16 @@ const Sidebar = ({
       // But simply prepending or checking sort might be enough for a quick UI response.
       // For simplicity and correctness with pagination, we might just want to refetch or prepend if it's 'created_at' desc.
       // Let's try to just prepend it to bookmarks list if it doesn't exist.
-      if (!isDeepResearchConversation) {
-        setBookmarkedConversations(prev => {
-          if (prev.find(c => c.id === conversation.id)) return prev
-          return [{ ...conversation, is_favorited: true }, ...prev]
-        })
-      }
+      setBookmarkedConversations(prev => {
+        if (prev.find(c => c.id === conversation.id)) return prev
+        return [{ ...conversation, is_favorited: true }, ...prev]
+      })
     } else {
       // Removing from favorites
       setBookmarkedConversations(prev => prev.filter(c => c.id !== conversation.id))
     }
 
     const { error } = await toggleFavorite(conversation.id, newStatus)
-
     if (error) {
       console.error('Failed to toggle favorite:', error)
       toast.error(t('sidebar.failedToUpdateFavorite'))
@@ -443,14 +438,10 @@ const Sidebar = ({
       // Revert bookmarks list changes
       if (newStatus) {
         // We added it, so remove it
-        if (!isDeepResearchConversation) {
-          setBookmarkedConversations(prev => prev.filter(c => c.id !== conversation.id))
-        }
+        setBookmarkedConversations(prev => prev.filter(c => c.id !== conversation.id))
       } else {
         // We removed it, so add it back
-        if (!isDeepResearchConversation) {
-          setBookmarkedConversations(prev => [{ ...conversation, is_favorited: true }, ...prev])
-        }
+        setBookmarkedConversations(prev => [{ ...conversation, is_favorited: true }, ...prev])
       }
     } else {
       toast.success(newStatus ? t('sidebar.addedToBookmarks') : t('sidebar.removedFromBookmarks'))
@@ -700,13 +691,13 @@ const Sidebar = ({
                     ? t('sidebar.library')
                     : displayTab === 'deepResearch'
                       ? t('sidebar.deepResearch')
-                    : displayTab === 'bookmarks'
-                      ? t('sidebar.bookmarks')
-                      : displayTab === 'spaces'
-                        ? t('sidebar.spaces')
-                        : displayTab === 'agents'
-                          ? t('sidebar.agents')
-                          : ''}
+                      : displayTab === 'bookmarks'
+                        ? t('sidebar.bookmarks')
+                        : displayTab === 'spaces'
+                          ? t('sidebar.spaces')
+                          : displayTab === 'agents'
+                            ? t('sidebar.agents')
+                            : ''}
                 </h2>
                 {/* View Full Page Button (Mobile Only, or always if useful)
                     The user requested this specifically for the extension area.
@@ -855,6 +846,7 @@ const Sidebar = ({
                                   onClick={e => {
                                     e.stopPropagation()
                                     handleToggleFavorite(conv)
+                                    closeActions()
                                   }}
                                   className={clsx(
                                     'py-1.5 rounded-md transition-colors flex items-center justify-center gap-1.5 font-medium border border-transparent',
@@ -1024,6 +1016,7 @@ const Sidebar = ({
                                     onClick={e => {
                                       e.stopPropagation()
                                       handleToggleFavorite(conv)
+                                      closeActions()
                                     }}
                                     className={clsx(
                                       'py-1.5 rounded-md transition-colors flex items-center justify-center gap-1.5 font-medium border border-transparent',
@@ -1087,7 +1080,6 @@ const Sidebar = ({
                     )}
                   </>
                 )}
-
 
                 {/* For bookmarks tab, match library interaction */}
                 {displayTab === 'bookmarks' &&
@@ -1179,6 +1171,7 @@ const Sidebar = ({
                               onClick={e => {
                                 e.stopPropagation()
                                 handleToggleFavorite(conv)
+                                closeActions()
                               }}
                               className={clsx(
                                 'py-1.5 rounded-md transition-colors flex items-center justify-center gap-1.5 font-medium border border-transparent',

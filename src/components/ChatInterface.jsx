@@ -847,6 +847,24 @@ const ChatInterface = ({
   const [editingPartnerTimestamp, setEditingPartnerTimestamp] = useState(null)
   const [editingTargetId, setEditingTargetId] = useState(null)
   const [editingPartnerId, setEditingPartnerId] = useState(null)
+  const lastDraftConversationKeyRef = useRef(null)
+
+  useEffect(() => {
+    const nextKey = activeConversation?.id || conversationId || null
+    if (lastDraftConversationKeyRef.current === nextKey) return
+
+    lastDraftConversationKeyRef.current = nextKey
+    setQuotedText(null)
+    setQuoteContext(null)
+    quoteTextRef.current = ''
+    quoteSourceRef.current = ''
+    setEditingIndex(null)
+    setEditingTargetTimestamp(null)
+    setEditingPartnerTimestamp(null)
+    setEditingTargetId(null)
+    setEditingPartnerId(null)
+    setEditingSeed({ text: '', attachments: [] })
+  }, [activeConversation?.id, conversationId])
 
   const handleEdit = useCallback(
     index => {

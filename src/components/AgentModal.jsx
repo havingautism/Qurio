@@ -117,7 +117,7 @@ const ENV_VARS = {
 
 const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) => {
   const { t } = useTranslation()
-  const { defaultAgent, agents = [] } = useAppContext()
+  const { defaultAgent, agents = [], showConfirmation } = useAppContext()
   useScrollLock(isOpen)
   const isDeepResearchAgent = Boolean(editingAgent?.isDeepResearchSystem)
   const isGeneralLocked = Boolean(editingAgent?.isDefault || isDeepResearchAgent)
@@ -1577,7 +1577,17 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
         <div className="h-16 border-t border-gray-200 dark:border-zinc-800 flex items-center justify-between px-6 shrink-0 bg-white dark:bg-[#191a1a]">
           {editingAgent && onDelete && !editingAgent.isDefault ? (
             <button
-              onClick={() => onDelete(editingAgent.id)}
+              onClick={() => {
+                showConfirmation({
+                  title: t('confirmation.deleteAgentTitle') || 'Delete Agent',
+                  message:
+                    t('confirmation.deleteAgentMessage', { name: editingAgent.name }) ||
+                    `Are you sure you want to delete ${editingAgent.name}?`,
+                  confirmText: t('agents.actions.delete'),
+                  isDangerous: true,
+                  onConfirm: () => onDelete(editingAgent.id),
+                })
+              }}
               className="px-4 py-2 rounded-lg text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
             >
               {t('agents.actions.delete')}

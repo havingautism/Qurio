@@ -40,7 +40,6 @@ const BookmarksView = () => {
   const [openMenuId, setOpenMenuId] = useState(null)
   const [menuAnchorEl, setMenuAnchorEl] = useState(null)
   const toast = useToast()
-  const deepResearchSpaceId = deepResearchSpace?.id ? String(deepResearchSpace.id) : null
 
   // Translated sort options for rendering
   const sortOptions = useMemo(
@@ -66,12 +65,11 @@ const BookmarksView = () => {
         ascending: sortOption.ascending,
         cursor,
         limit,
-        excludeSpaceIds: deepResearchSpaceId ? [deepResearchSpaceId] : [],
       })
     },
     {
       limit: 10,
-      dependencies: [sortOption, deepResearchSpaceId],
+      dependencies: [sortOption],
       rootMargin: '100px',
     },
   )

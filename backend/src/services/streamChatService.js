@@ -182,6 +182,37 @@ const collectKimiSources = (toolOutput, sourcesMap) => {
   }
 }
 
+const getToolCallName = toolCall =>
+  toolCall?.function?.name ||
+  toolCall?.name ||
+  toolCall?.tool?.name ||
+  toolCall?.tool?.function?.name ||
+  null
+
+const getToolCallArguments = toolCall =>
+  toolCall?.function?.arguments ||
+  toolCall?.arguments ||
+  toolCall?.tool?.function?.arguments ||
+  null
+
+const collectKimiSourcesFromToolCalls = (toolCalls, sourcesMap) => {
+  if (!Array.isArray(toolCalls)) return
+  for (const toolCall of toolCalls) {
+    const toolName = getToolCallName(toolCall)
+    if (toolName !== '$web_search' && toolName !== 'web_search' && toolName !== 'search') continue
+    const rawArgs = getToolCallArguments(toolCall)
+    const parsedArgs = typeof rawArgs === 'string' ? safeJsonParse(rawArgs) : rawArgs
+    collectKimiSources(parsedArgs, sourcesMap)
+  }
+}
+
+const getKimiToolName = toolResp =>
+  toolResp?.name ||
+  toolResp?.tool?.name ||
+  toolResp?.function?.name ||
+  toolResp?.tool?.function?.name ||
+  null
+
 /**
  * Collect Gemini grounding sources
  */
@@ -208,6 +239,32 @@ const updateToolCallsMap = (toolCallsMap, newToolCalls) => {
   for (const toolCall of newToolCalls) {
     if (!toolCall?.id) continue
     toolCallsMap.set(toolCall.id, toolCall)
+  }
+}
+
+const mergeToolCallsByIndex = (toolCallsByIndex, newToolCalls) => {
+  if (!Array.isArray(newToolCalls)) return
+
+  for (const toolCall of newToolCalls) {
+    const index =
+      typeof toolCall?.index === 'number' ? toolCall.index : toolCallsByIndex.length
+    const current = toolCallsByIndex[index] || {}
+    const currentFunction = current.function || {}
+    const nextFunction = toolCall?.function || {}
+    const nextArguments = nextFunction.arguments || ''
+    const mergedArguments = nextArguments
+      ? `${currentFunction.arguments || ''}${nextArguments}`
+      : currentFunction.arguments
+
+    toolCallsByIndex[index] = {
+      ...current,
+      ...toolCall,
+      function: {
+        ...currentFunction,
+        ...nextFunction,
+        ...(mergedArguments ? { arguments: mergedArguments } : {}),
+      },
+    }
   }
 }
 
@@ -490,7 +547,7 @@ export const streamChat = async function* (params) {
   let loggedGemini = false
 
   const trimmedMessages = applyContextLimitRaw(messages, contextMessageLimit)
-  const langchainMessages = toLangChainMessages(trimmedMessages)
+  let currentMessages = trimmedMessages
 
   if (debugStream) {
     console.log('[streamChat] Messages prepared, count:', langchainMessages.length)
@@ -671,11 +728,27 @@ export const streamChat = async function* (params) {
       return
     }
 
-    const stream = await modelInstance.stream(langchainMessages, signal ? { signal } : undefined)
+    let finalToolCalls = null
+    let lastFinishReason = null
+    let safetyCounter = 0
 
-    if (debugStream) {
-      console.log('[streamChat] Stream created, iterating chunks...')
-    }
+    while (true) {
+      safetyCounter += 1
+      if (safetyCounter > 3) break
+
+      const toolCallsMap = new Map()
+      const toolCallsByIndex = []
+      lastFinishReason = null
+
+      const langchainMessages = toLangChainMessages(currentMessages)
+      const stream = await modelInstance.stream(
+        langchainMessages,
+        signal ? { signal } : undefined,
+      )
+
+      if (debugStream) {
+        console.log('[streamChat] Stream created, iterating chunks...')
+      }
 
       for await (const chunk of stream) {
         const messageChunk = chunk?.message ?? chunk
@@ -688,78 +761,150 @@ export const streamChat = async function* (params) {
           )
         }
 
-      // Debug log
-      // console.log('[streamChat] chunk:', JSON.stringify({ contentValue }).slice(0, 200))
-
-      // Process GLM web_search results
-      if (provider === 'glm' || provider === 'modelscope') {
-        const rawResp = messageChunk?.additional_kwargs?.__raw_response
-        if (debugSources && rawResp?.web_search) {
-          console.log(
-            '[streamChat] web_search payload:',
-            JSON.stringify(rawResp.web_search).slice(0, 2000),
-          )
+        const rawFinishReason =
+          messageChunk?.additional_kwargs?.__raw_response?.choices?.[0]?.finish_reason
+        if (rawFinishReason) {
+          lastFinishReason = rawFinishReason
         }
-        collectGLMSources(rawResp?.web_search, sourcesMap)
-      }
 
-      // Process Kimi web_search tool results
-      if (provider === 'kimi') {
-        const toolResponses = messageChunk?.additional_kwargs?.tool_responses
-        if (debugSources && Array.isArray(toolResponses) && toolResponses.length > 0) {
-          console.log(
-            '[streamChat] tool_responses payload:',
-            JSON.stringify(toolResponses).slice(0, 2000),
-          )
+        // Debug log
+        // console.log('[streamChat] chunk:', JSON.stringify({ contentValue }).slice(0, 200))
+
+        // Process GLM web_search results
+        if (provider === 'glm' || provider === 'modelscope') {
+          const rawResp = messageChunk?.additional_kwargs?.__raw_response
+          if (debugSources && rawResp?.web_search) {
+            console.log(
+              '[streamChat] web_search payload:',
+              JSON.stringify(rawResp.web_search).slice(0, 2000),
+            )
+          }
+          collectGLMSources(rawResp?.web_search, sourcesMap)
         }
-        if (Array.isArray(toolResponses)) {
-          for (const toolResp of toolResponses) {
-            if (toolResp?.name === 'web_search') {
-              collectKimiSources(toolResp?.output || toolResp?.content, sourcesMap)
+
+        // Process Kimi web_search tool results
+        if (provider === 'kimi') {
+          if (debugSources && messageChunk?.additional_kwargs?.__raw_response) {
+            console.log(
+              '[streamChat] kimi __raw_response:',
+              JSON.stringify(messageChunk.additional_kwargs.__raw_response).slice(0, 4000),
+            )
+          }
+          const toolResponses = messageChunk?.additional_kwargs?.tool_responses
+          if (debugSources && Array.isArray(toolResponses) && toolResponses.length > 0) {
+            console.log(
+              '[streamChat] tool_responses payload:',
+              JSON.stringify(toolResponses).slice(0, 2000),
+            )
+          }
+          if (Array.isArray(toolResponses)) {
+            for (const toolResp of toolResponses) {
+              const toolName = getKimiToolName(toolResp)
+              if (
+                toolName === '$web_search' ||
+                toolName === 'web_search' ||
+                toolName === 'search'
+              ) {
+                collectKimiSources(toolResp?.output || toolResp?.content, sourcesMap)
+              }
             }
           }
         }
-      }
 
-      if (provider === 'gemini' && Array.isArray(contentValue)) {
-        const parsed = parseGeminiParts(contentValue, {
-          emitText,
-          emitThought,
-          handleTaggedText,
-        })
-        if (parsed) {
-          while (chunks.length > 0) {
-            yield chunks.shift()
+        if (provider === 'gemini' && Array.isArray(contentValue)) {
+          const parsed = parseGeminiParts(contentValue, {
+            emitText,
+            emitThought,
+            handleTaggedText,
+          })
+          if (parsed) {
+            while (chunks.length > 0) {
+              yield chunks.shift()
+            }
+            continue
           }
-          continue
+        }
+
+        const chunkText = normalizeTextContent(contentValue)
+
+        if (chunkText) {
+          handleTaggedText(chunkText)
+        }
+
+        const toolCalls = messageChunk?.additional_kwargs?.tool_calls
+        if (toolCalls) {
+          if (provider === 'kimi') {
+            mergeToolCallsByIndex(toolCallsByIndex, toolCalls)
+          } else {
+            updateToolCallsMap(toolCallsMap, toolCalls)
+          }
+        }
+
+        if (provider === 'kimi') {
+          const rawToolCalls =
+            messageChunk?.additional_kwargs?.__raw_response?.choices?.[0]?.delta?.tool_calls
+          if (Array.isArray(rawToolCalls)) {
+            mergeToolCallsByIndex(toolCallsByIndex, rawToolCalls)
+          }
+          collectKimiSourcesFromToolCalls(toolCallsByIndex.filter(Boolean), sourcesMap)
+        }
+
+        const reasoning =
+          messageChunk?.additional_kwargs?.__raw_response?.choices?.[0]?.delta?.reasoning_content ||
+          messageChunk?.additional_kwargs?.__raw_response?.choices?.[0]?.delta?.reasoning ||
+          messageChunk?.additional_kwargs?.reasoning_content ||
+          messageChunk?.additional_kwargs?.reasoning
+
+        if (reasoning) {
+          emitThought(String(reasoning))
+        }
+
+        // Yield accumulated chunks
+        while (chunks.length > 0) {
+          yield chunks.shift()
         }
       }
 
-      const chunkText = normalizeTextContent(contentValue)
+      if (provider === 'kimi') {
+        const toolCallsList = toolCallsByIndex.filter(Boolean)
+        finalToolCalls = toolCallsList.length ? toolCallsList : null
 
-      if (chunkText) {
-        handleTaggedText(chunkText)
+        if (lastFinishReason === 'tool_calls' && toolCallsList.length > 0) {
+          const assistantToolCalls = toolCallsList
+            .map(toolCall => ({
+              id: toolCall.id,
+              type: toolCall.type,
+              function: toolCall.function
+                ? { name: toolCall.function.name, arguments: toolCall.function.arguments || '' }
+                : undefined,
+            }))
+            .filter(toolCall => toolCall?.id && toolCall?.function?.name)
+
+          if (assistantToolCalls.length > 0) {
+            currentMessages = [
+              ...currentMessages,
+              { role: 'assistant', content: '', tool_calls: assistantToolCalls },
+            ]
+
+            for (const toolCall of assistantToolCalls) {
+              const rawArgs = getToolCallArguments(toolCall)
+              const parsedArgs = typeof rawArgs === 'string' ? safeJsonParse(rawArgs) : rawArgs
+              currentMessages.push({
+                role: 'tool',
+                tool_call_id: toolCall.id,
+                name: toolCall.function.name,
+                content: JSON.stringify(parsedArgs ?? {}),
+              })
+            }
+
+            continue
+          }
+        }
+      } else {
+        finalToolCalls = toolCallsMap.size ? Array.from(toolCallsMap.values()) : null
       }
 
-      const toolCalls = messageChunk?.additional_kwargs?.tool_calls
-      if (toolCalls) {
-        updateToolCallsMap(toolCallsMap, toolCalls)
-      }
-
-      const reasoning =
-        messageChunk?.additional_kwargs?.__raw_response?.choices?.[0]?.delta?.reasoning_content ||
-        messageChunk?.additional_kwargs?.__raw_response?.choices?.[0]?.delta?.reasoning ||
-        messageChunk?.additional_kwargs?.reasoning_content ||
-        messageChunk?.additional_kwargs?.reasoning
-
-      if (reasoning) {
-        emitThought(String(reasoning))
-      }
-
-      // Yield accumulated chunks
-      while (chunks.length > 0) {
-        yield chunks.shift()
-      }
+      break
     }
 
     // Final result
@@ -771,7 +916,7 @@ export const streamChat = async function* (params) {
       content: fullContent,
       thought: fullThought || undefined,
       sources: sourcesMap.size ? Array.from(sourcesMap.values()) : undefined,
-      toolCalls: toolCallsMap.size ? Array.from(toolCallsMap.values()) : undefined,
+      toolCalls: finalToolCalls || undefined,
     }
   } catch (error) {
     console.error('[streamChat] Error caught:', error.message)

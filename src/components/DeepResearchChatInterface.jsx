@@ -18,11 +18,10 @@ import { useSidebarOffset } from '../hooks/useSidebarOffset'
 import useChatHistory from '../hooks/chat/useChatHistory'
 import useSpaceManagement from '../hooks/chat/useSpaceManagement'
 import useAgentManagement from '../hooks/chat/useAgentManagement'
-import { getAgentDisplayName } from '../lib/agentDisplay'
-import { getSpaceDisplayLabel } from '../lib/spaceDisplay'
+// import { getAgentDisplayName } from '../lib/agentDisplay'
+// import { getSpaceDisplayLabel } from '../lib/spaceDisplay'
 import { loadSettings } from '../lib/settings'
 import { deleteMessageById } from '../lib/supabase'
-import ChatInputBar from './chat/ChatInputBar'
 import ChatHeader from './chat/ChatHeader'
 
 const DeepResearchChatInterface = ({
@@ -910,7 +909,6 @@ const DeepResearchChatInterface = ({
     [messages],
   )
   const isDeepResearchFollowUpLocked = isDeepResearchConversation && hasDeepResearchHistory
-  const isDeepResearchInputLocked = isDeepResearchFollowUpLocked && editingIndex === null
 
   const handleEdit = useCallback(
     index => {
@@ -1359,9 +1357,6 @@ const DeepResearchChatInterface = ({
 
   // Create a ref for the messages scroll container
   const messagesContainerRef = useRef(null)
-  const inputAgent =
-    isDeepResearchConversation && deepResearchAgent ? deepResearchAgent : selectedAgent
-  const inputAgentAutoMode = isDeepResearchConversation ? false : isAgentAutoMode
 
   return (
     <div
@@ -1467,104 +1462,7 @@ const DeepResearchChatInterface = ({
           />
         )}
 
-        {/* Input Area */}
-        {!isDeepResearchInputLocked && (
-          <div className="w-full shrink-0 bg-background pt-0 pb-[calc(0.75rem+env(safe-area-inset-bottom))] px-2 sm:px-0 flex justify-center z-20">
-            <div className="w-full max-w-3xl relative">
-              <ChatInputBar
-                isLoading={isLoading}
-                apiProvider={effectiveProvider}
-                isSearchActive={isSearchActive}
-                isThinkingActive={isThinkingActive}
-                isThinkingLocked={isThinkingLocked}
-                isFollowUpLocked={isDeepResearchInputLocked}
-                agents={selectableAgents}
-                agentsLoading={isAgentsLoading}
-                agentsLoadingLabel={agentsLoadingLabel}
-                agentsLoadingDots={agentLoadingDots}
-                selectedAgent={inputAgent}
-                isAgentAutoMode={inputAgentAutoMode}
-                isAgentSelectionLocked={isDeepResearchConversation}
-                onAgentSelect={agent => {
-                  if (isDeepResearchConversation) return
-                  setSelectedAgentId(agent?.id || null)
-                  setIsAgentAutoMode(false)
-                  setPendingAgentId(null)
-                  setIsAgentSelectorOpen(false)
-                  const targetConversationId = activeConversation?.id || conversationId
-                  manualAgentSelectionRef.current = {
-                    conversationId: targetConversationId || null,
-                    mode: 'manual',
-                    agentId: agent?.id || null,
-                  }
-                  if (targetConversationId) {
-                    updateConversation(targetConversationId, {
-                      last_agent_id: agent?.id || null,
-                      agent_selection_mode: 'manual',
-                    }).catch(err => console.error('Failed to update agent selection mode:', err))
-                  }
-                }}
-                onAgentAutoModeToggle={() => {
-                  if (isDeepResearchConversation) return
-                  setSelectedAgentId(null) // Clear selected agent when entering auto mode
-                  setIsAgentAutoMode(true)
-                  setPendingAgentId(null)
-                  setIsAgentSelectorOpen(false)
-                  const targetConversationId = activeConversation?.id || conversationId
-                  manualAgentSelectionRef.current = {
-                    conversationId: targetConversationId || null,
-                    mode: 'auto',
-                    agentId: null,
-                  }
-                  if (targetConversationId) {
-                    updateConversation(targetConversationId, {
-                      last_agent_id: null,
-                      agent_selection_mode: 'auto',
-                    }).catch(err => console.error('Failed to update agent selection mode:', err))
-                  }
-                }}
-                isAgentSelectorOpen={isAgentSelectorOpen}
-                onAgentSelectorToggle={() => {
-                  if (isDeepResearchConversation) return
-                  setIsAgentSelectorOpen(prev => !prev)
-                }}
-                agentSelectorRef={agentSelectorRef}
-                onToggleSearch={() => setIsSearchActive(prev => !prev)}
-                onToggleThinking={() =>
-                  setIsThinkingActive(prev => {
-                    const next = !prev
-                    if (next) setIsDeepResearchActive(false)
-                    return next
-                  })
-                }
-                quotedText={quotedText}
-                onQuoteClear={() => {
-                  setQuotedText(null)
-                  setQuoteContext(null)
-                  quoteTextRef.current = ''
-                  quoteSourceRef.current = ''
-                }}
-                onSend={(text, attachments) =>
-                  handleSendMessage(text, attachments, null, { skipMeta: false })
-                }
-                editingSeed={editingSeed}
-                onEditingClear={() => {
-                  setEditingIndex(null)
-                  setEditingSeed({ text: '', attachments: [] })
-                }}
-                showEditing={editingIndex !== null && messages[editingIndex]}
-                editingLabel={
-                  editingIndex !== null ? extractUserQuestion(messages[editingIndex]) : ''
-                }
-                scrollToBottom={scrollToBottom}
-                spacePrimaryAgentId={spacePrimaryAgentId}
-              />
-              <div className="text-center mt-2 text-xs text-gray-400 dark:text-gray-500">
-                Qurio can make mistakes. Please use with caution.
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Deep research conversations are single-turn; no input area. */}
       </div>
     </div>
   )

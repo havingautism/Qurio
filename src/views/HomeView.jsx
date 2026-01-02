@@ -349,7 +349,7 @@ const HomeView = () => {
       }
 
       navigate({
-        to: '/conversation/$conversationId',
+        to: '/deepresearch/$conversationId',
         params: { conversationId: conversation.id },
         state: chatState,
       })

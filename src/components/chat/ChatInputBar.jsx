@@ -28,14 +28,12 @@ import { getAgentDisplayName } from '../../lib/agentDisplay'
  * @param {boolean} props.isSearchActive - Whether search is enabled
  * @param {boolean} props.isThinkingActive - Whether thinking mode is enabled
  * @param {boolean} props.isThinkingLocked - Whether thinking mode is locked (cannot be toggled)
- * @param {boolean} props.isFollowUpLocked - Whether follow-up input is locked (deep research single-turn)
  * @param {Array} props.agents - List of available agents
  * @param {boolean} props.agentsLoading - Whether agents are currently loading
  * @param {string} props.agentsLoadingLabel - Full label with animated dots to show while agents are loading
  * @param {string} props.agentsLoadingDots - Animated dots only for separate UI indicator
  * @param {Object} props.selectedAgent - Currently selected agent
  * @param {boolean} props.isAgentAutoMode - Whether agent auto mode is enabled
- * @param {boolean} props.isAgentSelectionLocked - Whether agent selection is locked
  * @param {Function} props.onAgentSelect - Callback when an agent is selected
  * @param {Function} props.onAgentAutoModeToggle - Callback when agent auto mode is toggled
  * @param {boolean} props.isAgentSelectorOpen - Whether agent selector dropdown is open
@@ -60,14 +58,12 @@ const ChatInputBar = React.memo(
     isSearchActive,
     isThinkingActive,
     isThinkingLocked,
-    isFollowUpLocked,
     agents,
     agentsLoading,
     agentsLoadingLabel,
     agentsLoadingDots,
     selectedAgent,
     isAgentAutoMode,
-    isAgentSelectionLocked,
     onAgentSelect,
     onAgentAutoModeToggle,
     isAgentSelectorOpen,
@@ -148,7 +144,7 @@ const ChatInputBar = React.memo(
     }
 
     const handleSend = () => {
-      if (isFollowUpLocked || isLoading) return
+      if (isLoading) return
       const text = inputValue
       const hasContent = text.trim() || attachments.length > 0
       if (!hasContent) return
@@ -240,12 +236,7 @@ const ChatInputBar = React.memo(
             ref={textareaRef}
             onChange={e => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={
-              isFollowUpLocked
-                ? t('chatInterface.deepResearchSingleTurn')
-                : t('chatInterface.askFollowUp')
-            }
-            disabled={isFollowUpLocked}
+            placeholder={t('chatInterface.askFollowUp')}
             className="w-full bg-transparent border-none outline-none resize-none text-base placeholder-gray-500 dark:placeholder-gray-400 min-h-[44px] max-h-[200px] overflow-y-auto py-2 disabled:cursor-not-allowed"
             rows={1}
           />
@@ -339,7 +330,7 @@ const ChatInputBar = React.memo(
                       ? 'text-primary-500 bg-gray-200 dark:bg-zinc-700'
                       : 'text-gray-500 dark:text-gray-400',
                   )}
-                  disabled={agentsLoading || isAgentSelectionLocked}
+                  disabled={agentsLoading}
                 >
                   {isAgentAutoMode || !selectedAgent ? (
                     <Smile size={18} />
@@ -428,9 +419,7 @@ const ChatInputBar = React.memo(
             <div className="flex gap-2">
               <button
                 onClick={handleSend}
-                disabled={
-                  isFollowUpLocked || isLoading || (!inputValue.trim() && attachments.length === 0)
-                }
+                disabled={isLoading || (!inputValue.trim() && attachments.length === 0)}
                 className="p-2 bg-primary-500 dark:bg-primary-800 hover:bg-primary-600 text-white rounded-full transition-colors disabled:opacity-50  disabled:hover:bg-primary-500"
               >
                 <ArrowRight size={18} />

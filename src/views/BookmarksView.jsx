@@ -32,7 +32,7 @@ const SORT_OPTION_KEYS = [
 
 const BookmarksView = () => {
   const { t, i18n } = useTranslation()
-  const { spaces, isSidebarPinned, showConfirmation } = useAppContext()
+  const { spaces, deepResearchSpace, isSidebarPinned, showConfirmation } = useAppContext()
   const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState('')
   const [sortOption, setSortOption] = useState(SORT_OPTION_KEYS[0])
@@ -40,6 +40,7 @@ const BookmarksView = () => {
   const [openMenuId, setOpenMenuId] = useState(null)
   const [menuAnchorEl, setMenuAnchorEl] = useState(null)
   const toast = useToast()
+  const deepResearchSpaceId = deepResearchSpace?.id ? String(deepResearchSpace.id) : null
 
   // Translated sort options for rendering
   const sortOptions = useMemo(
@@ -65,11 +66,12 @@ const BookmarksView = () => {
         ascending: sortOption.ascending,
         cursor,
         limit,
+        excludeSpaceIds: deepResearchSpaceId ? [deepResearchSpaceId] : [],
       })
     },
     {
       limit: 10,
-      dependencies: [sortOption],
+      dependencies: [sortOption, deepResearchSpaceId],
       rootMargin: '100px',
     },
   )
@@ -256,13 +258,19 @@ const BookmarksView = () => {
           ) : (
             filteredConversations.map(conv => {
               const space = getSpaceInfo(conv.space_id)
+              const isDeepResearchConversation =
+                space?.isDeepResearchSystem ||
+                (deepResearchSpace?.id &&
+                  String(conv.space_id) === String(deepResearchSpace.id))
               return (
                 <div
                   key={conv.id}
                   data-conversation-id={conv.id}
                   onClick={() =>
                     navigate({
-                      to: '/conversation/$conversationId',
+                      to: isDeepResearchConversation
+                        ? '/deepresearch/$conversationId'
+                        : '/conversation/$conversationId',
                       params: { conversationId: conv.id },
                     })
                   }

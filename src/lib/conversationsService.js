@@ -8,6 +8,7 @@ export const listConversations = async (options = {}) => {
     cursor = null,
     page = null,
     search = null, // Add search support
+    excludeSpaceIds = [],
     sortBy = 'created_at',
     ascending = false,
   } = options
@@ -32,6 +33,14 @@ export const listConversations = async (options = {}) => {
   // Handle Search
   if (search && search.trim()) {
     query = query.ilike('title', `%${search.trim()}%`)
+  }
+
+  if (Array.isArray(excludeSpaceIds) && excludeSpaceIds.length > 0) {
+    const normalized = excludeSpaceIds.map(String).filter(Boolean)
+    if (normalized.length > 0) {
+      const filter = `(${normalized.map(id => `"${id}"`).join(',')})`
+      query = query.not('space_id', 'in', filter)
+    }
   }
 
   // Handle Pagination
@@ -81,7 +90,13 @@ export const listConversations = async (options = {}) => {
 }
 
 export const listBookmarkedConversations = async (options = {}) => {
-  const { limit = 10, cursor = null, sortBy = 'created_at', ascending = false } = options
+  const {
+    limit = 10,
+    cursor = null,
+    sortBy = 'created_at',
+    ascending = false,
+    excludeSpaceIds = [],
+  } = options
   const supabase = getSupabaseClient()
   if (!supabase)
     return {
@@ -98,6 +113,14 @@ export const listBookmarkedConversations = async (options = {}) => {
     .eq('is_favorited', true)
     .order(sortBy, { ascending })
     .limit(limit)
+
+  if (Array.isArray(excludeSpaceIds) && excludeSpaceIds.length > 0) {
+    const normalized = excludeSpaceIds.map(String).filter(Boolean)
+    if (normalized.length > 0) {
+      const filter = `(${normalized.map(id => `"${id}"`).join(',')})`
+      query = query.not('space_id', 'in', filter)
+    }
+  }
 
   // Apply cursor filter based on sort direction
   if (cursor) {
@@ -155,6 +178,7 @@ export const listConversationsBySpace = async (spaceId, options = {}) => {
     limit = 10,
     cursor = null,
     page = null,
+    search = null,
     sortBy = 'created_at',
     ascending = false,
   } = options
@@ -175,6 +199,10 @@ export const listConversationsBySpace = async (spaceId, options = {}) => {
     .eq('space_id', spaceId)
     .order(sortBy, { ascending })
     .limit(limit)
+
+  if (search && search.trim()) {
+    query = query.ilike('title', `%${search.trim()}%`)
+  }
 
   if (page !== null) {
     const from = (page - 1) * limit

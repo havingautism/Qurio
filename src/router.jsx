@@ -10,8 +10,10 @@ const SpacesView = React.lazy(() => import('./views/SpacesView'))
 const AgentsView = React.lazy(() => import('./views/AgentsView'))
 const SpaceView = React.lazy(() => import('./views/SpaceView'))
 const LibraryView = React.lazy(() => import('./views/LibraryView'))
+const DeepResearchView = React.lazy(() => import('./views/DeepResearchView'))
 const BookmarksView = React.lazy(() => import('./views/BookmarksView'))
 const ShareImageView = React.lazy(() => import('./views/ShareImageView'))
+import DeepResearchConversationView from './views/DeepResearchConversationView'
 
 const SuspensePage = ({ children }) => (
   <React.Suspense fallback={<div className="min-h-screen bg-background text-foreground" />}>
@@ -87,6 +89,16 @@ export const conversationRoute = createRoute({
   ),
 })
 
+export const deepResearchConversationRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: 'deepresearch/$conversationId',
+  component: () => (
+    <SuspensePage>
+      <DeepResearchConversationView />
+    </SuspensePage>
+  ),
+})
+
 export const spacesRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: 'spaces',
@@ -127,6 +139,16 @@ export const libraryRoute = createRoute({
   ),
 })
 
+export const deepResearchRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: 'deepresearch',
+  component: () => (
+    <SuspensePage>
+      <DeepResearchView />
+    </SuspensePage>
+  ),
+})
+
 export const bookmarksRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: 'bookmarks',
@@ -151,10 +173,12 @@ export const routeTree = rootRoute.addChildren([
   homeRoute,
   newChatRoute,
   conversationRoute,
+  deepResearchConversationRoute,
   spacesRoute,
   agentsRoute,
   spaceRoute,
   libraryRoute,
+  deepResearchRoute,
   bookmarksRoute,
   shareImageRoute,
 ])

@@ -8,7 +8,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
-  Library as LibraryIcon,
+  Microscope,
   MoreHorizontal,
   Plus,
   Search,
@@ -22,7 +22,7 @@ import DropdownMenu from '../components/DropdownMenu'
 import EmojiDisplay from '../components/EmojiDisplay'
 import FancyLoader from '../components/FancyLoader'
 import { useToast } from '../contexts/ToastContext'
-import { listConversations, toggleFavorite } from '../lib/conversationsService'
+import { listConversationsBySpace, toggleFavorite } from '../lib/conversationsService'
 import { deleteConversation } from '../lib/supabase'
 
 // Sort option keys (constant for logic)
@@ -33,12 +33,12 @@ const SORT_OPTION_KEYS = [
   { key: 'titleZA', value: 'title', ascending: false },
 ]
 
-const LibraryView = () => {
+const DeepResearchView = () => {
   const { t, i18n } = useTranslation()
   const { spaces, deepResearchSpace, isSidebarPinned, showConfirmation } = useAppContext()
   const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState('')
-  const [activeSearchQuery, setActiveSearchQuery] = useState('') // Query actually sent to server
+  const [activeSearchQuery, setActiveSearchQuery] = useState('')
   const [sortOption, setSortOption] = useState(SORT_OPTION_KEYS[0])
   const [isSortOpen, setIsSortOpen] = useState(false)
   const [openMenuId, setOpenMenuId] = useState(null)
@@ -50,6 +50,7 @@ const LibraryView = () => {
   const [currentPage, setCurrentPage] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
   const limit = 10
+
   const deepResearchSpaceId = deepResearchSpace?.id ? String(deepResearchSpace.id) : null
 
   // Translated sort options for rendering
@@ -63,27 +64,31 @@ const LibraryView = () => {
   )
 
   useEffect(() => {
-    // Reset to page 1 when sort or active search changes
     setCurrentPage(1)
   }, [sortOption, activeSearchQuery, deepResearchSpaceId])
 
   useEffect(() => {
     const fetchConversations = async () => {
+      if (!deepResearchSpaceId) {
+        setConversations([])
+        setTotalCount(0)
+        setLoading(false)
+        return
+      }
       setLoading(true)
-      const { data, count, error } = await listConversations({
+      const { data, count, error } = await listConversationsBySpace(deepResearchSpaceId, {
         sortBy: sortOption.value,
         ascending: sortOption.ascending,
         page: currentPage,
         limit,
         search: activeSearchQuery,
-        excludeSpaceIds: deepResearchSpaceId ? [deepResearchSpaceId] : [],
       })
 
       if (!error) {
         setConversations(data || [])
         if (count !== undefined) setTotalCount(count)
       } else {
-        console.error('Failed to load conversations:', error)
+        console.error('Failed to load deep research conversations:', error)
         toast.error('Failed to load conversations')
       }
       setLoading(false)
@@ -121,19 +126,13 @@ const LibraryView = () => {
     }
   }
 
-  // Filter conversations based on search query - Removed as we now do server-side search
-  const filteredConversations = conversations
-
-  // Helper to get space info
   const getSpaceInfo = spaceId => {
     if (!spaceId) return null
     return spaces.find(s => String(s.id) === String(spaceId))
   }
 
-  // Format date helper
   const formatDate = dateString => {
     const date = new Date(dateString)
-    // Use current language for date formatting
     const locale = i18n.language === 'zh-CN' ? 'zh-CN' : 'en-US'
     return date.toLocaleString(locale, {
       month: 'short',
@@ -145,7 +144,6 @@ const LibraryView = () => {
     })
   }
 
-  // Handle toggle favorite
   const handleToggleFavorite = async conversation => {
     const newStatus = !conversation.is_favorited
     const { error } = await toggleFavorite(conversation.id, newStatus)
@@ -155,13 +153,11 @@ const LibraryView = () => {
       toast.error(t('errors.generic'))
     } else {
       toast.success(newStatus ? t('views.addBookmark') : t('views.removeBookmark'))
-      // Refresh data
       window.dispatchEvent(new Event('conversations-changed'))
     }
     setOpenMenuId(null)
   }
 
-  // Handle delete conversation
   const handleDeleteConversation = async conversation => {
     if (!conversation) return
 
@@ -174,12 +170,11 @@ const LibraryView = () => {
         const { success, error } = await deleteConversation(conversation.id)
 
         if (success) {
-          toast.success(t('views.libraryView.conversationDeleted'))
-          // Refresh data
+          toast.success(t('views.deepResearchView.conversationDeleted'))
           window.dispatchEvent(new Event('conversations-changed'))
         } else {
           console.error('Failed to delete conversation:', error)
-          toast.error(t('views.libraryView.failedToDelete'))
+          toast.error(t('views.deepResearchView.failedToDelete'))
         }
       },
     })
@@ -196,8 +191,8 @@ const LibraryView = () => {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-3">
-            <LibraryIcon size={32} className="text-primary-500" />
-            <h1 className="text-3xl font-medium">{t('views.libraryView.title')}</h1>
+            <Microscope size={32} className="text-primary-500" />
+            <h1 className="text-3xl font-medium">{t('views.deepResearchView.title')}</h1>
           </div>
           <button
             onClick={() => navigate({ to: '/new_chat' })}
@@ -220,7 +215,7 @@ const LibraryView = () => {
             </button>
             <input
               type="text"
-              placeholder={t('views.libraryView.searchPlaceholder')}
+              placeholder={t('views.deepResearchView.searchPlaceholder')}
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               onKeyDown={handleKeyDown}
@@ -256,20 +251,13 @@ const LibraryView = () => {
             )}
           </div>
 
-          {/* Filter Row (Visual only for now) */}
+          {/* Filter Row */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              {/* <button className="px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 text-xs font-medium transition-colors">
-                Select
-              </button> */}
               <button className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 text-xs font-medium transition-colors">
                 <span>Type</span>
                 <ChevronDown size={12} />
               </button>
-              {/* <button className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 text-xs font-medium transition-colors">
-                <span>Temporary Threads: Show</span>
-                <ChevronDown size={12} />
-              </button> */}
             </div>
             <div className="relative">
               <button
@@ -323,25 +311,20 @@ const LibraryView = () => {
             <div className="absolute inset-0 flex items-center justify-center backdrop-blur-md bg-background/40 rounded-2xl">
               <FancyLoader />
             </div>
-          ) : filteredConversations.length === 0 ? (
+          ) : conversations.length === 0 ? (
             <div className="text-center py-12 text-gray-500">
-              {t('views.libraryView.noThreadsFound')}
+              {t('views.deepResearchView.noThreadsFound')}
             </div>
           ) : (
-            filteredConversations.map(conv => {
+            conversations.map(conv => {
               const space = getSpaceInfo(conv.space_id)
-              const isDeepResearchConversation =
-                space?.isDeepResearchSystem ||
-                (deepResearchSpace?.id && String(conv.space_id) === String(deepResearchSpace.id))
               return (
                 <div
                   key={conv.id}
                   data-conversation-id={conv.id}
                   onClick={() =>
                     navigate({
-                      to: isDeepResearchConversation
-                        ? '/deepresearch/$conversationId'
-                        : '/conversation/$conversationId',
+                      to: '/deepresearch/$conversationId',
                       params: { conversationId: conv.id },
                     })
                   }
@@ -376,7 +359,7 @@ const LibraryView = () => {
                       </div>
                     </div>
 
-                    {/* Actions (always visible on mobile, visible on hover on desktop) */}
+                    {/* Actions */}
                     <div className="relative">
                       <button
                         onClick={e => {
@@ -386,11 +369,8 @@ const LibraryView = () => {
                         }}
                         className={clsx(
                           'p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-all rounded-full hover:bg-black/5 dark:hover:bg-white/10',
-                          // Always visible on mobile
                           'opacity-100',
-                          // Show on hover on desktop
                           'md:opacity-0 md:group-hover:opacity-100',
-                          // Ensure button has minimum size for touch
                           'min-w-[44px] min-h-[44px] flex items-center justify-center',
                         )}
                       >
@@ -474,4 +454,4 @@ const LibraryView = () => {
   )
 }
 
-export default LibraryView
+export default DeepResearchView

@@ -239,13 +239,7 @@ const ChatInterface = ({
       }
     }
     return list
-  }, [
-    spaceAgents,
-    defaultAgent,
-    selectedAgentId,
-    appAgents,
-    displaySpace,
-  ])
+  }, [spaceAgents, defaultAgent, selectedAgentId, appAgents, displaySpace])
 
   const selectedAgent = useMemo(() => {
     const agent =
@@ -1370,10 +1364,11 @@ const ChatInterface = ({
         <div className="w-full shrink-0 bg-background pt-0 pb-[calc(0.75rem+env(safe-area-inset-bottom))] px-2 sm:px-0 flex justify-center z-20">
           <div className="w-full max-w-3xl relative">
             {/* Scroll to bottom button - positioned relative to input area */}
+
             {showScrollButton && (
               <button
                 onClick={() => scrollToBottom('smooth')}
-                className="absolute bottom-40 left-1/2 -translate-x-1/2 p-2 bg-background border border-border rounded-full shadow-lg hover:bg-muted transition-all duration-300 animate-in fade-in slide-in-from-bottom-2 z-30"
+                className="absolute -top-12 left-1/2 -translate-x-1/2 p-2 bg-background border border-border rounded-full shadow-lg hover:bg-muted transition-all duration-300 animate-in fade-in slide-in-from-bottom-2 z-30"
               >
                 <ArrowDown size={20} className="text-foreground" />
               </button>
@@ -1385,14 +1380,12 @@ const ChatInterface = ({
               isSearchActive={isSearchActive}
               isThinkingActive={isThinkingActive}
               isThinkingLocked={isThinkingLocked}
-              isFollowUpLocked={false}
               agents={selectableAgents}
               agentsLoading={isAgentsLoading}
               agentsLoadingLabel={agentsLoadingLabel}
               agentsLoadingDots={agentLoadingDots}
               selectedAgent={inputAgent}
               isAgentAutoMode={inputAgentAutoMode}
-              isAgentSelectionLocked={false}
               onAgentSelect={agent => {
                 setSelectedAgentId(agent?.id || null)
                 setIsAgentAutoMode(false)

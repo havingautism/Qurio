@@ -6,15 +6,11 @@ import useChatStore from '../lib/chatStore'
 
 import {
   Copy,
-  Share2,
   ChevronRight,
   ChevronDown,
-  CornerRightDown,
-  Download,
   Pencil,
   Check,
   RefreshCw,
-  Globe,
   Quote,
   Trash2,
   X,
@@ -34,6 +30,11 @@ import DesktopSourcesSection from './DesktopSourcesSection'
 import useIsMobile from '../hooks/useIsMobile'
 import ShareModal from './ShareModal'
 import { useAppContext } from '../App'
+import DeepResearchGoalCard from './message/DeepResearchGoalCard'
+import MessageActionBar from './message/MessageActionBar'
+import RelatedQuestions from './message/RelatedQuestions'
+import { useMessageExport } from './message/useMessageExport'
+import { applyGroundingSupports, formatContentWithSources, getHostname } from './message/messageUtils'
 
 const PROVIDER_META = {
   gemini: {
@@ -66,102 +67,6 @@ const PROVIDER_META = {
     id: 'kimi',
     fallback: 'K',
   },
-}
-
-const getHostname = url => {
-  try {
-    const hostname = new URL(url).hostname
-    return hostname.replace(/^www\./, '')
-  } catch (e) {
-    return 'Source'
-  }
-}
-
-/**
- * Converts citations [1][2][3] to clickable number links [1][2][3].
- * Each number becomes a separate clickable link while keeping the simple number format.
- */
-const formatContentWithSources = (content, sources = []) => {
-  if (typeof content !== 'string' || !Array.isArray(sources) || sources.length === 0) {
-    return content
-  }
-
-  // Regex to match one or more citations: [1] or [1][2] or [1] [2] or [1]  [2]
-  // We eagerly match sequences of [n] potentially separated by whitespace
-  const citationRegex = /\[(\d+)\](?:\s*\[(\d+)\])*/g
-
-  return content.replace(citationRegex, match => {
-    // Extract all numbers from the match
-    const indices = match.match(/\d+/g).map(n => Number(n) - 1)
-
-    if (indices.length === 0) return match
-
-    const primaryIdx = indices[0]
-    const primarySource = sources[primaryIdx]
-
-    if (!primarySource) return match
-
-    // Group consecutive citations: [1][2][3] -> [+3]
-    if (indices.length > 1) {
-      return ` [+${indices.length}](citation:${indices.join(',')}) `
-    }
-
-    // Single citation: [1] -> [1]
-    return ` [${primaryIdx + 1}](citation:${primaryIdx}) `
-  })
-}
-
-const applyGroundingSupports = (content, groundingSupports = [], sources = []) => {
-  if (
-    typeof content !== 'string' ||
-    !Array.isArray(groundingSupports) ||
-    groundingSupports.length === 0 ||
-    !Array.isArray(sources) ||
-    sources.length === 0
-  ) {
-    return content
-  }
-  if (/\[\d+\]/.test(content)) return content
-
-  const markersByText = new Map()
-  for (const support of groundingSupports) {
-    const segmentText = support?.segment?.text
-    if (!segmentText || typeof segmentText !== 'string') continue
-    const chunkIndices = Array.isArray(support?.groundingChunkIndices)
-      ? support.groundingChunkIndices
-      : []
-    const sourceIndices = chunkIndices
-      .filter(idx => Number.isInteger(idx) && idx >= 0 && idx < sources.length)
-      .map(idx => idx)
-    if (sourceIndices.length === 0) continue
-    const set = markersByText.get(segmentText) || new Set()
-    for (const idx of sourceIndices) set.add(idx)
-    markersByText.set(segmentText, set)
-  }
-
-  if (markersByText.size === 0) return content
-
-  let updated = content
-  const supports = Array.from(markersByText.entries())
-    .map(([text, indices]) => ({
-      text,
-      indices: Array.from(indices).sort((a, b) => a - b),
-    }))
-    .sort((a, b) => b.text.length - a.text.length)
-
-  for (const support of supports) {
-    const marker = ` ${support.indices.map(idx => `[${idx + 1}]`).join('')}`
-    let searchFrom = 0
-    while (true) {
-      const matchIndex = updated.indexOf(support.text, searchFrom)
-      if (matchIndex === -1) break
-      const insertAt = matchIndex + support.text.length
-      updated = updated.slice(0, insertAt) + marker + updated.slice(insertAt)
-      searchFrom = insertAt + marker.length
-    }
-  }
-
-  return updated
 }
 
 /**
@@ -223,88 +128,6 @@ const MessageBubble = ({
     } catch (err) {
       console.error('Failed to copy text: ', err)
     }
-  }
-
-  const escapeHtml = value =>
-    String(value)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;')
-
-  const getExportSectionHtml = (label, html) => {
-    if (!html) return ''
-    return `<h2>${escapeHtml(label)}</h2>${html}`
-  }
-
-  const shouldExportOnlyAnswer = () => {
-    if (message?.deepResearch) return true
-    if (message?.agent_name === 'Deep Research Agent' || message?.agentName === 'Deep Research Agent')
-      return true
-    if (message?.researchPlan) return true
-    if (typeof message?.thinking_process !== 'string') return false
-    const raw = message.thinking_process.trim()
-    if (!raw || raw[0] !== '{' || raw[raw.length - 1] !== '}') return false
-    try {
-      const parsed = JSON.parse(raw)
-      return Boolean(parsed?.plan)
-    } catch {
-      return false
-    }
-  }
-
-  const buildExportHtml = () => {
-    const planHtml = planMarkdown ? researchExportRef.current?.innerHTML?.trim() || '' : ''
-    const thoughtHtml = thoughtContent ? thoughtExportRef.current?.innerHTML?.trim() || '' : ''
-    const hasAnswer = Boolean(mainContentRef.current?.innerText?.trim())
-    const answerHtml = hasAnswer ? mainContentRef.current?.innerHTML?.trim() || '' : ''
-    if (shouldExportOnlyAnswer()) {
-      return answerHtml || ''
-    }
-    const sections = [
-      getExportSectionHtml(t('messageBubble.researchProcess'), planHtml),
-      getExportSectionHtml(t('messageBubble.thinkingProcess'), thoughtHtml),
-      getExportSectionHtml(t('messageBubble.answer'), answerHtml),
-    ].filter(Boolean)
-    return sections.join('<hr />')
-  }
-
-  const getExportBaseName = () => {
-    const rawTitle = conversationTitle || t('messageBubble.researchReportTitle')
-    return String(rawTitle || 'deep-research-report')
-      .replace(/[\\/:*?"<>|]+/g, '')
-      .trim()
-  }
-
-  const handleDownloadWord = () => {
-    const exportHtml = buildExportHtml()
-    if (!exportHtml) return
-    const html = `<!doctype html><html><head><meta charset="utf-8"><style>body{font-family:Arial,sans-serif;padding:24px;}h2{margin:20px 0 12px;}pre{white-space:pre-wrap;font-family:inherit;}</style></head><body>${exportHtml}</body></html>`
-    const blob = new Blob([html], { type: 'application/msword' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `${getExportBaseName()}.doc`
-    document.body.appendChild(link)
-    link.click()
-    link.remove()
-    URL.revokeObjectURL(url)
-  }
-
-  const handleDownloadPdf = () => {
-    const exportHtml = buildExportHtml()
-    if (!exportHtml) return
-    const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(
-      getExportBaseName(),
-    )}</title><style>body{font-family:Arial,sans-serif;padding:24px;}h2{margin:20px 0 12px;}pre{white-space:pre-wrap;font-family:inherit;}</style></head><body>${exportHtml}</body></html>`
-    const printWindow = window.open('', '_blank', 'width=900,height=650')
-    if (!printWindow) return
-    printWindow.document.open()
-    printWindow.document.write(html)
-    printWindow.document.close()
-    printWindow.focus()
-    printWindow.print()
   }
 
   // Effect to handle copy success timeout with proper cleanup
@@ -1028,76 +851,7 @@ const MessageBubble = ({
           {/* Message Content */}
           {(() => {
             if (isDeepResearchContext) {
-              const rawContent = String(contentToRender || '').trim()
-              const questionLabel = t('homeView.deepResearchQuestionLabel')
-              const scopeLabel = t('homeView.deepResearchScopeLabel')
-              const outputLabel = t('homeView.deepResearchOutputLabel')
-              const labelPattern = label =>
-                new RegExp(`^\\s*${label.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}\\s*:\\s*(.+)$`)
-              const lines = rawContent.split(/\r?\n/).map(line => line.trim())
-              const matchLine = lines.find(line => labelPattern(questionLabel).test(line))
-              let displayContent = ''
-              if (matchLine) {
-                const match = matchLine.match(labelPattern(questionLabel))
-                displayContent = match?.[1]?.trim() || ''
-              }
-              if (!displayContent) {
-                const escapeLabel = label =>
-                  label.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')
-                let cleaned = rawContent
-                  .replace(new RegExp(`${escapeLabel(questionLabel)}\\s*:\\s*`, 'i'), '')
-                  .replace(/Research question:\s*/i, '')
-                const scopeIndex = cleaned.search(
-                  new RegExp(`\\n\\s*${escapeLabel(scopeLabel)}\\s*:`, 'i'),
-                )
-                const outputIndex = cleaned.search(
-                  new RegExp(`\\n\\s*${escapeLabel(outputLabel)}\\s*:`, 'i'),
-                )
-                const engScopeIndex = cleaned.search(/\n\s*Research scope\s*:/i)
-                const engOutputIndex = cleaned.search(/\n\s*Output requirements\s*:/i)
-                const cutIndex = [scopeIndex, outputIndex, engScopeIndex, engOutputIndex]
-                  .filter(index => index >= 0)
-                  .sort((a, b) => a - b)[0]
-                if (cutIndex !== undefined) {
-                  cleaned = cleaned.slice(0, cutIndex)
-                }
-                displayContent = cleaned.trim()
-              }
-
-              return (
-                <div className="w-full max-w-2xl bg-white dark:bg-[#18181b]/50 backdrop-blur-sm rounded-2xl p-5 border border-gray-200 dark:border-zinc-800 shadow-sm mb-6 sm:mb-10 cursor-text select-text">
-                  <div className="flex flex-col gap-4">
-                    <div>
-                      <div className="text-gray-500 dark:text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-                        <EmojiDisplay emoji="🎯" size="1.1em" />
-                        {t('messageBubble.researchGoalLabel')}
-                      </div>
-                      <div className="text-base font-medium text-gray-900 dark:text-gray-100 leading-relaxed font-sans">
-                        {displayContent}
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 mt-1">
-                      <div className="flex-1 bg-gray-50 dark:bg-zinc-800/50 rounded-lg p-3 border border-gray-100 dark:border-zinc-700/50">
-                        <div className="text-gray-400 dark:text-gray-500 text-[10px] font-bold uppercase tracking-wider mb-1">
-                          {t('messageBubble.researchScopeLabel')}
-                        </div>
-                        <div className="text-gray-700 dark:text-gray-300 text-sm font-medium">
-                          Auto
-                        </div>
-                      </div>
-                      <div className="flex-1 bg-gray-50 dark:bg-zinc-800/50 rounded-lg p-3 border border-gray-100 dark:border-zinc-700/50">
-                        <div className="text-gray-400 dark:text-gray-500 text-[10px] font-bold uppercase tracking-wider mb-1">
-                          {t('messageBubble.researchRequirementsLabel')}
-                        </div>
-                        <div className="text-gray-700 dark:text-gray-300 text-sm font-medium">
-                          Auto
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )
+              return <DeepResearchGoalCard content={contentToRender} />
             }
             return (
               <div
@@ -1257,6 +1011,16 @@ const MessageBubble = ({
   const hasRelatedQuestions = Array.isArray(message.related) && message.related.length > 0
   const isRelatedLoading = !!message.relatedLoading
   const shouldShowRelated = !isDeepResearch && (hasRelatedQuestions || isRelatedLoading)
+  const { handleDownloadPdf, handleDownloadWord } = useMessageExport({
+    message,
+    planMarkdown,
+    thoughtContent,
+    mainContentRef,
+    researchExportRef,
+    thoughtExportRef,
+    conversationTitle,
+    t,
+  })
 
   return (
     <div
@@ -1556,187 +1320,57 @@ const MessageBubble = ({
       {/* Related Questions */}
       {shouldShowRelated && (
         <div className="border-t border-gray-200 dark:border-zinc-800 pt-4">
-          <div className="flex items-center gap-3 mb-3 text-gray-900 dark:text-gray-100">
-            <EmojiDisplay emoji="🔮" size="1.2em" className="mb-1" />
-            <span className="text-sm font-semibold">{t('messageBubble.relatedQuestions')}</span>
-          </div>
-          <div className="flex flex-col gap-1 md:gap-2 ">
-            {hasRelatedQuestions &&
-              message.related.map((question, index) => (
-                <div
-                  key={index}
-                  onClick={() => onRelatedClick && onRelatedClick(question)}
-                  className="flex items-center rounded-2xl border sm:hover:scale-102 border-gray-200 dark:border-zinc-800 bg-user-bubble dark:bg-zinc-800/50 justify-between p-2  hover:bg-user-bubble dark:hover:bg-zinc-800/50 cursor-pointer transition-colors group"
-                >
-                  <span className="text-gray-700 dark:text-gray-300 font-medium text-sm md:text-balance">
-                    {question}
-                  </span>
-                  <div className="ml-2 sm:ml-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 text-primary-500 dark:text-primary-500">
-                    <CornerRightDown />
-                  </div>
-                </div>
-              ))}
-            {isRelatedLoading && (
-              <div className="flex items-center p-2 text-gray-500 dark:text-gray-400">
-                <DotLoader />
-              </div>
-            )}
-          </div>
+          <RelatedQuestions
+            t={t}
+            questions={hasRelatedQuestions ? message.related : []}
+            isLoading={isRelatedLoading}
+            onRelatedClick={onRelatedClick}
+          />
         </div>
       )}
 
       {/* Action Bar */}
-      <div className="flex items-center gap-4  border-t border-gray-200 dark:border-zinc-800 pt-4">
-        <button
-          className="flex items-center font-mono gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
-          onClick={() => setIsShareModalOpen(true)}
-        >
-          <Share2 size={16} />
-          <span className="hidden sm:block">{t('message.share')}</span>
-        </button>
-        <button
-          className="flex items-center gap-2 text-sm font-mono text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
-          onClick={() => {
-            if (!onRegenerateAnswer) return
-            showConfirmation({
-              title: t('confirmation.regenerateTitle'),
-              message: t('confirmation.regenerateMessage'),
-              confirmText: t('message.regenerate'),
-              onConfirm: onRegenerateAnswer,
-            })
-          }}
-        >
-          <RefreshCw size={16} />
-          <span className="hidden sm:block">{t('message.regenerate')}</span>
-        </button>
-        <button
-          className="flex items-center gap-2 text-sm font-mono text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
-          onClick={() => {
-            // Copy only the rendered markdown text (no extra metadata/sections)
-            const renderedText = mainContentRef.current?.innerText?.trim() || ''
-            const fallbackText = mainContent || ''
-            copyToClipboard(renderedText || fallbackText)
-            setIsCopied(true)
-          }}
-        >
-          {isCopied ? (
-            <>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="text-green-600 dark:text-green-400"
-              >
-                <polyline points="20,6 9,17 4,12"></polyline>
-              </svg>
-              <span className="text-green-600 dark:text-green-400 hidden sm:block">
-                {t('message.copied')}
-              </span>
-            </>
-          ) : (
-            <>
-              <Copy size={16} />
-              <span className="hidden sm:block">{t('message.copy')}</span>
-            </>
-          )}
-        </button>
-        {isDeepResearch && (
-          <div className="relative" ref={downloadMenuRef}>
-            <button
-              className="flex items-center gap-2 text-sm font-mono text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
-              onClick={() => setIsDownloadMenuOpen(prev => !prev)}
-            >
-              <Download size={16} />
-              <span className="hidden sm:block">{t('messageBubble.download')}</span>
-              <ChevronDown size={14} />
-            </button>
-            {isDownloadMenuOpen && (
-              <div
-                className={clsx(
-                  'absolute left-0 w-44 bg-white dark:bg-[#202222] border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl z-30 overflow-hidden',
-                  isMobile ? 'bottom-full mb-2' : 'mt-2',
-                )}
-              >
-                <div className="p-2 flex flex-col gap-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      handleDownloadPdf()
-                      setIsDownloadMenuOpen(false)
-                    }}
-                    className="flex items-center gap-2 w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left text-sm text-gray-700 dark:text-gray-200"
-                  >
-                    {t('messageBubble.downloadPdf')}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      handleDownloadWord()
-                      setIsDownloadMenuOpen(false)
-                    }}
-                    className="flex items-center gap-2 w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left text-sm text-gray-700 dark:text-gray-200"
-                  >
-                    {t('messageBubble.downloadWord')}
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-        {/* Sources Toggle */}
-        {message.sources && message.sources.length > 0 && (
-          <button
-            onClick={() => {
-              if (isMobile) {
-                handleMobileSourceClick(message.sources, t('sources.allSources'))
-              } else {
-                setIsSourcesOpen(!isSourcesOpen)
-              }
-            }}
-            className={clsx(
-              'flex items-center gap-2 text-sm transition-colors',
-              isSourcesOpen
-                ? 'text-primary-600 dark:text-primary-400 font-medium bg-primary-50 dark:bg-primary-900/20 px-2 py-1 rounded-lg'
-                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200',
-            )}
-          >
-            <Globe size={16} />
-            <span className="hidden sm:block">{t('sources.title')}</span>
-            <span
-              className={clsx(
-                'flex items-center justify-center rounded-full text-[10px] w-5 h-5 transition-colors',
-                isSourcesOpen
-                  ? 'bg-primary-200 dark:bg-primary-900/50 text-primary-700 dark:text-primary-300'
-                  : 'bg-gray-200 dark:bg-zinc-700 text-gray-700 dark:text-gray-300',
-              )}
-            >
-              {message.sources.length}
-            </span>
-          </button>
-        )}
-        <button
-          className="flex items-center gap-2 text-sm font-mono text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors ml-auto"
-          onClick={() => {
-            if (!onDelete) return
-            showConfirmation({
-              title: t('confirmation.deleteMessageTitle'),
-              message: t('confirmation.deleteAssistantMessage'),
-              confirmText: t('confirmation.delete'),
-              isDangerous: true,
-              onConfirm: onDelete,
-            })
-          }}
-        >
-          <Trash2 size={16} />
-          <span className="hidden sm:block">{t('common.delete')}</span>
-        </button>
-      </div>
+      <MessageActionBar
+        t={t}
+        isDeepResearch={isDeepResearch}
+        isMobile={isMobile}
+        message={message}
+        isSourcesOpen={isSourcesOpen}
+        onToggleSources={() => setIsSourcesOpen(prev => !prev)}
+        onOpenMobileSources={() => handleMobileSourceClick(message.sources, t('sources.allSources'))}
+        onShare={() => setIsShareModalOpen(true)}
+        onRegenerate={() => {
+          if (!onRegenerateAnswer) return
+          showConfirmation({
+            title: t('confirmation.regenerateTitle'),
+            message: t('confirmation.regenerateMessage'),
+            confirmText: t('message.regenerate'),
+            onConfirm: onRegenerateAnswer,
+          })
+        }}
+        onCopy={() => {
+          const renderedText = mainContentRef.current?.innerText?.trim() || ''
+          const fallbackText = mainContent || ''
+          copyToClipboard(renderedText || fallbackText)
+          setIsCopied(true)
+        }}
+        isCopied={isCopied}
+        onDownloadPdf={handleDownloadPdf}
+        onDownloadWord={handleDownloadWord}
+        isDownloadMenuOpen={isDownloadMenuOpen}
+        setIsDownloadMenuOpen={setIsDownloadMenuOpen}
+        downloadMenuRef={downloadMenuRef}
+        onDelete={() => {
+          if (!onDelete) return
+          showConfirmation({
+            title: t('confirmation.deleteMessageTitle'),
+            message: t('confirmation.deleteAssistantMessage'),
+            confirmText: t('confirmation.delete'),
+            isDangerous: true,
+            onConfirm: onDelete,
+          })
+        }}
+      />
 
       {/* Desktop Sources Section (Collapsible) */}
       {!isMobile && message.sources && message.sources.length > 0 && (

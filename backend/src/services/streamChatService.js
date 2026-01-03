@@ -736,10 +736,12 @@ export const streamChat = async function* (params) {
   // ============================================================================
   // STEP 5: Create non-streaming model instances for special providers
   // ============================================================================
-  // Some providers (Kimi, GLM, ModelScope) don't support tool_calls in streaming mode
-  // We need non-streaming instances to get tool call requests, then switch to streaming for the response
+  // Provider streaming tool_calls support (tested 2026-01-03):
+  // - OpenAI, SiliconFlow, GLM: ✅ Streaming supports tool_calls
+  // - Kimi: ❌ Streaming returns incomplete arguments (needs non-streaming)
+  // - ModelScope: ❌ API doesn't support tools + stream together (needs non-streaming)
 
-  // Kimi: Always needs non-streaming for tool calls
+  // Kimi: Needs non-streaming for tool calls (streaming tool_calls tested but arguments format issues)
   const nonStreamingKimiModel =
     provider === 'kimi' && stream
       ? buildKimiModel({
@@ -754,42 +756,28 @@ export const streamChat = async function* (params) {
           toolChoice: effectiveToolChoice,
           responseFormat,
           thinking,
-          streaming: false, // Non-streaming to get tool_calls
+          streaming: false, // Non-streaming to get tool_calls properly
         })
       : null
 
-  // GLM/ModelScope: Only need non-streaming when tools are available
-  const nonStreamingGlmModel =
-    (provider === 'glm' || provider === 'modelscope') && stream && normalizedTools.length > 0
-      ? provider === 'glm'
-        ? buildGLMModel({
-            apiKey,
-            model,
-            temperature,
-            top_k,
-            top_p,
-            frequency_penalty,
-            presence_penalty,
-            tools: normalizedTools,
-            toolChoice: effectiveToolChoice,
-            responseFormat,
-            thinking,
-            streaming: false, // Non-streaming to get tool_calls
-          })
-        : buildModelScopeModel({
-            apiKey,
-            model,
-            temperature,
-            top_k,
-            top_p,
-            frequency_penalty,
-            presence_penalty,
-            tools: normalizedTools,
-            toolChoice: effectiveToolChoice,
-            responseFormat,
-            thinking,
-            streaming: false, // Non-streaming to get tool_calls
-          })
+  // ModelScope: API doesn't support tools + stream together
+  // GLM tested and confirmed to support streaming tool_calls (2026-01-03)
+  const nonStreamingModelScopeModel =
+    provider === 'modelscope' && stream && normalizedTools.length > 0
+      ? buildModelScopeModel({
+          apiKey,
+          model,
+          temperature,
+          top_k,
+          top_p,
+          frequency_penalty,
+          presence_penalty,
+          tools: normalizedTools,
+          toolChoice: effectiveToolChoice,
+          responseFormat,
+          thinking,
+          streaming: false, // Non-streaming to get tool_calls
+        })
       : null
 
   if (debugStream) {
@@ -922,7 +910,7 @@ export const streamChat = async function* (params) {
 
       // ----------------------------------------------------------------------
       // KIMI PROVIDER: Special handling (non-streaming for tool detection)
-      // Kimi's streaming API doesn't return tool_calls properly, so we:
+      // Kimi's streaming tool_calls has argument format issues, so we:
       // 1. First call non-streaming to check for tool_calls
       // 2. If tool_calls found, execute them and continue loop
       // 3. If no tool_calls, proceed with streaming response
@@ -1006,43 +994,16 @@ export const streamChat = async function* (params) {
           continue // ← KEY: Go back to while(true) with tool results added
         }
 
-        // No tool calls - AI returned direct content
-        // Extract and emit the response
-        const contentValue = getResponseContent(response)
-        const chunkText = normalizeTextContent(contentValue)
-        if (chunkText) {
-          handleTaggedText(chunkText)
-          while (chunks.length > 0) {
-            yield chunks.shift()
-          }
-        }
-
-        // Handle reasoning/thinking content
-        const reasoning = getResponseReasoning(response)
-        if (reasoning) {
-          emitThought(String(reasoning))
-          while (chunks.length > 0) {
-            yield chunks.shift()
-          }
-        }
-
-        // Kimi complete - yield final result and exit
-        yield {
-          type: 'done',
-          content: fullContent,
-          thought: fullThought || undefined,
-          sources: sourcesMap.size ? Array.from(sourcesMap.values()) : undefined,
-          toolCalls: undefined,
-        }
-        return
+        // No tool calls detected - fall through to general streaming path
+        // This ensures user gets streaming output even when no tools are called
       }
       // ----------------------------------------------------------------------
-      // GLM/MODELSCOPE PROVIDER: Similar to Kimi, needs non-streaming for tools
-      // These providers also don't support tool_calls in streaming mode
+      // MODELSCOPE PROVIDER: API doesn't support tools + stream together
+      // GLM confirmed to support streaming tool_calls, so it uses general path
       // ----------------------------------------------------------------------
-      if (nonStreamingGlmModel && !preProcessedToolCall) {
+      if (nonStreamingModelScopeModel && !preProcessedToolCall) {
         const nonStreamMessages = toLangChainMessages(currentMessages)
-        const response = await nonStreamingGlmModel.invoke(
+        const response = await nonStreamingModelScopeModel.invoke(
           nonStreamMessages,
           signal ? { signal } : undefined,
         )
@@ -1102,38 +1063,14 @@ export const streamChat = async function* (params) {
           continue
         }
 
-        // No tool calls - return content directly
-        const contentValue = getResponseContent(response)
-        const chunkText = normalizeTextContent(contentValue)
-        if (chunkText) {
-          handleTaggedText(chunkText)
-          while (chunks.length > 0) {
-            yield chunks.shift()
-          }
-        }
-
-        const reasoning = getResponseReasoning(response)
-        if (reasoning) {
-          emitThought(String(reasoning))
-          while (chunks.length > 0) {
-            yield chunks.shift()
-          }
-        }
-
-        yield {
-          type: 'done',
-          content: fullContent,
-          thought: fullThought || undefined,
-          sources: sourcesMap.size ? Array.from(sourcesMap.values()) : undefined,
-          toolCalls: undefined,
-        }
-        return
+        // No tool calls detected - fall through to general streaming path
+        // This ensures user gets streaming output even when no tools are called
       }
 
       // ----------------------------------------------------------------------
       // GENERAL STREAMING: All providers use this path for streaming response
-      // - OpenAI, SiliconFlow: Direct streaming (supports tool_calls in stream)
-      // - Kimi, GLM, ModelScope: After tool calls processed via non-streaming,
+      // - OpenAI, SiliconFlow, GLM: Direct streaming (supports tool_calls in stream)
+      // - Kimi, ModelScope: After tool calls processed via non-streaming,
       //   they also fall through here for the final streaming response
       // ----------------------------------------------------------------------
       const toolCallsMap = new Map() // Track tool calls during streaming

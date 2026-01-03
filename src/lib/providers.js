@@ -129,12 +129,32 @@ export const PROVIDERS = {
       baseUrl: undefined, // Native SDK usually handles its own endpoints
     }),
     getTools: isSearchActive => {
-      let toolList = []
-      if (isSearchActive) {
-        toolList.push({ googleSearch: {} })
-      }
-      return toolList
-    }, // Native Gemini Google Search tool
+      // Replaced Native Google Search with Tavily
+      // Native Implementation:
+      // let toolList = []
+      // if (isSearchActive) {
+      //   toolList.push({ googleSearch: {} })
+      // }
+      // return toolList
+      return isSearchActive
+        ? [
+            {
+              type: 'function',
+              function: {
+                name: 'web_search',
+                description: 'Search the web for current information.',
+                parameters: {
+                  type: 'object',
+                  properties: {
+                    query: { type: 'string', description: 'Search query' },
+                  },
+                  required: ['query'],
+                },
+              },
+            },
+          ]
+        : undefined
+    }, // Replaced Native Gemini Google Search tool
     getThinking: (isThinkingActive, model) => {
       if (!isThinkingActive) return undefined
       const isGemini3Preview = model === 'gemini-3-pro-preview'
@@ -157,14 +177,29 @@ export const PROVIDERS = {
     getTools: isSearchActive =>
       isSearchActive
         ? [
+            // Native Implementation:
+            // {
+            //   type: 'web_search',
+            //   web_search: {
+            //     enable: true,
+            //     search_result: true,
+            //     // Add search_prompt to guide GLM to include citation markers
+            //     // search_prompt:
+            //     //   'When answering, mark the resources you have cited. If it is an academic article, use the format [a][b][c]; if it is a web resource (not an academic article), use the format [1][2][3]. Do not fabricate resources. Use the actual referenced resources as the basis.',
+            //   },
+            // },
             {
-              type: 'web_search',
-              web_search: {
-                enable: true,
-                search_result: true,
-                // Add search_prompt to guide GLM to include citation markers
-                // search_prompt:
-                //   'When answering, mark the resources you have cited. If it is an academic article, use the format [a][b][c]; if it is a web resource (not an academic article), use the format [1][2][3]. Do not fabricate resources. Use the actual referenced resources as the basis.',
+              type: 'function',
+              function: {
+                name: 'web_search',
+                description: 'Search the web for current information.',
+                parameters: {
+                  type: 'object',
+                  properties: {
+                    query: { type: 'string', description: 'Search query' },
+                  },
+                  required: ['query'],
+                },
               },
             },
           ]
@@ -186,11 +221,26 @@ export const PROVIDERS = {
     getTools: isSearchActive =>
       isSearchActive
         ? [
+            // Native Implementation:
+            // {
+            //   type: 'web_search',
+            //   web_search: {
+            //     enable: true,
+            //     search_result: true,
+            //   },
+            // },
             {
-              type: 'web_search',
-              web_search: {
-                enable: true,
-                search_result: true,
+              type: 'function',
+              function: {
+                name: 'web_search',
+                description: 'Search the web for current information.',
+                parameters: {
+                  type: 'object',
+                  properties: {
+                    query: { type: 'string', description: 'Search query' },
+                  },
+                  required: ['query'],
+                },
               },
             },
           ]
@@ -211,10 +261,25 @@ export const PROVIDERS = {
     getTools: isSearchActive =>
       isSearchActive
         ? [
+            // Native Implementation:
+            // {
+            //   type: 'builtin_function',
+            //   function: {
+            //     name: '$web_search',
+            //   },
+            // },
             {
-              type: 'builtin_function',
+              type: 'function',
               function: {
-                name: '$web_search',
+                name: 'web_search',
+                description: 'Search the web for current information.',
+                parameters: {
+                  type: 'object',
+                  properties: {
+                    query: { type: 'string', description: 'Search query' },
+                  },
+                  required: ['query'],
+                },
               },
             },
           ]

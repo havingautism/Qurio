@@ -1,10 +1,33 @@
-import { create, all } from 'mathjs'
 import { jsonrepair } from 'jsonrepair'
+import { all, create } from 'mathjs'
 import { z } from 'zod'
 
 const math = create(all, {})
 
-const TOOL_DEFINITIONS = [
+const GLOBAL_TOOLS = [
+  {
+    id: 'web_search',
+    name: 'web_search',
+    category: 'search',
+    description: 'Search the web for current information using Tavily API.',
+    parameters: {
+      type: 'object',
+      required: ['query'],
+      properties: {
+        query: {
+          type: 'string',
+          description: 'Search query.',
+        },
+        max_results: {
+          type: 'integer',
+          description: 'Maximum number of results to return (default 5).',
+        },
+      },
+    },
+  },
+]
+
+const AGENT_TOOLS = [
   {
     id: 'calculator',
     name: 'calculator',
@@ -106,6 +129,9 @@ const TOOL_DEFINITIONS = [
   },
 ]
 
+// Combined list for execution and validation
+const ALL_TOOLS = [...GLOBAL_TOOLS, ...AGENT_TOOLS]
+
 const toolSchemas = {
   calculator: z.object({
     expression: z.string().min(1, 'expression is required'),
@@ -127,6 +153,10 @@ const toolSchemas = {
   json_repair: z.object({
     text: z.string().min(1, 'text is required'),
   }),
+  web_search: z.object({
+    query: z.string().min(1, 'query is required'),
+    max_results: z.number().int().positive().optional(),
+  }),
 }
 
 const splitSentences = text => {
@@ -145,8 +175,9 @@ const safeEvaluate = expression => {
   return math.evaluate(expression)
 }
 
+// Only expose Agent Tools to the configuration UI
 export const listTools = () =>
-  TOOL_DEFINITIONS.map(tool => ({
+  AGENT_TOOLS.map(tool => ({
     id: tool.id,
     name: tool.name,
     category: tool.category,
@@ -157,7 +188,8 @@ export const listTools = () =>
 export const getToolDefinitionsByIds = toolIds => {
   if (!Array.isArray(toolIds) || toolIds.length === 0) return []
   const idSet = new Set(toolIds.map(String))
-  return TOOL_DEFINITIONS.filter(tool => idSet.has(tool.id)).map(tool => ({
+  // Agents can theoretically access global tools if manually added by ID, but listTools won't show them
+  return ALL_TOOLS.filter(tool => idSet.has(tool.id)).map(tool => ({
     type: 'function',
     function: {
       name: tool.name,
@@ -168,7 +200,7 @@ export const getToolDefinitionsByIds = toolIds => {
 }
 
 export const isLocalToolName = toolName =>
-  TOOL_DEFINITIONS.some(tool => tool.name === toolName || tool.id === toolName)
+  ALL_TOOLS.some(tool => tool.name === toolName || tool.id === toolName)
 
 export const executeToolByName = async (toolName, args = {}) => {
   const schema = toolSchemas[toolName]
@@ -238,6 +270,49 @@ export const executeToolByName = async (toolName, args = {}) => {
             error: repairError?.message || 'Unable to repair JSON',
           }
         }
+      }
+    }
+    case 'web_search': {
+      const query = params.query
+      const maxResults = params.max_results || 5
+      const apiKey = process.env.TAVILY_API_KEY
+
+      if (!apiKey) {
+        throw new Error('Tavily API key not configured (TAVILY_API_KEY)')
+      }
+
+      try {
+        const response = await fetch('https://api.tavily.com/search', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            api_key: apiKey,
+            query,
+            search_depth: 'basic',
+            include_answer: true,
+            max_results: maxResults,
+          }),
+        })
+
+        if (!response.ok) {
+          throw new Error(`Tavily API error: ${response.statusText}`)
+        }
+
+        const data = await response.json()
+
+        // Return structured results
+        return {
+          answer: data.answer,
+          results: data.results.map(r => ({
+            title: r.title,
+            url: r.url,
+            content: r.content,
+          })),
+        }
+      } catch (error) {
+        throw new Error(`Search failed: ${error.message}`)
       }
     }
     default:

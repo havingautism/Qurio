@@ -230,6 +230,22 @@ const collectGeminiSources = (groundingMetadata, geminiSources) => {
 }
 
 /**
+ * Collect Tavily web search sources
+ */
+const collectWebSearchSources = (result, sourcesMap) => {
+  if (!result?.results || !Array.isArray(result.results)) return
+  result.results.forEach(item => {
+    const url = item.url
+    if (url && !sourcesMap.has(url)) {
+      sourcesMap.set(url, {
+        title: item.title || 'Unknown Source',
+        uri: url,
+      })
+    }
+  })
+}
+
+/**
  * Update tool calls map
  */
 const updateToolCallsMap = (toolCallsMap, newToolCalls) => {
@@ -597,6 +613,7 @@ export const streamChat = async function* (params) {
 
   // ============================================================================
   // STEP 2: Prepare messages with context limit
+
   // ============================================================================
   // Apply context limit to prevent exceeding token limits
   const trimmedMessages = applyContextLimitRaw(messages, contextMessageLimit)
@@ -631,6 +648,20 @@ export const streamChat = async function* (params) {
     if (name && toolNames.has(name)) continue // Skip duplicates
     if (name) toolNames.add(name)
     normalizedTools.push(tool)
+  }
+
+  // Inject citation prompt if web_search is enabled
+  if (normalizedTools.some(t => t.function?.name === 'web_search')) {
+    const citationPrompt =
+      '\n\n[IMPORTANT] You have access to a "web_search" tool. When you use this tool to answer a question, you MUST cite the search results in your answer using the format [1], [2], etc., corresponding to the index of the search result provided in the tool output. Do not fabricate citations.'
+
+    // Find system message and append, or create one
+    const systemMessageIndex = currentMessages.findIndex(m => m.role === 'system')
+    if (systemMessageIndex !== -1) {
+      currentMessages[systemMessageIndex].content += citationPrompt
+    } else {
+      currentMessages.unshift({ role: 'system', content: citationPrompt })
+    }
   }
 
   // Set tool_choice: if tools are available and no explicit choice, use 'auto' (let AI decide)
@@ -967,14 +998,24 @@ export const streamChat = async function* (params) {
                 // Parse arguments and execute the tool locally
                 const parsedArgs =
                   typeof rawArgs === 'string' ? safeJsonParse(rawArgs) : rawArgs || {}
-                const result = await executeToolByName(toolName, parsedArgs || {})
-                // Add tool result to message history
-                currentMessages.push({
-                  role: 'tool',
-                  tool_call_id: toolCall.id,
-                  name: toolName,
-                  content: JSON.stringify(result), // Tool result as JSON string
-                })
+                try {
+                  const result = await executeToolByName(toolName, parsedArgs || {})
+                  // Add tool result to message history
+                  currentMessages.push({
+                    role: 'tool',
+                    tool_call_id: toolCall.id,
+                    name: toolName,
+                    content: JSON.stringify(result), // Tool result as JSON string
+                  })
+                } catch (error) {
+                  console.error(`Tool execution error (${toolName}):`, error)
+                  currentMessages.push({
+                    role: 'tool',
+                    tool_call_id: toolCall.id,
+                    name: toolName,
+                    content: JSON.stringify({ error: `Tool execution failed: ${error.message}` }),
+                  })
+                }
                 continue // Process next tool call
               }
               // For non-local tools (external APIs), add args as content
@@ -1048,13 +1089,23 @@ export const streamChat = async function* (params) {
                 continue
               }
               // Execute local tool
-              const result = await executeToolByName(toolName, parsedArgs || {})
-              currentMessages.push({
-                role: 'tool',
-                tool_call_id: toolCall.id,
-                name: toolName,
-                content: JSON.stringify(result),
-              })
+              try {
+                const result = await executeToolByName(toolName, parsedArgs || {})
+                currentMessages.push({
+                  role: 'tool',
+                  tool_call_id: toolCall.id,
+                  name: toolName,
+                  content: JSON.stringify(result),
+                })
+              } catch (error) {
+                console.error(`Tool execution error (${toolName}):`, error)
+                currentMessages.push({
+                  role: 'tool',
+                  tool_call_id: toolCall.id,
+                  name: toolName,
+                  content: JSON.stringify({ error: `Tool execution failed: ${error.message}` }),
+                })
+              }
             }
           }
 
@@ -1263,13 +1314,29 @@ export const streamChat = async function* (params) {
               if (isLocalToolName(toolName)) {
                 const parsedArgs =
                   typeof rawArgs === 'string' ? safeJsonParse(rawArgs) : rawArgs || {}
-                const result = await executeToolByName(toolName, parsedArgs || {})
-                currentMessages.push({
-                  role: 'tool',
-                  tool_call_id: toolCall.id,
-                  name: toolName,
-                  content: JSON.stringify(result),
-                })
+
+                try {
+                  const result = await executeToolByName(toolName, parsedArgs || {})
+                  // Special handling for web_search: collect sources for UI
+                  if (toolName === 'web_search') {
+                    collectWebSearchSources(result, sourcesMap)
+                  }
+
+                  currentMessages.push({
+                    role: 'tool',
+                    tool_call_id: toolCall.id,
+                    name: toolName,
+                    content: JSON.stringify(result),
+                  })
+                } catch (error) {
+                  console.error(`Tool execution error (${toolName}):`, error)
+                  currentMessages.push({
+                    role: 'tool',
+                    tool_call_id: toolCall.id,
+                    name: toolName,
+                    content: JSON.stringify({ error: `Tool execution failed: ${error.message}` }),
+                  })
+                }
                 continue
               }
               currentMessages.push({
@@ -1316,6 +1383,7 @@ export const streamChat = async function* (params) {
               const parsedArgs =
                 typeof rawArgs === 'string' ? safeJsonParse(rawArgs) : rawArgs || {}
               const toolName = toolCall.function.name
+
               // Unknown tool: return error message
               if (!isLocalToolName(toolName)) {
                 currentMessages.push({
@@ -1326,14 +1394,31 @@ export const streamChat = async function* (params) {
                 })
                 continue
               }
-              // Execute local tool
-              const result = await executeToolByName(toolName, parsedArgs || {})
-              currentMessages.push({
-                role: 'tool',
-                tool_call_id: toolCall.id,
-                name: toolName,
-                content: JSON.stringify(result),
-              })
+
+              // Execute local tool with error handling
+              try {
+                const result = await executeToolByName(toolName, parsedArgs || {})
+
+                // Special handling for web_search: collect sources for UI
+                if (toolName === 'web_search') {
+                  collectWebSearchSources(result, sourcesMap)
+                }
+
+                currentMessages.push({
+                  role: 'tool',
+                  tool_call_id: toolCall.id,
+                  name: toolName,
+                  content: JSON.stringify(result),
+                })
+              } catch (error) {
+                console.error(`Tool execution error (${toolName}):`, error)
+                currentMessages.push({
+                  role: 'tool',
+                  tool_call_id: toolCall.id,
+                  name: toolName,
+                  content: JSON.stringify({ error: `Tool execution failed: ${error.message}` }),
+                })
+              }
             }
 
             continue // ← Loop back to call AI again with tool results

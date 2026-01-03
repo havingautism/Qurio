@@ -1699,7 +1699,14 @@ const useChatStore = create((set, get) => ({
         } else if (shouldPreselectSpaceTitle) {
           const selectableSpaces = toggles?.deepResearch
             ? spaces
-            : (spaces || []).filter(space => !space?.isDeepResearchSystem)
+            : (spaces || []).filter(
+                space =>
+                  !(
+                    space?.isDeepResearchSystem ||
+                    space?.isDeepResearch ||
+                    space?.is_deep_research
+                  ),
+              )
           const { title, space, agent } = await preselectTitleSpaceAndAgentForAuto(
             text,
             settings,

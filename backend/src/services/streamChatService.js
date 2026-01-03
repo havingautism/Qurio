@@ -1568,6 +1568,88 @@ export const streamChat = async function* (params) {
             continue // ← Loop back to call AI again with tool results
           }
         }
+        if (
+          useNonStreamingToolCalls &&
+          lastFinishReason === 'tool_calls' &&
+          toolCallsList.length === 0 &&
+          nonStreamingKimiModel
+        ) {
+          const nonStreamMessages = toLangChainMessages(currentMessages)
+          const response = await nonStreamingKimiModel.invoke(
+            nonStreamMessages,
+            signal ? { signal } : undefined,
+          )
+          const finishReason = getFinishReasonFromResponse(response)
+          const toolCalls = getToolCallsFromResponse(response)
+          if (finishReason === 'tool_calls' && Array.isArray(toolCalls) && toolCalls.length > 0) {
+            const assistantToolCalls = toolCalls
+              .map(toolCall => {
+                const toolName = getToolCallName(toolCall)
+                const toolArgs = getToolCallArguments(toolCall)
+                return {
+                  id: toolCall.id,
+                  type: toolCall.type,
+                  function: toolName
+                    ? { name: toolName, arguments: formatToolArgumentsFromValue(toolArgs) }
+                    : undefined,
+                }
+              })
+              .filter(toolCall => toolCall?.id && toolCall?.function?.name)
+
+            if (assistantToolCalls.length > 0) {
+              currentMessages = [
+                ...currentMessages,
+                { role: 'assistant', content: '', tool_calls: assistantToolCalls },
+              ]
+
+              for (const toolCall of assistantToolCalls) {
+                const rawArgs = getToolCallArguments(toolCall)
+                const toolArgs =
+                  typeof rawArgs === 'string' ? rawArgs : JSON.stringify(rawArgs ?? {})
+                const toolName = toolCall.function.name
+                const parsedArgs =
+                  typeof rawArgs === 'string' ? safeJsonParse(rawArgs) : rawArgs || {}
+                yield buildToolCallEvent(toolCall, parsedArgs)
+                const startedAt = Date.now()
+                if (isLocalToolName(toolName)) {
+                  try {
+                    const result = await executeToolByName(toolName, parsedArgs || {})
+                    if (toolName === 'web_search') {
+                      collectWebSearchSources(result, sourcesMap)
+                    }
+
+                    currentMessages.push({
+                      role: 'tool',
+                      tool_call_id: toolCall.id,
+                      name: toolName,
+                      content: JSON.stringify(result),
+                    })
+                    yield buildToolResultEvent(toolCall, null, Date.now() - startedAt, result)
+                  } catch (error) {
+                    console.error(`Tool execution error (${toolName}):`, error)
+                    currentMessages.push({
+                      role: 'tool',
+                      tool_call_id: toolCall.id,
+                      name: toolName,
+                      content: JSON.stringify({ error: `Tool execution failed: ${error.message}` }),
+                    })
+                    yield buildToolResultEvent(toolCall, error, Date.now() - startedAt)
+                  }
+                  continue
+                }
+                currentMessages.push({
+                  role: 'tool',
+                  tool_call_id: toolCall.id,
+                  name: toolCall.function.name,
+                  content: toolArgs,
+                })
+                yield buildToolResultEvent(toolCall, null, Date.now() - startedAt)
+              }
+
+              continue
+            }
+          }
+        }
       } else {
         // ----------------------------------------------------------------
         // OTHER PROVIDERS (OpenAI, SiliconFlow, etc.)
@@ -1655,89 +1737,12 @@ export const streamChat = async function* (params) {
             continue // ← Loop back to call AI again with tool results
           }
         }
-        if (useNonStreamingToolCalls && lastFinishReason === 'tool_calls' && nonStreamingToolModel) {
-          const nonStreamMessages = toLangChainMessages(currentMessages)
-          const response = await nonStreamingToolModel.invoke(
-            nonStreamMessages,
-            signal ? { signal } : undefined,
-          )
-          const finishReason = getFinishReasonFromResponse(response)
-          const toolCalls = getToolCallsFromResponse(response)
-          if (finishReason === 'tool_calls' && Array.isArray(toolCalls) && toolCalls.length > 0) {
-            const assistantToolCalls = toolCalls
-              .map(toolCall => {
-                const toolName = getToolCallName(toolCall)
-                const toolArgs = getToolCallArguments(toolCall)
-                return {
-                  id: toolCall.id,
-                  type: toolCall.type,
-                  function: toolName
-                    ? { name: toolName, arguments: formatToolArgumentsFromValue(toolArgs) }
-                    : undefined,
-                }
-              })
-              .filter(toolCall => toolCall?.id && toolCall?.function?.name)
-
-            if (assistantToolCalls.length > 0) {
-              currentMessages = [
-                ...currentMessages,
-                { role: 'assistant', content: '', tool_calls: assistantToolCalls },
-              ]
-
-              for (const toolCall of assistantToolCalls) {
-                const rawArgs = getToolCallArguments(toolCall)
-                const toolArgs =
-                  typeof rawArgs === 'string' ? rawArgs : JSON.stringify(rawArgs ?? {})
-                const toolName = toolCall.function.name
-                const parsedArgs =
-                  typeof rawArgs === 'string' ? safeJsonParse(rawArgs) : rawArgs || {}
-                yield buildToolCallEvent(toolCall, parsedArgs)
-                const startedAt = Date.now()
-
-                if (!isLocalToolName(toolName)) {
-                  currentMessages.push({
-                    role: 'tool',
-                    tool_call_id: toolCall.id,
-                    name: toolName,
-                    content: JSON.stringify({ error: `Unknown tool: ${toolName}` }),
-                  })
-                  yield buildToolResultEvent(
-                    toolCall,
-                    new Error(`Unknown tool: ${toolName}`),
-                    Date.now() - startedAt,
-                  )
-                  continue
-                }
-
-                try {
-                  const result = await executeToolByName(toolName, parsedArgs || {})
-                  if (toolName === 'web_search') {
-                    collectWebSearchSources(result, sourcesMap)
-                  }
-                  currentMessages.push({
-                    role: 'tool',
-                    tool_call_id: toolCall.id,
-                    name: toolName,
-                    content: JSON.stringify(result),
-                  })
-                  yield buildToolResultEvent(toolCall, null, Date.now() - startedAt, result)
-                } catch (error) {
-                  console.error(`Tool execution error (${toolName}):`, error)
-                  currentMessages.push({
-                    role: 'tool',
-                    tool_call_id: toolCall.id,
-                    name: toolName,
-                    content: JSON.stringify({ error: `Tool execution failed: ${error.message}` }),
-                  })
-                  yield buildToolResultEvent(toolCall, error, Date.now() - startedAt)
-                }
-              }
-
-              continue
-            }
-          }
-        }
-        if (useNonStreamingToolCalls && lastFinishReason === 'tool_calls' && nonStreamingToolModel) {
+        if (
+          useNonStreamingToolCalls &&
+          lastFinishReason === 'tool_calls' &&
+          toolCallsList.length === 0 &&
+          nonStreamingToolModel
+        ) {
           const nonStreamMessages = toLangChainMessages(currentMessages)
           const response = await nonStreamingToolModel.invoke(
             nonStreamMessages,

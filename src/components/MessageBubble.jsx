@@ -1192,6 +1192,58 @@ const MessageBubble = ({
         )}
       </div>
 
+      {toolCallHistory.length > 0 && (
+        <div className="border border-gray-200 dark:border-zinc-700 rounded-xl overflow-hidden bg-user-bubble/20 dark:bg-zinc-800/30">
+          <div className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-zinc-700">
+            {t('messageBubble.toolCalls')}
+          </div>
+          <div className="px-4 py-3 space-y-2">
+            {toolCallHistory.map(item => (
+              <div
+                key={item.id || `${item.name}-${item.arguments}`}
+                className="flex flex-col gap-1 text-xs text-gray-600 dark:text-gray-400"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-gray-700 dark:text-gray-200">
+                    {item.name}
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full bg-gray-200/70 dark:bg-zinc-700/70 text-[11px]">
+                    {item.status === 'error'
+                      ? t('messageBubble.toolStatusError')
+                      : item.status === 'done'
+                        ? t('messageBubble.toolStatusDone')
+                        : t('messageBubble.toolStatusCalling')}
+                  </span>
+                  {item.status !== 'done' && item.status !== 'error' && <DotLoader />}
+                  {typeof item.durationMs === 'number' && (
+                    <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                      {t('messageBubble.toolDuration', {
+                        duration: (item.durationMs / 1000).toFixed(2),
+                      })}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setActiveToolDetail(item)}
+                    className="ml-auto text-[11px] text-primary-600 dark:text-primary-300 hover:underline"
+                  >
+                    {t('messageBubble.toolDetails')}
+                  </button>
+                </div>
+                {item.arguments && (
+                  <div className="text-[11px] text-gray-500 dark:text-gray-400 whitespace-pre-wrap break-words">
+                    {t('messageBubble.toolArguments')}: {item.arguments}
+                  </div>
+                )}
+                {item.error && (
+                  <div className="text-[11px] text-red-500 dark:text-red-400">{item.error}</div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Thinking Process Section */}
       {isDeepResearch ? (
         <>
@@ -1308,58 +1360,6 @@ const MessageBubble = ({
       )}
 
       {/* Sources Section - REMOVED (Moved to toolbar) */}
-
-      {toolCallHistory.length > 0 && (
-        <div className="border border-gray-200 dark:border-zinc-700 rounded-xl overflow-hidden bg-user-bubble/20 dark:bg-zinc-800/30">
-          <div className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-zinc-700">
-            {t('messageBubble.toolCalls')}
-          </div>
-          <div className="px-4 py-3 space-y-2">
-            {toolCallHistory.map(item => (
-              <div
-                key={item.id || `${item.name}-${item.arguments}`}
-                className="flex flex-col gap-1 text-xs text-gray-600 dark:text-gray-400"
-              >
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold text-gray-700 dark:text-gray-200">
-                    {item.name}
-                  </span>
-                  <span className="px-2 py-0.5 rounded-full bg-gray-200/70 dark:bg-zinc-700/70 text-[11px]">
-                    {item.status === 'error'
-                      ? t('messageBubble.toolStatusError')
-                      : item.status === 'done'
-                        ? t('messageBubble.toolStatusDone')
-                        : t('messageBubble.toolStatusCalling')}
-                  </span>
-                  {item.status !== 'done' && item.status !== 'error' && <DotLoader />}
-                  {typeof item.durationMs === 'number' && (
-                    <span className="text-[11px] text-gray-500 dark:text-gray-400">
-                      {t('messageBubble.toolDuration', {
-                        duration: (item.durationMs / 1000).toFixed(2),
-                      })}
-                    </span>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => setActiveToolDetail(item)}
-                    className="ml-auto text-[11px] text-primary-600 dark:text-primary-300 hover:underline"
-                  >
-                    {t('messageBubble.toolDetails')}
-                  </button>
-                </div>
-                {item.arguments && (
-                  <div className="text-[11px] text-gray-500 dark:text-gray-400 whitespace-pre-wrap break-words">
-                    {t('messageBubble.toolArguments')}: {item.arguments}
-                  </div>
-                )}
-                {item.error && (
-                  <div className="text-[11px] text-red-500 dark:text-red-400">{item.error}</div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Main Content */}
       <div

@@ -103,6 +103,7 @@ CREATE TABLE IF NOT EXISTS public.conversation_messages (
   agent_is_default BOOLEAN NOT NULL DEFAULT FALSE,
   thinking_process TEXT,
   tool_calls JSONB,
+  tool_call_history JSONB NOT NULL DEFAULT '[]'::jsonb,
   related_questions JSONB,
   sources JSONB,
   grounding_supports JSONB,

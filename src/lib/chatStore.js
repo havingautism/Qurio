@@ -893,6 +893,69 @@ const callAIAPI = async (
       thinking: provider.getThinking(thinkingActive, modelConfig.model),
       onChunk: chunk => {
         if (typeof chunk === 'object' && chunk !== null) {
+          if (chunk.type === 'tool_call') {
+            set(state => {
+              const updated = [...state.messages]
+              const lastMsgIndex = updated.length - 1
+              if (lastMsgIndex < 0 || updated[lastMsgIndex].role !== 'ai') return { messages: updated }
+              const lastMsg = { ...updated[lastMsgIndex] }
+              const history = Array.isArray(lastMsg.toolCallHistory)
+                ? [...lastMsg.toolCallHistory]
+                : []
+              history.push({
+                id: chunk.id || `${chunk.name || 'tool'}-${Date.now()}`,
+                name: chunk.name || 'tool',
+                arguments: chunk.arguments || '',
+                status: 'calling',
+                durationMs: null,
+              })
+              lastMsg.toolCallHistory = history
+              updated[lastMsgIndex] = lastMsg
+              return { messages: updated }
+            })
+            return
+          }
+          if (chunk.type === 'tool_result') {
+            set(state => {
+              const updated = [...state.messages]
+              const lastMsgIndex = updated.length - 1
+              if (lastMsgIndex < 0 || updated[lastMsgIndex].role !== 'ai') return { messages: updated }
+              const lastMsg = { ...updated[lastMsgIndex] }
+              const history = Array.isArray(lastMsg.toolCallHistory)
+                ? [...lastMsg.toolCallHistory]
+                : []
+              const targetIndex = history.findIndex(item =>
+                chunk.id ? item.id === chunk.id : item.name === chunk.name,
+              )
+              if (targetIndex >= 0) {
+                history[targetIndex] = {
+                  ...history[targetIndex],
+                  status: chunk.status || 'done',
+                  error: chunk.error || null,
+                  output:
+                    typeof chunk.output !== 'undefined' ? chunk.output : history[targetIndex].output,
+                  durationMs:
+                    typeof chunk.duration_ms === 'number'
+                      ? chunk.duration_ms
+                      : history[targetIndex].durationMs,
+                }
+              } else {
+                history.push({
+                  id: chunk.id || `${chunk.name || 'tool'}-${Date.now()}`,
+                  name: chunk.name || 'tool',
+                  arguments: '',
+                  status: chunk.status || 'done',
+                  error: chunk.error || null,
+                  output: typeof chunk.output !== 'undefined' ? chunk.output : null,
+                  durationMs: typeof chunk.duration_ms === 'number' ? chunk.duration_ms : null,
+                })
+              }
+              lastMsg.toolCallHistory = history
+              updated[lastMsgIndex] = lastMsg
+              return { messages: updated }
+            })
+            return
+          }
           if (chunk.type === 'thought') {
             pendingThought += chunk.content
           } else if (chunk.type === 'text') {
@@ -1214,6 +1277,11 @@ const finalizeMessage = async (
       const latestAi = aiMessages[aiMessages.length - 1]
       return typeof latestAi?.researchPlan === 'string' ? latestAi.researchPlan : null
     })()
+    const toolCallHistoryForPersistence = (() => {
+      const aiMessages = (currentStore.messages || []).filter(m => m.role === 'ai')
+      const latestAi = aiMessages[aiMessages.length - 1]
+      return Array.isArray(latestAi?.toolCallHistory) ? latestAi.toolCallHistory : null
+    })()
     const thoughtForPersistence =
       toggles?.deepResearch && planForPersistence
         ? JSON.stringify({ plan: planForPersistence, thought: baseThought })
@@ -1235,6 +1303,7 @@ const finalizeMessage = async (
       content: sanitizeJson(contentForPersistence),
       thinking_process: thoughtForPersistence,
       tool_calls: sanitizeJson(result.toolCalls || null),
+      tool_call_history: sanitizeJson(toolCallHistoryForPersistence || []),
       related_questions: null,
       sources: sanitizeJson(result.sources || null),
       grounding_supports: sanitizeJson(result.groundingSupports || null),

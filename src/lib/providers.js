@@ -81,13 +81,19 @@ export const PROVIDERS = {
             {
               type: 'function',
               function: {
-                name: 'google_search',
-                description: 'Search the web',
-                parameters: { type: 'object', properties: { query: { type: 'string' } } },
+                name: 'web_search',
+                description: 'Search the web for current information.',
+                parameters: {
+                  type: 'object',
+                  properties: {
+                    query: { type: 'string', description: 'Search query' },
+                  },
+                  required: ['query'],
+                },
               },
             },
           ]
-        : undefined, //abandoned
+        : undefined,
     getThinking: isThinkingActive =>
       isThinkingActive
         ? {
@@ -111,7 +117,36 @@ export const PROVIDERS = {
       apiKey: settings.SiliconFlowKey,
       baseUrl: SILICONFLOW_BASE_URL,
     }),
-    getTools: () => undefined,
+    getTools: isSearchActive =>
+      isSearchActive
+        ? [
+            // Native Implementation:
+            // {
+            //   type: 'web_search',
+            //   web_search: {
+            //     enable: true,
+            //     search_result: true,
+            //     // Add search_prompt to guide GLM to include citation markers
+            //     // search_prompt:
+            //     //   'When answering, mark the resources you have cited. If it is an academic article, use the format [a][b][c]; if it is a web resource (not an academic article), use the format [1][2][3]. Do not fabricate resources. Use the actual referenced resources as the basis.',
+            //   },
+            // },
+            {
+              type: 'function',
+              function: {
+                name: 'web_search',
+                description: 'Search the web for current information.',
+                parameters: {
+                  type: 'object',
+                  properties: {
+                    query: { type: 'string', description: 'Search query' },
+                  },
+                  required: ['query'],
+                },
+              },
+            },
+          ]
+        : undefined,
     getThinking: isThinkingActive =>
       isThinkingActive
         ? {

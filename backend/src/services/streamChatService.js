@@ -194,6 +194,36 @@ const getToolCallArguments = toolCall =>
   toolCall?.tool?.function?.arguments ||
   null
 
+const formatToolArgumentsFromValue = value => {
+  if (!value) return ''
+  if (typeof value === 'string') {
+    const parsed = safeJsonParse(value)
+    return parsed ? JSON.stringify(parsed) : value
+  }
+  if (typeof value === 'object') return JSON.stringify(value)
+  return String(value)
+}
+
+const buildToolCallEvent = (toolCall, argsOverride) => ({
+  type: 'tool_call',
+  id: toolCall?.id || null,
+  name: getToolCallName(toolCall),
+  arguments:
+    typeof argsOverride !== 'undefined'
+      ? formatToolArgumentsFromValue(argsOverride)
+      : formatToolArgumentsFromValue(getToolCallArguments(toolCall)),
+})
+
+const buildToolResultEvent = (toolCall, error, durationMs, output) => ({
+  type: 'tool_result',
+  id: toolCall?.id || null,
+  name: getToolCallName(toolCall),
+  status: error ? 'error' : 'done',
+  duration_ms: typeof durationMs === 'number' ? durationMs : undefined,
+  output: typeof output !== 'undefined' ? output : undefined,
+  error: error ? String(error.message || error) : undefined,
+})
+
 const collectKimiSourcesFromToolCalls = (toolCalls, sourcesMap) => {
   if (!Array.isArray(toolCalls)) return
   for (const toolCall of toolCalls) {
@@ -810,6 +840,68 @@ export const streamChat = async function* (params) {
           streaming: false, // Non-streaming to get tool_calls
         })
       : null
+  const nonStreamingGlmModel =
+    provider === 'glm' && stream && normalizedTools.length > 0
+      ? buildGLMModel({
+          apiKey,
+          model,
+          temperature,
+          top_k,
+          top_p,
+          frequency_penalty,
+          presence_penalty,
+          tools: normalizedTools,
+          toolChoice: effectiveToolChoice,
+          responseFormat,
+          thinking,
+          streaming: false,
+        })
+      : null
+  const nonStreamingSiliconFlowModel =
+    provider === 'siliconflow' && stream && normalizedTools.length > 0
+      ? buildSiliconFlowModel({
+          apiKey,
+          model,
+          temperature,
+          top_k,
+          top_p,
+          frequency_penalty,
+          presence_penalty,
+          responseFormat,
+          tools: normalizedTools,
+          toolChoice: effectiveToolChoice,
+          thinking,
+          streaming: false,
+        })
+      : null
+  const nonStreamingOpenAIModel =
+    provider === 'openai' && stream && normalizedTools.length > 0
+      ? buildOpenAIModel({
+          provider,
+          apiKey,
+          baseUrl,
+          model,
+          temperature,
+          top_k,
+          top_p,
+          frequency_penalty,
+          presence_penalty,
+          tools: normalizedTools,
+          toolChoice: effectiveToolChoice,
+          responseFormat,
+          thinking,
+          streaming: false,
+        })
+      : null
+  const nonStreamingToolModel =
+    stream && normalizedTools.length > 0 && provider !== 'gemini'
+      ? nonStreamingKimiModel ||
+        nonStreamingModelScopeModel ||
+        nonStreamingGlmModel ||
+        nonStreamingSiliconFlowModel ||
+        nonStreamingOpenAIModel
+      : null
+  const useNonStreamingToolCalls = Boolean(nonStreamingToolModel)
 
   if (debugStream) {
     console.log('[streamChat] Model created, calling stream()...')
@@ -936,8 +1028,120 @@ export const streamChat = async function* (params) {
     // or max iterations (3) is reached
     // ------------------------------------------------------------------------
     while (true) {
-      safetyCounter += 1
-      if (safetyCounter > 3) break // Safety limit: max 3 tool calling rounds
+      if (!useNonStreamingToolCalls) {
+        safetyCounter += 1
+        if (safetyCounter > 3) break // Safety limit: max 3 tool calling rounds
+      }
+
+      // ----------------------------------------------------------------------
+      // NON-STREAMING TOOL CALLS (ALL PROVIDERS)
+      // When tools are enabled, we always handle tool calls in non-streaming mode
+      // and return the final answer as a single response.
+      // ----------------------------------------------------------------------
+      if (useNonStreamingToolCalls) {
+        const nonStreamMessages = toLangChainMessages(currentMessages)
+        const response = await nonStreamingToolModel.invoke(
+          nonStreamMessages,
+          signal ? { signal } : undefined,
+        )
+
+        const finishReason = getFinishReasonFromResponse(response)
+        const toolCalls = getToolCallsFromResponse(response)
+
+        if (finishReason === 'tool_calls' && Array.isArray(toolCalls) && toolCalls.length > 0) {
+          const assistantToolCalls = toolCalls
+            .map(toolCall => ({
+              id: toolCall.id,
+              type: toolCall.type,
+              function: toolCall.function
+                ? { name: toolCall.function.name, arguments: toolCall.function.arguments || '' }
+                : undefined,
+            }))
+            .filter(toolCall => toolCall?.id && toolCall?.function?.name)
+
+          if (assistantToolCalls.length > 0) {
+            currentMessages = [
+              ...currentMessages,
+              { role: 'assistant', content: '', tool_calls: assistantToolCalls },
+            ]
+
+            for (const toolCall of assistantToolCalls) {
+              const rawArgs = getToolCallArguments(toolCall)
+              const parsedArgs =
+                typeof rawArgs === 'string' ? safeJsonParse(rawArgs) : rawArgs || {}
+              yield buildToolCallEvent(toolCall, parsedArgs)
+              const startedAt = Date.now()
+              const toolName = toolCall.function.name
+
+              if (!isLocalToolName(toolName)) {
+                currentMessages.push({
+                  role: 'tool',
+                  tool_call_id: toolCall.id,
+                  name: toolName,
+                  content: JSON.stringify({ error: `Unknown tool: ${toolName}` }),
+                })
+                yield buildToolResultEvent(
+                  toolCall,
+                  new Error(`Unknown tool: ${toolName}`),
+                  Date.now() - startedAt,
+                )
+                continue
+              }
+
+              try {
+                const result = await executeToolByName(toolName, parsedArgs || {})
+                if (toolName === 'web_search') {
+                  collectWebSearchSources(result, sourcesMap)
+                }
+                currentMessages.push({
+                  role: 'tool',
+                  tool_call_id: toolCall.id,
+                  name: toolName,
+                  content: JSON.stringify(result),
+                })
+                yield buildToolResultEvent(toolCall, null, Date.now() - startedAt, result)
+              } catch (error) {
+                console.error(`Tool execution error (${toolName}):`, error)
+                currentMessages.push({
+                  role: 'tool',
+                  tool_call_id: toolCall.id,
+                  name: toolName,
+                  content: JSON.stringify({ error: `Tool execution failed: ${error.message}` }),
+                })
+                yield buildToolResultEvent(toolCall, error, Date.now() - startedAt)
+              }
+            }
+
+          }
+
+          preProcessedToolCall = true
+          continue
+        }
+
+        const contentValue = getResponseContent(response)
+        const chunkText = normalizeTextContent(contentValue)
+        if (chunkText) {
+          handleTaggedText(chunkText)
+        }
+
+        const reasoning = getResponseReasoning(response)
+        if (reasoning) {
+          emitThought(String(reasoning))
+        }
+
+        while (chunks.length > 0) {
+          yield chunks.shift()
+        }
+
+        yield {
+          type: 'done',
+          content: fullContent,
+          thought: fullThought || undefined,
+          sources: sourcesMap.size ? Array.from(sourcesMap.values()) : undefined,
+          toolCalls: undefined,
+        }
+        return
+      }
 
       // ----------------------------------------------------------------------
       // KIMI PROVIDER: Special handling (non-streaming for tool detection)
@@ -990,14 +1194,16 @@ export const streamChat = async function* (params) {
             // STEP B: Execute each tool and add results to message history
             for (const toolCall of assistantToolCalls) {
               const rawArgs = getToolCallArguments(toolCall)
+              const parsedArgs =
+                typeof rawArgs === 'string' ? safeJsonParse(rawArgs) : rawArgs || {}
+              yield buildToolCallEvent(toolCall, parsedArgs)
+              const startedAt = Date.now()
               const toolArgs = typeof rawArgs === 'string' ? rawArgs : JSON.stringify(rawArgs ?? {})
               const toolName = toolCall.function.name
 
               // Check if this is a local tool (calculator, local_time, etc.)
               if (isLocalToolName(toolName)) {
                 // Parse arguments and execute the tool locally
-                const parsedArgs =
-                  typeof rawArgs === 'string' ? safeJsonParse(rawArgs) : rawArgs || {}
                 try {
                   const result = await executeToolByName(toolName, parsedArgs || {})
                   // Add tool result to message history
@@ -1007,6 +1213,7 @@ export const streamChat = async function* (params) {
                     name: toolName,
                     content: JSON.stringify(result), // Tool result as JSON string
                   })
+                  yield buildToolResultEvent(toolCall, null, Date.now() - startedAt, result)
                 } catch (error) {
                   console.error(`Tool execution error (${toolName}):`, error)
                   currentMessages.push({
@@ -1015,6 +1222,7 @@ export const streamChat = async function* (params) {
                     name: toolName,
                     content: JSON.stringify({ error: `Tool execution failed: ${error.message}` }),
                   })
+                  yield buildToolResultEvent(toolCall, error, Date.now() - startedAt)
                 }
                 continue // Process next tool call
               }
@@ -1025,6 +1233,7 @@ export const streamChat = async function* (params) {
                 name: toolCall.function.name,
                 content: toolArgs,
               })
+              yield buildToolResultEvent(toolCall, null, Date.now() - startedAt)
             }
           }
 
@@ -1076,6 +1285,8 @@ export const streamChat = async function* (params) {
               const rawArgs = getToolCallArguments(toolCall)
               const parsedArgs =
                 typeof rawArgs === 'string' ? safeJsonParse(rawArgs) : rawArgs || {}
+              yield buildToolCallEvent(toolCall, parsedArgs)
+              const startedAt = Date.now()
               const toolName = toolCall.function.name
 
               // Check if NOT a local tool - return error
@@ -1086,6 +1297,11 @@ export const streamChat = async function* (params) {
                   name: toolName,
                   content: JSON.stringify({ error: `Unknown tool: ${toolName}` }),
                 })
+                yield buildToolResultEvent(
+                  toolCall,
+                  new Error(`Unknown tool: ${toolName}`),
+                  Date.now() - startedAt,
+                )
                 continue
               }
               // Execute local tool
@@ -1097,6 +1313,7 @@ export const streamChat = async function* (params) {
                   name: toolName,
                   content: JSON.stringify(result),
                 })
+                yield buildToolResultEvent(toolCall, null, Date.now() - startedAt, result)
               } catch (error) {
                 console.error(`Tool execution error (${toolName}):`, error)
                 currentMessages.push({
@@ -1105,6 +1322,7 @@ export const streamChat = async function* (params) {
                   name: toolName,
                   content: JSON.stringify({ error: `Tool execution failed: ${error.message}` }),
                 })
+                yield buildToolResultEvent(toolCall, error, Date.now() - startedAt)
               }
             }
           }
@@ -1311,10 +1529,11 @@ export const streamChat = async function* (params) {
               const rawArgs = getToolCallArguments(toolCall)
               const toolArgs = typeof rawArgs === 'string' ? rawArgs : JSON.stringify(rawArgs ?? {})
               const toolName = toolCall.function.name
+              const parsedArgs =
+                typeof rawArgs === 'string' ? safeJsonParse(rawArgs) : rawArgs || {}
+              yield buildToolCallEvent(toolCall, parsedArgs)
+              const startedAt = Date.now()
               if (isLocalToolName(toolName)) {
-                const parsedArgs =
-                  typeof rawArgs === 'string' ? safeJsonParse(rawArgs) : rawArgs || {}
-
                 try {
                   const result = await executeToolByName(toolName, parsedArgs || {})
                   // Special handling for web_search: collect sources for UI
@@ -1328,6 +1547,7 @@ export const streamChat = async function* (params) {
                     name: toolName,
                     content: JSON.stringify(result),
                   })
+                  yield buildToolResultEvent(toolCall, null, Date.now() - startedAt, result)
                 } catch (error) {
                   console.error(`Tool execution error (${toolName}):`, error)
                   currentMessages.push({
@@ -1336,6 +1556,7 @@ export const streamChat = async function* (params) {
                     name: toolName,
                     content: JSON.stringify({ error: `Tool execution failed: ${error.message}` }),
                   })
+                  yield buildToolResultEvent(toolCall, error, Date.now() - startedAt)
                 }
                 continue
               }
@@ -1345,6 +1566,7 @@ export const streamChat = async function* (params) {
                 name: toolCall.function.name,
                 content: toolArgs,
               })
+              yield buildToolResultEvent(toolCall, null, Date.now() - startedAt)
             }
 
             continue // ← Loop back to call AI again with tool results
@@ -1382,6 +1604,8 @@ export const streamChat = async function* (params) {
               const rawArgs = getToolCallArguments(toolCall)
               const parsedArgs =
                 typeof rawArgs === 'string' ? safeJsonParse(rawArgs) : rawArgs || {}
+              yield buildToolCallEvent(toolCall, parsedArgs)
+              const startedAt = Date.now()
               const toolName = toolCall.function.name
 
               // Unknown tool: return error message
@@ -1392,6 +1616,11 @@ export const streamChat = async function* (params) {
                   name: toolName,
                   content: JSON.stringify({ error: `Unknown tool: ${toolName}` }),
                 })
+                yield buildToolResultEvent(
+                  toolCall,
+                  new Error(`Unknown tool: ${toolName}`),
+                  Date.now() - startedAt,
+                )
                 continue
               }
 
@@ -1410,6 +1639,7 @@ export const streamChat = async function* (params) {
                   name: toolName,
                   content: JSON.stringify(result),
                 })
+                yield buildToolResultEvent(toolCall, null, Date.now() - startedAt, result)
               } catch (error) {
                 console.error(`Tool execution error (${toolName}):`, error)
                 currentMessages.push({
@@ -1418,6 +1648,7 @@ export const streamChat = async function* (params) {
                   name: toolName,
                   content: JSON.stringify({ error: `Tool execution failed: ${error.message}` }),
                 })
+                yield buildToolResultEvent(toolCall, error, Date.now() - startedAt)
               }
             }
 

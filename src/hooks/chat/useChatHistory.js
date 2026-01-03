@@ -68,6 +68,7 @@ const mapMessageFromApi = (m, effectiveDefaultModel, activeConversation) => {
     deepResearch: !!researchPlan,
     related: m.related_questions || undefined,
     tool_calls: m.tool_calls || undefined,
+    toolCallHistory: m.tool_call_history || undefined,
     sources: m.sources || undefined,
     groundingSupports: m.grounding_supports || undefined,
     provider: m.provider || activeConversation?.api_provider,

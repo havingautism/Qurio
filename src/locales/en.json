@@ -498,7 +498,17 @@
     "thinking": "Thinking",
     "analyzing": "Analyzing",
     "workingThroughIt": "Working through it",
-    "checkingDetails": "Checking details"
+    "checkingDetails": "Checking details",
+    "toolCalls": "Tool Calls",
+    "toolArguments": "Arguments",
+    "toolStatusCalling": "Calling",
+    "toolStatusDone": "Done",
+    "toolStatusError": "Error",
+    "toolDuration": "{{duration}}s",
+    "toolDetails": "Details",
+    "toolInput": "Input",
+    "toolOutput": "Output",
+    "toolClose": "Close"
   },
   "chatInterface": {
     "regenerateTitle": "Regenerate title from last 3 messages",

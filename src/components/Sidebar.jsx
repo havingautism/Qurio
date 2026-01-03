@@ -108,13 +108,17 @@ const Sidebar = ({
     return map
   }, [spaces])
 
-  const deepResearchSpaceId = useMemo(() => {
-    if (deepResearchSpace?.id) return String(deepResearchSpace.id)
-    const fallback = (spaces || []).find(
-      space => space?.isDeepResearchSystem || space?.isDeepResearch || space?.is_deep_research,
-    )
-    return fallback?.id ? String(fallback.id) : null
+  const deepResearchSpaceIds = useMemo(() => {
+    const ids = new Set()
+    if (deepResearchSpace?.id) ids.add(String(deepResearchSpace.id))
+    ;(spaces || []).forEach(space => {
+      if (space?.isDeepResearchSystem || space?.isDeepResearch || space?.is_deep_research) {
+        ids.add(String(space.id))
+      }
+    })
+    return Array.from(ids)
   }, [deepResearchSpace?.id, spaces])
+  const deepResearchSpaceId = deepResearchSpaceIds[0] || null
 
   const getConversationSpace = conv => {
     const spaceId = conv?.space_id
@@ -165,7 +169,7 @@ const Sidebar = ({
       } = await listConversations({
         limit: SIDEBAR_FETCH_LIMIT,
         cursor: isInitial ? null : nextCursor,
-        excludeSpaceIds: deepResearchSpaceId ? [deepResearchSpaceId] : [],
+        excludeSpaceIds: deepResearchSpaceIds,
       })
 
       if (!error && data) {
@@ -550,13 +554,18 @@ const Sidebar = ({
   // Spaces list pagination inside sidebar
   const visibleSpaces = useMemo(() => {
     if (displayTab !== 'spaces') return []
-    return spaces.slice(0, spacesLimit)
-  }, [spaces, spacesLimit, displayTab])
+    const hiddenSpaceIds = new Set(deepResearchSpaceIds)
+    const filteredSpaces = (spaces || []).filter(space => !hiddenSpaceIds.has(String(space.id)))
+    return filteredSpaces.slice(0, spacesLimit)
+  }, [spaces, spacesLimit, displayTab, deepResearchSpaceIds])
 
-  const spacesHasMore = useMemo(
-    () => displayTab === 'spaces' && spaces.length > spacesLimit,
-    [spaces.length, spacesLimit, displayTab],
-  )
+  const spacesHasMore = useMemo(() => {
+    if (displayTab !== 'spaces') return false
+    const hiddenSpaceIds = new Set(deepResearchSpaceIds)
+    const filteredCount = (spaces || []).filter(space => !hiddenSpaceIds.has(String(space.id)))
+      .length
+    return filteredCount > spacesLimit
+  }, [spaces, spacesLimit, displayTab, deepResearchSpaceIds])
 
   return (
     <>

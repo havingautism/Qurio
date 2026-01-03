@@ -6,7 +6,7 @@ import { useAppContext } from '../App'
 import EmojiDisplay from '../components/EmojiDisplay'
 
 const SpacesView = () => {
-  const { spaces, onCreateSpace, isSidebarPinned } = useAppContext()
+  const { spaces, deepResearchSpace, onCreateSpace, isSidebarPinned } = useAppContext()
   const navigate = useNavigate()
   const { t, i18n } = useTranslation()
 
@@ -51,6 +51,15 @@ const SpacesView = () => {
     },
   ]
 
+  const deepResearchSpaceIds = new Set()
+  if (deepResearchSpace?.id) deepResearchSpaceIds.add(String(deepResearchSpace.id))
+  ;(spaces || []).forEach(space => {
+    if (space?.isDeepResearchSystem || space?.isDeepResearch || space?.is_deep_research) {
+      deepResearchSpaceIds.add(String(space.id))
+    }
+  })
+  const displaySpaces = (spaces || []).filter(space => !deepResearchSpaceIds.has(String(space.id)))
+
   return (
     <div
       className={clsx(
@@ -88,7 +97,7 @@ const SpacesView = () => {
             </div>
 
             {/* User Spaces */}
-            {spaces.map(space => (
+            {displaySpaces.map(space => (
               <div
                 key={space.id}
                 onClick={() =>

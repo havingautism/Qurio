@@ -50,7 +50,16 @@ const LibraryView = () => {
   const [currentPage, setCurrentPage] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
   const limit = 10
-  const deepResearchSpaceId = deepResearchSpace?.id ? String(deepResearchSpace.id) : null
+  const deepResearchSpaceIds = useMemo(() => {
+    const ids = new Set()
+    if (deepResearchSpace?.id) ids.add(String(deepResearchSpace.id))
+    ;(spaces || []).forEach(space => {
+      if (space?.isDeepResearchSystem || space?.isDeepResearch || space?.is_deep_research) {
+        ids.add(String(space.id))
+      }
+    })
+    return Array.from(ids)
+  }, [deepResearchSpace?.id, spaces])
 
   // Translated sort options for rendering
   const sortOptions = useMemo(
@@ -65,7 +74,7 @@ const LibraryView = () => {
   useEffect(() => {
     // Reset to page 1 when sort or active search changes
     setCurrentPage(1)
-  }, [sortOption, activeSearchQuery, deepResearchSpaceId])
+  }, [sortOption, activeSearchQuery, deepResearchSpaceIds])
 
   useEffect(() => {
     const fetchConversations = async () => {
@@ -76,7 +85,7 @@ const LibraryView = () => {
         page: currentPage,
         limit,
         search: activeSearchQuery,
-        excludeSpaceIds: deepResearchSpaceId ? [deepResearchSpaceId] : [],
+        excludeSpaceIds: deepResearchSpaceIds,
       })
 
       if (!error) {
@@ -94,7 +103,7 @@ const LibraryView = () => {
     const handleConversationsChanged = () => fetchConversations()
     window.addEventListener('conversations-changed', handleConversationsChanged)
     return () => window.removeEventListener('conversations-changed', handleConversationsChanged)
-  }, [currentPage, sortOption, activeSearchQuery, deepResearchSpaceId])
+  }, [currentPage, sortOption, activeSearchQuery, deepResearchSpaceIds])
 
   const handleSearch = () => {
     if (searchQuery.trim() !== activeSearchQuery) {

@@ -471,6 +471,7 @@
   },
   "messageBubble": {
     "thinkingProcess": "Thinking Process",
+    "planProcess": "Plan Process",
     "researchProcess": "Research Process",
     "answer": "Answer",
     "download": "Download",
@@ -499,6 +500,11 @@
     "analyzing": "Analyzing",
     "workingThroughIt": "Working through it",
     "checkingDetails": "Checking details",
+    "researchStepLabel": "Step {{step}}/{{total}}",
+    "researchStepStatusRunning": "Running",
+    "researchStepStatusDone": "Done",
+    "researchStepStatusError": "Failed",
+    "researchStepDuration": "{{duration}}s",
     "toolCalls": "Tool Calls",
     "toolArguments": "Arguments",
     "toolStatusCalling": "Calling",
@@ -508,7 +514,10 @@
     "toolDetails": "Details",
     "toolInput": "Input",
     "toolOutput": "Output",
-    "toolClose": "Close"
+    "toolClose": "Close",
+    "researchGoalLabel": "Goal",
+    "researchScopeLabel": "Scope",
+    "researchRequirementsLabel": "Output Requirements"
   },
   "chatInterface": {
     "regenerateTitle": "Regenerate title from last 3 messages",

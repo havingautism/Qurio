@@ -831,6 +831,8 @@ const callAIAPI = async (
       })
     }
 
+    const useDeepResearchAgent =
+      !!toggles?.deepResearch && typeof provider.streamDeepResearch === 'function'
     const planMessage = planContent
       ? [
           {
@@ -839,9 +841,10 @@ const callAIAPI = async (
           },
         ]
       : []
-    const conversationMessagesWithPlan = planMessage.length
-      ? [...planMessage, ...conversationMessages]
-      : conversationMessages
+    const conversationMessagesWithPlan =
+      planMessage.length && !useDeepResearchAgent
+        ? [...planMessage, ...conversationMessages]
+        : conversationMessages
 
     // Tag the placeholder with provider/model so UI can show it while streaming
     set(state => {
@@ -893,6 +896,38 @@ const callAIAPI = async (
       thinking: provider.getThinking(thinkingActive, modelConfig.model),
       onChunk: chunk => {
         if (typeof chunk === 'object' && chunk !== null) {
+          if (chunk.type === 'research_step') {
+            set(state => {
+              const updated = [...state.messages]
+              const lastMsgIndex = updated.length - 1
+              if (lastMsgIndex < 0 || updated[lastMsgIndex].role !== 'ai') {
+                return { messages: updated }
+              }
+              const lastMsg = { ...updated[lastMsgIndex] }
+              const steps = Array.isArray(lastMsg.researchSteps)
+                ? [...lastMsg.researchSteps]
+                : []
+              const targetIndex = steps.findIndex(item => item.step === chunk.step)
+              const stepEntry = {
+                step: chunk.step,
+                total: chunk.total,
+                title: chunk.title || '',
+                status: chunk.status || 'running',
+                durationMs:
+                  typeof chunk.duration_ms === 'number' ? chunk.duration_ms : undefined,
+                error: chunk.error || null,
+              }
+              if (targetIndex >= 0) {
+                steps[targetIndex] = { ...steps[targetIndex], ...stepEntry }
+              } else {
+                steps.push(stepEntry)
+              }
+              lastMsg.researchSteps = steps
+              updated[lastMsgIndex] = lastMsg
+              return { messages: updated }
+            })
+            return
+          }
           if (chunk.type === 'tool_call') {
             set(state => {
               const updated = [...state.messages]
@@ -908,6 +943,8 @@ const callAIAPI = async (
                 arguments: chunk.arguments || '',
                 status: 'calling',
                 durationMs: null,
+                step: typeof chunk.step === 'number' ? chunk.step : undefined,
+                total: typeof chunk.total === 'number' ? chunk.total : undefined,
               })
               lastMsg.toolCallHistory = history
               updated[lastMsgIndex] = lastMsg
@@ -938,6 +975,10 @@ const callAIAPI = async (
                     typeof chunk.duration_ms === 'number'
                       ? chunk.duration_ms
                       : history[targetIndex].durationMs,
+                  step:
+                    typeof chunk.step === 'number' ? chunk.step : history[targetIndex].step,
+                  total:
+                    typeof chunk.total === 'number' ? chunk.total : history[targetIndex].total,
                 }
               } else {
                 history.push({
@@ -948,6 +989,8 @@ const callAIAPI = async (
                   error: chunk.error || null,
                   output: typeof chunk.output !== 'undefined' ? chunk.output : null,
                   durationMs: typeof chunk.duration_ms === 'number' ? chunk.duration_ms : null,
+                  step: typeof chunk.step === 'number' ? chunk.step : undefined,
+                  total: typeof chunk.total === 'number' ? chunk.total : undefined,
                 })
               }
               lastMsg.toolCallHistory = history
@@ -1012,7 +1055,25 @@ const callAIAPI = async (
       },
     }
 
-    await provider.streamChatCompletion(params)
+    if (useDeepResearchAgent) {
+      const lastMessage = conversationMessages[conversationMessages.length - 1]
+      const historyMessages =
+        lastMessage?.role === 'user' ? conversationMessages.slice(0, -1) : conversationMessages
+      await provider.streamDeepResearch({
+        ...params,
+        messages: historyMessages.map(m => ({
+          role: m.role === 'ai' ? 'assistant' : m.role,
+          content: m.content,
+          ...(m.tool_calls && { tool_calls: m.tool_calls }),
+          ...(m.tool_call_id && { tool_call_id: m.tool_call_id }),
+          ...(m.name && { name: m.name }),
+        })),
+        plan: planContent,
+        question: firstUserText || lastMessage?.content || '',
+      })
+    } else {
+      await provider.streamChatCompletion(params)
+    }
   } catch (error) {
     flushPending()
     console.error('Setup error:', error)
@@ -1282,6 +1343,11 @@ const finalizeMessage = async (
       const latestAi = aiMessages[aiMessages.length - 1]
       return Array.isArray(latestAi?.toolCallHistory) ? latestAi.toolCallHistory : null
     })()
+    const researchStepsForPersistence = (() => {
+      const aiMessages = (currentStore.messages || []).filter(m => m.role === 'ai')
+      const latestAi = aiMessages[aiMessages.length - 1]
+      return Array.isArray(latestAi?.researchSteps) ? latestAi.researchSteps : null
+    })()
     const thoughtForPersistence =
       toggles?.deepResearch && planForPersistence
         ? JSON.stringify({ plan: planForPersistence, thought: baseThought })
@@ -1304,6 +1370,7 @@ const finalizeMessage = async (
       thinking_process: thoughtForPersistence,
       tool_calls: sanitizeJson(result.toolCalls || null),
       tool_call_history: sanitizeJson(toolCallHistoryForPersistence || []),
+      research_step_history: sanitizeJson(researchStepsForPersistence || []),
       related_questions: null,
       sources: sanitizeJson(result.sources || null),
       grounding_supports: sanitizeJson(result.groundingSupports || null),

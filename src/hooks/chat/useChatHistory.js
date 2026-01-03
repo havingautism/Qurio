@@ -69,6 +69,7 @@ const mapMessageFromApi = (m, effectiveDefaultModel, activeConversation) => {
     related: m.related_questions || undefined,
     tool_calls: m.tool_calls || undefined,
     toolCallHistory: m.tool_call_history || undefined,
+    researchSteps: m.research_step_history || undefined,
     sources: m.sources || undefined,
     groundingSupports: m.grounding_supports || undefined,
     provider: m.provider || activeConversation?.api_provider,

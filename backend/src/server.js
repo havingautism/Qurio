@@ -52,6 +52,7 @@ import titleAndSpaceRoutes from './routes/titleAndSpace.js'
 import agentForAutoRoutes from './routes/agentForAuto.js'
 import relatedQuestionsRoutes from './routes/relatedQuestions.js'
 import streamChatRoutes from './routes/streamChat.js'
+import deepResearchChatRoutes from './routes/deepResearchChat.js'
 import toolsRoutes from './routes/tools.js'
 app.use('/api', titleSpaceAgentRoutes)
 app.use('/api', titleRoutes)
@@ -61,6 +62,7 @@ app.use('/api', titleAndSpaceRoutes)
 app.use('/api', agentForAutoRoutes)
 app.use('/api', relatedQuestionsRoutes)
 app.use('/api', streamChatRoutes)
+app.use('/api', deepResearchChatRoutes)
 app.use('/api', toolsRoutes)
 
 // 404 handler

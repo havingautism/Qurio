@@ -5,31 +5,65 @@ import EmojiDisplay from '../EmojiDisplay'
 const escapeLabel = label => label.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')
 
 const extractQuestion = (rawContent, t) => {
-  const questionLabel = t('homeView.deepResearchQuestionLabel')
-  const scopeLabel = t('homeView.deepResearchScopeLabel')
-  const outputLabel = t('homeView.deepResearchOutputLabel')
-  const lines = rawContent.split(/\r?\n/).map(line => line.trim())
-  const questionPattern = new RegExp(`^\\s*${escapeLabel(questionLabel)}\\s*:\\s*(.+)$`)
-  const matchLine = lines.find(line => questionPattern.test(line))
-  if (matchLine) {
-    const match = matchLine.match(questionPattern)
-    return match?.[1]?.trim() || ''
+  // Define patterns for supported languages
+  const patterns = [
+    {
+      lang: 'en',
+      question: ['Research question', 'Research goal'],
+      scope: ['Research scope'],
+      output: ['Output requirements'],
+    },
+    {
+      lang: 'zh',
+      question: ['研究问题', '研究目标'],
+      scope: ['研究范围'],
+      output: ['输出要求'],
+    },
+    // Add patterns from translation files as a fallback
+    {
+      lang: 'local',
+      question: [t('homeView.deepResearchQuestionLabel')],
+      scope: [t('homeView.deepResearchScopeLabel')],
+      output: [t('homeView.deepResearchOutputLabel')],
+    },
+  ]
+
+  let bestMatchContent = rawContent
+  let minCutIndex = rawContent.length
+
+  // First, try to strip the question label if present at the start
+  for (const pattern of patterns) {
+    for (const qLabel of pattern.question) {
+      if (!qLabel) continue
+      const regex = new RegExp(`^\\s*${escapeLabel(qLabel)}\\s*:\\s*`, 'i')
+      if (regex.test(bestMatchContent)) {
+        bestMatchContent = bestMatchContent.replace(regex, '')
+      }
+      // Also check within text if not at start (for safety)
+      const regexInline = new RegExp(`${escapeLabel(qLabel)}\\s*:\\s*`, 'i')
+      bestMatchContent = bestMatchContent.replace(regexInline, '')
+    }
   }
 
-  let cleaned = rawContent
-    .replace(new RegExp(`${escapeLabel(questionLabel)}\\s*:\\s*`, 'i'), '')
-    .replace(/Research question:\s*/i, '')
-  const scopeIndex = cleaned.search(new RegExp(`\\n\\s*${escapeLabel(scopeLabel)}\\s*:`, 'i'))
-  const outputIndex = cleaned.search(new RegExp(`\\n\\s*${escapeLabel(outputLabel)}\\s*:`, 'i'))
-  const engScopeIndex = cleaned.search(/\n\s*Research scope\s*:/i)
-  const engOutputIndex = cleaned.search(/\n\s*Output requirements\s*:/i)
-  const cutIndex = [scopeIndex, outputIndex, engScopeIndex, engOutputIndex]
-    .filter(index => index >= 0)
-    .sort((a, b) => a - b)[0]
-  if (cutIndex !== undefined) {
-    cleaned = cleaned.slice(0, cutIndex)
+  // Now find the earliest occurrence of ANY next section label (scope or output)
+  // regardless of language, to safely cut the content.
+  for (const pattern of patterns) {
+    const nextSectionLabels = [...pattern.scope, ...pattern.output]
+    for (const label of nextSectionLabels) {
+      if (!label) continue
+      const regex = new RegExp(`\\n\\s*${escapeLabel(label)}\\s*:`, 'i')
+      const index = bestMatchContent.search(regex)
+      if (index >= 0 && index < minCutIndex) {
+        minCutIndex = index
+      }
+    }
   }
-  return cleaned.trim()
+
+  if (minCutIndex < bestMatchContent.length) {
+    bestMatchContent = bestMatchContent.slice(0, minCutIndex)
+  }
+
+  return bestMatchContent.trim()
 }
 
 const DeepResearchGoalCard = ({ content }) => {

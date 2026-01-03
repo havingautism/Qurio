@@ -374,6 +374,7 @@ const MessageBubble = ({
 
   const [isThoughtExpanded, setIsThoughtExpanded] = useState(false)
   const [isResearchExpanded, setIsResearchExpanded] = useState(false)
+  const [isPlanExpanded, setIsPlanExpanded] = useState(false)
   const [thinkingStatusIndex, setThinkingStatusIndex] = useState(0)
 
   const { t } = useTranslation()
@@ -498,7 +499,8 @@ const MessageBubble = ({
   const providerId = message.provider || apiProvider
   const provider = getProvider(providerId)
   const parsed = provider.parseMessage(message)
-  const thoughtContent = message.thinkingEnabled === false ? null : parsed.thought
+  const thoughtContent =
+    isDeepResearch || message.thinkingEnabled === false ? null : parsed.thought
   const mainContent = parsed.content
 
   const { handleDownloadPdf, handleDownloadWord } = useMessageExport({
@@ -1008,18 +1010,21 @@ const MessageBubble = ({
   const hasThoughtText = !!(thoughtContent && String(thoughtContent).trim())
   const hasPlanText = !!planMarkdown
   const researchPlanLoading = Boolean(message?.researchPlanLoading)
-  const shouldShowResearch =
-    isDeepResearch &&
+  const researchSteps = Array.isArray(message.researchSteps) ? message.researchSteps : []
+  const hasResearchSteps = researchSteps.length > 0
+  const hasRunningResearchStep = researchSteps.some(step => step.status === 'running')
+  const shouldShowPlan = isDeepResearch && (hasPlanText || researchPlanLoading)
+  const shouldShowResearch = isDeepResearch && hasResearchSteps
+  const shouldShowThought =
+    !isDeepResearch &&
     message.thinkingEnabled !== false &&
-    (hasPlanText || researchPlanLoading || (baseThinkingStatusActive && !hasThoughtText))
-  const shouldShowThought = isDeepResearch
-    ? hasThoughtText || (!researchPlanLoading && baseThinkingStatusActive)
-    : message.thinkingEnabled !== false && (isStreaming || hasThoughtText || hasPlanText)
+    (isStreaming || hasThoughtText || hasPlanText)
   const shouldShowThinking =
     !isDeepResearch &&
     message.thinkingEnabled !== false &&
     (isStreaming || hasThoughtText || hasPlanText)
-  const shouldShowResearchStatus = isDeepResearch && baseThinkingStatusActive && researchPlanLoading
+  const shouldShowPlanStatus = isDeepResearch && researchPlanLoading
+  const shouldShowResearchStatus = isDeepResearch && hasRunningResearchStep
   const shouldShowThoughtStatus =
     baseThinkingStatusActive &&
     (!isDeepResearch || (!researchPlanLoading && (hasPlanText || hasThoughtText)))
@@ -1028,6 +1033,13 @@ const MessageBubble = ({
   const isRelatedLoading = !!message.relatedLoading
   const shouldShowRelated = !isDeepResearch && (hasRelatedQuestions || isRelatedLoading)
   const toolCallHistory = Array.isArray(message.toolCallHistory) ? message.toolCallHistory : []
+  const getToolCallsForStep = useCallback(
+    stepNumber =>
+      toolCallHistory.filter(item =>
+        typeof item.step === 'number' ? item.step === stepNumber : false,
+      ),
+    [toolCallHistory],
+  )
 
   const formatJsonForDisplay = value => {
     if (value == null) return ''
@@ -1192,10 +1204,12 @@ const MessageBubble = ({
         )}
       </div>
 
-      {toolCallHistory.length > 0 && (
+      {!isDeepResearch && toolCallHistory.length > 0 && (
         <div className="border border-gray-200 dark:border-zinc-700 rounded-xl overflow-hidden bg-user-bubble/20 dark:bg-zinc-800/30">
           <div className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-zinc-700">
-            {t('messageBubble.toolCalls')}
+            <div className="flex items-center gap-2 font-medium text-gray-700 dark:text-gray-300">
+              <EmojiDisplay emoji={'🔧'} size="1.2em" /> {t('messageBubble.toolCalls')}
+            </div>
           </div>
           <div className="px-4 py-3 space-y-2">
             {toolCallHistory.map(item => (
@@ -1207,7 +1221,16 @@ const MessageBubble = ({
                   <span className="font-semibold text-gray-700 dark:text-gray-200">
                     {item.name}
                   </span>
-                  <span className="px-2 py-0.5 rounded-full bg-gray-200/70 dark:bg-zinc-700/70 text-[11px]">
+                  <span
+                    className={clsx(
+                      'px-2 py-0.5 rounded-full text-[11px]',
+                      item.status === 'error'
+                        ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
+                        : item.status === 'done'
+                          ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
+                          : 'bg-gray-200/70 dark:bg-zinc-700/70 text-gray-600 dark:text-gray-400',
+                    )}
+                  >
                     {item.status === 'error'
                       ? t('messageBubble.toolStatusError')
                       : item.status === 'done'
@@ -1230,11 +1253,11 @@ const MessageBubble = ({
                     {t('messageBubble.toolDetails')}
                   </button>
                 </div>
-                {item.arguments && (
+                {/* {item.arguments && (
                   <div className="text-[11px] text-gray-500 dark:text-gray-400 whitespace-pre-wrap break-words">
                     {t('messageBubble.toolArguments')}: {item.arguments}
                   </div>
-                )}
+                )} */}
                 {item.error && (
                   <div className="text-[11px] text-red-500 dark:text-red-400">{item.error}</div>
                 )}
@@ -1247,6 +1270,42 @@ const MessageBubble = ({
       {/* Thinking Process Section */}
       {isDeepResearch ? (
         <>
+          {shouldShowPlan && (
+            <div className="border border-gray-200 dark:border-zinc-700 rounded-xl overflow-hidden">
+              <button
+                onClick={() => setIsPlanExpanded(!isPlanExpanded)}
+                className="w-full flex items-center justify-between p-2 bg-user-bubble/30 dark:bg-zinc-800/50 hover:bg-user-bubble dark:hover:bg-zinc-800 transition-colors"
+              >
+                <div className="flex items-center gap-2 font-medium text-gray-700 dark:text-gray-300">
+                  <EmojiDisplay emoji={'🧭'} size="1.2em" />
+                  <span className="text-sm">{t('messageBubble.planProcess')}</span>
+                  {!shouldShowPlanStatus && <Check size="1em" />}
+                  {shouldShowPlanStatus && (
+                    <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                      <span className="text-left mr-4">{researchStatusText}</span>
+                      <DotLoader />
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center gap-3">
+                  {isPlanExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                </div>
+              </button>
+
+              {isPlanExpanded && (hasPlanText || shouldShowPlanStatus) && (
+                <div className="p-4 bg-user-bubble/30 font-stretch-semi-condensed dark:bg-zinc-800/30 border-t border-gray-200 dark:border-zinc-700 text-sm text-gray-600 dark:text-gray-400 leading-relaxed space-y-4">
+                  <Streamdown
+                    mermaid={mermaidOptions}
+                    remarkPlugins={[remarkGfm]}
+                    components={markdownComponents}
+                  >
+                    {planMarkdown}
+                  </Streamdown>
+                </div>
+              )}
+            </div>
+          )}
+
           {shouldShowResearch && (
             <div className="border border-gray-200 dark:border-zinc-700 rounded-xl overflow-hidden">
               <button
@@ -1269,51 +1328,139 @@ const MessageBubble = ({
                 </div>
               </button>
 
-              {isResearchExpanded && (hasPlanText || shouldShowResearchStatus) && (
-                <div className="p-4 bg-user-bubble/30 font-stretch-semi-condensed dark:bg-zinc-800/30 border-t border-gray-200 dark:border-zinc-700 text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
-                  <Streamdown
-                    mermaid={mermaidOptions}
-                    remarkPlugins={[remarkGfm]}
-                    components={markdownComponents}
-                  >
-                    {planMarkdown}
-                  </Streamdown>
-                </div>
-              )}
-            </div>
-          )}
-
-          {shouldShowThought && (
-            <div className="border border-gray-200 dark:border-zinc-700 rounded-xl overflow-hidden">
-              <button
-                onClick={() => setIsThoughtExpanded(!isThoughtExpanded)}
-                className="w-full flex items-center justify-between p-2 bg-user-bubble/30 dark:bg-zinc-800/50 hover:bg-user-bubble dark:hover:bg-zinc-800 transition-colors"
-              >
-                <div className="flex items-center gap-2 font-medium text-gray-700 dark:text-gray-300">
-                  <EmojiDisplay emoji={'🧠'} size="1.2em" />
-                  <span className="text-sm">{t('messageBubble.thinkingProcess')}</span>
-                  {!shouldShowThoughtStatus && <Check size="1em" />}
-                  {shouldShowThoughtStatus && (
-                    <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                      <span className="text-left mr-4">{thinkingStatusText}</span>
-                      <DotLoader />
-                    </div>
-                  )}
-                </div>
-                <div className="flex items-center gap-3">
-                  {isThoughtExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                </div>
-              </button>
-
-              {isThoughtExpanded && (hasThoughtText || shouldShowThoughtStatus) && (
-                <div className="p-4 bg-user-bubble/30 font-stretch-semi-condensed dark:bg-zinc-800/30 border-t border-gray-200 dark:border-zinc-700 text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
-                  <Streamdown
-                    mermaid={mermaidOptions}
-                    remarkPlugins={[remarkGfm]}
-                    components={markdownComponents}
-                  >
-                    {thoughtContent}
-                  </Streamdown>
+              {isResearchExpanded && hasResearchSteps && (
+                <div className="p-4 bg-user-bubble/30 font-stretch-semi-condensed dark:bg-zinc-800/30 border-t border-gray-200 dark:border-zinc-700 text-sm text-gray-600 dark:text-gray-400 leading-relaxed space-y-3">
+                  {researchSteps.map(step => {
+                    const isRunning = step.status === 'running'
+                    const isDone = step.status === 'done'
+                    const isError = step.status === 'error'
+                    const stepToolCalls = getToolCallsForStep(step.step)
+                    const durationLabel =
+                      typeof step.durationMs === 'number'
+                        ? t('messageBubble.researchStepDuration', {
+                            duration: (step.durationMs / 1000).toFixed(2),
+                          })
+                        : null
+                    const statusLabel = isError
+                      ? t('messageBubble.researchStepStatusError')
+                      : isDone
+                        ? t('messageBubble.researchStepStatusDone')
+                        : t('messageBubble.researchStepStatusRunning')
+                    return (
+                      <div
+                        key={`${step.step}-${step.title}`}
+                        className="flex items-start gap-3 rounded-lg border border-gray-200/60 dark:border-zinc-700/60 bg-white/40 dark:bg-zinc-900/30 p-3"
+                      >
+                        <div
+                          className={clsx(
+                            'mt-0.5 flex h-6 w-6 items-center justify-center rounded-full border text-xs font-semibold',
+                            isError
+                              ? 'border-red-200 dark:border-red-800/60 text-red-500'
+                              : isDone
+                                ? 'border-green-200 dark:border-green-800/60 text-green-500'
+                                : 'border-gray-200 dark:border-zinc-700 text-gray-500 dark:text-gray-400',
+                          )}
+                        >
+                          {isDone ? (
+                            <Check size={12} />
+                          ) : isError ? (
+                            <X size={12} />
+                          ) : (
+                            <span className="leading-none">⋯</span>
+                          )}
+                        </div>
+                        <div className="flex-1 space-y-1">
+                          <div className="flex flex-wrap items-center gap-2 text-xs">
+                            <span className="font-semibold text-gray-700 dark:text-gray-200">
+                              {t('messageBubble.researchStepLabel', {
+                                step: step.step,
+                                total: step.total || researchSteps.length,
+                              })}
+                            </span>
+                            <span
+                              className={clsx(
+                                'px-2 py-0.5 rounded-full text-[11px]',
+                                isError
+                                  ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
+                                  : isDone
+                                    ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
+                                    : 'bg-gray-200/70 dark:bg-zinc-700/70 text-gray-600 dark:text-gray-400',
+                              )}
+                            >
+                              {statusLabel}
+                            </span>
+                            {isRunning && <DotLoader />}
+                            {durationLabel && (
+                              <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                                {durationLabel}
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-sm text-gray-700 dark:text-gray-300">
+                            {step.title}
+                            {isRunning ? '...' : ''}
+                          </div>
+                          {step.error && (
+                            <div className="text-[11px] text-red-500 dark:text-red-400">
+                              {step.error}
+                            </div>
+                          )}
+                          {stepToolCalls.length > 0 && (
+                            <div className="mt-2 space-y-1">
+                              <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400">
+                                {t('messageBubble.toolCalls')}
+                              </div>
+                              <div className="space-y-1">
+                                {stepToolCalls.map(item => (
+                                  <div
+                                    key={item.id || `${item.name}-${item.arguments}`}
+                                    className="flex items-center gap-2 text-[11px] text-gray-600 dark:text-gray-400"
+                                  >
+                                    <span className="font-medium text-gray-700 dark:text-gray-300">
+                                      {item.name}
+                                    </span>
+                                    <span
+                                      className={clsx(
+                                        'px-2 py-0.5 rounded-full text-[10px]',
+                                        item.status === 'error'
+                                          ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
+                                          : item.status === 'done'
+                                            ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
+                                            : 'bg-gray-200/70 dark:bg-zinc-700/70 text-gray-600 dark:text-gray-400',
+                                      )}
+                                    >
+                                      {item.status === 'error'
+                                        ? t('messageBubble.toolStatusError')
+                                        : item.status === 'done'
+                                          ? t('messageBubble.toolStatusDone')
+                                          : t('messageBubble.toolStatusCalling')}
+                                    </span>
+                                    {item.status !== 'done' && item.status !== 'error' && (
+                                      <DotLoader />
+                                    )}
+                                    {typeof item.durationMs === 'number' && (
+                                      <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                                        {t('messageBubble.toolDuration', {
+                                          duration: (item.durationMs / 1000).toFixed(2),
+                                        })}
+                                      </span>
+                                    )}
+                                    <button
+                                      type="button"
+                                      onClick={() => setActiveToolDetail(item)}
+                                      className="ml-auto text-[10px] text-primary-600 dark:text-primary-300 hover:underline"
+                                    >
+                                      {t('messageBubble.toolDetails')}
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
                 </div>
               )}
             </div>
@@ -1503,7 +1650,7 @@ const MessageBubble = ({
                   <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     {t('messageBubble.toolInput')}
                   </div>
-                  <div className="bg-gray-50 dark:bg-zinc-900/50 rounded-lg border border-gray-200 dark:border-zinc-700 overflow-hidden px-4 py-3 text-sm">
+                  <div>
                     <Streamdown
                       mermaid={mermaidOptions}
                       remarkPlugins={[remarkGfm]}
@@ -1524,7 +1671,7 @@ const MessageBubble = ({
                   <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     {t('messageBubble.toolOutput')}
                   </div>
-                  <div className="bg-gray-50 dark:bg-zinc-900/50 rounded-lg border border-gray-200 dark:border-zinc-700 overflow-hidden px-4 py-3 text-sm">
+                  <div>
                     <Streamdown
                       mermaid={mermaidOptions}
                       remarkPlugins={[remarkGfm]}

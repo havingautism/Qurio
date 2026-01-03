@@ -13,6 +13,7 @@ import {
   generateTitleViaBackend,
   streamResearchPlanViaBackend,
   streamChatViaBackend,
+  streamDeepResearchViaBackend,
 } from './backendClient.js'
 
 const generateTitle = async (provider, firstMessage, apiKey, baseUrl, model) => {
@@ -141,6 +142,7 @@ const generateRelatedQuestions = async (provider, messages, apiKey, baseUrl, mod
 
 export const createBackendProvider = provider => ({
   streamChatCompletion: params => streamChatViaBackend({ provider, ...params }),
+  streamDeepResearch: params => streamDeepResearchViaBackend({ provider, ...params }),
   generateTitle: (firstMessage, apiKey, baseUrl, model) =>
     generateTitle(provider, firstMessage, apiKey, baseUrl, model),
   generateResearchPlan: (userMessage, apiKey, baseUrl, model) =>

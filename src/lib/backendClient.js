@@ -578,6 +578,127 @@ export const streamChatViaBackend = async params => {
   }
 }
 
+/**
+ * Stream deep research execution
+ * Uses Server-Sent Events (SSE) for streaming responses
+ */
+export const streamDeepResearchViaBackend = async params => {
+  const {
+    provider,
+    apiKey,
+    baseUrl,
+    model,
+    messages,
+    tools,
+    toolIds,
+    toolChoice,
+    temperature,
+    top_k,
+    top_p,
+    frequency_penalty,
+    presence_penalty,
+    contextMessageLimit,
+    plan,
+    question,
+    onChunk,
+    onFinish,
+    onError,
+    signal,
+  } = params
+
+  if (!provider) {
+    throw new Error('Missing required field: provider')
+  }
+  if (!apiKey) {
+    throw new Error('Missing required field: apiKey')
+  }
+  if (!messages || !Array.isArray(messages)) {
+    throw new Error('Missing required field: messages')
+  }
+
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/stream-deep-research`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        provider,
+        apiKey,
+        baseUrl,
+        model,
+        messages,
+        tools,
+        toolIds,
+        toolChoice,
+        temperature,
+        top_k,
+        top_p,
+        frequency_penalty,
+        presence_penalty,
+        contextMessageLimit,
+        plan,
+        question,
+      }),
+      signal,
+    })
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: 'Unknown error' }))
+      throw new Error(error.message || `Backend error: ${response.status}`)
+    }
+
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+
+    while (true) {
+      const { done, value } = await reader.read()
+
+      if (done) {
+        break
+      }
+
+      buffer += decoder.decode(value, { stream: true })
+
+      const lines = buffer.split('\n')
+      buffer = lines.pop() || ''
+
+      for (const line of lines) {
+        if (!line.trim() || !line.startsWith('data: ')) continue
+
+        const data = line.slice(6)
+        if (!data.trim()) continue
+
+        try {
+          const chunk = JSON.parse(data)
+
+          if (chunk.type === 'error') {
+            onError?.(new Error(chunk.error || 'Stream error'))
+            return
+          }
+
+          if (chunk.type === 'done') {
+            onFinish?.({
+              content: chunk.content,
+              thought: chunk.thought,
+              sources: chunk.sources,
+            })
+            return
+          }
+
+          onChunk?.(chunk)
+        } catch (e) {
+          console.error('Failed to parse SSE chunk:', data, e)
+        }
+      }
+    }
+  } catch (error) {
+    if (error.name === 'AbortError') return
+    onError?.(error)
+  }
+}
+
 export const listToolsViaBackend = async () => {
   const response = await fetch(`${BACKEND_URL}/api/tools`)
   if (!response.ok) {

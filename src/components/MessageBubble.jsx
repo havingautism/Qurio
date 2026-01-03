@@ -1706,10 +1706,16 @@ const CitationChip = ({ indices, sources, isMobile, onMobileClick, label }) => {
             {indices.map(idx => {
               const source = sources[idx]
               if (!source) return null
+              const url = source.url || source.uri || source.link || source.href || ''
+              const snippet = source.snippet || source.content || ''
+              const hostname = getHostname(url)
+              const faviconUrl =
+                source.icon ||
+                (hostname ? `https://www.google.com/s2/favicons?domain=${hostname}&sz=32` : '')
               return (
                 <a
                   key={idx}
-                  href={source.url}
+                  href={url}
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={e => e.stopPropagation()}
@@ -1723,8 +1729,18 @@ const CitationChip = ({ indices, sources, isMobile, onMobileClick, label }) => {
                       {source.title}
                     </span>
                     <span className="block text-[10px] text-gray-400 dark:text-gray-500 truncate">
-                      {getHostname(source.url)}
+                      <span className="inline-flex items-center gap-1.5">
+                        {faviconUrl && (
+                          <img src={faviconUrl} alt="" className="h-3 w-3 rounded-sm" />
+                        )}
+                        <span className="truncate">{hostname}</span>
+                      </span>
                     </span>
+                    {snippet && (
+                      <span className="mt-1 block text-[10px] text-gray-500 dark:text-gray-400 line-clamp-2">
+                        {snippet}
+                      </span>
+                    )}
                   </span>
                 </a>
               )

@@ -1028,17 +1028,15 @@ export const streamChat = async function* (params) {
     // or max iterations (3) is reached
     // ------------------------------------------------------------------------
     while (true) {
-      if (!useNonStreamingToolCalls) {
-        safetyCounter += 1
-        if (safetyCounter > 3) break // Safety limit: max 3 tool calling rounds
-      }
+      safetyCounter += 1
+      if (!useNonStreamingToolCalls && safetyCounter > 3) break // Safety limit for streaming path
 
       // ----------------------------------------------------------------------
       // NON-STREAMING TOOL CALLS (ALL PROVIDERS)
       // When tools are enabled, we always handle tool calls in non-streaming mode
       // and return the final answer as a single response.
       // ----------------------------------------------------------------------
-      if (useNonStreamingToolCalls) {
+      if (useNonStreamingToolCalls && !preProcessedToolCall) {
         const nonStreamMessages = toLangChainMessages(currentMessages)
         const response = await nonStreamingToolModel.invoke(
           nonStreamMessages,
@@ -1117,30 +1115,7 @@ export const streamChat = async function* (params) {
           preProcessedToolCall = true
           continue
         }
-
-        const contentValue = getResponseContent(response)
-        const chunkText = normalizeTextContent(contentValue)
-        if (chunkText) {
-          handleTaggedText(chunkText)
-        }
-
-        const reasoning = getResponseReasoning(response)
-        if (reasoning) {
-          emitThought(String(reasoning))
-        }
-
-        while (chunks.length > 0) {
-          yield chunks.shift()
-        }
-
-        yield {
-          type: 'done',
-          content: fullContent,
-          thought: fullThought || undefined,
-          sources: sourcesMap.size ? Array.from(sourcesMap.values()) : undefined,
-          toolCalls: undefined,
-        }
-        return
+        preProcessedToolCall = true
       }
 
       // ----------------------------------------------------------------------

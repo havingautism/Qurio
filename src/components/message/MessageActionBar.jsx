@@ -22,21 +22,25 @@ const MessageActionBar = ({
 }) => (
   <div className="flex items-center gap-4  border-t border-gray-200 dark:border-zinc-800 pt-4">
     <button
-      className="flex items-center font-mono gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+      className="group flex items-center font-mono text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
       onClick={onShare}
     >
       <Share2 size={16} />
-      <span className="hidden sm:block">{t('message.share')}</span>
+      <span className="hidden sm:block max-w-0 overflow-hidden opacity-0 whitespace-nowrap transition-all duration-300 ease-in-out group-hover:max-w-xs group-hover:opacity-100 group-hover:ml-2">
+        {t('message.share')}
+      </span>
     </button>
     <button
-      className="flex items-center gap-2 text-sm font-mono text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+      className="group flex items-center text-sm font-mono text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
       onClick={onRegenerate}
     >
       <RefreshCw size={16} />
-      <span className="hidden sm:block">{t('message.regenerate')}</span>
+      <span className="hidden sm:block max-w-0 overflow-hidden opacity-0 whitespace-nowrap transition-all duration-300 ease-in-out group-hover:max-w-xs group-hover:opacity-100 group-hover:ml-2">
+        {t('message.regenerate')}
+      </span>
     </button>
     <button
-      className="flex items-center gap-2 text-sm font-mono text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+      className="group flex items-center text-sm font-mono text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
       onClick={onCopy}
     >
       {isCopied ? (
@@ -55,26 +59,32 @@ const MessageActionBar = ({
           >
             <polyline points="20,6 9,17 4,12"></polyline>
           </svg>
-          <span className="text-green-600 dark:text-green-400 hidden sm:block">
+          <span className="text-green-600 dark:text-green-400 hidden sm:block max-w-0 overflow-hidden opacity-0 whitespace-nowrap transition-all duration-300 ease-in-out group-hover:max-w-xs group-hover:opacity-100 group-hover:ml-2">
             {t('message.copied')}
           </span>
         </>
       ) : (
         <>
           <Copy size={16} />
-          <span className="hidden sm:block">{t('message.copy')}</span>
+          <span className="hidden sm:block max-w-0 overflow-hidden opacity-0 whitespace-nowrap transition-all duration-300 ease-in-out group-hover:max-w-xs group-hover:opacity-100 group-hover:ml-2">
+            {t('message.copy')}
+          </span>
         </>
       )}
     </button>
     {isDeepResearch && (
       <div className="relative" ref={downloadMenuRef}>
         <button
-          className="flex items-center gap-2 text-sm font-mono text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+          className="group flex items-center text-sm font-mono text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
           onClick={() => setIsDownloadMenuOpen(prev => !prev)}
         >
           <Download size={16} />
-          <span className="hidden sm:block">{t('messageBubble.download')}</span>
-          <ChevronDown size={14} />
+          <span className="hidden sm:block max-w-0 overflow-hidden opacity-0 whitespace-nowrap transition-all duration-300 ease-in-out group-hover:max-w-xs group-hover:opacity-100 group-hover:ml-2">
+            {t('messageBubble.download')}
+          </span>
+          <div className="hidden sm:block max-w-0 overflow-hidden opacity-0 whitespace-nowrap transition-all duration-300 ease-in-out group-hover:max-w-xs group-hover:opacity-100 group-hover:ml-1">
+            <ChevronDown size={14} />
+          </div>
         </button>
         {isDownloadMenuOpen && (
           <div
@@ -119,17 +129,19 @@ const MessageActionBar = ({
           }
         }}
         className={clsx(
-          'flex items-center gap-2 text-sm transition-colors',
+          'group flex items-center text-sm transition-colors',
           isSourcesOpen
             ? 'text-primary-600 dark:text-primary-400 font-medium bg-primary-50 dark:bg-primary-900/20 px-2 py-1 rounded-lg'
             : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200',
         )}
       >
         <Globe size={16} />
-        <span className="hidden sm:block">{t('sources.title')}</span>
+        <span className="hidden sm:block max-w-0 overflow-hidden opacity-0 whitespace-nowrap transition-all duration-300 ease-in-out group-hover:max-w-xs group-hover:opacity-100 group-hover:ml-2">
+          {t('sources.title')}
+        </span>
         <span
           className={clsx(
-            'flex items-center justify-center rounded-full text-[10px] w-5 h-5 transition-colors',
+            'flex items-center justify-center rounded-full text-[10px] w-5 h-5 transition-colors ml-2',
             isSourcesOpen
               ? 'bg-primary-200 dark:bg-primary-900/50 text-primary-700 dark:text-primary-300'
               : 'bg-gray-200 dark:bg-zinc-700 text-gray-700 dark:text-gray-300',
@@ -140,11 +152,13 @@ const MessageActionBar = ({
       </button>
     )}
     <button
-      className="flex items-center gap-2 text-sm font-mono text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors ml-auto"
+      className="group flex items-center text-sm font-mono text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors ml-auto"
       onClick={onDelete}
     >
       <Trash2 size={16} />
-      <span className="hidden sm:block">{t('common.delete')}</span>
+      <span className="hidden sm:block max-w-0 overflow-hidden opacity-0 whitespace-nowrap transition-all duration-300 ease-in-out group-hover:max-w-xs group-hover:opacity-100 group-hover:ml-2">
+        {t('common.delete')}
+      </span>
     </button>
   </div>
 )

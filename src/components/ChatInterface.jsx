@@ -1386,7 +1386,7 @@ const ChatInterface = ({
             {showScrollButton && (
               <button
                 onClick={() => scrollToBottom('smooth')}
-                className="absolute -top-12 left-1/2 -translate-x-1/2 p-2 bg-background border border-border dark:border-[#ffffff26] rounded-full shadow-lg hover:bg-muted transition-all duration-300 animate-in fade-in slide-in-from-bottom-2 z-30"
+                className="absolute -top-12 left-1/2 -translate-x-1/2 p-2 bg-background border border-[#0d0d0d1a] dark:border-[#ffffff26] rounded-full shadow-lg hover:bg-muted transition-all duration-300 animate-in fade-in slide-in-from-bottom-2 z-30"
               >
                 <ArrowDown size={20} className="text-foreground" />
               </button>

@@ -132,7 +132,7 @@ const Sidebar = ({
       return value
         .map(item => String(item || '').trim())
         .filter(Boolean)
-          .slice(0, 1)
+        .slice(0, 1)
     }
     if (typeof value === 'string' && value.trim()) {
       try {
@@ -1512,8 +1512,8 @@ const Sidebar = ({
                       className="flex items-center justify-between p-2 rounded cursor-pointer transition-colors group hover:bg-primary-50 dark:hover:bg-zinc-800"
                     >
                       <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <div className="w-8 h-8 rounded bg-transparent flex items-center justify-center text-lg shrink-0">
-                          <EmojiDisplay emoji={agent.emoji} size="1.4em" />
+                        <div className="w-6 h-6 rounded bg-transparent flex items-center justify-center text-lg shrink-0">
+                          <EmojiDisplay emoji={agent.emoji} size="1.2em" className="shrink-0" />
                         </div>
                         <div className="flex flex-col min-w-0">
                           <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">

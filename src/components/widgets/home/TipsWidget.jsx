@@ -9,18 +9,6 @@ import { loadSettings } from '../../../lib/settings'
 const getTodayKey = () => new Date().toISOString().slice(0, 10)
 const CATEGORY_STORAGE_KEY = 'homeDailyTipCategory'
 
-const MODEL_SEPARATOR = '::'
-
-const parseStoredModel = value => {
-  if (!value) return { provider: '', modelId: '' }
-  const index = value.indexOf(MODEL_SEPARATOR)
-  if (index === -1) return { provider: '', modelId: value }
-  return {
-    provider: value.slice(0, index),
-    modelId: value.slice(index + MODEL_SEPARATOR.length),
-  }
-}
-
 const TipsWidget = () => {
   const { t, i18n } = useTranslation()
   const { defaultAgent } = useAppContext()
@@ -84,10 +72,12 @@ const TipsWidget = () => {
       }
 
       const settings = loadSettings()
-      const modelValue = defaultAgent?.defaultModel || defaultAgent?.liteModel
-      const parsedModel = parseStoredModel(modelValue)
-      const providerName = parsedModel.provider || defaultAgent?.provider
-      const modelId = parsedModel.modelId
+      const defaultModel = defaultAgent?.defaultModel || ''
+      const liteModel = defaultAgent?.liteModel || ''
+      const modelId = defaultModel || liteModel
+      const providerName = defaultModel
+        ? defaultAgent?.defaultModelProvider || defaultAgent?.provider
+        : defaultAgent?.liteModelProvider || defaultAgent?.provider
       if (!providerName || !modelId) {
         requestRef.current = false
         return

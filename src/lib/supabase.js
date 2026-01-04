@@ -281,6 +281,7 @@ export const saveRemoteSettings = async settings => {
     'OpenAICompatibilityUrl',
     'SiliconFlowKey',
     'GlmKey',
+    'ModelScopeKey',
     'KimiKey',
     'googleApiKey',
     // We do NOT sync Supabase credentials to the DB itself usually, but user might want to?

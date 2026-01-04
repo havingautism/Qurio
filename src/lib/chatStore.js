@@ -11,28 +11,6 @@ import { deleteMessageById } from '../lib/supabase'
 import { buildResponseStylePromptFromAgent } from './settings'
 import { listSpaceAgents } from './spacesService'
 
-// Model separator used in encoded model IDs (e.g., "glm::glm-4.7")
-const MODEL_SEPARATOR = '::'
-
-/**
- * Decodes a model ID that was encoded with provider prefix
- * @param {string} encodedModel - Encoded model ID (e.g., "glm::glm-4.7")
- * @returns {string} Decoded model ID (e.g., "glm-4.7")
- */
-const decodeModelId = encodedModel => {
-  if (!encodedModel) return ''
-  const index = encodedModel.indexOf(MODEL_SEPARATOR)
-  if (index === -1) return encodedModel
-  return encodedModel.slice(index + MODEL_SEPARATOR.length)
-}
-
-const getProviderFromEncodedModel = encodedModel => {
-  if (!encodedModel) return ''
-  const index = encodedModel.indexOf(MODEL_SEPARATOR)
-  if (index === -1) return ''
-  return encodedModel.slice(0, index)
-}
-
 // ================================================================================
 // CHAT STORE HELPER FUNCTIONS
 // These functions are organized by functionality to improve maintainability
@@ -263,19 +241,18 @@ const buildAgentPrompt = agent => {
  */
 const getModelConfigForAgent = (agent, settings, task = 'streamChatCompletion', fallbackAgent) => {
   const resolveFromAgent = candidate => {
-    if (!candidate?.provider) return null
+    if (!candidate) return null
 
     const defaultModel = candidate.default_model ?? candidate.defaultModel
     const liteModel = candidate.lite_model ?? candidate.liteModel
+    const defaultModelProvider =
+      candidate.default_model_provider ?? candidate.defaultModelProvider ?? ''
+    const liteModelProvider = candidate.lite_model_provider ?? candidate.liteModelProvider ?? ''
     const hasDefault = typeof defaultModel === 'string' && defaultModel.trim() !== ''
     const hasLite = typeof liteModel === 'string' && liteModel.trim() !== ''
 
     if (!hasDefault && !hasLite) return null
 
-    const decodedDefaultModel = hasDefault ? decodeModelId(defaultModel) : ''
-    const decodedLiteModel = hasLite ? decodeModelId(liteModel) : ''
-    const defaultProvider = getProviderFromEncodedModel(defaultModel)
-    const liteProvider = getProviderFromEncodedModel(liteModel)
     const isLiteTask =
       task === 'generateTitle' ||
       task === 'generateTitleAndSpace' ||
@@ -283,13 +260,13 @@ const getModelConfigForAgent = (agent, settings, task = 'streamChatCompletion', 
       task === 'generateResearchPlan'
 
     const model = isLiteTask
-      ? decodedLiteModel || decodedDefaultModel
-      : decodedDefaultModel || decodedLiteModel
+      ? liteModel || defaultModel
+      : defaultModel || liteModel
     const provider = isLiteTask
-      ? liteProvider || defaultProvider || candidate.provider
-      : defaultProvider || liteProvider || candidate.provider
+      ? liteModelProvider || defaultModelProvider || candidate.provider
+      : defaultModelProvider || liteModelProvider || candidate.provider
 
-    if (!model) return null
+    if (!model || !provider) return null
     return { provider, model }
   }
 

@@ -13,6 +13,8 @@ const mapAgent = agent => {
     isDeepResearch: agent.is_deep_research ?? agent.isDeepResearch ?? false,
     emoji: agent.emoji,
     provider: agent.provider,
+    defaultModelProvider: agent.default_model_provider ?? agent.defaultModelProvider ?? '',
+    liteModelProvider: agent.lite_model_provider ?? agent.liteModelProvider ?? '',
     defaultModelSource: agent.default_model_source ?? agent.defaultModelSource ?? 'list',
     liteModelSource: agent.lite_model_source ?? agent.liteModelSource ?? 'list',
     liteModel: agent.lite_model ?? agent.liteModel ?? '',
@@ -55,6 +57,8 @@ export const createAgent = async ({
   emoji = '',
   isDefault = false,
   provider = '',
+  defaultModelProvider = '',
+  liteModelProvider = '',
   defaultModelSource = 'list',
   liteModelSource = 'list',
   liteModel = '',
@@ -85,6 +89,8 @@ export const createAgent = async ({
     emoji,
     is_default: isDefault,
     provider,
+    default_model_provider: defaultModelProvider,
+    lite_model_provider: liteModelProvider,
     default_model_source: defaultModelSource,
     lite_model_source: liteModelSource,
     lite_model: liteModel,
@@ -122,6 +128,10 @@ export const updateAgent = async (id, payload) => {
     updatePayload.is_deep_research = payload.isDeepResearch
   if (payload.emoji !== undefined) updatePayload.emoji = payload.emoji
   if (payload.provider !== undefined) updatePayload.provider = payload.provider
+  if (payload.defaultModelProvider !== undefined)
+    updatePayload.default_model_provider = payload.defaultModelProvider
+  if (payload.liteModelProvider !== undefined)
+    updatePayload.lite_model_provider = payload.liteModelProvider
   if (payload.defaultModelSource !== undefined)
     updatePayload.default_model_source = payload.defaultModelSource
   if (payload.liteModelSource !== undefined)

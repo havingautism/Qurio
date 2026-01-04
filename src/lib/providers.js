@@ -66,6 +66,15 @@ const defaultParseMessage = input => {
   return { content: rawContent, thought: null }
 }
 
+const normalizeMarkdownSpacing = text => {
+  if (!text || typeof text !== 'string') return text
+  let normalized = text
+  normalized = normalized.replace(/([^\n])(\s*#{1,6}\s+)/g, '$1\n$2')
+  normalized = normalized.replace(/([^\n])(\s*[-*+]\s+)/g, '$1\n$2')
+  normalized = normalized.replace(/([^\n])(\s*\|[-:\s]+\|)/g, '$1\n$2')
+  return normalized
+}
+
 export const PROVIDERS = {
   openai_compatibility: {
     ...createBackendProvider('openai_compatibility'),
@@ -280,10 +289,16 @@ export const PROVIDERS = {
             },
           ]
         : undefined,
-    getThinking: isThinkingActive => ({
-      type: isThinkingActive ? 'enabled' : 'disabled',
-    }),
-    parseMessage: defaultParseMessage,
+    getThinking: isThinkingActive =>
+      isThinkingActive
+        ? {
+            budget_tokens: 1024,
+          }
+        : undefined,
+    parseMessage: input => {
+      const parsed = defaultParseMessage(input)
+      return { ...parsed, content: normalizeMarkdownSpacing(parsed.content) }
+    },
   },
   kimi: {
     ...createBackendProvider('kimi'),

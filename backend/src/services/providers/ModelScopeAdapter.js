@@ -42,13 +42,17 @@ export class ModelScopeAdapter extends BaseProviderAdapter {
     if (!apiKey) throw new Error('Missing API key for ModelScope')
 
     const modelKwargs = {}
-    if (responseFormat) modelKwargs.response_format = responseFormat
+    modelKwargs.response_format = responseFormat || { type: 'text' }
 
     // Thinking mode configuration
-    const thinkingType = thinking?.type || 'disabled'
-    modelKwargs.thinking = { type: thinkingType }
-    if (thinking?.type) {
-      modelKwargs.extra_body = { thinking: { type: thinkingType } }
+    if (thinking) {
+      const budget = thinking.budget_tokens || thinking.budgetTokens || 1024
+      modelKwargs.extra_body = {
+        enable_thinking: true,
+        thinking_budget: budget,
+      }
+      modelKwargs.enable_thinking = true
+      modelKwargs.thinking_budget = budget
     }
 
     if (top_k !== undefined) modelKwargs.top_k = top_k
@@ -73,26 +77,42 @@ export class ModelScopeAdapter extends BaseProviderAdapter {
   }
 
   /**
-   * Execute request
-   * IMPORTANT: ModelScope API doesn't support tools + stream together
+   * Execute request with streaming support
    */
   async execute(messages, params) {
     const { tools, stream } = params
 
-    // ⚠️ API limitation: Cannot use tools and streaming together
-    // Fallback to non-streaming when tools are present
-    if (tools && tools.length > 0 && stream) {
-      return this.executeNonStreamingForToolCalls(messages, params)
+    // Check if we can use streaming (respect capability flags)
+    // If tools are present and provider doesn't support streaming tools, force non-streaming
+    const canStream = stream && (!tools?.length || this.capabilities.supportsStreamingToolCalls)
+
+    if (canStream) {
+      const modelInstance = this.buildModel({
+        ...params,
+        tools,
+        streaming: true,
+      })
+
+      return {
+        type: 'stream',
+        modelInstance,
+        messages,
+      }
     }
 
-    // Regular streaming (no tools)
-    const modelInstance = this.buildModel({
-      ...params,
-      tools,
-      streaming: stream,
-    })
+    // For ModelScope, use the same "Probe-and-Stream" pattern as SiliconFlow
+    if (!canStream) {
+      const execution = await this.executeNonStreamingForToolCalls(messages, params)
+      if (execution.type === 'tool_calls') {
+        return execution
+      }
 
-    if (stream) {
+      const modelInstance = this.buildModel({
+        ...params,
+        tools,
+        streaming: true,
+      })
+
       return {
         type: 'stream',
         modelInstance,

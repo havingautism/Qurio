@@ -51,23 +51,6 @@ const FALLBACK_MODEL_OPTIONS = {
 }
 
 const PROVIDER_KEYS = ['gemini', 'openai_compatibility', 'siliconflow', 'glm', 'modelscope', 'kimi']
-const MODEL_SEPARATOR = '::'
-
-const parseStoredModel = value => {
-  if (!value) return { provider: '', modelId: '' }
-  const index = value.indexOf(MODEL_SEPARATOR)
-  if (index === -1) return { provider: '', modelId: value }
-  return {
-    provider: value.slice(0, index),
-    modelId: value.slice(index + MODEL_SEPARATOR.length),
-  }
-}
-
-const encodeModelId = (providerKey, modelId) => {
-  if (!modelId) return ''
-  if (!providerKey) return modelId
-  return `${providerKey}${MODEL_SEPARATOR}${modelId}`
-}
 
 // Personalization Constants
 const LLM_ANSWER_LANGUAGE_KEYS = [
@@ -304,28 +287,26 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
             editingAgent.frequency_penalty !== undefined) ||
           (editingAgent.presencePenalty !== null && editingAgent.presencePenalty !== undefined) ||
           (editingAgent.presence_penalty !== null && editingAgent.presence_penalty !== undefined)
-        const parsedDefaultModel = parseStoredModel(editingAgent.defaultModel)
-        const parsedLiteModel = parseStoredModel(editingAgent.liteModel)
         setName(editingAgent.name)
         setDescription(editingAgent.description)
         setPrompt(editingAgent.prompt)
         setEmoji(editingAgent.emoji)
         setProvider(
           editingAgent.provider ||
-            parsedDefaultModel.provider ||
-            parsedLiteModel.provider ||
+            editingAgent?.defaultModelProvider ||
+            editingAgent?.liteModelProvider ||
             'gemini',
         )
-        const nextDefaultModel = parsedDefaultModel.modelId || ''
-        const nextLiteModel = parsedLiteModel.modelId || ''
+        const nextDefaultModel = editingAgent.defaultModel || ''
+        const nextLiteModel = editingAgent.liteModel || ''
         setLiteModel(nextLiteModel)
         setDefaultModel(nextDefaultModel)
         setDefaultModelSource(editingAgent?.defaultModelSource || 'list')
         setLiteModelSource(editingAgent?.liteModelSource || 'list')
         setDefaultCustomModel(editingAgent?.defaultModelSource === 'custom' ? nextDefaultModel : '')
         setLiteCustomModel(editingAgent?.liteModelSource === 'custom' ? nextLiteModel : '')
-        setDefaultModelProvider(parsedDefaultModel.provider || '')
-        setLiteModelProvider(parsedLiteModel.provider || '')
+        setDefaultModelProvider(editingAgent?.defaultModelProvider || editingAgent?.provider || '')
+        setLiteModelProvider(editingAgent?.liteModelProvider || editingAgent?.provider || '')
         setResponseLanguage(
           editingAgent.responseLanguage ||
             defaultAgent?.responseLanguage ||
@@ -359,10 +340,12 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
         )
         setEmoji('🤻')
         setProvider(defaultAgent?.provider || 'gemini')
-        const nextLiteModel = parseStoredModel(defaultAgent?.liteModel).modelId || ''
-        const nextDefaultModel = parseStoredModel(defaultAgent?.defaultModel).modelId || ''
+        const nextLiteModel = defaultAgent?.liteModel || ''
+        const nextDefaultModel = defaultAgent?.defaultModel || ''
         setLiteModel(nextLiteModel)
         setDefaultModel(nextDefaultModel)
+        setDefaultModelProvider(defaultAgent?.defaultModelProvider || defaultAgent?.provider || '')
+        setLiteModelProvider(defaultAgent?.liteModelProvider || defaultAgent?.provider || '')
         setDefaultModelSource('list')
         setLiteModelSource('list')
         setDefaultCustomModel('')
@@ -419,8 +402,10 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
 
     setIsSaving(true)
     try {
-      const resolveProvider = (modelId, fallback) => {
+      const resolveProvider = (modelId, fallback, modelSource, explicitProvider) => {
         if (!modelId) return fallback || ''
+        if (explicitProvider) return explicitProvider
+        if (modelSource && modelSource !== 'list') return fallback || ''
         const derived = findProviderForModel(modelId)
         return derived || fallback || ''
       }
@@ -428,8 +413,15 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
       const resolvedDefaultProvider = resolveProvider(
         defaultModel,
         defaultModelProvider || provider,
+        defaultModelSource,
+        defaultModelProvider,
       )
-      const resolvedLiteProvider = resolveProvider(liteModel, liteModelProvider || provider)
+      const resolvedLiteProvider = resolveProvider(
+        liteModel,
+        liteModelProvider || provider,
+        liteModelSource,
+        liteModelProvider,
+      )
       const derivedProvider = resolvedDefaultProvider || provider
 
       const resolvedName = isDeepResearchAgent
@@ -458,8 +450,10 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
         prompt: resolvedPrompt,
         emoji: resolvedEmoji,
         provider: derivedProvider,
-        liteModel: encodeModelId(resolvedLiteProvider, liteModel),
-        defaultModel: encodeModelId(resolvedDefaultProvider, defaultModel),
+        defaultModelProvider: resolvedDefaultProvider,
+        liteModelProvider: resolvedLiteProvider,
+        liteModel,
+        defaultModel,
         defaultModelSource,
         liteModelSource,
         responseLanguage,
@@ -667,20 +661,24 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
 
   useEffect(() => {
     if (!isOpen) return
-    const resolvedDefaultProvider = findProviderForModel(defaultModel)
-    const resolvedLiteProvider = findProviderForModel(liteModel)
+    const resolvedDefaultProvider = defaultModelSource === 'list' ? findProviderForModel(defaultModel) : ''
+    const resolvedLiteProvider = liteModelSource === 'list' ? findProviderForModel(liteModel) : ''
 
     // Only auto-resolve provider if not already set or if model changed
     // This prevents overwriting user's manual provider selection
-    if (resolvedDefaultProvider && !defaultModelProvider) {
-      setDefaultModelProvider(resolvedDefaultProvider)
-    } else if (!defaultModelProvider && availableProviders.length > 0) {
-      setDefaultModelProvider(availableProviders[0])
+    if (defaultModelSource === 'list') {
+      if (resolvedDefaultProvider && !defaultModelProvider) {
+        setDefaultModelProvider(resolvedDefaultProvider)
+      } else if (!defaultModelProvider && availableProviders.length > 0) {
+        setDefaultModelProvider(availableProviders[0])
+      }
     }
-    if (resolvedLiteProvider && !liteModelProvider) {
-      setLiteModelProvider(resolvedLiteProvider)
-    } else if (!liteModelProvider && availableProviders.length > 0) {
-      setLiteModelProvider(availableProviders[0])
+    if (liteModelSource === 'list') {
+      if (resolvedLiteProvider && !liteModelProvider) {
+        setLiteModelProvider(resolvedLiteProvider)
+      } else if (!liteModelProvider && availableProviders.length > 0) {
+        setLiteModelProvider(availableProviders[0])
+      }
     }
   }, [availableProviders, defaultModel, groupedModels, isOpen, liteModel])
 
@@ -712,8 +710,10 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
 
   // Keep lite provider independent so users can mix providers between default and lite models.
 
-  const resolveProvider = (modelId, fallback) => {
+  const resolveProvider = (modelId, fallback, modelSource, explicitProvider) => {
     if (!modelId) return fallback || ''
+    if (explicitProvider) return explicitProvider
+    if (modelSource && modelSource !== 'list') return fallback || ''
     const derived = findProviderForModel(modelId)
     return derived || fallback || ''
   }
@@ -784,7 +784,12 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
   }
 
   const handleDefaultModelTest = async () => {
-    const resolvedProvider = resolveProvider(defaultModel, defaultModelProvider || provider)
+    const resolvedProvider = resolveProvider(
+      defaultModel,
+      defaultModelProvider || provider,
+      defaultModelSource,
+      defaultModelProvider,
+    )
     setDefaultTestState({ status: 'loading', message: t('agents.model.testing') })
     try {
       await runModelTest({
@@ -802,7 +807,12 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
   }
 
   const handleLiteModelTest = async () => {
-    const resolvedProvider = resolveProvider(liteModel, liteModelProvider || provider)
+    const resolvedProvider = resolveProvider(
+      liteModel,
+      liteModelProvider || provider,
+      liteModelSource,
+      liteModelProvider,
+    )
     setLiteTestState({ status: 'loading', message: t('agents.model.testing') })
     try {
       await runModelTest({ modelId: liteModel, providerKey: resolvedProvider, structured: false })

@@ -58,6 +58,9 @@ export class SiliconFlowAdapter extends BaseProviderAdapter {
     if (presence_penalty !== undefined) modelKwargs.presence_penalty = presence_penalty
     if (tools && tools.length > 0) modelKwargs.tools = tools
     if (toolChoice) modelKwargs.tool_choice = toolChoice
+    if (streaming) {
+      modelKwargs.stream_options = { include_usage: false }
+    }
 
     return new ChatOpenAI({
       apiKey,

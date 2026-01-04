@@ -76,9 +76,9 @@ const handleTaggedTextFactory = ({ emitText, emitThought, enableTags = true }) =
   }
 }
 
-/**
- * Collect GLM web search sources
- */
+// NOTE: Legacy provider-specific source collectors (GLM/Kimi) are unused in the refactor.
+// Keeping them commented to avoid dead code until adapters emit provider-native sources again.
+/*
 const collectGLMSources = (webSearch, sourcesMap) => {
   if (!webSearch) return
   const results = webSearch.results || webSearch
@@ -98,9 +98,6 @@ const collectGLMSources = (webSearch, sourcesMap) => {
   }
 }
 
-/**
- * Collect Kimi web search sources
- */
 const collectKimiSources = (toolOutput, sourcesMap) => {
   if (!toolOutput) return
   const parsed = typeof toolOutput === 'string' ? safeJsonParse(toolOutput) : toolOutput
@@ -121,6 +118,7 @@ const collectKimiSources = (toolOutput, sourcesMap) => {
     })
   }
 }
+*/
 
 /**
  * Collect Tavily web search sources
@@ -138,9 +136,9 @@ const collectWebSearchSources = (result, sourcesMap) => {
   })
 }
 
-/**
- * Collect Gemini grounding sources
- */
+// NOTE: Gemini grounding sources are not wired into the adapter path yet.
+// Keeping commented until adapter exposes groundingMetadata.
+/*
 const collectGeminiSources = (groundingMetadata, geminiSources) => {
   const chunks = groundingMetadata?.groundingChunks
   if (!Array.isArray(chunks)) return
@@ -154,6 +152,7 @@ const collectGeminiSources = (groundingMetadata, geminiSources) => {
     geminiSources.push({ url, title: web?.title || url })
   }
 }
+*/
 
 /**
  * Build tool call event
@@ -327,8 +326,6 @@ export const streamChat = async function* (params) {
 
   // Source collection
   const sourcesMap = new Map()
-  const geminiSources = []
-
   // Initialize state accumulators and helpers (Function Scope)
   // This ensures they are available across loops and execution types
   let fullContent = ''
@@ -336,8 +333,16 @@ export const streamChat = async function* (params) {
   const chunks = []
 
   // Emit helpers
-  const emitText = text => chunks.push({ type: 'text', content: text })
-  const emitThought = text => chunks.push({ type: 'thought', content: text })
+  const emitText = text => {
+    if (!text) return
+    fullContent += text
+    chunks.push({ type: 'text', content: text })
+  }
+  const emitThought = text => {
+    if (!text) return
+    fullThought += text
+    chunks.push({ type: 'thought', content: text })
+  }
   // For SiliconFlow/DeepSeek, we rely on native reasoning_content field.
   // We disable tag parsing to avoid confusion if the model outputs tags in the content
   const enableTagParsing = provider !== 'siliconflow'
@@ -465,8 +470,7 @@ export const streamChat = async function* (params) {
       }
 
       if (content) {
-        fullContent += content
-        emitText(content)
+        handleTaggedText(content)
       }
 
       // Flush chunks
@@ -482,7 +486,6 @@ export const streamChat = async function* (params) {
         content: fullContent,
         thought: fullThought || undefined,
         sources: sourcesMap.size ? Array.from(sourcesMap.values()) : undefined,
-        gemini_sources: geminiSources.length ? geminiSources : undefined,
       }
       return
     }
@@ -535,19 +538,21 @@ export const streamChat = async function* (params) {
         }
 
         // Process text content
-        const chunkText = normalizeTextContent(contentValue)
+        let chunkText = normalizeTextContent(contentValue)
+        if (!chunkText) {
+          const rawDeltaContent =
+            messageChunk?.additional_kwargs?.__raw_response?.choices?.[0]?.delta?.content
+          if (typeof rawDeltaContent === 'string' && rawDeltaContent) {
+            chunkText = rawDeltaContent
+          }
+        }
         if (chunkText) {
-          fullContent += chunkText
           handleTaggedText(chunkText)
         }
 
         // Yield accumulated chunks and track thought content
         while (chunks.length > 0) {
-          const chunk = chunks.shift()
-          if (chunk.type === 'thought') {
-            fullThought += chunk.content
-          }
-          yield chunk
+          yield chunks.shift()
         }
 
         // Check finish reason
@@ -561,13 +566,9 @@ export const streamChat = async function* (params) {
       }
 
       // Flush any buffered content
-      handleTaggedText('', true)
+      handleTaggedText('')
       while (chunks.length > 0) {
-        const chunk = chunks.shift()
-        if (chunk.type === 'thought') {
-          fullThought += chunk.content
-        }
-        yield chunk
+        yield chunks.shift()
       }
 
       // Check if streaming ended with tool_calls
@@ -653,7 +654,6 @@ export const streamChat = async function* (params) {
         content: fullContent,
         thought: fullThought || undefined,
         sources: sourcesMap.size ? Array.from(sourcesMap.values()) : undefined,
-        gemini_sources: geminiSources.length ? geminiSources : undefined,
       }
       return
     }

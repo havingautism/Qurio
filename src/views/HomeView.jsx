@@ -452,25 +452,19 @@ const HomeView = () => {
   }, [homeAgents, homeSelectedAgentId, isHomeAgentAuto, appAgents])
 
   const homeModelConfig = useMemo(() => {
-    const MODEL_SEPARATOR = '::'
-    const decodeModelId = encodedModel => {
-      if (!encodedModel) return ''
-      const index = encodedModel.indexOf(MODEL_SEPARATOR)
-      if (index === -1) return encodedModel
-      return encodedModel.slice(index + MODEL_SEPARATOR.length)
-    }
     const resolveFromAgent = agent => {
       if (!agent) return null
       const defaultModel = agent.defaultModel
       const liteModel = agent.liteModel ?? ''
+      const defaultModelProvider = agent.defaultModelProvider || ''
+      const liteModelProvider = agent.liteModelProvider || ''
       const hasDefault = typeof defaultModel === 'string' && defaultModel.trim() !== ''
       const hasLite = typeof liteModel === 'string' && liteModel.trim() !== ''
       if (!hasDefault && !hasLite) return null
-      const decodedDefaultModel = hasDefault ? decodeModelId(defaultModel) : ''
-      const decodedLiteModel = hasLite ? decodeModelId(liteModel) : ''
-      const model = decodedDefaultModel || decodedLiteModel
+      const model = defaultModel || liteModel
+      const provider = defaultModelProvider || liteModelProvider || agent.provider || ''
       if (!model) return null
-      return { model }
+      return { model, provider }
     }
     return resolveFromAgent(selectedHomeAgent) || resolveFromAgent(defaultAgent) || { model: '' }
   }, [selectedHomeAgent, defaultAgent])

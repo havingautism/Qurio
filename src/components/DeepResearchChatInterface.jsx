@@ -318,32 +318,16 @@ const DeepResearchChatInterface = ({
   // Helper to get model config for agent or fallback to global default agent
   const getModelConfig = React.useCallback(
     (task = 'streamChatCompletion') => {
-      const MODEL_SEPARATOR = '::'
-      const decodeModelId = encodedModel => {
-        if (!encodedModel) return ''
-        const index = encodedModel.indexOf(MODEL_SEPARATOR)
-        if (index === -1) return encodedModel
-        return encodedModel.slice(index + MODEL_SEPARATOR.length)
-      }
-      const getProviderFromEncodedModel = encodedModel => {
-        if (!encodedModel) return ''
-        const index = encodedModel.indexOf(MODEL_SEPARATOR)
-        if (index === -1) return ''
-        return encodedModel.slice(0, index)
-      }
-
       const resolveFromAgent = agent => {
         if (!agent) return null
         const defaultModel = agent.defaultModel
         const liteModel = agent.liteModel ?? ''
+        const defaultModelProvider = agent.defaultModelProvider || ''
+        const liteModelProvider = agent.liteModelProvider || ''
         const hasDefault = typeof defaultModel === 'string' && defaultModel.trim() !== ''
         const hasLite = typeof liteModel === 'string' && liteModel.trim() !== ''
         if (!hasDefault && !hasLite) return null
 
-        const decodedDefaultModel = hasDefault ? decodeModelId(defaultModel) : ''
-        const decodedLiteModel = hasLite ? decodeModelId(liteModel) : ''
-        const defaultProvider = getProviderFromEncodedModel(defaultModel)
-        const liteProvider = getProviderFromEncodedModel(liteModel)
         const isLiteTask =
           task === 'generateTitle' ||
           task === 'generateTitleAndSpace' ||
@@ -351,13 +335,13 @@ const DeepResearchChatInterface = ({
           task === 'generateResearchPlan'
 
         const model = isLiteTask
-          ? decodedLiteModel || decodedDefaultModel
-          : decodedDefaultModel || decodedLiteModel
+          ? liteModel || defaultModel
+          : defaultModel || liteModel
         const provider = isLiteTask
-          ? liteProvider || defaultProvider || agent.provider
-          : defaultProvider || liteProvider || agent.provider
+          ? liteModelProvider || defaultModelProvider || agent.provider
+          : defaultModelProvider || liteModelProvider || agent.provider
 
-        if (!model) return null
+        if (!model || !provider) return null
         return { provider, model }
       }
 

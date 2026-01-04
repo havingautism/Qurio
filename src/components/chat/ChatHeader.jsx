@@ -76,34 +76,16 @@ const ChatHeader = ({
     <div className="shrink-0 z-20 w-full border-b border-gray-200 dark:border-zinc-800 bg-background/80 backdrop-blur-md pb-2 pt-[calc(0.5rem+env(safe-area-inset-top))] transition-all flex justify-center">
       <style>{`
         @media (max-width: 640px) {
-          .chat-title-marquee {
-            overflow: hidden;
+          .chat-title-scroll {
+            overflow-x: auto;
+            overflow-y: hidden;
             white-space: nowrap;
-            position: relative;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
           }
-          .chat-title-marquee__inner {
-            display: inline-flex;
-            gap: 1.25rem;
-            width: max-content;
-            animation: chat-title-marquee 12s linear infinite;
-          }
-          .chat-title-marquee__duplicate {
-            display: inline-flex;
-          }
-        }
-        @media (min-width: 641px) {
-          .chat-title-marquee__inner {
-            padding-left: 0;
-            animation: none;
-          }
-          .chat-title-marquee__duplicate {
+          .chat-title-scroll::-webkit-scrollbar {
             display: none;
           }
-        }
-        @keyframes chat-title-marquee {
-          0% { transform: translateX(0); }
-          25% { transform: translateX(0); }
-          100% { transform: translateX(-50%); }
         }
       `}</style>
       <div className="w-full max-w-3xl flex items-center gap-1 px-3">
@@ -191,20 +173,15 @@ const ChatHeader = ({
           )}
         </div>
 
-        <div className="flex items-center gap-2 flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-1 min-w-0 relative">
           <h1 className="text-m sm:text-xl font-medium text-gray-800 dark:text-gray-100 truncate flex items-center gap-2 min-w-0">
             {isTitleLoading || isMetaLoading ? (
               <span className="inline-block h-5 w-40 sm:w-56 rounded-md bg-gray-200 dark:bg-zinc-700 animate-pulse" />
             ) : (
               <span className="flex items-center gap-2 min-w-0">
                 {activeEmoji && <EmojiDisplay emoji={activeEmoji} size="1.2rem" />}
-                <span className="chat-title-marquee min-w-0 max-w-full">
-                  <span className="chat-title-marquee__inner">
-                    <span className="truncate">{conversationTitle || 'New Conversation'}</span>
-                    <span className="chat-title-marquee__duplicate truncate">
-                      {conversationTitle || 'New Conversation'}
-                    </span>
-                  </span>
+                <span className="chat-title-scroll min-w-0 max-w-full">
+                  <span>{conversationTitle || 'New Conversation'}</span>
                 </span>
               </span>
             )}

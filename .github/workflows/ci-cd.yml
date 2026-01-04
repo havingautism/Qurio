@@ -2,7 +2,7 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
 
 permissions:
   contents: read
@@ -37,6 +37,7 @@ jobs:
       - name: Build application
         env:
           PUBLIC_BACKEND_URL: https://qurio-test.onrender.com
+
         run: bun run build
 
       - name: Setup GitHub Pages

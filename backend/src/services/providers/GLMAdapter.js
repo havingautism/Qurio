@@ -74,19 +74,23 @@ export class GLMAdapter extends BaseProviderAdapter {
 
   /**
    * Execute request with streaming support
-   * GLM confirmed to support streaming tool_calls (tested 2026-01-03)
+   * Note: GLM tool calls are unreliable in streaming for some models.
    */
   async execute(messages, params) {
     const { tools, stream } = params
 
-    // GLM supports streaming tool calls natively ✅
-    const modelInstance = this.buildModel({
-      ...params,
-      tools,
-      streaming: stream,
-    })
+    const canStream = stream && (!tools?.length || this.capabilities.supportsStreamingToolCalls)
+    if (!stream) {
+      return this.executeNonStreamingForToolCalls(messages, params)
+    }
 
-    if (stream) {
+    if (canStream) {
+      const modelInstance = this.buildModel({
+        ...params,
+        tools,
+        streaming: true,
+      })
+
       return {
         type: 'stream',
         modelInstance,
@@ -94,6 +98,21 @@ export class GLMAdapter extends BaseProviderAdapter {
       }
     }
 
-    return this.executeNonStreamingForToolCalls(messages, params)
+    const execution = await this.executeNonStreamingForToolCalls(messages, params)
+    if (execution.type === 'tool_calls') {
+      return execution
+    }
+
+    const modelInstance = this.buildModel({
+      ...params,
+      tools,
+      streaming: true,
+    })
+
+    return {
+      type: 'stream',
+      modelInstance,
+      messages,
+    }
   }
 }

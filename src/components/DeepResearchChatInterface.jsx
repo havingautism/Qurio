@@ -221,12 +221,19 @@ const DeepResearchChatInterface = ({
   })
   const hasLoadedActive =
     activeConversation?.id && hasLoadedMessages?.(activeConversation.id)
+  const hasResolvedTitle =
+    typeof conversationTitle === 'string' &&
+    conversationTitle.trim() !== '' &&
+    conversationTitle !== 'New Conversation'
+  const isPlaceholderTitle =
+    Boolean(activeConversation?._isPlaceholder) &&
+    (!conversationTitle || conversationTitle === 'New Conversation')
   const isTitleLoading =
     isMetaLoading ||
-    isLoadingHistory ||
     isSwitchingConversation ||
-    (activeConversation?.id && !hasLoadedActive) ||
-    Boolean(activeConversation?._isPlaceholder)
+    (activeConversation?.id && !hasLoadedActive && !hasResolvedTitle) ||
+    isPlaceholderTitle ||
+    (isLoadingHistory && !hasResolvedTitle)
 
   useEffect(() => {
     if (!activeConversation?.id || activeConversation?._isPlaceholder) return

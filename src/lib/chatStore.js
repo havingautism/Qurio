@@ -1,14 +1,14 @@
 import { create } from 'zustand'
 import {
-  createConversation,
+  addConversationEvent,
   addMessage,
+  createConversation,
   updateConversation,
   updateMessageById,
-  addConversationEvent,
 } from '../lib/conversationsService'
-import { deleteMessageById } from '../lib/supabase'
 import { getProvider } from '../lib/providers'
-import { buildResponseStylePromptFromAgent, loadSettings } from './settings'
+import { deleteMessageById } from '../lib/supabase'
+import { buildResponseStylePromptFromAgent } from './settings'
 import { listSpaceAgents } from './spacesService'
 
 // Model separator used in encoded model IDs (e.g., "glm::glm-4.7")
@@ -196,14 +196,10 @@ const resolveAgentForSpace = (agentName, space, spaceAgents, agents) => {
   if (!agentName) return null
   const normalizedName =
     typeof agentName === 'string' ? agentName.split(' - ')[0].trim() : agentName
-  const allowedNames = new Set(
-    (spaceEntry?.agents || []).map(agent => agent.name).filter(Boolean),
-  )
+  const allowedNames = new Set((spaceEntry?.agents || []).map(agent => agent.name).filter(Boolean))
   if (!allowedNames.has(normalizedName)) return null
   const lowerName = normalizedName.toLowerCase()
-  return (
-    (agents || []).find(agent => (agent.name || '').trim().toLowerCase() === lowerName) || null
-  )
+  return (agents || []).find(agent => (agent.name || '').trim().toLowerCase() === lowerName) || null
 }
 
 const getSpaceDefaultAgent = async (space, agents) => {
@@ -335,21 +331,27 @@ const generateDeepResearchPlan = async (
   const credentials = provider.getCredentials(settings)
   if (provider.streamResearchPlan) {
     let streamContent = ''
-    await provider.streamResearchPlan(userMessage, credentials.apiKey, credentials.baseUrl, modelConfig.model, {
-      onChunk: (delta, full) => {
-        if (full) {
-          streamContent = full
-        } else if (delta) {
-          streamContent += delta
-        }
-        callbacks.onChunk?.(streamContent)
+    await provider.streamResearchPlan(
+      userMessage,
+      credentials.apiKey,
+      credentials.baseUrl,
+      modelConfig.model,
+      {
+        onChunk: (delta, full) => {
+          if (full) {
+            streamContent = full
+          } else if (delta) {
+            streamContent += delta
+          }
+          callbacks.onChunk?.(streamContent)
+        },
+        onFinish: finalContent => {
+          if (finalContent) streamContent = finalContent
+          callbacks.onFinish?.(streamContent)
+        },
+        onError: callbacks.onError,
       },
-      onFinish: finalContent => {
-        if (finalContent) streamContent = finalContent
-        callbacks.onFinish?.(streamContent)
-      },
-      onError: callbacks.onError,
-    })
+    )
     return streamContent
   }
 
@@ -451,8 +453,7 @@ const preselectTitleSpaceAndAgentForAuto = async (
     )
     const normalizedSpaceLabel =
       typeof spaceLabel === 'string' ? spaceLabel.split(' - ')[0].trim() : spaceLabel
-    const selectedSpace =
-      (spaces || []).find(s => s.label === normalizedSpaceLabel) || null
+    const selectedSpace = (spaces || []).find(s => s.label === normalizedSpaceLabel) || null
     const agentCandidate =
       selectedSpace && agentName
         ? resolveAgentForSpace(agentName, selectedSpace, spaceAgents, agents)
@@ -477,17 +478,32 @@ const preselectTitleSpaceAndAgentForAuto = async (
  * @param {Object} selectedAgent - Currently selected agent (optional)
  * @returns {Promise<string>}
  */
-const preselectTitleForManual = async (firstMessage, settings, selectedAgent = null, agents = []) => {
+const preselectTitleForManual = async (
+  firstMessage,
+  settings,
+  selectedAgent = null,
+  agents = [],
+) => {
   // Use selected agent if available, otherwise use global default agent for title generation
   // Global default agent always exists (cannot be deleted)
   const fallbackAgent = agents?.find(agent => agent.isDefault)
   const agentForTitle = selectedAgent || fallbackAgent
-  const modelConfig = getModelConfigForAgent(agentForTitle, settings, 'generateTitle', fallbackAgent)
+  const modelConfig = getModelConfigForAgent(
+    agentForTitle,
+    settings,
+    'generateTitle',
+    fallbackAgent,
+  )
   const provider = getProvider(modelConfig.provider)
   const credentials = provider.getCredentials(settings)
   const languageInstruction = getLanguageInstruction(agentForTitle)
   const promptText = applyLanguageInstructionToText(firstMessage, languageInstruction)
-  return provider.generateTitle(promptText, credentials.apiKey, credentials.baseUrl, modelConfig.model)
+  return provider.generateTitle(
+    promptText,
+    credentials.apiKey,
+    credentials.baseUrl,
+    modelConfig.model,
+  )
 }
 
 const normalizeDeepResearchTitle = (title, settings) => {
@@ -519,7 +535,12 @@ const preselectTitleForDeepResearch = async (
 ) => {
   const fallbackAgent = agents?.find(agent => agent.isDefault)
   const agentForTitle = selectedAgent || fallbackAgent
-  const modelConfig = getModelConfigForAgent(agentForTitle, settings, 'generateTitle', fallbackAgent)
+  const modelConfig = getModelConfigForAgent(
+    agentForTitle,
+    settings,
+    'generateTitle',
+    fallbackAgent,
+  )
   const provider = getProvider(modelConfig.provider)
   const credentials = provider.getCredentials(settings)
   const languageInstruction = getLanguageInstruction(agentForTitle)
@@ -865,8 +886,7 @@ const callAIAPI = async (
     const agentTopP = selectedAgent?.topP ?? selectedAgent?.top_p
     const agentFrequencyPenalty =
       selectedAgent?.frequencyPenalty ?? selectedAgent?.frequency_penalty
-    const agentPresencePenalty =
-      selectedAgent?.presencePenalty ?? selectedAgent?.presence_penalty
+    const agentPresencePenalty = selectedAgent?.presencePenalty ?? selectedAgent?.presence_penalty
 
     // Prepare API parameters
     const resolvedAgent = selectedAgent || defaultAgent || null
@@ -904,17 +924,14 @@ const callAIAPI = async (
                 return { messages: updated }
               }
               const lastMsg = { ...updated[lastMsgIndex] }
-              const steps = Array.isArray(lastMsg.researchSteps)
-                ? [...lastMsg.researchSteps]
-                : []
+              const steps = Array.isArray(lastMsg.researchSteps) ? [...lastMsg.researchSteps] : []
               const targetIndex = steps.findIndex(item => item.step === chunk.step)
               const stepEntry = {
                 step: chunk.step,
                 total: chunk.total,
                 title: chunk.title || '',
                 status: chunk.status || 'running',
-                durationMs:
-                  typeof chunk.duration_ms === 'number' ? chunk.duration_ms : undefined,
+                durationMs: typeof chunk.duration_ms === 'number' ? chunk.duration_ms : undefined,
                 error: chunk.error || null,
               }
               if (targetIndex >= 0) {
@@ -932,7 +949,8 @@ const callAIAPI = async (
             set(state => {
               const updated = [...state.messages]
               const lastMsgIndex = updated.length - 1
-              if (lastMsgIndex < 0 || updated[lastMsgIndex].role !== 'ai') return { messages: updated }
+              if (lastMsgIndex < 0 || updated[lastMsgIndex].role !== 'ai')
+                return { messages: updated }
               const lastMsg = { ...updated[lastMsgIndex] }
               const history = Array.isArray(lastMsg.toolCallHistory)
                 ? [...lastMsg.toolCallHistory]
@@ -956,7 +974,8 @@ const callAIAPI = async (
             set(state => {
               const updated = [...state.messages]
               const lastMsgIndex = updated.length - 1
-              if (lastMsgIndex < 0 || updated[lastMsgIndex].role !== 'ai') return { messages: updated }
+              if (lastMsgIndex < 0 || updated[lastMsgIndex].role !== 'ai')
+                return { messages: updated }
               const lastMsg = { ...updated[lastMsgIndex] }
               const history = Array.isArray(lastMsg.toolCallHistory)
                 ? [...lastMsg.toolCallHistory]
@@ -970,15 +989,15 @@ const callAIAPI = async (
                   status: chunk.status || 'done',
                   error: chunk.error || null,
                   output:
-                    typeof chunk.output !== 'undefined' ? chunk.output : history[targetIndex].output,
+                    typeof chunk.output !== 'undefined'
+                      ? chunk.output
+                      : history[targetIndex].output,
                   durationMs:
                     typeof chunk.duration_ms === 'number'
                       ? chunk.duration_ms
                       : history[targetIndex].durationMs,
-                  step:
-                    typeof chunk.step === 'number' ? chunk.step : history[targetIndex].step,
-                  total:
-                    typeof chunk.total === 'number' ? chunk.total : history[targetIndex].total,
+                  step: typeof chunk.step === 'number' ? chunk.step : history[targetIndex].step,
+                  total: typeof chunk.total === 'number' ? chunk.total : history[targetIndex].total,
                 }
               } else {
                 history.push({
@@ -1194,9 +1213,7 @@ const finalizeMessage = async (
   const withTimeout = (promise, ms, label) =>
     Promise.race([
       promise,
-      new Promise((_, reject) =>
-        setTimeout(() => reject(new Error(`${label} timed out`)), ms),
-      ),
+      new Promise((_, reject) => setTimeout(() => reject(new Error(`${label} timed out`)), ms)),
     ])
 
   if (isFirstTurn) {
@@ -1258,12 +1275,12 @@ const finalizeMessage = async (
         const spaceAgents = await buildSpaceAgentOptions(spaces, agents)
         if (spaceAgents.length) {
           const { title, spaceLabel, agentName } = await provider.generateTitleSpaceAndAgent(
-              promptText,
-              spaceAgents,
-              credentials.apiKey,
-              credentials.baseUrl,
-              titleModelConfig.model,
-            )
+            promptText,
+            spaceAgents,
+            credentials.apiKey,
+            credentials.baseUrl,
+            titleModelConfig.model,
+          )
           resolvedTitle = title
           set({ conversationTitle: title })
           const normalizedSpaceLabel =
@@ -1718,7 +1735,8 @@ const useChatStore = create((set, get) => ({
           id: convId,
           title: 'New Conversation',
           space_id: spaceInfo?.selectedSpace?.id || null,
-          api_provider: selectedAgent?.provider || agents?.find(agent => agent.isDefault)?.provider || '',
+          api_provider:
+            selectedAgent?.provider || agents?.find(agent => agent.isDefault)?.provider || '',
         },
       )
     }
@@ -1873,8 +1891,11 @@ const useChatStore = create((set, get) => ({
               })
               if (agentCandidate) {
                 // Find the full agent object from the agents list
-                const agentNameForMatch = typeof agentCandidate === 'string' ? agentCandidate : agentCandidate?.name
-                const matchedAgent = (agents || []).find(a => String(a.name) === String(agentNameForMatch))
+                const agentNameForMatch =
+                  typeof agentCandidate === 'string' ? agentCandidate : agentCandidate?.name
+                const matchedAgent = (agents || []).find(
+                  a => String(a.name) === String(agentNameForMatch),
+                )
                 if (matchedAgent) {
                   resolvedAgent = matchedAgent
                   agentPreselected = true

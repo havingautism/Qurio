@@ -43,7 +43,7 @@ export const PROVIDER_CAPABILITIES = {
   glm: {
     supportsStreaming: true,
     supportsToolCalls: true,
-    supportsStreamingToolCalls: true, // Confirmed working 2026-01-03
+    supportsStreamingToolCalls: false, // Use non-streaming for tool calls (legacy behavior)
     supportsJsonSchema: true,
     supportsThinking: true,
     supportsVision: false,

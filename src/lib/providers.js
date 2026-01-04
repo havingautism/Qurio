@@ -71,7 +71,11 @@ const normalizeMarkdownSpacing = text => {
   let normalized = text
   normalized = normalized.replace(/([^\n])(\s*#{1,6}\s+)/g, '$1\n$2')
   normalized = normalized.replace(/([^\n])(\s*[-*+]\s+)/g, '$1\n$2')
+  normalized = normalized.replace(/([^\n])(\s*\d+\.\s+)/g, '$1\n$2')
+  normalized = normalized.replace(/([^\n])(\s*```)/g, '$1\n$2')
+  normalized = normalized.replace(/```(\w+)?(?!\n)/g, '```$1\n')
   normalized = normalized.replace(/([^\n])(\s*\|[-:\s]+\|)/g, '$1\n$2')
+  normalized = normalized.replace(/([^\n])(\s*\|[^|\n]+?\|)/g, '$1\n$2')
   return normalized
 }
 

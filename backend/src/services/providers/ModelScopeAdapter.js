@@ -45,7 +45,7 @@ export class ModelScopeAdapter extends BaseProviderAdapter {
     modelKwargs.response_format = responseFormat || { type: 'text' }
 
     // Thinking mode configuration
-    if (thinking) {
+    if (thinking && streaming) {
       const budget = thinking.budget_tokens || thinking.budgetTokens || 1024
       modelKwargs.extra_body = {
         enable_thinking: true,
@@ -53,6 +53,12 @@ export class ModelScopeAdapter extends BaseProviderAdapter {
       }
       modelKwargs.enable_thinking = true
       modelKwargs.thinking_budget = budget
+    } else if (!streaming) {
+      modelKwargs.extra_body = {
+        ...(modelKwargs.extra_body || {}),
+        enable_thinking: false,
+      }
+      modelKwargs.enable_thinking = false
     }
 
     if (top_k !== undefined) modelKwargs.top_k = top_k
@@ -61,9 +67,9 @@ export class ModelScopeAdapter extends BaseProviderAdapter {
     if (presence_penalty !== undefined) modelKwargs.presence_penalty = presence_penalty
     if (tools && tools.length > 0) modelKwargs.tools = tools
     if (toolChoice) modelKwargs.tool_choice = toolChoice
-    if (streaming) {
-      modelKwargs.stream_options = { include_usage: false }
-    }
+    // if (streaming) {
+    //   modelKwargs.stream_options = { include_usage: false }
+    // }
 
     return new ChatOpenAI({
       apiKey,

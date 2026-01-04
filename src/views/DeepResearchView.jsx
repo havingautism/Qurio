@@ -27,8 +27,8 @@ import { deleteConversation } from '../lib/supabase'
 
 // Sort option keys (constant for logic)
 const SORT_OPTION_KEYS = [
-  { key: 'newest', value: 'created_at', ascending: false },
-  { key: 'oldest', value: 'created_at', ascending: true },
+  { key: 'newest', value: 'updated_at', ascending: false },
+  { key: 'oldest', value: 'updated_at', ascending: true },
   { key: 'titleAZ', value: 'title', ascending: true },
   { key: 'titleZA', value: 'title', ascending: false },
 ]
@@ -349,7 +349,7 @@ const DeepResearchView = () => {
                       <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
                         <div className="flex items-center gap-1.5">
                           <Clock size={14} />
-                          <span>{formatDate(conv.created_at)}</span>
+                          <span>{formatDate(conv.updated_at || conv.created_at)}</span>
                         </div>
                         {space && (
                           <div className="flex items-center gap-1.5">

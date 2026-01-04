@@ -13,6 +13,17 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Touch conversations.updated_at on new/updated messages
+CREATE OR REPLACE FUNCTION public.touch_conversation_updated_at()
+RETURNS trigger AS $$
+BEGIN
+  UPDATE public.conversations
+  SET updated_at = NOW()
+  WHERE id = NEW.conversation_id;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 -- 1) Spaces
 CREATE TABLE IF NOT EXISTS public.spaces (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -85,8 +96,10 @@ CREATE TABLE IF NOT EXISTS public.conversations (
 
 CREATE INDEX IF NOT EXISTS idx_conversations_space_id ON public.conversations(space_id);
 CREATE INDEX IF NOT EXISTS idx_conversations_created_at ON public.conversations(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_conversations_updated_at ON public.conversations(updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_conversations_title ON public.conversations(title);
 CREATE INDEX IF NOT EXISTS idx_conversations_space_created ON public.conversations(space_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_conversations_space_updated ON public.conversations(space_id, updated_at DESC);
 
 CREATE TRIGGER trg_conversations_updated_at
 BEFORE UPDATE ON public.conversations
@@ -116,6 +129,10 @@ CREATE TABLE IF NOT EXISTS public.conversation_messages (
 
 CREATE INDEX IF NOT EXISTS idx_messages_conversation_created_at
   ON public.conversation_messages(conversation_id, created_at);
+
+CREATE TRIGGER trg_messages_touch_conversation
+AFTER INSERT OR UPDATE ON public.conversation_messages
+FOR EACH ROW EXECUTE PROCEDURE public.touch_conversation_updated_at();
 
 -- 5) Conversation events (optional audit of mid-session state changes)
 CREATE TABLE IF NOT EXISTS public.conversation_events (

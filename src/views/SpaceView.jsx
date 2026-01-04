@@ -61,7 +61,7 @@ const SpaceView = () => {
       const { data, count, error } = await listConversationsBySpace(activeSpace.id, {
         page: currentPage,
         limit,
-        sortBy: 'created_at',
+        sortBy: 'updated_at',
         ascending: false,
       })
 
@@ -232,7 +232,7 @@ const SpaceView = () => {
                       </h3>
                       <div className="flex items-center gap-2 mt-2 text-xs text-gray-400">
                         <span>
-                          {new Date(conv.created_at).toLocaleDateString(
+                          {new Date(conv.updated_at || conv.created_at).toLocaleDateString(
                             i18n.language === 'zh-CN' ? 'zh-CN' : 'en-US',
                             {
                               month: 'short',

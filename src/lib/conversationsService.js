@@ -9,7 +9,7 @@ export const listConversations = async (options = {}) => {
     page = null,
     search = null, // Add search support
     excludeSpaceIds = [],
-    sortBy = 'created_at',
+    sortBy = 'updated_at',
     ascending = false,
   } = options
   const supabase = getSupabaseClient()
@@ -25,9 +25,12 @@ export const listConversations = async (options = {}) => {
   // Build query
   let query = supabase
     .from(table)
-    .select('id,title,title_emojis,created_at,space_id,api_provider,is_favorited,last_agent_id', {
+    .select(
+      'id,title,title_emojis,created_at,updated_at,space_id,api_provider,is_favorited,last_agent_id',
+      {
       count: 'exact',
-    })
+      },
+    )
     .order(sortBy, { ascending })
 
   // Handle Search
@@ -52,11 +55,17 @@ export const listConversations = async (options = {}) => {
     query = query.range(from, to)
   } else if (cursor) {
     // Cursor-based pagination (Legacy/Infinite Scroll)
-    // NOTE: Combining search + infinite scroll/cursor is complex if sorted by created_at.
+    // NOTE: Combining search + infinite scroll/cursor is complex if sorted by updated_at.
     // For now, we assume search is mostly used with page pagination (LibraryView).
     // If sidebar needs search, it might need page pagination or standard limit without cursor if searching.
     query = query.limit(limit)
-    if (sortBy === 'created_at') {
+    if (sortBy === 'updated_at') {
+      if (ascending) {
+        query = query.gt('updated_at', cursor)
+      } else {
+        query = query.lt('updated_at', cursor)
+      }
+    } else if (sortBy === 'created_at') {
       if (ascending) {
         query = query.gt('created_at', cursor)
       } else {
@@ -93,7 +102,7 @@ export const listBookmarkedConversations = async (options = {}) => {
   const {
     limit = 10,
     cursor = null,
-    sortBy = 'created_at',
+    sortBy = 'updated_at',
     ascending = false,
     excludeSpaceIds = [],
   } = options
@@ -109,7 +118,7 @@ export const listBookmarkedConversations = async (options = {}) => {
   // Build query with cursor support and is_favorited filter
   let query = supabase
     .from(table)
-    .select('id,title,title_emojis,created_at,space_id,api_provider,is_favorited,last_agent_id')
+    .select('id,title,title_emojis,created_at,updated_at,space_id,api_provider,is_favorited,last_agent_id')
     .eq('is_favorited', true)
     .order(sortBy, { ascending })
     .limit(limit)
@@ -124,7 +133,13 @@ export const listBookmarkedConversations = async (options = {}) => {
 
   // Apply cursor filter based on sort direction
   if (cursor) {
-    if (sortBy === 'created_at') {
+    if (sortBy === 'updated_at') {
+      if (ascending) {
+        query = query.gt('updated_at', cursor)
+      } else {
+        query = query.lt('updated_at', cursor)
+      }
+    } else if (sortBy === 'created_at') {
       // For created_at sorting
       if (ascending) {
         query = query.gt('created_at', cursor)
@@ -160,7 +175,7 @@ export const getConversation = async id => {
   if (!supabase) return { data: null, error: new Error('Supabase not configured') }
   const { data, error } = await supabase
     .from(table)
-    .select('id,title,title_emojis,created_at,space_id,api_provider,is_favorited,last_agent_id')
+    .select('id,title,title_emojis,created_at,updated_at,space_id,api_provider,is_favorited,last_agent_id')
     .eq('id', id)
     .single()
   return { data, error }
@@ -179,7 +194,7 @@ export const listConversationsBySpace = async (spaceId, options = {}) => {
     cursor = null,
     page = null,
     search = null,
-    sortBy = 'created_at',
+    sortBy = 'updated_at',
     ascending = false,
   } = options
   const supabase = getSupabaseClient()
@@ -195,7 +210,9 @@ export const listConversationsBySpace = async (spaceId, options = {}) => {
   // Build query with cursor or page-based pagination
   let query = supabase
     .from(table)
-    .select('id,title,title_emojis,created_at,space_id,is_favorited,last_agent_id', { count: 'exact' })
+    .select('id,title,title_emojis,created_at,updated_at,space_id,is_favorited,last_agent_id', {
+      count: 'exact',
+    })
     .eq('space_id', spaceId)
     .order(sortBy, { ascending })
     .limit(limit)
@@ -209,7 +226,9 @@ export const listConversationsBySpace = async (spaceId, options = {}) => {
     const to = from + limit - 1
     query = query.range(from, to)
   } else if (cursor) {
-    if (sortBy === 'created_at') {
+    if (sortBy === 'updated_at') {
+      query = ascending ? query.gt('updated_at', cursor) : query.lt('updated_at', cursor)
+    } else if (sortBy === 'created_at') {
       query = ascending ? query.gt('created_at', cursor) : query.lt('created_at', cursor)
     } else if (sortBy === 'title') {
       query = ascending ? query.gt('title', cursor) : query.lt('title', cursor)

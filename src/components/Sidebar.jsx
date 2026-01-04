@@ -393,7 +393,7 @@ const Sidebar = ({
     }
 
     items.forEach(conv => {
-      const convDate = startOfDay(conv.created_at)
+      const convDate = startOfDay(conv.updated_at || conv.created_at)
       const diffDays = Math.floor((todayStart - convDate) / (1000 * 60 * 60 * 24))
 
       if (diffDays === 0) {
@@ -462,7 +462,7 @@ const Sidebar = ({
     if (newStatus) {
       // We can't easily add it to the correct sorted position without a refetch or guessing.
       // But simply prepending or checking sort might be enough for a quick UI response.
-      // For simplicity and correctness with pagination, we might just want to refetch or prepend if it's 'created_at' desc.
+      // For simplicity and correctness with pagination, we might just want to refetch or prepend if it's 'updated_at' desc.
       // Let's try to just prepend it to bookmarks list if it doesn't exist.
       setBookmarkedConversations(prev => {
         if (prev.find(c => c.id === conversation.id)) return prev
@@ -861,7 +861,7 @@ const Sidebar = ({
                                           : 'text-gray-400',
                                       )}
                                     >
-                                      {formatDateTime(conv.created_at)}
+                                      {formatDateTime(conv.updated_at || conv.created_at)}
                                     </span>
                                   </div>
                                 </div>
@@ -1029,7 +1029,7 @@ const Sidebar = ({
                                             : 'text-gray-400',
                                         )}
                                       >
-                                        {formatDateTime(conv.created_at)}
+                                        {formatDateTime(conv.updated_at || conv.created_at)}
                                       </span>
                                     </div>
                                   </div>
@@ -1184,7 +1184,7 @@ const Sidebar = ({
                                       : 'text-gray-400',
                                   )}
                                 >
-                                  {formatDateTime(conv.created_at)}
+                                  {formatDateTime(conv.updated_at || conv.created_at)}
                                 </span>
                               </div>
                             </div>

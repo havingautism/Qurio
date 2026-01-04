@@ -2,9 +2,20 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="./Qurio-logo-app-webtab.png" />
-
-    <link rel="manifest" href="./manifest.json" />
+    <script>
+      ;(function () {
+        var basePath = location.pathname.indexOf('/Qurio/') === 0 ? '/Qurio/' : '/'
+        var icon = document.createElement('link')
+        icon.rel = 'icon'
+        icon.type = 'image/png'
+        icon.href = basePath + 'Qurio-logo-app-webtab.png'
+        document.head.appendChild(icon)
+        var manifest = document.createElement('link')
+        manifest.rel = 'manifest'
+        manifest.href = basePath + 'manifest.json'
+        document.head.appendChild(manifest)
+      })()
+    </script>
     <meta
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"

@@ -52,6 +52,16 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+CREATE OR REPLACE FUNCTION public.touch_conversation_updated_at()
+RETURNS trigger AS $$
+BEGIN
+  UPDATE public.conversations
+  SET updated_at = NOW()
+  WHERE id = NEW.conversation_id;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 CREATE TABLE IF NOT EXISTS public.spaces (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   emoji TEXT NOT NULL DEFAULT '',
@@ -91,6 +101,7 @@ CREATE TABLE IF NOT EXISTS public.agents (
   top_p DOUBLE PRECISION,
   frequency_penalty DOUBLE PRECISION,
   presence_penalty DOUBLE PRECISION,
+  tool_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -106,6 +117,7 @@ CREATE TABLE IF NOT EXISTS public.conversations (
   space_id UUID REFERENCES public.spaces(id) ON DELETE SET NULL,
   last_agent_id UUID REFERENCES public.agents(id) ON DELETE SET NULL,
   title TEXT NOT NULL DEFAULT 'New Conversation',
+  title_emojis JSONB NOT NULL DEFAULT '[]'::jsonb,
   api_provider TEXT NOT NULL DEFAULT 'gemini',
   is_search_enabled BOOLEAN NOT NULL DEFAULT FALSE,
   is_thinking_enabled BOOLEAN NOT NULL DEFAULT FALSE,
@@ -116,8 +128,10 @@ CREATE TABLE IF NOT EXISTS public.conversations (
 
 CREATE INDEX IF NOT EXISTS idx_conversations_space_id ON public.conversations(space_id);
 CREATE INDEX IF NOT EXISTS idx_conversations_created_at ON public.conversations(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_conversations_updated_at ON public.conversations(updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_conversations_title ON public.conversations(title);
 CREATE INDEX IF NOT EXISTS idx_conversations_space_created ON public.conversations(space_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_conversations_space_updated ON public.conversations(space_id, updated_at DESC);
 
 CREATE TRIGGER trg_conversations_updated_at
 BEFORE UPDATE ON public.conversations
@@ -144,6 +158,10 @@ CREATE TABLE IF NOT EXISTS public.conversation_messages (
 
 CREATE INDEX IF NOT EXISTS idx_messages_conversation_created_at
   ON public.conversation_messages(conversation_id, created_at);
+
+CREATE TRIGGER trg_messages_touch_conversation
+AFTER INSERT OR UPDATE ON public.conversation_messages
+FOR EACH ROW EXECUTE PROCEDURE public.touch_conversation_updated_at();
 
 CREATE TABLE IF NOT EXISTS public.conversation_events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

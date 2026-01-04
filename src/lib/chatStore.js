@@ -1,37 +1,15 @@
 import { create } from 'zustand'
 import {
-  createConversation,
+  addConversationEvent,
   addMessage,
+  createConversation,
   updateConversation,
   updateMessageById,
-  addConversationEvent,
 } from '../lib/conversationsService'
-import { deleteMessageById } from '../lib/supabase'
 import { getProvider } from '../lib/providers'
-import { buildResponseStylePromptFromAgent, loadSettings } from './settings'
+import { deleteMessageById } from '../lib/supabase'
+import { buildResponseStylePromptFromAgent } from './settings'
 import { listSpaceAgents } from './spacesService'
-
-// Model separator used in encoded model IDs (e.g., "glm::glm-4.7")
-const MODEL_SEPARATOR = '::'
-
-/**
- * Decodes a model ID that was encoded with provider prefix
- * @param {string} encodedModel - Encoded model ID (e.g., "glm::glm-4.7")
- * @returns {string} Decoded model ID (e.g., "glm-4.7")
- */
-const decodeModelId = encodedModel => {
-  if (!encodedModel) return ''
-  const index = encodedModel.indexOf(MODEL_SEPARATOR)
-  if (index === -1) return encodedModel
-  return encodedModel.slice(index + MODEL_SEPARATOR.length)
-}
-
-const getProviderFromEncodedModel = encodedModel => {
-  if (!encodedModel) return ''
-  const index = encodedModel.indexOf(MODEL_SEPARATOR)
-  if (index === -1) return ''
-  return encodedModel.slice(0, index)
-}
 
 // ================================================================================
 // CHAT STORE HELPER FUNCTIONS
@@ -196,14 +174,10 @@ const resolveAgentForSpace = (agentName, space, spaceAgents, agents) => {
   if (!agentName) return null
   const normalizedName =
     typeof agentName === 'string' ? agentName.split(' - ')[0].trim() : agentName
-  const allowedNames = new Set(
-    (spaceEntry?.agents || []).map(agent => agent.name).filter(Boolean),
-  )
+  const allowedNames = new Set((spaceEntry?.agents || []).map(agent => agent.name).filter(Boolean))
   if (!allowedNames.has(normalizedName)) return null
   const lowerName = normalizedName.toLowerCase()
-  return (
-    (agents || []).find(agent => (agent.name || '').trim().toLowerCase() === lowerName) || null
-  )
+  return (agents || []).find(agent => (agent.name || '').trim().toLowerCase() === lowerName) || null
 }
 
 const getSpaceDefaultAgent = async (space, agents) => {
@@ -267,19 +241,18 @@ const buildAgentPrompt = agent => {
  */
 const getModelConfigForAgent = (agent, settings, task = 'streamChatCompletion', fallbackAgent) => {
   const resolveFromAgent = candidate => {
-    if (!candidate?.provider) return null
+    if (!candidate) return null
 
     const defaultModel = candidate.default_model ?? candidate.defaultModel
     const liteModel = candidate.lite_model ?? candidate.liteModel
+    const defaultModelProvider =
+      candidate.default_model_provider ?? candidate.defaultModelProvider ?? ''
+    const liteModelProvider = candidate.lite_model_provider ?? candidate.liteModelProvider ?? ''
     const hasDefault = typeof defaultModel === 'string' && defaultModel.trim() !== ''
     const hasLite = typeof liteModel === 'string' && liteModel.trim() !== ''
 
     if (!hasDefault && !hasLite) return null
 
-    const decodedDefaultModel = hasDefault ? decodeModelId(defaultModel) : ''
-    const decodedLiteModel = hasLite ? decodeModelId(liteModel) : ''
-    const defaultProvider = getProviderFromEncodedModel(defaultModel)
-    const liteProvider = getProviderFromEncodedModel(liteModel)
     const isLiteTask =
       task === 'generateTitle' ||
       task === 'generateTitleAndSpace' ||
@@ -287,13 +260,13 @@ const getModelConfigForAgent = (agent, settings, task = 'streamChatCompletion', 
       task === 'generateResearchPlan'
 
     const model = isLiteTask
-      ? decodedLiteModel || decodedDefaultModel
-      : decodedDefaultModel || decodedLiteModel
+      ? liteModel || defaultModel
+      : defaultModel || liteModel
     const provider = isLiteTask
-      ? liteProvider || defaultProvider || candidate.provider
-      : defaultProvider || liteProvider || candidate.provider
+      ? liteModelProvider || defaultModelProvider || candidate.provider
+      : defaultModelProvider || liteModelProvider || candidate.provider
 
-    if (!model) return null
+    if (!model || !provider) return null
     return { provider, model }
   }
 
@@ -335,21 +308,27 @@ const generateDeepResearchPlan = async (
   const credentials = provider.getCredentials(settings)
   if (provider.streamResearchPlan) {
     let streamContent = ''
-    await provider.streamResearchPlan(userMessage, credentials.apiKey, credentials.baseUrl, modelConfig.model, {
-      onChunk: (delta, full) => {
-        if (full) {
-          streamContent = full
-        } else if (delta) {
-          streamContent += delta
-        }
-        callbacks.onChunk?.(streamContent)
+    await provider.streamResearchPlan(
+      userMessage,
+      credentials.apiKey,
+      credentials.baseUrl,
+      modelConfig.model,
+      {
+        onChunk: (delta, full) => {
+          if (full) {
+            streamContent = full
+          } else if (delta) {
+            streamContent += delta
+          }
+          callbacks.onChunk?.(streamContent)
+        },
+        onFinish: finalContent => {
+          if (finalContent) streamContent = finalContent
+          callbacks.onFinish?.(streamContent)
+        },
+        onError: callbacks.onError,
       },
-      onFinish: finalContent => {
-        if (finalContent) streamContent = finalContent
-        callbacks.onFinish?.(streamContent)
-      },
-      onError: callbacks.onError,
-    })
+    )
     return streamContent
   }
 
@@ -417,7 +396,7 @@ const handleEditingAndHistory = (messages, editingInfo, userMessage, historyOver
  * @param {Array} spaces - Available spaces for auto-selection
  * @param {Array} agents - Available agents for auto-selection
  * @param {Object} selectedAgent - Currently selected agent (optional)
- * @returns {Promise<{ title: string, space: Object|null, agent: Object|null }>}
+ * @returns {Promise<{ title: string, space: Object|null, agent: Object|null, emojis: string[] }>}
  */
 const preselectTitleSpaceAndAgentForAuto = async (
   firstMessage,
@@ -442,7 +421,7 @@ const preselectTitleSpaceAndAgentForAuto = async (
   const promptText = applyLanguageInstructionToText(firstMessage, languageInstruction)
   const spaceAgents = await buildSpaceAgentOptions(spaces, agents)
   if (spaceAgents.length && provider.generateTitleSpaceAndAgent) {
-    const { title, spaceLabel, agentName } = await provider.generateTitleSpaceAndAgent(
+    const { title, spaceLabel, agentName, emojis } = await provider.generateTitleSpaceAndAgent(
       promptText,
       spaceAgents,
       credentials.apiKey,
@@ -451,23 +430,22 @@ const preselectTitleSpaceAndAgentForAuto = async (
     )
     const normalizedSpaceLabel =
       typeof spaceLabel === 'string' ? spaceLabel.split(' - ')[0].trim() : spaceLabel
-    const selectedSpace =
-      (spaces || []).find(s => s.label === normalizedSpaceLabel) || null
+    const selectedSpace = (spaces || []).find(s => s.label === normalizedSpaceLabel) || null
     const agentCandidate =
       selectedSpace && agentName
         ? resolveAgentForSpace(agentName, selectedSpace, spaceAgents, agents)
         : null
-    return { title, space: selectedSpace, agent: agentCandidate }
+    return { title, space: selectedSpace, agent: agentCandidate, emojis: emojis || [] }
   }
 
-  const { title, space } = await provider.generateTitleAndSpace(
+  const { title, space, emojis } = await provider.generateTitleAndSpace(
     promptText,
     spaces || [],
     credentials.apiKey,
     credentials.baseUrl,
     modelConfig.model,
   )
-  return { title, space: space || null, agent: null }
+  return { title, space: space || null, agent: null, emojis: emojis || [] }
 }
 
 /**
@@ -475,19 +453,38 @@ const preselectTitleSpaceAndAgentForAuto = async (
  * @param {string} firstMessage - Raw user text
  * @param {Object} settings - User settings and API configuration
  * @param {Object} selectedAgent - Currently selected agent (optional)
- * @returns {Promise<string>}
+ * @returns {Promise<{title: string, emojis: string[]}>}
  */
-const preselectTitleForManual = async (firstMessage, settings, selectedAgent = null, agents = []) => {
+const preselectTitleForManual = async (
+  firstMessage,
+  settings,
+  selectedAgent = null,
+  agents = [],
+) => {
   // Use selected agent if available, otherwise use global default agent for title generation
   // Global default agent always exists (cannot be deleted)
   const fallbackAgent = agents?.find(agent => agent.isDefault)
   const agentForTitle = selectedAgent || fallbackAgent
-  const modelConfig = getModelConfigForAgent(agentForTitle, settings, 'generateTitle', fallbackAgent)
+  const modelConfig = getModelConfigForAgent(
+    agentForTitle,
+    settings,
+    'generateTitle',
+    fallbackAgent,
+  )
   const provider = getProvider(modelConfig.provider)
   const credentials = provider.getCredentials(settings)
   const languageInstruction = getLanguageInstruction(agentForTitle)
   const promptText = applyLanguageInstructionToText(firstMessage, languageInstruction)
-  return provider.generateTitle(promptText, credentials.apiKey, credentials.baseUrl, modelConfig.model)
+  const result = await provider.generateTitle(
+    promptText,
+    credentials.apiKey,
+    credentials.baseUrl,
+    modelConfig.model,
+  )
+  return {
+    title: result?.title || 'New Conversation',
+    emojis: Array.isArray(result?.emojis) ? result.emojis : [],
+  }
 }
 
 const normalizeDeepResearchTitle = (title, settings) => {
@@ -519,18 +516,26 @@ const preselectTitleForDeepResearch = async (
 ) => {
   const fallbackAgent = agents?.find(agent => agent.isDefault)
   const agentForTitle = selectedAgent || fallbackAgent
-  const modelConfig = getModelConfigForAgent(agentForTitle, settings, 'generateTitle', fallbackAgent)
+  const modelConfig = getModelConfigForAgent(
+    agentForTitle,
+    settings,
+    'generateTitle',
+    fallbackAgent,
+  )
   const provider = getProvider(modelConfig.provider)
   const credentials = provider.getCredentials(settings)
   const languageInstruction = getLanguageInstruction(agentForTitle)
   const promptText = applyLanguageInstructionToText(firstMessage, languageInstruction)
-  const rawTitle = await provider.generateTitle(
+  const result = await provider.generateTitle(
     promptText,
     credentials.apiKey,
     credentials.baseUrl,
     modelConfig.model,
   )
-  return normalizeDeepResearchTitle(rawTitle, settings)
+  return {
+    title: normalizeDeepResearchTitle(result?.title || '', settings),
+    emojis: Array.isArray(result?.emojis) ? result.emojis : [],
+  }
 }
 
 /**
@@ -695,6 +700,7 @@ const prepareAIPlaceholder = (
  * @param {Object} selectedAgent - Currently selected agent (optional)
  * @param {Array} agents - Available agents (optional)
  * @param {string|null} preselectedTitle - Preselected title for auto mode (optional)
+ * @param {Array} preselectedEmojis - Preselected emojis for the title (optional)
  * @param {Function} get - Zustand get function
  * @param {Function} set - Zustand set function
  * @param {number} historyLengthBeforeSend - Length of the conversation before the current user turn (for metadata)
@@ -711,6 +717,7 @@ const callAIAPI = async (
   selectedAgent,
   agents,
   preselectedTitle,
+  preselectedEmojis,
   get,
   set,
   historyLengthBeforeSend,
@@ -831,6 +838,8 @@ const callAIAPI = async (
       })
     }
 
+    const useDeepResearchAgent =
+      !!toggles?.deepResearch && typeof provider.streamDeepResearch === 'function'
     const planMessage = planContent
       ? [
           {
@@ -839,9 +848,10 @@ const callAIAPI = async (
           },
         ]
       : []
-    const conversationMessagesWithPlan = planMessage.length
-      ? [...planMessage, ...conversationMessages]
-      : conversationMessages
+    const conversationMessagesWithPlan =
+      planMessage.length && !useDeepResearchAgent
+        ? [...planMessage, ...conversationMessages]
+        : conversationMessages
 
     // Tag the placeholder with provider/model so UI can show it while streaming
     set(state => {
@@ -862,10 +872,16 @@ const callAIAPI = async (
     const agentTopP = selectedAgent?.topP ?? selectedAgent?.top_p
     const agentFrequencyPenalty =
       selectedAgent?.frequencyPenalty ?? selectedAgent?.frequency_penalty
-    const agentPresencePenalty =
-      selectedAgent?.presencePenalty ?? selectedAgent?.presence_penalty
+    const agentPresencePenalty = selectedAgent?.presencePenalty ?? selectedAgent?.presence_penalty
 
     // Prepare API parameters
+    const resolvedAgent = selectedAgent || defaultAgent || null
+    const resolvedToolIds = (() => {
+      if (resolvedAgent?.toolIds?.length) return resolvedAgent.toolIds
+      if (resolvedAgent?.tool_ids?.length) return resolvedAgent.tool_ids
+      return []
+    })()
+
     const params = {
       ...credentials,
       model: modelConfig.model,
@@ -882,9 +898,112 @@ const callAIAPI = async (
         ...(m.name && { name: m.name }),
       })),
       tools: provider.getTools(toggles.search),
+      toolIds: resolvedToolIds,
       thinking: provider.getThinking(thinkingActive, modelConfig.model),
       onChunk: chunk => {
         if (typeof chunk === 'object' && chunk !== null) {
+          if (chunk.type === 'research_step') {
+            set(state => {
+              const updated = [...state.messages]
+              const lastMsgIndex = updated.length - 1
+              if (lastMsgIndex < 0 || updated[lastMsgIndex].role !== 'ai') {
+                return { messages: updated }
+              }
+              const lastMsg = { ...updated[lastMsgIndex] }
+              const steps = Array.isArray(lastMsg.researchSteps) ? [...lastMsg.researchSteps] : []
+              const targetIndex = steps.findIndex(item => item.step === chunk.step)
+              const stepEntry = {
+                step: chunk.step,
+                total: chunk.total,
+                title: chunk.title || '',
+                status: chunk.status || 'running',
+                durationMs: typeof chunk.duration_ms === 'number' ? chunk.duration_ms : undefined,
+                error: chunk.error || null,
+              }
+              if (targetIndex >= 0) {
+                steps[targetIndex] = { ...steps[targetIndex], ...stepEntry }
+              } else {
+                steps.push(stepEntry)
+              }
+              lastMsg.researchSteps = steps
+              updated[lastMsgIndex] = lastMsg
+              return { messages: updated }
+            })
+            return
+          }
+          if (chunk.type === 'tool_call') {
+            set(state => {
+              const updated = [...state.messages]
+              const lastMsgIndex = updated.length - 1
+              if (lastMsgIndex < 0 || updated[lastMsgIndex].role !== 'ai')
+                return { messages: updated }
+              const lastMsg = { ...updated[lastMsgIndex] }
+              const history = Array.isArray(lastMsg.toolCallHistory)
+                ? [...lastMsg.toolCallHistory]
+                : []
+              history.push({
+                id: chunk.id || `${chunk.name || 'tool'}-${Date.now()}`,
+                name: chunk.name || 'tool',
+                arguments: chunk.arguments || '',
+                status: 'calling',
+                durationMs: null,
+                step: typeof chunk.step === 'number' ? chunk.step : undefined,
+                total: typeof chunk.total === 'number' ? chunk.total : undefined,
+              })
+              lastMsg.toolCallHistory = history
+              updated[lastMsgIndex] = lastMsg
+              return { messages: updated }
+            })
+            return
+          }
+          if (chunk.type === 'tool_result') {
+            set(state => {
+              const updated = [...state.messages]
+              const lastMsgIndex = updated.length - 1
+              if (lastMsgIndex < 0 || updated[lastMsgIndex].role !== 'ai')
+                return { messages: updated }
+              const lastMsg = { ...updated[lastMsgIndex] }
+              const history = Array.isArray(lastMsg.toolCallHistory)
+                ? [...lastMsg.toolCallHistory]
+                : []
+              const targetIndex = history.findIndex(item =>
+                chunk.id ? item.id === chunk.id : item.name === chunk.name,
+              )
+              if (targetIndex >= 0) {
+                history[targetIndex] = {
+                  ...history[targetIndex],
+                  status: chunk.status || 'done',
+                  error: chunk.error || null,
+                  output:
+                    typeof chunk.output !== 'undefined'
+                      ? chunk.output
+                      : history[targetIndex].output,
+                  durationMs:
+                    typeof chunk.duration_ms === 'number'
+                      ? chunk.duration_ms
+                      : history[targetIndex].durationMs,
+                  step: typeof chunk.step === 'number' ? chunk.step : history[targetIndex].step,
+                  total: typeof chunk.total === 'number' ? chunk.total : history[targetIndex].total,
+                }
+              } else {
+                history.push({
+                  id: chunk.id || `${chunk.name || 'tool'}-${Date.now()}`,
+                  name: chunk.name || 'tool',
+                  arguments: '',
+                  status: chunk.status || 'done',
+                  error: chunk.error || null,
+                  output: typeof chunk.output !== 'undefined' ? chunk.output : null,
+                  durationMs: typeof chunk.duration_ms === 'number' ? chunk.duration_ms : null,
+                  step: typeof chunk.step === 'number' ? chunk.step : undefined,
+                  total: typeof chunk.total === 'number' ? chunk.total : undefined,
+                })
+              }
+              lastMsg.toolCallHistory = history
+              updated[lastMsgIndex] = lastMsg
+              return { messages: updated }
+            })
+            return
+          }
           if (chunk.type === 'thought') {
             pendingThought += chunk.content
           } else if (chunk.type === 'text') {
@@ -913,6 +1032,7 @@ const callAIAPI = async (
           firstUserText,
           spaceInfo,
           preselectedTitle,
+          preselectedEmojis,
           toggles,
           selectedAgent,
           agents,
@@ -941,7 +1061,25 @@ const callAIAPI = async (
       },
     }
 
-    await provider.streamChatCompletion(params)
+    if (useDeepResearchAgent) {
+      const lastMessage = conversationMessages[conversationMessages.length - 1]
+      const historyMessages =
+        lastMessage?.role === 'user' ? conversationMessages.slice(0, -1) : conversationMessages
+      await provider.streamDeepResearch({
+        ...params,
+        messages: historyMessages.map(m => ({
+          role: m.role === 'ai' ? 'assistant' : m.role,
+          content: m.content,
+          ...(m.tool_calls && { tool_calls: m.tool_calls }),
+          ...(m.tool_call_id && { tool_call_id: m.tool_call_id }),
+          ...(m.name && { name: m.name }),
+        })),
+        plan: planContent,
+        question: firstUserText || lastMessage?.content || '',
+      })
+    } else {
+      await provider.streamChatCompletion(params)
+    }
   } catch (error) {
     flushPending()
     console.error('Setup error:', error)
@@ -962,6 +1100,7 @@ const callAIAPI = async (
  * @param {string} [firstUserText] - Raw text of the initial user message
  * @param {Object} spaceInfo - Space selection information
  * @param {string|null} preselectedTitle - Preselected title for auto mode (optional)
+ * @param {Array} preselectedEmojis - Preselected emojis for the title (optional)
  * @param {Object} toggles - Feature toggles (search, thinking, related)
  * @param {Object} selectedAgent - Currently selected agent (optional)
  * @param {Array} agents - Available agents list for resolving defaults
@@ -978,6 +1117,7 @@ const finalizeMessage = async (
   firstUserText,
   spaceInfo,
   preselectedTitle,
+  preselectedEmojis,
   toggles = {},
   selectedAgent = null,
   agents = [],
@@ -1038,6 +1178,7 @@ const finalizeMessage = async (
 
   // Generate title and space if this is the first turn
   let resolvedTitle = currentStore.conversationTitle
+  let resolvedTitleEmojis = Array.isArray(preselectedEmojis) ? preselectedEmojis : []
   let resolvedSpace = spaceInfo?.selectedSpace || null
   let resolvedAgent = safeAgent || null
 
@@ -1062,15 +1203,14 @@ const finalizeMessage = async (
   const withTimeout = (promise, ms, label) =>
     Promise.race([
       promise,
-      new Promise((_, reject) =>
-        setTimeout(() => reject(new Error(`${label} timed out`)), ms),
-      ),
+      new Promise((_, reject) => setTimeout(() => reject(new Error(`${label} timed out`)), ms)),
     ])
 
   if (isFirstTurn) {
     if (typeof preselectedTitle === 'string' && preselectedTitle.trim()) {
       resolvedTitle = preselectedTitle.trim()
-      set({ conversationTitle: resolvedTitle })
+      resolvedTitleEmojis = Array.isArray(preselectedEmojis) ? preselectedEmojis : []
+      set({ conversationTitle: resolvedTitle, conversationTitleEmojis: resolvedTitleEmojis })
     } else if (spaceInfo?.isManualSpaceSelection && spaceInfo?.selectedSpace) {
       // Generate title only when space is manually selected
       const titleModelConfig = getModelConfigForAgent(
@@ -1083,13 +1223,15 @@ const finalizeMessage = async (
       const credentials = provider.getCredentials(settings)
       const languageInstruction = getLanguageInstruction(safeAgent)
       const promptText = applyLanguageInstructionToText(firstMessageText, languageInstruction)
-      resolvedTitle = await provider.generateTitle(
+      const titleResult = await provider.generateTitle(
         promptText,
         credentials.apiKey,
         credentials.baseUrl,
         titleModelConfig.model,
       )
-      set({ conversationTitle: resolvedTitle })
+      resolvedTitle = titleResult?.title || 'New Conversation'
+      resolvedTitleEmojis = Array.isArray(titleResult?.emojis) ? titleResult.emojis : []
+      set({ conversationTitle: resolvedTitle, conversationTitleEmojis: resolvedTitleEmojis })
     } else if (callbacks?.onTitleAndSpaceGenerated) {
       // Use callback to generate both title and space
       const titleModelConfig = getModelConfigForAgent(
@@ -1102,13 +1244,14 @@ const finalizeMessage = async (
       const credentials = provider.getCredentials(settings)
       const languageInstruction = getLanguageInstruction(safeAgent)
       const promptText = applyLanguageInstructionToText(firstMessageText, languageInstruction)
-      const { title, space } = await callbacks.onTitleAndSpaceGenerated(
+      const { title, space, emojis } = await callbacks.onTitleAndSpaceGenerated(
         promptText,
         credentials.apiKey,
         credentials.baseUrl,
       )
       resolvedTitle = title
-      set({ conversationTitle: title })
+      resolvedTitleEmojis = Array.isArray(emojis) ? emojis : []
+      set({ conversationTitle: title, conversationTitleEmojis: resolvedTitleEmojis })
       resolvedSpace = space || null
     } else {
       // Generate both title and space automatically
@@ -1125,15 +1268,16 @@ const finalizeMessage = async (
       if (!resolvedAgent && provider.generateTitleSpaceAndAgent) {
         const spaceAgents = await buildSpaceAgentOptions(spaces, agents)
         if (spaceAgents.length) {
-          const { title, spaceLabel, agentName } = await provider.generateTitleSpaceAndAgent(
-              promptText,
-              spaceAgents,
-              credentials.apiKey,
-              credentials.baseUrl,
-              titleModelConfig.model,
-            )
+          const { title, spaceLabel, agentName, emojis } = await provider.generateTitleSpaceAndAgent(
+            promptText,
+            spaceAgents,
+            credentials.apiKey,
+            credentials.baseUrl,
+            titleModelConfig.model,
+          )
           resolvedTitle = title
-          set({ conversationTitle: title })
+          resolvedTitleEmojis = Array.isArray(emojis) ? emojis : []
+          set({ conversationTitle: title, conversationTitleEmojis: resolvedTitleEmojis })
           const normalizedSpaceLabel =
             typeof spaceLabel === 'string' ? spaceLabel.split(' - ')[0].trim() : spaceLabel
           resolvedSpace = (spaces || []).find(s => s.label === normalizedSpaceLabel) || null
@@ -1146,7 +1290,7 @@ const finalizeMessage = async (
         }
       }
       if (!resolvedTitle || resolvedTitle === 'New Conversation') {
-        const { title, space } = await provider.generateTitleAndSpace(
+        const { title, space, emojis } = await provider.generateTitleAndSpace(
           promptText,
           spaces || [],
           credentials.apiKey,
@@ -1154,7 +1298,8 @@ const finalizeMessage = async (
           titleModelConfig.model,
         )
         resolvedTitle = title
-        set({ conversationTitle: title })
+        resolvedTitleEmojis = Array.isArray(emojis) ? emojis : []
+        set({ conversationTitle: title, conversationTitleEmojis: resolvedTitleEmojis })
         resolvedSpace = space || resolvedSpace || null
       }
     }
@@ -1206,6 +1351,16 @@ const finalizeMessage = async (
       const latestAi = aiMessages[aiMessages.length - 1]
       return typeof latestAi?.researchPlan === 'string' ? latestAi.researchPlan : null
     })()
+    const toolCallHistoryForPersistence = (() => {
+      const aiMessages = (currentStore.messages || []).filter(m => m.role === 'ai')
+      const latestAi = aiMessages[aiMessages.length - 1]
+      return Array.isArray(latestAi?.toolCallHistory) ? latestAi.toolCallHistory : null
+    })()
+    const researchStepsForPersistence = (() => {
+      const aiMessages = (currentStore.messages || []).filter(m => m.role === 'ai')
+      const latestAi = aiMessages[aiMessages.length - 1]
+      return Array.isArray(latestAi?.researchSteps) ? latestAi.researchSteps : null
+    })()
     const thoughtForPersistence =
       toggles?.deepResearch && planForPersistence
         ? JSON.stringify({ plan: planForPersistence, thought: baseThought })
@@ -1227,6 +1382,8 @@ const finalizeMessage = async (
       content: sanitizeJson(contentForPersistence),
       thinking_process: thoughtForPersistence,
       tool_calls: sanitizeJson(result.toolCalls || null),
+      tool_call_history: sanitizeJson(toolCallHistoryForPersistence || []),
+      research_step_history: sanitizeJson(researchStepsForPersistence || []),
       related_questions: null,
       sources: sanitizeJson(result.sources || null),
       grounding_supports: sanitizeJson(result.groundingSupports || null),
@@ -1284,6 +1441,7 @@ const finalizeMessage = async (
         // First turn: update title, space, agent_selection_mode, and last_agent_id
         await updateConversation(currentStore.conversationId, {
           title: resolvedTitle,
+          title_emojis: resolvedTitleEmojis,
           space_id: resolvedSpace ? resolvedSpace.id : null,
           api_provider: resolvedAgent?.provider || safeAgent?.provider || '',
           last_agent_id: safeAgent?.id || null,
@@ -1421,6 +1579,8 @@ const useChatStore = create((set, get) => ({
   conversationId: null,
   /** Title of the current conversation */
   conversationTitle: '',
+  /** Emojis selected for the current conversation title */
+  conversationTitleEmojis: [],
   /** Loading state for ongoing operations */
   isLoading: false,
   /** Loading state for preselecting space/title in auto mode */
@@ -1442,6 +1602,9 @@ const useChatStore = create((set, get) => ({
   setConversationId: conversationId => set({ conversationId }),
   /** Sets current conversation title */
   setConversationTitle: conversationTitle => set({ conversationTitle }),
+  /** Sets current conversation title emojis */
+  setConversationTitleEmojis: conversationTitleEmojis =>
+    set({ conversationTitleEmojis }),
   /** Sets loading state */
   setIsLoading: isLoading => set({ isLoading }),
   /** Sets meta loading state */
@@ -1459,6 +1622,7 @@ const useChatStore = create((set, get) => ({
       messages: [],
       conversationId: null,
       conversationTitle: '',
+      conversationTitleEmojis: [],
       isLoading: false,
       isMetaLoading: false,
       isAgentPreselecting: false,
@@ -1574,7 +1738,8 @@ const useChatStore = create((set, get) => ({
           id: convId,
           title: 'New Conversation',
           space_id: spaceInfo?.selectedSpace?.id || null,
-          api_provider: selectedAgent?.provider || agents?.find(agent => agent.isDefault)?.provider || '',
+          api_provider:
+            selectedAgent?.provider || agents?.find(agent => agent.isDefault)?.provider || '',
         },
       )
     }
@@ -1587,6 +1752,7 @@ const useChatStore = create((set, get) => ({
     // In auto mode, let AI choose or fallback to space default/global default
     let resolvedAgent = isAgentAutoMode ? null : selectedAgent
     let preselectedTitle = null
+    let preselectedEmojis = []
     const isFirstTurn = historyLengthBeforeSend === 0
     const isDeepResearchMode = !!toggles?.deepResearch
     // Only preselect space/title on first turn, never reload in existing conversations
@@ -1614,16 +1780,29 @@ const useChatStore = create((set, get) => ({
       set({ isMetaLoading: true })
       try {
         if (shouldPreselectDeepResearchTitle) {
-          const title = await preselectTitleForDeepResearch(text, settings, selectedAgent, agents)
+          const { title, emojis } = await preselectTitleForDeepResearch(
+            text,
+            settings,
+            selectedAgent,
+            agents,
+          )
           if (title) {
             preselectedTitle = title
-            set({ conversationTitle: title })
+            preselectedEmojis = emojis || []
+            set({ conversationTitle: title, conversationTitleEmojis: emojis || [] })
           }
         } else if (shouldPreselectSpaceTitle) {
           const selectableSpaces = toggles?.deepResearch
             ? spaces
-            : (spaces || []).filter(space => !space?.isDeepResearchSystem)
-          const { title, space, agent } = await preselectTitleSpaceAndAgentForAuto(
+            : (spaces || []).filter(
+                space =>
+                  !(
+                    space?.isDeepResearchSystem ||
+                    space?.isDeepResearch ||
+                    space?.is_deep_research
+                  ),
+              )
+          const { title, space, agent, emojis } = await preselectTitleSpaceAndAgentForAuto(
             text,
             settings,
             selectableSpaces,
@@ -1640,7 +1819,8 @@ const useChatStore = create((set, get) => ({
           }
           if (title) {
             preselectedTitle = title
-            set({ conversationTitle: title })
+            preselectedEmojis = emojis || []
+            set({ conversationTitle: title, conversationTitleEmojis: emojis || [] })
           }
 
           // Fallback: use space default agent, then global default agent
@@ -1652,10 +1832,16 @@ const useChatStore = create((set, get) => ({
             }
           }
         } else if (shouldPreselectTitleForManual) {
-          const title = await preselectTitleForManual(text, settings, selectedAgent, agents)
+          const { title, emojis } = await preselectTitleForManual(
+            text,
+            settings,
+            selectedAgent,
+            agents,
+          )
           if (title) {
             preselectedTitle = title
-            set({ conversationTitle: title })
+            preselectedEmojis = emojis || []
+            set({ conversationTitle: title, conversationTitleEmojis: emojis || [] })
           }
 
           // For manual space selection, fallback to space default agent, then global default
@@ -1722,8 +1908,11 @@ const useChatStore = create((set, get) => ({
               })
               if (agentCandidate) {
                 // Find the full agent object from the agents list
-                const agentNameForMatch = typeof agentCandidate === 'string' ? agentCandidate : agentCandidate?.name
-                const matchedAgent = (agents || []).find(a => String(a.name) === String(agentNameForMatch))
+                const agentNameForMatch =
+                  typeof agentCandidate === 'string' ? agentCandidate : agentCandidate?.name
+                const matchedAgent = (agents || []).find(
+                  a => String(a.name) === String(agentNameForMatch),
+                )
                 if (matchedAgent) {
                   resolvedAgent = matchedAgent
                   agentPreselected = true
@@ -1799,6 +1988,7 @@ const useChatStore = create((set, get) => ({
       resolvedAgent,
       agents,
       preselectedTitle,
+      preselectedEmojis,
       get,
       set,
       historyLengthBeforeSend,

@@ -22,6 +22,8 @@
     "pin": "固定侧边栏",
     "unpin": "取消固定",
     "noConversations": "暂无对话。",
+    "deepResearch": "深度研究",
+    "noDeepResearchConversations": "暂无深度研究会话",
     "noBookmarks": "暂无收藏的对话。",
     "today": "今天",
     "yesterday": "昨天",
@@ -240,7 +242,8 @@
     "tabs": {
       "general": "通用",
       "model": "模型",
-      "personalization": "个性化"
+      "personalization": "个性化",
+      "tools": "工具"
     },
     "general": {
       "avatar": "头像",
@@ -252,8 +255,8 @@
       "systemPromptPlaceholder": "请输入系统提示词..."
     },
     "defaults": {
-      "name": "默认智能体",
-      "description": "系统兜底智能体",
+      "name": "默认Agent",
+      "description": "系统默认Agent",
       "systemPrompt": "Respond concisely with a friendly tone and add relevant emojis (2-4) to each reply while keeping clarity and avoiding repetition."
     },
     "model": {
@@ -315,6 +318,19 @@
       "save": "保存",
       "create": "创建"
     },
+    "tools": {
+      "title": "工具权限",
+      "hint": "选择该智能体可调用的本地工具。",
+      "loading": "正在加载工具...",
+      "empty": "暂无可用工具。",
+      "categories": {
+        "math": "数学",
+        "time": "时间",
+        "text": "文本",
+        "json": "JSON",
+        "other": "其他"
+      }
+    },
     "validation": {
       "nameRequired": "名称为必填项",
       "nameDuplicate": "该智能体名称已存在"
@@ -324,8 +340,8 @@
     }
   },
   "deepResearch": {
-    "agentName": "深度研究智能体",
-    "agentDescription": "深度研究智能体",
+    "agentName": "深度研究Agent",
+    "agentDescription": "深度研究Agent",
     "spaceName": "深度研究空间",
     "spaceDescription": "深度研究空间"
   },
@@ -455,11 +471,12 @@
   },
   "messageBubble": {
     "thinkingProcess": "思考过程",
+    "planProcess": "规划过程",
     "researchProcess": "研究过程",
     "answer": "回答",
     "download": "下载",
-    "downloadPdf": "下载PDF",
-    "downloadWord": "下载Word",
+    "downloadPdf": "PDF",
+    "downloadWord": "Word",
     "researchReportTitle": "深入研究报告",
     "researchPlan": "深入研究：规划",
     "researchGoal": "目标",
@@ -482,13 +499,30 @@
     "thinking": "思考中",
     "analyzing": "分析中",
     "workingThroughIt": "正在推理",
-    "checkingDetails": "正在检查细节"
+    "checkingDetails": "正在检查细节",
+    "researchStepLabel": "步骤 {{step}}/{{total}}",
+    "researchStepStatusRunning": "进行中",
+    "researchStepStatusDone": "已完成",
+    "researchStepStatusError": "失败",
+    "researchStepDuration": "耗时 {{duration}} 秒",
+    "toolCalls": "工具调用",
+    "toolArguments": "入参",
+    "toolStatusCalling": "调用中",
+    "toolStatusDone": "已完成",
+    "toolStatusError": "失败",
+    "toolDuration": "耗时 {{duration}} 秒",
+    "toolDetails": "详情",
+    "toolInput": "入参",
+    "toolOutput": "输出",
+    "toolClose": "关闭",
+    "researchGoalLabel": "研究目标",
+    "researchScopeLabel": "研究范围",
+    "researchRequirementsLabel": "输出要求"
   },
   "chatInterface": {
     "regenerateTitle": "根据最近 3 条消息重新生成标题",
     "openTimeline": "打开问题时间轴",
     "askFollowUp": "追问...",
-    "deepResearchSingleTurn": "深入研究每次只支持一个问题",
     "agentsLabel": "智能体",
     "agentsNone": "暂无智能体",
     "agentsLoading": "加载智能体中...",
@@ -526,6 +560,13 @@
       "title": "对话库",
       "searchPlaceholder": "搜索您的对话...",
       "noThreadsFound": "没有找到匹配的对话。",
+      "conversationDeleted": "对话删除成功",
+      "failedToDelete": "删除对话失败"
+    },
+    "deepResearchView": {
+      "title": "深度研究",
+      "searchPlaceholder": "搜索您的深度研究...",
+      "noThreadsFound": "没有找到匹配的深度研究对话。",
       "conversationDeleted": "对话删除成功",
       "failedToDelete": "删除对话失败"
     },

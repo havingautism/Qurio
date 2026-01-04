@@ -13,6 +13,17 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Touch conversations.updated_at on new/updated messages
+CREATE OR REPLACE FUNCTION public.touch_conversation_updated_at()
+RETURNS trigger AS $$
+BEGIN
+  UPDATE public.conversations
+  SET updated_at = NOW()
+  WHERE id = NEW.conversation_id;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 -- 1) Spaces
 CREATE TABLE IF NOT EXISTS public.spaces (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -38,6 +49,8 @@ CREATE TABLE IF NOT EXISTS public.agents (
   prompt TEXT,
   is_deep_research BOOLEAN NOT NULL DEFAULT FALSE,
   provider TEXT,
+  default_model_provider TEXT,
+  lite_model_provider TEXT,
   default_model_source TEXT NOT NULL DEFAULT 'list',
   lite_model_source TEXT NOT NULL DEFAULT 'list',
   lite_model TEXT,
@@ -54,6 +67,7 @@ CREATE TABLE IF NOT EXISTS public.agents (
   top_p DOUBLE PRECISION,
   frequency_penalty DOUBLE PRECISION,
   presence_penalty DOUBLE PRECISION,
+  tool_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -71,6 +85,7 @@ CREATE TABLE IF NOT EXISTS public.conversations (
   last_agent_id UUID REFERENCES public.agents(id) ON DELETE SET NULL,
   agent_selection_mode TEXT NOT NULL DEFAULT 'auto' CHECK (agent_selection_mode IN ('auto', 'manual')),
   title TEXT NOT NULL DEFAULT 'New Conversation',
+  title_emojis JSONB NOT NULL DEFAULT '[]'::jsonb,
   api_provider TEXT NOT NULL DEFAULT 'gemini',
   is_search_enabled BOOLEAN NOT NULL DEFAULT FALSE,
   is_thinking_enabled BOOLEAN NOT NULL DEFAULT FALSE,
@@ -81,8 +96,10 @@ CREATE TABLE IF NOT EXISTS public.conversations (
 
 CREATE INDEX IF NOT EXISTS idx_conversations_space_id ON public.conversations(space_id);
 CREATE INDEX IF NOT EXISTS idx_conversations_created_at ON public.conversations(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_conversations_updated_at ON public.conversations(updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_conversations_title ON public.conversations(title);
 CREATE INDEX IF NOT EXISTS idx_conversations_space_created ON public.conversations(space_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_conversations_space_updated ON public.conversations(space_id, updated_at DESC);
 
 CREATE TRIGGER trg_conversations_updated_at
 BEFORE UPDATE ON public.conversations
@@ -102,6 +119,8 @@ CREATE TABLE IF NOT EXISTS public.conversation_messages (
   agent_is_default BOOLEAN NOT NULL DEFAULT FALSE,
   thinking_process TEXT,
   tool_calls JSONB,
+  tool_call_history JSONB NOT NULL DEFAULT '[]'::jsonb,
+  research_step_history JSONB NOT NULL DEFAULT '[]'::jsonb,
   related_questions JSONB,
   sources JSONB,
   grounding_supports JSONB,
@@ -110,6 +129,10 @@ CREATE TABLE IF NOT EXISTS public.conversation_messages (
 
 CREATE INDEX IF NOT EXISTS idx_messages_conversation_created_at
   ON public.conversation_messages(conversation_id, created_at);
+
+CREATE TRIGGER trg_messages_touch_conversation
+AFTER INSERT OR UPDATE ON public.conversation_messages
+FOR EACH ROW EXECUTE PROCEDURE public.touch_conversation_updated_at();
 
 -- 5) Conversation events (optional audit of mid-session state changes)
 CREATE TABLE IF NOT EXISTS public.conversation_events (
@@ -183,6 +206,8 @@ INSERT INTO public.agents (
   prompt,
   is_deep_research,
   provider,
+  default_model_provider,
+  lite_model_provider,
   default_model_source,
   lite_model_source,
   lite_model,
@@ -209,6 +234,8 @@ SELECT
   'Deep research agent (deep-research)',
   'You are a deep research assistant. You will receive a research plan produced by a lightweight model. Treat the plan as the outline of the answer, and expand every section in depth. For each plan item, explicitly address it with thorough explanations, evidence, and reasoning. Do not skip or compress any item. Add background, definitions, step-by-step analysis, trade-offs, risks, and actionable recommendations. If sources are available, cite them. If information is missing, state assumptions and uncertainty. Use clear headings that mirror the plan structure. Prioritize completeness over brevity and deliver a long, detailed response. Match the user''s language unless a response language override is set.',
   TRUE,
+  'gemini',
+  'gemini',
   'gemini',
   'list',
   'list',

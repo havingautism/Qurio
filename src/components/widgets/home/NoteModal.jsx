@@ -3,9 +3,11 @@ import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { Trash2, Save, X } from 'lucide-react'
 import useScrollLock from '../../../hooks/useScrollLock'
+import { useAppContext } from '../../../App'
 
 const NoteModal = ({ isOpen, onClose, note, onSave, onDelete }) => {
   const { t } = useTranslation()
+  const { showConfirmation } = useAppContext()
   const [content, setContent] = useState('')
 
   useScrollLock(isOpen)
@@ -23,7 +25,14 @@ const NoteModal = ({ isOpen, onClose, note, onSave, onDelete }) => {
 
   const handleDelete = () => {
     if (onDelete && note?.id) {
-      onDelete(note.id)
+      showConfirmation({
+        title: t('confirmation.deleteNoteTitle') || 'Delete Note',
+        message:
+          t('confirmation.deleteNoteMessage') || 'Are you sure you want to delete this note?',
+        confirmText: t('common.delete', 'Delete'),
+        isDangerous: true,
+        onConfirm: () => onDelete(note.id),
+      })
     }
   }
 

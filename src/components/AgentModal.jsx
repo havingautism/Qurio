@@ -20,6 +20,7 @@ import { SILICONFLOW_BASE_URL } from '../lib/providerConstants'
 import { getModelIcon, getModelIconClassName, renderProviderIcon } from '../lib/modelIcons'
 import { getProvider } from '../lib/providers'
 import { getPublicEnv } from '../lib/publicEnv'
+import { listToolsViaBackend } from '../lib/backendClient'
 
 // Logic reused from SettingsModal
 const FALLBACK_MODEL_OPTIONS = {
@@ -50,23 +51,6 @@ const FALLBACK_MODEL_OPTIONS = {
 }
 
 const PROVIDER_KEYS = ['gemini', 'openai_compatibility', 'siliconflow', 'glm', 'modelscope', 'kimi']
-const MODEL_SEPARATOR = '::'
-
-const parseStoredModel = value => {
-  if (!value) return { provider: '', modelId: '' }
-  const index = value.indexOf(MODEL_SEPARATOR)
-  if (index === -1) return { provider: '', modelId: value }
-  return {
-    provider: value.slice(0, index),
-    modelId: value.slice(index + MODEL_SEPARATOR.length),
-  }
-}
-
-const encodeModelId = (providerKey, modelId) => {
-  if (!modelId) return ''
-  if (!providerKey) return modelId
-  return `${providerKey}${MODEL_SEPARATOR}${modelId}`
-}
 
 // Personalization Constants
 const LLM_ANSWER_LANGUAGE_KEYS = [
@@ -117,7 +101,7 @@ const ENV_VARS = {
 
 const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) => {
   const { t } = useTranslation()
-  const { defaultAgent, agents = [] } = useAppContext()
+  const { defaultAgent, agents = [], showConfirmation } = useAppContext()
   useScrollLock(isOpen)
   const isDeepResearchAgent = Boolean(editingAgent?.isDeepResearchSystem)
   const isGeneralLocked = Boolean(editingAgent?.isDefault || isDeepResearchAgent)
@@ -170,6 +154,11 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
   const [presencePenalty, setPresencePenalty] = useState(null)
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false)
 
+  // Tools Tab
+  const [availableTools, setAvailableTools] = useState([])
+  const [toolsLoading, setToolsLoading] = useState(false)
+  const [selectedToolIds, setSelectedToolIds] = useState([])
+
   // Dropdown states
   const [isResponseLanguageOpen, setIsResponseLanguageOpen] = useState(false)
   const [isBaseToneOpen, setIsBaseToneOpen] = useState(false)
@@ -195,6 +184,29 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
   // State for error and saving
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState('')
+
+  const toolsByCategory = useMemo(() => {
+    const groups = {}
+    for (const tool of availableTools) {
+      const category = tool.category || 'other'
+      if (!groups[category]) groups[category] = []
+      groups[category].push(tool)
+    }
+    return Object.entries(groups)
+  }, [availableTools])
+
+  const loadToolsList = async () => {
+    setToolsLoading(true)
+    try {
+      const tools = await listToolsViaBackend()
+      setAvailableTools(Array.isArray(tools) ? tools : [])
+    } catch (err) {
+      console.error('Failed to load tools list:', err)
+      setAvailableTools([])
+    } finally {
+      setToolsLoading(false)
+    }
+  }
 
   const loadKeysAndFetchModels = async () => {
     setIsLoadingModels(true)
@@ -275,28 +287,26 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
             editingAgent.frequency_penalty !== undefined) ||
           (editingAgent.presencePenalty !== null && editingAgent.presencePenalty !== undefined) ||
           (editingAgent.presence_penalty !== null && editingAgent.presence_penalty !== undefined)
-        const parsedDefaultModel = parseStoredModel(editingAgent.defaultModel)
-        const parsedLiteModel = parseStoredModel(editingAgent.liteModel)
         setName(editingAgent.name)
         setDescription(editingAgent.description)
         setPrompt(editingAgent.prompt)
         setEmoji(editingAgent.emoji)
         setProvider(
           editingAgent.provider ||
-            parsedDefaultModel.provider ||
-            parsedLiteModel.provider ||
+            editingAgent?.defaultModelProvider ||
+            editingAgent?.liteModelProvider ||
             'gemini',
         )
-        const nextDefaultModel = parsedDefaultModel.modelId || ''
-        const nextLiteModel = parsedLiteModel.modelId || ''
+        const nextDefaultModel = editingAgent.defaultModel || ''
+        const nextLiteModel = editingAgent.liteModel || ''
         setLiteModel(nextLiteModel)
         setDefaultModel(nextDefaultModel)
         setDefaultModelSource(editingAgent?.defaultModelSource || 'list')
         setLiteModelSource(editingAgent?.liteModelSource || 'list')
         setDefaultCustomModel(editingAgent?.defaultModelSource === 'custom' ? nextDefaultModel : '')
         setLiteCustomModel(editingAgent?.liteModelSource === 'custom' ? nextLiteModel : '')
-        setDefaultModelProvider(parsedDefaultModel.provider || '')
-        setLiteModelProvider(parsedLiteModel.provider || '')
+        setDefaultModelProvider(editingAgent?.defaultModelProvider || editingAgent?.provider || '')
+        setLiteModelProvider(editingAgent?.liteModelProvider || editingAgent?.provider || '')
         setResponseLanguage(
           editingAgent.responseLanguage ||
             defaultAgent?.responseLanguage ||
@@ -330,10 +340,12 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
         )
         setEmoji('🤻')
         setProvider(defaultAgent?.provider || 'gemini')
-        const nextLiteModel = parseStoredModel(defaultAgent?.liteModel).modelId || ''
-        const nextDefaultModel = parseStoredModel(defaultAgent?.defaultModel).modelId || ''
+        const nextLiteModel = defaultAgent?.liteModel || ''
+        const nextDefaultModel = defaultAgent?.defaultModel || ''
         setLiteModel(nextLiteModel)
         setDefaultModel(nextDefaultModel)
+        setDefaultModelProvider(defaultAgent?.defaultModelProvider || defaultAgent?.provider || '')
+        setLiteModelProvider(defaultAgent?.liteModelProvider || defaultAgent?.provider || '')
         setDefaultModelSource('list')
         setLiteModelSource('list')
         setDefaultCustomModel('')
@@ -353,7 +365,12 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
         setFrequencyPenalty(null)
         setPresencePenalty(null)
         setIsAdvancedOpen(false)
+        setSelectedToolIds([])
       }
+      if (editingAgent) {
+        setSelectedToolIds(editingAgent?.toolIds || [])
+      }
+      loadToolsList()
       setActiveTab('general')
       setError('')
       setIsSaving(false)
@@ -385,8 +402,10 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
 
     setIsSaving(true)
     try {
-      const resolveProvider = (modelId, fallback) => {
+      const resolveProvider = (modelId, fallback, modelSource, explicitProvider) => {
         if (!modelId) return fallback || ''
+        if (explicitProvider) return explicitProvider
+        if (modelSource && modelSource !== 'list') return fallback || ''
         const derived = findProviderForModel(modelId)
         return derived || fallback || ''
       }
@@ -394,8 +413,15 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
       const resolvedDefaultProvider = resolveProvider(
         defaultModel,
         defaultModelProvider || provider,
+        defaultModelSource,
+        defaultModelProvider,
       )
-      const resolvedLiteProvider = resolveProvider(liteModel, liteModelProvider || provider)
+      const resolvedLiteProvider = resolveProvider(
+        liteModel,
+        liteModelProvider || provider,
+        liteModelSource,
+        liteModelProvider,
+      )
       const derivedProvider = resolvedDefaultProvider || provider
 
       const resolvedName = isDeepResearchAgent
@@ -424,8 +450,10 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
         prompt: resolvedPrompt,
         emoji: resolvedEmoji,
         provider: derivedProvider,
-        liteModel: encodeModelId(resolvedLiteProvider, liteModel),
-        defaultModel: encodeModelId(resolvedDefaultProvider, defaultModel),
+        defaultModelProvider: resolvedDefaultProvider,
+        liteModelProvider: resolvedLiteProvider,
+        liteModel,
+        defaultModel,
         defaultModelSource,
         liteModelSource,
         responseLanguage,
@@ -440,6 +468,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
         topP,
         frequencyPenalty,
         presencePenalty,
+        toolIds: selectedToolIds,
       })
       onClose()
     } catch (err) {
@@ -632,20 +661,24 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
 
   useEffect(() => {
     if (!isOpen) return
-    const resolvedDefaultProvider = findProviderForModel(defaultModel)
-    const resolvedLiteProvider = findProviderForModel(liteModel)
+    const resolvedDefaultProvider = defaultModelSource === 'list' ? findProviderForModel(defaultModel) : ''
+    const resolvedLiteProvider = liteModelSource === 'list' ? findProviderForModel(liteModel) : ''
 
     // Only auto-resolve provider if not already set or if model changed
     // This prevents overwriting user's manual provider selection
-    if (resolvedDefaultProvider && !defaultModelProvider) {
-      setDefaultModelProvider(resolvedDefaultProvider)
-    } else if (!defaultModelProvider && availableProviders.length > 0) {
-      setDefaultModelProvider(availableProviders[0])
+    if (defaultModelSource === 'list') {
+      if (resolvedDefaultProvider && !defaultModelProvider) {
+        setDefaultModelProvider(resolvedDefaultProvider)
+      } else if (!defaultModelProvider && availableProviders.length > 0) {
+        setDefaultModelProvider(availableProviders[0])
+      }
     }
-    if (resolvedLiteProvider && !liteModelProvider) {
-      setLiteModelProvider(resolvedLiteProvider)
-    } else if (!liteModelProvider && availableProviders.length > 0) {
-      setLiteModelProvider(availableProviders[0])
+    if (liteModelSource === 'list') {
+      if (resolvedLiteProvider && !liteModelProvider) {
+        setLiteModelProvider(resolvedLiteProvider)
+      } else if (!liteModelProvider && availableProviders.length > 0) {
+        setLiteModelProvider(availableProviders[0])
+      }
     }
   }, [availableProviders, defaultModel, groupedModels, isOpen, liteModel])
 
@@ -677,8 +710,10 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
 
   // Keep lite provider independent so users can mix providers between default and lite models.
 
-  const resolveProvider = (modelId, fallback) => {
+  const resolveProvider = (modelId, fallback, modelSource, explicitProvider) => {
     if (!modelId) return fallback || ''
+    if (explicitProvider) return explicitProvider
+    if (modelSource && modelSource !== 'list') return fallback || ''
     const derived = findProviderForModel(modelId)
     return derived || fallback || ''
   }
@@ -749,7 +784,12 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
   }
 
   const handleDefaultModelTest = async () => {
-    const resolvedProvider = resolveProvider(defaultModel, defaultModelProvider || provider)
+    const resolvedProvider = resolveProvider(
+      defaultModel,
+      defaultModelProvider || provider,
+      defaultModelSource,
+      defaultModelProvider,
+    )
     setDefaultTestState({ status: 'loading', message: t('agents.model.testing') })
     try {
       await runModelTest({
@@ -767,7 +807,12 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
   }
 
   const handleLiteModelTest = async () => {
-    const resolvedProvider = resolveProvider(liteModel, liteModelProvider || provider)
+    const resolvedProvider = resolveProvider(
+      liteModel,
+      liteModelProvider || provider,
+      liteModelSource,
+      liteModelProvider,
+    )
     setLiteTestState({ status: 'loading', message: t('agents.model.testing') })
     try {
       await runModelTest({ modelId: liteModel, providerKey: resolvedProvider, structured: false })
@@ -1171,7 +1216,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
 
         {/* Tabs */}
         <div className="flex border-b border-gray-200 dark:border-zinc-800 px-6 shrink-0 gap-6">
-          {['general', 'model', 'personalization'].map(tab => (
+          {['general', 'model', 'personalization', 'tools'].map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -1571,13 +1616,85 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
               </div>
             </div>
           )}
+          {activeTab === 'tools' && (
+            <div className="space-y-4">
+              <div className="bg-gray-50 dark:bg-zinc-900/60 p-4 rounded-lg text-sm text-gray-600 dark:text-gray-300">
+                <p className="font-medium">{t('agents.tools.title')}</p>
+                <p className="opacity-90">{t('agents.tools.hint')}</p>
+              </div>
+              {toolsLoading ? (
+                <div className="text-sm text-gray-500 dark:text-gray-400">
+                  {t('agents.tools.loading')}
+                </div>
+              ) : toolsByCategory.length === 0 ? (
+                <div className="text-sm text-gray-500 dark:text-gray-400">
+                  {t('agents.tools.empty')}
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {toolsByCategory.map(([category, items]) => (
+                    <div key={category} className="space-y-3">
+                      <div className="text-xs uppercase tracking-wide text-gray-400">
+                        {t(`agents.tools.categories.${category}`, category)}
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {items.map(tool => {
+                          const checked = selectedToolIds.includes(tool.id)
+                          return (
+                            <label
+                              key={tool.id}
+                              className={clsx(
+                                'flex items-start gap-3 p-3 rounded-lg border transition-colors cursor-pointer',
+                                checked
+                                  ? 'border-primary-400 bg-primary-50/40 dark:bg-primary-900/20'
+                                  : 'border-gray-200 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-800/40',
+                              )}
+                            >
+                              <Checkbox
+                                checked={checked}
+                                onChange={() => {
+                                  setSelectedToolIds(prev =>
+                                    prev.includes(tool.id)
+                                      ? prev.filter(id => id !== tool.id)
+                                      : [...prev, tool.id],
+                                  )
+                                }}
+                              />
+                              <div className="space-y-1">
+                                <div className="text-sm font-medium text-gray-800 dark:text-gray-100">
+                                  {tool.name}
+                                </div>
+                                <div className="text-xs text-gray-500 dark:text-gray-400">
+                                  {tool.description}
+                                </div>
+                              </div>
+                            </label>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Footer */}
         <div className="h-16 border-t border-gray-200 dark:border-zinc-800 flex items-center justify-between px-6 shrink-0 bg-white dark:bg-[#191a1a]">
           {editingAgent && onDelete && !editingAgent.isDefault ? (
             <button
-              onClick={() => onDelete(editingAgent.id)}
+              onClick={() => {
+                showConfirmation({
+                  title: t('confirmation.deleteAgentTitle') || 'Delete Agent',
+                  message:
+                    t('confirmation.deleteAgentMessage', { name: editingAgent.name }) ||
+                    `Are you sure you want to delete ${editingAgent.name}?`,
+                  confirmText: t('agents.actions.delete'),
+                  isDangerous: true,
+                  onConfirm: () => onDelete(editingAgent.id),
+                })
+              }}
               className="px-4 py-2 rounded-lg text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
             >
               {t('agents.actions.delete')}

@@ -27,15 +27,15 @@ import { deleteConversation } from '../lib/supabase'
 
 // Sort option keys (constant for logic)
 const SORT_OPTION_KEYS = [
-  { key: 'newest', value: 'created_at', ascending: false },
-  { key: 'oldest', value: 'created_at', ascending: true },
+  { key: 'newest', value: 'updated_at', ascending: false },
+  { key: 'oldest', value: 'updated_at', ascending: true },
   { key: 'titleAZ', value: 'title', ascending: true },
   { key: 'titleZA', value: 'title', ascending: false },
 ]
 
 const LibraryView = () => {
   const { t, i18n } = useTranslation()
-  const { spaces, isSidebarPinned, showConfirmation } = useAppContext()
+  const { spaces, deepResearchSpace, isSidebarPinned, showConfirmation } = useAppContext()
   const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState('')
   const [activeSearchQuery, setActiveSearchQuery] = useState('') // Query actually sent to server
@@ -48,8 +48,19 @@ const LibraryView = () => {
   const [conversations, setConversations] = useState([])
   const [loading, setLoading] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
+  // const [emojiTick, setEmojiTick] = useState(0)
   const [totalCount, setTotalCount] = useState(0)
   const limit = 10
+  const deepResearchSpaceIds = useMemo(() => {
+    const ids = new Set()
+    if (deepResearchSpace?.id) ids.add(String(deepResearchSpace.id))
+    ;(spaces || []).forEach(space => {
+      if (space?.isDeepResearchSystem || space?.isDeepResearch || space?.is_deep_research) {
+        ids.add(String(space.id))
+      }
+    })
+    return Array.from(ids)
+  }, [deepResearchSpace?.id, spaces])
 
   // Translated sort options for rendering
   const sortOptions = useMemo(
@@ -64,7 +75,7 @@ const LibraryView = () => {
   useEffect(() => {
     // Reset to page 1 when sort or active search changes
     setCurrentPage(1)
-  }, [sortOption, activeSearchQuery])
+  }, [sortOption, activeSearchQuery, deepResearchSpaceIds])
 
   useEffect(() => {
     const fetchConversations = async () => {
@@ -75,6 +86,7 @@ const LibraryView = () => {
         page: currentPage,
         limit,
         search: activeSearchQuery,
+        excludeSpaceIds: deepResearchSpaceIds,
       })
 
       if (!error) {
@@ -92,7 +104,14 @@ const LibraryView = () => {
     const handleConversationsChanged = () => fetchConversations()
     window.addEventListener('conversations-changed', handleConversationsChanged)
     return () => window.removeEventListener('conversations-changed', handleConversationsChanged)
-  }, [currentPage, sortOption, activeSearchQuery])
+  }, [currentPage, sortOption, activeSearchQuery, deepResearchSpaceIds])
+
+  // useEffect(() => {
+  //   const intervalId = setInterval(() => {
+  //     setEmojiTick(prev => prev + 1)
+  //   }, 2000)
+  //   return () => clearInterval(intervalId)
+  // }, [])
 
   const handleSearch = () => {
     if (searchQuery.trim() !== activeSearchQuery) {
@@ -126,6 +145,37 @@ const LibraryView = () => {
   const getSpaceInfo = spaceId => {
     if (!spaceId) return null
     return spaces.find(s => String(s.id) === String(spaceId))
+  }
+
+  const normalizeTitleEmojis = value => {
+    if (Array.isArray(value)) {
+      return value.map(item => String(item || '').trim()).filter(Boolean).slice(0, 1)
+    }
+    if (typeof value === 'string' && value.trim()) {
+      try {
+        const parsed = JSON.parse(value)
+        if (Array.isArray(parsed)) {
+          return parsed.map(item => String(item || '').trim()).filter(Boolean).slice(0, 1)
+        }
+      } catch {
+        return []
+      }
+    }
+    return []
+  }
+
+  const resolveConversationEmoji = (conv, fallbackEmoji) => {
+    const emojiList = normalizeTitleEmojis(conv?.title_emojis ?? conv?.titleEmojis)
+    const resolvedList = emojiList.length > 0 ? emojiList : fallbackEmoji ? [fallbackEmoji] : []
+    if (resolvedList.length === 0) return '💬'
+    return resolvedList[0]
+    // const idText = String(conv?.id || '')
+    // let hash = 0
+    // for (let i = 0; i < idText.length; i += 1) {
+    //   hash = (hash + idText.charCodeAt(i)) % resolvedList.length
+    // }
+    // const index = (hash + emojiTick) % resolvedList.length
+    // return resolvedList[index]
   }
 
   // Format date helper
@@ -328,24 +378,30 @@ const LibraryView = () => {
           ) : (
             filteredConversations.map(conv => {
               const space = getSpaceInfo(conv.space_id)
+              const isDeepResearchConversation =
+                space?.isDeepResearchSystem ||
+                (deepResearchSpace?.id && String(conv.space_id) === String(deepResearchSpace.id))
               return (
                 <div
                   key={conv.id}
                   data-conversation-id={conv.id}
                   onClick={() =>
                     navigate({
-                      to: '/conversation/$conversationId',
+                      to: isDeepResearchConversation
+                        ? '/deepresearch/$conversationId'
+                        : '/conversation/$conversationId',
                       params: { conversationId: conv.id },
                     })
                   }
                   className="group relative p-2 rounded-xl cursor-pointer transition-colors border-b border-gray-100 dark:border-zinc-800/50 last:border-0 hover:bg-primary-500/10 dark:hover:bg-primary-500/20 hover:border hover:border-primary-500/30 dark:hover:border-primary-500/40"
                 >
                   <div className="flex justify-between items-start gap-4">
-                    {space?.emoji && (
-                      <div className="shrink-0 flex items-center justify-center bg-gray-100 dark:bg-zinc-800 rounded-lg w-12 h-12">
-                        <EmojiDisplay emoji={space.emoji} size="2rem" />
-                      </div>
-                    )}
+                    <div className="shrink-0 flex items-center justify-center bg-gray-100 dark:bg-zinc-800 rounded-lg w-12 h-12">
+                      <EmojiDisplay
+                        emoji={resolveConversationEmoji(conv, space?.emoji)}
+                        size="2rem"
+                      />
+                    </div>
                     <div className="flex-1 min-w-0">
                       {/* Title */}
                       <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-1 truncate flex items-center gap-2">
@@ -359,7 +415,7 @@ const LibraryView = () => {
                       <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
                         <div className="flex items-center gap-1.5">
                           <Clock size={14} />
-                          <span>{formatDate(conv.created_at)}</span>
+                          <span>{formatDate(conv.updated_at || conv.created_at)}</span>
                         </div>
                         {space && (
                           <div className="flex items-center gap-1.5">

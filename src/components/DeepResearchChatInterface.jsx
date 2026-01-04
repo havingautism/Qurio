@@ -1,0 +1,1576 @@
+﻿import { useLocation, useNavigate } from '@tanstack/react-router'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { useShallow } from 'zustand/react/shallow'
+import useChatStore from '../lib/chatStore'
+import FancyLoader from './FancyLoader'
+import MessageList from './MessageList'
+// import QuestionNavigator from './QuestionNavigator'
+import clsx from 'clsx'
+import { ArrowDown } from 'lucide-react'
+import { useAppContext } from '../App'
+import { updateConversation } from '../lib/conversationsService'
+import { getProvider, providerSupportsSearch, resolveThinkingToggleRule } from '../lib/providers'
+import QuestionTimelineController from './QuestionTimelineController'
+import ResearchTimelineController from './ResearchTimelineController'
+
+import { useSidebarOffset } from '../hooks/useSidebarOffset'
+import useChatHistory from '../hooks/chat/useChatHistory'
+import useSpaceManagement from '../hooks/chat/useSpaceManagement'
+import useAgentManagement from '../hooks/chat/useAgentManagement'
+// import { getAgentDisplayName } from '../lib/agentDisplay'
+// import { getSpaceDisplayLabel } from '../lib/spaceDisplay'
+import { loadSettings } from '../lib/settings'
+import { deleteMessageById } from '../lib/supabase'
+import ChatHeader from './chat/ChatHeader'
+
+const DeepResearchChatInterface = ({
+  spaces = [],
+  activeConversation = null,
+  initialMessage = '',
+  initialAttachments = [],
+  initialToggles = {},
+  initialSpaceSelection = { mode: 'auto', space: null },
+  initialAgentSelection = null,
+  initialIsAgentAutoMode = true,
+  onTitleAndSpaceGenerated,
+  isSidebarPinned = false,
+}) => {
+  // Mobile detection
+  const isMobile = (() => {
+    const ua = navigator.userAgent || navigator.vendor || window.opera
+    const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0
+    return /iPhone|iPod|Android/i.test(ua) || (isTouch && window.innerWidth <= 1024)
+  })()
+
+  const normalizeTitleEmojis = value => {
+    if (Array.isArray(value)) {
+      return value.map(item => String(item || '').trim()).filter(Boolean).slice(0, 1)
+    }
+    if (typeof value === 'string' && value.trim()) {
+      try {
+        const parsed = JSON.parse(value)
+        if (Array.isArray(parsed)) {
+          return parsed.map(item => String(item || '').trim()).filter(Boolean).slice(0, 1)
+        }
+      } catch {
+        return []
+      }
+    }
+    return []
+  }
+
+  const getLanguageInstruction = agent => {
+    const trimmedLanguage =
+      typeof (agent?.response_language || agent?.responseLanguage) === 'string'
+        ? (agent.response_language || agent.responseLanguage).trim()
+        : ''
+    return trimmedLanguage ? `Reply in ${trimmedLanguage}.` : ''
+  }
+
+  const applyLanguageInstructionToText = (text, instruction) => {
+    if (!instruction) return text
+    const baseText = typeof text === 'string' ? text.trim() : ''
+    return baseText ? `${baseText}\n\n${instruction}` : instruction
+  }
+
+  // Lock body scroll when component mounts (defensive measure for iOS keyboard interactions)
+  // useEffect(() => {
+  //   document.body.classList.add('scroll-locked')
+
+  //   return () => {
+  //     // Unlock body scroll when component unmounts
+  //     document.body.classList.remove('scroll-locked')
+  //   }
+  // }, [])
+
+  const navigate = useNavigate()
+  const location = useLocation()
+  const { t } = useTranslation()
+  const {
+    messages,
+    setMessages,
+    conversationId,
+    setConversationId,
+    conversationTitle,
+    setConversationTitle,
+    conversationTitleEmojis,
+    setConversationTitleEmojis,
+    isLoading,
+    setIsLoading,
+    isMetaLoading,
+    isAgentPreselecting,
+    sendMessage,
+  } = useChatStore(
+    useShallow(state => ({
+      messages: state.messages,
+      setMessages: state.setMessages,
+      conversationId: state.conversationId,
+      setConversationId: state.setConversationId,
+      conversationTitle: state.conversationTitle,
+      setConversationTitle: state.setConversationTitle,
+      conversationTitleEmojis: state.conversationTitleEmojis,
+      setConversationTitleEmojis: state.setConversationTitleEmojis,
+      isLoading: state.isLoading,
+      setIsLoading: state.setIsLoading,
+      isMetaLoading: state.isMetaLoading,
+      isAgentPreselecting: state.isAgentPreselecting,
+      sendMessage: state.sendMessage,
+    })),
+  )
+
+  const [quotedText, setQuotedText] = useState(null)
+  const [quoteContext, setQuoteContext] = useState(null)
+  const [editingSeed, setEditingSeed] = useState({ text: '', attachments: [] })
+  const quoteTextRef = useRef('')
+  const quoteSourceRef = useRef('')
+  const lastTitleConversationIdRef = useRef(null)
+
+  // New state for toggles and attachments
+  const [isSearchActive, setIsSearchActive] = useState(false)
+  const [isThinkingActive, setIsThinkingActive] = useState(false)
+  const [isDeepResearchActive, setIsDeepResearchActive] = useState(false)
+
+  const isPlaceholderConversation = Boolean(activeConversation?._isPlaceholder)
+
+  const {
+    toggleSidebar,
+    agents: appAgents = [],
+    defaultAgent,
+    deepResearchSpace,
+    deepResearchAgent,
+  } = useAppContext()
+
+  // Space management hook (must be called after useAppContext for deepResearchSpace)
+  const {
+    selectedSpace,
+    isManualSpaceSelection,
+    isSelectorOpen,
+    selectorRef,
+    displaySpace,
+    availableSpaces,
+    isDeepResearchConversation,
+    conversationSpace,
+    setSelectedSpace,
+    setIsManualSpaceSelection,
+    setIsSelectorOpen,
+    handleSelectSpace,
+    handleClearSpaceSelection,
+    manualSpaceOverrideRef,
+  } = useSpaceManagement({
+    spaces,
+    initialSpaceSelection,
+    activeConversation,
+    deepResearchSpace,
+    conversationId,
+  })
+
+  // Agent management hook
+  const {
+    spaceAgentIds,
+    spacePrimaryAgentId,
+    isAgentsLoading,
+    agentsLoadingLabel,
+    agentLoadingDots,
+    isAgentResolving,
+    selectedAgentId,
+    isAgentAutoMode,
+    isAgentSelectorOpen,
+    pendingAgentId,
+    setSelectedAgentId,
+    setIsAgentAutoMode,
+    setIsAgentSelectorOpen,
+    setPendingAgentId,
+    reloadSpaceAgents,
+    manualAgentSelectionRef,
+    agentSelectorRef,
+    initialAgentAppliedRef,
+  } = useAgentManagement({
+    appAgents,
+    defaultAgent,
+    displaySpace,
+    initialAgentSelection,
+    initialIsAgentAutoMode,
+    isPlaceholderConversation,
+    activeConversation,
+    conversationId,
+    isDeepResearchConversation,
+    deepResearchAgent,
+    selectedSpace,
+    isManualSpaceSelection,
+    isAgentPreselecting,
+    t,
+  })
+
+  // Chat history hook (manages message loading and history state)
+  const isSwitchingConversation = Boolean(
+    activeConversation?.id && activeConversation.id !== conversationId,
+  )
+  const {
+    isLoadingHistory,
+    showHistoryLoader,
+    loadConversationMessages,
+    hasLoadedMessages,
+    loadedMessagesRef,
+    setIsLoadingHistory,
+  } = useChatHistory({
+    activeConversation,
+    conversationId,
+    effectiveDefaultModel: defaultAgent?.model || 'gpt-4o',
+    isSwitchingConversation,
+  })
+  const hasLoadedActive =
+    activeConversation?.id && hasLoadedMessages?.(activeConversation.id)
+  const isTitleLoading =
+    isMetaLoading ||
+    isLoadingHistory ||
+    isSwitchingConversation ||
+    (activeConversation?.id && !hasLoadedActive) ||
+    Boolean(activeConversation?._isPlaceholder)
+
+  useEffect(() => {
+    if (!activeConversation?.id || activeConversation?._isPlaceholder) return
+    const nextTitle = activeConversation.title || ''
+    const nextEmojis = normalizeTitleEmojis(
+      activeConversation.title_emojis ?? activeConversation.titleEmojis,
+    )
+    const emojisChanged =
+      nextEmojis.length !== conversationTitleEmojis.length ||
+      nextEmojis.some((emoji, index) => emoji !== conversationTitleEmojis[index])
+
+    if (nextTitle === conversationTitle && !emojisChanged) return
+
+    setConversationTitle(nextTitle)
+    setConversationTitleEmojis(nextEmojis)
+    lastTitleConversationIdRef.current = activeConversation.id
+  }, [
+    activeConversation?.id,
+    activeConversation?.title,
+    activeConversation?.title_emojis,
+    activeConversation?.titleEmojis,
+    conversationTitle,
+    conversationTitleEmojis,
+    setConversationTitle,
+    setConversationTitleEmojis,
+  ])
+
+  const initialAgentSelectionId = initialAgentSelection?.id || null
+
+  const [settings, setSettings] = useState(loadSettings())
+  const isRelatedEnabled = Boolean(settings.enableRelatedQuestions)
+  const messageRefs = useRef({})
+  const bottomRef = useRef(null)
+  const [showScrollButton, setShowScrollButton] = useState(false)
+  const [isRegeneratingTitle, setIsRegeneratingTitle] = useState(false)
+  const lastLoadedConversationIdRef = useRef(null)
+
+  // Track the last synced conversation ID to avoid redundant updates
+  const lastSyncedConversationIdRef = useRef(null)
+
+  // Sync conversationId from props/activeConversation to chatStore
+  // This ensures that when navigating from HomeView with a newly created conversation,
+  // the chatStore's conversationId is set correctly
+  useEffect(() => {
+    const targetConversationId = activeConversation?.id || conversationId || null
+
+    // Reset the sync tracking if we're switching to a different conversation
+    if (targetConversationId !== lastSyncedConversationIdRef.current) {
+      // Check if the store's conversationId is different from the target
+      if (targetConversationId && targetConversationId !== conversationId) {
+        setConversationId(targetConversationId)
+        lastSyncedConversationIdRef.current = targetConversationId
+      } else if (!targetConversationId && conversationId) {
+        // Clear conversationId when switching to new chat
+        setConversationId(null)
+        lastSyncedConversationIdRef.current = null
+      }
+    }
+  }, [activeConversation?.id, conversationId, setConversationId])
+
+  // conversationSpace is provided by useSpaceManagement hook
+  // Function to reload space agents (used when space changes or settings change)
+
+  // Handle deep research agent (space is handled by useSpaceManagement hook)
+  useEffect(() => {
+    if (isDeepResearchConversation) {
+      // Enter deep research mode
+      if (deepResearchAgent?.id && deepResearchAgent.id !== selectedAgentId) {
+        setSelectedAgentId(deepResearchAgent.id)
+        setPendingAgentId(deepResearchAgent.id)
+        setIsAgentAutoMode(false)
+      }
+      if (!isDeepResearchActive) {
+        setIsDeepResearchActive(true)
+        setIsThinkingActive(false)
+      }
+    } else {
+      // Exit deep research mode - reset to normal
+      if (isDeepResearchActive) {
+        setIsDeepResearchActive(false)
+      }
+    }
+  }, [isDeepResearchConversation, deepResearchAgent, selectedAgentId, isDeepResearchActive])
+
+  // reloadSpaceAgents is now provided by useAgentManagement hook
+
+  const spaceAgents = useMemo(() => {
+    if (!displaySpace?.id) {
+      return []
+    }
+    const idSet = new Set(spaceAgentIds.map(id => String(id)))
+    const filteredAgents = appAgents.filter(agent => idSet.has(String(agent.id)))
+    return filteredAgents
+  }, [appAgents, displaySpace?.id, spaceAgentIds])
+
+  const selectableAgents = useMemo(() => {
+    if (isDeepResearchConversation && deepResearchAgent) {
+      return [deepResearchAgent]
+    }
+    const list = [...spaceAgents]
+    // Only include default agent if no space is selected (space is None)
+    // When a space is selected, only show agents that are explicitly added to that space
+    if (!displaySpace && defaultAgent) {
+      const hasDefault = list.some(agent => String(agent.id) === String(defaultAgent.id))
+      if (!hasDefault) list.unshift(defaultAgent)
+    }
+    // Only include selected agent if it's not already in the list AND no space is selected
+    // When a space is selected, don't force-add agents that aren't in that space
+    if (!displaySpace && selectedAgentId) {
+      const hasSelected = list.some(agent => String(agent.id) === String(selectedAgentId))
+      if (!hasSelected) {
+        const selected = appAgents.find(agent => String(agent.id) === String(selectedAgentId))
+        if (selected) list.unshift(selected)
+      }
+    }
+    return list
+  }, [
+    spaceAgents,
+    defaultAgent,
+    selectedAgentId,
+    appAgents,
+    displaySpace,
+    isDeepResearchConversation,
+    deepResearchAgent,
+  ])
+
+  const selectedAgent = useMemo(() => {
+    const agent =
+      selectableAgents.find(agent => String(agent.id) === String(selectedAgentId)) || null
+    return agent
+  }, [selectableAgents, selectedAgentId])
+
+  // Agent selection is fully user-controlled:
+  // - Auto mode: updated via onAgentResolved callback (preselection before sending)
+  // - Manual mode: user's choice is preserved, no auto updates
+  // useEffect(() => {
+  //   const lastAgentMessage = [...messages]
+  //     .reverse()
+  //     .find(msg => msg.role === 'ai' && msg.agentId)
+  //   const nextAgentId = lastAgentMessage?.agentId || null
+  //   if (nextAgentId && String(nextAgentId) !== String(selectedAgentId)) {
+  //     setSelectedAgentId(nextAgentId)
+  //     setPendingAgentId(nextAgentId)
+  //   }
+  // }, [messages, selectedAgentId])
+
+  // agentsLoadingLabel is now provided by useAgentManagement hook
+
+  const effectiveAgent = useMemo(
+    () => selectedAgent || defaultAgent || null,
+    [selectedAgent, defaultAgent],
+  )
+
+  const fallbackProvider = defaultAgent?.provider || ''
+  const fallbackDefaultModel = defaultAgent?.defaultModel || ''
+  const effectiveProvider = effectiveAgent?.provider || fallbackProvider
+  const effectiveDefaultModel = effectiveAgent?.defaultModel || fallbackDefaultModel
+
+  // Helper to get model config for agent or fallback to global default agent
+  const getModelConfig = React.useCallback(
+    (task = 'streamChatCompletion') => {
+      const resolveFromAgent = agent => {
+        if (!agent) return null
+        const defaultModel = agent.defaultModel
+        const liteModel = agent.liteModel ?? ''
+        const defaultModelProvider = agent.defaultModelProvider || ''
+        const liteModelProvider = agent.liteModelProvider || ''
+        const hasDefault = typeof defaultModel === 'string' && defaultModel.trim() !== ''
+        const hasLite = typeof liteModel === 'string' && liteModel.trim() !== ''
+        if (!hasDefault && !hasLite) return null
+
+        const isLiteTask =
+          task === 'generateTitle' ||
+          task === 'generateTitleAndSpace' ||
+          task === 'generateRelatedQuestions' ||
+          task === 'generateResearchPlan'
+
+        const model = isLiteTask
+          ? liteModel || defaultModel
+          : defaultModel || liteModel
+        const provider = isLiteTask
+          ? liteModelProvider || defaultModelProvider || agent.provider
+          : defaultModelProvider || liteModelProvider || agent.provider
+
+        if (!model || !provider) return null
+        return { provider, model }
+      }
+
+      const primaryConfig = resolveFromAgent(effectiveAgent)
+      if (primaryConfig) return primaryConfig
+
+      const fallbackConfig = resolveFromAgent(defaultAgent)
+      if (fallbackConfig) return fallbackConfig
+
+      return {
+        provider: fallbackProvider,
+        model: '',
+      }
+    },
+    [defaultAgent, effectiveAgent, fallbackProvider],
+  )
+
+  const activeModelConfig = getModelConfig('streamChatCompletion')
+  const resolvedModelName = activeModelConfig?.model || effectiveDefaultModel || ''
+  const thinkingRule = resolveThinkingToggleRule(effectiveProvider, resolvedModelName)
+  const isThinkingLocked = thinkingRule.isLocked
+
+  useEffect(() => {
+    if (!isThinkingLocked) return
+    setIsThinkingActive(thinkingRule.isThinkingActive)
+  }, [isThinkingLocked, thinkingRule.isThinkingActive])
+
+  // Effect to handle initial message from homepage
+  const hasInitialized = useRef(false)
+  const isProcessingInitial = useRef(false)
+
+  useEffect(() => {
+    const handleSettingsChange = () => {
+      setSettings(loadSettings())
+      const newSettings = loadSettings()
+      const nextProvider = effectiveAgent?.provider || defaultAgent?.provider
+      if (!nextProvider || !providerSupportsSearch(nextProvider)) {
+        setIsSearchActive(false)
+      }
+    }
+
+    window.addEventListener('settings-changed', handleSettingsChange)
+    return () => {
+      window.removeEventListener('settings-changed', handleSettingsChange)
+    }
+  }, [effectiveAgent?.provider, defaultAgent?.provider])
+
+  useEffect(() => {
+    const processInitialMessage = async () => {
+      // Prevent multiple initializations and ensure we have content to process
+      if (
+        hasInitialized.current ||
+        isProcessingInitial.current ||
+        (!initialMessage && initialAttachments.length === 0)
+      ) {
+        return
+      }
+
+      // IMPORTANT: Use the prop conversationId from URL/activeConversation, not the store's conversationId
+      // The store's conversationId might be stale or null
+      const conversationIdToSend = activeConversation?.id || conversationId || null
+
+      // If we don't have a conversation to send to, wait
+      if (!conversationIdToSend) {
+        return
+      }
+
+      const initialSendKey = conversationIdToSend
+        ? `initialMessageSent:${conversationIdToSend}`
+        : null
+      if (initialSendKey && sessionStorage.getItem(initialSendKey)) {
+        return
+      }
+
+      // Check if this is an existing conversation with messages
+      // If so, skip auto-send (we're just viewing history)
+      const hasExistingMessages = messages.length > 0
+      if (hasExistingMessages) {
+        return
+      }
+
+      // Only wait for auto-mode agent resolution; manual selection can proceed.
+      if (initialIsAgentAutoMode && initialAgentSelection && !selectedAgent && isAgentResolving) {
+        return
+      }
+
+      isProcessingInitial.current = true
+      hasInitialized.current = true
+
+      // Set initial state
+      if (initialToggles.search) setIsSearchActive(true)
+      if (initialToggles.deepResearch) {
+        setIsDeepResearchActive(true)
+        setIsThinkingActive(false)
+      } else if (initialToggles.thinking) {
+        setIsThinkingActive(true)
+      }
+
+      // CRITICAL: Sync conversationId to store IMMEDIATELY before sending
+      // This ensures sendMessage uses the correct conversation ID
+      if (conversationId !== conversationIdToSend) {
+        // Sync synchronously (not in useEffect) to ensure it's set before sending
+        setConversationId(conversationIdToSend)
+      }
+
+      // Small delay to ensure state update is processed
+      await new Promise(resolve => setTimeout(resolve, 0))
+
+      // Trigger send immediately
+      try {
+        await handleSendMessage(initialMessage, initialAttachments, initialToggles)
+        if (initialSendKey) {
+          sessionStorage.setItem(initialSendKey, '1')
+        }
+      } finally {
+        isProcessingInitial.current = false
+      }
+    }
+
+    processInitialMessage()
+  }, [
+    initialMessage,
+    initialAttachments,
+    initialToggles,
+    conversationId,
+    activeConversation?.id,
+    isAgentResolving,
+    selectedAgentId,
+    selectedAgent,
+    messages.length,
+    isLoadingHistory,
+  ])
+
+  // Load existing conversation messages when switching conversations
+  useEffect(() => {
+    const loadHistory = async () => {
+      if (!activeConversation?.id) {
+        const hasLocalConversation = conversationId && messages.length > 0
+        const hasInitialPayload =
+          !conversationId &&
+          (hasInitialized.current || initialMessage || initialAttachments.length > 0)
+
+        if (hasLocalConversation || hasInitialPayload) {
+          setIsLoadingHistory(false)
+          return
+        }
+
+        // When switching to new chat, always clear conversationId and reset navigation flag
+        // This ensures that when a new conversation is created, it can navigate correctly
+
+        // If we're switching from an old conversation (conversationId is not null),
+        // we should clear the old messages even if we have initialMessage
+        const isFromOldConversation = conversationId !== null
+
+        setIsLoadingHistory(false)
+        setConversationId(null)
+
+        // If we're in a brand new chat kicked off from the home input (not from an old conversation),
+        // avoid clearing the just-added first message bubble.
+        if (
+          !isFromOldConversation &&
+          (hasInitialized.current || initialMessage || initialAttachments.length > 0)
+        ) {
+          return
+        }
+
+        // Clear all other states for a fresh start
+        setConversationTitle('')
+        setConversationTitleEmojis([])
+        setMessages([])
+        const shouldPreserveAutoSpace = !isManualSpaceSelection && selectedSpace
+        if (!shouldPreserveAutoSpace) {
+          setSelectedSpace(null)
+          setIsManualSpaceSelection(false)
+        }
+        return
+      }
+
+      // Sync space state for the active conversation
+      // This ensures space is always up-to-date, even when activeConversation updates from placeholder
+      const currentSpaceId = conversationSpace?.id || null
+      const needsSync =
+        manualSpaceOverrideRef.current.conversationId !== activeConversation.id ||
+        manualSpaceOverrideRef.current.spaceId !== currentSpaceId
+
+      if (needsSync) {
+        setSelectedSpace(conversationSpace)
+        setIsManualSpaceSelection(true)
+        manualSpaceOverrideRef.current = {
+          conversationId: activeConversation.id,
+          spaceId: currentSpaceId,
+        }
+      }
+
+      if (
+        loadedMessagesRef.current.has(activeConversation.id) &&
+        lastLoadedConversationIdRef.current === activeConversation.id
+      ) {
+        if (activeConversation.id !== conversationId) {
+          setConversationId(activeConversation.id)
+        }
+        if (lastTitleConversationIdRef.current !== activeConversation.id) {
+          const nextTitle = activeConversation.title || ''
+          setConversationTitle(nextTitle)
+          setConversationTitleEmojis(
+            normalizeTitleEmojis(activeConversation.title_emojis ?? activeConversation.titleEmojis),
+          )
+          lastTitleConversationIdRef.current = activeConversation.id
+        } else if (
+          activeConversation.title &&
+          (!conversationTitle || conversationTitle === 'New Conversation')
+        ) {
+          setConversationTitle(activeConversation.title)
+          setConversationTitleEmojis(
+            normalizeTitleEmojis(activeConversation.title_emojis ?? activeConversation.titleEmojis),
+          )
+        }
+        // Space is synced by unified logic above
+        const shouldSyncAgent =
+          manualAgentSelectionRef.current.conversationId !== activeConversation.id
+        if (shouldSyncAgent) {
+          const agentSelectionMode =
+            activeConversation?.agent_selection_mode ??
+            activeConversation?.agentSelectionMode ??
+            'auto'
+          setIsAgentAutoMode(agentSelectionMode !== 'manual')
+          const resolvedAgentId =
+            activeConversation?.last_agent_id ?? activeConversation?.lastAgentId ?? null
+          if (resolvedAgentId) {
+            setSelectedAgentId(resolvedAgentId)
+            setPendingAgentId(resolvedAgentId)
+          } else {
+            setPendingAgentId(null)
+            setSelectedAgentId(defaultAgent?.id || null)
+          }
+        }
+        setIsLoadingHistory(false)
+        return
+      }
+
+      if (
+        hasInitialized.current &&
+        messages.length > 0 &&
+        activeConversation.id !== conversationId &&
+        !loadedMessagesRef.current.has(activeConversation.id)
+      ) {
+        // IMPORTANT: Don't return early - we need to load the new conversation's messages
+        // Clear the flag to allow loading, but continue with the loading logic below
+        hasInitialized.current = false
+      }
+
+      // If we're navigating to a conversation that we just created (conversationId matches),
+      // check if we already have messages in the store
+      if (activeConversation.id === conversationId && messages.length > 0) {
+        // We already have messages (they're being streamed or just completed)
+        // Only adopt the stored title if it isn't a default placeholder.
+        if (lastTitleConversationIdRef.current !== activeConversation.id) {
+          const nextTitle = activeConversation.title || ''
+          setConversationTitle(nextTitle)
+          setConversationTitleEmojis(
+            normalizeTitleEmojis(activeConversation.title_emojis ?? activeConversation.titleEmojis),
+          )
+          lastTitleConversationIdRef.current = activeConversation.id
+        } else if (activeConversation.title && (!conversationTitle || conversationTitle === 'New Conversation')) {
+          setConversationTitle(activeConversation.title)
+          setConversationTitleEmojis(
+            normalizeTitleEmojis(activeConversation.title_emojis ?? activeConversation.titleEmojis),
+          )
+        }
+        // Space is synced by unified logic above
+        setIsLoadingHistory(false)
+        return
+      }
+
+      // IMPORTANT: Don't clear messages if we're currently processing an initial message
+      // The initial message flow adds messages optimistically, and we don't want to lose them
+      if (isProcessingInitial.current) {
+        setIsLoadingHistory(false)
+        return
+      }
+
+      // Reset hasInitialized when loading an existing conversation
+      hasInitialized.current = false
+
+      setIsLoadingHistory(true)
+      loadedMessagesRef.current.add(activeConversation.id)
+      if (activeConversation.id !== conversationId) {
+        // Clear stale messages while the new conversation history loads
+        setMessages([])
+      }
+      setConversationId(activeConversation.id)
+      if (lastTitleConversationIdRef.current !== activeConversation.id) {
+        const nextTitle = activeConversation.title || ''
+        setConversationTitle(nextTitle)
+        setConversationTitleEmojis(
+          normalizeTitleEmojis(activeConversation.title_emojis ?? activeConversation.titleEmojis),
+        )
+        lastTitleConversationIdRef.current = activeConversation.id
+      } else if (activeConversation.title && (!conversationTitle || conversationTitle === 'New Conversation')) {
+        setConversationTitle(activeConversation.title)
+        setConversationTitleEmojis(
+          normalizeTitleEmojis(activeConversation.title_emojis ?? activeConversation.titleEmojis),
+        )
+      } else if (!conversationTitle) {
+        setConversationTitle('')
+        setConversationTitleEmojis([])
+      }
+      const isNewConversation =
+        activeConversation?.id && activeConversation.id !== lastLoadedConversationIdRef.current
+      if (isNewConversation) {
+        lastLoadedConversationIdRef.current = activeConversation.id
+      }
+      // Space is synced by unified logic above
+      const conversationLastAgentId =
+        activeConversation?.last_agent_id ?? activeConversation?.lastAgentId ?? null
+      const { data: mapped, error } = await loadConversationMessages(activeConversation.id)
+      if (!error && mapped) {
+        if (messages.length > 0 && (isProcessingInitial.current || hasInitialized.current)) {
+          setIsLoadingHistory(false)
+          return
+        }
+        setMessages(mapped)
+        // Restore agent selection mode from conversation unless user just picked manually
+        const shouldSyncAgent =
+          manualAgentSelectionRef.current.conversationId !== activeConversation.id
+        if (shouldSyncAgent) {
+          const agentSelectionMode =
+            activeConversation?.agent_selection_mode ??
+            activeConversation?.agentSelectionMode ??
+            'auto'
+          setIsAgentAutoMode(agentSelectionMode !== 'manual')
+          const resolvedAgentId = conversationLastAgentId || null
+          if (resolvedAgentId) {
+            setSelectedAgentId(resolvedAgentId)
+            setPendingAgentId(resolvedAgentId)
+          } else {
+            setPendingAgentId(null)
+            setSelectedAgentId(defaultAgent?.id || null)
+          }
+        }
+        loadedMessagesRef.current.add(activeConversation.id)
+      } else {
+        console.error('Failed to load conversation messages:', error)
+        setMessages([])
+        loadedMessagesRef.current.delete(activeConversation.id)
+      }
+      setIsLoadingHistory(false)
+    }
+    loadHistory()
+  }, [
+    activeConversation,
+    conversationSpace,
+    settings,
+    effectiveDefaultModel,
+    conversationTitle,
+    messages.length,
+    selectedSpace,
+    isManualSpaceSelection,
+    appAgents,
+    defaultAgent?.id,
+  ])
+
+  useEffect(() => {
+    const conversationKey = activeConversation?.id || conversationId || 'new'
+    const hasStoredAgent = Boolean(activeConversation?.last_agent_id) && !isPlaceholderConversation
+    if (hasStoredAgent) return
+
+    if (manualAgentSelectionRef.current.conversationId === conversationKey) {
+      return
+    }
+
+    const lastApplied = initialAgentAppliedRef.current
+    if (
+      lastApplied.key === conversationKey &&
+      lastApplied.agentId === initialAgentSelectionId &&
+      lastApplied.isAgentAutoMode === initialIsAgentAutoMode
+    ) {
+      return
+    }
+
+    if (initialAgentSelectionId) {
+      setPendingAgentId(initialAgentSelectionId)
+      if (!initialIsAgentAutoMode) {
+        setSelectedAgentId(initialAgentSelectionId)
+      }
+    } else {
+      setPendingAgentId(null)
+      if (initialIsAgentAutoMode) {
+        setSelectedAgentId(null)
+      }
+    }
+    setIsAgentAutoMode(initialIsAgentAutoMode)
+    initialAgentAppliedRef.current = {
+      key: conversationKey,
+      agentId: initialAgentSelectionId,
+      isAgentAutoMode: initialIsAgentAutoMode,
+    }
+  }, [
+    initialAgentSelectionId,
+    activeConversation?.id,
+    activeConversation?.last_agent_id,
+    initialIsAgentAutoMode,
+    isPlaceholderConversation,
+    conversationId,
+  ])
+
+  // Handle click outside to close selector
+  useEffect(() => {
+    const handleClickOutside = event => {
+      if (selectorRef.current && !selectorRef.current.contains(event.target)) {
+        setIsSelectorOpen(false)
+      }
+      if (agentSelectorRef.current && !agentSelectorRef.current.contains(event.target)) {
+        setIsAgentSelectorOpen(false)
+      }
+    }
+
+    if (isSelectorOpen || isAgentSelectorOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [isAgentSelectorOpen, isSelectorOpen])
+
+  useEffect(() => {
+    let isMounted = true
+    const loadAgents = async () => {
+      if (!isMounted) return
+      await reloadSpaceAgents()
+    }
+    loadAgents()
+    return () => {
+      isMounted = false
+    }
+  }, [displaySpace?.id, reloadSpaceAgents])
+
+  useEffect(() => {
+    if (!isDeepResearchConversation || !deepResearchAgent?.id) return
+    if (selectedAgentId !== deepResearchAgent.id) {
+      setSelectedAgentId(deepResearchAgent.id)
+    }
+    if (pendingAgentId) {
+      setPendingAgentId(null)
+    }
+  }, [isDeepResearchConversation, deepResearchAgent?.id, selectedAgentId, pendingAgentId])
+
+  useEffect(() => {
+    if (!displaySpace?.id) {
+      // When no space is selected, handle pending agent and set to default if needed
+      if (pendingAgentId) {
+        // Apply pending agent (should be the default agent when space preselection fails)
+        setSelectedAgentId(pendingAgentId)
+        setPendingAgentId(null)
+      } else if (!selectedAgentId) {
+        setSelectedAgentId(defaultAgent?.id || null)
+      }
+      return
+    }
+    if (isAgentsLoading) return
+
+    const agentIdStrings = spaceAgentIds.map(String)
+    const isDefaultSelection = defaultAgent && String(selectedAgentId) === String(defaultAgent.id)
+    const hasSelectedAgent =
+      isDefaultSelection ||
+      (selectedAgentId ? agentIdStrings.includes(String(selectedAgentId)) : false)
+
+    let nextSelectedAgentId = selectedAgentId
+    if (pendingAgentId) {
+      if (agentIdStrings.includes(String(pendingAgentId))) {
+        nextSelectedAgentId = pendingAgentId
+      } else {
+        nextSelectedAgentId = defaultAgent?.id || null
+      }
+    } else if (!hasSelectedAgent) {
+      if (selectedAgentId && !isDefaultSelection) {
+        nextSelectedAgentId = defaultAgent?.id || null
+      } else if (!activeConversation?.id) {
+        if (!isManualSpaceSelection && spacePrimaryAgentId) {
+          nextSelectedAgentId = spacePrimaryAgentId
+        } else {
+          nextSelectedAgentId = defaultAgent?.id || null
+        }
+      } else {
+        nextSelectedAgentId = defaultAgent?.id || null
+      }
+    }
+
+    if (nextSelectedAgentId !== selectedAgentId) {
+      setSelectedAgentId(nextSelectedAgentId)
+    }
+    if (pendingAgentId) {
+      setPendingAgentId(null)
+    }
+  }, [
+    displaySpace?.id,
+    isAgentsLoading,
+    spaceAgentIds,
+    spacePrimaryAgentId,
+    selectedAgentId,
+    pendingAgentId,
+    defaultAgent?.id,
+    isManualSpaceSelection,
+    activeConversation?.id,
+  ])
+
+  // handleSelectSpace and handleClearSpaceSelection are now provided by useSpaceManagement hook
+  const registerMessageRef = useCallback((id, msg, el) => {
+    if (el) {
+      messageRefs.current[id] = el
+    } else {
+      delete messageRefs.current[id]
+    }
+  }, [])
+
+  const extractUserQuestion = msg => {
+    if (!msg) return ''
+    if (typeof msg.content === 'string') return msg.content
+    if (Array.isArray(msg.content)) {
+      const textPart = msg.content.find(c => c.type === 'text')
+      return textPart?.text || ''
+    }
+    return ''
+  }
+
+  const [isTimelineSidebarOpen, setIsTimelineSidebarOpen] = useState(false)
+  const [isXLScreen, setIsXLScreen] = useState(false)
+
+  // Check screen size
+  useEffect(() => {
+    const checkScreenSize = () => {
+      setIsXLScreen(window.innerWidth >= 1280)
+    }
+
+    checkScreenSize()
+    window.addEventListener('resize', checkScreenSize)
+    return () => window.removeEventListener('resize', checkScreenSize)
+  }, [])
+
+  // Update CSS variable for sidebar width when sidebar is open
+  useSidebarOffset(isTimelineSidebarOpen)
+
+  const extractPlainText = useCallback(content => {
+    if (!content) return ''
+    if (typeof content === 'string') return content
+    if (Array.isArray(content)) {
+      return content
+        .filter(c => c.type === 'text' && typeof c.text === 'string')
+        .map(c => c.text)
+        .join('\n')
+    }
+    return ''
+  }, [])
+
+  // Scroll to bottom helper
+  const scrollToBottom = useCallback((behavior = 'smooth') => {
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTo({
+        top: messagesContainerRef.current.scrollHeight,
+        behavior,
+      })
+    }
+  }, [])
+
+  // State to track if we are editing a message
+  const [editingIndex, setEditingIndex] = useState(null)
+  const [editingTargetTimestamp, setEditingTargetTimestamp] = useState(null)
+  const [editingPartnerTimestamp, setEditingPartnerTimestamp] = useState(null)
+  const [editingTargetId, setEditingTargetId] = useState(null)
+  const [editingPartnerId, setEditingPartnerId] = useState(null)
+  const lastDraftConversationKeyRef = useRef(null)
+
+  useEffect(() => {
+    const nextKey = activeConversation?.id || conversationId || null
+    if (lastDraftConversationKeyRef.current === nextKey) return
+
+    lastDraftConversationKeyRef.current = nextKey
+    setQuotedText(null)
+    setQuoteContext(null)
+    quoteTextRef.current = ''
+    quoteSourceRef.current = ''
+    setEditingIndex(null)
+    setEditingTargetTimestamp(null)
+    setEditingPartnerTimestamp(null)
+    setEditingTargetId(null)
+    setEditingPartnerId(null)
+    setEditingSeed({ text: '', attachments: [] })
+  }, [activeConversation?.id, conversationId])
+  const hasDeepResearchHistory = useMemo(
+    () => messages.some(message => message.role === 'user'),
+    [messages],
+  )
+  const isDeepResearchFollowUpLocked = isDeepResearchConversation && hasDeepResearchHistory
+
+  const handleEdit = useCallback(
+    index => {
+      const msg = messages[index]
+      if (!msg) return
+
+      // Extract content and attachments
+      const text = extractUserQuestion(msg)
+
+      let msgAttachments = []
+      if (Array.isArray(msg.content)) {
+        msgAttachments = msg.content.filter(c => c.type === 'image_url')
+      }
+
+      setEditingSeed({ text, attachments: msgAttachments })
+      setEditingIndex(index)
+      setQuotedText(null) // Clear quote when editing
+      setQuoteContext(null)
+      setEditingTargetTimestamp(msg.created_at || null)
+      setEditingTargetId(msg.id || null)
+      const nextMsg = messages[index + 1]
+      const hasPartner = nextMsg && nextMsg.role === 'ai'
+      setEditingPartnerTimestamp(hasPartner ? nextMsg.created_at || null : null)
+      setEditingPartnerId(hasPartner ? nextMsg.id || null : null)
+    },
+    [messages],
+  )
+
+  const handleSendMessage = useCallback(
+    async (
+      msgOverride = null,
+      attOverride = null,
+      togglesOverride = null,
+      { skipMeta = false, editingInfoOverride = null } = {},
+    ) => {
+      const textToSend = msgOverride !== null ? msgOverride : ''
+      const attToSend = attOverride !== null ? attOverride : []
+      const searchActive = togglesOverride ? togglesOverride.search : isSearchActive
+      const thinkingActive = togglesOverride ? togglesOverride.thinking : isThinkingActive
+      const deepResearchActive = togglesOverride
+        ? togglesOverride.deepResearch
+        : isDeepResearchActive
+      const relatedActive = deepResearchActive
+        ? false
+        : togglesOverride
+          ? togglesOverride.related
+          : isRelatedEnabled
+      const resolvedThinkingActive = deepResearchActive ? false : thinkingActive
+
+      const isEditing = Boolean(editingInfoOverride || editingIndex !== null)
+      if (isDeepResearchFollowUpLocked && !isEditing) return
+
+      if (!textToSend.trim() && attToSend.length === 0) return
+      if (isLoading) return
+
+      const editingInfo =
+        editingInfoOverride ||
+        (editingIndex !== null
+          ? {
+              index: editingIndex,
+              targetId: editingTargetId,
+              partnerId: editingPartnerId,
+            }
+          : null)
+
+      // Reset editing state
+      setEditingIndex(null)
+      setEditingTargetTimestamp(null)
+      setEditingPartnerTimestamp(null)
+      setEditingTargetId(null)
+      setEditingPartnerId(null)
+      setEditingSeed({ text: '', attachments: [] })
+
+      const quoteContextForSend = quoteContext
+        ? {
+            text: quoteTextRef.current || quoteContext.text,
+            sourceContent: quoteSourceRef.current || quoteContext.sourceContent,
+            sourceRole: quoteContext.sourceRole,
+          }
+        : null
+
+      // Clear quote state immediately so UI banner disappears right after sending
+      setQuotedText(null)
+      setQuoteContext(null)
+      quoteTextRef.current = ''
+      quoteSourceRef.current = ''
+
+      const resolvedDeepResearchAgent =
+        deepResearchActive && deepResearchAgent ? deepResearchAgent : null
+      const agentForSend =
+        resolvedDeepResearchAgent ||
+        selectedAgent ||
+        (!isAgentAutoMode && initialAgentSelection) ||
+        defaultAgent ||
+        null
+      const agentAutoModeForSend = deepResearchActive ? false : isAgentAutoMode
+
+      await sendMessage({
+        text: textToSend,
+        attachments: attToSend,
+        toggles: {
+          search: searchActive,
+          thinking: resolvedThinkingActive,
+          deepResearch: deepResearchActive,
+          related: relatedActive,
+        },
+        settings,
+        spaceInfo: { selectedSpace, isManualSpaceSelection },
+        selectedAgent: agentForSend,
+        isAgentAutoMode: agentAutoModeForSend,
+        agents: appAgents,
+        editingInfo,
+        callbacks: {
+          onTitleAndSpaceGenerated,
+          onSpaceResolved: space => {
+            setSelectedSpace(space)
+            setIsManualSpaceSelection(false)
+          },
+          onAgentResolved: agent => {
+            // Only update selected agent if in auto mode
+            // In manual mode, respect user's explicit choice
+            if (isAgentAutoMode) {
+              const nextAgentId = agent?.id || null
+              setPendingAgentId(nextAgentId)
+              setSelectedAgentId(nextAgentId)
+            }
+          },
+        },
+        spaces,
+        quoteContext: quoteContextForSend,
+      })
+    },
+    [
+      isSearchActive,
+      isThinkingActive,
+      isDeepResearchActive,
+      isDeepResearchFollowUpLocked,
+      isRelatedEnabled,
+      isLoading,
+      editingIndex,
+      editingTargetId,
+      editingPartnerId,
+      sendMessage,
+      settings,
+      selectedSpace,
+      effectiveAgent,
+      isAgentAutoMode,
+      deepResearchAgent,
+      defaultAgent,
+      isManualSpaceSelection,
+      onTitleAndSpaceGenerated,
+      spaces,
+      quoteContext,
+      appAgents,
+      spaceAgentIds,
+      spaceAgents,
+    ],
+  )
+
+  const handleRelatedClick = useCallback(
+    q => {
+      if (isDeepResearchFollowUpLocked) return
+      handleSendMessage(q, [], null, { skipMeta: true })
+    },
+    [handleSendMessage, isDeepResearchFollowUpLocked],
+  )
+
+  const handleQuote = useCallback(payload => {
+    const text = typeof payload === 'string' ? payload : payload?.text || ''
+    const message = typeof payload === 'object' ? payload?.message : null
+
+    let sourceContent = ''
+    let sourceRole = 'assistant'
+
+    if (message) {
+      sourceRole = message.role === 'ai' ? 'assistant' : message.role
+      if (typeof message.content === 'string') {
+        sourceContent = message.content
+      } else if (Array.isArray(message.content)) {
+        sourceContent = message.content
+          .filter(part => part.type === 'text' && typeof part.text === 'string')
+          .map(part => part.text)
+          .join('\n')
+      }
+    }
+
+    quoteTextRef.current = text
+    quoteSourceRef.current = sourceContent || text
+
+    const previewText = text.length > 200 ? `${text.slice(0, 200)}…` : text
+
+    setQuotedText(previewText || null)
+    setQuoteContext(
+      text
+        ? {
+            text,
+            sourceRole,
+          }
+        : null,
+    )
+    setEditingIndex(null) // Clear editing when quoting
+    window.requestAnimationFrame(() => document.getElementById('chat-input-textarea')?.focus())
+  }, [])
+
+  const handleRegenerateQuestion = useCallback(() => {
+    if (isLoading) return
+
+    const lastUserIndex = [...messages]
+      .map((m, idx) => (m.role === 'user' ? idx : -1))
+      .filter(idx => idx !== -1)
+      .pop()
+
+    if (lastUserIndex === undefined || lastUserIndex === -1) return
+
+    const userMsg = messages[lastUserIndex]
+    const nextMsg = messages[lastUserIndex + 1]
+    const hasPartner = nextMsg && nextMsg.role === 'ai'
+
+    const msgAttachments = Array.isArray(userMsg.content)
+      ? userMsg.content.filter(c => c.type === 'image_url')
+      : []
+
+    const text = extractUserQuestion(userMsg)
+    if (!text.trim() && msgAttachments.length === 0) return
+
+    const editingInfoOverride = {
+      index: lastUserIndex,
+      targetId: userMsg.id || null,
+      partnerId: hasPartner ? nextMsg.id || null : null,
+    }
+
+    handleSendMessage(text, msgAttachments, null, { editingInfoOverride })
+  }, [extractUserQuestion, handleSendMessage, isLoading, messages])
+
+  const handleResendMessage = useCallback(
+    userIndex => {
+      if (isLoading) return
+
+      const userMsg = messages[userIndex]
+      if (!userMsg || userMsg.role !== 'user') return
+
+      const nextMsg = messages[userIndex + 1]
+      const hasPartner = nextMsg && nextMsg.role === 'ai'
+
+      const msgAttachments = Array.isArray(userMsg.content)
+        ? userMsg.content.filter(c => c.type === 'image_url')
+        : []
+
+      const text = extractUserQuestion(userMsg)
+      if (!text.trim() && msgAttachments.length === 0) return
+
+      const editingInfoOverride = {
+        index: userIndex,
+        targetId: userMsg.id || null,
+        partnerId: hasPartner ? nextMsg.id || null : null,
+      }
+
+      handleSendMessage(text, msgAttachments, null, { editingInfoOverride })
+    },
+    [extractUserQuestion, handleSendMessage, isLoading, messages],
+  )
+
+  const handleRegenerateAnswer = useCallback(
+    aiIndex => {
+      if (isLoading) return
+      const aiMsg = messages[aiIndex]
+      if (!aiMsg || aiMsg.role !== 'ai') return
+
+      // Find the associated user message (prefer immediate previous)
+      let userIndex = aiIndex - 1
+      while (userIndex >= 0 && messages[userIndex].role !== 'user') {
+        userIndex -= 1
+      }
+      if (userIndex < 0) return
+
+      const userMsg = messages[userIndex]
+      const msgAttachments = Array.isArray(userMsg.content)
+        ? userMsg.content.filter(c => c.type === 'image_url')
+        : []
+      const text = extractUserQuestion(userMsg)
+      if (!text.trim() && msgAttachments.length === 0) return
+
+      const editingInfoOverride = {
+        index: userIndex,
+        targetId: userMsg.id || null,
+        partnerId: aiMsg.id || null,
+      }
+
+      handleSendMessage(text, msgAttachments, null, { editingInfoOverride })
+    },
+
+    [
+      extractUserQuestion,
+      handleSendMessage,
+      isLoading,
+      messages,
+      setEditingIndex,
+      setEditingPartnerId,
+      setEditingPartnerTimestamp,
+      setEditingTargetId,
+      setEditingTargetTimestamp,
+    ],
+  )
+
+  const handleDeleteMessage = useCallback(
+    async index => {
+      if (isLoading) return
+      const target = messages[index]
+      if (!target) return
+
+      if (target.id) {
+        try {
+          await deleteMessageById(target.id)
+        } catch (err) {
+          console.error('Failed to delete message:', err)
+        }
+      }
+
+      setMessages(prev => prev.filter((_, idx) => idx !== index))
+
+      if (editingIndex !== null) {
+        if (editingIndex === index) {
+          setEditingIndex(null)
+          setEditingSeed({ text: '', attachments: [] })
+          setEditingTargetId(null)
+          setEditingTargetTimestamp(null)
+          setEditingPartnerId(null)
+          setEditingPartnerTimestamp(null)
+        } else if (editingIndex > index) {
+          setEditingIndex(editingIndex - 1)
+        }
+      }
+
+      if (editingTargetId && target.id === editingTargetId) {
+        setEditingTargetId(null)
+        setEditingTargetTimestamp(null)
+      }
+
+      if (editingPartnerId && target.id === editingPartnerId) {
+        setEditingPartnerId(null)
+        setEditingPartnerTimestamp(null)
+      }
+    },
+    [
+      editingIndex,
+      editingPartnerId,
+      editingTargetId,
+      isLoading,
+      messages,
+      setMessages,
+      setEditingIndex,
+      setEditingPartnerId,
+      setEditingPartnerTimestamp,
+      setEditingTargetId,
+      setEditingTargetTimestamp,
+    ],
+  )
+
+  // Handle scroll to show/hide button
+  useEffect(() => {
+    const container = messagesContainerRef.current
+    const bottomMarker = bottomRef.current
+    if (!container || !bottomMarker) return
+
+    const updateFromScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = container
+      const isNearBottom = scrollHeight - scrollTop - clientHeight < 100
+      setShowScrollButton(!isNearBottom)
+    }
+
+    if (!('IntersectionObserver' in window)) {
+      updateFromScroll()
+      container.addEventListener('scroll', updateFromScroll)
+      window.addEventListener('resize', updateFromScroll)
+      return () => {
+        container.removeEventListener('scroll', updateFromScroll)
+        window.removeEventListener('resize', updateFromScroll)
+      }
+    }
+
+    const observer = new IntersectionObserver(
+      entries => {
+        const isVisible = entries.some(entry => entry.isIntersecting)
+        setShowScrollButton(!isVisible)
+      },
+      {
+        root: container,
+        rootMargin: '0px 0px 80px 0px',
+        threshold: 0.01,
+      },
+    )
+
+    observer.observe(bottomMarker)
+    return () => observer.disconnect()
+  }, [])
+
+  const handleRegenerateTitle = useCallback(async () => {
+    if (isRegeneratingTitle) return
+
+    const lastMessages = messages.slice(-3)
+    const contextText = lastMessages
+      .map(m => {
+        const text = extractPlainText(m.content).trim()
+        if (!text) return ''
+        const prefix = m.role === 'user' ? 'User' : 'Assistant'
+        return `${prefix}: ${text}`
+      })
+      .filter(Boolean)
+      .join('\n')
+
+    if (!contextText) return
+
+    setIsRegeneratingTitle(true)
+    try {
+      const modelConfig = getModelConfig('generateTitle')
+      const provider = getProvider(modelConfig.provider)
+      const credentials = provider.getCredentials(settings)
+      const agentForTitle = selectedAgent || defaultAgent || null
+      const languageInstruction = getLanguageInstruction(agentForTitle)
+      const promptText = applyLanguageInstructionToText(contextText, languageInstruction)
+      const titleResult = await provider.generateTitle(
+        promptText,
+        credentials.apiKey,
+        credentials.baseUrl,
+        modelConfig.model,
+      )
+      const newTitle = titleResult?.title || ''
+      if (!newTitle) return
+      setConversationTitle(newTitle)
+      setConversationTitleEmojis(
+        Array.isArray(titleResult?.emojis) ? titleResult.emojis : [],
+      )
+      const convId = conversationId || activeConversation?.id
+      if (convId) {
+        await updateConversation(convId, {
+          title: newTitle,
+          title_emojis: Array.isArray(titleResult?.emojis) ? titleResult.emojis : [],
+        })
+        window.dispatchEvent(new Event('conversations-changed'))
+      }
+    } catch (err) {
+      console.error('Failed to regenerate title:', err)
+    } finally {
+      setIsRegeneratingTitle(false)
+    }
+  }, [
+    activeConversation?.id,
+    conversationId,
+    extractPlainText,
+    getModelConfig,
+    isRegeneratingTitle,
+    messages,
+    settings,
+    setConversationTitle,
+  ])
+
+  // Create a ref for the messages scroll container
+  const messagesContainerRef = useRef(null)
+
+  return (
+    <div
+      className={clsx(
+        'flex-1 h-full bg-background text-foreground transition-all duration-300 flex flex-col sm:px-4',
+        isSidebarPinned ? 'md:ml-72' : 'md:ml-16',
+        // Fixed left shift for large screens
+        // 'xl:-translate-x-30',
+        // Dynamic movement follows sidebar state for small screens
+        !isXLScreen && 'sidebar-shift',
+      )}
+    >
+      <div className="w-full relative flex flex-col flex-1 min-h-0">
+        {/* Title Bar */}
+        <ChatHeader
+          toggleSidebar={toggleSidebar}
+          isMetaLoading={isMetaLoading}
+          isTitleLoading={isTitleLoading}
+          displaySpace={displaySpace}
+          availableSpaces={availableSpaces}
+          selectedSpace={selectedSpace}
+          isSelectorOpen={isSelectorOpen}
+          setIsSelectorOpen={setIsSelectorOpen}
+          selectorRef={selectorRef}
+          isDeepResearchConversation={isDeepResearchConversation}
+          onSelectSpace={handleSelectSpace}
+          onClearSpaceSelection={handleClearSpaceSelection}
+          conversationTitle={conversationTitle}
+          conversationTitleEmojis={conversationTitleEmojis}
+          isRegeneratingTitle={isRegeneratingTitle}
+          onRegenerateTitle={handleRegenerateTitle}
+          messages={messages}
+          isTimelineSidebarOpen={isTimelineSidebarOpen}
+          onToggleTimeline={() => setIsTimelineSidebarOpen(true)}
+        />
+
+        {/* Messages Scroll Container */}
+        <div
+          ref={messagesContainerRef}
+          className="flex-1 overflow-y-auto sm:p-2 relative no-scrollbar"
+        >
+          <div className="w-full px-0 sm:px-5 max-w-3xl mx-auto">
+            {showHistoryLoader && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+                <FancyLoader />
+              </div>
+            )}
+            <MessageList
+              apiProvider={effectiveProvider}
+              defaultModel={effectiveDefaultModel}
+              onRelatedClick={handleRelatedClick}
+              onMessageRef={registerMessageRef}
+              onEdit={handleEdit}
+            />
+            {/* Bottom Anchor */}
+            <div ref={bottomRef} className="h-1" />
+          </div>
+        </div>
+
+        {/* Scroll to bottom button */}
+        {showScrollButton && (
+          <button
+            onClick={() => scrollToBottom('smooth')}
+            className="absolute bottom-8 left-1/2 -translate-x-1/2 p-2 bg-background border border-[#0d0d0d1a] dark:border-[#ffffff26] rounded-full shadow-lg hover:bg-muted transition-all duration-300 animate-in fade-in slide-in-from-bottom-2 z-30"
+          >
+            <ArrowDown size={20} className="text-foreground" />
+          </button>
+        )}
+
+        {/* Bottom Spacer to ensure messages aren't hidden by Input Area */}
+
+        {/* Timeline Sidebar - Keep original QuestionNavigator for fallback on smaller screens */}
+        {/* <div className="xl:absolute xl:left-full xl:top-0 xl:ml-8 xl:w-64 xl:h-full mt-8 xl:mt-0 w-full px-4 xl:px-0"> */}
+        {/* Original QuestionNavigator - visible only on desktop when sidebar is closed */}
+        {/* <div className="hidden xl:block h-full">
+            <div className="sticky top-24 max-h-[calc(100vh-10rem)] overflow-y-auto no-scrollbar">
+              <QuestionNavigator
+                items={questionNavItems}
+                onJump={jumpToMessage}
+                activeId={activeQuestionId}
+              />
+            </div>
+          </div> */}
+        {/* </div> */}
+
+        {/* New Timeline Sidebar */}
+        {isDeepResearchConversation ? (
+          <ResearchTimelineController
+            messages={messages}
+            messagesContainerRef={messagesContainerRef}
+            isOpen={isTimelineSidebarOpen}
+            onToggle={setIsTimelineSidebarOpen}
+          />
+        ) : (
+          <QuestionTimelineController
+            messages={messages}
+            messageRefs={messageRefs}
+            messagesContainerRef={messagesContainerRef}
+            isOpen={isTimelineSidebarOpen}
+            onToggle={setIsTimelineSidebarOpen}
+          />
+        )}
+
+        {/* Deep research conversations are single-turn; no input area. */}
+      </div>
+    </div>
+  )
+}
+
+export default DeepResearchChatInterface

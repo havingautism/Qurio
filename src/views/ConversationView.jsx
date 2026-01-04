@@ -4,13 +4,15 @@ import { useLocation } from '@tanstack/react-router'
 import { getConversation } from '../lib/conversationsService'
 import { useAppContext } from '../App'
 import ChatInterface from '../components/ChatInterface'
+import DeepResearchChatInterface from '../components/DeepResearchChatInterface'
+import FancyLoader from '../components/FancyLoader'
 import { useShallow } from 'zustand/react/shallow'
 import useChatStore from '../lib/chatStore'
 
 const ConversationView = () => {
   const { conversationId } = conversationRoute.useParams()
   const location = useLocation()
-  const { spaces, toggleSidebar, isSidebarPinned } = useAppContext()
+  const { spaces, deepResearchSpace, isSidebarPinned, spacesLoading } = useAppContext()
   const { optimisticSelection, clearOptimisticSelection } = useChatStore(
     useShallow(state => ({
       optimisticSelection: state.optimisticSelection,
@@ -72,6 +74,25 @@ const ConversationView = () => {
     }
   }, [conversationId])
 
+  useEffect(() => {
+    const handleConversationChanged = async () => {
+      if (!conversationId) return
+      try {
+        const { data } = await getConversation(conversationId)
+        if (data) {
+          setConversation(data)
+        }
+      } catch (error) {
+        console.error('Failed to refetch conversation:', error)
+      }
+    }
+
+    window.addEventListener('conversations-changed', handleConversationChanged)
+    return () => {
+      window.removeEventListener('conversations-changed', handleConversationChanged)
+    }
+  }, [conversationId])
+
   const optimisticMatch =
     optimisticSelection?.conversationId === conversationId ? optimisticSelection : null
 
@@ -119,9 +140,40 @@ const ConversationView = () => {
   const initialAttachments = initialChatState?.initialAttachments || []
   const initialToggles = initialChatState?.initialToggles || {}
 
-  // Directly render ChatInterface with the conversation data
+  const isDeepResearchConversation = useMemo(() => {
+    if (initialChatState?.initialToggles?.deepResearch) return true
+    const deepResearchId = deepResearchSpace?.id ? String(deepResearchSpace.id) : null
+    if (!deepResearchId) return false
+    if (conversation?.space_id && String(conversation.space_id) === deepResearchId) return true
+    if (initialSpaceSelection?.space?.id) {
+      return String(initialSpaceSelection.space.id) === deepResearchId
+    }
+    return false
+  }, [
+    conversation?.space_id,
+    deepResearchSpace?.id,
+    initialChatState?.initialToggles?.deepResearch,
+    initialSpaceSelection?.space?.id,
+  ])
+
+  const shouldDelayRender =
+    !initialChatState &&
+    conversationId &&
+    (spacesLoading || !conversation || conversation?._isPlaceholder)
+
+  if (shouldDelayRender) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <FancyLoader />
+      </div>
+    )
+  }
+
+  const ChatComponent = isDeepResearchConversation ? DeepResearchChatInterface : ChatInterface
+
+  // Render the appropriate chat interface with the conversation data
   return (
-    <ChatInterface
+    <ChatComponent
       spaces={spaces}
       activeConversation={conversation}
       conversationId={conversationId}

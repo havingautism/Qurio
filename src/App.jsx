@@ -89,8 +89,8 @@ function App() {
 
   // Extract conversation ID from URL
   const activeConversationId = React.useMemo(() => {
-    const match = location.pathname.match(/\/conversation\/(.+)/)
-    return match ? match[1] : null
+    const match = location.pathname.match(/\/(conversation|deepresearch)\/(.+)/)
+    return match ? match[2] : null
   }, [location])
   const isShareRoute = location.pathname.includes('/share')
 
@@ -101,7 +101,9 @@ function App() {
   useEffect(() => {
     // Don't reset scroll for conversation routes to maintain scroll position
     const isConversationRoute =
-      location.pathname.includes('/conversation/') || location.pathname.includes('/new_chat')
+      location.pathname.includes('/conversation/') ||
+      location.pathname.includes('/deepresearch/') ||
+      location.pathname.includes('/new_chat')
 
     if (!isConversationRoute) {
       window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
@@ -227,6 +229,9 @@ function App() {
       case 'bookmarks':
         navigate({ to: '/bookmarks' })
         break
+      case 'deepResearch':
+        navigate({ to: '/deepresearch' })
+        break
       case 'chat':
         navigate({ to: '/new_chat' })
         break
@@ -314,8 +319,13 @@ function App() {
   const handleOpenConversation = conversation => {
     setIsSidebarOpen(false)
     if (conversation?.id) {
+      const deepResearchId = spaces.find(space => space.isDeepResearchSystem)?.id || null
+      const isDeepResearchConversation =
+        deepResearchId && String(conversation.space_id) === String(deepResearchId)
       navigate({
-        to: '/conversation/$conversationId',
+        to: isDeepResearchConversation
+          ? '/deepresearch/$conversationId'
+          : '/conversation/$conversationId',
         params: { conversationId: String(conversation.id) },
       })
     } else {
@@ -391,6 +401,8 @@ function App() {
               emoji: '',
               isDefault: true,
               provider: 'gemini',
+              defaultModelProvider: 'gemini',
+              liteModelProvider: 'gemini',
               liteModel: '',
               defaultModel: '',
               responseLanguage: settings.llmAnswerLanguage || '',
@@ -486,6 +498,8 @@ function App() {
             isDefault: false,
             isDeepResearch: true,
             provider: defaultAgent?.provider || 'gemini',
+            defaultModelProvider: defaultAgent?.defaultModelProvider || defaultAgent?.provider || 'gemini',
+            liteModelProvider: defaultAgent?.liteModelProvider || defaultAgent?.provider || 'gemini',
             liteModel: defaultAgent?.liteModel || '',
             defaultModel: defaultAgent?.defaultModel || '',
             responseLanguage: settings.llmAnswerLanguage || '',
@@ -794,6 +808,7 @@ function App() {
               >
                 {/* Mobile Header - Hide on Chat/Conversation routes as they have their own header */}
                 {!location.pathname.includes('/conversation/') &&
+                  !location.pathname.includes('/deepresearch/') &&
                   !location.pathname.includes('/new_chat') && (
                     <div className="md:hidden h-14 shrink-0 border-b border-gray-200 dark:border-zinc-800 flex items-center justify-between px-4 bg-background z-30">
                       <div className="flex items-center gap-3">

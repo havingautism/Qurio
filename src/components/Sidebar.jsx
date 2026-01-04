@@ -7,6 +7,7 @@ import {
   Laptop,
   LayoutGrid,
   Library,
+  Microscope,
   Moon,
   Pin,
   Plus,
@@ -65,13 +66,14 @@ const Sidebar = ({
     // Default to false on mobile if using simple logic, but here relying on isOpen for mobile
     return saved === 'true'
   })
-  const [activeTab, setActiveTab] = useState('library') // 'library', 'discover', 'spaces'
+  const [activeTab, setActiveTab] = useState('library') // 'library', 'deepResearch', 'discover', 'spaces'
   const [hoveredTab, setHoveredTab] = useState(null)
   const [conversations, setConversations] = useState([])
   const [nextCursor, setNextCursor] = useState(null)
   const [hasMore, setHasMore] = useState(true)
   const [isConversationsLoading, setIsConversationsLoading] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
+  // const [emojiTick, setEmojiTick] = useState(0)
 
   // Dedicated Bookmarks State
   const [bookmarkedConversations, setBookmarkedConversations] = useState([])
@@ -81,6 +83,13 @@ const Sidebar = ({
   const [bookmarksLoadingMore, setBookmarksLoadingMore] = useState(false)
   const [expandedActionId, setExpandedActionId] = useState(null)
 
+  // Deep Research conversations
+  const [deepResearchConversations, setDeepResearchConversations] = useState([])
+  const [deepResearchNextCursor, setDeepResearchNextCursor] = useState(null)
+  const [deepResearchHasMore, setDeepResearchHasMore] = useState(true)
+  const [isDeepResearchLoading, setIsDeepResearchLoading] = useState(false)
+  const [deepResearchLoadingMore, setDeepResearchLoadingMore] = useState(false)
+
   // Spaces interaction state
   const [expandedSpaces, setExpandedSpaces] = useState(new Set())
   const [spaceConversations, setSpaceConversations] = useState({}) // { [spaceId]: { items: [], nextCursor: null, hasMore: true, loading: false } }
@@ -88,7 +97,7 @@ const Sidebar = ({
   const [spacesLoadingMore, setSpacesLoadingMore] = useState(false)
 
   const toast = useToast()
-  const { showConfirmation } = useAppContext()
+  const { showConfirmation, deepResearchSpace } = useAppContext()
 
   const spaceById = useMemo(() => {
     const map = new Map()
@@ -100,10 +109,59 @@ const Sidebar = ({
     return map
   }, [spaces])
 
+  const deepResearchSpaceIds = useMemo(() => {
+    const ids = new Set()
+    if (deepResearchSpace?.id) ids.add(String(deepResearchSpace.id))
+    ;(spaces || []).forEach(space => {
+      if (space?.isDeepResearchSystem || space?.isDeepResearch || space?.is_deep_research) {
+        ids.add(String(space.id))
+      }
+    })
+    return Array.from(ids)
+  }, [deepResearchSpace?.id, spaces])
+  const deepResearchSpaceId = deepResearchSpaceIds[0] || null
+
   const getConversationSpace = conv => {
     const spaceId = conv?.space_id
     if (!spaceId) return null
     return spaceById.get(String(spaceId)) || null
+  }
+
+  const normalizeTitleEmojis = value => {
+    if (Array.isArray(value)) {
+      return value
+        .map(item => String(item || '').trim())
+        .filter(Boolean)
+        .slice(0, 1)
+    }
+    if (typeof value === 'string' && value.trim()) {
+      try {
+        const parsed = JSON.parse(value)
+        if (Array.isArray(parsed)) {
+          return parsed
+            .map(item => String(item || '').trim())
+            .filter(Boolean)
+            .slice(0, 1)
+        }
+      } catch {
+        return []
+      }
+    }
+    return []
+  }
+
+  const resolveConversationEmoji = (conv, fallbackEmoji) => {
+    const emojiList = normalizeTitleEmojis(conv?.title_emojis ?? conv?.titleEmojis)
+    const resolvedList = emojiList.length > 0 ? emojiList : fallbackEmoji ? [fallbackEmoji] : []
+    if (resolvedList.length === 0) return '💬'
+    return resolvedList[0]
+    // const idText = String(conv?.id || '')
+    // let hash = 0
+    // for (let i = 0; i < idText.length; i += 1) {
+    //   hash = (hash + idText.charCodeAt(i)) % resolvedList.length
+    // }
+    // const index = (hash + emojiTick) % resolvedList.length
+    // return resolvedList[index]
   }
 
   const formatDateTime = value => {
@@ -133,6 +191,13 @@ const Sidebar = ({
     }
   }, [isPinned, onPinChange])
 
+  // useEffect(() => {
+  //   const intervalId = setInterval(() => {
+  //     setEmojiTick(prev => prev + 1)
+  //   }, 2000)
+  //   return () => clearInterval(intervalId)
+  // }, [])
+
   const fetchConversations = async (isInitial = true) => {
     try {
       if (isInitial) {
@@ -149,6 +214,7 @@ const Sidebar = ({
       } = await listConversations({
         limit: SIDEBAR_FETCH_LIMIT,
         cursor: isInitial ? null : nextCursor,
+        excludeSpaceIds: deepResearchSpaceIds,
       })
 
       if (!error && data) {
@@ -207,19 +273,67 @@ const Sidebar = ({
     }
   }
 
+  const fetchDeepResearchConversations = async (isInitial = true) => {
+    if (!deepResearchSpaceId) {
+      setDeepResearchConversations([])
+      setDeepResearchNextCursor(null)
+      setDeepResearchHasMore(false)
+      setIsDeepResearchLoading(false)
+      setDeepResearchLoadingMore(false)
+      return
+    }
+
+    try {
+      if (isInitial) {
+        setIsDeepResearchLoading(true)
+      } else {
+        setDeepResearchLoadingMore(true)
+      }
+
+      const {
+        data,
+        error,
+        nextCursor: newCursor,
+        hasMore: moreAvailable,
+      } = await listConversationsBySpace(deepResearchSpaceId, {
+        limit: SIDEBAR_FETCH_LIMIT,
+        cursor: isInitial ? null : deepResearchNextCursor,
+      })
+
+      if (!error && data) {
+        if (isInitial) {
+          setDeepResearchConversations(data)
+        } else {
+          setDeepResearchConversations(prev => [...prev, ...data])
+        }
+        setDeepResearchNextCursor(newCursor)
+        setDeepResearchHasMore(moreAvailable)
+      } else {
+        console.error('Failed to load deep research conversations:', error)
+      }
+    } catch (err) {
+      console.error('Error loading deep research conversations:', err)
+    } finally {
+      setIsDeepResearchLoading(false)
+      setDeepResearchLoadingMore(false)
+    }
+  }
+
   useEffect(() => {
     fetchConversations(true)
     fetchBookmarkedConversations(true)
+    fetchDeepResearchConversations(true)
 
     const handleConversationsChanged = () => {
       fetchConversations(true)
       fetchBookmarkedConversations(true)
+      fetchDeepResearchConversations(true)
     }
     window.addEventListener('conversations-changed', handleConversationsChanged)
     return () => {
       window.removeEventListener('conversations-changed', handleConversationsChanged)
     }
-  }, [])
+  }, [deepResearchSpaceId])
 
   // Close dropdown when sidebar collapses (mouse leaves)
   useEffect(() => {
@@ -238,6 +352,7 @@ const Sidebar = ({
   // Nav items - use constant keys for logic, translate labels for display
   const NAV_ITEM_KEYS = [
     { id: 'library', icon: Library },
+    { id: 'deepResearch', icon: Microscope },
 
     { id: 'spaces', icon: LayoutGrid },
     { id: 'agents', icon: Smile },
@@ -278,7 +393,7 @@ const Sidebar = ({
     }
 
     items.forEach(conv => {
-      const convDate = startOfDay(conv.created_at)
+      const convDate = startOfDay(conv.updated_at || conv.created_at)
       const diffDays = Math.floor((todayStart - convDate) / (1000 * 60 * 60 * 24))
 
       if (diffDays === 0) {
@@ -310,8 +425,12 @@ const Sidebar = ({
         const { success, error } = await deleteConversation(conversation.id)
 
         if (success) {
+          closeActions()
           // Refresh list
           fetchConversations(true)
+          if (deepResearchSpaceId) {
+            fetchDeepResearchConversations(true)
+          }
           if (conversation.is_favorited) {
             fetchBookmarkedConversations(true)
           }
@@ -334,13 +453,16 @@ const Sidebar = ({
     setConversations(prev =>
       prev.map(c => (c.id === conversation.id ? { ...c, is_favorited: newStatus } : c)),
     )
+    setDeepResearchConversations(prev =>
+      prev.map(c => (c.id === conversation.id ? { ...c, is_favorited: newStatus } : c)),
+    )
 
     // Optimistically update bookmarks list
     // If we are adding to favorites
     if (newStatus) {
       // We can't easily add it to the correct sorted position without a refetch or guessing.
       // But simply prepending or checking sort might be enough for a quick UI response.
-      // For simplicity and correctness with pagination, we might just want to refetch or prepend if it's 'created_at' desc.
+      // For simplicity and correctness with pagination, we might just want to refetch or prepend if it's 'updated_at' desc.
       // Let's try to just prepend it to bookmarks list if it doesn't exist.
       setBookmarkedConversations(prev => {
         if (prev.find(c => c.id === conversation.id)) return prev
@@ -352,12 +474,14 @@ const Sidebar = ({
     }
 
     const { error } = await toggleFavorite(conversation.id, newStatus)
-
     if (error) {
       console.error('Failed to toggle favorite:', error)
       toast.error(t('sidebar.failedToUpdateFavorite'))
       // Revert optimistic update
       setConversations(prev =>
+        prev.map(c => (c.id === conversation.id ? { ...c, is_favorited: !newStatus } : c)),
+      )
+      setDeepResearchConversations(prev =>
         prev.map(c => (c.id === conversation.id ? { ...c, is_favorited: !newStatus } : c)),
       )
       // Revert bookmarks list changes
@@ -462,16 +586,32 @@ const Sidebar = ({
     }))
   }, [conversations])
 
+  const groupedDeepResearchConversations = useMemo(() => {
+    const groups = groupConversationsByDate(deepResearchConversations)
+    return groups.map(section => ({
+      ...section,
+      items: section.items.slice(0, MAX_CONVERSATIONS_PER_SECTION),
+      hasMore: section.items.length > MAX_CONVERSATIONS_PER_SECTION,
+      totalCount: section.items.length,
+    }))
+  }, [deepResearchConversations])
+
   // Spaces list pagination inside sidebar
   const visibleSpaces = useMemo(() => {
     if (displayTab !== 'spaces') return []
-    return spaces.slice(0, spacesLimit)
-  }, [spaces, spacesLimit, displayTab])
+    const hiddenSpaceIds = new Set(deepResearchSpaceIds)
+    const filteredSpaces = (spaces || []).filter(space => !hiddenSpaceIds.has(String(space.id)))
+    return filteredSpaces.slice(0, spacesLimit)
+  }, [spaces, spacesLimit, displayTab, deepResearchSpaceIds])
 
-  const spacesHasMore = useMemo(
-    () => displayTab === 'spaces' && spaces.length > spacesLimit,
-    [spaces.length, spacesLimit, displayTab],
-  )
+  const spacesHasMore = useMemo(() => {
+    if (displayTab !== 'spaces') return false
+    const hiddenSpaceIds = new Set(deepResearchSpaceIds)
+    const filteredCount = (spaces || []).filter(
+      space => !hiddenSpaceIds.has(String(space.id)),
+    ).length
+    return filteredCount > spacesLimit
+  }, [spaces, spacesLimit, displayTab, deepResearchSpaceIds])
 
   return (
     <>
@@ -530,6 +670,7 @@ const Sidebar = ({
                   // On mobile (isOpen), only switch tab, don't navigate full page
                   if (!isOpen) {
                     if (item.id === 'library') onNavigate('library')
+                    else if (item.id === 'deepResearch') onNavigate('deepResearch')
                     else if (item.id === 'spaces') onNavigate('spaces')
                     else if (item.id === 'bookmarks') onNavigate('bookmarks')
                     else if (item.id === 'agents') onNavigate('agents')
@@ -603,13 +744,15 @@ const Sidebar = ({
                 <h2 className="font-semibold text-lg text-foreground">
                   {displayTab === 'library'
                     ? t('sidebar.library')
-                    : displayTab === 'bookmarks'
-                      ? t('sidebar.bookmarks')
-                      : displayTab === 'spaces'
-                        ? t('sidebar.spaces')
-                        : displayTab === 'agents'
-                          ? t('sidebar.agents')
-                          : ''}
+                    : displayTab === 'deepResearch'
+                      ? t('sidebar.deepResearch')
+                      : displayTab === 'bookmarks'
+                        ? t('sidebar.bookmarks')
+                        : displayTab === 'spaces'
+                          ? t('sidebar.spaces')
+                          : displayTab === 'agents'
+                            ? t('sidebar.agents')
+                            : ''}
                 </h2>
                 {/* View Full Page Button (Mobile Only, or always if useful)
                     The user requested this specifically for the extension area.
@@ -638,7 +781,9 @@ const Sidebar = ({
             </div>
             <div className="h-px bg-gray-200 dark:bg-zinc-800 mb-2 shrink-0" />
             {/* CONVERSATION LIST (Library & Bookmarks) */}
-            {(displayTab === 'library' || displayTab === 'bookmarks') && (
+            {(displayTab === 'library' ||
+              displayTab === 'bookmarks' ||
+              displayTab === 'deepResearch') && (
               <div className="flex flex-col gap-2 overflow-y-auto overscroll-contain flex-1 min-h-0 px-2">
                 {!isConversationsLoading &&
                   displayTab === 'library' &&
@@ -691,13 +836,11 @@ const Sidebar = ({
                             >
                               <div className="flex items-center justify-between w-full overflow-hidden">
                                 <div className="flex items-center gap-2 overflow-hidden flex-1 min-w-0">
-                                  {space?.emoji && (
-                                    <EmojiDisplay
-                                      emoji={space.emoji}
-                                      size="1.4em"
-                                      className="shrink-0"
-                                    />
-                                  )}
+                                  <EmojiDisplay
+                                    emoji={resolveConversationEmoji(conv, space?.emoji)}
+                                    size="1.4em"
+                                    className="shrink-0"
+                                  />
                                   <div className="flex flex-col overflow-hidden flex-1 min-w-0">
                                     <div className="flex items-center gap-1 min-w-0">
                                       <span className="truncate font-medium flex-1 min-w-0">
@@ -718,7 +861,7 @@ const Sidebar = ({
                                           : 'text-gray-400',
                                       )}
                                     >
-                                      {formatDateTime(conv.created_at)}
+                                      {formatDateTime(conv.updated_at || conv.created_at)}
                                     </span>
                                   </div>
                                 </div>
@@ -756,6 +899,7 @@ const Sidebar = ({
                                   onClick={e => {
                                     e.stopPropagation()
                                     handleToggleFavorite(conv)
+                                    closeActions()
                                   }}
                                   className={clsx(
                                     'py-1.5 rounded-md transition-colors flex items-center justify-center gap-1.5 font-medium border border-transparent',
@@ -819,6 +963,175 @@ const Sidebar = ({
                   </div>
                 )}
 
+                {displayTab === 'deepResearch' && (
+                  <>
+                    {!isDeepResearchLoading && deepResearchConversations.length === 0 && (
+                      <div className="flex flex-col items-center gap-2 text-xs text-gray-500 dark:text-gray-400 px-2 py-3">
+                        <Coffee size={24} className="text-black dark:text-white" />
+                        <div>{t('sidebar.noDeepResearchConversations')}</div>
+                      </div>
+                    )}
+
+                    {groupedDeepResearchConversations.map(section => (
+                      <div key={section.title} className="flex flex-col gap-1">
+                        <div className="text-[10px] justify-center flex uppercase tracking-wide text-gray-400 px-2 mt-1">
+                          {translateDateTitle(section.title)}
+                        </div>
+                        {section.items.map(conv => {
+                          const isActive = conv.id === activeConversationId
+                          const isExpanded = expandedActionId === conv.id
+                          const space = getConversationSpace(conv)
+                          return (
+                            <div key={conv.id} className="flex flex-col">
+                              <div
+                                data-conversation-id={conv.id}
+                                onClick={() => {
+                                  if (expandedActionId) {
+                                    closeActions()
+                                    return
+                                  }
+                                  onOpenConversation && onOpenConversation(conv)
+                                }}
+                                className={clsx(
+                                  'text-sm p-2 rounded cursor-pointer truncate transition-colors group relative',
+                                  isActive
+                                    ? 'bg-primary-500/10 dark:bg-primary-500/20 border border-primary-500/30 text-primary-700 dark:text-primary-300'
+                                    : 'text-gray-700 dark:text-gray-300 hover:bg-primary-50 dark:hover:bg-zinc-800',
+                                  isExpanded &&
+                                    'bg-primary-50/70 dark:bg-primary-900/20  border-primary-200/60  dark:border-primary-800/60 ring-1 ring-primary-100/70 dark:ring-primary-800/60',
+                                )}
+                                title={conv.title}
+                              >
+                                <div className="flex items-center justify-between w-full overflow-hidden">
+                                  <div className="flex items-center gap-2 overflow-hidden flex-1 min-w-0">
+                                    <EmojiDisplay
+                                      emoji={resolveConversationEmoji(conv, space?.emoji)}
+                                      size="1.4em"
+                                      className="shrink-0"
+                                    />
+                                    <div className="flex flex-col overflow-hidden flex-1 min-w-0">
+                                      <div className="flex items-center gap-1 min-w-0">
+                                        <span className="truncate font-medium flex-1 min-w-0">
+                                          {conv.title}
+                                        </span>
+                                        {conv.is_favorited && (
+                                          <Bookmark
+                                            size={12}
+                                            className="text-primary-500 fill-current shrink-0"
+                                          />
+                                        )}
+                                      </div>
+                                      <span
+                                        className={clsx(
+                                          'text-[10px]',
+                                          isActive
+                                            ? 'text-primary-600 dark:text-primary-400'
+                                            : 'text-gray-400',
+                                        )}
+                                      >
+                                        {formatDateTime(conv.updated_at || conv.created_at)}
+                                      </span>
+                                    </div>
+                                  </div>
+
+                                  <div className="relative ml-2 shrink-0">
+                                    <button
+                                      onClick={e => {
+                                        e.stopPropagation()
+                                        setExpandedActionId(prev =>
+                                          prev === conv.id ? null : conv.id,
+                                        )
+                                      }}
+                                      className={clsx(
+                                        'p-1.5 rounded-md hover:bg-gray-300 dark:hover:bg-zinc-700 transition-all',
+                                        isActive
+                                          ? 'text-primary-600 dark:text-primary-400 bg-primary-100 dark:bg-primary-900/20'
+                                          : 'text-gray-500 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-zinc-700',
+                                        'opacity-100',
+                                        'md:opacity-0 md:group-hover:opacity-100',
+                                        'min-w-[32px] min-h-[32px] flex items-center justify-center',
+                                      )}
+                                    >
+                                      {isExpanded ? (
+                                        <ChevronUp size={16} strokeWidth={2.5} />
+                                      ) : (
+                                        <ChevronDown size={16} strokeWidth={2.5} />
+                                      )}
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                              {isExpanded && (
+                                <div className="grid grid-cols-2 gap-2 mt-2 px-2 text-xs">
+                                  <button
+                                    onClick={e => {
+                                      e.stopPropagation()
+                                      handleToggleFavorite(conv)
+                                      closeActions()
+                                    }}
+                                    className={clsx(
+                                      'py-1.5 rounded-md transition-colors flex items-center justify-center gap-1.5 font-medium border border-transparent',
+                                      conv.is_favorited
+                                        ? 'bg-primary-50 text-primary-500 border-primary-50 dark:bg-primary-600/20 dark:text-primary-500 dark:border-primary-50/30'
+                                        : 'text-gray-500 dark:text-gray-400 hover:bg-primary-50 dark:hover:bg-zinc-700 hover:text-primary-600 dark:hover:text-primary-400',
+                                    )}
+                                    title={
+                                      conv.is_favorited
+                                        ? t('sidebar.removeBookmark')
+                                        : t('sidebar.addBookmark')
+                                    }
+                                  >
+                                    <Bookmark
+                                      size={13}
+                                      className={conv.is_favorited ? 'fill-current' : ''}
+                                    />
+                                    <span className="truncate">
+                                      {conv.is_favorited ? t('sidebar.added') : t('sidebar.add')}
+                                    </span>
+                                  </button>
+                                  <button
+                                    onClick={e => {
+                                      e.stopPropagation()
+                                      handleDeleteConversation(conv)
+                                    }}
+                                    className="py-1.5 rounded-md transition-colors flex items-center justify-center gap-1.5 font-medium border border-transparent text-gray-500 dark:text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400 hover:border-red-100 dark:hover:border-red-800/30"
+                                  >
+                                    <Trash2 size={13} />
+                                    <span>{t('sidebar.delete')}</span>
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    ))}
+
+                    {deepResearchConversations.length > 0 && (
+                      <div className="px-2 py-2">
+                        {deepResearchHasMore ? (
+                          <button
+                            onClick={e => {
+                              e.stopPropagation()
+                              fetchDeepResearchConversations(false)
+                            }}
+                            disabled={deepResearchLoadingMore}
+                            className="w-full py-2 text-xs font-medium text-gray-700 dark:text-gray-200 bg-user-bubble dark:bg-zinc-800 hover:transform hover:translate-y-[-2px] rounded transition-colors flex items-center justify-center gap-2"
+                          >
+                            {deepResearchLoadingMore ? <DotLoader /> : t('sidebar.loadMore')}
+                          </button>
+                        ) : (
+                          <div className="flex items-center gap-2 text-[10px] text-gray-400 py-2">
+                            <span className="flex-1 h-px bg-gray-200 dark:bg-zinc-800" />
+                            <span className="whitespace-nowrap">{t('sidebar.noMoreThreads')}</span>
+                            <span className="flex-1 h-px bg-gray-200 dark:bg-zinc-800" />
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </>
+                )}
+
                 {/* For bookmarks tab, match library interaction */}
                 {displayTab === 'bookmarks' &&
                   displayConversations.map(conv => {
@@ -848,13 +1161,11 @@ const Sidebar = ({
                         >
                           <div className="flex items-center justify-between w-full overflow-hidden">
                             <div className="flex items-center gap-2 overflow-hidden flex-1 min-w-0">
-                              {space?.emoji && (
-                                <EmojiDisplay
-                                  emoji={space.emoji}
-                                  size="1.4em"
-                                  className="shrink-0"
-                                />
-                              )}
+                              <EmojiDisplay
+                                emoji={resolveConversationEmoji(conv, space?.emoji)}
+                                size="1.4em"
+                                className="shrink-0"
+                              />
                               <div className="flex flex-col overflow-hidden flex-1 min-w-0">
                                 <div className="flex items-center gap-1 min-w-0">
                                   <span className="truncate font-medium flex-1 min-w-0">
@@ -873,7 +1184,7 @@ const Sidebar = ({
                                       : 'text-gray-400',
                                   )}
                                 >
-                                  {formatDateTime(conv.created_at)}
+                                  {formatDateTime(conv.updated_at || conv.created_at)}
                                 </span>
                               </div>
                             </div>
@@ -909,6 +1220,7 @@ const Sidebar = ({
                               onClick={e => {
                                 e.stopPropagation()
                                 handleToggleFavorite(conv)
+                                closeActions()
                               }}
                               className={clsx(
                                 'py-1.5 rounded-md transition-colors flex items-center justify-center gap-1.5 font-medium border border-transparent',
@@ -1200,8 +1512,8 @@ const Sidebar = ({
                       className="flex items-center justify-between p-2 rounded cursor-pointer transition-colors group hover:bg-primary-50 dark:hover:bg-zinc-800"
                     >
                       <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <div className="w-8 h-8 rounded bg-transparent flex items-center justify-center text-lg shrink-0">
-                          <EmojiDisplay emoji={agent.emoji} />
+                        <div className="w-6 h-6 rounded bg-transparent flex items-center justify-center text-lg shrink-0">
+                          <EmojiDisplay emoji={agent.emoji} size="1.2em" className="shrink-0" />
                         </div>
                         <div className="flex flex-col min-w-0">
                           <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">

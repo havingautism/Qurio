@@ -13,6 +13,8 @@ const mapAgent = agent => {
     isDeepResearch: agent.is_deep_research ?? agent.isDeepResearch ?? false,
     emoji: agent.emoji,
     provider: agent.provider,
+    defaultModelProvider: agent.default_model_provider ?? agent.defaultModelProvider ?? '',
+    liteModelProvider: agent.lite_model_provider ?? agent.liteModelProvider ?? '',
     defaultModelSource: agent.default_model_source ?? agent.defaultModelSource ?? 'list',
     liteModelSource: agent.lite_model_source ?? agent.liteModelSource ?? 'list',
     liteModel: agent.lite_model ?? agent.liteModel ?? '',
@@ -29,6 +31,7 @@ const mapAgent = agent => {
     topP: agent.top_p ?? agent.topP ?? null,
     frequencyPenalty: agent.frequency_penalty ?? agent.frequencyPenalty ?? null,
     presencePenalty: agent.presence_penalty ?? agent.presencePenalty ?? null,
+    toolIds: agent.tool_ids ?? agent.toolIds ?? [],
     createdAt: agent.created_at ?? agent.createdAt ?? null,
     updatedAt: agent.updated_at ?? agent.updatedAt ?? null,
   }
@@ -54,6 +57,8 @@ export const createAgent = async ({
   emoji = '',
   isDefault = false,
   provider = '',
+  defaultModelProvider = '',
+  liteModelProvider = '',
   defaultModelSource = 'list',
   liteModelSource = 'list',
   liteModel = '',
@@ -70,6 +75,7 @@ export const createAgent = async ({
   topP = null,
   frequencyPenalty = null,
   presencePenalty = null,
+  toolIds = [],
 }) => {
   const supabase = getSupabaseClient()
   if (!supabase) return { data: null, error: new Error('Supabase not configured') }
@@ -83,6 +89,8 @@ export const createAgent = async ({
     emoji,
     is_default: isDefault,
     provider,
+    default_model_provider: defaultModelProvider,
+    lite_model_provider: liteModelProvider,
     default_model_source: defaultModelSource,
     lite_model_source: liteModelSource,
     lite_model: liteModel,
@@ -99,6 +107,7 @@ export const createAgent = async ({
     top_p: topP,
     frequency_penalty: frequencyPenalty,
     presence_penalty: presencePenalty,
+    tool_ids: toolIds,
   }
 
   const { data, error } = await supabase.from(table).insert([payload]).select().single()
@@ -119,6 +128,10 @@ export const updateAgent = async (id, payload) => {
     updatePayload.is_deep_research = payload.isDeepResearch
   if (payload.emoji !== undefined) updatePayload.emoji = payload.emoji
   if (payload.provider !== undefined) updatePayload.provider = payload.provider
+  if (payload.defaultModelProvider !== undefined)
+    updatePayload.default_model_provider = payload.defaultModelProvider
+  if (payload.liteModelProvider !== undefined)
+    updatePayload.lite_model_provider = payload.liteModelProvider
   if (payload.defaultModelSource !== undefined)
     updatePayload.default_model_source = payload.defaultModelSource
   if (payload.liteModelSource !== undefined)
@@ -142,6 +155,7 @@ export const updateAgent = async (id, payload) => {
     updatePayload.frequency_penalty = payload.frequencyPenalty
   if (payload.presencePenalty !== undefined)
     updatePayload.presence_penalty = payload.presencePenalty
+  if (payload.toolIds !== undefined) updatePayload.tool_ids = payload.toolIds
 
   const { data, error } = await supabase
     .from(table)

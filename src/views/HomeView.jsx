@@ -16,10 +16,11 @@ import {
   Sparkles,
   X,
 } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { useAppContext } from '../App'
+import DeepResearchCard from '../components/DeepResearchCard'
 import EmojiDisplay from '../components/EmojiDisplay'
 import Logo from '../components/Logo'
 import HomeWidgets from '../components/widgets/HomeWidgets'
@@ -28,7 +29,7 @@ import { getAgentDisplayName } from '../lib/agentDisplay'
 import { getSpaceDisplayLabel } from '../lib/spaceDisplay'
 import useChatStore from '../lib/chatStore'
 import { addConversationEvent, createConversation } from '../lib/conversationsService'
-import { providerSupportsSearch } from '../lib/providers'
+import { providerSupportsSearch, resolveThinkingToggleRule } from '../lib/providers'
 import { loadSettings } from '../lib/settings'
 import { listSpaceAgents } from '../lib/spacesService'
 
@@ -274,14 +275,19 @@ const HomeView = () => {
     setIsHomeSpaceSelectorOpen(false)
   }
 
-  const resetDeepResearchForm = () => {
+  const resetDeepResearchForm = useCallback(() => {
     setDeepResearchStep(1)
     setDeepResearchQuestion('')
     setDeepResearchScope('')
     setDeepResearchScopeAuto(true)
     setDeepResearchOutput('')
     setDeepResearchOutputAuto(true)
-  }
+  }, [])
+
+  const handleOpenDeepResearch = useCallback(() => {
+    resetDeepResearchForm()
+    setIsDeepResearchModalOpen(true)
+  }, [resetDeepResearchForm])
 
   const closeDeepResearchModal = () => {
     setIsDeepResearchModalOpen(false)
@@ -343,7 +349,7 @@ const HomeView = () => {
       }
 
       navigate({
-        to: '/conversation/$conversationId',
+        to: '/deepresearch/$conversationId',
         params: { conversationId: conversation.id },
         state: chatState,
       })
@@ -444,6 +450,33 @@ const HomeView = () => {
     // If not found in homeAgents, try to find in all appAgents (for default agent)
     return appAgents.find(agent => String(agent.id) === String(homeSelectedAgentId)) || null
   }, [homeAgents, homeSelectedAgentId, isHomeAgentAuto, appAgents])
+
+  const homeModelConfig = useMemo(() => {
+    const resolveFromAgent = agent => {
+      if (!agent) return null
+      const defaultModel = agent.defaultModel
+      const liteModel = agent.liteModel ?? ''
+      const defaultModelProvider = agent.defaultModelProvider || ''
+      const liteModelProvider = agent.liteModelProvider || ''
+      const hasDefault = typeof defaultModel === 'string' && defaultModel.trim() !== ''
+      const hasLite = typeof liteModel === 'string' && liteModel.trim() !== ''
+      if (!hasDefault && !hasLite) return null
+      const model = defaultModel || liteModel
+      const provider = defaultModelProvider || liteModelProvider || agent.provider || ''
+      if (!model) return null
+      return { model, provider }
+    }
+    return resolveFromAgent(selectedHomeAgent) || resolveFromAgent(defaultAgent) || { model: '' }
+  }, [selectedHomeAgent, defaultAgent])
+
+  const homeResolvedModel = homeModelConfig?.model || ''
+  const homeThinkingRule = resolveThinkingToggleRule('', homeResolvedModel)
+  const isHomeThinkingLocked = homeThinkingRule.isLocked
+
+  useEffect(() => {
+    if (!isHomeThinkingLocked) return
+    setIsHomeThinkingActive(homeThinkingRule.isThinkingActive)
+  }, [isHomeThinkingLocked, homeThinkingRule.isThinkingActive])
 
   const homeSpaceButtonLabel = useMemo(() => {
     if (isHomeSpaceAuto) return t('homeView.spacesAuto')
@@ -569,22 +602,6 @@ const HomeView = () => {
       })}
     </div>
   )
-
-  // Use deterministic values to satisfy React purity rules while maintaining variety
-  const deepResearchParticles = useMemo(() => {
-    return [
-      { id: 0, top: '10%', left: '20%', duration: '3s', delay: '0s' },
-      { id: 1, top: '40%', left: '80%', duration: '4.5s', delay: '1.2s' },
-      { id: 2, top: '70%', left: '15%', duration: '3.8s', delay: '2.5s' },
-      { id: 3, top: '25%', left: '60%', duration: '5s', delay: '0.5s' },
-      { id: 4, top: '85%', left: '50%', duration: '4s', delay: '3s' },
-      { id: 5, top: '15%', left: '90%', duration: '3.2s', delay: '1.8s' },
-      { id: 6, top: '55%', left: '30%', duration: '4.2s', delay: '2.2s' },
-      { id: 7, top: '90%', left: '75%', duration: '3.5s', delay: '0.8s' },
-      { id: 8, top: '35%', left: '40%', duration: '4.8s', delay: '4s' },
-      { id: 9, top: '65%', left: '85%', duration: '3.6s', delay: '1.5s' },
-    ]
-  }, [])
 
   return (
     <div className="flex-1 h-full overflow-hidden bg-background text-foreground transition-colors duration-300 relative flex flex-col">
@@ -718,6 +735,7 @@ const HomeView = () => {
                     )}
                   </div>
                   <button
+                    disabled={isHomeThinkingLocked}
                     onClick={() =>
                       setIsHomeThinkingActive(prev => {
                         const next = !prev
@@ -727,18 +745,19 @@ const HomeView = () => {
                         return next
                       })
                     }
-                    className={`p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
+                    className={`p-2 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
                       isHomeThinkingActive
                         ? 'text-primary-500 bg-gray-100 dark:bg-zinc-800'
                         : 'text-gray-500 dark:text-gray-400'
-                    }`}
+                    } ${isHomeThinkingLocked ? 'opacity-60 cursor-not-allowed' : 'hover:bg-gray-100 dark:hover:bg-zinc-800'}`}
                   >
                     <Brain size={18} />
                     <span className="hidden md:inline">{t('homeView.think')}</span>
                   </button>
                   <button
                     disabled={
-                      !(selectedHomeAgent?.provider || defaultAgent?.provider) ||
+                      !isHomeSpaceAuto &&
+                      Boolean(selectedHomeAgent?.provider || defaultAgent?.provider) &&
                       !providerSupportsSearch(selectedHomeAgent?.provider || defaultAgent?.provider)
                     }
                     value={isHomeSearchActive}
@@ -776,7 +795,7 @@ const HomeView = () => {
                   {isHomeMobile &&
                     isHomeSpaceSelectorOpen &&
                     createPortal(
-                      <div className="fixed inset-0 z-[9999] flex items-end justify-center">
+                      <div className="fixed inset-0 z-50 flex items-end justify-center">
                         <div
                           className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
                           onClick={() => setIsHomeSpaceSelectorOpen(false)}
@@ -822,63 +841,7 @@ const HomeView = () => {
             </div>
           </div>
 
-          <div className="w-full flex justify-center ">
-            <div
-              className="relative group cursor-pointer w-full"
-              onClick={() => {
-                resetDeepResearchForm()
-                setIsDeepResearchModalOpen(true)
-              }}
-            >
-              {/* Glass Card - Subtle/Refined Style */}
-              <div className="relative z-10  h-30 md:h-35 rounded-3xl border border-gray-200 dark:border-zinc-700/30 backdrop-blur-md bg-white/60 dark:bg-zinc-900/60 p-6 shadow-md dark:shadow-2xl overflow-hidden transition-all duration-500 group-hover:scale-[1.02] group-hover:shadow-2xl group-active:scale-[0.98]">
-                {/* Magical Twinkle Particles */}
-                <div className="absolute inset-0 z-0 pointer-events-none opacity-60">
-                  {deepResearchParticles.map(p => (
-                    <div
-                      key={p.id}
-                      className="absolute w-1 h-1 dark:bg-white bg-primary-500 rounded-full animate-twinkle"
-                      style={{
-                        top: p.top,
-                        left: p.left,
-                        '--duration': p.duration,
-                        animationDelay: p.delay,
-                      }}
-                    />
-                  ))}
-                </div>
-
-                {/* Shine Sweep Effect */}
-                <div className="absolute inset-x-0 h-48 bg-linear-to-b from-transparent via-white/30 to-transparent blur-[25px] -rotate-45 -translate-y-full group-hover:animate-diagonal-shine pointer-events-none" />
-
-                <div className="relative z-20 h-full flex flex-col justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-white/20 dark:bg-zinc-800/30 rounded-xl backdrop-blur-sm shadow-sm group-hover:rotate-12 transition-transform duration-300">
-                      <Sparkles
-                        size={20}
-                        className="text-primary-600 dark:text-primary-400 animate-pulse"
-                      />
-                    </div>
-                    <div>
-                      <h3 className="text-xl md:text-2xl font-black tracking-tight text-gray-900 dark:text-white leading-none">
-                        {t('homeView.deepResearchEntry')}
-                      </h3>
-                      <div className="h-1 w-8 bg-primary-500 mt-1 rounded-full transform origin-left group-hover:scale-x-150 transition-transform duration-500" />
-                    </div>
-                  </div>
-
-                  <div className="flex items-end justify-between">
-                    <p className="text-xs md:text-sm font-bold text-gray-700 dark:text-gray-300 leading-tight pr-6 drop-shadow-sm">
-                      {t('homeView.deepResearchEntryHint')}
-                    </p>
-                    <div className="p-2.5 bg-primary-500 hover:bg-primary-600 rounded-2xl text-white shadow-lg transform group-hover:translate-x-1.5 transition-all duration-300">
-                      <ArrowRight size={18} />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+          <DeepResearchCard onClick={handleOpenDeepResearch} />
 
           {/* Widgets Section */}
           <div className="home-widgets w-full">

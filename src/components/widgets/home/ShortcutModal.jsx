@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import useScrollLock from '../../../hooks/useScrollLock'
+import { useAppContext } from '../../../App'
 import { getDirectFaviconUrl, getFaviconFallbackUrl } from '../../../lib/homeWidgetsService'
 import CustomEmojiPicker from '../../CustomEmojiPicker'
 
@@ -10,6 +11,7 @@ const DEFAULT_EMOJI = '😀'
 
 const ShortcutModal = ({ isOpen, onClose, shortcut, onSave, onDelete, currentPosition }) => {
   const { t } = useTranslation()
+  const { showConfirmation } = useAppContext()
   const [title, setTitle] = useState('')
   const [url, setUrl] = useState('')
   const [iconType, setIconType] = useState('favicon')
@@ -57,7 +59,15 @@ const ShortcutModal = ({ isOpen, onClose, shortcut, onSave, onDelete, currentPos
 
   const handleDelete = () => {
     if (onDelete && shortcut?.id) {
-      onDelete(shortcut.id)
+      showConfirmation({
+        title: t('confirmation.deleteShortcutTitle') || 'Delete Shortcut',
+        message:
+          t('confirmation.deleteShortcutMessage') ||
+          'Are you sure you want to delete this shortcut?',
+        confirmText: t('common.delete', 'Delete'),
+        isDangerous: true,
+        onConfirm: () => onDelete(shortcut.id),
+      })
     }
   }
 

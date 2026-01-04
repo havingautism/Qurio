@@ -6,15 +6,11 @@ import useChatStore from '../lib/chatStore'
 
 import {
   Copy,
-  Share2,
   ChevronRight,
   ChevronDown,
-  CornerRightDown,
-  Download,
   Pencil,
   Check,
   RefreshCw,
-  Globe,
   Quote,
   Trash2,
   X,
@@ -34,6 +30,15 @@ import DesktopSourcesSection from './DesktopSourcesSection'
 import useIsMobile from '../hooks/useIsMobile'
 import ShareModal from './ShareModal'
 import { useAppContext } from '../App'
+import DeepResearchGoalCard from './message/DeepResearchGoalCard'
+import MessageActionBar from './message/MessageActionBar'
+import RelatedQuestions from './message/RelatedQuestions'
+import { useMessageExport } from './message/useMessageExport'
+import {
+  applyGroundingSupports,
+  formatContentWithSources,
+  getHostname,
+} from './message/messageUtils'
 
 const PROVIDER_META = {
   gemini: {
@@ -66,102 +71,6 @@ const PROVIDER_META = {
     id: 'kimi',
     fallback: 'K',
   },
-}
-
-const getHostname = url => {
-  try {
-    const hostname = new URL(url).hostname
-    return hostname.replace(/^www\./, '')
-  } catch (e) {
-    return 'Source'
-  }
-}
-
-/**
- * Converts citations [1][2][3] to clickable number links [1][2][3].
- * Each number becomes a separate clickable link while keeping the simple number format.
- */
-const formatContentWithSources = (content, sources = []) => {
-  if (typeof content !== 'string' || !Array.isArray(sources) || sources.length === 0) {
-    return content
-  }
-
-  // Regex to match one or more citations: [1] or [1][2] or [1] [2] or [1]  [2]
-  // We eagerly match sequences of [n] potentially separated by whitespace
-  const citationRegex = /\[(\d+)\](?:\s*\[(\d+)\])*/g
-
-  return content.replace(citationRegex, match => {
-    // Extract all numbers from the match
-    const indices = match.match(/\d+/g).map(n => Number(n) - 1)
-
-    if (indices.length === 0) return match
-
-    const primaryIdx = indices[0]
-    const primarySource = sources[primaryIdx]
-
-    if (!primarySource) return match
-
-    // Group consecutive citations: [1][2][3] -> [+3]
-    if (indices.length > 1) {
-      return ` [+${indices.length}](citation:${indices.join(',')}) `
-    }
-
-    // Single citation: [1] -> [1]
-    return ` [${primaryIdx + 1}](citation:${primaryIdx}) `
-  })
-}
-
-const applyGroundingSupports = (content, groundingSupports = [], sources = []) => {
-  if (
-    typeof content !== 'string' ||
-    !Array.isArray(groundingSupports) ||
-    groundingSupports.length === 0 ||
-    !Array.isArray(sources) ||
-    sources.length === 0
-  ) {
-    return content
-  }
-  if (/\[\d+\]/.test(content)) return content
-
-  const markersByText = new Map()
-  for (const support of groundingSupports) {
-    const segmentText = support?.segment?.text
-    if (!segmentText || typeof segmentText !== 'string') continue
-    const chunkIndices = Array.isArray(support?.groundingChunkIndices)
-      ? support.groundingChunkIndices
-      : []
-    const sourceIndices = chunkIndices
-      .filter(idx => Number.isInteger(idx) && idx >= 0 && idx < sources.length)
-      .map(idx => idx)
-    if (sourceIndices.length === 0) continue
-    const set = markersByText.get(segmentText) || new Set()
-    for (const idx of sourceIndices) set.add(idx)
-    markersByText.set(segmentText, set)
-  }
-
-  if (markersByText.size === 0) return content
-
-  let updated = content
-  const supports = Array.from(markersByText.entries())
-    .map(([text, indices]) => ({
-      text,
-      indices: Array.from(indices).sort((a, b) => a - b),
-    }))
-    .sort((a, b) => b.text.length - a.text.length)
-
-  for (const support of supports) {
-    const marker = ` ${support.indices.map(idx => `[${idx + 1}]`).join('')}`
-    let searchFrom = 0
-    while (true) {
-      const matchIndex = updated.indexOf(support.text, searchFrom)
-      if (matchIndex === -1) break
-      const insertAt = matchIndex + support.text.length
-      updated = updated.slice(0, insertAt) + marker + updated.slice(insertAt)
-      searchFrom = insertAt + marker.length
-    }
-  }
-
-  return updated
 }
 
 /**
@@ -225,69 +134,6 @@ const MessageBubble = ({
     }
   }
 
-  const escapeHtml = value =>
-    String(value)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;')
-
-  const getExportSectionHtml = (label, html) => {
-    if (!html) return ''
-    return `<h2>${escapeHtml(label)}</h2>${html}`
-  }
-
-  const buildExportHtml = () => {
-    const planHtml = planMarkdown ? researchExportRef.current?.innerHTML?.trim() || '' : ''
-    const thoughtHtml = thoughtContent ? thoughtExportRef.current?.innerHTML?.trim() || '' : ''
-    const hasAnswer = Boolean(mainContentRef.current?.innerText?.trim())
-    const answerHtml = hasAnswer ? mainContentRef.current?.innerHTML?.trim() || '' : ''
-    const sections = [
-      getExportSectionHtml(t('messageBubble.researchProcess'), planHtml),
-      getExportSectionHtml(t('messageBubble.thinkingProcess'), thoughtHtml),
-      getExportSectionHtml(t('messageBubble.answer'), answerHtml),
-    ].filter(Boolean)
-    return sections.join('<hr />')
-  }
-
-  const getExportBaseName = () => {
-    const rawTitle = conversationTitle || t('messageBubble.researchReportTitle')
-    return String(rawTitle || 'deep-research-report')
-      .replace(/[\\/:*?"<>|]+/g, '')
-      .trim()
-  }
-
-  const handleDownloadWord = () => {
-    const exportHtml = buildExportHtml()
-    if (!exportHtml) return
-    const html = `<!doctype html><html><head><meta charset="utf-8"><style>body{font-family:Arial,sans-serif;padding:24px;}h2{margin:20px 0 12px;}pre{white-space:pre-wrap;font-family:inherit;}</style></head><body>${exportHtml}</body></html>`
-    const blob = new Blob([html], { type: 'application/msword' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `${getExportBaseName()}.doc`
-    document.body.appendChild(link)
-    link.click()
-    link.remove()
-    URL.revokeObjectURL(url)
-  }
-
-  const handleDownloadPdf = () => {
-    const exportHtml = buildExportHtml()
-    if (!exportHtml) return
-    const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(
-      getExportBaseName(),
-    )}</title><style>body{font-family:Arial,sans-serif;padding:24px;}h2{margin:20px 0 12px;}pre{white-space:pre-wrap;font-family:inherit;}</style></head><body>${exportHtml}</body></html>`
-    const printWindow = window.open('', '_blank', 'width=900,height=650')
-    if (!printWindow) return
-    printWindow.document.open()
-    printWindow.document.write(html)
-    printWindow.document.close()
-    printWindow.focus()
-    printWindow.print()
-  }
-
   // Effect to handle copy success timeout with proper cleanup
   useEffect(() => {
     if (isCopied) {
@@ -321,6 +167,7 @@ const MessageBubble = ({
 
   // Selection Menu State
   const [selectionMenu, setSelectionMenu] = useState(null)
+  const [activeToolDetail, setActiveToolDetail] = useState(null)
 
   // Share Modal State
   const [isShareModalOpen, setIsShareModalOpen] = useState(false)
@@ -527,12 +374,16 @@ const MessageBubble = ({
 
   const [isThoughtExpanded, setIsThoughtExpanded] = useState(false)
   const [isResearchExpanded, setIsResearchExpanded] = useState(false)
+  const [isPlanExpanded, setIsPlanExpanded] = useState(false)
   const [thinkingStatusIndex, setThinkingStatusIndex] = useState(0)
 
   const { t } = useTranslation()
   const { showConfirmation } = useAppContext()
   const isUser = message.role === 'user'
-  const isDeepResearch = !!message?.deepResearch
+  const isDeepResearch =
+    !!message?.deepResearch ||
+    message?.agent_name === 'Deep Research Agent' ||
+    message?.agentName === 'Deep Research Agent'
   const planContent = typeof message?.researchPlan === 'string' ? message.researchPlan.trim() : ''
 
   // Dynamic thinking status messages using translations
@@ -557,8 +408,12 @@ const MessageBubble = ({
       const goal = parsed.goal ? `**${t('messageBubble.researchGoal')}:** ${parsed.goal}` : ''
 
       // New fields: complexity and question_type
-      const complexity = parsed.complexity ? `**${t('messageBubble.researchComplexity')}:** ${parsed.complexity}` : ''
-      const questionType = parsed.question_type ? `**${t('messageBubble.researchQuestionType')}:** ${parsed.question_type}` : ''
+      const complexity = parsed.complexity
+        ? `**${t('messageBubble.researchComplexity')}:** ${parsed.complexity}`
+        : ''
+      const questionType = parsed.question_type
+        ? `**${t('messageBubble.researchQuestionType')}:** ${parsed.question_type}`
+        : ''
 
       const assumptions = Array.isArray(parsed.assumptions)
         ? parsed.assumptions
@@ -591,9 +446,10 @@ const MessageBubble = ({
               const depth = step.depth
                 ? `\n  - ${t('messageBubble.researchDepth')}: ${step.depth}`
                 : ''
-              const requiresSearch = step.requires_search !== undefined
-                ? `\n  - ${t('messageBubble.researchRequiresSearch')}: ${step.requires_search ? '✅' : '❌'}`
-                : ''
+              const requiresSearch =
+                step.requires_search !== undefined
+                  ? `\n  - ${t('messageBubble.researchRequiresSearch')}: ${step.requires_search ? '✅' : '❌'}`
+                  : ''
               return `${title}${action}${thought}${expected}${format}${depth}${requiresSearch}${criteria}`.trim()
             })
             .filter(Boolean)
@@ -639,6 +495,24 @@ const MessageBubble = ({
       return `${t('messageBubble.researchPlan')}\n\n${trimmed}`
     }
   }, [planContent, t])
+
+  const providerId = message.provider || apiProvider
+  const provider = getProvider(providerId)
+  const parsed = provider.parseMessage(message)
+  const thoughtContent =
+    isDeepResearch || message.thinkingEnabled === false ? null : parsed.thought
+  const mainContent = parsed.content
+
+  const { handleDownloadPdf, handleDownloadWord } = useMessageExport({
+    message,
+    planMarkdown,
+    thoughtContent,
+    mainContentRef,
+    researchExportRef,
+    thoughtExportRef,
+    conversationTitle,
+    t,
+  })
 
   // Sources UI State
   const [isSourcesOpen, setIsSourcesOpen] = useState(false) // Desktop
@@ -804,6 +678,29 @@ const MessageBubble = ({
     [isDark, mermaidOptions],
   )
 
+  const headingCounterRef = useRef(0)
+
+  const getNextHeadingId = useCallback(() => {
+    const id = `heading-${messageIndex}-${headingCounterRef.current}`
+    headingCounterRef.current += 1
+    return id
+  }, [messageIndex])
+
+  const createHeadingComponent = (Tag, className, withAnchors) => {
+    return ({ node, children, ...props }) => {
+      const headingId = withAnchors ? getNextHeadingId() : undefined
+      return (
+        <Tag
+          className={className}
+          {...(headingId ? { id: headingId, 'data-heading-id': headingId } : {})}
+          {...props}
+        >
+          {parseChildrenWithEmojis(children)}
+        </Tag>
+      )
+    }
+  }
+
   const markdownComponents = useMemo(
     () => ({
       p: ({ node, children, ...props }) => (
@@ -811,21 +708,9 @@ const MessageBubble = ({
           {parseChildrenWithEmojis(children)}
         </p>
       ),
-      h1: ({ node, children, ...props }) => (
-        <h1 className="text-2xl font-bold mb-4 mt-6" {...props}>
-          {parseChildrenWithEmojis(children)}
-        </h1>
-      ),
-      h2: ({ node, children, ...props }) => (
-        <h2 className="text-xl font-bold mb-3 mt-5" {...props}>
-          {parseChildrenWithEmojis(children)}
-        </h2>
-      ),
-      h3: ({ node, children, ...props }) => (
-        <h3 className="text-lg font-bold mb-2 mt-4" {...props}>
-          {parseChildrenWithEmojis(children)}
-        </h3>
-      ),
+      h1: createHeadingComponent('h1', 'text-2xl font-bold mb-4 mt-6', false),
+      h2: createHeadingComponent('h2', 'text-xl font-bold mb-3 mt-5', false),
+      h3: createHeadingComponent('h3', 'text-lg font-bold mb-2 mt-4', false),
       ul: ({ node, ...props }) => <ul className="list-disc pl-5 mb-4 space-y-1" {...props} />,
       ol: ({ node, ...props }) => <ol className="list-decimal pl-5 mb-4 space-y-1" {...props} />,
       li: ({ node, children, ...props }) => (
@@ -916,6 +801,16 @@ const MessageBubble = ({
     [isDark, message.sources, isMobile, handleMobileSourceClick, CodeBlock, t], // Dependencies for markdownComponents
   )
 
+  const markdownComponentsWithAnchors = useMemo(() => {
+    headingCounterRef.current = 0
+    return {
+      ...markdownComponents,
+      h1: createHeadingComponent('h1', 'text-2xl font-bold mb-4 mt-6', true),
+      h2: createHeadingComponent('h2', 'text-xl font-bold mb-3 mt-5', true),
+      h3: createHeadingComponent('h3', 'text-lg font-bold mb-2 mt-4', true),
+    }
+  }, [markdownComponents, createHeadingComponent, message.content, messageIndex])
+
   if (isUser) {
     let contentToRender = message.content
     let imagesToRender = []
@@ -928,6 +823,12 @@ const MessageBubble = ({
       imagesToRender = message.content.filter(c => c.type === 'image_url')
     }
 
+    // Check if this user message initiated a Deep Research task
+    const nextMessage = messages[messageIndex + 1]
+    const isDeepResearchContext =
+      nextMessage?.agentName === 'Deep Research Agent' ||
+      nextMessage?.agent_name === 'Deep Research Agent'
+
     return (
       <div
         id={messageId}
@@ -935,7 +836,10 @@ const MessageBubble = ({
           containerRef.current = el
           if (typeof bubbleRef === 'function') bubbleRef(el)
         }}
-        className="flex justify-end items-center w-full mt-8 group px-3 sm:px-0"
+        className={clsx(
+          'flex items-center w-full mt-8 group px-3 sm:px-0',
+          isDeepResearchContext ? 'justify-center' : 'justify-end',
+        )}
         onMouseUp={handleMouseUp}
         onTouchEnd={handleTouchEnd}
         onContextMenu={handleContextMenu}
@@ -962,109 +866,122 @@ const MessageBubble = ({
             </div>,
             document.body,
           )}
-        <div className="flex flex-col items-end gap-2 max-w-[90%] md:max-w-[75%]">
+        <div
+          className={clsx(
+            'flex flex-col gap-2 w-full',
+            isDeepResearchContext ? 'items-center w-full' : 'items-end',
+          )}
+        >
           {/* Message Content */}
-          <div
-            className={clsx(
-              'relative px-5 py-3.5 rounded-3xl text-base',
-              'bg-primary-500 dark:bg-primary-900 text-white dark:text-gray-100',
-            )}
-          >
-            {quoteToRender && (
-              <div className="mb-2 p-3 bg-white/20 dark:bg-black/20 rounded-3xl text-sm">
-                <div className="font-medium  mb-1">{t('messageBubble.quoting')}</div>
-                <div className="line-clamp-2 italic ">{quoteToRender.text}</div>
+          {(() => {
+            if (isDeepResearchContext) {
+              return <DeepResearchGoalCard content={contentToRender} />
+            }
+            return (
+              <div
+                className={clsx(
+                  'relative px-5 py-3.5 rounded-3xl text-base',
+                  'bg-primary-500 dark:bg-primary-900 text-white dark:text-gray-100',
+                )}
+              >
+                {quoteToRender && (
+                  <div className="mb-2 p-3 bg-white/20 dark:bg-black/20 rounded-3xl text-sm">
+                    <div className="font-medium  mb-1">{t('messageBubble.quoting')}</div>
+                    <div className="line-clamp-2 italic ">{quoteToRender.text}</div>
+                  </div>
+                )}
+                {imagesToRender.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {imagesToRender.map((img, idx) => (
+                      <img
+                        key={idx}
+                        src={img?.url || img?.image_url?.url}
+                        alt="User uploaded"
+                        className="max-w-full h-auto rounded-lg max-h-60 object-cover cursor-zoom-in"
+                        onClick={event => {
+                          event.stopPropagation()
+                          setActiveImageUrl(img?.url || img?.image_url?.url)
+                        }}
+                      />
+                    ))}
+                  </div>
+                )}
+                <div
+                  className="message-content whitespace-pre-wrap wrap-break-word"
+                  // Prevent native selection menu on mobile
+                  style={{
+                    WebkitTouchCallout: isMobile ? 'none' : 'default',
+                    WebkitUserSelect: isMobile ? 'text' : 'auto',
+                    KhtmlUserSelect: isMobile ? 'text' : 'auto',
+                    MozUserSelect: isMobile ? 'text' : 'auto',
+                    MsUserSelect: isMobile ? 'text' : 'auto',
+                    userSelect: isMobile ? 'text' : 'auto',
+                  }}
+                >
+                  {contentToRender}
+                </div>
               </div>
-            )}
-            {imagesToRender.length > 0 && (
-              <div className="flex flex-wrap gap-2 mb-2">
-                {imagesToRender.map((img, idx) => (
-                  <img
-                    key={idx}
-                    src={img?.url || img?.image_url?.url}
-                    alt="User uploaded"
-                    className="max-w-full h-auto rounded-lg max-h-60 object-cover cursor-zoom-in"
-                    onClick={event => {
-                      event.stopPropagation()
-                      setActiveImageUrl(img?.url || img?.image_url?.url)
-                    }}
-                  />
-                ))}
-              </div>
-            )}
-            <div
-              className="message-content whitespace-pre-wrap wrap-break-word"
-              // Prevent native selection menu on mobile
-              style={{
-                WebkitTouchCallout: isMobile ? 'none' : 'default',
-                WebkitUserSelect: isMobile ? 'text' : 'auto',
-                KhtmlUserSelect: isMobile ? 'text' : 'auto',
-                MozUserSelect: isMobile ? 'text' : 'auto',
-                MsUserSelect: isMobile ? 'text' : 'auto',
-                userSelect: isMobile ? 'text' : 'auto',
-              }}
-            >
-              {contentToRender}
-            </div>
-          </div>
+            )
+          })()}
 
           {/* Action Buttons */}
-          <div className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 flex gap-2 transition-opacity duration-200 px-1">
-            <button
-              onClick={() => onEdit && onEdit()}
-              className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300  rounded-lg transition-colors"
-              title="Edit"
-            >
-              <Pencil size={14} />
-            </button>
-            <button
-              onClick={() => {
-                if (!onResend) return
-                showConfirmation({
-                  title: t('confirmation.resendTitle'),
-                  message: t('confirmation.resendMessage'),
-                  confirmText: t('message.resend'),
-                  onConfirm: onResend,
-                })
-              }}
-              className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300  rounded-lg transition-colors"
-              title={t('message.resend')}
-            >
-              <RefreshCw size={14} />
-            </button>
-            <button
-              onClick={() => {
-                copyToClipboard(contentToRender)
-                setIsCopied(true)
-              }}
-              className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300  rounded-lg transition-colors"
-              title={t('messageBubble.copy')}
-            >
-              {isCopied ? <Check size={14} /> : <Copy size={14} />}
-            </button>
-            <button
-              onClick={() => {
-                if (!onDelete) return
-                showConfirmation({
-                  title: t('confirmation.deleteMessageTitle'),
-                  message: t('confirmation.deleteUserMessage'),
-                  confirmText: t('confirmation.delete'),
-                  isDangerous: true,
-                  onConfirm: onDelete,
-                })
-              }}
-              className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg transition-colors"
-              title={t('common.delete')}
-            >
-              <Trash2 size={14} />
-            </button>
-          </div>
+          {!isDeepResearchContext && (
+            <div className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 flex gap-2 transition-opacity duration-200 px-1">
+              <button
+                onClick={() => onEdit && onEdit()}
+                className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300  rounded-lg transition-colors"
+                title="Edit"
+              >
+                <Pencil size={14} />
+              </button>
+              <button
+                onClick={() => {
+                  if (!onResend) return
+                  showConfirmation({
+                    title: t('confirmation.resendTitle'),
+                    message: t('confirmation.resendMessage'),
+                    confirmText: t('message.resend'),
+                    onConfirm: onResend,
+                  })
+                }}
+                className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300  rounded-lg transition-colors"
+                title={t('message.resend')}
+              >
+                <RefreshCw size={14} />
+              </button>
+              <button
+                onClick={() => {
+                  copyToClipboard(contentToRender)
+                  setIsCopied(true)
+                }}
+                className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300  rounded-lg transition-colors"
+                title={t('messageBubble.copy')}
+              >
+                {isCopied ? <Check size={14} /> : <Copy size={14} />}
+              </button>
+              <button
+                onClick={() => {
+                  if (!onDelete) return
+                  showConfirmation({
+                    title: t('confirmation.deleteMessageTitle'),
+                    message: t('confirmation.deleteUserMessage'),
+                    confirmText: t('confirmation.delete'),
+                    isDangerous: true,
+                    onConfirm: onDelete,
+                  })
+                }}
+                className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg transition-colors"
+                title={t('common.delete')}
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+          )}
         </div>
       </div>
     )
   }
 
-  const providerId = message.provider || apiProvider
   const providerMeta = PROVIDER_META[providerId] || {
     label: providerId || 'AI',
     id: providerId,
@@ -1074,13 +991,16 @@ const MessageBubble = ({
   const agentName = message.agentName ?? message.agent_name ?? null
   const agentEmoji = message.agentEmoji ?? message.agent_emoji ?? ''
   const agentIsDefault = message.agentIsDefault ?? message.agent_is_default ?? false
-  const displayAgentName = agentIsDefault ? t('agents.defaults.name') : agentName
+  const agentIsDeepResearch =
+    message.agent_name == 'Deep Research Agent' || message.agentName == 'Deep Research Agent'
+      ? true
+      : false
+  const displayAgentName = agentIsDefault
+    ? t('agents.defaults.name')
+    : agentIsDeepResearch
+      ? t('deepResearch.agentName')
+      : agentName
 
-  // Parse content using provider-specific logic
-  const provider = getProvider(providerId)
-  const parsed = provider.parseMessage(message)
-  const thoughtContent = message.thinkingEnabled === false ? null : parsed.thought
-  const mainContent = parsed.content
   const contentWithSupports = applyGroundingSupports(
     mainContent,
     message.groundingSupports,
@@ -1090,19 +1010,21 @@ const MessageBubble = ({
   const hasThoughtText = !!(thoughtContent && String(thoughtContent).trim())
   const hasPlanText = !!planMarkdown
   const researchPlanLoading = Boolean(message?.researchPlanLoading)
-  const shouldShowResearch =
-    isDeepResearch &&
+  const researchSteps = Array.isArray(message.researchSteps) ? message.researchSteps : []
+  const hasResearchSteps = researchSteps.length > 0
+  const hasRunningResearchStep = researchSteps.some(step => step.status === 'running')
+  const shouldShowPlan = isDeepResearch && (hasPlanText || researchPlanLoading)
+  const shouldShowResearch = isDeepResearch && hasResearchSteps
+  const shouldShowThought =
+    !isDeepResearch &&
     message.thinkingEnabled !== false &&
-    (hasPlanText || researchPlanLoading || (baseThinkingStatusActive && !hasThoughtText))
-  const shouldShowThought = isDeepResearch
-    ? hasThoughtText || (!researchPlanLoading && baseThinkingStatusActive)
-    : message.thinkingEnabled !== false && (isStreaming || hasThoughtText || hasPlanText)
+    (isStreaming || hasThoughtText || hasPlanText)
   const shouldShowThinking =
     !isDeepResearch &&
     message.thinkingEnabled !== false &&
     (isStreaming || hasThoughtText || hasPlanText)
-  const shouldShowResearchStatus =
-    isDeepResearch && baseThinkingStatusActive && researchPlanLoading
+  const shouldShowPlanStatus = isDeepResearch && researchPlanLoading
+  const shouldShowResearchStatus = isDeepResearch && hasRunningResearchStep
   const shouldShowThoughtStatus =
     baseThinkingStatusActive &&
     (!isDeepResearch || (!researchPlanLoading && (hasPlanText || hasThoughtText)))
@@ -1110,7 +1032,31 @@ const MessageBubble = ({
   const hasRelatedQuestions = Array.isArray(message.related) && message.related.length > 0
   const isRelatedLoading = !!message.relatedLoading
   const shouldShowRelated = !isDeepResearch && (hasRelatedQuestions || isRelatedLoading)
+  const toolCallHistory = Array.isArray(message.toolCallHistory) ? message.toolCallHistory : []
+  const getToolCallsForStep = useCallback(
+    stepNumber =>
+      toolCallHistory.filter(item =>
+        typeof item.step === 'number' ? item.step === stepNumber : false,
+      ),
+    [toolCallHistory],
+  )
 
+  const formatJsonForDisplay = value => {
+    if (value == null) return ''
+    if (typeof value === 'string') {
+      try {
+        const parsed = JSON.parse(value)
+        return JSON.stringify(parsed, null, 2)
+      } catch {
+        return value
+      }
+    }
+    try {
+      return JSON.stringify(value, null, 2)
+    } catch {
+      return String(value)
+    }
+  }
   return (
     <div
       id={messageId}
@@ -1258,9 +1204,108 @@ const MessageBubble = ({
         )}
       </div>
 
+      {!isDeepResearch && toolCallHistory.length > 0 && (
+        <div className="border border-gray-200 dark:border-zinc-700 rounded-xl overflow-hidden bg-user-bubble/20 dark:bg-zinc-800/30">
+          <div className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-zinc-700">
+            <div className="flex items-center gap-2 font-medium text-gray-700 dark:text-gray-300">
+              <EmojiDisplay emoji={'🔧'} size="1.2em" /> {t('messageBubble.toolCalls')}
+            </div>
+          </div>
+          <div className="px-4 py-3 space-y-2">
+            {toolCallHistory.map(item => (
+              <div
+                key={item.id || `${item.name}-${item.arguments}`}
+                className="flex flex-col gap-1 text-xs text-gray-600 dark:text-gray-400"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-gray-700 dark:text-gray-200">
+                    {item.name}
+                  </span>
+                  <span
+                    className={clsx(
+                      'px-2 py-0.5 rounded-full text-[11px]',
+                      item.status === 'error'
+                        ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
+                        : item.status === 'done'
+                          ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
+                          : 'bg-gray-200/70 dark:bg-zinc-700/70 text-gray-600 dark:text-gray-400',
+                    )}
+                  >
+                    {item.status === 'error'
+                      ? t('messageBubble.toolStatusError')
+                      : item.status === 'done'
+                        ? t('messageBubble.toolStatusDone')
+                        : t('messageBubble.toolStatusCalling')}
+                  </span>
+                  {item.status !== 'done' && item.status !== 'error' && <DotLoader />}
+                  {typeof item.durationMs === 'number' && (
+                    <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                      {t('messageBubble.toolDuration', {
+                        duration: (item.durationMs / 1000).toFixed(2),
+                      })}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setActiveToolDetail(item)}
+                    className="ml-auto text-[11px] text-primary-600 dark:text-primary-300 hover:underline"
+                  >
+                    {t('messageBubble.toolDetails')}
+                  </button>
+                </div>
+                {/* {item.arguments && (
+                  <div className="text-[11px] text-gray-500 dark:text-gray-400 whitespace-pre-wrap break-words">
+                    {t('messageBubble.toolArguments')}: {item.arguments}
+                  </div>
+                )} */}
+                {item.error && (
+                  <div className="text-[11px] text-red-500 dark:text-red-400">{item.error}</div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Thinking Process Section */}
       {isDeepResearch ? (
         <>
+          {shouldShowPlan && (
+            <div className="border border-gray-200 dark:border-zinc-700 rounded-xl overflow-hidden">
+              <button
+                onClick={() => setIsPlanExpanded(!isPlanExpanded)}
+                className="w-full flex items-center justify-between p-2 bg-user-bubble/30 dark:bg-zinc-800/50 hover:bg-user-bubble dark:hover:bg-zinc-800 transition-colors"
+              >
+                <div className="flex items-center gap-2 font-medium text-gray-700 dark:text-gray-300">
+                  <EmojiDisplay emoji={'🧭'} size="1.2em" />
+                  <span className="text-sm">{t('messageBubble.planProcess')}</span>
+                  {!shouldShowPlanStatus && <Check size="1em" />}
+                  {shouldShowPlanStatus && (
+                    <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                      <span className="text-left mr-4">{researchStatusText}</span>
+                      <DotLoader />
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center gap-3">
+                  {isPlanExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                </div>
+              </button>
+
+              {isPlanExpanded && (hasPlanText || shouldShowPlanStatus) && (
+                <div className="p-4 bg-user-bubble/30 font-stretch-semi-condensed dark:bg-zinc-800/30 border-t border-gray-200 dark:border-zinc-700 text-sm text-gray-600 dark:text-gray-400 leading-relaxed space-y-4">
+                  <Streamdown
+                    mermaid={mermaidOptions}
+                    remarkPlugins={[remarkGfm]}
+                    components={markdownComponents}
+                  >
+                    {planMarkdown}
+                  </Streamdown>
+                </div>
+              )}
+            </div>
+          )}
+
           {shouldShowResearch && (
             <div className="border border-gray-200 dark:border-zinc-700 rounded-xl overflow-hidden">
               <button
@@ -1283,51 +1328,139 @@ const MessageBubble = ({
                 </div>
               </button>
 
-              {isResearchExpanded && (hasPlanText || shouldShowResearchStatus) && (
-                <div className="p-4 bg-user-bubble/30 font-stretch-semi-condensed dark:bg-zinc-800/30 border-t border-gray-200 dark:border-zinc-700 text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
-                  <Streamdown
-                    mermaid={mermaidOptions}
-                    remarkPlugins={[remarkGfm]}
-                    components={markdownComponents}
-                  >
-                    {planMarkdown}
-                  </Streamdown>
-                </div>
-              )}
-            </div>
-          )}
-
-          {shouldShowThought && (
-            <div className="border border-gray-200 dark:border-zinc-700 rounded-xl overflow-hidden">
-              <button
-                onClick={() => setIsThoughtExpanded(!isThoughtExpanded)}
-                className="w-full flex items-center justify-between p-2 bg-user-bubble/30 dark:bg-zinc-800/50 hover:bg-user-bubble dark:hover:bg-zinc-800 transition-colors"
-              >
-                <div className="flex items-center gap-2 font-medium text-gray-700 dark:text-gray-300">
-                  <EmojiDisplay emoji={'🧠'} size="1.2em" />
-                  <span className="text-sm">{t('messageBubble.thinkingProcess')}</span>
-                  {!shouldShowThoughtStatus && <Check size="1em" />}
-                  {shouldShowThoughtStatus && (
-                    <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                      <span className="text-left mr-4">{thinkingStatusText}</span>
-                      <DotLoader />
-                    </div>
-                  )}
-                </div>
-                <div className="flex items-center gap-3">
-                  {isThoughtExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                </div>
-              </button>
-
-              {isThoughtExpanded && (hasThoughtText || shouldShowThoughtStatus) && (
-                <div className="p-4 bg-user-bubble/30 font-stretch-semi-condensed dark:bg-zinc-800/30 border-t border-gray-200 dark:border-zinc-700 text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
-                  <Streamdown
-                    mermaid={mermaidOptions}
-                    remarkPlugins={[remarkGfm]}
-                    components={markdownComponents}
-                  >
-                    {thoughtContent}
-                  </Streamdown>
+              {isResearchExpanded && hasResearchSteps && (
+                <div className="p-4 bg-user-bubble/30 font-stretch-semi-condensed dark:bg-zinc-800/30 border-t border-gray-200 dark:border-zinc-700 text-sm text-gray-600 dark:text-gray-400 leading-relaxed space-y-3">
+                  {researchSteps.map(step => {
+                    const isRunning = step.status === 'running'
+                    const isDone = step.status === 'done'
+                    const isError = step.status === 'error'
+                    const stepToolCalls = getToolCallsForStep(step.step)
+                    const durationLabel =
+                      typeof step.durationMs === 'number'
+                        ? t('messageBubble.researchStepDuration', {
+                            duration: (step.durationMs / 1000).toFixed(2),
+                          })
+                        : null
+                    const statusLabel = isError
+                      ? t('messageBubble.researchStepStatusError')
+                      : isDone
+                        ? t('messageBubble.researchStepStatusDone')
+                        : t('messageBubble.researchStepStatusRunning')
+                    return (
+                      <div
+                        key={`${step.step}-${step.title}`}
+                        className="flex items-start gap-3 rounded-lg border border-gray-200/60 dark:border-zinc-700/60 bg-white/40 dark:bg-zinc-900/30 p-3"
+                      >
+                        <div
+                          className={clsx(
+                            'mt-0.5 flex h-6 w-6 items-center justify-center rounded-full border text-xs font-semibold',
+                            isError
+                              ? 'border-red-200 dark:border-red-800/60 text-red-500'
+                              : isDone
+                                ? 'border-green-200 dark:border-green-800/60 text-green-500'
+                                : 'border-gray-200 dark:border-zinc-700 text-gray-500 dark:text-gray-400',
+                          )}
+                        >
+                          {isDone ? (
+                            <Check size={12} />
+                          ) : isError ? (
+                            <X size={12} />
+                          ) : (
+                            <span className="leading-none">⋯</span>
+                          )}
+                        </div>
+                        <div className="flex-1 space-y-1">
+                          <div className="flex flex-wrap items-center gap-2 text-xs">
+                            <span className="font-semibold text-gray-700 dark:text-gray-200">
+                              {t('messageBubble.researchStepLabel', {
+                                step: step.step,
+                                total: step.total || researchSteps.length,
+                              })}
+                            </span>
+                            <span
+                              className={clsx(
+                                'px-2 py-0.5 rounded-full text-[11px]',
+                                isError
+                                  ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
+                                  : isDone
+                                    ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
+                                    : 'bg-gray-200/70 dark:bg-zinc-700/70 text-gray-600 dark:text-gray-400',
+                              )}
+                            >
+                              {statusLabel}
+                            </span>
+                            {isRunning && <DotLoader />}
+                            {durationLabel && (
+                              <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                                {durationLabel}
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-sm text-gray-700 dark:text-gray-300">
+                            {step.title}
+                            {isRunning ? '...' : ''}
+                          </div>
+                          {step.error && (
+                            <div className="text-[11px] text-red-500 dark:text-red-400">
+                              {step.error}
+                            </div>
+                          )}
+                          {stepToolCalls.length > 0 && (
+                            <div className="mt-2 space-y-1">
+                              <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400">
+                                {t('messageBubble.toolCalls')}
+                              </div>
+                              <div className="space-y-1">
+                                {stepToolCalls.map(item => (
+                                  <div
+                                    key={item.id || `${item.name}-${item.arguments}`}
+                                    className="flex items-center gap-2 text-[11px] text-gray-600 dark:text-gray-400"
+                                  >
+                                    <span className="font-medium text-gray-700 dark:text-gray-300">
+                                      {item.name}
+                                    </span>
+                                    <span
+                                      className={clsx(
+                                        'px-2 py-0.5 rounded-full text-[10px]',
+                                        item.status === 'error'
+                                          ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
+                                          : item.status === 'done'
+                                            ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
+                                            : 'bg-gray-200/70 dark:bg-zinc-700/70 text-gray-600 dark:text-gray-400',
+                                      )}
+                                    >
+                                      {item.status === 'error'
+                                        ? t('messageBubble.toolStatusError')
+                                        : item.status === 'done'
+                                          ? t('messageBubble.toolStatusDone')
+                                          : t('messageBubble.toolStatusCalling')}
+                                    </span>
+                                    {item.status !== 'done' && item.status !== 'error' && (
+                                      <DotLoader />
+                                    )}
+                                    {typeof item.durationMs === 'number' && (
+                                      <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                                        {t('messageBubble.toolDuration', {
+                                          duration: (item.durationMs / 1000).toFixed(2),
+                                        })}
+                                      </span>
+                                    )}
+                                    <button
+                                      type="button"
+                                      onClick={() => setActiveToolDetail(item)}
+                                      className="ml-auto text-[10px] text-primary-600 dark:text-primary-300 hover:underline"
+                                    >
+                                      {t('messageBubble.toolDetails')}
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
                 </div>
               )}
             </div>
@@ -1399,7 +1532,7 @@ const MessageBubble = ({
           <Streamdown
             mermaid={mermaidOptions}
             remarkPlugins={[remarkGfm]}
-            components={markdownComponents}
+            components={markdownComponentsWithAnchors}
           >
             {contentWithCitations}
           </Streamdown>
@@ -1409,187 +1542,59 @@ const MessageBubble = ({
       {/* Related Questions */}
       {shouldShowRelated && (
         <div className="border-t border-gray-200 dark:border-zinc-800 pt-4">
-          <div className="flex items-center gap-3 mb-3 text-gray-900 dark:text-gray-100">
-            <EmojiDisplay emoji="🔮" size="1.2em" className="mb-1" />
-            <span className="text-sm font-semibold">{t('messageBubble.relatedQuestions')}</span>
-          </div>
-          <div className="flex flex-col gap-1 md:gap-2 ">
-            {hasRelatedQuestions &&
-              message.related.map((question, index) => (
-                <div
-                  key={index}
-                  onClick={() => onRelatedClick && onRelatedClick(question)}
-                  className="flex items-center rounded-2xl border sm:hover:scale-102 border-gray-200 dark:border-zinc-800 bg-user-bubble dark:bg-zinc-800/50 justify-between p-2  hover:bg-user-bubble dark:hover:bg-zinc-800/50 cursor-pointer transition-colors group"
-                >
-                  <span className="text-gray-700 dark:text-gray-300 font-medium text-sm md:text-balance">
-                    {question}
-                  </span>
-                  <div className="ml-2 sm:ml-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 text-primary-500 dark:text-primary-500">
-                    <CornerRightDown />
-                  </div>
-                </div>
-              ))}
-            {isRelatedLoading && (
-              <div className="flex items-center p-2 text-gray-500 dark:text-gray-400">
-                <DotLoader />
-              </div>
-            )}
-          </div>
+          <RelatedQuestions
+            t={t}
+            questions={hasRelatedQuestions ? message.related : []}
+            isLoading={isRelatedLoading}
+            onRelatedClick={onRelatedClick}
+          />
         </div>
       )}
 
       {/* Action Bar */}
-      <div className="flex items-center gap-4  border-t border-gray-200 dark:border-zinc-800 pt-4">
-        <button
-          className="flex items-center font-mono gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
-          onClick={() => setIsShareModalOpen(true)}
-        >
-          <Share2 size={16} />
-          <span className="hidden sm:block">{t('message.share')}</span>
-        </button>
-        <button
-          className="flex items-center gap-2 text-sm font-mono text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
-          onClick={() => {
-            if (!onRegenerateAnswer) return
-            showConfirmation({
-              title: t('confirmation.regenerateTitle'),
-              message: t('confirmation.regenerateMessage'),
-              confirmText: t('message.regenerate'),
-              onConfirm: onRegenerateAnswer,
-            })
-          }}
-        >
-          <RefreshCw size={16} />
-          <span className="hidden sm:block">{t('message.regenerate')}</span>
-        </button>
-        <button
-          className="flex items-center gap-2 text-sm font-mono text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
-          onClick={() => {
-            // Copy only the rendered markdown text (no extra metadata/sections)
-            const renderedText = mainContentRef.current?.innerText?.trim() || ''
-            const fallbackText = mainContent || ''
-            copyToClipboard(renderedText || fallbackText)
-            setIsCopied(true)
-          }}
-        >
-          {isCopied ? (
-            <>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="text-green-600 dark:text-green-400"
-              >
-                <polyline points="20,6 9,17 4,12"></polyline>
-              </svg>
-              <span className="text-green-600 dark:text-green-400 hidden sm:block">
-                {t('message.copied')}
-              </span>
-            </>
-          ) : (
-            <>
-              <Copy size={16} />
-              <span className="hidden sm:block">{t('message.copy')}</span>
-            </>
-          )}
-        </button>
-        {isDeepResearch && (
-          <div className="relative" ref={downloadMenuRef}>
-            <button
-              className="flex items-center gap-2 text-sm font-mono text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
-              onClick={() => setIsDownloadMenuOpen(prev => !prev)}
-            >
-              <Download size={16} />
-              <span className="hidden sm:block">{t('messageBubble.download')}</span>
-              <ChevronDown size={14} />
-            </button>
-            {isDownloadMenuOpen && (
-              <div
-                className={clsx(
-                  'absolute left-0 w-44 bg-white dark:bg-[#202222] border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl z-30 overflow-hidden',
-                  isMobile ? 'bottom-full mb-2' : 'mt-2',
-                )}
-              >
-                <div className="p-2 flex flex-col gap-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      handleDownloadPdf()
-                      setIsDownloadMenuOpen(false)
-                    }}
-                    className="flex items-center gap-2 w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left text-sm text-gray-700 dark:text-gray-200"
-                  >
-                    {t('messageBubble.downloadPdf')}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      handleDownloadWord()
-                      setIsDownloadMenuOpen(false)
-                    }}
-                    className="flex items-center gap-2 w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left text-sm text-gray-700 dark:text-gray-200"
-                  >
-                    {t('messageBubble.downloadWord')}
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-        {/* Sources Toggle */}
-        {message.sources && message.sources.length > 0 && (
-          <button
-            onClick={() => {
-              if (isMobile) {
-                handleMobileSourceClick(message.sources, t('sources.allSources'))
-              } else {
-                setIsSourcesOpen(!isSourcesOpen)
-              }
-            }}
-            className={clsx(
-              'flex items-center gap-2 text-sm transition-colors',
-              isSourcesOpen
-                ? 'text-primary-600 dark:text-primary-400 font-medium bg-primary-50 dark:bg-primary-900/20 px-2 py-1 rounded-lg'
-                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200',
-            )}
-          >
-            <Globe size={16} />
-            <span className="hidden sm:block">{t('sources.title')}</span>
-            <span
-              className={clsx(
-                'flex items-center justify-center rounded-full text-[10px] w-5 h-5 transition-colors',
-                isSourcesOpen
-                  ? 'bg-primary-200 dark:bg-primary-900/50 text-primary-700 dark:text-primary-300'
-                  : 'bg-gray-200 dark:bg-zinc-700 text-gray-700 dark:text-gray-300',
-              )}
-            >
-              {message.sources.length}
-            </span>
-          </button>
-        )}
-        <button
-          className="flex items-center gap-2 text-sm font-mono text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors ml-auto"
-          onClick={() => {
-            if (!onDelete) return
-            showConfirmation({
-              title: t('confirmation.deleteMessageTitle'),
-              message: t('confirmation.deleteAssistantMessage'),
-              confirmText: t('confirmation.delete'),
-              isDangerous: true,
-              onConfirm: onDelete,
-            })
-          }}
-        >
-          <Trash2 size={16} />
-          <span className="hidden sm:block">{t('common.delete')}</span>
-        </button>
-      </div>
+      <MessageActionBar
+        t={t}
+        isDeepResearch={isDeepResearch}
+        isMobile={isMobile}
+        message={message}
+        isSourcesOpen={isSourcesOpen}
+        onToggleSources={() => setIsSourcesOpen(prev => !prev)}
+        onOpenMobileSources={() =>
+          handleMobileSourceClick(message.sources, t('sources.allSources'))
+        }
+        onShare={() => setIsShareModalOpen(true)}
+        onRegenerate={() => {
+          if (!onRegenerateAnswer) return
+          showConfirmation({
+            title: t('confirmation.regenerateTitle'),
+            message: t('confirmation.regenerateMessage'),
+            confirmText: t('message.regenerate'),
+            onConfirm: onRegenerateAnswer,
+          })
+        }}
+        onCopy={() => {
+          const renderedText = mainContentRef.current?.innerText?.trim() || ''
+          const fallbackText = mainContent || ''
+          copyToClipboard(renderedText || fallbackText)
+          setIsCopied(true)
+        }}
+        isCopied={isCopied}
+        onDownloadPdf={handleDownloadPdf}
+        onDownloadWord={handleDownloadWord}
+        isDownloadMenuOpen={isDownloadMenuOpen}
+        setIsDownloadMenuOpen={setIsDownloadMenuOpen}
+        downloadMenuRef={downloadMenuRef}
+        onDelete={() => {
+          if (!onDelete) return
+          showConfirmation({
+            title: t('confirmation.deleteMessageTitle'),
+            message: t('confirmation.deleteAssistantMessage'),
+            confirmText: t('confirmation.delete'),
+            isDangerous: true,
+            onConfirm: onDelete,
+          })
+        }}
+      />
 
       {/* Desktop Sources Section (Collapsible) */}
       {!isMobile && message.sources && message.sources.length > 0 && (
@@ -1623,6 +1628,71 @@ const MessageBubble = ({
         message={message}
         conversationTitle={conversationTitle}
       />
+
+      {activeToolDetail &&
+        createPortal(
+          <div className="fixed inset-0 z-[10000] flex items-start md:items-center justify-center bg-black/50 backdrop-blur-sm p-0 md:p-4 overflow-y-auto md:overflow-hidden">
+            <div className="w-full h-[100vh] md:max-w-4xl md:h-[80vh] bg-white dark:bg-[#191a1a] rounded-none md:rounded-2xl shadow-2xl flex flex-col overflow-hidden border-0 md:border border-gray-200 dark:border-zinc-800">
+              <div className="h-14 border-b border-gray-200 dark:border-zinc-800 flex items-center justify-between px-4 sm:px-6 shrink-0 bg-white dark:bg-[#191a1a]">
+                <div className="text-base font-semibold text-gray-900 dark:text-white truncate pr-4">
+                  {activeToolDetail.name}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setActiveToolDetail(null)}
+                  className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-500 transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 min-h-0 bg-white dark:bg-[#191a1a]">
+                <div>
+                  <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    {t('messageBubble.toolInput')}
+                  </div>
+                  <div>
+                    <Streamdown
+                      mermaid={mermaidOptions}
+                      remarkPlugins={[remarkGfm]}
+                      components={markdownComponents}
+                    >
+                      {(() => {
+                        const content = formatJsonForDisplay(activeToolDetail.arguments)
+                        const trimmed = content.trim()
+                        return (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+                          (trimmed.startsWith('[') && trimmed.endsWith(']'))
+                          ? `\`\`\`json\n${content}\n\`\`\``
+                          : content
+                      })()}
+                    </Streamdown>
+                  </div>
+                </div>
+                <div>
+                  <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    {t('messageBubble.toolOutput')}
+                  </div>
+                  <div>
+                    <Streamdown
+                      mermaid={mermaidOptions}
+                      remarkPlugins={[remarkGfm]}
+                      components={markdownComponents}
+                    >
+                      {(() => {
+                        const content = formatJsonForDisplay(activeToolDetail.output)
+                        const trimmed = content.trim()
+                        return (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+                          (trimmed.startsWith('[') && trimmed.endsWith(']'))
+                          ? `\`\`\`json\n${content}\n\`\`\``
+                          : content
+                      })()}
+                    </Streamdown>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   )
 }
@@ -1783,10 +1853,16 @@ const CitationChip = ({ indices, sources, isMobile, onMobileClick, label }) => {
             {indices.map(idx => {
               const source = sources[idx]
               if (!source) return null
+              const url = source.url || source.uri || source.link || source.href || ''
+              const snippet = source.snippet || source.content || ''
+              const hostname = getHostname(url)
+              const faviconUrl =
+                source.icon ||
+                (hostname ? `https://www.google.com/s2/favicons?domain=${hostname}&sz=32` : '')
               return (
                 <a
                   key={idx}
-                  href={source.url}
+                  href={url}
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={e => e.stopPropagation()}
@@ -1800,8 +1876,18 @@ const CitationChip = ({ indices, sources, isMobile, onMobileClick, label }) => {
                       {source.title}
                     </span>
                     <span className="block text-[10px] text-gray-400 dark:text-gray-500 truncate">
-                      {getHostname(source.url)}
+                      <span className="inline-flex items-center gap-1.5">
+                        {faviconUrl && (
+                          <img src={faviconUrl} alt="" className="h-3 w-3 rounded-sm" />
+                        )}
+                        <span className="truncate">{hostname}</span>
+                      </span>
                     </span>
+                    {snippet && (
+                      <span className="mt-1 block text-[10px] text-gray-500 dark:text-gray-400 line-clamp-2">
+                        {snippet}
+                      </span>
+                    )}
                   </span>
                 </a>
               )

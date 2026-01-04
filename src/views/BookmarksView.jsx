@@ -24,15 +24,15 @@ import { deleteConversation } from '../lib/supabase'
 
 // Sort option keys (constant for logic)
 const SORT_OPTION_KEYS = [
-  { key: 'newest', value: 'created_at', ascending: false },
-  { key: 'oldest', value: 'created_at', ascending: true },
+  { key: 'newest', value: 'updated_at', ascending: false },
+  { key: 'oldest', value: 'updated_at', ascending: true },
   { key: 'titleAZ', value: 'title', ascending: true },
   { key: 'titleZA', value: 'title', ascending: false },
 ]
 
 const BookmarksView = () => {
   const { t, i18n } = useTranslation()
-  const { spaces, isSidebarPinned, showConfirmation } = useAppContext()
+  const { spaces, deepResearchSpace, isSidebarPinned, showConfirmation } = useAppContext()
   const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState('')
   const [sortOption, setSortOption] = useState(SORT_OPTION_KEYS[0])
@@ -256,13 +256,19 @@ const BookmarksView = () => {
           ) : (
             filteredConversations.map(conv => {
               const space = getSpaceInfo(conv.space_id)
+              const isDeepResearchConversation =
+                space?.isDeepResearchSystem ||
+                (deepResearchSpace?.id &&
+                  String(conv.space_id) === String(deepResearchSpace.id))
               return (
                 <div
                   key={conv.id}
                   data-conversation-id={conv.id}
                   onClick={() =>
                     navigate({
-                      to: '/conversation/$conversationId',
+                      to: isDeepResearchConversation
+                        ? '/deepresearch/$conversationId'
+                        : '/conversation/$conversationId',
                       params: { conversationId: conv.id },
                     })
                   }
@@ -284,7 +290,7 @@ const BookmarksView = () => {
                       <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
                         <div className="flex items-center gap-1.5">
                           <Clock size={14} />
-                          <span>{formatDate(conv.created_at)}</span>
+                          <span>{formatDate(conv.updated_at || conv.created_at)}</span>
                         </div>
                         {space && (
                           <div className="flex items-center gap-1.5">

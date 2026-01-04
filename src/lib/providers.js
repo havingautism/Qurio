@@ -1,4 +1,4 @@
-import { createBackendProvider } from './backendProvider'
+import { createBackendProvider } from './backendProviderForBackend'
 import { GLM_BASE_URL, MODELSCOPE_BASE_URL, SILICONFLOW_BASE_URL } from './providerConstants'
 import { getPublicEnv } from './publicEnv'
 
@@ -66,6 +66,19 @@ const defaultParseMessage = input => {
   return { content: rawContent, thought: null }
 }
 
+const normalizeMarkdownSpacing = text => {
+  if (!text || typeof text !== 'string') return text
+  let normalized = text
+  normalized = normalized.replace(/([^\n])(\s*#{1,6}\s+)/g, '$1\n$2')
+  normalized = normalized.replace(/([^\n])(\s*[-*+]\s+)/g, '$1\n$2')
+  normalized = normalized.replace(/([^\n])(\s*\d+\.\s+)/g, '$1\n$2')
+  normalized = normalized.replace(/([^\n])(\s*```)/g, '$1\n$2')
+  normalized = normalized.replace(/```(\w+)?(?!\n)/g, '```$1\n')
+  normalized = normalized.replace(/([^\n])(\s*\|[-:\s]+\|)/g, '$1\n$2')
+  normalized = normalized.replace(/([^\n])(\s*\|[^|\n]+?\|)/g, '$1\n$2')
+  return normalized
+}
+
 export const PROVIDERS = {
   openai_compatibility: {
     ...createBackendProvider('openai_compatibility'),
@@ -81,13 +94,19 @@ export const PROVIDERS = {
             {
               type: 'function',
               function: {
-                name: 'google_search',
-                description: 'Search the web',
-                parameters: { type: 'object', properties: { query: { type: 'string' } } },
+                name: 'web_search',
+                description: 'Search the web for current information.',
+                parameters: {
+                  type: 'object',
+                  properties: {
+                    query: { type: 'string', description: 'Search query' },
+                  },
+                  required: ['query'],
+                },
               },
             },
           ]
-        : undefined, //abandoned
+        : undefined,
     getThinking: isThinkingActive =>
       isThinkingActive
         ? {
@@ -111,7 +130,36 @@ export const PROVIDERS = {
       apiKey: settings.SiliconFlowKey,
       baseUrl: SILICONFLOW_BASE_URL,
     }),
-    getTools: () => undefined,
+    getTools: isSearchActive =>
+      isSearchActive
+        ? [
+            // Native Implementation:
+            // {
+            //   type: 'web_search',
+            //   web_search: {
+            //     enable: true,
+            //     search_result: true,
+            //     // Add search_prompt to guide GLM to include citation markers
+            //     // search_prompt:
+            //     //   'When answering, mark the resources you have cited. If it is an academic article, use the format [a][b][c]; if it is a web resource (not an academic article), use the format [1][2][3]. Do not fabricate resources. Use the actual referenced resources as the basis.',
+            //   },
+            // },
+            {
+              type: 'function',
+              function: {
+                name: 'web_search',
+                description: 'Search the web for current information.',
+                parameters: {
+                  type: 'object',
+                  properties: {
+                    query: { type: 'string', description: 'Search query' },
+                  },
+                  required: ['query'],
+                },
+              },
+            },
+          ]
+        : undefined,
     getThinking: isThinkingActive =>
       isThinkingActive
         ? {
@@ -129,12 +177,32 @@ export const PROVIDERS = {
       baseUrl: undefined, // Native SDK usually handles its own endpoints
     }),
     getTools: isSearchActive => {
-      let toolList = []
-      if (isSearchActive) {
-        toolList.push({ googleSearch: {} })
-      }
-      return toolList
-    }, // Native Gemini Google Search tool
+      // Replaced Native Google Search with Tavily
+      // Native Implementation:
+      // let toolList = []
+      // if (isSearchActive) {
+      //   toolList.push({ googleSearch: {} })
+      // }
+      // return toolList
+      return isSearchActive
+        ? [
+            {
+              type: 'function',
+              function: {
+                name: 'web_search',
+                description: 'Search the web for current information.',
+                parameters: {
+                  type: 'object',
+                  properties: {
+                    query: { type: 'string', description: 'Search query' },
+                  },
+                  required: ['query'],
+                },
+              },
+            },
+          ]
+        : undefined
+    }, // Replaced Native Gemini Google Search tool
     getThinking: (isThinkingActive, model) => {
       if (!isThinkingActive) return undefined
       const isGemini3Preview = model === 'gemini-3-pro-preview'
@@ -157,14 +225,29 @@ export const PROVIDERS = {
     getTools: isSearchActive =>
       isSearchActive
         ? [
+            // Native Implementation:
+            // {
+            //   type: 'web_search',
+            //   web_search: {
+            //     enable: true,
+            //     search_result: true,
+            //     // Add search_prompt to guide GLM to include citation markers
+            //     // search_prompt:
+            //     //   'When answering, mark the resources you have cited. If it is an academic article, use the format [a][b][c]; if it is a web resource (not an academic article), use the format [1][2][3]. Do not fabricate resources. Use the actual referenced resources as the basis.',
+            //   },
+            // },
             {
-              type: 'web_search',
-              web_search: {
-                enable: true,
-                search_result: true,
-                // Add search_prompt to guide GLM to include citation markers
-                // search_prompt:
-                //   'When answering, mark the resources you have cited. If it is an academic article, use the format [a][b][c]; if it is a web resource (not an academic article), use the format [1][2][3]. Do not fabricate resources. Use the actual referenced resources as the basis.',
+              type: 'function',
+              function: {
+                name: 'web_search',
+                description: 'Search the web for current information.',
+                parameters: {
+                  type: 'object',
+                  properties: {
+                    query: { type: 'string', description: 'Search query' },
+                  },
+                  required: ['query'],
+                },
               },
             },
           ]
@@ -186,19 +269,41 @@ export const PROVIDERS = {
     getTools: isSearchActive =>
       isSearchActive
         ? [
+            // Native Implementation:
+            // {
+            //   type: 'web_search',
+            //   web_search: {
+            //     enable: true,
+            //     search_result: true,
+            //   },
+            // },
             {
-              type: 'web_search',
-              web_search: {
-                enable: true,
-                search_result: true,
+              type: 'function',
+              function: {
+                name: 'web_search',
+                description: 'Search the web for current information.',
+                parameters: {
+                  type: 'object',
+                  properties: {
+                    query: { type: 'string', description: 'Search query' },
+                  },
+                  required: ['query'],
+                },
               },
             },
           ]
         : undefined,
-    getThinking: isThinkingActive => ({
-      type: isThinkingActive ? 'enabled' : 'disabled',
-    }),
+    getThinking: isThinkingActive =>
+      isThinkingActive
+        ? {
+            budget_tokens: 1024,
+          }
+        : undefined,
     parseMessage: defaultParseMessage,
+    // parseMessage: input => {
+    //   const parsed = defaultParseMessage(input)
+    //   return { ...parsed, content: normalizeMarkdownSpacing(parsed.content) }
+    // },
   },
   kimi: {
     ...createBackendProvider('kimi'),
@@ -211,18 +316,22 @@ export const PROVIDERS = {
     getTools: isSearchActive =>
       isSearchActive
         ? [
+            // Native Implementation:
+            // {
+            //   type: 'builtin_function',
+            //   function: {
+            //     name: '$web_search',
+            //   },
+            // },
             {
               type: 'function',
               function: {
                 name: 'web_search',
-                description: 'Search the web for current information using Kimi web search tool',
+                description: 'Search the web for current information.',
                 parameters: {
                   type: 'object',
                   properties: {
-                    query: {
-                      type: 'string',
-                      description: 'The search query string',
-                    },
+                    query: { type: 'string', description: 'Search query' },
                   },
                   required: ['query'],
                 },
@@ -266,4 +375,15 @@ export const providerSupportsSearch = providerName => {
   if (!provider || !provider.getTools) return false
   const tools = provider.getTools(true)
   return tools && tools.length > 0
+}
+
+export const resolveThinkingToggleRule = (providerName, modelName) => {
+  const normalizedModel = (modelName || '').toLowerCase()
+  const hasKimi = normalizedModel.includes('kimi')
+  const hasThinking = normalizedModel.includes('thinking')
+  const isLocked = hasKimi
+  return {
+    isLocked,
+    isThinkingActive: hasKimi && hasThinking,
+  }
 }

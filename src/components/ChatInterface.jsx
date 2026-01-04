@@ -41,6 +41,43 @@ const ChatInterface = ({
     return /iPhone|iPod|Android/i.test(ua) || (isTouch && window.innerWidth <= 1024)
   })()
 
+  const normalizeTitleEmojis = value => {
+    if (Array.isArray(value)) {
+      return value
+        .map(item => String(item || '').trim())
+        .filter(Boolean)
+        .slice(0, 1)
+    }
+    if (typeof value === 'string' && value.trim()) {
+      try {
+        const parsed = JSON.parse(value)
+        if (Array.isArray(parsed)) {
+          return parsed
+            .map(item => String(item || '').trim())
+            .filter(Boolean)
+            .slice(0, 1)
+        }
+      } catch {
+        return []
+      }
+    }
+    return []
+  }
+
+  const getLanguageInstruction = agent => {
+    const trimmedLanguage =
+      typeof (agent?.response_language || agent?.responseLanguage) === 'string'
+        ? (agent.response_language || agent.responseLanguage).trim()
+        : ''
+    return trimmedLanguage ? `Reply in ${trimmedLanguage}.` : ''
+  }
+
+  const applyLanguageInstructionToText = (text, instruction) => {
+    if (!instruction) return text
+    const baseText = typeof text === 'string' ? text.trim() : ''
+    return baseText ? `${baseText}\n\n${instruction}` : instruction
+  }
+
   // Lock body scroll when component mounts (defensive measure for iOS keyboard interactions)
   // useEffect(() => {
   //   document.body.classList.add('scroll-locked')
@@ -61,6 +98,8 @@ const ChatInterface = ({
     setConversationId,
     conversationTitle,
     setConversationTitle,
+    conversationTitleEmojis,
+    setConversationTitleEmojis,
     isLoading,
     setIsLoading,
     isMetaLoading,
@@ -74,6 +113,8 @@ const ChatInterface = ({
       setConversationId: state.setConversationId,
       conversationTitle: state.conversationTitle,
       setConversationTitle: state.setConversationTitle,
+      conversationTitleEmojis: state.conversationTitleEmojis,
+      setConversationTitleEmojis: state.setConversationTitleEmojis,
       isLoading: state.isLoading,
       setIsLoading: state.setIsLoading,
       isMetaLoading: state.isMetaLoading,
@@ -87,6 +128,7 @@ const ChatInterface = ({
   const [editingSeed, setEditingSeed] = useState({ text: '', attachments: [] })
   const quoteTextRef = useRef('')
   const quoteSourceRef = useRef('')
+  const lastTitleConversationIdRef = useRef(null)
 
   // New state for toggles and attachments
   const [isSearchActive, setIsSearchActive] = useState(false)
@@ -173,6 +215,39 @@ const ChatInterface = ({
     effectiveDefaultModel: defaultAgent?.model || 'gpt-4o',
     isSwitchingConversation,
   })
+  const hasLoadedActive = activeConversation?.id && hasLoadedMessages?.(activeConversation.id)
+  const isTitleLoading =
+    isMetaLoading ||
+    isLoadingHistory ||
+    isSwitchingConversation ||
+    (activeConversation?.id && !hasLoadedActive) ||
+    Boolean(activeConversation?._isPlaceholder)
+
+  useEffect(() => {
+    if (!activeConversation?.id || activeConversation?._isPlaceholder) return
+    const nextTitle = activeConversation.title || ''
+    const nextEmojis = normalizeTitleEmojis(
+      activeConversation.title_emojis ?? activeConversation.titleEmojis,
+    )
+    const emojisChanged =
+      nextEmojis.length !== conversationTitleEmojis.length ||
+      nextEmojis.some((emoji, index) => emoji !== conversationTitleEmojis[index])
+
+    if (nextTitle === conversationTitle && !emojisChanged) return
+
+    setConversationTitle(nextTitle)
+    setConversationTitleEmojis(nextEmojis)
+    lastTitleConversationIdRef.current = activeConversation.id
+  }, [
+    activeConversation?.id,
+    activeConversation?.title,
+    activeConversation?.title_emojis,
+    activeConversation?.titleEmojis,
+    conversationTitle,
+    conversationTitleEmojis,
+    setConversationTitle,
+    setConversationTitleEmojis,
+  ])
 
   const initialAgentSelectionId = initialAgentSelection?.id || null
 
@@ -292,9 +367,7 @@ const ChatInterface = ({
           task === 'generateRelatedQuestions' ||
           task === 'generateResearchPlan'
 
-        const model = isLiteTask
-          ? liteModel || defaultModel
-          : defaultModel || liteModel
+        const model = isLiteTask ? liteModel || defaultModel : defaultModel || liteModel
         const provider = isLiteTask
           ? liteModelProvider || defaultModelProvider || agent.provider
           : defaultModelProvider || liteModelProvider || agent.provider
@@ -463,6 +536,7 @@ const ChatInterface = ({
 
         // Clear all other states for a fresh start
         setConversationTitle('')
+        setConversationTitleEmojis([])
         setMessages([])
         const shouldPreserveAutoSpace = !isManualSpaceSelection && selectedSpace
         if (!shouldPreserveAutoSpace) {
@@ -495,12 +569,21 @@ const ChatInterface = ({
         if (activeConversation.id !== conversationId) {
           setConversationId(activeConversation.id)
         }
-        if (
+        if (lastTitleConversationIdRef.current !== activeConversation.id) {
+          const nextTitle = activeConversation.title || ''
+          setConversationTitle(nextTitle)
+          setConversationTitleEmojis(
+            normalizeTitleEmojis(activeConversation.title_emojis ?? activeConversation.titleEmojis),
+          )
+          lastTitleConversationIdRef.current = activeConversation.id
+        } else if (
           activeConversation.title &&
-          (activeConversation.title !== 'New Conversation' ||
-            conversationTitle === 'New Conversation')
+          (!conversationTitle || conversationTitle === 'New Conversation')
         ) {
           setConversationTitle(activeConversation.title)
+          setConversationTitleEmojis(
+            normalizeTitleEmojis(activeConversation.title_emojis ?? activeConversation.titleEmojis),
+          )
         }
         // Space is synced by unified logic above
         const shouldSyncAgent =
@@ -541,11 +624,21 @@ const ChatInterface = ({
       if (activeConversation.id === conversationId && messages.length > 0) {
         // We already have messages (they're being streamed or just completed)
         // Only adopt the stored title if it isn't a default placeholder.
-        if (
+        if (lastTitleConversationIdRef.current !== activeConversation.id) {
+          const nextTitle = activeConversation.title || ''
+          setConversationTitle(nextTitle)
+          setConversationTitleEmojis(
+            normalizeTitleEmojis(activeConversation.title_emojis ?? activeConversation.titleEmojis),
+          )
+          lastTitleConversationIdRef.current = activeConversation.id
+        } else if (
           activeConversation.title &&
-          (activeConversation.title !== 'New Conversation' || !conversationTitle)
+          (!conversationTitle || conversationTitle === 'New Conversation')
         ) {
           setConversationTitle(activeConversation.title)
+          setConversationTitleEmojis(
+            normalizeTitleEmojis(activeConversation.title_emojis ?? activeConversation.titleEmojis),
+          )
         }
         // Space is synced by unified logic above
         setIsLoadingHistory(false)
@@ -569,13 +662,24 @@ const ChatInterface = ({
         setMessages([])
       }
       setConversationId(activeConversation.id)
-      if (
+      if (lastTitleConversationIdRef.current !== activeConversation.id) {
+        const nextTitle = activeConversation.title || ''
+        setConversationTitle(nextTitle)
+        setConversationTitleEmojis(
+          normalizeTitleEmojis(activeConversation.title_emojis ?? activeConversation.titleEmojis),
+        )
+        lastTitleConversationIdRef.current = activeConversation.id
+      } else if (
         activeConversation.title &&
-        (activeConversation.title !== 'New Conversation' || !conversationTitle)
+        (!conversationTitle || conversationTitle === 'New Conversation')
       ) {
         setConversationTitle(activeConversation.title)
+        setConversationTitleEmojis(
+          normalizeTitleEmojis(activeConversation.title_emojis ?? activeConversation.titleEmojis),
+        )
       } else if (!conversationTitle) {
         setConversationTitle('')
+        setConversationTitleEmojis([])
       }
       const isNewConversation =
         activeConversation?.id && activeConversation.id !== lastLoadedConversationIdRef.current
@@ -1243,17 +1347,25 @@ const ChatInterface = ({
       const modelConfig = getModelConfig('generateTitle')
       const provider = getProvider(modelConfig.provider)
       const credentials = provider.getCredentials(settings)
-      const newTitle = await provider.generateTitle(
-        contextText,
+      const agentForTitle = selectedAgent || defaultAgent || null
+      const languageInstruction = getLanguageInstruction(agentForTitle)
+      const promptText = applyLanguageInstructionToText(contextText, languageInstruction)
+      const titleResult = await provider.generateTitle(
+        promptText,
         credentials.apiKey,
         credentials.baseUrl,
         modelConfig.model,
       )
+      const newTitle = titleResult?.title || ''
       if (!newTitle) return
       setConversationTitle(newTitle)
+      setConversationTitleEmojis(Array.isArray(titleResult?.emojis) ? titleResult.emojis : [])
       const convId = conversationId || activeConversation?.id
       if (convId) {
-        await updateConversation(convId, { title: newTitle })
+        await updateConversation(convId, {
+          title: newTitle,
+          title_emojis: Array.isArray(titleResult?.emojis) ? titleResult.emojis : [],
+        })
         window.dispatchEvent(new Event('conversations-changed'))
       }
     } catch (err) {
@@ -1293,6 +1405,7 @@ const ChatInterface = ({
         <ChatHeader
           toggleSidebar={toggleSidebar}
           isMetaLoading={isMetaLoading}
+          isTitleLoading={isTitleLoading}
           displaySpace={displaySpace}
           availableSpaces={availableSpaces}
           selectedSpace={selectedSpace}
@@ -1303,6 +1416,7 @@ const ChatInterface = ({
           onSelectSpace={handleSelectSpace}
           onClearSpaceSelection={handleClearSpaceSelection}
           conversationTitle={conversationTitle}
+          conversationTitleEmojis={conversationTitleEmojis}
           isRegeneratingTitle={isRegeneratingTitle}
           onRegenerateTitle={handleRegenerateTitle}
           messages={messages}

@@ -1,12 +1,6 @@
+import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import {
-  Check,
-  ChevronDown,
-  LayoutGrid,
-  Menu,
-  PanelRightOpen,
-  Sparkles,
-} from 'lucide-react'
+import { Check, ChevronDown, LayoutGrid, Menu, PanelRightOpen, Sparkles } from 'lucide-react'
 import EmojiDisplay from '../EmojiDisplay'
 import { getSpaceDisplayLabel } from '../../lib/spaceDisplay'
 
@@ -27,6 +21,8 @@ import { getSpaceDisplayLabel } from '../../lib/spaceDisplay'
  * @param {function} props.onSelectSpace - Callback when space is selected
  * @param {function} props.onClearSpaceSelection - Callback when space selection is cleared
  * @param {string} props.conversationTitle - Current conversation title
+ * @param {boolean} props.isTitleLoading - Whether the title is loading
+ * @param {Array} props.conversationTitleEmojis - Emojis for the conversation title
  * @param {boolean} props.isRegeneratingTitle - Whether title is being regenerated
  * @param {function} props.onRegenerateTitle - Callback to regenerate title
  * @param {Array} props.messages - Current messages
@@ -46,6 +42,8 @@ const ChatHeader = ({
   onSelectSpace,
   onClearSpaceSelection,
   conversationTitle,
+  isTitleLoading = false,
+  conversationTitleEmojis = [],
   isRegeneratingTitle,
   onRegenerateTitle,
   messages,
@@ -53,9 +51,61 @@ const ChatHeader = ({
   onToggleTimeline,
 }) => {
   const { t } = useTranslation()
+  // const [emojiTick, setEmojiTick] = useState(0)
+  const normalizedEmojis = useMemo(() => {
+    if (!Array.isArray(conversationTitleEmojis)) return []
+    return conversationTitleEmojis
+      .map(item => String(item || '').trim())
+      .filter(Boolean)
+      .slice(0, 1)
+  }, [conversationTitleEmojis])
+  const activeEmoji = normalizedEmojis.length > 0 ? normalizedEmojis[0] : null
+
+  // const activeEmoji =
+  //   normalizedEmojis.length > 0 ? normalizedEmojis[emojiTick % normalizedEmojis.length] : null
+  //
+  // useEffect(() => {
+  //   if (normalizedEmojis.length <= 1) return
+  //   const intervalId = setInterval(() => {
+  //     setEmojiTick(prev => prev + 1)
+  //   }, 2000)
+  //   return () => clearInterval(intervalId)
+  // }, [normalizedEmojis.length])
 
   return (
     <div className="shrink-0 z-20 w-full border-b border-gray-200 dark:border-zinc-800 bg-background/80 backdrop-blur-md pb-2 pt-[calc(0.5rem+env(safe-area-inset-top))] transition-all flex justify-center">
+      <style>{`
+        @media (max-width: 640px) {
+          .chat-title-marquee {
+            overflow: hidden;
+            white-space: nowrap;
+            position: relative;
+          }
+          .chat-title-marquee__inner {
+            display: inline-flex;
+            gap: 1.25rem;
+            width: max-content;
+            animation: chat-title-marquee 12s linear infinite;
+          }
+          .chat-title-marquee__duplicate {
+            display: inline-flex;
+          }
+        }
+        @media (min-width: 641px) {
+          .chat-title-marquee__inner {
+            padding-left: 0;
+            animation: none;
+          }
+          .chat-title-marquee__duplicate {
+            display: none;
+          }
+        }
+        @keyframes chat-title-marquee {
+          0% { transform: translateX(0); }
+          25% { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+      `}</style>
       <div className="w-full max-w-3xl flex items-center gap-1 px-3">
         {/* Mobile Menu Button */}
         <button
@@ -142,18 +192,28 @@ const ChatHeader = ({
         </div>
 
         <div className="flex items-center gap-2 flex-1 min-w-0">
-          <h1 className="text-m sm:text-xl font-medium text-gray-800 dark:text-gray-100 truncate flex items-center gap-2">
-            {isMetaLoading ? (
+          <h1 className="text-m sm:text-xl font-medium text-gray-800 dark:text-gray-100 truncate flex items-center gap-2 min-w-0">
+            {isTitleLoading || isMetaLoading ? (
               <span className="inline-block h-5 w-40 sm:w-56 rounded-md bg-gray-200 dark:bg-zinc-700 animate-pulse" />
             ) : (
-              conversationTitle || 'New Conversation'
+              <span className="flex items-center gap-2 min-w-0">
+                {activeEmoji && <EmojiDisplay emoji={activeEmoji} size="1.2rem" />}
+                <span className="chat-title-marquee min-w-0 max-w-full">
+                  <span className="chat-title-marquee__inner">
+                    <span className="truncate">{conversationTitle || 'New Conversation'}</span>
+                    <span className="chat-title-marquee__duplicate truncate">
+                      {conversationTitle || 'New Conversation'}
+                    </span>
+                  </span>
+                </span>
+              </span>
             )}
             {isRegeneratingTitle && <span className="animate-pulse">...</span>}
           </h1>
           <button
             onClick={onRegenerateTitle}
             disabled={isRegeneratingTitle || messages.length === 0}
-            className="hidden sm:block p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors disabled:opacity-50 disabled:hover:bg-transparent"
+            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-colors shrink-0"
             title={t('chatInterface.regenerateTitle')}
           >
             <Sparkles size={18} />

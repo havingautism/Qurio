@@ -13,7 +13,7 @@ const BACKEND_URL = import.meta.env.PUBLIC_BACKEND_URL || 'http://localhost:3001
  * @param {string} apiKey - API key for the provider
  * @param {string} baseUrl - Optional custom base URL
  * @param {string} model - Optional model name
- * @returns {Promise<{title: string}>}
+ * @returns {Promise<{title: string, emojis?: string[]}>}
  */
 export const generateTitleViaBackend = async (provider, message, apiKey, baseUrl, model) => {
   const response = await fetch(`${BACKEND_URL}/api/title`, {
@@ -260,7 +260,7 @@ export const streamResearchPlanViaBackend = async params => {
  * @param {string} apiKey - API key for the provider
  * @param {string} baseUrl - Optional custom base URL
  * @param {string} model - Optional model name
- * @returns {Promise<{title: string, spaceLabel: string|null, agentName: string|null}>}
+ * @returns {Promise<{title: string, spaceLabel: string|null, agentName: string|null, emojis?: string[]}>}
  */
 export const generateTitleSpaceAndAgentViaBackend = async (
   provider,
@@ -314,7 +314,7 @@ export const checkBackendHealth = async () => {
  * @param {string} apiKey - API key for the provider
  * @param {string} baseUrl - Optional custom base URL
  * @param {string} model - Optional model name
- * @returns {Promise<{title: string, space: object|null}>}
+ * @returns {Promise<{title: string, space: object|null, emojis?: string[]}>}
  */
 export const generateTitleAndSpaceViaBackend = async (
   provider,

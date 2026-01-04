@@ -18,7 +18,10 @@ import {
 
 const generateTitle = async (provider, firstMessage, apiKey, baseUrl, model) => {
   const result = await generateTitleViaBackend(provider, firstMessage, apiKey, baseUrl, model)
-  return result?.title || 'New Conversation'
+  return {
+    title: result?.title || 'New Conversation',
+    emojis: Array.isArray(result?.emojis) ? result.emojis : [],
+  }
 }
 
 const generateResearchPlan = async (provider, userMessage, apiKey, baseUrl, model) => {
@@ -82,7 +85,11 @@ const generateTitleAndSpace = async (provider, firstMessage, spaces, apiKey, bas
   )
   const title = result?.title || 'New Conversation'
   const space = result?.space !== undefined ? result.space : null
-  return { title, space }
+  return {
+    title,
+    space,
+    emojis: Array.isArray(result?.emojis) ? result.emojis : [],
+  }
 }
 
 const generateTitleSpaceAndAgent = async (
@@ -105,6 +112,7 @@ const generateTitleSpaceAndAgent = async (
     title: result?.title || 'New Conversation',
     spaceLabel: result?.spaceLabel || null,
     agentName: result?.agentName || null,
+    emojis: Array.isArray(result?.emojis) ? result.emojis : [],
   }
 }
 

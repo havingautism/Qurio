@@ -73,6 +73,7 @@ const Sidebar = ({
   const [hasMore, setHasMore] = useState(true)
   const [isConversationsLoading, setIsConversationsLoading] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
+  // const [emojiTick, setEmojiTick] = useState(0)
 
   // Dedicated Bookmarks State
   const [bookmarkedConversations, setBookmarkedConversations] = useState([])
@@ -126,6 +127,43 @@ const Sidebar = ({
     return spaceById.get(String(spaceId)) || null
   }
 
+  const normalizeTitleEmojis = value => {
+    if (Array.isArray(value)) {
+      return value
+        .map(item => String(item || '').trim())
+        .filter(Boolean)
+          .slice(0, 1)
+    }
+    if (typeof value === 'string' && value.trim()) {
+      try {
+        const parsed = JSON.parse(value)
+        if (Array.isArray(parsed)) {
+          return parsed
+            .map(item => String(item || '').trim())
+            .filter(Boolean)
+            .slice(0, 1)
+        }
+      } catch {
+        return []
+      }
+    }
+    return []
+  }
+
+  const resolveConversationEmoji = (conv, fallbackEmoji) => {
+    const emojiList = normalizeTitleEmojis(conv?.title_emojis ?? conv?.titleEmojis)
+    const resolvedList = emojiList.length > 0 ? emojiList : fallbackEmoji ? [fallbackEmoji] : []
+    if (resolvedList.length === 0) return '💬'
+    return resolvedList[0]
+    // const idText = String(conv?.id || '')
+    // let hash = 0
+    // for (let i = 0; i < idText.length; i += 1) {
+    //   hash = (hash + idText.charCodeAt(i)) % resolvedList.length
+    // }
+    // const index = (hash + emojiTick) % resolvedList.length
+    // return resolvedList[index]
+  }
+
   const formatDateTime = value => {
     if (!value) return t('sidebar.recently')
     // Use current language for date formatting
@@ -152,6 +190,13 @@ const Sidebar = ({
       onPinChange(isPinned)
     }
   }, [isPinned, onPinChange])
+
+  // useEffect(() => {
+  //   const intervalId = setInterval(() => {
+  //     setEmojiTick(prev => prev + 1)
+  //   }, 2000)
+  //   return () => clearInterval(intervalId)
+  // }, [])
 
   const fetchConversations = async (isInitial = true) => {
     try {
@@ -562,8 +607,9 @@ const Sidebar = ({
   const spacesHasMore = useMemo(() => {
     if (displayTab !== 'spaces') return false
     const hiddenSpaceIds = new Set(deepResearchSpaceIds)
-    const filteredCount = (spaces || []).filter(space => !hiddenSpaceIds.has(String(space.id)))
-      .length
+    const filteredCount = (spaces || []).filter(
+      space => !hiddenSpaceIds.has(String(space.id)),
+    ).length
     return filteredCount > spacesLimit
   }, [spaces, spacesLimit, displayTab, deepResearchSpaceIds])
 
@@ -790,13 +836,11 @@ const Sidebar = ({
                             >
                               <div className="flex items-center justify-between w-full overflow-hidden">
                                 <div className="flex items-center gap-2 overflow-hidden flex-1 min-w-0">
-                                  {space?.emoji && (
-                                    <EmojiDisplay
-                                      emoji={space.emoji}
-                                      size="1.4em"
-                                      className="shrink-0"
-                                    />
-                                  )}
+                                  <EmojiDisplay
+                                    emoji={resolveConversationEmoji(conv, space?.emoji)}
+                                    size="1.4em"
+                                    className="shrink-0"
+                                  />
                                   <div className="flex flex-col overflow-hidden flex-1 min-w-0">
                                     <div className="flex items-center gap-1 min-w-0">
                                       <span className="truncate font-medium flex-1 min-w-0">
@@ -960,13 +1004,11 @@ const Sidebar = ({
                               >
                                 <div className="flex items-center justify-between w-full overflow-hidden">
                                   <div className="flex items-center gap-2 overflow-hidden flex-1 min-w-0">
-                                    {space?.emoji && (
-                                      <EmojiDisplay
-                                        emoji={space.emoji}
-                                        size="1.4em"
-                                        className="shrink-0"
-                                      />
-                                    )}
+                                    <EmojiDisplay
+                                      emoji={resolveConversationEmoji(conv, space?.emoji)}
+                                      size="1.4em"
+                                      className="shrink-0"
+                                    />
                                     <div className="flex flex-col overflow-hidden flex-1 min-w-0">
                                       <div className="flex items-center gap-1 min-w-0">
                                         <span className="truncate font-medium flex-1 min-w-0">
@@ -1119,13 +1161,11 @@ const Sidebar = ({
                         >
                           <div className="flex items-center justify-between w-full overflow-hidden">
                             <div className="flex items-center gap-2 overflow-hidden flex-1 min-w-0">
-                              {space?.emoji && (
-                                <EmojiDisplay
-                                  emoji={space.emoji}
-                                  size="1.4em"
-                                  className="shrink-0"
-                                />
-                              )}
+                              <EmojiDisplay
+                                emoji={resolveConversationEmoji(conv, space?.emoji)}
+                                size="1.4em"
+                                className="shrink-0"
+                              />
                               <div className="flex flex-col overflow-hidden flex-1 min-w-0">
                                 <div className="flex items-center gap-1 min-w-0">
                                   <span className="truncate font-medium flex-1 min-w-0">
@@ -1473,7 +1513,7 @@ const Sidebar = ({
                     >
                       <div className="flex items-center gap-2 flex-1 min-w-0">
                         <div className="w-8 h-8 rounded bg-transparent flex items-center justify-center text-lg shrink-0">
-                          <EmojiDisplay emoji={agent.emoji} />
+                          <EmojiDisplay emoji={agent.emoji} size="1.4em" />
                         </div>
                         <div className="flex flex-col min-w-0">
                           <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">

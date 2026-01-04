@@ -26,7 +26,8 @@ const router = express.Router()
  * {
  *   "title": "Generated title",
  *   "spaceLabel": "Selected space label" | null,
- *   "agentName": "Selected agent name" | null
+ *   "agentName": "Selected agent name" | null,
+ *   "emojis": ["🙂","✨"]
  * }
  */
 router.post('/title-space-agent', async (req, res) => {

@@ -471,9 +471,10 @@ export const generateTitleAndSpace = async (
 ## Task
 1. Generate a short, concise title (max 5 words) for this conversation based on the user's first message.
 2. Select the most appropriate space from the following list: [${spaceLabels}]. If none fit well, return null.
+3. Select 1 emoji that best matches the conversation.
 
 ## Output
-Return the result as a JSON object with keys "title" and "spaceLabel".`,
+Return the result as a JSON object with keys "title", "spaceLabel", and "emojis".`,
     },
     { role: 'user', content: firstMessage },
   ]
@@ -521,8 +522,12 @@ Return the result as a JSON object with keys "title" and "spaceLabel".`,
     })
   }
   const parsed = safeJsonParse(content) || {}
-  const title = parsed.title || 'New Conversation'
+  const rawTitle = typeof content === 'string' ? content.trim() : ''
+  const title = parsed.title || rawTitle || 'New Conversation'
   const spaceLabel = parsed.spaceLabel
   const selectedSpace = (spaces || []).find(s => s.label === spaceLabel) || null
-  return { title, space: selectedSpace }
+  const emojis = Array.isArray(parsed.emojis)
+    ? parsed.emojis.map(item => String(item || '').trim()).filter(Boolean).slice(0, 1)
+    : []
+  return { title, space: selectedSpace, emojis }
 }

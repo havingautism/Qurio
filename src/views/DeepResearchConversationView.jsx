@@ -68,6 +68,25 @@ const DeepResearchConversationView = () => {
     }
   }, [conversationId])
 
+  useEffect(() => {
+    const handleConversationChanged = async () => {
+      if (!conversationId) return
+      try {
+        const { data } = await getConversation(conversationId)
+        if (data) {
+          setConversation(data)
+        }
+      } catch (error) {
+        console.error('Failed to refetch conversation:', error)
+      }
+    }
+
+    window.addEventListener('conversations-changed', handleConversationChanged)
+    return () => {
+      window.removeEventListener('conversations-changed', handleConversationChanged)
+    }
+  }, [conversationId])
+
   const optimisticMatch =
     optimisticSelection?.conversationId === conversationId ? optimisticSelection : null
 

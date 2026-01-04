@@ -74,6 +74,7 @@ CREATE TABLE IF NOT EXISTS public.conversations (
   last_agent_id UUID REFERENCES public.agents(id) ON DELETE SET NULL,
   agent_selection_mode TEXT NOT NULL DEFAULT 'auto' CHECK (agent_selection_mode IN ('auto', 'manual')),
   title TEXT NOT NULL DEFAULT 'New Conversation',
+  title_emojis JSONB NOT NULL DEFAULT '[]'::jsonb,
   api_provider TEXT NOT NULL DEFAULT 'gemini',
   is_search_enabled BOOLEAN NOT NULL DEFAULT FALSE,
   is_thinking_enabled BOOLEAN NOT NULL DEFAULT FALSE,

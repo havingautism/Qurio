@@ -48,6 +48,7 @@ const LibraryView = () => {
   const [conversations, setConversations] = useState([])
   const [loading, setLoading] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
+  // const [emojiTick, setEmojiTick] = useState(0)
   const [totalCount, setTotalCount] = useState(0)
   const limit = 10
   const deepResearchSpaceIds = useMemo(() => {
@@ -105,6 +106,13 @@ const LibraryView = () => {
     return () => window.removeEventListener('conversations-changed', handleConversationsChanged)
   }, [currentPage, sortOption, activeSearchQuery, deepResearchSpaceIds])
 
+  // useEffect(() => {
+  //   const intervalId = setInterval(() => {
+  //     setEmojiTick(prev => prev + 1)
+  //   }, 2000)
+  //   return () => clearInterval(intervalId)
+  // }, [])
+
   const handleSearch = () => {
     if (searchQuery.trim() !== activeSearchQuery) {
       setActiveSearchQuery(searchQuery.trim())
@@ -137,6 +145,37 @@ const LibraryView = () => {
   const getSpaceInfo = spaceId => {
     if (!spaceId) return null
     return spaces.find(s => String(s.id) === String(spaceId))
+  }
+
+  const normalizeTitleEmojis = value => {
+    if (Array.isArray(value)) {
+      return value.map(item => String(item || '').trim()).filter(Boolean).slice(0, 1)
+    }
+    if (typeof value === 'string' && value.trim()) {
+      try {
+        const parsed = JSON.parse(value)
+        if (Array.isArray(parsed)) {
+          return parsed.map(item => String(item || '').trim()).filter(Boolean).slice(0, 1)
+        }
+      } catch {
+        return []
+      }
+    }
+    return []
+  }
+
+  const resolveConversationEmoji = (conv, fallbackEmoji) => {
+    const emojiList = normalizeTitleEmojis(conv?.title_emojis ?? conv?.titleEmojis)
+    const resolvedList = emojiList.length > 0 ? emojiList : fallbackEmoji ? [fallbackEmoji] : []
+    if (resolvedList.length === 0) return '💬'
+    return resolvedList[0]
+    // const idText = String(conv?.id || '')
+    // let hash = 0
+    // for (let i = 0; i < idText.length; i += 1) {
+    //   hash = (hash + idText.charCodeAt(i)) % resolvedList.length
+    // }
+    // const index = (hash + emojiTick) % resolvedList.length
+    // return resolvedList[index]
   }
 
   // Format date helper
@@ -357,11 +396,12 @@ const LibraryView = () => {
                   className="group relative p-2 rounded-xl cursor-pointer transition-colors border-b border-gray-100 dark:border-zinc-800/50 last:border-0 hover:bg-primary-500/10 dark:hover:bg-primary-500/20 hover:border hover:border-primary-500/30 dark:hover:border-primary-500/40"
                 >
                   <div className="flex justify-between items-start gap-4">
-                    {space?.emoji && (
-                      <div className="shrink-0 flex items-center justify-center bg-gray-100 dark:bg-zinc-800 rounded-lg w-12 h-12">
-                        <EmojiDisplay emoji={space.emoji} size="2rem" />
-                      </div>
-                    )}
+                    <div className="shrink-0 flex items-center justify-center bg-gray-100 dark:bg-zinc-800 rounded-lg w-12 h-12">
+                      <EmojiDisplay
+                        emoji={resolveConversationEmoji(conv, space?.emoji)}
+                        size="2rem"
+                      />
+                    </div>
                     <div className="flex-1 min-w-0">
                       {/* Title */}
                       <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-1 truncate flex items-center gap-2">

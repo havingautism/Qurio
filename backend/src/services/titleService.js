@@ -8,6 +8,7 @@ import {
   normalizeGeminiMessages,
   normalizeTextContent,
   toLangChainMessages,
+  safeJsonParse,
 } from './serviceUtils.js'
 
 // Default base URLs
@@ -26,8 +27,6 @@ const DEFAULT_MODELS = {
   modelscope: 'AI-ModelScope/glm-4-9b-chat',
   kimi: 'moonshot-v1-8k',
 }
-
- 
 
 // ============================================================================
 // Model builders
@@ -466,13 +465,15 @@ export const generateTitle = async (provider, firstMessage, apiKey, baseUrl, mod
       role: 'system',
       content: `## Task
 Generate a short, concise title (max 5 words) for this conversation based on the user's first message. Do not use quotes.
+Select 1 emoji that best matches the conversation.
 
 ## Output
-Return only the title text.`,
+Return JSON with keys "title" and "emojis". "emojis" must be an array with 1 emoji character.`,
     },
     { role: 'user', content: firstMessage },
   ]
 
+  const responseFormat = provider !== 'gemini' ? { type: 'json_object' } : undefined
   let content
   if (provider === 'gemini') {
     content = await requestGemini({ apiKey, model, messages: promptMessages })
@@ -481,24 +482,28 @@ Return only the title text.`,
       apiKey,
       model,
       messages: promptMessages,
+      responseFormat,
     })
   } else if (provider === 'glm') {
     content = await requestGLM({
       apiKey,
       model,
       messages: promptMessages,
+      responseFormat,
     })
   } else if (provider === 'modelscope') {
     content = await requestModelScope({
       apiKey,
       model,
       messages: promptMessages,
+      responseFormat,
     })
   } else if (provider === 'kimi') {
     content = await requestKimi({
       apiKey,
       model,
       messages: promptMessages,
+      responseFormat,
     })
   } else {
     content = await requestOpenAICompat({
@@ -507,7 +512,21 @@ Return only the title text.`,
       baseUrl,
       model,
       messages: promptMessages,
+      responseFormat,
     })
   }
-  return content?.trim?.() || 'New Conversation'
+  const parsed = safeJsonParse(content) || {}
+  const rawTitle = typeof content === 'string' ? content.trim() : ''
+  const title =
+    typeof parsed.title === 'string' && parsed.title.trim() ? parsed.title.trim() : rawTitle
+  const emojis = Array.isArray(parsed.emojis)
+    ? parsed.emojis
+        .map(item => String(item || '').trim())
+        .filter(Boolean)
+        .slice(0, 1)
+    : []
+  return {
+    title: title || 'New Conversation',
+    emojis,
+  }
 }

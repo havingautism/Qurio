@@ -396,7 +396,7 @@ const handleEditingAndHistory = (messages, editingInfo, userMessage, historyOver
  * @param {Array} spaces - Available spaces for auto-selection
  * @param {Array} agents - Available agents for auto-selection
  * @param {Object} selectedAgent - Currently selected agent (optional)
- * @returns {Promise<{ title: string, space: Object|null, agent: Object|null }>}
+ * @returns {Promise<{ title: string, space: Object|null, agent: Object|null, emojis: string[] }>}
  */
 const preselectTitleSpaceAndAgentForAuto = async (
   firstMessage,
@@ -421,7 +421,7 @@ const preselectTitleSpaceAndAgentForAuto = async (
   const promptText = applyLanguageInstructionToText(firstMessage, languageInstruction)
   const spaceAgents = await buildSpaceAgentOptions(spaces, agents)
   if (spaceAgents.length && provider.generateTitleSpaceAndAgent) {
-    const { title, spaceLabel, agentName } = await provider.generateTitleSpaceAndAgent(
+    const { title, spaceLabel, agentName, emojis } = await provider.generateTitleSpaceAndAgent(
       promptText,
       spaceAgents,
       credentials.apiKey,
@@ -435,17 +435,17 @@ const preselectTitleSpaceAndAgentForAuto = async (
       selectedSpace && agentName
         ? resolveAgentForSpace(agentName, selectedSpace, spaceAgents, agents)
         : null
-    return { title, space: selectedSpace, agent: agentCandidate }
+    return { title, space: selectedSpace, agent: agentCandidate, emojis: emojis || [] }
   }
 
-  const { title, space } = await provider.generateTitleAndSpace(
+  const { title, space, emojis } = await provider.generateTitleAndSpace(
     promptText,
     spaces || [],
     credentials.apiKey,
     credentials.baseUrl,
     modelConfig.model,
   )
-  return { title, space: space || null, agent: null }
+  return { title, space: space || null, agent: null, emojis: emojis || [] }
 }
 
 /**
@@ -453,7 +453,7 @@ const preselectTitleSpaceAndAgentForAuto = async (
  * @param {string} firstMessage - Raw user text
  * @param {Object} settings - User settings and API configuration
  * @param {Object} selectedAgent - Currently selected agent (optional)
- * @returns {Promise<string>}
+ * @returns {Promise<{title: string, emojis: string[]}>}
  */
 const preselectTitleForManual = async (
   firstMessage,
@@ -475,12 +475,16 @@ const preselectTitleForManual = async (
   const credentials = provider.getCredentials(settings)
   const languageInstruction = getLanguageInstruction(agentForTitle)
   const promptText = applyLanguageInstructionToText(firstMessage, languageInstruction)
-  return provider.generateTitle(
+  const result = await provider.generateTitle(
     promptText,
     credentials.apiKey,
     credentials.baseUrl,
     modelConfig.model,
   )
+  return {
+    title: result?.title || 'New Conversation',
+    emojis: Array.isArray(result?.emojis) ? result.emojis : [],
+  }
 }
 
 const normalizeDeepResearchTitle = (title, settings) => {
@@ -522,13 +526,16 @@ const preselectTitleForDeepResearch = async (
   const credentials = provider.getCredentials(settings)
   const languageInstruction = getLanguageInstruction(agentForTitle)
   const promptText = applyLanguageInstructionToText(firstMessage, languageInstruction)
-  const rawTitle = await provider.generateTitle(
+  const result = await provider.generateTitle(
     promptText,
     credentials.apiKey,
     credentials.baseUrl,
     modelConfig.model,
   )
-  return normalizeDeepResearchTitle(rawTitle, settings)
+  return {
+    title: normalizeDeepResearchTitle(result?.title || '', settings),
+    emojis: Array.isArray(result?.emojis) ? result.emojis : [],
+  }
 }
 
 /**
@@ -693,6 +700,7 @@ const prepareAIPlaceholder = (
  * @param {Object} selectedAgent - Currently selected agent (optional)
  * @param {Array} agents - Available agents (optional)
  * @param {string|null} preselectedTitle - Preselected title for auto mode (optional)
+ * @param {Array} preselectedEmojis - Preselected emojis for the title (optional)
  * @param {Function} get - Zustand get function
  * @param {Function} set - Zustand set function
  * @param {number} historyLengthBeforeSend - Length of the conversation before the current user turn (for metadata)
@@ -709,6 +717,7 @@ const callAIAPI = async (
   selectedAgent,
   agents,
   preselectedTitle,
+  preselectedEmojis,
   get,
   set,
   historyLengthBeforeSend,
@@ -1023,6 +1032,7 @@ const callAIAPI = async (
           firstUserText,
           spaceInfo,
           preselectedTitle,
+          preselectedEmojis,
           toggles,
           selectedAgent,
           agents,
@@ -1090,6 +1100,7 @@ const callAIAPI = async (
  * @param {string} [firstUserText] - Raw text of the initial user message
  * @param {Object} spaceInfo - Space selection information
  * @param {string|null} preselectedTitle - Preselected title for auto mode (optional)
+ * @param {Array} preselectedEmojis - Preselected emojis for the title (optional)
  * @param {Object} toggles - Feature toggles (search, thinking, related)
  * @param {Object} selectedAgent - Currently selected agent (optional)
  * @param {Array} agents - Available agents list for resolving defaults
@@ -1106,6 +1117,7 @@ const finalizeMessage = async (
   firstUserText,
   spaceInfo,
   preselectedTitle,
+  preselectedEmojis,
   toggles = {},
   selectedAgent = null,
   agents = [],
@@ -1166,6 +1178,7 @@ const finalizeMessage = async (
 
   // Generate title and space if this is the first turn
   let resolvedTitle = currentStore.conversationTitle
+  let resolvedTitleEmojis = Array.isArray(preselectedEmojis) ? preselectedEmojis : []
   let resolvedSpace = spaceInfo?.selectedSpace || null
   let resolvedAgent = safeAgent || null
 
@@ -1196,7 +1209,8 @@ const finalizeMessage = async (
   if (isFirstTurn) {
     if (typeof preselectedTitle === 'string' && preselectedTitle.trim()) {
       resolvedTitle = preselectedTitle.trim()
-      set({ conversationTitle: resolvedTitle })
+      resolvedTitleEmojis = Array.isArray(preselectedEmojis) ? preselectedEmojis : []
+      set({ conversationTitle: resolvedTitle, conversationTitleEmojis: resolvedTitleEmojis })
     } else if (spaceInfo?.isManualSpaceSelection && spaceInfo?.selectedSpace) {
       // Generate title only when space is manually selected
       const titleModelConfig = getModelConfigForAgent(
@@ -1209,13 +1223,15 @@ const finalizeMessage = async (
       const credentials = provider.getCredentials(settings)
       const languageInstruction = getLanguageInstruction(safeAgent)
       const promptText = applyLanguageInstructionToText(firstMessageText, languageInstruction)
-      resolvedTitle = await provider.generateTitle(
+      const titleResult = await provider.generateTitle(
         promptText,
         credentials.apiKey,
         credentials.baseUrl,
         titleModelConfig.model,
       )
-      set({ conversationTitle: resolvedTitle })
+      resolvedTitle = titleResult?.title || 'New Conversation'
+      resolvedTitleEmojis = Array.isArray(titleResult?.emojis) ? titleResult.emojis : []
+      set({ conversationTitle: resolvedTitle, conversationTitleEmojis: resolvedTitleEmojis })
     } else if (callbacks?.onTitleAndSpaceGenerated) {
       // Use callback to generate both title and space
       const titleModelConfig = getModelConfigForAgent(
@@ -1228,13 +1244,14 @@ const finalizeMessage = async (
       const credentials = provider.getCredentials(settings)
       const languageInstruction = getLanguageInstruction(safeAgent)
       const promptText = applyLanguageInstructionToText(firstMessageText, languageInstruction)
-      const { title, space } = await callbacks.onTitleAndSpaceGenerated(
+      const { title, space, emojis } = await callbacks.onTitleAndSpaceGenerated(
         promptText,
         credentials.apiKey,
         credentials.baseUrl,
       )
       resolvedTitle = title
-      set({ conversationTitle: title })
+      resolvedTitleEmojis = Array.isArray(emojis) ? emojis : []
+      set({ conversationTitle: title, conversationTitleEmojis: resolvedTitleEmojis })
       resolvedSpace = space || null
     } else {
       // Generate both title and space automatically
@@ -1251,7 +1268,7 @@ const finalizeMessage = async (
       if (!resolvedAgent && provider.generateTitleSpaceAndAgent) {
         const spaceAgents = await buildSpaceAgentOptions(spaces, agents)
         if (spaceAgents.length) {
-          const { title, spaceLabel, agentName } = await provider.generateTitleSpaceAndAgent(
+          const { title, spaceLabel, agentName, emojis } = await provider.generateTitleSpaceAndAgent(
             promptText,
             spaceAgents,
             credentials.apiKey,
@@ -1259,7 +1276,8 @@ const finalizeMessage = async (
             titleModelConfig.model,
           )
           resolvedTitle = title
-          set({ conversationTitle: title })
+          resolvedTitleEmojis = Array.isArray(emojis) ? emojis : []
+          set({ conversationTitle: title, conversationTitleEmojis: resolvedTitleEmojis })
           const normalizedSpaceLabel =
             typeof spaceLabel === 'string' ? spaceLabel.split(' - ')[0].trim() : spaceLabel
           resolvedSpace = (spaces || []).find(s => s.label === normalizedSpaceLabel) || null
@@ -1272,7 +1290,7 @@ const finalizeMessage = async (
         }
       }
       if (!resolvedTitle || resolvedTitle === 'New Conversation') {
-        const { title, space } = await provider.generateTitleAndSpace(
+        const { title, space, emojis } = await provider.generateTitleAndSpace(
           promptText,
           spaces || [],
           credentials.apiKey,
@@ -1280,7 +1298,8 @@ const finalizeMessage = async (
           titleModelConfig.model,
         )
         resolvedTitle = title
-        set({ conversationTitle: title })
+        resolvedTitleEmojis = Array.isArray(emojis) ? emojis : []
+        set({ conversationTitle: title, conversationTitleEmojis: resolvedTitleEmojis })
         resolvedSpace = space || resolvedSpace || null
       }
     }
@@ -1422,6 +1441,7 @@ const finalizeMessage = async (
         // First turn: update title, space, agent_selection_mode, and last_agent_id
         await updateConversation(currentStore.conversationId, {
           title: resolvedTitle,
+          title_emojis: resolvedTitleEmojis,
           space_id: resolvedSpace ? resolvedSpace.id : null,
           api_provider: resolvedAgent?.provider || safeAgent?.provider || '',
           last_agent_id: safeAgent?.id || null,
@@ -1559,6 +1579,8 @@ const useChatStore = create((set, get) => ({
   conversationId: null,
   /** Title of the current conversation */
   conversationTitle: '',
+  /** Emojis selected for the current conversation title */
+  conversationTitleEmojis: [],
   /** Loading state for ongoing operations */
   isLoading: false,
   /** Loading state for preselecting space/title in auto mode */
@@ -1580,6 +1602,9 @@ const useChatStore = create((set, get) => ({
   setConversationId: conversationId => set({ conversationId }),
   /** Sets current conversation title */
   setConversationTitle: conversationTitle => set({ conversationTitle }),
+  /** Sets current conversation title emojis */
+  setConversationTitleEmojis: conversationTitleEmojis =>
+    set({ conversationTitleEmojis }),
   /** Sets loading state */
   setIsLoading: isLoading => set({ isLoading }),
   /** Sets meta loading state */
@@ -1597,6 +1622,7 @@ const useChatStore = create((set, get) => ({
       messages: [],
       conversationId: null,
       conversationTitle: '',
+      conversationTitleEmojis: [],
       isLoading: false,
       isMetaLoading: false,
       isAgentPreselecting: false,
@@ -1726,6 +1752,7 @@ const useChatStore = create((set, get) => ({
     // In auto mode, let AI choose or fallback to space default/global default
     let resolvedAgent = isAgentAutoMode ? null : selectedAgent
     let preselectedTitle = null
+    let preselectedEmojis = []
     const isFirstTurn = historyLengthBeforeSend === 0
     const isDeepResearchMode = !!toggles?.deepResearch
     // Only preselect space/title on first turn, never reload in existing conversations
@@ -1753,10 +1780,16 @@ const useChatStore = create((set, get) => ({
       set({ isMetaLoading: true })
       try {
         if (shouldPreselectDeepResearchTitle) {
-          const title = await preselectTitleForDeepResearch(text, settings, selectedAgent, agents)
+          const { title, emojis } = await preselectTitleForDeepResearch(
+            text,
+            settings,
+            selectedAgent,
+            agents,
+          )
           if (title) {
             preselectedTitle = title
-            set({ conversationTitle: title })
+            preselectedEmojis = emojis || []
+            set({ conversationTitle: title, conversationTitleEmojis: emojis || [] })
           }
         } else if (shouldPreselectSpaceTitle) {
           const selectableSpaces = toggles?.deepResearch
@@ -1769,7 +1802,7 @@ const useChatStore = create((set, get) => ({
                     space?.is_deep_research
                   ),
               )
-          const { title, space, agent } = await preselectTitleSpaceAndAgentForAuto(
+          const { title, space, agent, emojis } = await preselectTitleSpaceAndAgentForAuto(
             text,
             settings,
             selectableSpaces,
@@ -1786,7 +1819,8 @@ const useChatStore = create((set, get) => ({
           }
           if (title) {
             preselectedTitle = title
-            set({ conversationTitle: title })
+            preselectedEmojis = emojis || []
+            set({ conversationTitle: title, conversationTitleEmojis: emojis || [] })
           }
 
           // Fallback: use space default agent, then global default agent
@@ -1798,10 +1832,16 @@ const useChatStore = create((set, get) => ({
             }
           }
         } else if (shouldPreselectTitleForManual) {
-          const title = await preselectTitleForManual(text, settings, selectedAgent, agents)
+          const { title, emojis } = await preselectTitleForManual(
+            text,
+            settings,
+            selectedAgent,
+            agents,
+          )
           if (title) {
             preselectedTitle = title
-            set({ conversationTitle: title })
+            preselectedEmojis = emojis || []
+            set({ conversationTitle: title, conversationTitleEmojis: emojis || [] })
           }
 
           // For manual space selection, fallback to space default agent, then global default
@@ -1948,6 +1988,7 @@ const useChatStore = create((set, get) => ({
       resolvedAgent,
       agents,
       preselectedTitle,
+      preselectedEmojis,
       get,
       set,
       historyLengthBeforeSend,

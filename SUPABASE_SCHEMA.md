@@ -57,6 +57,7 @@ Tracks each chat session and its relationship to spaces.
 | `space_id`            | uuid        | FK -> `spaces.id`, nullable for "None" |
 | `last_agent_id`       | uuid        | FK -> `agents.id`, last agent used     |
 | `title`               | text        | AI-generated or user-edited            |
+| `title_emojis`        | jsonb       | 1-3 emojis selected for the title      |
 | `api_provider`        | text        | e.g. `gemini`, `openai_compatibility`  |
 | `is_search_enabled`   | boolean     | Snapshot from the UI toggle            |
 | `is_thinking_enabled` | boolean     | Snapshot from the UI toggle            |

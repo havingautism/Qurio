@@ -23,7 +23,8 @@ const router = express.Router()
  *
  * Response:
  * {
- *   "title": "Generated title"
+ *   "title": "Generated title",
+ *   "emojis": ["🙂","✨"]
  * }
  */
 router.post('/title', async (req, res) => {
@@ -43,9 +44,12 @@ router.post('/title', async (req, res) => {
 
     console.log(`[API] generateTitle: provider=${provider}`)
 
-    const title = await generateTitle(provider, message, apiKey, baseUrl, model)
+    const result = await generateTitle(provider, message, apiKey, baseUrl, model)
 
-    res.json({ title })
+    res.json({
+      title: result?.title || 'New Conversation',
+      emojis: Array.isArray(result?.emojis) ? result.emojis : [],
+    })
   } catch (error) {
     console.error('[API] generateTitle error:', error)
     res.status(500).json({

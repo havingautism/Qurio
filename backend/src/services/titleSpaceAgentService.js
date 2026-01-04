@@ -29,7 +29,6 @@ const DEFAULT_MODELS = {
   kimi: 'moonshot-v1-8k',
 }
 
-
 /**
  * Sanitize option text for prompt
  */
@@ -39,8 +38,6 @@ const sanitizeOptionText = text =>
     .replace(/[{}]/g, '')
     .replace(/\s+/g, ' ')
     .trim()
-
- 
 
 // ============================================================================
 // Model builders (from frontend buildXXXModel functions)
@@ -514,9 +511,10 @@ export const generateTitleSpaceAndAgent = async (
 1. Generate a short, concise title (max 5 words) for this conversation based on the user's first message.
 2. Select the most appropriate space from the list below and return its spaceLabel (the space name only, without the description).
 3. If the chosen space has agents, select the best matching agent by agentName (agent name only). Otherwise return null.
+4. Select 1 emoji that best matches the conversation.
 
 ## Output
-Return the result as JSON with keys "title", "spaceLabel", and "agentName".`,
+Return the result as JSON with keys "title", "spaceLabel", "agentName", and "emojis".`,
     },
     {
       role: 'user',
@@ -569,10 +567,17 @@ Return the result as JSON with keys "title", "spaceLabel", and "agentName".`,
   }
 
   const parsed = safeJsonParse(content) || {}
-
+  const rawTitle = typeof content === 'string' ? content.trim() : ''
+  const emojis = Array.isArray(parsed.emojis)
+    ? parsed.emojis
+        .map(item => String(item || '').trim())
+        .filter(Boolean)
+        .slice(0, 1)
+    : []
   return {
-    title: parsed.title || 'New Conversation',
+    title: parsed.title || rawTitle || 'New Conversation',
     spaceLabel: parsed.spaceLabel || null,
     agentName: parsed.agentName || null,
+    emojis,
   }
 }

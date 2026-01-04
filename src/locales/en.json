@@ -564,7 +564,7 @@
       "failedToDelete": "Failed to delete conversation"
     },
     "deepResearchView": {
-      "title": "Deep Research",
+      "title": "Research",
       "searchPlaceholder": "Search your deep research sessions...",
       "noThreadsFound": "No deep research sessions found matching your search.",
       "conversationDeleted": "Conversation deleted successfully",

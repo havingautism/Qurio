@@ -75,8 +75,8 @@ const DeepResearchGoalCard = ({ content }) => {
   }, [content, t])
 
   return (
-    <div className="w-full max-w-2xl bg-white dark:bg-[#18181b]/50 backdrop-blur-sm rounded-2xl p-5 border border-gray-200 dark:border-zinc-800 shadow-sm mb-6 sm:mb-10 cursor-text select-text">
-      <div className="flex flex-col gap-4">
+    <div className="w-full max-w-2xl bg-white dark:bg-[#18181b]/50 backdrop-blur-sm rounded-2xl p-3 sm:p-5 border border-gray-200 dark:border-zinc-800 shadow-sm mb-3 sm:mb-10 cursor-text select-text">
+      <div className="flex flex-col gap-3 sm:gap-4">
         <div>
           <div className="text-gray-500 dark:text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
             <EmojiDisplay emoji="🎯" size="1.1em" />
@@ -88,13 +88,13 @@ const DeepResearchGoalCard = ({ content }) => {
         </div>
 
         <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 mt-1">
-          <div className="flex-1 bg-gray-50 dark:bg-zinc-800/50 rounded-lg p-3 border border-gray-100 dark:border-zinc-700/50">
+          <div className="flex-1 bg-gray-50 dark:bg-zinc-800/50 rounded-lg p-2.5 sm:p-3 border border-gray-100 dark:border-zinc-700/50">
             <div className="text-gray-400 dark:text-gray-500 text-[10px] font-bold uppercase tracking-wider mb-1">
               {t('messageBubble.researchScopeLabel')}
             </div>
             <div className="text-gray-700 dark:text-gray-300 text-sm font-medium">Auto</div>
           </div>
-          <div className="flex-1 bg-gray-50 dark:bg-zinc-800/50 rounded-lg p-3 border border-gray-100 dark:border-zinc-700/50">
+          <div className="flex-1 bg-gray-50 dark:bg-zinc-800/50 rounded-lg p-2.5 sm:p-3 border border-gray-100 dark:border-zinc-700/50">
             <div className="text-gray-400 dark:text-gray-500 text-[10px] font-bold uppercase tracking-wider mb-1">
               {t('messageBubble.researchRequirementsLabel')}
             </div>

@@ -229,11 +229,11 @@ const DeepResearchChatInterface = ({
     Boolean(activeConversation?._isPlaceholder) &&
     (!conversationTitle || conversationTitle === 'New Conversation')
   const isTitleLoading =
-    isMetaLoading ||
-    isSwitchingConversation ||
-    (activeConversation?.id && !hasLoadedActive && !hasResolvedTitle) ||
-    isPlaceholderTitle ||
-    (isLoadingHistory && !hasResolvedTitle)
+    !hasResolvedTitle &&
+    (isMetaLoading ||
+      isLoadingHistory ||
+      isSwitchingConversation ||
+      isPlaceholderTitle)
 
   useEffect(() => {
     if (!activeConversation?.id || activeConversation?._isPlaceholder) return
@@ -245,10 +245,19 @@ const DeepResearchChatInterface = ({
       nextEmojis.length !== conversationTitleEmojis.length ||
       nextEmojis.some((emoji, index) => emoji !== conversationTitleEmojis[index])
 
-    if (nextTitle === conversationTitle && !emojisChanged) return
+    const hasIncomingTitle = nextTitle && nextTitle !== 'New Conversation'
+    const hasIncomingEmojis = nextEmojis.length > 0
+    const shouldUpdateTitle = hasIncomingTitle && nextTitle !== conversationTitle
+    const shouldUpdateEmojis = hasIncomingEmojis && emojisChanged
 
-    setConversationTitle(nextTitle)
-    setConversationTitleEmojis(nextEmojis)
+    if (!shouldUpdateTitle && !shouldUpdateEmojis) return
+
+    if (shouldUpdateTitle) {
+      setConversationTitle(nextTitle)
+    }
+    if (shouldUpdateEmojis) {
+      setConversationTitleEmojis(nextEmojis)
+    }
     lastTitleConversationIdRef.current = activeConversation.id
   }, [
     activeConversation?.id,
@@ -622,10 +631,17 @@ const DeepResearchChatInterface = ({
         }
         if (lastTitleConversationIdRef.current !== activeConversation.id) {
           const nextTitle = activeConversation.title || ''
-          setConversationTitle(nextTitle)
-          setConversationTitleEmojis(
-            normalizeTitleEmojis(activeConversation.title_emojis ?? activeConversation.titleEmojis),
+          const nextEmojis = normalizeTitleEmojis(
+            activeConversation.title_emojis ?? activeConversation.titleEmojis,
           )
+          const shouldAdoptTitle =
+            (nextTitle && nextTitle !== 'New Conversation') ||
+            !conversationTitle ||
+            conversationTitle === 'New Conversation'
+          if (shouldAdoptTitle) {
+            setConversationTitle(nextTitle)
+            setConversationTitleEmojis(nextEmojis)
+          }
           lastTitleConversationIdRef.current = activeConversation.id
         } else if (
           activeConversation.title &&
@@ -677,10 +693,17 @@ const DeepResearchChatInterface = ({
         // Only adopt the stored title if it isn't a default placeholder.
         if (lastTitleConversationIdRef.current !== activeConversation.id) {
           const nextTitle = activeConversation.title || ''
-          setConversationTitle(nextTitle)
-          setConversationTitleEmojis(
-            normalizeTitleEmojis(activeConversation.title_emojis ?? activeConversation.titleEmojis),
+          const nextEmojis = normalizeTitleEmojis(
+            activeConversation.title_emojis ?? activeConversation.titleEmojis,
           )
+          const shouldAdoptTitle =
+            (nextTitle && nextTitle !== 'New Conversation') ||
+            !conversationTitle ||
+            conversationTitle === 'New Conversation'
+          if (shouldAdoptTitle) {
+            setConversationTitle(nextTitle)
+            setConversationTitleEmojis(nextEmojis)
+          }
           lastTitleConversationIdRef.current = activeConversation.id
         } else if (activeConversation.title && (!conversationTitle || conversationTitle === 'New Conversation')) {
           setConversationTitle(activeConversation.title)
@@ -712,10 +735,17 @@ const DeepResearchChatInterface = ({
       setConversationId(activeConversation.id)
       if (lastTitleConversationIdRef.current !== activeConversation.id) {
         const nextTitle = activeConversation.title || ''
-        setConversationTitle(nextTitle)
-        setConversationTitleEmojis(
-          normalizeTitleEmojis(activeConversation.title_emojis ?? activeConversation.titleEmojis),
+        const nextEmojis = normalizeTitleEmojis(
+          activeConversation.title_emojis ?? activeConversation.titleEmojis,
         )
+        const shouldAdoptTitle =
+          (nextTitle && nextTitle !== 'New Conversation') ||
+          !conversationTitle ||
+          conversationTitle === 'New Conversation'
+        if (shouldAdoptTitle) {
+          setConversationTitle(nextTitle)
+          setConversationTitleEmojis(nextEmojis)
+        }
         lastTitleConversationIdRef.current = activeConversation.id
       } else if (activeConversation.title && (!conversationTitle || conversationTitle === 'New Conversation')) {
         setConversationTitle(activeConversation.title)

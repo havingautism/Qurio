@@ -99,6 +99,20 @@ export class GLMAdapter extends BaseProviderAdapter {
     }
 
     const execution = await this.executeNonStreamingForToolCalls(messages, params)
-    return execution
+    if (execution.type === 'tool_calls') {
+      return execution
+    }
+
+    const modelInstance = this.buildModel({
+      ...params,
+      tools,
+      streaming: true,
+    })
+
+    return {
+      type: 'stream',
+      modelInstance,
+      messages,
+    }
   }
 }

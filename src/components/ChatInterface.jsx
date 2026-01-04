@@ -225,10 +225,10 @@ const ChatInterface = ({
     (!conversationTitle || conversationTitle === 'New Conversation')
   const isTitleLoading =
     isMetaLoading ||
-    isLoadingHistory ||
     isSwitchingConversation ||
     (activeConversation?.id && !hasLoadedActive && !hasResolvedTitle) ||
-    isPlaceholderTitle
+    isPlaceholderTitle ||
+    (isLoadingHistory && !hasResolvedTitle)
 
   useEffect(() => {
     if (!activeConversation?.id || activeConversation?._isPlaceholder) return

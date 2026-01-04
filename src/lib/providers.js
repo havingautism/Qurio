@@ -299,10 +299,11 @@ export const PROVIDERS = {
             budget_tokens: 1024,
           }
         : undefined,
-    parseMessage: input => {
-      const parsed = defaultParseMessage(input)
-      return { ...parsed, content: normalizeMarkdownSpacing(parsed.content) }
-    },
+    parseMessage: defaultParseMessage,
+    // parseMessage: input => {
+    //   const parsed = defaultParseMessage(input)
+    //   return { ...parsed, content: normalizeMarkdownSpacing(parsed.content) }
+    // },
   },
   kimi: {
     ...createBackendProvider('kimi'),

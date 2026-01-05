@@ -1360,24 +1360,6 @@ const MessageBubble = ({
                         key={`${step.step}-${step.title}`}
                         className="flex items-start gap-3 rounded-lg border border-gray-200/60 dark:border-zinc-700/60 bg-white/40 dark:bg-zinc-900/30 p-3"
                       >
-                        <div
-                          className={clsx(
-                            'mt-0.5 flex h-6 w-6 items-center justify-center rounded-full border text-xs font-semibold',
-                            isError
-                              ? 'border-red-200 dark:border-red-800/60 text-red-500'
-                              : isDone
-                                ? 'border-green-200 dark:border-green-800/60 text-green-500'
-                                : 'border-gray-200 dark:border-zinc-700 text-gray-500 dark:text-gray-400',
-                          )}
-                        >
-                          {isDone ? (
-                            <Check size={12} />
-                          ) : isError ? (
-                            <X size={12} />
-                          ) : (
-                            <span className="leading-none">⋯</span>
-                          )}
-                        </div>
                         <div className="flex-1 space-y-1">
                           <div className="flex flex-wrap items-center gap-2 text-xs">
                             <span className="font-semibold text-gray-700 dark:text-gray-200">

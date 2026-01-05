@@ -19,50 +19,50 @@ export const ACADEMIC_DOMAINS = [
   'pubmed.ncbi.nlm.nih.gov',
   'www.ncbi.nlm.nih.gov',
 
-  // Digital Libraries & Databases
-  'ieeexplore.ieee.org',
-  'dl.acm.org', // ACM Digital Library
-  'link.springer.com',
+  // Major Publishers & Platforms
   'sciencedirect.com',
+  'springer.com',
+  'link.springer.com',
+  'wiley.com',
   'onlinelibrary.wiley.com',
-  'www.nature.com',
-  'science.org', // Science Magazine
-  'www.pnas.org', // PNAS
-  'academic.oup.com', // Oxford Academic
-
-  // Academic Publishers
-  'jstor.org',
-  'projecteuclid.org',
-  'tandfonline.com',
+  'nature.com',
+  'science.org',
+  'pnas.org',
+  'cell.com',
+  'thelancet.com',
+  'jamanetwork.com',
+  'bmj.com',
+  'oup.com',
+  'academic.oup.com',
   'cambridge.org',
-
-  // Open Access Resources
+  'tandfonline.com',
+  'sagepub.com',
+  'journals.sagepub.com',
+  'frontiersin.org',
   'plos.org',
-  'doaj.org', // Directory of Open Access Journals
-  'pmc.ncbi.nlm.nih.gov', // PubMed Central
-  'europepmc.org', // Europe PMC
-  'arxiv-vanity.com',
+  'mdpi.com',
+  'hindawi.com',
+  'ieee.org',
+  'acm.org',
+  'jstor.org',
 
-  // Academic Social Networks & Repositories
+  // Government & Organizations
+  'nih.gov',
+  'ncbi.nlm.nih.gov',
+  'cdc.gov',
+  'who.int',
+  'un.org',
+  'worldbank.org',
+  'imf.org',
+  'nber.org',
+  'cern.ch',
+  'nasa.gov',
+  'noaa.gov',
+  'nsf.gov',
+
+  // Educational & Research
+  '.edu', // Broadly trust .edu domains for academic context
   'researchgate.net',
   'academia.edu',
-
-  // Specialized Databases
-  'eric.ed.gov', // Education Resources Information Center
-  'philpapers.org', // Philosophy
-  'econpapers.repec.org', // Economics
-  'mathscinet.ams.org', // Mathematics
-  'zbmath.org', // Mathematics
-  'chemrxiv.org', // Chemistry
-
-  // Institutional Repositories
-  'dspace.mit.edu',
-  'eprints.soton.ac.uk',
-  'repository.upenn.edu',
-
-  // Government & Research Organizations
-  'nih.gov',
-  'nsf.gov',
-  'nasa.gov',
-  'cern.ch',
+  'ssrn.com',
 ]

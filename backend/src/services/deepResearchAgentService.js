@@ -239,7 +239,13 @@ Instructions:
 - Use academic_search or web_search tools as needed to gather peer-reviewed evidence
 - When citing sources, use [1], [2], etc. based on the known sources list
 - Return a scholarly, well-structured output suitable for inclusion in an academic report
-- Maintain objectivity and acknowledge uncertainty where appropriate`
+- Maintain objectivity and acknowledge uncertainty where appropriate
+    
+    NEGATIVE CONSTRAINTS (CRITICAL):
+    - **NO OUTSIDE KNOWLEDGE**: You must ONLY use the information provided in "Prior findings" and "Known sources".
+    - **NO HALLUCINATION**: If the provided sources do not contain the answer, explicitly state it. DO NOT make up facts.
+    - **STRICT CITATION**: Every single factual claim must have a citation [x].
+    - **NO SYNTHETIC SOURCES**: Do not invent source titles or links. Use the [index] exactly as listed.`
   }
 
   // General research prompt (original)
@@ -327,8 +333,10 @@ Your report MUST follow this academic structure:
    - Provide actionable recommendations (if appropriate)
 
 ## 7. REFERENCES
-   - List all sources cited, formatted consistently
-   - Use [index] citations throughout the text
+   - **MANDATORY**: This section must ONLY contain sources listed in the "Sources" block provided above.
+   - **NO OMISSIONS**: Include every source you cited in the text.
+   - **NO ADDITIONS**: Do NOT add any external books, papers, or links that are not in the provided Source list.
+   - Format: "[index] Title. URL" (Copy exactly from the Source list).
 
 ACADEMIC WRITING STANDARDS:
 
@@ -348,7 +356,23 @@ QUALITY CHECKLIST:
 - [ ] Implications for future research are clear
 - [ ] Academic tone is maintained throughout
 
-Produce a comprehensive, publication-quality academic report.`
+NEGATIVE CONSTRAINTS (CRITICAL):
+- **NO EXTERNAL KNOWLEDGE**: You must ONLY use the information provided in the "Sources" section. Do not use outside knowledge to fill gaps.
+- **NO HALLUCINATION**: If the provided sources do not contain the answer, explicitly state "The provided sources do not contain information about X". DO NOT make up facts, authors, or years.
+- **STRICT CITATION**: Every single paragraph must contain at least one citation [x].
+- **NO SYNTHETIC SOURCES**: Do not invent source titles or links. Use the [index] exactly as listed in the "Sources" section.
+
+HALLUCINATION CHECK:
+Before writing each sentence, ask: "Is this fact present in source [x]?" If no, delete it.
+If you violate these constraints, the task is considered failed.
+
+Produce a comprehensive, publication-quality academic report.
+    
+    CRITICAL FINAL INSTRUCTION:
+    When writing the "7. REFERENCES" section, you MUST strictly copy the list below. Do NOT add anything else.
+    
+    OFFICIAL SOURCE LIST (USE THESE AND ONLY THESE):
+    ${sourcesList.length ? sourcesList.join('\n') : 'No sources available.'}`
   }
 
   // General research prompt (original)

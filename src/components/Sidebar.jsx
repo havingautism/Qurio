@@ -836,10 +836,10 @@ const Sidebar = ({
                             >
                               <div className="flex items-center justify-between w-full overflow-hidden">
                                 <div className="flex items-center gap-3 overflow-hidden flex-1 min-w-0">
-                                  <div className="w-8 h-8 rounded bg-transparent flex items-center justify-center text-xl shrink-0">
+                                  <div className="w-8 h-8 rounded bg-transparent flex items-center justify-center shrink-0 text-base">
                                     <EmojiDisplay
                                       emoji={resolveConversationEmoji(conv, space?.emoji)}
-                                      size="1em"
+                                      size="1.4em"
                                       className="shrink-0"
                                     />
                                   </div>
@@ -1006,10 +1006,10 @@ const Sidebar = ({
                               >
                                 <div className="flex items-center justify-between w-full overflow-hidden">
                                   <div className="flex items-center gap-3 overflow-hidden flex-1 min-w-0">
-                                    <div className="w-8 h-8 rounded bg-transparent flex items-center justify-center text-xl shrink-0">
+                                    <div className="w-8 h-8 rounded bg-transparent flex items-center justify-center shrink-0 text-base">
                                       <EmojiDisplay
                                         emoji={resolveConversationEmoji(conv, space?.emoji)}
-                                        size="1em"
+                                        size="1.4em"
                                         className="shrink-0"
                                       />
                                     </div>
@@ -1165,10 +1165,10 @@ const Sidebar = ({
                         >
                           <div className="flex items-center justify-between w-full overflow-hidden">
                             <div className="flex items-center gap-3 overflow-hidden flex-1 min-w-0">
-                              <div className="w-8 h-8 rounded bg-transparent flex items-center justify-center text-xl shrink-0">
+                              <div className="w-8 h-8 rounded bg-transparent flex items-center justify-center shrink-0 text-base">
                                 <EmojiDisplay
                                   emoji={resolveConversationEmoji(conv, space?.emoji)}
-                                  size="1em"
+                                  size="1.4em"
                                   className="shrink-0"
                                 />
                               </div>
@@ -1346,8 +1346,8 @@ const Sidebar = ({
                             )}
                           />
                         </button>
-                        <div className="w-8 h-8 rounded bg-transparent flex items-center justify-center group-hover:border-gray-300 dark:group-hover:border-zinc-600 text-xl shrink-0">
-                          <EmojiDisplay emoji={space.emoji} />
+                        <div className="w-8 h-8 rounded bg-transparent flex items-center justify-center group-hover:border-gray-300 dark:group-hover:border-zinc-600 shrink-0 text-base">
+                          <EmojiDisplay emoji={space.emoji} size="1.4em" />
                         </div>
                         <span className="text-base font-medium text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-gray-200 transition-colors truncate">
                           {getSpaceDisplayLabel(space, t)}
@@ -1518,8 +1518,8 @@ const Sidebar = ({
                       className="flex items-center justify-between p-2 rounded cursor-pointer transition-colors group hover:bg-primary-50 dark:hover:bg-zinc-800"
                     >
                       <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <div className="w-8 h-8 rounded bg-transparent flex items-center justify-center text-xl shrink-0">
-                          <EmojiDisplay emoji={agent.emoji} size="1em" className="shrink-0" />
+                        <div className="w-8 h-8 rounded bg-transparent flex items-center justify-center shrink-0 text-base">
+                          <EmojiDisplay emoji={agent.emoji} size="1.4em" className="shrink-0" />
                         </div>
                         <div className="flex flex-col min-w-0">
                           <span className="text-base font-medium text-gray-700 dark:text-gray-300 truncate">

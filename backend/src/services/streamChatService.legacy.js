@@ -231,7 +231,14 @@ const collectKimiSourcesFromToolCalls = (toolCalls, sourcesMap) => {
   if (!Array.isArray(toolCalls)) return
   for (const toolCall of toolCalls) {
     const toolName = getToolCallName(toolCall)
-    if (toolName !== '$web_search' && toolName !== 'web_search' && toolName !== 'search') continue
+    if (
+      toolName !== '$web_search' &&
+      toolName !== 'web_search' &&
+      toolName !== 'search' &&
+      toolName !== 'Tavily_web_search' &&
+      toolName !== 'Tavily_academic_search'
+    )
+      continue
     const rawArgs = getToolCallArguments(toolCall)
     const parsedArgs = typeof rawArgs === 'string' ? safeJsonParse(rawArgs) : rawArgs
     collectKimiSources(parsedArgs, sourcesMap)
@@ -244,6 +251,13 @@ const getKimiToolName = toolResp =>
   toolResp?.function?.name ||
   toolResp?.tool?.function?.name ||
   null
+
+const isSearchToolName = name =>
+  name === 'Tavily_web_search' ||
+  name === 'Tavily_academic_search' ||
+  name === 'web_search' ||
+  name === '$web_search' ||
+  name === 'search'
 
 /**
  * Collect Gemini grounding sources
@@ -625,7 +639,7 @@ export const streamChat = async function* (params) {
     baseUrl, // Optional custom base URL
     model, // Model name
     messages, // Conversation history array
-    tools, // External tools (e.g., web_search from frontend)
+    tools, // External tools (e.g., Tavily_web_search from frontend)
     toolChoice, // Tool choice strategy: 'auto', 'required', or specific tool
     responseFormat, // Response format (e.g., JSON mode)
     thinking, // Thinking/reasoning mode configuration
@@ -638,7 +652,11 @@ export const streamChat = async function* (params) {
     stream = true, // Whether to use streaming
     signal, // AbortSignal for cancellation
     toolIds = [], // Agent's enabled tool IDs (e.g., ['calculator', 'local_time'])
+    searchProvider,
+    tavilyApiKey,
   } = params
+
+  const toolConfig = { searchProvider, tavilyApiKey }
 
   const debugSources = process.env.DEBUG_SOURCES === '1'
   let loggedAdditional = false
@@ -668,7 +686,7 @@ export const streamChat = async function* (params) {
   // Note: Gemini doesn't support agent tools in this implementation
   const agentToolDefinitions = provider === 'gemini' ? [] : getToolDefinitionsByIds(toolIds)
 
-  // Merge external tools (from frontend, like web_search) with agent tools
+  // Merge external tools (from frontend, like Tavily_web_search) with agent tools
   const combinedTools = [...(Array.isArray(tools) ? tools : []), ...agentToolDefinitions].filter(
     Boolean,
   )
@@ -683,10 +701,14 @@ export const streamChat = async function* (params) {
     normalizedTools.push(tool)
   }
 
-  // Inject citation prompt if web_search is enabled
-  if (normalizedTools.some(t => t.function?.name === 'web_search')) {
+  // Inject citation prompt if Tavily_web_search is enabled
+  if (
+    normalizedTools.some(
+      t => t.function?.name === 'Tavily_web_search' || t.function?.name === 'web_search',
+    )
+  ) {
     const citationPrompt =
-      '\n\n[IMPORTANT] You have access to a "web_search" tool. When you use this tool to answer a question, you MUST cite the search results in your answer using the format [1], [2], etc., corresponding to the index of the search result provided in the tool output. Do not fabricate citations.'
+      '\n\n[IMPORTANT] You have access to a "Tavily_web_search" tool. When you use this tool to answer a question, you MUST cite the search results in your answer using the format [1], [2], etc., corresponding to the index of the search result provided in the tool output. Do not fabricate citations.'
 
     // Find system message and append, or create one
     const systemMessageIndex = currentMessages.findIndex(m => m.role === 'system')
@@ -1094,8 +1116,8 @@ export const streamChat = async function* (params) {
               }
 
               try {
-                const result = await executeToolByName(toolName, parsedArgs || {})
-                if (toolName === 'web_search') {
+                const result = await executeToolByName(toolName, parsedArgs || {}, toolConfig)
+                if (isSearchToolName(toolName)) {
                   collectWebSearchSources(result, sourcesMap)
                 }
                 currentMessages.push({
@@ -1191,7 +1213,7 @@ export const streamChat = async function* (params) {
               if (isLocalToolName(toolName)) {
                 // Parse arguments and execute the tool locally
                 try {
-                  const result = await executeToolByName(toolName, parsedArgs || {})
+                  const result = await executeToolByName(toolName, parsedArgs || {}, toolConfig)
                   // Add tool result to message history
                   currentMessages.push({
                     role: 'tool',
@@ -1296,7 +1318,7 @@ export const streamChat = async function* (params) {
               }
               // Execute local tool
               try {
-                const result = await executeToolByName(toolName, parsedArgs || {})
+                const result = await executeToolByName(toolName, parsedArgs || {}, toolConfig)
                 currentMessages.push({
                   role: 'tool',
                   tool_call_id: toolCall.id,
@@ -1383,7 +1405,7 @@ export const streamChat = async function* (params) {
           collectGLMSources(rawResp?.web_search, sourcesMap)
         }
 
-        // Collect search sources from Kimi web_search tool
+        // Collect search sources from Kimi search tool
         if (provider === 'kimi') {
           if (debugSources && messageChunk?.additional_kwargs?.__raw_response) {
             console.log(
@@ -1401,11 +1423,7 @@ export const streamChat = async function* (params) {
           if (Array.isArray(toolResponses)) {
             for (const toolResp of toolResponses) {
               const toolName = getKimiToolName(toolResp)
-              if (
-                toolName === '$web_search' ||
-                toolName === 'web_search' ||
-                toolName === 'search'
-              ) {
+              if (isSearchToolName(toolName)) {
                 collectKimiSources(toolResp?.output || toolResp?.content, sourcesMap)
               }
             }
@@ -1531,9 +1549,9 @@ export const streamChat = async function* (params) {
               const startedAt = Date.now()
               if (isLocalToolName(toolName)) {
                 try {
-                  const result = await executeToolByName(toolName, parsedArgs || {})
-                  // Special handling for web_search: collect sources for UI
-                  if (toolName === 'web_search') {
+                  const result = await executeToolByName(toolName, parsedArgs || {}, toolConfig)
+                  // Special handling for search tool: collect sources for UI
+                  if (isSearchToolName(toolName)) {
                     collectWebSearchSources(result, sourcesMap)
                   }
 
@@ -1613,8 +1631,8 @@ export const streamChat = async function* (params) {
                 const startedAt = Date.now()
                 if (isLocalToolName(toolName)) {
                   try {
-                    const result = await executeToolByName(toolName, parsedArgs || {})
-                    if (toolName === 'web_search') {
+                    const result = await executeToolByName(toolName, parsedArgs || {}, toolConfig)
+                    if (isSearchToolName(toolName)) {
                       collectWebSearchSources(result, sourcesMap)
                     }
 
@@ -1708,10 +1726,10 @@ export const streamChat = async function* (params) {
 
               // Execute local tool with error handling
               try {
-                const result = await executeToolByName(toolName, parsedArgs || {})
+                const result = await executeToolByName(toolName, parsedArgs || {}, toolConfig)
 
-                // Special handling for web_search: collect sources for UI
-                if (toolName === 'web_search') {
+                // Special handling for search tool: collect sources for UI
+                if (isSearchToolName(toolName)) {
                   collectWebSearchSources(result, sourcesMap)
                 }
 
@@ -1797,8 +1815,8 @@ export const streamChat = async function* (params) {
                 }
 
                 try {
-                  const result = await executeToolByName(toolName, parsedArgs || {})
-                  if (toolName === 'web_search') {
+                  const result = await executeToolByName(toolName, parsedArgs || {}, toolConfig)
+                  if (isSearchToolName(toolName)) {
                     collectWebSearchSources(result, sourcesMap)
                   }
                   currentMessages.push({

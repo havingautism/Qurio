@@ -1247,7 +1247,11 @@ const streamWithLangChain = async ({
         const toolResponses = messageChunk?.additional_kwargs?.tool_responses
         if (Array.isArray(toolResponses)) {
           for (const toolResp of toolResponses) {
-            if (toolResp?.name === 'web_search') {
+            if (
+              toolResp?.name === 'Tavily_web_search' ||
+              toolResp?.name === 'Tavily_academic_search' ||
+              toolResp?.name === 'web_search'
+            ) {
               collectKimiSources(toolResp?.output || toolResp?.content, sourcesMap)
             }
           }

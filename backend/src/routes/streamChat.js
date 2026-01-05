@@ -31,7 +31,9 @@ const router = express.Router()
  *   "frequency_penalty": 0 (optional),
  *   "presence_penalty": 0 (optional),
  *   "contextMessageLimit": 10 (optional),
- *   "toolIds": ["calculator", "local_time"] (optional)
+ *   "toolIds": ["calculator", "local_time"] (optional),
+ *   "searchProvider": "tavily" (optional),
+ *   "tavilyApiKey": "Tavily API key" (optional)
  * }
  *
  * Response: Server-Sent Events stream
@@ -59,6 +61,8 @@ router.post('/stream-chat', async (req, res) => {
       presence_penalty,
       contextMessageLimit,
       toolIds,
+      searchProvider,
+      tavilyApiKey,
     } = req.body
 
     if (process.env.DEBUG_TOOLS === '1') {
@@ -116,6 +120,8 @@ router.post('/stream-chat', async (req, res) => {
       presence_penalty,
       contextMessageLimit,
       toolIds,
+      searchProvider,
+      tavilyApiKey,
       signal: controller.signal,
     })) {
       chunkCount++

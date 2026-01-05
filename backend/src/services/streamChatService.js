@@ -136,6 +136,12 @@ const collectWebSearchSources = (result, sourcesMap) => {
   })
 }
 
+const isTavilySearchToolName = name =>
+  name === 'Tavily_web_search' ||
+  name === 'Tavily_academic_search' ||
+  name === 'web_search' ||
+  name === 'academic_search'
+
 // NOTE: Gemini grounding sources are not wired into the adapter path yet.
 // Keeping commented until adapter exposes groundingMetadata.
 /*
@@ -283,7 +289,11 @@ export const streamChat = async function* (params) {
     stream = true,
     signal,
     toolIds = [],
+    searchProvider,
+    tavilyApiKey,
   } = params
+
+  const toolConfig = { searchProvider, tavilyApiKey }
 
   // Apply context limit
   const trimmedMessages = applyContextLimit(messages, contextMessageLimit)
@@ -308,10 +318,14 @@ export const streamChat = async function* (params) {
     normalizedTools.push(tool)
   }
 
-  // Inject citation prompt if web_search is enabled
-  if (normalizedTools.some(t => t.function?.name === 'web_search')) {
+  // Inject citation prompt if Tavily_web_search is enabled
+  if (
+    normalizedTools.some(
+      t => t.function?.name === 'Tavily_web_search' || t.function?.name === 'web_search',
+    )
+  ) {
     const citationPrompt =
-      '\n\n[IMPORTANT] You have access to a "web_search" tool. When you use this tool to answer a question, you MUST cite the search results in your answer using the format [1], [2], etc., corresponding to the index of the search result provided in the tool output. Do not fabricate citations.'
+      '\n\n[IMPORTANT] You have access to a "Tavily_web_search" tool. When you use this tool to answer a question, you MUST cite the search results in your answer using the format [1], [2], etc., corresponding to the index of the search result provided in the tool output. Do not fabricate citations.'
 
     const systemMessageIndex = currentMessages.findIndex(m => m.role === 'system')
     if (systemMessageIndex !== -1) {
@@ -429,8 +443,8 @@ export const streamChat = async function* (params) {
         }
 
         try {
-          const result = await executeToolByName(toolName, parsedArgs || {})
-          if (toolName === 'web_search') {
+          const result = await executeToolByName(toolName, parsedArgs || {}, toolConfig)
+          if (isTavilySearchToolName(toolName)) {
             collectWebSearchSources(result, sourcesMap)
           }
           currentMessages.push({
@@ -459,7 +473,9 @@ export const streamChat = async function* (params) {
     // Handle non-streaming response (final answer from provider that forced non-streaming)
     if (execution.type === 'response' || execution.type === 'no_tool_calls') {
       const response = execution.response
-      const content = response?.content || ''
+      const content = adapter.getResponseContent
+        ? adapter.getResponseContent(response)
+        : response?.content || ''
 
       // Emit extracted thought if present
       const thought = execution.thought || response?.additional_kwargs?.reasoning_content || null
@@ -620,8 +636,8 @@ export const streamChat = async function* (params) {
             }
 
             try {
-              const result = await executeToolByName(toolName, parsedArgs || {})
-              if (toolName === 'web_search') {
+              const result = await executeToolByName(toolName, parsedArgs || {}, toolConfig)
+              if (isTavilySearchToolName(toolName)) {
                 collectWebSearchSources(result, sourcesMap)
               }
               currentMessages.push({

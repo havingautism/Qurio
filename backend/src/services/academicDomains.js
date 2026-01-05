@@ -1,6 +1,6 @@
 /**
  * Academic domains configuration
- * List of trusted academic resources for academic_search tool
+ * List of trusted academic resources for Tavily_academic_search tool
  */
 
 export const ACADEMIC_DOMAINS = [

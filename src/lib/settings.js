@@ -138,14 +138,18 @@ export const loadSettings = (overrides = {}) => {
   // Supabase Env Vars
   const envSupabaseUrl = getPublicEnv('PUBLIC_SUPABASE_URL')
   const envSupabaseKey = getPublicEnv('PUBLIC_SUPABASE_KEY')
+  const envBackendUrl = getPublicEnv('PUBLIC_BACKEND_URL')
 
   // OpenAI Env Vars
   const envOpenAIKey = getPublicEnv('PUBLIC_OPENAI_API_KEY')
   const envOpenAIBaseUrl = getPublicEnv('PUBLIC_OPENAI_BASE_URL')
+  const envTavilyApiKey = getPublicEnv('PUBLIC_TAVILY_API_KEY')
 
   // LocalStorage - Only load non-sensitive or essential connection configs
   const localSupabaseUrl = localStorage.getItem('supabaseUrl')
   const localSupabaseKey = localStorage.getItem('supabaseKey')
+  const localSearchProvider = localStorage.getItem('searchProvider')
+  const localBackendUrl = localStorage.getItem('backendUrl')
 
   // Model configuration
   const localSystemPrompt = localStorage.getItem('systemPrompt')
@@ -190,6 +194,13 @@ export const loadSettings = (overrides = {}) => {
     liteModel: overrides.liteModel || '',
     defaultModel: overrides.defaultModel || '',
 
+    // Backend API
+    backendUrl:
+      envBackendUrl || localBackendUrl || overrides.backendUrl || 'http://localhost:3001',
+
+    // Search provider
+    searchProvider: localSearchProvider || overrides.searchProvider || 'tavily',
+
     // Chat behavior
     systemPrompt: localSystemPrompt || overrides.systemPrompt || '',
     contextMessageLimit: resolvedContextLimit,
@@ -218,6 +229,10 @@ export const loadSettings = (overrides = {}) => {
   // This overrides everything else for keys
   const mergedSettings = { ...settings, ...memorySettings }
 
+  if (envBackendUrl) {
+    mergedSettings.backendUrl = envBackendUrl
+  }
+
   // Fallback to Env if memory is empty
   if (!mergedSettings.OpenAICompatibilityKey)
     mergedSettings.OpenAICompatibilityKey = envOpenAIKey || ''
@@ -231,6 +246,7 @@ export const loadSettings = (overrides = {}) => {
   if (!mergedSettings.KimiKey) mergedSettings.KimiKey = getPublicEnv('PUBLIC_KIMI_API_KEY') || ''
   if (!mergedSettings.googleApiKey)
     mergedSettings.googleApiKey = getPublicEnv('PUBLIC_GOOGLE_API_KEY') || ''
+  if (!mergedSettings.tavilyApiKey) mergedSettings.tavilyApiKey = envTavilyApiKey || ''
 
   return {
     ...mergedSettings,
@@ -260,6 +276,7 @@ export const saveSettings = async settings => {
     'ModelScopeKey',
     'KimiKey',
     'googleApiKey',
+    'tavilyApiKey',
   ]
   SENSITIVE_KEYS.forEach(key => localStorage.removeItem(key))
 
@@ -278,6 +295,12 @@ export const saveSettings = async settings => {
   }
   if (settings.interfaceLanguage !== undefined) {
     localStorage.setItem('interfaceLanguage', settings.interfaceLanguage)
+  }
+  if (settings.searchProvider !== undefined) {
+    localStorage.setItem('searchProvider', settings.searchProvider)
+  }
+  if (settings.backendUrl !== undefined) {
+    localStorage.setItem('backendUrl', settings.backendUrl)
   }
   if (settings.llmAnswerLanguage !== undefined) {
     localStorage.setItem('llmAnswerLanguage', settings.llmAnswerLanguage)

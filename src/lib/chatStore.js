@@ -885,6 +885,9 @@ const callAIAPI = async (
       return []
     })()
 
+    const searchProvider = settings.searchProvider || 'tavily'
+    const tavilyApiKey = searchProvider === 'tavily' ? settings.tavilyApiKey : undefined
+
     const params = {
       ...credentials,
       model: modelConfig.model,
@@ -893,6 +896,8 @@ const callAIAPI = async (
       frequency_penalty: agentFrequencyPenalty ?? undefined,
       presence_penalty: agentPresencePenalty ?? undefined,
       contextMessageLimit: settings.contextMessageLimit,
+      searchProvider,
+      tavilyApiKey,
       messages: conversationMessagesWithPlan.map(m => ({
         role: m.role === 'ai' ? 'assistant' : m.role,
         content: m.content,

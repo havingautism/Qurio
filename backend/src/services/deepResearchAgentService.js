@@ -165,6 +165,12 @@ const collectWebSearchSources = (result, sourcesMap) => {
   })
 }
 
+const isTavilySearchToolName = name =>
+  name === 'Tavily_web_search' ||
+  name === 'Tavily_academic_search' ||
+  name === 'web_search' ||
+  name === 'academic_search'
+
 const buildStepPrompt = ({
   planMeta,
   step,
@@ -236,7 +242,7 @@ CRITICAL ACADEMIC REQUIREMENTS:
    - Build logically on prior findings
 
 Instructions:
-- Use academic_search or web_search tools as needed to gather peer-reviewed evidence
+- Use Tavily_academic_search or Tavily_web_search tools as needed to gather peer-reviewed evidence
 - When citing sources, use [1], [2], etc. based on the known sources list
 - Return a scholarly, well-structured output suitable for inclusion in an academic report
 - Maintain objectivity and acknowledge uncertainty where appropriate
@@ -400,6 +406,7 @@ const runToolCallingStep = async ({
   signal,
   stepIndex,
   totalSteps,
+  toolConfig,
   maxLoops = 4,
 }) => {
   let currentMessages = [...baseMessages]
@@ -469,8 +476,8 @@ const runToolCallingStep = async ({
         }
 
         try {
-          const result = await executeToolByName(toolName, parsedArgs || {})
-          if (toolName === 'web_search') {
+          const result = await executeToolByName(toolName, parsedArgs || {}, toolConfig)
+          if (isTavilySearchToolName(toolName)) {
             collectWebSearchSources(result, sourcesMap)
           }
           currentMessages.push({
@@ -548,8 +555,12 @@ export const streamDeepResearch = async function* (params) {
     plan,
     question,
     researchType = 'general', // New parameter: 'general' or 'academic'
+    searchProvider,
+    tavilyApiKey,
     signal,
   } = params
+
+  const toolConfig = { searchProvider, tavilyApiKey }
 
   const trimmedMessages =
     typeof contextMessageLimit === 'number' && contextMessageLimit > 0
@@ -559,7 +570,8 @@ export const streamDeepResearch = async function* (params) {
   const agentToolDefinitions = getToolDefinitionsByIds(toolIds)
 
   // Add search tool based on research type
-  const searchToolId = researchType === 'academic' ? 'academic_search' : 'web_search'
+  const searchToolId =
+    researchType === 'academic' ? 'Tavily_academic_search' : 'Tavily_web_search'
   const searchToolDefinition = getToolDefinitionsByIds([searchToolId])
 
   const combinedTools = [
@@ -573,10 +585,10 @@ export const streamDeepResearch = async function* (params) {
 
   const normalizedTools = []
   const toolNames = new Set()
-  const excludedSearchTool = researchType === 'academic' ? 'web_search' : null
+  const excludedSearchTool = researchType === 'academic' ? 'Tavily_web_search' : null
   for (const tool of combinedTools) {
     const name = tool?.function?.name
-    // Skip web_search in academic research (general research can use both search tools)
+    // Skip Tavily_web_search in academic research (general research can use both search tools)
     if (excludedSearchTool && name === excludedSearchTool) continue
     if (name && toolNames.has(name)) continue
     if (name) toolNames.add(name)
@@ -653,6 +665,7 @@ export const streamDeepResearch = async function* (params) {
         signal,
         stepIndex: i,
         totalSteps: steps.length,
+        toolConfig,
       })
 
       if (stepResult?.toolEvents?.length) {

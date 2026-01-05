@@ -37,7 +37,7 @@ Treat the plan as a mandatory outline and expand EVERY section fully with academ
 The research plan includes a "requires_search" field for each step. Follow these rules EXACTLY:
 
 **When requires_search = true:**
-- STOP and call the academic_search tool FIRST
+- STOP and call the Tavily_academic_search tool FIRST
 - Wait for search results from peer-reviewed sources
 - THEN write content based on those scholarly results
 - DO NOT skip searching

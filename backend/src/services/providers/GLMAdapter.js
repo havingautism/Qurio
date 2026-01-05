@@ -103,6 +103,11 @@ export class GLMAdapter extends BaseProviderAdapter {
       return execution
     }
 
+    const responseContent = this.getResponseContent(execution.response)
+    if (responseContent) {
+      return execution
+    }
+
     const modelInstance = this.buildModel({
       ...params,
       tools,

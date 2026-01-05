@@ -95,6 +95,15 @@
     "supabaseKey": "Supabase 密钥",
     "supabaseConfiguration": "Supabase 配置",
     "supabaseConfigurationHint": "用于同步和存储聊天历史。",
+    "searchConfiguration": "搜索配置",
+    "searchConfigurationHint": "配置网络与学术搜索的供应商。",
+    "searchProvider": "搜索供应商",
+    "tavilyApiKey": "Tavily API 密钥",
+    "tavilyApiKeyPlaceholder": "输入 Tavily API 密钥",
+    "backendConfiguration": "后端配置",
+    "backendConfigurationHint": "用于配置应用连接的后端 API。",
+    "backendUrl": "后端 URL",
+    "backendUrlPlaceholder": "http://localhost:3001",
     "testConnection": "测试连接",
     "testConnectionAndTables": "测试连接和数据库表",
     "connectionSuccess": "连接成功！",
@@ -118,6 +127,9 @@
       "glm": "GLM (智谱 AI)",
       "modelscope": "魔塔社区",
       "kimi": "Kimi (月之暗面)"
+    },
+    "searchProviders": {
+      "tavily": "Tavily"
     },
     "responseStyle": "回复风格",
     "responseStyleHint": "微调回复的语气和结构方式。",

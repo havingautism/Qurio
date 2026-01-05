@@ -12,6 +12,8 @@ const PUBLIC_ENV = {
   PUBLIC_KIMI_BASE_URL: import.meta.env.PUBLIC_KIMI_BASE_URL,
   PUBLIC_KIMI_PROXY_TARGET: import.meta.env.PUBLIC_KIMI_PROXY_TARGET,
   PUBLIC_GOOGLE_API_KEY: import.meta.env.PUBLIC_GOOGLE_API_KEY,
+  PUBLIC_TAVILY_API_KEY: import.meta.env.PUBLIC_TAVILY_API_KEY,
+  PUBLIC_BACKEND_URL: import.meta.env.PUBLIC_BACKEND_URL,
 }
 
 export const getPublicEnv = key => {

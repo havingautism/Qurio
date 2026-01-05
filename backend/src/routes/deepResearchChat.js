@@ -30,6 +30,8 @@ router.post('/stream-deep-research', async (req, res) => {
       plan,
       question,
       researchType, // 'general' or 'academic'
+      searchProvider,
+      tavilyApiKey,
     } = req.body
 
     if (!provider) {
@@ -80,6 +82,8 @@ router.post('/stream-deep-research', async (req, res) => {
       plan,
       question,
       researchType, // Pass researchType to service
+      searchProvider,
+      tavilyApiKey,
       signal: controller.signal,
     })) {
       sse.sendEvent(chunk)

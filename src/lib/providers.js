@@ -94,7 +94,7 @@ export const PROVIDERS = {
             {
               type: 'function',
               function: {
-                name: 'web_search',
+                name: 'Tavily_web_search',
                 description: 'Search the web for current information.',
                 parameters: {
                   type: 'object',
@@ -147,7 +147,7 @@ export const PROVIDERS = {
             {
               type: 'function',
               function: {
-                name: 'web_search',
+                name: 'Tavily_web_search',
                 description: 'Search the web for current information.',
                 parameters: {
                   type: 'object',
@@ -189,7 +189,7 @@ export const PROVIDERS = {
             {
               type: 'function',
               function: {
-                name: 'web_search',
+                name: 'Tavily_web_search',
                 description: 'Search the web for current information.',
                 parameters: {
                   type: 'object',
@@ -239,7 +239,7 @@ export const PROVIDERS = {
             {
               type: 'function',
               function: {
-                name: 'web_search',
+                name: 'Tavily_web_search',
                 description: 'Search the web for current information.',
                 parameters: {
                   type: 'object',
@@ -280,7 +280,7 @@ export const PROVIDERS = {
             {
               type: 'function',
               function: {
-                name: 'web_search',
+                name: 'Tavily_web_search',
                 description: 'Search the web for current information.',
                 parameters: {
                   type: 'object',
@@ -326,7 +326,7 @@ export const PROVIDERS = {
             {
               type: 'function',
               function: {
-                name: 'web_search',
+                name: 'Tavily_web_search',
                 description: 'Search the web for current information.',
                 parameters: {
                   type: 'object',

@@ -35,8 +35,6 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Build application
-        env:
-          PUBLIC_BACKEND_URL: https://qurio-test.onrender.com
 
         run: bun run build
 

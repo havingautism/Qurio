@@ -95,6 +95,15 @@
     "supabaseKey": "Supabase 密钥",
     "supabaseConfiguration": "Supabase 配置",
     "supabaseConfigurationHint": "用于同步和存储聊天历史。",
+    "searchConfiguration": "搜索配置",
+    "searchConfigurationHint": "配置网络与学术搜索的供应商。",
+    "searchProvider": "搜索供应商",
+    "tavilyApiKey": "Tavily API 密钥",
+    "tavilyApiKeyPlaceholder": "输入 Tavily API 密钥",
+    "backendConfiguration": "后端配置",
+    "backendConfigurationHint": "用于配置应用连接的后端 API。",
+    "backendUrl": "后端 URL",
+    "backendUrlPlaceholder": "http://localhost:3001",
     "testConnection": "测试连接",
     "testConnectionAndTables": "测试连接和数据库表",
     "connectionSuccess": "连接成功！",
@@ -118,6 +127,9 @@
       "glm": "GLM (智谱 AI)",
       "modelscope": "魔塔社区",
       "kimi": "Kimi (月之暗面)"
+    },
+    "searchProviders": {
+      "tavily": "Tavily"
     },
     "responseStyle": "回复风格",
     "responseStyleHint": "微调回复的语气和结构方式。",
@@ -328,6 +340,7 @@
         "time": "时间",
         "text": "文本",
         "json": "JSON",
+        "search": "搜索",
         "other": "其他"
       }
     },
@@ -344,6 +357,12 @@
     "agentDescription": "深度研究Agent",
     "spaceName": "深度研究空间",
     "spaceDescription": "深度研究空间"
+  },
+  "academicResearch": {
+    "agentName": "学术研究Agent",
+    "agentDescription": "学术研究Agent - 专注于学术文献综述和分析",
+    "spaceName": "学术研究空间",
+    "spaceDescription": "学术研究空间 - 用于学术论文和研究"
   },
   "spaceModal": {
     "create": "创建新空间",
@@ -422,6 +441,11 @@
     "deepResearchQuestionLabel": "研究问题",
     "deepResearchScopeLabel": "研究范围",
     "deepResearchOutputLabel": "输出要求",
+    "deepResearchTypeTitle": "研究类型",
+    "deepResearchTypeGeneral": "通用研究",
+    "deepResearchTypeGeneralDesc": "全面的网络搜索和信息综合",
+    "deepResearchTypeAcademic": "学术研究",
+    "deepResearchTypeAcademicDesc": "限定学术资源,包含文献综述结构",
     "search": "搜索",
     "spaces": "空间",
     "spacesAuto": "空间：自动",
@@ -479,6 +503,9 @@
     "downloadWord": "Word",
     "researchReportTitle": "深入研究报告",
     "researchPlan": "深入研究：规划",
+    "researchType": "研究类型",
+    "researchTypeAcademic": "学术研究 🎓",
+    "researchTypeGeneral": "通用研究 🌐",
     "researchGoal": "目标",
     "researchAssumptions": "假设",
     "researchSteps": "步骤",

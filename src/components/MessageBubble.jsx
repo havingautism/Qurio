@@ -1,44 +1,44 @@
-﻿import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
+﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { useShallow } from 'zustand/react/shallow'
 import useChatStore from '../lib/chatStore'
 
+import clsx from 'clsx'
 import {
-  Copy,
-  ChevronRight,
-  ChevronDown,
-  Pencil,
   Check,
-  RefreshCw,
+  ChevronDown,
+  ChevronRight,
+  Copy,
+  Pencil,
   Quote,
+  RefreshCw,
   Trash2,
   X,
 } from 'lucide-react'
-import { Streamdown } from 'streamdown'
-import remarkGfm from 'remark-gfm'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
-import clsx from 'clsx'
-import { getProvider } from '../lib/providers'
-import { parseChildrenWithEmojis } from '../lib/emojiParser'
-import EmojiDisplay from './EmojiDisplay'
-import { renderProviderIcon, getModelIcon, getModelIconClassName } from '../lib/modelIcons'
-import DotLoader from './DotLoader'
-import MobileSourcesDrawer from './MobileSourcesDrawer'
-import DesktopSourcesSection from './DesktopSourcesSection'
-import useIsMobile from '../hooks/useIsMobile'
-import ShareModal from './ShareModal'
+import remarkGfm from 'remark-gfm'
+import { Streamdown } from 'streamdown'
 import { useAppContext } from '../App'
+import useIsMobile from '../hooks/useIsMobile'
+import { parseChildrenWithEmojis } from '../lib/emojiParser'
+import { getModelIcon, getModelIconClassName, renderProviderIcon } from '../lib/modelIcons'
+import { getProvider } from '../lib/providers'
+import DesktopSourcesSection from './DesktopSourcesSection'
+import DotLoader from './DotLoader'
+import EmojiDisplay from './EmojiDisplay'
 import DeepResearchGoalCard from './message/DeepResearchGoalCard'
 import MessageActionBar from './message/MessageActionBar'
-import RelatedQuestions from './message/RelatedQuestions'
-import { useMessageExport } from './message/useMessageExport'
 import {
   applyGroundingSupports,
   formatContentWithSources,
   getHostname,
 } from './message/messageUtils'
+import RelatedQuestions from './message/RelatedQuestions'
+import { useMessageExport } from './message/useMessageExport'
+import MobileSourcesDrawer from './MobileSourcesDrawer'
+import ShareModal from './ShareModal'
 
 const PROVIDER_META = {
   gemini: {
@@ -470,6 +470,16 @@ const MessageBubble = ({
 
       const sections = []
       sections.push(`### ${t('messageBubble.researchPlan')}`)
+
+      // New field: research_type
+      if (parsed.research_type) {
+        const typeLabel =
+          parsed.research_type === 'academic'
+            ? t('messageBubble.researchTypeAcademic')
+            : t('messageBubble.researchTypeGeneral')
+        sections.push(`**${t('messageBubble.researchType')}:** ${typeLabel}`)
+      }
+
       if (goal) sections.push(goal)
       // Add new fields after goal
       if (complexity) sections.push(complexity)
@@ -499,8 +509,7 @@ const MessageBubble = ({
   const providerId = message.provider || apiProvider
   const provider = getProvider(providerId)
   const parsed = provider.parseMessage(message)
-  const thoughtContent =
-    isDeepResearch || message.thinkingEnabled === false ? null : parsed.thought
+  const thoughtContent = isDeepResearch || message.thinkingEnabled === false ? null : parsed.thought
   const mainContent = parsed.content
 
   const { handleDownloadPdf, handleDownloadWord } = useMessageExport({
@@ -1351,24 +1360,6 @@ const MessageBubble = ({
                         key={`${step.step}-${step.title}`}
                         className="flex items-start gap-3 rounded-lg border border-gray-200/60 dark:border-zinc-700/60 bg-white/40 dark:bg-zinc-900/30 p-3"
                       >
-                        <div
-                          className={clsx(
-                            'mt-0.5 flex h-6 w-6 items-center justify-center rounded-full border text-xs font-semibold',
-                            isError
-                              ? 'border-red-200 dark:border-red-800/60 text-red-500'
-                              : isDone
-                                ? 'border-green-200 dark:border-green-800/60 text-green-500'
-                                : 'border-gray-200 dark:border-zinc-700 text-gray-500 dark:text-gray-400',
-                          )}
-                        >
-                          {isDone ? (
-                            <Check size={12} />
-                          ) : isError ? (
-                            <X size={12} />
-                          ) : (
-                            <span className="leading-none">⋯</span>
-                          )}
-                        </div>
                         <div className="flex-1 space-y-1">
                           <div className="flex flex-wrap items-center gap-2 text-xs">
                             <span className="font-semibold text-gray-700 dark:text-gray-200">

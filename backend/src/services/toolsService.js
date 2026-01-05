@@ -1,13 +1,31 @@
 import { jsonrepair } from 'jsonrepair'
 import { all, create } from 'mathjs'
 import { z } from 'zod'
+import { ACADEMIC_DOMAINS } from './academicDomains.js'
 
 const math = create(all, {})
 
+const TOOL_ALIASES = {
+  web_search: 'Tavily_web_search',
+  academic_search: 'Tavily_academic_search',
+}
+
+const resolveToolName = toolName => TOOL_ALIASES[toolName] || toolName
+
+const resolveTavilyApiKey = toolConfig => {
+  const envKey = process.env.TAVILY_API_KEY || process.env.PUBLIC_TAVILY_API_KEY
+  if (envKey) return envKey
+  if (toolConfig?.tavilyApiKey) return toolConfig.tavilyApiKey
+  if (toolConfig?.searchProvider === 'tavily' && toolConfig?.searchApiKey) {
+    return toolConfig.searchApiKey
+  }
+  return ''
+}
+
 const GLOBAL_TOOLS = [
   {
-    id: 'web_search',
-    name: 'web_search',
+    id: 'Tavily_web_search',
+    name: 'Tavily_web_search',
     category: 'search',
     description: 'Search the web for current information using Tavily API.',
     parameters: {
@@ -127,6 +145,27 @@ const AGENT_TOOLS = [
       },
     },
   },
+  {
+    id: 'Tavily_academic_search',
+    name: 'Tavily_academic_search',
+    category: 'search',
+    description:
+      'Search academic journals, papers, and scholarly resources using Tavily API with advanced search depth. Results are limited to peer-reviewed sources, preprint servers, and trusted academic databases.',
+    parameters: {
+      type: 'object',
+      required: ['query'],
+      properties: {
+        query: {
+          type: 'string',
+          description: 'Academic search query (e.g., research topic, paper title, author name).',
+        },
+        max_results: {
+          type: 'integer',
+          description: 'Maximum number of academic results to return (default 5).',
+        },
+      },
+    },
+  },
 ]
 
 // Combined list for execution and validation
@@ -153,7 +192,11 @@ const toolSchemas = {
   json_repair: z.object({
     text: z.string().min(1, 'text is required'),
   }),
-  web_search: z.object({
+  Tavily_web_search: z.object({
+    query: z.string().min(1, 'query is required'),
+    max_results: z.number().int().positive().optional(),
+  }),
+  Tavily_academic_search: z.object({
     query: z.string().min(1, 'query is required'),
     max_results: z.number().int().positive().optional(),
   }),
@@ -187,7 +230,7 @@ export const listTools = () =>
 
 export const getToolDefinitionsByIds = toolIds => {
   if (!Array.isArray(toolIds) || toolIds.length === 0) return []
-  const idSet = new Set(toolIds.map(String))
+  const idSet = new Set(toolIds.map(id => resolveToolName(String(id))))
   // Agents can theoretically access global tools if manually added by ID, but listTools won't show them
   return ALL_TOOLS.filter(tool => idSet.has(tool.id)).map(tool => ({
     type: 'function',
@@ -200,10 +243,11 @@ export const getToolDefinitionsByIds = toolIds => {
 }
 
 export const isLocalToolName = toolName =>
-  ALL_TOOLS.some(tool => tool.name === toolName || tool.id === toolName)
+  ALL_TOOLS.some(tool => tool.name === resolveToolName(toolName) || tool.id === toolName)
 
-export const executeToolByName = async (toolName, args = {}) => {
-  const schema = toolSchemas[toolName]
+export const executeToolByName = async (toolName, args = {}, toolConfig = {}) => {
+  const resolvedToolName = resolveToolName(toolName)
+  const schema = toolSchemas[resolvedToolName]
   if (!schema) {
     throw new Error(`Unknown tool: ${toolName}`)
   }
@@ -214,7 +258,7 @@ export const executeToolByName = async (toolName, args = {}) => {
   }
 
   const params = parsed.data
-  switch (toolName) {
+  switch (resolvedToolName) {
     case 'calculator': {
       const value = safeEvaluate(params.expression)
       return { result: value }
@@ -272,13 +316,13 @@ export const executeToolByName = async (toolName, args = {}) => {
         }
       }
     }
-    case 'web_search': {
+    case 'Tavily_web_search': {
       const query = params.query
       const maxResults = params.max_results || 5
-      const apiKey = process.env.TAVILY_API_KEY
+      const apiKey = resolveTavilyApiKey(toolConfig)
 
       if (!apiKey) {
-        throw new Error('Tavily API key not configured (TAVILY_API_KEY)')
+        throw new Error('Tavily API key not configured. Set TAVILY_API_KEY or add it in settings.')
       }
 
       try {
@@ -313,6 +357,52 @@ export const executeToolByName = async (toolName, args = {}) => {
         }
       } catch (error) {
         throw new Error(`Search failed: ${error.message}`)
+      }
+    }
+    case 'Tavily_academic_search': {
+      const query = params.query
+      const maxResults = params.max_results || 5
+      const apiKey = resolveTavilyApiKey(toolConfig)
+
+      if (!apiKey) {
+        throw new Error('Tavily API key not configured. Set TAVILY_API_KEY or add it in settings.')
+      }
+
+      try {
+        const response = await fetch('https://api.tavily.com/search', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            api_key: apiKey,
+            query,
+            search_depth: 'advanced', // Use advanced search for academic queries
+            include_domains: ACADEMIC_DOMAINS,
+            include_answer: true,
+            max_results: maxResults,
+          }),
+        })
+
+        if (!response.ok) {
+          throw new Error(`Tavily API error: ${response.statusText}`)
+        }
+
+        const data = await response.json()
+
+        // Return structured academic results
+        return {
+          answer: data.answer,
+          results: data.results.map(r => ({
+            title: r.title,
+            url: r.url,
+            content: r.content,
+            score: r.score || null, // Relevance score if available
+          })),
+          query_type: 'academic',
+        }
+      } catch (error) {
+        throw new Error(`Academic search failed: ${error.message}`)
       }
     }
     default:

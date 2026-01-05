@@ -3,8 +3,13 @@
  * Handles communication with Qurio backend server
  */
 
-// Backend URL - can be overridden via environment variable
-const BACKEND_URL = import.meta.env.PUBLIC_BACKEND_URL || 'http://localhost:3001'
+import { loadSettings } from './settings'
+
+// Backend URL - env > user settings
+const getBackendUrl = () => {
+  const settings = loadSettings()
+  return settings.backendUrl || 'http://localhost:3001'
+}
 
 /**
  * Generate a title for a conversation based on the first user message
@@ -16,7 +21,7 @@ const BACKEND_URL = import.meta.env.PUBLIC_BACKEND_URL || 'http://localhost:3001
  * @returns {Promise<{title: string, emojis?: string[]}>}
  */
 export const generateTitleViaBackend = async (provider, message, apiKey, baseUrl, model) => {
-  const response = await fetch(`${BACKEND_URL}/api/title`, {
+  const response = await fetch(`${getBackendUrl()}/api/title`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -56,7 +61,7 @@ export const generateDailyTipViaBackend = async (
   baseUrl,
   model,
 ) => {
-  const response = await fetch(`${BACKEND_URL}/api/daily-tip`, {
+  const response = await fetch(`${getBackendUrl()}/api/daily-tip`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -86,10 +91,18 @@ export const generateDailyTipViaBackend = async (
  * @param {string} apiKey - API key for the provider
  * @param {string} baseUrl - Optional custom base URL
  * @param {string} model - Optional model name
+ * @param {string} researchType - Research type: 'general' or 'academic'
  * @returns {Promise<{plan: string}>}
  */
-export const generateResearchPlanViaBackend = async (provider, message, apiKey, baseUrl, model) => {
-  const response = await fetch(`${BACKEND_URL}/api/research-plan`, {
+export const generateResearchPlanViaBackend = async (
+  provider,
+  message,
+  apiKey,
+  baseUrl,
+  model,
+  researchType = 'general',
+) => {
+  const response = await fetch(`${getBackendUrl()}/api/research-plan`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -100,6 +113,7 @@ export const generateResearchPlanViaBackend = async (provider, message, apiKey, 
       apiKey,
       baseUrl,
       model,
+      researchType, // Pass researchType to backend
     }),
   })
 
@@ -155,6 +169,7 @@ export const streamResearchPlanViaBackend = async params => {
     onFinish,
     onError,
     signal,
+    researchType, // Add researchType parameter
   } = params
 
   if (!provider) {
@@ -168,7 +183,7 @@ export const streamResearchPlanViaBackend = async params => {
   }
 
   try {
-    const response = await fetch(`${BACKEND_URL}/api/research-plan-stream`, {
+    const response = await fetch(`${getBackendUrl()}/api/research-plan-stream`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -187,7 +202,9 @@ export const streamResearchPlanViaBackend = async params => {
         frequency_penalty,
         presence_penalty,
         contextMessageLimit,
+        contextMessageLimit,
         toolIds,
+        researchType, // Pass researchType to backend
       }),
       signal,
     })
@@ -270,7 +287,7 @@ export const generateTitleSpaceAndAgentViaBackend = async (
   baseUrl,
   model,
 ) => {
-  const response = await fetch(`${BACKEND_URL}/api/title-space-agent`, {
+  const response = await fetch(`${getBackendUrl()}/api/title-space-agent`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -299,7 +316,7 @@ export const generateTitleSpaceAndAgentViaBackend = async (
  */
 export const checkBackendHealth = async () => {
   try {
-    const response = await fetch(`${BACKEND_URL}/api/health`)
+    const response = await fetch(`${getBackendUrl()}/api/health`)
     return response.ok
   } catch {
     return false
@@ -324,7 +341,7 @@ export const generateTitleAndSpaceViaBackend = async (
   baseUrl,
   model,
 ) => {
-  const response = await fetch(`${BACKEND_URL}/api/title-and-space`, {
+  const response = await fetch(`${getBackendUrl()}/api/title-and-space`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -365,7 +382,7 @@ export const generateAgentForAutoViaBackend = async (
   baseUrl,
   model,
 ) => {
-  const response = await fetch(`${BACKEND_URL}/api/agent-for-auto`, {
+  const response = await fetch(`${getBackendUrl()}/api/agent-for-auto`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -404,7 +421,7 @@ export const generateRelatedQuestionsViaBackend = async (
   baseUrl,
   model,
 ) => {
-  const response = await fetch(`${BACKEND_URL}/api/related-questions`, {
+  const response = await fetch(`${getBackendUrl()}/api/related-questions`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -446,6 +463,8 @@ export const generateRelatedQuestionsViaBackend = async (
  * @param {number} params.frequency_penalty - Optional frequency penalty
  * @param {number} params.presence_penalty - Optional presence penalty
  * @param {number} params.contextMessageLimit - Optional context message limit
+ * @param {string} params.searchProvider - Optional search provider
+ * @param {string} params.tavilyApiKey - Optional Tavily API key
  * @param {Function} params.onChunk - Callback for each chunk (chunk) => void
  * @param {Function} params.onFinish - Callback when stream completes (result) => void
  * @param {Function} params.onError - Callback for errors (error) => void
@@ -470,6 +489,8 @@ export const streamChatViaBackend = async params => {
     frequency_penalty,
     presence_penalty,
     contextMessageLimit,
+    searchProvider,
+    tavilyApiKey,
     onChunk,
     onFinish,
     onError,
@@ -487,7 +508,7 @@ export const streamChatViaBackend = async params => {
   }
 
   try {
-    const response = await fetch(`${BACKEND_URL}/api/stream-chat`, {
+    const response = await fetch(`${getBackendUrl()}/api/stream-chat`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -509,6 +530,8 @@ export const streamChatViaBackend = async params => {
         frequency_penalty,
         presence_penalty,
         contextMessageLimit,
+        searchProvider,
+        tavilyApiKey,
       }),
       signal,
     })
@@ -600,6 +623,9 @@ export const streamDeepResearchViaBackend = async params => {
     contextMessageLimit,
     plan,
     question,
+    researchType, // 'general' or 'academic'
+    searchProvider,
+    tavilyApiKey,
     onChunk,
     onFinish,
     onError,
@@ -617,7 +643,7 @@ export const streamDeepResearchViaBackend = async params => {
   }
 
   try {
-    const response = await fetch(`${BACKEND_URL}/api/stream-deep-research`, {
+    const response = await fetch(`${getBackendUrl()}/api/stream-deep-research`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -639,6 +665,9 @@ export const streamDeepResearchViaBackend = async params => {
         contextMessageLimit,
         plan,
         question,
+        researchType, // Pass researchType to backend
+        searchProvider,
+        tavilyApiKey,
       }),
       signal,
     })
@@ -700,7 +729,7 @@ export const streamDeepResearchViaBackend = async params => {
 }
 
 export const listToolsViaBackend = async () => {
-  const response = await fetch(`${BACKEND_URL}/api/tools`)
+  const response = await fetch(`${getBackendUrl()}/api/tools`)
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Unknown error' }))
     throw new Error(error.message || `Backend error: ${response.status}`)

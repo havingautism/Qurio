@@ -30,6 +30,35 @@ const SpaceView = () => {
 
   const activeSpace = spaces?.find(s => String(s.id) === String(spaceId)) || null
 
+  const normalizeTitleEmojis = value => {
+    if (Array.isArray(value)) {
+      return value
+        .map(item => String(item || '').trim())
+        .filter(Boolean)
+        .slice(0, 1)
+    }
+    if (typeof value === 'string' && value.trim()) {
+      try {
+        const parsed = JSON.parse(value)
+        if (Array.isArray(parsed)) {
+          return parsed
+            .map(item => String(item || '').trim())
+            .filter(Boolean)
+            .slice(0, 1)
+        }
+      } catch {
+        return []
+      }
+    }
+    return []
+  }
+
+  const resolveConversationEmoji = (conv, fallbackEmoji) => {
+    const emojiList = normalizeTitleEmojis(conv?.title_emojis ?? conv?.titleEmojis)
+    if (emojiList.length > 0) return emojiList[0]
+    return fallbackEmoji || null
+  }
+
   // State for conversations
   const [conversations, setConversations] = useState([])
   const [loading, setLoading] = useState(false)
@@ -223,6 +252,12 @@ const SpaceView = () => {
                   onClick={() => onOpenConversation && onOpenConversation(conv)}
                 >
                   <div className="flex justify-between items-start gap-4">
+                    <div className="shrink-0 flex items-center justify-center bg-gray-100 dark:bg-zinc-800 rounded-lg w-12 h-12">
+                      <EmojiDisplay
+                        emoji={resolveConversationEmoji(conv, activeSpace?.emoji)}
+                        size="2rem"
+                      />
+                    </div>
                     <div className="flex-1">
                       <h3 className="font-medium text-gray-900 dark:text-gray-100 group-hover:text-primary-500 transition-colors flex items-center gap-2">
                         {conv.title || t('views.untitled')}

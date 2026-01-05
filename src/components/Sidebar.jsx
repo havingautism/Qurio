@@ -835,12 +835,14 @@ const Sidebar = ({
                               title={conv.title}
                             >
                               <div className="flex items-center justify-between w-full overflow-hidden">
-                                <div className="flex items-center gap-2 overflow-hidden flex-1 min-w-0">
-                                  <EmojiDisplay
-                                    emoji={resolveConversationEmoji(conv, space?.emoji)}
-                                    size="1.4em"
-                                    className="shrink-0"
-                                  />
+                                <div className="flex items-center gap-3 overflow-hidden flex-1 min-w-0">
+                                  <div className="w-8 h-8 rounded bg-transparent flex items-center justify-center text-xl shrink-0">
+                                    <EmojiDisplay
+                                      emoji={resolveConversationEmoji(conv, space?.emoji)}
+                                      size="1em"
+                                      className="shrink-0"
+                                    />
+                                  </div>
                                   <div className="flex flex-col overflow-hidden flex-1 min-w-0">
                                     <div className="flex items-center gap-1 min-w-0">
                                       <span className="truncate font-medium flex-1 min-w-0">
@@ -855,7 +857,7 @@ const Sidebar = ({
                                     </div>
                                     <span
                                       className={clsx(
-                                        'text-[10px]',
+                                        'text-xs',
                                         isActive
                                           ? 'text-primary-600 dark:text-primary-400'
                                           : 'text-gray-400',
@@ -1003,12 +1005,14 @@ const Sidebar = ({
                                 title={conv.title}
                               >
                                 <div className="flex items-center justify-between w-full overflow-hidden">
-                                  <div className="flex items-center gap-2 overflow-hidden flex-1 min-w-0">
-                                    <EmojiDisplay
-                                      emoji={resolveConversationEmoji(conv, space?.emoji)}
-                                      size="1.4em"
-                                      className="shrink-0"
-                                    />
+                                  <div className="flex items-center gap-3 overflow-hidden flex-1 min-w-0">
+                                    <div className="w-8 h-8 rounded bg-transparent flex items-center justify-center text-xl shrink-0">
+                                      <EmojiDisplay
+                                        emoji={resolveConversationEmoji(conv, space?.emoji)}
+                                        size="1em"
+                                        className="shrink-0"
+                                      />
+                                    </div>
                                     <div className="flex flex-col overflow-hidden flex-1 min-w-0">
                                       <div className="flex items-center gap-1 min-w-0">
                                         <span className="truncate font-medium flex-1 min-w-0">
@@ -1023,7 +1027,7 @@ const Sidebar = ({
                                       </div>
                                       <span
                                         className={clsx(
-                                          'text-[10px]',
+                                          'text-xs',
                                           isActive
                                             ? 'text-primary-600 dark:text-primary-400'
                                             : 'text-gray-400',
@@ -1160,12 +1164,14 @@ const Sidebar = ({
                           title={conv.title}
                         >
                           <div className="flex items-center justify-between w-full overflow-hidden">
-                            <div className="flex items-center gap-2 overflow-hidden flex-1 min-w-0">
-                              <EmojiDisplay
-                                emoji={resolveConversationEmoji(conv, space?.emoji)}
-                                size="1.4em"
-                                className="shrink-0"
-                              />
+                            <div className="flex items-center gap-3 overflow-hidden flex-1 min-w-0">
+                              <div className="w-8 h-8 rounded bg-transparent flex items-center justify-center text-xl shrink-0">
+                                <EmojiDisplay
+                                  emoji={resolveConversationEmoji(conv, space?.emoji)}
+                                  size="1em"
+                                  className="shrink-0"
+                                />
+                              </div>
                               <div className="flex flex-col overflow-hidden flex-1 min-w-0">
                                 <div className="flex items-center gap-1 min-w-0">
                                   <span className="truncate font-medium flex-1 min-w-0">
@@ -1178,7 +1184,7 @@ const Sidebar = ({
                                 </div>
                                 <span
                                   className={clsx(
-                                    'text-[10px]',
+                                    'text-xs',
                                     isActive
                                       ? 'text-primary-600 dark:text-primary-400'
                                       : 'text-gray-400',
@@ -1324,7 +1330,7 @@ const Sidebar = ({
                       onClick={() => onNavigateToSpace(space)}
                       className="flex items-center justify-between p-2 rounded  cursor-pointer transition-colors group"
                     >
-                      <div className="flex-1 min-w-0 flex items-center gap-1">
+                      <div className="flex-1 min-w-0 flex items-center gap-3">
                         <button
                           onClick={e => {
                             e.stopPropagation()
@@ -1340,10 +1346,10 @@ const Sidebar = ({
                             )}
                           />
                         </button>
-                        <div className="w-8 h-8 rounded bg-transparent flex items-center justify-center group-hover:border-gray-300 dark:group-hover:border-zinc-600 text-lg shrink-0">
+                        <div className="w-8 h-8 rounded bg-transparent flex items-center justify-center group-hover:border-gray-300 dark:group-hover:border-zinc-600 text-xl shrink-0">
                           <EmojiDisplay emoji={space.emoji} />
                         </div>
-                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-gray-200 transition-colors truncate">
+                        <span className="text-base font-medium text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-gray-200 transition-colors truncate">
                           {getSpaceDisplayLabel(space, t)}
                         </span>
                       </div>
@@ -1375,7 +1381,7 @@ const Sidebar = ({
                             <div
                               data-conversation-id={conv.id}
                               className={clsx(
-                                'group relative flex items-center justify-between text-xs py-1.5 px-2 rounded cursor-pointer truncate transition-colors',
+                                'group relative flex items-center justify-between text-sm py-1.5 px-2 rounded cursor-pointer truncate transition-colors',
                                 conv.id === activeConversationId
                                   ? 'bg-primary-500/10 text-primary-700 dark:text-primary-300 font-medium'
                                   : 'text-gray-600 dark:text-gray-400 hover:bg-primary-50 dark:hover:bg-zinc-800 hover:shadow-sm hover:ring-1 hover:ring-primary-200 dark:hover:ring-zinc-700 hover:z-10',
@@ -1511,12 +1517,12 @@ const Sidebar = ({
                       onClick={() => onEditAgent && onEditAgent(agent)}
                       className="flex items-center justify-between p-2 rounded cursor-pointer transition-colors group hover:bg-primary-50 dark:hover:bg-zinc-800"
                     >
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <div className="w-6 h-6 rounded bg-transparent flex items-center justify-center text-lg shrink-0">
-                          <EmojiDisplay emoji={agent.emoji} size="1.2em" className="shrink-0" />
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <div className="w-8 h-8 rounded bg-transparent flex items-center justify-center text-xl shrink-0">
+                          <EmojiDisplay emoji={agent.emoji} size="1em" className="shrink-0" />
                         </div>
                         <div className="flex flex-col min-w-0">
-                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">
+                          <span className="text-base font-medium text-gray-700 dark:text-gray-300 truncate">
                             {getAgentDisplayName(agent, t)}
                           </span>
                           {getAgentDisplayDescription(agent, t) && (

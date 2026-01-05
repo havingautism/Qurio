@@ -4,7 +4,11 @@
  */
 
 import express from 'express'
-import { generateResearchPlan, buildResearchPlanMessages } from '../services/researchPlanService.js'
+import {
+  buildAcademicResearchPlanMessages,
+  generateAcademicResearchPlan,
+} from '../services/academicResearchPlanService.js'
+import { buildResearchPlanMessages, generateResearchPlan } from '../services/researchPlanService.js'
 import { streamChat } from '../services/streamChatService.js'
 import { createSseStream, getSseConfig } from '../utils/sse.js'
 
@@ -30,29 +34,43 @@ const router = express.Router()
  */
 router.post('/research-plan', async (req, res) => {
   try {
-    const { provider, message, apiKey, baseUrl, model } = req.body
+    const { provider, message, apiKey, baseUrl, model, researchType = 'general' } = req.body
 
-    if (!provider || !message) {
-      return res.status(400).json({ error: 'Missing required fields: provider, message' })
+    if (!provider) {
+      return res.status(400).json({ error: 'Missing required field: provider' })
+    }
+    if (!message) {
+      return res.status(400).json({ error: 'Missing required field: message' })
+    }
+    if (!apiKey) {
+      return res.status(400).json({ error: 'Missing required field: apiKey' })
     }
 
     const supportedProviders = ['gemini', 'openai', 'siliconflow', 'glm', 'modelscope', 'kimi']
     if (!supportedProviders.includes(provider)) {
       return res.status(400).json({
-        error: `Unsupported provider: ${provider}. Supported: ${supportedProviders.join(', ')}`
+        error: `Unsupported provider: ${provider}. Supported: ${supportedProviders.join(', ')}`,
       })
     }
 
-    console.log(`[API] generateResearchPlan: provider=${provider}`)
+    console.log(`[API] generateResearchPlan: provider=${provider}, researchType=${researchType}`)
 
-    const plan = await generateResearchPlan(provider, message, apiKey, baseUrl, model)
+    // Use academic research plan service for academic research
+    const planGenerator =
+      researchType === 'academic' ? generateAcademicResearchPlan : generateResearchPlan
+
+    console.log(
+      `[API] Selected plan generator: ${researchType === 'academic' ? 'Academic' : 'General'}`,
+    )
+
+    const plan = await planGenerator(provider, message, apiKey, baseUrl, model)
 
     res.json({ plan })
   } catch (error) {
-    console.error('[API] generateResearchPlan error:', error)
+    console.error('[API] Research plan generation error:', error)
     res.status(500).json({
       error: 'Failed to generate research plan',
-      message: error.message
+      message: error.message,
     })
   }
 })
@@ -77,6 +95,7 @@ router.post('/research-plan-stream', async (req, res) => {
       frequency_penalty,
       presence_penalty,
       contextMessageLimit,
+      researchType = 'general',
     } = req.body
 
     if (!provider || !message) {
@@ -93,6 +112,8 @@ router.post('/research-plan-stream', async (req, res) => {
       })
     }
 
+    console.log(`[API] researchPlanStream: provider=${provider}, researchType=${researchType}`)
+
     const sse = createSseStream(res, getSseConfig())
     sse.writeComment('ok')
 
@@ -107,9 +128,26 @@ router.post('/research-plan-stream', async (req, res) => {
     const resolvedResponseFormat =
       responseFormat ?? (provider !== 'gemini' ? { type: 'json_object' } : undefined)
     const resolvedThinking =
-      thinking ?? (provider === 'glm' || provider === 'modelscope' ? { type: 'disabled' } : undefined)
+      thinking ??
+      (provider === 'glm' || provider === 'modelscope' ? { type: 'disabled' } : undefined)
 
-    const promptMessages = buildResearchPlanMessages(message)
+    // Select appropriate prompt builder based on research type
+    // Import for buildAcademicResearchPlanMessages is needed if not already present
+    // Since we can't easily add global imports here without potentially breaking things or duplicates,
+    // we should rely on existing imports. Currently generateAcademicResearchPlan handles the whole flow non-streaming.
+    // However, research-plan-stream uses streamChat service directly.
+    // We need to conditionally use the academic prompt builder.
+
+    // NOTE: We need to import buildAcademicResearchPlanMessages at the top of the file first.
+    // For now, let's assume the import will be added in a separate step or we add it here if possible.
+    // Actually, looking at the imports: import { generateAcademicResearchPlan } from '../services/academicResearchPlanService.js'
+    // It doesn't export buildAcademicResearchPlanMessages. I need to update the import first.
+
+    const isAcademic = researchType === 'academic'
+    const promptBuilder = isAcademic ? buildAcademicResearchPlanMessages : buildResearchPlanMessages
+    const promptMessages = promptBuilder(message)
+
+    console.log(`[API] Streaming research plan with type: ${isAcademic ? 'Academic' : 'General'}`)
     for await (const chunk of streamChat({
       provider,
       apiKey,

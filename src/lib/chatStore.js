@@ -259,9 +259,7 @@ const getModelConfigForAgent = (agent, settings, task = 'streamChatCompletion', 
       task === 'generateRelatedQuestions' ||
       task === 'generateResearchPlan'
 
-    const model = isLiteTask
-      ? liteModel || defaultModel
-      : defaultModel || liteModel
+    const model = isLiteTask ? liteModel || defaultModel : defaultModel || liteModel
     const provider = isLiteTask
       ? liteModelProvider || defaultModelProvider || candidate.provider
       : defaultModelProvider || liteModelProvider || candidate.provider
@@ -295,6 +293,7 @@ const generateDeepResearchPlan = async (
   agents,
   fallbackAgent,
   callbacks = {},
+  researchType = 'general', // Add researchType parameter
 ) => {
   const agentForPlan = selectedAgent || fallbackAgent
   const modelConfig = getModelConfigForAgent(
@@ -327,6 +326,7 @@ const generateDeepResearchPlan = async (
           callbacks.onFinish?.(streamContent)
         },
         onError: callbacks.onError,
+        researchType, // Pass researchType to streaming provider
       },
     )
     return streamContent
@@ -337,6 +337,7 @@ const generateDeepResearchPlan = async (
     credentials.apiKey,
     credentials.baseUrl,
     modelConfig.model,
+    researchType, // Pass researchType to provider
   )
   callbacks.onChunk?.(content)
   callbacks.onFinish?.(content)
@@ -723,6 +724,7 @@ const callAIAPI = async (
   historyLengthBeforeSend,
   firstUserText,
   isAgentAutoMode = false,
+  researchType = 'general', // Add researchType parameter
 ) => {
   let streamedThought = ''
   let pendingText = ''
@@ -817,6 +819,7 @@ const callAIAPI = async (
               updateResearchPlan(planContent)
             },
           },
+          researchType, // Pass researchType to plan generation
         )
       } catch (planError) {
         console.error('Deep research plan generation failed:', planError)
@@ -1076,6 +1079,7 @@ const callAIAPI = async (
         })),
         plan: planContent,
         question: firstUserText || lastMessage?.content || '',
+        researchType, // Pass researchType to deep research execution
       })
     } else {
       await provider.streamChatCompletion(params)
@@ -1268,13 +1272,14 @@ const finalizeMessage = async (
       if (!resolvedAgent && provider.generateTitleSpaceAndAgent) {
         const spaceAgents = await buildSpaceAgentOptions(spaces, agents)
         if (spaceAgents.length) {
-          const { title, spaceLabel, agentName, emojis } = await provider.generateTitleSpaceAndAgent(
-            promptText,
-            spaceAgents,
-            credentials.apiKey,
-            credentials.baseUrl,
-            titleModelConfig.model,
-          )
+          const { title, spaceLabel, agentName, emojis } =
+            await provider.generateTitleSpaceAndAgent(
+              promptText,
+              spaceAgents,
+              credentials.apiKey,
+              credentials.baseUrl,
+              titleModelConfig.model,
+            )
           resolvedTitle = title
           resolvedTitleEmojis = Array.isArray(emojis) ? emojis : []
           set({ conversationTitle: title, conversationTitleEmojis: resolvedTitleEmojis })
@@ -1603,8 +1608,7 @@ const useChatStore = create((set, get) => ({
   /** Sets current conversation title */
   setConversationTitle: conversationTitle => set({ conversationTitle }),
   /** Sets current conversation title emojis */
-  setConversationTitleEmojis: conversationTitleEmojis =>
-    set({ conversationTitleEmojis }),
+  setConversationTitleEmojis: conversationTitleEmojis => set({ conversationTitleEmojis }),
   /** Sets loading state */
   setIsLoading: isLoading => set({ isLoading }),
   /** Sets meta loading state */
@@ -1667,7 +1671,7 @@ const useChatStore = create((set, get) => ({
   sendMessage: async ({
     text,
     attachments,
-    toggles, // { search, thinking }
+    toggles, // { search, thinking, deepResearch }
     settings, // passed from component to ensure freshness
     spaceInfo, // { selectedSpace, isManualSpaceSelection }
     selectedAgent = null, // Currently selected agent (optional)
@@ -1677,6 +1681,7 @@ const useChatStore = create((set, get) => ({
     callbacks, // { onTitleAndSpaceGenerated, onSpaceResolved } (optional)
     spaces = [], // passed from component
     quoteContext = null, // { text, sourceContent, sourceRole }
+    researchType = 'general', // 'general' or 'academic' for deep research
   }) => {
     const { messages, conversationId, isLoading } = get()
 
@@ -1994,6 +1999,7 @@ const useChatStore = create((set, get) => ({
       historyLengthBeforeSend,
       text,
       isAgentAutoMode,
+      researchType, // Pass researchType to callAIAPI
     )
   },
 }))

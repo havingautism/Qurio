@@ -86,9 +86,17 @@ export const generateDailyTipViaBackend = async (
  * @param {string} apiKey - API key for the provider
  * @param {string} baseUrl - Optional custom base URL
  * @param {string} model - Optional model name
+ * @param {string} researchType - Research type: 'general' or 'academic'
  * @returns {Promise<{plan: string}>}
  */
-export const generateResearchPlanViaBackend = async (provider, message, apiKey, baseUrl, model) => {
+export const generateResearchPlanViaBackend = async (
+  provider,
+  message,
+  apiKey,
+  baseUrl,
+  model,
+  researchType = 'general',
+) => {
   const response = await fetch(`${BACKEND_URL}/api/research-plan`, {
     method: 'POST',
     headers: {
@@ -100,6 +108,7 @@ export const generateResearchPlanViaBackend = async (provider, message, apiKey, 
       apiKey,
       baseUrl,
       model,
+      researchType, // Pass researchType to backend
     }),
   })
 
@@ -155,6 +164,7 @@ export const streamResearchPlanViaBackend = async params => {
     onFinish,
     onError,
     signal,
+    researchType, // Add researchType parameter
   } = params
 
   if (!provider) {
@@ -187,7 +197,9 @@ export const streamResearchPlanViaBackend = async params => {
         frequency_penalty,
         presence_penalty,
         contextMessageLimit,
+        contextMessageLimit,
         toolIds,
+        researchType, // Pass researchType to backend
       }),
       signal,
     })
@@ -600,6 +612,7 @@ export const streamDeepResearchViaBackend = async params => {
     contextMessageLimit,
     plan,
     question,
+    researchType, // 'general' or 'academic'
     onChunk,
     onFinish,
     onError,
@@ -639,6 +652,7 @@ export const streamDeepResearchViaBackend = async params => {
         contextMessageLimit,
         plan,
         question,
+        researchType, // Pass researchType to backend
       }),
       signal,
     })

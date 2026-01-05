@@ -14,10 +14,10 @@ import { getProvider, providerSupportsSearch, resolveThinkingToggleRule } from '
 import QuestionTimelineController from './QuestionTimelineController'
 import ResearchTimelineController from './ResearchTimelineController'
 
-import { useSidebarOffset } from '../hooks/useSidebarOffset'
+import useAgentManagement from '../hooks/chat/useAgentManagement'
 import useChatHistory from '../hooks/chat/useChatHistory'
 import useSpaceManagement from '../hooks/chat/useSpaceManagement'
-import useAgentManagement from '../hooks/chat/useAgentManagement'
+import { useSidebarOffset } from '../hooks/useSidebarOffset'
 // import { getAgentDisplayName } from '../lib/agentDisplay'
 // import { getSpaceDisplayLabel } from '../lib/spaceDisplay'
 import { loadSettings } from '../lib/settings'
@@ -35,6 +35,7 @@ const DeepResearchChatInterface = ({
   initialIsAgentAutoMode = true,
   onTitleAndSpaceGenerated,
   isSidebarPinned = false,
+  researchType = 'general', // Add researchType prop
 }) => {
   // Mobile detection
   const isMobile = (() => {
@@ -45,13 +46,19 @@ const DeepResearchChatInterface = ({
 
   const normalizeTitleEmojis = value => {
     if (Array.isArray(value)) {
-      return value.map(item => String(item || '').trim()).filter(Boolean).slice(0, 1)
+      return value
+        .map(item => String(item || '').trim())
+        .filter(Boolean)
+        .slice(0, 1)
     }
     if (typeof value === 'string' && value.trim()) {
       try {
         const parsed = JSON.parse(value)
         if (Array.isArray(parsed)) {
-          return parsed.map(item => String(item || '').trim()).filter(Boolean).slice(0, 1)
+          return parsed
+            .map(item => String(item || '').trim())
+            .filter(Boolean)
+            .slice(0, 1)
         }
       } catch {
         return []
@@ -219,8 +226,7 @@ const DeepResearchChatInterface = ({
     effectiveDefaultModel: defaultAgent?.model || 'gpt-4o',
     isSwitchingConversation,
   })
-  const hasLoadedActive =
-    activeConversation?.id && hasLoadedMessages?.(activeConversation.id)
+  const hasLoadedActive = activeConversation?.id && hasLoadedMessages?.(activeConversation.id)
   const hasResolvedTitle =
     typeof conversationTitle === 'string' &&
     conversationTitle.trim() !== '' &&
@@ -230,10 +236,7 @@ const DeepResearchChatInterface = ({
     (!conversationTitle || conversationTitle === 'New Conversation')
   const isTitleLoading =
     !hasResolvedTitle &&
-    (isMetaLoading ||
-      isLoadingHistory ||
-      isSwitchingConversation ||
-      isPlaceholderTitle)
+    (isMetaLoading || isLoadingHistory || isSwitchingConversation || isPlaceholderTitle)
 
   useEffect(() => {
     if (!activeConversation?.id || activeConversation?._isPlaceholder) return
@@ -420,9 +423,7 @@ const DeepResearchChatInterface = ({
           task === 'generateRelatedQuestions' ||
           task === 'generateResearchPlan'
 
-        const model = isLiteTask
-          ? liteModel || defaultModel
-          : defaultModel || liteModel
+        const model = isLiteTask ? liteModel || defaultModel : defaultModel || liteModel
         const provider = isLiteTask
           ? liteModelProvider || defaultModelProvider || agent.provider
           : defaultModelProvider || liteModelProvider || agent.provider
@@ -705,7 +706,10 @@ const DeepResearchChatInterface = ({
             setConversationTitleEmojis(nextEmojis)
           }
           lastTitleConversationIdRef.current = activeConversation.id
-        } else if (activeConversation.title && (!conversationTitle || conversationTitle === 'New Conversation')) {
+        } else if (
+          activeConversation.title &&
+          (!conversationTitle || conversationTitle === 'New Conversation')
+        ) {
           setConversationTitle(activeConversation.title)
           setConversationTitleEmojis(
             normalizeTitleEmojis(activeConversation.title_emojis ?? activeConversation.titleEmojis),
@@ -747,7 +751,10 @@ const DeepResearchChatInterface = ({
           setConversationTitleEmojis(nextEmojis)
         }
         lastTitleConversationIdRef.current = activeConversation.id
-      } else if (activeConversation.title && (!conversationTitle || conversationTitle === 'New Conversation')) {
+      } else if (
+        activeConversation.title &&
+        (!conversationTitle || conversationTitle === 'New Conversation')
+      ) {
         setConversationTitle(activeConversation.title)
         setConversationTitleEmojis(
           normalizeTitleEmojis(activeConversation.title_emojis ?? activeConversation.titleEmojis),
@@ -1158,6 +1165,10 @@ const DeepResearchChatInterface = ({
         callbacks: {
           onTitleAndSpaceGenerated,
           onSpaceResolved: space => {
+            // Assuming `isMobile` and `toggleSidebar` are defined elsewhere if needed
+            // Original logic: setSelectedSpace(space); setIsManualSpaceSelection(false);
+            // If the user intended to replace with mobile-specific logic, it should be handled.
+            // For now, keeping the original logic as the provided snippet seems incomplete/misplaced.
             setSelectedSpace(space)
             setIsManualSpaceSelection(false)
           },
@@ -1173,6 +1184,7 @@ const DeepResearchChatInterface = ({
         },
         spaces,
         quoteContext: quoteContextForSend,
+        researchType,
       })
     },
     [
@@ -1472,9 +1484,7 @@ const DeepResearchChatInterface = ({
       const newTitle = titleResult?.title || ''
       if (!newTitle) return
       setConversationTitle(newTitle)
-      setConversationTitleEmojis(
-        Array.isArray(titleResult?.emojis) ? titleResult.emojis : [],
-      )
+      setConversationTitleEmojis(Array.isArray(titleResult?.emojis) ? titleResult.emojis : [])
       const convId = conversationId || activeConversation?.id
       if (convId) {
         await updateConversation(convId, {

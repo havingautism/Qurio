@@ -11,9 +11,9 @@ import {
   generateTitleAndSpaceViaBackend,
   generateTitleSpaceAndAgentViaBackend,
   generateTitleViaBackend,
-  streamResearchPlanViaBackend,
   streamChatViaBackend,
   streamDeepResearchViaBackend,
+  streamResearchPlanViaBackend,
 } from './backendClient.js'
 
 const generateTitle = async (provider, firstMessage, apiKey, baseUrl, model) => {
@@ -24,8 +24,22 @@ const generateTitle = async (provider, firstMessage, apiKey, baseUrl, model) => 
   }
 }
 
-const generateResearchPlan = async (provider, userMessage, apiKey, baseUrl, model) => {
-  const result = await generateResearchPlanViaBackend(provider, userMessage, apiKey, baseUrl, model)
+const generateResearchPlan = async (
+  provider,
+  userMessage,
+  apiKey,
+  baseUrl,
+  model,
+  researchType = 'general',
+) => {
+  const result = await generateResearchPlanViaBackend(
+    provider,
+    userMessage,
+    apiKey,
+    baseUrl,
+    model,
+    researchType,
+  )
   return result?.plan || ''
 }
 
@@ -35,7 +49,7 @@ const streamResearchPlan = async (
   apiKey,
   baseUrl,
   model,
-  { onChunk, onFinish, onError, signal } = {},
+  { onChunk, onFinish, onError, signal, researchType } = {},
 ) => {
   let fullContent = ''
 
@@ -45,6 +59,7 @@ const streamResearchPlan = async (
     apiKey,
     baseUrl,
     model,
+    researchType, // Pass researchType
     onChunk: chunk => {
       const text = typeof chunk === 'string' ? chunk : chunk?.type === 'text' ? chunk.content : ''
       if (!text) return
@@ -153,8 +168,8 @@ export const createBackendProvider = provider => ({
   streamDeepResearch: params => streamDeepResearchViaBackend({ provider, ...params }),
   generateTitle: (firstMessage, apiKey, baseUrl, model) =>
     generateTitle(provider, firstMessage, apiKey, baseUrl, model),
-  generateResearchPlan: (userMessage, apiKey, baseUrl, model) =>
-    generateResearchPlan(provider, userMessage, apiKey, baseUrl, model),
+  generateResearchPlan: (userMessage, apiKey, baseUrl, model, researchType) =>
+    generateResearchPlan(provider, userMessage, apiKey, baseUrl, model, researchType),
   streamResearchPlan: (userMessage, apiKey, baseUrl, model, callbacks) =>
     streamResearchPlan(provider, userMessage, apiKey, baseUrl, model, callbacks),
   generateDailyTip: (language, category, apiKey, baseUrl, model) =>

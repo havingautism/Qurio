@@ -1,44 +1,44 @@
-﻿import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
+﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { useShallow } from 'zustand/react/shallow'
 import useChatStore from '../lib/chatStore'
 
+import clsx from 'clsx'
 import {
-  Copy,
-  ChevronRight,
-  ChevronDown,
-  Pencil,
   Check,
-  RefreshCw,
+  ChevronDown,
+  ChevronRight,
+  Copy,
+  Pencil,
   Quote,
+  RefreshCw,
   Trash2,
   X,
 } from 'lucide-react'
-import { Streamdown } from 'streamdown'
-import remarkGfm from 'remark-gfm'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
-import clsx from 'clsx'
-import { getProvider } from '../lib/providers'
-import { parseChildrenWithEmojis } from '../lib/emojiParser'
-import EmojiDisplay from './EmojiDisplay'
-import { renderProviderIcon, getModelIcon, getModelIconClassName } from '../lib/modelIcons'
-import DotLoader from './DotLoader'
-import MobileSourcesDrawer from './MobileSourcesDrawer'
-import DesktopSourcesSection from './DesktopSourcesSection'
-import useIsMobile from '../hooks/useIsMobile'
-import ShareModal from './ShareModal'
+import remarkGfm from 'remark-gfm'
+import { Streamdown } from 'streamdown'
 import { useAppContext } from '../App'
+import useIsMobile from '../hooks/useIsMobile'
+import { parseChildrenWithEmojis } from '../lib/emojiParser'
+import { getModelIcon, getModelIconClassName, renderProviderIcon } from '../lib/modelIcons'
+import { getProvider } from '../lib/providers'
+import DesktopSourcesSection from './DesktopSourcesSection'
+import DotLoader from './DotLoader'
+import EmojiDisplay from './EmojiDisplay'
 import DeepResearchGoalCard from './message/DeepResearchGoalCard'
 import MessageActionBar from './message/MessageActionBar'
-import RelatedQuestions from './message/RelatedQuestions'
-import { useMessageExport } from './message/useMessageExport'
 import {
   applyGroundingSupports,
   formatContentWithSources,
   getHostname,
 } from './message/messageUtils'
+import RelatedQuestions from './message/RelatedQuestions'
+import { useMessageExport } from './message/useMessageExport'
+import MobileSourcesDrawer from './MobileSourcesDrawer'
+import ShareModal from './ShareModal'
 
 const PROVIDER_META = {
   gemini: {
@@ -470,6 +470,16 @@ const MessageBubble = ({
 
       const sections = []
       sections.push(`### ${t('messageBubble.researchPlan')}`)
+
+      // New field: research_type
+      if (parsed.research_type) {
+        const typeLabel =
+          parsed.research_type === 'academic'
+            ? t('messageBubble.researchTypeAcademic')
+            : t('messageBubble.researchTypeGeneral')
+        sections.push(`**${t('messageBubble.researchType')}:** ${typeLabel}`)
+      }
+
       if (goal) sections.push(goal)
       // Add new fields after goal
       if (complexity) sections.push(complexity)
@@ -499,8 +509,7 @@ const MessageBubble = ({
   const providerId = message.provider || apiProvider
   const provider = getProvider(providerId)
   const parsed = provider.parseMessage(message)
-  const thoughtContent =
-    isDeepResearch || message.thinkingEnabled === false ? null : parsed.thought
+  const thoughtContent = isDeepResearch || message.thinkingEnabled === false ? null : parsed.thought
   const mainContent = parsed.content
 
   const { handleDownloadPdf, handleDownloadWord } = useMessageExport({

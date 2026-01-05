@@ -29,6 +29,7 @@ router.post('/stream-deep-research', async (req, res) => {
       toolIds,
       plan,
       question,
+      researchType, // 'general' or 'academic'
     } = req.body
 
     if (!provider) {
@@ -78,6 +79,7 @@ router.post('/stream-deep-research', async (req, res) => {
       toolIds,
       plan,
       question,
+      researchType, // Pass researchType to service
       signal: controller.signal,
     })) {
       sse.sendEvent(chunk)

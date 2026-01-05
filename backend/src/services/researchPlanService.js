@@ -2,8 +2,8 @@
  * Research Plan generation service
  */
 
-import { ChatOpenAI } from '@langchain/openai'
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai'
+import { ChatOpenAI } from '@langchain/openai'
 import {
   normalizeGeminiMessages,
   normalizeTextContent,
@@ -27,8 +27,6 @@ const DEFAULT_MODELS = {
   modelscope: 'AI-ModelScope/glm-4-9b-chat',
   kimi: 'moonshot-v1-8k',
 }
-
- 
 
 // ============================================================================
 // Model builders
@@ -513,6 +511,7 @@ Input:
 
 Output:
 {
+  "research_type": "general",
   "goal": "Explain React's core concepts, features, and typical applications",
   "complexity": "simple",
   "question_type": "definition",
@@ -563,6 +562,7 @@ Input:
 
 Output:
 {
+  "research_type": "general",
   "goal": "Compare PostgreSQL and MongoDB's design, use cases, and performance",
   "complexity": "medium",
   "question_type": "comparison",
@@ -616,6 +616,7 @@ Output:
 ## Output Schema
 Return ONLY valid JSON, no markdown, no commentary:
 {
+  "research_type": "general",
   "goal": "string",
   "complexity": "simple|medium|complex",
   "question_type": "definition|comparison|how_it_works|how_to|analysis|history",

@@ -1,6 +1,7 @@
 import { jsonrepair } from 'jsonrepair'
 import { all, create } from 'mathjs'
 import { z } from 'zod'
+import { ACADEMIC_DOMAINS } from './academicDomains.js'
 
 const math = create(all, {})
 
@@ -127,6 +128,27 @@ const AGENT_TOOLS = [
       },
     },
   },
+  {
+    id: 'academic_search',
+    name: 'academic_search',
+    category: 'search',
+    description:
+      'Search academic journals, papers, and scholarly resources using Tavily API with advanced search depth. Results are limited to peer-reviewed sources, preprint servers, and trusted academic databases.',
+    parameters: {
+      type: 'object',
+      required: ['query'],
+      properties: {
+        query: {
+          type: 'string',
+          description: 'Academic search query (e.g., research topic, paper title, author name).',
+        },
+        max_results: {
+          type: 'integer',
+          description: 'Maximum number of academic results to return (default 5).',
+        },
+      },
+    },
+  },
 ]
 
 // Combined list for execution and validation
@@ -154,6 +176,10 @@ const toolSchemas = {
     text: z.string().min(1, 'text is required'),
   }),
   web_search: z.object({
+    query: z.string().min(1, 'query is required'),
+    max_results: z.number().int().positive().optional(),
+  }),
+  academic_search: z.object({
     query: z.string().min(1, 'query is required'),
     max_results: z.number().int().positive().optional(),
   }),
@@ -313,6 +339,52 @@ export const executeToolByName = async (toolName, args = {}) => {
         }
       } catch (error) {
         throw new Error(`Search failed: ${error.message}`)
+      }
+    }
+    case 'academic_search': {
+      const query = params.query
+      const maxResults = params.max_results || 5
+      const apiKey = process.env.TAVILY_API_KEY
+
+      if (!apiKey) {
+        throw new Error('Tavily API key not configured (TAVILY_API_KEY)')
+      }
+
+      try {
+        const response = await fetch('https://api.tavily.com/search', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            api_key: apiKey,
+            query,
+            search_depth: 'advanced', // Use advanced search for academic queries
+            include_domains: ACADEMIC_DOMAINS,
+            include_answer: true,
+            max_results: maxResults,
+          }),
+        })
+
+        if (!response.ok) {
+          throw new Error(`Tavily API error: ${response.statusText}`)
+        }
+
+        const data = await response.json()
+
+        // Return structured academic results
+        return {
+          answer: data.answer,
+          results: data.results.map(r => ({
+            title: r.title,
+            url: r.url,
+            content: r.content,
+            score: r.score || null, // Relevance score if available
+          })),
+          query_type: 'academic',
+        }
+      } catch (error) {
+        throw new Error(`Academic search failed: ${error.message}`)
       }
     }
     default:

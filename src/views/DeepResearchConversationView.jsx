@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from 'react'
 import { useLocation } from '@tanstack/react-router'
-import { deepResearchConversationRoute } from '../router'
-import { getConversation } from '../lib/conversationsService'
+import { useEffect, useMemo, useState } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import { useAppContext } from '../App'
 import DeepResearchChatInterface from '../components/DeepResearchChatInterface'
-import { useShallow } from 'zustand/react/shallow'
 import useChatStore from '../lib/chatStore'
+import { getConversation } from '../lib/conversationsService'
+import { deepResearchConversationRoute } from '../router'
 
 const DeepResearchConversationView = () => {
   const { conversationId } = deepResearchConversationRoute.useParams()
@@ -126,6 +126,7 @@ const DeepResearchConversationView = () => {
   const initialMessage = initialChatState?.initialMessage || ''
   const initialAttachments = initialChatState?.initialAttachments || []
   const initialToggles = initialChatState?.initialToggles || {}
+  const researchType = initialChatState?.researchType || 'general' // Extract researchType
 
   return (
     <DeepResearchChatInterface
@@ -139,6 +140,7 @@ const DeepResearchConversationView = () => {
       initialSpaceSelection={initialSpaceSelection}
       initialAgentSelection={initialAgentSelection}
       initialIsAgentAutoMode={initialIsAgentAutoMode}
+      researchType={researchType} // Pass researchType to DeepResearchChatInterface
     />
   )
 }

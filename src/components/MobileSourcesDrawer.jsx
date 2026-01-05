@@ -181,7 +181,7 @@ const MobileSourcesDrawer = ({ isOpen, onClose, sources = [], title }) => {
         )}
 
         {/* Bottom Safe Area Spacer */}
-        <div className="h-6 shrink-0" />
+        {/* <div className="h-6 shrink-0" /> */}
       </div>
     </div>,
     document.body,

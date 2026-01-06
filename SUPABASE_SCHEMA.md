@@ -123,3 +123,27 @@ Join table for binding multiple agents to a space.
 | `sort_order` | integer     | Display order within the space            |
 | `is_primary` | boolean     | Marks the primary agent for the space     |
 | `created_at` | timestamptz |                                           |
+
+## 8. `space_documents`
+
+Parsed text artifacts stored per space (acts like a lightweight knowledge base).
+
+| Column         | Type        | Notes                            |
+| -------------- | ----------- | -------------------------------- |
+| `id`           | uuid        | Primary key                      |
+| `space_id`     | uuid        | FK -> `spaces.id`                |
+| `name`         | text        | Original file name               |
+| `file_type`    | text        | File extension or MIME           |
+| `content_text` | text        | Parsed document content          |
+| `created_at`   | timestamptz |                                  |
+| `updated_at`   | timestamptz |                                  |
+
+## 9. `conversation_documents`
+
+Manual selection of space documents per conversation.
+
+| Column            | Type        | Notes                                  |
+| ----------------- | ----------- | -------------------------------------- |
+| `conversation_id` | uuid        | FK -> `conversations.id`               |
+| `document_id`     | uuid        | FK -> `space_documents.id`             |
+| `created_at`      | timestamptz |                                        |

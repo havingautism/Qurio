@@ -9,7 +9,13 @@ import MessageList from './MessageList'
 import clsx from 'clsx'
 import { ArrowDown } from 'lucide-react'
 import { useAppContext } from '../App'
+import { useToast } from '../contexts/ToastContext'
 import { updateConversation } from '../lib/conversationsService'
+import {
+  listConversationDocumentIds,
+  listSpaceDocuments,
+  setConversationDocuments,
+} from '../lib/documentsService'
 import { getProvider, providerSupportsSearch, resolveThinkingToggleRule } from '../lib/providers'
 import QuestionTimelineController from './QuestionTimelineController'
 
@@ -21,6 +27,35 @@ import { loadSettings } from '../lib/settings'
 import { deleteMessageById } from '../lib/supabase'
 import ChatInputBar from './chat/ChatInputBar'
 import ChatHeader from './chat/ChatHeader'
+
+const DOCUMENT_CONTEXT_MAX_TOTAL = 12000
+const DOCUMENT_CONTEXT_MAX_PER_DOC = 4000
+
+const truncateText = (text, limit) => {
+  if (!text) return ''
+  if (text.length <= limit) return text
+  return `${text.slice(0, limit)}...`
+}
+
+const buildDocumentContext = documents => {
+  const items = (documents || [])
+    .map(doc => {
+      const content = String(doc?.content_text || '').trim()
+      if (!content) return null
+      const title = doc?.name || 'Document'
+      const typeLabel = doc?.file_type ? ` (${doc.file_type})` : ''
+      return `### ${title}${typeLabel}\n${truncateText(content, DOCUMENT_CONTEXT_MAX_PER_DOC)}`
+    })
+    .filter(Boolean)
+
+  if (items.length === 0) return ''
+
+  let context = `Background documents:\n\n${items.join('\n\n')}`
+  if (context.length > DOCUMENT_CONTEXT_MAX_TOTAL) {
+    context = `${context.slice(0, DOCUMENT_CONTEXT_MAX_TOTAL)}\n\n[Truncated]`
+  }
+  return context
+}
 
 const ChatInterface = ({
   spaces = [],
@@ -91,6 +126,7 @@ const ChatInterface = ({
   const navigate = useNavigate()
   const location = useLocation()
   const { t } = useTranslation()
+  const toast = useToast()
   const {
     messages,
     setMessages,
@@ -129,6 +165,13 @@ const ChatInterface = ({
   const quoteTextRef = useRef('')
   const quoteSourceRef = useRef('')
   const lastTitleConversationIdRef = useRef(null)
+  const [spaceDocuments, setSpaceDocuments] = useState([])
+  const [documentsLoading, setDocumentsLoading] = useState(false)
+  const [selectedDocumentIds, setSelectedDocumentIds] = useState([])
+  const [pendingDocumentIds, setPendingDocumentIds] = useState([])
+  const [isDocumentSelectorOpen, setIsDocumentSelectorOpen] = useState(false)
+  const documentSelectorRef = useRef(null)
+  const pendingDocumentIdsRef = useRef([])
 
   // New state for toggles and attachments
   const [isSearchActive, setIsSearchActive] = useState(false)
@@ -137,6 +180,10 @@ const ChatInterface = ({
   const isPlaceholderConversation = Boolean(activeConversation?._isPlaceholder)
 
   const { toggleSidebar, agents: appAgents = [], defaultAgent } = useAppContext()
+
+  useEffect(() => {
+    pendingDocumentIdsRef.current = pendingDocumentIds
+  }, [pendingDocumentIds])
 
   // Space management hook (must be called after useAppContext)
   const {
@@ -197,6 +244,69 @@ const ChatInterface = ({
     isAgentPreselecting,
     t,
   })
+
+  useEffect(() => {
+    let isMounted = true
+    const loadDocuments = async () => {
+      if (!displaySpace?.id) {
+        setSpaceDocuments([])
+        setSelectedDocumentIds([])
+        setPendingDocumentIds([])
+        setIsDocumentSelectorOpen(false)
+        return
+      }
+
+      setDocumentsLoading(true)
+      const { data, error } = await listSpaceDocuments(displaySpace.id)
+      if (!isMounted) return
+      if (!error) {
+        setSpaceDocuments(data || [])
+        const allowed = new Set((data || []).map(doc => String(doc.id)))
+        setSelectedDocumentIds(prev => prev.filter(id => allowed.has(String(id))))
+      } else {
+        console.error('Failed to load space documents:', error)
+        toast.error(t('chatInterface.documentsLoadFailed'))
+      }
+      setDocumentsLoading(false)
+    }
+
+    loadDocuments()
+    return () => {
+      isMounted = false
+    }
+  }, [displaySpace?.id, t, toast])
+
+  useEffect(() => {
+    const conversationKey =
+      !isPlaceholderConversation && (activeConversation?.id || conversationId)
+        ? activeConversation?.id || conversationId
+        : null
+
+    if (!displaySpace?.id) {
+      return
+    }
+
+    if (!conversationKey) {
+      setSelectedDocumentIds(pendingDocumentIdsRef.current || [])
+      return
+    }
+
+    let isMounted = true
+    const loadSelection = async () => {
+      const { data, error } = await listConversationDocumentIds(conversationKey)
+      if (!isMounted) return
+      if (!error) {
+        setSelectedDocumentIds(data || [])
+      } else {
+        console.error('Failed to load conversation documents:', error)
+        toast.error(t('chatInterface.documentsSelectionLoadFailed'))
+      }
+    }
+    loadSelection()
+    return () => {
+      isMounted = false
+    }
+  }, [activeConversation?.id, conversationId, displaySpace?.id, isPlaceholderConversation, t, toast])
 
   // Chat history hook (manages message loading and history state)
   const isSwitchingConversation = Boolean(
@@ -338,6 +448,16 @@ const ChatInterface = ({
     return agent
   }, [selectableAgents, selectedAgentId])
 
+  const selectedDocuments = useMemo(() => {
+    const idSet = new Set((selectedDocumentIds || []).map(id => String(id)))
+    return (spaceDocuments || []).filter(doc => idSet.has(String(doc.id)))
+  }, [selectedDocumentIds, spaceDocuments])
+
+  const documentContext = useMemo(
+    () => buildDocumentContext(selectedDocuments),
+    [selectedDocuments],
+  )
+
   // Agent selection is fully user-controlled:
   // - Auto mode: updated via onAgentResolved callback (preselection before sending)
   // - Manual mode: user's choice is preserved, no auto updates
@@ -404,6 +524,41 @@ const ChatInterface = ({
       }
     },
     [defaultAgent, effectiveAgent, fallbackProvider],
+  )
+
+  const handleToggleDocument = useCallback(
+    async documentId => {
+      const docKey = String(documentId)
+      const next = selectedDocumentIds.some(id => String(id) === docKey)
+        ? selectedDocumentIds.filter(id => String(id) !== docKey)
+        : [...selectedDocumentIds, docKey]
+
+      setSelectedDocumentIds(next)
+
+      const conversationKey =
+        !isPlaceholderConversation && (activeConversation?.id || conversationId)
+          ? activeConversation?.id || conversationId
+          : null
+
+      if (!conversationKey) {
+        setPendingDocumentIds(next)
+        return
+      }
+
+      const { error } = await setConversationDocuments(conversationKey, next)
+      if (error) {
+        console.error('Failed to update conversation documents:', error)
+        toast.error(t('chatInterface.documentsSelectionSaveFailed'))
+      }
+    },
+    [
+      activeConversation?.id,
+      conversationId,
+      isPlaceholderConversation,
+      selectedDocumentIds,
+      t,
+      toast,
+    ],
   )
 
   const activeModelConfig = getModelConfig('streamChatCompletion')
@@ -826,16 +981,19 @@ const ChatInterface = ({
       if (agentSelectorRef.current && !agentSelectorRef.current.contains(event.target)) {
         setIsAgentSelectorOpen(false)
       }
+      if (documentSelectorRef.current && !documentSelectorRef.current.contains(event.target)) {
+        setIsDocumentSelectorOpen(false)
+      }
     }
 
-    if (isSelectorOpen || isAgentSelectorOpen) {
+    if (isSelectorOpen || isAgentSelectorOpen || isDocumentSelectorOpen) {
       document.addEventListener('mousedown', handleClickOutside)
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [isAgentSelectorOpen, isSelectorOpen])
+  }, [isAgentSelectorOpen, isDocumentSelectorOpen, isSelectorOpen])
 
   useEffect(() => {
     let isMounted = true
@@ -1082,12 +1240,24 @@ const ChatInterface = ({
         selectedAgent: agentForSend,
         isAgentAutoMode,
         agents: appAgents,
+        documentContext,
         editingInfo,
         callbacks: {
           onTitleAndSpaceGenerated,
           onSpaceResolved: space => {
             setSelectedSpace(space)
             setIsManualSpaceSelection(false)
+          },
+          onConversationReady: async conversation => {
+            const pendingIds = pendingDocumentIdsRef.current || []
+            if (!conversation?.id || pendingIds.length === 0) return
+            const { error } = await setConversationDocuments(conversation.id, pendingIds)
+            if (error) {
+              console.error('Failed to save conversation documents:', error)
+              toast.error(t('chatInterface.documentsSelectionSaveFailed'))
+            } else {
+              setPendingDocumentIds([])
+            }
           },
           onAgentResolved: agent => {
             // Only update selected agent if in auto mode
@@ -1124,6 +1294,9 @@ const ChatInterface = ({
       appAgents,
       spaceAgentIds,
       spaceAgents,
+      documentContext,
+      t,
+      toast,
     ],
   )
 
@@ -1456,6 +1629,13 @@ const ChatInterface = ({
           conversationTitleEmojis={conversationTitleEmojis}
           isRegeneratingTitle={isRegeneratingTitle}
           onRegenerateTitle={handleRegenerateTitle}
+          documents={spaceDocuments}
+          documentsLoading={documentsLoading}
+          selectedDocumentIds={selectedDocumentIds}
+          isDocumentSelectorOpen={isDocumentSelectorOpen}
+          setIsDocumentSelectorOpen={setIsDocumentSelectorOpen}
+          documentSelectorRef={documentSelectorRef}
+          onToggleDocument={handleToggleDocument}
           messages={messages}
           isTimelineSidebarOpen={isTimelineSidebarOpen}
           onToggleTimeline={() => setIsTimelineSidebarOpen(true)}

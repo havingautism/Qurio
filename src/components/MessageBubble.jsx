@@ -71,6 +71,11 @@ const PROVIDER_META = {
     id: 'kimi',
     fallback: 'K',
   },
+  nvidia: {
+    label: 'NVIDIA NIM',
+    id: 'nvidia',
+    fallback: 'N',
+  },
 }
 
 /**

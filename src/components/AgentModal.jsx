@@ -42,6 +42,10 @@ const FALLBACK_MODEL_OPTIONS = {
     { value: 'glm-4', label: 'GLM-4' },
     { value: 'glm-4-flash', label: 'GLM-4 Flash' },
   ],
+  nvidia: [
+    { value: 'deepseek-ai/deepseek-r1', label: 'DeepSeek R1' },
+    { value: 'nvidia/llama-3.1-nemotron-70b-instruct', label: 'Llama 3.1 Nemotron 70B' },
+  ],
   modelscope: [],
   kimi: [
     { value: 'moonshot-v1-8k', label: 'Moonshot V1 8K' },
@@ -50,7 +54,15 @@ const FALLBACK_MODEL_OPTIONS = {
   __fallback__: [],
 }
 
-const PROVIDER_KEYS = ['gemini', 'openai_compatibility', 'siliconflow', 'glm', 'modelscope', 'kimi']
+const PROVIDER_KEYS = [
+  'gemini',
+  'openai_compatibility',
+  'siliconflow',
+  'nvidia',
+  'glm',
+  'modelscope',
+  'kimi',
+]
 
 // Personalization Constants
 const LLM_ANSWER_LANGUAGE_KEYS = [
@@ -219,6 +231,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
       glm: settings.GlmKey,
       modelscope: settings.ModelScopeKey,
       kimi: settings.KimiKey,
+      nvidia: settings.NvidiaKey,
       // URLs for providers that need it
       openai_compatibility_url: settings.OpenAICompatibilityUrl,
     }
@@ -232,6 +245,8 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
       else if (key === 'glm') credentials = { apiKey: keys.glm }
       else if (key === 'modelscope') credentials = { apiKey: keys.modelscope }
       else if (key === 'kimi') credentials = { apiKey: keys.kimi }
+      else if (key === 'nvidia')
+        credentials = { apiKey: keys.nvidia, baseUrl: 'https://integrate.api.nvidia.com/v1' }
       else if (key === 'openai_compatibility')
         credentials = { apiKey: keys.openai_compatibility, baseUrl: keys.openai_compatibility_url }
 
@@ -661,7 +676,8 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
 
   useEffect(() => {
     if (!isOpen) return
-    const resolvedDefaultProvider = defaultModelSource === 'list' ? findProviderForModel(defaultModel) : ''
+    const resolvedDefaultProvider =
+      defaultModelSource === 'list' ? findProviderForModel(defaultModel) : ''
     const resolvedLiteProvider = liteModelSource === 'list' ? findProviderForModel(liteModel) : ''
 
     // Only auto-resolve provider if not already set or if model changed
@@ -839,7 +855,6 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
 
   const renderModelPicker = ({
     label,
-    helper,
     hint,
     value,
     onChange,
@@ -852,7 +867,6 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
     onCustomValueChange,
     modelSource,
     onModelSourceChange,
-    sourceName,
     allowEmpty = false,
     hideProviderSelector = false,
     testAction,

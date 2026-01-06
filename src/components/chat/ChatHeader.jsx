@@ -1,6 +1,15 @@
+import clsx from 'clsx'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Check, ChevronDown, LayoutGrid, Menu, PanelRightOpen, Sparkles } from 'lucide-react'
+import {
+  Check,
+  ChevronDown,
+  FileText,
+  LayoutGrid,
+  Menu,
+  PanelRightOpen,
+  Sparkles,
+} from 'lucide-react'
 import EmojiDisplay from '../EmojiDisplay'
 import { getSpaceDisplayLabel } from '../../lib/spaceDisplay'
 
@@ -25,6 +34,13 @@ import { getSpaceDisplayLabel } from '../../lib/spaceDisplay'
  * @param {Array} props.conversationTitleEmojis - Emojis for the conversation title
  * @param {boolean} props.isRegeneratingTitle - Whether title is being regenerated
  * @param {function} props.onRegenerateTitle - Callback to regenerate title
+ * @param {Array} props.documents - Documents available in the current space
+ * @param {boolean} props.documentsLoading - Whether documents are loading
+ * @param {Array} props.selectedDocumentIds - Selected document ids for this conversation
+ * @param {boolean} props.isDocumentSelectorOpen - Whether document selector is open
+ * @param {function} props.setIsDocumentSelectorOpen - Set document selector open state
+ * @param {object} props.documentSelectorRef - Ref for document selector dropdown
+ * @param {function} props.onToggleDocument - Callback when a document is toggled
  * @param {Array} props.messages - Current messages
  * @param {boolean} props.isTimelineSidebarOpen - Whether timeline sidebar is open
  * @param {function} props.onToggleTimeline - Callback to toggle timeline sidebar
@@ -46,6 +62,13 @@ const ChatHeader = ({
   conversationTitleEmojis = [],
   isRegeneratingTitle,
   onRegenerateTitle,
+  documents = [],
+  documentsLoading = false,
+  selectedDocumentIds = [],
+  isDocumentSelectorOpen,
+  setIsDocumentSelectorOpen,
+  documentSelectorRef,
+  onToggleDocument,
   messages,
   isTimelineSidebarOpen,
   onToggleTimeline,
@@ -60,6 +83,11 @@ const ChatHeader = ({
       .slice(0, 1)
   }, [conversationTitleEmojis])
   const activeEmoji = normalizedEmojis.length > 0 ? normalizedEmojis[0] : null
+  const selectedIdSet = useMemo(
+    () => new Set((selectedDocumentIds || []).map(id => String(id))),
+    [selectedDocumentIds],
+  )
+  const selectedDocumentCount = selectedIdSet.size
 
   // const activeEmoji =
   //   normalizedEmojis.length > 0 ? normalizedEmojis[emojiTick % normalizedEmojis.length] : null
@@ -172,6 +200,77 @@ const ChatHeader = ({
             </div>
           )}
         </div>
+
+        {displaySpace && (
+          <div className="relative" ref={documentSelectorRef}>
+            <button
+              onMouseDown={e => {
+                e.stopPropagation()
+                setIsDocumentSelectorOpen(prev => !prev)
+              }}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg transition-colors text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800"
+            >
+              <FileText size={16} className="text-gray-400 hidden sm:inline" />
+              <span className="text-xs sm:text-sm">
+                {selectedDocumentCount > 0
+                  ? t('chatInterface.documentsSelected', { count: selectedDocumentCount })
+                  : t('chatInterface.documents')}
+              </span>
+              <ChevronDown size={14} className="text-gray-400" />
+            </button>
+
+            {isDocumentSelectorOpen && (
+              <div
+                className="absolute top-full left-0 mt-2 w-64 bg-white dark:bg-[#202222] border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl z-30 overflow-hidden"
+                onMouseDown={e => e.stopPropagation()}
+              >
+                <div className="p-2 flex flex-col gap-1">
+                  {documentsLoading && (
+                    <div className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400">
+                      {t('chatInterface.documentsLoading')}
+                    </div>
+                  )}
+                  {!documentsLoading && documents.length === 0 && (
+                    <div className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400">
+                      {t('chatInterface.documentsEmpty')}
+                    </div>
+                  )}
+                  {!documentsLoading &&
+                    documents.map(doc => {
+                    const isSelected = selectedIdSet.has(String(doc.id))
+                    return (
+                      <button
+                        type="button"
+                        key={doc.id}
+                        onClick={() => onToggleDocument?.(doc.id)}
+                        className="flex items-start gap-3 w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left"
+                      >
+                        <span
+                          className={clsx(
+                            'mt-0.5 flex items-center justify-center w-4 h-4 rounded border',
+                            isSelected
+                              ? 'bg-primary-500 border-primary-500 text-white'
+                              : 'border-gray-300 dark:border-zinc-600 text-transparent',
+                          )}
+                        >
+                          <Check size={12} />
+                        </span>
+                        <div className="flex flex-col min-w-0">
+                          <span className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate">
+                            {doc.name}
+                          </span>
+                          <span className="text-xs text-gray-400">
+                            {(doc.file_type || '').toUpperCase()}
+                          </span>
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="flex items-center gap-2 flex-1 min-w-0 relative">
           <h1 className="text-m sm:text-xl font-medium text-gray-800 dark:text-gray-100 truncate flex items-center gap-2 min-w-0">

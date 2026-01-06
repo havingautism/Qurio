@@ -177,7 +177,37 @@ CREATE TABLE IF NOT EXISTS public.attachments (
 
 CREATE INDEX IF NOT EXISTS idx_attachments_message_id ON public.attachments(message_id);
 
--- 7) Space <-> Agents (many-to-many binding)
+-- 7) Space documents (parsed text only)
+CREATE TABLE IF NOT EXISTS public.space_documents (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  space_id UUID NOT NULL REFERENCES public.spaces(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  file_type TEXT NOT NULL,
+  content_text TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_space_documents_space_id ON public.space_documents(space_id);
+
+CREATE TRIGGER trg_space_documents_updated_at
+BEFORE UPDATE ON public.space_documents
+FOR EACH ROW EXECUTE PROCEDURE public.set_updated_at();
+
+-- 8) Conversation <-> Documents (manual selection)
+CREATE TABLE IF NOT EXISTS public.conversation_documents (
+  conversation_id UUID NOT NULL REFERENCES public.conversations(id) ON DELETE CASCADE,
+  document_id UUID NOT NULL REFERENCES public.space_documents(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (conversation_id, document_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_conversation_documents_conversation_id
+  ON public.conversation_documents(conversation_id);
+CREATE INDEX IF NOT EXISTS idx_conversation_documents_document_id
+  ON public.conversation_documents(document_id);
+
+-- 9) Space <-> Agents (many-to-many binding)
 CREATE TABLE IF NOT EXISTS public.space_agents (
   space_id UUID NOT NULL REFERENCES public.spaces(id) ON DELETE CASCADE,
   agent_id UUID NOT NULL REFERENCES public.agents(id) ON DELETE CASCADE,
@@ -191,7 +221,7 @@ CREATE INDEX IF NOT EXISTS idx_space_agents_agent_id ON public.space_agents(agen
 CREATE INDEX IF NOT EXISTS idx_space_agents_space_order
   ON public.space_agents(space_id, sort_order);
 
--- 8) Home notes (single-user memo widget)
+-- 10) Home notes (single-user memo widget)
 CREATE TABLE IF NOT EXISTS public.home_notes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   content TEXT NOT NULL DEFAULT '',
@@ -206,7 +236,7 @@ CREATE TRIGGER trg_home_notes_updated_at
 BEFORE UPDATE ON public.home_notes
 FOR EACH ROW EXECUTE PROCEDURE public.set_updated_at();
 
--- 9) User Settings (Key-Value Store for API Keys etc.)
+-- 11) User Settings (Key-Value Store for API Keys etc.)
 CREATE TABLE IF NOT EXISTS public.user_settings (
   key TEXT PRIMARY KEY,
   value TEXT,

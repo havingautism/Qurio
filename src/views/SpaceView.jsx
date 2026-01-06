@@ -4,13 +4,21 @@ import {
   Bookmark,
   ChevronLeft,
   ChevronRight,
+  FileText,
+  FileJson,
+  FileSpreadsheet,
+  FileCode,
+  File,
   Layers,
   LogOut,
   MoreHorizontal,
   Pencil,
   Trash2,
+  UploadCloud,
+  CheckCircle2,
+  AlertCircle,
 } from 'lucide-react'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAppContext } from '../App'
 import DropdownMenu from '../components/DropdownMenu'
@@ -18,8 +26,37 @@ import EmojiDisplay from '../components/EmojiDisplay'
 import FancyLoader from '../components/FancyLoader'
 import { useToast } from '../contexts/ToastContext'
 import { listConversationsBySpace, toggleFavorite } from '../lib/conversationsService'
+import {
+  extractTextFromFile,
+  getFileTypeLabel,
+  normalizeExtractedText,
+} from '../lib/documentParser'
+import {
+  createSpaceDocument,
+  deleteSpaceDocument,
+  listSpaceDocuments,
+} from '../lib/documentsService'
 import { deleteConversation, removeConversationFromSpace } from '../lib/supabase'
 import { spaceRoute } from '../router'
+
+const FileIcon = ({ fileType, className }) => {
+  const type = (fileType || '').toLowerCase()
+  if (type.includes('pdf')) return <FileText className={clsx('text-red-500', className)} />
+  if (type.includes('doc') || type.includes('word'))
+    return <FileText className={clsx('text-blue-500', className)} />
+  if (type.includes('json')) return <FileJson className={clsx('text-yellow-500', className)} />
+  if (type.includes('csv') || type.includes('excel') || type.includes('sheet'))
+    return <FileSpreadsheet className={clsx('text-emerald-500', className)} />
+  if (
+    type.includes('md') ||
+    type.includes('start') ||
+    type.includes('code') ||
+    type === 'js' ||
+    type === 'py'
+  )
+    return <FileCode className={clsx('text-purple-500', className)} />
+  return <File className={clsx('text-gray-400', className)} />
+}
 
 const SpaceView = () => {
   const { t, i18n } = useTranslation()
@@ -70,6 +107,21 @@ const SpaceView = () => {
   const [openMenuId, setOpenMenuId] = useState(null)
   const [menuAnchorEl, setMenuAnchorEl] = useState(null)
 
+  // State for space documents
+  const [spaceDocuments, setSpaceDocuments] = useState([])
+  const [documentsLoading, setDocumentsLoading] = useState(false)
+  const [documentUploadState, setDocumentUploadState] = useState({
+    status: 'idle',
+    message: '',
+    fileName: '',
+    characters: 0,
+  })
+
+  // New state for upload UI
+  const fileInputRef = useRef(null)
+  const [isDragging, setIsDragging] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
+
   const toast = useToast()
 
   // Reset pagination when space changes
@@ -112,6 +164,26 @@ const SpaceView = () => {
 
     fetchConversations()
   }, [activeSpace?.id, currentPage, toast])
+
+  const loadSpaceDocuments = useCallback(async () => {
+    if (!activeSpace?.id) {
+      setSpaceDocuments([])
+      return
+    }
+    setDocumentsLoading(true)
+    const { data, error } = await listSpaceDocuments(activeSpace.id)
+    if (!error) {
+      setSpaceDocuments(data || [])
+    } else {
+      console.error('Failed to load space documents:', error)
+      toast.error(t('views.spaceView.documentLoadFailed'))
+    }
+    setDocumentsLoading(false)
+  }, [activeSpace?.id, toast, t])
+
+  useEffect(() => {
+    loadSpaceDocuments()
+  }, [loadSpaceDocuments])
 
   const totalPages = Math.ceil(totalCount / limit) || 1
 
@@ -185,6 +257,129 @@ const SpaceView = () => {
     [toast, t],
   )
 
+  const formatFileType = value => {
+    const text = String(value || '').trim()
+    return text ? text.toUpperCase() : 'FILE'
+  }
+
+  const handleDocumentUpload = async (event, droppedFile = null) => {
+    const file = droppedFile || event.target.files?.[0]
+    if (!file || !activeSpace?.id) return
+
+    setDocumentUploadState({
+      status: 'loading',
+      message: t('views.spaceView.documentUploading'),
+      fileName: file.name,
+      characters: 0,
+    })
+    setUploadProgress(10)
+
+    try {
+      // Create a progress simulation
+      const progressInterval = setInterval(() => {
+        setUploadProgress(prev => {
+          if (prev >= 90) return prev
+          return prev + 5
+        })
+      }, 200)
+
+      setUploadProgress(30)
+      const rawText = await extractTextFromFile(file, {
+        unsupportedMessage: t('views.spaceView.documentUnsupportedType'),
+      })
+      setUploadProgress(70)
+
+      const normalized = normalizeExtractedText(rawText)
+      if (!normalized) {
+        throw new Error(t('views.spaceView.documentEmpty'))
+      }
+      setUploadProgress(85)
+
+      const fileType = getFileTypeLabel(file)
+      const { error } = await createSpaceDocument({
+        spaceId: activeSpace.id,
+        name: file.name,
+        fileType,
+        contentText: normalized,
+      })
+
+      if (error) {
+        throw error
+      }
+
+      clearInterval(progressInterval)
+      setUploadProgress(100)
+
+      setDocumentUploadState({
+        status: 'success',
+        message: t('views.spaceView.documentUploaded'),
+        fileName: file.name,
+        characters: normalized.length,
+      })
+      await loadSpaceDocuments()
+
+      // Clear success state after delay
+      setTimeout(() => {
+        setDocumentUploadState(prev => ({ ...prev, status: 'idle', message: '' }))
+        setUploadProgress(0)
+      }, 3000)
+    } catch (err) {
+      console.error('Document upload error details:', err)
+      setUploadProgress(0)
+      setDocumentUploadState({
+        status: 'error',
+        message: err?.message || t('views.spaceView.documentUploadFailed'),
+        fileName: file.name,
+        characters: 0,
+      })
+    } finally {
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+    }
+  }
+
+  const onDragOver = e => {
+    e.preventDefault()
+    setIsDragging(true)
+  }
+
+  const onDragLeave = e => {
+    e.preventDefault()
+    setIsDragging(false)
+  }
+
+  const onDrop = e => {
+    e.preventDefault()
+    setIsDragging(false)
+    const file = e.dataTransfer.files?.[0]
+    if (file) {
+      handleDocumentUpload(null, file)
+    }
+  }
+  const handleDeleteDocument = async (doc, e) => {
+    e.stopPropagation()
+    if (!doc) return
+
+    showConfirmation({
+      title: t('confirmation.delete'),
+      message: t('views.spaceView.deleteDocumentMessage', { name: doc.name }),
+      confirmText: t('confirmation.delete'),
+      isDangerous: true,
+      onConfirm: async () => {
+        const { success, error } = await deleteSpaceDocument(doc.id)
+
+        if (success) {
+          toast.success(t('views.spaceView.documentDeleted'))
+          loadSpaceDocuments()
+        } else {
+          console.error('Failed to delete document:', error)
+          toast.error(t('views.spaceView.documentDeleteFailed'))
+        }
+      },
+    })
+  }
+
   if (!activeSpace) {
     return <div className="min-h-screen bg-background text-foreground" />
   }
@@ -221,6 +416,148 @@ const SpaceView = () => {
             >
               <Pencil size={16} />
             </button>
+          </div>
+        </div>
+
+        {/* Section: Documents */}
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center gap-2 text-gray-900 dark:text-white font-medium">
+            <FileText size={18} />
+            <span>{t('views.spaceView.documents')}</span>
+          </div>
+
+          <div
+            className={clsx(
+              'relative flex flex-col items-center justify-center p-8 rounded-2xl border-2 border-dashed transition-all cursor-pointer overflow-hidden',
+              isDragging
+                ? 'border-primary-500 bg-primary-500/5 dark:bg-primary-500/10'
+                : 'border-gray-200 dark:border-zinc-800 bg-white/60 dark:bg-zinc-900/40 hover:bg-gray-50 dark:hover:bg-zinc-800/60',
+            )}
+            onDragOver={onDragOver}
+            onDragLeave={onDragLeave}
+            onDrop={onDrop}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf,.docx,.txt,.md,.csv,.json,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+              onChange={handleDocumentUpload}
+              className="hidden"
+            />
+
+            <div className="flex flex-col items-center gap-3 z-10">
+              <div
+                className={clsx(
+                  'w-12 h-12 rounded-xl flex items-center justify-center transition-colors',
+                  isDragging
+                    ? 'bg-primary-100 text-primary-600 dark:bg-primary-500/20 dark:text-primary-400'
+                    : 'bg-gray-100 text-gray-500 dark:bg-zinc-800 dark:text-gray-400',
+                )}
+              >
+                <UploadCloud size={24} />
+              </div>
+              <div className="flex flex-col items-center gap-1">
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                  {isDragging
+                    ? t('views.spaceView.dropToUpload')
+                    : t('views.spaceView.clickOrDragToUpload')}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  PDF, DOCX, TXT, MD, CSV, JSON
+                </p>
+              </div>
+            </div>
+
+            {/* Progress Overlay */}
+            {documentUploadState.status === 'loading' && (
+              <div className="absolute inset-0 bg-white/90 dark:bg-zinc-900/90 flex flex-col items-center justify-center gap-3 z-20">
+                <div className="w-48 h-1.5 bg-gray-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-primary-500 transition-all duration-300 ease-out"
+                    style={{ width: `${uploadProgress}%` }}
+                  />
+                </div>
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-300 animate-pulse">
+                  {documentUploadState.message}
+                </p>
+              </div>
+            )}
+
+            {/* Success/Error Overlay */}
+            {documentUploadState.status !== 'idle' && documentUploadState.status !== 'loading' && (
+              <div
+                className="absolute inset-0 bg-white/95 dark:bg-zinc-900/95 flex flex-col items-center justify-center gap-2 z-20"
+                onClick={e => {
+                  e.stopPropagation()
+                  setDocumentUploadState(p => ({ ...p, status: 'idle' }))
+                }}
+              >
+                {documentUploadState.status === 'success' ? (
+                  <CheckCircle2 size={32} className="text-emerald-500" />
+                ) : (
+                  <AlertCircle size={32} className="text-red-500" />
+                )}
+                <p
+                  className={clsx(
+                    'text-sm font-medium',
+                    documentUploadState.status === 'success'
+                      ? 'text-emerald-600 dark:text-emerald-400'
+                      : 'text-red-600 dark:text-red-400',
+                  )}
+                >
+                  {documentUploadState.message}
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-3">
+            {documentsLoading && (
+              <div className="flex items-center justify-center py-8">
+                <FancyLoader />
+              </div>
+            )}
+            {!documentsLoading && spaceDocuments.length === 0 && (
+              <div className="text-sm text-center py-4 text-gray-500 dark:text-gray-400 border border-dashed border-gray-200 dark:border-zinc-800 rounded-xl">
+                {t('views.spaceView.documentEmptyList')}
+              </div>
+            )}
+            {!documentsLoading &&
+              spaceDocuments.map(doc => (
+                <div
+                  key={doc.id}
+                  className="group flex items-center justify-between gap-4 rounded-xl border border-gray-100 dark:border-zinc-800/60 bg-white/60 dark:bg-zinc-900/30 px-4 py-3 hover:bg-white dark:hover:bg-zinc-900 transition-colors"
+                >
+                  <div className="flex items-center gap-3 overflow-hidden">
+                    <div className="shrink-0 p-2 rounded-lg bg-gray-50 dark:bg-zinc-800">
+                      <FileIcon fileType={doc.file_type} size={20} />
+                    </div>
+                    <div className="flex flex-col gap-0.5 min-w-0">
+                      <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                        {doc.name}
+                      </div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-2">
+                        <span className="uppercase">{formatFileType(doc.file_type)}</span>
+                        <span>·</span>
+                        <span>
+                          {t('views.spaceView.documentCharacters', {
+                            count: doc.content_text?.length || 0,
+                          })}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={e => handleDeleteDocument(doc, e)}
+                    className="p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-200"
+                    title={t('views.spaceView.deleteDocument')}
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              ))}
           </div>
         </div>
 

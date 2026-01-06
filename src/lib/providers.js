@@ -1,5 +1,10 @@
 import { createBackendProvider } from './backendProviderForBackend'
-import { GLM_BASE_URL, MODELSCOPE_BASE_URL, SILICONFLOW_BASE_URL } from './providerConstants'
+import {
+  GLM_BASE_URL,
+  MODELSCOPE_BASE_URL,
+  NVIDIA_BASE_URL,
+  SILICONFLOW_BASE_URL,
+} from './providerConstants'
 import { getPublicEnv } from './publicEnv'
 
 /**
@@ -348,6 +353,36 @@ export const PROVIDERS = {
             temperature: 1.0,
           }
         : undefined,
+    parseMessage: defaultParseMessage,
+  },
+  nvidia: {
+    ...createBackendProvider('nvidia'),
+    id: 'nvidia',
+    name: 'NVIDIA NIM',
+    getCredentials: settings => ({
+      apiKey: settings.NvidiaKey,
+      baseUrl: NVIDIA_BASE_URL,
+    }),
+    getTools: isSearchActive =>
+      isSearchActive
+        ? [
+            {
+              type: 'function',
+              function: {
+                name: 'Tavily_web_search',
+                description: 'Search the web for current information.',
+                parameters: {
+                  type: 'object',
+                  properties: {
+                    query: { type: 'string', description: 'Search query' },
+                  },
+                  required: ['query'],
+                },
+              },
+            },
+          ]
+        : undefined,
+    getThinking: isThinkingActive => (isThinkingActive ? true : undefined),
     parseMessage: defaultParseMessage,
   },
 }

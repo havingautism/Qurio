@@ -5,12 +5,17 @@
 import { getPublicEnv } from './publicEnv'
 
 const OPENAI_DEFAULT_BASE = 'https://api.openai.com/v1'
-const SILICONFLOW_BASE = 'https://api.siliconflow.cn/v1'
+const SILICONFLOW_BASE = SILICONFLOW_BASE_URL
 const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta'
-const GLM_BASE = getPublicEnv('PUBLIC_GLM_BASE_URL') || 'https://open.bigmodel.cn/api/paas/v4'
-const MODELSCOPE_BASE =
-  getPublicEnv('PUBLIC_MODELSCOPE_BASE_URL') || 'https://api-inference.modelscope.cn/v1'
+const GLM_BASE = getPublicEnv('PUBLIC_GLM_BASE_URL') || GLM_BASE_URL
+const MODELSCOPE_BASE = getPublicEnv('PUBLIC_MODELSCOPE_BASE_URL') || MODELSCOPE_CONST_BASE
 const KIMI_BASE = getPublicEnv('PUBLIC_KIMI_BASE_URL') || 'https://api.moonshot.cn/v1'
+import {
+  GLM_BASE_URL,
+  MODELSCOPE_BASE_URL as MODELSCOPE_CONST_BASE,
+  NVIDIA_BASE_URL,
+  SILICONFLOW_BASE_URL,
+} from './providerConstants'
 
 const withTimeout = (signal, timeoutMs = 10000) => {
   const controller = new AbortController()
@@ -23,7 +28,9 @@ const withTimeout = (signal, timeoutMs = 10000) => {
   return { controller, timeoutId }
 }
 
-const fetchOpenAIModels = async ({ apiKey, baseUrl }, options = {}) => {
+const fetchOpenAIModels = async () => []
+
+const fetchSiliconflowModels = async ({ apiKey, baseUrl }, options = {}) => {
   const resolvedBase = (
     baseUrl ||
     getPublicEnv('PUBLIC_OPENAI_BASE_URL') ||
@@ -149,7 +156,7 @@ export const getModelsForProvider = async (provider, credentials, options = {}) 
     case 'gemini':
       return await fetchGeminiModels({ apiKey: credentials.apiKey }, options)
     case 'siliconflow':
-      return await fetchOpenAIModels(
+      return await fetchSiliconflowModels(
         { apiKey: credentials.apiKey, baseUrl: SILICONFLOW_BASE },
         options,
       )
@@ -159,11 +166,10 @@ export const getModelsForProvider = async (provider, credentials, options = {}) 
       return await fetchModelScopeModels()
     case 'kimi':
       return await fetchKimiModels({ apiKey: credentials.apiKey }, options)
+    case 'nvidia':
+      return await fetchOpenAIModels()
     case 'openai_compatibility':
-      return await fetchOpenAIModels(
-        { apiKey: credentials.apiKey, baseUrl: credentials.baseUrl },
-        options,
-      )
+      return await fetchOpenAIModels()
     default:
       return []
   }

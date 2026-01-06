@@ -684,11 +684,13 @@ const prepareAIPlaceholder = (
   settings,
   set,
   toggles,
+  documentContext,
 ) => {
   const resolvedPrompt = buildAgentPrompt(selectedAgent)
 
   const conversationMessagesBase = [
     ...(resolvedPrompt ? [{ role: 'system', content: resolvedPrompt }] : []),
+    ...(documentContext ? [{ role: 'system', content: documentContext }] : []),
     ...historyForSend,
   ]
 
@@ -1797,6 +1799,7 @@ const useChatStore = create((set, get) => ({
    * @param {Object|null} params.selectedAgent - Currently selected agent (optional)
    * @param {boolean} params.isAgentAutoMode - Whether agent selection is in auto mode (agent preselects every message, space/title only on first turn)
    * @param {Array} params.agents - Available agents list (optional)
+   * @param {string} params.documentContext - Optional background document context
    * @param {Object|null} params.editingInfo - Information about message being edited { index, targetId, partnerId }
    * @param {Object|null} params.callbacks - Callback functions { onTitleAndSpaceGenerated, onSpaceResolved, onAgentResolved, onConversationReady }
    * @param {Array} params.spaces - Available spaces for auto-generation (optional)
@@ -1826,6 +1829,7 @@ const useChatStore = create((set, get) => ({
     selectedAgent = null, // Currently selected agent (optional)
     isAgentAutoMode = false, // Whether agent selection is in auto mode
     agents = [], // available agents list for resolving defaults
+    documentContext = '',
     editingInfo, // { index, targetId, partnerId } (optional)
     callbacks, // { onTitleAndSpaceGenerated, onSpaceResolved } (optional)
     spaces = [], // passed from component
@@ -2128,6 +2132,7 @@ const useChatStore = create((set, get) => ({
       settings,
       set,
       toggles,
+      documentContext,
     )
 
     // Step 9: Call API & Stream

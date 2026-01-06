@@ -79,10 +79,18 @@ router.post('/stream-chat', async (req, res) => {
       return res.status(400).json({ error: 'Missing required field: messages' })
     }
 
-    const supportedProviders = ['gemini', 'openai', 'siliconflow', 'glm', 'modelscope', 'kimi']
+    const supportedProviders = [
+      'gemini',
+      'openai',
+      'siliconflow',
+      'glm',
+      'modelscope',
+      'kimi',
+      'nvidia',
+    ]
     if (!supportedProviders.includes(provider)) {
       return res.status(400).json({
-        error: `Unsupported provider: ${provider}. Supported: ${supportedProviders.join(', ')}`
+        error: `Unsupported provider: ${provider}. Supported: ${supportedProviders.join(', ')}`,
       })
     }
 
@@ -135,7 +143,7 @@ router.post('/stream-chat', async (req, res) => {
     if (!res.headersSent) {
       res.status(500).json({
         error: 'Failed to stream chat',
-        message: error.message
+        message: error.message,
       })
     } else {
       res.write(`data: ${JSON.stringify({ type: 'error', error: error.message })}\n\n`)

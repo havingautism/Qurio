@@ -44,7 +44,15 @@ router.post('/stream-deep-research', async (req, res) => {
       return res.status(400).json({ error: 'Missing required field: messages' })
     }
 
-    const supportedProviders = ['openai', 'siliconflow', 'glm', 'modelscope', 'kimi']
+    const supportedProviders = [
+      'gemini',
+      'openai',
+      'siliconflow',
+      'glm',
+      'modelscope',
+      'kimi',
+      'nvidia',
+    ]
     if (!supportedProviders.includes(provider)) {
       return res.status(400).json({
         error: `Unsupported provider: ${provider}. Supported: ${supportedProviders.join(', ')}`,

@@ -72,6 +72,11 @@ const PROVIDER_META = {
     id: 'kimi',
     fallback: 'K',
   },
+  nvidia: {
+    label: 'NVIDIA NIM',
+    id: 'nvidia',
+    fallback: 'N',
+  },
 }
 
 /**
@@ -867,9 +872,9 @@ const MessageBubble = ({
           {parseChildrenWithEmojis(children)}
         </p>
       ),
-      h1: createHeadingComponent('h1', 'text-2xl font-bold mb-4 mt-6', false),
-      h2: createHeadingComponent('h2', 'text-xl font-bold mb-3 mt-5', false),
-      h3: createHeadingComponent('h3', 'text-lg font-bold mb-2 mt-4', false),
+      h1: createHeadingComponent('h1', 'text-2xl font-bold mb-4 mt-4', false),
+      h2: createHeadingComponent('h2', 'text-xl font-bold mb-3 mt-3', false),
+      h3: createHeadingComponent('h3', 'text-lg font-bold mb-2 mt-2', false),
       ul: ({ node, ...props }) => <ul className="list-disc pl-5 mb-4 space-y-1" {...props} />,
       ol: ({ node, ...props }) => <ol className="list-decimal pl-5 mb-4 space-y-1" {...props} />,
       li: ({ node, children, ...props }) => (
@@ -964,9 +969,9 @@ const MessageBubble = ({
     headingCounterRef.current = 0
     return {
       ...markdownComponents,
-      h1: createHeadingComponent('h1', 'text-2xl font-bold mb-4 mt-6', true),
-      h2: createHeadingComponent('h2', 'text-xl font-bold mb-3 mt-5', true),
-      h3: createHeadingComponent('h3', 'text-lg font-bold mb-2 mt-4', true),
+      h1: createHeadingComponent('h1', 'text-2xl font-bold mb-4 mt-4', true),
+      h2: createHeadingComponent('h2', 'text-xl font-bold mb-3 mt-3', true),
+      h3: createHeadingComponent('h3', 'text-lg font-bold mb-2 mt-2', true),
     }
   }, [markdownComponents, createHeadingComponent, message.content, messageIndex])
 
@@ -1224,7 +1229,7 @@ const MessageBubble = ({
         containerRef.current = el
         if (typeof bubbleRef === 'function') bubbleRef(el)
       }}
-      className="w-full max-w-3xl mb-12 flex flex-col gap-6 relative px-5 sm:px-0"
+      className="w-full max-w-3xl mb-12 flex flex-col gap-4 relative px-5 sm:px-0"
       onMouseUp={handleMouseUp}
       onTouchEnd={handleTouchEnd}
       onContextMenu={handleContextMenu}

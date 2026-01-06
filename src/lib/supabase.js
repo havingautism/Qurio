@@ -8,6 +8,8 @@
  * - conversation_messages
  * - conversation_events
  * - attachments
+ * - space_documents
+ * - conversation_documents
  *
  * NOTE: The app is local-first and single-user, so no user/owner columns are
  * modeled here. Credentials are read from settings (env/localStorage).
@@ -63,6 +65,8 @@ export const testConnection = async (supabaseUrl, supabaseKey) => {
       space_agents: 'space_id',
       conversations: 'id',
       conversation_messages: 'id',
+      space_documents: 'id',
+      conversation_documents: 'conversation_id',
     }
 
     const tables = Object.keys(tableFields)
@@ -287,6 +291,10 @@ export const saveRemoteSettings = async settings => {
     'tavilyApiKey',
     'searchProvider',
     'backendUrl',
+    'NvidiaKey',
+    'embeddingProvider',
+    'embeddingModel',
+    'embeddingModelSource',
     // We do NOT sync Supabase credentials to the DB itself usually, but user might want to?
     // Syncing supabase credentials to the database that requires them to be accessed is paradoxical if you don't have them.
     // But syncing them allows other devices (once connected) to update them? No.

@@ -25,6 +25,13 @@ import { getSpaceDisplayLabel } from '../../lib/spaceDisplay'
  * @param {Array} props.conversationTitleEmojis - Emojis for the conversation title
  * @param {boolean} props.isRegeneratingTitle - Whether title is being regenerated
  * @param {function} props.onRegenerateTitle - Callback to regenerate title
+ * @param {Array} props.documents - Documents available in the current space
+ * @param {boolean} props.documentsLoading - Whether documents are loading
+ * @param {Array} props.selectedDocumentIds - Selected document ids for this conversation
+ * @param {boolean} props.isDocumentSelectorOpen - Whether document selector is open
+ * @param {function} props.setIsDocumentSelectorOpen - Set document selector open state
+ * @param {object} props.documentSelectorRef - Ref for document selector dropdown
+ * @param {function} props.onToggleDocument - Callback when a document is toggled
  * @param {Array} props.messages - Current messages
  * @param {boolean} props.isTimelineSidebarOpen - Whether timeline sidebar is open
  * @param {function} props.onToggleTimeline - Callback to toggle timeline sidebar
@@ -46,6 +53,7 @@ const ChatHeader = ({
   conversationTitleEmojis = [],
   isRegeneratingTitle,
   onRegenerateTitle,
+
   messages,
   isTimelineSidebarOpen,
   onToggleTimeline,

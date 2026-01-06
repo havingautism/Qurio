@@ -46,7 +46,15 @@ router.post('/research-plan', async (req, res) => {
       return res.status(400).json({ error: 'Missing required field: apiKey' })
     }
 
-    const supportedProviders = ['gemini', 'openai', 'siliconflow', 'glm', 'modelscope', 'kimi']
+    const supportedProviders = [
+      'gemini',
+      'openai',
+      'siliconflow',
+      'glm',
+      'modelscope',
+      'kimi',
+      'nvidia',
+    ]
     if (!supportedProviders.includes(provider)) {
       return res.status(400).json({
         error: `Unsupported provider: ${provider}. Supported: ${supportedProviders.join(', ')}`,
@@ -105,7 +113,15 @@ router.post('/research-plan-stream', async (req, res) => {
       return res.status(400).json({ error: 'Missing required field: apiKey' })
     }
 
-    const supportedProviders = ['gemini', 'openai', 'siliconflow', 'glm', 'modelscope', 'kimi']
+    const supportedProviders = [
+      'gemini',
+      'openai',
+      'siliconflow',
+      'glm',
+      'modelscope',
+      'kimi',
+      'nvidia',
+    ]
     if (!supportedProviders.includes(provider)) {
       return res.status(400).json({
         error: `Unsupported provider: ${provider}. Supported: ${supportedProviders.join(', ')}`,

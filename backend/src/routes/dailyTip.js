@@ -35,10 +35,18 @@ router.post('/daily-tip', async (req, res) => {
       return res.status(400).json({ error: 'Missing required field: provider' })
     }
 
-    const supportedProviders = ['gemini', 'openai', 'siliconflow', 'glm', 'modelscope', 'kimi']
+    const supportedProviders = [
+      'gemini',
+      'openai',
+      'siliconflow',
+      'glm',
+      'modelscope',
+      'kimi',
+      'nvidia',
+    ]
     if (!supportedProviders.includes(provider)) {
       return res.status(400).json({
-        error: `Unsupported provider: ${provider}. Supported: ${supportedProviders.join(', ')}`
+        error: `Unsupported provider: ${provider}. Supported: ${supportedProviders.join(', ')}`,
       })
     }
 
@@ -51,7 +59,7 @@ router.post('/daily-tip', async (req, res) => {
     console.error('[API] generateDailyTip error:', error)
     res.status(500).json({
       error: 'Failed to generate daily tip',
-      message: error.message
+      message: error.message,
     })
   }
 })

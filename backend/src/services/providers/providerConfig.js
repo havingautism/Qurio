@@ -10,6 +10,7 @@ export const PROVIDER_BASE_URLS = {
   glm: 'https://open.bigmodel.cn/api/paas/v4',
   modelscope: 'https://api-inference.modelscope.cn/v1',
   kimi: 'https://api.moonshot.cn/v1',
+  nvidia: 'https://integrate.api.nvidia.com/v1',
 }
 
 // Default models
@@ -20,6 +21,7 @@ export const DEFAULT_MODELS = {
   glm: 'glm-4-flash',
   modelscope: 'AI-ModelScope/glm-4-9b-chat',
   kimi: 'moonshot-v1-8k',
+  nvidia: 'deepseek-ai/deepseek-r1',
 }
 
 // Provider capabilities matrix
@@ -69,6 +71,14 @@ export const PROVIDER_CAPABILITIES = {
     supportsToolCalls: true,
     supportsStreamingToolCalls: true,
     supportsJsonSchema: false, // Uses different format
+    supportsThinking: true,
+    supportsVision: true,
+  },
+  nvidia: {
+    supportsStreaming: true,
+    supportsToolCalls: true,
+    supportsStreamingToolCalls: true,
+    supportsJsonSchema: true,
     supportsThinking: true,
     supportsVision: true,
   },

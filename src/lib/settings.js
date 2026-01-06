@@ -159,6 +159,12 @@ export const loadSettings = (overrides = {}) => {
   const localInterfaceLanguage = localStorage.getItem('interfaceLanguage')
   const localLlmAnswerLanguage = localStorage.getItem('llmAnswerLanguage')
   const localFontSize = localStorage.getItem('fontSize')
+  const localEnableLongTermMemory = localStorage.getItem('enableLongTermMemory')
+  const localMemoryRecallLimit = localStorage.getItem('memoryRecallLimit')
+  const localEmbeddingProvider = localStorage.getItem('embeddingProvider')
+  const localEmbeddingModel = localStorage.getItem('embeddingModel')
+  const localEmbeddingModelSource = localStorage.getItem('embeddingModelSource')
+  const localUserSelfIntro = localStorage.getItem('userSelfIntro')
 
   // Style settings
   const localStyleBaseTone = localStorage.getItem('styleBaseTone')
@@ -179,6 +185,16 @@ export const loadSettings = (overrides = {}) => {
       : localEnableRelatedQuestions !== null
         ? localEnableRelatedQuestions === 'true'
         : true
+  const parsedMemoryRecallLimit = parseInt(localMemoryRecallLimit, 10)
+  const resolvedMemoryRecallLimit = Number.isFinite(parsedMemoryRecallLimit)
+    ? parsedMemoryRecallLimit
+    : overrides.memoryRecallLimit || 5
+  const resolvedLongTermMemoryPreference =
+    typeof overrides.enableLongTermMemory === 'boolean'
+      ? overrides.enableLongTermMemory
+      : localEnableLongTermMemory !== null
+        ? localEnableLongTermMemory === 'true'
+        : false
 
   const settings = {
     // Supabase (Must be local/env to connect)
@@ -195,8 +211,7 @@ export const loadSettings = (overrides = {}) => {
     defaultModel: overrides.defaultModel || '',
 
     // Backend API
-    backendUrl:
-      envBackendUrl || localBackendUrl || overrides.backendUrl || 'http://localhost:3001',
+    backendUrl: envBackendUrl || localBackendUrl || overrides.backendUrl || 'http://localhost:3001',
 
     // Search provider
     searchProvider: localSearchProvider || overrides.searchProvider || 'tavily',
@@ -209,6 +224,12 @@ export const loadSettings = (overrides = {}) => {
     interfaceLanguage: localInterfaceLanguage || overrides.interfaceLanguage || 'en',
     llmAnswerLanguage: localLlmAnswerLanguage || overrides.llmAnswerLanguage || 'English',
     fontSize: localFontSize || overrides.fontSize || 'medium',
+    enableLongTermMemory: resolvedLongTermMemoryPreference,
+    memoryRecallLimit: resolvedMemoryRecallLimit,
+    embeddingProvider: localEmbeddingProvider || overrides.embeddingProvider || '',
+    embeddingModel: localEmbeddingModel || overrides.embeddingModel || '',
+    embeddingModelSource: localEmbeddingModelSource || overrides.embeddingModelSource || 'list',
+    userSelfIntro: localUserSelfIntro || overrides.userSelfIntro || '',
 
     // Style
     baseTone: localStyleBaseTone || overrides.baseTone || DEFAULT_STYLE_SETTINGS.baseTone,
@@ -247,6 +268,7 @@ export const loadSettings = (overrides = {}) => {
   if (!mergedSettings.googleApiKey)
     mergedSettings.googleApiKey = getPublicEnv('PUBLIC_GOOGLE_API_KEY') || ''
   if (!mergedSettings.tavilyApiKey) mergedSettings.tavilyApiKey = envTavilyApiKey || ''
+  if (!mergedSettings.NvidiaKey) mergedSettings.NvidiaKey = ''
 
   return {
     ...mergedSettings,
@@ -277,6 +299,7 @@ export const saveSettings = async settings => {
     'KimiKey',
     'googleApiKey',
     'tavilyApiKey',
+    'NvidiaKey',
   ]
   SENSITIVE_KEYS.forEach(key => localStorage.removeItem(key))
 
@@ -328,6 +351,24 @@ export const saveSettings = async settings => {
   }
   if (settings.fontSize !== undefined) {
     localStorage.setItem('fontSize', settings.fontSize)
+  }
+  if (settings.enableLongTermMemory !== undefined) {
+    localStorage.setItem('enableLongTermMemory', String(!!settings.enableLongTermMemory))
+  }
+  if (settings.memoryRecallLimit !== undefined) {
+    localStorage.setItem('memoryRecallLimit', String(settings.memoryRecallLimit))
+  }
+  if (settings.embeddingProvider !== undefined) {
+    localStorage.setItem('embeddingProvider', settings.embeddingProvider)
+  }
+  if (settings.embeddingModel !== undefined) {
+    localStorage.setItem('embeddingModel', settings.embeddingModel)
+  }
+  if (settings.embeddingModelSource !== undefined) {
+    localStorage.setItem('embeddingModelSource', settings.embeddingModelSource)
+  }
+  if (settings.userSelfIntro !== undefined) {
+    localStorage.setItem('userSelfIntro', settings.userSelfIntro)
   }
 
   window.dispatchEvent(new Event('settings-changed'))

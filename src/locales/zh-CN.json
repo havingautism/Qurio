@@ -418,7 +418,13 @@
     "regenerateMessage": "将重新生成助手回复。",
     "deleteMessageTitle": "删除消息？",
     "deleteUserMessage": "确定要删除这个问题吗？此操作无法撤销。",
-    "deleteAssistantMessage": "确定要删除这个回答吗？此操作无法撤销。"
+    "deleteAssistantMessage": "确定要删除这个回答吗？此操作无法撤销。",
+    "deleteAgentTitle": "删除智能体",
+    "deleteAgentMessage": "确定要删除这个智能体吗？此操作无法撤销。",
+    "deleteNoteTitle": "删除笔记",
+    "deleteNoteMessage": "确定要删除这条笔记吗？此操作无法撤销。",
+    "deleteShortcutTitle": "删除快捷方式",
+    "deleteShortcutMessage": "确定要删除这个快捷方式吗？此操作无法撤销。"
   },
   "homeView": {
     "askAnything": "问任何问题...",

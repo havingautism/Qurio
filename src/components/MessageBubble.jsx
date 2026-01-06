@@ -28,6 +28,7 @@ import { getProvider } from '../lib/providers'
 import DesktopSourcesSection from './DesktopSourcesSection'
 import DotLoader from './DotLoader'
 import EmojiDisplay from './EmojiDisplay'
+import InteractiveForm from './InteractiveForm'
 import DeepResearchGoalCard from './message/DeepResearchGoalCard'
 import MessageActionBar from './message/MessageActionBar'
 import {
@@ -89,6 +90,7 @@ const MessageBubble = ({
   onDelete,
   onRegenerateAnswer,
   onQuote,
+  onFormSubmit,
 }) => {
   // Get message directly from chatStore using shallow selector
   const { messages, isLoading, conversationTitle } = useChatStore(
@@ -101,6 +103,66 @@ const MessageBubble = ({
 
   // Extract message by index
   const message = messages[messageIndex]
+
+  // Merge content if this is a form message followed by continuation
+  const mergedMessage = useMemo(() => {
+    if (!message || message.role !== 'ai') return message
+
+    const messageContent = String(message.content || '')
+    const hasForm =
+      messageContent.includes('"kind": "interactive_form"') ||
+      messageContent.includes('"kind":"interactive_form"')
+
+    if (!hasForm) return message
+
+    // Check if next message is [Form Submission]
+    const nextUserMsg = messages[messageIndex + 1]
+    const nextAiMsg = messages[messageIndex + 2]
+
+    if (
+      nextUserMsg &&
+      nextUserMsg.role === 'user' &&
+      typeof nextUserMsg.content === 'string' &&
+      nextUserMsg.content.startsWith('[Form Submission]')
+    ) {
+      // Parse submitted values from [Form Submission] message
+      const submissionContent = nextUserMsg.content
+      const submittedValues = {}
+
+      // Parse format: "[Form Submission]\nField1: Value1\nField2: Value2"
+      const lines = submissionContent.split('\n').slice(1) // Skip "[Form Submission]" line
+      lines.forEach(line => {
+        const match = line.match(/^([^:]+):\s*(.+)$/)
+        if (match) {
+          const fieldName = match[1].trim()
+          const value = match[2].trim()
+          submittedValues[fieldName] = value
+        }
+      })
+
+      // Base merged message with submission state
+      const merged = {
+        ...message,
+        _formSubmitted: true,
+        _formSubmittedValues: submittedValues,
+      }
+
+      // If there is an AI continuation, merge its content
+      if (nextAiMsg && nextAiMsg.role === 'ai') {
+        merged.content = messageContent + '\n\n' + (nextAiMsg.content || '')
+        // Also merge other AI properties like thought process if needed
+        if (nextAiMsg.thinking_process) {
+          // We might want to show thinking from the answer message
+          merged.thought = nextAiMsg.thinking_process
+        }
+      }
+
+      return merged
+    }
+
+    return message
+  }, [message, messages, messageIndex])
+
   const [isDark, setIsDark] = useState(document.documentElement.classList.contains('dark'))
   const mainContentRef = useRef(null)
   const researchExportRef = useRef(null)
@@ -506,10 +568,11 @@ const MessageBubble = ({
     }
   }, [planContent, t])
 
-  const providerId = message.provider || apiProvider
+  const providerId = mergedMessage.provider || apiProvider
   const provider = getProvider(providerId)
-  const parsed = provider.parseMessage(message)
-  const thoughtContent = isDeepResearch || message.thinkingEnabled === false ? null : parsed.thought
+  const parsed = provider.parseMessage(mergedMessage)
+  const thoughtContent =
+    isDeepResearch || mergedMessage.thinkingEnabled === false ? null : parsed.thought
   const mainContent = parsed.content
 
   const { handleDownloadPdf, handleDownloadWord } = useMessageExport({
@@ -710,8 +773,95 @@ const MessageBubble = ({
     }
   }
 
+  // Handle interactive form submission
+  const handleFormSubmit = useCallback(
+    formSubmission => {
+      if (onFormSubmit) {
+        onFormSubmit(formSubmission)
+      }
+    },
+    [onFormSubmit],
+  )
+
   const markdownComponents = useMemo(
     () => ({
+      code: ({ node, inline, className, children, ...props }) => {
+        // 1. Check strict language tag (permissive matching)
+        const isInteractiveFormTag = /language-interactive/i.test(className || '')
+
+        // 2. Exact kind signature
+        const rawContent = String(children)
+        // Find JSON bounds
+        const firstBrace = rawContent.indexOf('{')
+        const lastBrace = rawContent.lastIndexOf('}')
+
+        const hasJsonStructure = firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace
+        const contentToParse = hasJsonStructure
+          ? rawContent.substring(firstBrace, lastBrace + 1)
+          : rawContent
+
+        const hasKindSignature =
+          hasJsonStructure &&
+          (contentToParse.includes('"kind": "interactive_form"') ||
+            contentToParse.includes('"kind":"interactive_form"'))
+
+        const shouldBeForm = isInteractiveFormTag || hasKindSignature
+        let formData = null
+
+        if (!inline && shouldBeForm) {
+          try {
+            // Cleanup and parse
+            const cleanJson = contentToParse.replace(/,\s*([\]}])/g, '$1').replace(/\\n/g, '\\n')
+
+            const parsed = JSON.parse(cleanJson)
+            if (parsed && Array.isArray(parsed.fields) && (parsed.id || parsed.title)) {
+              formData = parsed
+            } else {
+              throw new Error('Missing required fields')
+            }
+          } catch (e) {
+            // Check if JSON looks incomplete (still streaming)
+            const openBraces = (contentToParse.match(/{/g) || []).length
+            const closeBraces = (contentToParse.match(/}/g) || []).length
+            const isIncomplete = openBraces !== closeBraces
+
+            // Only show error if JSON structure is complete but invalid
+            // If incomplete, it's likely still streaming - render as code block
+            if (!isIncomplete) {
+              console.error('[InteractiveForm] Parsing error:', e)
+              return (
+                <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-700 dark:text-red-300">
+                  <p className="font-bold">{t('interactiveForm.errors.parsingError')}</p>
+                  <p>{e.message}</p>
+                  <details className="mt-2 text-xs opacity-70">
+                    <summary>{t('interactiveForm.errors.debugInfo')}</summary>
+                    <pre className="whitespace-pre-wrap">{contentToParse}</pre>
+                  </details>
+                </div>
+              )
+            }
+            // If incomplete, fall through to render as code block
+          }
+        }
+
+        if (formData) {
+          return (
+            <InteractiveForm
+              formData={formData}
+              onSubmit={handleFormSubmit}
+              messageId={message.id}
+              isSubmitted={!!mergedMessage._formSubmitted}
+              submittedValues={mergedMessage._formSubmittedValues || {}}
+            />
+          )
+        }
+
+        return (
+          <CodeBlock inline={inline} className={className} {...props}>
+            {children}
+          </CodeBlock>
+        )
+      },
       p: ({ node, children, ...props }) => (
         <p className="mb-4 last:mb-0" {...props}>
           {parseChildrenWithEmojis(children)}
@@ -766,7 +916,7 @@ const MessageBubble = ({
           {parseChildrenWithEmojis(children)}
         </td>
       ),
-      code: CodeBlock,
+
       a: ({ href, children, ...props }) => {
         if (href?.startsWith('citation:')) {
           const indices = href
@@ -1012,10 +1162,11 @@ const MessageBubble = ({
 
   const contentWithSupports = applyGroundingSupports(
     mainContent,
-    message.groundingSupports,
-    message.sources,
+    mergedMessage.groundingSupports,
+    mergedMessage.sources,
   )
-  const contentWithCitations = formatContentWithSources(contentWithSupports, message.sources)
+  const contentWithCitations = formatContentWithSources(contentWithSupports, mergedMessage.sources)
+
   const hasThoughtText = !!(thoughtContent && String(thoughtContent).trim())
   const hasPlanText = !!planMarkdown
   const researchPlanLoading = Boolean(message?.researchPlanLoading)
@@ -1513,7 +1664,7 @@ const MessageBubble = ({
           userSelect: isMobile ? 'text' : 'auto',
         }}
       >
-        {!message.content ? (
+        {!mergedMessage.content ? (
           <div className="flex flex-col gap-2 animate-pulse">
             <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-3/4"></div>
             <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-1/2"></div>

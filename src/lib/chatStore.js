@@ -227,6 +227,34 @@ const buildAgentPrompt = agent => {
   const languageInstruction = getLanguageInstruction(agent)
   if (languageInstruction) parts.push(`## Language\n${languageInstruction}`)
 
+  // 4. Interactive Form Capability
+  const formInstructions = `## Interactive Forms
+You have the ability to generate interactive forms to collect specific information from the user when you need more context to provide a helpful answer (e.g., for recommendations, plans, or troubleshooting).
+To create a form, output a JSON object wrapped in a \`\`\`interactive-form\`\`\` code block.
+
+Format:
+\`\`\`interactive-form
+{
+  "kind": "interactive_form",
+  "id": "unique_id",
+  "title": "Form Title",
+  "fields": [
+    {
+      "name": "field_name",
+      "label": "Label",
+      "type": "select|checkbox|text|number|range",
+      "options": ["Option1", "Option2"], // For select/checkbox
+      "min": 0, "max": 100, // For range/number
+      "required": true
+    }
+  ]
+}
+\`\`\`
+
+User responses will be sent back to you. Use this feature naturally when appropriate.`
+
+  parts.push(formInstructions)
+
   return parts.length > 0 ? parts.join('\n\n') : null
 }
 
@@ -1171,7 +1199,17 @@ const finalizeMessage = async (
     if (lastMsgIndex >= 0 && updated[lastMsgIndex].role === 'ai') {
       const lastMsg = { ...updated[lastMsgIndex] }
       if (typeof result?.content !== 'undefined') {
-        lastMsg.content = normalizeContent(result.content)
+        // Check if existing content has a form (continuation scenario)
+        const existingContent = String(lastMsg.content || '')
+        const hasFormInExisting =
+          existingContent.includes('"kind": "interactive_form"') ||
+          existingContent.includes('"kind":"interactive_form"')
+
+        if (!hasFormInExisting) {
+          // Normal case: replace with finalized content (may include citations/grounding)
+          lastMsg.content = normalizeContent(result.content)
+        }
+        // If form continuation: skip update, streaming already appended correctly
       }
       const thoughtToApply = normalizedThought || lastMsg.thought || ''
       lastMsg.thought = thoughtToApply ? thoughtToApply : undefined
@@ -1404,6 +1442,7 @@ const finalizeMessage = async (
       grounding_supports: sanitizeJson(result.groundingSupports || null),
       created_at: new Date().toISOString(),
     }
+
     let insertedAi = null
     const { data: insertedAiRow, error: insertAiError } = await addMessage(aiPayload)
     if (insertAiError) {
@@ -1490,9 +1529,20 @@ const finalizeMessage = async (
     }
   }
 
-  // Generate related questions (only if enabled)
+  // Check if content is a form to pause flow
+  const normalizedAiContent = normalizeContent(
+    typeof result?.content !== 'undefined'
+      ? result.content
+      : (currentStore.messages?.[currentStore.messages.length - 1]?.content ?? ''),
+  )
+  const isInteractiveForm =
+    normalizedAiContent.includes('"kind": "interactive_form"') ||
+    normalizedAiContent.includes('"kind":"interactive_form"') ||
+    /language-interactive/i.test(normalizedAiContent)
+
+  // Generate related questions (only if enabled and NOT a form)
   let related = []
-  if (toggles?.related) {
+  if (toggles?.related && !isInteractiveForm) {
     set(state => {
       const updated = [...state.messages]
       const lastMsgIndex = updated.length - 1
@@ -1649,6 +1699,94 @@ const useChatStore = create((set, get) => ({
   // ========================================
 
   /**
+   * Submits an interactive form and continues AI response in the same message
+   *
+   * @param {Object} params - Submission parameters
+   * @param {Object} params.formData - Form data with values
+   * @param {Object} params.settings - User settings
+   * @param {Object} params.toggles - Feature toggles
+   * @param {Object} params.selectedAgent - Current agent
+   * @param {Array} params.agents - Available agents
+   * @param {Object} params.spaceInfo - Space information
+   * @param {boolean} params.isAgentAutoMode - Agent auto mode flag
+   */
+  submitInteractiveForm: async ({
+    formData,
+    settings,
+    toggles,
+    selectedAgent,
+    agents,
+    spaceInfo,
+    isAgentAutoMode,
+  }) => {
+    const { conversationId, messages } = get()
+    if (!conversationId) return
+
+    // 1. Construct form submission message
+    const formattedValues = Object.entries(formData.values)
+      .map(([key, value]) =>
+        Array.isArray(value) ? `${key}: ${value.join(', ')}` : `${key}: ${value}`,
+      )
+      .join('\n')
+    const formContent = `[Form Submission]\n${formattedValues}`
+
+    const hiddenUserMessage = {
+      role: 'user',
+      content: formContent,
+      conversation_id: conversationId,
+      created_at: new Date().toISOString(),
+    }
+
+    // 2. Persist to DB (but NOT state) to maintain context without UI clutter
+    await addMessage(hiddenUserMessage)
+
+    // Append newline to last AI message to separate form from new content
+    set(state => {
+      const updated = [...state.messages]
+      const lastMsgIndex = updated.length - 1
+      if (lastMsgIndex >= 0) {
+        updated[lastMsgIndex] = {
+          ...updated[lastMsgIndex],
+          content: updated[lastMsgIndex].content + '\n\n',
+        }
+      }
+      return { messages: updated }
+    })
+
+    // 3. Stream Response (Append to last message)
+    // We include the hidden message in the context sent to AI
+    const fallbackAgent = agents?.find(agent => agent.isDefault)
+    const effectiveAgent = selectedAgent || fallbackAgent
+    const contextMessages = [...messages, hiddenUserMessage]
+
+    set({ isLoading: true })
+
+    try {
+      await callAIAPI(
+        contextMessages,
+        null, // placeholder unused for targeting last message
+        settings,
+        toggles,
+        null, // callbacks
+        [], // spaces
+        spaceInfo,
+        effectiveAgent,
+        agents,
+        '', // preselectedTitle
+        [], // emojis
+        get,
+        set,
+        messages.length,
+        '', // firstUserText
+        isAgentAutoMode,
+      )
+    } catch (e) {
+      console.error('Form submission stream failed', e)
+      set({ isLoading: false })
+    }
+  },
+
+  /**
    * Sends a message to AI and handles the complete chat flow
    *
    * @param {Object} params - Message parameters
@@ -1681,7 +1819,7 @@ const useChatStore = create((set, get) => ({
    */
   sendMessage: async ({
     text,
-    attachments,
+    attachments = [],
     toggles, // { search, thinking, deepResearch }
     settings, // passed from component to ensure freshness
     spaceInfo, // { selectedSpace, isManualSpaceSelection }

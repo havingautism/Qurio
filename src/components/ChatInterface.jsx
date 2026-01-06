@@ -105,6 +105,7 @@ const ChatInterface = ({
     isMetaLoading,
     isAgentPreselecting,
     sendMessage,
+    submitInteractiveForm,
   } = useChatStore(
     useShallow(state => ({
       messages: state.messages,
@@ -120,6 +121,7 @@ const ChatInterface = ({
       isMetaLoading: state.isMetaLoading,
       isAgentPreselecting: state.isAgentPreselecting,
       sendMessage: state.sendMessage,
+      submitInteractiveForm: state.submitInteractiveForm,
     })),
   )
 
@@ -1131,6 +1133,43 @@ const ChatInterface = ({
     [handleSendMessage],
   )
 
+  // Handle interactive form submission
+  const handleFormSubmit = useCallback(
+    formSubmission => {
+      const agentForSend =
+        selectedAgent || (!isAgentAutoMode && initialAgentSelection) || defaultAgent || null
+
+      // Use submitInteractiveForm to continue in the same message
+      submitInteractiveForm({
+        formData: formSubmission,
+        settings,
+        toggles: {
+          search: isSearchActive,
+          thinking: isThinkingActive,
+          related: isRelatedEnabled,
+        },
+        selectedAgent: agentForSend,
+        agents: appAgents,
+        spaceInfo: { selectedSpace, isManualSpaceSelection },
+        isAgentAutoMode,
+      })
+    },
+    [
+      isSearchActive,
+      isThinkingActive,
+      isRelatedEnabled,
+      submitInteractiveForm,
+      settings,
+      selectedSpace,
+      isManualSpaceSelection,
+      selectedAgent,
+      isAgentAutoMode,
+      initialAgentSelection,
+      defaultAgent,
+      appAgents,
+    ],
+  )
+
   const handleQuote = useCallback(payload => {
     const text = typeof payload === 'string' ? payload : payload?.text || ''
     const message = typeof payload === 'object' ? payload?.message : null
@@ -1479,6 +1518,7 @@ const ChatInterface = ({
               onRegenerateAnswer={handleRegenerateAnswer}
               onResend={handleResendMessage}
               onDelete={handleDeleteMessage}
+              onFormSubmit={handleFormSubmit}
             />
             {/* Bottom Anchor */}
             <div ref={bottomRef} className="h-1" />

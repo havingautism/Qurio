@@ -987,6 +987,7 @@ const callAIAPI = async (
                 durationMs: null,
                 step: typeof chunk.step === 'number' ? chunk.step : undefined,
                 total: typeof chunk.total === 'number' ? chunk.total : undefined,
+                textIndex: (lastMsg.content || '').length + (pendingText || '').length,
               })
               lastMsg.toolCallHistory = history
               updated[lastMsgIndex] = lastMsg

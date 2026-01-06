@@ -13,7 +13,7 @@ const MobileSourcesDrawer = ({ isOpen, onClose, sources = [], title }) => {
     try {
       const hostname = new URL(url).hostname
       return hostname.replace(/^www\./, '')
-    } catch (e) {
+    } catch {
       return t('sources.source')
     }
   }

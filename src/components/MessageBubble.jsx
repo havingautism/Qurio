@@ -25,6 +25,7 @@ import useIsMobile from '../hooks/useIsMobile'
 import { parseChildrenWithEmojis } from '../lib/emojiParser'
 import { getModelIcon, getModelIconClassName, renderProviderIcon } from '../lib/modelIcons'
 import { getProvider } from '../lib/providers'
+import { TOOL_TRANSLATION_KEYS } from '../lib/toolConstants'
 import DesktopSourcesSection from './DesktopSourcesSection'
 import DotLoader from './DotLoader'
 import EmojiDisplay from './EmojiDisplay'
@@ -83,6 +84,8 @@ const PROVIDER_META = {
  * MessageBubble component that directly accesses messages from chatStore via index
  * Reduces props drilling and improves component independence
  */
+import useSettings from '../hooks/useSettings'
+
 const MessageBubble = ({
   messageIndex,
   apiProvider,
@@ -105,6 +108,8 @@ const MessageBubble = ({
       conversationTitle: state.conversationTitle,
     })),
   )
+
+  const { developerMode } = useSettings()
 
   // Extract message by index
   const message = messages[messageIndex]
@@ -168,12 +173,93 @@ const MessageBubble = ({
     return message
   }, [message, messages, messageIndex])
 
+  const isDeepResearch =
+    !!mergedMessage?.deepResearch ||
+    mergedMessage?.agent_name === 'Deep Research Agent' ||
+    mergedMessage?.agentName === 'Deep Research Agent'
+
+  const providerId = mergedMessage.provider || apiProvider
+  const provider = getProvider(providerId)
+  const parsed = provider.parseMessage(mergedMessage)
+  const thoughtContent =
+    isDeepResearch || mergedMessage.thinkingEnabled === false ? null : parsed.thought
+  const mainContent = parsed.content
+
+  const toolCallHistory = Array.isArray(mergedMessage.toolCallHistory)
+    ? mergedMessage.toolCallHistory
+    : []
+
+  const getToolCallsForStep = useCallback(
+    stepNumber =>
+      toolCallHistory.filter(item =>
+        typeof item.step === 'number' ? item.step === stepNumber : false,
+      ),
+    [toolCallHistory],
+  )
+
+  const formatJsonForDisplay = value => {
+    if (value == null) return ''
+    if (typeof value === 'string') {
+      try {
+        const parsed = JSON.parse(value)
+        return JSON.stringify(parsed, null, 2)
+      } catch {
+        return value
+      }
+    }
+    try {
+      return JSON.stringify(value, null, 2)
+    } catch {
+      return String(value)
+    }
+  }
+
+  const interleavedContent = useMemo(() => {
+    if (isDeepResearch || !toolCallHistory.length) {
+      return [{ type: 'text', content: mainContent || '' }]
+    }
+
+    const parts = []
+    let lastIndex = 0
+    const rawContent = mainContent || ''
+
+    // Group tools by index
+    const toolsByIndex = {}
+    toolCallHistory.forEach(tool => {
+      const idx = tool.textIndex ?? 0
+      if (!toolsByIndex[idx]) toolsByIndex[idx] = []
+      toolsByIndex[idx].push(tool)
+    })
+
+    // Get all unique indices
+    const indices = Object.keys(toolsByIndex)
+      .map(Number)
+      .sort((a, b) => a - b)
+
+    indices.forEach(index => {
+      const safeIndex = Math.min(index, rawContent.length)
+      if (safeIndex > lastIndex) {
+        parts.push({
+          type: 'text',
+          content: rawContent.substring(lastIndex, safeIndex),
+        })
+      }
+      parts.push({ type: 'tools', items: toolsByIndex[index] })
+      lastIndex = Math.max(lastIndex, safeIndex)
+    })
+
+    if (lastIndex < rawContent.length) {
+      parts.push({ type: 'text', content: rawContent.substring(lastIndex) })
+    }
+
+    return parts
+  }, [mainContent, toolCallHistory, isDeepResearch])
+
   const [isDark, setIsDark] = useState(document.documentElement.classList.contains('dark'))
   const mainContentRef = useRef(null)
   const researchExportRef = useRef(null)
   const thoughtExportRef = useRef(null)
   const containerRef = useRef(null) // Local ref for the wrapper
-  const prevStreamingRef = useRef(false)
 
   // State to track copy success
   const [isCopied, setIsCopied] = useState(false)
@@ -352,7 +438,7 @@ const MessageBubble = ({
   }
 
   // Handle touch events for mobile
-  const handleTouchEnd = e => {
+  const handleTouchEnd = () => {
     if (!isMobile) return
 
     // Don't prevent default here to allow text selection
@@ -447,10 +533,7 @@ const MessageBubble = ({
   const { t } = useTranslation()
   const { showConfirmation } = useAppContext()
   const isUser = message.role === 'user'
-  const isDeepResearch =
-    !!message?.deepResearch ||
-    message?.agent_name === 'Deep Research Agent' ||
-    message?.agentName === 'Deep Research Agent'
+
   const planContent = typeof message?.researchPlan === 'string' ? message.researchPlan.trim() : ''
 
   // Dynamic thinking status messages using translations
@@ -572,13 +655,6 @@ const MessageBubble = ({
       return `${t('messageBubble.researchPlan')}\n\n${trimmed}`
     }
   }, [planContent, t])
-
-  const providerId = mergedMessage.provider || apiProvider
-  const provider = getProvider(providerId)
-  const parsed = provider.parseMessage(mergedMessage)
-  const thoughtContent =
-    isDeepResearch || mergedMessage.thinkingEnabled === false ? null : parsed.thought
-  const mainContent = parsed.content
 
   const { handleDownloadPdf, handleDownloadWord } = useMessageExport({
     message,
@@ -764,7 +840,7 @@ const MessageBubble = ({
   }, [messageIndex])
 
   const createHeadingComponent = (Tag, className, withAnchors) => {
-    return ({ node, children, ...props }) => {
+    const Heading = ({ children, ...props }) => {
       const headingId = withAnchors ? getNextHeadingId() : undefined
       return (
         <Tag
@@ -776,6 +852,8 @@ const MessageBubble = ({
         </Tag>
       )
     }
+    Heading.displayName = `Heading\${Tag}`
+    return Heading
   }
 
   // Handle interactive form submission
@@ -790,7 +868,7 @@ const MessageBubble = ({
 
   const markdownComponents = useMemo(
     () => ({
-      code: ({ node, inline, className, children, ...props }) => {
+      code: ({ inline, className, children, ...props }) => {
         // 1. Check strict language tag (permissive matching)
         const isInteractiveFormTag = /language-interactive/i.test(className || '')
 
@@ -867,7 +945,7 @@ const MessageBubble = ({
           </CodeBlock>
         )
       },
-      p: ({ node, children, ...props }) => (
+      p: ({ children, ...props }) => (
         <p className="mb-4 last:mb-0" {...props}>
           {parseChildrenWithEmojis(children)}
         </p>
@@ -875,14 +953,14 @@ const MessageBubble = ({
       h1: createHeadingComponent('h1', 'text-2xl font-bold mb-4 mt-4', false),
       h2: createHeadingComponent('h2', 'text-xl font-bold mb-3 mt-3', false),
       h3: createHeadingComponent('h3', 'text-lg font-bold mb-2 mt-2', false),
-      ul: ({ node, ...props }) => <ul className="list-disc pl-5 mb-4 space-y-1" {...props} />,
-      ol: ({ node, ...props }) => <ol className="list-decimal pl-5 mb-4 space-y-1" {...props} />,
-      li: ({ node, children, ...props }) => (
+      ul: ({ ...props }) => <ul className="list-disc pl-5 mb-4 space-y-1" {...props} />,
+      ol: ({ ...props }) => <ol className="list-decimal pl-5 mb-4 space-y-1" {...props} />,
+      li: ({ children, ...props }) => (
         <li className="mb-1" {...props}>
           {parseChildrenWithEmojis(children)}
         </li>
       ),
-      blockquote: ({ node, children, ...props }) => (
+      blockquote: ({ children, ...props }) => (
         <blockquote
           className="border-l-4 border-gray-300 dark:border-zinc-600 pl-4 italic my-4 text-gray-600 dark:text-gray-400"
           {...props}
@@ -890,22 +968,20 @@ const MessageBubble = ({
           {parseChildrenWithEmojis(children)}
         </blockquote>
       ),
-      table: ({ node, ...props }) => (
+      table: ({ ...props }) => (
         <div className="overflow-x-auto my-4 w-fit max-w-full rounded-lg border border-gray-200 dark:border-zinc-700 table-scrollbar code-scrollbar">
           <table className="w-auto divide-y divide-gray-200 dark:divide-zinc-700" {...props} />
         </div>
       ),
-      thead: ({ node, ...props }) => (
-        <thead className="bg-user-bubble dark:bg-zinc-800" {...props} />
-      ),
-      tbody: ({ node, ...props }) => (
+      thead: ({ ...props }) => <thead className="bg-user-bubble dark:bg-zinc-800" {...props} />,
+      tbody: ({ ...props }) => (
         <tbody
           className="bg-user-bubble/50 dark:bg-zinc-900 divide-y divide-gray-200 dark:divide-zinc-700"
           {...props}
         />
       ),
-      tr: ({ node, ...props }) => <tr {...props} />,
-      th: ({ node, children, ...props }) => (
+      tr: ({ ...props }) => <tr {...props} />,
+      th: ({ children, ...props }) => (
         <th
           className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
           {...props}
@@ -913,7 +989,7 @@ const MessageBubble = ({
           {parseChildrenWithEmojis(children)}
         </th>
       ),
-      td: ({ node, children, ...props }) => (
+      td: ({ children, ...props }) => (
         <td
           className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap"
           {...props}
@@ -1165,13 +1241,6 @@ const MessageBubble = ({
       ? t('deepResearch.agentName')
       : agentName
 
-  const contentWithSupports = applyGroundingSupports(
-    mainContent,
-    mergedMessage.groundingSupports,
-    mergedMessage.sources,
-  )
-  const contentWithCitations = formatContentWithSources(contentWithSupports, mergedMessage.sources)
-
   const hasThoughtText = !!(thoughtContent && String(thoughtContent).trim())
   const hasPlanText = !!planMarkdown
   const researchPlanLoading = Boolean(message?.researchPlanLoading)
@@ -1180,48 +1249,17 @@ const MessageBubble = ({
   const hasRunningResearchStep = researchSteps.some(step => step.status === 'running')
   const shouldShowPlan = isDeepResearch && (hasPlanText || researchPlanLoading)
   const shouldShowResearch = isDeepResearch && hasResearchSteps
-  const shouldShowThought =
-    !isDeepResearch &&
-    message.thinkingEnabled !== false &&
-    (isStreaming || hasThoughtText || hasPlanText)
   const shouldShowThinking =
     !isDeepResearch &&
     message.thinkingEnabled !== false &&
     (isStreaming || hasThoughtText || hasPlanText)
   const shouldShowPlanStatus = isDeepResearch && researchPlanLoading
   const shouldShowResearchStatus = isDeepResearch && hasRunningResearchStep
-  const shouldShowThoughtStatus =
-    baseThinkingStatusActive &&
-    (!isDeepResearch || (!researchPlanLoading && (hasPlanText || hasThoughtText)))
-  const thinkingEmoji = isDeepResearch ? '🧐' : '🧠'
+
   const hasRelatedQuestions = Array.isArray(message.related) && message.related.length > 0
   const isRelatedLoading = !!message.relatedLoading
   const shouldShowRelated = !isDeepResearch && (hasRelatedQuestions || isRelatedLoading)
-  const toolCallHistory = Array.isArray(message.toolCallHistory) ? message.toolCallHistory : []
-  const getToolCallsForStep = useCallback(
-    stepNumber =>
-      toolCallHistory.filter(item =>
-        typeof item.step === 'number' ? item.step === stepNumber : false,
-      ),
-    [toolCallHistory],
-  )
 
-  const formatJsonForDisplay = value => {
-    if (value == null) return ''
-    if (typeof value === 'string') {
-      try {
-        const parsed = JSON.parse(value)
-        return JSON.stringify(parsed, null, 2)
-      } catch {
-        return value
-      }
-    }
-    try {
-      return JSON.stringify(value, null, 2)
-    } catch {
-      return String(value)
-    }
-  }
   return (
     <div
       id={messageId}
@@ -1368,69 +1406,6 @@ const MessageBubble = ({
           </>
         )}
       </div>
-
-      {!isDeepResearch && toolCallHistory.length > 0 && (
-        <div className="border border-gray-200 dark:border-zinc-700 rounded-xl overflow-hidden bg-user-bubble/20 dark:bg-zinc-800/30">
-          <div className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-zinc-700">
-            <div className="flex items-center gap-2 font-medium text-gray-700 dark:text-gray-300">
-              <EmojiDisplay emoji={'🔧'} size="1.2em" /> {t('messageBubble.toolCalls')}
-            </div>
-          </div>
-          <div className="px-4 py-3 space-y-2">
-            {toolCallHistory.map(item => (
-              <div
-                key={item.id || `${item.name}-${item.arguments}`}
-                className="flex flex-col gap-1 text-xs text-gray-600 dark:text-gray-400"
-              >
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold text-gray-700 dark:text-gray-200">
-                    {item.name}
-                  </span>
-                  <span
-                    className={clsx(
-                      'px-2 py-0.5 rounded-full text-[11px]',
-                      item.status === 'error'
-                        ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
-                        : item.status === 'done'
-                          ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
-                          : 'bg-gray-200/70 dark:bg-zinc-700/70 text-gray-600 dark:text-gray-400',
-                    )}
-                  >
-                    {item.status === 'error'
-                      ? t('messageBubble.toolStatusError')
-                      : item.status === 'done'
-                        ? t('messageBubble.toolStatusDone')
-                        : t('messageBubble.toolStatusCalling')}
-                  </span>
-                  {item.status !== 'done' && item.status !== 'error' && <DotLoader />}
-                  {typeof item.durationMs === 'number' && (
-                    <span className="text-[11px] text-gray-500 dark:text-gray-400">
-                      {t('messageBubble.toolDuration', {
-                        duration: (item.durationMs / 1000).toFixed(2),
-                      })}
-                    </span>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => setActiveToolDetail(item)}
-                    className="ml-auto text-[11px] text-primary-600 dark:text-primary-300 hover:underline"
-                  >
-                    {t('messageBubble.toolDetails')}
-                  </button>
-                </div>
-                {/* {item.arguments && (
-                  <div className="text-[11px] text-gray-500 dark:text-gray-400 whitespace-pre-wrap break-words">
-                    {t('messageBubble.toolArguments')}: {item.arguments}
-                  </div>
-                )} */}
-                {item.error && (
-                  <div className="text-[11px] text-red-500 dark:text-red-400">{item.error}</div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Thinking Process Section */}
       {isDeepResearch ? (
@@ -1669,20 +1644,194 @@ const MessageBubble = ({
           userSelect: isMobile ? 'text' : 'auto',
         }}
       >
-        {!mergedMessage.content ? (
+        {!mergedMessage.content && (!toolCallHistory || toolCallHistory.length === 0) ? (
           <div className="flex flex-col gap-2 animate-pulse">
             <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-3/4"></div>
             <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-1/2"></div>
             <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-5/6"></div>
           </div>
         ) : (
-          <Streamdown
-            mermaid={mermaidOptions}
-            remarkPlugins={[remarkGfm]}
-            components={markdownComponentsWithAnchors}
-          >
-            {contentWithCitations}
-          </Streamdown>
+          interleavedContent.map((part, idx) => {
+            if (part.type === 'tools') {
+              if (developerMode) {
+                // Developer Mode: Full detailed view
+                return (
+                  <div
+                    key={`tools-${idx}`}
+                    className="my-4 border border-gray-200 dark:border-zinc-700 rounded-xl overflow-hidden bg-user-bubble/20 dark:bg-zinc-800/30"
+                  >
+                    <div className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-zinc-700">
+                      <div className="flex items-center gap-2 font-medium text-gray-700 dark:text-gray-300">
+                        <EmojiDisplay emoji={'🔧'} size="1.2em" /> {t('messageBubble.toolCalls')}
+                      </div>
+                    </div>
+                    <div className="px-4 py-3 space-y-2">
+                      {part.items.map(item => (
+                        <div
+                          key={item.id || `${item.name}-${item.arguments}`}
+                          className="flex flex-col gap-1 text-xs text-gray-600 dark:text-gray-400"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-gray-700 dark:text-gray-200">
+                              {TOOL_TRANSLATION_KEYS[item.name]
+                                ? t(TOOL_TRANSLATION_KEYS[item.name])
+                                : item.name}
+                            </span>
+                            {Object.keys(TOOL_TRANSLATION_KEYS).includes(item.name) &&
+                              (() => {
+                                try {
+                                  const args = JSON.parse(item.arguments || '{}')
+                                  if (args.query) {
+                                    return (
+                                      <span className="text-gray-500 dark:text-gray-400 truncate max-w-[200px]">
+                                        : &quot;{args.query}&quot;
+                                      </span>
+                                    )
+                                  }
+                                } catch {
+                                  return null
+                                }
+                              })()}
+                            <span
+                              className={clsx(
+                                'px-2 py-0.5 rounded-full text-[11px] ml-1',
+                                item.status === 'error'
+                                  ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
+                                  : item.status === 'done'
+                                    ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
+                                    : 'bg-gray-200/70 dark:bg-zinc-700/70 text-gray-600 dark:text-gray-400',
+                              )}
+                            >
+                              {item.status === 'error'
+                                ? t('messageBubble.toolStatusError')
+                                : item.status === 'done'
+                                  ? t('messageBubble.toolStatusDone')
+                                  : t('messageBubble.toolStatusCalling')}
+                            </span>
+                            {item.status !== 'done' && item.status !== 'error' && <DotLoader />}
+                            {typeof item.durationMs === 'number' && (
+                              <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                                {t('messageBubble.toolDuration', {
+                                  duration: (item.durationMs / 1000).toFixed(2),
+                                })}
+                              </span>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => setActiveToolDetail(item)}
+                              className="ml-auto text-[11px] text-primary-600 dark:text-primary-300 hover:underline"
+                            >
+                              {t('messageBubble.toolDetails')}
+                            </button>
+                          </div>
+                          {item.error && (
+                            <div className="text-[11px] text-red-500 dark:text-red-400">
+                              {item.error}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )
+              } else {
+                // Standard Mode: Simplified view
+                // Hide header, DETAILS button, reduced padding/container usage
+                return (
+                  <div
+                    key={`tools-${idx}`}
+                    className="my-4 p-3 border flex flex-col gap-2 border-gray-200 dark:border-zinc-700 rounded-xl overflow-hidden bg-user-bubble/20 dark:bg-zinc-800/30"
+                  >
+                    {part.items.map(item => (
+                      <div
+                        key={item.id || `${item.name}-${item.arguments}`}
+                        className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400"
+                      >
+                        {/* Minimal Status Icon/Indicator could go here if desired, otherwise just text */}
+                        <div className="flex items-center gap-1 sm:gap-2 w-full">
+                          <span className="font-medium text-gray-600 dark:text-gray-300  whitespace-nowrap flex-shrink-0">
+                            {TOOL_TRANSLATION_KEYS[item.name]
+                              ? t(TOOL_TRANSLATION_KEYS[item.name])
+                              : item.name}
+                          </span>
+
+                          {/* We can still show the query if we want, or hide it too? 
+                              "simplify" usually means less noise. Let's keep it minimal.
+                              But the query is useful context. Let's keep query.
+                          */}
+                          <div className="flex items-center gap-1 sm:gap-2 flex-1 sm:flex-none min-w-0">
+                            {Object.keys(TOOL_TRANSLATION_KEYS).includes(item.name) &&
+                              (() => {
+                                try {
+                                  const args = JSON.parse(item.arguments || '{}')
+                                  if (args.query) {
+                                    return (
+                                      <span className="opacity-75 truncate w-full sm:w-auto sm:max-w-[200px]">
+                                        &quot;{args.query}&quot;
+                                      </span>
+                                    )
+                                  }
+                                } catch {
+                                  return null
+                                }
+                              })()}
+                          </div>
+                          {/* Status Label (Optional in simple mode, maybe just color code?) */}
+                          <span
+                            className={clsx(
+                              'px-2 py-0.5 rounded-full text-[11px] ml-1 min-w-[15px]',
+                              item.status === 'error'
+                                ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
+                                : item.status === 'done'
+                                  ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
+                                  : 'bg-gray-200/70 dark:bg-zinc-700/70 text-gray-600 dark:text-gray-400',
+                            )}
+                          >
+                            {item.status === 'error' ? (
+                              <X className="w-4 h-4" />
+                            ) : item.status === 'done' ? (
+                              <Check className="w-4 h-4" />
+                            ) : (
+                              <DotLoader />
+                            )}
+                          </span>
+                          {/* {item.status !== 'done' && item.status !== 'error' && <DotLoader />} */}
+                          {typeof item.durationMs === 'number' && (
+                            <span className="text-[11px] hidden sm:block text-gray-500 dark:text-gray-400 min-w-[50px]">
+                              {t('messageBubble.toolDuration', {
+                                duration: (item.durationMs / 1000).toFixed(2),
+                              })}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )
+              }
+            }
+
+            const contentWithSupports = applyGroundingSupports(
+              part.content,
+              mergedMessage.groundingSupports,
+              mergedMessage.sources,
+            )
+            const contentWithCitations = formatContentWithSources(
+              contentWithSupports,
+              mergedMessage.sources,
+            )
+
+            return (
+              <Streamdown
+                key={`text-${idx}`}
+                mermaid={mermaidOptions}
+                remarkPlugins={[remarkGfm]}
+                components={markdownComponentsWithAnchors}
+              >
+                {contentWithCitations}
+              </Streamdown>
+            )
+          })
         )}
       </div>
 

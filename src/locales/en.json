@@ -6,11 +6,17 @@
     "delete": "Delete",
     "done": "Done",
     "uploadImage": "Upload image",
-    "uploadDocument": "Upload document (coming soon)"
+    "uploadDocument": "Upload document (coming soon)",
+    "on": "On",
+    "off": "Off"
   },
   "app": {
     "name": "Qurio",
     "tagline": "Where insight clicks."
+  },
+  "tools": {
+    "webSearch": "Web Search",
+    "academicSearch": "Academic Search"
   },
   "sidebar": {
     "deletedConversation": "Conversation deleted",
@@ -60,6 +66,7 @@
       "interface": "Interface",
       "personalization": "Personalization",
       "account": "Account",
+      "advanced": "Advanced",
       "about": "About"
     },
     "interfaceLanguage": "Interface Language",
@@ -317,6 +324,10 @@
       "close": "Close",
       "retest": "Re-test",
       "retesting": "Re-testing..."
+    },
+    "advanced": {
+      "developerMode": "Developer Mode",
+      "developerModeHint": "Control how detailed tool calls are displayed in the chat."
     }
   },
   "agents": {

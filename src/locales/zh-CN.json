@@ -6,11 +6,17 @@
     "delete": "删除",
     "done": "完成",
     "uploadImage": "上传图片",
-    "uploadDocument": "上传文档（敬请期待）"
+    "uploadDocument": "上传文档（敬请期待）",
+    "on": "是",
+    "off": "否"
   },
   "app": {
     "name": "Qurio",
     "tagline": "洞察由此开启。"
+  },
+  "tools": {
+    "webSearch": "网络搜索",
+    "academicSearch": "学术搜索"
   },
   "sidebar": {
     "deletedConversation": "对话已删除",
@@ -60,6 +66,7 @@
       "interface": "界面",
       "personalization": "个性化",
       "account": "账户",
+      "advanced": "高级",
       "about": "关于"
     },
     "interfaceLanguage": "界面语言",
@@ -317,6 +324,10 @@
       "close": "关闭",
       "retest": "重新测试",
       "retesting": "重新测试中..."
+    },
+    "advanced": {
+      "developerMode": "开发者模式",
+      "developerModeHint": "控制聊天中工具调用的显示详细程度。"
     }
   },
   "agents": {

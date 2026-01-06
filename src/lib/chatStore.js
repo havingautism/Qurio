@@ -1189,7 +1189,12 @@ const finalizeMessage = async (
 
   // Generate title and space if this is the first turn
   let resolvedTitle = currentStore.conversationTitle
-  let resolvedTitleEmojis = Array.isArray(preselectedEmojis) ? preselectedEmojis : []
+  let resolvedTitleEmojis =
+    Array.isArray(preselectedEmojis) && preselectedEmojis.length > 0
+      ? preselectedEmojis
+      : Array.isArray(currentStore.conversationTitleEmojis)
+        ? currentStore.conversationTitleEmojis
+        : []
   let resolvedSpace = spaceInfo?.selectedSpace || null
   let resolvedAgent = safeAgent || null
 
@@ -1451,6 +1456,7 @@ const finalizeMessage = async (
     try {
       if (isFirstTurn) {
         // First turn: update title, space, agent_selection_mode, and last_agent_id
+        console.log('[chatStore] Updating conversation with emojis:', resolvedTitleEmojis)
         await updateConversation(currentStore.conversationId, {
           title: resolvedTitle,
           title_emojis: resolvedTitleEmojis,

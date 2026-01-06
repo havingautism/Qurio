@@ -19,14 +19,14 @@ import {
 import { getProvider, providerSupportsSearch, resolveThinkingToggleRule } from '../lib/providers'
 import QuestionTimelineController from './QuestionTimelineController'
 
-import { useSidebarOffset } from '../hooks/useSidebarOffset'
+import useAgentManagement from '../hooks/chat/useAgentManagement'
 import useChatHistory from '../hooks/chat/useChatHistory'
 import useSpaceManagement from '../hooks/chat/useSpaceManagement'
-import useAgentManagement from '../hooks/chat/useAgentManagement'
+import { useSidebarOffset } from '../hooks/useSidebarOffset'
 import { loadSettings } from '../lib/settings'
 import { deleteMessageById } from '../lib/supabase'
-import ChatInputBar from './chat/ChatInputBar'
 import ChatHeader from './chat/ChatHeader'
+import ChatInputBar from './chat/ChatInputBar'
 
 const DOCUMENT_CONTEXT_MAX_TOTAL = 12000
 const DOCUMENT_CONTEXT_MAX_PER_DOC = 4000
@@ -335,10 +335,7 @@ const ChatInterface = ({
     (!conversationTitle || conversationTitle === 'New Conversation')
   const isTitleLoading =
     !hasResolvedTitle &&
-    (isMetaLoading ||
-      isLoadingHistory ||
-      isSwitchingConversation ||
-      isPlaceholderTitle)
+    (isMetaLoading || isLoadingHistory || isSwitchingConversation || isPlaceholderTitle)
 
   useEffect(() => {
     if (!activeConversation?.id || activeConversation?._isPlaceholder) return
@@ -1708,6 +1705,7 @@ const ChatInterface = ({
             )}
 
             <ChatInputBar
+              variant="capsule"
               isLoading={isLoading}
               apiProvider={effectiveProvider}
               isSearchActive={isSearchActive}

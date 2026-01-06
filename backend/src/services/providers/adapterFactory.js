@@ -9,6 +9,7 @@ import { KimiAdapter } from './KimiAdapter.js'
 import { ModelScopeAdapter } from './ModelScopeAdapter.js'
 import { OpenAIAdapter } from './OpenAIAdapter.js'
 import { SiliconFlowAdapter } from './SiliconFlowAdapter.js'
+import { NvidiaNimAdapter } from './NvidiaNimAdapter.js'
 
 // Cache adapter instances for reuse
 const adapterCache = new Map()
@@ -46,6 +47,9 @@ export function getProviderAdapter(provider) {
     case 'gemini':
       adapter = new GeminiAdapter()
       break
+    case 'nvidia':
+      adapter = new NvidiaNimAdapter()
+      break
     default:
       // Fallback to OpenAI adapter for unknown providers
       // (assumes OpenAI-compatible API)
@@ -64,5 +68,7 @@ export function getProviderAdapter(provider) {
  * @returns {boolean} Whether provider is supported
  */
 export function isProviderSupported(provider) {
-  return ['openai', 'siliconflow', 'kimi', 'glm', 'modelscope', 'gemini'].includes(provider)
+  return ['openai', 'siliconflow', 'kimi', 'glm', 'modelscope', 'gemini', 'nvidia'].includes(
+    provider,
+  )
 }

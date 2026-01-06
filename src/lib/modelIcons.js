@@ -11,6 +11,7 @@ import ChatGLMIcon from '../assets/chatglm-color.svg?url'
 import ZhipuIcon from '../assets/zhipu-color.svg?url'
 import ModelScopeIcon from '../assets/modelscope-color.svg?url'
 import TavilyIcon from '../assets/tavily-color.svg?url'
+import NvidiaIcon from '../assets/nvidia-color.svg?url'
 
 const DEFAULT_ICON_BG_CLASS = 'bg-[#f6f6f6b8] dark:bg-[#0d0d0d]'
 
@@ -32,6 +33,11 @@ export const PROVIDER_ICON_META = {
     imgClassName: 'invert-0 dark:invert',
   },
   tavily: { src: TavilyIcon, alt: 'Tavily', bgClassName: DEFAULT_ICON_BG_CLASS },
+  nvidia: {
+    src: NvidiaIcon,
+    alt: 'NVIDIA',
+    bgClassName: DEFAULT_ICON_BG_CLASS,
+  },
 }
 
 export const PROVIDER_ICONS = Object.fromEntries(

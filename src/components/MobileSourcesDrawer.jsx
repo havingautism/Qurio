@@ -29,23 +29,7 @@ const MobileSourcesDrawer = ({ isOpen, onClose, sources = [], title }) => {
     }
   }, [isOpen, sources])
 
-  // Close on click outside
-  useEffect(() => {
-    const handleClickOutside = event => {
-      if (drawerRef.current && !drawerRef.current.contains(event.target)) {
-        onClose()
-      }
-    }
-
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside)
-      document.addEventListener('touchstart', handleClickOutside)
-    }
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-      document.removeEventListener('touchstart', handleClickOutside)
-    }
-  }, [isOpen, onClose])
+  // Close on click outside logic is handled by the backdrop overlay
 
   if (!isOpen) return null
 
@@ -66,6 +50,11 @@ const MobileSourcesDrawer = ({ isOpen, onClose, sources = [], title }) => {
         onTouchStart={event => {
           event.preventDefault()
           event.stopPropagation()
+        }}
+        onTouchEnd={event => {
+          event.preventDefault()
+          event.stopPropagation()
+          onClose()
         }}
         aria-hidden="true"
       />

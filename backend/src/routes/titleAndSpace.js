@@ -16,23 +16,38 @@ router.post('/title-and-space', async (req, res) => {
       return res.status(400).json({ error: 'Missing required fields: provider, message' })
     }
 
-    const supportedProviders = ['gemini', 'openai', 'siliconflow', 'glm', 'modelscope', 'kimi']
+    const supportedProviders = [
+      'gemini',
+      'openai',
+      'siliconflow',
+      'glm',
+      'modelscope',
+      'kimi',
+      'nvidia',
+    ]
     if (!supportedProviders.includes(provider)) {
       return res.status(400).json({
-        error: `Unsupported provider: ${provider}. Supported: ${supportedProviders.join(', ')}`
+        error: `Unsupported provider: ${provider}. Supported: ${supportedProviders.join(', ')}`,
       })
     }
 
     console.log(`[API] generateTitleAndSpace: provider=${provider}`)
 
-    const result = await generateTitleAndSpace(provider, message, spaces || [], apiKey, baseUrl, model)
+    const result = await generateTitleAndSpace(
+      provider,
+      message,
+      spaces || [],
+      apiKey,
+      baseUrl,
+      model,
+    )
 
     res.json(result)
   } catch (error) {
     console.error('[API] generateTitleAndSpace error:', error)
     res.status(500).json({
       error: 'Failed to generate title and space',
-      message: error.message
+      message: error.message,
     })
   }
 })

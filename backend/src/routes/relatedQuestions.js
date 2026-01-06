@@ -16,10 +16,18 @@ router.post('/related-questions', async (req, res) => {
       return res.status(400).json({ error: 'Missing required fields: provider, messages' })
     }
 
-    const supportedProviders = ['gemini', 'openai', 'siliconflow', 'glm', 'modelscope', 'kimi']
+    const supportedProviders = [
+      'gemini',
+      'openai',
+      'siliconflow',
+      'glm',
+      'modelscope',
+      'kimi',
+      'nvidia',
+    ]
     if (!supportedProviders.includes(provider)) {
       return res.status(400).json({
-        error: `Unsupported provider: ${provider}. Supported: ${supportedProviders.join(', ')}`
+        error: `Unsupported provider: ${provider}. Supported: ${supportedProviders.join(', ')}`,
       })
     }
 
@@ -32,7 +40,7 @@ router.post('/related-questions', async (req, res) => {
     console.error('[API] generateRelatedQuestions error:', error)
     res.status(500).json({
       error: 'Failed to generate related questions',
-      message: error.message
+      message: error.message,
     })
   }
 })

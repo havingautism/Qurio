@@ -12,10 +12,10 @@ import {
   Pin,
   Plus,
   Settings,
+  Smile,
   SquareStack,
   Sun,
   Trash2,
-  Smile,
 } from 'lucide-react'
 import React, { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -23,13 +23,13 @@ import { useAppContext } from '../App'
 import { useToast } from '../contexts/ToastContext'
 import useScrollLock from '../hooks/useScrollLock'
 import { getAgentDisplayDescription, getAgentDisplayName } from '../lib/agentDisplay'
-import { getSpaceDisplayLabel } from '../lib/spaceDisplay'
 import {
   listBookmarkedConversations,
   listConversations,
   listConversationsBySpace,
   toggleFavorite,
 } from '../lib/conversationsService'
+import { getSpaceDisplayLabel } from '../lib/spaceDisplay'
 import { deleteConversation } from '../lib/supabase'
 import DotLoader from './DotLoader'
 import EmojiDisplay from './EmojiDisplay'
@@ -1349,7 +1349,7 @@ const Sidebar = ({
                         <div className="w-8 h-8 rounded bg-transparent flex items-center justify-center group-hover:border-gray-300 dark:group-hover:border-zinc-600 shrink-0 text-base">
                           <EmojiDisplay emoji={space.emoji} size="1.4em" />
                         </div>
-                        <span className="text-base font-medium text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-gray-200 transition-colors truncate">
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-gray-200 transition-colors truncate">
                           {getSpaceDisplayLabel(space, t)}
                         </span>
                       </div>
@@ -1522,7 +1522,7 @@ const Sidebar = ({
                           <EmojiDisplay emoji={agent.emoji} size="1.4em" className="shrink-0" />
                         </div>
                         <div className="flex flex-col min-w-0">
-                          <span className="text-base font-medium text-gray-700 dark:text-gray-300 truncate">
+                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">
                             {getAgentDisplayName(agent, t)}
                           </span>
                           {getAgentDisplayDescription(agent, t) && (

@@ -618,6 +618,12 @@
     "researchScopeLabel": "Scope",
     "researchRequirementsLabel": "Output Requirements"
   },
+  "interactiveForm": {
+    "errors": {
+      "parsingError": "Form Generation Error",
+      "debugInfo": "Debug Info"
+    }
+  },
   "chatInterface": {
     "regenerateTitle": "Regenerate title from last 3 messages",
     "openTimeline": "Open question timeline",

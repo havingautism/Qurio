@@ -625,6 +625,12 @@
     "researchScopeLabel": "研究范围",
     "researchRequirementsLabel": "输出要求"
   },
+  "interactiveForm": {
+    "errors": {
+      "parsingError": "表单生成错误",
+      "debugInfo": "调试信息"
+    }
+  },
   "chatInterface": {
     "regenerateTitle": "根据最近 3 条消息重新生成标题",
     "openTimeline": "打开问题时间轴",

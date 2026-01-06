@@ -19,6 +19,8 @@ import { useTranslation } from 'react-i18next'
 import { getAgentDisplayName } from '../../lib/agentDisplay'
 import { providerSupportsSearch } from '../../lib/providers'
 import EmojiDisplay from '../EmojiDisplay'
+import useIsMobile from '../../hooks/useIsMobile'
+import MobileDrawer from '../MobileDrawer'
 
 /**
  * ChatInputBar Component
@@ -86,6 +88,7 @@ const ChatInputBar = React.memo(
     variant = 'default',
   }) => {
     const { t } = useTranslation()
+    const isMobile = useIsMobile()
     const [inputValue, setInputValue] = useState('')
     const [attachments, setAttachments] = useState([])
     const textareaRef = useRef(null)
@@ -205,6 +208,140 @@ const ChatInputBar = React.memo(
 
     // === CAPSULE VARIANT ===
     if (variant === 'capsule') {
+      const uploadMenuContent = (
+        <button
+          onClick={handleUploadImage}
+          className="flex items-center gap-1.5 w-full p-3 hover:bg-gray-50 dark:hover:bg-zinc-800 text-sm rounded-xl"
+        >
+          <Image size={16} /> Image
+        </button>
+      )
+
+      const settingsMenuContent = (
+        <div className="space-y-3">
+          {/* Models List */}
+          <div>
+            <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-2 mb-2">
+              Model
+            </div>
+            <div className="flex flex-col gap-1.5 max-h-[300px] overflow-y-auto no-scrollbar">
+              <button
+                onClick={() => {
+                  onAgentAutoModeToggle()
+                  setIsCapsuleMenuOpen(false)
+                }}
+                className={clsx(
+                  'flex items-center justify-between w-full px-3 py-2 rounded-xl text-sm transition-colors',
+                  isAgentAutoMode
+                    ? 'bg-gray-100 dark:bg-zinc-700/50 text-gray-900 dark:text-white font-medium'
+                    : 'hover:bg-gray-100 dark:hover:bg-zinc-700/50 text-gray-600 dark:text-gray-300',
+                )}
+              >
+                <div className="flex items-center gap-2.5">
+                  <span className="text-lg">🤖</span>
+                  <span>{t('chatInterface.agentAuto')}</span>
+                </div>
+                {isAgentAutoMode && <Check size={14} className="text-primary-500" />}
+              </button>
+              {agents.map(agent => {
+                const isSelected = !isAgentAutoMode && selectedAgent?.id === agent.id
+                const isDefault =
+                  agent.isDefault || String(agent.id) === String(spacePrimaryAgentId)
+                return (
+                  <button
+                    key={agent.id}
+                    onClick={() => {
+                      onAgentSelect(agent)
+                      setIsCapsuleMenuOpen(false)
+                    }}
+                    className={clsx(
+                      'flex items-center justify-between w-full px-3 py-2 rounded-xl text-sm transition-colors',
+                      isSelected
+                        ? 'bg-gray-100 dark:bg-zinc-700/50 text-gray-900 dark:text-white font-medium'
+                        : 'hover:bg-gray-100 dark:hover:bg-zinc-700/50 text-gray-600 dark:text-gray-300',
+                    )}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <EmojiDisplay emoji={agent.emoji} size="1.1em" />
+                      <span className="truncate">{getAgentDisplayName(agent, t)}</span>
+                      {isDefault && (
+                        <span className="text-[10px] px-1.5 py-0.5 bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 rounded-md font-medium">
+                          {t('chatInterface.default')}
+                        </span>
+                      )}
+                    </div>
+                    {isSelected && <Check size={14} className="text-primary-500" />}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          <div className="h-px bg-gray-100 dark:bg-zinc-700/50" />
+
+          {/* Capabilities */}
+          <div>
+            <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-2 mb-2">
+              Capabilities
+            </div>
+            <div className="space-y-0.5">
+              <button
+                disabled={isThinkingLocked}
+                onClick={onToggleThinking}
+                className="flex items-center justify-between w-full px-3 py-2 rounded-xl text-sm hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors"
+              >
+                <div className="flex items-center gap-2.5 text-gray-700 dark:text-gray-200">
+                  <Brain
+                    size={16}
+                    className={isThinkingActive ? 'text-primary-500' : 'text-gray-400'}
+                  />
+                  <span>{t('homeView.think')}</span>
+                </div>
+                <div
+                  className={clsx(
+                    'w-8 h-4 rounded-full relative transition-colors',
+                    isThinkingActive ? 'bg-primary-500' : 'bg-gray-200 dark:bg-zinc-600',
+                  )}
+                >
+                  <div
+                    className={clsx(
+                      'absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all shadow-sm',
+                      isThinkingActive ? 'left-4.5' : 'left-0.5',
+                    )}
+                  />
+                </div>
+              </button>
+              <button
+                disabled={!providerSupportsSearch(apiProvider)}
+                onClick={onToggleSearch}
+                className="flex items-center justify-between w-full px-3 py-2 rounded-xl text-sm hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors disabled:opacity-50"
+              >
+                <div className="flex items-center gap-2.5 text-gray-700 dark:text-gray-200">
+                  <Globe
+                    size={16}
+                    className={isSearchActive ? 'text-primary-500' : 'text-gray-400'}
+                  />
+                  <span>{t('homeView.search')}</span>
+                </div>
+                <div
+                  className={clsx(
+                    'w-8 h-4 rounded-full relative transition-colors',
+                    isSearchActive ? 'bg-primary-500' : 'bg-gray-200 dark:bg-zinc-600',
+                  )}
+                >
+                  <div
+                    className={clsx(
+                      'absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all shadow-sm',
+                      isSearchActive ? 'left-4.5' : 'left-0.5',
+                    )}
+                  />
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+      )
+
       return (
         <div className="w-full max-w-2xl relative group mx-auto pb-2">
           {/* Floating Context Indicators */}
@@ -274,236 +411,141 @@ const ChatInputBar = React.memo(
             </div>
           )}
 
-          {/* Capsule Input Grid Container */}
-          <div
-            className={clsx(
-              'relative p-2 bg-[#F9F9F9] dark:bg-[#1a1a1a] border border-gray-200 dark:border-zinc-800 shadow-sm transition-all duration-300 focus-within:shadow-md grid gap-2',
-              isMultiline
-                ? 'rounded-[26px] grid-cols-[1fr_auto] items-end'
-                : 'rounded-[32px] grid-cols-[auto_1fr_auto] items-center',
-              isLoading && 'opacity-80',
-            )}
-          >
-            {/* Left Action Buttons */}
+          {/* Capsule Input Grid Container Wrapper for Glow */}
+          <div className="relative">
             <div
               className={clsx(
-                'flex items-center gap-1',
-                isMultiline
-                  ? 'col-start-1 row-start-2 justify-self-start ml-1.5 mb-0.5'
-                  : 'col-start-1 row-start-1 ml-1',
-              )}
-            >
-              {/* Attach Button */}
-              <div className="relative" ref={uploadMenuRef}>
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleFileChange}
-                  accept="image/*"
-                  multiple
-                  className="hidden"
-                />
-                <button
-                  onClick={() => setIsUploadMenuOpen(!isUploadMenuOpen)}
-                  className="p-2 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 hover:bg-gray-200 dark:hover:bg-zinc-800 rounded-full transition-colors"
-                  title={t('common.uploadImage')}
-                >
-                  <Plus size={20} strokeWidth={2.5} />
-                </button>
-                {isUploadMenuOpen && (
-                  <div className="absolute bottom-full left-0 mb-3 w-40 bg-white dark:bg-[#252525] border border-gray-100 dark:border-zinc-800 rounded-xl shadow-xl z-50 overflow-hidden py-1 animate-in zoom-in-95 slide-in-from-bottom-2">
-                    <button
-                      onClick={handleUploadImage}
-                      className="flex items-center gap-2 w-full px-4 py-2 hover:bg-gray-50 dark:hover:bg-zinc-800 text-sm"
-                    >
-                      <Image size={16} /> Image
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Settings / Model Menu */}
-              <div className="relative" ref={capsuleMenuRef}>
-                <button
-                  onClick={() => setIsCapsuleMenuOpen(!isCapsuleMenuOpen)}
-                  className={clsx(
-                    'p-2 rounded-full transition-colors',
-                    isThinkingActive || isSearchActive || isCapsuleMenuOpen
-                      ? 'text-primary-600 bg-primary-50 dark:bg-primary-900/20'
-                      : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 hover:bg-gray-200 dark:hover:bg-zinc-800',
-                  )}
-                  title="Model & Settings"
-                >
-                  <SlidersHorizontal size={20} strokeWidth={2} />
-                </button>
-
-                {/* Popover Menu */}
-                {isCapsuleMenuOpen && (
-                  <div className="absolute bottom-full left-0 mb-3 w-72 bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-xl border border-gray-200/50 dark:border-zinc-700/50 rounded-2xl shadow-2xl z-50 overflow-hidden p-3 space-y-3 animate-in zoom-in-95 slide-in-from-bottom-4">
-                    {/* Models List */}
-                    <div>
-                      <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-2 mb-2">
-                        Model
-                      </div>
-                      <div className="flex flex-col gap-0.5 max-h-[200px] overflow-y-auto no-scrollbar">
-                        <button
-                          onClick={() => {
-                            onAgentAutoModeToggle()
-                            setIsCapsuleMenuOpen(false)
-                          }}
-                          className={clsx(
-                            'flex items-center justify-between w-full px-3 py-2 rounded-xl text-sm transition-colors',
-                            isAgentAutoMode
-                              ? 'bg-gray-100 dark:bg-zinc-700/50 text-gray-900 dark:text-white font-medium'
-                              : 'hover:bg-gray-100 dark:hover:bg-zinc-700/50 text-gray-600 dark:text-gray-300',
-                          )}
-                        >
-                          <div className="flex items-center gap-2.5">
-                            <span className="text-lg">🤖</span>
-                            <span>{t('chatInterface.agentAuto')}</span>
-                          </div>
-                          {isAgentAutoMode && <Check size={14} className="text-primary-500" />}
-                        </button>
-                        {agents.map(agent => {
-                          const isSelected = !isAgentAutoMode && selectedAgent?.id === agent.id
-                          const isDefault =
-                            agent.isDefault || String(agent.id) === String(spacePrimaryAgentId)
-                          return (
-                            <button
-                              key={agent.id}
-                              onClick={() => {
-                                onAgentSelect(agent)
-                                setIsCapsuleMenuOpen(false)
-                              }}
-                              className={clsx(
-                                'flex items-center justify-between w-full px-3 py-2 rounded-xl text-sm transition-colors',
-                                isSelected
-                                  ? 'bg-gray-100 dark:bg-zinc-700/50 text-gray-900 dark:text-white font-medium'
-                                  : 'hover:bg-gray-100 dark:hover:bg-zinc-700/50 text-gray-600 dark:text-gray-300',
-                              )}
-                            >
-                              <div className="flex items-center gap-2.5">
-                                <EmojiDisplay emoji={agent.emoji} size="1.1em" />
-                                <span className="truncate">{getAgentDisplayName(agent, t)}</span>
-                                {isDefault && (
-                                  <span className="text-[10px] px-1.5 py-0.5 bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 rounded-md font-medium">
-                                    {t('chatInterface.default')}
-                                  </span>
-                                )}
-                              </div>
-                              {isSelected && <Check size={14} className="text-primary-500" />}
-                            </button>
-                          )
-                        })}
-                      </div>
-                    </div>
-
-                    <div className="h-px bg-gray-100 dark:bg-zinc-700/50" />
-
-                    {/* Capabilities */}
-                    <div>
-                      <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-2 mb-2">
-                        Capabilities
-                      </div>
-                      <div className="space-y-0.5">
-                        <button
-                          disabled={isThinkingLocked}
-                          onClick={onToggleThinking}
-                          className="flex items-center justify-between w-full px-3 py-2 rounded-xl text-sm hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors"
-                        >
-                          <div className="flex items-center gap-2.5 text-gray-700 dark:text-gray-200">
-                            <Brain
-                              size={16}
-                              className={isThinkingActive ? 'text-primary-500' : 'text-gray-400'}
-                            />
-                            <span>{t('homeView.think')}</span>
-                          </div>
-                          <div
-                            className={clsx(
-                              'w-8 h-4 rounded-full relative transition-colors',
-                              isThinkingActive ? 'bg-primary-500' : 'bg-gray-200 dark:bg-zinc-600',
-                            )}
-                          >
-                            <div
-                              className={clsx(
-                                'absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all shadow-sm',
-                                isThinkingActive ? 'left-4.5' : 'left-0.5',
-                              )}
-                            />
-                          </div>
-                        </button>
-                        <button
-                          disabled={!providerSupportsSearch(apiProvider)}
-                          onClick={onToggleSearch}
-                          className="flex items-center justify-between w-full px-3 py-2 rounded-xl text-sm hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors disabled:opacity-50"
-                        >
-                          <div className="flex items-center gap-2.5 text-gray-700 dark:text-gray-200">
-                            <Globe
-                              size={16}
-                              className={isSearchActive ? 'text-primary-500' : 'text-gray-400'}
-                            />
-                            <span>{t('homeView.search')}</span>
-                          </div>
-                          <div
-                            className={clsx(
-                              'w-8 h-4 rounded-full relative transition-colors',
-                              isSearchActive ? 'bg-primary-500' : 'bg-gray-200 dark:bg-zinc-600',
-                            )}
-                          >
-                            <div
-                              className={clsx(
-                                'absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all shadow-sm',
-                                isSearchActive ? 'left-4.5' : 'left-0.5',
-                              )}
-                            />
-                          </div>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Text Area */}
-            <textarea
-              ref={textareaRef}
-              value={inputValue}
-              onChange={e => setInputValue(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={t('chatInterface.askFollowUp')}
-              rows={1}
-              className={clsx(
-                'bg-transparent border-none outline-none resize-none text-[15px] leading-relaxed text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 max-h-[200px] overflow-y-auto px-1 py-3',
-                !isMultiline && 'no-scrollbar',
-                isMultiline ? 'col-span-2 row-start-1 w-full' : 'col-start-2 row-start-1 flex-1',
+                'absolute inset-0 input-glow-veil blur-2xl opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-500 pointer-events-none',
+                isMultiline ? 'rounded-[26px]' : 'rounded-[32px]',
               )}
             />
-
-            {/* Right Send Button */}
+            {/* Capsule Input Grid Container */}
             <div
               className={clsx(
+                'relative p-2 bg-[#F9F9F9] dark:bg-[#1a1a1a] border border-gray-200 dark:border-zinc-800 shadow-sm transition-all duration-300 focus-within:shadow-md grid gap-2',
                 isMultiline
-                  ? 'col-start-2 row-start-2 justify-self-end mr-1.5 mb-0.5'
-                  : 'col-start-3 row-start-1 mr-1',
+                  ? 'rounded-[26px] grid-cols-[1fr_auto] items-end'
+                  : 'rounded-[32px] grid-cols-[auto_1fr_auto] items-center',
+                isLoading && 'opacity-80',
               )}
             >
-              <button
-                onClick={handleSend}
-                disabled={isLoading || (!inputValue.trim() && attachments.length === 0)}
+              <div
                 className={clsx(
-                  'p-2.5 rounded-full transition-all duration-300 shadow-sm flex items-center justify-center',
-                  (inputValue.trim() || attachments.length > 0) && !isLoading
-                    ? 'bg-primary-500 text-white hover:bg-primary-600 hover:scale-105 active:scale-95'
-                    : 'bg-gray-200 dark:bg-zinc-800 text-gray-400 dark:text-zinc-600 cursor-not-allowed',
+                  'flex items-center gap-1',
+                  isMultiline
+                    ? 'col-start-1 row-start-2 justify-self-start ml-1.5 mb-0.5'
+                    : 'col-start-1 row-start-1 ml-1',
                 )}
               >
-                {isLoading ? (
-                  <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <ArrowUp size={20} strokeWidth={2.5} />
+                {/* Attach Button */}
+                <div className="relative" ref={uploadMenuRef}>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileChange}
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                  />
+                  <button
+                    onClick={() => setIsUploadMenuOpen(!isUploadMenuOpen)}
+                    className="p-1.5 sm:p-2 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 hover:bg-gray-200 dark:hover:bg-zinc-800 rounded-full transition-colors"
+                    title={t('common.uploadImage')}
+                  >
+                    <Plus size={20} strokeWidth={2.5} />
+                  </button>
+                  {!isMobile && isUploadMenuOpen && (
+                    <div className="absolute bottom-full left-0 mb-3 w-40 bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-xl border border-gray-200/50 dark:border-zinc-700/50 rounded-2xl shadow-2xl z-50 overflow-hidden p-1.5 animate-in zoom-in-95 slide-in-from-bottom-4">
+                      {uploadMenuContent}
+                    </div>
+                  )}
+                  {isMobile && (
+                    <MobileDrawer
+                      isOpen={isUploadMenuOpen}
+                      onClose={() => setIsUploadMenuOpen(false)}
+                      title={t('common.uploadImage')}
+                    >
+                      {uploadMenuContent}
+                    </MobileDrawer>
+                  )}
+                </div>
+
+                {/* Settings / Model Menu */}
+                <div className="relative" ref={capsuleMenuRef}>
+                  <button
+                    onClick={() => setIsCapsuleMenuOpen(!isCapsuleMenuOpen)}
+                    className={clsx(
+                      'p-1.5 sm:p-2 rounded-full transition-colors',
+                      isThinkingActive || isSearchActive || isCapsuleMenuOpen
+                        ? 'text-primary-600 bg-primary-50 dark:bg-primary-900/20'
+                        : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 hover:bg-gray-200 dark:hover:bg-zinc-800',
+                    )}
+                    title="Model & Settings"
+                  >
+                    <SlidersHorizontal size={20} strokeWidth={2} />
+                  </button>
+
+                  {/* Popover Menu (Desktop) */}
+                  {!isMobile && isCapsuleMenuOpen && (
+                    <div className="absolute bottom-full left-0 mb-3 w-72 bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-xl border border-gray-200/50 dark:border-zinc-700/50 rounded-2xl shadow-2xl z-50 overflow-hidden p-3 animate-in zoom-in-95 slide-in-from-bottom-4">
+                      {settingsMenuContent}
+                    </div>
+                  )}
+
+                  {/* Drawer Menu (Mobile) */}
+                  {isMobile && (
+                    <MobileDrawer
+                      isOpen={isCapsuleMenuOpen}
+                      onClose={() => setIsCapsuleMenuOpen(false)}
+                      title="Model & Settings"
+                      icon={SlidersHorizontal}
+                    >
+                      {settingsMenuContent}
+                    </MobileDrawer>
+                  )}
+                </div>
+              </div>
+
+              {/* Text Area */}
+              <textarea
+                ref={textareaRef}
+                value={inputValue}
+                onChange={e => setInputValue(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={t('chatInterface.askFollowUp')}
+                rows={1}
+                className={clsx(
+                  'bg-transparent border-none outline-none resize-none text-[15px] leading-relaxed text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 max-h-[200px] overflow-y-auto px-1 py-3',
+                  !isMultiline && 'no-scrollbar',
+                  isMultiline ? 'col-span-2 row-start-1 w-full' : 'col-start-2 row-start-1 flex-1',
                 )}
-              </button>
+              />
+
+              {/* Right Send Button */}
+              <div
+                className={clsx(
+                  isMultiline
+                    ? 'col-start-2 row-start-2 justify-self-end mr-1.5 mb-0.5'
+                    : 'col-start-3 row-start-1 mr-1',
+                )}
+              >
+                <button
+                  onClick={handleSend}
+                  disabled={isLoading || (!inputValue.trim() && attachments.length === 0)}
+                  className={clsx(
+                    'p-2 sm:p-2.5 rounded-full transition-all duration-300 shadow-sm flex items-center justify-center',
+                    (inputValue.trim() || attachments.length > 0) && !isLoading
+                      ? 'bg-primary-500 text-white hover:bg-primary-600 hover:scale-105 active:scale-95'
+                      : 'bg-gray-200 dark:bg-zinc-800 text-gray-400 dark:text-zinc-600 cursor-not-allowed',
+                  )}
+                >
+                  {isLoading ? (
+                    <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <ArrowUp size={20} strokeWidth={2.5} />
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>

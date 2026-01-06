@@ -1,5 +1,4 @@
-﻿import { useLocation, useNavigate } from '@tanstack/react-router'
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useShallow } from 'zustand/react/shallow'
 import useChatStore from '../lib/chatStore'
@@ -69,13 +68,6 @@ const ChatInterface = ({
   onTitleAndSpaceGenerated,
   isSidebarPinned = false,
 }) => {
-  // Mobile detection
-  const isMobile = (() => {
-    const ua = navigator.userAgent || navigator.vendor || window.opera
-    const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0
-    return /iPhone|iPod|Android/i.test(ua) || (isTouch && window.innerWidth <= 1024)
-  })()
-
   const normalizeTitleEmojis = value => {
     if (Array.isArray(value)) {
       return value
@@ -123,8 +115,6 @@ const ChatInterface = ({
   //   }
   // }, [])
 
-  const navigate = useNavigate()
-  const location = useLocation()
   const { t } = useTranslation()
   const toast = useToast()
   const {
@@ -137,7 +127,6 @@ const ChatInterface = ({
     conversationTitleEmojis,
     setConversationTitleEmojis,
     isLoading,
-    setIsLoading,
     isMetaLoading,
     isAgentPreselecting,
     sendMessage,
@@ -151,8 +140,8 @@ const ChatInterface = ({
       setConversationTitle: state.setConversationTitle,
       conversationTitleEmojis: state.conversationTitleEmojis,
       setConversationTitleEmojis: state.setConversationTitleEmojis,
+
       isLoading: state.isLoading,
-      setIsLoading: state.setIsLoading,
       isMetaLoading: state.isMetaLoading,
       isAgentPreselecting: state.isAgentPreselecting,
       sendMessage: state.sendMessage,
@@ -306,7 +295,14 @@ const ChatInterface = ({
     return () => {
       isMounted = false
     }
-  }, [activeConversation?.id, conversationId, displaySpace?.id, isPlaceholderConversation, t, toast])
+  }, [
+    activeConversation?.id,
+    conversationId,
+    displaySpace?.id,
+    isPlaceholderConversation,
+    t,
+    toast,
+  ])
 
   // Chat history hook (manages message loading and history state)
   const isSwitchingConversation = Boolean(
@@ -316,7 +312,6 @@ const ChatInterface = ({
     isLoadingHistory,
     showHistoryLoader,
     loadConversationMessages,
-    hasLoadedMessages,
     loadedMessagesRef,
     setIsLoadingHistory,
   } = useChatHistory({
@@ -325,7 +320,7 @@ const ChatInterface = ({
     effectiveDefaultModel: defaultAgent?.model || 'gpt-4o',
     isSwitchingConversation,
   })
-  const hasLoadedActive = activeConversation?.id && hasLoadedMessages?.(activeConversation.id)
+
   const hasResolvedTitle =
     typeof conversationTitle === 'string' &&
     conversationTitle.trim() !== '' &&
@@ -575,7 +570,7 @@ const ChatInterface = ({
   useEffect(() => {
     const handleSettingsChange = () => {
       setSettings(loadSettings())
-      const newSettings = loadSettings()
+
       const nextProvider = effectiveAgent?.provider || defaultAgent?.provider
       if (!nextProvider || !providerSupportsSearch(nextProvider)) {
         setIsSearchActive(false)
@@ -1123,8 +1118,7 @@ const ChatInterface = ({
 
   // State to track if we are editing a message
   const [editingIndex, setEditingIndex] = useState(null)
-  const [editingTargetTimestamp, setEditingTargetTimestamp] = useState(null)
-  const [editingPartnerTimestamp, setEditingPartnerTimestamp] = useState(null)
+
   const [editingTargetId, setEditingTargetId] = useState(null)
   const [editingPartnerId, setEditingPartnerId] = useState(null)
   const lastDraftConversationKeyRef = useRef(null)
@@ -1139,8 +1133,6 @@ const ChatInterface = ({
     quoteTextRef.current = ''
     quoteSourceRef.current = ''
     setEditingIndex(null)
-    setEditingTargetTimestamp(null)
-    setEditingPartnerTimestamp(null)
     setEditingTargetId(null)
     setEditingPartnerId(null)
     setEditingSeed({ text: '', attachments: [] })
@@ -1163,11 +1155,9 @@ const ChatInterface = ({
       setEditingIndex(index)
       setQuotedText(null) // Clear quote when editing
       setQuoteContext(null)
-      setEditingTargetTimestamp(msg.created_at || null)
       setEditingTargetId(msg.id || null)
       const nextMsg = messages[index + 1]
       const hasPartner = nextMsg && nextMsg.role === 'ai'
-      setEditingPartnerTimestamp(hasPartner ? nextMsg.created_at || null : null)
       setEditingPartnerId(hasPartner ? nextMsg.id || null : null)
     },
     [messages],
@@ -1178,7 +1168,7 @@ const ChatInterface = ({
       msgOverride = null,
       attOverride = null,
       togglesOverride = null,
-      { skipMeta = false, editingInfoOverride = null } = {},
+      { editingInfoOverride = null } = {},
     ) => {
       const textToSend = msgOverride !== null ? msgOverride : ''
       const attToSend = attOverride !== null ? attOverride : []
@@ -1201,8 +1191,6 @@ const ChatInterface = ({
 
       // Reset editing state
       setEditingIndex(null)
-      setEditingTargetTimestamp(null)
-      setEditingPartnerTimestamp(null)
       setEditingTargetId(null)
       setEditingPartnerId(null)
       setEditingSeed({ text: '', attachments: [] })
@@ -1341,36 +1329,6 @@ const ChatInterface = ({
     window.requestAnimationFrame(() => document.getElementById('chat-input-textarea')?.focus())
   }, [])
 
-  const handleRegenerateQuestion = useCallback(() => {
-    if (isLoading) return
-
-    const lastUserIndex = [...messages]
-      .map((m, idx) => (m.role === 'user' ? idx : -1))
-      .filter(idx => idx !== -1)
-      .pop()
-
-    if (lastUserIndex === undefined || lastUserIndex === -1) return
-
-    const userMsg = messages[lastUserIndex]
-    const nextMsg = messages[lastUserIndex + 1]
-    const hasPartner = nextMsg && nextMsg.role === 'ai'
-
-    const msgAttachments = Array.isArray(userMsg.content)
-      ? userMsg.content.filter(c => c.type === 'image_url')
-      : []
-
-    const text = extractUserQuestion(userMsg)
-    if (!text.trim() && msgAttachments.length === 0) return
-
-    const editingInfoOverride = {
-      index: lastUserIndex,
-      targetId: userMsg.id || null,
-      partnerId: hasPartner ? nextMsg.id || null : null,
-    }
-
-    handleSendMessage(text, msgAttachments, null, { editingInfoOverride })
-  }, [extractUserQuestion, handleSendMessage, isLoading, messages])
-
   const handleResendMessage = useCallback(
     userIndex => {
       if (isLoading) return
@@ -1435,9 +1393,7 @@ const ChatInterface = ({
       messages,
       setEditingIndex,
       setEditingPartnerId,
-      setEditingPartnerTimestamp,
       setEditingTargetId,
-      setEditingTargetTimestamp,
     ],
   )
 
@@ -1462,9 +1418,7 @@ const ChatInterface = ({
           setEditingIndex(null)
           setEditingSeed({ text: '', attachments: [] })
           setEditingTargetId(null)
-          setEditingTargetTimestamp(null)
           setEditingPartnerId(null)
-          setEditingPartnerTimestamp(null)
         } else if (editingIndex > index) {
           setEditingIndex(editingIndex - 1)
         }
@@ -1472,12 +1426,10 @@ const ChatInterface = ({
 
       if (editingTargetId && target.id === editingTargetId) {
         setEditingTargetId(null)
-        setEditingTargetTimestamp(null)
       }
 
       if (editingPartnerId && target.id === editingPartnerId) {
         setEditingPartnerId(null)
-        setEditingPartnerTimestamp(null)
       }
     },
     [
@@ -1489,9 +1441,7 @@ const ChatInterface = ({
       setMessages,
       setEditingIndex,
       setEditingPartnerId,
-      setEditingPartnerTimestamp,
       setEditingTargetId,
-      setEditingTargetTimestamp,
     ],
   )
 
@@ -1626,13 +1576,6 @@ const ChatInterface = ({
           conversationTitleEmojis={conversationTitleEmojis}
           isRegeneratingTitle={isRegeneratingTitle}
           onRegenerateTitle={handleRegenerateTitle}
-          documents={spaceDocuments}
-          documentsLoading={documentsLoading}
-          selectedDocumentIds={selectedDocumentIds}
-          isDocumentSelectorOpen={isDocumentSelectorOpen}
-          setIsDocumentSelectorOpen={setIsDocumentSelectorOpen}
-          documentSelectorRef={documentSelectorRef}
-          onToggleDocument={handleToggleDocument}
           messages={messages}
           isTimelineSidebarOpen={isTimelineSidebarOpen}
           onToggleTimeline={() => setIsTimelineSidebarOpen(true)}
@@ -1781,6 +1724,10 @@ const ChatInterface = ({
               }
               scrollToBottom={scrollToBottom}
               spacePrimaryAgentId={spacePrimaryAgentId}
+              documents={spaceDocuments}
+              documentsLoading={documentsLoading}
+              selectedDocumentIds={selectedDocumentIds}
+              onToggleDocument={handleToggleDocument}
             />
             <div className="text-center mt-2 text-xs text-gray-400 dark:text-gray-500">
               Qurio can make mistakes. Please use with caution.

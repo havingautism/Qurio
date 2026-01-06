@@ -85,6 +85,10 @@ const ChatInputBar = React.memo(
     editingLabel,
     scrollToBottom,
     spacePrimaryAgentId,
+    documents = [],
+    documentsLoading = false,
+    selectedDocumentIds = [],
+    onToggleDocument,
     variant = 'default',
   }) => {
     const { t } = useTranslation()
@@ -99,6 +103,8 @@ const ChatInputBar = React.memo(
     // Capsule Variant State
     const [isCapsuleMenuOpen, setIsCapsuleMenuOpen] = useState(false)
     const capsuleMenuRef = useRef(null)
+    const [isDocumentMenuOpen, setIsDocumentMenuOpen] = useState(false)
+    const documentMenuRef = useRef(null)
     const [isMultiline, setIsMultiline] = useState(false)
 
     // Auto-resize and multiline detection
@@ -208,6 +214,57 @@ const ChatInputBar = React.memo(
 
     // === CAPSULE VARIANT ===
     if (variant === 'capsule') {
+      const selectedIdSet = new Set((selectedDocumentIds || []).map(id => String(id)))
+      const selectedDocumentCount = selectedIdSet.size
+
+      const documentsListContent = (
+        <div className="flex flex-col gap-0.5 max-h-[250px] overflow-y-auto no-scrollbar">
+          {documentsLoading && (
+            <div className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400">
+              {t('chatInterface.documentsLoading')}
+            </div>
+          )}
+          {!documentsLoading && documents.length === 0 && (
+            <div className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400">
+              {t('chatInterface.documentsEmpty')}
+            </div>
+          )}
+          {!documentsLoading &&
+            documents.map(doc => {
+              const isSelected = selectedIdSet.has(String(doc.id))
+              return (
+                <button
+                  key={doc.id}
+                  onClick={() => onToggleDocument?.(doc.id)}
+                  className={clsx(
+                    'flex items-start gap-2.5 w-full px-3 py-2 rounded-xl text-sm transition-colors text-left',
+                    isSelected
+                      ? 'bg-gray-100 dark:bg-zinc-700/50 text-gray-900 dark:text-white font-medium'
+                      : 'hover:bg-gray-100 dark:hover:bg-zinc-700/50 text-gray-600 dark:text-gray-300',
+                  )}
+                >
+                  <span
+                    className={clsx(
+                      'mt-0.5 flex items-center justify-center w-4 h-4 rounded border transition-colors',
+                      isSelected
+                        ? 'bg-primary-500 border-primary-500 text-white'
+                        : 'border-gray-300 dark:border-zinc-600 text-transparent',
+                    )}
+                  >
+                    <Check size={12} />
+                  </span>
+                  <div className="flex flex-col min-w-0">
+                    <span className="truncate">{doc.name}</span>
+                    <span className="text-[10px] text-gray-400 font-normal">
+                      {(doc.file_type || '').toUpperCase()}
+                    </span>
+                  </div>
+                </button>
+              )
+            })}
+        </div>
+      )
+
       const uploadMenuContent = (
         <button
           onClick={handleUploadImage}
@@ -222,7 +279,7 @@ const ChatInputBar = React.memo(
           {/* Models List */}
           <div>
             <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-2 mb-2">
-              Model
+              Agent
             </div>
             <div className="flex flex-col gap-1.5 max-h-[300px] overflow-y-auto no-scrollbar">
               <button
@@ -339,11 +396,21 @@ const ChatInputBar = React.memo(
               </button>
             </div>
           </div>
+          {/* Documents (Mobile Only - Folded into Settings) */}
+          {documents && documents.length > 0 && (
+            <div>
+              <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-2 mb-2">
+                {t('chatInterface.documents')} ({selectedDocumentCount})
+              </div>
+              {documentsListContent}
+              <div className="h-px bg-gray-100 dark:bg-zinc-700/50 mt-3" />
+            </div>
+          )}
         </div>
       )
 
       return (
-        <div className="w-full max-w-2xl relative group mx-auto pb-2">
+        <div className="w-full max-w-3xl relative group  pb-2">
           {/* Floating Context Indicators */}
           {(showEditing || quotedText || attachments.length > 0) && (
             <div className="absolute bottom-full left-4 right-4 mb-2 flex flex-col gap-2 z-10">
@@ -469,6 +536,37 @@ const ChatInputBar = React.memo(
                     </MobileDrawer>
                   )}
                 </div>
+
+                {/* Document Selector (Desktop Only) */}
+                {/* {!isMobile && documents && documents.length > 0 && (
+                  <div className="relative" ref={documentMenuRef}>
+                    <button
+                      onClick={() => setIsDocumentMenuOpen(!isDocumentMenuOpen)}
+                      className={clsx(
+                        'p-1.5 sm:p-2 rounded-full transition-colors',
+                        isDocumentMenuOpen || selectedDocumentCount > 0
+                          ? 'text-primary-600 bg-primary-50 dark:bg-primary-900/20'
+                          : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 hover:bg-gray-200 dark:hover:bg-zinc-800',
+                      )}
+                      title={t('chatInterface.documents')}
+                    >
+                      <FileText size={20} strokeWidth={2} />
+                      {selectedDocumentCount > 0 && (
+                        <span className="absolute top-0 right-0 -mt-1 -mr-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary-500 text-[10px] text-white">
+                          {selectedDocumentCount}
+                        </span>
+                      )}
+                    </button>
+                    {isDocumentMenuOpen && (
+                      <div className="absolute bottom-full left-0 mb-3 w-64 bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-xl border border-gray-200/50 dark:border-zinc-700/50 rounded-2xl shadow-2xl z-50 overflow-hidden p-3 animate-in zoom-in-95 slide-in-from-bottom-4">
+                        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-2 mb-2">
+                          {t('chatInterface.documents')}
+                        </div>
+                        {documentsListContent}
+                      </div>
+                    )}
+                  </div>
+                )} */}
 
                 {/* Settings / Model Menu */}
                 <div className="relative" ref={capsuleMenuRef}>

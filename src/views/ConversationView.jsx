@@ -24,6 +24,8 @@ const ConversationView = () => {
   // Get initial chat state from router navigation state
   const initialChatState = location.state
 
+  const [fetchError, setFetchError] = useState(null)
+
   // Effect to fetch conversation data when conversationId changes
   useEffect(() => {
     const fetchConversation = async () => {
@@ -32,22 +34,47 @@ const ConversationView = () => {
       setConversation(prev =>
         prev?.id === conversationId ? prev : { id: conversationId, _isPlaceholder: true },
       )
+      setFetchError(null)
 
       try {
-        const { data } = await getConversation(conversationId)
+        const { data, error } = await getConversation(conversationId)
+        if (error) throw error
         if (data) {
           setConversation(data)
           if (optimisticSelection?.conversationId === conversationId) {
             clearOptimisticSelection()
           }
+        } else {
+          throw new Error('Conversation not found')
         }
       } catch (error) {
         console.error('Failed to fetch conversation:', error)
+        setFetchError(error)
       }
     }
 
     fetchConversation()
   }, [conversationId])
+
+  const shouldDelayRender =
+    !initialChatState &&
+    !fetchError &&
+    conversationId &&
+    (spacesLoading || !conversation || conversation?._isPlaceholder)
+
+  if (fetchError) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center p-4">
+        <div className="text-red-500 mb-2">Failed to load conversation</div>
+        <button
+          onClick={() => window.location.reload()}
+          className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90"
+        >
+          Retry
+        </button>
+      </div>
+    )
+  }
 
   // Listen for conversation space updates
   useEffect(() => {
@@ -155,19 +182,6 @@ const ConversationView = () => {
     initialChatState?.initialToggles?.deepResearch,
     initialSpaceSelection?.space?.id,
   ])
-
-  const shouldDelayRender =
-    !initialChatState &&
-    conversationId &&
-    (spacesLoading || !conversation || conversation?._isPlaceholder)
-
-  if (shouldDelayRender) {
-    return (
-      <div className="flex-1 flex items-center justify-center">
-        <FancyLoader />
-      </div>
-    )
-  }
 
   const ChatComponent = isDeepResearchConversation ? DeepResearchChatInterface : ChatInterface
 

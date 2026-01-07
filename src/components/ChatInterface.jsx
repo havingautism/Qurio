@@ -131,6 +131,7 @@ const ChatInterface = ({
     isAgentPreselecting,
     sendMessage,
     submitInteractiveForm,
+    resetLoading,
   } = useChatStore(
     useShallow(state => ({
       messages: state.messages,
@@ -147,8 +148,14 @@ const ChatInterface = ({
       isAgentPreselecting: state.isAgentPreselecting,
       sendMessage: state.sendMessage,
       submitInteractiveForm: state.submitInteractiveForm,
+      resetLoading: state.resetLoading,
     })),
   )
+
+  // Reset loading state on mount to prevent stale loaders
+  useEffect(() => {
+    resetLoading()
+  }, [])
 
   const [quotedText, setQuotedText] = useState(null)
   const [quoteContext, setQuoteContext] = useState(null)

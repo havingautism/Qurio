@@ -227,34 +227,6 @@ const buildAgentPrompt = agent => {
   const languageInstruction = getLanguageInstruction(agent)
   if (languageInstruction) parts.push(`## Language\n${languageInstruction}`)
 
-  // 4. Interactive Form Capability
-  const formInstructions = `## Interactive Forms
-You have the ability to generate interactive forms to collect specific information from the user when you need more context to provide a helpful answer (e.g., for recommendations, plans, or troubleshooting).
-To create a form, output a JSON object wrapped in a \`\`\`interactive-form\`\`\` code block.
-
-Format:
-\`\`\`interactive-form
-{
-  "kind": "interactive_form",
-  "id": "unique_id",
-  "title": "Form Title",
-  "fields": [
-    {
-      "name": "field_name",
-      "label": "Label",
-      "type": "select|checkbox|text|number|range",
-      "options": ["Option1", "Option2"], // For select/checkbox
-      "min": 0, "max": 100, // For range/number
-      "required": true
-    }
-  ]
-}
-\`\`\`
-
-User responses will be sent back to you. Use this feature naturally when appropriate.`
-
-  parts.push(formInstructions)
-
   return parts.length > 0 ? parts.join('\n\n') : null
 }
 
@@ -886,19 +858,38 @@ const callAIAPI = async (
         ? [...planMessage, ...conversationMessages]
         : conversationMessages
 
-    // Tag the placeholder with provider/model so UI can show it while streaming
-    set(state => {
-      const updated = [...state.messages]
-      const lastMsgIndex = updated.length - 1
-      if (lastMsgIndex < 0) return { messages: updated }
-      const lastMsg = { ...updated[lastMsgIndex] }
-      if (lastMsg.role === 'ai') {
-        lastMsg.provider = modelConfig.provider
-        lastMsg.model = modelConfig.model
-        updated[lastMsgIndex] = lastMsg
-      }
-      return { messages: updated }
-    })
+    // If no placeholder provided (e.g. form submission continuation), create one
+    if (!aiMessagePlaceholder) {
+      set(state => {
+        const newMessage = {
+          role: 'ai',
+          content: '',
+          created_at: new Date().toISOString(),
+          thinkingEnabled: thinkingActive,
+          deepResearch: !!toggles?.deepResearch,
+          provider: modelConfig.provider,
+          model: modelConfig.model,
+          agentId: selectedAgent?.id || null,
+          agentName: selectedAgent?.name || null,
+          agentEmoji: selectedAgent?.emoji || '',
+        }
+        return { messages: [...state.messages, newMessage] }
+      })
+    } else {
+      // Tag the placeholder with provider/model so UI can show it while streaming
+      set(state => {
+        const updated = [...state.messages]
+        const lastMsgIndex = updated.length - 1
+        if (lastMsgIndex < 0) return { messages: updated }
+        const lastMsg = { ...updated[lastMsgIndex] }
+        if (lastMsg.role === 'ai') {
+          lastMsg.provider = modelConfig.provider
+          lastMsg.model = modelConfig.model
+          updated[lastMsgIndex] = lastMsg
+        }
+        return { messages: updated }
+      })
+    }
 
     // Extract agent settings
     const agentTemperature = selectedAgent?.temperature
@@ -987,7 +978,10 @@ const callAIAPI = async (
                 durationMs: null,
                 step: typeof chunk.step === 'number' ? chunk.step : undefined,
                 total: typeof chunk.total === 'number' ? chunk.total : undefined,
-                textIndex: (lastMsg.content || '').length + (pendingText || '').length,
+                textIndex:
+                  typeof chunk.textIndex === 'number'
+                    ? chunk.textIndex
+                    : (lastMsg.content || '').length + (pendingText || '').length,
               })
               lastMsg.toolCallHistory = history
               updated[lastMsgIndex] = lastMsg
@@ -1203,10 +1197,10 @@ const finalizeMessage = async (
       const lastMsg = { ...updated[lastMsgIndex] }
       if (typeof result?.content !== 'undefined') {
         // Check if existing content has a form (continuation scenario)
-        const existingContent = String(lastMsg.content || '')
-        const hasFormInExisting =
-          existingContent.includes('"kind": "interactive_form"') ||
-          existingContent.includes('"kind":"interactive_form"')
+        const validToolCallHistory = Array.isArray(lastMsg.toolCallHistory)
+          ? lastMsg.toolCallHistory
+          : []
+        const hasFormInExisting = validToolCallHistory.some(tc => tc.name === 'interactive_form')
 
         if (!hasFormInExisting) {
           // Normal case: replace with finalized content (may include citations/grounding)
@@ -1394,27 +1388,23 @@ const finalizeMessage = async (
 
   // Persist AI message in database before related questions
   if (currentStore.conversationId) {
+    // Define latestAi in scope for reuse
+    const aiMessages = (currentStore.messages || []).filter(m => m.role === 'ai')
+    const latestAi = aiMessages[aiMessages.length - 1]
+
     const fallbackThoughtFromState = (() => {
-      const aiMessages = (currentStore.messages || []).filter(m => m.role === 'ai')
-      const latestAi = aiMessages[aiMessages.length - 1]
       const thoughtValue = latestAi?.thought
       return typeof thoughtValue === 'string' ? thoughtValue.trim() : ''
     })()
 
     const baseThought = normalizedThought || fallbackThoughtFromState || null
     const planForPersistence = (() => {
-      const aiMessages = (currentStore.messages || []).filter(m => m.role === 'ai')
-      const latestAi = aiMessages[aiMessages.length - 1]
       return typeof latestAi?.researchPlan === 'string' ? latestAi.researchPlan : null
     })()
     const toolCallHistoryForPersistence = (() => {
-      const aiMessages = (currentStore.messages || []).filter(m => m.role === 'ai')
-      const latestAi = aiMessages[aiMessages.length - 1]
       return Array.isArray(latestAi?.toolCallHistory) ? latestAi.toolCallHistory : null
     })()
     const researchStepsForPersistence = (() => {
-      const aiMessages = (currentStore.messages || []).filter(m => m.role === 'ai')
-      const latestAi = aiMessages[aiMessages.length - 1]
       return Array.isArray(latestAi?.researchSteps) ? latestAi.researchSteps : null
     })()
     const thoughtForPersistence =
@@ -1437,11 +1427,28 @@ const finalizeMessage = async (
       agent_is_default: !!safeAgent?.isDefault,
       content: sanitizeJson(contentForPersistence),
       thinking_process: thoughtForPersistence,
-      tool_calls: sanitizeJson(result.toolCalls || null),
+      tool_calls: sanitizeJson(
+        (latestAi?.tool_calls && latestAi.tool_calls.length > 0 ? latestAi.tool_calls : null) ||
+          result.toolCalls ||
+          (toolCallHistoryForPersistence && toolCallHistoryForPersistence.length > 0
+            ? toolCallHistoryForPersistence.map(tc => ({
+                id: tc.id,
+                type: 'function',
+                function: {
+                  name: tc.name,
+                  arguments: tc.arguments,
+                },
+              }))
+            : null),
+      ),
       tool_call_history: sanitizeJson(toolCallHistoryForPersistence || []),
       research_step_history: sanitizeJson(researchStepsForPersistence || []),
       related_questions: null,
-      sources: sanitizeJson(result.sources || null),
+      sources: sanitizeJson(
+        (latestAi?.sources && latestAi.sources.length > 0 ? latestAi.sources : null) ||
+          result.sources ||
+          null,
+      ),
       grounding_supports: sanitizeJson(result.groundingSupports || null),
       created_at: new Date().toISOString(),
     }
@@ -1539,12 +1546,19 @@ const finalizeMessage = async (
       : (currentStore.messages?.[currentStore.messages.length - 1]?.content ?? ''),
   )
   const isInteractiveForm =
-    normalizedAiContent.includes('"kind": "interactive_form"') ||
-    normalizedAiContent.includes('"kind":"interactive_form"') ||
-    /language-interactive/i.test(normalizedAiContent)
+    result?.toolCalls?.some(tc => tc.name === 'interactive_form') ||
+    (currentStore.messages?.[currentStore.messages.length - 1]?.toolCallHistory || []).some(
+      tc => tc.name === 'interactive_form',
+    )
 
   // Generate related questions (only if enabled and NOT a form)
   let related = []
+  console.log(
+    '[chatStore] Finalizing. Related enabled:',
+    toggles?.related,
+    'isInteractiveForm:',
+    isInteractiveForm,
+  )
   if (toggles?.related && !isInteractiveForm) {
     set(state => {
       const updated = [...state.messages]
@@ -1589,7 +1603,18 @@ const finalizeMessage = async (
         'Related questions',
       )
     } catch (error) {
-      console.error('Failed to generate related questions:', error)
+      console.error('[chatStore] Failed to generate related questions:', error)
+      set(state => {
+        const updated = [...state.messages]
+        const lastMsgIndex = updated.length - 1
+        if (lastMsgIndex >= 0 && updated[lastMsgIndex].role === 'ai') {
+          updated[lastMsgIndex] = {
+            ...updated[lastMsgIndex],
+            relatedLoading: false,
+          }
+        }
+        return { messages: updated }
+      })
     } finally {
       set(state => {
         const updated = [...state.messages]
@@ -1662,6 +1687,8 @@ const useChatStore = create((set, get) => ({
   // ========================================
   // STATE SETTERS
   // ========================================
+  /** Resets loading state manually */
+  resetLoading: () => set({ isLoading: false, isMetaLoading: false, isAgentPreselecting: false }),
   /** Sets messages array (supports function for updates) */
   setMessages: messages =>
     set(state => ({
@@ -1731,7 +1758,11 @@ const useChatStore = create((set, get) => ({
         Array.isArray(value) ? `${key}: ${value.join(', ')}` : `${key}: ${value}`,
       )
       .join('\n')
-    const formContent = `[Form Submission]\n${formattedValues}`
+    const formContent = `[Form Submission]
+${formattedValues}
+
+[INSTRUCTION]
+Analyze the submitted data. If critical information is still missing or if the request requires further refinement, you may present another 'interactive_form'. However, if the data is sufficient, proceed with providing the final answer directly. Keep the interaction efficient.`
 
     const hiddenUserMessage = {
       role: 'user',
@@ -1740,14 +1771,20 @@ const useChatStore = create((set, get) => ({
       created_at: new Date().toISOString(),
     }
 
-    // 2. Persist to DB (but NOT state) to maintain context without UI clutter
+    // 2. Persist to DB and add to STATE to maintain context
+    // We must add it to state so the UI (MessageBubble) knows the form is submitted
     await addMessage(hiddenUserMessage)
+
+    set(state => {
+      const updated = [...state.messages, hiddenUserMessage]
+      return { messages: updated }
+    })
 
     // Append newline to last AI message to separate form from new content
     set(state => {
       const updated = [...state.messages]
-      const lastMsgIndex = updated.length - 1
-      if (lastMsgIndex >= 0) {
+      const lastMsgIndex = updated.length - 2 // The AI message is now second to last
+      if (lastMsgIndex >= 0 && updated[lastMsgIndex].role === 'ai') {
         updated[lastMsgIndex] = {
           ...updated[lastMsgIndex],
           content: updated[lastMsgIndex].content + '\n\n',
@@ -1762,12 +1799,30 @@ const useChatStore = create((set, get) => ({
     const effectiveAgent = selectedAgent || fallbackAgent
     const contextMessages = [...messages, hiddenUserMessage]
 
-    set({ isLoading: true })
+    // Create AI placeholder for the response
+    const aiMessagePlaceholder = {
+      role: 'ai',
+      content: '',
+      created_at: new Date().toISOString(),
+      thinkingEnabled: !!(toggles?.thinking || toggles?.deepResearch),
+      deepResearch: !!toggles?.deepResearch,
+      researchPlan: '',
+      researchPlanLoading: !!toggles?.deepResearch,
+      agentId: effectiveAgent?.id || null,
+      agentName: effectiveAgent?.name || null,
+      agentEmoji: effectiveAgent?.emoji || '',
+      agentIsDefault: !!effectiveAgent?.isDefault,
+    }
+
+    set(state => ({
+      isLoading: true,
+      messages: [...state.messages, aiMessagePlaceholder],
+    }))
 
     try {
       await callAIAPI(
         contextMessages,
-        null, // placeholder unused for targeting last message
+        aiMessagePlaceholder, // Pass the placeholder
         settings,
         toggles,
         null, // callbacks

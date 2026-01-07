@@ -21,6 +21,10 @@ const InteractiveForm = ({
   const [errors, setErrors] = useState({})
 
   // Initialize values from submitted data or defaults
+  // Use JSON string of formData to prevent reset on reference change
+  const formDataString = JSON.stringify(formData)
+  const submittedValuesString = JSON.stringify(submittedValues)
+
   React.useEffect(() => {
     const initialValues = {}
     formData.fields?.forEach(field => {
@@ -49,7 +53,7 @@ const InteractiveForm = ({
       }
     })
     setValues(initialValues)
-  }, [formData, submittedValues])
+  }, [formDataString, submittedValuesString])
 
   // Validate form
   const validate = () => {

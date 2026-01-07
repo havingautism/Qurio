@@ -171,6 +171,7 @@ const buildToolCallEvent = (toolCall, argsOverride) => ({
     typeof argsOverride !== 'undefined'
       ? formatToolArgumentsFromValue(argsOverride)
       : formatToolArgumentsFromValue(getToolCallArguments(toolCall)),
+  textIndex: toolCall?.textIndex,
 })
 
 /**
@@ -235,7 +236,7 @@ const updateToolCallsMap = (toolCallsMap, newToolCalls) => {
 /**
  * Helper: Merge tool calls by index
  */
-const mergeToolCallsByIndex = (toolCallsByIndex, newToolCalls) => {
+const mergeToolCallsByIndex = (toolCallsByIndex, newToolCalls, currentTextLength = 0) => {
   if (!Array.isArray(newToolCalls)) return
 
   for (const toolCall of newToolCalls) {
@@ -251,6 +252,8 @@ const mergeToolCallsByIndex = (toolCallsByIndex, newToolCalls) => {
     toolCallsByIndex[index] = {
       ...current,
       ...toolCall,
+      // If this is a new tool call, capture the current text position for interleaving
+      textIndex: current.textIndex !== undefined ? current.textIndex : currentTextLength,
       function: {
         ...currentFunction,
         ...nextFunction,
@@ -297,16 +300,58 @@ export const streamChat = async function* (params) {
 
   // Apply context limit
   const trimmedMessages = applyContextLimit(messages, contextMessageLimit)
+
+  // Inject interactive_form guidance if tool is available
+  // Inject interactive_form guidance (GLOBAL TOOL)
+
+  const formGuidance = `
+[TOOL USE GUIDANCE]
+When you need to collect structured information from the user (e.g. preferences, requirements, booking details), use the 'interactive_form' tool.
+CRITICAL: DO NOT list questions in text or markdown. YOU MUST USE the 'interactive_form' tool to display fields.
+Keep forms concise (3-6 fields).
+
+[MANDATORY TEXT-FIRST RULE]
+CRITICAL: You MUST output meaningful introductory text BEFORE calling 'interactive_form'.
+- NEVER call 'interactive_form' as the very first thing in your response
+- ALWAYS explain the context, acknowledge the user's request, or provide guidance BEFORE the form
+- Minimum: Output at least 1-2 sentences before the form call
+- Example: "I can help you with that. To provide the best recommendation, please share some details below:"
+
+[SINGLE FORM PER RESPONSE]
+CRITICAL: You may call 'interactive_form' ONLY ONCE per response. Do NOT call it multiple times in the same answer.
+If you need to collect information, design ONE comprehensive form that gathers all necessary details at once.
+
+[MULTI-TURN INTERACTIONS]
+1. If the information from a submitted form is insufficient, you MAY present another 'interactive_form' in your NEXT response (after the user submits the first form).
+2. LIMIT: Use at most 2-3 forms total across the entire conversation. Excessive questioning frustrates users.
+3. INTERLEAVING: You can place the form anywhere in your response. Output introductory text FIRST (e.g., "I can help with that. Please provide some details below:"), then call 'interactive_form' once.
+4. If the user has provided enough context through previous forms, proceed directly to the final answer without requesting more information.`
+
+  // Inject system prompt. If conversation is long (>2 turns), we append a reminder at the end too.
+  const systemIndex = trimmedMessages.findIndex(m => m.role === 'system')
+  if (systemIndex !== -1) {
+    trimmedMessages[systemIndex] = {
+      ...trimmedMessages[systemIndex],
+      content: trimmedMessages[systemIndex].content + formGuidance,
+    }
+  } else {
+    trimmedMessages.unshift({ role: 'system', content: formGuidance })
+  }
+
   let currentMessages = trimmedMessages
 
   // Get provider adapter
   const adapter = getProviderAdapter(provider)
 
   // Prepare tool definitions
+  // Always include interactive_form as it is a global tool
+  const interactiveFormTool = getToolDefinitionsByIds(['interactive_form'])[0]
   const agentToolDefinitions = provider === 'gemini' ? [] : getToolDefinitionsByIds(toolIds)
-  const combinedTools = [...(Array.isArray(tools) ? tools : []), ...agentToolDefinitions].filter(
-    Boolean,
-  )
+  const combinedTools = [
+    ...(Array.isArray(tools) ? tools : []),
+    ...agentToolDefinitions,
+    interactiveFormTool, // Always add interactive_form
+  ].filter(Boolean)
 
   // Deduplicate tools by name
   const normalizedTools = []
@@ -527,33 +572,13 @@ export const streamChat = async function* (params) {
         const messageChunk = chunk?.message ?? chunk
         const contentValue = messageChunk?.content ?? chunk?.content
 
-        // Collect tool_calls from streaming chunks
-        const toolCalls =
-          messageChunk?.tool_calls ||
-          messageChunk?.additional_kwargs?.tool_calls ||
-          messageChunk?.additional_kwargs?.tool_calls
-        if (Array.isArray(toolCalls)) {
-          mergeToolCallsByIndex(toolCallsByIndex, toolCalls)
-          updateToolCallsMap(toolCallsMap, toolCalls)
-        }
-
-        // Also check raw response for tool calls
-        const rawToolCalls =
-          messageChunk?.additional_kwargs?.__raw_response?.choices?.[0]?.delta?.tool_calls ||
-          messageChunk?.additional_kwargs?.__raw_response?.choices?.[0]?.tool_calls
-        if (Array.isArray(rawToolCalls)) {
-          mergeToolCallsByIndex(toolCallsByIndex, rawToolCalls)
-          updateToolCallsMap(toolCallsMap, rawToolCalls)
-        }
-
-        // Extract reasoning/thinking content using adapter
-        // Each adapter handles its own content format (e.g., Gemini's parts array)
+        // 1. Process reasoning/thinking content using adapter
         const reasoning = adapter.extractThinkingContent(messageChunk)
         if (reasoning) {
           emitThought(String(reasoning))
         }
 
-        // Process text content
+        // 2. Process text content first so textIndex captures position AFTER this chunk's text
         let chunkText = normalizeTextContent(contentValue)
         if (!chunkText) {
           const rawDeltaContent =
@@ -564,6 +589,25 @@ export const streamChat = async function* (params) {
         }
         if (chunkText) {
           handleTaggedText(chunkText)
+        }
+
+        // 3. Collect tool_calls from streaming chunks
+        const toolCalls =
+          messageChunk?.tool_calls ||
+          messageChunk?.additional_kwargs?.tool_calls ||
+          messageChunk?.additional_kwargs?.tool_calls
+        if (Array.isArray(toolCalls)) {
+          mergeToolCallsByIndex(toolCallsByIndex, toolCalls, fullContent.length)
+          updateToolCallsMap(toolCallsMap, toolCalls)
+        }
+
+        // 4. Also check raw response for tool calls
+        const rawToolCalls =
+          messageChunk?.additional_kwargs?.__raw_response?.choices?.[0]?.delta?.tool_calls ||
+          messageChunk?.additional_kwargs?.__raw_response?.choices?.[0]?.tool_calls
+        if (Array.isArray(rawToolCalls)) {
+          mergeToolCallsByIndex(toolCallsByIndex, rawToolCalls, fullContent.length)
+          updateToolCallsMap(toolCallsMap, rawToolCalls)
         }
 
         // Yield accumulated chunks and track thought content
@@ -599,6 +643,7 @@ export const streamChat = async function* (params) {
               function: toolName
                 ? { name: toolName, arguments: formatToolArgumentsFromValue(toolArgs) }
                 : undefined,
+              textIndex: toolCall.textIndex,
             }
           })
           .filter(toolCall => toolCall?.id && toolCall?.function?.name)

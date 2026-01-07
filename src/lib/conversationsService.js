@@ -28,7 +28,7 @@ export const listConversations = async (options = {}) => {
     .select(
       'id,title,title_emojis,created_at,updated_at,space_id,api_provider,is_favorited,last_agent_id',
       {
-      count: 'exact',
+        count: 'exact',
       },
     )
     .order(sortBy, { ascending })
@@ -41,8 +41,8 @@ export const listConversations = async (options = {}) => {
   if (Array.isArray(excludeSpaceIds) && excludeSpaceIds.length > 0) {
     const normalized = excludeSpaceIds.map(String).filter(Boolean)
     if (normalized.length > 0) {
-      const filter = `(${normalized.map(id => `"${id}"`).join(',')})`
-      query = query.not('space_id', 'in', filter)
+      // Use OR to preserve NULL space_id (form conversations)
+      query = query.or(`space_id.is.null,space_id.not.in.(${normalized.join(',')})`)
     }
   }
 
@@ -118,7 +118,9 @@ export const listBookmarkedConversations = async (options = {}) => {
   // Build query with cursor support and is_favorited filter
   let query = supabase
     .from(table)
-    .select('id,title,title_emojis,created_at,updated_at,space_id,api_provider,is_favorited,last_agent_id')
+    .select(
+      'id,title,title_emojis,created_at,updated_at,space_id,api_provider,is_favorited,last_agent_id',
+    )
     .eq('is_favorited', true)
     .order(sortBy, { ascending })
     .limit(limit)
@@ -127,7 +129,7 @@ export const listBookmarkedConversations = async (options = {}) => {
     const normalized = excludeSpaceIds.map(String).filter(Boolean)
     if (normalized.length > 0) {
       const filter = `(${normalized.map(id => `"${id}"`).join(',')})`
-      query = query.not('space_id', 'in', filter)
+      query = query.or(`space_id.is.null,space_id.not.in.(${normalized.join(',')})`)
     }
   }
 
@@ -175,7 +177,9 @@ export const getConversation = async id => {
   if (!supabase) return { data: null, error: new Error('Supabase not configured') }
   const { data, error } = await supabase
     .from(table)
-    .select('id,title,title_emojis,created_at,updated_at,space_id,api_provider,is_favorited,last_agent_id')
+    .select(
+      'id,title,title_emojis,created_at,updated_at,space_id,api_provider,is_favorited,last_agent_id',
+    )
     .eq('id', id)
     .single()
   return { data, error }

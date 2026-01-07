@@ -114,7 +114,7 @@ const MessageBubble = ({
   // Extract message by index
   const message = messages[messageIndex]
 
-  // Merge content if this is a form message followed by continuation
+  // Merge content if this is a form message followed by continuation(s)
   const mergedMessage = useMemo(() => {
     if (!message || message.role !== 'ai') return message
 
@@ -125,49 +125,59 @@ const MessageBubble = ({
 
     if (!hasForm) return message
 
-    // Check if next message is [Form Submission]
-    const nextUserMsg = messages[messageIndex + 1]
-    const nextAiMsg = messages[messageIndex + 2]
+    // Recursively merge all form submission chains
+    let currentIndex = messageIndex
+    let mergedContent = messageContent
+    let allSubmittedValues = {}
+    let hasAnySubmission = false
 
-    if (
-      nextUserMsg &&
-      nextUserMsg.role === 'user' &&
-      typeof nextUserMsg.content === 'string' &&
-      nextUserMsg.content.startsWith('[Form Submission]')
-    ) {
-      // Parse submitted values from [Form Submission] message
-      const submissionContent = nextUserMsg.content
-      const submittedValues = {}
+    // Keep scanning forward for [Form Submission] → AI pairs
+    while (true) {
+      const nextUserMsg = messages[currentIndex + 1]
+      const nextAiMsg = messages[currentIndex + 2]
 
-      // Parse format: "[Form Submission]\nField1: Value1\nField2: Value2"
-      const lines = submissionContent.split('\n').slice(1) // Skip "[Form Submission]" line
-      lines.forEach(line => {
-        const match = line.match(/^([^:]+):\s*(.+)$/)
-        if (match) {
-          const fieldName = match[1].trim()
-          const value = match[2].trim()
-          submittedValues[fieldName] = value
-        }
-      })
+      // Check if we have a submission-continuation pair
+      if (
+        nextUserMsg &&
+        nextUserMsg.role === 'user' &&
+        typeof nextUserMsg.content === 'string' &&
+        nextUserMsg.content.startsWith('[Form Submission]') &&
+        nextAiMsg &&
+        nextAiMsg.role === 'ai'
+      ) {
+        hasAnySubmission = true
 
-      // Base merged message with submission state
-      const merged = {
+        // Parse submitted values from this [Form Submission]
+        const submissionContent = nextUserMsg.content
+        const lines = submissionContent.split('\n').slice(1) // Skip "[Form Submission]" line
+        lines.forEach(line => {
+          const match = line.match(/^([^:]+):\s*(.+)$/)
+          if (match) {
+            const fieldName = match[1].trim()
+            const value = match[2].trim()
+            allSubmittedValues[fieldName] = value
+          }
+        })
+
+        // Merge the continuation AI message content
+        mergedContent += '\n\n' + (nextAiMsg.content || '')
+
+        // Move forward by 2 to check for next pair
+        currentIndex += 2
+      } else {
+        // No more form submission pairs, stop
+        break
+      }
+    }
+
+    // If we found any submissions, return merged message
+    if (hasAnySubmission) {
+      return {
         ...message,
+        content: mergedContent,
         _formSubmitted: true,
-        _formSubmittedValues: submittedValues,
+        _formSubmittedValues: allSubmittedValues,
       }
-
-      // If there is an AI continuation, merge its content
-      if (nextAiMsg && nextAiMsg.role === 'ai') {
-        merged.content = messageContent + '\n\n' + (nextAiMsg.content || '')
-        // Also merge other AI properties like thought process if needed
-        if (nextAiMsg.thinking_process) {
-          // We might want to show thinking from the answer message
-          merged.thought = nextAiMsg.thinking_process
-        }
-      }
-
-      return merged
     }
 
     return message

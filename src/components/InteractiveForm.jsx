@@ -1,6 +1,7 @@
 import clsx from 'clsx'
 import { Check, ChevronDown } from 'lucide-react'
 import React, { useState, useRef, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Custom Select Component
@@ -30,14 +31,14 @@ const CustomSelect = ({ value, onChange, options, placeholder, disabled, error }
       <div
         onClick={() => !disabled && setIsOpen(!isOpen)}
         className={clsx(
-          'w-full pl-4 pr-10 py-3.5 rounded-2xl cursor-pointer transition-all duration-300 border',
+          'w-full pl-4 pr-10 py-3.5 rounded-2xl cursor-pointer transition-all duration-300 border border-gray-200 dark:border-white/10',
           'flex items-center justify-between',
           'bg-gray-50/50 dark:bg-zinc-900/50 hover:bg-white dark:hover:bg-zinc-800 backdrop-blur-md',
           isOpen
             ? 'ring-2 ring-primary-500/20 border-primary-500/50 shadow-lg shadow-primary-500/5'
-            : 'border-transparent hover:border-gray-200 dark:hover:border-white/10',
+            : ' hover:border-gray-200 dark:hover:border-white/10',
           disabled && 'opacity-60 cursor-not-allowed',
-          error && '!border-red-500/50 !bg-red-50/10 !shadow-none',
+          error && 'border-red-500/50! bg-red-50/10! shadow-none',
         )}
       >
         <span
@@ -106,10 +107,12 @@ const InteractiveForm = ({
   messageId,
   isSubmitted = false,
   submittedValues = {},
+  developerMode = false,
+  onShowDetails = null,
 }) => {
   const [values, setValues] = useState({})
   const [errors, setErrors] = useState({})
-
+  const { t } = useTranslation()
   // Initialize values
   const formDataString = JSON.stringify(formData)
   const submittedValuesString = JSON.stringify(submittedValues)
@@ -177,10 +180,19 @@ const InteractiveForm = ({
 
   return (
     <div className="my-8 mx-1">
-      <div className="p-6 md:p-8 rounded-[2rem] bg-white/60 dark:bg-black/40 backdrop-blur-xl border border-white/50 dark:border-white/5 shadow-2xl shadow-gray-200/50 dark:shadow-black/50 relative group">
+      <div className="p-6 md:p-8 rounded-[2rem]  bg-white/60 dark:bg-black/40 backdrop-blur-xl border border-gray-200 dark:border-white/10 shadow-2xl shadow-gray-200/50 dark:shadow-black/50 relative group">
         {/* Decorative Background Gradients */}
         <div className="absolute -top-20 -right-20 w-60 h-60 bg-primary-500/10 rounded-full blur-[80px] group-hover:bg-primary-500/15 transition-colors duration-700 pointer-events-none" />
         <div className="absolute -bottom-20 -left-20 w-60 h-60 bg-blue-500/10 rounded-full blur-[80px] group-hover:bg-blue-500/15 transition-colors duration-700 pointer-events-none" />
+        {developerMode && (
+          <button
+            type="button"
+            onClick={onShowDetails}
+            className="absolute top-6 right-6 z-20 text-[10px] text-primary-600 dark:text-primary-300 hover:underline font-medium"
+          >
+            {t('messageBubble.toolDetails')}
+          </button>
+        )}
 
         <div className="relative z-10">
           {/* Header */}
@@ -330,11 +342,11 @@ const InteractiveForm = ({
               {isSubmitted ? (
                 <span className="flex items-center justify-center gap-2">
                   <Check size={20} />
-                  已提交反馈
+                  {t('common.commited')}
                 </span>
               ) : (
                 <span className="relative z-10 flex items-center justify-center gap-2">
-                  提交信息
+                  {t('common.commit')}
                   <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-500 ease-out" />
                 </span>
               )}

@@ -8,7 +8,9 @@
     "uploadImage": "上传图片",
     "uploadDocument": "上传文档（敬请期待）",
     "on": "是",
-    "off": "否"
+    "off": "否",
+    "commit": "提交",
+    "commited": "已提交"
   },
   "app": {
     "name": "Qurio",

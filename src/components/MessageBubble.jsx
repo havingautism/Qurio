@@ -1694,7 +1694,7 @@ const MessageBubble = ({
                                           </div>
                                           <span
                                             className={clsx(
-                                              'px-1.5 py-0.5 rounded-full text-[10px] ml-auto flex-shrink-0 flex items-center justify-center min-w-[20px]',
+                                              'px-1.5 py-0.5 rounded-full text-[10px] ml-auto shrink-0 flex items-center justify-center min-w-[20px]',
                                               item.status === 'error'
                                                 ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
                                                 : item.status === 'done'
@@ -1912,7 +1912,7 @@ const MessageBubble = ({
                                 </div>
                                 <span
                                   className={clsx(
-                                    'px-2 py-0.5 rounded-full text-[11px] ml-auto flex-shrink-0 flex items-center justify-center min-w-[24px]',
+                                    'px-2 py-0.5 rounded-full text-[11px] ml-auto shrink-0 flex items-center justify-center min-w-[24px]',
                                     item.status === 'error'
                                       ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
                                       : item.status === 'done'
@@ -1936,49 +1936,57 @@ const MessageBubble = ({
                     ))}
 
                   {/* Render Interactive Forms */}
-                  {isStreaming ? (
-                    <div className="my-4  rounded-xl  space-y-4 animate-pulse">
-                      <div className="h-6 bg-gray-200 dark:bg-zinc-700 rounded w-1/3"></div>
-                      <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-2/3"></div>
-                      <div className="space-y-2">
-                        <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-1/4"></div>
-                        <div className="h-10 bg-gray-200 dark:bg-zinc-700 rounded w-full"></div>
-                      </div>
-                      <div className="space-y-2">
-                        <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-1/4"></div>
-                        <div className="h-10 bg-gray-200 dark:bg-zinc-700 rounded w-full"></div>
-                      </div>
-                      <div className="h-10 bg-gray-200 dark:bg-zinc-700 rounded w-full mt-4"></div>
-                    </div>
-                  ) : (
-                    formTools.map((item, formIdx) => {
-                      try {
-                        const formData = JSON.parse(item.arguments)
-                        return (
-                          <InteractiveForm
-                            key={`form-${formIdx}`}
-                            formData={formData}
-                            onSubmit={handleFormSubmit}
-                            messageId={message.id}
-                            isSubmitted={!!item._isSubmitted}
-                            submittedValues={mergedMessage._formSubmittedValues || {}}
-                            developerMode={developerMode}
-                            onShowDetails={() => setActiveToolDetail(item)}
-                          />
-                        )
-                      } catch (e) {
-                        console.error('Failed to parse interactive form arguments:', e)
+                  {formTools.map((item, formIdx) => {
+                    try {
+                      // Try to parse the form data. If it's valid, show the form even if still streaming.
+                      const formData = JSON.parse(item.arguments)
+                      return (
+                        <InteractiveForm
+                          key={`form-${formIdx}`}
+                          formData={formData}
+                          onSubmit={handleFormSubmit}
+                          messageId={message.id}
+                          isSubmitted={!!item._isSubmitted}
+                          submittedValues={mergedMessage._formSubmittedValues || {}}
+                          developerMode={developerMode}
+                          onShowDetails={() => setActiveToolDetail(item)}
+                        />
+                      )
+                    } catch (e) {
+                      // If parsing fails but we are still streaming, show the skeleton loader
+                      if (isStreaming) {
                         return (
                           <div
-                            key={`form-error-${formIdx}`}
-                            className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-700 dark:text-red-300"
+                            key={`form-skeleton-${formIdx}`}
+                            className="my-4  rounded-xl  space-y-4 animate-pulse"
                           >
-                            Error displaying form: {e.message}
+                            <div className="h-6 bg-gray-200 dark:bg-zinc-700 rounded w-1/3"></div>
+                            <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-2/3"></div>
+                            <div className="space-y-2">
+                              <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-1/4"></div>
+                              <div className="h-10 bg-gray-200 dark:bg-zinc-700 rounded w-full"></div>
+                            </div>
+                            <div className="space-y-2">
+                              <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-1/4"></div>
+                              <div className="h-10 bg-gray-200 dark:bg-zinc-700 rounded w-full"></div>
+                            </div>
+                            <div className="h-10 bg-gray-200 dark:bg-zinc-700 rounded w-full mt-4"></div>
                           </div>
                         )
                       }
-                    })
-                  )}
+
+                      // If not streaming and parsing failed, show the error
+                      console.error('Failed to parse interactive form arguments:', e)
+                      return (
+                        <div
+                          key={`form-error-${formIdx}`}
+                          className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-700 dark:text-red-300"
+                        >
+                          Error displaying form: {e.message}
+                        </div>
+                      )
+                    }
+                  })}
                 </div>
               )
             }

@@ -302,6 +302,8 @@ export const streamChat = async function* (params) {
   // Apply context limit
   const trimmedMessages = applyContextLimit(messages, contextMessageLimit)
 
+  const preExecutionEvents = []
+
   // Check for time-related keywords in the last user message
   const lastUserMessage = trimmedMessages
     .slice()
@@ -313,18 +315,23 @@ export const streamChat = async function* (params) {
     const isTimeMatch = timeKeywordsRegex.test(lastUserMessage.content)
     const isToolEnabled = Array.isArray(toolIds) && toolIds.includes('local_time')
 
-    // console.log('[TimeInject] Checking:', {
-    //   content: lastUserMessage.content,
-    //   match: isTimeMatch,
-    //   toolIds,
-    //   enabled: isToolEnabled
-    // })
-
     if (isTimeMatch && isToolEnabled) {
       try {
         console.log('[TimeInject] Injecting local time context...')
+        const startedAt = Date.now()
         const timeResult = await executeToolByName('local_time', {}, {})
         const timeContext = `\n\n[SYSTEM INJECTED CONTEXT]\nCurrent Local Time: ${timeResult.formatted} (${timeResult.timezone})`
+
+        // Prepare UI events
+        const pseudoToolCall = {
+          id: `local-time-${Date.now()}`,
+          function: { name: 'local_time', arguments: '{}' },
+          textIndex: 0,
+        }
+        preExecutionEvents.push(buildToolCallEvent(pseudoToolCall, {}))
+        preExecutionEvents.push(
+          buildToolResultEvent(pseudoToolCall, null, Date.now() - startedAt, timeResult),
+        )
 
         // Inject into the LAST USER message for better attention
         const lastUserIndex = trimmedMessages
@@ -347,7 +354,6 @@ export const streamChat = async function* (params) {
   // Inject interactive_form guidance (GLOBAL TOOL)
 
   let currentMessages = trimmedMessages
-  console.log('currentMessages', currentMessages)
 
   // Get provider adapter
   const adapter = getProviderAdapter(provider)
@@ -457,6 +463,11 @@ If you need to collect information, design ONE comprehensive form that gathers a
   let loops = 0
   const maxLoops = 10
 
+  // Yield pre-execution events (e.g. forced local_time)
+  for (const event of preExecutionEvents) {
+    yield event
+  }
+
   while (loops < maxLoops) {
     loops += 1
 
@@ -533,6 +544,7 @@ If you need to collect information, design ONE comprehensive form that gathers a
           const result = await executeToolByName(toolName, parsedArgs || {}, toolConfig)
           if (isSearchToolName(toolName)) {
             if (toolName === 'search') {
+              //kimi search,待修改
               collectKimiSources(result, sourcesMap)
             } else {
               collectWebSearchSources(result, sourcesMap)

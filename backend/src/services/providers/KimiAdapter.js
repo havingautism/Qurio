@@ -64,42 +64,12 @@ export class KimiAdapter extends BaseProviderAdapter {
   }
 
   /**
-   * Execute request
-   * IMPORTANT: Kimi doesn't support streaming tool calls reliably
-   * When tools are present and streaming is requested, we use non-streaming for tool calls
+   * Execute request with streaming support
+   * Kimi supports streaming tool calls natively with proper argument accumulation
    */
   async execute(messages, params) {
     const { tools, stream } = params
 
-    // ⚠️ Known limitation: Kimi's streaming tool_calls have incomplete arguments
-    // Fallback to non-streaming when tools are present
-    // ⚠️ Known limitation: Kimi's streaming tool_calls have incomplete arguments
-    // Fallback to non-streaming when tools are present
-    if (tools && tools.length > 0 && stream) {
-      // 1. Probe with non-streaming (to detect tools)
-      const execution = await this.executeNonStreamingForToolCalls(messages, params)
-
-      // 2. If it's a tool call, return it as is
-      if (execution.type === 'tool_calls') {
-        return execution
-      }
-
-      // 3. If NO tool calls (final answer), switch to streaming
-      // This ensures we get proper token streaming and thinking tag parsing
-      const modelInstance = this.buildModel({
-        ...params,
-        tools,
-        streaming: true,
-      })
-
-      return {
-        type: 'stream',
-        modelInstance,
-        messages,
-      }
-    }
-
-    // Regular streaming (no tools configured)
     const modelInstance = this.buildModel({
       ...params,
       tools,

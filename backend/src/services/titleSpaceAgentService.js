@@ -49,8 +49,8 @@ const buildGeminiModel = ({
   temperature,
   top_k,
   top_p,
-  tools,
-  thinking,
+  _tools,
+  _thinking,
   streaming,
 }) => {
   if (!apiKey) throw new Error('Missing API key')
@@ -200,7 +200,7 @@ const buildKimiModel = ({
 }
 
 const buildOpenAIModel = ({
-  provider,
+  _provider,
   apiKey,
   baseUrl,
   model,
@@ -212,7 +212,7 @@ const buildOpenAIModel = ({
   tools,
   toolChoice,
   responseFormat,
-  thinking,
+  _thinking,
   streaming,
 }) => {
   if (!apiKey) throw new Error('Missing API key')

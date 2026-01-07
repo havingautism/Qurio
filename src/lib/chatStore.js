@@ -1438,6 +1438,7 @@ const finalizeMessage = async (
                   name: tc.name,
                   arguments: tc.arguments,
                 },
+                textIndex: tc.textIndex,
               }))
             : null),
       ),

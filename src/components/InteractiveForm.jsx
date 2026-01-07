@@ -1,14 +1,104 @@
 import clsx from 'clsx'
-import { Check } from 'lucide-react'
-import React, { useState } from 'react'
+import { Check, ChevronDown } from 'lucide-react'
+import React, { useState, useRef, useEffect } from 'react'
+
+/**
+ * Custom Select Component
+ */
+const CustomSelect = ({ value, onChange, options, placeholder, disabled, error }) => {
+  const [isOpen, setIsOpen] = useState(false)
+  const containerRef = useRef(null)
+
+  useEffect(() => {
+    const handleClickOutside = event => {
+      if (containerRef.current && !containerRef.current.contains(event.target)) {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const handleSelect = option => {
+    if (disabled) return
+    onChange(option)
+    setIsOpen(false)
+  }
+
+  return (
+    <div className="relative" ref={containerRef}>
+      <div
+        onClick={() => !disabled && setIsOpen(!isOpen)}
+        className={clsx(
+          'w-full pl-4 pr-10 py-3.5 rounded-2xl cursor-pointer transition-all duration-300 border',
+          'flex items-center justify-between',
+          'bg-gray-50/50 dark:bg-zinc-900/50 hover:bg-white dark:hover:bg-zinc-800 backdrop-blur-md',
+          isOpen
+            ? 'ring-2 ring-primary-500/20 border-primary-500/50 shadow-lg shadow-primary-500/5'
+            : 'border-transparent hover:border-gray-200 dark:hover:border-white/10',
+          disabled && 'opacity-60 cursor-not-allowed',
+          error && '!border-red-500/50 !bg-red-50/10 !shadow-none',
+        )}
+      >
+        <span
+          className={clsx(
+            'truncate text-sm font-medium',
+            value ? 'text-gray-900 dark:text-gray-100' : 'text-gray-400',
+          )}
+        >
+          {value || placeholder}
+        </span>
+        <div
+          className={clsx(
+            'absolute right-3.5 transition-transform duration-300 text-gray-400',
+            isOpen && 'rotate-180',
+          )}
+        >
+          <ChevronDown size={18} strokeWidth={2.5} />
+        </div>
+      </div>
+
+      {/* Dropdown Menu */}
+      <div
+        className={clsx(
+          'absolute z-50 w-full mt-2 py-1.5 rounded-2xl border border-gray-100 dark:border-white/10 shadow-2xl overflow-hidden',
+          'bg-white/90 dark:bg-zinc-900/95 backdrop-blur-xl origin-top transition-all duration-200',
+          isOpen
+            ? 'opacity-100 scale-100 translate-y-0'
+            : 'opacity-0 scale-95 -translate-y-2 pointer-events-none',
+        )}
+      >
+        <div className="max-h-[300px] overflow-y-auto px-1.5 scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-white/10">
+          {options.map(opt => (
+            <div
+              key={opt}
+              onClick={() => handleSelect(opt)}
+              className={clsx(
+                'px-3.5 py-2.5 my-0.5 rounded-xl cursor-pointer text-sm font-medium transition-all duration-200 flex items-center justify-between group',
+                value === opt
+                  ? 'bg-primary-50 dark:bg-primary-500/10 text-primary-600 dark:text-primary-400'
+                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5 hover:text-gray-900 dark:hover:text-gray-200',
+              )}
+            >
+              <span>{opt}</span>
+              {value === opt && (
+                <Check
+                  size={16}
+                  className="text-primary-500 animate-in zoom-in spin-in-90 duration-300"
+                  strokeWidth={3}
+                />
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
 
 /**
  * InteractiveForm Component
  * Renders dynamic forms based on AI-generated JSON definitions
- *
- * @param {Object} formData - Form definition from AI
- * @param {Function} onSubmit - Callback when form is submitted
- * @param {string} messageId - ID of the message containing this form
  */
 const InteractiveForm = ({
   formData,
@@ -20,21 +110,16 @@ const InteractiveForm = ({
   const [values, setValues] = useState({})
   const [errors, setErrors] = useState({})
 
-  // Initialize values from submitted data or defaults
-  // Use JSON string of formData to prevent reset on reference change
+  // Initialize values
   const formDataString = JSON.stringify(formData)
   const submittedValuesString = JSON.stringify(submittedValues)
 
   React.useEffect(() => {
     const initialValues = {}
     formData.fields?.forEach(field => {
-      // Check if we have submitted value for this field
       const submittedValue = submittedValues[field.label] || submittedValues[field.name]
-
       if (submittedValue !== undefined) {
-        // Use submitted value
         if (field.type === 'checkbox') {
-          // Parse comma-separated values back to array
           initialValues[field.name] = submittedValue.split(',').map(v => v.trim())
         } else if (field.type === 'number' || field.type === 'range') {
           initialValues[field.name] = Number(submittedValue)
@@ -42,7 +127,6 @@ const InteractiveForm = ({
           initialValues[field.name] = submittedValue
         }
       } else {
-        // Use default value
         if (field.type === 'checkbox') {
           initialValues[field.name] = []
         } else if (field.type === 'range' && field.default !== undefined) {
@@ -55,7 +139,6 @@ const InteractiveForm = ({
     setValues(initialValues)
   }, [formDataString, submittedValuesString])
 
-  // Validate form
   const validate = () => {
     const newErrors = {}
     formData.fields?.forEach(field => {
@@ -70,28 +153,18 @@ const InteractiveForm = ({
     return Object.keys(newErrors).length === 0
   }
 
-  // Handle submit
   const handleSubmit = e => {
     e.preventDefault()
     if (validate() && !isSubmitted) {
-      onSubmit({
-        formId: formData.id,
-        values,
-        messageId,
-      })
+      onSubmit({ formId: formData.id, values, messageId })
     }
   }
 
-  // Update value
   const updateValue = (name, value) => {
     setValues(prev => ({ ...prev, [name]: value }))
-    // Clear error when user starts typing
-    if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: undefined }))
-    }
+    if (errors[name]) setErrors(prev => ({ ...prev, [name]: undefined }))
   }
 
-  // Toggle checkbox
   const toggleCheckbox = (name, option) => {
     setValues(prev => {
       const current = prev[name] || []
@@ -103,154 +176,172 @@ const InteractiveForm = ({
   }
 
   return (
-    <div className="my-4 p-4 border border-gray-200 dark:border-zinc-700 rounded-xl bg-gray-50 dark:bg-zinc-900/50">
-      {/* Title */}
-      {formData.title && (
-        <h4 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-1">
-          {formData.title}
-        </h4>
-      )}
+    <div className="my-8 mx-1">
+      <div className="p-6 md:p-8 rounded-[2rem] bg-white/60 dark:bg-black/40 backdrop-blur-xl border border-white/50 dark:border-white/5 shadow-2xl shadow-gray-200/50 dark:shadow-black/50 relative group">
+        {/* Decorative Background Gradients */}
+        <div className="absolute -top-20 -right-20 w-60 h-60 bg-primary-500/10 rounded-full blur-[80px] group-hover:bg-primary-500/15 transition-colors duration-700 pointer-events-none" />
+        <div className="absolute -bottom-20 -left-20 w-60 h-60 bg-blue-500/10 rounded-full blur-[80px] group-hover:bg-blue-500/15 transition-colors duration-700 pointer-events-none" />
 
-      {/* Description */}
-      {formData.description && (
-        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">{formData.description}</p>
-      )}
-
-      {/* Form */}
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {formData.fields?.map(field => (
-          <div key={field.name} className="space-y-1.5">
-            {/* Label */}
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              {field.label}
-              {field.required && <span className="text-red-500 ml-1">*</span>}
-            </label>
-
-            {/* Field rendering */}
-            {field.type === 'select' && (
-              <select
-                value={values[field.name] || ''}
-                onChange={e => updateValue(field.name, e.target.value)}
-                disabled={isSubmitted}
-                className={clsx(
-                  'w-full px-3 py-2 rounded-lg border bg-white dark:bg-zinc-800 transition-colors',
-                  isSubmitted && 'opacity-60 cursor-not-allowed',
-                  errors[field.name]
-                    ? 'border-red-500 focus:border-red-500'
-                    : 'border-gray-300 dark:border-zinc-600 focus:border-primary-500',
-                )}
-              >
-                <option value="">请选择...</option>
-                {field.options?.map(opt => (
-                  <option key={opt} value={opt}>
-                    {opt}
-                  </option>
-                ))}
-              </select>
+        <div className="relative z-10">
+          {/* Header */}
+          <div className="mb-8">
+            {formData.title && (
+              <h4 className="text-xl md:text-2xl font-bold bg-gradient-to-br from-gray-900 to-gray-600 dark:from-white dark:to-gray-400 bg-clip-text text-transparent mb-3">
+                {formData.title}
+              </h4>
             )}
-
-            {field.type === 'checkbox' && (
-              <div className="space-y-2">
-                {field.options?.map(opt => {
-                  const isChecked = (values[field.name] || []).includes(opt)
-                  return (
-                    <label key={opt} className="flex items-center gap-2 cursor-pointer group">
-                      <div
-                        onClick={() => !isSubmitted && toggleCheckbox(field.name, opt)}
-                        className={clsx(
-                          'w-5 h-5 rounded border-2 flex items-center justify-center transition-all',
-                          isSubmitted && 'opacity-60 cursor-not-allowed',
-                          isChecked
-                            ? 'bg-primary-500 border-primary-500'
-                            : 'bg-white dark:bg-zinc-800 border-gray-300 dark:border-zinc-600 group-hover:border-primary-400',
-                        )}
-                      >
-                        {isChecked && <Check size={14} className="text-white" />}
-                      </div>
-                      <span className="text-sm text-gray-700 dark:text-gray-300">{opt}</span>
-                    </label>
-                  )
-                })}
-              </div>
-            )}
-
-            {field.type === 'text' && (
-              <input
-                type="text"
-                value={values[field.name] || ''}
-                onChange={e => updateValue(field.name, e.target.value)}
-                placeholder={field.placeholder}
-                disabled={isSubmitted}
-                className={clsx(
-                  'w-full px-3 py-2 rounded-lg border bg-white dark:bg-zinc-800 transition-colors',
-                  isSubmitted && 'opacity-60 cursor-not-allowed',
-                  errors[field.name]
-                    ? 'border-red-500 focus:border-red-500'
-                    : 'border-gray-300 dark:border-zinc-600 focus:border-primary-500',
-                )}
-              />
-            )}
-
-            {field.type === 'number' && (
-              <input
-                type="number"
-                value={values[field.name] || ''}
-                onChange={e => updateValue(field.name, e.target.value)}
-                min={field.min}
-                max={field.max}
-                step={field.step}
-                placeholder={field.placeholder}
-                disabled={isSubmitted}
-                className={clsx(
-                  'w-full px-3 py-2 rounded-lg border bg-white dark:bg-zinc-800 transition-colors',
-                  isSubmitted && 'opacity-60 cursor-not-allowed',
-                  errors[field.name]
-                    ? 'border-red-500 focus:border-red-500'
-                    : 'border-gray-300 dark:border-zinc-600 focus:border-primary-500',
-                )}
-              />
-            )}
-
-            {field.type === 'range' && (
-              <div className="space-y-2">
-                <input
-                  type="range"
-                  value={values[field.name] || field.min || 0}
-                  onChange={e => updateValue(field.name, Number(e.target.value))}
-                  min={field.min || 0}
-                  max={field.max || 100}
-                  step={field.step || 1}
-                  disabled={isSubmitted}
-                  className={clsx('w-full', isSubmitted && 'opacity-60 cursor-not-allowed')}
-                />
-                <div className="text-sm text-gray-600 dark:text-gray-400 text-center">
-                  {values[field.name] || field.min || 0}
-                  {field.unit && ` ${field.unit}`}
-                </div>
-              </div>
-            )}
-
-            {/* Error message */}
-            {errors[field.name] && (
-              <p className="text-xs text-red-500 mt-1">{errors[field.name]}</p>
+            {formData.description && (
+              <p className="text-sm md:text-base text-gray-500 dark:text-gray-400 leading-relaxed font-medium">
+                {formData.description}
+              </p>
             )}
           </div>
-        ))}
 
-        {/* Submit button */}
-        <button
-          type="submit"
-          disabled={isSubmitted}
-          className={clsx(
-            'w-full px-4 py-2.5 font-medium rounded-lg transition-colors',
-            isSubmitted
-              ? 'bg-gray-400 dark:bg-gray-600 text-gray-200 dark:text-gray-400 cursor-not-allowed'
-              : 'bg-primary-500 hover:bg-primary-600 text-white',
-          )}
-        >
-          {isSubmitted ? '✓ 已提交' : '提交并继续'}
-        </button>
-      </form>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {formData.fields?.map((field, idx) => (
+              <div
+                key={field.name}
+                className="space-y-2.5 animate-in slide-in-from-bottom-2 fade-in duration-500"
+                style={{ animationDelay: `${idx * 50}ms` }}
+              >
+                <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 ml-1">
+                  {field.label}
+                  {field.required && <span className="text-primary-500 ml-0.5">*</span>}
+                </label>
+
+                {/* Custom Select */}
+                {field.type === 'select' && (
+                  <CustomSelect
+                    value={values[field.name]}
+                    onChange={val => updateValue(field.name, val)}
+                    options={field.options}
+                    placeholder="请选择..."
+                    disabled={isSubmitted}
+                    error={errors[field.name]}
+                  />
+                )}
+
+                {/* Checkbox Group */}
+                {field.type === 'checkbox' && (
+                  <div className="flex flex-wrap gap-2.5">
+                    {field.options?.map(opt => {
+                      const isChecked = (values[field.name] || []).includes(opt)
+                      return (
+                        <label
+                          key={opt}
+                          className={clsx(
+                            'relative px-4 py-2.5 rounded-xl cursor-pointer transition-all duration-300 select-none overflow-hidden group/item border',
+                            isChecked
+                              ? 'bg-primary-500 border-primary-500 text-white shadow-lg shadow-primary-500/25 scale-[1.02]'
+                              : 'bg-gray-50 dark:bg-zinc-900/40 border-transparent hover:border-gray-200 dark:hover:border-white/10 text-gray-600 dark:text-gray-400 hover:bg-white dark:hover:bg-zinc-800',
+                            isSubmitted && 'opacity-60 cursor-not-allowed pointer-events-none',
+                          )}
+                        >
+                          <input
+                            type="checkbox"
+                            className="hidden"
+                            checked={isChecked}
+                            onChange={() => !isSubmitted && toggleCheckbox(field.name, opt)}
+                            disabled={isSubmitted}
+                          />
+                          <span className="text-sm font-medium relative z-10 flex items-center gap-2">
+                            {isChecked && <Check size={14} strokeWidth={3} />}
+                            {opt}
+                          </span>
+                        </label>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {/* Inputs */}
+                {(field.type === 'text' || field.type === 'number') && (
+                  <div className="relative group/input">
+                    <input
+                      type={field.type}
+                      value={values[field.name] || ''}
+                      onChange={e => updateValue(field.name, e.target.value)}
+                      placeholder={field.placeholder}
+                      disabled={isSubmitted}
+                      min={field.min}
+                      max={field.max}
+                      step={field.step}
+                      className={clsx(
+                        'w-full px-4 py-3.5 rounded-2xl outline-none transition-all duration-300 font-medium',
+                        'bg-gray-50/50 dark:bg-zinc-900/40 border backdrop-blur-sm',
+                        isSubmitted
+                          ? 'opacity-60 cursor-not-allowed border-transparent'
+                          : 'border-transparent hover:border-gray-200 dark:hover:border-white/10 hover:bg-white dark:hover:bg-zinc-800 focus:bg-white dark:focus:bg-black focus:border-primary-500/50 focus:ring-4 focus:ring-primary-500/10 focus:shadow-lg focus:shadow-primary-500/5',
+                        errors[field.name] && 'border-red-500/50! bg-red-50/10! shadow-none!',
+                      )}
+                    />
+                  </div>
+                )}
+
+                {/* Range Slider */}
+                {field.type === 'range' && (
+                  <div className="px-1 py-4 bg-gray-50/50 dark:bg-zinc-900/40 rounded-2xl border border-transparent hover:border-gray-200 dark:hover:border-white/10 transition-colors">
+                    <div className="px-4">
+                      <input
+                        type="range"
+                        value={values[field.name] || field.min || 0}
+                        onChange={e => updateValue(field.name, Number(e.target.value))}
+                        min={field.min || 0}
+                        max={field.max || 100}
+                        step={field.step || 1}
+                        disabled={isSubmitted}
+                        className={clsx(
+                          'w-full h-2 rounded-lg appearance-none cursor-pointer bg-gray-200 dark:bg-zinc-700 accent-primary-500',
+                          isSubmitted && 'opacity-60 cursor-not-allowed',
+                        )}
+                      />
+                    </div>
+                    <div className="flex justify-between items-center px-4 mt-3 text-xs font-medium text-gray-400 font-mono">
+                      <span>{field.min || 0}</span>
+                      <span className="text-primary-600 dark:text-primary-400 bg-white dark:bg-white/10 px-2.5 py-1 rounded-md shadow-sm">
+                        {values[field.name] || field.min || 0}
+                        {field.unit && (
+                          <span className="text-[10px] ml-0.5 opacity-70">{field.unit}</span>
+                        )}
+                      </span>
+                      <span>{field.max || 100}</span>
+                    </div>
+                  </div>
+                )}
+
+                {errors[field.name] && (
+                  <p className="text-xs text-red-500 ml-2 font-medium animate-in slide-in-from-left-2 fade-in">
+                    {errors[field.name]}
+                  </p>
+                )}
+              </div>
+            ))}
+
+            <button
+              type="submit"
+              disabled={isSubmitted}
+              className={clsx(
+                'w-full px-6 py-4 mt-4 font-bold rounded-2xl transition-all duration-300 relative overflow-hidden group',
+                isSubmitted
+                  ? 'bg-gray-100 dark:bg-white/5 text-gray-400 cursor-not-allowed'
+                  : 'bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 dark:from-white dark:via-gray-200 dark:to-white text-white dark:text-black shadow-xl shadow-gray-900/10 dark:shadow-white/5 hover:scale-[1.01] hover:shadow-2xl hover:shadow-gray-900/20 dark:hover:shadow-white/10 active:scale-[0.99]',
+              )}
+            >
+              {isSubmitted ? (
+                <span className="flex items-center justify-center gap-2">
+                  <Check size={20} />
+                  已提交反馈
+                </span>
+              ) : (
+                <span className="relative z-10 flex items-center justify-center gap-2">
+                  提交信息
+                  <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-500 ease-out" />
+                </span>
+              )}
+            </button>
+          </form>
+        </div>
+      </div>
     </div>
   )
 }

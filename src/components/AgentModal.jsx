@@ -1,6 +1,20 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { X, Info, Check, ChevronDown, RefreshCw } from 'lucide-react'
+import {
+  X,
+  Info,
+  Check,
+  ChevronDown,
+  RefreshCw,
+  Search,
+  GraduationCap,
+  Calculator,
+  Clock,
+  FileText,
+  ScanText,
+  Wrench,
+  FormInput,
+} from 'lucide-react'
 import useScrollLock from '../hooks/useScrollLock'
 import EmojiDisplay from './EmojiDisplay'
 import CustomEmojiPicker from './CustomEmojiPicker'
@@ -21,6 +35,7 @@ import { getModelIcon, getModelIconClassName, renderProviderIcon } from '../lib/
 import { getProvider } from '../lib/providers'
 import { getPublicEnv } from '../lib/publicEnv'
 import { listToolsViaBackend } from '../lib/backendClient'
+import { TOOL_TRANSLATION_KEYS, TOOL_ICONS, TOOL_INFO_KEYS } from '../lib/toolConstants'
 
 // Logic reused from SettingsModal
 const FALLBACK_MODEL_OPTIONS = {
@@ -1654,6 +1669,20 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         {items.map(tool => {
                           const checked = selectedToolIds.includes(tool.id)
+                          const iconName = TOOL_ICONS[tool.name]
+                          const IconComponent = iconName
+                            ? {
+                                Search,
+                                GraduationCap,
+                                Calculator,
+                                Clock,
+                                FileText,
+                                ScanText,
+                                Wrench,
+                                FormInput,
+                              }[iconName]
+                            : null
+                          const infoKey = TOOL_INFO_KEYS[tool.name]
                           return (
                             <label
                               key={tool.id}
@@ -1674,13 +1703,23 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                                   )
                                 }}
                               />
-                              <div className="space-y-1">
-                                <div className="text-sm font-medium text-gray-800 dark:text-gray-100">
-                                  {tool.name}
+                              <div className="flex-1 space-y-1.5 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  {IconComponent && (
+                                    <IconComponent
+                                      size={16}
+                                      className="text-gray-500 dark:text-gray-400 shrink-0"
+                                    />
+                                  )}
+                                  <div className="text-sm font-medium text-gray-800 dark:text-gray-100">
+                                    {t(TOOL_TRANSLATION_KEYS[tool.name] || tool.name)}
+                                  </div>
                                 </div>
-                                <div className="text-xs text-gray-500 dark:text-gray-400">
-                                  {tool.description}
-                                </div>
+                                {infoKey && (
+                                  <div className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+                                    {t(infoKey)}
+                                  </div>
+                                )}
                               </div>
                             </label>
                           )

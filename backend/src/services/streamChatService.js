@@ -5,6 +5,7 @@
 
 import { getProviderAdapter } from './providers/adapterFactory.js'
 import { normalizeTextContent, safeJsonParse } from './serviceUtils.js'
+import { TIME_KEYWORDS_REGEX } from './regexConstants.js'
 import { executeToolByName, getToolDefinitionsByIds, isLocalToolName } from './toolsService.js'
 
 // Debug flags
@@ -301,10 +302,76 @@ export const streamChat = async function* (params) {
   // Apply context limit
   const trimmedMessages = applyContextLimit(messages, contextMessageLimit)
 
+  // Check for time-related keywords in the last user message
+  const lastUserMessage = trimmedMessages
+    .slice()
+    .reverse()
+    .find(m => m.role === 'user')
+  const timeKeywordsRegex = TIME_KEYWORDS_REGEX
+
+  if (lastUserMessage?.content) {
+    const isTimeMatch = timeKeywordsRegex.test(lastUserMessage.content)
+    const isToolEnabled = Array.isArray(toolIds) && toolIds.includes('local_time')
+
+    // console.log('[TimeInject] Checking:', {
+    //   content: lastUserMessage.content,
+    //   match: isTimeMatch,
+    //   toolIds,
+    //   enabled: isToolEnabled
+    // })
+
+    if (isTimeMatch && isToolEnabled) {
+      try {
+        console.log('[TimeInject] Injecting local time context...')
+        const timeResult = await executeToolByName('local_time', {}, {})
+        const timeContext = `\n\n[SYSTEM INJECTED CONTEXT]\nCurrent Local Time: ${timeResult.formatted} (${timeResult.timezone})`
+
+        // Inject into the LAST USER message for better attention
+        const lastUserIndex = trimmedMessages
+          .map((m, i) => (m.role === 'user' ? i : -1))
+          .reduce((a, b) => Math.max(a, b), -1)
+
+        if (lastUserIndex !== -1) {
+          trimmedMessages[lastUserIndex] = {
+            ...trimmedMessages[lastUserIndex],
+            content: trimmedMessages[lastUserIndex].content + timeContext,
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to inject local time context:', e)
+      }
+    }
+  }
+
   // Inject interactive_form guidance if tool is available
   // Inject interactive_form guidance (GLOBAL TOOL)
 
-  const formGuidance = `
+  let currentMessages = trimmedMessages
+  console.log('currentMessages', currentMessages)
+
+  // Get provider adapter
+  const adapter = getProviderAdapter(provider)
+
+  // Prepare tool definitions
+  // Always include interactive_form as it is a global tool
+  const agentToolDefinitions = provider === 'gemini' ? [] : getToolDefinitionsByIds(toolIds)
+  const combinedTools = [...(Array.isArray(tools) ? tools : []), ...agentToolDefinitions].filter(
+    Boolean,
+  )
+
+  // Deduplicate tools by name
+  const normalizedTools = []
+  const toolNames = new Set()
+  for (const tool of combinedTools) {
+    const name = tool?.function?.name
+    if (name && toolNames.has(name)) continue
+    if (name) toolNames.add(name)
+    normalizedTools.push(tool)
+  }
+
+  // Inject interactive_form guidance if tool is available
+  if (normalizedTools.some(t => t.function?.name === 'interactive_form')) {
+    const formGuidance = `
 [TOOL USE GUIDANCE]
 When you need to collect structured information from the user (e.g. preferences, requirements, booking details), use the 'interactive_form' tool.
 CRITICAL: DO NOT list questions in text or markdown. YOU MUST USE the 'interactive_form' tool to display fields.
@@ -327,40 +394,15 @@ If you need to collect information, design ONE comprehensive form that gathers a
 3. INTERLEAVING: You can place the form anywhere in your response. Output introductory text FIRST (e.g., "I can help with that. Please provide some details below:"), then call 'interactive_form' once.
 4. If the user has provided enough context through previous forms, proceed directly to the final answer without requesting more information.`
 
-  // Inject system prompt. If conversation is long (>2 turns), we append a reminder at the end too.
-  const systemIndex = trimmedMessages.findIndex(m => m.role === 'system')
-  if (systemIndex !== -1) {
-    trimmedMessages[systemIndex] = {
-      ...trimmedMessages[systemIndex],
-      content: trimmedMessages[systemIndex].content + formGuidance,
+    const systemIndex = currentMessages.findIndex(m => m.role === 'system')
+    if (systemIndex !== -1) {
+      currentMessages[systemIndex] = {
+        ...currentMessages[systemIndex],
+        content: currentMessages[systemIndex].content + formGuidance,
+      }
+    } else {
+      currentMessages.unshift({ role: 'system', content: formGuidance })
     }
-  } else {
-    trimmedMessages.unshift({ role: 'system', content: formGuidance })
-  }
-
-  let currentMessages = trimmedMessages
-
-  // Get provider adapter
-  const adapter = getProviderAdapter(provider)
-
-  // Prepare tool definitions
-  // Always include interactive_form as it is a global tool
-  const interactiveFormTool = getToolDefinitionsByIds(['interactive_form'])[0]
-  const agentToolDefinitions = provider === 'gemini' ? [] : getToolDefinitionsByIds(toolIds)
-  const combinedTools = [
-    ...(Array.isArray(tools) ? tools : []),
-    ...agentToolDefinitions,
-    interactiveFormTool, // Always add interactive_form
-  ].filter(Boolean)
-
-  // Deduplicate tools by name
-  const normalizedTools = []
-  const toolNames = new Set()
-  for (const tool of combinedTools) {
-    const name = tool?.function?.name
-    if (name && toolNames.has(name)) continue
-    if (name) toolNames.add(name)
-    normalizedTools.push(tool)
   }
 
   // Inject citation prompt if Tavily_web_search is enabled

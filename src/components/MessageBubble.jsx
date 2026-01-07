@@ -15,6 +15,14 @@ import {
   RefreshCw,
   Trash2,
   X,
+  Search,
+  GraduationCap,
+  Calculator,
+  Clock,
+  FileText,
+  ScanText,
+  Wrench,
+  FormInput,
 } from 'lucide-react'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
@@ -25,7 +33,7 @@ import useIsMobile from '../hooks/useIsMobile'
 import { parseChildrenWithEmojis } from '../lib/emojiParser'
 import { getModelIcon, getModelIconClassName, renderProviderIcon } from '../lib/modelIcons'
 import { getProvider } from '../lib/providers'
-import { TOOL_TRANSLATION_KEYS } from '../lib/toolConstants'
+import { TOOL_TRANSLATION_KEYS, TOOL_ICONS } from '../lib/toolConstants'
 import DesktopSourcesSection from './DesktopSourcesSection'
 import DotLoader from './DotLoader'
 import EmojiDisplay from './EmojiDisplay'
@@ -314,7 +322,9 @@ const MessageBubble = ({
     // Group tools by index
     const toolsByIndex = {}
     toolCallHistory.forEach(tool => {
-      const idx = tool.textIndex ?? 0
+      // Use textIndex if available
+      // If missing: default interactive_form to end, others to start
+      const idx = tool.textIndex ?? (tool.name === 'interactive_form' ? rawContent.length : 0)
       if (!toolsByIndex[idx]) toolsByIndex[idx] = []
       toolsByIndex[idx].push(tool)
     })
@@ -1061,14 +1071,30 @@ const MessageBubble = ({
   )
 
   const markdownComponentsWithAnchors = useMemo(() => {
-    headingCounterRef.current = 0
+    // Use a local counter captured in the closure of this memoized value
+    let localHeadingCounter = 0
+
+    // Helper to generate IDs using the local counter
+    const createLocalHeading = (Tag, className) => {
+      const Heading = ({ children, ...props }) => {
+        const id = `heading-${messageIndex}-${localHeadingCounter++}`
+        return (
+          <Tag className={className} id={id} data-heading-id={id} {...props}>
+            {parseChildrenWithEmojis(children)}
+          </Tag>
+        )
+      }
+      Heading.displayName = `Heading${Tag}`
+      return Heading
+    }
+
     return {
       ...markdownComponents,
-      h1: createHeadingComponent('h1', 'text-2xl font-bold mb-4 mt-4', true),
-      h2: createHeadingComponent('h2', 'text-xl font-bold mb-3 mt-3', true),
-      h3: createHeadingComponent('h3', 'text-lg font-bold mb-2 mt-2', true),
+      h1: createLocalHeading('h1', 'text-2xl font-bold mb-4 mt-4'),
+      h2: createLocalHeading('h2', 'text-xl font-bold mb-3 mt-3'),
+      h3: createLocalHeading('h3', 'text-lg font-bold mb-2 mt-2'),
     }
-  }, [markdownComponents, createHeadingComponent, message.content, messageIndex])
+  }, [markdownComponents, messageIndex, parseChildrenWithEmojis])
 
   if (isUser) {
     let contentToRender = message.content
@@ -1775,61 +1801,82 @@ const MessageBubble = ({
                     ) : (
                       // Standard Mode: Simplified view
                       <div className="my-4 p-3 border flex flex-col gap-2 border-gray-200 dark:border-zinc-700 rounded-xl overflow-hidden bg-user-bubble/20 dark:bg-zinc-800/30">
-                        {regularTools.map(item => (
-                          <div
-                            key={item.id || `${item.name}-${item.arguments}`}
-                            className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400"
-                          >
-                            <div className="flex items-center gap-1 sm:gap-2 w-full">
-                              <span className="font-medium text-gray-600 dark:text-gray-300 whitespace-nowrap flex-shrink-0">
-                                {TOOL_TRANSLATION_KEYS[item.name]
-                                  ? t(TOOL_TRANSLATION_KEYS[item.name])
-                                  : item.name}
-                              </span>
-                              <div className="flex items-center gap-1 sm:gap-2 flex-1 sm:flex-none min-w-0">
-                                {Object.keys(TOOL_TRANSLATION_KEYS).includes(item.name) &&
-                                  (() => {
-                                    try {
-                                      const args = JSON.parse(item.arguments || '{}')
-                                      if (args.query) {
-                                        return (
-                                          <span className="opacity-75 truncate w-full sm:w-auto sm:max-w-[200px]">
-                                            &quot;{args.query}&quot;
-                                          </span>
-                                        )
+                        {regularTools.map(item => {
+                          const iconName = TOOL_ICONS[item.name]
+                          const IconComponent = iconName
+                            ? {
+                                Search,
+                                GraduationCap,
+                                Calculator,
+                                Clock,
+                                FileText,
+                                ScanText,
+                                Wrench,
+                                FormInput,
+                              }[iconName]
+                            : null
+                          return (
+                            <div
+                              key={item.id || `${item.name}-${item.arguments}`}
+                              className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400"
+                            >
+                              <div className="flex items-center gap-1 sm:gap-2 w-full">
+                                <span className="font-medium text-gray-600 dark:text-gray-300 whitespace-nowrap flex-shrink-0 flex items-center gap-1.5">
+                                  {IconComponent && (
+                                    <IconComponent
+                                      size={14}
+                                      className="text-gray-500 dark:text-gray-400"
+                                    />
+                                  )}
+                                  {TOOL_TRANSLATION_KEYS[item.name]
+                                    ? t(TOOL_TRANSLATION_KEYS[item.name])
+                                    : item.name}
+                                </span>
+                                <div className="flex items-center gap-1 sm:gap-2 flex-1 min-w-0">
+                                  {Object.keys(TOOL_TRANSLATION_KEYS).includes(item.name) &&
+                                    (() => {
+                                      try {
+                                        const args = JSON.parse(item.arguments || '{}')
+                                        if (args.query) {
+                                          return (
+                                            <span className="opacity-75 truncate w-full">
+                                              &quot;{args.query}&quot;
+                                            </span>
+                                          )
+                                        }
+                                      } catch {
+                                        return null
                                       }
-                                    } catch {
-                                      return null
-                                    }
-                                  })()}
+                                    })()}
+                                </div>
+                                <span
+                                  className={clsx(
+                                    'px-2 py-0.5 rounded-full text-[11px] ml-auto flex-shrink-0 flex items-center justify-center min-w-[24px]',
+                                    item.status === 'error'
+                                      ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
+                                      : item.status === 'done'
+                                        ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
+                                        : 'bg-gray-200/70 dark:bg-zinc-700/70 text-gray-600 dark:text-gray-400',
+                                  )}
+                                >
+                                  {item.status === 'error' ? (
+                                    <X className="w-4 h-4" />
+                                  ) : item.status === 'done' ? (
+                                    <Check className="w-4 h-4" />
+                                  ) : (
+                                    <DotLoader />
+                                  )}
+                                </span>
                               </div>
-                              <span
-                                className={clsx(
-                                  'px-2 py-0.5 rounded-full text-[11px] ml-1 min-w-[15px]',
-                                  item.status === 'error'
-                                    ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
-                                    : item.status === 'done'
-                                      ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
-                                      : 'bg-gray-200/70 dark:bg-zinc-700/70 text-gray-600 dark:text-gray-400',
-                                )}
-                              >
-                                {item.status === 'error' ? (
-                                  <X className="w-4 h-4" />
-                                ) : item.status === 'done' ? (
-                                  <Check className="w-4 h-4" />
-                                ) : (
-                                  <DotLoader />
-                                )}
-                              </span>
                             </div>
-                          </div>
-                        ))}
+                          )
+                        })}
                       </div>
                     ))}
 
                   {/* Render Interactive Forms */}
                   {isStreaming ? (
-                    <div className="my-4 p-4 border border-gray-200 dark:border-zinc-700 rounded-xl bg-gray-50 dark:bg-zinc-900/50 space-y-4 animate-pulse">
+                    <div className="my-4  rounded-xl  space-y-4 animate-pulse">
                       <div className="h-6 bg-gray-200 dark:bg-zinc-700 rounded w-1/3"></div>
                       <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-2/3"></div>
                       <div className="space-y-2">

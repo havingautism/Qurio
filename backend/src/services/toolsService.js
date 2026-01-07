@@ -66,7 +66,7 @@ const AGENT_TOOLS = [
     id: 'local_time',
     name: 'local_time',
     category: 'time',
-    description: 'Get current local time for a timezone.',
+    description: 'Get current local date and time for a timezone.',
     parameters: {
       type: 'object',
       properties: {
@@ -166,6 +166,58 @@ const AGENT_TOOLS = [
       },
     },
   },
+  {
+    id: 'interactive_form',
+    name: 'interactive_form',
+    category: 'interaction',
+    description:
+      'Display an interactive form to collect structured user input. Use this when you need specific information from the user in a structured format.',
+    parameters: {
+      type: 'object',
+      required: ['id', 'title', 'fields'],
+      properties: {
+        id: {
+          type: 'string',
+          description: 'Unique identifier for this form',
+        },
+        title: {
+          type: 'string',
+          description: 'Form title displayed to user',
+        },
+        description: {
+          type: 'string',
+          description: 'Optional form description',
+        },
+        fields: {
+          type: 'array',
+          description: 'Form fields to collect',
+          items: {
+            type: 'object',
+            required: ['name', 'label', 'type'],
+            properties: {
+              name: { type: 'string', description: 'Field identifier' },
+              label: { type: 'string', description: 'Field label' },
+              type: {
+                type: 'string',
+                enum: ['text', 'number', 'select', 'checkbox', 'range'],
+                description: 'Field type',
+              },
+              required: { type: 'boolean', description: 'Is this field required' },
+              options: {
+                type: 'array',
+                items: { type: 'string' },
+                description: 'Options for select/checkbox fields',
+              },
+              default: { description: 'Default value' },
+              min: { type: 'number', description: 'Min value for number/range' },
+              max: { type: 'number', description: 'Max value for number/range' },
+              step: { type: 'number', description: 'Step for number/range' },
+            },
+          },
+        },
+      },
+    },
+  },
 ]
 
 // Combined list for execution and validation
@@ -199,6 +251,12 @@ const toolSchemas = {
   Tavily_academic_search: z.object({
     query: z.string().min(1, 'query is required'),
     max_results: z.number().int().positive().optional(),
+  }),
+  interactive_form: z.object({
+    id: z.string().min(1, 'id is required'),
+    title: z.string().min(1, 'title is required'),
+    description: z.string().optional(),
+    fields: z.array(z.any()).min(1, 'at least one field is required'),
   }),
 }
 
@@ -403,6 +461,14 @@ export const executeToolByName = async (toolName, args = {}, toolConfig = {}) =>
         }
       } catch (error) {
         throw new Error(`Academic search failed: ${error.message}`)
+      }
+    }
+    case 'interactive_form': {
+      // This is a client-side interaction tool
+      // We just pass the parameters through to the frontend
+      return {
+        ...params,
+        kind: 'interactive_form', // Marker for frontend logic
       }
     }
     default:

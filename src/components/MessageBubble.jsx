@@ -15,6 +15,14 @@ import {
   RefreshCw,
   Trash2,
   X,
+  Search,
+  GraduationCap,
+  Calculator,
+  Clock,
+  FileText,
+  ScanText,
+  Wrench,
+  FormInput,
 } from 'lucide-react'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
@@ -25,6 +33,7 @@ import useIsMobile from '../hooks/useIsMobile'
 import { parseChildrenWithEmojis } from '../lib/emojiParser'
 import { getModelIcon, getModelIconClassName, renderProviderIcon } from '../lib/modelIcons'
 import { getProvider } from '../lib/providers'
+import { TOOL_TRANSLATION_KEYS, TOOL_ICONS } from '../lib/toolConstants'
 import DesktopSourcesSection from './DesktopSourcesSection'
 import DotLoader from './DotLoader'
 import EmojiDisplay from './EmojiDisplay'
@@ -83,6 +92,8 @@ const PROVIDER_META = {
  * MessageBubble component that directly accesses messages from chatStore via index
  * Reduces props drilling and improves component independence
  */
+import useSettings from '../hooks/useSettings'
+
 const MessageBubble = ({
   messageIndex,
   apiProvider,
@@ -106,74 +117,247 @@ const MessageBubble = ({
     })),
   )
 
+  const { developerMode } = useSettings()
+
   // Extract message by index
   const message = messages[messageIndex]
 
-  // Merge content if this is a form message followed by continuation
+  // Merge content if this is a form message followed by continuation(s)
   const mergedMessage = useMemo(() => {
     if (!message || message.role !== 'ai') return message
 
     const messageContent = String(message.content || '')
-    const hasForm =
-      messageContent.includes('"kind": "interactive_form"') ||
-      messageContent.includes('"kind":"interactive_form"')
+    const initialToolCallHistory = message.toolCallHistory || []
+    const hasForm = initialToolCallHistory.some(tc => tc.name === 'interactive_form')
 
     if (!hasForm) return message
 
-    // Check if next message is [Form Submission]
-    const nextUserMsg = messages[messageIndex + 1]
-    const nextAiMsg = messages[messageIndex + 2]
+    // Recursively merge all form submission chains
+    let currentIndex = messageIndex
+    let mergedContent = messageContent
+    // Clone the toolCallHistory to avoid mutating the original message object!
+    // We map to new objects so we can add properties like _isSubmitted
+    let toolCallHistory = (message.toolCallHistory || []).map(tc => ({ ...tc }))
+    let sources = [...(message.sources || [])]
+    let related = [...(message.related || [])]
+    let relatedLoading = message.relatedLoading || false
+    let allSubmittedValues = {}
+    let hasAnySubmission = false
 
-    if (
-      nextUserMsg &&
-      nextUserMsg.role === 'user' &&
-      typeof nextUserMsg.content === 'string' &&
-      nextUserMsg.content.startsWith('[Form Submission]')
-    ) {
-      // Parse submitted values from [Form Submission] message
-      const submissionContent = nextUserMsg.content
-      const submittedValues = {}
+    // Keep scanning forward for [Form Submission] → AI pairs
+    while (true) {
+      const nextUserMsg = messages[currentIndex + 1]
+      const nextAiMsg = messages[currentIndex + 2]
 
-      // Parse format: "[Form Submission]\nField1: Value1\nField2: Value2"
-      const lines = submissionContent.split('\n').slice(1) // Skip "[Form Submission]" line
-      lines.forEach(line => {
-        const match = line.match(/^([^:]+):\s*(.+)$/)
-        if (match) {
-          const fieldName = match[1].trim()
-          const value = match[2].trim()
-          submittedValues[fieldName] = value
+      // Check if we have a submission
+      if (
+        nextUserMsg &&
+        nextUserMsg.role === 'user' &&
+        typeof nextUserMsg.content === 'string' &&
+        nextUserMsg.content.startsWith('[Form Submission]')
+      ) {
+        hasAnySubmission = true
+
+        // Mark all current interactive_form tools as submitted BY THIS user message
+        toolCallHistory.forEach(tc => {
+          if (tc.name === 'interactive_form') {
+            tc._isSubmitted = true
+          }
+        })
+
+        // Parse submitted values from this [Form Submission]
+        const submissionContent = nextUserMsg.content
+        const lines = submissionContent.split('\n').slice(1) // Skip "[Form Submission]" line
+        lines.forEach(line => {
+          const match = line.match(/^([^:]+):\s*(.+)$/)
+          if (match) {
+            const fieldName = match[1].trim()
+            const value = match[2].trim()
+            allSubmittedValues[fieldName] = value
+          }
+        })
+
+        // If generic AI response follows, merge it
+        if (nextAiMsg && nextAiMsg.role === 'ai') {
+          // Merge tool calls if any
+          if (nextAiMsg.toolCallHistory && nextAiMsg.toolCallHistory.length > 0) {
+            // Avoid duplicates by checking IDs
+            const existingIds = new Set(toolCallHistory.map(tc => tc.id))
+            const offset = mergedContent.length + 2 // +2 for the '\n\n' separator
+
+            const newTools = (nextAiMsg.toolCallHistory || [])
+              .filter(tc => !existingIds.has(tc.id))
+              .map(tc => ({
+                ...tc,
+                // Adjust textIndex by adding the current content length + separator
+                textIndex: (tc.textIndex || 0) + offset,
+              }))
+
+            toolCallHistory.push(...newTools)
+          }
+
+          // Merge sources if any
+          if (nextAiMsg.sources && nextAiMsg.sources.length > 0) {
+            const existingTitles = new Set(sources.map(s => s.title))
+            const newSources = nextAiMsg.sources.filter(s => !existingTitles.has(s.title))
+            sources.push(...newSources)
+          }
+
+          // Merge related questions if any
+          if (nextAiMsg.related && nextAiMsg.related.length > 0) {
+            related = nextAiMsg.related
+          }
+          // Update relatedLoading status
+          if (nextAiMsg.relatedLoading) {
+            relatedLoading = nextAiMsg.relatedLoading
+          }
+
+          mergedContent += '\n\n' + (nextAiMsg.content || '')
+
+          currentIndex += 2
         }
-      })
+      } else {
+        // No more form submission pairs, stop
+        break
+      }
+    }
 
-      // Base merged message with submission state
-      const merged = {
+    // Check if the chain is currently waiting for a continuation
+    let isContinuationLoading = false
+    if (isLoading && hasAnySubmission) {
+      // After the loop, currentIndex points to the last merged AI message
+      // Check if there's a [Form Submission] after it that's waiting for a response
+      const nextUserMsg = messages[currentIndex + 1]
+      const nextAiMsg = messages[currentIndex + 2]
+
+      // Check if nextUserMsg is a form submission
+      const isFormSubmission =
+        nextUserMsg &&
+        nextUserMsg.role === 'user' &&
+        typeof nextUserMsg.content === 'string' &&
+        nextUserMsg.content.startsWith('[Form Submission]')
+
+      if (isFormSubmission) {
+        // If we have a submission but no AI message yet OR an empty AI message
+        if (
+          !nextAiMsg ||
+          (nextAiMsg &&
+            nextAiMsg.role === 'ai' &&
+            !nextAiMsg.content &&
+            (!nextAiMsg.toolCallHistory || nextAiMsg.toolCallHistory.length === 0))
+        ) {
+          isContinuationLoading = true
+        }
+      }
+    }
+
+    // If we found any submissions, return merged message
+    if (hasAnySubmission) {
+      return {
         ...message,
+        content: mergedContent,
+        toolCallHistory: toolCallHistory,
+        sources: sources,
+        related: related,
+        relatedLoading: relatedLoading,
         _formSubmitted: true,
-        _formSubmittedValues: submittedValues,
+        _formSubmittedValues: allSubmittedValues,
+        _isContinuationLoading: isContinuationLoading,
       }
-
-      // If there is an AI continuation, merge its content
-      if (nextAiMsg && nextAiMsg.role === 'ai') {
-        merged.content = messageContent + '\n\n' + (nextAiMsg.content || '')
-        // Also merge other AI properties like thought process if needed
-        if (nextAiMsg.thinking_process) {
-          // We might want to show thinking from the answer message
-          merged.thought = nextAiMsg.thinking_process
-        }
-      }
-
-      return merged
     }
 
     return message
-  }, [message, messages, messageIndex])
+  }, [message, messages, messageIndex, isLoading])
+
+  const isDeepResearch =
+    !!mergedMessage?.deepResearch ||
+    mergedMessage?.agent_name === 'Deep Research Agent' ||
+    mergedMessage?.agentName === 'Deep Research Agent'
+
+  const providerId = mergedMessage.provider || apiProvider
+  const provider = getProvider(providerId)
+  const parsed = provider.parseMessage(mergedMessage)
+  const thoughtContent =
+    isDeepResearch || mergedMessage.thinkingEnabled === false ? null : parsed.thought
+  const mainContent = parsed.content
+
+  const toolCallHistory = Array.isArray(mergedMessage.toolCallHistory)
+    ? mergedMessage.toolCallHistory
+    : []
+
+  const getToolCallsForStep = useCallback(
+    stepNumber =>
+      toolCallHistory.filter(item =>
+        typeof item.step === 'number' ? item.step === stepNumber : false,
+      ),
+    [toolCallHistory],
+  )
+
+  const formatJsonForDisplay = value => {
+    if (value == null) return ''
+    if (typeof value === 'string') {
+      try {
+        const parsed = JSON.parse(value)
+        return JSON.stringify(parsed, null, 2)
+      } catch {
+        return value
+      }
+    }
+    try {
+      return JSON.stringify(value, null, 2)
+    } catch {
+      return String(value)
+    }
+  }
+
+  const interleavedContent = useMemo(() => {
+    if (isDeepResearch || !toolCallHistory.length) {
+      return [{ type: 'text', content: mainContent || '' }]
+    }
+
+    const parts = []
+    let lastIndex = 0
+    const rawContent = mainContent || ''
+
+    // Group tools by index
+    const toolsByIndex = {}
+    toolCallHistory.forEach(tool => {
+      // Use textIndex if available
+      // If missing: default interactive_form to end, others to start
+      const idx = tool.textIndex ?? (tool.name === 'interactive_form' ? rawContent.length : 0)
+      if (!toolsByIndex[idx]) toolsByIndex[idx] = []
+      toolsByIndex[idx].push(tool)
+    })
+
+    // Get all unique indices
+    const indices = Object.keys(toolsByIndex)
+      .map(Number)
+      .sort((a, b) => a - b)
+
+    indices.forEach(index => {
+      const safeIndex = Math.min(index, rawContent.length)
+      if (safeIndex > lastIndex) {
+        parts.push({
+          type: 'text',
+          content: rawContent.substring(lastIndex, safeIndex),
+        })
+      }
+      parts.push({ type: 'tools', items: toolsByIndex[index] })
+      lastIndex = Math.max(lastIndex, safeIndex)
+    })
+
+    if (lastIndex < rawContent.length) {
+      parts.push({ type: 'text', content: rawContent.substring(lastIndex) })
+    }
+
+    return parts
+  }, [mainContent, toolCallHistory, isDeepResearch])
 
   const [isDark, setIsDark] = useState(document.documentElement.classList.contains('dark'))
   const mainContentRef = useRef(null)
   const researchExportRef = useRef(null)
   const thoughtExportRef = useRef(null)
   const containerRef = useRef(null) // Local ref for the wrapper
-  const prevStreamingRef = useRef(false)
 
   // State to track copy success
   const [isCopied, setIsCopied] = useState(false)
@@ -352,7 +536,7 @@ const MessageBubble = ({
   }
 
   // Handle touch events for mobile
-  const handleTouchEnd = e => {
+  const handleTouchEnd = () => {
     if (!isMobile) return
 
     // Don't prevent default here to allow text selection
@@ -447,10 +631,7 @@ const MessageBubble = ({
   const { t } = useTranslation()
   const { showConfirmation } = useAppContext()
   const isUser = message.role === 'user'
-  const isDeepResearch =
-    !!message?.deepResearch ||
-    message?.agent_name === 'Deep Research Agent' ||
-    message?.agentName === 'Deep Research Agent'
+
   const planContent = typeof message?.researchPlan === 'string' ? message.researchPlan.trim() : ''
 
   // Dynamic thinking status messages using translations
@@ -573,13 +754,6 @@ const MessageBubble = ({
     }
   }, [planContent, t])
 
-  const providerId = mergedMessage.provider || apiProvider
-  const provider = getProvider(providerId)
-  const parsed = provider.parseMessage(mergedMessage)
-  const thoughtContent =
-    isDeepResearch || mergedMessage.thinkingEnabled === false ? null : parsed.thought
-  const mainContent = parsed.content
-
   const { handleDownloadPdf, handleDownloadWord } = useMessageExport({
     message,
     planMarkdown,
@@ -599,16 +773,17 @@ const MessageBubble = ({
 
   const handleMobileSourceClick = useCallback(
     (selectedSources, title) => {
-      setMobileDrawerSources(selectedSources || message.sources)
+      setMobileDrawerSources(selectedSources || mergedMessage.sources)
       setMobileDrawerTitle(title || t('sources.title'))
       setIsMobileDrawerOpen(true)
     },
-    [message.sources, t],
+    [mergedMessage.sources, t],
   )
 
   const isStreaming =
     message?.isStreaming ??
-    (isLoading && message.role === 'ai' && messageIndex === messages.length - 1)
+    ((isLoading && message.role === 'ai' && messageIndex === messages.length - 1) ||
+      !!mergedMessage?._isContinuationLoading)
   const hasMainText = (() => {
     const content = message?.content
     if (typeof content === 'string') return content.trim().length > 0
@@ -764,7 +939,7 @@ const MessageBubble = ({
   }, [messageIndex])
 
   const createHeadingComponent = (Tag, className, withAnchors) => {
-    return ({ node, children, ...props }) => {
+    const Heading = ({ children, ...props }) => {
       const headingId = withAnchors ? getNextHeadingId() : undefined
       return (
         <Tag
@@ -776,6 +951,8 @@ const MessageBubble = ({
         </Tag>
       )
     }
+    Heading.displayName = `Heading\${Tag}`
+    return Heading
   }
 
   // Handle interactive form submission
@@ -790,84 +967,14 @@ const MessageBubble = ({
 
   const markdownComponents = useMemo(
     () => ({
-      code: ({ node, inline, className, children, ...props }) => {
-        // 1. Check strict language tag (permissive matching)
-        const isInteractiveFormTag = /language-interactive/i.test(className || '')
-
-        // 2. Exact kind signature
-        const rawContent = String(children)
-        // Find JSON bounds
-        const firstBrace = rawContent.indexOf('{')
-        const lastBrace = rawContent.lastIndexOf('}')
-
-        const hasJsonStructure = firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace
-        const contentToParse = hasJsonStructure
-          ? rawContent.substring(firstBrace, lastBrace + 1)
-          : rawContent
-
-        const hasKindSignature =
-          hasJsonStructure &&
-          (contentToParse.includes('"kind": "interactive_form"') ||
-            contentToParse.includes('"kind":"interactive_form"'))
-
-        const shouldBeForm = isInteractiveFormTag || hasKindSignature
-        let formData = null
-
-        if (!inline && shouldBeForm) {
-          try {
-            // Cleanup and parse
-            const cleanJson = contentToParse.replace(/,\s*([\]}])/g, '$1').replace(/\\n/g, '\\n')
-
-            const parsed = JSON.parse(cleanJson)
-            if (parsed && Array.isArray(parsed.fields) && (parsed.id || parsed.title)) {
-              formData = parsed
-            } else {
-              throw new Error('Missing required fields')
-            }
-          } catch (e) {
-            // Check if JSON looks incomplete (still streaming)
-            const openBraces = (contentToParse.match(/{/g) || []).length
-            const closeBraces = (contentToParse.match(/}/g) || []).length
-            const isIncomplete = openBraces !== closeBraces
-
-            // Only show error if JSON structure is complete but invalid
-            // If incomplete, it's likely still streaming - render as code block
-            if (!isIncomplete) {
-              console.error('[InteractiveForm] Parsing error:', e)
-              return (
-                <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-700 dark:text-red-300">
-                  <p className="font-bold">{t('interactiveForm.errors.parsingError')}</p>
-                  <p>{e.message}</p>
-                  <details className="mt-2 text-xs opacity-70">
-                    <summary>{t('interactiveForm.errors.debugInfo')}</summary>
-                    <pre className="whitespace-pre-wrap">{contentToParse}</pre>
-                  </details>
-                </div>
-              )
-            }
-            // If incomplete, fall through to render as code block
-          }
-        }
-
-        if (formData) {
-          return (
-            <InteractiveForm
-              formData={formData}
-              onSubmit={handleFormSubmit}
-              messageId={message.id}
-              isSubmitted={!!mergedMessage._formSubmitted}
-              submittedValues={mergedMessage._formSubmittedValues || {}}
-            />
-          )
-        }
-
+      code: ({ inline, className, children, ...props }) => {
         return (
           <CodeBlock inline={inline} className={className} {...props}>
             {children}
           </CodeBlock>
         )
       },
-      p: ({ node, children, ...props }) => (
+      p: ({ children, ...props }) => (
         <p className="mb-4 last:mb-0" {...props}>
           {parseChildrenWithEmojis(children)}
         </p>
@@ -875,14 +982,14 @@ const MessageBubble = ({
       h1: createHeadingComponent('h1', 'text-2xl font-bold mb-4 mt-4', false),
       h2: createHeadingComponent('h2', 'text-xl font-bold mb-3 mt-3', false),
       h3: createHeadingComponent('h3', 'text-lg font-bold mb-2 mt-2', false),
-      ul: ({ node, ...props }) => <ul className="list-disc pl-5 mb-4 space-y-1" {...props} />,
-      ol: ({ node, ...props }) => <ol className="list-decimal pl-5 mb-4 space-y-1" {...props} />,
-      li: ({ node, children, ...props }) => (
+      ul: ({ ...props }) => <ul className="list-disc pl-5 mb-4 space-y-1" {...props} />,
+      ol: ({ ...props }) => <ol className="list-decimal pl-5 mb-4 space-y-1" {...props} />,
+      li: ({ children, ...props }) => (
         <li className="mb-1" {...props}>
           {parseChildrenWithEmojis(children)}
         </li>
       ),
-      blockquote: ({ node, children, ...props }) => (
+      blockquote: ({ children, ...props }) => (
         <blockquote
           className="border-l-4 border-gray-300 dark:border-zinc-600 pl-4 italic my-4 text-gray-600 dark:text-gray-400"
           {...props}
@@ -890,22 +997,20 @@ const MessageBubble = ({
           {parseChildrenWithEmojis(children)}
         </blockquote>
       ),
-      table: ({ node, ...props }) => (
+      table: ({ ...props }) => (
         <div className="overflow-x-auto my-4 w-fit max-w-full rounded-lg border border-gray-200 dark:border-zinc-700 table-scrollbar code-scrollbar">
           <table className="w-auto divide-y divide-gray-200 dark:divide-zinc-700" {...props} />
         </div>
       ),
-      thead: ({ node, ...props }) => (
-        <thead className="bg-user-bubble dark:bg-zinc-800" {...props} />
-      ),
-      tbody: ({ node, ...props }) => (
+      thead: ({ ...props }) => <thead className="bg-user-bubble dark:bg-zinc-800" {...props} />,
+      tbody: ({ ...props }) => (
         <tbody
           className="bg-user-bubble/50 dark:bg-zinc-900 divide-y divide-gray-200 dark:divide-zinc-700"
           {...props}
         />
       ),
-      tr: ({ node, ...props }) => <tr {...props} />,
-      th: ({ node, children, ...props }) => (
+      tr: ({ ...props }) => <tr {...props} />,
+      th: ({ children, ...props }) => (
         <th
           className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
           {...props}
@@ -913,7 +1018,7 @@ const MessageBubble = ({
           {parseChildrenWithEmojis(children)}
         </th>
       ),
-      td: ({ node, children, ...props }) => (
+      td: ({ children, ...props }) => (
         <td
           className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap"
           {...props}
@@ -932,7 +1037,7 @@ const MessageBubble = ({
           return (
             <CitationChip
               indices={indices}
-              sources={message.sources}
+              sources={mergedMessage.sources}
               isMobile={isMobile}
               onMobileClick={sources =>
                 handleMobileSourceClick(sources, t('sources.citationSources'))
@@ -962,18 +1067,34 @@ const MessageBubble = ({
         </div>
       ),
     }),
-    [isDark, message.sources, isMobile, handleMobileSourceClick, CodeBlock, t], // Dependencies for markdownComponents
+    [isDark, mergedMessage.sources, isMobile, handleMobileSourceClick, CodeBlock, t], // Dependencies for markdownComponents
   )
 
   const markdownComponentsWithAnchors = useMemo(() => {
-    headingCounterRef.current = 0
+    // Use a local counter captured in the closure of this memoized value
+    let localHeadingCounter = 0
+
+    // Helper to generate IDs using the local counter
+    const createLocalHeading = (Tag, className) => {
+      const Heading = ({ children, ...props }) => {
+        const id = `heading-${messageIndex}-${localHeadingCounter++}`
+        return (
+          <Tag className={className} id={id} data-heading-id={id} {...props}>
+            {parseChildrenWithEmojis(children)}
+          </Tag>
+        )
+      }
+      Heading.displayName = `Heading${Tag}`
+      return Heading
+    }
+
     return {
       ...markdownComponents,
-      h1: createHeadingComponent('h1', 'text-2xl font-bold mb-4 mt-4', true),
-      h2: createHeadingComponent('h2', 'text-xl font-bold mb-3 mt-3', true),
-      h3: createHeadingComponent('h3', 'text-lg font-bold mb-2 mt-2', true),
+      h1: createLocalHeading('h1', 'text-2xl font-bold mb-4 mt-4'),
+      h2: createLocalHeading('h2', 'text-xl font-bold mb-3 mt-3'),
+      h3: createLocalHeading('h3', 'text-lg font-bold mb-2 mt-2'),
     }
-  }, [markdownComponents, createHeadingComponent, message.content, messageIndex])
+  }, [markdownComponents, messageIndex, parseChildrenWithEmojis])
 
   if (isUser) {
     let contentToRender = message.content
@@ -1165,13 +1286,6 @@ const MessageBubble = ({
       ? t('deepResearch.agentName')
       : agentName
 
-  const contentWithSupports = applyGroundingSupports(
-    mainContent,
-    mergedMessage.groundingSupports,
-    mergedMessage.sources,
-  )
-  const contentWithCitations = formatContentWithSources(contentWithSupports, mergedMessage.sources)
-
   const hasThoughtText = !!(thoughtContent && String(thoughtContent).trim())
   const hasPlanText = !!planMarkdown
   const researchPlanLoading = Boolean(message?.researchPlanLoading)
@@ -1180,48 +1294,31 @@ const MessageBubble = ({
   const hasRunningResearchStep = researchSteps.some(step => step.status === 'running')
   const shouldShowPlan = isDeepResearch && (hasPlanText || researchPlanLoading)
   const shouldShowResearch = isDeepResearch && hasResearchSteps
-  const shouldShowThought =
-    !isDeepResearch &&
-    message.thinkingEnabled !== false &&
-    (isStreaming || hasThoughtText || hasPlanText)
   const shouldShowThinking =
     !isDeepResearch &&
     message.thinkingEnabled !== false &&
     (isStreaming || hasThoughtText || hasPlanText)
   const shouldShowPlanStatus = isDeepResearch && researchPlanLoading
   const shouldShowResearchStatus = isDeepResearch && hasRunningResearchStep
-  const shouldShowThoughtStatus =
-    baseThinkingStatusActive &&
-    (!isDeepResearch || (!researchPlanLoading && (hasPlanText || hasThoughtText)))
-  const thinkingEmoji = isDeepResearch ? '🧐' : '🧠'
-  const hasRelatedQuestions = Array.isArray(message.related) && message.related.length > 0
-  const isRelatedLoading = !!message.relatedLoading
-  const shouldShowRelated = !isDeepResearch && (hasRelatedQuestions || isRelatedLoading)
-  const toolCallHistory = Array.isArray(message.toolCallHistory) ? message.toolCallHistory : []
-  const getToolCallsForStep = useCallback(
-    stepNumber =>
-      toolCallHistory.filter(item =>
-        typeof item.step === 'number' ? item.step === stepNumber : false,
-      ),
-    [toolCallHistory],
-  )
 
-  const formatJsonForDisplay = value => {
-    if (value == null) return ''
-    if (typeof value === 'string') {
-      try {
-        const parsed = JSON.parse(value)
-        return JSON.stringify(parsed, null, 2)
-      } catch {
-        return value
-      }
-    }
-    try {
-      return JSON.stringify(value, null, 2)
-    } catch {
-      return String(value)
-    }
+  const hasRelatedQuestions =
+    Array.isArray(mergedMessage.related) && mergedMessage.related.length > 0
+  const isRelatedLoading = !!mergedMessage.relatedLoading
+  const shouldShowRelated = !isDeepResearch && (hasRelatedQuestions || isRelatedLoading)
+
+  // Debug logging for related questions
+  if (mergedMessage._formSubmitted) {
+    console.log('[MessageBubble] Related questions check:', {
+      messageId: message.id,
+      hasRelatedQuestions,
+      relatedCount: mergedMessage.related?.length || 0,
+      isRelatedLoading,
+      shouldShowRelated,
+      isDeepResearch,
+      mergedRelated: mergedMessage.related,
+    })
   }
+
   return (
     <div
       id={messageId}
@@ -1369,69 +1466,6 @@ const MessageBubble = ({
         )}
       </div>
 
-      {!isDeepResearch && toolCallHistory.length > 0 && (
-        <div className="border border-gray-200 dark:border-zinc-700 rounded-xl overflow-hidden bg-user-bubble/20 dark:bg-zinc-800/30">
-          <div className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-zinc-700">
-            <div className="flex items-center gap-2 font-medium text-gray-700 dark:text-gray-300">
-              <EmojiDisplay emoji={'🔧'} size="1.2em" /> {t('messageBubble.toolCalls')}
-            </div>
-          </div>
-          <div className="px-4 py-3 space-y-2">
-            {toolCallHistory.map(item => (
-              <div
-                key={item.id || `${item.name}-${item.arguments}`}
-                className="flex flex-col gap-1 text-xs text-gray-600 dark:text-gray-400"
-              >
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold text-gray-700 dark:text-gray-200">
-                    {item.name}
-                  </span>
-                  <span
-                    className={clsx(
-                      'px-2 py-0.5 rounded-full text-[11px]',
-                      item.status === 'error'
-                        ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
-                        : item.status === 'done'
-                          ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
-                          : 'bg-gray-200/70 dark:bg-zinc-700/70 text-gray-600 dark:text-gray-400',
-                    )}
-                  >
-                    {item.status === 'error'
-                      ? t('messageBubble.toolStatusError')
-                      : item.status === 'done'
-                        ? t('messageBubble.toolStatusDone')
-                        : t('messageBubble.toolStatusCalling')}
-                  </span>
-                  {item.status !== 'done' && item.status !== 'error' && <DotLoader />}
-                  {typeof item.durationMs === 'number' && (
-                    <span className="text-[11px] text-gray-500 dark:text-gray-400">
-                      {t('messageBubble.toolDuration', {
-                        duration: (item.durationMs / 1000).toFixed(2),
-                      })}
-                    </span>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => setActiveToolDetail(item)}
-                    className="ml-auto text-[11px] text-primary-600 dark:text-primary-300 hover:underline"
-                  >
-                    {t('messageBubble.toolDetails')}
-                  </button>
-                </div>
-                {/* {item.arguments && (
-                  <div className="text-[11px] text-gray-500 dark:text-gray-400 whitespace-pre-wrap break-words">
-                    {t('messageBubble.toolArguments')}: {item.arguments}
-                  </div>
-                )} */}
-                {item.error && (
-                  <div className="text-[11px] text-red-500 dark:text-red-400">{item.error}</div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Thinking Process Section */}
       {isDeepResearch ? (
         <>
@@ -1554,54 +1588,134 @@ const MessageBubble = ({
                           )}
                           {stepToolCalls.length > 0 && (
                             <div className="mt-2 space-y-1">
-                              <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400">
+                              <div className="h-[0.5px] my-2 w-full bg-gray-200 dark:bg-zinc-700"></div>
+                              {/* <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400">
                                 {t('messageBubble.toolCalls')}
-                              </div>
-                              <div className="space-y-1">
-                                {stepToolCalls.map(item => (
-                                  <div
-                                    key={item.id || `${item.name}-${item.arguments}`}
-                                    className="flex items-center gap-2 text-[11px] text-gray-600 dark:text-gray-400"
-                                  >
-                                    <span className="font-medium text-gray-700 dark:text-gray-300">
-                                      {item.name}
-                                    </span>
-                                    <span
-                                      className={clsx(
-                                        'px-2 py-0.5 rounded-full text-[10px]',
-                                        item.status === 'error'
-                                          ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
-                                          : item.status === 'done'
-                                            ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
-                                            : 'bg-gray-200/70 dark:bg-zinc-700/70 text-gray-600 dark:text-gray-400',
-                                      )}
+                              </div> */}
+                              {developerMode ? (
+                                // Developer Mode: Detailed view
+                                <div className="space-y-1">
+                                  {stepToolCalls.map(item => (
+                                    <div
+                                      key={item.id || `${item.name}-${item.arguments}`}
+                                      className="flex items-center gap-2 text-[11px] text-gray-600 dark:text-gray-400"
                                     >
-                                      {item.status === 'error'
-                                        ? t('messageBubble.toolStatusError')
-                                        : item.status === 'done'
-                                          ? t('messageBubble.toolStatusDone')
-                                          : t('messageBubble.toolStatusCalling')}
-                                    </span>
-                                    {item.status !== 'done' && item.status !== 'error' && (
-                                      <DotLoader />
-                                    )}
-                                    {typeof item.durationMs === 'number' && (
-                                      <span className="text-[10px] text-gray-500 dark:text-gray-400">
-                                        {t('messageBubble.toolDuration', {
-                                          duration: (item.durationMs / 1000).toFixed(2),
-                                        })}
+                                      <span className="font-medium text-gray-700 dark:text-gray-300">
+                                        {item.name}
                                       </span>
-                                    )}
-                                    <button
-                                      type="button"
-                                      onClick={() => setActiveToolDetail(item)}
-                                      className="ml-auto text-[10px] text-primary-600 dark:text-primary-300 hover:underline"
-                                    >
-                                      {t('messageBubble.toolDetails')}
-                                    </button>
-                                  </div>
-                                ))}
-                              </div>
+                                      <span
+                                        className={clsx(
+                                          'px-2 py-0.5 rounded-full text-[10px]',
+                                          item.status === 'error'
+                                            ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
+                                            : item.status === 'done'
+                                              ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
+                                              : 'bg-gray-200/70 dark:bg-zinc-700/70 text-gray-600 dark:text-gray-400',
+                                        )}
+                                      >
+                                        {item.status === 'error'
+                                          ? t('messageBubble.toolStatusError')
+                                          : item.status === 'done'
+                                            ? t('messageBubble.toolStatusDone')
+                                            : t('messageBubble.toolStatusCalling')}
+                                      </span>
+                                      {item.status !== 'done' && item.status !== 'error' && (
+                                        <DotLoader />
+                                      )}
+                                      {typeof item.durationMs === 'number' && (
+                                        <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                                          {t('messageBubble.toolDuration', {
+                                            duration: (item.durationMs / 1000).toFixed(2),
+                                          })}
+                                        </span>
+                                      )}
+                                      <button
+                                        type="button"
+                                        onClick={() => setActiveToolDetail(item)}
+                                        className="ml-auto text-[10px] text-primary-600 dark:text-primary-300 hover:underline"
+                                      >
+                                        {t('messageBubble.toolDetails')}
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                // Standard Mode: Simplified view with icons
+                                <div className="space-y-1 overflow-hidden">
+                                  {stepToolCalls.map(item => {
+                                    const iconName = TOOL_ICONS[item.name]
+                                    const IconComponent = iconName
+                                      ? {
+                                          Search,
+                                          GraduationCap,
+                                          Calculator,
+                                          Clock,
+                                          FileText,
+                                          ScanText,
+                                          Wrench,
+                                          FormInput,
+                                        }[iconName]
+                                      : null
+                                    return (
+                                      <div
+                                        key={item.id || `${item.name}-${item.arguments}`}
+                                        className="flex items-center gap-2 text-[11px] text-gray-500 dark:text-gray-400"
+                                      >
+                                        <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-1 sm:gap-1.5 w-full">
+                                          <span className="font-medium text-gray-600 dark:text-gray-300 whitespace-nowrap flex items-center gap-1">
+                                            {IconComponent && (
+                                              <IconComponent
+                                                size={12}
+                                                className="text-gray-500 dark:text-gray-400"
+                                              />
+                                            )}
+                                            {TOOL_TRANSLATION_KEYS[item.name]
+                                              ? t(TOOL_TRANSLATION_KEYS[item.name])
+                                              : item.name}
+                                          </span>
+                                          <div className="flex items-center min-w-0">
+                                            {Object.keys(TOOL_TRANSLATION_KEYS).includes(
+                                              item.name,
+                                            ) &&
+                                              (() => {
+                                                try {
+                                                  const args = JSON.parse(item.arguments || '{}')
+                                                  if (args.query) {
+                                                    return (
+                                                      <span className="opacity-75 truncate w-full">
+                                                        &quot;{args.query}&quot;
+                                                      </span>
+                                                    )
+                                                  }
+                                                } catch {
+                                                  return null
+                                                }
+                                              })()}
+                                          </div>
+                                          <span
+                                            className={clsx(
+                                              'px-1.5 py-0.5 rounded-full text-[10px] ml-auto flex-shrink-0 flex items-center justify-center min-w-[20px]',
+                                              item.status === 'error'
+                                                ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
+                                                : item.status === 'done'
+                                                  ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
+                                                  : 'bg-gray-200/70 dark:bg-zinc-700/70 text-gray-600 dark:text-gray-400',
+                                            )}
+                                          >
+                                            {item.status === 'error' ? (
+                                              <X className="w-3 h-3" />
+                                            ) : item.status === 'done' ? (
+                                              <Check className="w-3 h-3" />
+                                            ) : (
+                                              <DotLoader />
+                                            )}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
@@ -1669,20 +1783,244 @@ const MessageBubble = ({
           userSelect: isMobile ? 'text' : 'auto',
         }}
       >
-        {!mergedMessage.content ? (
+        {!mergedMessage.content && (!toolCallHistory || toolCallHistory.length === 0) ? (
+          <div className="flex flex-col gap-2 animate-pulse">
+            <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-3/4"></div>
+            <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-1/2"></div>
+            <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-5/6"></div>
+          </div>
+        ) : mergedMessage._isContinuationLoading ? (
           <div className="flex flex-col gap-2 animate-pulse">
             <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-3/4"></div>
             <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-1/2"></div>
             <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-5/6"></div>
           </div>
         ) : (
-          <Streamdown
-            mermaid={mermaidOptions}
-            remarkPlugins={[remarkGfm]}
-            components={markdownComponentsWithAnchors}
-          >
-            {contentWithCitations}
-          </Streamdown>
+          interleavedContent.map((part, idx) => {
+            if (part.type === 'tools') {
+              // Separate utility tools from interactive forms
+              const formTools = part.items.filter(item => item.name === 'interactive_form')
+              const regularTools = part.items.filter(item => item.name !== 'interactive_form')
+
+              return (
+                <div key={`tools-container-${idx}`} className="flex flex-col gap-4">
+                  {/* Render regular tools */}
+                  {regularTools.length > 0 &&
+                    (developerMode ? (
+                      // Developer Mode: Full detailed view
+                      <div className="my-4 border border-gray-200 dark:border-zinc-700 rounded-xl overflow-hidden bg-user-bubble/20 dark:bg-zinc-800/30">
+                        <div className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-zinc-700">
+                          <div className="flex items-center gap-2 font-medium text-gray-700 dark:text-gray-300">
+                            <EmojiDisplay emoji={'🔧'} size="1.2em" />{' '}
+                            {t('messageBubble.toolCalls')}
+                          </div>
+                        </div>
+                        <div className="px-4 py-3 space-y-2">
+                          {regularTools.map(item => (
+                            <div
+                              key={item.id || `${item.name}-${item.arguments}`}
+                              className="flex items-start justify-between gap-4 text-xs font-mono"
+                            >
+                              <div className="flex-1 space-y-1 overflow-hidden">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-semibold text-primary-600 dark:text-primary-400">
+                                    {item.name}
+                                  </span>
+                                  <span className="text-gray-500 dark:text-gray-400">
+                                    ID: {item.id}
+                                  </span>
+                                </div>
+                                <div className="bg-white/50 dark:bg-black/20 rounded p-2 overflow-x-auto text-gray-600 dark:text-gray-300">
+                                  {item.arguments}
+                                </div>
+                                {item.output && (
+                                  <div className="mt-1">
+                                    <div className="text-gray-500 dark:text-gray-400 mb-0.5">
+                                      {t('messageBubble.toolOutput')}:
+                                    </div>
+                                    <div className="bg-green-50/50 dark:bg-green-900/10 rounded p-2 overflow-x-auto text-green-700 dark:text-green-300">
+                                      {typeof item.output === 'string'
+                                        ? item.output.slice(0, 300) +
+                                          (item.output.length > 300 ? '...' : '')
+                                        : JSON.stringify(item.output).slice(0, 300)}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                                <span
+                                  className={clsx(
+                                    'px-2 py-0.5 rounded-full text-[11px] flex items-center gap-1',
+                                    item.status === 'error'
+                                      ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
+                                      : item.status === 'done'
+                                        ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
+                                        : 'bg-gray-200/70 dark:bg-zinc-700/70 text-gray-600 dark:text-gray-400',
+                                  )}
+                                >
+                                  {item.status === 'error' ? (
+                                    <X className="w-4 h-4" />
+                                  ) : item.status === 'done' ? (
+                                    <Check className="w-4 h-4" />
+                                  ) : (
+                                    <DotLoader />
+                                  )}
+                                </span>
+                                {typeof item.durationMs === 'number' && (
+                                  <span className="text-[11px] hidden sm:block text-gray-500 dark:text-gray-400 min-w-[50px]">
+                                    {t('messageBubble.toolDuration', {
+                                      duration: (item.durationMs / 1000).toFixed(2),
+                                    })}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      // Standard Mode: Simplified view
+                      <div className="my-4 p-3 border flex flex-col gap-2 border-gray-200 dark:border-zinc-700 rounded-xl overflow-hidden bg-user-bubble/20 dark:bg-zinc-800/30">
+                        {regularTools.map(item => {
+                          const iconName = TOOL_ICONS[item.name]
+                          const IconComponent = iconName
+                            ? {
+                                Search,
+                                GraduationCap,
+                                Calculator,
+                                Clock,
+                                FileText,
+                                ScanText,
+                                Wrench,
+                                FormInput,
+                              }[iconName]
+                            : null
+                          return (
+                            <div
+                              key={item.id || `${item.name}-${item.arguments}`}
+                              className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400"
+                            >
+                              <div className="flex items-center gap-1 sm:gap-2 w-full">
+                                <span className="font-medium text-gray-600 dark:text-gray-300 whitespace-nowrap flex-shrink-0 flex items-center gap-1.5">
+                                  {IconComponent && (
+                                    <IconComponent
+                                      size={14}
+                                      className="text-gray-500 dark:text-gray-400"
+                                    />
+                                  )}
+                                  {TOOL_TRANSLATION_KEYS[item.name]
+                                    ? t(TOOL_TRANSLATION_KEYS[item.name])
+                                    : item.name}
+                                </span>
+                                <div className="flex items-center gap-1 sm:gap-2 flex-1 min-w-0">
+                                  {Object.keys(TOOL_TRANSLATION_KEYS).includes(item.name) &&
+                                    (() => {
+                                      try {
+                                        const args = JSON.parse(item.arguments || '{}')
+                                        if (args.query) {
+                                          return (
+                                            <span className="opacity-75 truncate w-full">
+                                              &quot;{args.query}&quot;
+                                            </span>
+                                          )
+                                        }
+                                      } catch {
+                                        return null
+                                      }
+                                    })()}
+                                </div>
+                                <span
+                                  className={clsx(
+                                    'px-2 py-0.5 rounded-full text-[11px] ml-auto flex-shrink-0 flex items-center justify-center min-w-[24px]',
+                                    item.status === 'error'
+                                      ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
+                                      : item.status === 'done'
+                                        ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
+                                        : 'bg-gray-200/70 dark:bg-zinc-700/70 text-gray-600 dark:text-gray-400',
+                                  )}
+                                >
+                                  {item.status === 'error' ? (
+                                    <X className="w-4 h-4" />
+                                  ) : item.status === 'done' ? (
+                                    <Check className="w-4 h-4" />
+                                  ) : (
+                                    <DotLoader />
+                                  )}
+                                </span>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    ))}
+
+                  {/* Render Interactive Forms */}
+                  {isStreaming ? (
+                    <div className="my-4  rounded-xl  space-y-4 animate-pulse">
+                      <div className="h-6 bg-gray-200 dark:bg-zinc-700 rounded w-1/3"></div>
+                      <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-2/3"></div>
+                      <div className="space-y-2">
+                        <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-1/4"></div>
+                        <div className="h-10 bg-gray-200 dark:bg-zinc-700 rounded w-full"></div>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-1/4"></div>
+                        <div className="h-10 bg-gray-200 dark:bg-zinc-700 rounded w-full"></div>
+                      </div>
+                      <div className="h-10 bg-gray-200 dark:bg-zinc-700 rounded w-full mt-4"></div>
+                    </div>
+                  ) : (
+                    formTools.map((item, formIdx) => {
+                      try {
+                        const formData = JSON.parse(item.arguments)
+                        return (
+                          <InteractiveForm
+                            key={`form-${formIdx}`}
+                            formData={formData}
+                            onSubmit={handleFormSubmit}
+                            messageId={message.id}
+                            isSubmitted={!!item._isSubmitted}
+                            submittedValues={mergedMessage._formSubmittedValues || {}}
+                          />
+                        )
+                      } catch (e) {
+                        console.error('Failed to parse interactive form arguments:', e)
+                        return (
+                          <div
+                            key={`form-error-${formIdx}`}
+                            className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-700 dark:text-red-300"
+                          >
+                            Error displaying form: {e.message}
+                          </div>
+                        )
+                      }
+                    })
+                  )}
+                </div>
+              )
+            }
+
+            const contentWithSupports = applyGroundingSupports(
+              part.content,
+              mergedMessage.groundingSupports,
+              mergedMessage.sources,
+            )
+            const contentWithCitations = formatContentWithSources(
+              contentWithSupports,
+              mergedMessage.sources,
+            )
+
+            return (
+              <Streamdown
+                key={`text-${idx}`}
+                mermaid={mermaidOptions}
+                remarkPlugins={[remarkGfm]}
+                components={markdownComponentsWithAnchors}
+              >
+                {contentWithCitations}
+              </Streamdown>
+            )
+          })
         )}
       </div>
 
@@ -1691,7 +2029,7 @@ const MessageBubble = ({
         <div className="border-t border-gray-200 dark:border-zinc-800 pt-4">
           <RelatedQuestions
             t={t}
-            questions={hasRelatedQuestions ? message.related : []}
+            questions={hasRelatedQuestions ? mergedMessage.related : []}
             isLoading={isRelatedLoading}
             onRelatedClick={onRelatedClick}
           />
@@ -1703,11 +2041,11 @@ const MessageBubble = ({
         t={t}
         isDeepResearch={isDeepResearch}
         isMobile={isMobile}
-        message={message}
+        message={mergedMessage}
         isSourcesOpen={isSourcesOpen}
         onToggleSources={() => setIsSourcesOpen(prev => !prev)}
         onOpenMobileSources={() =>
-          handleMobileSourceClick(message.sources, t('sources.allSources'))
+          handleMobileSourceClick(mergedMessage.sources, t('sources.allSources'))
         }
         onShare={() => setIsShareModalOpen(true)}
         onRegenerate={() => {
@@ -1744,8 +2082,8 @@ const MessageBubble = ({
       />
 
       {/* Desktop Sources Section (Collapsible) */}
-      {!isMobile && message.sources && message.sources.length > 0 && (
-        <DesktopSourcesSection sources={message.sources} isOpen={isSourcesOpen} />
+      {!isMobile && mergedMessage.sources && mergedMessage.sources.length > 0 && (
+        <DesktopSourcesSection sources={mergedMessage.sources} isOpen={isSourcesOpen} />
       )}
 
       {/* Mobile Sources Drawer */}
@@ -1853,6 +2191,7 @@ const CitationChip = ({ indices, sources, isMobile, onMobileClick, label }) => {
 
   // Memoize the filtered sources for the drawer
   const drawerSources = useMemo(() => {
+    if (!sources || !Array.isArray(sources)) return []
     return indices
       .map(idx => sources[idx])
       .filter(Boolean)

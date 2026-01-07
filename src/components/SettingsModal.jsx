@@ -15,6 +15,7 @@ import {
   Search,
   RefreshCw,
   Settings,
+  Terminal,
   User,
   X,
 } from 'lucide-react'
@@ -348,6 +349,11 @@ const SettingsModal = ({ isOpen, onClose }) => {
   const [embeddingModelsLoading, setEmbeddingModelsLoading] = useState(false)
   const [embeddingModelsError, setEmbeddingModelsError] = useState('')
   const [userSelfIntro, setUserSelfIntro] = useState('')
+
+  // Advanced settings
+  const [developerMode, setDeveloperMode] = useState(false)
+
+  // API Configuration States
   const [introQuery, setIntroQuery] = useState('')
   const [introEmbeddingVector, setIntroEmbeddingVector] = useState(null)
   const [introEmbeddingState, setIntroEmbeddingState] = useState({
@@ -443,6 +449,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
     { id: 'personalization', icon: User },
     { id: 'interface', icon: Monitor },
     { id: 'account', icon: Key },
+    { id: 'advanced', icon: Terminal },
     { id: 'about', icon: Info },
   ]
 
@@ -518,11 +525,13 @@ const SettingsModal = ({ isOpen, onClose }) => {
       const parsedRecallLimit = Number(settings.memoryRecallLimit)
       if (Number.isFinite(parsedRecallLimit)) setMemoryRecallLimit(parsedRecallLimit)
       if (settings.embeddingProvider) setEmbeddingProvider(settings.embeddingProvider)
-      if (settings.embeddingModelSource) setEmbeddingModelSource(settings.embeddingModelSource)
+      if (settings.embeddingModelSource)
+        setEmbeddingModelSource(settings.embeddingModelSource || 'list')
       if (settings.embeddingModel) setEmbeddingModel(settings.embeddingModel)
       if (settings.embeddingModelSource === 'custom')
         setEmbeddingCustomModel(settings.embeddingModel || '')
       if (typeof settings.userSelfIntro === 'string') setUserSelfIntro(settings.userSelfIntro)
+      setDeveloperMode(settings.developerMode || false)
       setIntroQuery('')
       setIntroEmbeddingVector(null)
       setIntroEmbeddingState({ status: 'idle', message: '' })
@@ -1106,11 +1115,6 @@ const SettingsModal = ({ isOpen, onClose }) => {
     return requiredTables.filter(table => !result.tables[table])
   }
 
-  const openInitSqlModal = result => {
-    setInitModalResult(result)
-    setIsInitModalOpen(true)
-  }
-
   const copyInitSql = async () => {
     try {
       await navigator.clipboard.writeText(INIT_SQL_SCRIPT)
@@ -1176,7 +1180,8 @@ const SettingsModal = ({ isOpen, onClose }) => {
     setTestResult(result)
     setTesting(false)
     if (!result.success) {
-      openInitSqlModal(result)
+      setInitModalResult(result)
+      setIsInitModalOpen(true)
     }
   }
 
@@ -1190,7 +1195,8 @@ const SettingsModal = ({ isOpen, onClose }) => {
         setTestResult(result)
         setTesting(false)
         if (!result.success) {
-          openInitSqlModal(result)
+          setInitModalResult(result)
+          setIsInitModalOpen(true)
           return
         }
       }
@@ -1223,6 +1229,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
         embeddingModelSource,
         userSelfIntro,
         interfaceLanguage,
+        developerMode,
       }
 
       await saveSettings(newSettings)
@@ -2405,9 +2412,6 @@ const SettingsModal = ({ isOpen, onClose }) => {
                       disabled={!canRunDocumentSearch}
                       className="px-4 py-2 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 border border-gray-200 dark:border-zinc-700"
                     >
-                      {documentSearchState.status === 'loading' && (
-                        <RefreshCw size={14} className="animate-spin" />
-                      )}
                       {documentSearchState.status === 'loading'
                         ? t('settings.documentSearching')
                         : t('settings.documentSearch')}
@@ -2643,6 +2647,51 @@ const SettingsModal = ({ isOpen, onClose }) => {
                 <p className="text-[10px] text-gray-300 dark:text-gray-600 mt-auto">
                   {t('settings.about.version')}
                 </p>
+              </div>
+            )}
+
+            {activeTab === 'advanced' && (
+              <div className="flex flex-col gap-8 max-w-2xl">
+                <div className="flex flex-col gap-6">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-sm font-medium text-gray-900 dark:text-white">
+                      {t('settings.advanced.developerMode')}
+                    </label>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {t('settings.advanced.developerModeHint')}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-col gap-3">
+                    {/* Radio Options for Developer Mode */}
+                    <div className="flex items-center gap-4">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="developerMode"
+                          checked={developerMode === true}
+                          onChange={() => setDeveloperMode(true)}
+                          className="w-4 h-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-zinc-600"
+                        />
+                        <span className="text-sm text-gray-700 dark:text-gray-300">
+                          {t('common.on')}
+                        </span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="developerMode"
+                          checked={developerMode === false}
+                          onChange={() => setDeveloperMode(false)}
+                          className="w-4 h-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-zinc-600"
+                        />
+                        <span className="text-sm text-gray-700 dark:text-gray-300">
+                          {t('common.off')}
+                        </span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
           </div>

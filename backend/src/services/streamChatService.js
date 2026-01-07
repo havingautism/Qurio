@@ -5,6 +5,7 @@
 
 import { getProviderAdapter } from './providers/adapterFactory.js'
 import { normalizeTextContent, safeJsonParse } from './serviceUtils.js'
+import { TIME_KEYWORDS_REGEX } from './regexConstants.js'
 import { executeToolByName, getToolDefinitionsByIds, isLocalToolName } from './toolsService.js'
 
 // Debug flags
@@ -171,6 +172,7 @@ const buildToolCallEvent = (toolCall, argsOverride) => ({
     typeof argsOverride !== 'undefined'
       ? formatToolArgumentsFromValue(argsOverride)
       : formatToolArgumentsFromValue(getToolCallArguments(toolCall)),
+  textIndex: toolCall?.textIndex,
 })
 
 /**
@@ -235,7 +237,7 @@ const updateToolCallsMap = (toolCallsMap, newToolCalls) => {
 /**
  * Helper: Merge tool calls by index
  */
-const mergeToolCallsByIndex = (toolCallsByIndex, newToolCalls) => {
+const mergeToolCallsByIndex = (toolCallsByIndex, newToolCalls, currentTextLength = 0) => {
   if (!Array.isArray(newToolCalls)) return
 
   for (const toolCall of newToolCalls) {
@@ -251,6 +253,8 @@ const mergeToolCallsByIndex = (toolCallsByIndex, newToolCalls) => {
     toolCallsByIndex[index] = {
       ...current,
       ...toolCall,
+      // If this is a new tool call, capture the current text position for interleaving
+      textIndex: current.textIndex !== undefined ? current.textIndex : currentTextLength,
       function: {
         ...currentFunction,
         ...nextFunction,
@@ -297,12 +301,59 @@ export const streamChat = async function* (params) {
 
   // Apply context limit
   const trimmedMessages = applyContextLimit(messages, contextMessageLimit)
+
+  // Check for time-related keywords in the last user message
+  const lastUserMessage = trimmedMessages
+    .slice()
+    .reverse()
+    .find(m => m.role === 'user')
+  const timeKeywordsRegex = TIME_KEYWORDS_REGEX
+
+  if (lastUserMessage?.content) {
+    const isTimeMatch = timeKeywordsRegex.test(lastUserMessage.content)
+    const isToolEnabled = Array.isArray(toolIds) && toolIds.includes('local_time')
+
+    // console.log('[TimeInject] Checking:', {
+    //   content: lastUserMessage.content,
+    //   match: isTimeMatch,
+    //   toolIds,
+    //   enabled: isToolEnabled
+    // })
+
+    if (isTimeMatch && isToolEnabled) {
+      try {
+        console.log('[TimeInject] Injecting local time context...')
+        const timeResult = await executeToolByName('local_time', {}, {})
+        const timeContext = `\n\n[SYSTEM INJECTED CONTEXT]\nCurrent Local Time: ${timeResult.formatted} (${timeResult.timezone})`
+
+        // Inject into the LAST USER message for better attention
+        const lastUserIndex = trimmedMessages
+          .map((m, i) => (m.role === 'user' ? i : -1))
+          .reduce((a, b) => Math.max(a, b), -1)
+
+        if (lastUserIndex !== -1) {
+          trimmedMessages[lastUserIndex] = {
+            ...trimmedMessages[lastUserIndex],
+            content: trimmedMessages[lastUserIndex].content + timeContext,
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to inject local time context:', e)
+      }
+    }
+  }
+
+  // Inject interactive_form guidance if tool is available
+  // Inject interactive_form guidance (GLOBAL TOOL)
+
   let currentMessages = trimmedMessages
+  console.log('currentMessages', currentMessages)
 
   // Get provider adapter
   const adapter = getProviderAdapter(provider)
 
   // Prepare tool definitions
+  // Always include interactive_form as it is a global tool
   const agentToolDefinitions = provider === 'gemini' ? [] : getToolDefinitionsByIds(toolIds)
   const combinedTools = [...(Array.isArray(tools) ? tools : []), ...agentToolDefinitions].filter(
     Boolean,
@@ -316,6 +367,42 @@ export const streamChat = async function* (params) {
     if (name && toolNames.has(name)) continue
     if (name) toolNames.add(name)
     normalizedTools.push(tool)
+  }
+
+  // Inject interactive_form guidance if tool is available
+  if (normalizedTools.some(t => t.function?.name === 'interactive_form')) {
+    const formGuidance = `
+[TOOL USE GUIDANCE]
+When you need to collect structured information from the user (e.g. preferences, requirements, booking details), use the 'interactive_form' tool.
+CRITICAL: DO NOT list questions in text or markdown. YOU MUST USE the 'interactive_form' tool to display fields.
+Keep forms concise (3-6 fields).
+
+[MANDATORY TEXT-FIRST RULE]
+CRITICAL: You MUST output meaningful introductory text BEFORE calling 'interactive_form'.
+- NEVER call 'interactive_form' as the very first thing in your response
+- ALWAYS explain the context, acknowledge the user's request, or provide guidance BEFORE the form
+- Minimum: Output at least 1-2 sentences before the form call
+- Example: "I can help you with that. To provide the best recommendation, please share some details below:"
+
+[SINGLE FORM PER RESPONSE]
+CRITICAL: You may call 'interactive_form' ONLY ONCE per response. Do NOT call it multiple times in the same answer.
+If you need to collect information, design ONE comprehensive form that gathers all necessary details at once.
+
+[MULTI-TURN INTERACTIONS]
+1. If the information from a submitted form is insufficient, you MAY present another 'interactive_form' in your NEXT response (after the user submits the first form).
+2. LIMIT: Use at most 2-3 forms total across the entire conversation. Excessive questioning frustrates users.
+3. INTERLEAVING: You can place the form anywhere in your response. Output introductory text FIRST (e.g., "I can help with that. Please provide some details below:"), then call 'interactive_form' once.
+4. If the user has provided enough context through previous forms, proceed directly to the final answer without requesting more information.`
+
+    const systemIndex = currentMessages.findIndex(m => m.role === 'system')
+    if (systemIndex !== -1) {
+      currentMessages[systemIndex] = {
+        ...currentMessages[systemIndex],
+        content: currentMessages[systemIndex].content + formGuidance,
+      }
+    } else {
+      currentMessages.unshift({ role: 'system', content: formGuidance })
+    }
   }
 
   // Inject citation prompt if Tavily_web_search is enabled
@@ -527,33 +614,13 @@ export const streamChat = async function* (params) {
         const messageChunk = chunk?.message ?? chunk
         const contentValue = messageChunk?.content ?? chunk?.content
 
-        // Collect tool_calls from streaming chunks
-        const toolCalls =
-          messageChunk?.tool_calls ||
-          messageChunk?.additional_kwargs?.tool_calls ||
-          messageChunk?.additional_kwargs?.tool_calls
-        if (Array.isArray(toolCalls)) {
-          mergeToolCallsByIndex(toolCallsByIndex, toolCalls)
-          updateToolCallsMap(toolCallsMap, toolCalls)
-        }
-
-        // Also check raw response for tool calls
-        const rawToolCalls =
-          messageChunk?.additional_kwargs?.__raw_response?.choices?.[0]?.delta?.tool_calls ||
-          messageChunk?.additional_kwargs?.__raw_response?.choices?.[0]?.tool_calls
-        if (Array.isArray(rawToolCalls)) {
-          mergeToolCallsByIndex(toolCallsByIndex, rawToolCalls)
-          updateToolCallsMap(toolCallsMap, rawToolCalls)
-        }
-
-        // Extract reasoning/thinking content using adapter
-        // Each adapter handles its own content format (e.g., Gemini's parts array)
+        // 1. Process reasoning/thinking content using adapter
         const reasoning = adapter.extractThinkingContent(messageChunk)
         if (reasoning) {
           emitThought(String(reasoning))
         }
 
-        // Process text content
+        // 2. Process text content first so textIndex captures position AFTER this chunk's text
         let chunkText = normalizeTextContent(contentValue)
         if (!chunkText) {
           const rawDeltaContent =
@@ -564,6 +631,25 @@ export const streamChat = async function* (params) {
         }
         if (chunkText) {
           handleTaggedText(chunkText)
+        }
+
+        // 3. Collect tool_calls from streaming chunks
+        const toolCalls =
+          messageChunk?.tool_calls ||
+          messageChunk?.additional_kwargs?.tool_calls ||
+          messageChunk?.additional_kwargs?.tool_calls
+        if (Array.isArray(toolCalls)) {
+          mergeToolCallsByIndex(toolCallsByIndex, toolCalls, fullContent.length)
+          updateToolCallsMap(toolCallsMap, toolCalls)
+        }
+
+        // 4. Also check raw response for tool calls
+        const rawToolCalls =
+          messageChunk?.additional_kwargs?.__raw_response?.choices?.[0]?.delta?.tool_calls ||
+          messageChunk?.additional_kwargs?.__raw_response?.choices?.[0]?.tool_calls
+        if (Array.isArray(rawToolCalls)) {
+          mergeToolCallsByIndex(toolCallsByIndex, rawToolCalls, fullContent.length)
+          updateToolCallsMap(toolCallsMap, rawToolCalls)
         }
 
         // Yield accumulated chunks and track thought content
@@ -599,6 +685,7 @@ export const streamChat = async function* (params) {
               function: toolName
                 ? { name: toolName, arguments: formatToolArgumentsFromValue(toolArgs) }
                 : undefined,
+              textIndex: toolCall.textIndex,
             }
           })
           .filter(toolCall => toolCall?.id && toolCall?.function?.name)

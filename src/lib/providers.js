@@ -84,6 +84,11 @@ const normalizeMarkdownSpacing = text => {
   return normalized
 }
 
+export const TOOL_DISPLAY_NAMES = {
+  Tavily_web_search: 'Web Search',
+  Tavily_academic_search: 'Academic Search',
+}
+
 export const PROVIDERS = {
   openai_compatibility: {
     ...createBackendProvider('openai_compatibility'),

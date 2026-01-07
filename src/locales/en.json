@@ -6,11 +6,31 @@
     "delete": "Delete",
     "done": "Done",
     "uploadImage": "Upload image",
-    "uploadDocument": "Upload document (coming soon)"
+    "uploadDocument": "Upload document (coming soon)",
+    "on": "On",
+    "off": "Off"
   },
   "app": {
     "name": "Qurio",
     "tagline": "Where insight clicks."
+  },
+  "tools": {
+    "webSearch": "Web Search",
+    "webSearchInfo": "Search real-time web information through Tavily API for latest articles, news, and data",
+    "academicSearch": "Academic Search",
+    "academicSearchInfo": "Search academic papers, research, and scientific literature for authoritative resources",
+    "calculator": "Calculator",
+    "calculatorInfo": "Perform mathematical calculations, solve equations, and execute numerical operations",
+    "localTime": "Local Time",
+    "localTimeInfo": "Get current time and date information for any timezone or location",
+    "summarizeText": "Summarize Text",
+    "summarizeTextInfo": "Condense long texts into concise summaries, extracting key points",
+    "extractText": "Extract Text",
+    "extractTextInfo": "Extract specific information or data patterns from structured content",
+    "jsonRepair": "JSON Repair",
+    "jsonRepairInfo": "Automatically fix malformed JSON data to ensure data structure integrity",
+    "interactiveForm": "Interactive Form",
+    "interactiveFormInfo": "Create dynamic forms within conversations to collect structured information and user input"
   },
   "sidebar": {
     "deletedConversation": "Conversation deleted",
@@ -60,6 +80,7 @@
       "interface": "Interface",
       "personalization": "Personalization",
       "account": "Account",
+      "advanced": "Advanced",
       "about": "About"
     },
     "interfaceLanguage": "Interface Language",
@@ -317,6 +338,10 @@
       "close": "Close",
       "retest": "Re-test",
       "retesting": "Re-testing..."
+    },
+    "advanced": {
+      "developerMode": "Developer Mode",
+      "developerModeHint": "Control how detailed tool calls are displayed in the chat."
     }
   },
   "agents": {

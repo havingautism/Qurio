@@ -514,7 +514,7 @@ export const generateTitleSpaceAndAgent = async (
 4. Select 1 emoji that best matches the conversation.
 
 ## Output
-Return the result as JSON with keys "title", "spaceLabel", "agentName", and "emojis".`,
+Return the result as JSON with keys "title", "spaceLabel", "agentName", and "emojis". "emojis" must be an array with 1 emoji character.`,
     },
     {
       role: 'user',

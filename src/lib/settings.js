@@ -165,6 +165,7 @@ export const loadSettings = (overrides = {}) => {
   const localEmbeddingModel = localStorage.getItem('embeddingModel')
   const localEmbeddingModelSource = localStorage.getItem('embeddingModelSource')
   const localUserSelfIntro = localStorage.getItem('userSelfIntro')
+  const localDeveloperMode = localStorage.getItem('developerMode')
 
   // Style settings
   const localStyleBaseTone = localStorage.getItem('styleBaseTone')
@@ -230,6 +231,12 @@ export const loadSettings = (overrides = {}) => {
     embeddingModel: localEmbeddingModel || overrides.embeddingModel || '',
     embeddingModelSource: localEmbeddingModelSource || overrides.embeddingModelSource || 'list',
     userSelfIntro: localUserSelfIntro || overrides.userSelfIntro || '',
+    developerMode:
+      localDeveloperMode !== null
+        ? localDeveloperMode === 'true'
+        : overrides.developerMode !== undefined
+          ? overrides.developerMode
+          : false,
 
     // Style
     baseTone: localStyleBaseTone || overrides.baseTone || DEFAULT_STYLE_SETTINGS.baseTone,
@@ -369,6 +376,9 @@ export const saveSettings = async settings => {
   }
   if (settings.userSelfIntro !== undefined) {
     localStorage.setItem('userSelfIntro', settings.userSelfIntro)
+  }
+  if (settings.developerMode !== undefined) {
+    localStorage.setItem('developerMode', String(!!settings.developerMode))
   }
 
   window.dispatchEvent(new Event('settings-changed'))

@@ -17,12 +17,7 @@ const MobileDrawer = ({ isOpen, onClose, title, icon: Icon, children }) => {
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity animate-in fade-in duration-200"
         onClick={event => {
-          event.preventDefault()
-          event.stopPropagation()
-          onClose()
-        }}
-        onTouchEnd={event => {
-          event.preventDefault()
+          // No preventDefault here to allow click to work properly, but stop propagation
           event.stopPropagation()
           onClose()
         }}

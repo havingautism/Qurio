@@ -143,7 +143,7 @@ const ChatInputBar = React.memo(
     }, [inputValue])
 
     useEffect(() => {
-      if (!isUploadMenuOpen) return
+      if (!isUploadMenuOpen || isMobile) return
       const handleClickOutside = event => {
         if (uploadMenuRef.current && !uploadMenuRef.current.contains(event.target)) {
           setIsUploadMenuOpen(false)
@@ -151,11 +151,11 @@ const ChatInputBar = React.memo(
       }
       document.addEventListener('mousedown', handleClickOutside)
       return () => document.removeEventListener('mousedown', handleClickOutside)
-    }, [isUploadMenuOpen])
+    }, [isUploadMenuOpen, isMobile])
 
     // Click outside handler for Capsule Menu
     useEffect(() => {
-      if (!isCapsuleMenuOpen) return
+      if (!isCapsuleMenuOpen || isMobile) return
       const handleClickOutside = event => {
         if (capsuleMenuRef.current && !capsuleMenuRef.current.contains(event.target)) {
           setIsCapsuleMenuOpen(false)
@@ -163,7 +163,7 @@ const ChatInputBar = React.memo(
       }
       document.addEventListener('mousedown', handleClickOutside)
       return () => document.removeEventListener('mousedown', handleClickOutside)
-    }, [isCapsuleMenuOpen])
+    }, [isCapsuleMenuOpen, isMobile])
 
     const handleFileChange = e => {
       const files = Array.from(e.target.files)
@@ -189,8 +189,8 @@ const ChatInputBar = React.memo(
     }
 
     const handleUploadImage = () => {
-      setIsUploadMenuOpen(false)
       fileInputRef.current?.click()
+      setIsUploadMenuOpen(false)
     }
 
     const handleSend = () => {

@@ -1694,7 +1694,7 @@ const MessageBubble = ({
                                           </div>
                                           <span
                                             className={clsx(
-                                              'px-1.5 py-0.5 rounded-full text-[10px] ml-auto flex-shrink-0 flex items-center justify-center min-w-[20px]',
+                                              'px-1.5 py-0.5 rounded-full text-[10px] ml-auto shrink-0 flex items-center justify-center min-w-[20px]',
                                               item.status === 'error'
                                                 ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
                                                 : item.status === 'done'
@@ -1807,7 +1807,7 @@ const MessageBubble = ({
                   {/* Render regular tools */}
                   {regularTools.length > 0 &&
                     (developerMode ? (
-                      // Developer Mode: Full detailed view
+                      // Developer Mode: Simplified view consistent with Deep Research within a card container
                       <div className="my-4 border border-gray-200 dark:border-zinc-700 rounded-xl overflow-hidden bg-user-bubble/20 dark:bg-zinc-800/30">
                         <div className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-zinc-700">
                           <div className="flex items-center gap-2 font-medium text-gray-700 dark:text-gray-300">
@@ -1819,61 +1819,42 @@ const MessageBubble = ({
                           {regularTools.map(item => (
                             <div
                               key={item.id || `${item.name}-${item.arguments}`}
-                              className="flex items-start justify-between gap-4 text-xs font-mono"
+                              className="flex items-center gap-2 text-[11px] text-gray-600 dark:text-gray-400"
                             >
-                              <div className="flex-1 space-y-1 overflow-hidden">
-                                <div className="flex items-center gap-2">
-                                  <span className="font-semibold text-primary-600 dark:text-primary-400">
-                                    {item.name}
-                                  </span>
-                                  <span className="text-gray-500 dark:text-gray-400">
-                                    ID: {item.id}
-                                  </span>
-                                </div>
-                                <div className="bg-white/50 dark:bg-black/20 rounded p-2 overflow-x-auto text-gray-600 dark:text-gray-300">
-                                  {item.arguments}
-                                </div>
-                                {item.output && (
-                                  <div className="mt-1">
-                                    <div className="text-gray-500 dark:text-gray-400 mb-0.5">
-                                      {t('messageBubble.toolOutput')}:
-                                    </div>
-                                    <div className="bg-green-50/50 dark:bg-green-900/10 rounded p-2 overflow-x-auto text-green-700 dark:text-green-300">
-                                      {typeof item.output === 'string'
-                                        ? item.output.slice(0, 300) +
-                                          (item.output.length > 300 ? '...' : '')
-                                        : JSON.stringify(item.output).slice(0, 300)}
-                                    </div>
-                                  </div>
+                              <span className="font-medium text-gray-700 dark:text-gray-300">
+                                {item.name}
+                              </span>
+                              <span
+                                className={clsx(
+                                  'px-2 py-0.5 rounded-full text-[10px]',
+                                  item.status === 'error'
+                                    ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
+                                    : item.status === 'done'
+                                      ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
+                                      : 'bg-gray-200/70 dark:bg-zinc-700/70 text-gray-600 dark:text-gray-400',
                                 )}
-                              </div>
-                              <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                                <span
-                                  className={clsx(
-                                    'px-2 py-0.5 rounded-full text-[11px] flex items-center gap-1',
-                                    item.status === 'error'
-                                      ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
-                                      : item.status === 'done'
-                                        ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
-                                        : 'bg-gray-200/70 dark:bg-zinc-700/70 text-gray-600 dark:text-gray-400',
-                                  )}
-                                >
-                                  {item.status === 'error' ? (
-                                    <X className="w-4 h-4" />
-                                  ) : item.status === 'done' ? (
-                                    <Check className="w-4 h-4" />
-                                  ) : (
-                                    <DotLoader />
-                                  )}
+                              >
+                                {item.status === 'error'
+                                  ? t('messageBubble.toolStatusError')
+                                  : item.status === 'done'
+                                    ? t('messageBubble.toolStatusDone')
+                                    : t('messageBubble.toolStatusCalling')}
+                              </span>
+                              {item.status !== 'done' && item.status !== 'error' && <DotLoader />}
+                              {typeof item.durationMs === 'number' && (
+                                <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                                  {t('messageBubble.toolDuration', {
+                                    duration: (item.durationMs / 1000).toFixed(2),
+                                  })}
                                 </span>
-                                {typeof item.durationMs === 'number' && (
-                                  <span className="text-[11px] hidden sm:block text-gray-500 dark:text-gray-400 min-w-[50px]">
-                                    {t('messageBubble.toolDuration', {
-                                      duration: (item.durationMs / 1000).toFixed(2),
-                                    })}
-                                  </span>
-                                )}
-                              </div>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => setActiveToolDetail(item)}
+                                className="ml-auto text-[10px] text-primary-600 dark:text-primary-300 hover:underline"
+                              >
+                                {t('messageBubble.toolDetails')}
+                              </button>
                             </div>
                           ))}
                         </div>
@@ -1901,7 +1882,7 @@ const MessageBubble = ({
                               className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400"
                             >
                               <div className="flex items-center gap-1 sm:gap-2 w-full">
-                                <span className="font-medium text-gray-600 dark:text-gray-300 whitespace-nowrap flex-shrink-0 flex items-center gap-1.5">
+                                <span className="font-medium text-gray-600 dark:text-gray-300 whitespace-nowrap shrink-0 flex items-center gap-1.5">
                                   {IconComponent && (
                                     <IconComponent
                                       size={14}
@@ -1931,7 +1912,7 @@ const MessageBubble = ({
                                 </div>
                                 <span
                                   className={clsx(
-                                    'px-2 py-0.5 rounded-full text-[11px] ml-auto flex-shrink-0 flex items-center justify-center min-w-[24px]',
+                                    'px-2 py-0.5 rounded-full text-[11px] ml-auto shrink-0 flex items-center justify-center min-w-[24px]',
                                     item.status === 'error'
                                       ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
                                       : item.status === 'done'
@@ -1955,47 +1936,57 @@ const MessageBubble = ({
                     ))}
 
                   {/* Render Interactive Forms */}
-                  {isStreaming ? (
-                    <div className="my-4  rounded-xl  space-y-4 animate-pulse">
-                      <div className="h-6 bg-gray-200 dark:bg-zinc-700 rounded w-1/3"></div>
-                      <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-2/3"></div>
-                      <div className="space-y-2">
-                        <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-1/4"></div>
-                        <div className="h-10 bg-gray-200 dark:bg-zinc-700 rounded w-full"></div>
-                      </div>
-                      <div className="space-y-2">
-                        <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-1/4"></div>
-                        <div className="h-10 bg-gray-200 dark:bg-zinc-700 rounded w-full"></div>
-                      </div>
-                      <div className="h-10 bg-gray-200 dark:bg-zinc-700 rounded w-full mt-4"></div>
-                    </div>
-                  ) : (
-                    formTools.map((item, formIdx) => {
-                      try {
-                        const formData = JSON.parse(item.arguments)
-                        return (
-                          <InteractiveForm
-                            key={`form-${formIdx}`}
-                            formData={formData}
-                            onSubmit={handleFormSubmit}
-                            messageId={message.id}
-                            isSubmitted={!!item._isSubmitted}
-                            submittedValues={mergedMessage._formSubmittedValues || {}}
-                          />
-                        )
-                      } catch (e) {
-                        console.error('Failed to parse interactive form arguments:', e)
+                  {formTools.map((item, formIdx) => {
+                    try {
+                      // Try to parse the form data. If it's valid, show the form even if still streaming.
+                      const formData = JSON.parse(item.arguments)
+                      return (
+                        <InteractiveForm
+                          key={`form-${formIdx}`}
+                          formData={formData}
+                          onSubmit={handleFormSubmit}
+                          messageId={message.id}
+                          isSubmitted={!!item._isSubmitted}
+                          submittedValues={mergedMessage._formSubmittedValues || {}}
+                          developerMode={developerMode}
+                          onShowDetails={() => setActiveToolDetail(item)}
+                        />
+                      )
+                    } catch (e) {
+                      // If parsing fails but we are still streaming, show the skeleton loader
+                      if (isStreaming) {
                         return (
                           <div
-                            key={`form-error-${formIdx}`}
-                            className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-700 dark:text-red-300"
+                            key={`form-skeleton-${formIdx}`}
+                            className="my-4  rounded-xl  space-y-4 animate-pulse"
                           >
-                            Error displaying form: {e.message}
+                            <div className="h-6 bg-gray-200 dark:bg-zinc-700 rounded w-1/3"></div>
+                            <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-2/3"></div>
+                            <div className="space-y-2">
+                              <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-1/4"></div>
+                              <div className="h-10 bg-gray-200 dark:bg-zinc-700 rounded w-full"></div>
+                            </div>
+                            <div className="space-y-2">
+                              <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-1/4"></div>
+                              <div className="h-10 bg-gray-200 dark:bg-zinc-700 rounded w-full"></div>
+                            </div>
+                            <div className="h-10 bg-gray-200 dark:bg-zinc-700 rounded w-full mt-4"></div>
                           </div>
                         )
                       }
-                    })
-                  )}
+
+                      // If not streaming and parsing failed, show the error
+                      console.error('Failed to parse interactive form arguments:', e)
+                      return (
+                        <div
+                          key={`form-error-${formIdx}`}
+                          className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-700 dark:text-red-300"
+                        >
+                          Error displaying form: {e.message}
+                        </div>
+                      )
+                    }
+                  })}
                 </div>
               )
             }

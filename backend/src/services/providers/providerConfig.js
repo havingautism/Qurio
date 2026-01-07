@@ -45,7 +45,8 @@ export const PROVIDER_CAPABILITIES = {
   glm: {
     supportsStreaming: true,
     supportsToolCalls: true,
-    supportsStreamingToolCalls: false, // Use non-streaming for tool calls (legacy behavior)
+    // supportsStreamingToolCalls: false, // Use non-streaming for tool calls (legacy behavior)
+    supportsStreamingToolCalls: true,
     supportsJsonSchema: true,
     supportsThinking: true,
     supportsVision: false,
@@ -61,7 +62,9 @@ export const PROVIDER_CAPABILITIES = {
   kimi: {
     supportsStreaming: true,
     supportsToolCalls: true,
-    supportsStreamingToolCalls: false, // ⚠️ Known issue: streaming returns incomplete tool_calls
+    supportsStreamingToolCalls: false,
+
+    // supportsStreamingToolCalls: true,
     supportsJsonSchema: true,
     supportsThinking: false,
     supportsVision: false,

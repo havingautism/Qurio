@@ -1630,7 +1630,7 @@ const ChatInterface = ({
         {/* Messages Scroll Container */}
         <div
           ref={messagesContainerRef}
-          className="flex-1 overflow-y-auto sm:p-2 relative no-scrollbar"
+          className="flex-1 overflow-y-auto overflow-x-hidden sm:p-2 relative no-scrollbar"
         >
           <div className="w-full px-0 sm:px-5 max-w-3xl mx-auto">
             {showHistoryLoader && (

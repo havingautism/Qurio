@@ -1588,54 +1588,134 @@ const MessageBubble = ({
                           )}
                           {stepToolCalls.length > 0 && (
                             <div className="mt-2 space-y-1">
-                              <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400">
+                              <div className="h-[0.5px] my-2 w-full bg-gray-200 dark:bg-zinc-700"></div>
+                              {/* <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400">
                                 {t('messageBubble.toolCalls')}
-                              </div>
-                              <div className="space-y-1">
-                                {stepToolCalls.map(item => (
-                                  <div
-                                    key={item.id || `${item.name}-${item.arguments}`}
-                                    className="flex items-center gap-2 text-[11px] text-gray-600 dark:text-gray-400"
-                                  >
-                                    <span className="font-medium text-gray-700 dark:text-gray-300">
-                                      {item.name}
-                                    </span>
-                                    <span
-                                      className={clsx(
-                                        'px-2 py-0.5 rounded-full text-[10px]',
-                                        item.status === 'error'
-                                          ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
-                                          : item.status === 'done'
-                                            ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
-                                            : 'bg-gray-200/70 dark:bg-zinc-700/70 text-gray-600 dark:text-gray-400',
-                                      )}
+                              </div> */}
+                              {developerMode ? (
+                                // Developer Mode: Detailed view
+                                <div className="space-y-1">
+                                  {stepToolCalls.map(item => (
+                                    <div
+                                      key={item.id || `${item.name}-${item.arguments}`}
+                                      className="flex items-center gap-2 text-[11px] text-gray-600 dark:text-gray-400"
                                     >
-                                      {item.status === 'error'
-                                        ? t('messageBubble.toolStatusError')
-                                        : item.status === 'done'
-                                          ? t('messageBubble.toolStatusDone')
-                                          : t('messageBubble.toolStatusCalling')}
-                                    </span>
-                                    {item.status !== 'done' && item.status !== 'error' && (
-                                      <DotLoader />
-                                    )}
-                                    {typeof item.durationMs === 'number' && (
-                                      <span className="text-[10px] text-gray-500 dark:text-gray-400">
-                                        {t('messageBubble.toolDuration', {
-                                          duration: (item.durationMs / 1000).toFixed(2),
-                                        })}
+                                      <span className="font-medium text-gray-700 dark:text-gray-300">
+                                        {item.name}
                                       </span>
-                                    )}
-                                    <button
-                                      type="button"
-                                      onClick={() => setActiveToolDetail(item)}
-                                      className="ml-auto text-[10px] text-primary-600 dark:text-primary-300 hover:underline"
-                                    >
-                                      {t('messageBubble.toolDetails')}
-                                    </button>
-                                  </div>
-                                ))}
-                              </div>
+                                      <span
+                                        className={clsx(
+                                          'px-2 py-0.5 rounded-full text-[10px]',
+                                          item.status === 'error'
+                                            ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
+                                            : item.status === 'done'
+                                              ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
+                                              : 'bg-gray-200/70 dark:bg-zinc-700/70 text-gray-600 dark:text-gray-400',
+                                        )}
+                                      >
+                                        {item.status === 'error'
+                                          ? t('messageBubble.toolStatusError')
+                                          : item.status === 'done'
+                                            ? t('messageBubble.toolStatusDone')
+                                            : t('messageBubble.toolStatusCalling')}
+                                      </span>
+                                      {item.status !== 'done' && item.status !== 'error' && (
+                                        <DotLoader />
+                                      )}
+                                      {typeof item.durationMs === 'number' && (
+                                        <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                                          {t('messageBubble.toolDuration', {
+                                            duration: (item.durationMs / 1000).toFixed(2),
+                                          })}
+                                        </span>
+                                      )}
+                                      <button
+                                        type="button"
+                                        onClick={() => setActiveToolDetail(item)}
+                                        className="ml-auto text-[10px] text-primary-600 dark:text-primary-300 hover:underline"
+                                      >
+                                        {t('messageBubble.toolDetails')}
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                // Standard Mode: Simplified view with icons
+                                <div className="space-y-1 overflow-hidden">
+                                  {stepToolCalls.map(item => {
+                                    const iconName = TOOL_ICONS[item.name]
+                                    const IconComponent = iconName
+                                      ? {
+                                          Search,
+                                          GraduationCap,
+                                          Calculator,
+                                          Clock,
+                                          FileText,
+                                          ScanText,
+                                          Wrench,
+                                          FormInput,
+                                        }[iconName]
+                                      : null
+                                    return (
+                                      <div
+                                        key={item.id || `${item.name}-${item.arguments}`}
+                                        className="flex items-center gap-2 text-[11px] text-gray-500 dark:text-gray-400"
+                                      >
+                                        <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-1 sm:gap-1.5 w-full">
+                                          <span className="font-medium text-gray-600 dark:text-gray-300 whitespace-nowrap flex items-center gap-1">
+                                            {IconComponent && (
+                                              <IconComponent
+                                                size={12}
+                                                className="text-gray-500 dark:text-gray-400"
+                                              />
+                                            )}
+                                            {TOOL_TRANSLATION_KEYS[item.name]
+                                              ? t(TOOL_TRANSLATION_KEYS[item.name])
+                                              : item.name}
+                                          </span>
+                                          <div className="flex items-center min-w-0">
+                                            {Object.keys(TOOL_TRANSLATION_KEYS).includes(
+                                              item.name,
+                                            ) &&
+                                              (() => {
+                                                try {
+                                                  const args = JSON.parse(item.arguments || '{}')
+                                                  if (args.query) {
+                                                    return (
+                                                      <span className="opacity-75 truncate w-full">
+                                                        &quot;{args.query}&quot;
+                                                      </span>
+                                                    )
+                                                  }
+                                                } catch {
+                                                  return null
+                                                }
+                                              })()}
+                                          </div>
+                                          <span
+                                            className={clsx(
+                                              'px-1.5 py-0.5 rounded-full text-[10px] ml-auto flex-shrink-0 flex items-center justify-center min-w-[20px]',
+                                              item.status === 'error'
+                                                ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
+                                                : item.status === 'done'
+                                                  ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
+                                                  : 'bg-gray-200/70 dark:bg-zinc-700/70 text-gray-600 dark:text-gray-400',
+                                            )}
+                                          >
+                                            {item.status === 'error' ? (
+                                              <X className="w-3 h-3" />
+                                            ) : item.status === 'done' ? (
+                                              <Check className="w-3 h-3" />
+                                            ) : (
+                                              <DotLoader />
+                                            )}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>

@@ -1026,7 +1026,7 @@ const MessageBubble = ({
       ),
       blockquote: ({ children, ...props }) => (
         <blockquote
-          className="border-l-4 border-gray-300 dark:border-zinc-600 pl-4 italic mb-4 text-gray-600 dark:text-gray-400"
+          className="[&_p]:mb-0 border-l-4 border-gray-300 dark:border-zinc-600 pl-4 italic mb-4 text-gray-600 dark:text-gray-400"
           {...props}
         >
           {parseChildrenWithEmojis(children)}

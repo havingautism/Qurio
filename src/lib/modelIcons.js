@@ -12,7 +12,7 @@ import ZhipuIcon from '../assets/zhipu-color.svg?url'
 import ModelScopeIcon from '../assets/modelscope-color.svg?url'
 import TavilyIcon from '../assets/tavily-color.svg?url'
 import NvidiaIcon from '../assets/nvidia-color.svg?url'
-import MinimaxIcon from '../assets/minimax-color.png'
+import MinimaxIcon from '../assets/minimax-color.svg?url'
 
 const DEFAULT_ICON_BG_CLASS = 'bg-[#f6f6f6b8] dark:bg-[#0d0d0d]'
 

@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { useShallow } from 'zustand/react/shallow'
@@ -212,7 +212,13 @@ const MessageBubble = ({
             relatedLoading = nextAiMsg.relatedLoading
           }
 
+          const continuationPrefixLength = mergedContent.length + 2
           mergedContent += '\n\n' + (nextAiMsg.content || '')
+          toolCallHistory.push({
+            id: `form-status-${currentIndex + 1}`,
+            name: 'form_submission_status',
+            textIndex: continuationPrefixLength,
+          })
 
           currentIndex += 2
         }
@@ -284,6 +290,9 @@ const MessageBubble = ({
   const toolCallHistory = Array.isArray(mergedMessage.toolCallHistory)
     ? mergedMessage.toolCallHistory
     : []
+  const formToolHistory = toolCallHistory.filter(item => item.name === 'interactive_form')
+  const hasInteractiveForm = formToolHistory.length > 0
+  const isFormWaitingForInput = hasInteractiveForm && !mergedMessage._formSubmitted
 
   const getToolCallsForStep = useCallback(
     stepNumber =>
@@ -309,6 +318,109 @@ const MessageBubble = ({
       return String(value)
     }
   }
+
+  const parseFormPayload = raw => {
+    if (!raw) return null
+    if (typeof raw === 'object') return raw
+    if (typeof raw === 'string') {
+      try {
+        return JSON.parse(raw)
+      } catch {
+        return null
+      }
+    }
+    return null
+  }
+
+  const [isDark, setIsDark] = useState(document.documentElement.classList.contains('dark'))
+  const mainContentRef = useRef(null)
+  const researchExportRef = useRef(null)
+  const thoughtExportRef = useRef(null)
+  const containerRef = useRef(null) // Local ref for the wrapper
+
+  // State to track copy success
+  const [isCopied, setIsCopied] = useState(false)
+  const [activeImageUrl, setActiveImageUrl] = useState(null)
+
+  // Utility function to copy text to clipboard
+  const copyToClipboard = async text => {
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text)
+      } else {
+        const textarea = document.createElement('textarea')
+        textarea.value = text
+        textarea.style.position = 'fixed'
+        textarea.style.opacity = '0'
+        document.body.appendChild(textarea)
+        textarea.select()
+        document.execCommand('copy')
+        document.body.removeChild(textarea)
+      }
+      // Show a brief success indication
+      console.log('Text copied to clipboard')
+    } catch (err) {
+      console.error('Failed to copy text: ', err)
+    }
+  }
+
+  const renderPlainCodeBlock = useCallback(
+    (codeText, language) => (
+      <div className="relative group mb-4 border border-gray-200 dark:border-zinc-700 rounded-xl overflow-x-auto bg-user-bubble/20 dark:bg-zinc-800/30">
+        <div className="flex items-center justify-between px-3 py-2 text-[11px] font-semibold bg-user-bubble/50 dark:bg-zinc-800/50 text-gray-600 dark:text-gray-300 border-b border-gray-200 dark:border-zinc-700">
+          <span>{String(language || 'CODE').toUpperCase()}</span>
+          <button className="px-2 py-1 rounded bg-gray-200 dark:bg-zinc-700 text-gray-700 dark:text-gray-200 text-[11px] opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+            Copy
+          </button>
+        </div>
+        <SyntaxHighlighter
+          style={isDark ? oneDark : oneLight}
+          language={language || 'text'}
+          PreTag="div"
+          className="code-scrollbar text-sm sm:text-base text-shadow-none! font-code!"
+          customStyle={{
+            margin: 0,
+            padding: '1rem',
+            background: 'transparent',
+          }}
+          codeTagProps={{
+            style: {
+              backgroundColor: 'transparent',
+            },
+          }}
+        >
+          {codeText}
+        </SyntaxHighlighter>
+      </div>
+    ),
+    [isDark],
+  )
+
+  const MermaidErrorFallback = useCallback(
+    ({ chart }) => renderPlainCodeBlock(chart || '', 'mermaid'),
+    [renderPlainCodeBlock],
+  )
+
+  const mermaidOptions = useMemo(
+    () => ({
+      config: { theme: isDark ? 'dark' : 'default' },
+      errorComponent: MermaidErrorFallback,
+    }),
+    [isDark, MermaidErrorFallback],
+  )
+
+  const FormStatusBadge = ({ waiting }) => (
+    <div
+      className={clsx(
+        'px-4 mb-4 py-2 rounded-2xl text-sm font-medium',
+        waiting
+          ? 'border border-blue-200 dark:border-blue-600 bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-200'
+          : 'border border-green-200 dark:border-green-600 bg-green-50 dark:bg-green-900/40 text-green-700 dark:text-green-200',
+      )}
+    >
+      {waiting ? '正在等待表单提交...' : '表单已提交'}
+    </div>
+  )
 
   const interleavedContent = useMemo(() => {
     if (isDeepResearch || !toolCallHistory.length) {
@@ -352,38 +464,6 @@ const MessageBubble = ({
 
     return parts
   }, [mainContent, toolCallHistory, isDeepResearch])
-
-  const [isDark, setIsDark] = useState(document.documentElement.classList.contains('dark'))
-  const mainContentRef = useRef(null)
-  const researchExportRef = useRef(null)
-  const thoughtExportRef = useRef(null)
-  const containerRef = useRef(null) // Local ref for the wrapper
-
-  // State to track copy success
-  const [isCopied, setIsCopied] = useState(false)
-  const [activeImageUrl, setActiveImageUrl] = useState(null)
-
-  // Utility function to copy text to clipboard
-  const copyToClipboard = async text => {
-    try {
-      if (navigator?.clipboard?.writeText) {
-        await navigator.clipboard.writeText(text)
-      } else {
-        const textarea = document.createElement('textarea')
-        textarea.value = text
-        textarea.style.position = 'fixed'
-        textarea.style.opacity = '0'
-        document.body.appendChild(textarea)
-        textarea.select()
-        document.execCommand('copy')
-        document.body.removeChild(textarea)
-      }
-      // Show a brief success indication
-      console.log('Text copied to clipboard')
-    } catch (err) {
-      console.error('Failed to copy text: ', err)
-    }
-  }
 
   // Effect to handle copy success timeout with proper cleanup
   useEffect(() => {
@@ -814,51 +894,6 @@ const MessageBubble = ({
     DEEP_RESEARCH_STATUS_MESSAGES.length,
     THINKING_STATUS_MESSAGES.length,
   )
-  const renderPlainCodeBlock = useCallback(
-    (codeText, language) => (
-      <div className="relative group my-4 border border-gray-200 dark:border-zinc-700 rounded-xl overflow-x-auto bg-user-bubble/20 dark:bg-zinc-800/30">
-        <div className="flex items-center justify-between px-3 py-2 text-[11px] font-semibold bg-user-bubble/50 dark:bg-zinc-800/50 text-gray-600 dark:text-gray-300 border-b border-gray-200 dark:border-zinc-700">
-          <span>{String(language || 'CODE').toUpperCase()}</span>
-          <button className="px-2 py-1 rounded bg-gray-200 dark:bg-zinc-700 text-gray-700 dark:text-gray-200 text-[11px] opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-            Copy
-          </button>
-        </div>
-        <SyntaxHighlighter
-          style={isDark ? oneDark : oneLight}
-          language={language || 'text'}
-          PreTag="div"
-          className="code-scrollbar text-sm sm:text-base text-shadow-none! font-code!"
-          customStyle={{
-            margin: 0,
-            padding: '1rem',
-            background: 'transparent',
-          }}
-          codeTagProps={{
-            style: {
-              backgroundColor: 'transparent',
-            },
-          }}
-        >
-          {codeText}
-        </SyntaxHighlighter>
-      </div>
-    ),
-    [isDark],
-  )
-
-  const MermaidErrorFallback = useCallback(
-    ({ chart }) => renderPlainCodeBlock(chart || '', 'mermaid'),
-    [renderPlainCodeBlock],
-  )
-
-  const mermaidOptions = useMemo(
-    () => ({
-      config: { theme: isDark ? 'dark' : 'default' },
-      errorComponent: MermaidErrorFallback,
-    }),
-    [isDark, MermaidErrorFallback],
-  )
-
   useEffect(() => {
     if (!baseThinkingStatusActive) return undefined
     setThinkingStatusIndex(0)
@@ -877,7 +912,7 @@ const MessageBubble = ({
 
       if (!inline && language === 'mermaid') {
         return (
-          <div className="my-4">
+          <div className="mb-4">
             <Streamdown mode="static" mermaid={mermaidOptions} controls={{ mermaid: true }}>
               {`\`\`\`mermaid\n${codeText}\n\`\`\``}
             </Streamdown>
@@ -887,7 +922,7 @@ const MessageBubble = ({
 
       if (!inline && match) {
         return (
-          <div className="relative group my-4 border border-gray-200 dark:border-zinc-700 rounded-xl overflow-x-auto bg-user-bubble/20 dark:bg-zinc-800/30">
+          <div className="relative group mb-4 border border-gray-200 dark:border-zinc-700 rounded-xl overflow-x-auto bg-user-bubble/20 dark:bg-zinc-800/30">
             <div className="flex items-center justify-between px-3 py-2 text-[11px] font-semibold bg-user-bubble/50 dark:bg-zinc-800/50 text-gray-600 dark:text-gray-300 border-b border-gray-200 dark:border-zinc-700">
               <span>{langLabel}</span>
               <button className="px-2 py-1 rounded bg-gray-200 dark:bg-zinc-700 text-gray-700 dark:text-gray-200 text-[11px] opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
@@ -975,7 +1010,7 @@ const MessageBubble = ({
         )
       },
       p: ({ children, ...props }) => (
-        <p className="mb-4 last:mb-0" {...props}>
+        <p className="mb-4" {...props}>
           {parseChildrenWithEmojis(children)}
         </p>
       ),
@@ -991,14 +1026,14 @@ const MessageBubble = ({
       ),
       blockquote: ({ children, ...props }) => (
         <blockquote
-          className="border-l-4 border-gray-300 dark:border-zinc-600 pl-4 italic my-4 text-gray-600 dark:text-gray-400"
+          className="border-l-4 border-gray-300 dark:border-zinc-600 pl-4 italic mb-4 text-gray-600 dark:text-gray-400"
           {...props}
         >
           {parseChildrenWithEmojis(children)}
         </blockquote>
       ),
       table: ({ ...props }) => (
-        <div className="overflow-x-auto my-4 w-fit max-w-full rounded-lg border border-gray-200 dark:border-zinc-700 table-scrollbar code-scrollbar">
+        <div className="overflow-x-auto mb-4 w-fit max-w-full rounded-lg border border-gray-200 dark:border-zinc-700 table-scrollbar code-scrollbar">
           <table className="w-auto divide-y divide-gray-200 dark:divide-zinc-700" {...props} />
         </div>
       ),
@@ -1096,6 +1131,247 @@ const MessageBubble = ({
     }
   }, [markdownComponents, messageIndex, parseChildrenWithEmojis])
 
+  const renderedInterleavedContent = (() => {
+    let shouldRenderStatusBeforeText = false
+    let statusBeforeTextInserted = false
+
+    return interleavedContent.map((part, idx) => {
+      if (part.type === 'tools') {
+        // Separate utility tools from interactive forms
+        const statusMarkers = part.items.filter(item => item.name === 'form_submission_status')
+        const formTools = part.items.filter(item => item.name === 'interactive_form')
+        const regularTools = part.items.filter(
+          item => item.name !== 'interactive_form' && item.name !== 'form_submission_status',
+        )
+        if (statusMarkers.length > 0) {
+          shouldRenderStatusBeforeText = true
+        }
+
+        return (
+          <div key={`tools-container-${idx}`} className="flex flex-col gap-4">
+            {/* Render regular tools */}
+            {regularTools.length > 0 &&
+              (developerMode ? (
+                // Developer Mode: Simplified view consistent with Deep Research within a card container
+                <div
+                  className={clsx(
+                    'border border-gray-200 dark:border-zinc-700 rounded-xl overflow-hidden bg-user-bubble/20 dark:bg-zinc-800/30',
+                    'mb-4',
+                  )}
+                >
+                  <div className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-zinc-700">
+                    <div className="flex items-center gap-2 font-medium text-gray-700 dark:text-gray-300">
+                      <EmojiDisplay emoji={'🔧'} size="1.2em" /> {t('messageBubble.toolCalls')}
+                    </div>
+                  </div>
+                  <div className="px-4 py-3 space-y-2">
+                    {regularTools.map(item => (
+                      <div
+                        key={item.id || `${item.name}-${item.arguments}`}
+                        className="flex items-center gap-2 text-[11px] text-gray-600 dark:text-gray-400"
+                      >
+                        <span className="font-medium text-gray-700 dark:text-gray-300">
+                          {item.name}
+                        </span>
+                        <span
+                          className={clsx(
+                            'px-2 py-0.5 rounded-full text-[10px]',
+                            item.status === 'error'
+                              ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
+                              : item.status === 'done'
+                                ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
+                                : 'bg-gray-200/70 dark:bg-zinc-700/70 text-gray-600 dark:text-gray-400',
+                          )}
+                        >
+                          {item.status === 'error'
+                            ? t('messageBubble.toolStatusError')
+                            : item.status === 'done'
+                              ? t('messageBubble.toolStatusDone')
+                              : t('messageBubble.toolStatusCalling')}
+                        </span>
+                        {item.status !== 'done' && item.status !== 'error' && <DotLoader />}
+                        {typeof item.durationMs === 'number' && (
+                          <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                            {t('messageBubble.toolDuration', {
+                              duration: (item.durationMs / 1000).toFixed(2),
+                            })}
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setActiveToolDetail(item)}
+                          className="ml-auto text-[10px] text-primary-600 dark:text-primary-300 hover:underline"
+                        >
+                          {t('messageBubble.toolDetails')}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div
+                  className={clsx(
+                    'p-3 border flex flex-col gap-2 border-gray-200 dark:border-zinc-700 rounded-xl overflow-hidden bg-user-bubble/20 dark:bg-zinc-800/30',
+                    'mb-4',
+                  )}
+                >
+                  {regularTools.map(item => {
+                    const iconName = TOOL_ICONS[item.name]
+                    const IconComponent = iconName
+                      ? {
+                          Search,
+                          GraduationCap,
+                          Calculator,
+                          Clock,
+                          FileText,
+                          ScanText,
+                          Wrench,
+                          FormInput,
+                        }[iconName]
+                      : null
+                    return (
+                      <div
+                        key={item.id || `${item.name}-${item.arguments}`}
+                        className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400"
+                      >
+                        <div className="flex items-center gap-1 sm:gap-2 w-full">
+                          <span className="font-medium text-gray-600 dark:text-gray-300 whitespace-nowrap shrink-0 flex items-center gap-1.5">
+                            {IconComponent && (
+                              <IconComponent
+                                size={14}
+                                className="text-gray-500 dark:text-gray-400"
+                              />
+                            )}
+                            {TOOL_TRANSLATION_KEYS[item.name]
+                              ? t(TOOL_TRANSLATION_KEYS[item.name])
+                              : item.name}
+                          </span>
+                          <div className="flex items-center gap-1 sm:gap-2 flex-1 min-w-0">
+                            {Object.keys(TOOL_TRANSLATION_KEYS).includes(item.name) &&
+                              (() => {
+                                try {
+                                  const args = JSON.parse(item.arguments || '{}')
+                                  if (args.query) {
+                                    return (
+                                      <span className="opacity-75 truncate w-full">
+                                        &quot;{args.query}&quot;
+                                      </span>
+                                    )
+                                  }
+                                } catch {
+                                  return null
+                                }
+                              })()}
+                          </div>
+                          <span
+                            className={clsx(
+                              'px-2 py-0.5 rounded-full text-[11px] ml-auto shrink-0 flex items-center justify-center min-w-[24px]',
+                              item.status === 'error'
+                                ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
+                                : item.status === 'done'
+                                  ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
+                                  : 'bg-gray-200/70 dark:bg-zinc-700/70 text-gray-600 dark:text-gray-400',
+                            )}
+                          >
+                            {item.status === 'error' ? (
+                              <X className="w-4 h-4" />
+                            ) : item.status === 'done' ? (
+                              <Check className="w-4 h-4" />
+                            ) : (
+                              <DotLoader />
+                            )}
+                          </span>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              ))}
+
+            {/* Render Interactive Forms */}
+            {formTools.map((item, formIdx) => {
+              const formData = parseFormPayload(item.arguments) || parseFormPayload(item.output)
+
+              if (formData) {
+                return (
+                  <InteractiveForm
+                    key={`form-${formIdx}`}
+                    formData={formData}
+                    onSubmit={handleFormSubmit}
+                    messageId={message.id}
+                    isSubmitted={!!item._isSubmitted}
+                    submittedValues={mergedMessage._formSubmittedValues || {}}
+                    developerMode={developerMode}
+                    onShowDetails={() => setActiveToolDetail(item)}
+                  />
+                )
+              }
+
+              const shouldShowSkeleton = isStreaming || item.status !== 'done'
+              if (shouldShowSkeleton) {
+                return (
+                  <div
+                    key={`form-skeleton-${formIdx}`}
+                    className="mb-4 rounded-xl space-y-4 animate-pulse"
+                  >
+                    <div className="h-6 bg-gray-200 dark:bg-zinc-700 rounded w-1/3"></div>
+                    <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-2/3"></div>
+                    <div className="space-y-2">
+                      <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-1/4"></div>
+                      <div className="h-10 bg-gray-200 dark:bg-zinc-700 rounded w-full"></div>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-1/4"></div>
+                      <div className="h-10 bg-gray-200 dark:bg-zinc-700 rounded w-full"></div>
+                    </div>
+                    <div className="h-10 bg-gray-200 dark:bg-zinc-700 rounded w-full mt-4"></div>
+                  </div>
+                )
+              }
+
+              console.error('Failed to parse interactive form arguments:', item)
+              return (
+                <div
+                  key={`form-error-${formIdx}`}
+                  className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-700 dark:text-red-300"
+                >
+                  Error displaying form
+                </div>
+              )
+            })}
+          </div>
+        )
+      }
+
+      const contentWithSupports = applyGroundingSupports(
+        part.content,
+        mergedMessage.groundingSupports,
+        mergedMessage.sources,
+      )
+      const contentWithCitations = formatContentWithSources(
+        contentWithSupports,
+        mergedMessage.sources,
+      )
+      const showStatusBeforeText = shouldRenderStatusBeforeText && !statusBeforeTextInserted
+      if (showStatusBeforeText) {
+        statusBeforeTextInserted = true
+        shouldRenderStatusBeforeText = false
+      }
+      return (
+        <React.Fragment key={`text-${idx}`}>
+          {showStatusBeforeText && <FormStatusBadge waiting={false} />}
+          <Streamdown
+            mermaid={mermaidOptions}
+            remarkPlugins={[remarkGfm]}
+            components={markdownComponentsWithAnchors}
+          >
+            {contentWithCitations}
+          </Streamdown>
+        </React.Fragment>
+      )
+    })
+  })()
+
   if (isUser) {
     let contentToRender = message.content
     let imagesToRender = []
@@ -1122,7 +1398,7 @@ const MessageBubble = ({
           if (typeof bubbleRef === 'function') bubbleRef(el)
         }}
         className={clsx(
-          'flex items-center w-full mt-8 group px-3 sm:px-0',
+          'flex items-center w-full mt-4 group px-3 sm:px-0',
           isDeepResearchContext ? 'justify-center' : 'justify-end',
         )}
         onMouseUp={handleMouseUp}
@@ -1307,17 +1583,17 @@ const MessageBubble = ({
   const shouldShowRelated = !isDeepResearch && (hasRelatedQuestions || isRelatedLoading)
 
   // Debug logging for related questions
-  if (mergedMessage._formSubmitted) {
-    console.log('[MessageBubble] Related questions check:', {
-      messageId: message.id,
-      hasRelatedQuestions,
-      relatedCount: mergedMessage.related?.length || 0,
-      isRelatedLoading,
-      shouldShowRelated,
-      isDeepResearch,
-      mergedRelated: mergedMessage.related,
-    })
-  }
+  // if (mergedMessage._formSubmitted) {
+  //   console.log('[MessageBubble] Related questions check:', {
+  //     messageId: message.id,
+  //     hasRelatedQuestions,
+  //     relatedCount: mergedMessage.related?.length || 0,
+  //     isRelatedLoading,
+  //     shouldShowRelated,
+  //     isDeepResearch,
+  //     mergedRelated: mergedMessage.related,
+  //   })
+  // }
 
   return (
     <div
@@ -1789,241 +2065,24 @@ const MessageBubble = ({
             <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-1/2"></div>
             <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-5/6"></div>
           </div>
-        ) : mergedMessage._isContinuationLoading ? (
-          <div className="flex flex-col gap-2 animate-pulse">
-            <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-3/4"></div>
-            <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-1/2"></div>
-            <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-5/6"></div>
-          </div>
         ) : (
-          interleavedContent.map((part, idx) => {
-            if (part.type === 'tools') {
-              // Separate utility tools from interactive forms
-              const formTools = part.items.filter(item => item.name === 'interactive_form')
-              const regularTools = part.items.filter(item => item.name !== 'interactive_form')
-
-              return (
-                <div key={`tools-container-${idx}`} className="flex flex-col gap-4">
-                  {/* Render regular tools */}
-                  {regularTools.length > 0 &&
-                    (developerMode ? (
-                      // Developer Mode: Simplified view consistent with Deep Research within a card container
-                      <div
-                        className={clsx(
-                          'border border-gray-200 dark:border-zinc-700 rounded-xl overflow-hidden bg-user-bubble/20 dark:bg-zinc-800/30',
-                          idx === 0 ? 'mb-4' : 'my-4',
-                        )}
-                      >
-                        <div className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-zinc-700">
-                          <div className="flex items-center gap-2 font-medium text-gray-700 dark:text-gray-300">
-                            <EmojiDisplay emoji={'🔧'} size="1.2em" />{' '}
-                            {t('messageBubble.toolCalls')}
-                          </div>
-                        </div>
-                        <div className="px-4 py-3 space-y-2">
-                          {regularTools.map(item => (
-                            <div
-                              key={item.id || `${item.name}-${item.arguments}`}
-                              className="flex items-center gap-2 text-[11px] text-gray-600 dark:text-gray-400"
-                            >
-                              <span className="font-medium text-gray-700 dark:text-gray-300">
-                                {item.name}
-                              </span>
-                              <span
-                                className={clsx(
-                                  'px-2 py-0.5 rounded-full text-[10px]',
-                                  item.status === 'error'
-                                    ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
-                                    : item.status === 'done'
-                                      ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
-                                      : 'bg-gray-200/70 dark:bg-zinc-700/70 text-gray-600 dark:text-gray-400',
-                                )}
-                              >
-                                {item.status === 'error'
-                                  ? t('messageBubble.toolStatusError')
-                                  : item.status === 'done'
-                                    ? t('messageBubble.toolStatusDone')
-                                    : t('messageBubble.toolStatusCalling')}
-                              </span>
-                              {item.status !== 'done' && item.status !== 'error' && <DotLoader />}
-                              {typeof item.durationMs === 'number' && (
-                                <span className="text-[10px] text-gray-500 dark:text-gray-400">
-                                  {t('messageBubble.toolDuration', {
-                                    duration: (item.durationMs / 1000).toFixed(2),
-                                  })}
-                                </span>
-                              )}
-                              <button
-                                type="button"
-                                onClick={() => setActiveToolDetail(item)}
-                                className="ml-auto text-[10px] text-primary-600 dark:text-primary-300 hover:underline"
-                              >
-                                {t('messageBubble.toolDetails')}
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ) : (
-                      // Standard Mode: Simplified view
-                      <div
-                        className={clsx(
-                          'p-3 border flex flex-col gap-2 border-gray-200 dark:border-zinc-700 rounded-xl overflow-hidden bg-user-bubble/20 dark:bg-zinc-800/30',
-                          idx === 0 ? 'mb-4' : 'my-4',
-                        )}
-                      >
-                        {regularTools.map(item => {
-                          const iconName = TOOL_ICONS[item.name]
-                          const IconComponent = iconName
-                            ? {
-                                Search,
-                                GraduationCap,
-                                Calculator,
-                                Clock,
-                                FileText,
-                                ScanText,
-                                Wrench,
-                                FormInput,
-                              }[iconName]
-                            : null
-                          return (
-                            <div
-                              key={item.id || `${item.name}-${item.arguments}`}
-                              className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400"
-                            >
-                              <div className="flex items-center gap-1 sm:gap-2 w-full">
-                                <span className="font-medium text-gray-600 dark:text-gray-300 whitespace-nowrap shrink-0 flex items-center gap-1.5">
-                                  {IconComponent && (
-                                    <IconComponent
-                                      size={14}
-                                      className="text-gray-500 dark:text-gray-400"
-                                    />
-                                  )}
-                                  {TOOL_TRANSLATION_KEYS[item.name]
-                                    ? t(TOOL_TRANSLATION_KEYS[item.name])
-                                    : item.name}
-                                </span>
-                                <div className="flex items-center gap-1 sm:gap-2 flex-1 min-w-0">
-                                  {Object.keys(TOOL_TRANSLATION_KEYS).includes(item.name) &&
-                                    (() => {
-                                      try {
-                                        const args = JSON.parse(item.arguments || '{}')
-                                        if (args.query) {
-                                          return (
-                                            <span className="opacity-75 truncate w-full">
-                                              &quot;{args.query}&quot;
-                                            </span>
-                                          )
-                                        }
-                                      } catch {
-                                        return null
-                                      }
-                                    })()}
-                                </div>
-                                <span
-                                  className={clsx(
-                                    'px-2 py-0.5 rounded-full text-[11px] ml-auto shrink-0 flex items-center justify-center min-w-[24px]',
-                                    item.status === 'error'
-                                      ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
-                                      : item.status === 'done'
-                                        ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
-                                        : 'bg-gray-200/70 dark:bg-zinc-700/70 text-gray-600 dark:text-gray-400',
-                                  )}
-                                >
-                                  {item.status === 'error' ? (
-                                    <X className="w-4 h-4" />
-                                  ) : item.status === 'done' ? (
-                                    <Check className="w-4 h-4" />
-                                  ) : (
-                                    <DotLoader />
-                                  )}
-                                </span>
-                              </div>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    ))}
-
-                  {/* Render Interactive Forms */}
-                  {formTools.map((item, formIdx) => {
-                    try {
-                      // Try to parse the form data. If it's valid, show the form even if still streaming.
-                      const formData = JSON.parse(item.arguments)
-                      return (
-                        <InteractiveForm
-                          key={`form-${formIdx}`}
-                          formData={formData}
-                          onSubmit={handleFormSubmit}
-                          messageId={message.id}
-                          isSubmitted={!!item._isSubmitted}
-                          submittedValues={mergedMessage._formSubmittedValues || {}}
-                          developerMode={developerMode}
-                          onShowDetails={() => setActiveToolDetail(item)}
-                        />
-                      )
-                    } catch (e) {
-                      // If parsing fails but we are still streaming, show the skeleton loader
-                      if (isStreaming) {
-                        return (
-                          <div
-                            key={`form-skeleton-${formIdx}`}
-                            className="my-4  rounded-xl  space-y-4 animate-pulse"
-                          >
-                            <div className="h-6 bg-gray-200 dark:bg-zinc-700 rounded w-1/3"></div>
-                            <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-2/3"></div>
-                            <div className="space-y-2">
-                              <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-1/4"></div>
-                              <div className="h-10 bg-gray-200 dark:bg-zinc-700 rounded w-full"></div>
-                            </div>
-                            <div className="space-y-2">
-                              <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-1/4"></div>
-                              <div className="h-10 bg-gray-200 dark:bg-zinc-700 rounded w-full"></div>
-                            </div>
-                            <div className="h-10 bg-gray-200 dark:bg-zinc-700 rounded w-full mt-4"></div>
-                          </div>
-                        )
-                      }
-
-                      // If not streaming and parsing failed, show the error
-                      console.error('Failed to parse interactive form arguments:', e)
-                      return (
-                        <div
-                          key={`form-error-${formIdx}`}
-                          className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-700 dark:text-red-300"
-                        >
-                          Error displaying form: {e.message}
-                        </div>
-                      )
-                    }
-                  })}
+          <>
+            {renderedInterleavedContent}
+            {mergedMessage._isContinuationLoading && (
+              <div className="mt-4 flex flex-col gap-3">
+                <FormStatusBadge waiting={false} />
+                <div className="flex flex-col gap-2 animate-pulse">
+                  <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-3/4"></div>
+                  <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-1/2"></div>
+                  <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-5/6"></div>
                 </div>
-              )
-            }
-
-            const contentWithSupports = applyGroundingSupports(
-              part.content,
-              mergedMessage.groundingSupports,
-              mergedMessage.sources,
-            )
-            const contentWithCitations = formatContentWithSources(
-              contentWithSupports,
-              mergedMessage.sources,
-            )
-
-            return (
-              <Streamdown
-                key={`text-${idx}`}
-                mermaid={mermaidOptions}
-                remarkPlugins={[remarkGfm]}
-                components={markdownComponentsWithAnchors}
-              >
-                {contentWithCitations}
-              </Streamdown>
-            )
-          })
+              </div>
+            )}
+          </>
         )}
       </div>
+
+      {isFormWaitingForInput && <FormStatusBadge waiting />}
 
       {/* Related Questions */}
       {shouldShowRelated && (

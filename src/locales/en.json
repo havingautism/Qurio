@@ -34,6 +34,38 @@
     "interactiveForm": "Interactive Form",
     "interactiveFormInfo": "Create dynamic forms within conversations to collect structured information and user input"
   },
+  "customTools": {
+    "title": "My Tools",
+    "searchPlaceholder": "Search tools...",
+    "create": "Create New Tool",
+    "noToolsFound": "No tools found.",
+    "createTitle": "Create Tool",
+    "editTitle": "Edit Tool",
+    "tooltip": "Configure your custom HTTP tool. The schema will be automatically generated from your parameters.",
+    "form": {
+      "name": "Tool Name *",
+      "namePlaceholder": "e.g. check_weather",
+      "method": "Method",
+      "description": "Description *",
+      "descriptionPlaceholder": "What does this tool do?",
+      "url": "Endpoint URL *",
+      "urlPlaceholder": "https://api.example.com/v1/resource",
+      "securityTitle": "Parameters & Security",
+      "params": "Parameters (JSON)",
+      "paramsHelp": "Use {{variable}} syntax for dynamic values.",
+      "allowedDomains": "Allowed Domains * (comma-separated)",
+      "maxResponseSize": "Max Response Size (bytes)",
+      "timeout": "Timeout (ms)",
+      "save": "Save Tool",
+      "saveChanges": "Save Changes"
+    },
+    "selectTool": "Select a tool to edit",
+    "selectToolHelp": "Or create a new custom tool to extend your agent's capabilities.",
+    "deleteConfirm": "Are you sure you want to delete this tool?",
+    "saveError": "Failed to save tool:",
+    "invalidJson": "Invalid JSON for parameters",
+    "domainRequired": "At least one allowed domain is required"
+  },
   "sidebar": {
     "deletedConversation": "Conversation deleted",
     "failedToUpdateFavorite": "Failed to update favorite status",
@@ -443,6 +475,7 @@
         "time": "Time",
         "text": "Text",
         "json": "JSON",
+        "custom": "Custom Tools",
         "other": "Other"
       }
     },

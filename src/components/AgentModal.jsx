@@ -13,6 +13,8 @@ import {
   FileText,
   ScanText,
   Wrench,
+  Sparkles,
+  Code,
   FormInput,
 } from 'lucide-react'
 import useScrollLock from '../hooks/useScrollLock'
@@ -35,6 +37,7 @@ import { getModelIcon, getModelIconClassName, renderProviderIcon } from '../lib/
 import { getProvider } from '../lib/providers'
 import { getPublicEnv } from '../lib/publicEnv'
 import { listToolsViaBackend } from '../lib/backendClient'
+import { getUserTools } from '../lib/userToolsService'
 import { TOOL_TRANSLATION_KEYS, TOOL_ICONS, TOOL_INFO_KEYS } from '../lib/toolConstants'
 
 // Logic reused from SettingsModal
@@ -227,8 +230,19 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
   const loadToolsList = async () => {
     setToolsLoading(true)
     try {
-      const tools = await listToolsViaBackend()
-      setAvailableTools(Array.isArray(tools) ? tools : [])
+      const [systemTools, userTools] = await Promise.all([listToolsViaBackend(), getUserTools()])
+
+      const validSystemTools = Array.isArray(systemTools) ? systemTools : []
+      const validUserTools = Array.isArray(userTools)
+        ? userTools.map(tool => ({
+            ...tool,
+            category: 'custom',
+            // Ensure ID is string to match system tools
+            id: String(tool.id),
+          }))
+        : []
+
+      setAvailableTools([...validSystemTools, ...validUserTools])
     } catch (err) {
       console.error('Failed to load tools list:', err)
       setAvailableTools([])
@@ -1686,7 +1700,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                                 Wrench,
                                 FormInput,
                               }[iconName]
-                            : null
+                            : Code
                           const infoKey = TOOL_INFO_KEYS[tool.name]
                           return (
                             <label
@@ -1720,9 +1734,9 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                                     {t(TOOL_TRANSLATION_KEYS[tool.name] || tool.name)}
                                   </div>
                                 </div>
-                                {infoKey && (
+                                {(infoKey || tool.description) && (
                                   <div className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
-                                    {t(infoKey)}
+                                    {infoKey ? t(infoKey) : tool.description}
                                   </div>
                                 )}
                               </div>

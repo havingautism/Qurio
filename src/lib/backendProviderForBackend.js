@@ -15,7 +15,6 @@ import {
   streamDeepResearchViaBackend,
   streamResearchPlanViaBackend,
 } from './backendClient.js'
-import { getUserTools } from './userToolsService.js'
 
 const generateTitle = async (provider, firstMessage, apiKey, baseUrl, model) => {
   const result = await generateTitleViaBackend(provider, firstMessage, apiKey, baseUrl, model)
@@ -165,15 +164,7 @@ const generateRelatedQuestions = async (provider, messages, apiKey, baseUrl, mod
 }
 
 export const createBackendProvider = provider => ({
-  streamChatCompletion: async params => {
-    let userTools = []
-    try {
-      userTools = await getUserTools()
-    } catch (err) {
-      console.error('Failed to fetch user tools for chat:', err)
-    }
-    return streamChatViaBackend({ provider, userTools, ...params })
-  },
+  streamChatCompletion: params => streamChatViaBackend({ provider, ...params }),
   streamDeepResearch: params => streamDeepResearchViaBackend({ provider, ...params }),
   generateTitle: (firstMessage, apiKey, baseUrl, model) =>
     generateTitle(provider, firstMessage, apiKey, baseUrl, model),

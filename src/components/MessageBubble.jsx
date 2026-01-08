@@ -1808,7 +1808,12 @@ const MessageBubble = ({
                   {regularTools.length > 0 &&
                     (developerMode ? (
                       // Developer Mode: Simplified view consistent with Deep Research within a card container
-                      <div className="my-4 border border-gray-200 dark:border-zinc-700 rounded-xl overflow-hidden bg-user-bubble/20 dark:bg-zinc-800/30">
+                      <div
+                        className={clsx(
+                          'border border-gray-200 dark:border-zinc-700 rounded-xl overflow-hidden bg-user-bubble/20 dark:bg-zinc-800/30',
+                          idx === 0 ? 'mb-4' : 'my-4',
+                        )}
+                      >
                         <div className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-zinc-700">
                           <div className="flex items-center gap-2 font-medium text-gray-700 dark:text-gray-300">
                             <EmojiDisplay emoji={'🔧'} size="1.2em" />{' '}
@@ -1861,7 +1866,12 @@ const MessageBubble = ({
                       </div>
                     ) : (
                       // Standard Mode: Simplified view
-                      <div className="my-4 p-3 border flex flex-col gap-2 border-gray-200 dark:border-zinc-700 rounded-xl overflow-hidden bg-user-bubble/20 dark:bg-zinc-800/30">
+                      <div
+                        className={clsx(
+                          'p-3 border flex flex-col gap-2 border-gray-200 dark:border-zinc-700 rounded-xl overflow-hidden bg-user-bubble/20 dark:bg-zinc-800/30',
+                          idx === 0 ? 'mb-4' : 'my-4',
+                        )}
+                      >
                         {regularTools.map(item => {
                           const iconName = TOOL_ICONS[item.name]
                           const IconComponent = iconName

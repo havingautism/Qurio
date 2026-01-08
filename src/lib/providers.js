@@ -4,6 +4,7 @@ import {
   MODELSCOPE_BASE_URL,
   NVIDIA_BASE_URL,
   SILICONFLOW_BASE_URL,
+  MINIMAX_BASE_URL,
 } from './providerConstants'
 import { getPublicEnv } from './publicEnv'
 
@@ -388,6 +389,44 @@ export const PROVIDERS = {
           ]
         : undefined,
     getThinking: isThinkingActive => (isThinkingActive ? true : undefined),
+    parseMessage: defaultParseMessage,
+  },
+  minimax: {
+    ...createBackendProvider('minimax'),
+    id: 'minimax',
+    name: 'MiniMax',
+    getCredentials: settings => ({
+      apiKey: settings.MinimaxKey,
+      baseUrl: MINIMAX_BASE_URL,
+    }),
+    getTools: isSearchActive =>
+      isSearchActive
+        ? [
+            {
+              type: 'function',
+              function: {
+                name: 'Tavily_web_search',
+                description: 'Search the web for current information.',
+                parameters: {
+                  type: 'object',
+                  properties: {
+                    query: { type: 'string', description: 'Search query' },
+                  },
+                  required: ['query'],
+                },
+              },
+            },
+          ]
+        : undefined,
+    getThinking: isThinkingActive =>
+      isThinkingActive
+        ? {
+            // MiniMax uses reasoning_split to separate thinking content
+            extra_body: {
+              reasoning_split: true,
+            },
+          }
+        : undefined,
     parseMessage: defaultParseMessage,
   },
 }

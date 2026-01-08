@@ -87,6 +87,7 @@ router.post('/stream-chat', async (req, res) => {
       'modelscope',
       'kimi',
       'nvidia',
+      'minimax',
     ]
     if (!supportedProviders.includes(provider)) {
       return res.status(400).json({

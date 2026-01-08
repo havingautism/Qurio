@@ -61,6 +61,7 @@ const FALLBACK_MODEL_OPTIONS = {
     { value: 'deepseek-ai/deepseek-r1', label: 'DeepSeek R1' },
     { value: 'nvidia/llama-3.1-nemotron-70b-instruct', label: 'Llama 3.1 Nemotron 70B' },
   ],
+  minimax: [{ value: 'MiniMax-M2.1', label: 'MiniMax M2.1' }],
   modelscope: [],
   kimi: [
     { value: 'moonshot-v1-8k', label: 'Moonshot V1 8K' },
@@ -74,6 +75,7 @@ const PROVIDER_KEYS = [
   'openai_compatibility',
   'siliconflow',
   'nvidia',
+  'minimax',
   'glm',
   'modelscope',
   'kimi',
@@ -247,6 +249,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
       modelscope: settings.ModelScopeKey,
       kimi: settings.KimiKey,
       nvidia: settings.NvidiaKey,
+      minimax: settings.MinimaxKey,
       // URLs for providers that need it
       openai_compatibility_url: settings.OpenAICompatibilityUrl,
     }
@@ -262,6 +265,8 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
       else if (key === 'kimi') credentials = { apiKey: keys.kimi }
       else if (key === 'nvidia')
         credentials = { apiKey: keys.nvidia, baseUrl: 'https://integrate.api.nvidia.com/v1' }
+      else if (key === 'minimax')
+        credentials = { apiKey: keys.minimax, baseUrl: 'https://api.minimax.io/v1' }
       else if (key === 'openai_compatibility')
         credentials = { apiKey: keys.openai_compatibility, baseUrl: keys.openai_compatibility_url }
 

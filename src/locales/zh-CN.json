@@ -152,7 +152,8 @@
       "glm": "GLM (智谱 AI)",
       "modelscope": "魔塔社区",
       "kimi": "Kimi (月之暗面)",
-      "nvidia": "NVIDIA NIM"
+      "nvidia": "NVIDIA NIM",
+      "minimax": "MiniMax"
     },
     "searchProviders": {
       "tavily": "Tavily"
@@ -316,6 +317,8 @@
     "kimiApiKeyPlaceholder": "您的 Kimi API 密钥",
     "nvidiaApiKey": "NVIDIA API 密钥",
     "nvidiaApiKeyPlaceholder": "请输入您的 NVIDIA API 密钥",
+    "minimaxApiKey": "MiniMax API 密钥",
+    "minimaxApiKeyPlaceholder": "请输入您的 MiniMax API 密钥",
     "loadedFromEnvironment": "从环境变量加载",
     "about": {
       "title": "关于",

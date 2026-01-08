@@ -10,11 +10,13 @@ const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta'
 const GLM_BASE = getPublicEnv('PUBLIC_GLM_BASE_URL') || GLM_BASE_URL
 const MODELSCOPE_BASE = getPublicEnv('PUBLIC_MODELSCOPE_BASE_URL') || MODELSCOPE_CONST_BASE
 const KIMI_BASE = getPublicEnv('PUBLIC_KIMI_BASE_URL') || 'https://api.moonshot.cn/v1'
+const MINIMAX_BASE = getPublicEnv('PUBLIC_MINIMAX_BASE_URL') || MINIMAX_BASE_URL
 import {
   GLM_BASE_URL,
   MODELSCOPE_BASE_URL as MODELSCOPE_CONST_BASE,
   NVIDIA_BASE_URL,
   SILICONFLOW_BASE_URL,
+  MINIMAX_BASE_URL,
 } from './providerConstants'
 
 const withTimeout = (signal, timeoutMs = 10000) => {
@@ -150,6 +152,9 @@ const fetchKimiModels = async ({ apiKey }, options = {}) => {
   }))
 }
 
+// MiniMax - use fallback models (API endpoint may not support /models list)
+const fetchMinimaxModels = async () => []
+
 // Get models for a specific provider
 export const getModelsForProvider = async (provider, credentials, options = {}) => {
   switch (provider) {
@@ -168,6 +173,8 @@ export const getModelsForProvider = async (provider, credentials, options = {}) 
       return await fetchKimiModels({ apiKey: credentials.apiKey }, options)
     case 'nvidia':
       return await fetchOpenAIModels()
+    case 'minimax':
+      return await fetchMinimaxModels({ apiKey: credentials.apiKey }, options)
     case 'openai_compatibility':
       return await fetchOpenAIModels()
     default:

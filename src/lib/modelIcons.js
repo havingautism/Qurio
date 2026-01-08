@@ -12,6 +12,7 @@ import ZhipuIcon from '../assets/zhipu-color.svg?url'
 import ModelScopeIcon from '../assets/modelscope-color.svg?url'
 import TavilyIcon from '../assets/tavily-color.svg?url'
 import NvidiaIcon from '../assets/nvidia-color.svg?url'
+import MinimaxIcon from '../assets/minimax-color.png'
 
 const DEFAULT_ICON_BG_CLASS = 'bg-[#f6f6f6b8] dark:bg-[#0d0d0d]'
 
@@ -36,6 +37,11 @@ export const PROVIDER_ICON_META = {
   nvidia: {
     src: NvidiaIcon,
     alt: 'NVIDIA',
+    bgClassName: DEFAULT_ICON_BG_CLASS,
+  },
+  minimax: {
+    src: MinimaxIcon,
+    alt: 'MiniMax',
     bgClassName: DEFAULT_ICON_BG_CLASS,
   },
 }
@@ -92,6 +98,7 @@ export const getModelIcon = modelId => {
   if (lowerId.includes('qwen')) return QwenIcon
   if (lowerId.includes('moonshot') || lowerId.includes('kimi')) return KimiIcon
   if (lowerId.includes('glm') || lowerId.includes('zhipu')) return ChatGLMIcon
+  if (lowerId.includes('minimax')) return MinimaxIcon
   if (lowerId.includes('gpt') || lowerId.includes('o3-mini')) return OpenAIIcon
   // Fallback based on known prefixes if needed, or default to a generic icon
   return null

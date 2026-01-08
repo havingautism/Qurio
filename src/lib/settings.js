@@ -276,6 +276,8 @@ export const loadSettings = (overrides = {}) => {
     mergedSettings.googleApiKey = getPublicEnv('PUBLIC_GOOGLE_API_KEY') || ''
   if (!mergedSettings.tavilyApiKey) mergedSettings.tavilyApiKey = envTavilyApiKey || ''
   if (!mergedSettings.NvidiaKey) mergedSettings.NvidiaKey = ''
+  if (!mergedSettings.MinimaxKey)
+    mergedSettings.MinimaxKey = getPublicEnv('PUBLIC_MINIMAX_API_KEY') || ''
 
   return {
     ...mergedSettings,
@@ -307,6 +309,7 @@ export const saveSettings = async settings => {
     'googleApiKey',
     'tavilyApiKey',
     'NvidiaKey',
+    'MinimaxKey',
   ]
   SENSITIVE_KEYS.forEach(key => localStorage.removeItem(key))
 

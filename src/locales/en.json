@@ -152,7 +152,8 @@
       "glm": "GLM (Zhipu AI)",
       "modelscope": "ModelScope",
       "kimi": "Kimi (Moonshot AI)",
-      "nvidia": "NVIDIA NIM"
+      "nvidia": "NVIDIA NIM",
+      "minimax": "MiniMax"
     },
     "searchProviders": {
       "tavily": "Tavily"
@@ -316,6 +317,8 @@
     "kimiApiKeyPlaceholder": "Your Kimi API key",
     "nvidiaApiKey": "NVIDIA API Key",
     "nvidiaApiKeyPlaceholder": "Enter your NVIDIA API Key",
+    "minimaxApiKey": "MiniMax API Key",
+    "minimaxApiKeyPlaceholder": "Enter your MiniMax API Key",
     "loadedFromEnvironment": "Loaded from environment",
     "about": {
       "title": "About",

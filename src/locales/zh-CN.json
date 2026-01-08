@@ -673,6 +673,10 @@
     "analyzing": "分析中",
     "workingThroughIt": "正在推理",
     "checkingDetails": "正在检查细节",
+    "formStatus": {
+      "waiting": "正在等待表单提交...",
+      "submitted": "表单已提交"
+    },
     "researchStepLabel": "步骤 {{step}}/{{total}}",
     "researchStepStatusRunning": "进行中",
     "researchStepStatusDone": "已完成",

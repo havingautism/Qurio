@@ -409,18 +409,54 @@ const MessageBubble = ({
     [isDark, MermaidErrorFallback],
   )
 
-  const FormStatusBadge = ({ waiting }) => (
-    <div
-      className={clsx(
-        'px-4 mb-4 py-2 rounded-2xl text-sm font-medium',
-        waiting
-          ? 'border border-blue-200 dark:border-blue-600 bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-200'
-          : 'border border-green-200 dark:border-green-600 bg-green-50 dark:bg-green-900/40 text-green-700 dark:text-green-200',
-      )}
-    >
-      {waiting ? '正在等待表单提交...' : '表单已提交'}
-    </div>
-  )
+  const FormStatusBadge = ({ waiting }) => {
+    const { t } = useTranslation()
+    const statusLabel = waiting
+      ? t('messageBubble.formStatus.waiting')
+      : t('messageBubble.formStatus.submitted')
+    const statusIcon = waiting ? <Clock size={16} /> : <Check size={16} />
+
+    const lineColorClass = waiting
+      ? 'from-sky-300/80 to-sky-50/0 dark:from-sky-500/80 dark:to-sky-500/5'
+      : 'from-emerald-300/80 to-emerald-50/0 dark:from-emerald-500/80 dark:to-emerald-500/5'
+    const iconColorClass = waiting
+      ? 'text-sky-600 dark:text-sky-200'
+      : 'text-emerald-600 dark:text-emerald-200'
+
+    return (
+      <div
+        className={clsx(
+          'mb-4 flex flex-col items-center gap-1 rounded-2xl  px-4 py-3 text-sm font-semibold transition',
+          ' ',
+          ' text-gray-800  dark:text-gray-200',
+          waiting ? ' text-sky-700 ' : ' text-emerald-700 ',
+        )}
+      >
+        <div className="flex w-full items-center justify-center gap-3 px-1">
+          <span
+            className={clsx('h-px flex-1 rounded-full bg-linear-to-r transition', lineColorClass)}
+          />
+          <span
+            className={clsx(
+              'flex h-10 w-10 items-center justify-center rounded-full border border-current ',
+              iconColorClass,
+            )}
+          >
+            {statusIcon}
+          </span>
+          <span
+            className={clsx(
+              'h-[1px] flex-1 rounded-full bg-gradient-to-l transition',
+              lineColorClass,
+            )}
+          />
+        </div>
+        <span className="leading-tight text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+          {statusLabel}
+        </span>
+      </div>
+    )
+  }
 
   const interleavedContent = useMemo(() => {
     if (isDeepResearch || !toolCallHistory.length) {

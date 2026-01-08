@@ -666,6 +666,10 @@
     "analyzing": "Analyzing",
     "workingThroughIt": "Working through it",
     "checkingDetails": "Checking details",
+    "formStatus": {
+      "waiting": "Waiting for form submission...",
+      "submitted": "Form submitted"
+    },
     "researchStepLabel": "Step {{step}}/{{total}}",
     "researchStepStatusRunning": "Running",
     "researchStepStatusDone": "Done",

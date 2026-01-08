@@ -219,26 +219,28 @@ const ToolsModal = ({ isOpen, onClose }) => {
   const showForm = isCreating || editingTool
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-5xl h-[85vh] bg-white dark:bg-[#191a1a] rounded-2xl shadow-2xl overflow-hidden flex flex-col md:flex-row border border-gray-200 dark:border-zinc-800">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm md:p-4 animate-in fade-in duration-200">
+      <div className="w-full h-full md:max-w-5xl md:h-[85vh] bg-white dark:bg-[#191a1a] md:rounded-2xl shadow-2xl overflow-hidden flex flex-col md:flex-row md:border border-gray-200 dark:border-zinc-800 relative">
+        {/* Close Button - Desktop & Mobile optimized */}
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 z-20 p-2 rounded-full bg-gray-100/50 dark:bg-zinc-800/50 hover:bg-gray-200 dark:hover:bg-zinc-700 text-gray-500 backdrop-blur-sm transition-colors"
+        >
+          <X size={20} />
+        </button>
         {/* LEFT PANE: List */}
         <div
           className={clsx(
-            'flex flex-col w-full md:w-1/3 border-r border-gray-200 dark:border-zinc-800 bg-gray-50/50 dark:bg-zinc-900/50',
+            'flex flex-col w-full md:w-1/3 border-r border-gray-200 dark:border-zinc-800 bg-gray-50/50 dark:bg-zinc-900/50 h-full',
             showForm ? 'hidden md:flex' : 'flex', // Hide list on mobile if form is open
           )}
         >
           {/* Header */}
-          <div className="p-4 border-b border-gray-200 dark:border-zinc-800 flex flex-col gap-4">
+          <div className="p-4 border-b border-gray-200 dark:border-zinc-800 flex flex-col gap-4 mt-8 md:mt-0">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 px-1">
                 {t('customTools.title')}
               </h2>
-              <div className="flex md:hidden">
-                <button onClick={onClose} className="p-2 -mr-2 text-gray-500">
-                  <X size={20} />
-                </button>
-              </div>
             </div>
             <div className="relative">
               <Search
@@ -327,13 +329,13 @@ const ToolsModal = ({ isOpen, onClose }) => {
         {/* RIGHT PANE: Detail/Form */}
         <div
           className={clsx(
-            'flex-1 flex flex-col bg-white dark:bg-[#191a1a] w-full',
+            'flex-1 flex flex-col bg-white dark:bg-[#191a1a] w-full h-full overflow-hidden',
             !showForm && 'hidden md:flex', // Hide details on mobile if not editing
           )}
         >
           {/* Mobile Header for Detail View */}
           {showForm && (
-            <div className="md:hidden flex items-center gap-3 p-4 border-b border-gray-200 dark:border-zinc-800">
+            <div className="md:hidden flex items-center gap-3 p-4 border-b border-gray-200 dark:border-zinc-800 mt-8">
               <button
                 onClick={() => {
                   setIsCreating(false)
@@ -343,26 +345,16 @@ const ToolsModal = ({ isOpen, onClose }) => {
               >
                 <ChevronRight size={20} className="rotate-180" />
               </button>
-              <h3 className="font-semibold">
+              <h3 className="font-semibold text-gray-900 dark:text-white">
                 {isCreating ? t('customTools.createTitle') : t('customTools.editTitle')}
               </h3>
             </div>
           )}
 
-          {/* Desktop Close Button (Absolute) */}
-          <div className="hidden md:block absolute top-4 right-4 z-10">
-            <button
-              onClick={onClose}
-              className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-500 transition-colors"
-            >
-              <X size={20} />
-            </button>
-          </div>
-
           {showForm ? (
-            <div className="flex-1 overflow-y-auto p-6 md:p-10">
+            <div className="flex-1 overflow-y-auto p-6 md:p-10 pb-24 md:pb-10">
               <div className="max-w-2xl mx-auto space-y-8">
-                <div>
+                <div className="hidden md:block">
                   <h3 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">
                     {isCreating ? t('customTools.createTitle') : t('customTools.editTitle')}
                   </h3>
@@ -373,30 +365,25 @@ const ToolsModal = ({ isOpen, onClose }) => {
 
                 {/* Basic Info Group */}
                 <div className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormInput
-                      label={t('customTools.form.name')}
-                      value={formData.name}
-                      onChange={v => setFormData({ ...formData, name: v })}
-                      placeholder={t('customTools.form.namePlaceholder')}
-                      icon={<Code size={14} />}
-                    />
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="md:col-span-3">
+                      <FormInput
+                        label={t('customTools.form.name')}
+                        value={formData.name}
+                        onChange={v => setFormData({ ...formData, name: v })}
+                        placeholder={t('customTools.form.namePlaceholder')}
+                        icon={<Code size={14} />}
+                      />
+                    </div>
+                    <div className="md:col-span-1">
+                      <label className="text-xs font-medium text-gray-700 dark:text-gray-300 block mb-1.5">
                         {t('customTools.form.method')}
                       </label>
-                      <div className="relative">
-                        <select
-                          value={formData.method}
-                          onChange={e => setFormData({ ...formData, method: e.target.value })}
-                          className="w-full appearance-none pl-3 pr-8 py-2.5 text-sm bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20 transition-all font-mono"
-                        >
-                          <option>GET</option>
-                          <option>POST</option>
-                          <option>PUT</option>
-                          <option>DELETE</option>
-                        </select>
-                      </div>
+                      <CustomSelect
+                        value={formData.method}
+                        onChange={v => setFormData({ ...formData, method: v })}
+                        options={['GET', 'POST', 'PUT', 'DELETE']}
+                      />
                     </div>
                   </div>
 
@@ -435,7 +422,7 @@ const ToolsModal = ({ isOpen, onClose }) => {
                     <textarea
                       value={formData.params}
                       onChange={e => setFormData({ ...formData, params: e.target.value })}
-                      placeholder='{ "q": "{{city}}" }'
+                      placeholder={t('customTools.form.paramsPlaceholder')}
                       rows={5}
                       className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-blue-200 dark:border-blue-800 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                     />
@@ -452,7 +439,7 @@ const ToolsModal = ({ isOpen, onClose }) => {
                     label={t('customTools.form.allowedDomains')}
                     value={formData.allowedDomains}
                     onChange={v => setFormData({ ...formData, allowedDomains: v })}
-                    placeholder="api.weather.com, api.google.com"
+                    placeholder={t('customTools.form.allowedDomainsPlaceholder')}
                   />
 
                   <div className="grid grid-cols-2 gap-4">
@@ -461,17 +448,19 @@ const ToolsModal = ({ isOpen, onClose }) => {
                       type="number"
                       value={formData.maxResponseSize}
                       onChange={v => setFormData({ ...formData, maxResponseSize: v })}
+                      placeholder={t('customTools.form.maxResponseSizePlaceholder')}
                     />
                     <FormInput
                       label={t('customTools.form.timeout')}
                       type="number"
                       value={formData.timeout}
                       onChange={v => setFormData({ ...formData, timeout: v })}
+                      placeholder={t('customTools.form.timeoutPlaceholder')}
                     />
                   </div>
                 </div>
 
-                <div className="pt-4 flex gap-3">
+                <div className="pt-4 flex flex-col gap-3 pb-8 md:pb-0">
                   <button
                     onClick={handleSave}
                     className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-xl font-medium transition-all shadow-lg shadow-primary-500/20 active:scale-95"
@@ -511,6 +500,50 @@ const ToolsModal = ({ isOpen, onClose }) => {
           )}
         </div>
       </div>
+    </div>
+  )
+}
+
+const CustomSelect = ({ value, onChange, options }) => {
+  const [isOpen, setIsOpen] = useState(false)
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full px-3 py-2.5 text-sm md:text-left text-center bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20 font-mono flex items-center justify-between"
+      >
+        <span>{value}</span>
+        <div className="bg-gray-200 dark:bg-zinc-700 rounded p-0.5">
+          <ChevronRight size={12} className={clsx('transition-transform', isOpen && 'rotate-90')} />
+        </div>
+      </button>
+
+      {isOpen && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
+          <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg shadow-lg z-20 py-1 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+            {options.map(option => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => {
+                  onChange(option)
+                  setIsOpen(false)
+                }}
+                className={clsx(
+                  'w-full px-3 py-2 text-sm text-left font-mono hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors',
+                  value === option &&
+                    'text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/20',
+                )}
+              >
+                {option}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   )
 }

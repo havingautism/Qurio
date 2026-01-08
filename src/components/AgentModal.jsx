@@ -13,6 +13,8 @@ import {
   FileText,
   ScanText,
   Wrench,
+  Sparkles,
+  Code,
   FormInput,
 } from 'lucide-react'
 import useScrollLock from '../hooks/useScrollLock'
@@ -35,6 +37,7 @@ import { getModelIcon, getModelIconClassName, renderProviderIcon } from '../lib/
 import { getProvider } from '../lib/providers'
 import { getPublicEnv } from '../lib/publicEnv'
 import { listToolsViaBackend } from '../lib/backendClient'
+import { getUserTools } from '../lib/userToolsService'
 import { TOOL_TRANSLATION_KEYS, TOOL_ICONS, TOOL_INFO_KEYS } from '../lib/toolConstants'
 
 // Logic reused from SettingsModal
@@ -61,6 +64,7 @@ const FALLBACK_MODEL_OPTIONS = {
     { value: 'deepseek-ai/deepseek-r1', label: 'DeepSeek R1' },
     { value: 'nvidia/llama-3.1-nemotron-70b-instruct', label: 'Llama 3.1 Nemotron 70B' },
   ],
+  minimax: [{ value: 'MiniMax-M2.1', label: 'MiniMax M2.1' }],
   modelscope: [],
   kimi: [
     { value: 'moonshot-v1-8k', label: 'Moonshot V1 8K' },
@@ -74,6 +78,7 @@ const PROVIDER_KEYS = [
   'openai_compatibility',
   'siliconflow',
   'nvidia',
+  'minimax',
   'glm',
   'modelscope',
   'kimi',
@@ -225,8 +230,19 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
   const loadToolsList = async () => {
     setToolsLoading(true)
     try {
-      const tools = await listToolsViaBackend()
-      setAvailableTools(Array.isArray(tools) ? tools : [])
+      const [systemTools, userTools] = await Promise.all([listToolsViaBackend(), getUserTools()])
+
+      const validSystemTools = Array.isArray(systemTools) ? systemTools : []
+      const validUserTools = Array.isArray(userTools)
+        ? userTools.map(tool => ({
+            ...tool,
+            category: 'custom',
+            // Ensure ID is string to match system tools
+            id: String(tool.id),
+          }))
+        : []
+
+      setAvailableTools([...validSystemTools, ...validUserTools])
     } catch (err) {
       console.error('Failed to load tools list:', err)
       setAvailableTools([])
@@ -247,6 +263,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
       modelscope: settings.ModelScopeKey,
       kimi: settings.KimiKey,
       nvidia: settings.NvidiaKey,
+      minimax: settings.MinimaxKey,
       // URLs for providers that need it
       openai_compatibility_url: settings.OpenAICompatibilityUrl,
     }
@@ -262,6 +279,8 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
       else if (key === 'kimi') credentials = { apiKey: keys.kimi }
       else if (key === 'nvidia')
         credentials = { apiKey: keys.nvidia, baseUrl: 'https://integrate.api.nvidia.com/v1' }
+      else if (key === 'minimax')
+        credentials = { apiKey: keys.minimax, baseUrl: 'https://api.minimax.io/v1' }
       else if (key === 'openai_compatibility')
         credentials = { apiKey: keys.openai_compatibility, baseUrl: keys.openai_compatibility_url }
 
@@ -1681,7 +1700,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                                 Wrench,
                                 FormInput,
                               }[iconName]
-                            : null
+                            : Code
                           const infoKey = TOOL_INFO_KEYS[tool.name]
                           return (
                             <label
@@ -1715,9 +1734,9 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                                     {t(TOOL_TRANSLATION_KEYS[tool.name] || tool.name)}
                                   </div>
                                 </div>
-                                {infoKey && (
+                                {(infoKey || tool.description) && (
                                   <div className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
-                                    {t(infoKey)}
+                                    {infoKey ? t(infoKey) : tool.description}
                                   </div>
                                 )}
                               </div>

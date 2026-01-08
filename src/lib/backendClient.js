@@ -491,6 +491,7 @@ export const streamChatViaBackend = async params => {
     contextMessageLimit,
     searchProvider,
     tavilyApiKey,
+    userTools,
     onChunk,
     onFinish,
     onError,
@@ -532,6 +533,7 @@ export const streamChatViaBackend = async params => {
         contextMessageLimit,
         searchProvider,
         tavilyApiKey,
+        userTools,
       }),
       signal,
     })
@@ -732,8 +734,87 @@ export const listToolsViaBackend = async () => {
   const response = await fetch(`${getBackendUrl()}/api/tools`)
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Unknown error' }))
-    throw new Error(error.message || `Backend error: ${response.status}`)
+    throw new Error(error.error || error.message || `Backend error: ${response.status}`)
   }
   const data = await response.json()
   return data?.tools || []
+}
+
+/**
+ * List user custom tools via backend
+ * @returns {Promise<Array>}
+ */
+export const listUserToolsViaBackend = async () => {
+  const response = await fetch(`${getBackendUrl()}/api/user-tools`, {
+    headers: { 'x-user-id': 'default' },
+  })
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: 'Unknown error' }))
+    throw new Error(error.error || error.message || `Backend error: ${response.status}`)
+  }
+  const data = await response.json()
+  return data?.tools || []
+}
+
+/**
+ * Create user custom tool via backend
+ * @param {Object} toolData
+ * @returns {Promise<Object>}
+ */
+export const createUserToolViaBackend = async toolData => {
+  const response = await fetch(`${getBackendUrl()}/api/user-tools`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-user-id': 'default',
+    },
+    body: JSON.stringify(toolData),
+  })
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: 'Unknown error' }))
+    throw new Error(error.error || error.message || `Backend error: ${response.status}`)
+  }
+  return response.json()
+}
+
+/**
+ * Update user custom tool via backend
+ * @param {string} id
+ * @param {Object} toolData
+ * @returns {Promise<Object>}
+ */
+export const updateUserToolViaBackend = async (id, toolData) => {
+  const response = await fetch(`${getBackendUrl()}/api/user-tools/${id}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-user-id': 'default',
+    },
+    body: JSON.stringify(toolData),
+  })
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: 'Unknown error' }))
+    throw new Error(error.message || `Backend error: ${response.status}`)
+  }
+  return response.json()
+}
+
+/**
+ * Delete user custom tool via backend
+ * @param {string} id
+ * @returns {Promise<boolean>}
+ */
+export const deleteUserToolViaBackend = async id => {
+  const response = await fetch(`${getBackendUrl()}/api/user-tools/${id}`, {
+    method: 'DELETE',
+    headers: { 'x-user-id': 'default' },
+  })
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: 'Unknown error' }))
+    throw new Error(error.message || `Backend error: ${response.status}`)
+  }
+  return true
 }

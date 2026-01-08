@@ -34,6 +34,42 @@
     "interactiveForm": "交互式表单",
     "interactiveFormInfo": "在对话中创建动态表单，收集结构化信息和用户输入"
   },
+  "customTools": {
+    "title": "我的工具",
+    "searchPlaceholder": "搜索工具...",
+    "create": "新建工具",
+    "noToolsFound": "未找到工具。",
+    "createTitle": "新建工具",
+    "editTitle": "编辑工具",
+    "tooltip": "配置您的自定义 HTTP 工具。Schema 将根据您的参数自动生成。",
+    "form": {
+      "name": "工具名称 *",
+      "namePlaceholder": "例如: weather_check (小写字母,下划线分隔)",
+      "method": "请求方法",
+      "description": "描述 *",
+      "descriptionPlaceholder": "获取指定城市的实时天气信息",
+      "url": "接口地址 (URL) *",
+      "urlPlaceholder": "https://api.weather.com/forecast/{{city}} (路径参数)",
+      "securityTitle": "参数与安全",
+      "params": "查询参数 (JSON)",
+      "paramsPlaceholder": "{\"days\": \"{{duration}}\", \"units\": \"metric\"} (查询字符串)",
+      "paramsHelp": "用 {{变量名}} 表示AI提供的值。URL或参数中的变量会自动成为工具参数。",
+      "allowedDomains": "允许的域名 * (逗号分隔)",
+      "allowedDomainsPlaceholder": "wttr.in, api.example.com",
+      "maxResponseSize": "最大响应大小 (字节)",
+      "maxResponseSizePlaceholder": "100000",
+      "timeout": "超时时间 (毫秒)",
+      "timeoutPlaceholder": "10000",
+      "save": "保存工具",
+      "saveChanges": "保存更改"
+    },
+    "selectTool": "选择一个工具进行编辑",
+    "selectToolHelp": "或者创建一个新的自定义工具以扩展 Agent 能力。",
+    "deleteConfirm": "确定要删除此工具吗？",
+    "saveError": "保存工具失败：",
+    "invalidJson": "参数 JSON 格式无效",
+    "domainRequired": "必须至少指定一个允许的域名"
+  },
   "sidebar": {
     "deletedConversation": "对话已删除",
     "failedToUpdateFavorite": "更新收藏状态失败",
@@ -152,7 +188,8 @@
       "glm": "GLM (智谱 AI)",
       "modelscope": "魔塔社区",
       "kimi": "Kimi (月之暗面)",
-      "nvidia": "NVIDIA NIM"
+      "nvidia": "NVIDIA NIM",
+      "minimax": "MiniMax"
     },
     "searchProviders": {
       "tavily": "Tavily"
@@ -316,6 +353,8 @@
     "kimiApiKeyPlaceholder": "您的 Kimi API 密钥",
     "nvidiaApiKey": "NVIDIA API 密钥",
     "nvidiaApiKeyPlaceholder": "请输入您的 NVIDIA API 密钥",
+    "minimaxApiKey": "MiniMax API 密钥",
+    "minimaxApiKeyPlaceholder": "请输入您的 MiniMax API 密钥",
     "loadedFromEnvironment": "从环境变量加载",
     "about": {
       "title": "关于",
@@ -441,6 +480,7 @@
         "text": "文本",
         "json": "JSON",
         "search": "搜索",
+        "custom": "我的工具",
         "other": "其他"
       }
     },
@@ -633,6 +673,10 @@
     "analyzing": "分析中",
     "workingThroughIt": "正在推理",
     "checkingDetails": "正在检查细节",
+    "formStatus": {
+      "waiting": "正在等待表单提交...",
+      "submitted": "表单已提交"
+    },
     "researchStepLabel": "步骤 {{step}}/{{total}}",
     "researchStepStatusRunning": "进行中",
     "researchStepStatusDone": "已完成",

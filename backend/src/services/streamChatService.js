@@ -7,6 +7,7 @@ import { getProviderAdapter } from './providers/adapterFactory.js'
 import { normalizeTextContent, safeJsonParse } from './serviceUtils.js'
 import { TIME_KEYWORDS_REGEX } from './regexConstants.js'
 import { executeToolByName, getToolDefinitionsByIds, isLocalToolName } from './toolsService.js'
+import { executeCustomTool } from './customToolExecutor.js'
 
 // Debug flags
 const debugStream = () => process.env.DEBUG_STREAM === '1'
@@ -294,6 +295,7 @@ export const streamChat = async function* (params) {
     signal,
     toolIds = [],
     searchProvider,
+    userId,
     tavilyApiKey,
   } = params
 
@@ -358,12 +360,33 @@ export const streamChat = async function* (params) {
   // Get provider adapter
   const adapter = getProviderAdapter(provider)
 
+  // Load user-defined custom tools from params
+  let userTools = params.userTools || []
+  let userToolsMap = new Map()
+  if (Array.isArray(userTools)) {
+    userTools.forEach(tool => {
+      userToolsMap.set(tool.name, tool)
+    })
+  }
+
+  // Convert user tools to tool definitions
+  const userToolDefinitions = userTools.map(tool => ({
+    type: 'function',
+    function: {
+      name: tool.name,
+      description: tool.description,
+      parameters: tool.input_schema,
+    },
+  }))
+
   // Prepare tool definitions
   // Always include interactive_form as it is a global tool
   const agentToolDefinitions = provider === 'gemini' ? [] : getToolDefinitionsByIds(toolIds)
-  const combinedTools = [...(Array.isArray(tools) ? tools : []), ...agentToolDefinitions].filter(
-    Boolean,
-  )
+  const combinedTools = [
+    ...(Array.isArray(tools) ? tools : []),
+    ...agentToolDefinitions,
+    ...userToolDefinitions,
+  ].filter(Boolean)
 
   // Deduplicate tools by name
   const normalizedTools = []
@@ -525,7 +548,10 @@ If you need to collect information, design ONE comprehensive form that gathers a
         const startedAt = Date.now()
         const toolName = toolCall.function.name
 
-        if (!isLocalToolName(toolName)) {
+        // Check if it's a user-defined custom tool
+        const isCustomTool = userToolsMap.has(toolName)
+
+        if (!isLocalToolName(toolName) && !isCustomTool) {
           currentMessages.push({
             role: 'tool',
             tool_call_id: toolCall.id,
@@ -541,15 +567,24 @@ If you need to collect information, design ONE comprehensive form that gathers a
         }
 
         try {
-          const result = await executeToolByName(toolName, parsedArgs || {}, toolConfig)
-          if (isSearchToolName(toolName)) {
-            if (toolName === 'search') {
-              //kimi search,待修改
-              collectKimiSources(result, sourcesMap)
-            } else {
-              collectWebSearchSources(result, sourcesMap)
+          let result
+
+          // Execute custom tool or local tool
+          if (isCustomTool) {
+            const customTool = userToolsMap.get(toolName)
+            result = await executeCustomTool(customTool, parsedArgs || {})
+          } else {
+            result = await executeToolByName(toolName, parsedArgs || {}, toolConfig)
+            if (isSearchToolName(toolName)) {
+              if (toolName === 'search') {
+                //kimi search,待修改
+                collectKimiSources(result, sourcesMap)
+              } else {
+                collectWebSearchSources(result, sourcesMap)
+              }
             }
           }
+
           currentMessages.push({
             role: 'tool',
             tool_call_id: toolCall.id,
@@ -724,7 +759,10 @@ If you need to collect information, design ONE comprehensive form that gathers a
             const startedAt = Date.now()
             const toolName = toolCall.function.name
 
-            if (!isLocalToolName(toolName)) {
+            // Check if it's a user-defined custom tool
+            const isCustomTool = userToolsMap.has(toolName)
+
+            if (!isLocalToolName(toolName) && !isCustomTool) {
               currentMessages.push({
                 role: 'tool',
                 tool_call_id: toolCall.id,
@@ -740,15 +778,24 @@ If you need to collect information, design ONE comprehensive form that gathers a
             }
 
             try {
-              const result = await executeToolByName(toolName, parsedArgs || {}, toolConfig)
-              if (isSearchToolName(toolName)) {
-                if (toolName === 'search') {
-                  //kimi search,名字待修改
-                  collectKimiSources(result, sourcesMap)
-                } else {
-                  collectWebSearchSources(result, sourcesMap)
+              let result
+
+              // Execute custom tool or local tool
+              if (isCustomTool) {
+                const customTool = userToolsMap.get(toolName)
+                result = await executeCustomTool(customTool, parsedArgs || {})
+              } else {
+                result = await executeToolByName(toolName, parsedArgs || {}, toolConfig)
+                if (isSearchToolName(toolName)) {
+                  if (toolName === 'search') {
+                    //kimi search,名字待修改
+                    collectKimiSources(result, sourcesMap)
+                  } else {
+                    collectWebSearchSources(result, sourcesMap)
+                  }
                 }
               }
+
               currentMessages.push({
                 role: 'tool',
                 tool_call_id: toolCall.id,

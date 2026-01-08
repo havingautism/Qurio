@@ -292,6 +292,7 @@ export const saveRemoteSettings = async settings => {
     'searchProvider',
     'backendUrl',
     'NvidiaKey',
+    'MinimaxKey',
     'embeddingProvider',
     'embeddingModel',
     'embeddingModelSource',

@@ -5,6 +5,7 @@ import AgentModal from './components/AgentModal'
 import ConfirmationModal from './components/ConfirmationModal'
 import { GitHubPagesRedirectHandler } from './components/GitHubPagesRedirectHandler'
 import SettingsModal from './components/SettingsModal'
+import ToolsModal from './components/ToolsModal'
 import Sidebar from './components/Sidebar'
 import SpaceModal from './components/SpaceModal'
 import { ToastProvider } from './contexts/ToastContext'
@@ -53,6 +54,9 @@ function App() {
   // Agent Modal State
   const [isAgentModalOpen, setIsAgentModalOpen] = useState(false)
   const [editingAgent, setEditingAgent] = useState(null)
+
+  // Tools Modal State
+  const [isToolsModalOpen, setIsToolsModalOpen] = useState(false)
 
   // Mobile Sidebar State
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
@@ -276,13 +280,10 @@ function App() {
     if (editingAgent) {
       const { data, error } = await updateAgent(editingAgent.id, agent)
       if (!error && data) {
-        const isDeepResearch =
-          editingAgent?.isDeepResearchSystem || isDeepResearchAgent(data)
+        const isDeepResearch = editingAgent?.isDeepResearchSystem || isDeepResearchAgent(data)
         setAgents(prev =>
           prev.map(item =>
-            item.id === data.id
-              ? { ...data, isDeepResearchSystem: isDeepResearch }
-              : item,
+            item.id === data.id ? { ...data, isDeepResearchSystem: isDeepResearch } : item,
           ),
         )
       } else {
@@ -498,8 +499,10 @@ function App() {
             isDefault: false,
             isDeepResearch: true,
             provider: defaultAgent?.provider || 'gemini',
-            defaultModelProvider: defaultAgent?.defaultModelProvider || defaultAgent?.provider || 'gemini',
-            liteModelProvider: defaultAgent?.liteModelProvider || defaultAgent?.provider || 'gemini',
+            defaultModelProvider:
+              defaultAgent?.defaultModelProvider || defaultAgent?.provider || 'gemini',
+            liteModelProvider:
+              defaultAgent?.liteModelProvider || defaultAgent?.provider || 'gemini',
             liteModel: defaultAgent?.liteModel || '',
             defaultModel: defaultAgent?.defaultModel || '',
             responseLanguage: settings.llmAnswerLanguage || '',
@@ -525,9 +528,7 @@ function App() {
           if (!existingAgent.isDeepResearchSystem) {
             setAgents(prev =>
               prev.map(agent =>
-                agent.id === existingAgent.id
-                  ? { ...agent, isDeepResearchSystem: true }
-                  : agent,
+                agent.id === existingAgent.id ? { ...agent, isDeepResearchSystem: true } : agent,
               ),
             )
           }
@@ -758,10 +759,8 @@ function App() {
             spaces,
             agents,
             defaultAgent: agents.find(agent => agent.isDefault) || null,
-            deepResearchSpace:
-              spaces.find(space => space.isDeepResearchSystem) || null,
-            deepResearchAgent:
-              agents.find(agent => agent.isDeepResearchSystem) || null,
+            deepResearchSpace: spaces.find(space => space.isDeepResearchSystem) || null,
+            deepResearchAgent: agents.find(agent => agent.isDeepResearchSystem) || null,
             conversations,
             conversationsLoading,
             spacesLoading,
@@ -786,6 +785,7 @@ function App() {
                 isOpen={isSidebarOpen}
                 onClose={() => setIsSidebarOpen(false)}
                 onOpenSettings={() => setIsSettingsOpen(true)}
+                onOpenTools={() => setIsToolsModalOpen(true)}
                 onNavigate={handleNavigate}
                 onNavigateToSpace={handleNavigateToSpace}
                 onCreateSpace={handleCreateSpace}
@@ -860,6 +860,7 @@ function App() {
                 </div>
               </div>
               <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+              <ToolsModal isOpen={isToolsModalOpen} onClose={() => setIsToolsModalOpen(false)} />
               <SpaceModal
                 isOpen={isSpaceModalOpen}
                 onClose={() => setIsSpaceModalOpen(false)}

@@ -10,6 +10,7 @@ import { ModelScopeAdapter } from './ModelScopeAdapter.js'
 import { OpenAIAdapter } from './OpenAIAdapter.js'
 import { SiliconFlowAdapter } from './SiliconFlowAdapter.js'
 import { NvidiaNimAdapter } from './NvidiaNimAdapter.js'
+import { MinimaxAdapter } from './MinimaxAdapter.js'
 
 // Cache adapter instances for reuse
 const adapterCache = new Map()
@@ -50,6 +51,10 @@ export function getProviderAdapter(provider) {
     case 'nvidia':
       adapter = new NvidiaNimAdapter()
       break
+    case 'minimax':
+      // MiniMax has its own dedicated adapter
+      adapter = new MinimaxAdapter()
+      break
     default:
       // Fallback to OpenAI adapter for unknown providers
       // (assumes OpenAI-compatible API)
@@ -68,7 +73,14 @@ export function getProviderAdapter(provider) {
  * @returns {boolean} Whether provider is supported
  */
 export function isProviderSupported(provider) {
-  return ['openai', 'siliconflow', 'kimi', 'glm', 'modelscope', 'gemini', 'nvidia'].includes(
-    provider,
-  )
+  return [
+    'openai',
+    'siliconflow',
+    'kimi',
+    'glm',
+    'modelscope',
+    'gemini',
+    'nvidia',
+    'minimax',
+  ].includes(provider)
 }

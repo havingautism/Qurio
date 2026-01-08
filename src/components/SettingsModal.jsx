@@ -287,6 +287,7 @@ const PROVIDER_KEYS = [
   'openai_compatibility',
   'siliconflow',
   'nvidia',
+  'minimax',
   'glm',
   'modelscope',
   'kimi',
@@ -312,6 +313,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
   const [OpenAICompatibilityUrl, setOpenAICompatibilityUrl] = useState('')
   const [SiliconFlowKey, setSiliconFlowKey] = useState('')
   const [NvidiaKey, setNvidiaKey] = useState('')
+  const [MinimaxKey, setMinimaxKey] = useState('')
   const [GlmKey, setGlmKey] = useState('')
   const [ModelScopeKey, setModelScopeKey] = useState('')
   const [KimiKey, setKimiKey] = useState('')
@@ -507,6 +509,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
         setOpenAICompatibilityUrl(settings.OpenAICompatibilityUrl)
       if (settings.SiliconFlowKey) setSiliconFlowKey(settings.SiliconFlowKey)
       if (settings.NvidiaKey) setNvidiaKey(settings.NvidiaKey)
+      if (settings.MinimaxKey) setMinimaxKey(settings.MinimaxKey)
       if (settings.GlmKey) setGlmKey(settings.GlmKey)
       if (settings.ModelScopeKey) setModelScopeKey(settings.ModelScopeKey)
       if (settings.KimiKey) setKimiKey(settings.KimiKey)
@@ -566,6 +569,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
             if (data.OpenAICompatibilityUrl) setOpenAICompatibilityUrl(data.OpenAICompatibilityUrl)
             if (data.SiliconFlowKey) setSiliconFlowKey(data.SiliconFlowKey)
             if (data.NvidiaKey) setNvidiaKey(data.NvidiaKey)
+            if (data.MinimaxKey) setMinimaxKey(data.MinimaxKey)
             if (data.GlmKey) setGlmKey(data.GlmKey)
             if (data.ModelScopeKey) setModelScopeKey(data.ModelScopeKey)
             if (data.KimiKey) setKimiKey(data.KimiKey)
@@ -1020,6 +1024,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
       openai_compatibility_url: OpenAICompatibilityUrl || ENV_VARS.openAIBaseUrl,
       siliconflow: SiliconFlowKey || ENV_VARS.siliconFlowKey,
       nvidia: NvidiaKey,
+      minimax: MinimaxKey,
       glm: GlmKey || ENV_VARS.glmKey,
       modelscope: ModelScopeKey || ENV_VARS.modelscopeKey,
       kimi: KimiKey || ENV_VARS.kimiKey,
@@ -1213,6 +1218,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
         OpenAICompatibilityUrl,
         SiliconFlowKey,
         NvidiaKey,
+        MinimaxKey,
         GlmKey,
         ModelScopeKey,
         KimiKey,
@@ -1451,6 +1457,33 @@ const SettingsModal = ({ isOpen, onClose }) => {
                           {t('settings.loadedFromEnvironment')}
                         </p>
                       )}
+                    </div>
+                  )}
+
+                  {/* MiniMax Settings */}
+                  {apiProvider === 'minimax' && (
+                    <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                      <div className="flex flex-col gap-2">
+                        <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                          {t('settings.minimaxApiKey', { defaultValue: 'MiniMax API Key' })}
+                        </label>
+                        <div className="relative">
+                          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                            <Key size={16} />
+                          </div>
+                          <input
+                            type="password"
+                            value={MinimaxKey}
+                            onChange={e => setMinimaxKey(e.target.value)}
+                            placeholder={t('settings.minimaxApiKeyPlaceholder', {
+                              defaultValue: 'Enter your MiniMax API Key',
+                            })}
+                            className={clsx(
+                              'w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
+                            )}
+                          />
+                        </div>
+                      </div>
                     </div>
                   )}
 

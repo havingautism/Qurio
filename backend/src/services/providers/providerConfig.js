@@ -11,6 +11,7 @@ export const PROVIDER_BASE_URLS = {
   modelscope: 'https://api-inference.modelscope.cn/v1',
   kimi: 'https://api.moonshot.cn/v1',
   nvidia: 'https://integrate.api.nvidia.com/v1',
+  minimax: 'https://api.minimax.io/v1',
 }
 
 // Default models
@@ -22,6 +23,7 @@ export const DEFAULT_MODELS = {
   modelscope: 'AI-ModelScope/glm-4-9b-chat',
   kimi: 'moonshot-v1-8k',
   nvidia: 'deepseek-ai/deepseek-r1',
+  minimax: 'MiniMax-M2.1',
 }
 
 // Provider capabilities matrix
@@ -84,6 +86,14 @@ export const PROVIDER_CAPABILITIES = {
     supportsJsonSchema: true,
     supportsThinking: true,
     supportsVision: true,
+  },
+  minimax: {
+    supportsStreaming: true,
+    supportsToolCalls: true,
+    supportsStreamingToolCalls: true,
+    supportsJsonSchema: true,
+    supportsThinking: true, // Interleaved Thinking via reasoning_split
+    supportsVision: false,
   },
 }
 

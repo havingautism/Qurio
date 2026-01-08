@@ -11,6 +11,11 @@ const extractUserQuestion = msg => {
   return ''
 }
 
+const isFormSubmission = msg =>
+  msg?.role === 'user' &&
+  typeof msg.content === 'string' &&
+  msg.content.startsWith('[Form Submission]')
+
 const QuestionTimelineController = ({
   messages = [],
   messageRefs,
@@ -25,6 +30,7 @@ const QuestionTimelineController = ({
       messages
         .map((msg, idx) => {
           if (msg.role !== 'user') return null
+          if (isFormSubmission(msg)) return null
           const text = extractUserQuestion(msg).trim()
           if (!text) return null
           return {
@@ -53,11 +59,18 @@ const QuestionTimelineController = ({
           const message = messages[index]
           if (!message) return
           if (message.role === 'user') {
+            if (isFormSubmission(message)) return
             setActiveId(id)
             return
           }
-          if (index > 0 && messages[index - 1]?.role === 'user') {
-            setActiveId(`message-${index - 1}`)
+          if (index > 0) {
+            for (let i = index - 1; i >= 0; i -= 1) {
+              const prevMessage = messages[i]
+              if (!prevMessage || prevMessage.role !== 'user') continue
+              if (isFormSubmission(prevMessage)) continue
+              setActiveId(`message-${i}`)
+              break
+            }
           }
         })
       },

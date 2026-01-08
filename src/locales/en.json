@@ -34,6 +34,42 @@
     "interactiveForm": "Interactive Form",
     "interactiveFormInfo": "Create dynamic forms within conversations to collect structured information and user input"
   },
+  "customTools": {
+    "title": "My Tools",
+    "searchPlaceholder": "Search tools...",
+    "create": "Create New Tool",
+    "noToolsFound": "No tools found.",
+    "createTitle": "Create Tool",
+    "editTitle": "Edit Tool",
+    "tooltip": "Configure your custom HTTP tool. The schema will be automatically generated from your parameters.",
+    "form": {
+      "name": "Tool Name *",
+      "namePlaceholder": "e.g. weather_check (lowercase, underscores)",
+      "method": "Method",
+      "description": "Description *",
+      "descriptionPlaceholder": "Get current weather information for a specific city",
+      "url": "Endpoint URL *",
+      "urlPlaceholder": "https://api.weather.com/forecast/{{city}} (path parameters)",
+      "securityTitle": "Parameters & Security",
+      "params": "Query Parameters (JSON)",
+      "paramsPlaceholder": "{\"days\": \"{{duration}}\", \"units\": \"metric\"} (query string)",
+      "paramsHelp": "Use {{variable}} for AI-provided values. Variables in URL/params will become tool parameters.",
+      "allowedDomains": "Allowed Domains * (comma-separated)",
+      "allowedDomainsPlaceholder": "wttr.in, api.example.com",
+      "maxResponseSize": "Max Response Size (bytes)",
+      "maxResponseSizePlaceholder": "100000",
+      "timeout": "Timeout (ms)",
+      "timeoutPlaceholder": "10000",
+      "save": "Save Tool",
+      "saveChanges": "Save Changes"
+    },
+    "selectTool": "Select a tool to edit",
+    "selectToolHelp": "Or create a new custom tool to extend your agent's capabilities.",
+    "deleteConfirm": "Are you sure you want to delete this tool?",
+    "saveError": "Failed to save tool:",
+    "invalidJson": "Invalid JSON for parameters",
+    "domainRequired": "At least one allowed domain is required"
+  },
   "sidebar": {
     "deletedConversation": "Conversation deleted",
     "failedToUpdateFavorite": "Failed to update favorite status",
@@ -152,7 +188,8 @@
       "glm": "GLM (Zhipu AI)",
       "modelscope": "ModelScope",
       "kimi": "Kimi (Moonshot AI)",
-      "nvidia": "NVIDIA NIM"
+      "nvidia": "NVIDIA NIM",
+      "minimax": "MiniMax"
     },
     "searchProviders": {
       "tavily": "Tavily"
@@ -316,6 +353,8 @@
     "kimiApiKeyPlaceholder": "Your Kimi API key",
     "nvidiaApiKey": "NVIDIA API Key",
     "nvidiaApiKeyPlaceholder": "Enter your NVIDIA API Key",
+    "minimaxApiKey": "MiniMax API Key",
+    "minimaxApiKeyPlaceholder": "Enter your MiniMax API Key",
     "loadedFromEnvironment": "Loaded from environment",
     "about": {
       "title": "About",
@@ -440,6 +479,7 @@
         "time": "Time",
         "text": "Text",
         "json": "JSON",
+        "custom": "Custom Tools",
         "other": "Other"
       }
     },
@@ -626,6 +666,10 @@
     "analyzing": "Analyzing",
     "workingThroughIt": "Working through it",
     "checkingDetails": "Checking details",
+    "formStatus": {
+      "waiting": "Waiting for form submission...",
+      "submitted": "Form submitted"
+    },
     "researchStepLabel": "Step {{step}}/{{total}}",
     "researchStepStatusRunning": "Running",
     "researchStepStatusDone": "Done",

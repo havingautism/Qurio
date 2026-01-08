@@ -179,7 +179,7 @@ const InteractiveForm = ({
   }
 
   return (
-    <div className="my-8 mx-1">
+    <div className="mb-4 mx-1">
       <div className="p-6 md:p-8 rounded-[2rem]  bg-white/60 dark:bg-black/40 backdrop-blur-xl border border-gray-200 dark:border-white/10 shadow-2xl shadow-gray-200/50 dark:shadow-black/50 relative group">
         {/* Decorative Background Gradients */}
         <div className="absolute -top-20 -right-20 w-60 h-60 bg-primary-500/10 rounded-full blur-[80px] group-hover:bg-primary-500/15 transition-colors duration-700 pointer-events-none" />
@@ -279,11 +279,11 @@ const InteractiveForm = ({
                       max={field.max}
                       step={field.step}
                       className={clsx(
-                        'w-full px-4 py-3.5 rounded-2xl outline-none transition-all duration-300 font-medium',
+                        'w-full px-4 py-3.5 border border-gray-200 dark:border-white/10  rounded-2xl outline-none transition-all duration-300 font-medium',
                         'bg-gray-50/50 dark:bg-zinc-900/40 border backdrop-blur-sm',
                         isSubmitted
-                          ? 'opacity-60 cursor-not-allowed border-transparent'
-                          : 'border-transparent hover:border-gray-200 dark:hover:border-white/10 hover:bg-white dark:hover:bg-zinc-800 focus:bg-white dark:focus:bg-black focus:border-primary-500/50 focus:ring-4 focus:ring-primary-500/10 focus:shadow-lg focus:shadow-primary-500/5',
+                          ? 'opacity-60 cursor-not-allowed '
+                          : ' hover:border-gray-200 dark:hover:border-white/10 hover:bg-white dark:hover:bg-zinc-800 focus:bg-white dark:focus:bg-black focus:border-primary-500/50 focus:ring-4 focus:ring-primary-500/10 focus:shadow-lg focus:shadow-primary-500/5',
                         errors[field.name] && 'border-red-500/50! bg-red-50/10! shadow-none!',
                       )}
                     />
@@ -292,7 +292,7 @@ const InteractiveForm = ({
 
                 {/* Range Slider */}
                 {field.type === 'range' && (
-                  <div className="px-1 py-4 bg-gray-50/50 dark:bg-zinc-900/40 rounded-2xl border border-transparent hover:border-gray-200 dark:hover:border-white/10 transition-colors">
+                  <div className="px-1 py-4 bg-gray-50/50 dark:bg-zinc-900/40 rounded-2xl border  border-gray-200 dark:border-white/10 hover:border-gray-200 dark:hover:border-white/10 transition-colors">
                     <div className="px-4">
                       <input
                         type="range"

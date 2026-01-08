@@ -7,6 +7,7 @@ import {
   updateMessageById,
 } from '../lib/conversationsService'
 import { getProvider } from '../lib/providers'
+import { getUserTools } from '../lib/userToolsService'
 import { deleteMessageById } from '../lib/supabase'
 import { buildResponseStylePromptFromAgent } from './settings'
 import { listSpaceAgents } from './spacesService'
@@ -909,9 +910,23 @@ const callAIAPI = async (
     const searchProvider = settings.searchProvider || 'tavily'
     const tavilyApiKey = searchProvider === 'tavily' ? settings.tavilyApiKey : undefined
 
+    // Fetch and filter user tools based on selected agent
+    let activeUserTools = []
+    try {
+      const allUserTools = await getUserTools()
+      if (Array.isArray(allUserTools) && resolvedToolIds.length > 0) {
+        // resolvedToolIds contains strings (custom) and maybe numbers (system)
+        // Ensure comparison is robust
+        activeUserTools = allUserTools.filter(t => resolvedToolIds.includes(String(t.id)))
+      }
+    } catch (err) {
+      console.error('Failed to fetch user tools for chat:', err)
+    }
+
     const params = {
       ...credentials,
       model: modelConfig.model,
+      userTools: activeUserTools, // Pass selected user tools to provider
       temperature: agentTemperature ?? undefined,
       top_p: agentTopP ?? undefined,
       frequency_penalty: agentFrequencyPenalty ?? undefined,

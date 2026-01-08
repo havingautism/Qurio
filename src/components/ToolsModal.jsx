@@ -132,13 +132,36 @@ const ToolsModal = ({ isOpen, onClose }) => {
         input_schema: {
           type: 'object',
           properties: Object.fromEntries(
-            Object.keys(params).map(key => [
-              key.replace(/^\{\{|\}\}$/g, ''), // Remove template syntax
-              {
-                type: 'string', // Default to string for simplicity
-                description: `Parameter: ${key}`,
-              },
-            ]),
+            // Extract all template variables from URL and params values
+            (() => {
+              const variables = new Set()
+              const templateRegex = /\{\{(\w+)\}\}/g
+
+              // Extract from URL
+              let match
+              while ((match = templateRegex.exec(formData.url)) !== null) {
+                variables.add(match[1])
+              }
+
+              // Extract from params values
+              for (const value of Object.values(params)) {
+                if (typeof value === 'string') {
+                  templateRegex.lastIndex = 0 // Reset regex
+                  while ((match = templateRegex.exec(value)) !== null) {
+                    variables.add(match[1])
+                  }
+                }
+              }
+
+              // Generate properties for each variable
+              return Array.from(variables).map(varName => [
+                varName,
+                {
+                  type: 'string',
+                  description: `Parameter: ${varName}`,
+                },
+              ])
+            })(),
           ),
           required: [],
         },

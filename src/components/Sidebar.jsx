@@ -12,6 +12,7 @@ import {
   Pin,
   Plus,
   Settings,
+  Wrench,
   Smile,
   SquareStack,
   Sun,
@@ -41,6 +42,7 @@ const Sidebar = ({
   isOpen = false, // Mobile state
   onClose, // Mobile state
   onOpenSettings,
+  onOpenTools,
   onNavigate,
   onNavigateToSpace,
   onCreateSpace,
@@ -712,6 +714,16 @@ const Sidebar = ({
               //  title={`Current theme: ${theme}`}
             >
               {getThemeIcon()}
+            </button>
+          </div>
+
+          {/* Tools Button */}
+          <div className="mb-2">
+            <button
+              onClick={onOpenTools}
+              className="w-10 h-10 flex items-center justify-center rounded-full bg-user-bubble dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-transform duration-200 hover:scale-110 active:scale-95 cursor-pointer"
+            >
+              <Wrench size={20} />
             </button>
           </div>
 

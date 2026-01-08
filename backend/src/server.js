@@ -21,7 +21,9 @@ const PORT = process.env.PORT || 3001
 const HOST = process.env.HOST || '198.18.0.1'
 const FRONTEND_URLS = process.env.FRONTEND_URLS || 'http://localhost:3000'
 const ALLOWED_ORIGINS = new Set(
-  FRONTEND_URLS.split(',').map(origin => origin.trim()).filter(Boolean),
+  FRONTEND_URLS.split(',')
+    .map(origin => origin.trim())
+    .filter(Boolean),
 )
 
 // Middleware

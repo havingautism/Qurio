@@ -63,6 +63,7 @@ router.post('/stream-chat', async (req, res) => {
       toolIds,
       searchProvider,
       tavilyApiKey,
+      userTools,
     } = req.body
 
     if (process.env.DEBUG_TOOLS === '1') {
@@ -131,6 +132,7 @@ router.post('/stream-chat', async (req, res) => {
       toolIds,
       searchProvider,
       tavilyApiKey,
+      userTools,
       signal: controller.signal,
     })) {
       chunkCount++

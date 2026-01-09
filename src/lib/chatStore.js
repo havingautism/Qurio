@@ -119,7 +119,26 @@ const sanitizeJson = value => {
   }
 }
 
-const getLanguageInstruction = agent => {
+const mapInterfaceLanguageToAnswerLanguage = language => {
+  const normalized = String(language || '').toLowerCase()
+  if (!normalized) return ''
+  if (normalized.startsWith('zh')) return 'Chinese (Simplified)'
+  if (normalized.startsWith('en')) return 'English'
+  if (normalized.startsWith('ja')) return 'Japanese'
+  if (normalized.startsWith('ko')) return 'Korean'
+  if (normalized.startsWith('es')) return 'Spanish'
+  if (normalized.startsWith('fr')) return 'French'
+  if (normalized.startsWith('de')) return 'German'
+  if (normalized.startsWith('pt')) return 'Portuguese'
+  if (normalized.startsWith('it')) return 'Italian'
+  return ''
+}
+
+const getLanguageInstruction = (agent, settings) => {
+  if (settings?.followInterfaceLanguage) {
+    const mapped = mapInterfaceLanguageToAnswerLanguage(settings.interfaceLanguage)
+    return mapped ? `Reply in ${mapped}.` : ''
+  }
   const trimmedLanguage =
     typeof (agent?.response_language || agent?.responseLanguage) === 'string'
       ? (agent.response_language || agent.responseLanguage).trim()
@@ -207,7 +226,7 @@ const resolveFallbackAgent = async (space, agents) => {
  * @param {Object} settings - Global settings for fallback
  * @returns {string|null} Combined system prompt or null
  */
-const buildAgentPrompt = agent => {
+const buildAgentPrompt = (agent, settings) => {
   if (!agent) return null
 
   const parts = []
@@ -225,7 +244,7 @@ const buildAgentPrompt = agent => {
   }
 
   // 3. Language instruction (agent only)
-  const languageInstruction = getLanguageInstruction(agent)
+  const languageInstruction = getLanguageInstruction(agent, settings)
   if (languageInstruction) parts.push(`## Language\n${languageInstruction}`)
 
   return parts.length > 0 ? parts.join('\n\n') : null
@@ -419,7 +438,7 @@ const preselectTitleSpaceAndAgentForAuto = async (
   )
   const provider = getProvider(modelConfig.provider)
   const credentials = provider.getCredentials(settings)
-  const languageInstruction = getLanguageInstruction(agentForPreselection)
+  const languageInstruction = getLanguageInstruction(agentForPreselection, settings)
   const promptText = applyLanguageInstructionToText(firstMessage, languageInstruction)
   const spaceAgents = await buildSpaceAgentOptions(spaces, agents)
   if (spaceAgents.length && provider.generateTitleSpaceAndAgent) {
@@ -475,7 +494,7 @@ const preselectTitleForManual = async (
   )
   const provider = getProvider(modelConfig.provider)
   const credentials = provider.getCredentials(settings)
-  const languageInstruction = getLanguageInstruction(agentForTitle)
+  const languageInstruction = getLanguageInstruction(agentForTitle, settings)
   const promptText = applyLanguageInstructionToText(firstMessage, languageInstruction)
   const result = await provider.generateTitle(
     promptText,
@@ -526,7 +545,7 @@ const preselectTitleForDeepResearch = async (
   )
   const provider = getProvider(modelConfig.provider)
   const credentials = provider.getCredentials(settings)
-  const languageInstruction = getLanguageInstruction(agentForTitle)
+  const languageInstruction = getLanguageInstruction(agentForTitle, settings)
   const promptText = applyLanguageInstructionToText(firstMessage, languageInstruction)
   const result = await provider.generateTitle(
     promptText,
@@ -659,7 +678,7 @@ const prepareAIPlaceholder = (
   toggles,
   documentContext,
 ) => {
-  const resolvedPrompt = buildAgentPrompt(selectedAgent)
+  const resolvedPrompt = buildAgentPrompt(selectedAgent, settings)
 
   const conversationMessagesBase = [
     ...(resolvedPrompt ? [{ role: 'system', content: resolvedPrompt }] : []),
@@ -1293,7 +1312,7 @@ const finalizeMessage = async (
       )
       const provider = getProvider(titleModelConfig.provider)
       const credentials = provider.getCredentials(settings)
-      const languageInstruction = getLanguageInstruction(safeAgent)
+      const languageInstruction = getLanguageInstruction(safeAgent, settings)
       const promptText = applyLanguageInstructionToText(firstMessageText, languageInstruction)
       const titleResult = await provider.generateTitle(
         promptText,
@@ -1314,7 +1333,7 @@ const finalizeMessage = async (
       )
       const provider = getProvider(titleModelConfig.provider)
       const credentials = provider.getCredentials(settings)
-      const languageInstruction = getLanguageInstruction(safeAgent)
+      const languageInstruction = getLanguageInstruction(safeAgent, settings)
       const promptText = applyLanguageInstructionToText(firstMessageText, languageInstruction)
       const { title, space, emojis } = await callbacks.onTitleAndSpaceGenerated(
         promptText,
@@ -1335,7 +1354,7 @@ const finalizeMessage = async (
       )
       const provider = getProvider(titleModelConfig.provider)
       const credentials = provider.getCredentials(settings)
-      const languageInstruction = getLanguageInstruction(safeAgent)
+      const languageInstruction = getLanguageInstruction(safeAgent, settings)
       const promptText = applyLanguageInstructionToText(firstMessageText, languageInstruction)
       if (!resolvedAgent && provider.generateTitleSpaceAndAgent) {
         const spaceAgents = await buildSpaceAgentOptions(spaces, agents)
@@ -1601,7 +1620,7 @@ const finalizeMessage = async (
         role: m.role === 'ai' ? 'assistant' : m.role,
         content: normalizeContent(m.content),
       }))
-      const languageInstruction = getLanguageInstruction(safeAgent)
+      const languageInstruction = getLanguageInstruction(safeAgent, settings)
       const relatedMessages = sanitizedMessages.slice(-2)
       if (languageInstruction) {
         relatedMessages.unshift({ role: 'system', content: languageInstruction })
@@ -2127,7 +2146,7 @@ Analyze the submitted data. If critical information is still missing or if the r
           )
           const provider = getProvider(modelConfig.provider)
           const credentials = provider.getCredentials(settings)
-          const languageInstruction = getLanguageInstruction(agentForPreselection)
+          const languageInstruction = getLanguageInstruction(agentForPreselection, settings)
           const promptText = applyLanguageInstructionToText(text, languageInstruction)
 
           if (provider.generateAgentForAuto) {

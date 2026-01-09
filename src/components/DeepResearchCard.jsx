@@ -1,4 +1,4 @@
-import { ArrowRight, Sparkles } from 'lucide-react'
+import { ArrowRight, Microscope, Sparkles } from 'lucide-react'
 import { memo } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -22,7 +22,7 @@ const DeepResearchCard = memo(({ onClick }) => {
     <div className="w-full flex justify-center">
       <div className="relative group cursor-pointer w-full" onClick={onClick}>
         {/* Glass Card - Subtle/Refined Style */}
-        <div className="relative z-10 h-30 md:h-35 rounded-3xl border border-gray-200 dark:border-zinc-700/30 backdrop-blur-md bg-white/60 dark:bg-zinc-900/60 p-6 shadow-md dark:shadow-2xl overflow-hidden transition-all duration-500 group-hover:scale-[1.02] group-hover:shadow-2xl group-active:scale-[0.98]">
+        <div className="relative z-10 h-30 sm:h-30 rounded-3xl border border-gray-200 dark:border-zinc-700/30 backdrop-blur-md bg-white/60 dark:bg-zinc-900/60 p-6 shadow-md dark:shadow-2xl overflow-hidden transition-all duration-500 group-hover:scale-[1.02] group-hover:shadow-2xl group-active:scale-[0.98]">
           {/* Magical Twinkle Particles */}
           <div className="absolute inset-0 z-0 pointer-events-none opacity-60">
             {PARTICLES.map(p => (
@@ -45,7 +45,7 @@ const DeepResearchCard = memo(({ onClick }) => {
           <div className="relative z-20 h-full flex flex-col justify-between">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-white/20 dark:bg-zinc-800/30 rounded-xl backdrop-blur-sm shadow-sm group-hover:rotate-12 transition-transform duration-300">
-                <Sparkles
+                <Microscope
                   size={20}
                   className="text-primary-600 dark:text-primary-400 animate-pulse"
                 />

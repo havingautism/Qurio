@@ -176,6 +176,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
 
   // Personalization Tab
   const [responseLanguage, setResponseLanguage] = useState('English')
+  const [followInterfaceLanguage, setFollowInterfaceLanguage] = useState(false)
   const [baseTone, setBaseTone] = useState('technical')
   const [traits, setTraits] = useState('default')
   const [warmth, setWarmth] = useState('default')
@@ -329,6 +330,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
   useEffect(() => {
     if (isOpen) {
       const settings = loadSettings()
+      setFollowInterfaceLanguage(Boolean(settings.followInterfaceLanguage))
       if (editingAgent) {
         const resolvedTopP = editingAgent.topP ?? editingAgent.top_p ?? null
         const hasAdvancedOverrides =
@@ -1494,6 +1496,8 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                   isResponseLanguageOpen,
                   setIsResponseLanguageOpen,
                   responseLanguageRef,
+                  false,
+                  isDeepResearchAgent || followInterfaceLanguage,
                 )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

@@ -125,6 +125,8 @@
     },
     "interfaceLanguage": "界面语言",
     "interfaceLanguageHint": "目前仅支持英语和中文。",
+    "followInterfaceLanguage": "Agent 回复跟随界面语言",
+    "followInterfaceLanguageHint": "开启后，所有 Agent 回复使用界面语言，并且 Agent 的回复语言设置将被禁用。",
     "llmAnswerLanguage": "AI 回答语言",
     "llmAnswerLanguageHint": "附加到系统提示词以控制回复语言。",
     "apiProvider": "API 提供商",

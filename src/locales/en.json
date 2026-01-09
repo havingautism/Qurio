@@ -32,7 +32,9 @@
     "jsonRepair": "JSON Repair",
     "jsonRepairInfo": "Automatically fix malformed JSON data to ensure data structure integrity",
     "interactiveForm": "Interactive Form",
-    "interactiveFormInfo": "Create dynamic forms within conversations to collect structured information and user input"
+    "interactiveFormInfo": "Create dynamic forms within conversations to collect structured information and user input",
+    "webpageReader": "Webpage reader",
+    "webpageReaderInfo": "Fetch webpage content and return JSON."
   },
   "customTools": {
     "title": "My Tools",
@@ -479,6 +481,7 @@
         "time": "Time",
         "text": "Text",
         "json": "JSON",
+        "web": "Web",
         "custom": "Custom Tools",
         "other": "Other"
       }

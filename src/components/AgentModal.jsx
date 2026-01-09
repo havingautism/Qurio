@@ -15,6 +15,7 @@ import {
   Wrench,
   Code,
   FormInput,
+  Globe,
   Settings,
   User,
   Box,
@@ -1718,16 +1719,17 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                             const checked = selectedToolIds.includes(tool.id)
                             const iconName = TOOL_ICONS[tool.name]
                             const IconComponent = iconName
-                              ? {
-                                  Search,
-                                  GraduationCap,
-                                  Calculator,
-                                  Clock,
-                                  FileText,
-                                  ScanText,
-                                  Wrench,
-                                  FormInput,
-                                }[iconName]
+                                ? {
+                                    Search,
+                                    GraduationCap,
+                                    Calculator,
+                                    Clock,
+                                    FileText,
+                                    ScanText,
+                                    Wrench,
+                                    FormInput,
+                                    Globe,
+                                  }[iconName]
                               : Code
                             const infoKey = TOOL_INFO_KEYS[tool.name]
                             return (

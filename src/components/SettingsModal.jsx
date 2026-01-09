@@ -2686,43 +2686,34 @@ const SettingsModal = ({ isOpen, onClose }) => {
             {activeTab === 'advanced' && (
               <div className="flex flex-col gap-8 max-w-2xl">
                 <div className="flex flex-col gap-6">
-                  <div className="flex flex-col gap-1">
-                    <label className="text-sm font-medium text-gray-900 dark:text-white">
-                      {t('settings.advanced.developerMode')}
-                    </label>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {t('settings.advanced.developerModeHint')}
-                    </p>
-                  </div>
-
-                  <div className="flex flex-col gap-3">
-                    {/* Radio Options for Developer Mode */}
-                    <div className="flex items-center gap-4">
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="radio"
-                          name="developerMode"
-                          checked={developerMode === true}
-                          onChange={() => setDeveloperMode(true)}
-                          className="w-4 h-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-zinc-600"
-                        />
-                        <span className="text-sm text-gray-700 dark:text-gray-300">
-                          {t('common.on')}
-                        </span>
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex flex-col gap-1">
+                      <label className="text-sm font-semibold text-gray-900 dark:text-white">
+                        {t('settings.advanced.developerMode')}
                       </label>
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="radio"
-                          name="developerMode"
-                          checked={developerMode === false}
-                          onChange={() => setDeveloperMode(false)}
-                          className="w-4 h-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-zinc-600"
-                        />
-                        <span className="text-sm text-gray-700 dark:text-gray-300">
-                          {t('common.off')}
-                        </span>
-                      </label>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {t('settings.advanced.developerModeHint')}
+                      </p>
                     </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={developerMode}
+                      onClick={() => setDeveloperMode(prev => !prev)}
+                      className={clsx(
+                        'relative inline-flex h-7 w-12 shrink-0 items-center rounded-full border transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500/40',
+                        developerMode
+                          ? 'bg-primary-500 border-primary-500'
+                          : 'bg-gray-200 dark:bg-zinc-800 border-gray-300 dark:border-zinc-700',
+                      )}
+                    >
+                      <span
+                        className={clsx(
+                          'inline-block h-6 w-6 transform rounded-full bg-white shadow-sm transition-transform',
+                          developerMode ? 'translate-x-[22px]' : 'translate-x-1',
+                        )}
+                      />
+                    </button>
                   </div>
                 </div>
               </div>

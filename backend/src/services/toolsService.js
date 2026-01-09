@@ -146,6 +146,22 @@ const AGENT_TOOLS = [
     },
   },
   {
+    id: 'webpage_reader',
+    name: 'webpage_reader',
+    category: 'web',
+    description: 'Fetch webpage content and return JSON.',
+    parameters: {
+      type: 'object',
+      required: ['url'],
+      properties: {
+        url: {
+          type: 'string',
+          description: 'Target webpage URL (e.g., https://example.com).',
+        },
+      },
+    },
+  },
+  {
     id: 'Tavily_academic_search',
     name: 'Tavily_academic_search',
     category: 'search',
@@ -243,6 +259,9 @@ const toolSchemas = {
   }),
   json_repair: z.object({
     text: z.string().min(1, 'text is required'),
+  }),
+  webpage_reader: z.object({
+    url: z.string().min(1, 'url is required'),
   }),
   Tavily_web_search: z.object({
     query: z.string().min(1, 'query is required'),
@@ -372,6 +391,32 @@ export const executeToolByName = async (toolName, args = {}, toolConfig = {}) =>
             error: repairError?.message || 'Unable to repair JSON',
           }
         }
+      }
+    }
+    case 'webpage_reader': {
+      const inputUrl = params.url.trim()
+      const normalized = inputUrl.replace(/^https?:\/\/r\.jina\.ai\//i, '')
+      const requestUrl = `https://r.jina.ai/${normalized}`
+
+      try {
+        const response = await fetch(requestUrl, {
+          headers: {
+            Accept: 'text/plain',
+          },
+        })
+
+        if (!response.ok) {
+          throw new Error(`Jina AI reader error: ${response.statusText}`)
+        }
+
+        const content = await response.text()
+        return {
+          url: normalized,
+          content,
+          source: 'jina.ai',
+        }
+      } catch (error) {
+        throw new Error(`Webpage read failed: ${error.message}`)
       }
     }
     case 'Tavily_web_search': {

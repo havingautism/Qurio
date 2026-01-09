@@ -23,6 +23,7 @@ import {
   ScanText,
   Wrench,
   FormInput,
+  Globe,
 } from 'lucide-react'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
@@ -34,6 +35,7 @@ import { parseChildrenWithEmojis } from '../lib/emojiParser'
 import { getModelIcon, getModelIconClassName, renderProviderIcon } from '../lib/modelIcons'
 import { getProvider } from '../lib/providers'
 import { TOOL_TRANSLATION_KEYS, TOOL_ICONS } from '../lib/toolConstants'
+import { splitTextWithUrls } from '../lib/urlHighlight'
 import DesktopSourcesSection from './DesktopSourcesSection'
 import DotLoader from './DotLoader'
 import EmojiDisplay from './EmojiDisplay'
@@ -1263,6 +1265,7 @@ const MessageBubble = ({
                           ScanText,
                           Wrench,
                           FormInput,
+                          Globe,
                         }[iconName]
                       : null
                     return (
@@ -1299,6 +1302,13 @@ const MessageBubble = ({
                                 }
                               })()}
                           </div>
+                          {typeof item.durationMs === 'number' && (
+                            <span className="text-[11px] text-gray-500 dark:text-gray-400 whitespace-nowrap shrink-0">
+                              {t('messageBubble.toolDuration', {
+                                duration: (item.durationMs / 1000).toFixed(2),
+                              })}
+                            </span>
+                          )}
                           <span
                             className={clsx(
                               'px-2 py-0.5 rounded-full text-[11px] ml-auto shrink-0 flex items-center justify-center min-w-[24px]',
@@ -1419,6 +1429,9 @@ const MessageBubble = ({
       contentToRender = textPart ? textPart.text : ''
       imagesToRender = message.content.filter(c => c.type === 'image_url')
     }
+    const contentText =
+      typeof contentToRender === 'string' ? contentToRender : String(contentToRender ?? '')
+    const highlightedParts = splitTextWithUrls(contentText)
 
     // Check if this user message initiated a Deep Research task
     const nextMessage = messages[messageIndex + 1]
@@ -1515,7 +1528,18 @@ const MessageBubble = ({
                     userSelect: isMobile ? 'text' : 'auto',
                   }}
                 >
-                  {contentToRender}
+                  {highlightedParts.map((part, index) =>
+                    part.type === 'url' ? (
+                      <span
+                        key={`url-${index}`}
+                        className="bg-white/20 text-white rounded-sm px-1 underline decoration-white/70"
+                      >
+                        {part.value}
+                      </span>
+                    ) : (
+                      <span key={`text-${index}`}>{part.value}</span>
+                    ),
+                  )}
                 </div>
               </div>
             )
@@ -1992,23 +2016,24 @@ const MessageBubble = ({
                                   {stepToolCalls.map(item => {
                                     const iconName = TOOL_ICONS[item.name]
                                     const IconComponent = iconName
-                                      ? {
-                                          Search,
-                                          GraduationCap,
-                                          Calculator,
-                                          Clock,
-                                          FileText,
-                                          ScanText,
-                                          Wrench,
-                                          FormInput,
-                                        }[iconName]
+                                        ? {
+                                            Search,
+                                            GraduationCap,
+                                            Calculator,
+                                            Clock,
+                                            FileText,
+                                            ScanText,
+                                            Wrench,
+                                            FormInput,
+                                            Globe,
+                                          }[iconName]
                                       : null
                                     return (
                                       <div
                                         key={item.id || `${item.name}-${item.arguments}`}
                                         className="flex items-center gap-2 text-[11px] text-gray-500 dark:text-gray-400"
                                       >
-                                        <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-1 sm:gap-1.5 w-full">
+                                        <div className="grid grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-1 sm:gap-1.5 w-full">
                                           <span className="font-medium text-gray-600 dark:text-gray-300 whitespace-nowrap flex items-center gap-1">
                                             {IconComponent && (
                                               <IconComponent
@@ -2039,6 +2064,13 @@ const MessageBubble = ({
                                                 }
                                               })()}
                                           </div>
+                                          {typeof item.durationMs === 'number' && (
+                                            <span className="text-[10px] text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                                              {t('messageBubble.toolDuration', {
+                                                duration: (item.durationMs / 1000).toFixed(2),
+                                              })}
+                                            </span>
+                                          )}
                                           <span
                                             className={clsx(
                                               'px-1.5 py-0.5 rounded-full text-[10px] ml-auto shrink-0 flex items-center justify-center min-w-[20px]',

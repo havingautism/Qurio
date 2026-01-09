@@ -32,6 +32,7 @@ import { loadSettings } from '../lib/settings'
 import { getSpaceDisplayLabel } from '../lib/spaceDisplay'
 import { listSpaceAgents } from '../lib/spacesService'
 import { useDeepResearchGuide } from '../contexts/DeepResearchGuideContext'
+import { splitTextWithUrls } from '../lib/urlHighlight'
 
 const HomeView = () => {
   const { t } = useTranslation()
@@ -52,6 +53,7 @@ const HomeView = () => {
 
   // Homepage Input State
   const [homeInput, setHomeInput] = useState('')
+  const homeInputParts = useMemo(() => splitTextWithUrls(homeInput), [homeInput])
   const [isHomeSearchActive, setIsHomeSearchActive] = useState(false)
   const [isHomeThinkingActive, setIsHomeThinkingActive] = useState(false)
   const [homeAttachments, setHomeAttachments] = useState([])
@@ -567,23 +569,44 @@ const HomeView = () => {
                   ))}
                 </div>
               )}
-              <textarea
-                value={homeInput}
-                onChange={e => {
-                  setHomeInput(e.target.value)
-                  e.target.style.height = 'auto'
-                  e.target.style.height = `${e.target.scrollHeight}px`
-                }}
-                onKeyDown={e => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault()
-                    handleStartChat()
-                  }
-                }}
-                placeholder={t('homeView.askAnything')}
-                className="w-full bg-transparent border-none outline-none resize-none text-lg placeholder-gray-400 dark:placeholder-gray-500 min-h-[60px] max-h-[200px] overflow-y-auto"
-                rows={1}
-              />
+              <div className="relative">
+                {homeInput && (
+                  <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-0 text-lg whitespace-pre-wrap break-words text-gray-900 dark:text-gray-100"
+                  >
+                    {homeInputParts.map((part, index) =>
+                      part.type === 'url' ? (
+                        <span
+                          key={`url-${index}`}
+                          className="bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 rounded-sm underline decoration-primary-400/70"
+                        >
+                          {part.value}
+                        </span>
+                      ) : (
+                        <span key={`text-${index}`}>{part.value}</span>
+                      ),
+                    )}
+                  </div>
+                )}
+                <textarea
+                  value={homeInput}
+                  onChange={e => {
+                    setHomeInput(e.target.value)
+                    e.target.style.height = 'auto'
+                    e.target.style.height = `${e.target.scrollHeight}px`
+                  }}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault()
+                      handleStartChat()
+                    }
+                  }}
+                  placeholder={t('homeView.askAnything')}
+                  className="relative z-10 w-full bg-transparent border-none outline-none resize-none text-lg text-transparent caret-gray-900 dark:caret-gray-100 placeholder-gray-400 dark:placeholder-gray-500 min-h-[60px] max-h-[200px] overflow-y-auto"
+                  rows={1}
+                />
+              </div>
 
               <div className="flex justify-between items-center mt-2">
                 <div className="flex gap-2">

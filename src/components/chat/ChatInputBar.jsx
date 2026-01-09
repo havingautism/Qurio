@@ -14,10 +14,11 @@ import {
   Smile,
   X,
 } from 'lucide-react'
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { getAgentDisplayName } from '../../lib/agentDisplay'
 import { providerSupportsSearch } from '../../lib/providers'
+import { splitTextWithUrls } from '../../lib/urlHighlight'
 import EmojiDisplay from '../EmojiDisplay'
 import useIsMobile from '../../hooks/useIsMobile'
 import MobileDrawer from '../MobileDrawer'
@@ -106,6 +107,7 @@ const ChatInputBar = React.memo(
     const [isDocumentMenuOpen, setIsDocumentMenuOpen] = useState(false)
     const documentMenuRef = useRef(null)
     const [isMultiline, setIsMultiline] = useState(false)
+    const highlightedInputParts = useMemo(() => splitTextWithUrls(inputValue), [inputValue])
 
     // Auto-resize and multiline detection
     useEffect(() => {
@@ -454,7 +456,7 @@ const ChatInputBar = React.memo(
               )}
               {/* Attachment Previews */}
               {attachments.length > 0 && (
-                <div className="flex gap-2 p-1 overflow-x-auto">
+                <div className="flex gap-2 px-2 py-2 overflow-x-auto rounded-xl border border-gray-200/70 dark:border-zinc-700/50 bg-[#F9F9F9] dark:bg-[#1a1a1a]">
                   {attachments.map((att, idx) => (
                     <div
                       key={idx}
@@ -467,7 +469,7 @@ const ChatInputBar = React.memo(
                       />
                       <button
                         onClick={() => setAttachments(attachments.filter((_, i) => i !== idx))}
-                        className="absolute top-0.5 right-0.5 bg-black/60 text-white rounded-full p-0.5 opacity-0 group-hover/img:opacity-100 transition-opacity"
+                        className="absolute top-0.5 right-0.5 bg-black/60 text-white rounded-full p-0.5 opacity-100 sm:opacity-0 sm:group-hover/img:opacity-100 transition-opacity"
                       >
                         <X size={12} />
                       </button>
@@ -605,19 +607,44 @@ const ChatInputBar = React.memo(
               </div>
 
               {/* Text Area */}
-              <textarea
-                ref={textareaRef}
-                value={inputValue}
-                onChange={e => setInputValue(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder={t('chatInterface.askFollowUp')}
-                rows={1}
+              <div
                 className={clsx(
-                  'bg-transparent border-none outline-none resize-none text-[15px] leading-relaxed text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 max-h-[200px] overflow-y-auto px-1 py-3',
-                  !isMultiline && 'no-scrollbar',
+                  'relative',
                   isMultiline ? 'col-span-2 row-start-1 w-full' : 'col-start-2 row-start-1 flex-1',
                 )}
-              />
+              >
+                {inputValue && (
+                  <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-0 px-1 py-3 text-[15px] leading-relaxed whitespace-pre-wrap break-words text-gray-900 dark:text-gray-100"
+                  >
+                    {highlightedInputParts.map((part, index) =>
+                      part.type === 'url' ? (
+                        <span
+                          key={`url-${index}`}
+                          className="bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 rounded-sm underline decoration-primary-400/70"
+                        >
+                          {part.value}
+                        </span>
+                      ) : (
+                        <span key={`text-${index}`}>{part.value}</span>
+                      ),
+                    )}
+                  </div>
+                )}
+                <textarea
+                  ref={textareaRef}
+                  value={inputValue}
+                  onChange={e => setInputValue(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder={t('chatInterface.askFollowUp')}
+                  rows={1}
+                  className={clsx(
+                    'relative z-10 w-full bg-transparent border-none outline-none resize-none text-[15px] leading-relaxed text-transparent caret-gray-900 dark:caret-gray-100 placeholder-gray-400 dark:placeholder-gray-500 max-h-[200px] overflow-y-auto px-1 py-3',
+                    !isMultiline && 'no-scrollbar',
+                  )}
+                />
+              </div>
 
               {/* Right Send Button */}
               <div
@@ -698,7 +725,7 @@ const ChatInputBar = React.memo(
           )}
 
           {attachments.length > 0 && (
-            <div className="flex gap-2 mb-3 px-1 overflow-x-auto py-1">
+            <div className="flex gap-2 mb-3 px-2 py-2 overflow-x-auto rounded-xl border border-gray-200/70 dark:border-zinc-700/50 bg-white/70 dark:bg-[#202222]/70">
               {attachments.map((att, idx) => (
                 <div key={idx} className="relative group shrink-0">
                   <div className="w-16 h-16 rounded-xl overflow-hidden border border-gray-200 dark:border-zinc-700 shadow-sm">
@@ -719,16 +746,37 @@ const ChatInputBar = React.memo(
             </div>
           )}
 
-          <textarea
-            id="chat-input-textarea"
-            value={inputValue}
-            ref={textareaRef}
-            onChange={e => setInputValue(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={t('chatInterface.askFollowUp')}
-            className="w-full bg-transparent border-none outline-none resize-none text-base placeholder-gray-500 dark:placeholder-gray-400 min-h-[44px] max-h-[200px] overflow-y-auto py-2 disabled:cursor-not-allowed"
-            rows={1}
-          />
+          <div className="relative w-full">
+            {inputValue && (
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0 py-2 text-base whitespace-pre-wrap break-words text-gray-900 dark:text-gray-100"
+              >
+                {highlightedInputParts.map((part, index) =>
+                  part.type === 'url' ? (
+                    <span
+                      key={`url-${index}`}
+                      className="bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 rounded-sm underline decoration-primary-400/70"
+                    >
+                      {part.value}
+                    </span>
+                  ) : (
+                    <span key={`text-${index}`}>{part.value}</span>
+                  ),
+                )}
+              </div>
+            )}
+            <textarea
+              id="chat-input-textarea"
+              value={inputValue}
+              ref={textareaRef}
+              onChange={e => setInputValue(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={t('chatInterface.askFollowUp')}
+              className="relative z-10 w-full bg-transparent border-none outline-none resize-none text-base text-transparent caret-gray-900 dark:caret-gray-100 placeholder-gray-500 dark:placeholder-gray-400 min-h-[44px] max-h-[200px] overflow-y-auto py-2 disabled:cursor-not-allowed"
+              rows={1}
+            />
+          </div>
 
           <div className="flex justify-between items-center mt-2">
             <div className="flex gap-2">

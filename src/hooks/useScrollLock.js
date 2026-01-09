@@ -9,6 +9,9 @@ const useScrollLock = isLocked => {
     if (!isLocked) return
 
     const scrollY = window.scrollY || document.documentElement.scrollTop || 0
+    const shouldFixBody =
+      document.body.scrollHeight > window.innerHeight ||
+      document.documentElement.scrollHeight > window.innerHeight
 
     const bodyStyle = document.body.style
     const htmlStyle = document.documentElement.style
@@ -40,11 +43,13 @@ const useScrollLock = isLocked => {
 
     bodyStyle.overflow = 'hidden'
     bodyStyle.overscrollBehavior = 'none'
-    bodyStyle.position = 'fixed'
-    bodyStyle.top = `-${scrollY}px`
-    bodyStyle.left = '0'
-    bodyStyle.right = '0'
-    bodyStyle.width = '100%'
+    if (shouldFixBody) {
+      bodyStyle.position = 'fixed'
+      bodyStyle.top = `-${scrollY}px`
+      bodyStyle.left = '0'
+      bodyStyle.right = '0'
+      bodyStyle.width = '100%'
+    }
 
     // Cleanup function to restore original style
     return () => {
@@ -60,7 +65,9 @@ const useScrollLock = isLocked => {
       htmlStyle.overflow = originalHtml.overflow
       htmlStyle.overscrollBehavior = originalHtml.overscrollBehavior
 
-      window.scrollTo(0, scrollY)
+      if (shouldFixBody) {
+        window.scrollTo(0, scrollY)
+      }
     }
   }, [isLocked])
 }

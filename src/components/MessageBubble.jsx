@@ -1594,6 +1594,9 @@ const MessageBubble = ({
   const researchSteps = Array.isArray(message.researchSteps) ? message.researchSteps : []
   const hasResearchSteps = researchSteps.length > 0
   const hasRunningResearchStep = researchSteps.some(step => step.status === 'running')
+  const hasActiveResearchStep = researchSteps.some(
+    step => step.status === 'running' || step.status === 'pending',
+  )
   const shouldShowPlan = isDeepResearch && (hasPlanText || researchPlanLoading)
   const shouldShowResearch = isDeepResearch && hasResearchSteps
   const shouldShowThinking =
@@ -1601,7 +1604,7 @@ const MessageBubble = ({
     message.thinkingEnabled !== false &&
     (isStreaming || hasThoughtText || hasPlanText)
   const shouldShowPlanStatus = isDeepResearch && researchPlanLoading
-  const shouldShowResearchStatus = isDeepResearch && hasRunningResearchStep
+  const shouldShowResearchStatus = isDeepResearch && hasActiveResearchStep
 
   const hasRelatedQuestions =
     Array.isArray(mergedMessage.related) && mergedMessage.related.length > 0
@@ -1833,6 +1836,8 @@ const MessageBubble = ({
                 <div className="p-4 bg-user-bubble/30 font-stretch-semi-condensed dark:bg-zinc-800/30 border-t border-gray-200 dark:border-zinc-700 text-sm text-gray-600 dark:text-gray-400 leading-relaxed space-y-3">
                   {researchSteps.map(step => {
                     const isRunning = step.status === 'running'
+                    const isPending = step.status === 'pending'
+                    const isActive = isRunning || isPending
                     const isDone = step.status === 'done'
                     const isError = step.status === 'error'
                     const stepToolCalls = getToolCallsForStep(step.step)
@@ -1846,7 +1851,9 @@ const MessageBubble = ({
                       ? t('messageBubble.researchStepStatusError')
                       : isDone
                         ? t('messageBubble.researchStepStatusDone')
-                        : t('messageBubble.researchStepStatusRunning')
+                        : isRunning
+                          ? t('messageBubble.researchStepStatusRunning')
+                          : t('messageBubble.researchStepStatusPending') || 'Wait'
                     return (
                       <div
                         key={`${step.step}-${step.title}`}
@@ -1872,7 +1879,7 @@ const MessageBubble = ({
                             >
                               {statusLabel}
                             </span>
-                            {isRunning && <DotLoader />}
+                            {isActive && <DotLoader />}
                             {durationLabel && (
                               <span className="text-[11px] text-gray-500 dark:text-gray-400">
                                 {durationLabel}
@@ -1881,7 +1888,7 @@ const MessageBubble = ({
                           </div>
                           <div className="text-sm text-gray-700 dark:text-gray-300">
                             {step.title}
-                            {isRunning ? '...' : ''}
+                            {isActive ? '...' : ''}
                           </div>
                           {step.error && (
                             <div className="text-[11px] text-red-500 dark:text-red-400">
@@ -2094,6 +2101,12 @@ const MessageBubble = ({
         ) : (
           <>
             {renderedInterleavedContent}
+            {isDeepResearch && isStreaming && !hasMainText && !hasActiveResearchStep && (
+              <div className="mt-4 flex items-center gap-2 text-gray-500 dark:text-gray-400 animate-pulse pl-1">
+                <DotLoader />
+                <span className="text-sm font-medium">{t('chat.deepResearchDrafting')}</span>
+              </div>
+            )}
             {mergedMessage._isContinuationLoading && (
               <div className="mt-4 flex flex-col gap-3">
                 <FormStatusBadge waiting={false} />

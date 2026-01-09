@@ -598,13 +598,16 @@
     "agentsLabel": "Agents",
     "agentsAuto": "Agents: Auto",
     "agentsNone": "No agents",
-    "agentsLoading": "Loading agents..."
+    "agentsLoading": "Loading agents...",
+    "concurrentExecution": "Concurrent Research Steps",
+    "experimental": "Experimental",
+    "concurrentExecutionDesc": "Run all steps simultaneously for faster execution, but may affect logical coherence."
   },
   "chat": {
     "thinking": "Thinking",
     "deepResearchPlanning": "Planning research",
     "deepResearchSynthesizing": "Synthesizing sources",
-    "deepResearchDrafting": "Drafting response",
+    "deepResearchDrafting": "Drafting report...",
     "deepResearchRefining": "Refining answer",
     "analyzing": "Analyzing",
     "workingThroughIt": "Working through it",
@@ -671,6 +674,7 @@
       "submitted": "Form submitted"
     },
     "researchStepLabel": "Step {{step}}/{{total}}",
+    "researchStepStatusPending": "Waiting",
     "researchStepStatusRunning": "Running",
     "researchStepStatusDone": "Done",
     "researchStepStatusError": "Failed",

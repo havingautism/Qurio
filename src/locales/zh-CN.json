@@ -605,13 +605,16 @@
     "agentsLabel": "智能体",
     "agentsAuto": "智能体：自动",
     "agentsNone": "暂无智能体",
-    "agentsLoading": "加载智能体中..."
+    "agentsLoading": "加载智能体中...",
+    "concurrentExecution": "并发执行研究步骤",
+    "experimental": "实验性",
+    "concurrentExecutionDesc": "同时执行所有研究步骤以提升速度，但可能影响步骤间的逻辑连贯性"
   },
   "chat": {
     "thinking": "思考中",
     "deepResearchPlanning": "深入研究：规划",
     "deepResearchSynthesizing": "深入研究：综合",
-    "deepResearchDrafting": "深入研究：草稿",
+    "deepResearchDrafting": "正在撰写报告...",
     "deepResearchRefining": "深入研究：精炼",
     "analyzing": "分析中",
     "workingThroughIt": "正在推理",
@@ -678,6 +681,7 @@
       "submitted": "表单已提交"
     },
     "researchStepLabel": "步骤 {{step}}/{{total}}",
+    "researchStepStatusPending": "等待中",
     "researchStepStatusRunning": "进行中",
     "researchStepStatusDone": "已完成",
     "researchStepStatusError": "失败",

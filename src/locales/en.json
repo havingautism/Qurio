@@ -126,7 +126,7 @@
     "llmAnswerLanguage": "LLM Answer Language",
     "llmAnswerLanguageHint": "Appended to the system prompt for reply language control.",
     "apiProvider": "API Provider",
-    "apiProviderHint": "Choose your preferred AI provider.",
+    "apiProviderHint": "Configure your LLM provider.",
     "apiKey": "API Key",
     "baseUrl": "Base URL",
     "model": "Model",
@@ -726,6 +726,7 @@
   },
   "views": {
     "newThread": "New Thread",
+    "newResearch": "New Research",
     "sort": "Sort",
     "newest": "Newest",
     "oldest": "Oldest",

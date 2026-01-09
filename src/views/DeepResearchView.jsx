@@ -24,6 +24,7 @@ import FancyLoader from '../components/FancyLoader'
 import { useToast } from '../contexts/ToastContext'
 import { listConversationsBySpace, toggleFavorite } from '../lib/conversationsService'
 import { deleteConversation } from '../lib/supabase'
+import { useDeepResearchGuide } from '../contexts/DeepResearchGuideContext'
 
 // Sort option keys (constant for logic)
 const SORT_OPTION_KEYS = [
@@ -36,6 +37,7 @@ const SORT_OPTION_KEYS = [
 const DeepResearchView = () => {
   const { t, i18n } = useTranslation()
   const { spaces, deepResearchSpace, isSidebarPinned, showConfirmation } = useAppContext()
+  const { openDeepResearchGuide } = useDeepResearchGuide()
   const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState('')
   const [activeSearchQuery, setActiveSearchQuery] = useState('')
@@ -225,11 +227,11 @@ const DeepResearchView = () => {
             <h1 className="text-3xl font-medium">{t('views.deepResearchView.title')}</h1>
           </div>
           <button
-            onClick={() => navigate({ to: '/new_chat' })}
+            onClick={openDeepResearchGuide}
             className="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors text-sm font-medium"
           >
             <Plus size={16} />
-            <span>{t('views.newThread')}</span>
+            <span>{t('views.newResearch')}</span>
           </button>
         </div>
 

@@ -12,6 +12,8 @@ import {
   Code,
   Check,
   ChevronRight,
+  CloudAlert,
+  Hammer,
 } from 'lucide-react'
 import {
   createUserTool,
@@ -224,24 +226,22 @@ const ToolsModal = ({ isOpen, onClose }) => {
         {/* Close Button - Desktop & Mobile optimized */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 z-20 p-2 rounded-full bg-gray-100/50 dark:bg-zinc-800/50 hover:bg-gray-200 dark:hover:bg-zinc-700 text-gray-500 backdrop-blur-sm transition-colors"
+          className="absolute top-4 right-4 z-30 p-2 rounded-full bg-gray-100/50 dark:bg-zinc-800/50 hover:bg-gray-200 dark:hover:bg-zinc-700 text-gray-500 backdrop-blur-sm transition-colors"
         >
           <X size={20} />
         </button>
         {/* LEFT PANE: List */}
         <div
           className={clsx(
-            'flex flex-col w-full md:w-1/3 border-r border-gray-200 dark:border-zinc-800 bg-gray-50/50 dark:bg-zinc-900/50 h-full',
+            'flex flex-col w-full md:w-72 bg-primary-50 dark:bg-background/70 border-r border-gray-200 dark:border-zinc-800 h-full shrink-0',
             showForm ? 'hidden md:flex' : 'flex', // Hide list on mobile if form is open
           )}
         >
           {/* Header */}
-          <div className="p-4 border-b border-gray-200 dark:border-zinc-800 flex flex-col gap-4 mt-8 md:mt-0">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 px-1">
-                {t('customTools.title')}
-              </h2>
-            </div>
+          <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-zinc-800 flex flex-col gap-4 mt-8 md:mt-0">
+            <h2 className="text-xl font-bold px-1 text-gray-900 dark:text-white">
+              {t('customTools.title')}
+            </h2>
             <div className="relative">
               <Search
                 size={14}
@@ -252,12 +252,12 @@ const ToolsModal = ({ isOpen, onClose }) => {
                 placeholder={t('customTools.searchPlaceholder')}
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 text-sm bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                className="w-full pl-9 pr-4 py-2 text-sm bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20"
               />
             </div>
             <button
               onClick={handleCreate}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 transition-all shadow-sm active:scale-95"
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-lg hover:bg-primary-700 transition-all shadow-sm active:scale-95"
             >
               <Plus size={16} />
               {t('customTools.create')}
@@ -273,7 +273,7 @@ const ToolsModal = ({ isOpen, onClose }) => {
             ) : filteredTools.length === 0 ? (
               <div className="text-center py-10 px-4 text-gray-500 dark:text-gray-400">
                 <div className="mb-2 flex justify-center">
-                  <Globe size={24} className="opacity-20" />
+                  <CloudAlert size={24} className="opacity-20" />
                 </div>
                 <p className="text-sm">{t('customTools.noToolsFound')}</p>
               </div>
@@ -283,31 +283,38 @@ const ToolsModal = ({ isOpen, onClose }) => {
                   key={tool.id}
                   onClick={() => handleEdit(tool)}
                   className={clsx(
-                    'group flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all',
+                    'group flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer select-none',
                     editingTool?.id === tool.id
-                      ? 'bg-white dark:bg-zinc-800 border-primary-500 shadow-sm'
-                      : 'bg-white dark:bg-zinc-900 border-transparent hover:border-gray-200 dark:hover:border-zinc-700 hover:shadow-sm',
+                      ? 'bg-primary-100 dark:bg-zinc-800 border-primary-500/30 shadow-sm'
+                      : 'bg-white dark:bg-zinc-900 border-transparent hover:bg-primary-50 dark:hover:bg-zinc-800/50 hover:border-gray-200 dark:hover:border-zinc-700 hover:shadow-sm',
                   )}
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 mb-0.5">
                       <span
                         className={clsx(
-                          'text-xs font-mono px-1.5 py-0.5 rounded',
+                          'text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider',
                           tool.config.method === 'GET'
-                            ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                            ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
                             : tool.config.method === 'POST'
-                              ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
                               : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400',
                         )}
                       >
                         {tool.config.method}
                       </span>
-                      <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                      <span
+                        className={clsx(
+                          'text-sm font-semibold truncate',
+                          editingTool?.id === tool.id
+                            ? 'text-primary-600 dark:text-primary-400'
+                            : 'text-gray-900 dark:text-gray-100',
+                        )}
+                      >
                         {tool.name}
                       </span>
                     </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400 truncate pl-1">
+                    <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate pl-1 font-mono opacity-60">
                       {tool.config.url}
                     </div>
                   </div>
@@ -333,26 +340,34 @@ const ToolsModal = ({ isOpen, onClose }) => {
             !showForm && 'hidden md:flex', // Hide details on mobile if not editing
           )}
         >
-          {/* Mobile Header for Detail View */}
-          {showForm && (
-            <div className="md:hidden flex items-center gap-3 p-4 border-b border-gray-200 dark:border-zinc-800 mt-8">
-              <button
-                onClick={() => {
-                  setIsCreating(false)
-                  setEditingTool(null)
-                }}
-                className="p-2 -ml-2 text-gray-600 dark:text-gray-400"
-              >
-                <ChevronRight size={20} className="rotate-180" />
-              </button>
-              <h3 className="font-semibold text-gray-900 dark:text-white">
-                {isCreating ? t('customTools.createTitle') : t('customTools.editTitle')}
+          {/* Modal Header for Desktop/Mobile Detail View */}
+          <div className="h-16 border-b border-gray-200 dark:border-zinc-800 flex items-center justify-between px-4 sm:px-8">
+            <div className="flex items-center gap-3">
+              {showForm && (
+                <button
+                  onClick={() => {
+                    setIsCreating(false)
+                    setEditingTool(null)
+                  }}
+                  className="md:hidden p-2 -ml-2 text-gray-600 dark:text-gray-400"
+                >
+                  <ChevronRight size={20} className="rotate-180" />
+                </button>
+              )}
+              <h3 className="font-semibold text-gray-900 dark:text-white capitalize">
+                {showForm
+                  ? isCreating
+                    ? t('customTools.createTitle')
+                    : t('customTools.editTitle')
+                  : t('customTools.selectTool')}
               </h3>
             </div>
-          )}
+
+            <div className="w-10 h-10 hidden md:block" />
+          </div>
 
           {showForm ? (
-            <div className="flex-1 overflow-y-auto p-6 md:p-10 pb-24 md:pb-10">
+            <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-8 sm:py-8 min-h-0 shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07)]">
               <div className="max-w-2xl mx-auto space-y-8">
                 <div className="hidden md:block">
                   <h3 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">
@@ -463,7 +478,7 @@ const ToolsModal = ({ isOpen, onClose }) => {
                 <div className="pt-4 flex flex-col gap-3 pb-8 md:pb-0">
                   <button
                     onClick={handleSave}
-                    className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-xl font-medium transition-all shadow-lg shadow-primary-500/20 active:scale-95"
+                    className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-xl font-medium transition-all  active:scale-95"
                   >
                     <Save size={18} />
                     {isCreating ? t('customTools.create') : t('customTools.form.saveChanges')}
@@ -483,19 +498,19 @@ const ToolsModal = ({ isOpen, onClose }) => {
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center text-center p-8 text-gray-500 dark:text-gray-400">
               <div className="w-16 h-16 bg-gray-50 dark:bg-zinc-900 rounded-2xl flex items-center justify-center mb-4">
-                <Settings size={32} className="text-gray-300 dark:text-zinc-600" />
+                <Hammer size={32} className="text-gray-300 dark:text-zinc-600" />
               </div>
               <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-1">
                 {t('customTools.selectTool')}
               </h3>
               <p className="text-sm max-w-xs mx-auto mb-6">{t('customTools.selectToolHelp')}</p>
-              <button
+              {/* <button
                 onClick={handleCreate}
                 className="flex items-center gap-2 px-5 py-2.5 bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 text-gray-700 dark:text-gray-200 rounded-xl hover:bg-gray-50 dark:hover:bg-zinc-700 transition-all font-medium shadow-sm"
               >
                 <Plus size={16} />
                 {t('customTools.create')}
-              </button>
+              </button> */}
             </div>
           )}
         </div>

@@ -1720,7 +1720,7 @@ const MessageBubble = ({
             <div
               onClick={handleAgentClick}
               className={clsx(
-                'rounded-full shadow-inner flex items-center justify-center overflow-hidden w-10 h-10 bg-gray-100 dark:bg-zinc-800',
+                'rounded-full transition hover:scale-105 shadow-inner flex items-center justify-center overflow-hidden w-10 h-10 bg-gray-100 dark:bg-zinc-800',
                 targetAgent && 'cursor-pointer hover:opacity-80 transition-opacity',
               )}
             >

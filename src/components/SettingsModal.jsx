@@ -1294,7 +1294,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
         {/* Content Area */}
         <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-white dark:bg-[#191a1a]">
           {/* Header */}
-          <div className="h-16 border-b border-gray-200 dark:border-zinc-800 hidden md:flex items-center justify-between px-6 sm:px-8">
+          {/* <div className="h-16 border-b border-gray-200 dark:border-zinc-800 hidden md:flex items-center justify-between px-6 sm:px-8">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white capitalize">
               {activeTab}
             </h3>
@@ -1304,10 +1304,10 @@ const SettingsModal = ({ isOpen, onClose }) => {
             >
               <X size={20} />
             </button>
-          </div>
+          </div> */}
 
           {/* Scrollable Content */}
-          <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-8 sm:py-8 min-h-0">
+          <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-8 sm:py-8 min-h-0 shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07)]">
             {activeTab === 'general' && (
               <div className="flex flex-col gap-8 max-w-2xl">
                 {/* ... existing general settings ... */}

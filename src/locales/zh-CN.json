@@ -126,7 +126,7 @@
     "llmAnswerLanguage": "AI 回答语言",
     "llmAnswerLanguageHint": "附加到系统提示词以控制回复语言。",
     "apiProvider": "API 提供商",
-    "apiProviderHint": "选择您偏好的 AI 提供商。",
+    "apiProviderHint": "设置你的LLM提供商。",
     "apiKey": "API 密钥",
     "baseUrl": "基础 URL",
     "model": "模型",
@@ -733,6 +733,7 @@
   },
   "views": {
     "newThread": "新对话",
+    "newResearch": "新研究",
     "sort": "排序",
     "newest": "最新",
     "oldest": "最旧",

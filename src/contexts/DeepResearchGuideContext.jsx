@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { Check, Sparkles, X } from 'lucide-react'
+import { Check, Microscope, Sparkles, X } from 'lucide-react'
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
@@ -184,7 +184,7 @@ export const DeepResearchGuideProvider = ({
               <div className="px-5 py-4 flex items-center justify-between border-b border-gray-100 dark:border-zinc-800/60 shrink-0">
                 <div className="flex items-center gap-2 text-gray-900 dark:text-gray-100">
                   <div className="p-1.5 bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 rounded-lg">
-                    <Sparkles size={18} />
+                    <Microscope size={18} />
                   </div>
                   <h3 className="text-base font-bold">{t('homeView.deepResearchModalTitle')}</h3>
                 </div>
@@ -203,7 +203,9 @@ export const DeepResearchGuideProvider = ({
                       <div
                         className={clsx(
                           'h-1.5 flex-1 rounded-full transition-all duration-300',
-                          step <= deepResearchStep ? 'bg-primary-500' : 'bg-gray-100 dark:bg-zinc-800',
+                          step <= deepResearchStep
+                            ? 'bg-primary-500'
+                            : 'bg-gray-100 dark:bg-zinc-800',
                         )}
                       />
                     </div>

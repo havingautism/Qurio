@@ -125,6 +125,8 @@
     },
     "interfaceLanguage": "Interface Language",
     "interfaceLanguageHint": "Only English and Chinese are supported right now.",
+    "followInterfaceLanguage": "Follow interface language for agent replies",
+    "followInterfaceLanguageHint": "When enabled, all agent responses use the interface language and agent language settings are disabled.",
     "llmAnswerLanguage": "LLM Answer Language",
     "llmAnswerLanguageHint": "Appended to the system prompt for reply language control.",
     "apiProvider": "API Provider",

@@ -340,6 +340,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
   const [isSaving, setIsSaving] = useState(false)
   const [enableRelatedQuestions, setEnableRelatedQuestions] = useState(false)
   const [interfaceLanguage, setInterfaceLanguage] = useState('en')
+  const [followInterfaceLanguage, setFollowInterfaceLanguage] = useState(false)
   const [enableLongTermMemory, setEnableLongTermMemory] = useState(false)
   const [memoryRecallLimit, setMemoryRecallLimit] = useState(5)
   const [embeddingProvider, setEmbeddingProvider] = useState('')
@@ -523,6 +524,8 @@ const SettingsModal = ({ isOpen, onClose }) => {
       if (settings.fontSize) setFontSize(settings.fontSize)
       if (typeof settings.enableRelatedQuestions === 'boolean')
         setEnableRelatedQuestions(settings.enableRelatedQuestions)
+      if (typeof settings.followInterfaceLanguage === 'boolean')
+        setFollowInterfaceLanguage(settings.followInterfaceLanguage)
       if (typeof settings.enableLongTermMemory === 'boolean')
         setEnableLongTermMemory(settings.enableLongTermMemory)
       const parsedRecallLimit = Number(settings.memoryRecallLimit)
@@ -1235,6 +1238,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
         embeddingModelSource,
         userSelfIntro,
         interfaceLanguage,
+        followInterfaceLanguage,
         developerMode,
       }
 
@@ -1365,6 +1369,35 @@ const SettingsModal = ({ isOpen, onClose }) => {
                       </div>
                     )}
                   </div>
+                </div>
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-sm font-semibold text-gray-900 dark:text-white">
+                      {t('settings.followInterfaceLanguage')}
+                    </label>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {t('settings.followInterfaceLanguageHint')}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={followInterfaceLanguage}
+                    onClick={() => setFollowInterfaceLanguage(prev => !prev)}
+                    className={clsx(
+                      'relative inline-flex h-7 w-12 shrink-0 items-center rounded-full border transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500/40',
+                      followInterfaceLanguage
+                        ? 'bg-primary-500 border-primary-500'
+                        : 'bg-gray-200 dark:bg-zinc-800 border-gray-300 dark:border-zinc-700',
+                    )}
+                  >
+                    <span
+                      className={clsx(
+                        'inline-block h-6 w-6 transform rounded-full bg-white shadow-sm transition-transform',
+                        followInterfaceLanguage ? 'translate-x-[22px]' : 'translate-x-1',
+                      )}
+                    />
+                  </button>
                 </div>
                 {/* API Provider Selection */}
                 <div className="flex flex-col gap-6">

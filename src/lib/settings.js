@@ -157,6 +157,7 @@ export const loadSettings = (overrides = {}) => {
   const localThemeColor = localStorage.getItem('themeColor')
   const localEnableRelatedQuestions = localStorage.getItem('enableRelatedQuestions')
   const localInterfaceLanguage = localStorage.getItem('interfaceLanguage')
+  const localFollowInterfaceLanguage = localStorage.getItem('followInterfaceLanguage')
   const localLlmAnswerLanguage = localStorage.getItem('llmAnswerLanguage')
   const localFontSize = localStorage.getItem('fontSize')
   const localEnableLongTermMemory = localStorage.getItem('enableLongTermMemory')
@@ -223,6 +224,12 @@ export const loadSettings = (overrides = {}) => {
     themeColor: localThemeColor || overrides.themeColor || 'violet',
     enableRelatedQuestions: resolvedRelatedQuestionsPreference,
     interfaceLanguage: localInterfaceLanguage || overrides.interfaceLanguage || 'en',
+    followInterfaceLanguage:
+      localFollowInterfaceLanguage !== null
+        ? localFollowInterfaceLanguage === 'true'
+        : overrides.followInterfaceLanguage !== undefined
+          ? overrides.followInterfaceLanguage
+          : false,
     llmAnswerLanguage: localLlmAnswerLanguage || overrides.llmAnswerLanguage || 'English',
     fontSize: localFontSize || overrides.fontSize || 'medium',
     enableLongTermMemory: resolvedLongTermMemoryPreference,
@@ -328,6 +335,9 @@ export const saveSettings = async settings => {
   }
   if (settings.interfaceLanguage !== undefined) {
     localStorage.setItem('interfaceLanguage', settings.interfaceLanguage)
+  }
+  if (settings.followInterfaceLanguage !== undefined) {
+    localStorage.setItem('followInterfaceLanguage', String(!!settings.followInterfaceLanguage))
   }
   if (settings.searchProvider !== undefined) {
     localStorage.setItem('searchProvider', settings.searchProvider)

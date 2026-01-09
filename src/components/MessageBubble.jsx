@@ -144,6 +144,7 @@ const MessageBubble = ({
     let relatedLoading = message.relatedLoading || false
     let allSubmittedValues = {}
     let hasAnySubmission = false
+    let isContinuationStreaming = false
 
     // Keep scanning forward for [Form Submission] → AI pairs
     while (true) {
@@ -180,6 +181,12 @@ const MessageBubble = ({
 
         // If generic AI response follows, merge it
         if (nextAiMsg && nextAiMsg.role === 'ai') {
+          const nextAiIndex = currentIndex + 2
+          const nextAiIsStreaming =
+            nextAiMsg.isStreaming || (isLoading && nextAiIndex === messages.length - 1)
+          if (nextAiIsStreaming) {
+            isContinuationStreaming = true
+          }
           // Merge tool calls if any
           if (nextAiMsg.toolCallHistory && nextAiMsg.toolCallHistory.length > 0) {
             // Avoid duplicates by checking IDs
@@ -270,6 +277,7 @@ const MessageBubble = ({
         _formSubmitted: true,
         _formSubmittedValues: allSubmittedValues,
         _isContinuationLoading: isContinuationLoading,
+        _isContinuationStreaming: isContinuationStreaming,
       }
     }
 
@@ -890,7 +898,8 @@ const MessageBubble = ({
   const isStreaming =
     message?.isStreaming ??
     ((isLoading && message.role === 'ai' && messageIndex === messages.length - 1) ||
-      !!mergedMessage?._isContinuationLoading)
+      !!mergedMessage?._isContinuationLoading ||
+      !!mergedMessage?._isContinuationStreaming)
   const hasMainText = (() => {
     const content = message?.content
     if (typeof content === 'string') return content.trim().length > 0
@@ -2130,6 +2139,16 @@ const MessageBubble = ({
         ) : (
           <>
             {renderedInterleavedContent}
+            {!isDeepResearch &&
+              isStreaming &&
+              hasMainText &&
+              !mergedMessage._isContinuationLoading && (
+                <div className="mt-4 flex flex-col gap-2 animate-pulse">
+                  <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-3/4"></div>
+                  <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-1/2"></div>
+                  <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-5/6"></div>
+                </div>
+              )}
             {isDeepResearch && isStreaming && !hasMainText && !hasActiveResearchStep && (
               <div className="mt-4 flex items-center gap-2 text-gray-500 dark:text-gray-400 animate-pulse pl-1">
                 <DotLoader />

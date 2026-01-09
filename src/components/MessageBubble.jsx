@@ -23,6 +23,7 @@ import {
   ScanText,
   Wrench,
   FormInput,
+  Globe,
 } from 'lucide-react'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
@@ -34,6 +35,7 @@ import { parseChildrenWithEmojis } from '../lib/emojiParser'
 import { getModelIcon, getModelIconClassName, renderProviderIcon } from '../lib/modelIcons'
 import { getProvider } from '../lib/providers'
 import { TOOL_TRANSLATION_KEYS, TOOL_ICONS } from '../lib/toolConstants'
+import { splitTextWithUrls } from '../lib/urlHighlight'
 import DesktopSourcesSection from './DesktopSourcesSection'
 import DotLoader from './DotLoader'
 import EmojiDisplay from './EmojiDisplay'
@@ -118,6 +120,7 @@ const MessageBubble = ({
   )
 
   const { developerMode } = useSettings()
+  const { agents = [], onEditAgent } = useAppContext()
 
   // Extract message by index
   const message = messages[messageIndex]
@@ -143,6 +146,7 @@ const MessageBubble = ({
     let relatedLoading = message.relatedLoading || false
     let allSubmittedValues = {}
     let hasAnySubmission = false
+    let isContinuationStreaming = false
 
     // Keep scanning forward for [Form Submission] → AI pairs
     while (true) {
@@ -179,6 +183,12 @@ const MessageBubble = ({
 
         // If generic AI response follows, merge it
         if (nextAiMsg && nextAiMsg.role === 'ai') {
+          const nextAiIndex = currentIndex + 2
+          const nextAiIsStreaming =
+            nextAiMsg.isStreaming || (isLoading && nextAiIndex === messages.length - 1)
+          if (nextAiIsStreaming) {
+            isContinuationStreaming = true
+          }
           // Merge tool calls if any
           if (nextAiMsg.toolCallHistory && nextAiMsg.toolCallHistory.length > 0) {
             // Avoid duplicates by checking IDs
@@ -269,6 +279,7 @@ const MessageBubble = ({
         _formSubmitted: true,
         _formSubmittedValues: allSubmittedValues,
         _isContinuationLoading: isContinuationLoading,
+        _isContinuationStreaming: isContinuationStreaming,
       }
     }
 
@@ -414,46 +425,36 @@ const MessageBubble = ({
     const statusLabel = waiting
       ? t('messageBubble.formStatus.waiting')
       : t('messageBubble.formStatus.submitted')
-    const statusIcon = waiting ? <Clock size={16} /> : <Check size={16} />
+    const statusIcon = waiting ? (
+      <Clock size={14} strokeWidth={2.5} />
+    ) : (
+      <Check size={14} strokeWidth={3} />
+    )
 
     const lineColorClass = waiting
-      ? 'from-sky-300/80 to-sky-50/0 dark:from-sky-500/80 dark:to-sky-500/5'
-      : 'from-emerald-300/80 to-emerald-50/0 dark:from-emerald-500/80 dark:to-emerald-500/5'
-    const iconColorClass = waiting
-      ? 'text-sky-600 dark:text-sky-200'
-      : 'text-emerald-600 dark:text-emerald-200'
+      ? 'from-sky-200/50 via-sky-300/50 to-transparent dark:from-sky-800/30 dark:via-sky-700/30'
+      : 'from-emerald-200/50 via-emerald-300/50 to-transparent dark:from-emerald-800/30 dark:via-emerald-700/30'
+
+    const badgeClass = waiting
+      ? 'bg-sky-50 text-sky-600 border-sky-200 dark:bg-sky-900/20 dark:text-sky-300 dark:border-sky-800/50'
+      : 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-800/50'
 
     return (
-      <div
-        className={clsx(
-          'mb-4 flex flex-col items-center gap-1 rounded-2xl  px-4 py-3 text-sm font-semibold transition',
-          ' ',
-          ' text-gray-800  dark:text-gray-200',
-          waiting ? ' text-sky-700 ' : ' text-emerald-700 ',
-        )}
-      >
-        <div className="flex w-full items-center justify-center gap-3 px-1">
-          <span
-            className={clsx('h-px flex-1 rounded-full bg-linear-to-r transition', lineColorClass)}
-          />
-          <span
-            className={clsx(
-              'flex h-10 w-10 items-center justify-center rounded-full border border-current ',
-              iconColorClass,
-            )}
-          >
-            {statusIcon}
-          </span>
-          <span
-            className={clsx(
-              'h-[1px] flex-1 rounded-full bg-gradient-to-l transition',
-              lineColorClass,
-            )}
-          />
+      <div className="flex w-full items-center gap-3 my-4 opacity-90">
+        <div className={clsx('h-px flex-1 bg-gradient-to-r', lineColorClass)} />
+
+        <div
+          className={clsx(
+            'flex items-center gap-1.5 px-3 py-1 rounded-full border shadow-sm transition-all duration-300',
+            'text-[11px] font-bold tracking-wider uppercase',
+            badgeClass,
+          )}
+        >
+          {statusIcon}
+          <span>{statusLabel}</span>
         </div>
-        <span className="leading-tight text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
-          {statusLabel}
-        </span>
+
+        <div className={clsx('h-px flex-1 bg-gradient-to-l', lineColorClass)} />
       </div>
     )
   }
@@ -899,7 +900,8 @@ const MessageBubble = ({
   const isStreaming =
     message?.isStreaming ??
     ((isLoading && message.role === 'ai' && messageIndex === messages.length - 1) ||
-      !!mergedMessage?._isContinuationLoading)
+      !!mergedMessage?._isContinuationLoading ||
+      !!mergedMessage?._isContinuationStreaming)
   const hasMainText = (() => {
     const content = message?.content
     if (typeof content === 'string') return content.trim().length > 0
@@ -1263,6 +1265,7 @@ const MessageBubble = ({
                           ScanText,
                           Wrench,
                           FormInput,
+                          Globe,
                         }[iconName]
                       : null
                     return (
@@ -1299,6 +1302,13 @@ const MessageBubble = ({
                                 }
                               })()}
                           </div>
+                          {typeof item.durationMs === 'number' && (
+                            <span className="text-[11px] text-gray-500 dark:text-gray-400 whitespace-nowrap shrink-0">
+                              {t('messageBubble.toolDuration', {
+                                duration: (item.durationMs / 1000).toFixed(2),
+                              })}
+                            </span>
+                          )}
                           <span
                             className={clsx(
                               'px-2 py-0.5 rounded-full text-[11px] ml-auto shrink-0 flex items-center justify-center min-w-[24px]',
@@ -1419,6 +1429,9 @@ const MessageBubble = ({
       contentToRender = textPart ? textPart.text : ''
       imagesToRender = message.content.filter(c => c.type === 'image_url')
     }
+    const contentText =
+      typeof contentToRender === 'string' ? contentToRender : String(contentToRender ?? '')
+    const highlightedParts = splitTextWithUrls(contentText)
 
     // Check if this user message initiated a Deep Research task
     const nextMessage = messages[messageIndex + 1]
@@ -1477,7 +1490,7 @@ const MessageBubble = ({
             return (
               <div
                 className={clsx(
-                  'relative px-5 py-3.5 rounded-3xl text-base',
+                  'relative px-5 py-3.5 rounded-3xl text-base max-w-[95%] sm:max-w-[95%]',
                   'bg-primary-500 dark:bg-primary-900 text-white dark:text-gray-100',
                 )}
               >
@@ -1515,7 +1528,18 @@ const MessageBubble = ({
                     userSelect: isMobile ? 'text' : 'auto',
                   }}
                 >
-                  {contentToRender}
+                  {highlightedParts.map((part, index) =>
+                    part.type === 'url' ? (
+                      <span
+                        key={`url-${index}`}
+                        className="bg-white/20 text-white rounded-sm px-1 underline decoration-white/70"
+                      >
+                        {part.value}
+                      </span>
+                    ) : (
+                      <span key={`text-${index}`}>{part.value}</span>
+                    ),
+                  )}
                 </div>
               </div>
             )
@@ -1604,6 +1628,9 @@ const MessageBubble = ({
   const researchSteps = Array.isArray(message.researchSteps) ? message.researchSteps : []
   const hasResearchSteps = researchSteps.length > 0
   const hasRunningResearchStep = researchSteps.some(step => step.status === 'running')
+  const hasActiveResearchStep = researchSteps.some(
+    step => step.status === 'running' || step.status === 'pending',
+  )
   const shouldShowPlan = isDeepResearch && (hasPlanText || researchPlanLoading)
   const shouldShowResearch = isDeepResearch && hasResearchSteps
   const shouldShowThinking =
@@ -1611,7 +1638,7 @@ const MessageBubble = ({
     message.thinkingEnabled !== false &&
     (isStreaming || hasThoughtText || hasPlanText)
   const shouldShowPlanStatus = isDeepResearch && researchPlanLoading
-  const shouldShowResearchStatus = isDeepResearch && hasRunningResearchStep
+  const shouldShowResearchStatus = isDeepResearch && hasActiveResearchStep
 
   const hasRelatedQuestions =
     Array.isArray(mergedMessage.related) && mergedMessage.related.length > 0
@@ -1630,6 +1657,22 @@ const MessageBubble = ({
   //     mergedRelated: mergedMessage.related,
   //   })
   // }
+
+  const targetAgentId = message.agentId || message.agent_id
+  const targetAgent = useMemo(() => {
+    if (!targetAgentId) return null
+    return agents.find(a => String(a.id) === String(targetAgentId))
+  }, [agents, targetAgentId])
+
+  const handleAgentClick = useCallback(
+    e => {
+      if (targetAgent && onEditAgent) {
+        e.stopPropagation()
+        onEditAgent(targetAgent)
+      }
+    },
+    [targetAgent, onEditAgent],
+  )
 
   return (
     <div
@@ -1707,7 +1750,13 @@ const MessageBubble = ({
       <div className="flex items-center gap-3 text-gray-900 dark:text-gray-100">
         {agentName ? (
           <>
-            <div className="rounded-full shadow-inner flex items-center justify-center overflow-hidden w-10 h-10 bg-gray-100 dark:bg-zinc-800">
+            <div
+              onClick={handleAgentClick}
+              className={clsx(
+                'rounded-full transition hover:scale-105 shadow-inner flex items-center justify-center overflow-hidden w-10 h-10 bg-gray-100 dark:bg-zinc-800',
+                targetAgent && 'cursor-pointer hover:opacity-80 transition-opacity',
+              )}
+            >
               <EmojiDisplay emoji={agentEmoji} size="1.5rem" />
             </div>
             <div className="flex flex-col leading-tight">
@@ -1743,7 +1792,13 @@ const MessageBubble = ({
           </>
         ) : (
           <>
-            <div className=" rounded-full  shadow-inner flex items-center justify-center overflow-hidden">
+            <div
+              onClick={handleAgentClick}
+              className={clsx(
+                'rounded-full shadow-inner flex items-center justify-center overflow-hidden',
+                targetAgent && 'cursor-pointer hover:opacity-80 transition-opacity',
+              )}
+            >
               {renderProviderIcon(providerMeta.id, {
                 size: 30,
                 alt: providerMeta.label,
@@ -1843,6 +1898,8 @@ const MessageBubble = ({
                 <div className="p-4 bg-user-bubble/30 font-stretch-semi-condensed dark:bg-zinc-800/30 border-t border-gray-200 dark:border-zinc-700 text-sm text-gray-600 dark:text-gray-400 leading-relaxed space-y-3">
                   {researchSteps.map(step => {
                     const isRunning = step.status === 'running'
+                    const isPending = step.status === 'pending'
+                    const isActive = isRunning || isPending
                     const isDone = step.status === 'done'
                     const isError = step.status === 'error'
                     const stepToolCalls = getToolCallsForStep(step.step)
@@ -1856,7 +1913,9 @@ const MessageBubble = ({
                       ? t('messageBubble.researchStepStatusError')
                       : isDone
                         ? t('messageBubble.researchStepStatusDone')
-                        : t('messageBubble.researchStepStatusRunning')
+                        : isRunning
+                          ? t('messageBubble.researchStepStatusRunning')
+                          : t('messageBubble.researchStepStatusPending') || 'Wait'
                     return (
                       <div
                         key={`${step.step}-${step.title}`}
@@ -1882,7 +1941,7 @@ const MessageBubble = ({
                             >
                               {statusLabel}
                             </span>
-                            {isRunning && <DotLoader />}
+                            {isActive && <DotLoader />}
                             {durationLabel && (
                               <span className="text-[11px] text-gray-500 dark:text-gray-400">
                                 {durationLabel}
@@ -1891,7 +1950,7 @@ const MessageBubble = ({
                           </div>
                           <div className="text-sm text-gray-700 dark:text-gray-300">
                             {step.title}
-                            {isRunning ? '...' : ''}
+                            {isActive ? '...' : ''}
                           </div>
                           {step.error && (
                             <div className="text-[11px] text-red-500 dark:text-red-400">
@@ -1966,6 +2025,7 @@ const MessageBubble = ({
                                           ScanText,
                                           Wrench,
                                           FormInput,
+                                          Globe,
                                         }[iconName]
                                       : null
                                     return (
@@ -1973,7 +2033,7 @@ const MessageBubble = ({
                                         key={item.id || `${item.name}-${item.arguments}`}
                                         className="flex items-center gap-2 text-[11px] text-gray-500 dark:text-gray-400"
                                       >
-                                        <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-1 sm:gap-1.5 w-full">
+                                        <div className="grid grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-1 sm:gap-1.5 w-full">
                                           <span className="font-medium text-gray-600 dark:text-gray-300 whitespace-nowrap flex items-center gap-1">
                                             {IconComponent && (
                                               <IconComponent
@@ -2004,6 +2064,13 @@ const MessageBubble = ({
                                                 }
                                               })()}
                                           </div>
+                                          {typeof item.durationMs === 'number' && (
+                                            <span className="text-[10px] text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                                              {t('messageBubble.toolDuration', {
+                                                duration: (item.durationMs / 1000).toFixed(2),
+                                              })}
+                                            </span>
+                                          )}
                                           <span
                                             className={clsx(
                                               'px-1.5 py-0.5 rounded-full text-[10px] ml-auto shrink-0 flex items-center justify-center min-w-[20px]',
@@ -2104,6 +2171,22 @@ const MessageBubble = ({
         ) : (
           <>
             {renderedInterleavedContent}
+            {!isDeepResearch &&
+              isStreaming &&
+              hasMainText &&
+              !mergedMessage._isContinuationLoading && (
+                <div className="mt-4 flex flex-col gap-2 animate-pulse">
+                  <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-3/4"></div>
+                  <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-1/2"></div>
+                  <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-5/6"></div>
+                </div>
+              )}
+            {isDeepResearch && isStreaming && !hasMainText && !hasActiveResearchStep && (
+              <div className="mt-4 flex items-center gap-2 text-gray-500 dark:text-gray-400 animate-pulse pl-1">
+                <DotLoader />
+                <span className="text-sm font-medium">{t('chat.deepResearchDrafting')}</span>
+              </div>
+            )}
             {mergedMessage._isContinuationLoading && (
               <div className="mt-4 flex flex-col gap-3">
                 <FormStatusBadge waiting={false} />

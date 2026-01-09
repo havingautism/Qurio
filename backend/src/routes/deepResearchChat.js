@@ -30,9 +30,18 @@ router.post('/stream-deep-research', async (req, res) => {
       plan,
       question,
       researchType, // 'general' or 'academic'
+      concurrentExecution, // Enable concurrent step execution (experimental)
       searchProvider,
       tavilyApiKey,
     } = req.body
+
+    // Debug: Log the received parameters
+    console.log(
+      '[DeepResearch API] concurrentExecution received:',
+      concurrentExecution,
+      '| Type:',
+      typeof concurrentExecution,
+    )
 
     if (!provider) {
       return res.status(400).json({ error: 'Missing required field: provider' })
@@ -90,6 +99,7 @@ router.post('/stream-deep-research', async (req, res) => {
       plan,
       question,
       researchType, // Pass researchType to service
+      concurrentExecution, // Pass concurrentExecution to service
       searchProvider,
       tavilyApiKey,
       signal: controller.signal,

@@ -17,6 +17,7 @@ import {
   SquareStack,
   Sun,
   Trash2,
+  Hammer,
 } from 'lucide-react'
 import React, { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -723,7 +724,7 @@ const Sidebar = ({
               onClick={onOpenTools}
               className="w-10 h-10 flex items-center justify-center rounded-full bg-user-bubble dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-transform duration-200 hover:scale-110 active:scale-95 cursor-pointer"
             >
-              <Wrench size={20} />
+              <Hammer size={20} />
             </button>
           </div>
 

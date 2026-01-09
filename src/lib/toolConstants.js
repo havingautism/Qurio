@@ -7,6 +7,7 @@ export const TOOL_TRANSLATION_KEYS = {
   extract_text: 'tools.extractText',
   json_repair: 'tools.jsonRepair',
   interactive_form: 'tools.interactiveForm',
+  webpage_reader: 'tools.webpageReader',
 }
 
 // Tool icons mapping (using lucide-react icon names)
@@ -19,6 +20,7 @@ export const TOOL_ICONS = {
   extract_text: 'ScanText',
   json_repair: 'Wrench',
   interactive_form: 'FormInput',
+  webpage_reader: 'Globe',
 }
 
 // Tool usage info keys for translations
@@ -31,4 +33,5 @@ export const TOOL_INFO_KEYS = {
   extract_text: 'tools.extractTextInfo',
   json_repair: 'tools.jsonRepairInfo',
   interactive_form: 'tools.interactiveFormInfo',
+  webpage_reader: 'tools.webpageReaderInfo',
 }

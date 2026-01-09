@@ -13,9 +13,12 @@ import {
   FileText,
   ScanText,
   Wrench,
-  Sparkles,
   Code,
   FormInput,
+  Globe,
+  Settings,
+  User,
+  Box,
 } from 'lucide-react'
 import useScrollLock from '../hooks/useScrollLock'
 import EmojiDisplay from './EmojiDisplay'
@@ -1248,10 +1251,10 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
 
   return (
     <div className="fixed inset-0 z-100 flex items-start md:items-center justify-center bg-black/50 backdrop-blur-sm p-0 md:p-4 overflow-y-auto md:overflow-hidden">
-      <div className="w-full h-screen md:max-w-2xl md:h-[85vh] bg-white dark:bg-[#191a1a] rounded-none md:rounded-2xl shadow-2xl flex flex-col overflow-hidden border-0 md:border border-gray-200 dark:border-zinc-800">
-        {/* Header */}
-        <div className="h-14 border-b border-gray-200 dark:border-zinc-800 flex items-center justify-between px-4 sm:px-6 shrink-0">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+      <div className="w-full h-screen md:max-w-4xl md:h-[85vh] bg-white dark:bg-[#191a1a] rounded-none md:rounded-2xl shadow-2xl flex flex-col md:flex-row overflow-hidden border-0 md:border border-gray-200 dark:border-zinc-800">
+        {/* Mobile Header */}
+        <div className="md:hidden h-14 border-b border-gray-200 dark:border-zinc-800 flex items-center justify-between px-4 bg-white dark:bg-[#191a1a] shrink-0">
+          <h3 className="text-base font-semibold text-gray-900 dark:text-white">
             {editingAgent ? t('agents.modal.edit') : t('agents.modal.create')}
           </h3>
           <button
@@ -1262,537 +1265,565 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
           </button>
         </div>
 
-        {/* Tabs */}
-        <div className="flex border-b border-gray-200 dark:border-zinc-800 px-6 shrink-0 gap-6">
-          {['general', 'model', 'personalization', 'tools'].map(tab => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={clsx(
-                'py-3 text-sm font-medium border-b-2 transition-colors capitalize',
-                activeTab === tab
-                  ? 'border-primary-500 text-primary-600 dark:text-primary-400'
-                  : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300',
-              )}
-            >
-              {t(`agents.tabs.${tab}`)}
-            </button>
-          ))}
+        {/* Sidebar / Tabs */}
+        <div className="w-full md:w-64 bg-primary-50 dark:bg-background/70 border-b md:border-b-0 md:border-r border-gray-200 dark:border-zinc-800 px-1 py-1 sm:py-4 sm:px-4 flex flex-row md:flex-col gap-2 overflow-x-auto md:overflow-visible no-scrollbar shrink-0">
+          <h2 className="text-xl font-bold mb-0 md:mb-6 px-2 text-gray-900 dark:text-white hidden md:block">
+            {editingAgent ? t('agents.modal.edit') : t('agents.modal.create')}
+          </h2>
+          <nav className="flex flex-row md:flex-col gap-1 w-full md:w-auto">
+            {[
+              { id: 'general', icon: Settings },
+              { id: 'model', icon: Box },
+              { id: 'personalization', icon: User },
+              { id: 'tools', icon: Wrench },
+            ].map(item => (
+              <button
+                key={item.id}
+                onClick={() => setActiveTab(item.id)}
+                className={clsx(
+                  'flex items-center gap-1 sm:gap-3 px-3 py-2 rounded-lg text-sm font-semibold transition-colors whitespace-nowrap',
+                  activeTab === item.id
+                    ? 'bg-primary-100 dark:bg-zinc-800 text-primary-600 dark:text-primary-400'
+                    : 'text-gray-600 dark:text-gray-400 hover:bg-primary-100 dark:hover:bg-zinc-800',
+                )}
+              >
+                <item.icon size={18} />
+                {t(`agents.tabs.${item.id}`)}
+              </button>
+            ))}
+          </nav>
         </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
-          {activeTab === 'general' && (
-            <div className="flex flex-col gap-6 h-full">
-              <div className="flex flex-col gap-2">
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  {t('agents.general.avatar')} & {t('agents.general.name')}
-                </label>
-                <div className="flex items-center gap-3">
-                  <div className="relative inline-block w-fit">
-                    <button
-                      ref={buttonRef}
-                      onClick={() => {
-                        if (isGeneralLocked) return
-                        setShowEmojiPicker(!showEmojiPicker)
-                      }}
-                      disabled={isGeneralLocked}
-                      className="w-12 h-12 rounded-xl bg-gray-100 dark:bg-zinc-800 flex items-center justify-center text-2xl hover:bg-gray-200 dark:hover:bg-zinc-700 transition-colors border border-gray-200 dark:border-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <EmojiDisplay emoji={emoji} />
-                    </button>
-                    {showEmojiPicker && (
-                      <div
-                        ref={pickerRef}
-                        className="absolute top-full left-0 mt-2 z-50 rounded-xl overflow-hidden shadow-2xl"
+        {/* Content Area */}
+        <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-white dark:bg-[#191a1a]">
+          {/* Desktop Header */}
+          {/* <div className="h-16 border-b border-gray-200 dark:border-zinc-800 hidden md:flex items-center justify-between px-6 sm:px-8">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white capitalize">
+              {activeTab}
+            </h3>
+            <button
+              onClick={onClose}
+              className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-500 transition-colors"
+            >
+              <X size={20} />
+            </button>
+          </div> */}
+
+          {/* Scrollable Content */}
+          <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-8 sm:py-8 min-h-0 shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07)]">
+            {activeTab === 'general' && (
+              <div className="flex flex-col gap-6 h-full">
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {t('agents.general.avatar')} & {t('agents.general.name')}
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <div className="relative inline-block w-fit">
+                      <button
+                        ref={buttonRef}
+                        onClick={() => {
+                          if (isGeneralLocked) return
+                          setShowEmojiPicker(!showEmojiPicker)
+                        }}
+                        disabled={isGeneralLocked}
+                        className="w-12 h-12 rounded-xl bg-gray-100 dark:bg-zinc-800 flex items-center justify-center text-2xl hover:bg-gray-200 dark:hover:bg-zinc-700 transition-colors border border-gray-200 dark:border-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        <CustomEmojiPicker
-                          onEmojiSelect={e => {
-                            setEmoji(e?.native || e)
-                            setShowEmojiPicker(false)
-                          }}
-                          onClose={() => setShowEmojiPicker(false)}
-                        />
-                      </div>
-                    )}
+                        <EmojiDisplay emoji={emoji} />
+                      </button>
+                      {showEmojiPicker && (
+                        <div
+                          ref={pickerRef}
+                          className="absolute top-full left-0 mt-2 z-50 rounded-xl overflow-hidden shadow-2xl"
+                        >
+                          <CustomEmojiPicker
+                            onEmojiSelect={e => {
+                              setEmoji(e?.native || e)
+                              setShowEmojiPicker(false)
+                            }}
+                            onClose={() => setShowEmojiPicker(false)}
+                          />
+                        </div>
+                      )}
+                    </div>
+                    <input
+                      value={displayName}
+                      onChange={e => setName(e.target.value)}
+                      placeholder={t('agents.general.namePlaceholder')}
+                      disabled={isGeneralLocked}
+                      className="flex-1 px-4 py-2.5 h-12 text-sm bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                    />
                   </div>
-                  <input
-                    value={displayName}
-                    onChange={e => setName(e.target.value)}
-                    placeholder={t('agents.general.namePlaceholder')}
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {t('agents.general.description')}
+                  </label>
+                  <textarea
+                    value={displayDescription}
+                    onChange={e => setDescription(e.target.value)}
+                    placeholder={t('agents.general.descriptionPlaceholder')}
                     disabled={isGeneralLocked}
-                    className="flex-1 px-4 py-2.5 h-12 text-sm bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                    rows={2}
+                    className="w-full px-4 py-2 text-sm bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20 resize-none disabled:opacity-50 disabled:cursor-not-allowed"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-2 flex-1 min-h-0">
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {t('agents.general.systemPrompt')}
+                  </label>
+                  <textarea
+                    value={prompt}
+                    onChange={e => setPrompt(e.target.value)}
+                    placeholder={t('agents.general.systemPromptPlaceholder')}
+                    rows={6}
+                    disabled={isDeepResearchAgent}
+                    className="w-full flex-1 min-h-0 px-4 py-2 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20 resize-none text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                 </div>
               </div>
+            )}
 
-              <div className="flex flex-col gap-2">
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  {t('agents.general.description')}
-                </label>
-                <textarea
-                  value={displayDescription}
-                  onChange={e => setDescription(e.target.value)}
-                  placeholder={t('agents.general.descriptionPlaceholder')}
-                  disabled={isGeneralLocked}
-                  rows={2}
-                  className="w-full px-4 py-2 text-sm bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20 resize-none disabled:opacity-50 disabled:cursor-not-allowed"
-                />
-              </div>
-
-              <div className="flex flex-col gap-2 flex-1 min-h-0">
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  {t('agents.general.systemPrompt')}
-                </label>
-                <textarea
-                  value={prompt}
-                  onChange={e => setPrompt(e.target.value)}
-                  placeholder={t('agents.general.systemPromptPlaceholder')}
-                  rows={6}
-                  disabled={isDeepResearchAgent}
-                  className="w-full flex-1 min-h-0 px-4 py-2 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20 resize-none text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                />
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'model' && (
-            <div className="space-y-6">
-              <div className="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-lg flex gap-3 text-sm text-blue-700 dark:text-blue-300">
-                <Info size={18} className="shrink-0 mt-0.5" />
-                <div>
-                  <p className="font-medium">{t('agents.model.crossProviderTitle')}</p>
-                  <p className="opacity-90">{t('agents.model.crossProviderHint')}</p>
-                </div>
-              </div>
-
-              {isLoadingModels ? (
-                <div className="flex items-center justify-center py-8 text-gray-500 gap-2">
-                  <RefreshCw className="animate-spin" size={20} />
-                  <span>{t('agents.model.loading')}</span>
-                </div>
-              ) : availableProviders.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-gray-200 dark:border-zinc-700 p-6 text-center text-sm text-gray-500 dark:text-gray-400">
-                  <p className="font-medium text-gray-700 dark:text-gray-300">
-                    {t('agents.model.noProvidersTitle')}
-                  </p>
-                  <p className="mt-1">{t('agents.model.noProvidersHint')}</p>
-                </div>
-              ) : (
-                <>
-                  <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-                    <span>{t('agents.model.modelsLoaded', { count: totalModelCount })}</span>
-                    <button
-                      type="button"
-                      onClick={loadKeysAndFetchModels}
-                      className="flex items-center gap-1 text-primary-600 hover:text-primary-700 dark:text-primary-400"
-                    >
-                      <RefreshCw size={14} />
-                      {t('agents.model.refresh')}
-                    </button>
+            {activeTab === 'model' && (
+              <div className="space-y-6">
+                <div className="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-lg flex gap-3 text-sm text-blue-700 dark:text-blue-300">
+                  <Info size={18} className="shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-medium">{t('agents.model.crossProviderTitle')}</p>
+                    <p className="opacity-90">{t('agents.model.crossProviderHint')}</p>
                   </div>
-
-                  {renderModelPicker({
-                    label: t('agents.model.defaultModel'),
-                    helper: t('agents.model.defaultHelper'),
-                    value: defaultModel,
-                    onChange: setDefaultModel,
-                    activeProvider: defaultModelProvider || provider,
-                    onProviderChange: setDefaultModelProvider,
-                    isProviderOpen: isDefaultProviderOpen,
-                    setIsProviderOpen: setIsDefaultProviderOpen,
-                    providerRef: defaultProviderRef,
-                    customValue: defaultCustomModel,
-                    onCustomValueChange: setDefaultCustomModel,
-                    modelSource: defaultModelSource,
-                    onModelSourceChange: setDefaultModelSource,
-                    sourceName: 'default-model-source',
-                    testAction: {
-                      label: t('agents.model.testDefault'),
-                      onClick: handleDefaultModelTest,
-                      status: defaultTestState.status,
-                      message: defaultTestState.message,
-                    },
-                  })}
-
-                  {renderModelPicker({
-                    label: t('agents.model.liteModel'),
-                    helper: t('agents.model.liteHelper'),
-                    hint: t('agents.model.liteHint'),
-                    value: liteModel,
-                    onChange: setLiteModel,
-                    activeProvider: liteModelProvider || provider,
-                    onProviderChange: setLiteModelProvider,
-                    isProviderOpen: isLiteProviderOpen,
-                    setIsProviderOpen: setIsLiteProviderOpen,
-                    providerRef: liteProviderRef,
-                    customValue: liteCustomModel,
-                    onCustomValueChange: setLiteCustomModel,
-                    modelSource: liteModelSource,
-                    onModelSourceChange: setLiteModelSource,
-                    sourceName: 'lite-model-source',
-                    allowEmpty: true,
-                    hideProviderSelector: false,
-                    testAction: {
-                      label: t('agents.model.testLite'),
-                      onClick: handleLiteModelTest,
-                      status: liteTestState.status,
-                      message: liteTestState.message,
-                    },
-                  })}
-                </>
-              )}
-              {(error || modelsError) && (
-                <div className="text-sm text-red-500 mt-4">{error || modelsError}</div>
-              )}
-            </div>
-          )}
-
-          {activeTab === 'personalization' && (
-            <div className="space-y-4 sm:space-y-6">
-              <div className="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-lg flex gap-3 text-sm text-blue-700 dark:text-blue-300">
-                <Info size={18} className="shrink-0 mt-0.5" />
-                <div>
-                  <p className="font-medium">{t('settings.responseStyle')}</p>
-                  <p className="opacity-90">{t('settings.responseStyleHint')}</p>
                 </div>
-              </div>
-              {renderDropdown(
-                t('settings.respondLanguage'),
-                responseLanguage,
-                setResponseLanguage,
-                LLM_ANSWER_LANGUAGE_KEYS,
-                isResponseLanguageOpen,
-                setIsResponseLanguageOpen,
-                responseLanguageRef,
-              )}
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {renderDropdown(
-                  t('settings.styleBaseTone'),
-                  baseTone,
-                  setBaseTone,
-                  STYLE_BASE_TONE_KEYS.map(k => ({
-                    value: k,
-                    label: t(`settings.baseToneOptions.${k}`),
-                  })),
-                  isBaseToneOpen,
-                  setIsBaseToneOpen,
-                  baseToneRef,
-                  false,
-                  isDeepResearchAgent,
-                )}
-                {renderDropdown(
-                  t('settings.traits'),
-                  traits,
-                  setTraits,
-                  STYLE_TRAIT_KEYS.map(k => ({
-                    value: k,
-                    label: t(`settings.traitsOptions.${k}`),
-                  })),
-                  isTraitsOpen,
-                  setIsTraitsOpen,
-                  traitsRef,
-                  false,
-                  isDeepResearchAgent,
-                )}
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {renderDropdown(
-                  t('settings.warmth'),
-                  warmth,
-                  setWarmth,
-                  STYLE_WARMTH_KEYS.map(k => ({
-                    value: k,
-                    label: t(`settings.warmthOptions.${k}`),
-                  })),
-                  isWarmthOpen,
-                  setIsWarmthOpen,
-                  warmthRef,
-                  false,
-                  isDeepResearchAgent,
-                )}
-                {renderDropdown(
-                  t('settings.enthusiasm'),
-                  enthusiasm,
-                  setEnthusiasm,
-                  STYLE_ENTHUSIASM_KEYS.map(k => ({
-                    value: k,
-                    label: t(`settings.enthusiasmOptions.${k}`),
-                  })),
-                  isEnthusiasmOpen,
-                  setIsEnthusiasmOpen,
-                  enthusiasmRef,
-                  false,
-                  isDeepResearchAgent,
-                )}
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {renderDropdown(
-                  t('settings.headings'),
-                  headings,
-                  setHeadings,
-                  STYLE_HEADINGS_KEYS.map(k => ({
-                    value: k,
-                    label: t(`settings.headingsOptions.${k}`),
-                  })),
-                  isHeadingsOpen,
-                  setIsHeadingsOpen,
-                  headingsRef,
-                  false,
-                  isDeepResearchAgent,
-                )}
-                {renderDropdown(
-                  t('settings.emojis'),
-                  emojis,
-                  setEmojis,
-                  STYLE_EMOJI_KEYS.map(k => ({
-                    value: k,
-                    label: t(`settings.emojisOptions.${k}`),
-                  })),
-                  isEmojisOpen,
-                  setIsEmojisOpen,
-                  emojisRef,
-                  false,
-                  isDeepResearchAgent,
-                )}
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  {t('settings.customInstruction')}
-                </label>
-                <textarea
-                  value={customInstruction}
-                  onChange={e => setCustomInstruction(e.target.value)}
-                  placeholder={t('settings.customInstructionPlaceholder')}
-                  rows={3}
-                  className="w-full px-4 py-2 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20 resize-none text-sm"
-                />
-              </div>
-
-              <div className="rounded-xl border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900">
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (hasAdvancedOverrides) return
-                    setIsAdvancedOpen(prev => !prev)
-                  }}
-                  className={clsx(
-                    'w-full flex items-center justify-between px-4 py-3 text-sm font-medium',
-                    isAdvancedOpen
-                      ? 'text-gray-900 dark:text-gray-100'
-                      : 'text-gray-600 dark:text-gray-400',
-                  )}
-                >
-                  <span>{t('agents.advanced.title')}</span>
-                  <div className="flex items-center gap-3">
-                    <ChevronDown
-                      size={16}
-                      className={clsx(
-                        'text-gray-400 transition-transform',
-                        isAdvancedOpen && 'rotate-180',
-                      )}
-                    />
+                {isLoadingModels ? (
+                  <div className="flex items-center justify-center py-8 text-gray-500 gap-2">
+                    <RefreshCw className="animate-spin" size={20} />
+                    <span>{t('agents.model.loading')}</span>
                   </div>
-                </button>
-
-                {isAdvancedOpen && (
-                  <div className="px-4 pb-4 pt-4 border-t border-gray-200 dark:border-zinc-700 space-y-5">
-                    {renderAdvancedControl({
-                      label: t('agents.advanced.frequencyPenaltyLabel'),
-                      param: t('agents.advanced.frequencyPenaltyParam'),
-                      description: t('agents.advanced.frequencyPenaltyDesc'),
-                      value: frequencyPenalty,
-                      onChange: setFrequencyPenalty,
-                      min: -2,
-                      max: 2,
-                      step: 0.1,
-                      defaultValue: 0,
-                    })}
-                    {renderAdvancedControl({
-                      label: t('agents.advanced.presencePenaltyLabel'),
-                      param: t('agents.advanced.presencePenaltyParam'),
-                      description: t('agents.advanced.presencePenaltyDesc'),
-                      value: presencePenalty,
-                      onChange: setPresencePenalty,
-                      min: -2,
-                      max: 2,
-                      step: 0.1,
-                      defaultValue: 0,
-                    })}
-                    {renderAdvancedControl({
-                      label: t('agents.advanced.temperatureLabel'),
-                      param: t('agents.advanced.temperatureParam'),
-                      description: t('agents.advanced.temperatureDesc'),
-                      value: temperature,
-                      onChange: setTemperature,
-                      min: 0,
-                      max: 2,
-                      step: 0.1,
-                      defaultValue: 1,
-                    })}
-                    {renderAdvancedControl({
-                      label: t('agents.advanced.topPLabel'),
-                      param: t('agents.advanced.topPParam'),
-                      description: t('agents.advanced.topPDesc'),
-                      value: topP,
-                      onChange: setTopP,
-                      min: 0,
-                      max: 1,
-                      step: 0.01,
-                      defaultValue: 1,
-                    })}
-                    <div className="flex justify-end">
+                ) : availableProviders.length === 0 ? (
+                  <div className="rounded-lg border border-dashed border-gray-200 dark:border-zinc-700 p-6 text-center text-sm text-gray-500 dark:text-gray-400">
+                    <p className="font-medium text-gray-700 dark:text-gray-300">
+                      {t('agents.model.noProvidersTitle')}
+                    </p>
+                    <p className="mt-1">{t('agents.model.noProvidersHint')}</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+                      <span>{t('agents.model.modelsLoaded', { count: totalModelCount })}</span>
                       <button
                         type="button"
-                        onClick={() => {
-                          setTemperature(null)
-                          setTopP(null)
-                          setFrequencyPenalty(null)
-                          setPresencePenalty(null)
-                        }}
-                        className="text-xs font-medium text-gray-600 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400"
+                        onClick={loadKeysAndFetchModels}
+                        className="flex items-center gap-1 text-primary-600 hover:text-primary-700 dark:text-primary-400"
                       >
-                        {t('agents.advanced.reset')}
+                        <RefreshCw size={14} />
+                        {t('agents.model.refresh')}
                       </button>
                     </div>
+
+                    {renderModelPicker({
+                      label: t('agents.model.defaultModel'),
+                      helper: t('agents.model.defaultHelper'),
+                      value: defaultModel,
+                      onChange: setDefaultModel,
+                      activeProvider: defaultModelProvider || provider,
+                      onProviderChange: setDefaultModelProvider,
+                      isProviderOpen: isDefaultProviderOpen,
+                      setIsProviderOpen: setIsDefaultProviderOpen,
+                      providerRef: defaultProviderRef,
+                      customValue: defaultCustomModel,
+                      onCustomValueChange: setDefaultCustomModel,
+                      modelSource: defaultModelSource,
+                      onModelSourceChange: setDefaultModelSource,
+                      sourceName: 'default-model-source',
+                      testAction: {
+                        label: t('agents.model.testDefault'),
+                        onClick: handleDefaultModelTest,
+                        status: defaultTestState.status,
+                        message: defaultTestState.message,
+                      },
+                    })}
+
+                    {renderModelPicker({
+                      label: t('agents.model.liteModel'),
+                      helper: t('agents.model.liteHelper'),
+                      hint: t('agents.model.liteHint'),
+                      value: liteModel,
+                      onChange: setLiteModel,
+                      activeProvider: liteModelProvider || provider,
+                      onProviderChange: setLiteModelProvider,
+                      isProviderOpen: isLiteProviderOpen,
+                      setIsProviderOpen: setIsLiteProviderOpen,
+                      providerRef: liteProviderRef,
+                      customValue: liteCustomModel,
+                      onCustomValueChange: setLiteCustomModel,
+                      modelSource: liteModelSource,
+                      onModelSourceChange: setLiteModelSource,
+                      sourceName: 'lite-model-source',
+                      allowEmpty: true,
+                      hideProviderSelector: false,
+                      testAction: {
+                        label: t('agents.model.testLite'),
+                        onClick: handleLiteModelTest,
+                        status: liteTestState.status,
+                        message: liteTestState.message,
+                      },
+                    })}
+                  </>
+                )}
+                {(error || modelsError) && (
+                  <div className="text-sm text-red-500 mt-4">{error || modelsError}</div>
+                )}
+              </div>
+            )}
+
+            {activeTab === 'personalization' && (
+              <div className="space-y-4 sm:space-y-6">
+                <div className="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-lg flex gap-3 text-sm text-blue-700 dark:text-blue-300">
+                  <Info size={18} className="shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-medium">{t('settings.responseStyle')}</p>
+                    <p className="opacity-90">{t('settings.responseStyleHint')}</p>
+                  </div>
+                </div>
+                {renderDropdown(
+                  t('settings.respondLanguage'),
+                  responseLanguage,
+                  setResponseLanguage,
+                  LLM_ANSWER_LANGUAGE_KEYS,
+                  isResponseLanguageOpen,
+                  setIsResponseLanguageOpen,
+                  responseLanguageRef,
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {renderDropdown(
+                    t('settings.styleBaseTone'),
+                    baseTone,
+                    setBaseTone,
+                    STYLE_BASE_TONE_KEYS.map(k => ({
+                      value: k,
+                      label: t(`settings.baseToneOptions.${k}`),
+                    })),
+                    isBaseToneOpen,
+                    setIsBaseToneOpen,
+                    baseToneRef,
+                    false,
+                    isDeepResearchAgent,
+                  )}
+                  {renderDropdown(
+                    t('settings.traits'),
+                    traits,
+                    setTraits,
+                    STYLE_TRAIT_KEYS.map(k => ({
+                      value: k,
+                      label: t(`settings.traitsOptions.${k}`),
+                    })),
+                    isTraitsOpen,
+                    setIsTraitsOpen,
+                    traitsRef,
+                    false,
+                    isDeepResearchAgent,
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {renderDropdown(
+                    t('settings.warmth'),
+                    warmth,
+                    setWarmth,
+                    STYLE_WARMTH_KEYS.map(k => ({
+                      value: k,
+                      label: t(`settings.warmthOptions.${k}`),
+                    })),
+                    isWarmthOpen,
+                    setIsWarmthOpen,
+                    warmthRef,
+                    false,
+                    isDeepResearchAgent,
+                  )}
+                  {renderDropdown(
+                    t('settings.enthusiasm'),
+                    enthusiasm,
+                    setEnthusiasm,
+                    STYLE_ENTHUSIASM_KEYS.map(k => ({
+                      value: k,
+                      label: t(`settings.enthusiasmOptions.${k}`),
+                    })),
+                    isEnthusiasmOpen,
+                    setIsEnthusiasmOpen,
+                    enthusiasmRef,
+                    false,
+                    isDeepResearchAgent,
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {renderDropdown(
+                    t('settings.headings'),
+                    headings,
+                    setHeadings,
+                    STYLE_HEADINGS_KEYS.map(k => ({
+                      value: k,
+                      label: t(`settings.headingsOptions.${k}`),
+                    })),
+                    isHeadingsOpen,
+                    setIsHeadingsOpen,
+                    headingsRef,
+                    false,
+                    isDeepResearchAgent,
+                  )}
+                  {renderDropdown(
+                    t('settings.emojis'),
+                    emojis,
+                    setEmojis,
+                    STYLE_EMOJI_KEYS.map(k => ({
+                      value: k,
+                      label: t(`settings.emojisOptions.${k}`),
+                    })),
+                    isEmojisOpen,
+                    setIsEmojisOpen,
+                    emojisRef,
+                    false,
+                    isDeepResearchAgent,
+                  )}
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {t('settings.customInstruction')}
+                  </label>
+                  <textarea
+                    value={customInstruction}
+                    onChange={e => setCustomInstruction(e.target.value)}
+                    placeholder={t('settings.customInstructionPlaceholder')}
+                    rows={3}
+                    className="w-full px-4 py-2 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20 resize-none text-sm"
+                  />
+                </div>
+
+                <div className="rounded-xl border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (hasAdvancedOverrides) return
+                      setIsAdvancedOpen(prev => !prev)
+                    }}
+                    className={clsx(
+                      'w-full flex items-center justify-between px-4 py-3 text-sm font-medium',
+                      isAdvancedOpen
+                        ? 'text-gray-900 dark:text-gray-100'
+                        : 'text-gray-600 dark:text-gray-400',
+                    )}
+                  >
+                    <span>{t('agents.advanced.title')}</span>
+                    <div className="flex items-center gap-3">
+                      <ChevronDown
+                        size={16}
+                        className={clsx(
+                          'text-gray-400 transition-transform',
+                          isAdvancedOpen && 'rotate-180',
+                        )}
+                      />
+                    </div>
+                  </button>
+
+                  {isAdvancedOpen && (
+                    <div className="px-4 pb-4 pt-4 border-t border-gray-200 dark:border-zinc-700 space-y-5">
+                      {renderAdvancedControl({
+                        label: t('agents.advanced.frequencyPenaltyLabel'),
+                        param: t('agents.advanced.frequencyPenaltyParam'),
+                        description: t('agents.advanced.frequencyPenaltyDesc'),
+                        value: frequencyPenalty,
+                        onChange: setFrequencyPenalty,
+                        min: -2,
+                        max: 2,
+                        step: 0.1,
+                        defaultValue: 0,
+                      })}
+                      {renderAdvancedControl({
+                        label: t('agents.advanced.presencePenaltyLabel'),
+                        param: t('agents.advanced.presencePenaltyParam'),
+                        description: t('agents.advanced.presencePenaltyDesc'),
+                        value: presencePenalty,
+                        onChange: setPresencePenalty,
+                        min: -2,
+                        max: 2,
+                        step: 0.1,
+                        defaultValue: 0,
+                      })}
+                      {renderAdvancedControl({
+                        label: t('agents.advanced.temperatureLabel'),
+                        param: t('agents.advanced.temperatureParam'),
+                        description: t('agents.advanced.temperatureDesc'),
+                        value: temperature,
+                        onChange: setTemperature,
+                        min: 0,
+                        max: 2,
+                        step: 0.1,
+                        defaultValue: 1,
+                      })}
+                      {renderAdvancedControl({
+                        label: t('agents.advanced.topPLabel'),
+                        param: t('agents.advanced.topPParam'),
+                        description: t('agents.advanced.topPDesc'),
+                        value: topP,
+                        onChange: setTopP,
+                        min: 0,
+                        max: 1,
+                        step: 0.01,
+                        defaultValue: 1,
+                      })}
+                      <div className="flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTemperature(null)
+                            setTopP(null)
+                            setFrequencyPenalty(null)
+                            setPresencePenalty(null)
+                          }}
+                          className="text-xs font-medium text-gray-600 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400"
+                        >
+                          {t('agents.advanced.reset')}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+            {activeTab === 'tools' && (
+              <div className="space-y-4">
+                <div className="bg-gray-50 dark:bg-zinc-900/60 p-4 rounded-lg text-sm text-gray-600 dark:text-gray-300">
+                  <p className="font-medium">{t('agents.tools.title')}</p>
+                  <p className="opacity-90">{t('agents.tools.hint')}</p>
+                </div>
+                {toolsLoading ? (
+                  <div className="text-sm text-gray-500 dark:text-gray-400">
+                    {t('agents.tools.loading')}
+                  </div>
+                ) : toolsByCategory.length === 0 ? (
+                  <div className="text-sm text-gray-500 dark:text-gray-400">
+                    {t('agents.tools.empty')}
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {toolsByCategory.map(([category, items]) => (
+                      <div key={category} className="space-y-3">
+                        <div className="text-xs uppercase tracking-wide text-gray-400">
+                          {t(`agents.tools.categories.${category}`, category)}
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {items.map(tool => {
+                            const checked = selectedToolIds.includes(tool.id)
+                            const iconName = TOOL_ICONS[tool.name]
+                            const IconComponent = iconName
+                                ? {
+                                    Search,
+                                    GraduationCap,
+                                    Calculator,
+                                    Clock,
+                                    FileText,
+                                    ScanText,
+                                    Wrench,
+                                    FormInput,
+                                    Globe,
+                                  }[iconName]
+                              : Code
+                            const infoKey = TOOL_INFO_KEYS[tool.name]
+                            return (
+                              <label
+                                key={tool.id}
+                                className={clsx(
+                                  'flex items-start gap-3 p-3 rounded-lg border transition-colors cursor-pointer',
+                                  checked
+                                    ? 'border-primary-400 bg-primary-50/40 dark:bg-primary-900/20'
+                                    : 'border-gray-200 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-800/40',
+                                )}
+                              >
+                                <Checkbox
+                                  checked={checked}
+                                  onChange={() => {
+                                    setSelectedToolIds(prev =>
+                                      prev.includes(tool.id)
+                                        ? prev.filter(id => id !== tool.id)
+                                        : [...prev, tool.id],
+                                    )
+                                  }}
+                                />
+                                <div className="flex-1 space-y-1.5 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    {IconComponent && (
+                                      <IconComponent
+                                        size={16}
+                                        className="text-gray-500 dark:text-gray-400 shrink-0"
+                                      />
+                                    )}
+                                    <div className="text-sm font-medium text-gray-800 dark:text-gray-100">
+                                      {t(TOOL_TRANSLATION_KEYS[tool.name] || tool.name)}
+                                    </div>
+                                  </div>
+                                  {(infoKey || tool.description) && (
+                                    <div className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+                                      {infoKey ? t(infoKey) : tool.description}
+                                    </div>
+                                  )}
+                                </div>
+                              </label>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
-            </div>
-          )}
-          {activeTab === 'tools' && (
-            <div className="space-y-4">
-              <div className="bg-gray-50 dark:bg-zinc-900/60 p-4 rounded-lg text-sm text-gray-600 dark:text-gray-300">
-                <p className="font-medium">{t('agents.tools.title')}</p>
-                <p className="opacity-90">{t('agents.tools.hint')}</p>
-              </div>
-              {toolsLoading ? (
-                <div className="text-sm text-gray-500 dark:text-gray-400">
-                  {t('agents.tools.loading')}
-                </div>
-              ) : toolsByCategory.length === 0 ? (
-                <div className="text-sm text-gray-500 dark:text-gray-400">
-                  {t('agents.tools.empty')}
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  {toolsByCategory.map(([category, items]) => (
-                    <div key={category} className="space-y-3">
-                      <div className="text-xs uppercase tracking-wide text-gray-400">
-                        {t(`agents.tools.categories.${category}`, category)}
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {items.map(tool => {
-                          const checked = selectedToolIds.includes(tool.id)
-                          const iconName = TOOL_ICONS[tool.name]
-                          const IconComponent = iconName
-                            ? {
-                                Search,
-                                GraduationCap,
-                                Calculator,
-                                Clock,
-                                FileText,
-                                ScanText,
-                                Wrench,
-                                FormInput,
-                              }[iconName]
-                            : Code
-                          const infoKey = TOOL_INFO_KEYS[tool.name]
-                          return (
-                            <label
-                              key={tool.id}
-                              className={clsx(
-                                'flex items-start gap-3 p-3 rounded-lg border transition-colors cursor-pointer',
-                                checked
-                                  ? 'border-primary-400 bg-primary-50/40 dark:bg-primary-900/20'
-                                  : 'border-gray-200 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-800/40',
-                              )}
-                            >
-                              <Checkbox
-                                checked={checked}
-                                onChange={() => {
-                                  setSelectedToolIds(prev =>
-                                    prev.includes(tool.id)
-                                      ? prev.filter(id => id !== tool.id)
-                                      : [...prev, tool.id],
-                                  )
-                                }}
-                              />
-                              <div className="flex-1 space-y-1.5 min-w-0">
-                                <div className="flex items-center gap-2">
-                                  {IconComponent && (
-                                    <IconComponent
-                                      size={16}
-                                      className="text-gray-500 dark:text-gray-400 shrink-0"
-                                    />
-                                  )}
-                                  <div className="text-sm font-medium text-gray-800 dark:text-gray-100">
-                                    {t(TOOL_TRANSLATION_KEYS[tool.name] || tool.name)}
-                                  </div>
-                                </div>
-                                {(infoKey || tool.description) && (
-                                  <div className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
-                                    {infoKey ? t(infoKey) : tool.description}
-                                  </div>
-                                )}
-                              </div>
-                            </label>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+            )}
+          </div>
 
-        {/* Footer */}
-        <div className="h-16 border-t border-gray-200 dark:border-zinc-800 flex items-center justify-between px-6 shrink-0 bg-white dark:bg-[#191a1a]">
-          {editingAgent && onDelete && !editingAgent.isDefault ? (
-            <button
-              onClick={() => {
-                showConfirmation({
-                  title: t('confirmation.deleteAgentTitle') || 'Delete Agent',
-                  message:
-                    t('confirmation.deleteAgentMessage', { name: editingAgent.name }) ||
-                    `Are you sure you want to delete ${editingAgent.name}?`,
-                  confirmText: t('agents.actions.delete'),
-                  isDangerous: true,
-                  onConfirm: () => onDelete(editingAgent.id),
-                })
-              }}
-              className="px-4 py-2 rounded-lg text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-            >
-              {t('agents.actions.delete')}
-            </button>
-          ) : (
-            <div />
-          )}
+          {/* Footer */}
+          <div className="h-16 border-t border-gray-200 dark:border-zinc-800 flex items-center justify-between px-6 shrink-0 bg-white dark:bg-[#191a1a]">
+            {editingAgent && onDelete && !editingAgent.isDefault ? (
+              <button
+                onClick={() => {
+                  showConfirmation({
+                    title: t('confirmation.deleteAgentTitle') || 'Delete Agent',
+                    message:
+                      t('confirmation.deleteAgentMessage', { name: editingAgent.name }) ||
+                      `Are you sure you want to delete ${editingAgent.name}?`,
+                    confirmText: t('agents.actions.delete'),
+                    isDangerous: true,
+                    onConfirm: () => onDelete(editingAgent.id),
+                  })
+                }}
+                className="px-4 py-2 rounded-lg text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+              >
+                {t('agents.actions.delete')}
+              </button>
+            ) : (
+              <div />
+            )}
 
-          <div className="flex gap-3">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
-            >
-              {t('agents.actions.cancel')}
-            </button>
-            <button
-              onClick={handleSaveWrapper}
-              disabled={isSaving}
-              className="px-4 py-2 text-sm font-medium text-white bg-primary-500 hover:bg-primary-600 rounded-lg transition-all shadow-md hover:shadow-lg active:scale-95 disabled:opacity-50"
-            >
-              {isSaving
-                ? t('agents.actions.saving')
-                : editingAgent
-                  ? t('agents.actions.save')
-                  : t('agents.actions.create')}
-            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={onClose}
+                className="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
+              >
+                {t('agents.actions.cancel')}
+              </button>
+              <button
+                onClick={handleSaveWrapper}
+                disabled={isSaving}
+                className="px-4 py-2 text-sm font-medium text-white bg-primary-500 hover:bg-primary-600 rounded-lg transition-all shadow-md hover:shadow-lg active:scale-95 disabled:opacity-50"
+              >
+                {isSaving
+                  ? t('agents.actions.saving')
+                  : editingAgent
+                    ? t('agents.actions.save')
+                    : t('agents.actions.create')}
+              </button>
+            </div>
           </div>
         </div>
       </div>

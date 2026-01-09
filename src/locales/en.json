@@ -32,7 +32,9 @@
     "jsonRepair": "JSON Repair",
     "jsonRepairInfo": "Automatically fix malformed JSON data to ensure data structure integrity",
     "interactiveForm": "Interactive Form",
-    "interactiveFormInfo": "Create dynamic forms within conversations to collect structured information and user input"
+    "interactiveFormInfo": "Create dynamic forms within conversations to collect structured information and user input",
+    "webpageReader": "Webpage reader",
+    "webpageReaderInfo": "Fetch webpage content and return JSON."
   },
   "customTools": {
     "title": "My Tools",
@@ -126,7 +128,7 @@
     "llmAnswerLanguage": "LLM Answer Language",
     "llmAnswerLanguageHint": "Appended to the system prompt for reply language control.",
     "apiProvider": "API Provider",
-    "apiProviderHint": "Choose your preferred AI provider.",
+    "apiProviderHint": "Configure your LLM provider.",
     "apiKey": "API Key",
     "baseUrl": "Base URL",
     "model": "Model",
@@ -479,6 +481,7 @@
         "time": "Time",
         "text": "Text",
         "json": "JSON",
+        "web": "Web",
         "custom": "Custom Tools",
         "other": "Other"
       }
@@ -598,13 +601,16 @@
     "agentsLabel": "Agents",
     "agentsAuto": "Agents: Auto",
     "agentsNone": "No agents",
-    "agentsLoading": "Loading agents..."
+    "agentsLoading": "Loading agents...",
+    "concurrentExecution": "Concurrent Research Steps",
+    "experimental": "Experimental",
+    "concurrentExecutionDesc": "Run all steps simultaneously for faster execution, but may affect logical coherence."
   },
   "chat": {
     "thinking": "Thinking",
     "deepResearchPlanning": "Planning research",
     "deepResearchSynthesizing": "Synthesizing sources",
-    "deepResearchDrafting": "Drafting response",
+    "deepResearchDrafting": "Drafting report...",
     "deepResearchRefining": "Refining answer",
     "analyzing": "Analyzing",
     "workingThroughIt": "Working through it",
@@ -671,6 +677,7 @@
       "submitted": "Form submitted"
     },
     "researchStepLabel": "Step {{step}}/{{total}}",
+    "researchStepStatusPending": "Waiting",
     "researchStepStatusRunning": "Running",
     "researchStepStatusDone": "Done",
     "researchStepStatusError": "Failed",
@@ -722,6 +729,7 @@
   },
   "views": {
     "newThread": "New Thread",
+    "newResearch": "New Research",
     "sort": "Sort",
     "newest": "Newest",
     "oldest": "Oldest",

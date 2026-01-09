@@ -439,13 +439,13 @@ const QuestionTimelineSidebar = ({
                               : 'opacity-0 translate-x-4 scale-95 pointer-events-none',
                           )}
                         >
-                          <div className="w-auto min-w-[240px] max-w-[280px] rounded-2xl border border-gray-200/80 dark:border-zinc-700/80 bg-user-bubble/95 dark:bg-zinc-800/95 px-4 py-3 shadow-xl backdrop-blur-md">
+                          <div className="w-auto min-w-[180px] max-w-[240px] rounded-2xl border border-gray-200/80 dark:border-zinc-700/80 bg-user-bubble/95 dark:bg-zinc-800/95 px-4 py-3 shadow-xl backdrop-blur-md">
                             {timeLabel && (
                               <div className="text-[10px] uppercase tracking-wider font-semibold text-gray-500 dark:text-gray-400 mb-0.5">
                                 {timeLabel}
                               </div>
                             )}
-                            <div className="text-sm text-gray-800 dark:text-gray-200 line-clamp-2">
+                            <div className="text-sm text-gray-800 dark:text-gray-200 whitespace-normal break-words">
                               {item.label}
                             </div>
                           </div>
@@ -518,7 +518,7 @@ const QuestionTimelineSidebar = ({
                         {timeLabel}
                       </div>
                     )}
-                    <div className="text-sm text-gray-800 dark:text-gray-200 line-clamp-2">
+                    <div className="text-sm text-gray-800 dark:text-gray-200 whitespace-normal break-words">
                       {item.label}
                     </div>
                   </div>

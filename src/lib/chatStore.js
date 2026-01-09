@@ -1125,7 +1125,15 @@ const callAIAPI = async (
         plan: planContent,
         question: firstUserText || lastMessage?.content || '',
         researchType, // Pass researchType to deep research execution
+        concurrentExecution: toggles?.concurrentResearch || false, // Pass concurrent execution flag
       })
+      // Debug: Log toggles
+      console.log(
+        '[ChatStore] toggles.concurrentResearch:',
+        toggles?.concurrentResearch,
+        '| Full toggles:',
+        toggles,
+      )
     } else {
       await provider.streamChatCompletion(params)
     }

@@ -155,13 +155,13 @@ const BookmarksView = () => {
             <Bookmark size={32} className="text-primary-500 fill-current" />
             <h1 className="text-3xl font-medium">{t('views.bookmarksView.title')}</h1>
           </div>
-          <button
+          {/* <button
             onClick={() => navigate({ to: '/new_chat' })}
             className="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors text-sm font-medium"
           >
             <Plus size={16} />
             <span>{t('views.newThread')}</span>
-          </button>
+          </button> */}
         </div>
 
         {/* Search and Filters */}
@@ -258,8 +258,7 @@ const BookmarksView = () => {
               const space = getSpaceInfo(conv.space_id)
               const isDeepResearchConversation =
                 space?.isDeepResearchSystem ||
-                (deepResearchSpace?.id &&
-                  String(conv.space_id) === String(deepResearchSpace.id))
+                (deepResearchSpace?.id && String(conv.space_id) === String(deepResearchSpace.id))
               return (
                 <div
                   key={conv.id}

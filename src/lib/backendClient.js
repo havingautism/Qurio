@@ -626,6 +626,7 @@ export const streamDeepResearchViaBackend = async params => {
     plan,
     question,
     researchType, // 'general' or 'academic'
+    concurrentExecution, // Enable concurrent step execution (experimental)
     searchProvider,
     tavilyApiKey,
     onChunk,
@@ -633,6 +634,9 @@ export const streamDeepResearchViaBackend = async params => {
     onError,
     signal,
   } = params
+
+  // Debug: Log concurrentExecution before sending to backend
+  console.log('[BackendClient] Sending concurrentExecution:', concurrentExecution)
 
   if (!provider) {
     throw new Error('Missing required field: provider')
@@ -668,6 +672,7 @@ export const streamDeepResearchViaBackend = async params => {
         plan,
         question,
         researchType, // Pass researchType to backend
+        concurrentExecution, // Pass concurrentExecution to backend
         searchProvider,
         tavilyApiKey,
       }),

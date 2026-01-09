@@ -137,6 +137,7 @@ const DeepResearchChatInterface = ({
   const [isSearchActive, setIsSearchActive] = useState(false)
   const [isThinkingActive, setIsThinkingActive] = useState(false)
   const [isDeepResearchActive, setIsDeepResearchActive] = useState(false)
+  const [isConcurrentResearchActive, setIsConcurrentResearchActive] = useState(false) // Concurrent research (experimental)
 
   const isPlaceholderConversation = Boolean(activeConversation?._isPlaceholder)
 
@@ -523,6 +524,10 @@ const DeepResearchChatInterface = ({
       if (initialToggles.deepResearch) {
         setIsDeepResearchActive(true)
         setIsThinkingActive(false)
+        // Set concurrent research if specified
+        if (initialToggles.concurrentResearch) {
+          setIsConcurrentResearchActive(true)
+        }
       } else if (initialToggles.thinking) {
         setIsThinkingActive(true)
       }
@@ -1092,6 +1097,9 @@ const DeepResearchChatInterface = ({
       const deepResearchActive = togglesOverride
         ? togglesOverride.deepResearch
         : isDeepResearchActive
+      const concurrentResearchActive = togglesOverride
+        ? togglesOverride.concurrentResearch
+        : isConcurrentResearchActive
       const relatedActive = deepResearchActive
         ? false
         : togglesOverride
@@ -1154,6 +1162,7 @@ const DeepResearchChatInterface = ({
           search: searchActive,
           thinking: resolvedThinkingActive,
           deepResearch: deepResearchActive,
+          concurrentResearch: deepResearchActive ? concurrentResearchActive : false, // Only apply when deepResearch is active
           related: relatedActive,
         },
         settings,

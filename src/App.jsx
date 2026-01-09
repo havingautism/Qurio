@@ -31,6 +31,7 @@ import {
 } from './lib/spacesService'
 import { fetchRemoteSettings, initSupabase } from './lib/supabase'
 import { applyTheme } from './lib/themes'
+import { DeepResearchGuideProvider } from './contexts/DeepResearchGuideContext'
 
 export const AppContext = React.createContext(null)
 export const useAppContext = () => React.useContext(AppContext)
@@ -67,6 +68,9 @@ function App() {
   // Agents Data
   const [agents, setAgents] = useState([])
   const [agentsLoading, setAgentsLoading] = useState(true)
+  const defaultAgent = agents.find(agent => agent.isDefault) || null
+  const deepResearchSpace = spaces.find(space => space.isDeepResearchSystem) || null
+  const deepResearchAgent = agents.find(agent => agent.isDeepResearchSystem) || null
 
   // Conversations Data
   const [conversations, setConversations] = useState([])
@@ -754,28 +758,33 @@ function App() {
     <I18nextProvider i18n={i18n}>
       <ToastProvider>
         <GitHubPagesRedirectHandler />
-        <AppContext.Provider
-          value={{
-            spaces,
-            agents,
-            defaultAgent: agents.find(agent => agent.isDefault) || null,
-            deepResearchSpace: spaces.find(space => space.isDeepResearchSystem) || null,
-            deepResearchAgent: agents.find(agent => agent.isDeepResearchSystem) || null,
-            conversations,
-            conversationsLoading,
-            spacesLoading,
-            agentsLoading,
-            onNavigate: handleNavigate,
-            onNavigateToSpace: handleNavigateToSpace,
-            onOpenConversation: handleOpenConversation,
-            onCreateSpace: handleCreateSpace,
-            onEditSpace: handleEditSpace,
-            onCreateAgent: handleCreateAgent,
-            onEditAgent: handleEditAgent,
-            isSidebarPinned,
-            toggleSidebar: () => setIsSidebarOpen(prev => !prev),
-            showConfirmation,
-          }}
+        <DeepResearchGuideProvider
+          deepResearchSpace={deepResearchSpace}
+          deepResearchAgent={deepResearchAgent}
+          defaultAgent={defaultAgent}
+        >
+          <AppContext.Provider
+            value={{
+              spaces,
+              agents,
+              defaultAgent,
+              deepResearchSpace,
+              deepResearchAgent,
+              conversations,
+              conversationsLoading,
+              spacesLoading,
+              agentsLoading,
+              onNavigate: handleNavigate,
+              onNavigateToSpace: handleNavigateToSpace,
+              onOpenConversation: handleOpenConversation,
+              onCreateSpace: handleCreateSpace,
+              onEditSpace: handleEditSpace,
+              onCreateAgent: handleCreateAgent,
+              onEditAgent: handleEditAgent,
+              isSidebarPinned,
+              toggleSidebar: () => setIsSidebarOpen(prev => !prev),
+              showConfirmation,
+            }}
         >
           {isShareRoute ? (
             <Outlet />
@@ -894,6 +903,7 @@ function App() {
             </div>
           )}
         </AppContext.Provider>
+        </DeepResearchGuideProvider>
       </ToastProvider>
     </I18nextProvider>
   )

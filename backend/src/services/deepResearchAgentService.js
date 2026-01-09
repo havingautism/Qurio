@@ -536,6 +536,125 @@ const parsePlan = planText => {
   }
 }
 
+/**
+ * Execute all research steps concurrently using Promise.all
+ * This is an experimental feature that runs all steps in parallel
+ */
+const runStepsConcurrently = async ({
+  steps,
+  planMeta,
+  trimmedMessages,
+  question,
+  toolModel,
+  sourcesMap,
+  findings,
+  signal,
+  toolConfig,
+  researchType,
+  yieldEvent,
+}) => {
+  console.log('[DeepResearch] Concurrent mode: emitting all step pending states')
+
+  // First, emit pending state for all steps so UI can display them all at once
+  for (let i = 0; i < steps.length; i++) {
+    await yieldEvent(
+      buildResearchStepEvent({
+        stepIndex: i,
+        totalSteps: steps.length,
+        title: steps[i].action || 'Research',
+        status: 'pending',
+      }),
+    )
+  }
+
+  // Create all step promises
+  const stepPromises = steps.map(async (step, i) => {
+    const stepTitle = step.action || 'Research'
+    const stepStartedAt = Date.now()
+
+    // Yield running event
+    await yieldEvent(
+      buildResearchStepEvent({
+        stepIndex: i,
+        totalSteps: steps.length,
+        title: stepTitle,
+        status: 'running',
+      }),
+    )
+
+    // Build step prompt with current sources
+    // Note: In concurrent mode, priorFindings will be empty as steps run in parallel
+    const sourcesList = buildSourcesList(sourcesMap)
+    const stepPrompt = buildStepPrompt({
+      planMeta,
+      step,
+      stepIndex: i,
+      priorFindings: findings, // Empty in concurrent mode
+      sourcesList,
+      researchType,
+    })
+
+    const stepMessages = [
+      { role: 'system', content: stepPrompt },
+      ...trimmedMessages,
+      { role: 'user', content: question || '' },
+    ]
+
+    try {
+      const stepResult = await runToolCallingStep({
+        modelInstance: toolModel,
+        baseMessages: stepMessages,
+        sourcesMap,
+        signal,
+        stepIndex: i,
+        totalSteps: steps.length,
+        toolConfig,
+      })
+
+      // Yield tool events
+      if (stepResult?.toolEvents?.length) {
+        for (const event of stepResult.toolEvents) {
+          await yieldEvent(event)
+        }
+      }
+
+      // Yield done event
+      await yieldEvent(
+        buildResearchStepEvent({
+          stepIndex: i,
+          totalSteps: steps.length,
+          title: stepTitle,
+          status: 'done',
+          durationMs: Date.now() - stepStartedAt,
+        }),
+      )
+
+      return { content: stepResult?.content, index: i }
+    } catch (error) {
+      await yieldEvent(
+        buildResearchStepEvent({
+          stepIndex: i,
+          totalSteps: steps.length,
+          title: stepTitle,
+          status: 'error',
+          durationMs: Date.now() - stepStartedAt,
+          error,
+        }),
+      )
+      return { content: '', index: i }
+    }
+  })
+
+  // Execute all steps concurrently
+  const results = await Promise.all(stepPromises)
+
+  // Collect findings in order
+  return results
+    .sort((a, b) => a.index - b.index)
+    .map(r => r.content)
+    .filter(Boolean)
+}
+
 export const streamDeepResearch = async function* (params) {
   const {
     provider,
@@ -554,7 +673,8 @@ export const streamDeepResearch = async function* (params) {
     toolIds = [],
     plan,
     question,
-    researchType = 'general', // New parameter: 'general' or 'academic'
+    researchType = 'general', // 'general' or 'academic'
+    concurrentExecution = false, // NEW: enable concurrent step execution (experimental)
     searchProvider,
     tavilyApiKey,
     signal,
@@ -570,8 +690,7 @@ export const streamDeepResearch = async function* (params) {
   const agentToolDefinitions = getToolDefinitionsByIds(toolIds)
 
   // Add search tool based on research type
-  const searchToolId =
-    researchType === 'academic' ? 'Tavily_academic_search' : 'Tavily_web_search'
+  const searchToolId = researchType === 'academic' ? 'Tavily_academic_search' : 'Tavily_web_search'
   const searchToolDefinition = getToolDefinitionsByIds([searchToolId])
 
   const combinedTools = [
@@ -630,66 +749,158 @@ export const streamDeepResearch = async function* (params) {
     streaming: false,
   })
 
-  for (let i = 0; i < steps.length; i += 1) {
-    const step = steps[i] || {}
-    const stepTitle = step.action || 'Research'
-    const stepStartedAt = Date.now()
-    yield buildResearchStepEvent({
-      stepIndex: i,
-      totalSteps: steps.length,
-      title: stepTitle,
-      status: 'running',
-    })
+  // Execute research steps (sequential or concurrent mode)
+  if (concurrentExecution) {
+    // CONCURRENT MODE: Execute all steps in parallel using Promise.all
+    console.log('[DeepResearch] Running steps concurrently (experimental)')
 
-    const sourcesList = buildSourcesList(sourcesMap)
-    const stepPrompt = buildStepPrompt({
-      planMeta,
-      step,
-      stepIndex: i,
-      priorFindings: findings,
-      sourcesList,
-      researchType, // Pass researchType to step prompt
-    })
-
-    const stepMessages = [
-      { role: 'system', content: stepPrompt },
-      ...trimmedMessages,
-      { role: 'user', content: question || '' },
-    ]
-
-    try {
-      const stepResult = await runToolCallingStep({
-        modelInstance: toolModel,
-        baseMessages: stepMessages,
-        sourcesMap,
-        signal,
+    // First, immediately yield pending state for all steps
+    for (let i = 0; i < steps.length; i++) {
+      yield buildResearchStepEvent({
         stepIndex: i,
         totalSteps: steps.length,
-        toolConfig,
+        title: steps[i].action || 'Research',
+        status: 'pending',
       })
+    }
 
-      if (stepResult?.toolEvents?.length) {
-        for (const event of stepResult.toolEvents) {
-          yield event
-        }
+    const eventQueue = []
+    let resolveNextEvent = null
+
+    // Callback that pushes to queue and wakes up the consumer
+    const yieldEvent = async event => {
+      eventQueue.push(event)
+      if (resolveNextEvent) {
+        resolveNextEvent()
+        resolveNextEvent = null
       }
-      if (stepResult?.content) findings.push(stepResult.content)
+    }
+
+    // Start execution WITHOUT awaiting it immediately
+    // We catch errors to avoid unhandled rejections, but we'll check the result in the loop
+    let isWorkDone = false
+    let workResult = []
+    let workError = null
+
+    const workPromise = runStepsConcurrently({
+      steps,
+      planMeta,
+      trimmedMessages,
+      question,
+      toolModel,
+      sourcesMap,
+      findings,
+      signal,
+      toolConfig,
+      researchType,
+      yieldEvent,
+    })
+      .then(res => {
+        isWorkDone = true
+        workResult = res
+        // Wake up loop if it's waiting
+        if (resolveNextEvent) {
+          resolveNextEvent()
+          resolveNextEvent = null
+        }
+        return res
+      })
+      .catch(err => {
+        isWorkDone = true
+        workError = err
+        // Wake up loop if it's waiting
+        if (resolveNextEvent) {
+          resolveNextEvent()
+          resolveNextEvent = null
+        }
+      })
+
+    // Loop until work is done AND queue is empty
+    while (!isWorkDone || eventQueue.length > 0) {
+      // Flush currently available events
+      while (eventQueue.length > 0) {
+        yield eventQueue.shift()
+      }
+
+      // If work is not done and queue is empty, wait for next event or completion
+      if (!isWorkDone && eventQueue.length === 0) {
+        await new Promise(resolve => {
+          resolveNextEvent = resolve
+        })
+      }
+    }
+
+    // Check for errors after completion
+    if (workError) {
+      throw workError
+    }
+
+    findings.push(...workResult)
+  } else {
+    // SEQUENTIAL MODE: Original implementation (default)
+    console.log('[DeepResearch] Running steps sequentially')
+
+    for (let i = 0; i < steps.length; i += 1) {
+      const step = steps[i] || {}
+      const stepTitle = step.action || 'Research'
+      const stepStartedAt = Date.now()
       yield buildResearchStepEvent({
         stepIndex: i,
         totalSteps: steps.length,
         title: stepTitle,
-        status: 'done',
-        durationMs: Date.now() - stepStartedAt,
+        status: 'running',
       })
-    } catch (error) {
-      yield buildResearchStepEvent({
+
+      const sourcesList = buildSourcesList(sourcesMap)
+      const stepPrompt = buildStepPrompt({
+        planMeta,
+        step,
         stepIndex: i,
-        totalSteps: steps.length,
-        title: stepTitle,
-        status: 'error',
-        durationMs: Date.now() - stepStartedAt,
-        error,
+        priorFindings: findings,
+        sourcesList,
+        researchType, // Pass researchType to step prompt
       })
+
+      const stepMessages = [
+        { role: 'system', content: stepPrompt },
+        ...trimmedMessages,
+        { role: 'user', content: question || '' },
+      ]
+
+      try {
+        const stepResult = await runToolCallingStep({
+          modelInstance: toolModel,
+          baseMessages: stepMessages,
+          sourcesMap,
+          signal,
+          stepIndex: i,
+          totalSteps: steps.length,
+          toolConfig,
+        })
+
+        if (stepResult?.toolEvents?.length) {
+          for (const event of stepResult.toolEvents) {
+            yield event
+          }
+        }
+        if (stepResult?.content) findings.push(stepResult.content)
+        yield buildResearchStepEvent({
+          stepIndex: i,
+          totalSteps: steps.length,
+          title: stepTitle,
+          status: 'done',
+          durationMs: Date.now() - stepStartedAt,
+        })
+      } catch (error) {
+        yield buildResearchStepEvent({
+          stepIndex: i,
+          totalSteps: steps.length,
+          title: stepTitle,
+          status: 'error',
+          durationMs: Date.now() - stepStartedAt,
+          error,
+        })
+      }
     }
   }
 

@@ -118,6 +118,7 @@ const MessageBubble = ({
   )
 
   const { developerMode } = useSettings()
+  const { agents = [], onEditAgent } = useAppContext()
 
   // Extract message by index
   const message = messages[messageIndex]
@@ -1624,6 +1625,22 @@ const MessageBubble = ({
   //   })
   // }
 
+  const targetAgentId = message.agentId || message.agent_id
+  const targetAgent = useMemo(() => {
+    if (!targetAgentId) return null
+    return agents.find(a => String(a.id) === String(targetAgentId))
+  }, [agents, targetAgentId])
+
+  const handleAgentClick = useCallback(
+    e => {
+      if (targetAgent && onEditAgent) {
+        e.stopPropagation()
+        onEditAgent(targetAgent)
+      }
+    },
+    [targetAgent, onEditAgent],
+  )
+
   return (
     <div
       id={messageId}
@@ -1700,7 +1717,13 @@ const MessageBubble = ({
       <div className="flex items-center gap-3 text-gray-900 dark:text-gray-100">
         {agentName ? (
           <>
-            <div className="rounded-full shadow-inner flex items-center justify-center overflow-hidden w-10 h-10 bg-gray-100 dark:bg-zinc-800">
+            <div
+              onClick={handleAgentClick}
+              className={clsx(
+                'rounded-full shadow-inner flex items-center justify-center overflow-hidden w-10 h-10 bg-gray-100 dark:bg-zinc-800',
+                targetAgent && 'cursor-pointer hover:opacity-80 transition-opacity',
+              )}
+            >
               <EmojiDisplay emoji={agentEmoji} size="1.5rem" />
             </div>
             <div className="flex flex-col leading-tight">
@@ -1736,7 +1759,13 @@ const MessageBubble = ({
           </>
         ) : (
           <>
-            <div className=" rounded-full  shadow-inner flex items-center justify-center overflow-hidden">
+            <div
+              onClick={handleAgentClick}
+              className={clsx(
+                'rounded-full shadow-inner flex items-center justify-center overflow-hidden',
+                targetAgent && 'cursor-pointer hover:opacity-80 transition-opacity',
+              )}
+            >
               {renderProviderIcon(providerMeta.id, {
                 size: 30,
                 alt: providerMeta.label,

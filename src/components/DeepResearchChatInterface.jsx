@@ -1583,9 +1583,9 @@ const DeepResearchChatInterface = ({
         {showScrollButton && (
           <button
             onClick={() => scrollToBottom('smooth')}
-            className="absolute bottom-8 left-1/2 -translate-x-1/2 p-2 bg-background border border-[#0d0d0d1a] dark:border-[#ffffff26] rounded-full shadow-lg hover:bg-muted transition-all duration-300 animate-in fade-in slide-in-from-bottom-2 z-30"
+            className="absolute bottom-6 sm:hover:scale-105 left-1/2 -translate-x-1/2 p-2 bg-background border border-[#0d0d0d1a] dark:border-[#ffffff26] rounded-full shadow-lg hover:bg-muted transition-all duration-300 animate-in fade-in slide-in-from-bottom-2 z-30"
           >
-            <ArrowDown size={20} className="text-foreground" />
+            <ArrowDown size={16} className="text-foreground" />
           </button>
         )}
 

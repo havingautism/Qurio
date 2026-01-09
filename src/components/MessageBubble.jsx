@@ -1490,7 +1490,7 @@ const MessageBubble = ({
             return (
               <div
                 className={clsx(
-                  'relative px-5 py-3.5 rounded-3xl text-base',
+                  'relative px-5 py-3.5 rounded-3xl text-base max-w-[95%] sm:max-w-[95%]',
                   'bg-primary-500 dark:bg-primary-900 text-white dark:text-gray-100',
                 )}
               >
@@ -2016,17 +2016,17 @@ const MessageBubble = ({
                                   {stepToolCalls.map(item => {
                                     const iconName = TOOL_ICONS[item.name]
                                     const IconComponent = iconName
-                                        ? {
-                                            Search,
-                                            GraduationCap,
-                                            Calculator,
-                                            Clock,
-                                            FileText,
-                                            ScanText,
-                                            Wrench,
-                                            FormInput,
-                                            Globe,
-                                          }[iconName]
+                                      ? {
+                                          Search,
+                                          GraduationCap,
+                                          Calculator,
+                                          Clock,
+                                          FileText,
+                                          ScanText,
+                                          Wrench,
+                                          FormInput,
+                                          Globe,
+                                        }[iconName]
                                       : null
                                     return (
                                       <div

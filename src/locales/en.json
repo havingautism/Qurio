@@ -5,12 +5,13 @@
     "save": "Save",
     "delete": "Delete",
     "done": "Done",
-    "uploadImage": "Upload image",
+    "upload": "Upload",
     "uploadDocument": "Upload document (coming soon)",
     "on": "On",
     "off": "Off",
     "commit": "Commit",
-    "commited": "Commited"
+    "commited": "Commited",
+    "uploadImage": "Upload Image"
   },
   "app": {
     "name": "Qurio",
@@ -724,7 +725,8 @@
     "documentsEmpty": "No documents in this space yet.",
     "documentsLoadFailed": "Failed to load documents",
     "documentsSelectionLoadFailed": "Failed to load selected documents",
-    "documentsSelectionSaveFailed": "Failed to save document selection"
+    "documentsSelectionSaveFailed": "Failed to save document selection",
+    "capabilities": "Capabilities"
   },
   "agentsView": {
     "title": "Agents",

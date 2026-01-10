@@ -667,7 +667,7 @@ const HomeView = () => {
                             className="flex items-center gap-2 w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left text-sm text-gray-700 dark:text-gray-200"
                           >
                             <Image size={16} />
-                            {t('common.uploadImage')}
+                            {t('common.upload')}
                           </button>
                           <button
                             type="button"

@@ -298,13 +298,25 @@ const ChatInputBar = React.memo(
         </div>
       )
 
-      const uploadMenuContent = (
+      const uploadMenuButton = (
         <button
           onClick={handleUploadImage}
-          className="flex items-center gap-1.5 w-full p-3 hover:bg-gray-50 dark:hover:bg-zinc-800 text-sm rounded-xl"
+          className="flex items-center gap-1.5 w-full px-3 py-2 hover:bg-gray-50 dark:hover:bg-zinc-800 text-sm rounded-xl"
         >
-          <Image size={16} /> Image
+          <Image size={16} /> {t('common.uploadImage')}
         </button>
+      )
+
+      const popoverSurfaceClass =
+        'absolute bottom-full left-0 mb-3 bg-white/80 dark:bg-[#1C1C1E]/80 dark:bg-[#1a1a1a] bg-[#F9F9F9] dark:bg-[#1a1a1a] backdrop-blur-xl border border-gray-200/50 dark:border-zinc-700/50 rounded-2xl shadow-2xl z-50 overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-4 p-3'
+
+      const desktopUploadMenuContent = (
+        <div className={clsx(popoverSurfaceClass, 'w-48')}>
+          <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-2 mb-2">
+            {t('common.upload')}
+          </div>
+          <div className="space-y-1">{uploadMenuButton}</div>
+        </div>
       )
 
       const settingsMenuContent = (
@@ -312,7 +324,7 @@ const ChatInputBar = React.memo(
           {/* Models List */}
           <div>
             <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-2 mb-2">
-              Agent
+              {t('chatInterface.agentsLabel')}
             </div>
             <div className="flex flex-col gap-1.5 max-h-[300px] overflow-y-auto no-scrollbar">
               <button
@@ -372,7 +384,7 @@ const ChatInputBar = React.memo(
           {/* Capabilities */}
           <div>
             <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-2 mb-2">
-              Capabilities
+              {t('chatInterface.capabilities')}
             </div>
             <div className="space-y-0.5">
               <button
@@ -550,22 +562,18 @@ const ChatInputBar = React.memo(
                   <button
                     onClick={() => setIsUploadMenuOpen(!isUploadMenuOpen)}
                     className="p-1.5 sm:p-2 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 hover:bg-gray-200 dark:hover:bg-zinc-800 rounded-full transition-colors"
-                    title={t('common.uploadImage')}
+                    title={t('common.upload')}
                   >
                     <Plus size={20} strokeWidth={2.5} />
                   </button>
-                  {!isMobile && isUploadMenuOpen && (
-                    <div className="absolute bottom-full left-0 mb-3 w-40 bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-xl border border-gray-200/50 dark:border-zinc-700/50 rounded-2xl shadow-2xl z-50 overflow-hidden p-1.5 animate-in zoom-in-95 slide-in-from-bottom-4">
-                      {uploadMenuContent}
-                    </div>
-                  )}
+                  {!isMobile && isUploadMenuOpen && desktopUploadMenuContent}
                   {isMobile && (
                     <MobileDrawer
                       isOpen={isUploadMenuOpen}
                       onClose={() => setIsUploadMenuOpen(false)}
-                      title={t('common.uploadImage')}
+                      title={t('common.upload')}
                     >
-                      {uploadMenuContent}
+                      {uploadMenuButton}
                     </MobileDrawer>
                   )}
                 </div>
@@ -618,9 +626,7 @@ const ChatInputBar = React.memo(
 
                   {/* Popover Menu (Desktop) */}
                   {!isMobile && isCapsuleMenuOpen && (
-                    <div className="absolute bottom-full left-0 mb-3 w-72 bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-xl border border-gray-200/50 dark:border-zinc-700/50 rounded-2xl shadow-2xl z-50 overflow-hidden p-3 animate-in zoom-in-95 slide-in-from-bottom-4">
-                      {settingsMenuContent}
-                    </div>
+                    <div className={clsx(popoverSurfaceClass, 'w-72')}>{settingsMenuContent}</div>
                   )}
 
                   {/* Drawer Menu (Mobile) */}
@@ -841,7 +847,7 @@ const ChatInputBar = React.memo(
                         className="flex items-center gap-2 w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left text-sm text-gray-700 dark:text-gray-200"
                       >
                         <Image size={16} />
-                        {t('common.uploadImage')}
+                        {t('common.upload')}
                       </button>
                       <button
                         type="button"

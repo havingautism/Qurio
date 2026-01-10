@@ -105,6 +105,27 @@ const fetchRelevantDocumentSources = async (documents, queryText) => {
   }
 }
 
+const getRelevanceLabel = score => {
+  if (score == null) return 'Medium relevance'
+  if (score >= 0.9) return 'High relevance'
+  if (score >= 0.75) return 'Medium relevance'
+  return 'Low relevance'
+}
+
+const formatDocumentAppendText = sources => {
+  const filtered = (sources || []).filter(source => source?.snippet)
+  if (!filtered.length) return ''
+  const lines = filtered.map(source => {
+    const label = source.fileType ? `${source.title} (${source.fileType})` : source.title
+    const relevance = getRelevanceLabel(source.score)
+    return `- [${relevance} | ${label}]: ${source.snippet}`
+  })
+  return [
+    '# The following document excerpts may help answer this question (may be incomplete):',
+    ...lines,
+  ].join('\n')
+}
+
 const ChatInterface = ({
   spaces = [],
   activeConversation = null,
@@ -520,14 +541,10 @@ const ChatInterface = ({
     return (spaceDocuments || []).filter(doc => idSet.has(String(doc.id)))
   }, [selectedDocumentIds, spaceDocuments])
 
-  const fallbackDocumentContext = useMemo(
-    () => buildDocumentContext(selectedDocuments),
-    [selectedDocuments],
-  )
-  const fallbackDocumentSources = useMemo(
-    () => buildDocumentSources(selectedDocuments),
-    [selectedDocuments],
-  )
+const baseDocumentSources = useMemo(
+  () => buildDocumentSources(selectedDocuments),
+  [selectedDocuments],
+)
 
   // Agent selection is fully user-controlled:
   // - Auto mode: updated via onAgentResolved callback (preselection before sending)
@@ -1303,18 +1320,16 @@ const ChatInterface = ({
       const agentForSend =
         selectedAgent || (!isAgentAutoMode && initialAgentSelection) || defaultAgent || null
 
-      let retrievedDocumentContext = null
       let retrievedDocumentSources = null
       if (selectedDocuments.length > 0 && textToSend.trim()) {
         const retrieval = await fetchRelevantDocumentSources(selectedDocuments, textToSend)
         if (retrieval) {
-          retrievedDocumentContext = retrieval.context || null
           retrievedDocumentSources = retrieval.sources || null
         }
       }
 
-      const contextForSend = retrievedDocumentContext || fallbackDocumentContext
-      const sourcesForSend = retrievedDocumentSources || fallbackDocumentSources
+      const documentContextAppend = formatDocumentAppendText(retrievedDocumentSources)
+      const sourcesForSend = retrievedDocumentSources || baseDocumentSources
 
       await sendMessage({
         text: textToSend,
@@ -1330,7 +1345,7 @@ const ChatInterface = ({
         isAgentAutoMode,
         agents: appAgents,
         documentSources: sourcesForSend,
-        documentContext: contextForSend,
+        documentContextAppend: documentContextAppend,
         editingInfo,
         callbacks: {
           onTitleAndSpaceGenerated,
@@ -1385,9 +1400,7 @@ const ChatInterface = ({
       appAgents,
       spaceAgentIds,
       spaceAgents,
-      fallbackDocumentContext,
-      fallbackDocumentSources,
-      selectedDocuments,
+      baseDocumentSources,
       t,
       toast,
     ],

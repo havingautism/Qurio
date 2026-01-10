@@ -47,7 +47,7 @@ const validateInput = (text, attachments, isLoading) => {
  * @param {Array} attachments - Array of file attachments
  * @returns {Object} User message object with role, content, and timestamp
  */
-const buildUserMessage = (text, attachments, quoteContext) => {
+const buildUserMessage = (text, attachments, quoteContext, documentContextAppend = '') => {
   const now = new Date().toISOString()
   const quoteText = quoteContext?.text?.trim()
 
@@ -69,8 +69,11 @@ const buildUserMessage = (text, attachments, quoteContext) => {
     quoteText && quoteSource && text
       ? `###User quoted these sentences from context:\n${quoteText}\n\n###User question:\n${text}\n\n ###User original context:\n${quoteSource}`
       : text
+  const textWithDocumentContext = documentContextAppend
+    ? `${textWithPrefix}\n\n${documentContextAppend}`
+    : textWithPrefix
   const payloadContent =
-    attachments.length > 0 ? buildContentArray(textWithPrefix, false) : textWithPrefix
+    attachments.length > 0 ? buildContentArray(textWithDocumentContext, false) : textWithDocumentContext
 
   const userMessage = { role: 'user', content: displayContent, created_at: now }
 
@@ -689,14 +692,12 @@ const prepareAIPlaceholder = (
   settings,
   set,
   toggles,
-  documentContext,
   documentSources = [],
 ) => {
   const resolvedPrompt = buildAgentPrompt(selectedAgent, settings)
 
   const conversationMessagesBase = [
     ...(resolvedPrompt ? [{ role: 'system', content: resolvedPrompt }] : []),
-    ...(documentContext ? [{ role: 'system', content: documentContext }] : []),
     ...historyForSend,
   ]
 
@@ -1920,7 +1921,7 @@ Analyze the submitted data. If critical information is still missing or if the r
    * @param {Object|null} params.selectedAgent - Currently selected agent (optional)
    * @param {boolean} params.isAgentAutoMode - Whether agent selection is in auto mode (agent preselects every message, space/title only on first turn)
  * @param {Array} params.agents - Available agents list (optional)
- * @param {string} params.documentContext - Optional background document context
+  * @param {string} params.documentContextAppend - Optional document information appended to user question
   * @param {Array} params.documentSources - Optional metadata for document references (used by UI)
  * @param {Object|null} params.editingInfo - Information about message being edited { index, targetId, partnerId }
    * @param {Object|null} params.callbacks - Callback functions { onTitleAndSpaceGenerated, onSpaceResolved, onAgentResolved, onConversationReady }
@@ -1951,7 +1952,7 @@ Analyze the submitted data. If critical information is still missing or if the r
     selectedAgent = null, // Currently selected agent (optional)
     isAgentAutoMode = false, // Whether agent selection is in auto mode
     agents = [], // available agents list for resolving defaults
-    documentContext = '',
+    documentContextAppend = '',
     documentSources = [],
     editingInfo, // { index, targetId, partnerId } (optional)
     callbacks, // { onTitleAndSpaceGenerated, onSpaceResolved } (optional)
@@ -1974,7 +1975,12 @@ Analyze the submitted data. If critical information is still missing or if the r
     set({ isLoading: true })
 
     // Step 2: Construct User Message
-    const { userMessage, payloadContent } = buildUserMessage(text, attachments, quoteContext)
+    const { userMessage, payloadContent } = buildUserMessage(
+      text,
+      attachments,
+      quoteContext,
+      documentContextAppend,
+    )
     const userMessageForSend = { ...userMessage, content: payloadContent }
 
     // When quoting, the original answer has already been embedded into textWithPrefix,
@@ -2253,7 +2259,6 @@ Analyze the submitted data. If critical information is still missing or if the r
       settings,
       set,
       toggles,
-      documentContext,
       documentSources,
     )
 

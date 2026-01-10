@@ -518,7 +518,7 @@ const HomeView = () => {
         )}
       >
         {/* Mobile Header for Home View */}
-        <div className="md:hidden w-full h-14 shrink-0 border-b border-gray-200 dark:border-zinc-800 flex items-center justify-between px-4 bg-background z-30 fixed top-0 left-0">
+        <div className="md:hidden w-full h-12 shrink-0 border-b border-gray-200 dark:border-zinc-800 flex items-center justify-between px-4 bg-background z-30 fixed top-0 left-0">
           <div className="flex items-center gap-3">
             <button
               onClick={toggleSidebar}
@@ -533,8 +533,8 @@ const HomeView = () => {
         </div>
 
         {/* Main Container */}
-        <div className="w-full max-w-3xl flex flex-col items-center gap-4 sm:gap-8 sm:mt-14">
-          <div className="p-4 block sm:hidden mt-10 rounded-3xl mb-2">
+        <div className="w-full max-w-3xl flex flex-col items-center gap-4 sm:gap-8 sm:mt-12">
+          <div className="p-4 block sm:hidden mt-8 rounded-3xl mb-2">
             <Logo size={128} className="text-gray-900 dark:text-white" priority />
           </div>
           {/* Title */}

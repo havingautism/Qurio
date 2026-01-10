@@ -81,7 +81,7 @@ const ChatHeader = ({
   // }, [normalizedEmojis.length])
 
   return (
-    <div className="shrink-0 z-20 w-full border-b border-gray-200 dark:border-zinc-800 bg-background/80 backdrop-blur-md pb-2 pt-[calc(0.5rem+env(safe-area-inset-top))] transition-all flex justify-center">
+    <div className="shrink-0 z-20 w-full border-b border-gray-200 dark:border-zinc-800 bg-background/80 backdrop-blur-md pb-1.5 pt-[calc(0.375rem+env(safe-area-inset-top))] transition-all flex justify-center">
       <style>{`
         @media (max-width: 640px) {
           .chat-title-scroll {
@@ -113,7 +113,7 @@ const ChatHeader = ({
               if (isDeepResearchConversation) return
               setIsSelectorOpen(prev => !prev)
             }}
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors text-sm font-medium text-gray-700 dark:text-gray-300 ${
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors text-sm font-medium text-gray-700 dark:text-gray-300 ${
               isDeepResearchConversation
                 ? 'opacity-60 cursor-not-allowed'
                 : 'hover:bg-gray-100 dark:hover:bg-zinc-800'

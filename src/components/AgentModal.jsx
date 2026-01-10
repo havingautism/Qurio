@@ -1253,7 +1253,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
 
   return (
     <div className="fixed inset-0 z-100 flex items-start md:items-center justify-center bg-black/50 backdrop-blur-sm p-0 md:p-4 overflow-y-auto md:overflow-hidden">
-      <div className="w-full h-screen md:max-w-4xl md:h-[85vh] bg-white dark:bg-[#191a1a] rounded-none md:rounded-2xl shadow-2xl flex flex-col md:flex-row overflow-hidden border-0 md:border border-gray-200 dark:border-zinc-800">
+      <div className="w-full h-[100dvh] md:max-w-4xl md:h-[85vh] bg-white dark:bg-[#191a1a] rounded-none md:rounded-2xl shadow-2xl flex flex-col md:flex-row overflow-hidden border-0 md:border border-gray-200 dark:border-zinc-800">
         {/* Mobile Header */}
         <div className="md:hidden h-14 border-b border-gray-200 dark:border-zinc-800 flex items-center justify-between px-4 bg-white dark:bg-[#191a1a] shrink-0">
           <h3 className="text-base font-semibold text-gray-900 dark:text-white">
@@ -1723,17 +1723,17 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                             const checked = selectedToolIds.includes(tool.id)
                             const iconName = TOOL_ICONS[tool.name]
                             const IconComponent = iconName
-                                ? {
-                                    Search,
-                                    GraduationCap,
-                                    Calculator,
-                                    Clock,
-                                    FileText,
-                                    ScanText,
-                                    Wrench,
-                                    FormInput,
-                                    Globe,
-                                  }[iconName]
+                              ? {
+                                  Search,
+                                  GraduationCap,
+                                  Calculator,
+                                  Clock,
+                                  FileText,
+                                  ScanText,
+                                  Wrench,
+                                  FormInput,
+                                  Globe,
+                                }[iconName]
                               : Code
                             const infoKey = TOOL_INFO_KEYS[tool.name]
                             return (

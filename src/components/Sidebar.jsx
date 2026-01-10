@@ -632,7 +632,7 @@ const Sidebar = ({
 
       <div
         className={clsx(
-          'fixed left-0 top-0 h-full z-50 flex transition-transform duration-300 md:translate-x-0',
+          'fixed left-0 top-0 h-[100dvh] z-50 flex transition-transform duration-300 md:translate-x-0',
           // On mobile, control via isOpen. On desktop, always visible (handled by layout margin)
           // Actually, fixed sidebar on desktop is always visible (icon strip).
           // Mobile: hidden by default (-translate-x-full), shown if isOpen
@@ -647,7 +647,7 @@ const Sidebar = ({
         }}
       >
         {/* 1. Fixed Icon Strip */}
-        <div className="w-18 h-full bg-sidebar  flex flex-col items-center py-4 z-20 relative">
+        <div className="w-18 h-full bg-sidebar  flex flex-col items-center py-4 z-20 relative overflow-y-auto no-scrollbar">
           {/* Logo */}
           <div className="mb-6">
             <div className="w-full h-full flex items-center justify-center text-gray-900 dark:text-white font-bold text-xl">

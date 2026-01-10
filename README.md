@@ -18,21 +18,45 @@
 - **Production-Grade**: Light/Dark/System themes, secure API key management (in-memory/Supabase), internationalization (en/zh), and responsive design.
 
 ## Highlights
-- **Deep Research Mode**: A dedicated view for complex inquiries. The system breaks down goals, performs iterative web searches (via Tavily), and synthesizes a comprehensive report.
-- **Agent System**: Define custom agents with specific "System Prompts," preferred models (e.g., a "Coder" agent using DeepSeek-Coder, a "Writer" agent using Gemini Pro), and tone settings.
-- **Extended Provider Support**: Out-of-the-box support for:
-    - **Google Gemini** (Native SDK)
-    - **SiliconFlow** (DeepSeek, Qwen, etc.)
-    - **Kimi (Moonshot)**
-    - **MiniMax**
-    - **GLM (Zhipu AI)**
-    - **ModelScope**
-    - **NVIDIA NIM**
-    - **OpenAI & Compatibles** (Any standard endpoint)
-- **Question Timeline**: Innovative side panel displaying your query history as interactive cards, grouped by time (Today, Yesterday), with search capabilities.
-- **Security & Privacy**: API keys are stored securely in Supabase or kept in-memory during the session (never persisted to LocalStorage for sensitive keys).
-- **Personalization**: Adjust font sizes, interface language, and AI response styles (tone, warmth, enthusiasm).
-- **Media Friendly**: Drag & drop images, paste screenshots, and render inline media.
+
+### 🔬 Academic Research Reports
+- **Automated Research Pipeline**: Deep Research mode breaks down complex research goals into structured plans, conducts iterative web searches, and synthesizes comprehensive academic-style reports with proper citations.
+- **Source Tracking**: All claims are backed by timestamped sources with direct links, ensuring research integrity and easy verification.
+- **Export-Ready**: Generate polished reports in Markdown format, ready for academic or professional use.
+
+### 🤖 Intelligent Agent System
+- **Custom Agents**: Create specialized AI personas with unique system prompts, model preferences, and personality traits (tone, warmth, enthusiasm).
+- **Automatic Agent Selection**: The system can intelligently select the best agent for your task based on context, or you can manually choose from your agent library.
+- **Multi-Model Support**: Each agent can have dual model slots (Default + Lite) from different providers, optimizing for quality vs. speed.
+- **Space-Agent Binding**: Assign specific agents to workspaces for consistent behavior across related conversations.
+
+### 🛠️ Custom Tool System
+- **HTTP API Tools**: Define custom tools by simply providing an API endpoint, method, and parameter schema. The system automatically extracts variables from your template and generates the input schema.
+- **Interactive Forms**: Tools can trigger interactive forms that appear inline in the chat, collecting structured user input before execution.
+- **Tool Categories**: Organize tools by category (Search, Productivity, Development, etc.) for easy discovery and management.
+- **LangChain Integration**: Built on LangChain's tool framework for robust, extensible agentic workflows.
+
+### 📊 Interactive Forms
+- **Dynamic Form Generation**: AI agents can request structured input through beautifully rendered forms with various field types (text, number, select, textarea, etc.).
+- **Real-time Validation**: Form inputs are validated before submission, ensuring data quality.
+- **Seamless UX**: Forms appear inline in the conversation flow, maintaining context while collecting detailed information.
+
+### 🌐 Extended Provider Support
+Out-of-the-box support for:
+- **Google Gemini** (Native SDK with Thinking mode)
+- **SiliconFlow** (DeepSeek-R1, Qwen, etc.)
+- **Kimi (Moonshot)**
+- **MiniMax**
+- **GLM (Zhipu AI)**
+- **ModelScope**
+- **NVIDIA NIM**
+- **OpenAI & Compatibles** (Any standard endpoint)
+
+### 🎨 Production-Grade Features
+- **Question Timeline**: Interactive history cards grouped by time (Today, Yesterday, Past 7 Days) with instant search.
+- **Security & Privacy**: API keys stored securely in Supabase or kept in-memory (never in LocalStorage for sensitive keys).
+- **Personalization**: Adjust font sizes, interface language (en/zh), AI response styles, and theme (Light/Dark/System).
+- **Media Support**: Drag & drop images, paste screenshots, and render inline media with vision-capable models.
 
 ## Tech Stack
 - **Frontend**: React 19, TanStack Router v1, Zustand (State), Tailwind CSS v4, Lucide Icons.

@@ -781,10 +781,9 @@ const Sidebar = ({
           )}
         >
           <div className="p-2 min-w-[256px] flex flex-col h-full">
-            {' '}
             {/* min-w ensures content doesn't squash during transition */}
             {/* Header based on Tab */}
-            <div className="p-2 flex items-center justify-between shrink-0">
+            <div className="p-2 flex items-center justify-between shrink-0 border-b border-gray-200 dark:border-zinc-800 mb-2">
               <div className="flex items-center gap-2">
                 <h2 className="font-semibold text-lg text-foreground">
                   {displayTab === 'library'
@@ -824,7 +823,7 @@ const Sidebar = ({
                 />
               </button>
             </div>
-            <div className="h-px bg-gray-200 dark:bg-zinc-800 mb-2 shrink-0" />
+            {/* <div className="h-px bg-gray-200 dark:bg-zinc-800 mb-2 shrink-0" /> */}
             {/* CONVERSATION LIST (Library & Bookmarks) */}
             {(displayTab === 'library' ||
               displayTab === 'bookmarks' ||
@@ -1059,19 +1058,19 @@ const Sidebar = ({
                                         className="shrink-0"
                                       />
                                     </div>
-                                      <div className="flex flex-col overflow-hidden flex-1 min-w-0">
-                                        <div className="flex items-center gap-1 min-w-0">
-                                          <span className="truncate font-medium flex-1 min-w-0">
-                                            {conv.title}
-                                          </span>
-                                          {conv.is_favorited && (
-                                            <Bookmark
-                                              size={12}
-                                              className="text-primary-500 fill-current shrink-0"
-                                            />
-                                          )}
+                                    <div className="flex flex-col overflow-hidden flex-1 min-w-0">
+                                      <div className="flex items-center gap-1 min-w-0">
+                                        <span className="truncate font-medium flex-1 min-w-0">
+                                          {conv.title}
+                                        </span>
+                                        {conv.is_favorited && (
+                                          <Bookmark
+                                            size={12}
+                                            className="text-primary-500 fill-current shrink-0"
+                                          />
+                                        )}
                                         {renderConversationStatusDot(conversationStatuses[conv.id])}
-                                        </div>
+                                      </div>
                                       <span
                                         className={clsx(
                                           'text-xs',

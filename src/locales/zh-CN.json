@@ -732,7 +732,8 @@
     "documentsLoadFailed": "文档加载失败",
     "documentsSelectionLoadFailed": "已选文档加载失败",
     "documentsSelectionSaveFailed": "文档选择保存失败",
-    "capabilities": "能力"
+    "capabilities": "能力",
+    "warning": "Qurio 可能会犯错，请谨慎使用。"
   },
   "agentsView": {
     "title": "智能体",

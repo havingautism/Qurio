@@ -726,7 +726,8 @@
     "documentsLoadFailed": "Failed to load documents",
     "documentsSelectionLoadFailed": "Failed to load selected documents",
     "documentsSelectionSaveFailed": "Failed to save document selection",
-    "capabilities": "Capabilities"
+    "capabilities": "Capabilities",
+    "warning": "Qurio can make mistakes. Please use with caution."
   },
   "agentsView": {
     "title": "Agents",

@@ -158,8 +158,12 @@ const ChatInterface = ({
   }, [])
 
   const activeConversationId = activeConversation?.id || conversationId
-  const { toggleSidebar, agents: appAgents = [], defaultAgent, setConversationStatus } =
-    useAppContext()
+  const {
+    toggleSidebar,
+    agents: appAgents = [],
+    defaultAgent,
+    setConversationStatus,
+  } = useAppContext()
 
   useEffect(() => {
     if (!activeConversationId) return
@@ -1539,11 +1543,13 @@ const ChatInterface = ({
       if (!target) return
 
       // Determine range to delete: for AI, delete until next user (same question's stitched parts/forms)
-      const nextUserIndex = target.role === 'ai'
-        ? messages.findIndex((m, idx) => idx > index && m.role === 'user')
-        : -1
+      const nextUserIndex =
+        target.role === 'ai' ? messages.findIndex((m, idx) => idx > index && m.role === 'user') : -1
       const cutEnd = nextUserIndex === -1 ? index + 1 : nextUserIndex
-      const idsToDelete = messages.slice(index, cutEnd).map(m => m.id).filter(Boolean)
+      const idsToDelete = messages
+        .slice(index, cutEnd)
+        .map(m => m.id)
+        .filter(Boolean)
 
       if (idsToDelete.length > 0) {
         try {
@@ -1873,7 +1879,7 @@ const ChatInterface = ({
               onToggleDocument={handleToggleDocument}
             />
             <div className="text-center mt-2 text-xs text-gray-400 dark:text-gray-500">
-              Qurio can make mistakes. Please use with caution.
+              {t('chatInterface.warning')}
             </div>
           </div>
         </div>

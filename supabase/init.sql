@@ -143,6 +143,7 @@ CREATE TABLE IF NOT EXISTS public.conversation_messages (
   research_step_history JSONB NOT NULL DEFAULT '[]'::jsonb,
   related_questions JSONB,
   sources JSONB,
+  document_sources JSONB DEFAULT '[]'::jsonb,
   grounding_supports JSONB,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -207,7 +208,54 @@ CREATE INDEX IF NOT EXISTS idx_conversation_documents_conversation_id
 CREATE INDEX IF NOT EXISTS idx_conversation_documents_document_id
   ON public.conversation_documents(document_id);
 
--- 9) Space <-> Agents (many-to-many binding)
+-- 9) Document sections & chunks (for embeddings)
+CREATE TABLE IF NOT EXISTS public.document_sections (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  document_id UUID NOT NULL REFERENCES public.space_documents(id) ON DELETE CASCADE,
+  external_section_id INT NOT NULL,
+  title_path TEXT[] NOT NULL DEFAULT '{}',
+  level INT DEFAULT 0,
+  loc JSONB,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_document_sections_document_id
+  ON public.document_sections(document_id);
+
+CREATE TRIGGER trg_document_sections_updated_at
+BEFORE UPDATE ON public.document_sections
+FOR EACH ROW EXECUTE PROCEDURE public.set_updated_at();
+
+CREATE TABLE IF NOT EXISTS public.document_chunks (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  document_id UUID NOT NULL REFERENCES public.space_documents(id) ON DELETE CASCADE,
+  section_id UUID REFERENCES public.document_sections(id) ON DELETE CASCADE,
+  external_chunk_id TEXT,
+  chunk_index INT,
+  content_type TEXT,
+  text TEXT NOT NULL,
+  token_count INT,
+  chunk_hash TEXT,
+  loc JSONB,
+  source_hint TEXT,
+  embedding REAL[] NOT NULL DEFAULT '{}',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_document_chunks_document_id
+  ON public.document_chunks(document_id);
+CREATE INDEX IF NOT EXISTS idx_document_chunks_section_id
+  ON public.document_chunks(section_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_document_chunks_document_hash
+  ON public.document_chunks(document_id, chunk_hash);
+
+CREATE TRIGGER trg_document_chunks_updated_at
+BEFORE UPDATE ON public.document_chunks
+FOR EACH ROW EXECUTE PROCEDURE public.set_updated_at();
+
+ -- 10) Space <-> Agents (many-to-many binding)
 CREATE TABLE IF NOT EXISTS public.space_agents (
   space_id UUID NOT NULL REFERENCES public.spaces(id) ON DELETE CASCADE,
   agent_id UUID NOT NULL REFERENCES public.agents(id) ON DELETE CASCADE,
@@ -221,7 +269,7 @@ CREATE INDEX IF NOT EXISTS idx_space_agents_agent_id ON public.space_agents(agen
 CREATE INDEX IF NOT EXISTS idx_space_agents_space_order
   ON public.space_agents(space_id, sort_order);
 
--- 10) Home notes (single-user memo widget)
+ -- 11) Home notes (single-user memo widget)
 CREATE TABLE IF NOT EXISTS public.home_notes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   content TEXT NOT NULL DEFAULT '',
@@ -236,7 +284,7 @@ CREATE TRIGGER trg_home_notes_updated_at
 BEFORE UPDATE ON public.home_notes
 FOR EACH ROW EXECUTE PROCEDURE public.set_updated_at();
 
--- 11) User Settings (Key-Value Store for API Keys etc.)
+ -- 12) User Settings (Key-Value Store for API Keys etc.)
 CREATE TABLE IF NOT EXISTS public.user_settings (
   key TEXT PRIMARY KEY,
   value TEXT,

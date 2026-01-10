@@ -639,6 +639,7 @@
     "source": "Source",
     "resultsFound": "{{count}} results found",
     "citationSources": "Citation Sources",
+    "documentSources": "Document Sources",
     "allSources": "All Sources"
   },
   "errors": {
@@ -792,6 +793,10 @@
       "documentUploadHint": "Supported: PDF, DOCX, TXT, MD, CSV, JSON.",
       "documentUploading": "Parsing and storing document...",
       "documentUploaded": "Document stored.",
+      "documentChunking": "Chunking document and preparing vectors...",
+      "documentEmbedding": "Generating embeddings...",
+      "documentSections": "Sections: {{count}}",
+      "documentChunks": "Chunks: {{count}}",
       "documentUploadFailed": "Failed to store document.",
       "documentUnsupportedType": "Unsupported file type.",
       "documentEmpty": "No readable text found in this document.",

@@ -31,11 +31,16 @@ import {
   getFileTypeLabel,
   normalizeExtractedText,
 } from '../lib/documentParser'
+import { chunkDocumentWithHierarchy } from '../lib/documentStructure'
+import { DOCUMENT_CHUNK_OVERLAP, DOCUMENT_CHUNK_SIZE, DOCUMENT_MAX_CHUNKS } from '../lib/documentConstants'
 import {
   createSpaceDocument,
   deleteSpaceDocument,
   listSpaceDocuments,
 } from '../lib/documentsService'
+import { persistDocumentChunks, persistDocumentSections } from '../lib/documentIndexService'
+import { fetchEmbeddingVector } from '../lib/embeddingService'
+import { computeSha256 } from '../lib/hash'
 import { deleteConversation, removeConversationFromSpace } from '../lib/supabase'
 import { spaceRoute } from '../router'
 
@@ -115,6 +120,9 @@ const SpaceView = () => {
     message: '',
     fileName: '',
     characters: 0,
+    sections: 0,
+    chunks: 0,
+    stage: '',
   })
 
   // New state for upload UI
@@ -268,57 +276,92 @@ const SpaceView = () => {
 
     setDocumentUploadState({
       status: 'loading',
-      message: t('views.spaceView.documentUploading'),
+      stage: 'chunking',
+      message: t('views.spaceView.documentChunking'),
       fileName: file.name,
       characters: 0,
+      sections: 0,
+      chunks: 0,
     })
     setUploadProgress(10)
 
     try {
-      // Create a progress simulation
-      const progressInterval = setInterval(() => {
-        setUploadProgress(prev => {
-          if (prev >= 90) return prev
-          return prev + 5
-        })
-      }, 200)
-
-      setUploadProgress(30)
       const rawText = await extractTextFromFile(file, {
         unsupportedMessage: t('views.spaceView.documentUnsupportedType'),
       })
-      setUploadProgress(70)
-
       const normalized = normalizeExtractedText(rawText)
       if (!normalized) {
         throw new Error(t('views.spaceView.documentEmpty'))
       }
-      setUploadProgress(85)
+
+      const { sections, chunks } = chunkDocumentWithHierarchy(normalized, {
+        chunkSize: DOCUMENT_CHUNK_SIZE,
+        chunkOverlap: DOCUMENT_CHUNK_OVERLAP,
+        maxChunks: DOCUMENT_MAX_CHUNKS,
+      })
+      setUploadProgress(45)
+      setDocumentUploadState(prev => ({
+        ...prev,
+        sections: sections.length,
+        chunks: chunks.length,
+        stage: 'embedding',
+        message: t('views.spaceView.documentEmbedding'),
+      }))
+
+      const enrichedChunks = []
+      if (chunks.length > 0) {
+        for (let index = 0; index < chunks.length; index += 1) {
+          const chunk = chunks[index]
+          const embedding = await fetchEmbeddingVector({
+            text: chunk.text,
+            taskType: 'RETRIEVAL_DOCUMENT',
+          })
+          const chunkHash = await computeSha256(chunk.text)
+          enrichedChunks.push({ ...chunk, embedding, chunkHash })
+          const progress = Math.min(
+            85,
+            45 + Math.round(((index + 1) / chunks.length) * 35),
+          )
+          setUploadProgress(progress)
+        }
+      }
 
       const fileType = getFileTypeLabel(file)
-      const { error } = await createSpaceDocument({
+      const { error: createError, data: doc } = await createSpaceDocument({
         spaceId: activeSpace.id,
         name: file.name,
         fileType,
         contentText: normalized,
       })
 
-      if (error) {
-        throw error
+      if (createError || !doc) {
+        throw createError || new Error('Failed to create document record')
       }
 
-      clearInterval(progressInterval)
-      setUploadProgress(100)
+      const { sectionMap, error: sectionsError } = await persistDocumentSections(doc.id, sections)
+      if (sectionsError) {
+        await deleteSpaceDocument(doc.id)
+        throw sectionsError
+      }
 
+      const { error: chunksError } = await persistDocumentChunks(doc.id, enrichedChunks, sectionMap)
+      if (chunksError) {
+        await deleteSpaceDocument(doc.id)
+        throw chunksError
+      }
+
+      setUploadProgress(100)
       setDocumentUploadState({
         status: 'success',
+        stage: '',
         message: t('views.spaceView.documentUploaded'),
         fileName: file.name,
         characters: normalized.length,
+        sections: sections.length,
+        chunks: enrichedChunks.length,
       })
       await loadSpaceDocuments()
 
-      // Clear success state after delay
       setTimeout(() => {
         setDocumentUploadState(prev => ({ ...prev, status: 'idle', message: '' }))
         setUploadProgress(0)
@@ -328,9 +371,12 @@ const SpaceView = () => {
       setUploadProgress(0)
       setDocumentUploadState({
         status: 'error',
+        stage: '',
         message: err?.message || t('views.spaceView.documentUploadFailed'),
         fileName: file.name,
         characters: 0,
+        sections: 0,
+        chunks: 0,
       })
     } finally {
       if (fileInputRef.current) {
@@ -508,6 +554,15 @@ const SpaceView = () => {
                 >
                   {documentUploadState.message}
                 </p>
+                {documentUploadState.status === 'success' &&
+                  documentUploadState.sections > 0 &&
+                  documentUploadState.chunks > 0 && (
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                      {t('views.spaceView.documentSections', { count: documentUploadState.sections })}
+                      {' • '}
+                      {t('views.spaceView.documentChunks', { count: documentUploadState.chunks })}
+                    </div>
+                  )}
               </div>
             )}
           </div>

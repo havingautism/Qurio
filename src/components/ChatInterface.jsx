@@ -26,9 +26,12 @@ import { loadSettings } from '../lib/settings'
 import { deleteMessageById } from '../lib/supabase'
 import ChatHeader from './chat/ChatHeader'
 import ChatInputBar from './chat/ChatInputBar'
+import { fetchDocumentChunkContext } from '../lib/documentRetrievalService'
 
 const DOCUMENT_CONTEXT_MAX_TOTAL = 12000
 const DOCUMENT_CONTEXT_MAX_PER_DOC = 4000
+const DOCUMENT_RETRIEVAL_CHUNK_LIMIT = 250
+const DOCUMENT_RETRIEVAL_TOP_CHUNKS = 3
 
 const truncateText = (text, limit) => {
   if (!text) return ''
@@ -54,6 +57,52 @@ const buildDocumentContext = documents => {
     context = `${context.slice(0, DOCUMENT_CONTEXT_MAX_TOTAL)}\n\n[Truncated]`
   }
   return context
+}
+
+const DOCUMENT_SNIPPET_MAX_CHARS = 450
+const buildDocumentSources = documents => {
+  return (documents || [])
+    .map(doc => {
+      const content = String(doc?.content_text || '').trim()
+      if (!content) return null
+      return {
+        id: String(doc.id),
+        title: doc?.name || 'Document',
+        fileType: doc?.file_type || '',
+        snippet: truncateText(content, DOCUMENT_SNIPPET_MAX_CHARS),
+      }
+    })
+    .filter(Boolean)
+}
+
+const buildDocumentContextFromSources = sources => {
+  if (!sources || sources.length === 0) return ''
+  const lines = sources.map(source => {
+    const label = source.fileType ? `${source.title} (${source.fileType})` : source.title
+    return `### ${label}\n${source.snippet}`
+  })
+  let context = lines.join('\n\n')
+  if (context.length > DOCUMENT_CONTEXT_MAX_TOTAL) {
+    context = `${context.slice(0, DOCUMENT_CONTEXT_MAX_TOTAL)}\n\n[Truncated]`
+  }
+  return context
+}
+
+const fetchRelevantDocumentSources = async (documents, queryText) => {
+  if (!documents.length || !queryText.trim()) {
+    return null
+  }
+  try {
+    return await fetchDocumentChunkContext({
+      documents,
+      queryText,
+      chunkLimit: DOCUMENT_RETRIEVAL_CHUNK_LIMIT,
+      topChunks: DOCUMENT_RETRIEVAL_TOP_CHUNKS,
+    })
+  } catch (error) {
+    console.error('Document retrieval failed', error)
+    return null
+  }
 }
 
 const ChatInterface = ({
@@ -471,8 +520,12 @@ const ChatInterface = ({
     return (spaceDocuments || []).filter(doc => idSet.has(String(doc.id)))
   }, [selectedDocumentIds, spaceDocuments])
 
-  const documentContext = useMemo(
+  const fallbackDocumentContext = useMemo(
     () => buildDocumentContext(selectedDocuments),
+    [selectedDocuments],
+  )
+  const fallbackDocumentSources = useMemo(
+    () => buildDocumentSources(selectedDocuments),
     [selectedDocuments],
   )
 
@@ -1250,6 +1303,19 @@ const ChatInterface = ({
       const agentForSend =
         selectedAgent || (!isAgentAutoMode && initialAgentSelection) || defaultAgent || null
 
+      let retrievedDocumentContext = null
+      let retrievedDocumentSources = null
+      if (selectedDocuments.length > 0 && textToSend.trim()) {
+        const retrieval = await fetchRelevantDocumentSources(selectedDocuments, textToSend)
+        if (retrieval) {
+          retrievedDocumentContext = retrieval.context || null
+          retrievedDocumentSources = retrieval.sources || null
+        }
+      }
+
+      const contextForSend = retrievedDocumentContext || fallbackDocumentContext
+      const sourcesForSend = retrievedDocumentSources || fallbackDocumentSources
+
       await sendMessage({
         text: textToSend,
         attachments: attToSend,
@@ -1263,7 +1329,8 @@ const ChatInterface = ({
         selectedAgent: agentForSend,
         isAgentAutoMode,
         agents: appAgents,
-        documentContext,
+        documentSources: sourcesForSend,
+        documentContext: contextForSend,
         editingInfo,
         callbacks: {
           onTitleAndSpaceGenerated,
@@ -1318,7 +1385,9 @@ const ChatInterface = ({
       appAgents,
       spaceAgentIds,
       spaceAgents,
-      documentContext,
+      fallbackDocumentContext,
+      fallbackDocumentSources,
+      selectedDocuments,
       t,
       toast,
     ],

@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { Copy, Share2, ChevronDown, Download, RefreshCw, Globe, Trash2 } from 'lucide-react'
+import { Copy, Share2, ChevronDown, Download, RefreshCw, Globe, Trash2, FileText } from 'lucide-react'
 
 const MessageActionBar = ({
   t,
@@ -8,6 +8,9 @@ const MessageActionBar = ({
   message,
   isSourcesOpen,
   onToggleSources,
+  documentSources,
+  isDocumentSourcesOpen,
+  onToggleDocumentSources,
   onOpenMobileSources,
   onShare,
   onRegenerate,
@@ -148,6 +151,33 @@ const MessageActionBar = ({
           )}
         >
           {message.sources.length}
+        </span>
+      </button>
+    )}
+    {documentSources && documentSources.length > 0 && (
+      <button
+        type="button"
+        onClick={onToggleDocumentSources}
+        className={clsx(
+          'group flex items-center text-sm transition-colors',
+          isDocumentSourcesOpen
+            ? 'text-primary-600 dark:text-primary-400 font-medium bg-primary-50 dark:bg-primary-900/20 px-2 py-1 rounded-lg'
+            : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200',
+        )}
+      >
+        <FileText size={16} />
+        <span className="hidden sm:block max-w-0 overflow-hidden opacity-0 whitespace-nowrap transition-all duration-300 ease-in-out group-hover:max-w-xs group-hover:opacity-100 group-hover:ml-2">
+          {t('sources.documentSources')}
+        </span>
+        <span
+          className={clsx(
+            'flex items-center justify-center rounded-full text-[10px] w-5 h-5 transition-colors ml-2',
+            isDocumentSourcesOpen
+              ? 'bg-primary-200 dark:bg-primary-900/50 text-primary-700 dark:text-primary-300'
+              : 'bg-gray-200 dark:bg-zinc-700 text-gray-700 dark:text-gray-300',
+          )}
+        >
+          {documentSources.length}
         </span>
       </button>
     )}

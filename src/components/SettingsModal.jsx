@@ -580,6 +580,12 @@ const SettingsModal = ({ isOpen, onClose }) => {
             if (data.searchProvider) setSearchProvider(data.searchProvider)
             if (data.tavilyApiKey) setTavilyApiKey(data.tavilyApiKey)
             if (data.backendUrl) setBackendUrl(data.backendUrl)
+            if (data.embeddingProvider) setEmbeddingProvider(data.embeddingProvider)
+            if (data.embeddingModelSource)
+              setEmbeddingModelSource(data.embeddingModelSource || 'list')
+            if (data.embeddingModel) setEmbeddingModel(data.embeddingModel)
+            if (data.embeddingModelSource === 'custom')
+              setEmbeddingCustomModel(data.embeddingModel || '')
           }
         })
       }
@@ -1093,6 +1099,9 @@ const SettingsModal = ({ isOpen, onClose }) => {
   useEffect(() => {
     if (embeddingModelSource !== 'list') return
     const activeModels = embeddingGroupedModels[embeddingProvider] || []
+    if (!activeModels.length) {
+      return
+    }
     if (embeddingModel && !activeModels.some(model => model.value === embeddingModel)) {
       setEmbeddingModel('')
     }

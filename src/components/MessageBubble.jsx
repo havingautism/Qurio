@@ -50,6 +50,7 @@ import {
 import RelatedQuestions from './message/RelatedQuestions'
 import { useMessageExport } from './message/useMessageExport'
 import MobileSourcesDrawer from './MobileSourcesDrawer'
+import DocumentSourcesPanel from './DocumentSourcesPanel'
 import ShareModal from './ShareModal'
 
 const PROVIDER_META = {
@@ -145,6 +146,7 @@ const MessageBubble = ({
     let sources = [...(message.sources || [])]
     let related = [...(message.related || [])]
     let relatedLoading = message.relatedLoading || false
+    let documentSources = [...(message.documentSources || [])]
     let allSubmittedValues = {}
     let hasAnySubmission = false
     let isContinuationStreaming = false
@@ -214,6 +216,15 @@ const MessageBubble = ({
             sources.push(...newSources)
           }
 
+          // Merge document sources if any
+          if (nextAiMsg.documentSources && nextAiMsg.documentSources.length > 0) {
+            const existingDocIds = new Set(documentSources.map(doc => doc.id))
+            const newDocumentSources = nextAiMsg.documentSources.filter(
+              doc => !existingDocIds.has(doc.id),
+            )
+            documentSources.push(...newDocumentSources)
+          }
+
           // Merge related questions if any
           if (nextAiMsg.related && nextAiMsg.related.length > 0) {
             related = nextAiMsg.related
@@ -275,6 +286,7 @@ const MessageBubble = ({
         content: mergedContent,
         toolCallHistory: toolCallHistory,
         sources: sources,
+        documentSources: documentSources,
         related: related,
         relatedLoading: relatedLoading,
         _formSubmitted: true,
@@ -353,6 +365,11 @@ const MessageBubble = ({
   // State to track copy success
   const [isCopied, setIsCopied] = useState(false)
   const [activeImageUrl, setActiveImageUrl] = useState(null)
+  const [isDocumentSourcesOpen, setIsDocumentSourcesOpen] = useState(false)
+
+  useEffect(() => {
+    setIsDocumentSourcesOpen(false)
+  }, [message?.id])
 
   // Utility function to copy text to clipboard
   const copyToClipboard = async text => {
@@ -2218,7 +2235,10 @@ const MessageBubble = ({
         isMobile={isMobile}
         message={mergedMessage}
         isSourcesOpen={isSourcesOpen}
+        documentSources={mergedMessage.documentSources}
+        isDocumentSourcesOpen={isDocumentSourcesOpen}
         onToggleSources={() => setIsSourcesOpen(prev => !prev)}
+        onToggleDocumentSources={() => setIsDocumentSourcesOpen(prev => !prev)}
         onOpenMobileSources={() =>
           handleMobileSourceClick(mergedMessage.sources, t('sources.allSources'))
         }
@@ -2255,6 +2275,14 @@ const MessageBubble = ({
           })
         }}
       />
+
+      {/* Document Sources Panel */}
+      {mergedMessage.documentSources && mergedMessage.documentSources.length > 0 && (
+        <DocumentSourcesPanel
+          sources={mergedMessage.documentSources}
+          isOpen={isDocumentSourcesOpen}
+        />
+      )}
 
       {/* Desktop Sources Section (Collapsible) */}
       {!isMobile && mergedMessage.sources && mergedMessage.sources.length > 0 && (

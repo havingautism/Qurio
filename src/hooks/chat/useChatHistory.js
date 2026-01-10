@@ -78,6 +78,7 @@ const mapMessageFromApi = (m, effectiveDefaultModel, activeConversation) => {
     agentName: m.agent_name ?? m.agentName ?? null,
     agentEmoji: m.agent_emoji ?? m.agentEmoji ?? '',
     agentIsDefault: m.agent_is_default ?? m.agentIsDefault ?? false,
+    documentSources: m.document_sources || undefined,
     thinkingEnabled:
       m.is_thinking_enabled ??
       m.generated_with_thinking ??

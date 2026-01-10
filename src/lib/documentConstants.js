@@ -1,0 +1,3 @@
+export const DOCUMENT_CHUNK_SIZE = 1200
+export const DOCUMENT_CHUNK_OVERLAP = 200
+export const DOCUMENT_MAX_CHUNKS = 400

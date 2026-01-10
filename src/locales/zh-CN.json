@@ -645,6 +645,7 @@
     "source": "来源",
     "resultsFound": "{{count}} 个结果",
     "citationSources": "引用来源",
+    "documentSources": "文档来源",
     "allSources": "所有来源"
   },
   "errors": {
@@ -798,6 +799,10 @@
       "documentUploadHint": "支持：PDF、DOCX、TXT、MD、CSV、JSON。",
       "documentUploading": "正在解析并保存文档...",
       "documentUploaded": "文档已保存。",
+      "documentChunking": "正在分段并准备向量...",
+      "documentEmbedding": "正在生成向量...",
+      "documentSections": "章节：{{count}}",
+      "documentChunks": "分块：{{count}}",
       "documentUploadFailed": "文档保存失败。",
       "documentUnsupportedType": "不支持的文件类型。",
       "documentEmpty": "未识别到可读文本。",

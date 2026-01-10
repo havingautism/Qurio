@@ -27,7 +27,7 @@ const MobileDrawer = ({ isOpen, onClose, title, icon: Icon, children }) => {
       {/* Drawer */}
       <div
         ref={drawerRef}
-        className="relative w-full max-w-md bg-white dark:bg-[#1E1E1E] rounded-t-3xl shadow-2xl flex flex-col max-h-[85vh] animate-in slide-in-from-bottom duration-300"
+        className="relative w-full max-w-md bg-white dark:bg-[#1E1E1E] rounded-t-3xl shadow-2xl flex flex-col max-h-[85dvh] animate-in slide-in-from-bottom duration-300"
       >
         {/* Header */}
         <div className="px-5 py-4 flex items-center justify-between shrink-0 border-b border-gray-100 dark:border-zinc-800/50">

@@ -5,12 +5,13 @@
     "save": "保存",
     "delete": "删除",
     "done": "完成",
-    "uploadImage": "上传图片",
+    "upload": "上传",
     "uploadDocument": "上传文档（敬请期待）",
     "on": "是",
     "off": "否",
     "commit": "提交",
-    "commited": "已提交"
+    "commited": "已提交",
+    "uploadImage": "上传图片"
   },
   "app": {
     "name": "Qurio",
@@ -108,6 +109,10 @@
     "addedToBookmarks": "已添加到收藏",
     "removedFromBookmarks": "已从收藏中移除",
     "untitled": "无标题",
+    "status": {
+      "streaming": "正在传输",
+      "complete": "已完成"
+    },
     "agents": "智能体"
   },
   "settings": {
@@ -726,7 +731,9 @@
     "documentsEmpty": "该空间暂无文档。",
     "documentsLoadFailed": "文档加载失败",
     "documentsSelectionLoadFailed": "已选文档加载失败",
-    "documentsSelectionSaveFailed": "文档选择保存失败"
+    "documentsSelectionSaveFailed": "文档选择保存失败",
+    "capabilities": "能力",
+    "warning": "Qurio 可能会犯错，请谨慎使用。"
   },
   "agentsView": {
     "title": "智能体",

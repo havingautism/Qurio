@@ -389,15 +389,28 @@ const handleEditingAndHistory = (messages, editingInfo, userMessage, historyOver
   // UI state: remove edited user message (and its paired AI answer if any), then append the new user message at the end
   let newMessages
   if (editingInfo?.index !== undefined && editingInfo.index !== null) {
-    const nextMsg = messages[editingInfo.index + 1]
-    const hasAiPartner = nextMsg && nextMsg.role === 'ai'
-    const tailStart = editingInfo.index + 1 + (hasAiPartner ? 1 : 0)
+    const partnerIds = new Set(
+      Array.isArray(editingInfo.partnerIds) ? editingInfo.partnerIds.filter(Boolean) : [],
+    )
+    // Remove the edited user message and any specified partner messages by id
+    const filtered = messages.filter((msg, idx) => {
+      if (idx === editingInfo.index) return false
+      if (partnerIds.has(msg.id)) return false
+      // Also drop immediate partnerId if provided separately
+      if (editingInfo.partnerId && msg.id === editingInfo.partnerId) return false
+      return true
+    })
 
-    newMessages = [
-      ...messages.slice(0, editingInfo.index),
-      ...messages.slice(tailStart),
-      userMessage,
-    ]
+    // Reinsert the new user message
+    if (editingInfo.moveToEnd) {
+      newMessages = [...filtered, userMessage]
+    } else {
+      newMessages = [
+        ...filtered.slice(0, editingInfo.index),
+        userMessage,
+        ...filtered.slice(editingInfo.index),
+      ]
+    }
   } else {
     newMessages = [...messages, userMessage]
   }
@@ -1965,10 +1978,8 @@ Analyze the submitted data. If critical information is still missing or if the r
       historyOverride,
     )
     set({ messages: newMessages })
-    const historyLengthBeforeSend =
-      editingInfo?.index !== undefined && editingInfo?.index !== null
-        ? editingInfo.index
-        : messages.length
+    const isEditingExisting = editingInfo?.index !== undefined && editingInfo?.index !== null
+    const historyLengthBeforeSend = isEditingExisting ? editingInfo.index : messages.length
 
     // Step 4: Ensure conversation exists early to sync ID
     let convInfo
@@ -2010,7 +2021,7 @@ Analyze the submitted data. If critical information is still missing or if the r
     let resolvedAgent = isAgentAutoMode ? null : selectedAgent
     let preselectedTitle = null
     let preselectedEmojis = []
-    const isFirstTurn = historyLengthBeforeSend === 0
+    const isFirstTurn = historyLengthBeforeSend === 0 && !isEditingExisting
     const isDeepResearchMode = !!toggles?.deepResearch
     // Only preselect space/title on first turn, never reload in existing conversations
     const shouldPreselectSpaceTitle =

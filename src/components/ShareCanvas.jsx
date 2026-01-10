@@ -318,6 +318,70 @@ export const SHARE_STYLE = `
   .object-contain {
     object-fit: contain;
   }
+  .share-form {
+    background: #141926;
+    border: 1px solid #2a2f3a;
+    border-radius: 18px;
+    padding: 24px;
+    margin-bottom: 16px;
+  }
+  .share-form-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: #f8fafc;
+    margin-bottom: 12px;
+  }
+  .share-form-description {
+    font-size: 14px;
+    color: #94a3b8;
+    margin-bottom: 20px;
+    line-height: 1.6;
+  }
+  .share-form-field {
+    margin-bottom: 20px;
+  }
+  .share-form-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #94a3b8;
+    margin-bottom: 8px;
+    display: block;
+  }
+  .share-form-value {
+    font-size: 15px;
+    color: #e2e8f0;
+    background: #1b202c;
+    padding: 12px 16px;
+    border-radius: 12px;
+    border: 1px solid #2a2f3a;
+  }
+  .share-form-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 12px;
+    background: #2563eb;
+    color: #ffffff;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    margin-right: 8px;
+    margin-bottom: 8px;
+  }
+  .share-form-submitted {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    background: #059669;
+    color: #ffffff;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    margin-top: 12px;
+  }
+
 `
 
 const getHostname = url => {
@@ -431,7 +495,81 @@ const getImagesFromMessage = message => {
     .filter(Boolean)
 }
 
-const ShareCanvas = ({ message, conversationTitle, captureRef, embed = false, language = 'en-US' }) => {
+// Parse form payload from tool call arguments or output
+const parseFormPayload = str => {
+  if (!str || typeof str !== 'string') return null
+  try {
+    return JSON.parse(str)
+  } catch {
+    return null
+  }
+}
+
+// Extract interactive form data from message
+const getFormsFromMessage = message => {
+  // Support both naming conventions
+  const toolHistory = message?.toolCallHistory || message?.tool_call_history || []
+  if (!Array.isArray(toolHistory)) return []
+
+  return toolHistory
+    .filter(tool => tool?.name === 'interactive_form')
+    .map(tool => {
+      const formData = parseFormPayload(tool.arguments) || parseFormPayload(tool.output)
+      if (!formData) return null
+
+      return {
+        formData,
+        isSubmitted: !!tool._isSubmitted,
+        submittedValues: message._formSubmittedValues || {},
+      }
+    })
+    .filter(Boolean)
+}
+
+// Render a single form field value in read-only mode
+// Render a single form field value in read-only mode
+const renderFormField = (field, submittedValues) => {
+  const value = submittedValues[field.label] || submittedValues[field.name]
+
+  return (
+    <div key={field.name} className="share-form-field">
+      <div className="share-form-label">
+        {field.label}
+        {field.required && <span style={{ color: '#2563eb' }}>*</span>}
+      </div>
+      {field.type === 'checkbox' ? (
+        <div>
+          {(value || '').split(',').filter(v => v.trim()).length > 0 ? (
+            (value || '').split(',').map((v, i) => (
+              <span key={i} className="share-form-badge">
+                {v.trim()}
+              </span>
+            ))
+          ) : (
+            <div className="share-form-value" style={{ color: '#64748b', fontStyle: 'italic' }}>
+              Not selected
+            </div>
+          )}
+        </div>
+      ) : (
+        <div
+          className="share-form-value"
+          style={!value ? { color: '#64748b', fontStyle: 'italic' } : {}}
+        >
+          {value || 'Not provided'}
+        </div>
+      )}
+    </div>
+  )
+}
+
+const ShareCanvas = ({
+  message,
+  conversationTitle,
+  captureRef,
+  embed = false,
+  language = 'en-US',
+}) => {
   const providerId = message?.provider || ''
   const providerMeta = PROVIDER_META[providerId] || {
     label: providerId || 'AI',
@@ -441,6 +579,7 @@ const ShareCanvas = ({ message, conversationTitle, captureRef, embed = false, la
   const resolvedModel = message?.model || 'default model'
   const isUser = message?.role === 'user'
   const images = useMemo(() => getImagesFromMessage(message), [message])
+  const forms = useMemo(() => getFormsFromMessage(message), [message])
 
   const renderedContent = useMemo(() => {
     if (!message) return ''
@@ -544,17 +683,46 @@ const ShareCanvas = ({ message, conversationTitle, captureRef, embed = false, la
                   ))}
                 </div>
               )}
+
               <div className="share-doc">
                 <Streamdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
                   {renderedContent}
                 </Streamdown>
               </div>
 
+              {/* Render Interactive Forms AFTER text */}
+              {forms.length > 0 &&
+                forms.map((formItem, idx) => (
+                  <div key={idx} className="share-form">
+                    {formItem.formData.title && (
+                      <div className="share-form-title">{formItem.formData.title}</div>
+                    )}
+                    {formItem.formData.description && (
+                      <div className="share-form-description">{formItem.formData.description}</div>
+                    )}
+                    <div>
+                      {formItem.formData.fields?.map(field =>
+                        renderFormField(field, formItem.submittedValues),
+                      )}
+                    </div>
+                    {formItem.isSubmitted && (
+                      <div className="share-form-submitted">✓ Submitted</div>
+                    )}
+                  </div>
+                ))}
+
+              {/* Render subsequent AI response (the result) if exists */}
+              {message?._subsequentContent && (
+                <div className="share-doc" style={{ marginTop: 20 }}>
+                  <Streamdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+                    {normalizeMessageText(message._subsequentContent)}
+                  </Streamdown>
+                </div>
+              )}
+
               {!isUser && Array.isArray(message?.sources) && message.sources.length > 0 && (
                 <div className="share-sources">
-                  <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
-                    Sources
-                  </div>
+                  <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Sources</div>
                   {message.sources.map((source, idx) => (
                     <div key={`${source.url}-${idx}`} className="share-source">
                       <div className="share-source-index">{idx + 1}</div>

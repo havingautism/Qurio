@@ -208,27 +208,55 @@ const HomeView = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [isHomeUploadMenuOpen])
 
-  const handleFileChange = e => {
-    const files = Array.from(e.target.files)
+  const handleFileChange = async e => {
+    const files = Array.from(e.target.files || [])
     if (files.length === 0) return
 
-    files.forEach(file => {
-      if (!file.type.startsWith('image/')) return
+    // Use dynamic import to load compression utility
+    const { compressImages } = await import('../lib/imageCompression')
 
-      const reader = new FileReader()
-      reader.onload = e => {
-        setHomeAttachments(prev => [
-          ...prev,
-          {
-            type: 'image_url',
-            image_url: { url: e.target.result },
+    // Filter only image files
+    const imageFiles = files.filter(file => file.type.startsWith('image/'))
+    if (imageFiles.length === 0) {
+      e.target.value = ''
+      return
+    }
+
+    try {
+      // Compress images
+      const results = await compressImages(imageFiles)
+
+      // Process successful compressions
+      const successfulUploads = results
+        .filter(result => result.success)
+        .map(result => ({
+          type: 'image_url',
+          image_url: { url: result.dataUrl },
+          _meta: {
+            originalSize: result.originalSize,
+            compressedSize: result.compressedSize,
+            dimensions: result.dimensions,
           },
-        ])
-      }
-      reader.readAsDataURL(file)
-    })
+        }))
 
-    // Reset input
+      // Show errors for failed compressions
+      const failedUploads = results.filter(result => !result.success)
+      if (failedUploads.length > 0) {
+        console.error('Image compression errors:', failedUploads)
+        alert(
+          `Failed to compress ${failedUploads.length} image(s):\n${failedUploads.map(f => `- ${f.fileName}: ${f.error}`).join('\n')}`,
+        )
+      }
+
+      // Add successful uploads to attachments
+      if (successfulUploads.length > 0) {
+        setHomeAttachments(prev => [...prev, ...successfulUploads])
+      }
+    } catch (error) {
+      console.error('Image upload error:', error)
+      alert(`Failed to upload images: ${error.message}`)
+    }
+
     e.target.value = ''
   }
 
@@ -639,7 +667,7 @@ const HomeView = () => {
                             className="flex items-center gap-2 w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left text-sm text-gray-700 dark:text-gray-200"
                           >
                             <Image size={16} />
-                            {t('common.uploadImage')}
+                            {t('common.upload')}
                           </button>
                           <button
                             type="button"

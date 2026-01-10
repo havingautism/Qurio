@@ -14,10 +14,112 @@ import ShareCanvas from './ShareCanvas'
  * @param {Object} props.message - Message data to render
  * @param {string} props.conversationTitle - Conversation title
  */
+import useChatStore from '../lib/chatStore'
+import { useShallow } from 'zustand/react/shallow'
+
 const ShareModal = ({ isOpen, onClose, message, conversationTitle }) => {
   const { t, i18n } = useTranslation()
   const captureRef = useRef(null)
   const [copySuccess, setCopySuccess] = useState(false)
+
+  // Get all messages to handle recursive merging
+  const { messages } = useChatStore(
+    useShallow(state => ({
+      messages: state.messages,
+    })),
+  )
+
+  // Memoize the merged message logic
+  const mergedMessage = React.useMemo(() => {
+    if (!message) return null
+
+    // Find index in the full list
+    const targetIndex = messages.findIndex(m => m.id === message.id)
+    if (targetIndex === -1) return message
+
+    // REPLICATE MERGE LOGIC from ShareImageView/MessageBubble
+    let currentIndex = targetIndex
+    let subsequentContent = ''
+    let toolCallHistory = (message.toolCallHistory || message.tool_call_history || []).map(tc => ({
+      ...tc,
+    }))
+    let sources = [...(message.sources || [])]
+    let allSubmittedValues = {}
+    let hasAnySubmission = false
+
+    // Keep scanning forward
+    while (true) {
+      const nextUserMsg = messages[currentIndex + 1]
+      const nextAiMsg = messages[currentIndex + 2]
+
+      if (
+        nextUserMsg &&
+        nextUserMsg.role === 'user' &&
+        typeof nextUserMsg.content === 'string' &&
+        nextUserMsg.content.startsWith('[Form Submission]')
+      ) {
+        // Parse values
+        let submissionValues = {}
+        try {
+          const lines = nextUserMsg.content.split('\n')
+          lines.forEach(line => {
+            const colonIndex = line.indexOf(':')
+            if (colonIndex !== -1) {
+              const key = line.slice(0, colonIndex).trim()
+              const val = line.slice(colonIndex + 1).trim()
+              if (key && val) {
+                submissionValues[key] = val
+              }
+            }
+          })
+          allSubmittedValues = { ...allSubmittedValues, ...submissionValues }
+          hasAnySubmission = true
+        } catch (e) {
+          console.error('Error parsing submission', e)
+        }
+
+        // Mark submitted
+        const lastFormIndex = toolCallHistory.findLastIndex(t => t.name === 'interactive_form')
+        if (lastFormIndex !== -1) {
+          toolCallHistory[lastFormIndex]._isSubmitted = true
+        }
+
+        // If generic AI response follows
+        if (nextAiMsg && nextAiMsg.role === 'ai') {
+          subsequentContent += (subsequentContent ? '\n\n' : '') + (nextAiMsg.content || '')
+
+          if (nextAiMsg.toolCallHistory || nextAiMsg.tool_call_history) {
+            const nextTools = (nextAiMsg.toolCallHistory || nextAiMsg.tool_call_history).map(
+              tc => ({ ...tc }),
+            )
+            toolCallHistory = [...toolCallHistory, ...nextTools]
+          }
+          if (nextAiMsg.sources) {
+            sources = [...sources, ...nextAiMsg.sources]
+          }
+
+          currentIndex += 2
+        } else {
+          currentIndex += 1
+        }
+      } else {
+        break
+      }
+    }
+
+    if (hasAnySubmission) {
+      return {
+        ...message,
+        _subsequentContent: subsequentContent,
+        toolCallHistory,
+        _formSubmittedValues: allSubmittedValues,
+        sources,
+        _formSubmitted: true,
+      }
+    }
+
+    return message
+  }, [message, messages])
 
   useEffect(() => {
     if (!isOpen) return
@@ -31,10 +133,22 @@ const ShareModal = ({ isOpen, onClose, message, conversationTitle }) => {
   const handleDownload = async () => {
     if (!captureRef.current) return
     try {
-      const canvas = await html2canvas(captureRef.current, {
+      // Ensure element is scrolled to top
+      const element = captureRef.current
+      element.scrollTop = 0
+
+      // Wait for any pending renders
+      await new Promise(resolve => setTimeout(resolve, 100))
+
+      // Calculate actual height
+      const actualHeight = element.scrollHeight
+
+      const canvas = await html2canvas(element, {
         useCORS: true,
         scale: 2,
         backgroundColor: '#0f131c',
+        windowHeight: actualHeight,
+        height: actualHeight,
         onclone: clonedDoc => {
           clonedDoc.querySelectorAll('style, link[rel="stylesheet"]').forEach(node => {
             if (node.dataset?.shareStyle === 'true') return
@@ -82,11 +196,11 @@ const ShareModal = ({ isOpen, onClose, message, conversationTitle }) => {
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-[#09090b] flex flex-col items-center justify-center min-h-[260px]">
-          {message ? (
+          {mergedMessage ? (
             <div className="relative shadow-2xl rounded-xl overflow-hidden border border-zinc-800 w-full">
               <ShareCanvas
                 captureRef={captureRef}
-                message={message}
+                message={mergedMessage}
                 conversationTitle={conversationTitle || 'Qurio Chat'}
                 embed
                 language={i18n.language}

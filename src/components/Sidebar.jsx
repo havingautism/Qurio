@@ -100,7 +100,37 @@ const Sidebar = ({
   const [spacesLoadingMore, setSpacesLoadingMore] = useState(false)
 
   const toast = useToast()
-  const { showConfirmation, deepResearchSpace } = useAppContext()
+  const { showConfirmation, deepResearchSpace, conversationStatuses } = useAppContext()
+
+  const getConversationStatusMeta = status => {
+    if (status === 'loading') {
+      return {
+        colorClass: 'bg-amber-500 border-amber-300 dark:border-amber-400',
+        label: t('sidebar.status.streaming'),
+      }
+    }
+    if (status === 'done') {
+      return {
+        colorClass: 'bg-emerald-500 border-emerald-300 dark:border-emerald-400',
+        label: t('sidebar.status.complete'),
+      }
+    }
+    return null
+  }
+
+  const renderConversationStatusDot = status => {
+    const meta = getConversationStatusMeta(status)
+    if (!meta) return null
+    return (
+      <span className="flex items-center gap-1">
+        <span
+          aria-hidden="true"
+          className={clsx('h-2 w-2 rounded-full border transition-colors', meta.colorClass)}
+        />
+        <span className="sr-only">{meta.label}</span>
+      </span>
+    )
+  }
 
   const spaceById = useMemo(() => {
     const map = new Map()
@@ -632,7 +662,7 @@ const Sidebar = ({
 
       <div
         className={clsx(
-          'fixed left-0 top-0 h-full z-50 flex transition-transform duration-300 md:translate-x-0',
+          'fixed left-0 top-0 h-[100dvh] z-50 flex transition-transform duration-300 md:translate-x-0',
           // On mobile, control via isOpen. On desktop, always visible (handled by layout margin)
           // Actually, fixed sidebar on desktop is always visible (icon strip).
           // Mobile: hidden by default (-translate-x-full), shown if isOpen
@@ -647,7 +677,7 @@ const Sidebar = ({
         }}
       >
         {/* 1. Fixed Icon Strip */}
-        <div className="w-18 h-full bg-sidebar  flex flex-col items-center py-4 z-20 relative">
+        <div className="w-18 h-full bg-sidebar  flex flex-col items-center py-4 z-20 relative overflow-y-auto no-scrollbar">
           {/* Logo */}
           <div className="mb-6">
             <div className="w-full h-full flex items-center justify-center text-gray-900 dark:text-white font-bold text-xl">
@@ -751,10 +781,9 @@ const Sidebar = ({
           )}
         >
           <div className="p-2 min-w-[256px] flex flex-col h-full">
-            {' '}
             {/* min-w ensures content doesn't squash during transition */}
             {/* Header based on Tab */}
-            <div className="p-2 flex items-center justify-between shrink-0">
+            <div className="p-2 flex items-center justify-between shrink-0 border-b border-gray-200 dark:border-zinc-800 mb-2">
               <div className="flex items-center gap-2">
                 <h2 className="font-semibold text-lg text-foreground">
                   {displayTab === 'library'
@@ -794,7 +823,7 @@ const Sidebar = ({
                 />
               </button>
             </div>
-            <div className="h-px bg-gray-200 dark:bg-zinc-800 mb-2 shrink-0" />
+            {/* <div className="h-px bg-gray-200 dark:bg-zinc-800 mb-2 shrink-0" /> */}
             {/* CONVERSATION LIST (Library & Bookmarks) */}
             {(displayTab === 'library' ||
               displayTab === 'bookmarks' ||
@@ -869,6 +898,7 @@ const Sidebar = ({
                                           className="text-primary-500 fill-current shrink-0"
                                         />
                                       )}
+                                      {renderConversationStatusDot(conversationStatuses[conv.id])}
                                     </div>
                                     <span
                                       className={clsx(
@@ -1039,6 +1069,7 @@ const Sidebar = ({
                                             className="text-primary-500 fill-current shrink-0"
                                           />
                                         )}
+                                        {renderConversationStatusDot(conversationStatuses[conv.id])}
                                       </div>
                                       <span
                                         className={clsx(
@@ -1196,6 +1227,7 @@ const Sidebar = ({
                                     size={12}
                                     className="text-primary-500 fill-current shrink-0"
                                   />
+                                  {renderConversationStatusDot(conversationStatuses[conv.id])}
                                 </div>
                                 <span
                                   className={clsx(

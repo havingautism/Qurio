@@ -12,9 +12,9 @@ import {
   Copy,
   Pencil,
   Quote,
-  RefreshCw,
   Trash2,
   X,
+  RefreshCw,
   Search,
   GraduationCap,
   Calculator,
@@ -104,11 +104,12 @@ const MessageBubble = ({
   messageId,
   bubbleRef,
   onEdit,
-  onResend,
   onDelete,
   onRegenerateAnswer,
   onQuote,
   onFormSubmit,
+  onUserRegenerate,
+  showUserRegenerate = false,
 }) => {
   // Get message directly from chatStore using shallow selector
   const { messages, isLoading, conversationTitle } = useChatStore(
@@ -1418,6 +1419,22 @@ const MessageBubble = ({
     })
   })()
 
+  const targetAgentId = message.agentId || message.agent_id
+  const targetAgent = useMemo(() => {
+    if (!targetAgentId) return null
+    return agents.find(a => String(a.id) === String(targetAgentId))
+  }, [agents, targetAgentId])
+
+  const handleAgentClick = useCallback(
+    e => {
+      if (targetAgent && onEditAgent) {
+        e.stopPropagation()
+        onEditAgent(targetAgent)
+      }
+    },
+    [targetAgent, onEditAgent],
+  )
+
   if (isUser) {
     let contentToRender = message.content
     let imagesToRender = []
@@ -1447,7 +1464,7 @@ const MessageBubble = ({
           if (typeof bubbleRef === 'function') bubbleRef(el)
         }}
         className={clsx(
-          'flex items-center w-full mt-4 group px-3 sm:px-0',
+          'flex items-center gap-2 w-full mt-4 group px-3 sm:px-0',
           isDeepResearchContext ? 'justify-center' : 'justify-end',
         )}
         onMouseUp={handleMouseUp}
@@ -1476,10 +1493,19 @@ const MessageBubble = ({
             </div>,
             document.body,
           )}
+        {isUser && showUserRegenerate && !isDeepResearchContext && (
+          <button
+            onClick={() => onUserRegenerate && onUserRegenerate()}
+            className="p-1.5 text-gray-400 hover:text-primary-500 dark:hover:text-primary-400 rounded-lg transition-colors shrink-0"
+            title={t('message.regenerate')}
+          >
+            <RefreshCw size={14} />
+          </button>
+        )}
         <div
           className={clsx(
-            'flex flex-col gap-2 w-full',
-            isDeepResearchContext ? 'items-center w-full' : 'items-end',
+            'flex flex-col gap-2 max-w-[85%] sm:max-w-[85%]',
+            isDeepResearchContext ? 'items-center' : 'items-end',
           )}
         >
           {/* Message Content */}
@@ -1490,7 +1516,7 @@ const MessageBubble = ({
             return (
               <div
                 className={clsx(
-                  'relative px-5 py-3.5 rounded-3xl text-base max-w-[95%] sm:max-w-[95%]',
+                  'relative px-5 py-3.5 rounded-3xl text-base w-fit max-w-full',
                   'bg-primary-500 dark:bg-primary-900 text-white dark:text-gray-100',
                 )}
               >
@@ -1547,55 +1573,42 @@ const MessageBubble = ({
 
           {/* Action Buttons */}
           {!isDeepResearchContext && (
-            <div className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 flex gap-2 transition-opacity duration-200 px-1">
-              <button
-                onClick={() => onEdit && onEdit()}
-                className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300  rounded-lg transition-colors"
-                title="Edit"
-              >
-                <Pencil size={14} />
-              </button>
-              <button
-                onClick={() => {
-                  if (!onResend) return
-                  showConfirmation({
-                    title: t('confirmation.resendTitle'),
-                    message: t('confirmation.resendMessage'),
-                    confirmText: t('message.resend'),
-                    onConfirm: onResend,
-                  })
-                }}
-                className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300  rounded-lg transition-colors"
-                title={t('message.resend')}
-              >
-                <RefreshCw size={14} />
-              </button>
-              <button
-                onClick={() => {
-                  copyToClipboard(contentToRender)
-                  setIsCopied(true)
-                }}
-                className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300  rounded-lg transition-colors"
-                title={t('messageBubble.copy')}
-              >
-                {isCopied ? <Check size={14} /> : <Copy size={14} />}
-              </button>
-              <button
-                onClick={() => {
-                  if (!onDelete) return
-                  showConfirmation({
-                    title: t('confirmation.deleteMessageTitle'),
-                    message: t('confirmation.deleteUserMessage'),
-                    confirmText: t('confirmation.delete'),
-                    isDangerous: true,
-                    onConfirm: onDelete,
-                  })
-                }}
-                className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg transition-colors"
-                title={t('common.delete')}
-              >
-                <Trash2 size={14} />
-              </button>
+            <div className="flex items-center gap-2 px-1">
+              <div className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 flex gap-2 transition-opacity duration-200">
+                <button
+                  onClick={() => onEdit && onEdit()}
+                  className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300  rounded-lg transition-colors"
+                  title="Edit"
+                >
+                  <Pencil size={14} />
+                </button>
+                <button
+                  onClick={() => {
+                    copyToClipboard(contentToRender)
+                    setIsCopied(true)
+                  }}
+                  className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300  rounded-lg transition-colors"
+                  title={t('messageBubble.copy')}
+                >
+                  {isCopied ? <Check size={14} /> : <Copy size={14} />}
+                </button>
+                <button
+                  onClick={() => {
+                    if (!onDelete) return
+                    showConfirmation({
+                      title: t('confirmation.deleteMessageTitle'),
+                      message: t('confirmation.deleteUserMessage'),
+                      confirmText: t('confirmation.delete'),
+                      isDangerous: true,
+                      onConfirm: onDelete,
+                    })
+                  }}
+                  className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg transition-colors"
+                  title={t('common.delete')}
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -1627,7 +1640,6 @@ const MessageBubble = ({
   const researchPlanLoading = Boolean(message?.researchPlanLoading)
   const researchSteps = Array.isArray(message.researchSteps) ? message.researchSteps : []
   const hasResearchSteps = researchSteps.length > 0
-  const hasRunningResearchStep = researchSteps.some(step => step.status === 'running')
   const hasActiveResearchStep = researchSteps.some(
     step => step.status === 'running' || step.status === 'pending',
   )
@@ -1657,22 +1669,6 @@ const MessageBubble = ({
   //     mergedRelated: mergedMessage.related,
   //   })
   // }
-
-  const targetAgentId = message.agentId || message.agent_id
-  const targetAgent = useMemo(() => {
-    if (!targetAgentId) return null
-    return agents.find(a => String(a.id) === String(targetAgentId))
-  }, [agents, targetAgentId])
-
-  const handleAgentClick = useCallback(
-    e => {
-      if (targetAgent && onEditAgent) {
-        e.stopPropagation()
-        onEditAgent(targetAgent)
-      }
-    },
-    [targetAgent, onEditAgent],
-  )
 
   return (
     <div

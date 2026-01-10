@@ -14,9 +14,9 @@ const MessageList = ({
   onMessageRef,
   onEdit,
   onRegenerateAnswer,
-  onResend,
   onDelete,
   onQuote,
+  onUserRegenerate,
   onFormSubmit,
 }) => {
   // Get messages directly from chatStore using shallow selector
@@ -65,10 +65,20 @@ const MessageList = ({
             defaultModel={defaultModel}
             onRelatedClick={q => onRelatedClick(q)}
             onEdit={() => onEdit && onEdit(originalIndex)}
-            onResend={() => onResend && onResend(originalIndex)}
             onDelete={() => onDelete && onDelete(originalIndex)}
             onQuote={onQuote}
             onRegenerateAnswer={() => onRegenerateAnswer && onRegenerateAnswer(originalIndex)}
+            showUserRegenerate={(() => {
+              if (msg.role !== 'user') return false
+              const nextMsg = messages[originalIndex + 1]
+              if (!nextMsg || nextMsg.role !== 'ai') return true
+              const content = nextMsg.content
+              if (!content) return true
+              if (typeof content === 'string') return content.trim().length === 0
+              if (Array.isArray(content)) return content.length === 0
+              return false
+            })()}
+            onUserRegenerate={() => onUserRegenerate && onUserRegenerate(originalIndex)}
             onFormSubmit={onFormSubmit}
           />
         ))}

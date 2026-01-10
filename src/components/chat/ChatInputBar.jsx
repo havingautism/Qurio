@@ -522,7 +522,7 @@ const ChatInputBar = React.memo(
             {/* Capsule Input Grid Container */}
             <div
               className={clsx(
-                'relative p-2 bg-[#F9F9F9] dark:bg-[#1a1a1a] border border-gray-200 dark:border-zinc-800 shadow-sm transition-all duration-300 focus-within:shadow-md grid gap-2',
+                'relative p-1.5 bg-[#F9F9F9] dark:bg-[#1a1a1a] border border-gray-200 dark:border-zinc-800 shadow-sm transition-all duration-300 focus-within:shadow-md grid gap-2',
                 isMultiline
                   ? 'rounded-[26px] grid-cols-[1fr_auto] items-end'
                   : 'rounded-[32px] grid-cols-[auto_1fr_auto] items-center',
@@ -640,14 +640,14 @@ const ChatInputBar = React.memo(
               {/* Text Area */}
               <div
                 className={clsx(
-                  'relative',
+                  'relative flex items-center',
                   isMultiline ? 'col-span-2 row-start-1 w-full' : 'col-start-2 row-start-1 flex-1',
                 )}
               >
                 {inputValue && (
                   <div
                     aria-hidden="true"
-                    className="pointer-events-none absolute inset-0 px-1 py-3 text-[15px] leading-relaxed whitespace-pre-wrap break-words text-gray-900 dark:text-gray-100"
+                    className="pointer-events-none absolute inset-0 px-1 py-3 flex items-center text-[15px] leading-[1.6] whitespace-pre-wrap break-words text-gray-900 dark:text-gray-100"
                   >
                     {highlightedInputParts.map((part, index) =>
                       part.type === 'url' ? (
@@ -671,7 +671,7 @@ const ChatInputBar = React.memo(
                   placeholder={t('chatInterface.askFollowUp')}
                   rows={1}
                   className={clsx(
-                    'relative z-10 w-full bg-transparent border-none outline-none resize-none text-[15px] leading-relaxed text-transparent caret-gray-900 dark:caret-gray-100 placeholder-gray-400 dark:placeholder-gray-500 max-h-[200px] overflow-y-auto px-1 py-3',
+                    'relative z-10 w-full bg-transparent border-none outline-none resize-none text-[15px] leading-[1.6] text-transparent caret-gray-900 dark:caret-gray-100 placeholder-gray-400 dark:placeholder-gray-500 max-h-[200px] overflow-y-auto px-1 py-3 min-h-[48px]',
                     !isMultiline && 'no-scrollbar',
                   )}
                 />
@@ -689,7 +689,7 @@ const ChatInputBar = React.memo(
                   onClick={handleSend}
                   disabled={isLoading || (!inputValue.trim() && attachments.length === 0)}
                   className={clsx(
-                    'p-2 sm:p-2.5 rounded-full transition-all duration-300 shadow-sm flex items-center justify-center',
+                    'p-1.5 sm:p-2 rounded-full transition-all duration-300 shadow-sm flex items-center justify-center',
                     (inputValue.trim() || attachments.length > 0) && !isLoading
                       ? 'bg-primary-500 text-white hover:bg-primary-600 hover:scale-105 active:scale-95'
                       : 'bg-gray-200 dark:bg-zinc-800 text-gray-400 dark:text-zinc-600 cursor-not-allowed',
@@ -777,11 +777,11 @@ const ChatInputBar = React.memo(
             </div>
           )}
 
-          <div className="relative w-full">
+          <div className="relative w-full flex items-center min-h-[44px]">
             {inputValue && (
               <div
                 aria-hidden="true"
-                className="pointer-events-none absolute inset-0 py-2 text-base whitespace-pre-wrap break-words text-gray-900 dark:text-gray-100"
+                className="pointer-events-none absolute inset-0 py-3 flex items-center text-base leading-[1.6] whitespace-pre-wrap break-words text-gray-900 dark:text-gray-100"
               >
                 {highlightedInputParts.map((part, index) =>
                   part.type === 'url' ? (
@@ -804,7 +804,7 @@ const ChatInputBar = React.memo(
               onChange={e => setInputValue(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder={t('chatInterface.askFollowUp')}
-              className="relative z-10 w-full bg-transparent border-none outline-none resize-none text-base text-transparent caret-gray-900 dark:caret-gray-100 placeholder-gray-500 dark:placeholder-gray-400 min-h-[44px] max-h-[200px] overflow-y-auto py-2 disabled:cursor-not-allowed"
+              className="relative z-10 w-full bg-transparent border-none outline-none resize-none text-base leading-[1.6] text-transparent caret-gray-900 dark:caret-gray-100 placeholder-gray-500 dark:placeholder-gray-400 min-h-[48px] max-h-[200px] overflow-y-auto py-3 disabled:cursor-not-allowed"
               rows={1}
             />
           </div>

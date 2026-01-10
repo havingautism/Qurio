@@ -157,6 +157,20 @@ const ChatInterface = ({
     resetLoading()
   }, [])
 
+  const activeConversationId = activeConversation?.id || conversationId
+  const { toggleSidebar, agents: appAgents = [], defaultAgent, setConversationStatus } =
+    useAppContext()
+
+  useEffect(() => {
+    if (!activeConversationId) return
+    if (isLoading) {
+      setConversationStatus(activeConversationId, 'loading')
+    } else if (prevLoadingRef.current) {
+      setConversationStatus(activeConversationId, 'done')
+    }
+    prevLoadingRef.current = isLoading
+  }, [isLoading, activeConversationId, setConversationStatus])
+
   const [quotedText, setQuotedText] = useState(null)
   const [quoteContext, setQuoteContext] = useState(null)
   const [editingSeed, setEditingSeed] = useState({ text: '', attachments: [] })
@@ -176,8 +190,6 @@ const ChatInterface = ({
   const [isThinkingActive, setIsThinkingActive] = useState(false)
 
   const isPlaceholderConversation = Boolean(activeConversation?._isPlaceholder)
-
-  const { toggleSidebar, agents: appAgents = [], defaultAgent } = useAppContext()
 
   useEffect(() => {
     pendingDocumentIdsRef.current = pendingDocumentIds
@@ -388,6 +400,7 @@ const ChatInterface = ({
 
   // Track the last synced conversation ID to avoid redundant updates
   const lastSyncedConversationIdRef = useRef(null)
+  const prevLoadingRef = useRef(false)
 
   // Sync conversationId from props/activeConversation to chatStore
   // This ensures that when navigating from HomeView with a newly created conversation,
@@ -1187,6 +1200,7 @@ const ChatInterface = ({
 
       if (!textToSend.trim() && attToSend.length === 0) return
       if (isLoading) return
+      scrollToBottom('auto')
 
       const editingInfo =
         editingInfoOverride ||
@@ -1197,6 +1211,17 @@ const ChatInterface = ({
               partnerId: editingPartnerId,
             }
           : null)
+
+      // If editing an existing user question, drop its existing answers/forms until next user
+      if (editingInfo?.index !== undefined && editingInfo?.index !== null) {
+        const nextUserIndex = messages.findIndex(
+          (m, idx) => idx > editingInfo.index && m.role === 'user',
+        )
+        const cutEnd = nextUserIndex === -1 ? messages.length : nextUserIndex
+        if (cutEnd > editingInfo.index + 1) {
+          setMessages(prev => [...prev.slice(0, editingInfo.index + 1), ...prev.slice(cutEnd)])
+        }
+      }
 
       // Reset editing state
       setEditingIndex(null)
@@ -1275,6 +1300,7 @@ const ChatInterface = ({
       editingIndex,
       editingTargetId,
       editingPartnerId,
+      scrollToBottom,
       sendMessage,
       settings,
       selectedSpace,
@@ -1375,36 +1401,8 @@ const ChatInterface = ({
     window.requestAnimationFrame(() => document.getElementById('chat-input-textarea')?.focus())
   }, [])
 
-  const handleResendMessage = useCallback(
-    userIndex => {
-      if (isLoading) return
-
-      const userMsg = messages[userIndex]
-      if (!userMsg || userMsg.role !== 'user') return
-
-      const nextMsg = messages[userIndex + 1]
-      const hasPartner = nextMsg && nextMsg.role === 'ai'
-
-      const msgAttachments = Array.isArray(userMsg.content)
-        ? userMsg.content.filter(c => c.type === 'image_url')
-        : []
-
-      const text = extractUserQuestion(userMsg)
-      if (!text.trim() && msgAttachments.length === 0) return
-
-      const editingInfoOverride = {
-        index: userIndex,
-        targetId: userMsg.id || null,
-        partnerId: hasPartner ? nextMsg.id || null : null,
-      }
-
-      handleSendMessage(text, msgAttachments, null, { editingInfoOverride })
-    },
-    [extractUserQuestion, handleSendMessage, isLoading, messages],
-  )
-
   const handleRegenerateAnswer = useCallback(
-    aiIndex => {
+    async aiIndex => {
       if (isLoading) return
       const aiMsg = messages[aiIndex]
       if (!aiMsg || aiMsg.role !== 'ai') return
@@ -1423,13 +1421,42 @@ const ChatInterface = ({
       const text = extractUserQuestion(userMsg)
       if (!text.trim() && msgAttachments.length === 0) return
 
+      // 只删除当前回答及其拼贴/表单：从该 AI 开始，直到下一条用户消息前
+      let cutEnd = aiIndex + 1
+      const partnerIds = []
+      while (cutEnd < messages.length && messages[cutEnd].role !== 'user') {
+        partnerIds.push(messages[cutEnd].id)
+        cutEnd += 1
+      }
+      partnerIds.unshift(aiMsg.id)
+
+      const idsToDelete = partnerIds.filter(Boolean)
+      if (idsToDelete.length > 0) {
+        try {
+          await Promise.all(idsToDelete.map(id => deleteMessageById(id)))
+        } catch (err) {
+          console.error('Failed to delete messages on regenerate:', err)
+        }
+      }
+
       const editingInfoOverride = {
         index: userIndex,
         targetId: userMsg.id || null,
         partnerId: aiMsg.id || null,
+        partnerIds,
+        moveToEnd: true,
       }
 
-      handleSendMessage(text, msgAttachments, null, { editingInfoOverride })
+      await handleSendMessage(
+        text,
+        msgAttachments,
+        {
+          search: isSearchActive,
+          thinking: isThinkingActive,
+          related: isRelatedEnabled,
+        },
+        { editingInfoOverride },
+      )
     },
 
     [
@@ -1437,9 +1464,71 @@ const ChatInterface = ({
       handleSendMessage,
       isLoading,
       messages,
-      setEditingIndex,
-      setEditingPartnerId,
-      setEditingTargetId,
+      setMessages,
+      isSearchActive,
+      isThinkingActive,
+      isRelatedEnabled,
+    ],
+  )
+
+  const handleRegenerateQuestion = useCallback(
+    async userIndex => {
+      if (isLoading) return
+
+      const userMsg = messages[userIndex]
+      if (!userMsg || userMsg.role !== 'user') return
+
+      const msgAttachments = Array.isArray(userMsg.content)
+        ? userMsg.content.filter(c => c.type === 'image_url')
+        : []
+
+      const text = extractUserQuestion(userMsg)
+      if (!text.trim() && msgAttachments.length === 0) return
+
+      // 删除该问题下已有的回答/表单直到下一条用户消息前
+      let cutEnd = userIndex + 1
+      const partnerIds = []
+      while (cutEnd < messages.length && messages[cutEnd].role !== 'user') {
+        partnerIds.push(messages[cutEnd].id)
+        cutEnd += 1
+      }
+      const idsToDelete = partnerIds.filter(Boolean)
+      if (idsToDelete.length > 0) {
+        try {
+          await Promise.all(idsToDelete.map(id => deleteMessageById(id)))
+        } catch (err) {
+          console.error('Failed to delete messages on question regenerate:', err)
+        }
+      }
+
+      const editingInfoOverride = {
+        index: userIndex,
+        targetId: userMsg.id || null,
+        partnerId: partnerIds[0] || null,
+        partnerIds,
+        moveToEnd: true,
+      }
+
+      await handleSendMessage(
+        text,
+        msgAttachments,
+        {
+          search: isSearchActive,
+          thinking: isThinkingActive,
+          related: isRelatedEnabled,
+        },
+        { editingInfoOverride },
+      )
+    },
+    [
+      extractUserQuestion,
+      handleSendMessage,
+      isLoading,
+      messages,
+      setMessages,
+      isSearchActive,
+      isThinkingActive,
+      isRelatedEnabled,
     ],
   )
 
@@ -1449,32 +1538,39 @@ const ChatInterface = ({
       const target = messages[index]
       if (!target) return
 
-      if (target.id) {
+      // Determine range to delete: for AI, delete until next user (same question's stitched parts/forms)
+      const nextUserIndex = target.role === 'ai'
+        ? messages.findIndex((m, idx) => idx > index && m.role === 'user')
+        : -1
+      const cutEnd = nextUserIndex === -1 ? index + 1 : nextUserIndex
+      const idsToDelete = messages.slice(index, cutEnd).map(m => m.id).filter(Boolean)
+
+      if (idsToDelete.length > 0) {
         try {
-          await deleteMessageById(target.id)
+          await Promise.all(idsToDelete.map(id => deleteMessageById(id)))
         } catch (err) {
-          console.error('Failed to delete message:', err)
+          console.error('Failed to delete message(s):', err)
         }
       }
 
-      setMessages(prev => prev.filter((_, idx) => idx !== index))
+      setMessages(prev => [...prev.slice(0, index), ...prev.slice(cutEnd)])
 
       if (editingIndex !== null) {
-        if (editingIndex === index) {
+        if (editingIndex >= index && editingIndex < cutEnd) {
           setEditingIndex(null)
           setEditingSeed({ text: '', attachments: [] })
           setEditingTargetId(null)
           setEditingPartnerId(null)
-        } else if (editingIndex > index) {
-          setEditingIndex(editingIndex - 1)
+        } else if (editingIndex >= cutEnd) {
+          setEditingIndex(editingIndex - (cutEnd - index))
         }
       }
 
-      if (editingTargetId && target.id === editingTargetId) {
+      if (editingTargetId && idsToDelete.includes(editingTargetId)) {
         setEditingTargetId(null)
       }
 
-      if (editingPartnerId && target.id === editingPartnerId) {
+      if (editingPartnerId && idsToDelete.includes(editingPartnerId)) {
         setEditingPartnerId(null)
       }
     },
@@ -1646,8 +1742,8 @@ const ChatInterface = ({
               onEdit={handleEdit}
               onQuote={handleQuote}
               onRegenerateAnswer={handleRegenerateAnswer}
-              onResend={handleResendMessage}
               onDelete={handleDeleteMessage}
+              onUserRegenerate={handleRegenerateQuestion}
               onFormSubmit={handleFormSubmit}
             />
             {/* Bottom Anchor */}

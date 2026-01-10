@@ -76,8 +76,8 @@ const QuestionTimelineController = ({
       },
       {
         root: container,
-        rootMargin: '-10% 0px -60% 0px',
-        threshold: [0.1],
+        rootMargin: '0px 0px -70% 0px',
+        threshold: [0, 0.1],
       },
     )
 
@@ -87,6 +87,12 @@ const QuestionTimelineController = ({
 
     return () => observer.disconnect()
   }, [messages, messageRefs, messagesContainerRef])
+
+  // Fallback: ensure the first user question is active on mount
+  useEffect(() => {
+    if (activeId || items.length === 0) return
+    setActiveId(items[0].id)
+  }, [activeId, items])
 
   const jumpToMessage = useCallback(
     id => {

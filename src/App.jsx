@@ -1,5 +1,5 @@
 import { Outlet, useLocation, useNavigate } from '@tanstack/react-router'
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { I18nextProvider } from 'react-i18next'
 import AgentModal from './components/AgentModal'
 import ConfirmationModal from './components/ConfirmationModal'
@@ -75,6 +75,14 @@ function App() {
   // Conversations Data
   const [conversations, setConversations] = useState([])
   const [conversationsLoading, setConversationsLoading] = useState(false)
+  const [conversationStatuses, setConversationStatuses] = useState({})
+  const setConversationStatus = useCallback((conversationId, status) => {
+    if (!conversationId) return
+    setConversationStatuses(prev => {
+      if (prev[conversationId] === status) return prev
+      return { ...prev, [conversationId]: status }
+    })
+  }, [])
   const [spacesLoading, setSpacesLoading] = useState(true)
 
   // Sidebar pin state
@@ -100,6 +108,40 @@ function App() {
     const match = location.pathname.match(/\/(conversation|deepresearch)\/(.+)/)
     return match ? match[2] : null
   }, [location])
+
+  // Global confirmation dialog handler
+  const showConfirmation = options => {
+    setConfirmation({
+      isOpen: true,
+      title: options.title || 'Confirm',
+      message: options.message || 'Are you sure?',
+      confirmText: options.confirmText || 'Confirm',
+      cancelText: options.cancelText || 'Cancel',
+      isDangerous: options.isDangerous || false,
+      onConfirm: options.onConfirm || null,
+      onClose: options.onClose || null,
+    })
+  }
+
+  const isActiveConversationStreaming =
+    activeConversationId && conversationStatuses[activeConversationId] === 'loading'
+
+  const confirmNavigationIfStreaming = useCallback(
+    onProceed => {
+      if (!isActiveConversationStreaming) {
+        onProceed()
+        return
+      }
+      showConfirmation({
+        title: 'Leave current conversation?',
+        message: 'The current reply is still streaming. Leaving will interrupt it.',
+        confirmText: 'Leave',
+        cancelText: 'Stay',
+        onConfirm: onProceed,
+      })
+    },
+    [isActiveConversationStreaming],
+  )
   const isShareRoute = location.pathname.includes('/share')
 
   // Derive current view from location (removed unused logic)
@@ -220,44 +262,50 @@ function App() {
   }
 
   const handleNavigate = view => {
-    setIsSidebarOpen(false)
-    switch (view) {
-      case 'home':
-        navigate({ to: '/new_chat' })
-        break
-      case 'spaces':
-        navigate({ to: '/spaces' })
-        break
-      case 'agents':
-        navigate({ to: '/agents' })
-        break
-      case 'library':
-        navigate({ to: '/library' })
-        break
-      case 'bookmarks':
-        navigate({ to: '/bookmarks' })
-        break
-      case 'deepResearch':
-        navigate({ to: '/deepresearch' })
-        break
-      case 'chat':
-        navigate({ to: '/new_chat' })
-        break
-      default:
-        navigate({ to: '/' })
+    const proceed = () => {
+      setIsSidebarOpen(false)
+      switch (view) {
+        case 'home':
+          navigate({ to: '/new_chat' })
+          break
+        case 'spaces':
+          navigate({ to: '/spaces' })
+          break
+        case 'agents':
+          navigate({ to: '/agents' })
+          break
+        case 'library':
+          navigate({ to: '/library' })
+          break
+        case 'bookmarks':
+          navigate({ to: '/bookmarks' })
+          break
+        case 'deepResearch':
+          navigate({ to: '/deepresearch' })
+          break
+        case 'chat':
+          navigate({ to: '/new_chat' })
+          break
+        default:
+          navigate({ to: '/' })
+      }
     }
+    confirmNavigationIfStreaming(proceed)
   }
 
   const handleNavigateToSpace = space => {
-    setIsSidebarOpen(false)
-    if (space) {
-      navigate({
-        to: '/space/$spaceId',
-        params: { spaceId: String(space.id) },
-      })
-    } else {
-      navigate({ to: '/spaces' })
+    const proceed = () => {
+      setIsSidebarOpen(false)
+      if (space) {
+        navigate({
+          to: '/space/$spaceId',
+          params: { spaceId: String(space.id) },
+        })
+      } else {
+        navigate({ to: '/spaces' })
+      }
     }
+    confirmNavigationIfStreaming(proceed)
   }
 
   const handleCreateSpace = () => {
@@ -322,20 +370,23 @@ function App() {
   }
 
   const handleOpenConversation = conversation => {
-    setIsSidebarOpen(false)
-    if (conversation?.id) {
-      const deepResearchId = spaces.find(space => space.isDeepResearchSystem)?.id || null
-      const isDeepResearchConversation =
-        deepResearchId && String(conversation.space_id) === String(deepResearchId)
-      navigate({
-        to: isDeepResearchConversation
-          ? '/deepresearch/$conversationId'
-          : '/conversation/$conversationId',
-        params: { conversationId: String(conversation.id) },
-      })
-    } else {
-      navigate({ to: '/new_chat' })
+    const proceed = () => {
+      setIsSidebarOpen(false)
+      if (conversation?.id) {
+        const deepResearchId = spaces.find(space => space.isDeepResearchSystem)?.id || null
+        const isDeepResearchConversation =
+          deepResearchId && String(conversation.space_id) === String(deepResearchId)
+        navigate({
+          to: isDeepResearchConversation
+            ? '/deepresearch/$conversationId'
+            : '/conversation/$conversationId',
+          params: { conversationId: String(conversation.id) },
+        })
+      } else {
+        navigate({ to: '/new_chat' })
+      }
     }
+    confirmNavigationIfStreaming(proceed)
   }
 
   // Load spaces from Supabase on mount
@@ -738,20 +789,6 @@ function App() {
     setEditingSpace(null)
   }
 
-  // Global confirmation dialog handler
-  const showConfirmation = options => {
-    setConfirmation({
-      isOpen: true,
-      title: options.title || 'Confirm',
-      message: options.message || 'Are you sure?',
-      confirmText: options.confirmText || 'Confirm',
-      cancelText: options.cancelText || 'Cancel',
-      isDangerous: options.isDangerous || false,
-      onConfirm: options.onConfirm || null,
-      onClose: options.onClose || null,
-    })
-  }
-
   // Remove old route sync logic - React Router handles this automatically
 
   return (
@@ -783,6 +820,8 @@ function App() {
               onEditAgent: handleEditAgent,
               isSidebarPinned,
               toggleSidebar: () => setIsSidebarOpen(prev => !prev),
+              conversationStatuses,
+              setConversationStatus,
               showConfirmation,
             }}
           >

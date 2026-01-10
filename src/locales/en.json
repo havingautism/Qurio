@@ -108,7 +108,12 @@
     "removeBookmark": "Remove Bookmark",
     "addedToBookmarks": "Added to bookmarks",
     "removedFromBookmarks": "Removed from bookmarks",
-    "untitled": "Untitled"
+    "untitled": "Untitled",
+    "status": {
+      "streaming": "Streaming",
+      "complete": "Complete"
+    },
+    "agents": "Agents"
   },
   "settings": {
     "title": "Settings",

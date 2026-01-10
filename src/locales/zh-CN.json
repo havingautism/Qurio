@@ -108,6 +108,10 @@
     "addedToBookmarks": "已添加到收藏",
     "removedFromBookmarks": "已从收藏中移除",
     "untitled": "无标题",
+    "status": {
+      "streaming": "正在传输",
+      "complete": "已完成"
+    },
     "agents": "智能体"
   },
   "settings": {

@@ -100,7 +100,37 @@ const Sidebar = ({
   const [spacesLoadingMore, setSpacesLoadingMore] = useState(false)
 
   const toast = useToast()
-  const { showConfirmation, deepResearchSpace } = useAppContext()
+  const { showConfirmation, deepResearchSpace, conversationStatuses } = useAppContext()
+
+  const getConversationStatusMeta = status => {
+    if (status === 'loading') {
+      return {
+        colorClass: 'bg-amber-500 border-amber-300 dark:border-amber-400',
+        label: t('sidebar.status.streaming'),
+      }
+    }
+    if (status === 'done') {
+      return {
+        colorClass: 'bg-emerald-500 border-emerald-300 dark:border-emerald-400',
+        label: t('sidebar.status.complete'),
+      }
+    }
+    return null
+  }
+
+  const renderConversationStatusDot = status => {
+    const meta = getConversationStatusMeta(status)
+    if (!meta) return null
+    return (
+      <span className="flex items-center gap-1">
+        <span
+          aria-hidden="true"
+          className={clsx('h-2 w-2 rounded-full border transition-colors', meta.colorClass)}
+        />
+        <span className="sr-only">{meta.label}</span>
+      </span>
+    )
+  }
 
   const spaceById = useMemo(() => {
     const map = new Map()
@@ -869,6 +899,7 @@ const Sidebar = ({
                                           className="text-primary-500 fill-current shrink-0"
                                         />
                                       )}
+                                      {renderConversationStatusDot(conversationStatuses[conv.id])}
                                     </div>
                                     <span
                                       className={clsx(
@@ -1028,18 +1059,19 @@ const Sidebar = ({
                                         className="shrink-0"
                                       />
                                     </div>
-                                    <div className="flex flex-col overflow-hidden flex-1 min-w-0">
-                                      <div className="flex items-center gap-1 min-w-0">
-                                        <span className="truncate font-medium flex-1 min-w-0">
-                                          {conv.title}
-                                        </span>
-                                        {conv.is_favorited && (
-                                          <Bookmark
-                                            size={12}
-                                            className="text-primary-500 fill-current shrink-0"
-                                          />
-                                        )}
-                                      </div>
+                                      <div className="flex flex-col overflow-hidden flex-1 min-w-0">
+                                        <div className="flex items-center gap-1 min-w-0">
+                                          <span className="truncate font-medium flex-1 min-w-0">
+                                            {conv.title}
+                                          </span>
+                                          {conv.is_favorited && (
+                                            <Bookmark
+                                              size={12}
+                                              className="text-primary-500 fill-current shrink-0"
+                                            />
+                                          )}
+                                        {renderConversationStatusDot(conversationStatuses[conv.id])}
+                                        </div>
                                       <span
                                         className={clsx(
                                           'text-xs',
@@ -1196,6 +1228,7 @@ const Sidebar = ({
                                     size={12}
                                     className="text-primary-500 fill-current shrink-0"
                                   />
+                                  {renderConversationStatusDot(conversationStatuses[conv.id])}
                                 </div>
                                 <span
                                   className={clsx(

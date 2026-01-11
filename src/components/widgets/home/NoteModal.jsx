@@ -55,7 +55,7 @@ const NoteModal = ({ isOpen, onClose, note, onSave, onDelete }) => {
         </div>
 
         {/* Content */}
-        <div className="flex-1 p-6 min-h-[300px] bg-gray-50 dark:bg-[#191a1a]/50">
+        <div className="flex-1 p-6 min-h-[300px] bg-white dark:bg-[#191a1a]/50">
           <textarea
             value={content}
             onChange={e => setContent(e.target.value)}

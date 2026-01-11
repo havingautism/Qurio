@@ -135,6 +135,8 @@ Parsed text artifacts stored per space (acts like a lightweight knowledge base).
 | `name`         | text        | Original file name               |
 | `file_type`    | text        | File extension or MIME           |
 | `content_text` | text        | Parsed document content          |
+| `embedding_provider` | text        | Embedding provider used to index the document |
+| `embedding_model`    | text        | Embedding model used to index the document |
 | `created_at`   | timestamptz |                                  |
 | `updated_at`   | timestamptz |                                  |
 

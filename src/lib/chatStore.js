@@ -47,7 +47,7 @@ const validateInput = (text, attachments, isLoading) => {
  * @param {Array} attachments - Array of file attachments
  * @returns {Object} User message object with role, content, and timestamp
  */
-const buildUserMessage = (text, attachments, quoteContext) => {
+const buildUserMessage = (text, attachments, quoteContext, documentContextAppend = '') => {
   const now = new Date().toISOString()
   const quoteText = quoteContext?.text?.trim()
 
@@ -69,8 +69,11 @@ const buildUserMessage = (text, attachments, quoteContext) => {
     quoteText && quoteSource && text
       ? `###User quoted these sentences from context:\n${quoteText}\n\n###User question:\n${text}\n\n ###User original context:\n${quoteSource}`
       : text
+  const textWithDocumentContext = documentContextAppend
+    ? `${textWithPrefix}\n\n${documentContextAppend}`
+    : textWithPrefix
   const payloadContent =
-    attachments.length > 0 ? buildContentArray(textWithPrefix, false) : textWithPrefix
+    attachments.length > 0 ? buildContentArray(textWithDocumentContext, false) : textWithDocumentContext
 
   const userMessage = { role: 'user', content: displayContent, created_at: now }
 
@@ -689,13 +692,12 @@ const prepareAIPlaceholder = (
   settings,
   set,
   toggles,
-  documentContext,
+  documentSources = [],
 ) => {
   const resolvedPrompt = buildAgentPrompt(selectedAgent, settings)
 
   const conversationMessagesBase = [
     ...(resolvedPrompt ? [{ role: 'system', content: resolvedPrompt }] : []),
-    ...(documentContext ? [{ role: 'system', content: documentContext }] : []),
     ...historyForSend,
   ]
 
@@ -715,6 +717,7 @@ const prepareAIPlaceholder = (
     agentName: selectedAgent?.name || null,
     agentEmoji: selectedAgent?.emoji || '',
     agentIsDefault: !!selectedAgent?.isDefault,
+    documentSources: documentSources || [],
   }
 
   // Add placeholder to UI
@@ -758,6 +761,7 @@ const callAIAPI = async (
   set,
   historyLengthBeforeSend,
   firstUserText,
+  documentSources = [],
   isAgentAutoMode = false,
   researchType = 'general', // Add researchType parameter
 ) => {
@@ -1114,6 +1118,7 @@ const callAIAPI = async (
           preselectedTitle,
           preselectedEmojis,
           toggles,
+          documentSources,
           selectedAgent,
           agents,
           isAgentAutoMode,
@@ -1208,6 +1213,7 @@ const finalizeMessage = async (
   preselectedTitle,
   preselectedEmojis,
   toggles = {},
+  documentSources = [],
   selectedAgent = null,
   agents = [],
   isAgentAutoMode = false,
@@ -1270,6 +1276,7 @@ const finalizeMessage = async (
       }
       lastMsg.provider = modelConfig.provider
       lastMsg.model = modelConfig.model
+      lastMsg.documentSources = documentSources || []
       updated[lastMsgIndex] = lastMsg
     }
     return { messages: updated }
@@ -1505,6 +1512,7 @@ const finalizeMessage = async (
           result.sources ||
           null,
       ),
+      document_sources: sanitizeJson(documentSources || null),
       grounding_supports: sanitizeJson(result.groundingSupports || null),
       created_at: new Date().toISOString(),
     }
@@ -1519,13 +1527,14 @@ const finalizeMessage = async (
         provider: aiPayload.provider,
         model: aiPayload.model,
         agent_id: aiPayload.agent_id,
-        agent_name: aiPayload.agent_name,
-        agent_emoji: aiPayload.agent_emoji,
-        agent_is_default: aiPayload.agent_is_default,
-        content: aiPayload.content,
-        thinking_process: aiPayload.thinking_process,
-        created_at: aiPayload.created_at,
-      })
+      agent_name: aiPayload.agent_name,
+      agent_emoji: aiPayload.agent_emoji,
+      agent_is_default: aiPayload.agent_is_default,
+      content: aiPayload.content,
+      thinking_process: aiPayload.thinking_process,
+      document_sources: aiPayload.document_sources,
+      created_at: aiPayload.created_at,
+    })
       if (retryAiError) {
         console.error('Failed to persist AI message (retry):', retryAiError)
       } else {
@@ -1892,6 +1901,7 @@ Analyze the submitted data. If critical information is still missing or if the r
         set,
         messages.length,
         '', // firstUserText
+        [], // documentSources
         isAgentAutoMode,
       )
     } catch (e) {
@@ -1910,9 +1920,10 @@ Analyze the submitted data. If critical information is still missing or if the r
    * @param {Object} params.spaceInfo - Space selection information { selectedSpace, isManualSpaceSelection }
    * @param {Object|null} params.selectedAgent - Currently selected agent (optional)
    * @param {boolean} params.isAgentAutoMode - Whether agent selection is in auto mode (agent preselects every message, space/title only on first turn)
-   * @param {Array} params.agents - Available agents list (optional)
-   * @param {string} params.documentContext - Optional background document context
-   * @param {Object|null} params.editingInfo - Information about message being edited { index, targetId, partnerId }
+ * @param {Array} params.agents - Available agents list (optional)
+  * @param {string} params.documentContextAppend - Optional document information appended to user question
+  * @param {Array} params.documentSources - Optional metadata for document references (used by UI)
+ * @param {Object|null} params.editingInfo - Information about message being edited { index, targetId, partnerId }
    * @param {Object|null} params.callbacks - Callback functions { onTitleAndSpaceGenerated, onSpaceResolved, onAgentResolved, onConversationReady }
    * @param {Array} params.spaces - Available spaces for auto-generation (optional)
    * @param {Object} params.quoteContext - Quote context { text, sourceContent, sourceRole }
@@ -1941,7 +1952,8 @@ Analyze the submitted data. If critical information is still missing or if the r
     selectedAgent = null, // Currently selected agent (optional)
     isAgentAutoMode = false, // Whether agent selection is in auto mode
     agents = [], // available agents list for resolving defaults
-    documentContext = '',
+    documentContextAppend = '',
+    documentSources = [],
     editingInfo, // { index, targetId, partnerId } (optional)
     callbacks, // { onTitleAndSpaceGenerated, onSpaceResolved } (optional)
     spaces = [], // passed from component
@@ -1963,7 +1975,12 @@ Analyze the submitted data. If critical information is still missing or if the r
     set({ isLoading: true })
 
     // Step 2: Construct User Message
-    const { userMessage, payloadContent } = buildUserMessage(text, attachments, quoteContext)
+    const { userMessage, payloadContent } = buildUserMessage(
+      text,
+      attachments,
+      quoteContext,
+      documentContextAppend,
+    )
     const userMessageForSend = { ...userMessage, content: payloadContent }
 
     // When quoting, the original answer has already been embedded into textWithPrefix,
@@ -2242,7 +2259,7 @@ Analyze the submitted data. If critical information is still missing or if the r
       settings,
       set,
       toggles,
-      documentContext,
+      documentSources,
     )
 
     // Step 9: Call API & Stream
@@ -2258,13 +2275,14 @@ Analyze the submitted data. If critical information is still missing or if the r
       agents,
       preselectedTitle,
       preselectedEmojis,
-      get,
-      set,
-      historyLengthBeforeSend,
-      text,
-      isAgentAutoMode,
-      researchType, // Pass researchType to callAIAPI
-    )
+        get,
+        set,
+        historyLengthBeforeSend,
+        text,
+        documentSources,
+        isAgentAutoMode,
+        researchType, // Pass researchType to callAIAPI
+      )
   },
 }))
 

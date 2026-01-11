@@ -50,6 +50,7 @@ import {
 import RelatedQuestions from './message/RelatedQuestions'
 import { useMessageExport } from './message/useMessageExport'
 import MobileSourcesDrawer from './MobileSourcesDrawer'
+import DocumentSourcesPanel from './DocumentSourcesPanel'
 import ShareModal from './ShareModal'
 
 const PROVIDER_META = {
@@ -145,6 +146,7 @@ const MessageBubble = ({
     let sources = [...(message.sources || [])]
     let related = [...(message.related || [])]
     let relatedLoading = message.relatedLoading || false
+    let documentSources = [...(message.documentSources || [])]
     let allSubmittedValues = {}
     let hasAnySubmission = false
     let isContinuationStreaming = false
@@ -214,6 +216,15 @@ const MessageBubble = ({
             sources.push(...newSources)
           }
 
+          // Merge document sources if any
+          if (nextAiMsg.documentSources && nextAiMsg.documentSources.length > 0) {
+            const existingDocIds = new Set(documentSources.map(doc => doc.id))
+            const newDocumentSources = nextAiMsg.documentSources.filter(
+              doc => !existingDocIds.has(doc.id),
+            )
+            documentSources.push(...newDocumentSources)
+          }
+
           // Merge related questions if any
           if (nextAiMsg.related && nextAiMsg.related.length > 0) {
             related = nextAiMsg.related
@@ -275,6 +286,7 @@ const MessageBubble = ({
         content: mergedContent,
         toolCallHistory: toolCallHistory,
         sources: sources,
+        documentSources: documentSources,
         related: related,
         relatedLoading: relatedLoading,
         _formSubmitted: true,
@@ -353,6 +365,11 @@ const MessageBubble = ({
   // State to track copy success
   const [isCopied, setIsCopied] = useState(false)
   const [activeImageUrl, setActiveImageUrl] = useState(null)
+  const [isDocumentSourcesOpen, setIsDocumentSourcesOpen] = useState(false)
+
+  useEffect(() => {
+    setIsDocumentSourcesOpen(false)
+  }, [message?.id])
 
   // Utility function to copy text to clipboard
   const copyToClipboard = async text => {
@@ -389,7 +406,7 @@ const MessageBubble = ({
           style={isDark ? oneDark : oneLight}
           language={language || 'text'}
           PreTag="div"
-          className="code-scrollbar text-sm sm:text-base text-shadow-none! font-code!"
+          className="code-scrollbar text-sm text-shadow-none! font-code!"
           customStyle={{
             margin: 0,
             padding: '1rem',
@@ -972,7 +989,7 @@ const MessageBubble = ({
               style={isDark ? oneDark : oneLight}
               language={match[1]}
               PreTag="div"
-              className="code-scrollbar text-sm sm:text-base text-shadow-none! font-code!"
+              className="code-scrollbar text-sm text-shadow-none! font-code!"
               customStyle={{
                 margin: 0,
                 padding: '1rem',
@@ -2218,7 +2235,10 @@ const MessageBubble = ({
         isMobile={isMobile}
         message={mergedMessage}
         isSourcesOpen={isSourcesOpen}
+        documentSources={mergedMessage.documentSources}
+        isDocumentSourcesOpen={isDocumentSourcesOpen}
         onToggleSources={() => setIsSourcesOpen(prev => !prev)}
+        onToggleDocumentSources={() => setIsDocumentSourcesOpen(prev => !prev)}
         onOpenMobileSources={() =>
           handleMobileSourceClick(mergedMessage.sources, t('sources.allSources'))
         }
@@ -2256,6 +2276,14 @@ const MessageBubble = ({
         }}
       />
 
+      {/* Document Sources Panel */}
+      {mergedMessage.documentSources && mergedMessage.documentSources.length > 0 && (
+        <DocumentSourcesPanel
+          sources={mergedMessage.documentSources}
+          isOpen={isDocumentSourcesOpen}
+        />
+      )}
+
       {/* Desktop Sources Section (Collapsible) */}
       {!isMobile && mergedMessage.sources && mergedMessage.sources.length > 0 && (
         <DesktopSourcesSection sources={mergedMessage.sources} isOpen={isSourcesOpen} />
@@ -2291,8 +2319,8 @@ const MessageBubble = ({
 
       {activeToolDetail &&
         createPortal(
-          <div className="fixed inset-0 z-[10000] flex items-start md:items-center justify-center bg-black/50 backdrop-blur-sm p-0 md:p-4 overflow-y-auto md:overflow-hidden">
-            <div className="w-full h-[100vh] md:max-w-4xl md:h-[80vh] bg-white dark:bg-[#191a1a] rounded-none md:rounded-2xl shadow-2xl flex flex-col overflow-hidden border-0 md:border border-gray-200 dark:border-zinc-800">
+          <div className="fixed inset-0 z-10000 flex items-start md:items-center justify-center bg-black/50 backdrop-blur-sm p-0 md:p-4 overflow-y-auto md:overflow-hidden">
+            <div className="w-full h-screen md:max-w-4xl md:h-[80vh] bg-white dark:bg-[#191a1a] rounded-none md:rounded-2xl shadow-2xl flex flex-col overflow-hidden border-0 md:border border-gray-200 dark:border-zinc-800">
               <div className="h-14 border-b border-gray-200 dark:border-zinc-800 flex items-center justify-between px-4 sm:px-6 shrink-0 bg-white dark:bg-[#191a1a]">
                 <div className="text-base font-semibold text-gray-900 dark:text-white truncate pr-4">
                   {activeToolDetail.name}

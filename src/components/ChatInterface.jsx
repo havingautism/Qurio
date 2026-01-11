@@ -26,9 +26,13 @@ import { loadSettings } from '../lib/settings'
 import { deleteMessageById } from '../lib/supabase'
 import ChatHeader from './chat/ChatHeader'
 import ChatInputBar from './chat/ChatInputBar'
+import { fetchDocumentChunkContext } from '../lib/documentRetrievalService'
+import { resolveEmbeddingConfig } from '../lib/embeddingService'
 
 const DOCUMENT_CONTEXT_MAX_TOTAL = 12000
 const DOCUMENT_CONTEXT_MAX_PER_DOC = 4000
+const DOCUMENT_RETRIEVAL_CHUNK_LIMIT = 250
+const DOCUMENT_RETRIEVAL_TOP_CHUNKS = 3
 
 const truncateText = (text, limit) => {
   if (!text) return ''
@@ -54,6 +58,78 @@ const buildDocumentContext = documents => {
     context = `${context.slice(0, DOCUMENT_CONTEXT_MAX_TOTAL)}\n\n[Truncated]`
   }
   return context
+}
+
+const DOCUMENT_SNIPPET_MAX_CHARS = 450
+const buildDocumentSources = documents => {
+  return (documents || [])
+    .map(doc => {
+      const content = String(doc?.content_text || '').trim()
+      if (!content) return null
+      return {
+        id: String(doc.id),
+        title: doc?.name || 'Document',
+        fileType: doc?.file_type || '',
+        snippet: truncateText(content, DOCUMENT_SNIPPET_MAX_CHARS),
+      }
+    })
+    .filter(Boolean)
+}
+
+const buildDocumentContextFromSources = sources => {
+  if (!sources || sources.length === 0) return ''
+  const lines = sources.map(source => {
+    const label = source.fileType ? `${source.title} (${source.fileType})` : source.title
+    return `### ${label}\n${source.snippet}`
+  })
+  let context = lines.join('\n\n')
+  if (context.length > DOCUMENT_CONTEXT_MAX_TOTAL) {
+    context = `${context.slice(0, DOCUMENT_CONTEXT_MAX_TOTAL)}\n\n[Truncated]`
+  }
+  return context
+}
+
+const fetchRelevantDocumentSources = async (documents, queryText) => {
+  if (!documents.length || !queryText.trim()) {
+    return null
+  }
+  try {
+    return await fetchDocumentChunkContext({
+      documents,
+      queryText,
+      chunkLimit: DOCUMENT_RETRIEVAL_CHUNK_LIMIT,
+      topChunks: DOCUMENT_RETRIEVAL_TOP_CHUNKS,
+    })
+  } catch (error) {
+    console.error('Document retrieval failed', error)
+    return null
+  }
+}
+
+const buildEmbeddingModelKey = ({ model }) => {
+  const normalizedModel = typeof model === 'string' ? model.trim() : ''
+  return normalizedModel || null
+}
+
+const getRelevanceLabel = score => {
+  if (score == null) return 'Medium relevance'
+  if (score >= 0.9) return 'High relevance'
+  if (score >= 0.75) return 'Medium relevance'
+  return 'Low relevance'
+}
+
+const formatDocumentAppendText = sources => {
+  const filtered = (sources || []).filter(source => source?.snippet)
+  if (!filtered.length) return ''
+  const lines = filtered.map(source => {
+    const label = source.fileType ? `${source.title} (${source.fileType})` : source.title
+    const relevance = getRelevanceLabel(source.score)
+    return `- [${relevance} | ${label}]: ${source.snippet}`
+  })
+  return [
+    '# The following document excerpts may help answer this question (may be incomplete):',
+    ...lines,
+  ].join('\n')
 }
 
 const ChatInterface = ({
@@ -188,6 +264,7 @@ const ChatInterface = ({
   const [isDocumentSelectorOpen, setIsDocumentSelectorOpen] = useState(false)
   const documentSelectorRef = useRef(null)
   const pendingDocumentIdsRef = useRef([])
+  const previousSpaceIdRef = useRef(null)
 
   // New state for toggles and attachments
   const [isSearchActive, setIsSearchActive] = useState(false)
@@ -263,12 +340,21 @@ const ChatInterface = ({
     let isMounted = true
     const loadDocuments = async () => {
       if (!displaySpace?.id) {
+        previousSpaceIdRef.current = null
         setSpaceDocuments([])
         setSelectedDocumentIds([])
         setPendingDocumentIds([])
         setIsDocumentSelectorOpen(false)
         return
       }
+
+      if (previousSpaceIdRef.current !== displaySpace.id) {
+        setSpaceDocuments([])
+        setSelectedDocumentIds([])
+        setPendingDocumentIds([])
+        setIsDocumentSelectorOpen(false)
+      }
+      previousSpaceIdRef.current = displaySpace.id
 
       setDocumentsLoading(true)
       const { data, error } = await listSpaceDocuments(displaySpace.id)
@@ -471,10 +557,10 @@ const ChatInterface = ({
     return (spaceDocuments || []).filter(doc => idSet.has(String(doc.id)))
   }, [selectedDocumentIds, spaceDocuments])
 
-  const documentContext = useMemo(
-    () => buildDocumentContext(selectedDocuments),
-    [selectedDocuments],
-  )
+const baseDocumentSources = useMemo(
+  () => buildDocumentSources(selectedDocuments),
+  [selectedDocuments],
+)
 
   // Agent selection is fully user-controlled:
   // - Auto mode: updated via onAgentResolved callback (preselection before sending)
@@ -1250,6 +1336,39 @@ const ChatInterface = ({
       const agentForSend =
         selectedAgent || (!isAgentAutoMode && initialAgentSelection) || defaultAgent || null
 
+      let retrievedDocumentSources = null
+      let skipDocumentRetrieval = false
+
+      if (selectedDocuments.length > 0) {
+        const embeddingConfig = resolveEmbeddingConfig()
+        const currentModelKey = buildEmbeddingModelKey(embeddingConfig)
+        const docModelKeys = selectedDocuments
+          .map(doc => buildEmbeddingModelKey({ model: doc.embedding_model }))
+          .filter(Boolean)
+        const uniqueDocModels = [...new Set(docModelKeys)]
+        if (uniqueDocModels.length > 1) {
+          toast.error(t('chatInterface.documentEmbeddingMixedModels'))
+          skipDocumentRetrieval = true
+        } else if (uniqueDocModels.length === 1 && uniqueDocModels[0] !== currentModelKey) {
+          toast.error(
+            t('chatInterface.documentEmbeddingMismatch', {
+              model: uniqueDocModels[0],
+            }),
+          )
+          skipDocumentRetrieval = true
+        }
+      }
+
+      if (!skipDocumentRetrieval && selectedDocuments.length > 0 && textToSend.trim()) {
+        const retrieval = await fetchRelevantDocumentSources(selectedDocuments, textToSend)
+        if (retrieval) {
+          retrievedDocumentSources = retrieval.sources || null
+        }
+      }
+
+      const documentContextAppend = formatDocumentAppendText(retrievedDocumentSources)
+      const sourcesForSend = retrievedDocumentSources || baseDocumentSources
+
       await sendMessage({
         text: textToSend,
         attachments: attToSend,
@@ -1263,7 +1382,8 @@ const ChatInterface = ({
         selectedAgent: agentForSend,
         isAgentAutoMode,
         agents: appAgents,
-        documentContext,
+        documentSources: sourcesForSend,
+        documentContextAppend: documentContextAppend,
         editingInfo,
         callbacks: {
           onTitleAndSpaceGenerated,
@@ -1318,7 +1438,7 @@ const ChatInterface = ({
       appAgents,
       spaceAgentIds,
       spaceAgents,
-      documentContext,
+      baseDocumentSources,
       t,
       toast,
     ],

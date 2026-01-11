@@ -31,11 +31,20 @@ import {
   getFileTypeLabel,
   normalizeExtractedText,
 } from '../lib/documentParser'
+import { chunkDocumentWithHierarchy } from '../lib/documentStructure'
+import {
+  DOCUMENT_CHUNK_OVERLAP,
+  DOCUMENT_CHUNK_SIZE,
+  DOCUMENT_MAX_CHUNKS,
+} from '../lib/documentConstants'
 import {
   createSpaceDocument,
   deleteSpaceDocument,
   listSpaceDocuments,
 } from '../lib/documentsService'
+import { persistDocumentChunks, persistDocumentSections } from '../lib/documentIndexService'
+import { fetchEmbeddingVector, resolveEmbeddingConfig } from '../lib/embeddingService'
+import { computeSha256 } from '../lib/hash'
 import { deleteConversation, removeConversationFromSpace } from '../lib/supabase'
 import { spaceRoute } from '../router'
 
@@ -115,6 +124,9 @@ const SpaceView = () => {
     message: '',
     fileName: '',
     characters: 0,
+    sections: 0,
+    chunks: 0,
+    stage: '',
   })
 
   // New state for upload UI
@@ -122,7 +134,7 @@ const SpaceView = () => {
   const [isDragging, setIsDragging] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
 
-  const toast = useToast()
+  const { error: toastError, success: toastSuccess } = useToast()
 
   // Reset pagination when space changes
   useEffect(() => {
@@ -157,13 +169,13 @@ const SpaceView = () => {
         }
       } else {
         console.error('Failed to load conversations by space:', error)
-        toast.error(t('views.spaceView.failedToLoad'))
+        toastError(t('views.spaceView.failedToLoad'))
       }
       setLoading(false)
     }
 
     fetchConversations()
-  }, [activeSpace?.id, currentPage, toast])
+  }, [activeSpace?.id, currentPage, toastError, t])
 
   const loadSpaceDocuments = useCallback(async () => {
     if (!activeSpace?.id) {
@@ -176,10 +188,10 @@ const SpaceView = () => {
       setSpaceDocuments(data || [])
     } else {
       console.error('Failed to load space documents:', error)
-      toast.error(t('views.spaceView.documentLoadFailed'))
+      toastError(t('views.spaceView.documentLoadFailed'))
     }
     setDocumentsLoading(false)
-  }, [activeSpace?.id, toast, t])
+  }, [activeSpace?.id, t, toastError])
 
   useEffect(() => {
     loadSpaceDocuments()
@@ -209,18 +221,18 @@ const SpaceView = () => {
           const { success, error } = await deleteConversation(conversation.id)
 
           if (success) {
-            toast.success(t('views.spaceView.conversationDeleted'))
+            toastSuccess(t('views.spaceView.conversationDeleted'))
             setCurrentPage(1)
             // Notify Sidebar to refresh its conversation list
             window.dispatchEvent(new Event('conversations-changed'))
           } else {
             console.error('Failed to delete conversation:', error)
-            toast.error(t('views.spaceView.failedToDelete'))
+            toastError(t('views.spaceView.failedToDelete'))
           }
         },
       })
     },
-    [showConfirmation, toast, t],
+    [showConfirmation, setCurrentPage, toastSuccess, toastError, t],
   )
 
   const handleRemoveFromSpace = useCallback(
@@ -228,16 +240,16 @@ const SpaceView = () => {
       const { data, error } = await removeConversationFromSpace(conversation.id)
 
       if (!error && data) {
-        toast.success(t('views.spaceView.removedFromSpace'))
+        toastSuccess(t('views.spaceView.removedFromSpace'))
         setCurrentPage(1)
         // Notify Sidebar to refresh its conversation list
         window.dispatchEvent(new Event('conversations-changed'))
       } else {
         console.error('Failed to remove conversation from space:', error)
-        toast.error(t('views.spaceView.failedToRemove'))
+        toastError(t('views.spaceView.failedToRemove'))
       }
     },
-    [toast, t],
+    [toastSuccess, toastError, t],
   )
 
   const handleToggleFavorite = useCallback(
@@ -247,14 +259,14 @@ const SpaceView = () => {
 
       if (error) {
         console.error('Failed to toggle favorite:', error)
-        toast.error(t('sidebar.failedToUpdateFavorite'))
+        toastError(t('sidebar.failedToUpdateFavorite'))
       } else {
-        toast.success(newStatus ? t('views.addBookmark') : t('views.removeBookmark'))
+        toastSuccess(newStatus ? t('views.addBookmark') : t('views.removeBookmark'))
         // Notify Sidebar to refresh its conversation list
         window.dispatchEvent(new Event('conversations-changed'))
       }
     },
-    [toast, t],
+    [toastSuccess, toastError, t],
   )
 
   const formatFileType = value => {
@@ -268,57 +280,122 @@ const SpaceView = () => {
 
     setDocumentUploadState({
       status: 'loading',
-      message: t('views.spaceView.documentUploading'),
+      stage: 'chunking',
+      message: t('views.spaceView.documentChunking'),
       fileName: file.name,
       characters: 0,
+      sections: 0,
+      chunks: 0,
     })
     setUploadProgress(10)
 
     try {
-      // Create a progress simulation
-      const progressInterval = setInterval(() => {
-        setUploadProgress(prev => {
-          if (prev >= 90) return prev
-          return prev + 5
-        })
-      }, 200)
-
-      setUploadProgress(30)
       const rawText = await extractTextFromFile(file, {
         unsupportedMessage: t('views.spaceView.documentUnsupportedType'),
       })
-      setUploadProgress(70)
-
       const normalized = normalizeExtractedText(rawText)
       if (!normalized) {
         throw new Error(t('views.spaceView.documentEmpty'))
       }
-      setUploadProgress(85)
+
+      const { sections, chunks } = chunkDocumentWithHierarchy(normalized, {
+        chunkSize: DOCUMENT_CHUNK_SIZE,
+        chunkOverlap: DOCUMENT_CHUNK_OVERLAP,
+        maxChunks: DOCUMENT_MAX_CHUNKS,
+      })
+      setUploadProgress(45)
+      setDocumentUploadState(prev => ({
+        ...prev,
+        sections: sections.length,
+        chunks: chunks.length,
+        stage: 'embedding',
+        message: t('views.spaceView.documentEmbedding'),
+      }))
+
+      const enrichedChunks = []
+      const sanitizeChunkText = text =>
+        String(text || '')
+          .replace(/<[^>]+>/g, '')
+          .replace(/\[.*?\]/g, '')
+          .replace(/\n+/g, ' ')
+          .trim()
+
+      const sanitizeHeadingText = text =>
+        String(text || '')
+          .replace(/<[^>]+>/g, '')
+          .replace(/&lt;|&gt;/g, '')
+          .replace(/\[.*?\]/g, '')
+          .replace(/\s+/g, ' ')
+          .trim()
+
+      if (chunks.length > 0) {
+        for (let index = 0; index < chunks.length; index += 1) {
+          const chunk = chunks[index]
+          const headingLabel =
+            chunk.titlePath?.length > 0
+              ? chunk.titlePath.join(' > ')
+              : chunk.heading
+          const titleLabel = sanitizeHeadingText(headingLabel) || file?.name || 'Document'
+          const sanitizedText = sanitizeChunkText(chunk.text)
+          const chunkPrompt = `passage: ${titleLabel}. ${sanitizedText}`
+          const embedding = await fetchEmbeddingVector({
+            text: sanitizedText,
+            taskType: 'RETRIEVAL_DOCUMENT',
+            prompt: chunkPrompt,
+          })
+          const chunkHash = await computeSha256(chunk.text)
+          enrichedChunks.push({ ...chunk, embedding, chunkHash })
+          const progress = Math.min(85, 45 + Math.round(((index + 1) / chunks.length) * 35))
+          setUploadProgress(progress)
+          setDocumentUploadState(prev => ({
+            ...prev,
+            message: t('views.spaceView.documentEmbeddingProgress', {
+              current: index + 1,
+              total: chunks.length,
+            }),
+          }))
+        }
+      }
 
       const fileType = getFileTypeLabel(file)
-      const { error } = await createSpaceDocument({
+      const { provider: embeddingProvider, model: embeddingModel } = resolveEmbeddingConfig()
+      const { error: createError, data: doc } = await createSpaceDocument({
         spaceId: activeSpace.id,
         name: file.name,
         fileType,
         contentText: normalized,
+        embeddingProvider,
+        embeddingModel,
       })
 
-      if (error) {
-        throw error
+      if (createError || !doc) {
+        throw createError || new Error('Failed to create document record')
       }
 
-      clearInterval(progressInterval)
-      setUploadProgress(100)
+      const { sectionMap, error: sectionsError } = await persistDocumentSections(doc.id, sections)
+      if (sectionsError) {
+        await deleteSpaceDocument(doc.id)
+        throw sectionsError
+      }
 
+      const { error: chunksError } = await persistDocumentChunks(doc.id, enrichedChunks, sectionMap)
+      if (chunksError) {
+        await deleteSpaceDocument(doc.id)
+        throw chunksError
+      }
+
+      setUploadProgress(100)
       setDocumentUploadState({
         status: 'success',
+        stage: '',
         message: t('views.spaceView.documentUploaded'),
         fileName: file.name,
         characters: normalized.length,
+        sections: sections.length,
+        chunks: enrichedChunks.length,
       })
       await loadSpaceDocuments()
 
-      // Clear success state after delay
       setTimeout(() => {
         setDocumentUploadState(prev => ({ ...prev, status: 'idle', message: '' }))
         setUploadProgress(0)
@@ -328,9 +405,12 @@ const SpaceView = () => {
       setUploadProgress(0)
       setDocumentUploadState({
         status: 'error',
+        stage: '',
         message: err?.message || t('views.spaceView.documentUploadFailed'),
         fileName: file.name,
         characters: 0,
+        sections: 0,
+        chunks: 0,
       })
     } finally {
       if (fileInputRef.current) {
@@ -370,11 +450,11 @@ const SpaceView = () => {
         const { success, error } = await deleteSpaceDocument(doc.id)
 
         if (success) {
-          toast.success(t('views.spaceView.documentDeleted'))
+          toastSuccess(t('views.spaceView.documentDeleted'))
           loadSpaceDocuments()
         } else {
           console.error('Failed to delete document:', error)
-          toast.error(t('views.spaceView.documentDeleteFailed'))
+          toastError(t('views.spaceView.documentDeleteFailed'))
         }
       },
     })
@@ -431,7 +511,7 @@ const SpaceView = () => {
               'relative flex flex-col items-center justify-center p-8 rounded-2xl border-2 border-dashed transition-all cursor-pointer overflow-hidden',
               isDragging
                 ? 'border-primary-500 bg-primary-500/5 dark:bg-primary-500/10'
-                : 'border-gray-200 dark:border-zinc-800 bg-white/60 dark:bg-zinc-900/40 hover:bg-gray-50 dark:hover:bg-zinc-800/60',
+                : 'border-gray-200 dark:border-zinc-800 bg-white/20 dark:bg-zinc-900/40',
             )}
             onDragOver={onDragOver}
             onDragLeave={onDragLeave}
@@ -471,7 +551,7 @@ const SpaceView = () => {
 
             {/* Progress Overlay */}
             {documentUploadState.status === 'loading' && (
-              <div className="absolute inset-0 bg-white/90 dark:bg-zinc-900/90 flex flex-col items-center justify-center gap-3 z-20">
+              <div className="absolute inset-0 bg-white dark:bg-zinc-900 flex flex-col items-center justify-center gap-3 z-20">
                 <div className="w-48 h-1.5 bg-gray-100 dark:bg-zinc-800 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-primary-500 transition-all duration-300 ease-out"
@@ -508,6 +588,17 @@ const SpaceView = () => {
                 >
                   {documentUploadState.message}
                 </p>
+                {documentUploadState.status === 'success' &&
+                  documentUploadState.sections > 0 &&
+                  documentUploadState.chunks > 0 && (
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                      {t('views.spaceView.documentSections', {
+                        count: documentUploadState.sections,
+                      })}
+                      {' • '}
+                      {t('views.spaceView.documentChunks', { count: documentUploadState.chunks })}
+                    </div>
+                  )}
               </div>
             )}
           </div>
@@ -533,21 +624,29 @@ const SpaceView = () => {
                     <div className="shrink-0 p-2 rounded-lg bg-gray-50 dark:bg-zinc-800">
                       <FileIcon fileType={doc.file_type} size={20} />
                     </div>
-                    <div className="flex flex-col gap-0.5 min-w-0">
-                      <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                        {doc.name}
-                      </div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-2">
-                        <span className="uppercase">{formatFileType(doc.file_type)}</span>
-                        <span>·</span>
-                        <span>
-                          {t('views.spaceView.documentCharacters', {
-                            count: doc.content_text?.length || 0,
-                          })}
-                        </span>
+                      <div className="flex flex-col gap-0.5 min-w-0">
+                        <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                          {doc.name}
+                        </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-2">
+                          <span className="uppercase">{formatFileType(doc.file_type)}</span>
+                          <span>·</span>
+                          <span>
+                            {t('views.spaceView.documentCharacters', {
+                              count: doc.content_text?.length || 0,
+                            })}
+                          </span>
+                          {doc.embedding_model && (
+                            <>
+                              <span>·</span>
+                              <span>
+                                {t('views.spaceView.embeddingModelLabel')} {doc.embedding_model}
+                              </span>
+                            </>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
 
                   <button
                     onClick={e => handleDeleteDocument(doc, e)}

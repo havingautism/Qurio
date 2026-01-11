@@ -30,6 +30,9 @@
 }
 ```
 
+## 2.3 Document parsing / heading source
+- `.docx` 文件通过 `mammoth.convertToMarkdown` 转为 Markdown，Markdown 本身含 `#/#/##` 结构，PDF 优先读取 TOC/bookmarks。这样 chunker 拥有真实的 H1/H2/H3，并把 `title_path` 存下；embedding prompt 仅用清洗后的 heading（去掉 HTML、anchor、方括号、换行）做 `passage:` label，正文 chunk 也同样 sanitized 后再送 embedding。
+
 ## 3. Parent / Section 层（文档聚合单元）
 - `sections` 表或对象保存 `parent_id`、`doc_id`、`title_path`、`loc`、可选 `section_summary` 和 `level`。
 - Section 主要用于导航与上下文窗口选择，仍可借助简化模型生成摘要做 rerank/UI 展示，但真正的 evidence 仍来自 child chunk。

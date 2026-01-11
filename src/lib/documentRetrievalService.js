@@ -4,6 +4,7 @@ import { cosineSimilarity } from './vectorUtils'
 
 const CHUNKS_TABLE = 'document_chunks'
 const MATCH_DOCUMENT_CHUNKS_RPC = 'match_document_chunks'
+const HYBRID_SEARCH_RPC = 'hybrid_search'
 const DEFAULT_CHUNK_LIMIT = 250
 const DEFAULT_TOP_CHUNKS = 3
 const DEFAULT_SNIPPET_LENGTH = 400
@@ -72,6 +73,45 @@ export const matchDocumentChunksByEmbedding = async ({
   return { data: data || [], error }
 }
 
+export const matchDocumentChunksByHybrid = async ({
+  documentIds = [],
+  queryText = '',
+  queryEmbedding = [],
+  matchCount = DEFAULT_TOP_CHUNKS,
+  rrfK = 60,
+} = {}) => {
+  if (!documentIds.length) {
+    return { data: [], error: null }
+  }
+  if (!Array.isArray(queryEmbedding) || queryEmbedding.length === 0) {
+    return { data: [], error: null }
+  }
+  const trimmedQuery = String(queryText || '').trim()
+  if (!trimmedQuery) {
+    return { data: [], error: null }
+  }
+
+  const supabase = getSupabaseClient()
+  if (!supabase) {
+    return { data: [], error: new Error('Supabase not configured') }
+  }
+
+  const normalizedIds = documentIds.map(id => String(id)).filter(Boolean)
+  if (!normalizedIds.length) {
+    return { data: [], error: null }
+  }
+
+  const { data, error } = await supabase.rpc(HYBRID_SEARCH_RPC, {
+    document_ids: normalizedIds,
+    query_text: trimmedQuery,
+    query_embedding: queryEmbedding,
+    match_count: matchCount,
+    rrf_k: rrfK,
+  })
+
+  return { data: data || [], error }
+}
+
 export const fetchDocumentChunkContext = async ({
   documents = [],
   queryText = '',
@@ -100,6 +140,13 @@ export const fetchDocumentChunkContext = async ({
   const docMap = new Map(documents.map(doc => [String(doc.id), doc]))
   const matchCount = Math.max(topChunks, 1)
 
+  const { data: hybridMatches, error: hybridError } = await matchDocumentChunksByHybrid({
+    documentIds,
+    queryText: trimmedQuery,
+    queryEmbedding,
+    matchCount,
+  })
+
   const { data: matches, error: matchError } = await matchDocumentChunksByEmbedding({
     documentIds,
     queryEmbedding,
@@ -107,7 +154,14 @@ export const fetchDocumentChunkContext = async ({
   })
 
   let scored = []
-  if (!matchError && matches && matches.length > 0) {
+  if (!hybridError && hybridMatches && hybridMatches.length > 0) {
+    scored = hybridMatches
+      .map(match => ({
+        chunk: match,
+        score: Number(match.score ?? match.similarity),
+      }))
+      .filter(entry => Number.isFinite(entry.score))
+  } else if (!matchError && matches && matches.length > 0) {
     scored = matches
       .map(match => ({
         chunk: match,

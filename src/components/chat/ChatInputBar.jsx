@@ -13,6 +13,10 @@ import {
   SlidersHorizontal,
   Smile,
   X,
+  FileJson,
+  FileSpreadsheet,
+  FileCode,
+  File,
 } from 'lucide-react'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -109,10 +113,7 @@ const ChatInputBar = React.memo(
     const [isMultiline, setIsMultiline] = useState(false)
     const highlightedInputParts = useMemo(() => splitTextWithUrls(inputValue), [inputValue])
     const selectedDocumentIdSet = useMemo(
-      () =>
-        new Set(
-          (selectedDocumentIds || []).map(id => String(id)),
-        ),
+      () => new Set((selectedDocumentIds || []).map(id => String(id))),
       [selectedDocumentIds],
     )
     const selectedDocumentCount = selectedDocumentIdSet.size
@@ -120,7 +121,24 @@ const ChatInputBar = React.memo(
       if (!documents || documents.length === 0) return []
       return documents.filter(doc => selectedDocumentIdSet.has(String(doc.id)))
     }, [documents, selectedDocumentIdSet])
-
+    const FileIcon = ({ fileType, className }) => {
+      const type = (fileType || '').toLowerCase()
+      if (type.includes('pdf')) return <FileText className={clsx('text-red-500', className)} />
+      if (type.includes('doc') || type.includes('word'))
+        return <FileText className={clsx('text-blue-500', className)} />
+      if (type.includes('json')) return <FileJson className={clsx('text-yellow-500', className)} />
+      if (type.includes('csv') || type.includes('excel') || type.includes('sheet'))
+        return <FileSpreadsheet className={clsx('text-emerald-500', className)} />
+      if (
+        type.includes('md') ||
+        type.includes('start') ||
+        type.includes('code') ||
+        type === 'js' ||
+        type === 'py'
+      )
+        return <FileCode className={clsx('text-purple-500', className)} />
+      return <File className={clsx('text-gray-400', className)} />
+    }
     // Auto-resize and multiline detection
     useEffect(() => {
       const textarea = textareaRef.current
@@ -474,8 +492,11 @@ const ChatInputBar = React.memo(
       return (
         <div className="w-full max-w-3xl relative group  pb-2">
           {/* Floating Context Indicators */}
-            {(showEditing || quotedText || attachments.length > 0 || selectedDocuments.length > 0) && (
-              <div className="absolute bottom-full left-4 right-4 mb-2 flex flex-col gap-2 z-10">
+          {(showEditing ||
+            quotedText ||
+            attachments.length > 0 ||
+            selectedDocuments.length > 0) && (
+            <div className="absolute bottom-full left-4 right-4 mb-2 flex flex-col gap-2 z-10">
               {/* Edited Message Indicator */}
               {showEditing && (
                 <div className="flex items-center justify-between bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-zinc-800 rounded-xl px-4 py-2 shadow-sm animate-in slide-in-from-bottom-2">
@@ -516,7 +537,7 @@ const ChatInputBar = React.memo(
               )}
               {/* Attachment Previews */}
               {(attachments.length > 0 || selectedDocuments.length > 0) && (
-                <div className="flex gap-2 px-2 py-2 overflow-x-auto rounded-xl border border-gray-200/70 dark:border-zinc-700/50 bg-[#F9F9F9] dark:bg-[#1a1a1a]">
+                <div className="flex gap-2 px-2 py-2  overflow-x-auto rounded-xl border border-gray-200/70 dark:border-zinc-700/50 bg-[#F9F9F9] dark:bg-[#1a1a1a]">
                   {attachments.map((att, idx) => (
                     <div
                       key={`img-${idx}`}
@@ -538,16 +559,16 @@ const ChatInputBar = React.memo(
                   {selectedDocuments.map(doc => (
                     <div
                       key={`doc-${doc.id}`}
-                      className="relative group/doc shrink-0 min-w-[110px] h-20 overflow-hidden rounded-xl border border-gray-200 dark:border-zinc-700/50 bg-white dark:bg-[#111] shadow-sm"
+                      className="relative group/doc shrink-0 min-w-[110px] overflow-hidden rounded-xl border border-gray-200 dark:border-zinc-700/50 bg-white dark:bg-[#111] shadow-sm"
                     >
                       <div className="flex h-full flex-col items-center justify-center gap-1 px-2 py-2 text-center">
-                        <FileText size={20} className="text-primary-500" />
+                        <FileIcon fileType={doc.file_type} size={20} />
                         <span className="text-[12px] font-semibold text-gray-900 dark:text-white truncate">
                           {doc.name}
                         </span>
-                        <span className="text-[10px] uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400">
+                        {/* <span className="text-[10px] uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400">
                           {(doc.file_type || 'DOC').toUpperCase()}
-                        </span>
+                        </span> */}
                       </div>
                       <button
                         onClick={() => onToggleDocument?.(doc.id)}
@@ -607,20 +628,20 @@ const ChatInputBar = React.memo(
                   </button>
                   {!isMobile && isUploadMenuOpen && desktopUploadMenuContent}
                   {isMobile && (
-                  <MobileDrawer
-                    isOpen={isUploadMenuOpen}
-                    onClose={() => setIsUploadMenuOpen(false)}
-                    title={t('common.upload')}
-                  >
-                    <div className="space-y-2">
-                      {uploadMenuButton}
-                      {hasDocuments && (
-                        <div className="border-t border-gray-200/70 dark:border-zinc-700/50 pt-3">
-                          {renderDocumentsSection()}
-                        </div>
-                      )}
-                    </div>
-                  </MobileDrawer>
+                    <MobileDrawer
+                      isOpen={isUploadMenuOpen}
+                      onClose={() => setIsUploadMenuOpen(false)}
+                      title={t('common.upload')}
+                    >
+                      <div className="space-y-2">
+                        {uploadMenuButton}
+                        {hasDocuments && (
+                          <div className="border-t border-gray-200/70 dark:border-zinc-700/50 pt-3">
+                            {renderDocumentsSection()}
+                          </div>
+                        )}
+                      </div>
+                    </MobileDrawer>
                   )}
                 </div>
 

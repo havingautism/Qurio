@@ -490,13 +490,13 @@ const ChatInputBar = React.memo(
       )
 
       return (
-        <div className="w-full max-w-3xl relative group  pb-2">
+        <div className="w-full max-w-3xl relative group pb-2 flex flex-col gap-2">
           {/* Floating Context Indicators */}
           {(showEditing ||
             quotedText ||
             attachments.length > 0 ||
             selectedDocuments.length > 0) && (
-            <div className="absolute bottom-full left-4 right-4 mb-2 flex flex-col gap-2 z-10">
+            <div className="flex flex-col gap-2">
               {/* Edited Message Indicator */}
               {showEditing && (
                 <div className="flex items-center justify-between bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-zinc-800 rounded-xl px-4 py-2 shadow-sm animate-in slide-in-from-bottom-2">
@@ -572,7 +572,7 @@ const ChatInputBar = React.memo(
                       </div>
                       <button
                         onClick={() => onToggleDocument?.(doc.id)}
-                        className="absolute top-0.5 right-0.5 bg-black/60 text-white rounded-full p-0.5 opacity-0 group-hover/doc:opacity-100 transition-opacity"
+                        className="absolute top-0.5 right-0.5 bg-black/60 text-white rounded-full p-0.5 opacity-100 sm:opacity-0 sm:group-hover/doc:opacity-100 transition-opacity"
                       >
                         <X size={12} />
                       </button>

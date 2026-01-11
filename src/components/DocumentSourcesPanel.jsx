@@ -1,9 +1,33 @@
-import { useMemo } from 'react'
 import clsx from 'clsx'
 import { useTranslation } from 'react-i18next'
 import { FileText, X } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import useIsMobile from '../hooks/useIsMobile'
+
+const cleanSnippet = value => {
+  const raw = String(value || '')
+  const withoutHtml = raw
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&amp;/gi, '&')
+  const lines = withoutHtml
+    .replace(/^\s*\[[^\]]+\]\s*/g, '')
+    .replace(/^\s*#{1,6}\s+/gm, '')
+    .replace(/^\s*[-*+]\s+/gm, '')
+    .replace(/^\s*\d+\.\s+/gm, '')
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => {
+      if (!line) return false
+      if (/^[_=-]{3,}$/.test(line)) return false
+      if (/_Toc\d+/i.test(line)) return false
+      if (line.includes(' > ') && line.length <= 120 && !/[。！？.!?]/.test(line)) return false
+      return true
+    })
+  return lines.join(' ').replace(/\s{2,}/g, ' ').trim()
+}
 
 const SourcesModal = ({ isOpen, onClose, sources }) => {
   const { t } = useTranslation()
@@ -49,7 +73,7 @@ const SourcesModal = ({ isOpen, onClose, sources }) => {
                 </div>
               </div>
               <div className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed pl-1 border-l-2 border-gray-200 dark:border-zinc-700 ml-1">
-                {source.fullSnippet}
+                {cleanSnippet(source.snippet)}
               </div>
             </div>
           ))}
@@ -61,36 +85,12 @@ const SourcesModal = ({ isOpen, onClose, sources }) => {
 }
 
 const DocumentSourcesPanel = ({ sources = [], isOpen, onClose }) => {
-  // const { t } = useTranslation() // Unused in parent now
   const isMobile = useIsMobile()
-  // const [isModalOpen, setIsModalOpen] = useState(false) // Unused state
-
-  // Deduplicate sources by documentId (or title if id missing)
-  // We want to group chunks from the same doc
-  const uniqueSources = useMemo(() => {
-    if (!sources || !sources.length) return []
-
-    const map = new Map()
-    sources.forEach(source => {
-      const key = source.documentId || source.title
-      if (!map.has(key)) {
-        map.set(key, {
-          ...source,
-          // Keep the first chunk snippet, or maybe join top 2?
-          // For now, let's just use the first chunk's text but truncated more aggressively for card
-          snippet: source.snippet?.slice(0, 150),
-          fullSnippet: source.snippet, // Keep full logic for modal
-        })
-      }
-    })
-    return Array.from(map.values())
-  }, [sources])
-
-  if (!uniqueSources.length) return null
+  if (!sources || sources.length === 0) return null
 
   // Mobile View: Directly open Modal when toggled
   if (isMobile) {
-    return <SourcesModal isOpen={isOpen} onClose={onClose} sources={uniqueSources} />
+    return <SourcesModal isOpen={isOpen} onClose={onClose} sources={sources} />
   }
 
   // Desktop View: Grid (Existing logic but with deduplication)
@@ -103,7 +103,7 @@ const DocumentSourcesPanel = ({ sources = [], isOpen, onClose }) => {
     >
       <div className="min-h-0 w-full">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {uniqueSources.map((source, idx) => (
+          {sources.map((source, idx) => (
             <div
               key={source.id || idx}
               className="p-3 rounded-2xl border border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-900/50 shadow-sm hover:shadow-md transition-shadow cursor-default group"
@@ -125,7 +125,7 @@ const DocumentSourcesPanel = ({ sources = [], isOpen, onClose }) => {
               </div>
 
               <div className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 leading-relaxed">
-                {source.snippet}
+                {cleanSnippet(source.snippet)}
               </div>
             </div>
           ))}

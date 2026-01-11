@@ -1823,17 +1823,17 @@ const baseDocumentSources = useMemo(
   const inputAgentAutoMode = isAgentAutoMode
 
   return (
-    <div
-      className={clsx(
-        'flex-1 h-full bg-background text-foreground transition-all duration-300 flex flex-col sm:px-4',
-        isSidebarPinned ? 'md:ml-72' : 'md:ml-16',
-        // Fixed left shift for large screens
-        // 'xl:-translate-x-30',
-        // Dynamic movement follows sidebar state for small screens
-        !isXLScreen && 'sidebar-shift',
-      )}
-    >
-      <div className="w-full relative flex flex-col flex-1 min-h-0">
+        <div
+          className={clsx(
+            'flex-1 h-full bg-background text-foreground transition-all duration-300 flex flex-col sm:px-4',
+            isSidebarPinned ? 'md:ml-72' : 'md:ml-16',
+            // Fixed left shift for large screens
+            // 'xl:-translate-x-30',
+            // Dynamic movement follows sidebar state for small screens
+            !isXLScreen && 'sidebar-shift',
+          )}
+        >
+          <div className="w-full relative flex flex-col flex-1 min-h-0">
         {/* Title Bar */}
         <ChatHeader
           toggleSidebar={toggleSidebar}
@@ -1858,10 +1858,10 @@ const baseDocumentSources = useMemo(
         />
 
         {/* Messages Scroll Container */}
-        <div
-          ref={messagesContainerRef}
-          className="flex-1 overflow-y-auto overflow-x-hidden sm:p-2 relative no-scrollbar"
-        >
+          <div
+            ref={messagesContainerRef}
+            className="flex-1 overflow-y-auto overflow-x-hidden sm:p-2 relative no-scrollbar"
+          >
           <div className="w-full px-0 sm:px-5 max-w-3xl mx-auto">
             {showHistoryLoader && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">

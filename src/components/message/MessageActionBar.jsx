@@ -35,9 +35,7 @@ const MessageActionBar = ({
 }) => {
   const uniqueDocumentSourcesCount = useMemo(() => {
     if (!documentSources || !documentSources.length) return 0
-    // Deduplicate by documentId or title to get unique Documents count
-    const uniqueIds = new Set(documentSources.map(s => s.documentId || s.title))
-    return uniqueIds.size
+    return documentSources.length
   }, [documentSources])
 
   return (

@@ -243,7 +243,7 @@ CREATE TABLE IF NOT EXISTS public.document_chunks (
   loc JSONB,
   source_hint TEXT,
   embedding REAL[] NOT NULL DEFAULT '{}',
-  fts tsvector GENERATED ALWAYS AS (to_tsvector('english', text || ' ' || coalesce(source_hint, ''))) STORED,
+  fts tsvector GENERATED ALWAYS AS (to_tsvector('simple', text || ' ' || coalesce(source_hint, ''))) STORED,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -361,11 +361,11 @@ AS $$
   keyword_search AS (
     SELECT
       dc.id,
-      ROW_NUMBER() OVER (ORDER BY ts_rank_cd(fts, websearch_to_tsquery('english', query_text)) DESC) as rank_fts,
-      ts_rank_cd(fts, websearch_to_tsquery('english', query_text)) as fts_score
+      ROW_NUMBER() OVER (ORDER BY ts_rank_cd(fts, websearch_to_tsquery('simple', query_text)) DESC) as rank_fts,
+      ts_rank_cd(fts, websearch_to_tsquery('simple', query_text)) as fts_score
     FROM public.document_chunks dc
     WHERE dc.document_id = ANY(document_ids)
-    AND fts @@ websearch_to_tsquery('english', query_text)
+    AND fts @@ websearch_to_tsquery('simple', query_text)
     ORDER BY fts_score DESC
     LIMIT match_count * 2
   )

@@ -5,7 +5,7 @@ CREATE EXTENSION IF NOT EXISTS vector;
 -- We uses 'english' configuration as a safe default.
 -- For multi-language support, consider using a specific config or 'simple'.
 ALTER TABLE public.document_chunks
-ADD COLUMN IF NOT EXISTS fts tsvector GENERATED ALWAYS AS (to_tsvector('english', text || ' ' || coalesce(source_hint, ''))) STORED;
+ADD COLUMN IF NOT EXISTS fts tsvector GENERATED ALWAYS AS (to_tsvector('simple', text || ' ' || coalesce(source_hint, ''))) STORED;
 
 -- Create Index for FTS
 CREATE INDEX IF NOT EXISTS idx_document_chunks_fts ON public.document_chunks USING GIN (fts);
@@ -71,11 +71,11 @@ AS $$
   keyword_search AS (
     SELECT
       dc.id,
-      ROW_NUMBER() OVER (ORDER BY ts_rank_cd(fts, websearch_to_tsquery('english', query_text)) DESC) as rank_fts,
-      ts_rank_cd(fts, websearch_to_tsquery('english', query_text)) as fts_score
+      ROW_NUMBER() OVER (ORDER BY ts_rank_cd(fts, websearch_to_tsquery('simple', query_text)) DESC) as rank_fts,
+      ts_rank_cd(fts, websearch_to_tsquery('simple', query_text)) as fts_score
     FROM public.document_chunks dc
     WHERE dc.document_id = ANY(document_ids)
-    AND fts @@ websearch_to_tsquery('english', query_text)
+    AND fts @@ websearch_to_tsquery('simple', query_text)
     ORDER BY fts_score DESC
     LIMIT match_count * 2
   )

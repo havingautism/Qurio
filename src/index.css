@@ -217,6 +217,13 @@ h6 {
 }
 
 /* Custom Scrollbar for Code Blocks */
+.code-scrollbar {
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  max-width: 100%;
+  -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+}
+
 .code-scrollbar::-webkit-scrollbar {
   height: 8px;
   width: 8px;
@@ -281,6 +288,13 @@ h6 {
 
 .dark .sidebar-scrollbar::-webkit-scrollbar-thumb:hover {
   background-color: #57534e; /* stone-600 */
+}
+
+/* Robust Monospace Font Stack for Code Blocks and Diagrams */
+.font-code-robust {
+  font-family:
+    ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, Courier, monospace,
+    'PingFang SC', 'Microsoft YaHei' !important;
 }
 
 /* Shared glow for primary input shells (home + chat) */

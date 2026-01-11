@@ -298,7 +298,7 @@ AS $$
   LIMIT GREATEST(match_count, 1);
 $$;
 
- -- 10) Space <-> Agents (many-to-many binding)
+-- 10) Space <-> Agents (many-to-many binding)
 CREATE TABLE IF NOT EXISTS public.space_agents (
   space_id UUID NOT NULL REFERENCES public.spaces(id) ON DELETE CASCADE,
   agent_id UUID NOT NULL REFERENCES public.agents(id) ON DELETE CASCADE,

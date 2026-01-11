@@ -823,7 +823,9 @@
       "deleteDocument": "删除文档",
       "deleteDocumentMessage": "确定要删除“{{name}}”吗？此操作无法撤销。",
       "documentDeleted": "文档已删除",
-      "documentDeleteFailed": "删除文档失败"
+      "documentDeleteFailed": "删除文档失败",
+      "notionImportTest": "从 Notion 导入（测试）",
+      "notionAuthMissing": "未配置 Notion 登录地址。"
     },
     "shareImageView": {
       "back": "返回",

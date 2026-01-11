@@ -817,7 +817,9 @@
       "deleteDocument": "Delete document",
       "deleteDocumentMessage": "Are you sure you want to delete \"{{name}}\"? This action cannot be undone.",
       "documentDeleted": "Document deleted",
-      "documentDeleteFailed": "Failed to delete document"
+      "documentDeleteFailed": "Failed to delete document",
+      "notionImportTest": "Import from Notion (Test)",
+      "notionAuthMissing": "Notion auth URL is not configured."
     },
     "shareImageView": {
       "back": "Back",

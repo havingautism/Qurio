@@ -67,6 +67,7 @@ const FileIcon = ({ fileType, className }) => {
   return <File className={clsx('text-gray-400', className)} />
 }
 
+
 const SpaceView = () => {
   const { t, i18n } = useTranslation()
   const { spaceId } = spaceRoute.useParams()
@@ -435,6 +436,7 @@ const SpaceView = () => {
       handleDocumentUpload(null, file)
     }
   }
+
   const handleDeleteDocument = async (doc, e) => {
     e.stopPropagation()
     if (!doc) return
@@ -516,13 +518,13 @@ const SpaceView = () => {
             onDrop={onDrop}
             onClick={() => fileInputRef.current?.click()}
           >
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".pdf,.docx,.txt,.md,.csv,.json,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-              onChange={handleDocumentUpload}
-              className="hidden"
-            />
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,.docx,.txt,.md,.csv,.json,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                onChange={handleDocumentUpload}
+                className="hidden"
+              />
 
             <div className="flex flex-col items-center gap-3 z-10">
               <div

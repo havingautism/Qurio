@@ -527,7 +527,7 @@ const CustomSelect = ({ value, onChange, options }) => {
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-3 py-2.5 text-sm md:text-left text-center bg-[#f9f9f987] disabled:bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20 font-mono flex items-center justify-between"
+        className="w-full px-3 py-2.5 text-sm md:text-left text-center bg-[#f9f9f987] disabled:bg-gray-50/20 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20 font-mono flex items-center justify-between"
       >
         <span>{value}</span>
         <div className="bg-gray-200 dark:bg-zinc-700 rounded p-0.5">
@@ -582,7 +582,7 @@ const FormInput = ({ label, value, onChange, placeholder, type = 'text', icon, r
           placeholder={placeholder}
           rows={rows || 3}
           className={clsx(
-            'w-full px-3 py-2.5 bg-white disabled:bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm transition-all resize-none',
+            'w-full px-3 py-2.5 bg-white disabled:bg-gray-50/20 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm transition-all resize-none',
             'focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500',
             'placeholder:text-gray-400 dark:placeholder:text-zinc-600',
             icon && 'pl-9',
@@ -595,7 +595,7 @@ const FormInput = ({ label, value, onChange, placeholder, type = 'text', icon, r
           onChange={e => onChange(e.target.value)}
           placeholder={placeholder}
           className={clsx(
-            'w-full px-3 py-2.5 bg-white disabled:bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm transition-all',
+            'w-full px-3 py-2.5 bg-white disabled:bg-gray-50/20 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm transition-all',
             'focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500',
             'placeholder:text-gray-400 dark:placeholder:text-zinc-600',
             icon && 'pl-9',

@@ -48,6 +48,7 @@ export const persistDocumentChunks = async (documentId, chunks = [], sectionMap 
     payload.push({
       document_id: documentId,
       section_id: sectionMap[chunk.parentSectionId] || null,
+      title_path: chunk.titlePath || [],
       external_chunk_id: chunk.chunkId,
       chunk_index: chunk.chunkIndex,
       content_type: chunk.contentType || 'paragraph',

@@ -9,6 +9,9 @@ const DEFAULT_CHUNK_LIMIT = 250
 const DEFAULT_TOP_CHUNKS = 3
 const DEFAULT_SNIPPET_LENGTH = 400
 const MAX_CONTEXT_CHARS = 12000
+const MIN_SIMILARITY_THRESHOLD = 0.2
+const NEIGHBOR_CHUNK_WINDOW = 1
+const MAX_CHUNKS_PER_SECTION = 4
 
 const truncateText = (text, limit) => {
   const str = String(text || '').trim()
@@ -35,9 +38,45 @@ export const listDocumentChunksByDocumentIds = async (documentIds = [], options 
 
   const { data, error } = await supabase
     .from(CHUNKS_TABLE)
-    .select('id,document_id,text,embedding,source_hint,chunk_index')
+    .select('id,document_id,section_id,text,embedding,source_hint,chunk_index,title_path')
     .in('document_id', normalizedIds)
     .limit(limit)
+
+  return { data: data || [], error }
+}
+
+export const listDocumentChunksByDocumentIdAndIndices = async (
+  documentId,
+  indices = [],
+  sectionId = null,
+) => {
+  if (!documentId || !indices.length) {
+    return { data: [], error: null }
+  }
+
+  const supabase = getSupabaseClient()
+  if (!supabase) {
+    return { data: [], error: new Error('Supabase not configured') }
+  }
+
+  const normalizedIndices = Array.from(new Set(indices))
+    .map(value => Number(value))
+    .filter(value => Number.isFinite(value))
+  if (!normalizedIndices.length) {
+    return { data: [], error: null }
+  }
+
+  let query = supabase
+    .from(CHUNKS_TABLE)
+    .select('id,document_id,section_id,text,source_hint,chunk_index,title_path')
+    .eq('document_id', String(documentId))
+    .in('chunk_index', normalizedIndices)
+
+  if (sectionId) {
+    query = query.eq('section_id', String(sectionId))
+  }
+
+  const { data, error } = await query
 
   return { data: data || [], error }
 }
@@ -155,19 +194,57 @@ export const fetchDocumentChunkContext = async ({
 
   let scored = []
   if (!hybridError && hybridMatches && hybridMatches.length > 0) {
-    scored = hybridMatches
-      .map(match => ({
-        chunk: match,
-        score: Number(match.score ?? match.similarity),
-      }))
-      .filter(entry => Number.isFinite(entry.score))
+    const filtered = hybridMatches
+      .map(match => {
+        const similarity = Number(match.similarity)
+        if (Number.isFinite(similarity) && similarity < MIN_SIMILARITY_THRESHOLD) {
+          return null
+        }
+        return {
+          chunk: match,
+          score: Number(match.score ?? match.similarity),
+          similarity,
+        }
+      })
+      .filter(entry => entry && Number.isFinite(entry.score))
+
+    if (filtered.length > 0) {
+      scored = filtered
+    } else {
+      scored = hybridMatches
+        .map(match => ({
+          chunk: match,
+          score: Number(match.score ?? match.similarity),
+          similarity: Number(match.similarity),
+        }))
+        .filter(entry => Number.isFinite(entry.score))
+    }
   } else if (!matchError && matches && matches.length > 0) {
-    scored = matches
-      .map(match => ({
-        chunk: match,
-        score: Number(match.similarity),
-      }))
-      .filter(entry => Number.isFinite(entry.score))
+    const filtered = matches
+      .map(match => {
+        const similarity = Number(match.similarity)
+        if (Number.isFinite(similarity) && similarity < MIN_SIMILARITY_THRESHOLD) {
+          return null
+        }
+        return {
+          chunk: match,
+          score: Number(match.similarity),
+          similarity,
+        }
+      })
+      .filter(entry => entry && Number.isFinite(entry.score))
+
+    if (filtered.length > 0) {
+      scored = filtered
+    } else {
+      scored = matches
+        .map(match => ({
+          chunk: match,
+          score: Number(match.similarity),
+          similarity: Number(match.similarity),
+        }))
+        .filter(entry => Number.isFinite(entry.score))
+    }
   } else {
     const { data: chunks, error } = await listDocumentChunksByDocumentIds(documentIds, {
       limit: chunkLimit,
@@ -176,7 +253,7 @@ export const fetchDocumentChunkContext = async ({
       return null
     }
 
-    scored = chunks
+    const raw = chunks
       .map(chunk => {
         const embedding = Array.isArray(chunk.embedding)
           ? chunk.embedding.map(value => Number(value))
@@ -187,30 +264,133 @@ export const fetchDocumentChunkContext = async ({
         return {
           chunk,
           score,
+          similarity: score,
         }
       })
       .filter(Boolean)
       .sort((a, b) => b.score - a.score)
+
+    const filtered = raw.filter(entry => entry.similarity >= MIN_SIMILARITY_THRESHOLD)
+    scored = filtered.length > 0 ? filtered : raw
 
     if (scored.length === 0) {
       return null
     }
   }
 
-  const top = scored.slice(0, topChunks).map(({ chunk, score }) => {
+  const limited = []
+  const sectionCounts = new Map()
+  scored.forEach(entry => {
+    if (limited.length >= topChunks) return
+    const sectionId = entry.chunk.section_id ? String(entry.chunk.section_id) : ''
+    if (sectionId) {
+      const current = sectionCounts.get(sectionId) || 0
+      if (current >= MAX_CHUNKS_PER_SECTION) return
+      sectionCounts.set(sectionId, current + 1)
+    }
+    limited.push(entry)
+  })
+
+  const top = limited.map(({ chunk, score, similarity }) => {
     const doc = docMap.get(String(chunk.document_id))
     return {
       id: String(chunk.id),
       documentId: String(chunk.document_id),
+      sectionId: chunk.section_id ? String(chunk.section_id) : null,
       title: doc?.name || 'Document',
       fileType: doc?.file_type || '',
       snippet: truncateText(chunk.text, DEFAULT_SNIPPET_LENGTH),
       sourceHint: chunk.source_hint || '',
+      chunkIndex: chunk.chunk_index ?? null,
+      titlePath: Array.isArray(chunk.title_path) ? chunk.title_path : [],
+      isNeighbor: false,
       score,
+      similarity: Number.isFinite(similarity) ? similarity : null,
     }
   })
 
-  const contextLines = top.map(source => {
+  let orderedSources = top
+  if (NEIGHBOR_CHUNK_WINDOW > 0 && top.length > 0) {
+    const neighborIndexMap = new Map()
+    top.forEach(source => {
+      const baseIndex = Number(source.chunkIndex)
+      if (!Number.isFinite(baseIndex)) return
+      if (!source.sectionId) return
+      const docId = String(source.documentId)
+      const sectionId = source.sectionId ? String(source.sectionId) : ''
+      const key = `${docId}:${sectionId}`
+      const indices = neighborIndexMap.get(key) || new Set()
+      for (let offset = -NEIGHBOR_CHUNK_WINDOW; offset <= NEIGHBOR_CHUNK_WINDOW; offset += 1) {
+        if (offset === 0) continue
+        indices.add(baseIndex + offset)
+      }
+      neighborIndexMap.set(key, indices)
+    })
+
+    const neighborChunks = []
+    for (const [key, indicesSet] of neighborIndexMap.entries()) {
+      const [docId, sectionId] = key.split(':')
+      const { data, error } = await listDocumentChunksByDocumentIdAndIndices(
+        docId,
+        Array.from(indicesSet),
+        sectionId || null,
+      )
+      if (error || !data || data.length === 0) continue
+      neighborChunks.push(...data)
+    }
+
+    const topIdSet = new Set(top.map(item => item.id))
+    const neighborMap = new Map()
+    neighborChunks.forEach(chunk => {
+      const id = String(chunk.id)
+      if (topIdSet.has(id)) return
+      const doc = docMap.get(String(chunk.document_id))
+      neighborMap.set(`${chunk.document_id}:${chunk.chunk_index}`, {
+        id,
+        documentId: String(chunk.document_id),
+        sectionId: chunk.section_id ? String(chunk.section_id) : null,
+        title: doc?.name || 'Document',
+        fileType: doc?.file_type || '',
+          snippet: truncateText(chunk.text, DEFAULT_SNIPPET_LENGTH),
+          sourceHint: chunk.source_hint || '',
+          chunkIndex: chunk.chunk_index ?? null,
+          titlePath: Array.isArray(chunk.title_path) ? chunk.title_path : [],
+          isNeighbor: true,
+          score: null,
+          similarity: null,
+        })
+    })
+
+    const ordered = []
+    const addedIds = new Set()
+    top.forEach(source => {
+      const docId = String(source.documentId)
+      const baseIndex = Number(source.chunkIndex)
+      for (let offset = -NEIGHBOR_CHUNK_WINDOW; offset < 0; offset += 1) {
+        const key = `${docId}:${baseIndex + offset}`
+        const neighbor = neighborMap.get(key)
+        if (neighbor && !addedIds.has(neighbor.id)) {
+          ordered.push(neighbor)
+          addedIds.add(neighbor.id)
+        }
+      }
+      if (!addedIds.has(source.id)) {
+        ordered.push(source)
+        addedIds.add(source.id)
+      }
+      for (let offset = 1; offset <= NEIGHBOR_CHUNK_WINDOW; offset += 1) {
+        const key = `${docId}:${baseIndex + offset}`
+        const neighbor = neighborMap.get(key)
+        if (neighbor && !addedIds.has(neighbor.id)) {
+          ordered.push(neighbor)
+          addedIds.add(neighbor.id)
+        }
+      }
+    })
+    orderedSources = ordered.length ? ordered : top
+  }
+
+  const contextLines = orderedSources.map(source => {
     const label = source.fileType ? `${source.title} (${source.fileType})` : source.title
     return `### ${label}\n${source.snippet}`
   })
@@ -220,5 +400,5 @@ export const fetchDocumentChunkContext = async ({
     context = `${context.slice(0, MAX_CONTEXT_CHARS)}\n\n[Truncated]`
   }
 
-  return { context, sources: top }
+  return { context, sources: orderedSources }
 }

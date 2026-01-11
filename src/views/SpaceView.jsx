@@ -321,25 +321,14 @@ const SpaceView = () => {
           .replace(/\n+/g, ' ')
           .trim()
 
-      const sanitizeHeadingText = text =>
-        String(text || '')
-          .replace(/<[^>]+>/g, '')
-          .replace(/&lt;|&gt;/g, '')
-          .replace(/\[.*?\]/g, '')
-          .replace(/\s+/g, ' ')
-          .trim()
-
       if (chunks.length > 0) {
         for (let index = 0; index < chunks.length; index += 1) {
           const chunk = chunks[index]
-          const headingLabel =
-            chunk.titlePath?.length > 0 ? chunk.titlePath.join(' > ') : chunk.heading
-          const titleLabel = sanitizeHeadingText(headingLabel) || file?.name || 'Document'
-          const sanitizedText = sanitizeChunkText(chunk.text)
-          const chunkPrompt = `passage: ${titleLabel}. ${sanitizedText}`
-          const embedding = await fetchEmbeddingVector({
-            text: sanitizedText,
-            taskType: 'RETRIEVAL_DOCUMENT',
+            const sanitizedText = sanitizeChunkText(chunk.text)
+            const chunkPrompt = `passage: ${sanitizedText}`
+            const embedding = await fetchEmbeddingVector({
+              text: sanitizedText,
+              taskType: 'RETRIEVAL_DOCUMENT',
             prompt: chunkPrompt,
           })
           const chunkHash = await computeSha256(chunk.text)

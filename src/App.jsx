@@ -9,6 +9,7 @@ import ToolsModal from './components/ToolsModal'
 import Sidebar from './components/Sidebar'
 import SpaceModal from './components/SpaceModal'
 import { ToastProvider } from './contexts/ToastContext'
+import KnowledgeBaseModal from './components/KnowledgeBaseModal'
 import { createAgent, deleteAgent, listAgents, updateAgent } from './lib/agentsService'
 import { listConversations } from './lib/conversationsService'
 import {
@@ -58,6 +59,9 @@ function App() {
 
   // Tools Modal State
   const [isToolsModalOpen, setIsToolsModalOpen] = useState(false)
+
+  // Knowledge Base Modal State
+  const [isKnowledgeBaseModalOpen, setIsKnowledgeBaseModalOpen] = useState(false)
 
   // Mobile Sidebar State
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
@@ -834,6 +838,7 @@ function App() {
                   onClose={() => setIsSidebarOpen(false)}
                   onOpenSettings={() => setIsSettingsOpen(true)}
                   onOpenTools={() => setIsToolsModalOpen(true)}
+                  onOpenKnowledgeBase={() => setIsKnowledgeBaseModalOpen(true)}
                   onNavigate={handleNavigate}
                   onNavigateToSpace={handleNavigateToSpace}
                   onCreateSpace={handleCreateSpace}
@@ -909,6 +914,10 @@ function App() {
                 </div>
                 <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
                 <ToolsModal isOpen={isToolsModalOpen} onClose={() => setIsToolsModalOpen(false)} />
+                <KnowledgeBaseModal
+                  isOpen={isKnowledgeBaseModalOpen}
+                  onClose={() => setIsKnowledgeBaseModalOpen(false)}
+                />
                 <SpaceModal
                   isOpen={isSpaceModalOpen}
                   onClose={() => setIsSpaceModalOpen(false)}

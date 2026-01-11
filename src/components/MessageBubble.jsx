@@ -2298,7 +2298,7 @@ const MessageBubble = ({
       {mergedMessage.documentSources && mergedMessage.documentSources.length > 0 && (
         <DocumentSourcesPanel
           sources={mergedMessage.documentSources}
-          isOpen={isDocumentSourcesOpen}
+          isOpen={isDocumentSourcesOpen} onClose={() => setIsDocumentSourcesOpen(false)}
         />
       )}
 

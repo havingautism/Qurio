@@ -32,7 +32,7 @@ import { resolveEmbeddingConfig } from '../lib/embeddingService'
 const DOCUMENT_CONTEXT_MAX_TOTAL = 12000
 const DOCUMENT_CONTEXT_MAX_PER_DOC = 4000
 const DOCUMENT_RETRIEVAL_CHUNK_LIMIT = 250
-const DOCUMENT_RETRIEVAL_TOP_CHUNKS = 3
+const DOCUMENT_RETRIEVAL_TOP_CHUNKS = 5
 
 const truncateText = (text, limit) => {
   if (!text) return ''
@@ -115,10 +115,10 @@ const buildEmbeddingModelKey = ({ model }) => {
   return normalizedModel || null
 }
 
-const getRelevanceLabel = score => {
-  if (score == null) return 'Medium relevance'
-  if (score >= 0.9) return 'High relevance'
-  if (score >= 0.75) return 'Medium relevance'
+const getRelevanceLabel = similarity => {
+  if (similarity == null) return 'Medium relevance'
+  if (similarity >= 0.8) return 'High relevance'
+  if (similarity >= 0.68) return 'Medium relevance'
   return 'Low relevance'
 }
 
@@ -127,8 +127,12 @@ const formatDocumentAppendText = sources => {
   if (!filtered.length) return ''
   const lines = filtered.map(source => {
     const label = source.fileType ? `${source.title} (${source.fileType})` : source.title
-    const relevance = getRelevanceLabel(source.score)
-    return `- [${relevance} | ${label}]: ${source.snippet}`
+    const similarity =
+      typeof source.similarity === 'number' ? source.similarity.toFixed(2) : 'n/a'
+    const path = Array.isArray(source.titlePath) && source.titlePath.length > 0
+      ? `: ${source.titlePath.join(' > ')}`
+      : ''
+    return `- [score=${similarity} | ${label}]${path}\n  ${source.snippet}`
   })
   return [
     '# The following document excerpts may help answer this question (may be incomplete):',

@@ -1343,6 +1343,33 @@ const baseDocumentSources = useMemo(
       let retrievedDocumentSources = null
       let skipDocumentRetrieval = false
 
+      if (selectedDocuments.length > 0) {
+        const embeddingConfig = resolveEmbeddingConfig()
+        const currentModelKey = buildEmbeddingModelKey(embeddingConfig)
+        const docModelKeys = selectedDocuments
+          .map(doc => buildEmbeddingModelKey({ model: doc.embedding_model }))
+          .filter(Boolean)
+        const uniqueDocModels = [...new Set(docModelKeys)]
+        if (uniqueDocModels.length > 1) {
+          toast.error(t('chatInterface.documentEmbeddingMixedModels'))
+          skipDocumentRetrieval = true
+        } else if (uniqueDocModels.length === 1 && uniqueDocModels[0] !== currentModelKey) {
+          toast.error(
+            t('chatInterface.documentEmbeddingMismatch', {
+              model: uniqueDocModels[0],
+            }),
+          )
+          skipDocumentRetrieval = true
+        }
+      }
+
+      if (!skipDocumentRetrieval && selectedDocuments.length > 0 && textToSend.trim()) {
+        const retrieval = await fetchRelevantDocumentSources(selectedDocuments, textToSend)
+        if (retrieval) {
+          retrievedDocumentSources = retrieval.sources || null
+        }
+      }
+
       const documentContextAppend = formatDocumentAppendText(retrievedDocumentSources)
       const sourcesForSend = retrievedDocumentSources || baseDocumentSources
 

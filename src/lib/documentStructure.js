@@ -1,4 +1,8 @@
-import { DOCUMENT_CHUNK_OVERLAP, DOCUMENT_CHUNK_SIZE, DOCUMENT_MAX_CHUNKS } from './documentConstants'
+import {
+  DOCUMENT_CHUNK_OVERLAP,
+  DOCUMENT_CHUNK_SIZE,
+  DOCUMENT_MAX_CHUNKS,
+} from './documentConstants'
 
 const DEFAULT_CHUNK_OPTIONS = {
   chunkSize: DOCUMENT_CHUNK_SIZE,
@@ -23,7 +27,10 @@ const detectHeadingTitle = line => {
 
   const numberedMatch = trimmed.match(/^(\d+(?:\.\d+)*)[\.\)]\s+(.*)$/)
   if (numberedMatch) {
-    return { title: numberedMatch[2].trim(), level: Math.min(numberedMatch[1].split('.').length + 1, 6) }
+    return {
+      title: numberedMatch[2].trim(),
+      level: Math.min(numberedMatch[1].split('.').length + 1, 6),
+    }
   }
 
   const chineseMatch = trimmed.match(/^第[0-9一二三四五六七八九十百千]+[章节节]\s*(.*)$/)
@@ -126,7 +133,7 @@ export const chunkDocumentWithHierarchy = (text, options = {}) => {
 
   const pushChunk = (section, chunkText, sectionChunkIndex) => {
     const prefix = section.titlePath.length ? `[${section.titlePath.join(' > ')}]\n` : ''
-    const finalText = (sectionChunkIndex === 0 ? `${prefix}${chunkText}` : chunkText).trim()
+    const finalText = `${prefix}${chunkText}`.trim()
     if (!finalText) return null
     const chunk = {
       chunkId: `${section.id}-${sectionChunkIndex}`,
@@ -166,8 +173,7 @@ export const chunkDocumentWithHierarchy = (text, options = {}) => {
       if (next.length > opts.chunkSize && current) {
         pushChunk(section, current, sectionChunkIndex)
         sectionChunkIndex += 1
-        const overlapSegment =
-          opts.chunkOverlap > 0 ? current.slice(-opts.chunkOverlap) : ''
+        const overlapSegment = opts.chunkOverlap > 0 ? current.slice(-opts.chunkOverlap) : ''
         current = overlapSegment ? `${overlapSegment} ${sentence}` : sentence
       } else {
         current = next

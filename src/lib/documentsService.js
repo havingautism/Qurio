@@ -10,14 +10,23 @@ export const listSpaceDocuments = async spaceId => {
 
   const { data, error } = await supabase
     .from(DOCUMENTS_TABLE)
-    .select('id,space_id,name,file_type,content_text,created_at')
+    .select(
+      'id,space_id,name,file_type,content_text,created_at,embedding_provider,embedding_model',
+    )
     .eq('space_id', spaceId)
     .order('created_at', { ascending: false })
 
   return { data: data || [], error }
 }
 
-export const createSpaceDocument = async ({ spaceId, name, fileType, contentText }) => {
+export const createSpaceDocument = async ({
+  spaceId,
+  name,
+  fileType,
+  contentText,
+  embeddingProvider = null,
+  embeddingModel = null,
+}) => {
   const supabase = getSupabaseClient()
   if (!supabase) return { data: null, error: new Error('Supabase not configured') }
   if (!spaceId) return { data: null, error: new Error('Space id is required') }
@@ -33,6 +42,8 @@ export const createSpaceDocument = async ({ spaceId, name, fileType, contentText
         name,
         file_type: fileType,
         content_text: contentText,
+        embedding_provider: embeddingProvider,
+        embedding_model: embeddingModel,
       },
     ])
     .select()

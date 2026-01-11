@@ -32,7 +32,7 @@ const buildOpenAIEmbeddingRequest = async ({ apiKey, baseUrl, modelId, input }) 
   return embedding
 }
 
-const resolveEmbeddingConfig = overrides => {
+export const resolveEmbeddingConfig = overrides => {
   const settings = loadSettings(overrides)
   return {
     provider: overrides?.provider || settings.embeddingProvider,
@@ -46,8 +46,14 @@ const resolveEmbeddingConfig = overrides => {
   }
 }
 
-export const fetchEmbeddingVector = async ({ text, taskType = 'RETRIEVAL_DOCUMENT', overrides = {} }) => {
-  const trimmed = (text || '').trim()
+export const fetchEmbeddingVector = async ({
+  text,
+  prompt,
+  taskType = 'RETRIEVAL_DOCUMENT',
+  overrides = {},
+}) => {
+  const sourceText = prompt !== undefined && prompt !== null ? prompt : text
+  const trimmed = String(sourceText || '').trim()
   if (!trimmed) {
     throw new Error('Text is empty')
   }

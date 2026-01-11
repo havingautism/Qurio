@@ -2319,8 +2319,8 @@ const MessageBubble = ({
 
       {activeToolDetail &&
         createPortal(
-          <div className="fixed inset-0 z-[10000] flex items-start md:items-center justify-center bg-black/50 backdrop-blur-sm p-0 md:p-4 overflow-y-auto md:overflow-hidden">
-            <div className="w-full h-[100vh] md:max-w-4xl md:h-[80vh] bg-white dark:bg-[#191a1a] rounded-none md:rounded-2xl shadow-2xl flex flex-col overflow-hidden border-0 md:border border-gray-200 dark:border-zinc-800">
+          <div className="fixed inset-0 z-10000 flex items-start md:items-center justify-center bg-black/50 backdrop-blur-sm p-0 md:p-4 overflow-y-auto md:overflow-hidden">
+            <div className="w-full h-screen md:max-w-4xl md:h-[80vh] bg-white dark:bg-[#191a1a] rounded-none md:rounded-2xl shadow-2xl flex flex-col overflow-hidden border-0 md:border border-gray-200 dark:border-zinc-800">
               <div className="h-14 border-b border-gray-200 dark:border-zinc-800 flex items-center justify-between px-4 sm:px-6 shrink-0 bg-white dark:bg-[#191a1a]">
                 <div className="text-base font-semibold text-gray-900 dark:text-white truncate pr-4">
                   {activeToolDetail.name}

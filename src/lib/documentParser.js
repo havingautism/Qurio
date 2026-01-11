@@ -69,7 +69,7 @@ export const extractTextFromFile = async (file, options = {}) => {
 
   if (isDocx) {
     const arrayBuffer = await file.arrayBuffer()
-    const result = await mammoth.extractRawText({ arrayBuffer })
+    const result = await mammoth.convertToMarkdown({ arrayBuffer })
     return result?.value || ''
   }
 

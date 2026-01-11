@@ -56,7 +56,10 @@ export const fetchDocumentChunkContext = async ({
     return null
   }
 
-  const queryEmbedding = await fetchEmbeddingVector({ text: trimmedQuery })
+  const queryEmbedding = await fetchEmbeddingVector({
+    text: trimmedQuery,
+    prompt: `query: ${trimmedQuery}`,
+  })
   if (!Array.isArray(queryEmbedding) || queryEmbedding.length === 0) {
     return null
   }

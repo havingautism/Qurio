@@ -5,6 +5,8 @@ CREATE TABLE IF NOT EXISTS public.space_documents (
   name TEXT NOT NULL,
   file_type TEXT NOT NULL,
   content_text TEXT NOT NULL,
+  embedding_provider TEXT,
+  embedding_model TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

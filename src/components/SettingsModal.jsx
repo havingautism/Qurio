@@ -217,6 +217,8 @@ CREATE TABLE IF NOT EXISTS public.space_documents (
   name TEXT NOT NULL,
   file_type TEXT NOT NULL,
   content_text TEXT NOT NULL,
+  embedding_provider TEXT,
+  embedding_model TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -299,6 +301,13 @@ const DOCUMENT_CHUNK_SIZE = 1200
 const DOCUMENT_CHUNK_OVERLAP = 200
 const DOCUMENT_MAX_CHUNKS = 60
 const DOCUMENT_TOP_K = 3
+
+const EMBEDDING_KEYWORDS = ['embed', 'bge', 'vector']
+
+const matchesEmbeddingKeyword = model => {
+  const text = String((model?.value || model?.label) ?? '').toLowerCase()
+  return EMBEDDING_KEYWORDS.some(keyword => text.includes(keyword))
+}
 
 const SettingsModal = ({ isOpen, onClose }) => {
   const { t, i18n } = useTranslation()
@@ -449,7 +458,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
     { id: 'model', icon: Box },
     { id: 'chat', icon: MessageSquare },
     { id: 'memory', icon: Brain },
-    { id: 'personalization', icon: User },
+    // { id: 'personalization', icon: User },
     { id: 'interface', icon: Monitor },
     { id: 'account', icon: Key },
     { id: 'advanced', icon: Terminal },
@@ -631,8 +640,9 @@ const SettingsModal = ({ isOpen, onClose }) => {
     return embedding
   }
 
-  const fetchEmbeddingVector = async ({ text, taskType }) => {
-    const trimmed = text.trim()
+  const fetchEmbeddingVector = async ({ text, taskType, prompt }) => {
+    const payloadSource = prompt !== undefined && prompt !== null ? prompt : text
+    const trimmed = String(payloadSource || '').trim()
     if (!trimmed) {
       throw new Error(t('settings.embeddingTestEmptyIntro'))
     }
@@ -854,11 +864,14 @@ const SettingsModal = ({ isOpen, onClose }) => {
     })
     const indexed = []
     try {
+      const docTitle = documentParseState.fileName?.trim() || 'Document'
       for (let index = 0; index < documentChunks.length; index += 1) {
         const chunk = documentChunks[index]
+        const chunkPrompt = `passage: ${docTitle}. ${chunk.text}`
         const vector = await fetchEmbeddingVector({
           text: chunk.text,
           taskType: 'RETRIEVAL_DOCUMENT',
+          prompt: chunkPrompt,
         })
         indexed.push({ ...chunk, embedding: vector })
         setDocumentIndexState({
@@ -924,6 +937,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
     try {
       const queryVector = await fetchEmbeddingVector({
         text: query,
+        prompt: `query: ${query}`,
         taskType: 'RETRIEVAL_QUERY',
       })
       const scored = documentChunks
@@ -962,8 +976,10 @@ const SettingsModal = ({ isOpen, onClose }) => {
       matchText: '',
     })
     try {
+      const introPrompt = `passage: Self intro. ${userSelfIntro}`
       const vector = await fetchEmbeddingVector({
         text: userSelfIntro,
+        prompt: introPrompt,
         taskType: 'RETRIEVAL_DOCUMENT',
       })
       setIntroEmbeddingVector(vector)
@@ -1001,6 +1017,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
       const queryText = introQuery.trim() || userSelfIntro.trim()
       const queryVector = await fetchEmbeddingVector({
         text: queryText,
+        prompt: `query: ${queryText}`,
         taskType: 'RETRIEVAL_QUERY',
       })
       const similarity = cosineSimilarity(introEmbeddingVector, queryVector)
@@ -1057,10 +1074,15 @@ const SettingsModal = ({ isOpen, onClose }) => {
 
       if (!credentials.apiKey) continue
 
-      enabledProviders.push(key)
       try {
         const models = await getModelsForProvider(key, credentials)
-        grouped[key] = Array.isArray(models) ? models : []
+        const filtered = (Array.isArray(models) ? models : []).filter(matchesEmbeddingKeyword)
+        if (filtered.length === 0) {
+          grouped[key] = []
+          continue
+        }
+        grouped[key] = filtered
+        enabledProviders.push(key)
       } catch (err) {
         console.error(`Failed to fetch models for ${key}`, err)
         grouped[key] = []
@@ -1305,7 +1327,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
         </div>
 
         {/* Content Area */}
-        <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-white dark:bg-[#191a1a]">
+        <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-[#f9f9f987] dark:bg-[#191a1a]">
           {/* Header */}
           {/* <div className="h-16 border-b border-gray-200 dark:border-zinc-800 hidden md:flex items-center justify-between px-6 sm:px-8">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white capitalize">
@@ -1339,7 +1361,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                         setIsSearchProviderDropdownOpen(false)
                         setIsInterfaceLanguageDropdownOpen(nextOpen)
                       }}
-                      className="w-full flex items-center justify-between pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-zinc-800"
+                      className="w-full flex items-center justify-between pl-10 pr-4 py-2.5 bg-white disabled:bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-zinc-800"
                     >
                       <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center">
                         <Monitor size={16} className="text-gray-400" />
@@ -1367,7 +1389,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                               i18n.changeLanguage(option.value)
                               setIsInterfaceLanguageDropdownOpen(false)
                             }}
-                            className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
+                            className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
                           >
                             <span>{option.label}</span>
                             {interfaceLanguage === option.value && (
@@ -1427,7 +1449,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                         setIsSearchProviderDropdownOpen(false)
                         setIsProviderDropdownOpen(nextOpen)
                       }}
-                      className="w-full flex items-center justify-between pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-zinc-800"
+                      className="w-full flex items-center justify-between pl-10 pr-4 py-2.5 bg-white disabled:bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-zinc-800"
                     >
                       <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center">
                         <Box size={16} className="text-gray-400" />
@@ -1457,7 +1479,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                               setApiProvider(option.value)
                               setIsProviderDropdownOpen(false)
                             }}
-                            className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
+                            className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
                           >
                             <div className="flex items-center gap-3">
                               {renderProviderIcon(option.value, { size: 16, alt: option.label })}
@@ -1489,7 +1511,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                           placeholder={t('settings.googleApiKeyPlaceholder')}
                           disabled={Boolean(ENV_VARS.googleApiKey)}
                           className={clsx(
-                            'w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
+                            'w-full pl-10 pr-4 py-2.5 bg-white disabled:bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
                             ENV_VARS.googleApiKey && 'opacity-70 cursor-not-allowed',
                           )}
                         />
@@ -1521,7 +1543,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                               defaultValue: 'Enter your MiniMax API Key',
                             })}
                             className={clsx(
-                              'w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
+                              'w-full pl-10 pr-4 py-2.5 bg-white disabled:bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
                             )}
                           />
                         </div>
@@ -1547,7 +1569,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                             placeholder={t('settings.openaiApiKeyPlaceholder')}
                             disabled={Boolean(ENV_VARS.openAIKey)}
                             className={clsx(
-                              'w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
+                              'w-full pl-10 pr-4 py-2.5 bg-white disabled:bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
                               ENV_VARS.openAIKey && 'opacity-70 cursor-not-allowed',
                             )}
                           />
@@ -1569,7 +1591,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                             placeholder={t('settings.baseUrlPlaceholder')}
                             disabled={Boolean(ENV_VARS.openAIBaseUrl)}
                             className={clsx(
-                              'w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
+                              'w-full pl-10 pr-4 py-2.5 bg-white disabled:bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
                               ENV_VARS.openAIBaseUrl && 'opacity-70 cursor-not-allowed',
                             )}
                           />
@@ -1597,7 +1619,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                             placeholder={t('settings.siliconflowApiKeyPlaceholder')}
                             disabled={Boolean(ENV_VARS.siliconFlowKey)}
                             className={clsx(
-                              'w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
+                              'w-full pl-10 pr-4 py-2.5 bg-white disabled:bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
                               ENV_VARS.siliconFlowKey && 'opacity-70 cursor-not-allowed',
                             )}
                           />
@@ -1630,7 +1652,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                               defaultValue: 'Enter your NVIDIA API Key',
                             })}
                             className={clsx(
-                              'w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
+                              'w-full pl-10 pr-4 py-2.5 bg-white disabled:bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
                             )}
                           />
                         </div>
@@ -1656,7 +1678,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                             placeholder={t('settings.glmApiKeyPlaceholder')}
                             disabled={Boolean(ENV_VARS.glmKey)}
                             className={clsx(
-                              'w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
+                              'w-full pl-10 pr-4 py-2.5 bg-white disabled:bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
                               ENV_VARS.glmKey && 'opacity-70 cursor-not-allowed',
                             )}
                           />
@@ -1688,7 +1710,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                             placeholder={t('settings.modelscopeApiKeyPlaceholder')}
                             disabled={Boolean(ENV_VARS.modelscopeKey)}
                             className={clsx(
-                              'w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
+                              'w-full pl-10 pr-4 py-2.5 bg-white disabled:bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
                               ENV_VARS.modelscopeKey && 'opacity-70 cursor-not-allowed',
                             )}
                           />
@@ -1720,7 +1742,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                             placeholder={t('settings.kimiApiKeyPlaceholder')}
                             disabled={Boolean(ENV_VARS.kimiKey)}
                             className={clsx(
-                              'w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
+                              'w-full pl-10 pr-4 py-2.5 bg-white disabled:bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
                               ENV_VARS.kimiKey && 'opacity-70 cursor-not-allowed',
                             )}
                           />
@@ -1763,7 +1785,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                           placeholder={t('settings.backendUrlPlaceholder')}
                           disabled={Boolean(ENV_VARS.backendUrl)}
                           className={clsx(
-                            'w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
+                            'w-full pl-10 pr-4 py-2.5 bg-white disabled:bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
                             ENV_VARS.backendUrl && 'opacity-70 cursor-not-allowed',
                           )}
                         />
@@ -1802,7 +1824,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                           placeholder="https://your-project.supabase.co"
                           disabled={Boolean(ENV_VARS.supabaseUrl)}
                           className={clsx(
-                            'w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
+                            'w-full pl-10 pr-4 py-2.5 bg-white disabled:bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
                             ENV_VARS.supabaseUrl && 'opacity-70 cursor-not-allowed',
                           )}
                         />
@@ -1825,7 +1847,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                           placeholder="••••••••••••••••••••••••••••••••"
                           disabled={Boolean(ENV_VARS.supabaseKey)}
                           className={clsx(
-                            'w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
+                            'w-full pl-10 pr-4 py-2.5 bg-white disabled:bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
                             ENV_VARS.supabaseKey && 'opacity-70 cursor-not-allowed',
                           )}
                         />
@@ -1910,7 +1932,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                             setIsInterfaceLanguageDropdownOpen(false)
                             setIsSearchProviderDropdownOpen(nextOpen)
                           }}
-                          className="w-full flex items-center justify-between pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-zinc-800"
+                          className="w-full flex items-center justify-between pl-10 pr-4 py-2.5 bg-white disabled:bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-zinc-800"
                         >
                           <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center">
                             <Search size={16} className="text-gray-400" />
@@ -1943,7 +1965,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                                   setSearchProvider(option.value)
                                   setIsSearchProviderDropdownOpen(false)
                                 }}
-                                className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
+                                className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
                               >
                                 <div className="flex items-center gap-3">
                                   {renderProviderIcon(option.value, {
@@ -1978,7 +2000,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                             placeholder={t('settings.tavilyApiKeyPlaceholder')}
                             disabled={Boolean(ENV_VARS.tavilyApiKey)}
                             className={clsx(
-                              'w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
+                              'w-full pl-10 pr-4 py-2.5 bg-white disabled:bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
                               ENV_VARS.tavilyApiKey && 'opacity-70 cursor-not-allowed',
                             )}
                           />
@@ -2105,7 +2127,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                                 const nextOpen = !isEmbeddingProviderDropdownOpen
                                 setIsEmbeddingProviderDropdownOpen(nextOpen)
                               }}
-                              className="w-full flex items-center justify-between px-3 py-2 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                              className="w-full flex items-center justify-between px-3 py-2 bg-white disabled:bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
                             >
                               <div className="flex items-center gap-3">
                                 {renderProviderIcon(embeddingProvider, {
@@ -2132,7 +2154,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                                       setEmbeddingProvider(key)
                                       setIsEmbeddingProviderDropdownOpen(false)
                                     }}
-                                    className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
+                                    className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
                                   >
                                     <div className="flex items-center gap-3">
                                       {renderProviderIcon(key, {
@@ -2192,7 +2214,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                                   setEmbeddingModel(nextValue)
                                 }}
                                 placeholder={t('settings.customModelIdPlaceholder')}
-                                className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                                className="w-full px-3 py-2 bg-white disabled:bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
                               />
                             )}
                           </div>
@@ -2263,7 +2285,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                       setMemoryRecallLimit(Math.min(20, Math.max(1, Number(e.target.value) || 1)))
                     }
                     disabled={!enableLongTermMemory}
-                    className="w-32 mt-1 px-3 py-2 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600 disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="w-32 mt-1 px-3 py-2 bg-white disabled:bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600 disabled:opacity-60 disabled:cursor-not-allowed"
                   />
                 </div>
               </div>
@@ -2283,7 +2305,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                     onChange={e => setUserSelfIntro(e.target.value)}
                     placeholder={t('settings.userSelfIntroPlaceholder')}
                     rows={5}
-                    className="w-full px-4 py-2 text-sm bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20 resize-none"
+                    className="w-full px-4 py-2 text-sm bg-white disabled:bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20 resize-none"
                   />
                 </div>
 
@@ -2314,7 +2336,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                       value={introQuery}
                       onChange={e => setIntroQuery(e.target.value)}
                       placeholder={t('settings.embeddingTestQueryPlaceholder')}
-                      className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600"
+                      className="w-full px-3 py-2 bg-white disabled:bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600"
                     />
                   </div>
 
@@ -2436,7 +2458,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                   )}
 
                   {documentParseState.status === 'success' && (
-                    <div className="rounded-lg border border-gray-200 dark:border-zinc-800 bg-gray-50 dark:bg-zinc-900 p-3 text-xs text-gray-700 dark:text-gray-300 space-y-1">
+                    <div className="rounded-lg border border-gray-200 dark:border-zinc-800 bg-white disabled:bg-gray-50 dark:bg-zinc-900 p-3 text-xs text-gray-700 dark:text-gray-300 space-y-1">
                       <div>
                         {t('settings.documentFileLabel')}: {documentParseState.fileName}
                       </div>
@@ -2463,7 +2485,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                       value={documentQuery}
                       onChange={e => setDocumentQuery(e.target.value)}
                       placeholder={t('settings.documentQueryPlaceholder')}
-                      className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600"
+                      className="w-full px-3 py-2 bg-white disabled:bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600"
                     />
                   </div>
 

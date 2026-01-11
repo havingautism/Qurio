@@ -248,10 +248,10 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
     : description
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-start md:items-center justify-center bg-black/50 backdrop-blur-sm p-0 md:p-4 overflow-y-auto md:overflow-hidden">
-      <div className="w-full h-[100dvh] md:max-w-2xl md:h-[80vh] bg-white dark:bg-[#191a1a] rounded-none md:rounded-2xl shadow-2xl flex flex-col overflow-hidden border-0 md:border border-gray-200 dark:border-zinc-800">
+    <div className="fixed inset-0 z-100 flex items-start md:items-center justify-center bg-black/50 backdrop-blur-sm p-0 md:p-4 overflow-y-auto md:overflow-hidden">
+      <div className="w-full h-dvh md:max-w-2xl md:h-[80vh] bg-[#f9f9f9] dark:bg-[#191a1a] rounded-none md:rounded-2xl shadow-2xl flex flex-col overflow-hidden border-0 md:border border-gray-200 dark:border-zinc-800">
         {/* Header */}
-        <div className="h-14 border-b border-gray-200 dark:border-zinc-800 flex items-center justify-between px-4 sm:px-6 shrink-0">
+        <div className="h-14 border-b border-gray-200  dark:border-zinc-800 flex items-center justify-between px-4 sm:px-6 shrink-0">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
             {editingSpace ? t('spaceModal.edit') : t('spaceModal.create')}
           </h3>
@@ -311,7 +311,7 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
                     onChange={e => setName(e.target.value)}
                     placeholder={t('spaceModal.namePlaceholder')}
                     disabled={isDeepResearchSpace}
-                    className="flex-1 h-12 px-4 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex-1 h-12 px-4 bg-white disabled:bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600 disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                 </div>
               </div>
@@ -330,7 +330,7 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
                   placeholder={t('spaceModal.descriptionPlaceholder')}
                   rows={2}
                   disabled={isDeepResearchSpace}
-                  className="w-full px-4 py-2.5 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600 resize-none disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full px-4 py-2.5 bg-white disabled:bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600 resize-none disabled:opacity-50 disabled:cursor-not-allowed"
                 />
               </div>
 

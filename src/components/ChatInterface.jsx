@@ -27,6 +27,7 @@ import { deleteMessageById } from '../lib/supabase'
 import ChatHeader from './chat/ChatHeader'
 import ChatInputBar from './chat/ChatInputBar'
 import { fetchDocumentChunkContext } from '../lib/documentRetrievalService'
+import { resolveEmbeddingConfig } from '../lib/embeddingService'
 
 const DOCUMENT_CONTEXT_MAX_TOTAL = 12000
 const DOCUMENT_CONTEXT_MAX_PER_DOC = 4000
@@ -103,6 +104,11 @@ const fetchRelevantDocumentSources = async (documents, queryText) => {
     console.error('Document retrieval failed', error)
     return null
   }
+}
+
+const buildEmbeddingModelKey = ({ model }) => {
+  const normalizedModel = typeof model === 'string' ? model.trim() : ''
+  return normalizedModel || null
 }
 
 const getRelevanceLabel = score => {
@@ -258,6 +264,7 @@ const ChatInterface = ({
   const [isDocumentSelectorOpen, setIsDocumentSelectorOpen] = useState(false)
   const documentSelectorRef = useRef(null)
   const pendingDocumentIdsRef = useRef([])
+  const previousSpaceIdRef = useRef(null)
 
   // New state for toggles and attachments
   const [isSearchActive, setIsSearchActive] = useState(false)
@@ -333,12 +340,21 @@ const ChatInterface = ({
     let isMounted = true
     const loadDocuments = async () => {
       if (!displaySpace?.id) {
+        previousSpaceIdRef.current = null
         setSpaceDocuments([])
         setSelectedDocumentIds([])
         setPendingDocumentIds([])
         setIsDocumentSelectorOpen(false)
         return
       }
+
+      if (previousSpaceIdRef.current !== displaySpace.id) {
+        setSpaceDocuments([])
+        setSelectedDocumentIds([])
+        setPendingDocumentIds([])
+        setIsDocumentSelectorOpen(false)
+      }
+      previousSpaceIdRef.current = displaySpace.id
 
       setDocumentsLoading(true)
       const { data, error } = await listSpaceDocuments(displaySpace.id)
@@ -1321,7 +1337,29 @@ const baseDocumentSources = useMemo(
         selectedAgent || (!isAgentAutoMode && initialAgentSelection) || defaultAgent || null
 
       let retrievedDocumentSources = null
-      if (selectedDocuments.length > 0 && textToSend.trim()) {
+      let skipDocumentRetrieval = false
+
+      if (selectedDocuments.length > 0) {
+        const embeddingConfig = resolveEmbeddingConfig()
+        const currentModelKey = buildEmbeddingModelKey(embeddingConfig)
+        const docModelKeys = selectedDocuments
+          .map(doc => buildEmbeddingModelKey({ model: doc.embedding_model }))
+          .filter(Boolean)
+        const uniqueDocModels = [...new Set(docModelKeys)]
+        if (uniqueDocModels.length > 1) {
+          toast.error(t('chatInterface.documentEmbeddingMixedModels'))
+          skipDocumentRetrieval = true
+        } else if (uniqueDocModels.length === 1 && uniqueDocModels[0] !== currentModelKey) {
+          toast.error(
+            t('chatInterface.documentEmbeddingMismatch', {
+              model: uniqueDocModels[0],
+            }),
+          )
+          skipDocumentRetrieval = true
+        }
+      }
+
+      if (!skipDocumentRetrieval && selectedDocuments.length > 0 && textToSend.trim()) {
         const retrieval = await fetchRelevantDocumentSources(selectedDocuments, textToSend)
         if (retrieval) {
           retrievedDocumentSources = retrieval.sources || null

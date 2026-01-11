@@ -93,11 +93,15 @@ const fetchRelevantDocumentSources = async (documents, queryText) => {
   if (!documents.length || !queryText.trim()) {
     return null
   }
+  const dynamicChunkLimit = Math.min(
+    DOCUMENT_RETRIEVAL_CHUNK_LIMIT * Math.max(1, documents.length),
+    2000,
+  )
   try {
     return await fetchDocumentChunkContext({
       documents,
       queryText,
-      chunkLimit: DOCUMENT_RETRIEVAL_CHUNK_LIMIT,
+      chunkLimit: dynamicChunkLimit,
       topChunks: DOCUMENT_RETRIEVAL_TOP_CHUNKS,
     })
   } catch (error) {

@@ -1445,6 +1445,7 @@ const MessageBubble = ({
             mermaid={mermaidOptions}
             remarkPlugins={[remarkGfm]}
             components={markdownComponentsWithAnchors}
+            isAnimating={isStreaming}
           >
             {contentWithCitations}
           </Streamdown>

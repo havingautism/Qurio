@@ -8,8 +8,11 @@ const EmojiDisplay = ({ emoji, size = '1em', className = '' }) => {
 
   // Construct URL if found
   // path format in JSON: folder: "/Name", images: { "3D": ["file.png"] }
+  // Check environment config (1 = Fluent, 0 = Native)
+  const useFluentEmoji = import.meta.env.PUBLIC_USE_FLUENT_EMOJI !== '0'
+
   let url = null
-  if (emojiEntry) {
+  if (emojiEntry && useFluentEmoji) {
     const style = '3D' // Default style
     const files = emojiEntry.images[style]
     if (files && files.length > 0) {

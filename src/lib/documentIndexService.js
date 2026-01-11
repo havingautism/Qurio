@@ -35,27 +35,46 @@ export const persistDocumentSections = async (documentId, sections = []) => {
 
 export const persistDocumentChunks = async (documentId, chunks = [], sectionMap = {}) => {
   if (!documentId || chunks.length === 0) return { error: null }
-  const payload = chunks.map(chunk => ({
-    document_id: documentId,
-    section_id: sectionMap[chunk.parentSectionId] || null,
-    external_chunk_id: chunk.chunkId,
-    chunk_index: chunk.chunkIndex,
-    content_type: chunk.contentType || 'paragraph',
-    text: chunk.text,
-    token_count: chunk.tokenCount,
-    chunk_hash: chunk.chunkHash,
-    loc: chunk.loc || null,
-    source_hint: chunk.sourceHint,
-    embedding: chunk.embedding,
-  }))
+  const seenHashes = new Set()
+  const payload = []
+  chunks.forEach(chunk => {
+    const hash = chunk.chunkHash
+    if (hash && seenHashes.has(hash)) {
+      return
+    }
+    if (hash) {
+      seenHashes.add(hash)
+    }
+    payload.push({
+      document_id: documentId,
+      section_id: sectionMap[chunk.parentSectionId] || null,
+      title_path: chunk.titlePath || [],
+      external_chunk_id: chunk.chunkId,
+      chunk_index: chunk.chunkIndex,
+      content_type: chunk.contentType || 'paragraph',
+      text: chunk.text,
+      token_count: chunk.tokenCount,
+      chunk_hash: chunk.chunkHash,
+      loc: chunk.loc || null,
+      source_hint: chunk.sourceHint,
+      embedding: chunk.embedding,
+    })
+  })
 
   const supabase = getSupabaseClient()
   if (!supabase) {
     return { error: new Error('Supabase not configured') }
   }
 
-  const { error } = await supabase
-    .from(chunksTable)
-    .upsert(payload, { onConflict: ['document_id', 'chunk_hash'] })
-  return { error }
+  const batchSize = 100
+  for (let i = 0; i < payload.length; i += batchSize) {
+    const batch = payload.slice(i, i + batchSize)
+    const { error } = await supabase
+      .from(chunksTable)
+      .upsert(batch, { onConflict: ['document_id', 'chunk_hash'] })
+    if (error) {
+      return { error }
+    }
+  }
+  return { error: null }
 }

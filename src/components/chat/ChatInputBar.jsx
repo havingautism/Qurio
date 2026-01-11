@@ -13,6 +13,10 @@ import {
   SlidersHorizontal,
   Smile,
   X,
+  FileJson,
+  FileSpreadsheet,
+  FileCode,
+  File,
 } from 'lucide-react'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -108,7 +112,33 @@ const ChatInputBar = React.memo(
     const documentMenuRef = useRef(null)
     const [isMultiline, setIsMultiline] = useState(false)
     const highlightedInputParts = useMemo(() => splitTextWithUrls(inputValue), [inputValue])
-
+    const selectedDocumentIdSet = useMemo(
+      () => new Set((selectedDocumentIds || []).map(id => String(id))),
+      [selectedDocumentIds],
+    )
+    const selectedDocumentCount = selectedDocumentIdSet.size
+    const selectedDocuments = useMemo(() => {
+      if (!documents || documents.length === 0) return []
+      return documents.filter(doc => selectedDocumentIdSet.has(String(doc.id)))
+    }, [documents, selectedDocumentIdSet])
+    const FileIcon = ({ fileType, className }) => {
+      const type = (fileType || '').toLowerCase()
+      if (type.includes('pdf')) return <FileText className={clsx('text-red-500', className)} />
+      if (type.includes('doc') || type.includes('word'))
+        return <FileText className={clsx('text-blue-500', className)} />
+      if (type.includes('json')) return <FileJson className={clsx('text-yellow-500', className)} />
+      if (type.includes('csv') || type.includes('excel') || type.includes('sheet'))
+        return <FileSpreadsheet className={clsx('text-emerald-500', className)} />
+      if (
+        type.includes('md') ||
+        type.includes('start') ||
+        type.includes('code') ||
+        type === 'js' ||
+        type === 'py'
+      )
+        return <FileCode className={clsx('text-purple-500', className)} />
+      return <File className={clsx('text-gray-400', className)} />
+    }
     // Auto-resize and multiline detection
     useEffect(() => {
       const textarea = textareaRef.current
@@ -247,10 +277,9 @@ const ChatInputBar = React.memo(
 
     // === CAPSULE VARIANT ===
     if (variant === 'capsule') {
-      const selectedIdSet = new Set((selectedDocumentIds || []).map(id => String(id)))
-      const selectedDocumentCount = selectedIdSet.size
+      const hasDocuments = documents && documents.length > 0
 
-      const documentsListContent = (
+      const renderDocumentsList = () => (
         <div className="flex flex-col gap-0.5 max-h-[250px] overflow-y-auto no-scrollbar">
           {documentsLoading && (
             <div className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400">
@@ -264,7 +293,7 @@ const ChatInputBar = React.memo(
           )}
           {!documentsLoading &&
             documents.map(doc => {
-              const isSelected = selectedIdSet.has(String(doc.id))
+              const isSelected = selectedDocumentIdSet.has(String(doc.id))
               return (
                 <button
                   key={doc.id}
@@ -298,6 +327,15 @@ const ChatInputBar = React.memo(
         </div>
       )
 
+      const renderDocumentsSection = () => (
+        <div className="space-y-2">
+          <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-2">
+            {t('chatInterface.documents')} ({selectedDocumentCount})
+          </div>
+          {renderDocumentsList()}
+        </div>
+      )
+
       const uploadMenuButton = (
         <button
           onClick={handleUploadImage}
@@ -311,11 +349,18 @@ const ChatInputBar = React.memo(
         'absolute bottom-full left-0 mb-3 bg-white/80 dark:bg-[#1C1C1E]/80 dark:bg-[#1a1a1a] bg-[#F9F9F9] dark:bg-[#1a1a1a] backdrop-blur-xl border border-gray-200/50 dark:border-zinc-700/50 rounded-2xl shadow-2xl z-50 overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-4 p-3'
 
       const desktopUploadMenuContent = (
-        <div className={clsx(popoverSurfaceClass, 'w-48')}>
+        <div className={clsx(popoverSurfaceClass, 'w-72')}>
           <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-2 mb-2">
             {t('common.upload')}
           </div>
-          <div className="space-y-1">{uploadMenuButton}</div>
+          <div className="space-y-1">
+            {uploadMenuButton}
+            {hasDocuments && (
+              <div className="border-t border-gray-200/70 dark:border-zinc-700/50 pt-3">
+                {renderDocumentsSection()}
+              </div>
+            )}
+          </div>
         </div>
       )
 
@@ -441,24 +486,17 @@ const ChatInputBar = React.memo(
               </button>
             </div>
           </div>
-          {/* Documents (Mobile Only - Folded into Settings) */}
-          {documents && documents.length > 0 && (
-            <div>
-              <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-2 mb-2">
-                {t('chatInterface.documents')} ({selectedDocumentCount})
-              </div>
-              {documentsListContent}
-              <div className="h-px bg-gray-100 dark:bg-zinc-700/50 mt-3" />
-            </div>
-          )}
         </div>
       )
 
       return (
-        <div className="w-full max-w-3xl relative group  pb-2">
+        <div className="w-full max-w-3xl relative group pb-2 flex flex-col gap-2">
           {/* Floating Context Indicators */}
-          {(showEditing || quotedText || attachments.length > 0) && (
-            <div className="absolute bottom-full left-4 right-4 mb-2 flex flex-col gap-2 z-10">
+          {(showEditing ||
+            quotedText ||
+            attachments.length > 0 ||
+            selectedDocuments.length > 0) && (
+            <div className="flex flex-col gap-2">
               {/* Edited Message Indicator */}
               {showEditing && (
                 <div className="flex items-center justify-between bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-zinc-800 rounded-xl px-4 py-2 shadow-sm animate-in slide-in-from-bottom-2">
@@ -498,11 +536,11 @@ const ChatInputBar = React.memo(
                 </div>
               )}
               {/* Attachment Previews */}
-              {attachments.length > 0 && (
-                <div className="flex gap-2 px-2 py-2 overflow-x-auto rounded-xl border border-gray-200/70 dark:border-zinc-700/50 bg-[#F9F9F9] dark:bg-[#1a1a1a]">
+              {(attachments.length > 0 || selectedDocuments.length > 0) && (
+                <div className="flex gap-2 px-2 py-2  overflow-x-auto rounded-xl border border-gray-200/70 dark:border-zinc-700/50 bg-[#F9F9F9] dark:bg-[#1a1a1a]">
                   {attachments.map((att, idx) => (
                     <div
-                      key={idx}
+                      key={`img-${idx}`}
                       className="relative group/img shrink-0 w-16 h-16 rounded-lg overflow-hidden border border-gray-200 dark:border-zinc-800 shadow-sm"
                     >
                       <img
@@ -513,6 +551,28 @@ const ChatInputBar = React.memo(
                       <button
                         onClick={() => setAttachments(attachments.filter((_, i) => i !== idx))}
                         className="absolute top-0.5 right-0.5 bg-black/60 text-white rounded-full p-0.5 opacity-100 sm:opacity-0 sm:group-hover/img:opacity-100 transition-opacity"
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  ))}
+                  {selectedDocuments.map(doc => (
+                    <div
+                      key={`doc-${doc.id}`}
+                      className="relative group/doc shrink-0 min-w-[110px] overflow-hidden rounded-xl border border-gray-200 dark:border-zinc-700/50 bg-white dark:bg-[#111] shadow-sm"
+                    >
+                      <div className="flex h-full flex-col items-center justify-center gap-1 px-2 py-2 text-center">
+                        <FileIcon fileType={doc.file_type} size={20} />
+                        <span className="text-[12px] font-semibold text-gray-900 dark:text-white truncate">
+                          {doc.name}
+                        </span>
+                        {/* <span className="text-[10px] uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400">
+                          {(doc.file_type || 'DOC').toUpperCase()}
+                        </span> */}
+                      </div>
+                      <button
+                        onClick={() => onToggleDocument?.(doc.id)}
+                        className="absolute top-0.5 right-0.5 bg-black/60 text-white rounded-full p-0.5 opacity-100 sm:opacity-0 sm:group-hover/doc:opacity-100 transition-opacity"
                       >
                         <X size={12} />
                       </button>
@@ -573,7 +633,14 @@ const ChatInputBar = React.memo(
                       onClose={() => setIsUploadMenuOpen(false)}
                       title={t('common.upload')}
                     >
-                      {uploadMenuButton}
+                      <div className="space-y-2">
+                        {uploadMenuButton}
+                        {hasDocuments && (
+                          <div className="border-t border-gray-200/70 dark:border-zinc-700/50 pt-3">
+                            {renderDocumentsSection()}
+                          </div>
+                        )}
+                      </div>
                     </MobileDrawer>
                   )}
                 </div>

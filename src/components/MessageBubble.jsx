@@ -398,7 +398,10 @@ const MessageBubble = ({
       <div className="relative group mb-4 border border-gray-200 dark:border-zinc-700 rounded-xl overflow-x-auto bg-user-bubble/20 dark:bg-zinc-800/30">
         <div className="flex items-center justify-between px-3 py-2 text-[11px] font-semibold bg-user-bubble/50 dark:bg-zinc-800/50 text-gray-600 dark:text-gray-300 border-b border-gray-200 dark:border-zinc-700">
           <span>{String(language || 'CODE').toUpperCase()}</span>
-          <button className="px-2 py-1 rounded bg-gray-200 dark:bg-zinc-700 text-gray-700 dark:text-gray-200 text-[11px] opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+          <button
+            onClick={() => copyToClipboard(codeText)}
+            className="px-2 py-1 rounded bg-gray-200 dark:bg-zinc-700 text-gray-700 dark:text-gray-200 text-[11px] opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+          >
             Copy
           </button>
         </div>
@@ -411,10 +414,14 @@ const MessageBubble = ({
             margin: 0,
             padding: '1rem',
             background: 'transparent',
+            whiteSpace: 'pre',
+            wordBreak: 'normal',
           }}
           codeTagProps={{
             style: {
               backgroundColor: 'transparent',
+              fontFamily: 'inherit',
+              whiteSpace: 'inherit',
             },
           }}
         >
@@ -964,9 +971,12 @@ const MessageBubble = ({
       const match = /language-(\w+)/.exec(className || '')
       const language = match ? match[1].toLowerCase() : ''
       const langLabel = match ? match[1].toUpperCase() : 'CODE'
-      const codeText = String(children).replace(/\n$/, '')
+      const rawCodeText = String(children)
+      const codeText = rawCodeText.replace(/\n$/, '')
+      const isBlock =
+        !inline && (language || rawCodeText.includes('\n') || className?.includes('language-'))
 
-      if (!inline && language === 'mermaid') {
+      if (isBlock && language === 'mermaid') {
         return (
           <div className="mb-4">
             <Streamdown mode="static" mermaid={mermaidOptions} controls={{ mermaid: true }}>
@@ -976,18 +986,21 @@ const MessageBubble = ({
         )
       }
 
-      if (!inline && match) {
+      if (isBlock) {
         return (
           <div className="relative group mb-4 border border-gray-200 dark:border-zinc-700 rounded-xl overflow-x-auto bg-user-bubble/20 dark:bg-zinc-800/30">
             <div className="flex items-center justify-between px-3 py-2 text-[11px] font-semibold bg-user-bubble/50 dark:bg-zinc-800/50 text-gray-600 dark:text-gray-300 border-b border-gray-200 dark:border-zinc-700">
               <span>{langLabel}</span>
-              <button className="px-2 py-1 rounded bg-gray-200 dark:bg-zinc-700 text-gray-700 dark:text-gray-200 text-[11px] opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+              <button
+                onClick={() => copyToClipboard(codeText)}
+                className="px-2 py-1 rounded bg-gray-200 dark:bg-zinc-700 text-gray-700 dark:text-gray-200 text-[11px] opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+              >
                 Copy
               </button>
             </div>
             <SyntaxHighlighter
               style={isDark ? oneDark : oneLight}
-              language={match[1]}
+              language={language || 'text'}
               PreTag="div"
               className="code-scrollbar text-sm text-shadow-none! font-code!"
               customStyle={{
@@ -995,10 +1008,14 @@ const MessageBubble = ({
                 padding: '1rem',
                 background: 'transparent',
                 borderRadius: 'inherit',
+                whiteSpace: 'pre',
+                wordBreak: 'normal',
               }}
               codeTagProps={{
                 style: {
                   backgroundColor: 'transparent',
+                  fontFamily: 'inherit',
+                  whiteSpace: 'inherit',
                 },
               }}
               {...props}
@@ -1428,6 +1445,7 @@ const MessageBubble = ({
             mermaid={mermaidOptions}
             remarkPlugins={[remarkGfm]}
             components={markdownComponentsWithAnchors}
+            isAnimating={isStreaming}
           >
             {contentWithCitations}
           </Streamdown>
@@ -2280,7 +2298,7 @@ const MessageBubble = ({
       {mergedMessage.documentSources && mergedMessage.documentSources.length > 0 && (
         <DocumentSourcesPanel
           sources={mergedMessage.documentSources}
-          isOpen={isDocumentSourcesOpen}
+          isOpen={isDocumentSourcesOpen} onClose={() => setIsDocumentSourcesOpen(false)}
         />
       )}
 

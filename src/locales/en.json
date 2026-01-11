@@ -37,6 +37,22 @@
     "webpageReader": "Webpage reader",
     "webpageReaderInfo": "Fetch webpage content and return JSON."
   },
+  "knowledgeBase": {
+    "title": "Knowledge Base",
+    "create": "New Collection",
+    "empty": "No collections found.",
+    "docs": "files",
+    "createTitle": "Create Collection",
+    "editTitle": "Edit Collection",
+    "selectPrompt": "Select a collection",
+    "selectPromptHelp": "Manage your documents and embedding indexes from here.",
+    "form": {
+      "name": "Collection Name",
+      "description": "Description"
+    },
+    "documents": "Documents",
+    "upload": "+ Upload Files"
+  },
   "customTools": {
     "title": "My Tools",
     "searchPlaceholder": "Search tools...",
@@ -727,10 +743,8 @@
     "documentsLoadFailed": "Failed to load documents",
     "documentsSelectionLoadFailed": "Failed to load selected documents",
     "documentsSelectionSaveFailed": "Failed to save document selection",
-    "documentEmbeddingMismatch":
-      "Selected documents were indexed with {{model}}. Switch your embedding model to match before retrieving them.",
-    "documentEmbeddingMixedModels":
-      "Selected documents use multiple embedding models. Select docs that share the same model before retrieving them.",
+    "documentEmbeddingMismatch": "Selected documents were indexed with {{model}}. Switch your embedding model to match before retrieving them.",
+    "documentEmbeddingMixedModels": "Selected documents use multiple embedding models. Select docs that share the same model before retrieving them.",
     "capabilities": "Capabilities",
     "warning": "Qurio can make mistakes. Please use with caution."
   },
@@ -794,12 +808,12 @@
       "failedToLoad": "Failed to load conversations",
       "documentLoadFailed": "Failed to load documents",
       "documentUploadLabel": "Upload document",
-    "documentUploadHint": "Supported: PDF, DOCX, TXT, MD, CSV, JSON.",
-    "documentUploading": "Parsing and storing document...",
-    "documentUploaded": "Document stored.",
-    "documentChunking": "Chunking document and preparing vectors...",
-    "documentEmbedding": "Generating embeddings...",
-    "documentEmbeddingProgress": "Generating embeddings ({{current}}/{{total}})",
+      "documentUploadHint": "Supported: PDF, DOCX, TXT, MD, CSV, JSON.",
+      "documentUploading": "Parsing and storing document...",
+      "documentUploaded": "Document stored.",
+      "documentChunking": "Chunking document and preparing vectors...",
+      "documentEmbedding": "Generating embeddings...",
+      "documentEmbeddingProgress": "Generating embeddings ({{current}}/{{total}})",
       "documentSections": "Sections: {{count}}",
       "documentChunks": "Chunks: {{count}}",
       "documentUploadFailed": "Failed to store document.",
@@ -808,16 +822,18 @@
       "documentLoading": "Loading documents...",
       "documentEmptyList": "No documents in this space yet.",
       "documentTypeLabel": "Type",
-    "documentCharacters": "Characters: {{count}}",
-    "documents": "Documents",
-    "spacePrompt": "Space Prompt",
-    "embeddingModelLabel": "Embedding model:",
-    "myTopics": "My Topics",
+      "documentCharacters": "Characters: {{count}}",
+      "documents": "Documents",
+      "spacePrompt": "Space Prompt",
+      "embeddingModelLabel": "Embedding model:",
+      "myTopics": "My Topics",
       "clickOrDragToUpload": "Click or drag to upload",
       "deleteDocument": "Delete document",
       "deleteDocumentMessage": "Are you sure you want to delete \"{{name}}\"? This action cannot be undone.",
       "documentDeleted": "Document deleted",
-      "documentDeleteFailed": "Failed to delete document"
+      "documentDeleteFailed": "Failed to delete document",
+      "notionImportTest": "Import from Notion (Test)",
+      "notionAuthMissing": "Notion auth URL is not configured."
     },
     "shareImageView": {
       "back": "Back",

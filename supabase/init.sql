@@ -3,6 +3,7 @@
 
 -- Extensions (Supabase usually preinstalls these; keep for safety)
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+CREATE EXTENSION IF NOT EXISTS "vector";
 
 -- Helper trigger to maintain updated_at
 CREATE OR REPLACE FUNCTION public.set_updated_at()
@@ -229,11 +230,12 @@ CREATE TRIGGER trg_document_sections_updated_at
 BEFORE UPDATE ON public.document_sections
 FOR EACH ROW EXECUTE PROCEDURE public.set_updated_at();
 
-CREATE TABLE IF NOT EXISTS public.document_chunks (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  document_id UUID NOT NULL REFERENCES public.space_documents(id) ON DELETE CASCADE,
-  section_id UUID REFERENCES public.document_sections(id) ON DELETE CASCADE,
-  external_chunk_id TEXT,
+  CREATE TABLE IF NOT EXISTS public.document_chunks (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    document_id UUID NOT NULL REFERENCES public.space_documents(id) ON DELETE CASCADE,
+    section_id UUID REFERENCES public.document_sections(id) ON DELETE CASCADE,
+    title_path TEXT[] NOT NULL DEFAULT '{}',
+    external_chunk_id TEXT,
   chunk_index INT,
   content_type TEXT,
   text TEXT NOT NULL,
@@ -242,9 +244,30 @@ CREATE TABLE IF NOT EXISTS public.document_chunks (
   loc JSONB,
   source_hint TEXT,
   embedding REAL[] NOT NULL DEFAULT '{}',
+  fts tsvector GENERATED ALWAYS AS (to_tsvector('simple', array_to_string(title_path, ' ') || ' ' || text || ' ' || coalesce(source_hint, ''))) STORED,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+
+CREATE OR REPLACE FUNCTION public.document_chunks_fts_trigger()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  NEW.fts :=
+    to_tsvector(
+      'simple',
+      array_to_string(NEW.title_path, ' ') || ' ' || NEW.text || ' ' || coalesce(NEW.source_hint, '')
+    );
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER trg_document_chunks_fts
+BEFORE INSERT OR UPDATE OF title_path, text, source_hint
+ON public.document_chunks
+FOR EACH ROW EXECUTE PROCEDURE public.document_chunks_fts_trigger();
 
 CREATE INDEX IF NOT EXISTS idx_document_chunks_document_id
   ON public.document_chunks(document_id);
@@ -257,7 +280,143 @@ CREATE TRIGGER trg_document_chunks_updated_at
 BEFORE UPDATE ON public.document_chunks
 FOR EACH ROW EXECUTE PROCEDURE public.set_updated_at();
 
- -- 10) Space <-> Agents (many-to-many binding)
+-- Match document chunks by cosine similarity (server-side)
+CREATE OR REPLACE FUNCTION public.match_document_chunks(
+  document_ids UUID[],
+  query_embedding REAL[],
+  match_count INT DEFAULT 3
+)
+RETURNS TABLE (
+  id UUID,
+  document_id UUID,
+  section_id UUID,
+  title_path TEXT[],
+  text TEXT,
+  source_hint TEXT,
+  chunk_index INT,
+  similarity REAL
+)
+LANGUAGE SQL
+STABLE
+AS $$
+  SELECT
+    dc.id,
+    dc.document_id,
+    dc.section_id,
+    dc.title_path,
+    dc.text,
+    dc.source_hint,
+    dc.chunk_index,
+    (
+      SELECT
+        SUM(q.val * d.val)
+        / NULLIF(
+            SQRT(SUM(q.val * q.val)) * SQRT(SUM(d.val * d.val)),
+            0
+          )
+      FROM UNNEST(dc.embedding) WITH ORDINALITY AS d(val, idx)
+      JOIN UNNEST(query_embedding) WITH ORDINALITY AS q(val, idx)
+        USING (idx)
+    ) AS similarity
+  FROM public.document_chunks AS dc
+  WHERE dc.document_id = ANY(document_ids)
+    AND array_length(dc.embedding, 1) = array_length(query_embedding, 1)
+  ORDER BY similarity DESC
+  LIMIT GREATEST(match_count, 1);
+$$;
+
+-- Create Index for FTS
+CREATE INDEX IF NOT EXISTS idx_document_chunks_fts ON public.document_chunks USING GIN (fts);
+
+-- Hybrid Search Function using RRF (Reciprocal Rank Fusion)
+CREATE OR REPLACE FUNCTION public.hybrid_search(
+  document_ids UUID[],
+  query_text TEXT,
+  query_embedding REAL[],
+  match_count INT DEFAULT 10,
+  rrf_k INT DEFAULT 60
+)
+RETURNS TABLE (
+  id UUID,
+  document_id UUID,
+  section_id UUID,
+  title_path TEXT[],
+  text TEXT,
+  source_hint TEXT,
+  chunk_index INT,
+  similarity REAL,
+  fts_score REAL,
+  score REAL
+)
+LANGUAGE sql
+STABLE
+AS $$
+  WITH vector_search AS (
+    SELECT
+      dc.id,
+      ROW_NUMBER() OVER (ORDER BY (
+        (
+            SELECT
+                SUM(q.val * d.val)
+                / NULLIF(
+                    SQRT(SUM(q.val * q.val)) * SQRT(SUM(d.val * d.val)),
+                    0
+                )
+            FROM UNNEST(dc.embedding) WITH ORDINALITY AS d(val, idx)
+            JOIN UNNEST(query_embedding) WITH ORDINALITY AS q(val, idx)
+            USING (idx)
+        )
+      ) DESC) as rank_vec,
+      (
+          SELECT
+              SUM(q.val * d.val)
+              / NULLIF(
+                  SQRT(SUM(q.val * q.val)) * SQRT(SUM(d.val * d.val)),
+                  0
+              )
+          FROM UNNEST(dc.embedding) WITH ORDINALITY AS d(val, idx)
+          JOIN UNNEST(query_embedding) WITH ORDINALITY AS q(val, idx)
+          USING (idx)
+      ) as similarity
+    FROM public.document_chunks dc
+    WHERE dc.document_id = ANY(document_ids)
+    AND array_length(dc.embedding, 1) = array_length(query_embedding, 1)
+    ORDER BY similarity DESC
+    LIMIT match_count * 2
+  ),
+  keyword_search AS (
+    SELECT
+      dc.id,
+      ROW_NUMBER() OVER (ORDER BY ts_rank_cd(dc.fts, websearch_to_tsquery('simple', query_text)) DESC) as rank_fts,
+      ts_rank_cd(dc.fts, websearch_to_tsquery('simple', query_text)) as fts_score
+    FROM public.document_chunks dc
+    WHERE dc.document_id = ANY(document_ids)
+    AND dc.fts @@ websearch_to_tsquery('simple', query_text)
+    ORDER BY fts_score DESC
+    LIMIT match_count * 2
+  )
+  SELECT
+    COALESCE(v.id, k.id) as id,
+    dc.document_id,
+    dc.section_id,
+    dc.title_path,
+    dc.text,
+    dc.source_hint,
+    dc.chunk_index,
+    COALESCE(v.similarity, 0.0) as similarity,
+    COALESCE(k.fts_score, 0.0) as fts_score,
+    (
+      COALESCE(1.0 / (rrf_k + v.rank_vec), 0.0) +
+      COALESCE(1.0 / (rrf_k + k.rank_fts), 0.0)
+    ) as score
+  FROM vector_search v
+  FULL OUTER JOIN keyword_search k ON v.id = k.id
+  JOIN public.document_chunks dc ON dc.id = COALESCE(v.id, k.id)
+  ORDER BY score DESC
+  LIMIT match_count;
+$$;
+
+-- 10) Space <-> Agents (many-to-many binding)
 CREATE TABLE IF NOT EXISTS public.space_agents (
   space_id UUID NOT NULL REFERENCES public.spaces(id) ON DELETE CASCADE,
   agent_id UUID NOT NULL REFERENCES public.agents(id) ON DELETE CASCADE,

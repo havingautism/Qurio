@@ -14,6 +14,7 @@ const PUBLIC_ENV = {
   PUBLIC_GOOGLE_API_KEY: import.meta.env.PUBLIC_GOOGLE_API_KEY,
   PUBLIC_TAVILY_API_KEY: import.meta.env.PUBLIC_TAVILY_API_KEY,
   PUBLIC_BACKEND_URL: import.meta.env.PUBLIC_BACKEND_URL,
+  PUBLIC_NOTION_OAUTH_URL: import.meta.env.PUBLIC_NOTION_OAUTH_URL,
 }
 
 export const getPublicEnv = key => {

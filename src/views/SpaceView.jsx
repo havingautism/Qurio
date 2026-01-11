@@ -67,6 +67,7 @@ const FileIcon = ({ fileType, className }) => {
   return <File className={clsx('text-gray-400', className)} />
 }
 
+
 const SpaceView = () => {
   const { t, i18n } = useTranslation()
   const { spaceId } = spaceRoute.useParams()
@@ -320,27 +321,14 @@ const SpaceView = () => {
           .replace(/\n+/g, ' ')
           .trim()
 
-      const sanitizeHeadingText = text =>
-        String(text || '')
-          .replace(/<[^>]+>/g, '')
-          .replace(/&lt;|&gt;/g, '')
-          .replace(/\[.*?\]/g, '')
-          .replace(/\s+/g, ' ')
-          .trim()
-
       if (chunks.length > 0) {
         for (let index = 0; index < chunks.length; index += 1) {
           const chunk = chunks[index]
-          const headingLabel =
-            chunk.titlePath?.length > 0
-              ? chunk.titlePath.join(' > ')
-              : chunk.heading
-          const titleLabel = sanitizeHeadingText(headingLabel) || file?.name || 'Document'
-          const sanitizedText = sanitizeChunkText(chunk.text)
-          const chunkPrompt = `passage: ${titleLabel}. ${sanitizedText}`
-          const embedding = await fetchEmbeddingVector({
-            text: sanitizedText,
-            taskType: 'RETRIEVAL_DOCUMENT',
+            const sanitizedText = sanitizeChunkText(chunk.text)
+            const chunkPrompt = `passage: ${sanitizedText}`
+            const embedding = await fetchEmbeddingVector({
+              text: sanitizedText,
+              taskType: 'RETRIEVAL_DOCUMENT',
             prompt: chunkPrompt,
           })
           const chunkHash = await computeSha256(chunk.text)
@@ -437,6 +425,7 @@ const SpaceView = () => {
       handleDocumentUpload(null, file)
     }
   }
+
   const handleDeleteDocument = async (doc, e) => {
     e.stopPropagation()
     if (!doc) return
@@ -518,13 +507,13 @@ const SpaceView = () => {
             onDrop={onDrop}
             onClick={() => fileInputRef.current?.click()}
           >
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".pdf,.docx,.txt,.md,.csv,.json,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-              onChange={handleDocumentUpload}
-              className="hidden"
-            />
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,.docx,.txt,.md,.csv,.json,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                onChange={handleDocumentUpload}
+                className="hidden"
+              />
 
             <div className="flex flex-col items-center gap-3 z-10">
               <div
@@ -618,39 +607,45 @@ const SpaceView = () => {
               spaceDocuments.map(doc => (
                 <div
                   key={doc.id}
-                  className="group flex items-center justify-between gap-4 rounded-xl border border-gray-100 dark:border-zinc-800/60 bg-white/60 dark:bg-zinc-900/30 px-4 py-3 hover:bg-white dark:hover:bg-zinc-900 transition-colors"
+                  className="group flex items-start sm:items-center justify-between gap-3 sm:gap-4 rounded-xl border border-gray-100 dark:border-zinc-800/60 bg-white/60 dark:bg-zinc-900/30 px-3 py-3 sm:px-4 sm:py-3 hover:bg-white dark:hover:bg-zinc-900 transition-colors"
                 >
-                  <div className="flex items-center gap-3 overflow-hidden">
-                    <div className="shrink-0 p-2 rounded-lg bg-gray-50 dark:bg-zinc-800">
+                  <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1">
+                    <div className="shrink-0 p-2 rounded-lg bg-gray-50 dark:bg-zinc-800 shadow-sm border border-gray-200/50 dark:border-zinc-700/50">
                       <FileIcon fileType={doc.file_type} size={20} />
                     </div>
-                      <div className="flex flex-col gap-0.5 min-w-0">
-                        <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                          {doc.name}
-                        </div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-2">
-                          <span className="uppercase">{formatFileType(doc.file_type)}</span>
-                          <span>·</span>
+                    <div className="flex flex-col gap-1 min-w-0 flex-1">
+                      <div className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate pr-2">
+                        {doc.name}
+                      </div>
+                      <div className="text-[11px] sm:text-xs text-gray-500 dark:text-gray-400 flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <div className="flex items-center gap-1">
+                          <span className="uppercase font-bold text-[10px] text-gray-400 dark:text-zinc-500">
+                            {formatFileType(doc.file_type)}
+                          </span>
+                          <span className="text-gray-300 dark:text-zinc-700">·</span>
                           <span>
                             {t('views.spaceView.documentCharacters', {
                               count: doc.content_text?.length || 0,
                             })}
                           </span>
-                          {doc.embedding_model && (
-                            <>
-                              <span>·</span>
-                              <span>
-                                {t('views.spaceView.embeddingModelLabel')} {doc.embedding_model}
-                              </span>
-                            </>
-                          )}
                         </div>
+                        {doc.embedding_model && (
+                          <div className="flex items-center gap-1">
+                            <span className="text-gray-300 dark:text-zinc-700 hidden sm:inline">
+                              ·
+                            </span>
+                            <span className="bg-primary-500/5 dark:bg-primary-500/10 text-primary-600 dark:text-primary-400 px-1.5 py-0.5 rounded text-[10px]">
+                              {doc.embedding_model}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     </div>
+                  </div>
 
                   <button
                     onClick={e => handleDeleteDocument(doc, e)}
-                    className="p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-200"
+                    className="shrink-0 p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-200"
                     title={t('views.spaceView.deleteDocument')}
                   >
                     <Trash2 size={16} />

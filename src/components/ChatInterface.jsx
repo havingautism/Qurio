@@ -32,7 +32,7 @@ import { resolveEmbeddingConfig } from '../lib/embeddingService'
 const DOCUMENT_CONTEXT_MAX_TOTAL = 12000
 const DOCUMENT_CONTEXT_MAX_PER_DOC = 4000
 const DOCUMENT_RETRIEVAL_CHUNK_LIMIT = 250
-const DOCUMENT_RETRIEVAL_TOP_CHUNKS = 3
+const DOCUMENT_RETRIEVAL_TOP_CHUNKS = 5
 
 const truncateText = (text, limit) => {
   if (!text) return ''
@@ -93,11 +93,15 @@ const fetchRelevantDocumentSources = async (documents, queryText) => {
   if (!documents.length || !queryText.trim()) {
     return null
   }
+  const dynamicChunkLimit = Math.min(
+    DOCUMENT_RETRIEVAL_CHUNK_LIMIT * Math.max(1, documents.length),
+    2000,
+  )
   try {
     return await fetchDocumentChunkContext({
       documents,
       queryText,
-      chunkLimit: DOCUMENT_RETRIEVAL_CHUNK_LIMIT,
+      chunkLimit: dynamicChunkLimit,
       topChunks: DOCUMENT_RETRIEVAL_TOP_CHUNKS,
     })
   } catch (error) {
@@ -111,10 +115,10 @@ const buildEmbeddingModelKey = ({ model }) => {
   return normalizedModel || null
 }
 
-const getRelevanceLabel = score => {
-  if (score == null) return 'Medium relevance'
-  if (score >= 0.9) return 'High relevance'
-  if (score >= 0.75) return 'Medium relevance'
+const getRelevanceLabel = similarity => {
+  if (similarity == null) return 'Medium relevance'
+  if (similarity >= 0.8) return 'High relevance'
+  if (similarity >= 0.68) return 'Medium relevance'
   return 'Low relevance'
 }
 
@@ -123,8 +127,12 @@ const formatDocumentAppendText = sources => {
   if (!filtered.length) return ''
   const lines = filtered.map(source => {
     const label = source.fileType ? `${source.title} (${source.fileType})` : source.title
-    const relevance = getRelevanceLabel(source.score)
-    return `- [${relevance} | ${label}]: ${source.snippet}`
+    const similarity =
+      typeof source.similarity === 'number' ? source.similarity.toFixed(2) : 'n/a'
+    const path = Array.isArray(source.titlePath) && source.titlePath.length > 0
+      ? `: ${source.titlePath.join(' > ')}`
+      : ''
+    return `- [score=${similarity} | ${label}]${path}\n  ${source.snippet}`
   })
   return [
     '# The following document excerpts may help answer this question (may be incomplete):',
@@ -1815,17 +1823,17 @@ const baseDocumentSources = useMemo(
   const inputAgentAutoMode = isAgentAutoMode
 
   return (
-    <div
-      className={clsx(
-        'flex-1 h-full bg-background text-foreground transition-all duration-300 flex flex-col sm:px-4',
-        isSidebarPinned ? 'md:ml-72' : 'md:ml-16',
-        // Fixed left shift for large screens
-        // 'xl:-translate-x-30',
-        // Dynamic movement follows sidebar state for small screens
-        !isXLScreen && 'sidebar-shift',
-      )}
-    >
-      <div className="w-full relative flex flex-col flex-1 min-h-0">
+        <div
+          className={clsx(
+            'flex-1 h-full bg-background text-foreground transition-all duration-300 flex flex-col sm:px-4',
+            isSidebarPinned ? 'md:ml-72' : 'md:ml-16',
+            // Fixed left shift for large screens
+            // 'xl:-translate-x-30',
+            // Dynamic movement follows sidebar state for small screens
+            !isXLScreen && 'sidebar-shift',
+          )}
+        >
+          <div className="w-full relative flex flex-col flex-1 min-h-0">
         {/* Title Bar */}
         <ChatHeader
           toggleSidebar={toggleSidebar}
@@ -1850,10 +1858,10 @@ const baseDocumentSources = useMemo(
         />
 
         {/* Messages Scroll Container */}
-        <div
-          ref={messagesContainerRef}
-          className="flex-1 overflow-y-auto overflow-x-hidden sm:p-2 relative no-scrollbar"
-        >
+          <div
+            ref={messagesContainerRef}
+            className="flex-1 overflow-y-auto overflow-x-hidden sm:p-2 relative no-scrollbar"
+          >
           <div className="w-full px-0 sm:px-5 max-w-3xl mx-auto">
             {showHistoryLoader && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">

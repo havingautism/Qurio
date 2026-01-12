@@ -9,9 +9,14 @@ const useScrollLock = isLocked => {
     if (!isLocked) return
 
     const scrollY = window.scrollY || document.documentElement.scrollTop || 0
+    const isStandalone =
+      window.matchMedia?.('(display-mode: standalone)')?.matches ||
+      window.matchMedia?.('(display-mode: minimal-ui)')?.matches ||
+      window.navigator?.standalone === true
     const shouldFixBody =
-      document.body.scrollHeight > window.innerHeight ||
-      document.documentElement.scrollHeight > window.innerHeight
+      !isStandalone &&
+      (document.body.scrollHeight > window.innerHeight ||
+        document.documentElement.scrollHeight > window.innerHeight)
 
     const bodyStyle = document.body.style
     const htmlStyle = document.documentElement.style

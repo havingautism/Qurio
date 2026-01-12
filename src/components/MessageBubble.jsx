@@ -14,7 +14,6 @@ import {
   Quote,
   Trash2,
   X,
-  RefreshCw,
   Search,
   GraduationCap,
   Calculator,
@@ -47,6 +46,7 @@ import {
   formatContentWithSources,
   getHostname,
 } from './message/messageUtils'
+import { formatMessageDate } from '../lib/dateUtils'
 import RelatedQuestions from './message/RelatedQuestions'
 import { useMessageExport } from './message/useMessageExport'
 import MobileSourcesDrawer from './MobileSourcesDrawer'
@@ -109,8 +109,6 @@ const MessageBubble = ({
   onRegenerateAnswer,
   onQuote,
   onFormSubmit,
-  onUserRegenerate,
-  showUserRegenerate = false,
 }) => {
   // Get message directly from chatStore using shallow selector
   const { messages, isLoading, conversationTitle } = useChatStore(
@@ -770,7 +768,7 @@ const MessageBubble = ({
   const [isPlanExpanded, setIsPlanExpanded] = useState(false)
   const [thinkingStatusIndex, setThinkingStatusIndex] = useState(0)
 
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { showConfirmation } = useAppContext()
   const isUser = message.role === 'user'
 
@@ -1284,7 +1282,7 @@ const MessageBubble = ({
               ) : (
                 <div
                   className={clsx(
-                    'p-3 border flex flex-col gap-2 border-gray-200 dark:border-zinc-700 rounded-xl overflow-hidden bg-user-bubble/20 dark:bg-zinc-800/30',
+                    'p-3 border flex flex-col gap-2 border-gray-200 dark:border-zinc-700 rounded-xl overflow-hidden bg-transparent',
                     'mb-4',
                   )}
                 >
@@ -1498,10 +1496,7 @@ const MessageBubble = ({
           containerRef.current = el
           if (typeof bubbleRef === 'function') bubbleRef(el)
         }}
-        className={clsx(
-          'flex items-center gap-2 w-full mt-4 group px-3 sm:px-0',
-          isDeepResearchContext ? 'justify-center' : 'justify-end',
-        )}
+        className={clsx('w-full mt-4 group px-3 sm:px-0 flex flex-col gap-1')}
         onMouseUp={handleMouseUp}
         onTouchEnd={handleTouchEnd}
         onContextMenu={handleContextMenu}
@@ -1528,124 +1523,129 @@ const MessageBubble = ({
             </div>,
             document.body,
           )}
-        {isUser && showUserRegenerate && !isDeepResearchContext && (
-          <button
-            onClick={() => onUserRegenerate && onUserRegenerate()}
-            className="p-1.5 text-gray-400 hover:text-primary-500 dark:hover:text-primary-400 rounded-lg transition-colors shrink-0"
-            title={t('message.regenerate')}
-          >
-            <RefreshCw size={14} />
-          </button>
+        {/* User Message Timestamp (Centered Above) */}
+        {message.created_at && (
+          <div className="w-full flex justify-center text-xs text-gray-400 dark:text-gray-500 my-1 select-none">
+            {formatMessageDate(message.created_at, t, i18n.language)}
+          </div>
         )}
+        {/* Message Row Wrapper */}
         <div
           className={clsx(
-            'flex flex-col gap-2 max-w-[85%] sm:max-w-[85%]',
-            isDeepResearchContext ? 'items-center' : 'items-end',
+            'flex items-center gap-2 w-full',
+            isDeepResearchContext ? 'justify-center' : 'justify-end',
           )}
         >
-          {/* Message Content */}
-          {(() => {
-            if (isDeepResearchContext) {
-              return <DeepResearchGoalCard content={contentToRender} />
-            }
-            return (
-              <div
-                className={clsx(
-                  'relative px-5 py-3.5 rounded-3xl text-base w-fit max-w-full',
-                  'bg-primary-500 dark:bg-primary-900 text-white dark:text-gray-100',
-                )}
-              >
-                {quoteToRender && (
-                  <div className="mb-2 p-3 bg-white/20 dark:bg-black/20 rounded-3xl text-sm">
-                    <div className="font-medium  mb-1">{t('messageBubble.quoting')}</div>
-                    <div className="line-clamp-2 italic ">{quoteToRender.text}</div>
-                  </div>
-                )}
-                {imagesToRender.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mb-2">
-                    {imagesToRender.map((img, idx) => (
-                      <img
-                        key={idx}
-                        src={img?.url || img?.image_url?.url}
-                        alt="User uploaded"
-                        className="max-w-full h-auto rounded-lg max-h-60 object-cover cursor-zoom-in"
-                        onClick={event => {
-                          event.stopPropagation()
-                          setActiveImageUrl(img?.url || img?.image_url?.url)
-                        }}
-                      />
-                    ))}
-                  </div>
-                )}
+          <div
+            className={clsx(
+              'flex flex-col gap-2 max-w-[85%] sm:max-w-[85%]',
+              isDeepResearchContext ? 'items-center' : 'items-end',
+            )}
+          >
+            {/* Message Content */}
+            {(() => {
+              if (isDeepResearchContext) {
+                return <DeepResearchGoalCard content={contentToRender} />
+              }
+              return (
                 <div
-                  className="message-content whitespace-pre-wrap wrap-break-word"
-                  // Prevent native selection menu on mobile
-                  style={{
-                    WebkitTouchCallout: isMobile ? 'none' : 'default',
-                    WebkitUserSelect: isMobile ? 'text' : 'auto',
-                    KhtmlUserSelect: isMobile ? 'text' : 'auto',
-                    MozUserSelect: isMobile ? 'text' : 'auto',
-                    MsUserSelect: isMobile ? 'text' : 'auto',
-                    userSelect: isMobile ? 'text' : 'auto',
-                  }}
-                >
-                  {highlightedParts.map((part, index) =>
-                    part.type === 'url' ? (
-                      <span
-                        key={`url-${index}`}
-                        className="bg-white/20 text-white rounded-sm px-1 underline decoration-white/70"
-                      >
-                        {part.value}
-                      </span>
-                    ) : (
-                      <span key={`text-${index}`}>{part.value}</span>
-                    ),
+                  className={clsx(
+                    'relative px-3 py-2 rounded-3xl text-base w-fit max-w-full',
+                    'bg-primary-500 dark:bg-primary-900 text-white dark:text-gray-100',
                   )}
+                >
+                  {quoteToRender && (
+                    <div className="mb-2 p-3 bg-white/20 dark:bg-black/20 rounded-3xl text-sm">
+                      <div className="font-medium  mb-1">{t('messageBubble.quoting')}</div>
+                      <div className="line-clamp-2 italic ">{quoteToRender.text}</div>
+                    </div>
+                  )}
+                  {imagesToRender.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mb-2">
+                      {imagesToRender.map((img, idx) => (
+                        <img
+                          key={idx}
+                          src={img?.url || img?.image_url?.url}
+                          alt="User uploaded"
+                          className="max-w-full h-auto rounded-lg max-h-60 object-cover cursor-zoom-in"
+                          onClick={event => {
+                            event.stopPropagation()
+                            setActiveImageUrl(img?.url || img?.image_url?.url)
+                          }}
+                        />
+                      ))}
+                    </div>
+                  )}
+                  <div
+                    className="message-content whitespace-pre-wrap wrap-break-word"
+                    // Prevent native selection menu on mobile
+                    style={{
+                      WebkitTouchCallout: isMobile ? 'none' : 'default',
+                      WebkitUserSelect: isMobile ? 'text' : 'auto',
+                      KhtmlUserSelect: isMobile ? 'text' : 'auto',
+                      MozUserSelect: isMobile ? 'text' : 'auto',
+                      MsUserSelect: isMobile ? 'text' : 'auto',
+                      userSelect: isMobile ? 'text' : 'auto',
+                    }}
+                  >
+                    {highlightedParts.map((part, index) =>
+                      part.type === 'url' ? (
+                        <span
+                          key={`url-${index}`}
+                          className="bg-white/20 text-white rounded-sm px-1 underline decoration-white/70"
+                        >
+                          {part.value}
+                        </span>
+                      ) : (
+                        <span key={`text-${index}`}>{part.value}</span>
+                      ),
+                    )}
+                  </div>
+                </div>
+              )
+            })()}
+
+            {/* Action Buttons */}
+            {!isDeepResearchContext && (
+              <div className="flex items-center gap-2 px-1">
+                <div className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 flex gap-2 transition-opacity duration-200">
+                  <button
+                    onClick={() => onEdit && onEdit()}
+                    className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300  rounded-lg transition-colors"
+                    title="Edit"
+                  >
+                    <Pencil size={14} />
+                  </button>
+                  <button
+                    onClick={() => {
+                      copyToClipboard(contentToRender)
+                      setIsCopied(true)
+                    }}
+                    className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300  rounded-lg transition-colors"
+                    title={t('messageBubble.copy')}
+                  >
+                    {isCopied ? <Check size={14} /> : <Copy size={14} />}
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (!onDelete) return
+                      showConfirmation({
+                        title: t('confirmation.deleteMessageTitle'),
+                        message: t('confirmation.deleteUserMessage'),
+                        confirmText: t('confirmation.delete'),
+                        isDangerous: true,
+                        onConfirm: onDelete,
+                      })
+                    }}
+                    className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg transition-colors"
+                    title={t('common.delete')}
+                  >
+                    <Trash2 size={14} />
+                  </button>
                 </div>
               </div>
-            )
-          })()}
-
-          {/* Action Buttons */}
-          {!isDeepResearchContext && (
-            <div className="flex items-center gap-2 px-1">
-              <div className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 flex gap-2 transition-opacity duration-200">
-                <button
-                  onClick={() => onEdit && onEdit()}
-                  className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300  rounded-lg transition-colors"
-                  title="Edit"
-                >
-                  <Pencil size={14} />
-                </button>
-                <button
-                  onClick={() => {
-                    copyToClipboard(contentToRender)
-                    setIsCopied(true)
-                  }}
-                  className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300  rounded-lg transition-colors"
-                  title={t('messageBubble.copy')}
-                >
-                  {isCopied ? <Check size={14} /> : <Copy size={14} />}
-                </button>
-                <button
-                  onClick={() => {
-                    if (!onDelete) return
-                    showConfirmation({
-                      title: t('confirmation.deleteMessageTitle'),
-                      message: t('confirmation.deleteUserMessage'),
-                      confirmText: t('confirmation.delete'),
-                      isDangerous: true,
-                      onConfirm: onDelete,
-                    })
-                  }}
-                  className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg transition-colors"
-                  title={t('common.delete')}
-                >
-                  <Trash2 size={14} />
-                </button>
-              </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
     )
@@ -1790,9 +1790,11 @@ const MessageBubble = ({
             >
               <EmojiDisplay emoji={agentEmoji} size="1.5rem" />
             </div>
-            <div className="flex flex-col leading-tight">
-              <div className="flex items-center gap-1.5">
-                <span className="text-sm font-semibold">{displayAgentName}</span>
+            <div className="flex flex-col leading-tight grow">
+              <div className="flex items-center justify-between w-full">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm font-semibold">{displayAgentName}</span>
+                </div>
               </div>
               <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
                 {renderProviderIcon(providerMeta.id, {
@@ -1841,8 +1843,10 @@ const MessageBubble = ({
                 </span>
               )}
             </div>
-            <div className="flex flex-col leading-tight">
-              <span className="text-sm font-semibold">{providerMeta.label}</span>
+            <div className="flex flex-col leading-tight grow">
+              <div className="flex items-center justify-between w-full">
+                <span className="text-sm font-semibold">{providerMeta.label}</span>
+              </div>
               <div className="flex items-center gap-1.5">
                 {getModelIcon(resolvedModel) && (
                   <img
@@ -1890,7 +1894,7 @@ const MessageBubble = ({
               </button>
 
               {isPlanExpanded && (hasPlanText || shouldShowPlanStatus) && (
-                <div className="p-4 bg-user-bubble/30 font-stretch-semi-condensed dark:bg-zinc-800/30 border-t border-gray-200 dark:border-zinc-700 text-sm text-gray-600 dark:text-gray-400 leading-relaxed space-y-4">
+                <div className="p-4  font-stretch-semi-condensed border-t border-gray-200 dark:border-zinc-700 text-sm text-gray-600 dark:text-gray-400 leading-relaxed space-y-4">
                   <Streamdown
                     mermaid={mermaidOptions}
                     remarkPlugins={[remarkGfm]}
@@ -1926,7 +1930,7 @@ const MessageBubble = ({
               </button>
 
               {isResearchExpanded && hasResearchSteps && (
-                <div className="p-4 bg-user-bubble/30 font-stretch-semi-condensed dark:bg-zinc-800/30 border-t border-gray-200 dark:border-zinc-700 text-sm text-gray-600 dark:text-gray-400 leading-relaxed space-y-3">
+                <div className="p-4  font-stretch-semi-condensed  border-t border-gray-200 dark:border-zinc-700 text-sm text-gray-600 dark:text-gray-400 leading-relaxed space-y-3">
                   {researchSteps.map(step => {
                     const isRunning = step.status === 'running'
                     const isPending = step.status === 'pending'
@@ -2163,7 +2167,7 @@ const MessageBubble = ({
             </button>
 
             {isThoughtExpanded && (hasThoughtText || hasPlanText) && (
-              <div className="p-4 bg-user-bubble/30 font-stretch-semi-condensed dark:bg-zinc-800/30 border-t border-gray-200 dark:border-zinc-700 text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+              <div className="p-4  font-stretch-semi-condensed  border-t border-gray-200 dark:border-zinc-700 text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
                 <Streamdown
                   mermaid={mermaidOptions}
                   remarkPlugins={[remarkGfm]}
@@ -2298,7 +2302,8 @@ const MessageBubble = ({
       {mergedMessage.documentSources && mergedMessage.documentSources.length > 0 && (
         <DocumentSourcesPanel
           sources={mergedMessage.documentSources}
-          isOpen={isDocumentSourcesOpen} onClose={() => setIsDocumentSourcesOpen(false)}
+          isOpen={isDocumentSourcesOpen}
+          onClose={() => setIsDocumentSourcesOpen(false)}
         />
       )}
 

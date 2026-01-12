@@ -320,10 +320,13 @@ const ChatInputBar = React.memo(
                   >
                     <Check size={12} />
                   </span>
-                  <div className="flex flex-col min-w-0">
+                  <div className="flex items-center justify-between w-full min-w-0 gap-2">
                     <span className="truncate">{doc.name}</span>
-                    <span className="text-[10px] text-gray-400 font-normal">
-                      {(doc.file_type || '').toUpperCase()}
+                    <span className="text-[10px] text-gray-400 font-normal shrink-0">
+                      {(() => {
+                        const type = (doc.file_type || '').toUpperCase()
+                        return type === 'MD' ? 'MARKDOWN' : type
+                      })()}
                     </span>
                   </div>
                 </button>
@@ -577,7 +580,7 @@ const ChatInputBar = React.memo(
                       </div>
                       <button
                         onClick={() => onToggleDocument?.(doc.id)}
-                        className="absolute top-0.5 right-0.5 bg-black/60 text-white rounded-full p-0.5 opacity-100 sm:opacity-0 sm:group-hover/doc:opacity-100 transition-opacity"
+                        className="absolute top-0.5 right-0.5 bg-black/60 dark:bg-white/60 dark:text-black text-white rounded-full p-0.5 opacity-100 sm:opacity-0 sm:group-hover/doc:opacity-100 transition-opacity"
                       >
                         <X size={12} />
                       </button>

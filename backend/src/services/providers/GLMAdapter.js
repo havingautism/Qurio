@@ -7,13 +7,12 @@ import { ChatOpenAI } from '@langchain/openai'
 import { BaseProviderAdapter } from './BaseProviderAdapter.js'
 import { getProviderConfig } from './providerConfig.js'
 
-
 /**
  * Check if model supports GLM tool streaming (glm-4.6+)
  * @param {string} model - Model name
  * @returns {boolean} True if model supports tool streaming
  */
-const isToolStreamingSupported = (model) => {
+const isToolStreamingSupported = model => {
   if (!model) return false
   const modelName = model.toLowerCase()
   return modelName.includes('glm-4.6') || modelName.includes('glm-4.7')
@@ -78,12 +77,7 @@ export class GLMAdapter extends BaseProviderAdapter {
 
     // Enable tool streaming for glm-4.6/4.7 when using tools
     const actualModel = model || this.config.defaultModel
-    if (
-      streaming &&
-      tools &&
-      tools.length > 0 &&
-      isToolStreamingSupported(actualModel)
-    ) {
+    if (streaming && tools && tools.length > 0 && isToolStreamingSupported(actualModel)) {
       // Put tool_stream at top level of modelKwargs (not in extra_body)
       modelKwargs.tool_stream = true
     }

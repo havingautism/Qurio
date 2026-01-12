@@ -7,6 +7,10 @@ import {
   Brain,
   Check,
   ChevronDown,
+  File,
+  FileCode,
+  FileJson,
+  FileSpreadsheet,
   FileText,
   Globe,
   Image,
@@ -31,6 +35,7 @@ import { providerSupportsSearch, resolveThinkingToggleRule } from '../lib/provid
 import { loadSettings } from '../lib/settings'
 import { getSpaceDisplayLabel } from '../lib/spaceDisplay'
 import { listSpaceAgents } from '../lib/spacesService'
+import { listSpaceDocuments } from '../lib/documentsService'
 import { useDeepResearchGuide } from '../contexts/DeepResearchGuideContext'
 import { splitTextWithUrls } from '../lib/urlHighlight'
 
@@ -71,6 +76,10 @@ const HomeView = () => {
   const [isHomeMobile, setIsHomeMobile] = useState(() => window.innerWidth < 768)
   const [isHomeUploadMenuOpen, setIsHomeUploadMenuOpen] = useState(false)
   const homeUploadMenuRef = useRef(null)
+  const [homeSpaceDocuments, setHomeSpaceDocuments] = useState([])
+  const [homeDocumentsLoading, setHomeDocumentsLoading] = useState(false)
+  const [homeSelectedDocumentIds, setHomeSelectedDocumentIds] = useState([])
+  const homePreviousSpaceIdRef = useRef(null)
 
   useScrollLock((isHomeSpaceSelectorOpen && isHomeMobile) || isDeepResearchGuideOpen)
 
@@ -184,6 +193,41 @@ const HomeView = () => {
   }, [homeSelectedSpace?.id])
 
   useEffect(() => {
+    let isMounted = true
+    const loadDocuments = async () => {
+      if (homeSpaceSelectionType !== 'space' || !homeSelectedSpace?.id) {
+        homePreviousSpaceIdRef.current = null
+        setHomeSpaceDocuments([])
+        setHomeSelectedDocumentIds([])
+        return
+      }
+
+      if (homePreviousSpaceIdRef.current !== homeSelectedSpace.id) {
+        setHomeSpaceDocuments([])
+        setHomeSelectedDocumentIds([])
+      }
+      homePreviousSpaceIdRef.current = homeSelectedSpace.id
+
+      setHomeDocumentsLoading(true)
+      const { data, error } = await listSpaceDocuments(homeSelectedSpace.id)
+      if (!isMounted) return
+      if (!error) {
+        setHomeSpaceDocuments(data || [])
+        const allowed = new Set((data || []).map(doc => String(doc.id)))
+        setHomeSelectedDocumentIds(prev => prev.filter(id => allowed.has(String(id))))
+      } else {
+        console.error('Failed to load space documents:', error)
+      }
+      setHomeDocumentsLoading(false)
+    }
+
+    loadDocuments()
+    return () => {
+      isMounted = false
+    }
+  }, [homeSelectedSpace?.id, homeSpaceSelectionType])
+
+  useEffect(() => {
     const handleClickOutside = event => {
       if (homeSpaceSelectorRef.current && !homeSpaceSelectorRef.current.contains(event.target)) {
         setIsHomeSpaceSelectorOpen(false)
@@ -265,6 +309,15 @@ const HomeView = () => {
     fileInputRef.current?.click()
   }
 
+  const toggleHomeDocument = documentId => {
+    const docKey = String(documentId)
+    setHomeSelectedDocumentIds(prev =>
+      prev.some(id => String(id) === docKey)
+        ? prev.filter(id => String(id) !== docKey)
+        : [...prev, docKey],
+    )
+  }
+
   const handleSelectHomeSpaceAuto = () => {
     setHomeSelectedSpace(null)
     setHomeSpaceSelectionType('auto')
@@ -272,6 +325,8 @@ const HomeView = () => {
     setHomeSelectedAgentId(null)
     setHomeExpandedSpaceId(null)
     setIsHomeSpaceSelectorOpen(false)
+    setHomeSelectedDocumentIds([])
+    setHomeSpaceDocuments([])
   }
 
   const handleToggleHomeSpace = space => {
@@ -324,6 +379,7 @@ const HomeView = () => {
       const chatState = {
         initialMessage: homeInput,
         initialAttachments: homeAttachments,
+        initialDocumentIds: homeSelectedDocumentIds,
         initialToggles: {
           search: isHomeSearchActive,
           thinking: resolvedThinkingActive,
@@ -355,12 +411,42 @@ const HomeView = () => {
       setHomeSelectedAgentId(null)
       setIsHomeAgentAuto(true) // Reset to auto mode for next chat
       setHomeExpandedSpaceId(null)
+      setHomeSelectedDocumentIds([])
+      setHomeSpaceDocuments([])
     } catch (err) {
       console.error('Failed to start chat:', err)
     }
   }
 
   const isHomeSpaceAuto = homeSpaceSelectionType === 'auto'
+  const shouldShowHomeDocuments = !isHomeSpaceAuto && Boolean(homeSelectedSpace?.id)
+  const homeSelectedDocumentCount = homeSelectedDocumentIds.length
+  const homeSelectedDocumentIdSet = useMemo(
+    () => new Set((homeSelectedDocumentIds || []).map(id => String(id))),
+    [homeSelectedDocumentIds],
+  )
+  const homeSelectedDocuments = useMemo(() => {
+    if (!homeSpaceDocuments || homeSpaceDocuments.length === 0) return []
+    return homeSpaceDocuments.filter(doc => homeSelectedDocumentIdSet.has(String(doc.id)))
+  }, [homeSpaceDocuments, homeSelectedDocumentIdSet])
+  const FileIcon = ({ fileType, className }) => {
+    const type = (fileType || '').toLowerCase()
+    if (type.includes('pdf')) return <FileText className={clsx('text-red-500', className)} />
+    if (type.includes('doc') || type.includes('word'))
+      return <FileText className={clsx('text-blue-500', className)} />
+    if (type.includes('json')) return <FileJson className={clsx('text-yellow-500', className)} />
+    if (type.includes('csv') || type.includes('excel') || type.includes('sheet'))
+      return <FileSpreadsheet className={clsx('text-emerald-500', className)} />
+    if (
+      type.includes('md') ||
+      type.includes('start') ||
+      type.includes('code') ||
+      type === 'js' ||
+      type === 'py'
+    )
+      return <FileCode className={clsx('text-purple-500', className)} />
+    return <File className={clsx('text-gray-400', className)} />
+  }
   const homeAgents = useMemo(() => {
     // In Auto mode or when no space selected, return empty
     if (!homeSelectedSpace?.id) return []
@@ -574,22 +660,42 @@ const HomeView = () => {
           <div className="home-search-box w-full relative group z-20">
             <div className="absolute inset-0 input-glow-veil rounded-xl blur-2xl opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-500 pointer-events-none" />
             <div className="relative bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-xl shadow-sm hover:shadow-md transition-all duration-300 p-4">
-              {homeAttachments.length > 0 && (
-                <div className="flex gap-2 mb-3 px-1 overflow-x-auto py-1">
+              {(homeAttachments.length > 0 || homeSelectedDocuments.length > 0) && (
+                <div className="flex gap-2 mb-3 px-2 py-2 code-scrollbar overflow-x-auto rounded-xl border border-gray-200/70 dark:border-zinc-700/50 bg-[#F9F9F9] dark:bg-[#1a1a1a]">
                   {homeAttachments.map((att, idx) => (
-                    <div key={idx} className="relative group shrink-0">
-                      <div className="w-16 h-16 rounded-xl overflow-hidden border border-gray-200 dark:border-zinc-700 shadow-sm">
-                        <img
-                          src={att.image_url.url}
-                          alt="attachment"
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
+                    <div
+                      key={`img-${idx}`}
+                      className="relative group/img shrink-0 w-16 h-16 rounded-lg overflow-hidden border border-gray-200 dark:border-zinc-800 shadow-sm"
+                    >
+                      <img
+                        src={att.image_url.url}
+                        alt="attachment"
+                        className="w-full h-full object-cover"
+                      />
                       <button
                         onClick={() =>
                           setHomeAttachments(homeAttachments.filter((_, i) => i !== idx))
                         }
-                        className="absolute -top-1.5 -right-1.5 bg-gray-900 text-white rounded-full p-0.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shadow-md"
+                        className="absolute top-0.5 right-0.5 bg-black/60 dark:bg-white/60 dark:text-black text-white rounded-full p-0.5 opacity-100 sm:opacity-0 sm:group-hover/img:opacity-100 transition-opacity"
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  ))}
+                  {homeSelectedDocuments.map(doc => (
+                    <div
+                      key={`doc-${doc.id}`}
+                      className="relative group/doc shrink-0 min-w-[110px] overflow-hidden rounded-xl border border-gray-200 dark:border-zinc-700/50 bg-white dark:bg-[#111] shadow-sm"
+                    >
+                      <div className="flex h-full flex-col items-center justify-center gap-1 px-2 py-2 text-center">
+                        <FileIcon fileType={doc.file_type} className="h-5 w-5" />
+                        <span className="text-[12px] font-semibold text-gray-900 dark:text-white truncate">
+                          {doc.name}
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => toggleHomeDocument(doc.id)}
+                        className="absolute top-0.5 right-0.5 bg-black/60 dark:bg-white/60 dark:text-black text-white rounded-full p-0.5 opacity-100 sm:opacity-0 sm:group-hover/doc:opacity-100 transition-opacity"
                       >
                         <X size={12} />
                       </button>
@@ -659,8 +765,8 @@ const HomeView = () => {
                       <Paperclip size={18} />
                     </button>
                     {isHomeUploadMenuOpen && (
-                      <div className="absolute top-full left-0 mt-2 w-48 bg-white dark:bg-[#202222] border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl z-50 overflow-hidden">
-                        <div className="p-2 flex flex-col gap-1">
+                      <div className="absolute top-full left-0 mt-2 w-72 bg-white dark:bg-[#202222] border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl z-50 overflow-hidden">
+                        <div className="p-2 flex flex-col gap-2">
                           <button
                             type="button"
                             onClick={handleHomeImageUpload}
@@ -669,15 +775,64 @@ const HomeView = () => {
                             <Image size={16} />
                             {t('common.upload')}
                           </button>
-                          <button
-                            type="button"
-                            disabled
-                            onClick={() => setIsHomeUploadMenuOpen(false)}
-                            className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-left text-sm text-gray-400 dark:text-gray-500 cursor-not-allowed"
-                          >
-                            <FileText size={16} />
-                            {t('common.uploadDocument')}
-                          </button>
+
+                          {shouldShowHomeDocuments && (
+                            <div className="border-t border-gray-200/70 dark:border-zinc-700/50 pt-3">
+                              <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-2 mb-2">
+                                {t('chatInterface.documents')} ({homeSelectedDocumentCount})
+                              </div>
+                              <div className="flex flex-col gap-0.5 max-h-[220px] overflow-y-auto no-scrollbar">
+                                {homeDocumentsLoading && (
+                                  <div className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400">
+                                    {t('chatInterface.documentsLoading')}
+                                  </div>
+                                )}
+                                {!homeDocumentsLoading && homeSpaceDocuments.length === 0 && (
+                                  <div className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400">
+                                    {t('chatInterface.documentsEmpty')}
+                                  </div>
+                                )}
+                                {!homeDocumentsLoading &&
+                                  homeSpaceDocuments.map(doc => {
+                                    const isSelected = homeSelectedDocumentIds.some(
+                                      id => String(id) === String(doc.id),
+                                    )
+                                    return (
+                                      <button
+                                        key={doc.id}
+                                        onClick={() => toggleHomeDocument(doc.id)}
+                                        className={clsx(
+                                          'flex items-start gap-2.5 w-full px-3 py-2 rounded-xl text-sm transition-colors text-left',
+                                          isSelected
+                                            ? 'bg-gray-100 dark:bg-zinc-700/50 text-gray-900 dark:text-white font-medium'
+                                            : 'hover:bg-gray-100 dark:hover:bg-zinc-700/50 text-gray-600 dark:text-gray-300',
+                                        )}
+                                      >
+                                        <span
+                                          className={clsx(
+                                            'mt-0.5 flex items-center justify-center w-4 h-4 rounded border transition-colors',
+                                            isSelected
+                                              ? 'bg-primary-500 border-primary-500 text-white'
+                                              : 'border-gray-300 dark:border-zinc-600 text-transparent',
+                                          )}
+                                        >
+                                          <Check size={12} />
+                                        </span>
+                                        <div className="flex items-center justify-between w-full min-w-0 gap-2">
+                                          <span className="truncate">{doc.name}</span>
+                                          <span className="text-[10px] text-gray-400 font-normal shrink-0">
+                                            {(() => {
+                                              const type = (doc.file_type || '').toUpperCase()
+                                              return type === 'MD' ? 'MARKDOWN' : type
+                                            })()}
+                                          </span>
+                                        </div>
+                                      </button>
+                                    )
+                                  })}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
                     )}
@@ -687,9 +842,6 @@ const HomeView = () => {
                     onClick={() =>
                       setIsHomeThinkingActive(prev => {
                         const next = !prev
-                        if (next) {
-                          handleSelectHomeSpaceAuto()
-                        }
                         return next
                       })
                     }

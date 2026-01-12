@@ -63,7 +63,13 @@ const Sidebar = ({
   onPinChange,
 }) => {
   const { t, i18n } = useTranslation()
-  useScrollLock(isOpen)
+  const isStandalone =
+    typeof window !== 'undefined' &&
+    (window.matchMedia?.('(display-mode: standalone)')?.matches ||
+      window.matchMedia?.('(display-mode: minimal-ui)')?.matches ||
+      window.matchMedia?.('(display-mode: fullscreen)')?.matches ||
+      window.navigator?.standalone === true)
+  useScrollLock(isOpen && !isStandalone)
 
   const [isHovered, setIsHovered] = useState(false)
   const [isPinned, setIsPinned] = useState(() => {

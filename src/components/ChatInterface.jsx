@@ -145,6 +145,7 @@ const ChatInterface = ({
   activeConversation = null,
   initialMessage = '',
   initialAttachments = [],
+  initialDocumentIds = [],
   initialToggles = {},
   initialSpaceSelection = { mode: 'auto', space: null },
   initialAgentSelection = null,
@@ -272,6 +273,11 @@ const ChatInterface = ({
   const [isDocumentSelectorOpen, setIsDocumentSelectorOpen] = useState(false)
   const documentSelectorRef = useRef(null)
   const pendingDocumentIdsRef = useRef([])
+  const normalizedInitialDocumentIds = useMemo(
+    () => (initialDocumentIds || []).map(id => String(id)).filter(Boolean),
+    [initialDocumentIds],
+  )
+  const hasAppliedInitialDocumentsRef = useRef(false)
   const previousSpaceIdRef = useRef(null)
 
   // New state for toggles and attachments
@@ -283,6 +289,10 @@ const ChatInterface = ({
   useEffect(() => {
     pendingDocumentIdsRef.current = pendingDocumentIds
   }, [pendingDocumentIds])
+
+  useEffect(() => {
+    hasAppliedInitialDocumentsRef.current = false
+  }, [normalizedInitialDocumentIds.join('|')])
 
   // Space management hook (must be called after useAppContext)
   const {
@@ -394,6 +404,13 @@ const ChatInterface = ({
       return
     }
 
+    if (normalizedInitialDocumentIds.length > 0 && !hasAppliedInitialDocumentsRef.current) {
+      setSelectedDocumentIds(normalizedInitialDocumentIds)
+      setPendingDocumentIds(normalizedInitialDocumentIds)
+      hasAppliedInitialDocumentsRef.current = true
+      return
+    }
+
     if (!conversationKey) {
       setSelectedDocumentIds(pendingDocumentIdsRef.current || [])
       return
@@ -418,6 +435,7 @@ const ChatInterface = ({
     activeConversation?.id,
     conversationId,
     displaySpace?.id,
+    normalizedInitialDocumentIds,
     isPlaceholderConversation,
     t,
     toast,
@@ -742,6 +760,10 @@ const baseDocumentSources = useMemo(
         return
       }
 
+      if (normalizedInitialDocumentIds.length > 0 && documentsLoading) {
+        return
+      }
+
       isProcessingInitial.current = true
       hasInitialized.current = true
 
@@ -782,6 +804,8 @@ const baseDocumentSources = useMemo(
     selectedAgent,
     messages.length,
     isLoadingHistory,
+    documentsLoading,
+    normalizedInitialDocumentIds,
   ])
 
   // Load existing conversation messages when switching conversations

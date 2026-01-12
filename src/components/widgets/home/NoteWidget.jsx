@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Plus, ChevronLeft, ChevronRight, StickyNote, Pencil } from 'lucide-react'
 import WidgetCard from './WidgetCard'
@@ -29,7 +29,23 @@ const NoteWidget = () => {
   }
 
   useEffect(() => {
-    loadNotes()
+    let isMounted = true
+    const load = async () => {
+      setIsLoading(true)
+      const { data } = await fetchHomeNotes()
+      if (!isMounted) return
+      if (data) {
+        setNotes(data)
+        if (currentIndex >= data.length) {
+          setCurrentIndex(Math.max(0, data.length - 1))
+        }
+      }
+      setIsLoading(false)
+    }
+    load()
+    return () => {
+      isMounted = false
+    }
   }, [])
 
   const handleSave = async noteToSave => {
@@ -174,12 +190,14 @@ const NoteWidget = () => {
                   </div>
                 )}
                 <div className="mx-auto w-full ">
-                  <WidgetCard className="h-full w-full pointer-events-none select-none overflow-hidden bg-yellow-100! dark:bg-[#3f2c06]! border-yellow-200! dark:border-yellow-700/50!">
-                    <div className="px-6 py-2 h-full flex flex-col pointer-events-none">
-                      <p className="text-sm text-gray-800 dark:text-yellow-100 font-medium whitespace-pre-wrap line-clamp-6 leading-relaxed font-handwriting">
+                  <WidgetCard className="h-full w-full pointer-events-none select-none overflow-hidden bg-primary-50/40! dark:bg-primary-950/20! border-primary-200/50! dark:border-primary-500/20! backdrop-blur-xl!">
+                    <div
+                      className={`px-6 py-2 h-full flex flex-col pointer-events-none transition-all duration-200 ${isActive ? 'opacity-100 visible' : 'opacity-0 invisible'}`}
+                    >
+                      <p className="text-sm text-gray-800 dark:text-gray-200 font-medium whitespace-pre-wrap line-clamp-6 leading-relaxed font-handwriting">
                         {note.content}
                       </p>
-                      <span className="mt-auto text-[10px] text-gray-500 dark:text-yellow-500/60 pt-2 block">
+                      <span className="mt-auto text-[10px] text-gray-500 dark:text-primary-500/50 pt-2 block">
                         {new Date(note.updated_at || new Date()).toLocaleDateString()}
                       </span>
                     </div>

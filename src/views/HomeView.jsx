@@ -19,18 +19,19 @@ import {
   Paperclip,
   X,
 } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { useAppContext } from '../App'
 import DeepResearchCard from '../components/DeepResearchCard'
+import SpaceShortcutCard from '../components/SpaceShortcutCard'
 import EmojiDisplay from '../components/EmojiDisplay'
 import Logo from '../components/Logo'
 import HomeWidgets from '../components/widgets/HomeWidgets'
 import useScrollLock from '../hooks/useScrollLock'
 import { getAgentDisplayName } from '../lib/agentDisplay'
 import useChatStore from '../lib/chatStore'
-import { addConversationEvent, createConversation } from '../lib/conversationsService'
+import { createConversation } from '../lib/conversationsService'
 import { providerSupportsSearch, resolveThinkingToggleRule } from '../lib/providers'
 import { loadSettings } from '../lib/settings'
 import { getSpaceDisplayLabel } from '../lib/spaceDisplay'
@@ -49,7 +50,6 @@ const HomeView = () => {
     agents: appAgents = [],
     defaultAgent,
     deepResearchSpace,
-    deepResearchAgent,
   } = useAppContext()
   const { isOpen: isDeepResearchGuideOpen, openDeepResearchGuide } = useDeepResearchGuide()
 
@@ -619,9 +619,38 @@ const HomeView = () => {
   return (
     <div className="flex-1 h-full overflow-hidden bg-background text-foreground transition-colors duration-300 relative flex flex-col">
       {/* Immersive Animated Background Blobs - Global for HomeView */}
-      <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden select-none opacity-40 dark:opacity-20">
-        <div className="absolute h-[600px] w-[600px] -left-40 -top-40 bg-linear-to-br from-orange-400/30 to-magenta-500/30 rounded-full blur-[120px] animate-blob-float" />
-        <div className="absolute h-[700px] w-[700px] -right-40 -bottom-40 bg-linear-to-tr from-primary-500/20 to-blue-600/20 rounded-full blur-[140px] animate-blob-float-alt" />
+      <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden select-none opacity-20 dark:opacity-15">
+        <div
+          className="absolute h-[600px] w-[600px] -left-40 -top-40 rounded-full blur-[100px] animate-blob-float"
+          style={{
+            background:
+              'linear-gradient(135deg, var(--color-primary-400) 0%, var(--color-primary-600) 100%)',
+            opacity: 0.4,
+          }}
+        />
+        <div
+          className="absolute h-[700px] w-[700px] -right-40 -bottom-40 rounded-full blur-[120px] animate-blob-float-alt"
+          style={{
+            background:
+              'linear-gradient(225deg, var(--color-primary-500) 0%, var(--color-primary-300) 100%)',
+            opacity: 0.3,
+          }}
+        />
+      </div>
+
+      {/* Mobile Header for Home View */}
+      <div className="md:hidden w-full h-12 shrink-0 border-b border-gray-200 dark:border-zinc-800 flex items-center justify-between px-4 bg-background z-30">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={toggleSidebar}
+            className="p-2 -ml-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg"
+          >
+            <Menu size={20} />
+          </button>
+          <span className="font-semibold text-gray-900 dark:text-white">{t('app.name')}</span>
+        </div>
+        {/* Space for right button if needed, or just spacer */}
+        <div className="w-8" />
       </div>
 
       <div
@@ -631,24 +660,9 @@ const HomeView = () => {
           isSidebarPinned ? 'md:ml-72' : 'md:ml-16',
         )}
       >
-        {/* Mobile Header for Home View */}
-        <div className="md:hidden w-full h-12 shrink-0 border-b border-gray-200 dark:border-zinc-800 flex items-center justify-between px-4 bg-background z-30 fixed top-0 left-0">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={toggleSidebar}
-              className="p-2 -ml-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg"
-            >
-              <Menu size={20} />
-            </button>
-            <span className="font-semibold text-gray-900 dark:text-white">{t('app.name')}</span>
-          </div>
-          {/* Space for right button if needed, or just spacer */}
-          <div className="w-8" />
-        </div>
-
         {/* Main Container */}
         <div className="w-full max-w-3xl flex flex-col items-center gap-4 sm:gap-8 sm:mt-12">
-          <div className="p-4 block sm:hidden mt-8 rounded-3xl mb-2">
+          <div className="p-4 block sm:hidden rounded-3xl mb-2">
             <Logo size={128} className="text-gray-900 dark:text-white" priority />
           </div>
           {/* Title */}
@@ -941,7 +955,17 @@ const HomeView = () => {
             </div>
           </div>
 
-          <DeepResearchCard onClick={openDeepResearchGuide} />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full mb-1 px-0">
+            <DeepResearchCard onClick={openDeepResearchGuide} />
+            <SpaceShortcutCard
+              spaces={spaces}
+              selectedSpaceId={homeSelectedSpace?.id}
+              onSpaceSelect={space => {
+                navigate({ to: `/space/${space.id}` })
+              }}
+              onManageClick={() => navigate({ to: '/spaces' })}
+            />
+          </div>
 
           {/* Widgets Section */}
           <div className="home-widgets w-full">

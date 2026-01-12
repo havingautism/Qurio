@@ -165,6 +165,7 @@ const ConversationView = () => {
 
   const initialMessage = initialChatState?.initialMessage || ''
   const initialAttachments = initialChatState?.initialAttachments || []
+  const initialDocumentIds = initialChatState?.initialDocumentIds || []
   const initialToggles = initialChatState?.initialToggles || {}
 
   const isDeepResearchConversation = useMemo(() => {
@@ -194,6 +195,7 @@ const ConversationView = () => {
       isSidebarPinned={isSidebarPinned}
       initialMessage={initialMessage}
       initialAttachments={initialAttachments}
+      initialDocumentIds={initialDocumentIds}
       initialToggles={initialToggles}
       initialSpaceSelection={initialSpaceSelection}
       initialAgentSelection={initialAgentSelection}

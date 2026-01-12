@@ -621,6 +621,8 @@
     "agentsAuto": "智能体：自动",
     "agentsNone": "暂无智能体",
     "agentsLoading": "加载智能体中...",
+    "spacesShortcut": "我的空间",
+    "spacesShortcutHint": "管理并访问知识库",
     "concurrentExecution": "并发执行研究步骤",
     "experimental": "实验性",
     "concurrentExecutionDesc": "同时执行所有研究步骤以提升速度，但可能影响步骤间的逻辑连贯性"

@@ -129,8 +129,7 @@
     "status": {
       "streaming": "Streaming",
       "complete": "Complete"
-    },
-    "agents": "Agents"
+    }
   },
   "settings": {
     "title": "Settings",
@@ -631,6 +630,8 @@
     "agentsAuto": "Agents: Auto",
     "agentsNone": "No agents",
     "agentsLoading": "Loading agents...",
+    "spacesShortcut": "My Spaces",
+    "spacesShortcutHint": "Manage collections",
     "concurrentExecution": "Concurrent Research Steps",
     "experimental": "Experimental",
     "concurrentExecutionDesc": "Run all steps simultaneously for faster execution, but may affect logical coherence."

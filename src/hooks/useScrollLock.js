@@ -9,9 +9,9 @@ const useScrollLock = isLocked => {
     if (!isLocked) return
 
     const scrollY = window.scrollY || document.documentElement.scrollTop || 0
+    const standaloneModes = ['standalone', 'minimal-ui', 'fullscreen']
     const isStandalone =
-      window.matchMedia?.('(display-mode: standalone)')?.matches ||
-      window.matchMedia?.('(display-mode: minimal-ui)')?.matches ||
+      standaloneModes.some(mode => window.matchMedia?.(`(display-mode: ${mode})`)?.matches) ||
       window.navigator?.standalone === true
     const shouldFixBody =
       !isStandalone &&

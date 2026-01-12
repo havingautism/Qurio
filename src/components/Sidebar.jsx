@@ -753,14 +753,14 @@ const Sidebar = ({
           </div>
 
           {/* Knowledge Base Button */}
-          <div className="mb-2">
+          {/* <div className="mb-2">
             <button
               onClick={onOpenKnowledgeBase}
               className="w-10 h-10 flex items-center justify-center rounded-full bg-user-bubble dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-transform duration-200 hover:scale-110 active:scale-95 cursor-pointer"
             >
               <Database size={20} />
             </button>
-          </div>
+          </div> */}
 
           {/* Tools Button */}
           <div className="mb-2">

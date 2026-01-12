@@ -67,7 +67,6 @@ const FileIcon = ({ fileType, className }) => {
   return <File className={clsx('text-gray-400', className)} />
 }
 
-
 const SpaceView = () => {
   const { t, i18n } = useTranslation()
   const { spaceId } = spaceRoute.useParams()
@@ -271,7 +270,10 @@ const SpaceView = () => {
   )
 
   const formatFileType = value => {
-    const text = String(value || '').trim()
+    const text = String(value || '')
+      .trim()
+      .toLowerCase()
+    if (text === 'md') return 'MARKDOWN'
     return text ? text.toUpperCase() : 'FILE'
   }
 
@@ -324,11 +326,11 @@ const SpaceView = () => {
       if (chunks.length > 0) {
         for (let index = 0; index < chunks.length; index += 1) {
           const chunk = chunks[index]
-            const sanitizedText = sanitizeChunkText(chunk.text)
-            const chunkPrompt = `passage: ${sanitizedText}`
-            const embedding = await fetchEmbeddingVector({
-              text: sanitizedText,
-              taskType: 'RETRIEVAL_DOCUMENT',
+          const sanitizedText = sanitizeChunkText(chunk.text)
+          const chunkPrompt = `passage: ${sanitizedText}`
+          const embedding = await fetchEmbeddingVector({
+            text: sanitizedText,
+            taskType: 'RETRIEVAL_DOCUMENT',
             prompt: chunkPrompt,
           })
           const chunkHash = await computeSha256(chunk.text)
@@ -507,13 +509,13 @@ const SpaceView = () => {
             onDrop={onDrop}
             onClick={() => fileInputRef.current?.click()}
           >
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".pdf,.docx,.txt,.md,.csv,.json,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                onChange={handleDocumentUpload}
-                className="hidden"
-              />
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf,.docx,.txt,.md,.csv,.json,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+              onChange={handleDocumentUpload}
+              className="hidden"
+            />
 
             <div className="flex flex-col items-center gap-3 z-10">
               <div
@@ -615,7 +617,7 @@ const SpaceView = () => {
                     </div>
                     <div className="flex flex-col gap-1 min-w-0 flex-1">
                       <div className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate pr-2">
-                        {doc.name}
+                        {doc.name.replace(/\.[^/.]+$/, '')}
                       </div>
                       <div className="text-[11px] sm:text-xs text-gray-500 dark:text-gray-400 flex flex-wrap items-center gap-x-2 gap-y-1">
                         <div className="flex items-center gap-1">

@@ -1,8 +1,35 @@
 import clsx from 'clsx'
 import { useTranslation } from 'react-i18next'
-import { FileText, X } from 'lucide-react'
+import { FileText, X, FileJson, FileSpreadsheet, FileCode, File } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import useIsMobile from '../hooks/useIsMobile'
+
+const FileIcon = ({ fileType, className }) => {
+  const type = (fileType || '').toLowerCase()
+  if (type.includes('pdf')) return <FileText className={clsx('text-red-500', className)} />
+  if (type.includes('doc') || type.includes('word'))
+    return <FileText className={clsx('text-blue-500', className)} />
+  if (type.includes('json')) return <FileJson className={clsx('text-yellow-500', className)} />
+  if (type.includes('csv') || type.includes('excel') || type.includes('sheet'))
+    return <FileSpreadsheet className={clsx('text-emerald-500', className)} />
+  if (
+    type.includes('md') ||
+    type.includes('start') ||
+    type.includes('code') ||
+    type === 'js' ||
+    type === 'py'
+  )
+    return <FileCode className={clsx('text-purple-500', className)} />
+  return <File className={clsx('text-gray-400', className)} />
+}
+
+const formatFileType = value => {
+  const text = String(value || '')
+    .trim()
+    .toLowerCase()
+  if (text === 'md') return 'MARKDOWN'
+  return text ? text.toUpperCase() : 'FILE'
+}
 
 const cleanSnippet = value => {
   const raw = String(value || '')
@@ -26,7 +53,10 @@ const cleanSnippet = value => {
       if (line.includes(' > ') && line.length <= 120 && !/[。！？.!?]/.test(line)) return false
       return true
     })
-  return lines.join(' ').replace(/\s{2,}/g, ' ').trim()
+  return lines
+    .join(' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
 }
 
 const SourcesModal = ({ isOpen, onClose, sources }) => {
@@ -58,16 +88,16 @@ const SourcesModal = ({ isOpen, onClose, sources }) => {
               className="p-4 rounded-xl bg-gray-50 dark:bg-zinc-800/50 border border-gray-100 dark:border-zinc-700/50"
             >
               <div className="flex items-start gap-3 mb-2">
-                <div className="p-2 rounded-lg bg-white dark:bg-zinc-700 shadow-sm text-sky-500">
-                  <FileText size={18} />
+                <div className="p-2 rounded-lg bg-white dark:bg-zinc-700 shadow-sm leading-none flex items-center justify-center">
+                  <FileIcon fileType={source.fileType} size={18} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-semibold text-gray-900 dark:text-white truncate">
-                    {source.title}
+                    {source.title?.replace(/\.[^/.]+$/, '') || source.title}
                   </div>
                   {source.fileType && (
                     <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 uppercase tracking-wider font-medium">
-                      {source.fileType}
+                      {formatFileType(source.fileType)}
                     </div>
                   )}
                 </div>
@@ -110,16 +140,16 @@ const DocumentSourcesPanel = ({ sources = [], isOpen, onClose }) => {
             >
               <div className="flex items-center justify-between gap-2 mb-2">
                 <div className="flex items-center gap-2 min-w-0">
-                  <div className="p-1 rounded bg-white dark:bg-zinc-800 shadow-sm text-gray-500">
-                    <FileText size={12} />
+                  <div className="p-1 rounded bg-white dark:bg-zinc-800 shadow-sm leading-none flex items-center justify-center">
+                    <FileIcon fileType={source.fileType} size={12} />
                   </div>
                   <div className="text-xs font-semibold text-gray-900 dark:text-white truncate">
-                    {source.title}
+                    {source.title?.replace(/\.[^/.]+$/, '') || source.title}
                   </div>
                 </div>
                 {source.fileType && (
                   <span className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wide font-medium">
-                    {source.fileType}
+                    {formatFileType(source.fileType)}
                   </span>
                 )}
               </div>

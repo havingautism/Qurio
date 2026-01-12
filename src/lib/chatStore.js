@@ -73,7 +73,9 @@ const buildUserMessage = (text, attachments, quoteContext, documentContextAppend
     ? `${textWithPrefix}\n\n${documentContextAppend}`
     : textWithPrefix
   const payloadContent =
-    attachments.length > 0 ? buildContentArray(textWithDocumentContext, false) : textWithDocumentContext
+    attachments.length > 0
+      ? buildContentArray(textWithDocumentContext, false)
+      : textWithDocumentContext
 
   const userMessage = { role: 'user', content: displayContent, created_at: now }
 
@@ -405,7 +407,11 @@ const handleEditingAndHistory = (messages, editingInfo, userMessage, historyOver
     })
 
     // Reinsert the new user message
-    if (editingInfo.moveToEnd) {
+    // Default to moveToEnd: true so that edited messages jump to the bottom
+    // unless explicitly told not to (though currently we always want this behavior)
+    const shouldMoveToEnd = editingInfo.moveToEnd !== false
+
+    if (shouldMoveToEnd) {
       newMessages = [...filtered, userMessage]
     } else {
       newMessages = [
@@ -1527,14 +1533,14 @@ const finalizeMessage = async (
         provider: aiPayload.provider,
         model: aiPayload.model,
         agent_id: aiPayload.agent_id,
-      agent_name: aiPayload.agent_name,
-      agent_emoji: aiPayload.agent_emoji,
-      agent_is_default: aiPayload.agent_is_default,
-      content: aiPayload.content,
-      thinking_process: aiPayload.thinking_process,
-      document_sources: aiPayload.document_sources,
-      created_at: aiPayload.created_at,
-    })
+        agent_name: aiPayload.agent_name,
+        agent_emoji: aiPayload.agent_emoji,
+        agent_is_default: aiPayload.agent_is_default,
+        content: aiPayload.content,
+        thinking_process: aiPayload.thinking_process,
+        document_sources: aiPayload.document_sources,
+        created_at: aiPayload.created_at,
+      })
       if (retryAiError) {
         console.error('Failed to persist AI message (retry):', retryAiError)
       } else {
@@ -1920,10 +1926,10 @@ Analyze the submitted data. If critical information is still missing or if the r
    * @param {Object} params.spaceInfo - Space selection information { selectedSpace, isManualSpaceSelection }
    * @param {Object|null} params.selectedAgent - Currently selected agent (optional)
    * @param {boolean} params.isAgentAutoMode - Whether agent selection is in auto mode (agent preselects every message, space/title only on first turn)
- * @param {Array} params.agents - Available agents list (optional)
-  * @param {string} params.documentContextAppend - Optional document information appended to user question
-  * @param {Array} params.documentSources - Optional metadata for document references (used by UI)
- * @param {Object|null} params.editingInfo - Information about message being edited { index, targetId, partnerId }
+   * @param {Array} params.agents - Available agents list (optional)
+   * @param {string} params.documentContextAppend - Optional document information appended to user question
+   * @param {Array} params.documentSources - Optional metadata for document references (used by UI)
+   * @param {Object|null} params.editingInfo - Information about message being edited { index, targetId, partnerId }
    * @param {Object|null} params.callbacks - Callback functions { onTitleAndSpaceGenerated, onSpaceResolved, onAgentResolved, onConversationReady }
    * @param {Array} params.spaces - Available spaces for auto-generation (optional)
    * @param {Object} params.quoteContext - Quote context { text, sourceContent, sourceRole }
@@ -2275,14 +2281,14 @@ Analyze the submitted data. If critical information is still missing or if the r
       agents,
       preselectedTitle,
       preselectedEmojis,
-        get,
-        set,
-        historyLengthBeforeSend,
-        text,
-        documentSources,
-        isAgentAutoMode,
-        researchType, // Pass researchType to callAIAPI
-      )
+      get,
+      set,
+      historyLengthBeforeSend,
+      text,
+      documentSources,
+      isAgentAutoMode,
+      researchType, // Pass researchType to callAIAPI
+    )
   },
 }))
 

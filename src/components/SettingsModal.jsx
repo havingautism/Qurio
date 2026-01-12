@@ -335,6 +335,10 @@ const SettingsModal = ({ isOpen, onClose }) => {
   const [supabaseKey, setSupabaseKey] = useState('')
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState(null)
+  const [backendHealthState, setBackendHealthState] = useState({
+    status: 'idle',
+    message: '',
+  })
   const [isProviderDropdownOpen, setIsProviderDropdownOpen] = useState(false)
   const providerDropdownRef = useRef(null)
   const [isSearchProviderDropdownOpen, setIsSearchProviderDropdownOpen] = useState(false)
@@ -1211,6 +1215,36 @@ const SettingsModal = ({ isOpen, onClose }) => {
 
   if (!isOpen) return null
 
+  const resolveBackendUrlForHealthCheck = () => {
+    const settings = loadSettings()
+    return ENV_VARS.backendUrl || backendUrl || settings.backendUrl || 'http://localhost:3001'
+  }
+
+  const handleBackendHealthCheck = async () => {
+    const baseUrl = resolveBackendUrlForHealthCheck()
+    if (!baseUrl) return
+
+    setBackendHealthState({ status: 'loading', message: t('settings.backendHealthChecking') })
+    try {
+      const normalizedBase = baseUrl.replace(/\/+$/, '')
+      const healthUrl = `${normalizedBase}/api/health`
+      const response = await fetch(healthUrl, { cache: 'no-store' })
+      if (!response.ok) {
+        const errorMessage = `${response.status} ${response.statusText}`.trim()
+        throw new Error(errorMessage || t('settings.backendHealthCheckFailure'))
+      }
+      setBackendHealthState({
+        status: 'success',
+        message: t('settings.backendHealthCheckSuccess'),
+      })
+    } catch (err) {
+      const failureMessage = err?.message
+        ? `${t('settings.backendHealthCheckFailure')}: ${err.message}`
+        : t('settings.backendHealthCheckFailure')
+      setBackendHealthState({ status: 'error', message: failureMessage })
+    }
+  }
+
   const handleTestConnection = async () => {
     setTesting(true)
     setTestResult(null)
@@ -1781,7 +1815,10 @@ const SettingsModal = ({ isOpen, onClose }) => {
                         <input
                           type="text"
                           value={backendUrl}
-                          onChange={e => setBackendUrl(e.target.value)}
+                          onChange={e => {
+                            setBackendUrl(e.target.value)
+                            setBackendHealthState({ status: 'idle', message: '' })
+                          }}
                           placeholder={t('settings.backendUrlPlaceholder')}
                           disabled={Boolean(ENV_VARS.backendUrl)}
                           className={clsx(
@@ -1791,6 +1828,32 @@ const SettingsModal = ({ isOpen, onClose }) => {
                         />
                       </div>
                       {renderEnvHint(Boolean(ENV_VARS.backendUrl))}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={handleBackendHealthCheck}
+                        disabled={backendHealthState.status === 'loading'}
+                        className="px-3 py-2 text-xs font-medium text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {backendHealthState.status === 'loading'
+                          ? t('settings.backendHealthChecking')
+                          : t('settings.backendHealthCheck')}
+                      </button>
+                      {backendHealthState.status !== 'idle' && backendHealthState.message && (
+                        <p
+                          className={clsx(
+                            'text-sm font-medium',
+                            backendHealthState.status === 'success' &&
+                              'text-emerald-600 dark:text-emerald-400',
+                            backendHealthState.status === 'error' &&
+                              'text-rose-600 dark:text-rose-400',
+                            backendHealthState.status === 'loading' &&
+                              'text-gray-500 dark:text-gray-400',
+                          )}
+                        >
+                          {backendHealthState.message}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>

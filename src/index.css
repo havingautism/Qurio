@@ -254,6 +254,23 @@ h6 {
   /* stone-600 */
 }
 
+@media (max-width: 640px) {
+  .code-scrollbar::-webkit-scrollbar,
+  .table-scrollbar::-webkit-scrollbar {
+    height: 4px;
+  }
+
+  .code-scrollbar::-webkit-scrollbar-thumb,
+  .table-scrollbar::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+  }
+
+  .code-scrollbar::-webkit-scrollbar-track,
+  .table-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
 /* Custom Scrollbar for Sidebar */
 .sidebar-scrollbar {
   scrollbar-width: thin;

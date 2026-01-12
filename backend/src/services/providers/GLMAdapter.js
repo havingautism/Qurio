@@ -7,6 +7,17 @@ import { ChatOpenAI } from '@langchain/openai'
 import { BaseProviderAdapter } from './BaseProviderAdapter.js'
 import { getProviderConfig } from './providerConfig.js'
 
+/**
+ * Check if model supports GLM tool streaming (glm-4.6+)
+ * @param {string} model - Model name
+ * @returns {boolean} True if model supports tool streaming
+ */
+const isToolStreamingSupported = model => {
+  if (!model) return false
+  const modelName = model.toLowerCase()
+  return modelName.includes('glm-4.6') || modelName.includes('glm-4.7')
+}
+
 export class GLMAdapter extends BaseProviderAdapter {
   constructor() {
     super('glm')
@@ -44,11 +55,14 @@ export class GLMAdapter extends BaseProviderAdapter {
     const modelKwargs = {}
     if (responseFormat) modelKwargs.response_format = responseFormat
 
-    // Thinking mode configuration
-    const thinkingType = thinking?.type || 'disabled'
-    modelKwargs.thinking = { type: thinkingType }
+    // Thinking mode configuration - only set if explicitly provided
+    // Don't set to 'disabled' by default, as it prevents reasoning_content in tool_stream
     if (thinking?.type) {
-      modelKwargs.extra_body = { thinking: { type: thinkingType } }
+      modelKwargs.thinking = { type: thinking.type }
+      modelKwargs.extra_body = {
+        ...modelKwargs.extra_body,
+        thinking: { type: thinking.type },
+      }
     }
 
     if (top_k !== undefined) modelKwargs.top_k = top_k
@@ -59,6 +73,13 @@ export class GLMAdapter extends BaseProviderAdapter {
     if (toolChoice) modelKwargs.tool_choice = toolChoice
     if (streaming) {
       modelKwargs.stream_options = { include_usage: false }
+    }
+
+    // Enable tool streaming for glm-4.6/4.7 when using tools
+    const actualModel = model || this.config.defaultModel
+    if (streaming && tools && tools.length > 0 && isToolStreamingSupported(actualModel)) {
+      // Put tool_stream at top level of modelKwargs (not in extra_body)
+      modelKwargs.tool_stream = true
     }
 
     return new ChatOpenAI({
@@ -80,6 +101,7 @@ export class GLMAdapter extends BaseProviderAdapter {
     const { tools, stream } = params
 
     const canStream = stream && (!tools?.length || this.capabilities.supportsStreamingToolCalls)
+
     if (!stream) {
       return this.executeNonStreamingForToolCalls(messages, params)
     }
@@ -99,6 +121,7 @@ export class GLMAdapter extends BaseProviderAdapter {
     }
 
     const execution = await this.executeNonStreamingForToolCalls(messages, params)
+
     if (execution.type === 'tool_calls') {
       return execution
     }

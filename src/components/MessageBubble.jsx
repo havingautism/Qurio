@@ -632,6 +632,12 @@ const MessageBubble = ({
     return { x, y }
   }
 
+  const isNodeInAnswerScope = node => {
+    if (!node) return false
+    const element = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement
+    return Boolean(element?.closest?.('[data-answer-scope="true"]'))
+  }
+
   const updateSelectionMenuFromSelection = () => {
     const selection = window.getSelection()
     const text = selection?.toString().trim()
@@ -643,6 +649,11 @@ const MessageBubble = ({
 
     const container = containerRef.current
     if (!container || !container.contains(selection.anchorNode)) {
+      setSelectionMenu(null)
+      return false
+    }
+
+    if (!isNodeInAnswerScope(selection.anchorNode) || !isNodeInAnswerScope(selection.focusNode)) {
       setSelectionMenu(null)
       return false
     }
@@ -1439,14 +1450,16 @@ const MessageBubble = ({
       return (
         <React.Fragment key={`text-${idx}`}>
           {showStatusBeforeText && <FormStatusBadge waiting={false} />}
-          <Streamdown
-            mermaid={mermaidOptions}
-            remarkPlugins={[remarkGfm]}
-            components={markdownComponentsWithAnchors}
-            isAnimating={isStreaming}
-          >
-            {contentWithCitations}
-          </Streamdown>
+          <div data-answer-scope="true">
+            <Streamdown
+              mermaid={mermaidOptions}
+              remarkPlugins={[remarkGfm]}
+              components={markdownComponentsWithAnchors}
+              isAnimating={isStreaming}
+            >
+              {contentWithCitations}
+            </Streamdown>
+          </div>
         </React.Fragment>
       )
     })
@@ -1743,7 +1756,7 @@ const MessageBubble = ({
               )}
               onClick={e => {
                 e.stopPropagation()
-                onQuote && onQuote({ text: selectionMenu.text, message })
+                onQuote && onQuote({ text: selectionMenu.text, message: mergedMessage })
                 setSelectionMenu(null)
                 window.getSelection().removeAllRanges()
               }}

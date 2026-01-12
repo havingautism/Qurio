@@ -545,7 +545,7 @@ const ChatInputBar = React.memo(
               )}
               {/* Attachment Previews */}
               {(attachments.length > 0 || selectedDocuments.length > 0) && (
-                <div className="flex gap-2 px-2 py-2  overflow-x-auto rounded-xl border border-gray-200/70 dark:border-zinc-700/50 bg-[#F9F9F9] dark:bg-[#1a1a1a]">
+                <div className="flex gap-2 px-2 py-2 code-scrollbar z-50  overflow-x-auto rounded-xl border border-gray-200/70 dark:border-zinc-700/50 bg-[#F9F9F9] dark:bg-[#1a1a1a]">
                   {attachments.map((att, idx) => (
                     <div
                       key={`img-${idx}`}
@@ -558,7 +558,7 @@ const ChatInputBar = React.memo(
                       />
                       <button
                         onClick={() => setAttachments(attachments.filter((_, i) => i !== idx))}
-                        className="absolute top-0.5 right-0.5 bg-black/60 text-white rounded-full p-0.5 opacity-100 sm:opacity-0 sm:group-hover/img:opacity-100 transition-opacity"
+                        className="absolute top-0.5 right-0.5 bg-black/60 dark:bg-white/60 dark:text-black text-white rounded-full p-0.5 opacity-100 sm:opacity-0 sm:group-hover/img:opacity-100 transition-opacity"
                       >
                         <X size={12} />
                       </button>

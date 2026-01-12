@@ -119,6 +119,7 @@ const QuestionTimelineController = ({
       activeId={activeId}
       isOpen={isOpen}
       onToggle={onToggle}
+      messagesContainerRef={messagesContainerRef}
     />
   )
 }

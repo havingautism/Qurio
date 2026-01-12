@@ -23,6 +23,7 @@ const QuestionTimelineSidebar = ({
   isOpen = false,
   onToggle,
   className,
+  messagesContainerRef,
 }) => {
   const { i18n } = useTranslation()
   useScrollLock(isOpen)
@@ -37,7 +38,10 @@ const QuestionTimelineSidebar = ({
   const dragFrameRef = useRef(null)
   const lastTouchIndexRef = useRef(null)
   // const [activeIndicatorTop, setActiveIndicatorTop] = useState(null) // Removed unused state
-  const timelinePadding = 24
+  const [desktopTimelinePosition, setDesktopTimelinePosition] = useState({
+    top: '50%',
+    right: '32px',
+  })
 
   // Check screen size
   useEffect(() => {
@@ -474,11 +478,54 @@ const QuestionTimelineSidebar = ({
   )
 
   // Desktop Timeline Component
+  const updateDesktopTimelinePosition = useCallback(() => {
+    if (typeof window === 'undefined') return
+
+    const container = messagesContainerRef?.current
+    if (!container) {
+      setDesktopTimelinePosition({
+        top: '50%',
+        right: '32px',
+      })
+      return
+    }
+
+    const rect = container.getBoundingClientRect()
+    const marginRight = Math.max(0, window.innerWidth - rect.right)
+    const desiredRight = Math.max(32, marginRight - 12)
+    const clampedRight = Math.min(desiredRight, 320)
+    const midY = rect.top + rect.height / 2
+
+    setDesktopTimelinePosition({
+      top: `${midY}px`,
+      right: `${clampedRight}px`,
+    })
+  }, [messagesContainerRef])
+
+  useEffect(() => {
+    updateDesktopTimelinePosition()
+    if (typeof window === 'undefined') return undefined
+
+    window.addEventListener('resize', updateDesktopTimelinePosition)
+    window.addEventListener('scroll', updateDesktopTimelinePosition, true)
+    return () => {
+      window.removeEventListener('resize', updateDesktopTimelinePosition)
+      window.removeEventListener('scroll', updateDesktopTimelinePosition, true)
+    }
+  }, [updateDesktopTimelinePosition])
+
   const DesktopTimeline = () => {
     if (flatTimelineItems.length === 0) return null
 
     return (
-      <div className="pointer-events-none fixed right-8 top-1/2 z-40 -translate-y-1/2 w-8">
+      <div
+        className="pointer-events-none fixed z-40 w-8"
+        style={{
+          top: desktopTimelinePosition.top,
+          right: desktopTimelinePosition.right,
+          transform: 'translateY(-50%)',
+        }}
+      >
         {/* The Rail Container */}
         <div className="relative flex flex-col items-end gap-1.5 py-4 pr-1">
           {/* Timeline Items */}

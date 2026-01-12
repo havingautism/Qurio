@@ -111,6 +111,7 @@ const ChatInputBar = React.memo(
     const [isDocumentMenuOpen, setIsDocumentMenuOpen] = useState(false)
     const documentMenuRef = useRef(null)
     const [isMultiline, setIsMultiline] = useState(false)
+    const highlightRef = useRef(null)
     const highlightedInputParts = useMemo(() => splitTextWithUrls(inputValue), [inputValue])
     const selectedDocumentIdSet = useMemo(
       () => new Set((selectedDocumentIds || []).map(id => String(id))),
@@ -149,14 +150,18 @@ const ChatInputBar = React.memo(
       const newHeight = textarea.scrollHeight
 
       // Enforce min-height and limit max-height
-      // Min height 24px (1 line approx) + padding
-      // But we use a relaxed approach
       textarea.style.height = `${Math.min(newHeight, 200)}px`
 
       // Detect multiline: if height significantly exceeds single line height (~48-50px)
       // or if there are explicit newlines
       const isMulti = newHeight > 52 || inputValue.includes('\n')
-      setIsMultiline(isMulti)
+
+      if (inputValue === '') {
+        setIsMultiline(false)
+      } else if (isMulti) {
+        setIsMultiline(true)
+      }
+      // If currently multiline and text is not empty, stay multiline.
     }, [inputValue])
 
     useEffect(() => {
@@ -172,7 +177,7 @@ const ChatInputBar = React.memo(
         textareaRef.current.style.height = 'auto'
         textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`
       }
-    }, [inputValue])
+    }, [inputValue, isMultiline])
 
     useEffect(() => {
       if (!isUploadMenuOpen || isMobile) return
@@ -719,8 +724,9 @@ const ChatInputBar = React.memo(
               >
                 {inputValue && (
                   <div
+                    ref={highlightRef}
                     aria-hidden="true"
-                    className="pointer-events-none absolute inset-0 px-1 py-3 flex items-center text-[15px] leading-[1.6] whitespace-pre-wrap break-words text-gray-900 dark:text-gray-100"
+                    className="pointer-events-none absolute inset-0 px-1 py-3 text-[15px] leading-[1.6] whitespace-pre-wrap break-words text-gray-900 dark:text-gray-100 overflow-hidden"
                   >
                     {highlightedInputParts.map((part, index) =>
                       part.type === 'url' ? (
@@ -741,6 +747,11 @@ const ChatInputBar = React.memo(
                   value={inputValue}
                   onChange={e => setInputValue(e.target.value)}
                   onKeyDown={handleKeyDown}
+                  onScroll={e => {
+                    if (highlightRef.current) {
+                      highlightRef.current.scrollTop = e.target.scrollTop
+                    }
+                  }}
                   placeholder={t('chatInterface.askFollowUp')}
                   rows={1}
                   className={clsx(

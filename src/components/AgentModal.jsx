@@ -1328,7 +1328,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                           setShowEmojiPicker(!showEmojiPicker)
                         }}
                         disabled={isGeneralLocked}
-                        className="w-12 h-12 rounded-xl bg-gray-100 dark:bg-zinc-800 flex items-center justify-center text-2xl hover:bg-gray-200 dark:hover:bg-zinc-700 transition-colors border border-gray-200 dark:border-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="w-12 h-12 rounded-xl bg-white disabled:bg-gray-50/20 dark:bg-zinc-900 flex items-center justify-center text-2xl hover:bg-gray-200 dark:hover:bg-zinc-700 transition-colors border border-gray-200 dark:border-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <EmojiDisplay emoji={emoji} />
                       </button>

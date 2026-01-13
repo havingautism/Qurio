@@ -56,6 +56,7 @@ import relatedQuestionsRoutes from './routes/relatedQuestions.js'
 import streamChatRoutes from './routes/streamChat.js'
 import deepResearchChatRoutes from './routes/deepResearchChat.js'
 import toolsRoutes from './routes/tools.js'
+import mcpToolsRoutes from './routes/mcpTools.js'
 app.use('/api', titleSpaceAgentRoutes)
 app.use('/api', titleRoutes)
 app.use('/api', researchPlanRoutes)
@@ -66,6 +67,7 @@ app.use('/api', relatedQuestionsRoutes)
 app.use('/api', streamChatRoutes)
 app.use('/api', deepResearchChatRoutes)
 app.use('/api', toolsRoutes)
+app.use('/api/mcp-tools', mcpToolsRoutes)
 
 // 404 handler
 app.use((req, res) => {

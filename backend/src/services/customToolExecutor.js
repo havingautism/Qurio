@@ -1,6 +1,6 @@
 /**
- * Custom HTTP Tool Executor
- * Executes user-defined HTTP tools with security validation
+ * Custom Tool Executor
+ * Executes user-defined tools (HTTP, MCP, etc.) with security validation
  */
 
 /**
@@ -161,12 +161,58 @@ export async function executeHttpTool(tool, args) {
 }
 
 /**
+ * Execute MCP tool
+ * Calls a tool from a connected MCP server
+ */
+export async function executeMcpTool(tool, args) {
+  try {
+    const { mcpToolManager } = await import('./mcpToolManager.js')
+
+    console.log(`[MCP Tool] Executing ${tool.id} with args:`, JSON.stringify(args, null, 2))
+
+    // Call the MCP tool
+    const result = await mcpToolManager.executeMcpTool(tool.id, args)
+
+    // Extract and return content from MCP response
+    if (result.content && result.content.length > 0) {
+      // Collect all text content
+      const textContent = result.content
+        .filter(item => item.type === 'text')
+        .map(item => item.text)
+        .join('\n')
+
+      // Try to parse as JSON first
+      try {
+        const parsed = JSON.parse(textContent)
+        return { data: parsed, raw: textContent }
+      } catch {
+        // Return as text if not valid JSON
+        return { data: textContent }
+      }
+    }
+
+    // Handle error response
+    if (result.isError) {
+      throw new Error(`MCP tool error: ${JSON.stringify(result.content)}`)
+    }
+
+    // Return empty result if no content
+    return { data: null }
+  } catch (error) {
+    console.error(`[MCP Tool] Execution failed:`, error.message)
+    throw error
+  }
+}
+
+/**
  * Execute custom tool (dispatcher for different tool types)
  */
 export async function executeCustomTool(tool, args) {
   switch (tool.type) {
     case 'http':
       return await executeHttpTool(tool, args)
+    case 'mcp':
+      return await executeMcpTool(tool, args)
     default:
       throw new Error(`Unknown tool type: ${tool.type}`)
   }

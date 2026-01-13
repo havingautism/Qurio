@@ -34,7 +34,7 @@ Recommended size: 1600x900 or 1920x1080.
 
 ### MCP Tool Groups
 
-![MCP Tool Groups](./docs/screenshots/mcp-tools.png)
+![MCP Tool Groups](./docs/screenshots/mcp_tools.png)
 
 ## Why Qurio
 

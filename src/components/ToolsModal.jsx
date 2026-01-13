@@ -175,6 +175,8 @@ const ToolsModal = ({ isOpen, onClose }) => {
       const settings = JSON.parse(localStorage.getItem('qurio-settings') || '{}')
       const backendUrl = settings.backendUrl || 'http://localhost:3001'
 
+      console.log('[MCP] Loading tools from:', { name: formData.serverName, url: formData.serverUrl })
+
       const response = await fetch(`${backendUrl}/api/mcp-tools/servers`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -189,6 +191,10 @@ const ToolsModal = ({ isOpen, onClose }) => {
       }
 
       const data = await response.json()
+      console.log('[MCP] Response data:', data)
+      console.log('[MCP] Tools array:', data.tools)
+      console.log('[MCP] Tools count:', data.tools?.length)
+
       setMcpToolsList(data.tools || [])
     } catch (error) {
       console.error('Failed to load MCP tools:', error)
@@ -771,7 +777,7 @@ const ToolsModal = ({ isOpen, onClose }) => {
                 )}
 
                 {/* MCP Form */}
-                {formData.toolType === 'mcp' ? (
+                {formData.toolType === 'mcp' && (
                   <>
                     {/* Edit mode: Show tool details */}
                     {!isCreating && editingTool ? (
@@ -856,54 +862,64 @@ const ToolsModal = ({ isOpen, onClose }) => {
                         </button>
                       </div>
                     )}
-                  </>
-                ) : isCreating && formData.toolType === 'mcp' && mcpToolsList.length > 0 ? (
-                  /* Tools list (rendered after the ternary) */
-                  <>
-                    <div className="border-t border-gray-100 dark:border-zinc-800" />
-                    <div className="space-y-4">
-                      <label className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                        {t('customTools.mcp.availableTools')}
-                      </label>
-                      <div className="space-y-2 max-h-64 overflow-y-auto">
-                        {mcpToolsList.map(tool => (
-                          <div
-                            key={tool.id}
-                            onClick={() => toggleMcpToolSelection(tool.id)}
-                            className={clsx(
-                              'p-3 rounded-lg border-2 cursor-pointer transition-all',
-                              selectedMcpTools.has(tool.id)
-                                ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
-                                : 'border-gray-200 dark:border-zinc-700 hover:border-gray-300 dark:hover:border-zinc-600',
-                            )}
-                          >
-                            <div className="flex items-start gap-3">
+
+                    {/* MCP Tools List - show after loading, inside MCP branch */}
+                    {isCreating && mcpToolsList.length > 0 && (
+                      <>
+                        {/* Debug: Show tools list status */}
+                        {console.log('[MCP] Rendering tools list:', {
+                          isCreating,
+                          toolType: formData.toolType,
+                          mcpToolsListLength: mcpToolsList.length
+                        })}
+                        <div className="border-t border-gray-100 dark:border-zinc-800" />
+                        <div className="space-y-4">
+                          <label className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                            {t('customTools.mcp.availableTools')} ({mcpToolsList.length})
+                          </label>
+                          <div className="space-y-2 max-h-64 overflow-y-auto">
+                            {mcpToolsList.map(tool => (
                               <div
+                                key={tool.id}
+                                onClick={() => toggleMcpToolSelection(tool.id)}
                                 className={clsx(
-                                  'mt-0.5 w-4 h-4 rounded border-2 flex items-center justify-center transition-all',
+                                  'p-3 rounded-lg border-2 cursor-pointer transition-all',
                                   selectedMcpTools.has(tool.id)
-                                    ? 'border-primary-500 bg-primary-500'
-                                    : 'border-gray-300 dark:border-zinc-600',
+                                    ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
+                                    : 'border-gray-200 dark:border-zinc-700 hover:border-gray-300 dark:hover:border-zinc-600',
                                 )}
                               >
-                                {selectedMcpTools.has(tool.id) && <Check size={12} className="text-white" />}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="font-medium text-gray-900 dark:text-gray-100 text-sm">
-                                  {tool.name}
+                                <div className="flex items-start gap-3">
+                                  <div
+                                    className={clsx(
+                                      'mt-0.5 w-4 h-4 rounded border-2 flex items-center justify-center transition-all',
+                                      selectedMcpTools.has(tool.id)
+                                        ? 'border-primary-500 bg-primary-500'
+                                        : 'border-gray-300 dark:border-zinc-600',
+                                    )}
+                                  >
+                                    {selectedMcpTools.has(tool.id) && <Check size={12} className="text-white" />}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="font-medium text-gray-900 dark:text-gray-100 text-sm">
+                                      {tool.name}
+                                    </div>
+                                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                      {tool.description}
+                                    </div>
+                                  </div>
                                 </div>
-                                <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                                  {tool.description}
-                                </div>
                               </div>
-                            </div>
+                            ))}
                           </div>
-                        ))}
-                      </div>
-                    </div>
+                        </div>
+                      </>
+                    )}
                   </>
-                ) : (
-                  /* HTTP Form */
+                )}
+
+                {/* HTTP Form - show for non-MCP tools */}
+                {formData.toolType === 'http' && (
                   <>
                     <div className="space-y-4">
                       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

@@ -959,7 +959,9 @@ const callAIAPI = async (
       if (Array.isArray(allUserTools) && resolvedToolIds.length > 0) {
         // resolvedToolIds contains strings (custom) and maybe numbers (system)
         // Ensure comparison is robust
-        activeUserTools = allUserTools.filter(t => resolvedToolIds.includes(String(t.id)))
+        activeUserTools = allUserTools
+          .filter(t => resolvedToolIds.includes(String(t.id)))
+          .filter(t => !t.config?.disabled)
       }
     } catch (err) {
       console.error('Failed to fetch user tools for chat:', err)
@@ -1027,6 +1029,9 @@ const callAIAPI = async (
               const history = Array.isArray(lastMsg.toolCallHistory)
                 ? [...lastMsg.toolCallHistory]
                 : []
+              const pendingThoughtLength = lastMsg.thinkingEnabled ? 0 : (pendingThought || '').length
+              const pendingTextLength = (pendingText || '').length
+              const baseIndex = (lastMsg.content || '').length + pendingTextLength + pendingThoughtLength
               history.push({
                 id: chunk.id || `${chunk.name || 'tool'}-${Date.now()}`,
                 name: chunk.name || 'tool',
@@ -1038,7 +1043,7 @@ const callAIAPI = async (
                 textIndex:
                   typeof chunk.textIndex === 'number'
                     ? chunk.textIndex
-                    : (lastMsg.content || '').length + (pendingText || '').length,
+                    : baseIndex,
               })
               lastMsg.toolCallHistory = history
               updated[lastMsgIndex] = lastMsg

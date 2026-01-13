@@ -63,7 +63,7 @@ const SpaceShortcutCard = memo(({ spaces = [], selectedSpaceId, onSpaceSelect, o
                   <button
                     key={space.id}
                     onClick={() => onSpaceSelect(space)}
-                    className={`flex-none flex flex-col items-center gap-1.5 p-1.5 rounded-2xl transition-all duration-300 min-w-[60px] ${
+                    className={`flex-none flex flex-col items-center gap-1 p-1.5 rounded-2xl transition-all duration-300 min-w-[60px] ${
                       isSelected
                         ? 'bg-primary-500 text-white shadow-md'
                         : 'bg-gray-200/30 dark:bg-zinc-800/40 text-gray-600 dark:text-gray-400 hover:bg-gray-200/50 dark:hover:bg-zinc-800/60'

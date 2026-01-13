@@ -225,10 +225,37 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
     const groups = {}
     for (const tool of availableTools) {
       const category = tool.category || 'other'
-      if (!groups[category]) groups[category] = []
-      groups[category].push(tool)
+
+      if (category === 'custom') {
+        // For custom tools, create sub-groups by MCP server or HTTP
+        if (!groups[category]) {
+          groups[category] = { type: 'grouped', subGroups: {} }
+        }
+
+        let subGroupKey
+        if (tool.type === 'mcp') {
+          // Group by MCP server name
+          subGroupKey = tool.config?.serverName || 'Unknown Server'
+        } else {
+          // All HTTP tools in one group
+          subGroupKey = 'HTTP 自定义工具'
+        }
+
+        if (!groups[category].subGroups[subGroupKey]) {
+          groups[category].subGroups[subGroupKey] = []
+        }
+        groups[category].subGroups[subGroupKey].push(tool)
+      } else {
+        // Non-custom tools, simple grouping
+        if (!groups[category]) groups[category] = { type: 'simple', tools: [] }
+        groups[category].tools.push(tool)
+      }
     }
-    return Object.entries(groups)
+    return Object.entries(groups).sort(([a], [b]) => {
+      if (a === 'custom') return -1
+      if (b === 'custom') return 1
+      return 0
+    })
   }, [availableTools])
 
   const loadToolsList = async () => {
@@ -238,12 +265,14 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
 
       const validSystemTools = Array.isArray(systemTools) ? systemTools : []
       const validUserTools = Array.isArray(userTools)
-        ? userTools.map(tool => ({
-            ...tool,
-            category: 'custom',
-            // Ensure ID is string to match system tools
-            id: String(tool.id),
-          }))
+        ? userTools
+            .filter(tool => !tool.config?.disabled)
+            .map(tool => ({
+              ...tool,
+              category: 'custom',
+              // Ensure ID is string to match system tools
+              id: String(tool.id),
+            }))
         : []
 
       setAvailableTools([...validSystemTools, ...validUserTools])
@@ -1713,71 +1742,187 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                   </div>
                 ) : (
                   <div className="space-y-6">
-                    {toolsByCategory.map(([category, items]) => (
-                      <div key={category} className="space-y-3">
-                        <div className="text-xs uppercase tracking-wide text-gray-400">
+                    {toolsByCategory.map(([category, groupData]) => (
+                      <div key={category} className="space-y-4">
+                        <div className="text-xs tracking-wide text-gray-400">
                           {t(`agents.tools.categories.${category}`, category)}
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          {items.map(tool => {
-                            const checked = selectedToolIds.includes(tool.id)
-                            const iconName = TOOL_ICONS[tool.name]
-                            const IconComponent = iconName
-                              ? {
-                                  Search,
-                                  GraduationCap,
-                                  Calculator,
-                                  Clock,
-                                  FileText,
-                                  ScanText,
-                                  Wrench,
-                                  FormInput,
-                                  Globe,
-                                }[iconName]
-                              : Code
-                            const infoKey = TOOL_INFO_KEYS[tool.name]
+
+                        {groupData.type === 'grouped' ? (
+                          // Custom tools with sub-groups (MCP servers)
+                          Object.entries(groupData.subGroups).map(([subGroupName, tools]) => {
+                            const allSelected = tools.every(t => selectedToolIds.includes(t.id))
                             return (
-                              <label
-                                key={tool.id}
-                                className={clsx(
-                                  'flex items-start gap-3 p-3 rounded-lg border transition-colors cursor-pointer',
-                                  checked
-                                    ? 'border-primary-400 bg-primary-50/40 dark:bg-primary-900/20'
-                                    : 'border-gray-200 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-800/40',
-                                )}
-                              >
-                                <Checkbox
-                                  checked={checked}
-                                  onChange={() => {
-                                    setSelectedToolIds(prev =>
-                                      prev.includes(tool.id)
-                                        ? prev.filter(id => id !== tool.id)
-                                        : [...prev, tool.id],
-                                    )
-                                  }}
-                                />
-                                <div className="flex-1 space-y-1.5 min-w-0">
+                              <div key={subGroupName} className="space-y-3">
+                                {/* Sub-group header */}
+                                <div className="flex items-center justify-between">
                                   <div className="flex items-center gap-2">
-                                    {IconComponent && (
-                                      <IconComponent
-                                        size={16}
-                                        className="text-gray-500 dark:text-gray-400 shrink-0"
-                                      />
-                                    )}
-                                    <div className="text-sm font-medium text-gray-800 dark:text-gray-100">
-                                      {t(TOOL_TRANSLATION_KEYS[tool.name] || tool.name)}
-                                    </div>
+                                    <div className="w-1.5 h-1.5 rounded-full bg-purple-500" />
+                                    <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                                      {subGroupName}
+                                    </span>
+                                    <span className="text-xs text-gray-400 dark:text-gray-500">
+                                      ({tools.length})
+                                    </span>
                                   </div>
-                                  {(infoKey || tool.description) && (
-                                    <div className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
-                                      {infoKey ? t(infoKey) : tool.description}
-                                    </div>
-                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (allSelected) {
+                                        // Deselect all in this group
+                                        const groupIds = tools.map(t => t.id)
+                                        setSelectedToolIds(prev =>
+                                          prev.filter(id => !groupIds.includes(id)),
+                                        )
+                                      } else {
+                                        // Select all in this group
+                                        const groupIds = tools.map(t => t.id)
+                                        setSelectedToolIds(prev => [
+                                          ...new Set([...prev, ...groupIds]),
+                                        ])
+                                      }
+                                    }}
+                                    className="text-[10px] font-bold text-primary-500 hover:text-primary-600 transition-colors px-2 py-1 rounded bg-primary-500/5 hover:bg-primary-500/10 uppercase tracking-tight"
+                                  >
+                                    {allSelected ? t('common.deselectAll') : t('common.selectAll')}
+                                  </button>
                                 </div>
-                              </label>
+                                {/* Tools in sub-group */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 ">
+                                  {tools.map(tool => {
+                                    const checked = selectedToolIds.includes(tool.id)
+                                    const iconName = TOOL_ICONS[tool.name]
+                                    const IconComponent = iconName
+                                      ? {
+                                          Search,
+                                          GraduationCap,
+                                          Calculator,
+                                          Clock,
+                                          FileText,
+                                          ScanText,
+                                          Wrench,
+                                          FormInput,
+                                          Globe,
+                                        }[iconName]
+                                      : Code
+                                    const infoKey = TOOL_INFO_KEYS[tool.name]
+                                    const localizedName = t(
+                                      TOOL_TRANSLATION_KEYS[tool.name] || tool.name,
+                                    )
+                                    return (
+                                      <label
+                                        key={tool.id}
+                                        className={clsx(
+                                          'flex items-start gap-3 p-3 rounded-lg border transition-colors cursor-pointer group/tool',
+                                          checked
+                                            ? 'border-primary-400 bg-primary-50/40 dark:bg-primary-900/20'
+                                            : 'border-gray-200 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-800/40',
+                                        )}
+                                      >
+                                        <Checkbox
+                                          checked={checked}
+                                          onChange={() => {
+                                            setSelectedToolIds(prev =>
+                                              prev.includes(tool.id)
+                                                ? prev.filter(id => id !== tool.id)
+                                                : [...prev, tool.id],
+                                            )
+                                          }}
+                                        />
+                                        <div className="flex-1 space-y-1.5 min-w-0">
+                                          <div className="flex items-center gap-2 min-w-0">
+                                            {IconComponent && (
+                                              <IconComponent
+                                                size={16}
+                                                className="text-gray-500 dark:text-gray-400 shrink-0"
+                                              />
+                                            )}
+                                            <div
+                                              className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate flex-1"
+                                              title={localizedName}
+                                            >
+                                              {localizedName}
+                                            </div>
+                                          </div>
+                                          {(infoKey || tool.description) && (
+                                            <div className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed line-clamp-2">
+                                              {infoKey ? t(infoKey) : tool.description}
+                                            </div>
+                                          )}
+                                        </div>
+                                      </label>
+                                    )
+                                  })}
+                                </div>
+                              </div>
                             )
-                          })}
-                        </div>
+                          })
+                        ) : (
+                          // Simple grouping for non-custom tools
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {groupData.tools.map(tool => {
+                              const checked = selectedToolIds.includes(tool.id)
+                              const iconName = TOOL_ICONS[tool.name]
+                              const IconComponent = iconName
+                                ? {
+                                    Search,
+                                    GraduationCap,
+                                    Calculator,
+                                    Clock,
+                                    FileText,
+                                    ScanText,
+                                    Wrench,
+                                    FormInput,
+                                    Globe,
+                                  }[iconName]
+                                : Code
+                              const infoKey = TOOL_INFO_KEYS[tool.name]
+                              return (
+                                <label
+                                  key={tool.id}
+                                  className={clsx(
+                                    'flex items-start gap-3 p-3 rounded-lg border transition-colors cursor-pointer',
+                                    checked
+                                      ? 'border-primary-400 bg-primary-50/40 dark:bg-primary-900/20'
+                                      : 'border-gray-200 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-800/40',
+                                  )}
+                                >
+                                  <Checkbox
+                                    checked={checked}
+                                    onChange={() => {
+                                      setSelectedToolIds(prev =>
+                                        prev.includes(tool.id)
+                                          ? prev.filter(id => id !== tool.id)
+                                          : [...prev, tool.id],
+                                      )
+                                    }}
+                                  />
+                                  <div className="flex-1 space-y-1.5 min-w-0">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      {IconComponent && (
+                                        <IconComponent
+                                          size={16}
+                                          className="text-gray-500 dark:text-gray-400 shrink-0"
+                                        />
+                                      )}
+                                      <div
+                                        className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate flex-1"
+                                        title={t(TOOL_TRANSLATION_KEYS[tool.name] || tool.name)}
+                                      >
+                                        {t(TOOL_TRANSLATION_KEYS[tool.name] || tool.name)}
+                                      </div>
+                                    </div>
+                                    {(infoKey || tool.description) && (
+                                      <div className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed truncate-2-lines">
+                                        {infoKey ? t(infoKey) : tool.description}
+                                      </div>
+                                    )}
+                                  </div>
+                                </label>
+                              )
+                            })}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>

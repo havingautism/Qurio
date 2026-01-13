@@ -1,20 +1,9 @@
 import { useNavigate } from '@tanstack/react-router'
 import clsx from 'clsx'
-import {
-  Bookmark,
-  Check,
-  ChevronDown,
-  Clock,
-  Coffee,
-  MoreHorizontal,
-  Plus,
-  Search,
-  Trash2,
-} from 'lucide-react'
+import { Bookmark, Check, ChevronDown, Clock, Coffee, Search, Trash2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAppContext } from '../App'
-import DropdownMenu from '../components/DropdownMenu'
 import EmojiDisplay from '../components/EmojiDisplay'
 import FancyLoader from '../components/FancyLoader'
 import { useToast } from '../contexts/ToastContext'
@@ -37,8 +26,7 @@ const BookmarksView = () => {
   const [searchQuery, setSearchQuery] = useState('')
   const [sortOption, setSortOption] = useState(SORT_OPTION_KEYS[0])
   const [isSortOpen, setIsSortOpen] = useState(false)
-  const [openMenuId, setOpenMenuId] = useState(null)
-  const [menuAnchorEl, setMenuAnchorEl] = useState(null)
+  const [expandedActionId, setExpandedActionId] = useState(null)
   const toast = useToast()
 
   // Translated sort options for rendering
@@ -114,7 +102,7 @@ const BookmarksView = () => {
       // Refresh data
       window.dispatchEvent(new Event('conversations-changed'))
     }
-    setOpenMenuId(null)
+    setExpandedActionId(null)
   }
 
   // Handle delete conversation
@@ -139,6 +127,7 @@ const BookmarksView = () => {
         }
       },
     })
+    setExpandedActionId(null)
   }
 
   return (
@@ -155,13 +144,6 @@ const BookmarksView = () => {
             <Bookmark size={32} className="text-primary-500 fill-current" />
             <h1 className="text-3xl font-medium">{t('views.bookmarksView.title')}</h1>
           </div>
-          {/* <button
-            onClick={() => navigate({ to: '/new_chat' })}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors text-sm font-medium"
-          >
-            <Plus size={16} />
-            <span>{t('views.newThread')}</span>
-          </button> */}
         </div>
 
         {/* Search and Filters */}
@@ -178,7 +160,7 @@ const BookmarksView = () => {
             />
           </div>
 
-          {/* Filter Row (Visual only for now) */}
+          {/* Filter Row */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <button className="px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 text-xs font-medium transition-colors">
@@ -245,13 +227,6 @@ const BookmarksView = () => {
             <div className="text-center py-12 text-gray-500 flex flex-col items-center gap-3">
               <Coffee size={56} className="text-black dark:text-white" />
               <p className="text-sm">{t('views.bookmarksView.noBookmarks')}</p>
-              {/* <button
-                onClick={() => navigate({ to: '/new_chat' })}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-primary-500 text-white hover:bg-primary-600 transition-colors"
-              >
-                <Plus size={14} />
-                Start a thread
-              </button> */}
             </div>
           ) : (
             filteredConversations.map(conv => {
@@ -263,6 +238,7 @@ const BookmarksView = () => {
                 <div
                   key={conv.id}
                   data-conversation-id={conv.id}
+                  className="group relative py-3 sm:p-4 rounded-xl cursor-pointer transition-colors border-b border-gray-100 dark:border-zinc-800/50 last:border-0 hover:bg-primary-500/10 dark:hover:bg-primary-500/20 hover:border hover:border-primary-500/30 dark:hover:border-primary-500/40"
                   onClick={() =>
                     navigate({
                       to: isDeepResearchConversation
@@ -271,7 +247,6 @@ const BookmarksView = () => {
                       params: { conversationId: conv.id },
                     })
                   }
-                  className="group relative  py-3 sm:p-4 rounded-xl cursor-pointer transition-colors border-b border-gray-100 dark:border-zinc-800/50 last:border-0 hover:bg-primary-500/10 dark:hover:bg-primary-500/20 hover:border hover:border-primary-500/30 dark:hover:border-primary-500/40"
                 >
                   <div className="flex justify-between items-start gap-4">
                     {space?.emoji && (
@@ -299,37 +274,73 @@ const BookmarksView = () => {
                       </div>
                     </div>
 
-                    {/* Actions (always visible on mobile, visible on hover on desktop) */}
+                    {/* Actions */}
                     <div className="relative">
                       <button
                         onClick={e => {
                           e.stopPropagation()
-                          setOpenMenuId(conv.id)
-                          setMenuAnchorEl(e.currentTarget)
+                          setExpandedActionId(prev => (prev === conv.id ? null : conv.id))
                         }}
                         className={clsx(
                           'p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-all rounded-full hover:bg-black/5 dark:hover:bg-white/10',
-                          // Always visible on mobile
                           'opacity-100',
-                          // Show on hover on desktop
                           'md:opacity-0 md:group-hover:opacity-100',
-                          // Ensure button has minimum size for touch
                           'min-w-[44px] min-h-[44px] flex items-center justify-center',
                         )}
                       >
-                        <MoreHorizontal size={18} strokeWidth={2} />
+                        <ChevronDown
+                          size={18}
+                          strokeWidth={2}
+                          className={clsx(
+                            'transition-transform duration-200',
+                            expandedActionId === conv.id && 'rotate-180',
+                          )}
+                        />
                       </button>
                     </div>
                   </div>
+
+                  {/* Collapsible Actions Section */}
+                  {expandedActionId === conv.id && (
+                    <div className="flex flex-wrap gap-2 mt-3 px-1 animate-in fade-in slide-in-from-top-1">
+                      <button
+                        onClick={e => {
+                          e.stopPropagation()
+                          handleToggleFavorite(conv)
+                        }}
+                        className={clsx(
+                          'flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors',
+                          conv.is_favorited
+                            ? 'bg-yellow-50 text-yellow-600 border-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-400 dark:border-yellow-800/30'
+                            : 'bg-white dark:bg-zinc-900 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-zinc-800 hover:bg-gray-50 dark:hover:bg-zinc-800',
+                        )}
+                      >
+                        <Bookmark size={13} className={clsx(conv.is_favorited && 'fill-current')} />
+                        <span>
+                          {conv.is_favorited ? t('views.removeBookmark') : t('views.addBookmark')}
+                        </span>
+                      </button>
+                      <button
+                        onClick={e => {
+                          e.stopPropagation()
+                          handleDeleteConversation(conv)
+                        }}
+                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium bg-white dark:bg-zinc-900 text-red-600 dark:text-red-400 border border-red-100 dark:border-red-900/30 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                      >
+                        <Trash2 size={13} />
+                        <span>{t('views.deleteConversation')}</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
               )
             })
           )}
 
-          {/* Invisible Sentinel for Intersection Observer */}
+          {/* Invisible Sentinel for Infinite Scroll */}
           {!loading && hasMore && <div ref={loadMoreRef} className="h-1" />}
 
-          {/* Loading More Indicator - Fixed at bottom of list */}
+          {/* Loading More Indicator */}
           {!loading && loadingMore && (
             <div className="flex flex-col items-center gap-3 py-8">
               <FancyLoader />
@@ -345,36 +356,6 @@ const BookmarksView = () => {
           )}
         </div>
       </div>
-
-      {/* Global DropdownMenu */}
-      <DropdownMenu
-        isOpen={!!openMenuId}
-        anchorEl={menuAnchorEl}
-        onClose={() => {
-          setOpenMenuId(null)
-          setMenuAnchorEl(null)
-        }}
-        items={(() => {
-          const activeConv = conversations.find(c => c.id === openMenuId)
-          if (!activeConv) return []
-          return [
-            {
-              label: activeConv.is_favorited ? t('views.removeBookmark') : t('views.addBookmark'),
-              icon: (
-                <Bookmark size={14} className={activeConv.is_favorited ? 'fill-current' : ''} />
-              ),
-              onClick: () => handleToggleFavorite(activeConv),
-              className: activeConv.is_favorited ? 'text-yellow-500' : '',
-            },
-            {
-              label: t('views.deleteConversation'),
-              icon: <Trash2 size={14} />,
-              danger: true,
-              onClick: () => handleDeleteConversation(activeConv),
-            },
-          ]
-        })()}
-      />
     </div>
   )
 }

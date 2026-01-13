@@ -369,15 +369,86 @@ export const streamChat = async function* (params) {
     })
   }
 
-  // Convert user tools to tool definitions
-  const userToolDefinitions = userTools.map(tool => ({
-    type: 'function',
-    function: {
-      name: tool.name,
-      description: tool.description,
-      parameters: tool.input_schema,
-    },
-  }))
+  // Dynamically load MCP servers if MCP tools are present
+  const mcpTools = userTools.filter(tool => tool.type === 'mcp')
+  if (mcpTools.length > 0) {
+    try {
+      const { mcpToolManager } = await import('./mcpToolManager.js')
+
+      // Group by server to avoid loading the same server multiple times
+      const serversToLoad = new Map()
+      for (const tool of mcpTools) {
+        const serverName = tool.config?.serverName
+        const serverUrl = tool.config?.serverUrl
+        const serverTransport = tool.config?.transport || tool.config?.serverTransport
+        const bearerToken = tool.config?.bearerToken || tool.config?.authToken
+        const headers = tool.config?.headers
+
+        if (!serverName || !serverUrl) {
+          console.warn(`[streamChat] MCP tool ${tool.name} missing serverName or serverUrl in config`)
+          continue
+        }
+
+        // Check if server is already loaded
+        const status = mcpToolManager.getStatus()
+        if (!status.loadedServers.includes(serverName)) {
+          if (!serversToLoad.has(serverName)) {
+            serversToLoad.set(serverName, {
+              url: serverUrl,
+              transport: serverTransport,
+              bearerToken,
+              headers
+            })
+          }
+        }
+
+        // Register the tool in mcpToolManager if not already registered
+        // Use the actual tool ID from Supabase (e.g., UUID) instead of generating a new one
+        const toolId = tool.id || tool.name
+        if (!mcpToolManager.getMcpTool(toolId)) {
+          mcpToolManager.mcpTools.set(toolId, {
+            id: toolId,
+            name: tool.name,
+            type: 'mcp',
+            category: 'mcp',
+            description: tool.description,
+            parameters: tool.parameters || tool.input_schema,
+            config: {
+              mcpServer: serverName,
+              toolName: tool.config.toolName || tool.name
+            }
+          })
+        }
+      }
+
+      // Load servers that are not already loaded
+      for (const [serverName, serverConfig] of serversToLoad.entries()) {
+        console.log(`[streamChat] Loading MCP server: ${serverName}`)
+        await mcpToolManager.loadMcpServer(serverName, serverConfig)
+      }
+    } catch (error) {
+      console.error('[streamChat] Failed to load MCP servers:', error.message)
+    }
+  }
+
+  // Convert all user tools (HTTP + MCP) to tool definitions
+  const userToolDefinitions = userTools.map(tool => {
+    const parameters = tool.type === 'mcp' ? (tool.parameters || tool.input_schema) : tool.input_schema
+
+    // Debug log for MCP tool parameters
+    if (tool.type === 'mcp') {
+      console.log(`[streamChat] MCP Tool "${tool.name}" parameters:`, JSON.stringify(parameters, null, 2))
+    }
+
+    return {
+      type: 'function',
+      function: {
+        name: tool.name,
+        description: tool.description,
+        parameters,
+      },
+    }
+  })
 
   // Prepare tool definitions
   // Always include interactive_form as it is a global tool

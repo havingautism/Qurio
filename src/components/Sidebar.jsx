@@ -1,5 +1,6 @@
 import clsx from 'clsx'
 import {
+  Blocks,
   Bookmark,
   ChevronDown,
   ChevronUp,
@@ -12,13 +13,10 @@ import {
   Pin,
   Plus,
   Settings,
-  Wrench,
   Smile,
   SquareStack,
   Sun,
   Trash2,
-  Hammer,
-  Database,
 } from 'lucide-react'
 import React, { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -37,6 +35,7 @@ import { deleteConversation } from '../lib/supabase'
 import DotLoader from './DotLoader'
 import EmojiDisplay from './EmojiDisplay'
 import Logo from './Logo'
+import MCPIcon from '../assets/mcp.svg'
 
 const SIDEBAR_FETCH_LIMIT = 20
 
@@ -45,7 +44,6 @@ const Sidebar = ({
   onClose, // Mobile state
   onOpenSettings,
   onOpenTools,
-  onOpenKnowledgeBase,
   onNavigate,
   onNavigateToSpace,
   onCreateSpace,
@@ -748,7 +746,7 @@ const Sidebar = ({
           <div className="flex-1" />
 
           {/* Theme Toggle Button */}
-          <div className="mb-2">
+          <div className="flex flex-col items-center gap-3">
             <button
               onClick={onToggleTheme}
               className="w-10 h-10 flex items-center justify-center rounded-full bg-user-bubble dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-transform duration-200 hover:scale-110 active:scale-95 cursor-pointer"
@@ -756,30 +754,16 @@ const Sidebar = ({
             >
               {getThemeIcon()}
             </button>
-          </div>
 
-          {/* Knowledge Base Button */}
-          {/* <div className="mb-2">
-            <button
-              onClick={onOpenKnowledgeBase}
-              className="w-10 h-10 flex items-center justify-center rounded-full bg-user-bubble dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-transform duration-200 hover:scale-110 active:scale-95 cursor-pointer"
-            >
-              <Database size={20} />
-            </button>
-          </div> */}
-
-          {/* Tools Button */}
-          <div className="mb-2">
+            {/* Tools Button */}
             <button
               onClick={onOpenTools}
               className="w-10 h-10 flex items-center justify-center rounded-full bg-user-bubble dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-transform duration-200 hover:scale-110 active:scale-95 cursor-pointer"
             >
-              <Hammer size={20} />
+              <Blocks size={20} />
             </button>
-          </div>
 
-          {/* Settings Button (Icon Only) */}
-          <div className="mb-2">
+            {/* Settings Button (Icon Only) */}
             <button
               onClick={onOpenSettings}
               className="w-10 h-10 flex items-center justify-center rounded-full bg-user-bubble dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-transform duration-200 hover:scale-110 active:scale-95 cursor-pointer"
@@ -1391,30 +1375,31 @@ const Sidebar = ({
                 )}
                 {visibleSpaces.map(space => (
                   <React.Fragment key={space.id || space.label}>
-                    <div
-                      onClick={() => onNavigateToSpace(space)}
-                      className="flex items-center justify-between p-2 rounded  cursor-pointer transition-colors group"
-                    >
-                      <div className="flex-1 min-w-0 flex items-center gap-3">
-                        <button
-                          onClick={e => {
-                            e.stopPropagation()
-                            toggleSpace(space.id)
-                          }}
-                          className="p-1.5 rounded-md -ml-1 hover:bg-primary-50 dark:hover:bg-zinc-800 text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors shrink-0"
-                        >
-                          <ChevronDown
-                            size={16}
-                            className={clsx(
-                              'transition-transform duration-200',
-                              expandedSpaces.has(space.id) ? '' : '-rotate-90',
-                            )}
-                          />
-                        </button>
-                        <div className="w-8 h-8 rounded bg-transparent flex items-center justify-center group-hover:border-gray-300 dark:group-hover:border-zinc-600 shrink-0 text-base">
+                    <div className="flex items-center group relative mb-0.5">
+                      <button
+                        onClick={e => {
+                          e.stopPropagation()
+                          toggleSpace(space.id)
+                        }}
+                        className="p-1.5 rounded-md hover:bg-primary-50 dark:hover:bg-zinc-800/50 text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-all shrink-0 z-10"
+                      >
+                        <ChevronDown
+                          size={14}
+                          className={clsx(
+                            'transition-transform duration-200',
+                            expandedSpaces.has(space.id) ? '' : '-rotate-90',
+                          )}
+                        />
+                      </button>
+
+                      <div
+                        onClick={() => onNavigateToSpace(space)}
+                        className="flex-1 min-w-0 flex items-center gap-2 p-1.5 rounded-lg cursor-pointer transition-colors hover:bg-primary-50 dark:hover:bg-zinc-800 group/content"
+                      >
+                        <div className="w-8 h-8 rounded bg-transparent flex items-center justify-center shrink-0 text-base">
                           <EmojiDisplay emoji={space.emoji} size="1.4em" />
                         </div>
-                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-gray-200 transition-colors truncate">
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300 group-hover/content:text-primary-600 dark:group-hover/content:text-gray-200 transition-colors truncate">
                           {getSpaceDisplayLabel(space, t)}
                         </span>
                       </div>
@@ -1425,9 +1410,9 @@ const Sidebar = ({
                           e.stopPropagation()
                           onEditSpace(space)
                         }}
-                        className="p-1.5 rounded-md ml-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:bg-primary-50 dark:hover:bg-zinc-800 text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors shrink-0"
+                        className="p-1.5 rounded-md ml-1 opacity-0 group-hover:opacity-100 hover:bg-primary-50 dark:hover:bg-zinc-800 text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-all shrink-0"
                       >
-                        <Settings size={16} />
+                        <Settings size={14} />
                       </button>
                     </div>
 

@@ -823,3 +823,33 @@ export const deleteUserToolViaBackend = async id => {
   }
   return true
 }
+
+/**
+ * Fetch MCP tools from a server URL (temporary connection)
+ * @param {string} name - Server name
+ * @param {string} url - Server URL
+ * @param {object} options - Optional MCP config
+ * @returns {Promise<Object>} { success, tools, total }
+ */
+export const fetchMcpToolsViaBackend = async (name, url, options = {}) => {
+  const response = await fetch(`${getBackendUrl()}/api/mcp-tools/fetch`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      name,
+      url,
+      transport: options.transport,
+      bearerToken: options.bearerToken,
+      headers: options.headers,
+    }),
+  })
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: 'Unknown error' }))
+    throw new Error(error.error || error.message || `Backend error: ${response.status}`)
+  }
+
+  return response.json()
+}

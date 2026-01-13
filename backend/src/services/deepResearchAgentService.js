@@ -150,6 +150,7 @@ const buildResearchStepEvent = ({ stepIndex, totalSteps, title, status, duration
   error: error ? String(error.message || error) : undefined,
 })
 
+// collect web search sources
 const collectWebSearchSources = (result, sourcesMap) => {
   if (!result?.results || !Array.isArray(result.results)) return
   result.results.forEach(item => {

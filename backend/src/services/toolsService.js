@@ -13,12 +13,13 @@ const TOOL_ALIASES = {
 const resolveToolName = toolName => TOOL_ALIASES[toolName] || toolName
 
 const resolveTavilyApiKey = toolConfig => {
-  const envKey = process.env.TAVILY_API_KEY || process.env.PUBLIC_TAVILY_API_KEY
-  if (envKey) return envKey
+  // Priority: User settings (Supabase) > Environment variables
   if (toolConfig?.tavilyApiKey) return toolConfig.tavilyApiKey
   if (toolConfig?.searchProvider === 'tavily' && toolConfig?.searchApiKey) {
     return toolConfig.searchApiKey
   }
+  const envKey = process.env.TAVILY_API_KEY || process.env.PUBLIC_TAVILY_API_KEY
+  if (envKey) return envKey
   return ''
 }
 

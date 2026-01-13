@@ -1,5 +1,6 @@
 import clsx from 'clsx'
 import {
+  Blocks,
   Bookmark,
   ChevronDown,
   ChevronUp,
@@ -12,13 +13,10 @@ import {
   Pin,
   Plus,
   Settings,
-  Wrench,
   Smile,
   SquareStack,
   Sun,
   Trash2,
-  Hammer,
-  Database,
 } from 'lucide-react'
 import React, { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -37,6 +35,7 @@ import { deleteConversation } from '../lib/supabase'
 import DotLoader from './DotLoader'
 import EmojiDisplay from './EmojiDisplay'
 import Logo from './Logo'
+import MCPIcon from '../assets/mcp.svg'
 
 const SIDEBAR_FETCH_LIMIT = 20
 
@@ -45,7 +44,6 @@ const Sidebar = ({
   onClose, // Mobile state
   onOpenSettings,
   onOpenTools,
-  onOpenKnowledgeBase,
   onNavigate,
   onNavigateToSpace,
   onCreateSpace,
@@ -748,7 +746,7 @@ const Sidebar = ({
           <div className="flex-1" />
 
           {/* Theme Toggle Button */}
-          <div className="mb-2">
+          <div className="flex flex-col items-center gap-3">
             <button
               onClick={onToggleTheme}
               className="w-10 h-10 flex items-center justify-center rounded-full bg-user-bubble dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-transform duration-200 hover:scale-110 active:scale-95 cursor-pointer"
@@ -756,30 +754,16 @@ const Sidebar = ({
             >
               {getThemeIcon()}
             </button>
-          </div>
 
-          {/* Knowledge Base Button */}
-          {/* <div className="mb-2">
-            <button
-              onClick={onOpenKnowledgeBase}
-              className="w-10 h-10 flex items-center justify-center rounded-full bg-user-bubble dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-transform duration-200 hover:scale-110 active:scale-95 cursor-pointer"
-            >
-              <Database size={20} />
-            </button>
-          </div> */}
-
-          {/* Tools Button */}
-          <div className="mb-2">
+            {/* Tools Button */}
             <button
               onClick={onOpenTools}
               className="w-10 h-10 flex items-center justify-center rounded-full bg-user-bubble dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-transform duration-200 hover:scale-110 active:scale-95 cursor-pointer"
             >
-              <Hammer size={20} />
+              <Blocks size={20} />
             </button>
-          </div>
 
-          {/* Settings Button (Icon Only) */}
-          <div className="mb-2">
+            {/* Settings Button (Icon Only) */}
             <button
               onClick={onOpenSettings}
               className="w-10 h-10 flex items-center justify-center rounded-full bg-user-bubble dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-transform duration-200 hover:scale-110 active:scale-95 cursor-pointer"

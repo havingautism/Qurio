@@ -1,7 +1,7 @@
-import { useNavigate } from '@tanstack/react-router'
 import clsx from 'clsx'
 import {
   Bookmark,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   FileText,
@@ -10,8 +10,6 @@ import {
   FileCode,
   File,
   Layers,
-  LogOut,
-  MoreHorizontal,
   Pencil,
   Trash2,
   UploadCloud,
@@ -21,7 +19,6 @@ import {
 import { useCallback, useEffect, useState, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAppContext } from '../App'
-import DropdownMenu from '../components/DropdownMenu'
 import EmojiDisplay from '../components/EmojiDisplay'
 import FancyLoader from '../components/FancyLoader'
 import { useToast } from '../contexts/ToastContext'
@@ -45,7 +42,7 @@ import {
 import { persistDocumentChunks, persistDocumentSections } from '../lib/documentIndexService'
 import { fetchEmbeddingVector, resolveEmbeddingConfig } from '../lib/embeddingService'
 import { computeSha256 } from '../lib/hash'
-import { deleteConversation, removeConversationFromSpace } from '../lib/supabase'
+import { deleteConversation } from '../lib/supabase'
 import { spaceRoute } from '../router'
 
 const FileIcon = ({ fileType, className }) => {
@@ -70,7 +67,6 @@ const FileIcon = ({ fileType, className }) => {
 const SpaceView = () => {
   const { t, i18n } = useTranslation()
   const { spaceId } = spaceRoute.useParams()
-  const navigate = useNavigate()
   const { spaces, isSidebarPinned, onEditSpace, onOpenConversation, showConfirmation } =
     useAppContext()
 
@@ -112,9 +108,8 @@ const SpaceView = () => {
   const [totalCount, setTotalCount] = useState(0)
   const limit = 10
 
-  // State for dropdown menu
-  const [openMenuId, setOpenMenuId] = useState(null)
-  const [menuAnchorEl, setMenuAnchorEl] = useState(null)
+  // State for collapsible actions
+  const [expandedActionId, setExpandedActionId] = useState(null)
 
   // State for space documents
   const [spaceDocuments, setSpaceDocuments] = useState([])
@@ -233,23 +228,6 @@ const SpaceView = () => {
       })
     },
     [showConfirmation, setCurrentPage, toastSuccess, toastError, t],
-  )
-
-  const handleRemoveFromSpace = useCallback(
-    async conversation => {
-      const { data, error } = await removeConversationFromSpace(conversation.id)
-
-      if (!error && data) {
-        toastSuccess(t('views.spaceView.removedFromSpace'))
-        setCurrentPage(1)
-        // Notify Sidebar to refresh its conversation list
-        window.dispatchEvent(new Event('conversations-changed'))
-      } else {
-        console.error('Failed to remove conversation from space:', error)
-        toastError(t('views.spaceView.failedToRemove'))
-      }
-    },
-    [toastSuccess, toastError, t],
   )
 
   const handleToggleFavorite = useCallback(
@@ -723,48 +701,55 @@ const SpaceView = () => {
                         )}
                         onClick={e => {
                           e.stopPropagation()
-                          setOpenMenuId(conv.id)
-                          setMenuAnchorEl(e.currentTarget)
+                          setExpandedActionId(prev => (prev === conv.id ? null : conv.id))
                         }}
                       >
-                        <MoreHorizontal size={16} strokeWidth={2} />
+                        <ChevronDown
+                          size={16}
+                          strokeWidth={2}
+                          className={clsx(
+                            'transition-transform duration-200',
+                            expandedActionId === conv.id && 'rotate-180',
+                          )}
+                        />
                       </button>
-                      <DropdownMenu
-                        isOpen={openMenuId === conv.id}
-                        anchorEl={openMenuId === conv.id ? menuAnchorEl : null}
-                        onClose={() => {
-                          setOpenMenuId(null)
-                          setMenuAnchorEl(null)
-                        }}
-                        items={[
-                          {
-                            label: conv.is_favorited
-                              ? t('views.removeBookmark')
-                              : t('views.addBookmark'),
-                            icon: (
-                              <Bookmark
-                                size={14}
-                                className={conv.is_favorited ? 'fill-current' : ''}
-                              />
-                            ),
-                            onClick: () => handleToggleFavorite(conv),
-                            className: conv.is_favorited ? 'text-yellow-500' : '',
-                          },
-                          {
-                            label: t('views.removeFromSpace'),
-                            icon: <LogOut size={14} />,
-                            onClick: () => handleRemoveFromSpace(conv),
-                          },
-                          {
-                            label: t('views.deleteConversation'),
-                            icon: <Trash2 size={14} />,
-                            danger: true,
-                            onClick: () => handleDeleteConversation(conv),
-                          },
-                        ]}
-                      />
                     </div>
                   </div>
+
+                  {/* Collapsible Actions Section */}
+                  {expandedActionId === conv.id && (
+                    <div className="flex flex-wrap gap-2 mt-3 px-1 animate-in fade-in slide-in-from-top-1">
+                      <button
+                        onClick={e => {
+                          e.stopPropagation()
+                          handleToggleFavorite(conv)
+                          setExpandedActionId(null)
+                        }}
+                        className={clsx(
+                          'flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors',
+                          conv.is_favorited
+                            ? 'bg-yellow-50 text-yellow-600 border-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-400 dark:border-yellow-800/30'
+                            : 'bg-white dark:bg-zinc-900 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-zinc-800 hover:bg-gray-50 dark:hover:bg-zinc-800',
+                        )}
+                      >
+                        <Bookmark size={13} className={clsx(conv.is_favorited && 'fill-current')} />
+                        <span>
+                          {conv.is_favorited ? t('views.removeBookmark') : t('views.addBookmark')}
+                        </span>
+                      </button>
+                      <button
+                        onClick={e => {
+                          e.stopPropagation()
+                          handleDeleteConversation(conv)
+                          setExpandedActionId(null)
+                        }}
+                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium bg-white dark:bg-zinc-900 text-red-600 dark:text-red-400 border border-red-100 dark:border-red-900/30 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                      >
+                        <Trash2 size={13} />
+                        <span>{t('views.deleteConversation')}</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
           </div>

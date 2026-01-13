@@ -14,6 +14,7 @@ import {
   CloudAlert,
   Hammer,
   Box,
+  Loader2,
 } from 'lucide-react'
 import {
   createUserTool,
@@ -1436,25 +1437,29 @@ const ToolsModal = ({ isOpen, onClose }) => {
                     <button
                       onClick={() => handleDeleteMcpGroup(editingServerUrl)}
                       disabled={updatingServerUrl}
-                      className="flex items-center justify-center gap-2 px-6 py-2.5 bg-red-600/10 hover:bg-red-600 disabled:bg-red-600/30 text-red-600 hover:text-white border border-red-600/20 rounded-xl font-semibold transition-all"
+                      className="flex items-center justify-center gap-2 px-4 py-2 bg-red-600/10 hover:bg-red-600 disabled:bg-red-600/30 text-red-600 hover:text-white border border-red-600/20 rounded-lg text-sm font-medium transition-all cursor-pointer"
                     >
-                      <Trash2 size={18} />
+                      <Trash2 size={16} />
                       {t('customTools.mcp.deleteGroup')}
                     </button>
                     <div className="flex items-center gap-3">
                       <button
                         onClick={handleCancelEditServerUrl}
                         disabled={updatingServerUrl}
-                        className="px-6 py-2.5 bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-xl font-semibold transition-colors"
+                        className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
                       >
                         {t('common.cancel')}
                       </button>
                       <button
                         onClick={handleUpdateServerUrl}
                         disabled={updatingServerUrl}
-                        className="flex items-center justify-center gap-2 px-6 py-2.5 bg-primary-600 hover:bg-primary-700 disabled:bg-primary-400 text-white rounded-xl font-bold transition-all shadow-lg shadow-primary-500/10 active:scale-[0.98]"
+                        className="flex items-center justify-center gap-2 px-4 py-2 bg-primary-500 text-white hover:opacity-90 rounded-lg text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                       >
-                        <Save size={18} />
+                        {updatingServerUrl ? (
+                          <Loader2 size={16} className="animate-spin" />
+                        ) : (
+                          <Save size={16} />
+                        )}
                         {updatingServerUrl ? t('common.loading') : t('common.save')}
                       </button>
                     </div>
@@ -1465,7 +1470,7 @@ const ToolsModal = ({ isOpen, onClose }) => {
                       setIsCreating(false)
                       setEditingTool(null)
                     }}
-                    className="px-6 py-2.5 bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-xl font-semibold transition-colors"
+                    className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
                   >
                     {t('common.cancel')}
                   </button>
@@ -1476,15 +1481,15 @@ const ToolsModal = ({ isOpen, onClose }) => {
                         setIsCreating(false)
                         setEditingTool(null)
                       }}
-                      className="px-6 py-2.5 bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-xl font-semibold transition-colors"
+                      className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
                     >
                       {t('common.cancel')}
                     </button>
                     <button
                       onClick={handleSave}
-                      className="flex items-center justify-center gap-2 px-6 py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-xl font-bold transition-all shadow-lg shadow-primary-500/10 active:scale-[0.98]"
+                      className="flex items-center justify-center gap-2 px-4 py-2 bg-primary-500 text-white hover:opacity-90 rounded-lg text-sm font-medium transition-all cursor-pointer"
                     >
-                      <Save size={18} />
+                      <Save size={16} />
                       {isCreating ? t('customTools.form.save') : t('customTools.form.saveChanges')}
                     </button>
                   </>

@@ -9,7 +9,6 @@ import {
   ChevronRight,
   Clock,
   Library as LibraryIcon,
-  MoreHorizontal,
   Plus,
   Search,
   Trash2,
@@ -18,7 +17,6 @@ import {
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAppContext } from '../App'
-import DropdownMenu from '../components/DropdownMenu'
 import EmojiDisplay from '../components/EmojiDisplay'
 import FancyLoader from '../components/FancyLoader'
 import { useToast } from '../contexts/ToastContext'
@@ -41,8 +39,7 @@ const LibraryView = () => {
   const [activeSearchQuery, setActiveSearchQuery] = useState('') // Query actually sent to server
   const [sortOption, setSortOption] = useState(SORT_OPTION_KEYS[0])
   const [isSortOpen, setIsSortOpen] = useState(false)
-  const [openMenuId, setOpenMenuId] = useState(null)
-  const [menuAnchorEl, setMenuAnchorEl] = useState(null)
+  const [expandedActionId, setExpandedActionId] = useState(null)
   const toast = useToast()
 
   const [conversations, setConversations] = useState([])
@@ -149,13 +146,19 @@ const LibraryView = () => {
 
   const normalizeTitleEmojis = value => {
     if (Array.isArray(value)) {
-      return value.map(item => String(item || '').trim()).filter(Boolean).slice(0, 1)
+      return value
+        .map(item => String(item || '').trim())
+        .filter(Boolean)
+        .slice(0, 1)
     }
     if (typeof value === 'string' && value.trim()) {
       try {
         const parsed = JSON.parse(value)
         if (Array.isArray(parsed)) {
-          return parsed.map(item => String(item || '').trim()).filter(Boolean).slice(0, 1)
+          return parsed
+            .map(item => String(item || '').trim())
+            .filter(Boolean)
+            .slice(0, 1)
         }
       } catch {
         return []
@@ -206,7 +209,7 @@ const LibraryView = () => {
       // Refresh data
       window.dispatchEvent(new Event('conversations-changed'))
     }
-    setOpenMenuId(null)
+    setExpandedActionId(null)
   }
 
   // Handle delete conversation
@@ -425,28 +428,65 @@ const LibraryView = () => {
                       </div>
                     </div>
 
-                    {/* Actions (always visible on mobile, visible on hover on desktop) */}
+                    {/* Actions */}
                     <div className="relative">
                       <button
                         onClick={e => {
                           e.stopPropagation()
-                          setOpenMenuId(conv.id)
-                          setMenuAnchorEl(e.currentTarget)
+                          setExpandedActionId(prev => (prev === conv.id ? null : conv.id))
                         }}
                         className={clsx(
                           'p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-all rounded-full hover:bg-black/5 dark:hover:bg-white/10',
-                          // Always visible on mobile
                           'opacity-100',
-                          // Show on hover on desktop
                           'md:opacity-0 md:group-hover:opacity-100',
-                          // Ensure button has minimum size for touch
                           'min-w-[44px] min-h-[44px] flex items-center justify-center',
                         )}
                       >
-                        <MoreHorizontal size={18} strokeWidth={2} />
+                        <ChevronDown
+                          size={18}
+                          strokeWidth={2}
+                          className={clsx(
+                            'transition-transform duration-200',
+                            expandedActionId === conv.id && 'rotate-180',
+                          )}
+                        />
                       </button>
                     </div>
                   </div>
+
+                  {/* Collapsible Actions Section */}
+                  {expandedActionId === conv.id && (
+                    <div className="flex flex-wrap gap-2 mt-2 px-1 animate-in fade-in slide-in-from-top-1">
+                      <button
+                        onClick={e => {
+                          e.stopPropagation()
+                          handleToggleFavorite(conv)
+                        }}
+                        className={clsx(
+                          'flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors',
+                          conv.is_favorited
+                            ? 'bg-yellow-50 text-yellow-600 border-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-400 dark:border-yellow-800/30'
+                            : 'bg-white dark:bg-zinc-900 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-zinc-800 hover:bg-gray-50 dark:hover:bg-zinc-800',
+                        )}
+                      >
+                        <Bookmark size={13} className={clsx(conv.is_favorited && 'fill-current')} />
+                        <span>
+                          {conv.is_favorited ? t('views.removeBookmark') : t('views.addBookmark')}
+                        </span>
+                      </button>
+                      <button
+                        onClick={e => {
+                          e.stopPropagation()
+                          handleDeleteConversation(conv)
+                          setExpandedActionId(null)
+                        }}
+                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium bg-white dark:bg-zinc-900 text-red-600 dark:text-red-400 border border-red-100 dark:border-red-900/30 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                      >
+                        <Trash2 size={13} />
+                        <span>{t('views.deleteConversation')}</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
               )
             })
@@ -489,36 +529,6 @@ const LibraryView = () => {
           </div>
         </div>
       )}
-
-      {/* Global DropdownMenu */}
-      <DropdownMenu
-        isOpen={!!openMenuId}
-        anchorEl={menuAnchorEl}
-        onClose={() => {
-          setOpenMenuId(null)
-          setMenuAnchorEl(null)
-        }}
-        items={(() => {
-          const activeConv = conversations.find(c => c.id === openMenuId)
-          if (!activeConv) return []
-          return [
-            {
-              label: activeConv.is_favorited ? t('views.removeBookmark') : t('views.addBookmark'),
-              icon: (
-                <Bookmark size={14} className={activeConv.is_favorited ? 'fill-current' : ''} />
-              ),
-              onClick: () => handleToggleFavorite(activeConv),
-              className: activeConv.is_favorited ? 'text-yellow-500' : '',
-            },
-            {
-              label: t('views.deleteConversation'),
-              icon: <Trash2 size={14} />,
-              danger: true,
-              onClick: () => handleDeleteConversation(activeConv),
-            },
-          ]
-        })()}
-      />
     </div>
   )
 }

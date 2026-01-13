@@ -120,11 +120,7 @@
       "syncSuccess": "✅ Sync complete!\nServer: {{server}}\n• Updated: {{updated}} tools\n• Added: {{added}} tools\n• Total: {{total}} tools",
       "syncFailed": "❌ Sync failed: {{error}}",
       "syncInfo": "After updating URL, it will automatically:",
-      "syncSteps": [
-        "Connect to server to fetch latest tool list",
-        "Update existing tools",
-        "Add new tools automatically"
-      ]
+      "syncSteps": ["Connect to server to fetch latest tool list", "Update existing tools"]
     },
     "selectTool": "Select a tool to edit",
     "selectToolHelp": "Or create a new custom tool to extend your agent's capabilities.",

@@ -104,7 +104,7 @@
       "syncSuccess": "✅ 同步完成！\n服务器: {{server}}\n• 更新: {{updated}} 个工具\n• 新增: {{added}} 个工具\n• 总计: {{total}} 个工具",
       "syncFailed": "❌ 同步失败: {{error}}",
       "syncInfo": "更新 URL 后将自动：",
-      "syncSteps": ["连接服务器获取最新工具列表", "更新已存在的工具", "自动添加新工具"]
+      "syncSteps": ["连接服务器获取最新工具列表", "更新已存在的工具"]
     },
     "selectTool": "选择一个工具进行编辑",
     "selectToolHelp": "或者创建一个新的自定义工具以扩展 Agent 能力。",

@@ -11,7 +11,9 @@
     "off": "Off",
     "commit": "Commit",
     "commited": "Commited",
-    "uploadImage": "Upload Image"
+    "uploadImage": "Upload Image",
+    "selectAll": "Select All",
+    "deselectAll": "Deselect All"
   },
   "app": {
     "name": "Qurio",
@@ -102,7 +104,11 @@
       "syncSuccess": "✅ Sync complete!\nServer: {{server}}\n• Updated: {{updated}} tools\n• Added: {{added}} tools\n• Total: {{total}} tools",
       "syncFailed": "❌ Sync failed: {{error}}",
       "syncInfo": "After updating URL, it will automatically:",
-      "syncSteps": ["Connect to server to fetch latest tool list", "Update existing tools", "Add new tools automatically"]
+      "syncSteps": [
+        "Connect to server to fetch latest tool list",
+        "Update existing tools",
+        "Add new tools automatically"
+      ]
     },
     "selectTool": "Select a tool to edit",
     "selectToolHelp": "Or create a new custom tool to extend your agent's capabilities.",
@@ -532,7 +538,7 @@
         "text": "Text",
         "json": "JSON",
         "web": "Web",
-        "custom": "Custom Tools",
+        "custom": "MCPs",
         "other": "Other"
       }
     },

@@ -13,15 +13,16 @@ import {
   ChevronRight,
   CloudAlert,
   Hammer,
+  Box,
 } from 'lucide-react'
 import {
   createUserTool,
   deleteUserTool,
   getUserTools,
   updateUserTool,
-  updateMcpServerUrl,
   syncMcpTools,
 } from '../lib/userToolsService'
+import { getPublicEnv } from '../lib/publicEnv'
 import { fetchMcpToolsViaBackend } from '../lib/backendClient'
 import clsx from 'clsx'
 import { useTranslation } from 'react-i18next'
@@ -173,9 +174,13 @@ const ToolsModal = ({ isOpen, onClose }) => {
     setMcpToolsLoading(true)
     try {
       const settings = JSON.parse(localStorage.getItem('qurio-settings') || '{}')
-      const backendUrl = settings.backendUrl || 'http://localhost:3001'
+      const backendUrl =
+        getPublicEnv('PUBLIC_BACKEND_URL') || settings.backendUrl || 'http://localhost:3001'
 
-      console.log('[MCP] Loading tools from:', { name: formData.serverName, url: formData.serverUrl })
+      console.log('[MCP] Loading tools from:', {
+        name: formData.serverName,
+        url: formData.serverUrl,
+      })
 
       const response = await fetch(`${backendUrl}/api/mcp-tools/servers`, {
         method: 'POST',
@@ -259,7 +264,7 @@ const ToolsModal = ({ isOpen, onClose }) => {
       if (formData.params.trim()) {
         try {
           params = JSON.parse(formData.params)
-        } catch (e) {
+        } catch {
           alert(t('customTools.invalidJson'))
           return
         }
@@ -394,12 +399,14 @@ const ToolsModal = ({ isOpen, onClose }) => {
       setNewServerUrl('')
 
       // Show detailed sync result
-      alert(t('customTools.mcp.syncSuccess', {
-        server: syncResult.serverName,
-        updated: syncResult.updated,
-        added: syncResult.added,
-        total: fetchResult.total
-      }))
+      alert(
+        t('customTools.mcp.syncSuccess', {
+          server: syncResult.serverName,
+          updated: syncResult.updated,
+          added: syncResult.added,
+          total: fetchResult.total,
+        }),
+      )
     } catch (error) {
       console.error('Failed to sync MCP tools:', error)
       alert(t('customTools.mcp.syncFailed', { error: error.message }))
@@ -441,13 +448,13 @@ const ToolsModal = ({ isOpen, onClose }) => {
           groups.set(groupKey, {
             type: 'mcp',
             name: tool.config?.serverName || 'Unknown Server',
-            tools: []
+            tools: [],
           })
         } else {
           groups.set(groupKey, {
             type: 'http',
             name: 'HTTP 自定义工具',
-            tools: []
+            tools: [],
           })
         }
       }
@@ -480,30 +487,32 @@ const ToolsModal = ({ isOpen, onClose }) => {
         {/* LEFT PANE: List */}
         <div
           className={clsx(
-            'flex flex-col w-full md:w-72 bg-primary-50 dark:bg-background/70 border-r border-gray-200 dark:border-zinc-800 h-full shrink-0',
+            'flex flex-col w-full md:w-80 bg-gray-50/50 dark:bg-zinc-900/50 border-r border-gray-200 dark:border-zinc-800 h-full shrink-0',
             showForm ? 'hidden md:flex' : 'flex',
           )}
         >
-          <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-zinc-800 flex flex-col gap-4 mt-8 md:mt-0">
-            <h2 className="text-xl font-bold px-1 text-gray-900 dark:text-white">
-              {t('customTools.title')}
-            </h2>
-            <div className="relative">
+          <div className="p-6 border-b border-gray-200 dark:border-zinc-800 flex flex-col gap-4 mt-8 md:mt-0">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                {t('customTools.title')}
+              </h2>
+            </div>
+            <div className="relative group">
               <Search
                 size={14}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-primary-500 transition-colors"
               />
               <input
                 type="text"
                 placeholder={t('customTools.searchPlaceholder')}
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 text-sm bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                className="w-full pl-9 pr-4 py-2 text-sm bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500/50 transition-all"
               />
             </div>
             <button
               onClick={handleCreate}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-lg hover:bg-primary-700 transition-all shadow-sm active:scale-95"
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-xl hover:bg-primary-700 transition-all shadow-sm active:scale-95"
             >
               <Plus size={16} />
               {t('customTools.create')}
@@ -536,7 +545,7 @@ const ToolsModal = ({ isOpen, onClose }) => {
                           size={14}
                           className={clsx(
                             'transition-transform text-gray-400',
-                            !collapsedGroups.has(group.name) && 'rotate-90'
+                            !collapsedGroups.has(group.name) && 'rotate-90',
                           )}
                         />
                         {group.type === 'mcp' && (
@@ -567,62 +576,62 @@ const ToolsModal = ({ isOpen, onClose }) => {
                   {/* Tools in this group */}
                   {!collapsedGroups.has(group.name) && (
                     <div className="space-y-2">
-                    {group.tools.map(tool => (
-                      <div
-                        key={tool.id}
-                        onClick={() => handleEdit(tool)}
-                        className={clsx(
-                          'group flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer select-none',
-                          editingTool?.id === tool.id
-                            ? 'bg-primary-100 dark:bg-zinc-800 border-primary-500/30 shadow-sm'
-                            : 'bg-white dark:bg-zinc-900 border-transparent hover:bg-primary-50 dark:hover:bg-zinc-800/50 hover:border-gray-200 dark:hover:border-zinc-700 hover:shadow-sm',
-                        )}
-                      >
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2 mb-0.5">
-                            <span
-                              className={clsx(
-                                'text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider',
-                                tool.type === 'mcp'
-                                  ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300'
-                                  : tool.config.method === 'GET'
-                                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
-                                    : tool.config.method === 'POST'
-                                      ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
-                                      : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400',
-                              )}
-                            >
-                              {tool.type === 'mcp' ? 'MCP' : tool.config.method}
-                            </span>
-                            <span
-                              className={clsx(
-                                'text-sm font-semibold truncate',
-                                editingTool?.id === tool.id
-                                  ? 'text-primary-600 dark:text-primary-400'
-                                  : 'text-gray-900 dark:text-gray-100',
-                              )}
-                            >
-                              {tool.name}
-                            </span>
-                          </div>
-                          <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate pl-1 font-mono opacity-60">
-                            {tool.type === 'mcp'
-                              ? tool.config.toolName || tool.name
-                              : tool.config.url}
-                          </div>
-                        </div>
-                        <button
-                          onClick={e => {
-                            e.stopPropagation()
-                            handleDelete(tool.id)
-                          }}
-                          className="p-1.5 text-gray-400 opacity-0 group-hover:opacity-100 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all"
+                      {group.tools.map(tool => (
+                        <div
+                          key={tool.id}
+                          onClick={() => handleEdit(tool)}
+                          className={clsx(
+                            'group flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer select-none',
+                            editingTool?.id === tool.id
+                              ? 'bg-primary-100 dark:bg-zinc-800 border-primary-500/30 shadow-sm'
+                              : 'bg-white dark:bg-zinc-900 border-transparent hover:bg-primary-50 dark:hover:bg-zinc-800/50 hover:border-gray-200 dark:hover:border-zinc-700 hover:shadow-sm',
+                          )}
                         >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 mb-0.5">
+                              <span
+                                className={clsx(
+                                  'text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider',
+                                  tool.type === 'mcp'
+                                    ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300'
+                                    : tool.config.method === 'GET'
+                                      ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
+                                      : tool.config.method === 'POST'
+                                        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+                                        : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400',
+                                )}
+                              >
+                                {tool.type === 'mcp' ? 'MCP' : tool.config.method}
+                              </span>
+                              <span
+                                className={clsx(
+                                  'text-sm font-semibold truncate',
+                                  editingTool?.id === tool.id
+                                    ? 'text-primary-600 dark:text-primary-400'
+                                    : 'text-gray-900 dark:text-gray-100',
+                                )}
+                              >
+                                {tool.name}
+                              </span>
+                            </div>
+                            <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate pl-1 font-mono opacity-60">
+                              {tool.type === 'mcp'
+                                ? tool.config.toolName || tool.name
+                                : tool.config.url}
+                            </div>
+                          </div>
+                          <button
+                            onClick={e => {
+                              e.stopPropagation()
+                              handleDelete(tool.id)
+                            }}
+                            className="p-1.5 text-gray-400 opacity-0 group-hover:opacity-100 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </div>
               ))
@@ -637,7 +646,7 @@ const ToolsModal = ({ isOpen, onClose }) => {
             !showForm && 'hidden md:flex',
           )}
         >
-          <div className="h-16 border-b border-gray-200 dark:border-zinc-800 flex items-center justify-between px-4 sm:px-8">
+          <div className="h-16 shrink-0 border-b border-gray-200 dark:border-zinc-800 flex items-center justify-between px-4 sm:px-8 bg-white/50 dark:bg-[#191a1a]/50 backdrop-blur-sm z-10">
             <div className="flex items-center gap-3">
               {showForm && (
                 <button
@@ -646,413 +655,425 @@ const ToolsModal = ({ isOpen, onClose }) => {
                     setEditingTool(null)
                     setIsEditingServerUrl(false)
                   }}
-                  className="md:hidden p-2 -ml-2 text-gray-600 dark:text-gray-400"
+                  className="md:hidden p-2 -ml-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
                 >
                   <ChevronRight size={20} className="rotate-180" />
                 </button>
               )}
-              <h3 className="font-semibold text-gray-900 dark:text-white capitalize">
-                {isEditingServerUrl
-                  ? `${t('customTools.mcp.updateServerUrl')}: ${editingServerUrl}`
-                  : showForm
-                    ? isCreating
-                      ? t('customTools.createTitle')
-                      : t('customTools.editTitle')
-                    : t('customTools.selectTool')}
-              </h3>
+              <div className="flex flex-col">
+                <h3 className="font-bold text-gray-900 dark:text-white">
+                  {isEditingServerUrl
+                    ? t('customTools.mcp.updateServerUrl')
+                    : showForm
+                      ? isCreating
+                        ? t('customTools.createTitle')
+                        : t('customTools.editTitle')
+                      : t('customTools.selectTool')}
+                </h3>
+                {isEditingServerUrl && (
+                  <span className="text-[10px] text-gray-500 dark:text-gray-400 font-mono mt-0.5">
+                    {editingServerUrl}
+                  </span>
+                )}
+              </div>
             </div>
-            <div className="w-10 h-10 hidden md:block" />
           </div>
 
           {showForm ? (
-            <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-8 sm:py-8 min-h-0">
-              <div className="max-w-2xl mx-auto space-y-8">
-                {/* Edit Server URL Mode */}
-                {isEditingServerUrl ? (
-                  <>
-                    <div className="hidden md:block">
-                      <h3 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">
-                        {t('customTools.mcp.updateServerUrl')}: {editingServerUrl}
-                      </h3>
-                      <p className="text-gray-500 dark:text-gray-400 text-sm">
-                        更新此 MCP 服务器的 URL 以获取最新的工具定义
-                      </p>
-                    </div>
-
-                    <div className="space-y-6">
-                      {/* Current URL (display only) */}
-                      <div className="bg-gray-50 dark:bg-zinc-900/60 p-4 rounded-xl border border-gray-200 dark:border-zinc-700">
-                        <label className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2 block">
-                          {t('customTools.mcp.currentUrl')}
-                        </label>
-                        <div className="text-sm text-gray-900 dark:text-gray-100 font-mono break-all">
-                          {newServerUrl || 'N/A'}
-                        </div>
-                      </div>
-
-                      {/* New URL Input */}
-                      <FormInput
-                        label={t('customTools.mcp.newUrl')}
-                        value={newServerUrl}
-                        onChange={setNewServerUrl}
-                        placeholder="https://xxx.modelscope.cn/mcp/..."
-                        icon={<Globe size={14} />}
-                      />
-
-                      <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-100 dark:border-blue-900/30">
-                        <p className="text-sm text-blue-800 dark:text-blue-300">
-                          ℹ️ {t('customTools.mcp.syncInfo')}
+            <div className="flex-1 flex flex-col min-h-0">
+              <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-8 sm:py-8">
+                <div className="max-w-2xl mx-auto space-y-8">
+                  {/* Edit Server URL Mode */}
+                  {isEditingServerUrl ? (
+                    <>
+                      <div className="hidden md:block">
+                        <h3 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">
+                          {t('customTools.mcp.updateServerUrl')}: {editingServerUrl}
+                        </h3>
+                        <p className="text-gray-500 dark:text-gray-400 text-sm">
+                          更新此 MCP 服务器的 URL 以获取最新的工具定义
                         </p>
-                        <ul className="text-sm text-blue-800 dark:text-blue-300 mt-2 space-y-1 list-disc list-inside">
-                          {t('customTools.mcp.syncSteps', { returnObjects: true }).map((step, index) => (
-                            <li key={index}>{step}</li>
-                          ))}
-                        </ul>
                       </div>
-                    </div>
 
-                    {/* Action Buttons */}
-                    <div className="pt-4 flex flex-col gap-3 pb-8 md:pb-0">
-                      <button
-                        onClick={handleUpdateServerUrl}
-                        disabled={updatingServerUrl}
-                        className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-primary-600 hover:bg-primary-700 disabled:bg-primary-400 text-white rounded-xl font-medium transition-all active:scale-95"
-                      >
-                        <Save size={18} />
-                        {updatingServerUrl ? t('common.loading') : t('common.save')}
-                      </button>
-                      <button
-                        onClick={handleCancelEditServerUrl}
-                        disabled={updatingServerUrl}
-                        className="px-6 py-3 bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-xl font-medium transition-colors"
-                      >
-                        {t('common.cancel')}
-                      </button>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="hidden md:block">
-                      <h3 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">
-                        {isCreating ? t('customTools.createTitle') : t('customTools.editTitle')}
-                      </h3>
-                      <p className="text-gray-500 dark:text-gray-400 text-sm">
-                        {t('customTools.tooltip')}
-                      </p>
-                    </div>
-
-                {/* Tool Type Selector */}
-                {isCreating && (
-                  <div className="space-y-4">
-                    <label className="text-xs font-medium text-gray-700 dark:text-gray-300 block mb-1.5">
-                      {t('customTools.form.toolType')}
-                    </label>
-                    <div className="flex gap-3">
-                      <button
-                        type="button"
-                        onClick={() => setFormData({ ...formData, toolType: 'http' })}
-                        className={clsx(
-                          'flex-1 px-4 py-3 rounded-xl border-2 font-medium text-sm transition-all',
-                          formData.toolType === 'http'
-                            ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300'
-                            : 'border-gray-200 dark:border-zinc-700 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-zinc-600',
-                        )}
-                      >
-                        HTTP
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setFormData({ ...formData, toolType: 'mcp' })}
-                        className={clsx(
-                          'flex-1 px-4 py-3 rounded-xl border-2 font-medium text-sm transition-all',
-                          formData.toolType === 'mcp'
-                            ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300'
-                            : 'border-gray-200 dark:border-zinc-700 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-zinc-600',
-                        )}
-                      >
-                        MCP
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* MCP Form */}
-                {formData.toolType === 'mcp' && (
-                  <>
-                    {/* Edit mode: Show tool details */}
-                    {!isCreating && editingTool ? (
                       <div className="space-y-6">
-                        {/* Tool Name */}
-                        <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-xl border border-purple-100 dark:border-purple-900/30">
-                          <label className="text-xs font-medium text-purple-800 dark:text-purple-300 mb-1 block">
-                            {t('customTools.form.name')}
-                          </label>
-                          <div className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                            {editingTool.config?.toolName || editingTool.name}
-                          </div>
-                        </div>
-
-                        {/* Tool Description */}
-                        {editingTool.description && (
-                          <div className="bg-gray-50 dark:bg-zinc-900/60 p-4 rounded-xl border border-gray-100 dark:border-zinc-800">
-                            <label className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2 block">
-                              {t('customTools.form.description')}
-                            </label>
-                            <div className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
-                              {editingTool.description.replace(/^\[MCP.*?\]\s*/, '')}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Parameters */}
-                        {editingTool.parameters && (
-                          <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-100 dark:border-blue-900/30">
-                            <label className="text-xs font-medium text-blue-800 dark:text-blue-300 mb-2 block">
-                              参数定义
-                            </label>
-                            <pre className="text-xs text-gray-700 dark:text-gray-300 overflow-x-auto">
-                              {JSON.stringify(editingTool.parameters, null, 2)}
-                            </pre>
-                          </div>
-                        )}
-
-                        {/* Server Info */}
+                        {/* Current URL (display only) */}
                         <div className="bg-gray-50 dark:bg-zinc-900/60 p-4 rounded-xl border border-gray-200 dark:border-zinc-700">
                           <label className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2 block">
-                            服务器信息
+                            {t('customTools.mcp.currentUrl')}
                           </label>
-                          <div className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
-                            <div><span className="font-medium">服务器：</span>{editingTool.config?.serverName || 'N/A'}</div>
-                            <div className="font-mono text-xs break-all">
-                              <span className="font-medium">URL：</span>{editingTool.config?.serverUrl || 'N/A'}
-                            </div>
+                          <div className="text-sm text-gray-900 dark:text-gray-100 font-mono break-all">
+                            {newServerUrl || 'N/A'}
                           </div>
                         </div>
 
-                        <div className="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-lg border border-yellow-200 dark:border-yellow-900/30">
-                          <p className="text-sm text-yellow-800 dark:text-yellow-300">
-                            ℹ️ MCP 工具无法编辑，如需更改请删除后重新添加
-                          </p>
-                        </div>
-                      </div>
-                    ) : (
-                      /* Create mode: Show server configuration form */
-                      <div className="space-y-4">
+                        {/* New URL Input */}
                         <FormInput
-                          label={t('customTools.form.serverName')}
-                          value={formData.serverName}
-                          onChange={v => setFormData({ ...formData, serverName: v })}
-                          placeholder="12306-mcp"
-                          icon={<Settings size={14} />}
-                        />
-                        <FormInput
-                          label={t('customTools.form.serverUrl')}
-                          value={formData.serverUrl}
-                          onChange={v => setFormData({ ...formData, serverUrl: v })}
+                          label={t('customTools.mcp.newUrl')}
+                          value={newServerUrl}
+                          onChange={setNewServerUrl}
                           placeholder="https://xxx.modelscope.cn/mcp/..."
                           icon={<Globe size={14} />}
                         />
-                        <button
-                          type="button"
-                          onClick={loadMcpTools}
-                          disabled={mcpToolsLoading}
-                          className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-xl font-medium transition-all"
-                        >
-                          {mcpToolsLoading ? t('common.loading') : t('customTools.mcp.loadTools')}
-                        </button>
-                      </div>
-                    )}
 
-                    {/* MCP Tools List - show after loading, inside MCP branch */}
-                    {isCreating && mcpToolsList.length > 0 && (
-                      <>
-                        {/* Debug: Show tools list status */}
-                        {console.log('[MCP] Rendering tools list:', {
-                          isCreating,
-                          toolType: formData.toolType,
-                          mcpToolsListLength: mcpToolsList.length
-                        })}
-                        <div className="border-t border-gray-100 dark:border-zinc-800" />
-                        <div className="space-y-4">
-                          <label className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                            {t('customTools.mcp.availableTools')} ({mcpToolsList.length})
+                        <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-100 dark:border-blue-900/30">
+                          <p className="text-sm text-blue-800 dark:text-blue-300">
+                            ℹ️ {t('customTools.mcp.syncInfo')}
+                          </p>
+                          <ul className="text-sm text-blue-800 dark:text-blue-300 mt-2 space-y-1 list-disc list-inside">
+                            {t('customTools.mcp.syncSteps', { returnObjects: true }).map(
+                              (step, index) => (
+                                <li key={index}>{step}</li>
+                              ),
+                            )}
+                          </ul>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      {/* Redundant titles removed for cleaner look, handled by header */}
+
+                      {/* Tool Type Selector - Segmented Control */}
+                      {isCreating && (
+                        <div className="space-y-3">
+                          <label className="text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider block ml-1">
+                            {t('customTools.form.toolType')}
                           </label>
-                          <div className="space-y-2 max-h-64 overflow-y-auto">
-                            {mcpToolsList.map(tool => (
-                              <div
-                                key={tool.id}
-                                onClick={() => toggleMcpToolSelection(tool.id)}
-                                className={clsx(
-                                  'p-3 rounded-lg border-2 cursor-pointer transition-all',
-                                  selectedMcpTools.has(tool.id)
-                                    ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
-                                    : 'border-gray-200 dark:border-zinc-700 hover:border-gray-300 dark:hover:border-zinc-600',
-                                )}
-                              >
-                                <div className="flex items-start gap-3">
-                                  <div
-                                    className={clsx(
-                                      'mt-0.5 w-4 h-4 rounded border-2 flex items-center justify-center transition-all',
-                                      selectedMcpTools.has(tool.id)
-                                        ? 'border-primary-500 bg-primary-500'
-                                        : 'border-gray-300 dark:border-zinc-600',
-                                    )}
-                                  >
-                                    {selectedMcpTools.has(tool.id) && <Check size={12} className="text-white" />}
+                          <div className="bg-gray-100 dark:bg-zinc-800/80 p-1 rounded-xl flex items-center gap-1 border border-gray-200/50 dark:border-zinc-700/50">
+                            <button
+                              type="button"
+                              onClick={() => setFormData({ ...formData, toolType: 'mcp' })}
+                              className={clsx(
+                                'flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-semibold text-sm transition-all duration-200',
+                                formData.toolType === 'mcp'
+                                  ? 'bg-white dark:bg-zinc-700 text-primary-600 dark:text-primary-400 shadow-sm border border-gray-200 dark:border-zinc-600'
+                                  : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300',
+                              )}
+                            >
+                              <Box size={14} />
+                              MCP
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setFormData({ ...formData, toolType: 'http' })}
+                              className={clsx(
+                                'flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-semibold text-sm transition-all duration-200',
+                                formData.toolType === 'http'
+                                  ? 'bg-white dark:bg-zinc-700 text-primary-600 dark:text-primary-400 shadow-sm border border-gray-200 dark:border-zinc-600'
+                                  : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300',
+                              )}
+                            >
+                              <Globe size={14} />
+                              HTTP
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* MCP Form */}
+                      {formData.toolType === 'mcp' && (
+                        <>
+                          {/* Edit mode: Show tool details */}
+                          {!isCreating && editingTool ? (
+                            <div className="space-y-6">
+                              {/* Tool Name */}
+                              <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-xl border border-purple-100 dark:border-purple-900/30">
+                                <label className="text-xs font-medium text-purple-800 dark:text-purple-300 mb-1 block">
+                                  {t('customTools.form.name')}
+                                </label>
+                                <div className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                                  {editingTool.config?.toolName || editingTool.name}
+                                </div>
+                              </div>
+
+                              {/* Tool Description */}
+                              {editingTool.description && (
+                                <div className="bg-gray-50 dark:bg-zinc-900/60 p-4 rounded-xl border border-gray-100 dark:border-zinc-800">
+                                  <label className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2 block">
+                                    {t('customTools.form.description')}
+                                  </label>
+                                  <div className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+                                    {editingTool.description.replace(/^\[MCP.*?\]\s*/, '')}
                                   </div>
-                                  <div className="flex-1 min-w-0">
-                                    <div className="font-medium text-gray-900 dark:text-gray-100 text-sm">
-                                      {tool.name}
-                                    </div>
-                                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                                      {tool.description}
-                                    </div>
+                                </div>
+                              )}
+
+                              {/* Parameters */}
+                              {editingTool.parameters && (
+                                <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-100 dark:border-blue-900/30">
+                                  <label className="text-xs font-medium text-blue-800 dark:text-blue-300 mb-2 block">
+                                    参数定义
+                                  </label>
+                                  <pre className="text-xs text-gray-700 dark:text-gray-300 overflow-x-auto">
+                                    {JSON.stringify(editingTool.parameters, null, 2)}
+                                  </pre>
+                                </div>
+                              )}
+
+                              {/* Server Info */}
+                              <div className="bg-gray-50 dark:bg-zinc-900/60 p-4 rounded-xl border border-gray-200 dark:border-zinc-700">
+                                <label className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2 block">
+                                  服务器信息
+                                </label>
+                                <div className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
+                                  <div>
+                                    <span className="font-medium">服务器：</span>
+                                    {editingTool.config?.serverName || 'N/A'}
+                                  </div>
+                                  <div className="font-mono text-xs break-all">
+                                    <span className="font-medium">URL：</span>
+                                    {editingTool.config?.serverUrl || 'N/A'}
                                   </div>
                                 </div>
                               </div>
-                            ))}
+
+                              <div className="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-lg border border-yellow-200 dark:border-yellow-900/30">
+                                <p className="text-sm text-yellow-800 dark:text-yellow-300">
+                                  ℹ️ MCP 工具无法编辑，如需更改请删除后重新添加
+                                </p>
+                              </div>
+                            </div>
+                          ) : (
+                            /* Create mode: Show server configuration form */
+                            <div className="space-y-4">
+                              <FormInput
+                                label={t('customTools.form.serverName')}
+                                value={formData.serverName}
+                                onChange={v => setFormData({ ...formData, serverName: v })}
+                                placeholder="12306-mcp"
+                                icon={<Settings size={14} />}
+                              />
+                              <FormInput
+                                label={t('customTools.form.serverUrl')}
+                                value={formData.serverUrl}
+                                onChange={v => setFormData({ ...formData, serverUrl: v })}
+                                placeholder="https://xxx.modelscope.cn/mcp/..."
+                                icon={<Globe size={14} />}
+                              />
+                              <button
+                                type="button"
+                                onClick={loadMcpTools}
+                                disabled={mcpToolsLoading}
+                                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-primary-600 hover:bg-primary-700 disabled:bg-primary-400 text-white rounded-xl font-semibold transition-all shadow-md active:scale-[0.98]"
+                              >
+                                {mcpToolsLoading
+                                  ? t('common.loading')
+                                  : t('customTools.mcp.loadTools')}
+                              </button>
+                            </div>
+                          )}
+
+                          {/* MCP Tools List - show after loading, inside MCP branch */}
+                          {isCreating && mcpToolsList.length > 0 && (
+                            <>
+                              {/* Debug: Show tools list status */}
+                              {console.log('[MCP] Rendering tools list:', {
+                                isCreating,
+                                toolType: formData.toolType,
+                                mcpToolsListLength: mcpToolsList.length,
+                              })}
+                              <div className="border-t border-gray-100 dark:border-zinc-800" />
+                              <div className="space-y-4">
+                                <label className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                                  {t('customTools.mcp.availableTools')} ({mcpToolsList.length})
+                                </label>
+                                <div className="space-y-2 max-h-64 overflow-y-auto">
+                                  {mcpToolsList.map(tool => (
+                                    <div
+                                      key={tool.id}
+                                      onClick={() => toggleMcpToolSelection(tool.id)}
+                                      className={clsx(
+                                        'p-4 rounded-xl border transition-all duration-200 cursor-pointer group/item',
+                                        selectedMcpTools.has(tool.id)
+                                          ? 'border-primary-500 bg-primary-50/50 dark:bg-primary-900/10 shadow-sm'
+                                          : 'border-gray-100 dark:border-zinc-800 bg-white dark:bg-zinc-900/50 hover:border-gray-200 dark:hover:border-zinc-700 hover:bg-gray-50/50 dark:hover:bg-zinc-800/50',
+                                      )}
+                                    >
+                                      <div className="flex items-start gap-3">
+                                        <div
+                                          className={clsx(
+                                            'mt-0.5 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all duration-200',
+                                            selectedMcpTools.has(tool.id)
+                                              ? 'border-primary-500 bg-primary-500 shadow-[0_0_10px_rgba(var(--color-primary-500),0.3)]'
+                                              : 'border-gray-300 dark:border-zinc-700 bg-transparent',
+                                          )}
+                                        >
+                                          {selectedMcpTools.has(tool.id) && (
+                                            <Check size={14} className="text-white stroke-[3px]" />
+                                          )}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                          <div className="font-medium text-gray-900 dark:text-gray-100 text-sm">
+                                            {tool.name}
+                                          </div>
+                                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                            {tool.description}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </>
+                          )}
+                        </>
+                      )}
+
+                      {/* HTTP Form - show for non-MCP tools */}
+                      {formData.toolType === 'http' && (
+                        <>
+                          <div className="space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                              <div className="md:col-span-3">
+                                <FormInput
+                                  label={t('customTools.form.name')}
+                                  value={formData.name}
+                                  onChange={v => setFormData({ ...formData, name: v })}
+                                  placeholder={t('customTools.form.namePlaceholder')}
+                                  icon={<Code size={14} />}
+                                />
+                              </div>
+                              <div className="md:col-span-1">
+                                <label className="text-xs font-medium text-gray-700 dark:text-gray-300 block mb-1.5">
+                                  {t('customTools.form.method')}
+                                </label>
+                                <CustomSelect
+                                  value={formData.method}
+                                  onChange={v => setFormData({ ...formData, method: v })}
+                                  options={['GET', 'POST', 'PUT', 'DELETE']}
+                                />
+                              </div>
+                            </div>
+
+                            <FormInput
+                              label={t('customTools.form.description')}
+                              value={formData.description}
+                              onChange={v => setFormData({ ...formData, description: v })}
+                              placeholder={t('customTools.form.descriptionPlaceholder')}
+                              type="textarea"
+                            />
+
+                            <FormInput
+                              label={t('customTools.form.url')}
+                              value={formData.url}
+                              onChange={v => setFormData({ ...formData, url: v })}
+                              placeholder={t('customTools.form.urlPlaceholder')}
+                              icon={<Globe size={14} />}
+                            />
                           </div>
-                        </div>
-                      </>
-                    )}
-                  </>
-                )}
 
-                {/* HTTP Form - show for non-MCP tools */}
-                {formData.toolType === 'http' && (
-                  <>
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        <div className="md:col-span-3">
-                          <FormInput
-                            label={t('customTools.form.name')}
-                            value={formData.name}
-                            onChange={v => setFormData({ ...formData, name: v })}
-                            placeholder={t('customTools.form.namePlaceholder')}
-                            icon={<Code size={14} />}
-                          />
-                        </div>
-                        <div className="md:col-span-1">
-                          <label className="text-xs font-medium text-gray-700 dark:text-gray-300 block mb-1.5">
-                            {t('customTools.form.method')}
-                          </label>
-                          <CustomSelect
-                            value={formData.method}
-                            onChange={v => setFormData({ ...formData, method: v })}
-                            options={['GET', 'POST', 'PUT', 'DELETE']}
-                          />
-                        </div>
-                      </div>
+                          <div className="border-t border-gray-100 dark:border-zinc-800" />
 
-                      <FormInput
-                        label={t('customTools.form.description')}
-                        value={formData.description}
-                        onChange={v => setFormData({ ...formData, description: v })}
-                        placeholder={t('customTools.form.descriptionPlaceholder')}
-                        type="textarea"
-                      />
+                          <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                              <label className="text-sm font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                                <Settings size={14} />
+                                {t('customTools.form.securityTitle')}
+                              </label>
+                            </div>
 
-                      <FormInput
-                        label={t('customTools.form.url')}
-                        value={formData.url}
-                        onChange={v => setFormData({ ...formData, url: v })}
-                        placeholder={t('customTools.form.urlPlaceholder')}
-                        icon={<Globe size={14} />}
-                      />
-                    </div>
+                            <div className="bg-blue-50/50 dark:bg-blue-900/10 p-4 rounded-xl border border-blue-100 dark:border-blue-900/20">
+                              <label className="text-xs font-medium text-blue-800 dark:text-blue-300 mb-2 flex items-center gap-2">
+                                {t('customTools.form.params')}
+                              </label>
+                              <textarea
+                                value={formData.params}
+                                onChange={e => setFormData({ ...formData, params: e.target.value })}
+                                placeholder={t('customTools.form.paramsPlaceholder')}
+                                rows={5}
+                                className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-blue-200 dark:border-blue-800 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                              />
+                              <p className="text-xs text-blue-600 dark:text-blue-400 mt-2 flex items-center gap-1">
+                                <AlertCircle size={12} />
+                                {t('customTools.form.paramsHelp')}
+                              </p>
+                            </div>
 
-                    <div className="border-t border-gray-100 dark:border-zinc-800" />
+                            <FormInput
+                              label={t('customTools.form.allowedDomains')}
+                              value={formData.allowedDomains}
+                              onChange={v => setFormData({ ...formData, allowedDomains: v })}
+                              placeholder={t('customTools.form.allowedDomainsPlaceholder')}
+                            />
 
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <label className="text-sm font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                          <Settings size={14} />
-                          {t('customTools.form.securityTitle')}
-                        </label>
-                      </div>
-
-                      <div className="bg-blue-50/50 dark:bg-blue-900/10 p-4 rounded-xl border border-blue-100 dark:border-blue-900/20">
-                        <label className="text-xs font-medium text-blue-800 dark:text-blue-300 mb-2 flex items-center gap-2">
-                          {t('customTools.form.params')}
-                        </label>
-                        <textarea
-                          value={formData.params}
-                          onChange={e => setFormData({ ...formData, params: e.target.value })}
-                          placeholder={t('customTools.form.paramsPlaceholder')}
-                          rows={5}
-                          className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-blue-200 dark:border-blue-800 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                        />
-                        <p className="text-xs text-blue-600 dark:text-blue-400 mt-2 flex items-center gap-1">
-                          <AlertCircle size={12} />
-                          {t('customTools.form.paramsHelp')}
-                        </p>
-                      </div>
-
-                      <FormInput
-                        label={t('customTools.form.allowedDomains')}
-                        value={formData.allowedDomains}
-                        onChange={v => setFormData({ ...formData, allowedDomains: v })}
-                        placeholder={t('customTools.form.allowedDomainsPlaceholder')}
-                      />
-
-                      <div className="grid grid-cols-2 gap-4">
-                        <FormInput
-                          label={t('customTools.form.maxResponseSize')}
-                          type="number"
-                          value={formData.maxResponseSize}
-                          onChange={v => setFormData({ ...formData, maxResponseSize: v })}
-                          placeholder={t('customTools.form.maxResponseSizePlaceholder')}
-                        />
-                        <FormInput
-                          label={t('customTools.form.timeout')}
-                          type="number"
-                          value={formData.timeout}
-                          onChange={v => setFormData({ ...formData, timeout: v })}
-                          placeholder={t('customTools.form.timeoutPlaceholder')}
-                        />
-                      </div>
-                    </div>
-                  </>
-                )}
-
-                <div className="pt-4 flex flex-col gap-3 pb-8 md:pb-0">
-                  {!isCreating && formData.toolType === 'mcp' ? (
-                    // Edit MCP tool mode - show delete button instead
-                    <button
-                      onClick={() => {
-                        if (confirm(t('customTools.deleteConfirm'))) {
-                          handleDelete(editingTool.id)
-                          setIsCreating(false)
-                          setEditingTool(null)
-                        }
-                      }}
-                      className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium transition-all active:scale-95"
-                    >
-                      <Trash2 size={18} />
-                      删除工具
-                    </button>
-                  ) : (
-                    <>
-                      <button
-                        onClick={handleSave}
-                        className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-xl font-medium transition-all active:scale-95"
-                      >
-                        <Save size={18} />
-                        {isCreating ? t('customTools.form.save') : t('customTools.form.saveChanges')}
-                      </button>
-                      <button
-                        onClick={() => {
-                          setIsCreating(false)
-                          setEditingTool(null)
-                        }}
-                        className="px-6 py-3 bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-xl font-medium transition-colors"
-                      >
-                        {t('common.cancel')}
-                      </button>
+                            <div className="grid grid-cols-2 gap-4">
+                              <FormInput
+                                label={t('customTools.form.maxResponseSize')}
+                                type="number"
+                                value={formData.maxResponseSize}
+                                onChange={v => setFormData({ ...formData, maxResponseSize: v })}
+                                placeholder={t('customTools.form.maxResponseSizePlaceholder')}
+                              />
+                              <FormInput
+                                label={t('customTools.form.timeout')}
+                                type="number"
+                                value={formData.timeout}
+                                onChange={v => setFormData({ ...formData, timeout: v })}
+                                placeholder={t('customTools.form.timeoutPlaceholder')}
+                              />
+                            </div>
+                          </div>
+                        </>
+                      )}
                     </>
                   )}
                 </div>
-              </>
+              </div>
+
+              {/* Fixed Footer */}
+              <div className="h-20 shrink-0 border-t border-gray-200 dark:border-zinc-800 flex items-center justify-end px-6 sm:px-8 gap-3 bg-white dark:bg-[#191a1a] z-10">
+                {isEditingServerUrl ? (
+                  <>
+                    <button
+                      onClick={handleCancelEditServerUrl}
+                      disabled={updatingServerUrl}
+                      className="px-6 py-2.5 bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-xl font-semibold transition-colors"
+                    >
+                      {t('common.cancel')}
+                    </button>
+                    <button
+                      onClick={handleUpdateServerUrl}
+                      disabled={updatingServerUrl}
+                      className="flex items-center justify-center gap-2 px-6 py-2.5 bg-primary-600 hover:bg-primary-700 disabled:bg-primary-400 text-white rounded-xl font-bold transition-all shadow-lg shadow-primary-500/10 active:scale-[0.98]"
+                    >
+                      <Save size={18} />
+                      {updatingServerUrl ? t('common.loading') : t('common.save')}
+                    </button>
+                  </>
+                ) : !isCreating && formData.toolType === 'mcp' ? (
+                  <button
+                    onClick={() => {
+                      if (confirm(t('customTools.deleteConfirm'))) {
+                        handleDelete(editingTool.id)
+                        setIsCreating(false)
+                        setEditingTool(null)
+                      }
+                    }}
+                    className="flex items-center justify-center gap-2 px-6 py-2.5 bg-red-600/10 hover:bg-red-600 text-red-600 hover:text-white border border-red-600/20 rounded-xl font-bold transition-all active:scale-[0.98]"
+                  >
+                    <Trash2 size={18} />
+                    删除工具
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => {
+                        setIsCreating(false)
+                        setEditingTool(null)
+                      }}
+                      className="px-6 py-2.5 bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-xl font-semibold transition-colors"
+                    >
+                      {t('common.cancel')}
+                    </button>
+                    <button
+                      onClick={handleSave}
+                      className="flex items-center justify-center gap-2 px-6 py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-xl font-bold transition-all shadow-lg shadow-primary-500/10 active:scale-[0.98]"
+                    >
+                      <Save size={18} />
+                      {isCreating ? t('customTools.form.save') : t('customTools.form.saveChanges')}
+                    </button>
+                  </>
                 )}
               </div>
             </div>
@@ -1081,7 +1102,7 @@ const CustomSelect = ({ value, onChange, options }) => {
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-3 py-2.5 text-sm md:text-left text-center bg-[#f9f9f987] disabled:bg-gray-50/20 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20 font-mono flex items-center justify-between"
+        className="w-full px-4 py-2.5 text-sm md:text-left text-center bg-gray-50/50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 transition-all font-mono flex items-center justify-between group"
       >
         <span>{value}</span>
         <div className="bg-gray-200 dark:bg-zinc-700 rounded p-0.5">
@@ -1135,10 +1156,10 @@ const FormInput = ({ label, value, onChange, placeholder, type = 'text', icon, r
           placeholder={placeholder}
           rows={rows || 3}
           className={clsx(
-            'w-full px-3 py-2.5 bg-white disabled:bg-gray-50/20 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm transition-all resize-none',
-            'focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500',
+            'w-full px-4 py-2.5 bg-white disabled:bg-gray-50/10 dark:bg-zinc-900/50 border border-gray-200 dark:border-zinc-800 rounded-xl text-sm transition-all resize-none',
+            'focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500/50',
             'placeholder:text-gray-400 dark:placeholder:text-zinc-600',
-            icon && 'pl-9',
+            icon && 'pl-11',
           )}
         />
       ) : (
@@ -1148,10 +1169,10 @@ const FormInput = ({ label, value, onChange, placeholder, type = 'text', icon, r
           onChange={e => onChange(e.target.value)}
           placeholder={placeholder}
           className={clsx(
-            'w-full px-3 py-2.5 bg-white disabled:bg-gray-50/20 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm transition-all',
-            'focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500',
+            'w-full px-4 py-2.5 bg-white disabled:bg-gray-50/10 dark:bg-zinc-900/50 border border-gray-200 dark:border-zinc-800 rounded-xl text-sm transition-all',
+            'focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500/50',
             'placeholder:text-gray-400 dark:placeholder:text-zinc-600',
-            icon && 'pl-9',
+            icon && 'pl-11',
           )}
         />
       )}

@@ -11,7 +11,9 @@
     "off": "否",
     "commit": "提交",
     "commited": "已提交",
-    "uploadImage": "上传图片"
+    "uploadImage": "上传图片",
+    "selectAll": "全选",
+    "deselectAll": "取消全选"
   },
   "app": {
     "name": "Qurio",
@@ -517,7 +519,7 @@
         "json": "JSON",
         "web": "网页",
         "search": "搜索",
-        "custom": "我的工具",
+        "custom": "MCPs",
         "other": "其他"
       }
     },

@@ -482,6 +482,28 @@ const MessageBubble = ({
     )
   }
 
+  const isAsciiWordChar = char => /[A-Za-z0-9]/.test(char)
+  const toolBoundaryChars = new Set([' ', '\n', '\t', '.', ',', '!', '?', ';', ':', '。', '！', '？', '；', '：'])
+  const toolPunctuationChars = new Set(['.', ',', '!', '?', ';', ':', '。', '！', '？', '；', '：'])
+  const normalizeToolIndex = (content, index) => {
+    if (!content) return 0
+    const clamped = Math.max(0, Math.min(index, content.length))
+    if (clamped === 0 || clamped === content.length) return clamped
+    const prev = content[clamped - 1]
+    const next = content[clamped]
+    if (!isAsciiWordChar(prev) || !isAsciiWordChar(next)) return clamped
+
+    const maxForward = 80
+    for (let i = clamped; i < content.length && i < clamped + maxForward; i += 1) {
+      const ch = content[i]
+      if (toolBoundaryChars.has(ch)) {
+        const adjusted = i + (toolPunctuationChars.has(ch) ? 1 : 0)
+        return Math.min(adjusted, content.length)
+      }
+    }
+    return clamped
+  }
+
   const interleavedContent = useMemo(() => {
     if (isDeepResearch || !toolCallHistory.length) {
       return [{ type: 'text', content: mainContent || '' }]
@@ -496,7 +518,8 @@ const MessageBubble = ({
     toolCallHistory.forEach(tool => {
       // Use textIndex if available
       // If missing: default interactive_form to end, others to start
-      const idx = tool.textIndex ?? (tool.name === 'interactive_form' ? rawContent.length : 0)
+      const rawIndex = tool.textIndex ?? (tool.name === 'interactive_form' ? rawContent.length : 0)
+      const idx = normalizeToolIndex(rawContent, rawIndex)
       if (!toolsByIndex[idx]) toolsByIndex[idx] = []
       toolsByIndex[idx].push(tool)
     })

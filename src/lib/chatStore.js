@@ -1027,6 +1027,9 @@ const callAIAPI = async (
               const history = Array.isArray(lastMsg.toolCallHistory)
                 ? [...lastMsg.toolCallHistory]
                 : []
+              const pendingThoughtLength = lastMsg.thinkingEnabled ? 0 : (pendingThought || '').length
+              const pendingTextLength = (pendingText || '').length
+              const baseIndex = (lastMsg.content || '').length + pendingTextLength + pendingThoughtLength
               history.push({
                 id: chunk.id || `${chunk.name || 'tool'}-${Date.now()}`,
                 name: chunk.name || 'tool',
@@ -1038,7 +1041,7 @@ const callAIAPI = async (
                 textIndex:
                   typeof chunk.textIndex === 'number'
                     ? chunk.textIndex
-                    : (lastMsg.content || '').length + (pendingText || '').length,
+                    : baseIndex,
               })
               lastMsg.toolCallHistory = history
               updated[lastMsgIndex] = lastMsg

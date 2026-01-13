@@ -8,6 +8,20 @@ import { loadSettings } from '../../../lib/settings'
 
 const getTodayKey = () => new Date().toISOString().slice(0, 10)
 const CATEGORY_STORAGE_KEY = 'homeDailyTipCategory'
+const mapInterfaceLanguageToAnswerLanguage = language => {
+  const normalized = String(language || '').toLowerCase()
+  if (!normalized) return ''
+  if (normalized.startsWith('zh')) return 'Chinese (Simplified)'
+  if (normalized.startsWith('en')) return 'English'
+  if (normalized.startsWith('ja')) return 'Japanese'
+  if (normalized.startsWith('ko')) return 'Korean'
+  if (normalized.startsWith('es')) return 'Spanish'
+  if (normalized.startsWith('fr')) return 'French'
+  if (normalized.startsWith('de')) return 'German'
+  if (normalized.startsWith('pt')) return 'Portuguese'
+  if (normalized.startsWith('it')) return 'Italian'
+  return ''
+}
 
 const TipsWidget = () => {
   const { t, i18n } = useTranslation()
@@ -60,7 +74,11 @@ const TipsWidget = () => {
       requestRef.current = true
 
       const today = getTodayKey()
-      const languageKey = i18n.language || 'en'
+      const settings = loadSettings()
+      const responseLanguage = settings.followInterfaceLanguage
+        ? mapInterfaceLanguageToAnswerLanguage(settings.interfaceLanguage || i18n.language)
+        : defaultAgent?.responseLanguage || i18n.language || 'en'
+      const languageKey = responseLanguage
       const cacheKey = `homeDailyTip:${languageKey}:${categoryKey}`
       const cacheDateKey = `homeDailyTipDate:${languageKey}:${categoryKey}`
       const cachedDate = localStorage.getItem(cacheDateKey)
@@ -71,7 +89,6 @@ const TipsWidget = () => {
         return
       }
 
-      const settings = loadSettings()
       const defaultModel = defaultAgent?.defaultModel || ''
       const liteModel = defaultAgent?.liteModel || ''
       const modelId = defaultModel || liteModel
@@ -89,7 +106,7 @@ const TipsWidget = () => {
         return
       }
 
-      const language = defaultAgent?.responseLanguage || ''
+      const language = responseLanguage || ''
       const categoryLabel =
         categories.find(category => category.key === categoryKey)?.label ||
         t('views.widgets.tipsCategoryGeneral')

@@ -959,7 +959,9 @@ const callAIAPI = async (
       if (Array.isArray(allUserTools) && resolvedToolIds.length > 0) {
         // resolvedToolIds contains strings (custom) and maybe numbers (system)
         // Ensure comparison is robust
-        activeUserTools = allUserTools.filter(t => resolvedToolIds.includes(String(t.id)))
+        activeUserTools = allUserTools
+          .filter(t => resolvedToolIds.includes(String(t.id)))
+          .filter(t => !t.config?.disabled)
       }
     } catch (err) {
       console.error('Failed to fetch user tools for chat:', err)

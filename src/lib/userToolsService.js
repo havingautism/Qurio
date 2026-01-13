@@ -89,9 +89,10 @@ export const deleteUserTool = async id => {
  * @param {string} serverName - MCP server name
  * @param {string} serverUrl - Server URL
  * @param {Array} newTools - Array of new tool definitions from server (with id, name, description, parameters)
+ * @param {object} options - Optional MCP config overrides
  * @returns {Promise<object>} Sync result with stats
  */
-export const syncMcpTools = async (serverName, serverUrl, newTools) => {
+export const syncMcpTools = async (serverName, serverUrl, newTools, options = {}) => {
   const supabase = getSupabaseClient()
   if (!supabase) throw new Error('Supabase not configured')
 
@@ -139,6 +140,9 @@ export const syncMcpTools = async (serverName, serverUrl, newTools) => {
       const updatedConfig = {
         ...existingTool.config,
         serverUrl: serverUrl,
+        transport: options.transport || existingTool.config?.transport,
+        bearerToken: options.bearerToken || existingTool.config?.bearerToken,
+        headers: options.headers || existingTool.config?.headers,
         toolId: newTool.id,
         description: newTool.description,
         parameters: newTool.parameters
@@ -166,6 +170,9 @@ export const syncMcpTools = async (serverName, serverUrl, newTools) => {
           config: {
             serverName: serverName,
             serverUrl: serverUrl,
+            transport: options.transport,
+            bearerToken: options.bearerToken,
+            headers: options.headers,
             toolId: newTool.id,
             toolName: newTool.name
           },

@@ -380,6 +380,9 @@ export const streamChat = async function* (params) {
       for (const tool of mcpTools) {
         const serverName = tool.config?.serverName
         const serverUrl = tool.config?.serverUrl
+        const serverTransport = tool.config?.transport || tool.config?.serverTransport
+        const bearerToken = tool.config?.bearerToken || tool.config?.authToken
+        const headers = tool.config?.headers
 
         if (!serverName || !serverUrl) {
           console.warn(`[streamChat] MCP tool ${tool.name} missing serverName or serverUrl in config`)
@@ -390,7 +393,12 @@ export const streamChat = async function* (params) {
         const status = mcpToolManager.getStatus()
         if (!status.loadedServers.includes(serverName)) {
           if (!serversToLoad.has(serverName)) {
-            serversToLoad.set(serverName, serverUrl)
+            serversToLoad.set(serverName, {
+              url: serverUrl,
+              transport: serverTransport,
+              bearerToken,
+              headers
+            })
           }
         }
 
@@ -414,9 +422,9 @@ export const streamChat = async function* (params) {
       }
 
       // Load servers that are not already loaded
-      for (const [serverName, serverUrl] of serversToLoad.entries()) {
+      for (const [serverName, serverConfig] of serversToLoad.entries()) {
         console.log(`[streamChat] Loading MCP server: ${serverName}`)
-        await mcpToolManager.loadMcpServer(serverName, serverUrl)
+        await mcpToolManager.loadMcpServer(serverName, serverConfig)
       }
     } catch (error) {
       console.error('[streamChat] Failed to load MCP servers:', error.message)

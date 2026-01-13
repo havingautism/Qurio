@@ -1,8 +1,7 @@
 // MCP Tool Manager for Qurio
 // Manages MCP server connections and converts MCP tools to Qurio tool format
 
-import { Client } from '@modelcontextprotocol/sdk/client/index.js'
-import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js'
+import { MultiServerMCPClient } from '@langchain/mcp-adapters'
 
 /**
  * MCP Tool Manager
@@ -20,38 +19,106 @@ class MCPToolManager {
     this.connections = new Map()
   }
 
+  normalizeServerConfig(name, serverConfig) {
+    if (typeof serverConfig === 'string') {
+      return {
+        name,
+        url: serverConfig,
+        transport: 'streamable_http',
+        headers: {},
+        bearerToken: null,
+      }
+    }
+
+    const url = serverConfig?.url || serverConfig?.serverUrl || serverConfig?.sseUrl
+    if (!url) {
+      throw new Error(`Missing server URL for ${name}`)
+    }
+
+    return {
+      name,
+      url,
+      transport: this.normalizeTransport(serverConfig?.transport),
+      headers: serverConfig?.headers || {},
+      bearerToken: serverConfig?.bearerToken || serverConfig?.authToken || null,
+    }
+  }
+
+  normalizeTransport(transport) {
+    if (!transport) return 'sse'
+    const value = String(transport).toLowerCase()
+    if (value === 'http' || value === 'streamable' || value === 'streamable-http') {
+      return 'http'
+    }
+    if (value === 'streamable_http') return 'http'
+    return 'sse'
+  }
+
+  buildServerConfig({ url, transport, headers, bearerToken }) {
+    const authHeaders = bearerToken ? { Authorization: `Bearer ${bearerToken}` } : {}
+    const mergedHeaders = { ...headers, ...authHeaders }
+
+    return {
+      transport,
+      url,
+      headers: Object.keys(mergedHeaders).length > 0 ? mergedHeaders : undefined,
+    }
+  }
+
+  extractToolSchema(tool) {
+    const candidates = [
+      tool?.inputSchema,
+      tool?.input_schema,
+      tool?.parameters,
+      tool?.schema,
+      tool?.schema?.schema,
+    ]
+    const raw = candidates.find(item => item && typeof item === 'object')
+    if (raw?.type || raw?.properties) return raw
+
+    return {
+      type: 'object',
+      properties: {},
+      required: [],
+    }
+  }
+
+  normalizeToolResult(result) {
+    if (!result) return { content: [] }
+    if (result.content && Array.isArray(result.content)) return result
+
+    const text =
+      typeof result === 'string'
+        ? result
+        : typeof result === 'object'
+          ? JSON.stringify(result)
+          : String(result)
+
+    return {
+      content: [{ type: 'text', text }],
+    }
+  }
+
   /**
    * Connect to an MCP server
    * @param {string} name - Server name (unique identifier)
-   * @param {string} sseUrl - SSE URL from ModelScope
-   * @returns {Promise<Client>} MCP client
+   * @param {string|object} serverConfig - Server URL or config
+   * @returns {Promise<MultiServerMCPClient>} MCP client
    */
-  async connectToServer(name, sseUrl) {
+  async connectToServer(name, serverConfig) {
     try {
+      const normalizedConfig = this.normalizeServerConfig(name, serverConfig)
       console.log(`[MCP Manager] Connecting to ${name}...`)
 
-      // Create SSE transport
-      const transport = new SSEClientTransport(new URL(sseUrl))
-
-      // Create MCP client
-      const client = new Client(
-        {
-          name: `qurio-mcp-${name}`,
-          version: '1.0.0'
+      const serverConfigPayload = this.buildServerConfig(normalizedConfig)
+      const client = new MultiServerMCPClient({
+        mcpServers: {
+          [name]: serverConfigPayload,
         },
-        {
-          capabilities: {
-            tools: {},
-            resources: {}
-          }
-        }
-      )
-
-      // Connect to the server
-      await client.connect(transport)
+      })
 
       // Store the connection
-      this.connections.set(name, { client, transport, url: sseUrl })
+      this.connections.set(name, { client, url: normalizedConfig.url })
 
       console.log(`[MCP Manager] ✅ Connected to ${name}`)
 
@@ -71,7 +138,9 @@ class MCPToolManager {
       const connection = this.connections.get(name)
       if (!connection) return
 
-      await connection.client.close()
+      if (typeof connection.client.close === 'function') {
+        await connection.client.close()
+      }
       this.connections.delete(name)
 
       console.log(`[MCP Manager] ✅ Disconnected from ${name}`)
@@ -92,10 +161,23 @@ class MCPToolManager {
         throw new Error(`No connection found: ${name}`)
       }
 
-      const response = await connection.client.listTools()
-      return response.tools || []
+      if (typeof connection.client.listTools === 'function') {
+        const response = await connection.client.listTools(name)
+        return response?.tools || response || []
+      }
+
+      if (typeof connection.client.getTools === 'function') {
+        const tools = await connection.client.getTools()
+        return tools.map(tool => ({
+          name: tool.name,
+          description: tool.description,
+          inputSchema: this.extractToolSchema(tool),
+        }))
+      }
+
+      throw new Error('Unsupported MCP client API: missing listTools/getTools')
     } catch (error) {
-      console.error(`[MCP Manager] ❌ Failed to list tools from ${name}:`, error.message)
+      console.error(`[MCP Manager] ??Failed to list tools from ${name}:`, error.message)
       throw error
     }
   }
@@ -114,25 +196,50 @@ class MCPToolManager {
         throw new Error(`No connection found: ${name}`)
       }
 
-      console.log(`[MCP Manager] Calling tool ${toolName} with args:`, JSON.stringify(args, null, 2))
+      console.log(
+        `[MCP Manager] Calling tool ${toolName} with args:`,
+        JSON.stringify(args, null, 2),
+      )
 
-      const response = await connection.client.callTool({
-        name: toolName,
-        arguments: args
-      })
-
-      // Log the response for debugging
-      console.log(`[MCP Manager] Tool ${toolName} response:`, JSON.stringify(response, null, 2))
-
-      if (response.isError) {
-        console.error(`[MCP Manager] ❌ Tool ${toolName} returned error:`, response)
+      let response = null
+      if (typeof connection.client.callTool === 'function') {
+        response = await connection.client.callTool(name, toolName, args)
+      } else if (typeof connection.client.invokeTool === 'function') {
+        response = await connection.client.invokeTool(name, toolName, args)
+      } else if (typeof connection.client.getTools === 'function') {
+        const tools = await connection.client.getTools()
+        const tool = tools.find(item => item.name === toolName)
+        if (!tool) {
+          throw new Error(`Tool not found on server ${name}: ${toolName}`)
+        }
+        if (typeof tool.invoke === 'function') {
+          response = await tool.invoke(args)
+        } else if (typeof tool.call === 'function') {
+          response = await tool.call(args)
+        } else {
+          throw new Error(`Tool ${toolName} does not support invoke/call`)
+        }
       } else {
-        console.log(`[MCP Manager] ✅ Tool ${toolName} executed successfully`)
+        throw new Error('Unsupported MCP client API: missing callTool/getTools')
       }
 
-      return response
+      const normalizedResponse = this.normalizeToolResult(response)
+
+      // Log the response for debugging
+      console.log(
+        `[MCP Manager] Tool ${toolName} response:`,
+        JSON.stringify(normalizedResponse, null, 2),
+      )
+
+      if (normalizedResponse.isError) {
+        console.error(`[MCP Manager] ??Tool ${toolName} returned error:`, normalizedResponse)
+      } else {
+        console.log(`[MCP Manager] ??Tool ${toolName} executed successfully`)
+      }
+
+      return normalizedResponse
     } catch (error) {
-      console.error(`[MCP Manager] ❌ Failed to call tool ${toolName}:`, error.message)
+      console.error(`[MCP Manager] ??Failed to call tool ${toolName}:`, error.message)
       throw error
     }
   }
@@ -140,15 +247,15 @@ class MCPToolManager {
   /**
    * Connect to an MCP server and load its tools
    * @param {string} name - Server name (unique identifier)
-   * @param {string} sseUrl - SSE URL from ModelScope
+   * @param {string|object} serverConfig - Server URL or config
    * @returns {Promise<Array>} Array of Qurio-formatted tools
    */
-  async loadMcpServer(name, sseUrl) {
+  async loadMcpServer(name, serverConfig) {
     try {
       console.log(`[MCP Manager] Loading MCP server: ${name}`)
 
       // Connect to MCP server
-      await this.connectToServer(name, sseUrl)
+      await this.connectToServer(name, serverConfig)
 
       // Get available tools
       const tools = await this.listToolsFromServer(name)
@@ -191,13 +298,13 @@ class MCPToolManager {
       parameters: this.convertParameters(mcpTool.inputSchema),
       config: {
         mcpServer: serverName,
-        toolName: mcpTool.name
+        toolName: mcpTool.name,
       },
       metadata: {
         serverName,
         originalName: mcpTool.name,
-        originalDescription: mcpTool.description
-      }
+        originalDescription: mcpTool.description,
+      },
     }
   }
 
@@ -210,7 +317,7 @@ class MCPToolManager {
     if (!inputSchema) {
       return {
         type: 'object',
-        properties: {}
+        properties: {},
       }
     }
 
@@ -218,7 +325,7 @@ class MCPToolManager {
     return {
       type: inputSchema.type || 'object',
       properties: inputSchema.properties || {},
-      required: inputSchema.required || []
+      required: inputSchema.required || [],
     }
   }
 
@@ -263,11 +370,7 @@ class MCPToolManager {
 
     console.log(`[MCP Manager] Executing tool: ${toolId}`)
 
-    const result = await this.callTool(
-      tool.config.mcpServer,
-      tool.config.toolName,
-      args
-    )
+    const result = await this.callTool(tool.config.mcpServer, tool.config.toolName, args)
 
     return result
   }
@@ -298,54 +401,52 @@ class MCPToolManager {
    * Fetch tools from a server URL without storing them
    * Used for previewing tools before adding or updating server URL
    * @param {string} serverName - Server name
-   * @param {string} sseUrl - SSE URL from ModelScope
+   * @param {string|object} serverConfig - Server URL or config
    * @returns {Promise<Array>} Array of Qurio-formatted tools
    */
-  async fetchToolsFromServerUrl(serverName, sseUrl) {
+  async fetchToolsFromServerUrl(serverName, serverConfig) {
     let tempClient = null
-    let tempTransport = null
 
     try {
-      console.log(`[MCP Manager] Fetching tools from ${serverName} at ${sseUrl}`)
+      const normalizedConfig = this.normalizeServerConfig(serverName, serverConfig)
+      console.log(`[MCP Manager] Fetching tools from ${serverName} at ${normalizedConfig.url}`)
 
-      // Create temporary SSE transport
-      tempTransport = new SSEClientTransport(new URL(sseUrl))
-
-      // Create temporary MCP client
-      tempClient = new Client(
-        {
-          name: `qurio-mcp-temp-${serverName}`,
-          version: '1.0.0'
+      const serverConfigPayload = this.buildServerConfig(normalizedConfig)
+      tempClient = new MultiServerMCPClient({
+        mcpServers: {
+          [serverName]: serverConfigPayload,
         },
-        {
-          capabilities: {
-            tools: {},
-            resources: {}
-          }
-        }
-      )
+      })
 
-      // Connect to the server
-      await tempClient.connect(tempTransport)
-
-      // Get available tools
-      const response = await tempClient.listTools()
-      const tools = response.tools || []
+      let tools = []
+      if (typeof tempClient.listTools === 'function') {
+        const response = await tempClient.listTools(serverName)
+        tools = response?.tools || response || []
+      } else if (typeof tempClient.getTools === 'function') {
+        const adapterTools = await tempClient.getTools()
+        tools = adapterTools.map(tool => ({
+          name: tool.name,
+          description: tool.description,
+          inputSchema: this.extractToolSchema(tool),
+        }))
+      } else {
+        throw new Error('Unsupported MCP client API: missing listTools/getTools')
+      }
 
       console.log(`[MCP Manager] Found ${tools.length} tools from ${serverName}`)
 
       // Convert to Qurio tool format
       const qurioTools = tools.map(tool => this.convertToQurioTool(serverName, tool))
 
-      console.log(`[MCP Manager] ✅ Fetched ${qurioTools.length} tools from ${serverName}`)
+      console.log(`[MCP Manager] ??Fetched ${qurioTools.length} tools from ${serverName}`)
 
       return qurioTools
     } catch (error) {
-      console.error(`[MCP Manager] ❌ Failed to fetch tools from ${serverName}:`, error.message)
+      console.error(`[MCP Manager] ??Failed to fetch tools from ${serverName}:`, error.message)
       throw error
     } finally {
       // Clean up temporary connection
-      if (tempClient) {
+      if (tempClient && typeof tempClient.close === 'function') {
         try {
           await tempClient.close()
         } catch (e) {
@@ -363,7 +464,7 @@ class MCPToolManager {
     return {
       loadedServers: Array.from(this.loadedServers),
       totalTools: this.mcpTools.size,
-      toolsByServer: {}
+      toolsByServer: {},
     }
   }
 }

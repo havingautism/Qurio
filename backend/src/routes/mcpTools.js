@@ -31,11 +31,11 @@ router.get('/servers', (req, res) => {
 /**
  * POST /api/mcp-tools/servers
  * Load a new MCP server
- * Body: { name: string, url: string }
+ * Body: { name: string, url: string, transport?: string, bearerToken?: string, headers?: object }
  */
 router.post('/servers', async (req, res) => {
   try {
-    const { name, url } = req.body
+    const { name, url, transport, bearerToken, headers } = req.body
 
     if (!name || !url) {
       return res.status(400).json({
@@ -44,7 +44,12 @@ router.post('/servers', async (req, res) => {
       })
     }
 
-    const tools = await mcpToolManager.loadMcpServer(name, url)
+    const tools = await mcpToolManager.loadMcpServer(name, {
+      url,
+      transport,
+      bearerToken,
+      headers
+    })
 
     res.json({
       success: true,
@@ -188,11 +193,11 @@ router.get('/tool/:toolId', (req, res) => {
 /**
  * POST /api/mcp-tools/fetch
  * Fetch tools from an MCP server URL (temporary connection)
- * Body: { name: string, url: string }
+ * Body: { name: string, url: string, transport?: string, bearerToken?: string, headers?: object }
  */
 router.post('/fetch', async (req, res) => {
   try {
-    const { name, url } = req.body
+    const { name, url, transport, bearerToken, headers } = req.body
 
     if (!name || !url) {
       return res.status(400).json({
@@ -201,7 +206,12 @@ router.post('/fetch', async (req, res) => {
       })
     }
 
-    const tools = await mcpToolManager.fetchToolsFromServerUrl(name, url)
+    const tools = await mcpToolManager.fetchToolsFromServerUrl(name, {
+      url,
+      transport,
+      bearerToken,
+      headers
+    })
 
     res.json({
       success: true,

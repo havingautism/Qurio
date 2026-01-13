@@ -265,12 +265,14 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
 
       const validSystemTools = Array.isArray(systemTools) ? systemTools : []
       const validUserTools = Array.isArray(userTools)
-        ? userTools.map(tool => ({
-            ...tool,
-            category: 'custom',
-            // Ensure ID is string to match system tools
-            id: String(tool.id),
-          }))
+        ? userTools
+            .filter(tool => !tool.config?.disabled)
+            .map(tool => ({
+              ...tool,
+              category: 'custom',
+              // Ensure ID is string to match system tools
+              id: String(tool.id),
+            }))
         : []
 
       setAvailableTools([...validSystemTools, ...validUserTools])
@@ -1742,7 +1744,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                   <div className="space-y-6">
                     {toolsByCategory.map(([category, groupData]) => (
                       <div key={category} className="space-y-4">
-                        <div className="text-xs uppercase tracking-wide text-gray-400">
+                        <div className="text-xs tracking-wide text-gray-400">
                           {t(`agents.tools.categories.${category}`, category)}
                         </div>
 
@@ -1753,7 +1755,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                             return (
                               <div key={subGroupName} className="space-y-3">
                                 {/* Sub-group header */}
-                                <div className="flex items-center justify-between px-2">
+                                <div className="flex items-center justify-between">
                                   <div className="flex items-center gap-2">
                                     <div className="w-1.5 h-1.5 rounded-full bg-purple-500" />
                                     <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
@@ -1786,7 +1788,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                                   </button>
                                 </div>
                                 {/* Tools in sub-group */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pl-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 ">
                                   {tools.map(tool => {
                                     const checked = selectedToolIds.includes(tool.id)
                                     const iconName = TOOL_ICONS[tool.name]

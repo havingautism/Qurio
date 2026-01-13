@@ -64,6 +64,24 @@
     }
   }
 
+  @keyframes shine {
+    0% {
+      left: -100%;
+      opacity: 0;
+    }
+    20% {
+      opacity: 0.5;
+    }
+    40% {
+      left: 100%;
+      opacity: 0;
+    }
+    100% {
+      left: 100%;
+      opacity: 0;
+    }
+  }
+
   @keyframes shake {
     0%,
     100% {
@@ -468,4 +486,49 @@ h6 {
 
 .animate-diagonal-shine {
   animation: diagonal-shine 8s ease-in-out infinite;
+}
+
+/* Premium Card Effects */
+.premium-card-bg {
+  @apply bg-white/40 dark:bg-zinc-900/40 backdrop-blur-md border border-gray-200/50 dark:border-zinc-700/50 shadow-xs;
+}
+
+.premium-card-glow {
+  box-shadow: 0 0 15px -3px var(--theme-glow-1);
+}
+
+.shine-effect {
+  position: relative;
+  overflow: hidden;
+}
+
+.shine-effect::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(
+    to right,
+    transparent,
+    rgba(255, 255, 255, 0.1) 20%,
+    rgba(255, 255, 255, 0.2) 50%,
+    rgba(255, 255, 255, 0.1) 80%,
+    transparent
+  );
+  transform: skewX(-25deg);
+  animation: shine 6s infinite;
+  pointer-events: none;
+}
+
+.dark .shine-effect::after {
+  background: linear-gradient(
+    to right,
+    transparent,
+    rgba(255, 255, 255, 0.03) 20%,
+    rgba(255, 255, 255, 0.08) 50%,
+    rgba(255, 255, 255, 0.03) 80%,
+    transparent
+  );
 }

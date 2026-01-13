@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react'
+﻿import { useEffect, useState, useMemo } from 'react'
 import {
   X,
   Plus,
@@ -37,10 +37,11 @@ const ToolsModal = ({ isOpen, onClose }) => {
 
   // Collapsed groups state
   const [collapsedGroups, setCollapsedGroups] = useState(new Set())
+  const [mcpGroupToolStates, setMcpGroupToolStates] = useState({})
 
   // Form state
   const [formData, setFormData] = useState({
-    toolType: 'http',
+    toolType: 'mcp',
     name: '',
     description: '',
     url: '',
@@ -51,6 +52,9 @@ const ToolsModal = ({ isOpen, onClose }) => {
     timeout: '10000',
     serverName: '',
     serverUrl: '',
+    serverTransport: 'streamable_http',
+    serverBearerToken: '',
+    serverHeaders: [],
   })
 
   // MCP tools list state
@@ -61,6 +65,9 @@ const ToolsModal = ({ isOpen, onClose }) => {
   // MCP server URL editing state
   const [editingServerUrl, setEditingServerUrl] = useState(null) // Server name being edited
   const [newServerUrl, setNewServerUrl] = useState('')
+  const [newServerTransport, setNewServerTransport] = useState('streamable_http')
+  const [newServerBearerToken, setNewServerBearerToken] = useState('')
+  const [newServerHeaders, setNewServerHeaders] = useState([])
   const [updatingServerUrl, setUpdatingServerUrl] = useState(false)
 
   // Track when editing server URL (for right panel)
@@ -77,6 +84,12 @@ const ToolsModal = ({ isOpen, onClose }) => {
     try {
       const tools = await getUserTools()
       setTools(tools)
+      const defaultCollapsed = new Set(
+        tools
+          .filter(tool => tool.type === 'mcp')
+          .map(tool => tool.config?.serverName || 'Unknown Server'),
+      )
+      setCollapsedGroups(defaultCollapsed)
     } catch (error) {
       console.error('Failed to load tools:', error)
     } finally {
@@ -105,7 +118,7 @@ const ToolsModal = ({ isOpen, onClose }) => {
       setNewServerUrl('')
     }
     setFormData({
-      toolType: 'http',
+      toolType: 'mcp',
       name: '',
       description: '',
       url: '',
@@ -116,6 +129,9 @@ const ToolsModal = ({ isOpen, onClose }) => {
       timeout: '10000',
       serverName: '',
       serverUrl: '',
+      serverTransport: 'streamable_http',
+      serverBearerToken: '',
+      serverHeaders: [],
     })
     setMcpToolsList([])
     setSelectedMcpTools(new Set())
@@ -139,6 +155,15 @@ const ToolsModal = ({ isOpen, onClose }) => {
         description: tool.description,
         serverName: tool.config?.serverName || '',
         serverUrl: tool.config?.serverUrl || '',
+        serverTransport:
+          tool.config?.transport === 'http' || tool.config?.transport === 'streamable'
+            ? 'streamable_http'
+            : tool.config?.transport || 'sse',
+        serverBearerToken: tool.config?.bearerToken || '',
+        serverHeaders: Object.entries(tool.config?.headers || {}).map(([key, value]) => ({
+          key,
+          value,
+        })),
         url: '',
         method: 'GET',
         params: '',
@@ -159,6 +184,9 @@ const ToolsModal = ({ isOpen, onClose }) => {
         timeout: String(tool.config.security?.timeout || 10000),
         serverName: '',
         serverUrl: '',
+        serverTransport: 'streamable_http',
+        serverBearerToken: '',
+        serverHeaders: [],
       })
     }
     setMcpToolsList([])
@@ -180,6 +208,7 @@ const ToolsModal = ({ isOpen, onClose }) => {
       console.log('[MCP] Loading tools from:', {
         name: formData.serverName,
         url: formData.serverUrl,
+        transport: formData.serverTransport,
       })
 
       const response = await fetch(`${backendUrl}/api/mcp-tools/servers`, {
@@ -188,6 +217,9 @@ const ToolsModal = ({ isOpen, onClose }) => {
         body: JSON.stringify({
           name: formData.serverName,
           url: formData.serverUrl,
+          transport: formData.serverTransport,
+          bearerToken: formData.serverBearerToken || undefined,
+          headers: buildHeaders(formData.serverHeaders),
         }),
       })
 
@@ -233,6 +265,7 @@ const ToolsModal = ({ isOpen, onClose }) => {
         }
 
         const toolsToSave = mcpToolsList.filter(tool => selectedMcpTools.has(tool.id))
+        const headers = buildHeaders(formData.serverHeaders)
 
         for (const mcpTool of toolsToSave) {
           const toolData = {
@@ -243,6 +276,9 @@ const ToolsModal = ({ isOpen, onClose }) => {
               serverName: formData.serverName,
               serverUrl: formData.serverUrl,
               toolName: mcpTool.name,
+              transport: formData.serverTransport,
+              bearerToken: formData.serverBearerToken || undefined,
+              headers,
             },
             input_schema: mcpTool.parameters,
             parameters: mcpTool.parameters,
@@ -364,6 +400,25 @@ const ToolsModal = ({ isOpen, onClose }) => {
     if (serverTools.length > 0) {
       setEditingServerUrl(serverName)
       setNewServerUrl(serverTools[0].config?.serverUrl || '')
+      setNewServerTransport(
+        serverTools[0].config?.transport === 'http' ||
+          serverTools[0].config?.transport === 'streamable'
+          ? 'streamable_http'
+          : serverTools[0].config?.transport || 'sse',
+      )
+      setNewServerBearerToken(serverTools[0].config?.bearerToken || '')
+      setNewServerHeaders(
+        Object.entries(serverTools[0].config?.headers || {}).map(([key, value]) => ({
+          key,
+          value,
+        })),
+      )
+      setMcpGroupToolStates(
+        serverTools.reduce((acc, tool) => {
+          acc[tool.id] = !tool.config?.disabled
+          return acc
+        }, {}),
+      )
       setIsEditingServerUrl(true)
     }
   }
@@ -378,7 +433,11 @@ const ToolsModal = ({ isOpen, onClose }) => {
     try {
       // Step 1: Fetch latest tools from new URL
       console.log('[MCP Sync] Fetching tools from', newServerUrl)
-      const fetchResult = await fetchMcpToolsViaBackend(editingServerUrl, newServerUrl)
+      const fetchResult = await fetchMcpToolsViaBackend(editingServerUrl, newServerUrl, {
+        transport: newServerTransport,
+        bearerToken: newServerBearerToken || undefined,
+        headers: buildHeaders(newServerHeaders),
+      })
 
       if (!fetchResult.success) {
         throw new Error(fetchResult.error || 'Failed to fetch tools')
@@ -388,7 +447,31 @@ const ToolsModal = ({ isOpen, onClose }) => {
 
       // Step 2: Sync tools to database
       console.log('[MCP Sync] Syncing tools to database...')
-      const syncResult = await syncMcpTools(editingServerUrl, newServerUrl, fetchResult.tools)
+      const syncResult = await syncMcpTools(editingServerUrl, newServerUrl, fetchResult.tools, {
+        transport: newServerTransport,
+        bearerToken: newServerBearerToken || undefined,
+        headers: buildHeaders(newServerHeaders),
+      })
+
+      const serverTools = tools.filter(
+        tool => tool.type === 'mcp' && tool.config?.serverName === editingServerUrl,
+      )
+      await Promise.all(
+        serverTools.map(tool => {
+          const enabled = mcpGroupToolStates[tool.id] ?? true
+          const disabled = !enabled
+          if (tool.config?.disabled === disabled) return null
+          return updateUserTool(tool.id, {
+            name: tool.name,
+            description: tool.description,
+            config: {
+              ...tool.config,
+              disabled,
+            },
+            input_schema: tool.input_schema,
+          })
+        }),
+      )
 
       console.log('[MCP Sync] Sync result:', syncResult)
 
@@ -419,6 +502,45 @@ const ToolsModal = ({ isOpen, onClose }) => {
     setIsEditingServerUrl(false)
     setEditingServerUrl(null)
     setNewServerUrl('')
+    setNewServerTransport('streamable_http')
+    setNewServerBearerToken('')
+    setNewServerHeaders([])
+    setMcpGroupToolStates({})
+  }
+
+  const buildHeaders = headerEntries => {
+    return (headerEntries || [])
+      .filter(item => item.key && item.value)
+      .reduce((acc, item) => {
+        acc[item.key] = item.value
+        return acc
+      }, {})
+  }
+
+  const handleDeleteMcpGroup = async serverName => {
+    if (!confirm(t('customTools.mcp.deleteGroupConfirm', { server: serverName }))) return
+
+    const serverTools = tools.filter(t => t.type === 'mcp' && t.config?.serverName === serverName)
+    try {
+      await Promise.all(serverTools.map(tool => deleteUserTool(tool.id)))
+      await loadTools()
+      if (editingTool && serverTools.some(tool => tool.id === editingTool.id)) {
+        setEditingTool(null)
+        setIsCreating(false)
+      }
+      if (isEditingServerUrl && editingServerUrl === serverName) {
+        handleCancelEditServerUrl()
+      }
+    } catch (error) {
+      console.error('Failed to delete MCP group:', error)
+      alert(`${t('customTools.mcp.deleteGroupFailed')} ${error.message}`)
+    }
+  }
+
+  const renderTransportLabel = value => {
+    if (value === 'streamable_http') return t('customTools.mcp.transportStreamableHttp')
+    if (value === 'sse') return t('customTools.mcp.transportSse')
+    return value
   }
 
   const filteredTools = useMemo(() => {
@@ -469,6 +591,11 @@ const ToolsModal = ({ isOpen, onClose }) => {
       return a.name.localeCompare(b.name)
     })
   }, [filteredTools])
+
+  const mcpGroupTools = useMemo(() => {
+    if (!isEditingServerUrl || !editingServerUrl) return []
+    return tools.filter(tool => tool.type === 'mcp' && tool.config?.serverName === editingServerUrl)
+  }, [tools, isEditingServerUrl, editingServerUrl])
 
   if (!isOpen) return null
 
@@ -538,23 +665,25 @@ const ToolsModal = ({ isOpen, onClose }) => {
                   <div className="px-2 py-1.5 mb-2">
                     <div className="flex items-center justify-between">
                       <div
-                        className="flex items-center gap-2 flex-1 cursor-pointer hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
+                        className="flex items-center gap-1.5 py-1.5 flex-1 cursor-pointer hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg truncated"
                         onClick={() => toggleGroup(group.name)}
                       >
                         <ChevronRight
                           size={14}
                           className={clsx(
-                            'transition-transform text-gray-400',
+                            'transition-transform text-gray-400 mx-1',
                             !collapsedGroups.has(group.name) && 'rotate-90',
                           )}
                         />
                         {group.type === 'mcp' && (
-                          <div className="w-2 h-2 rounded-full bg-purple-500" />
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 whitespace-nowrap">
+                            MCP
+                          </span>
                         )}
-                        <span className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
+                        <span className="text-[15px] font-semibold text-gray-600 dark:text-gray-400 tracking-wider truncate flex-1 min-w-0">
                           {group.name}
                         </span>
-                        <span className="text-xs text-gray-400 dark:text-gray-500">
+                        <span className="text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap pr-1.5">
                           ({group.tools.length})
                         </span>
                       </div>
@@ -564,10 +693,10 @@ const ToolsModal = ({ isOpen, onClose }) => {
                             e.stopPropagation()
                             handleEditServerUrl(group.name)
                           }}
-                          className="p-1 text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
+                          className="p-2 text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
                           title={t('customTools.mcp.updateUrlTooltip')}
                         >
-                          <Settings size={12} />
+                          <Settings size={16} />
                         </button>
                       )}
                     </div>
@@ -576,61 +705,69 @@ const ToolsModal = ({ isOpen, onClose }) => {
                   {/* Tools in this group */}
                   {!collapsedGroups.has(group.name) && (
                     <div className="space-y-2">
-                      {group.tools.map(tool => (
-                        <div
-                          key={tool.id}
-                          onClick={() => handleEdit(tool)}
-                          className={clsx(
-                            'group flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer select-none',
-                            editingTool?.id === tool.id
-                              ? 'bg-primary-100 dark:bg-zinc-800 border-primary-500/30 shadow-sm'
-                              : 'bg-white dark:bg-zinc-900 border-transparent hover:bg-primary-50 dark:hover:bg-zinc-800/50 hover:border-gray-200 dark:hover:border-zinc-700 hover:shadow-sm',
-                          )}
-                        >
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2 mb-0.5">
-                              <span
-                                className={clsx(
-                                  'text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider',
-                                  tool.type === 'mcp'
-                                    ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300'
-                                    : tool.config.method === 'GET'
-                                      ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
-                                      : tool.config.method === 'POST'
-                                        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
-                                        : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400',
-                                )}
-                              >
-                                {tool.type === 'mcp' ? 'MCP' : tool.config.method}
-                              </span>
-                              <span
-                                className={clsx(
-                                  'text-sm font-semibold truncate',
-                                  editingTool?.id === tool.id
-                                    ? 'text-primary-600 dark:text-primary-400'
-                                    : 'text-gray-900 dark:text-gray-100',
-                                )}
-                              >
-                                {tool.name}
-                              </span>
-                            </div>
-                            <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate pl-1 font-mono opacity-60">
+                      {group.tools.map(tool => {
+                        const isDisabled = Boolean(tool.config?.disabled)
+                        return (
+                          <div
+                            key={tool.id}
+                            onClick={() => handleEdit(tool)}
+                            className={clsx(
+                              'group flex items-center justify-between p-1.5 rounded-xl border transition-all cursor-pointer select-none',
+                              editingTool?.id === tool.id
+                                ? 'bg-primary-100 dark:bg-zinc-800 border-primary-500/30 shadow-sm'
+                                : 'bg-white dark:bg-zinc-900 border-transparent hover:bg-primary-50 dark:hover:bg-zinc-800/50 hover:border-gray-200 dark:hover:border-zinc-700 hover:shadow-sm',
+                              isDisabled && 'opacity-60',
+                            )}
+                          >
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5 mb-0.5">
+                                <span
+                                  className={clsx(
+                                    'text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider whitespace-nowrap',
+                                    tool.type === 'mcp'
+                                      ? 'bg-gray-100 text-gray-600 dark:bg-zinc-800 dark:text-gray-300'
+                                      : tool.config.method === 'GET'
+                                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
+                                        : tool.config.method === 'POST'
+                                          ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+                                          : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400',
+                                  )}
+                                >
+                                  {tool.type === 'mcp'
+                                    ? t('customTools.mcp.toolTag')
+                                    : tool.config.method}
+                                </span>
+                                <span
+                                  className={clsx(
+                                    'text-sm font-semibold truncate',
+                                    editingTool?.id === tool.id
+                                      ? 'text-primary-600 dark:text-primary-400'
+                                      : 'text-gray-900 dark:text-gray-100',
+                                  )}
+                                >
+                                  {tool.name}
+                                </span>
+                              </div>
+                              {/* <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate pl-1 font-mono opacity-60">
                               {tool.type === 'mcp'
                                 ? tool.config.toolName || tool.name
                                 : tool.config.url}
+                            </div> */}
                             </div>
+                            {tool.type !== 'mcp' && (
+                              <button
+                                onClick={e => {
+                                  e.stopPropagation()
+                                  handleDelete(tool.id)
+                                }}
+                                className="p-1.5 text-gray-400 opacity-0 group-hover:opacity-100 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            )}
                           </div>
-                          <button
-                            onClick={e => {
-                              e.stopPropagation()
-                              handleDelete(tool.id)
-                            }}
-                            className="p-1.5 text-gray-400 opacity-0 group-hover:opacity-100 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   )}
                 </div>
@@ -687,11 +824,11 @@ const ToolsModal = ({ isOpen, onClose }) => {
                   {isEditingServerUrl ? (
                     <>
                       <div className="hidden md:block">
-                        <h3 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">
+                        {/* <h3 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">
                           {t('customTools.mcp.updateServerUrl')}: {editingServerUrl}
-                        </h3>
+                        </h3> */}
                         <p className="text-gray-500 dark:text-gray-400 text-sm">
-                          更新此 MCP 服务器的 URL 以获取最新的工具定义
+                          更新MCP服务器的URL以获取最新的工具定义
                         </p>
                       </div>
 
@@ -714,6 +851,154 @@ const ToolsModal = ({ isOpen, onClose }) => {
                           placeholder="https://xxx.modelscope.cn/mcp/..."
                           icon={<Globe size={14} />}
                         />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="text-xs font-medium text-gray-700 dark:text-gray-300 block mb-1.5">
+                              {t('customTools.mcp.transportLabel')}
+                            </label>
+                            <CustomSelect
+                              value={newServerTransport}
+                              onChange={setNewServerTransport}
+                              options={['streamable_http', 'sse']}
+                              renderLabel={renderTransportLabel}
+                            />
+                          </div>
+                          <FormInput
+                            label={t('customTools.mcp.bearerTokenLabel')}
+                            value={newServerBearerToken}
+                            onChange={setNewServerBearerToken}
+                            placeholder="eyJhbGciOi..."
+                            type="password"
+                          />
+                        </div>
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <label className="text-xs font-medium text-gray-700 dark:text-gray-300 block">
+                              {t('customTools.mcp.headersLabel')}
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setNewServerHeaders([...newServerHeaders, { key: '', value: '' }])
+                              }
+                              className="text-xs font-semibold text-primary-600 dark:text-primary-400 hover:underline"
+                            >
+                              {t('customTools.mcp.addHeader')}
+                            </button>
+                          </div>
+                          {newServerHeaders.length === 0 ? (
+                            <div className="text-xs text-gray-400 dark:text-gray-500">
+                              {t('customTools.mcp.noHeaders')}
+                            </div>
+                          ) : (
+                            <div className="space-y-2">
+                              {newServerHeaders.map((header, index) => (
+                                <div
+                                  key={`${header.key}-${index}`}
+                                  className="grid grid-cols-5 gap-2"
+                                >
+                                  <div className="col-span-2">
+                                    <input
+                                      type="text"
+                                      value={header.key}
+                                      onChange={e => {
+                                        const next = [...newServerHeaders]
+                                        next[index] = { ...next[index], key: e.target.value }
+                                        setNewServerHeaders(next)
+                                      }}
+                                      placeholder={t('customTools.mcp.headerNamePlaceholder')}
+                                      className="w-full px-3 py-2 text-xs bg-white dark:bg-zinc-900/50 border border-gray-200 dark:border-zinc-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                                    />
+                                  </div>
+                                  <div className="col-span-2">
+                                    <input
+                                      type="text"
+                                      value={header.value}
+                                      onChange={e => {
+                                        const next = [...newServerHeaders]
+                                        next[index] = { ...next[index], value: e.target.value }
+                                        setNewServerHeaders(next)
+                                      }}
+                                      placeholder={t('customTools.mcp.headerValuePlaceholder')}
+                                      className="w-full px-3 py-2 text-xs bg-white dark:bg-zinc-900/50 border border-gray-200 dark:border-zinc-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                                    />
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setNewServerHeaders(
+                                        newServerHeaders.filter((_, i) => i !== index),
+                                      )
+                                    }
+                                    className="text-xs text-gray-400 hover:text-red-500"
+                                  >
+                                    {t('customTools.mcp.removeHeader')}
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <label className="text-xs font-medium text-gray-700 dark:text-gray-300 block">
+                              {t('customTools.mcp.toolEnableLabel')}
+                            </label>
+                            {mcpGroupTools.length > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const allEnabled = mcpGroupTools.every(
+                                    tool => mcpGroupToolStates[tool.id] ?? true,
+                                  )
+                                  const next = mcpGroupTools.reduce((acc, tool) => {
+                                    acc[tool.id] = !allEnabled
+                                    return acc
+                                  }, {})
+                                  setMcpGroupToolStates(next)
+                                }}
+                                className="text-xs font-semibold text-primary-600 dark:text-primary-400 hover:underline"
+                              >
+                                {mcpGroupTools.every(tool => mcpGroupToolStates[tool.id] ?? true)
+                                  ? t('common.deselectAll')
+                                  : t('common.selectAll')}
+                              </button>
+                            )}
+                          </div>
+                          {mcpGroupTools.length === 0 ? (
+                            <div className="text-xs text-gray-400 dark:text-gray-500">
+                              {t('customTools.mcp.toolEnableEmpty')}
+                            </div>
+                          ) : (
+                            <div className="space-y-2 h-full overflow-y-auto pr-1">
+                              {mcpGroupTools.map(tool => (
+                                <label
+                                  key={tool.id}
+                                  className="flex items-center justify-between gap-2 rounded-lg border border-gray-200/70 dark:border-zinc-700/60 bg-white/50 dark:bg-zinc-900/40 px-3 py-2 text-xs text-gray-600 dark:text-gray-300"
+                                >
+                                  <div className="min-w-0">
+                                    <div className="font-medium truncate">{tool.name}</div>
+                                    <div className="text-[10px] text-gray-400 dark:text-gray-500 truncate">
+                                      {tool.config?.toolName || tool.name}
+                                    </div>
+                                  </div>
+                                  <input
+                                    type="checkbox"
+                                    checked={mcpGroupToolStates[tool.id] ?? true}
+                                    onChange={e => {
+                                      setMcpGroupToolStates(prev => ({
+                                        ...prev,
+                                        [tool.id]: e.target.checked,
+                                      }))
+                                    }}
+                                    className="h-4 w-4 accent-primary-600"
+                                  />
+                                </label>
+                              ))}
+                            </div>
+                          )}
+                        </div>
 
                         <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-100 dark:border-blue-900/30">
                           <p className="text-sm text-blue-800 dark:text-blue-300">
@@ -817,11 +1102,11 @@ const ToolsModal = ({ isOpen, onClose }) => {
                                 </label>
                                 <div className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
                                   <div>
-                                    <span className="font-medium">服务器：</span>
+                                    <span className="font-medium">服务器:</span>
                                     {editingTool.config?.serverName || 'N/A'}
                                   </div>
                                   <div className="font-mono text-xs break-all">
-                                    <span className="font-medium">URL：</span>
+                                    <span className="font-medium">URL:</span>
                                     {editingTool.config?.serverUrl || 'N/A'}
                                   </div>
                                 </div>
@@ -850,6 +1135,106 @@ const ToolsModal = ({ isOpen, onClose }) => {
                                 placeholder="https://xxx.modelscope.cn/mcp/..."
                                 icon={<Globe size={14} />}
                               />
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                  <label className="text-xs font-medium text-gray-700 dark:text-gray-300 block mb-1.5">
+                                    {t('customTools.mcp.transportLabel')}
+                                  </label>
+                                  <CustomSelect
+                                    value={formData.serverTransport}
+                                    onChange={v => setFormData({ ...formData, serverTransport: v })}
+                                    options={['streamable_http', 'sse']}
+                                    renderLabel={renderTransportLabel}
+                                  />
+                                </div>
+                                <FormInput
+                                  label={t('customTools.mcp.bearerTokenLabel')}
+                                  value={formData.serverBearerToken}
+                                  onChange={v => setFormData({ ...formData, serverBearerToken: v })}
+                                  placeholder="eyJhbGciOi..."
+                                  type="password"
+                                />
+                              </div>
+                              <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                  <label className="text-xs font-medium text-gray-700 dark:text-gray-300 block">
+                                    {t('customTools.mcp.headersLabel')}
+                                  </label>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setFormData({
+                                        ...formData,
+                                        serverHeaders: [
+                                          ...formData.serverHeaders,
+                                          { key: '', value: '' },
+                                        ],
+                                      })
+                                    }
+                                    className="text-xs font-semibold text-primary-600 dark:text-primary-400 hover:underline"
+                                  >
+                                    {t('customTools.mcp.addHeader')}
+                                  </button>
+                                </div>
+                                {formData.serverHeaders.length === 0 ? (
+                                  <div className="text-xs text-gray-400 dark:text-gray-500">
+                                    {t('customTools.mcp.noHeaders')}
+                                  </div>
+                                ) : (
+                                  <div className="space-y-2">
+                                    {formData.serverHeaders.map((header, index) => (
+                                      <div
+                                        key={`${header.key}-${index}`}
+                                        className="grid grid-cols-5 gap-2"
+                                      >
+                                        <div className="col-span-2">
+                                          <input
+                                            type="text"
+                                            value={header.key}
+                                            onChange={e => {
+                                              const next = [...formData.serverHeaders]
+                                              next[index] = { ...next[index], key: e.target.value }
+                                              setFormData({ ...formData, serverHeaders: next })
+                                            }}
+                                            placeholder={t('customTools.mcp.headerNamePlaceholder')}
+                                            className="w-full px-3 py-2 text-xs bg-white dark:bg-zinc-900/50 border border-gray-200 dark:border-zinc-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                                          />
+                                        </div>
+                                        <div className="col-span-2">
+                                          <input
+                                            type="text"
+                                            value={header.value}
+                                            onChange={e => {
+                                              const next = [...formData.serverHeaders]
+                                              next[index] = {
+                                                ...next[index],
+                                                value: e.target.value,
+                                              }
+                                              setFormData({ ...formData, serverHeaders: next })
+                                            }}
+                                            placeholder={t(
+                                              'customTools.mcp.headerValuePlaceholder',
+                                            )}
+                                            className="w-full px-3 py-2 text-xs bg-white dark:bg-zinc-900/50 border border-gray-200 dark:border-zinc-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                                          />
+                                        </div>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            const next = formData.serverHeaders.filter(
+                                              (_, i) => i !== index,
+                                            )
+                                            setFormData({ ...formData, serverHeaders: next })
+                                          }}
+                                          className="text-xs text-gray-400 hover:text-red-500"
+                                        >
+                                          {t('customTools.mcp.removeHeader')}
+                                        </button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
                               <button
                                 type="button"
                                 onClick={loadMcpTools}
@@ -873,11 +1258,29 @@ const ToolsModal = ({ isOpen, onClose }) => {
                                 mcpToolsListLength: mcpToolsList.length,
                               })}
                               <div className="border-t border-gray-100 dark:border-zinc-800" />
-                              <div className="space-y-4">
-                                <label className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                                  {t('customTools.mcp.availableTools')} ({mcpToolsList.length})
-                                </label>
-                                <div className="space-y-2 max-h-64 overflow-y-auto">
+                              <div className="space-y-4 flex flex-col min-h-0 flex-1">
+                                <div className="flex items-center justify-between">
+                                  <label className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                                    {t('customTools.mcp.availableTools')} ({mcpToolsList.length})
+                                  </label>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (selectedMcpTools.size === mcpToolsList.length) {
+                                        setSelectedMcpTools(new Set())
+                                      } else {
+                                        setSelectedMcpTools(new Set(mcpToolsList.map(t => t.id)))
+                                      }
+                                    }}
+                                    className="text-xs font-semibold text-primary-600 dark:text-primary-400 hover:underline"
+                                  >
+                                    {selectedMcpTools.size === mcpToolsList.length
+                                      ? t('common.deselectAll')
+                                      : t('common.selectAll')}
+                                  </button>
+                                </div>
+
+                                <div className="space-y-2 overflow-y-auto flex-1 pr-2">
                                   {mcpToolsList.map(tool => (
                                     <div
                                       key={tool.id}
@@ -1022,38 +1425,49 @@ const ToolsModal = ({ isOpen, onClose }) => {
               </div>
 
               {/* Fixed Footer */}
-              <div className="h-20 shrink-0 border-t border-gray-200 dark:border-zinc-800 flex items-center justify-end px-6 sm:px-8 gap-3 bg-white dark:bg-[#191a1a] z-10">
+              <div
+                className={clsx(
+                  'h-20 shrink-0 border-t border-gray-200 dark:border-zinc-800 flex items-center px-6 sm:px-8 gap-3 bg-white dark:bg-[#191a1a] z-10',
+                  isEditingServerUrl ? 'justify-between' : 'justify-end',
+                )}
+              >
                 {isEditingServerUrl ? (
                   <>
                     <button
-                      onClick={handleCancelEditServerUrl}
+                      onClick={() => handleDeleteMcpGroup(editingServerUrl)}
                       disabled={updatingServerUrl}
-                      className="px-6 py-2.5 bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-xl font-semibold transition-colors"
+                      className="flex items-center justify-center gap-2 px-6 py-2.5 bg-red-600/10 hover:bg-red-600 disabled:bg-red-600/30 text-red-600 hover:text-white border border-red-600/20 rounded-xl font-semibold transition-all"
                     >
-                      {t('common.cancel')}
+                      <Trash2 size={18} />
+                      {t('customTools.mcp.deleteGroup')}
                     </button>
-                    <button
-                      onClick={handleUpdateServerUrl}
-                      disabled={updatingServerUrl}
-                      className="flex items-center justify-center gap-2 px-6 py-2.5 bg-primary-600 hover:bg-primary-700 disabled:bg-primary-400 text-white rounded-xl font-bold transition-all shadow-lg shadow-primary-500/10 active:scale-[0.98]"
-                    >
-                      <Save size={18} />
-                      {updatingServerUrl ? t('common.loading') : t('common.save')}
-                    </button>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={handleCancelEditServerUrl}
+                        disabled={updatingServerUrl}
+                        className="px-6 py-2.5 bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-xl font-semibold transition-colors"
+                      >
+                        {t('common.cancel')}
+                      </button>
+                      <button
+                        onClick={handleUpdateServerUrl}
+                        disabled={updatingServerUrl}
+                        className="flex items-center justify-center gap-2 px-6 py-2.5 bg-primary-600 hover:bg-primary-700 disabled:bg-primary-400 text-white rounded-xl font-bold transition-all shadow-lg shadow-primary-500/10 active:scale-[0.98]"
+                      >
+                        <Save size={18} />
+                        {updatingServerUrl ? t('common.loading') : t('common.save')}
+                      </button>
+                    </div>
                   </>
                 ) : !isCreating && formData.toolType === 'mcp' ? (
                   <button
                     onClick={() => {
-                      if (confirm(t('customTools.deleteConfirm'))) {
-                        handleDelete(editingTool.id)
-                        setIsCreating(false)
-                        setEditingTool(null)
-                      }
+                      setIsCreating(false)
+                      setEditingTool(null)
                     }}
-                    className="flex items-center justify-center gap-2 px-6 py-2.5 bg-red-600/10 hover:bg-red-600 text-red-600 hover:text-white border border-red-600/20 rounded-xl font-bold transition-all active:scale-[0.98]"
+                    className="px-6 py-2.5 bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-xl font-semibold transition-colors"
                   >
-                    <Trash2 size={18} />
-                    删除工具
+                    {t('common.cancel')}
                   </button>
                 ) : (
                   <>
@@ -1094,8 +1508,9 @@ const ToolsModal = ({ isOpen, onClose }) => {
   )
 }
 
-const CustomSelect = ({ value, onChange, options }) => {
+const CustomSelect = ({ value, onChange, options, renderLabel }) => {
   const [isOpen, setIsOpen] = useState(false)
+  const getLabel = option => (renderLabel ? renderLabel(option) : option)
 
   return (
     <div className="relative">
@@ -1104,7 +1519,7 @@ const CustomSelect = ({ value, onChange, options }) => {
         onClick={() => setIsOpen(!isOpen)}
         className="w-full px-4 py-2.5 text-sm md:text-left text-center bg-gray-50/50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 transition-all font-mono flex items-center justify-between group"
       >
-        <span>{value}</span>
+        <span>{getLabel(value)}</span>
         <div className="bg-gray-200 dark:bg-zinc-700 rounded p-0.5">
           <ChevronRight size={12} className={clsx('transition-transform', isOpen && 'rotate-90')} />
         </div>
@@ -1128,7 +1543,7 @@ const CustomSelect = ({ value, onChange, options }) => {
                     'text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/20',
                 )}
               >
-                {option}
+                {getLabel(option)}
               </button>
             ))}
           </div>

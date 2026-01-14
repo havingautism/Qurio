@@ -124,7 +124,7 @@ const HomeView = () => {
           '-=0.4',
         )
     },
-    { scope: homeContainerRef },
+    { scope: homeContainerRef, dependencies: [] },
   )
 
   useEffect(() => {

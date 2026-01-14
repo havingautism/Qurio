@@ -123,9 +123,9 @@ const ChatHeader = ({
             {isMetaLoading ? (
               <span className="text-gray-500 animate-pulse">...</span>
             ) : displaySpace ? (
-              <div className="flex items-center gap-1">
+              <div className="inline-flex items-center gap-1">
                 <span className="text-lg">
-                  <EmojiDisplay emoji={displaySpace.emoji} size="1.125rem" />
+                  <EmojiDisplay emoji={displaySpace.emoji} size="1.125rem" className="mb-1.5" />
                 </span>
                 <span className="hidden opacity-0 w-0 md:inline md:opacity-100 md:w-auto truncate max-w-[200px] transition-all">
                   {getSpaceDisplayLabel(displaySpace, t)}
@@ -186,8 +186,8 @@ const ChatHeader = ({
             {isTitleLoading || isMetaLoading ? (
               <span className="inline-block h-5 w-40 sm:w-56 rounded-md bg-gray-200 dark:bg-zinc-700 animate-pulse" />
             ) : (
-              <span className="flex items-center gap-2 min-w-0">
-                {activeEmoji && <EmojiDisplay emoji={activeEmoji} size="1.2rem" />}
+              <span className="inline-flex items-center gap-2 min-w-0 ">
+                {activeEmoji && <EmojiDisplay emoji={activeEmoji} size="1.2rem" className="mb-1" />}
                 <span className="chat-title-scroll min-w-0 max-w-full">
                   <span>{conversationTitle || 'New Conversation'}</span>
                 </span>

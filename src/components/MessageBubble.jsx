@@ -23,6 +23,7 @@ import {
   Wrench,
   FormInput,
   Globe,
+  AlertTriangle,
 } from 'lucide-react'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
@@ -89,6 +90,27 @@ const PROVIDER_META = {
     id: 'nvidia',
     fallback: 'N',
   },
+}
+
+const ToolEnter = ({ children, className }) => {
+  const [entered, setEntered] = useState(false)
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => setEntered(true))
+    return () => cancelAnimationFrame(frame)
+  }, [])
+
+  return (
+    <div
+      className={clsx(
+        'transition-all duration-200 ease-out origin-top transform-gpu',
+        entered ? 'opacity-100 scale-100' : 'opacity-0 scale-95',
+        className,
+      )}
+    >
+      {children}
+    </div>
+  )
 }
 
 /**
@@ -483,7 +505,22 @@ const MessageBubble = ({
   }
 
   const isAsciiWordChar = char => /[A-Za-z0-9]/.test(char)
-  const toolBoundaryChars = new Set([' ', '\n', '\t', '.', ',', '!', '?', ';', ':', '。', '！', '？', '；', '：'])
+  const toolBoundaryChars = new Set([
+    ' ',
+    '\n',
+    '\t',
+    '.',
+    ',',
+    '!',
+    '?',
+    ';',
+    ':',
+    '。',
+    '！',
+    '？',
+    '；',
+    '：',
+  ])
   const toolPunctuationChars = new Set(['.', ',', '!', '?', ';', ':', '。', '！', '？', '；', '：'])
   const normalizeToolIndex = (content, index) => {
     if (!content) return 0
@@ -980,6 +1017,21 @@ const MessageBubble = ({
     }
     return false
   })()
+  const shouldShowInitialSkeleton =
+    !hasMainText && isStreaming && !isDeepResearch && !mergedMessage?._isContinuationLoading
+  const skeletonFadeMs = 320
+  const [renderInitialSkeleton, setRenderInitialSkeleton] = useState(shouldShowInitialSkeleton)
+  const [showInitialSkeleton, setShowInitialSkeleton] = useState(shouldShowInitialSkeleton)
+  useEffect(() => {
+    if (shouldShowInitialSkeleton) {
+      setRenderInitialSkeleton(true)
+      const frame = requestAnimationFrame(() => setShowInitialSkeleton(true))
+      return () => cancelAnimationFrame(frame)
+    }
+    setShowInitialSkeleton(false)
+    const timer = setTimeout(() => setRenderInitialSkeleton(false), skeletonFadeMs)
+    return () => clearTimeout(timer)
+  }, [shouldShowInitialSkeleton, skeletonFadeMs])
   const baseThinkingStatusActive =
     message.role === 'ai' && message.thinkingEnabled !== false && isStreaming && !hasMainText
   const researchStatusText = DEEP_RESEARCH_STATUS_MESSAGES[0]
@@ -1253,7 +1305,10 @@ const MessageBubble = ({
         }
 
         return (
-          <div key={`tools-container-${idx}`} className="flex flex-col gap-4">
+          <div
+            key={`tools-container-${idx}`}
+            className="relative z-30 flex flex-col gap-4"
+          >
             {/* Render regular tools */}
             {regularTools.length > 0 &&
               (developerMode ? (
@@ -1273,14 +1328,26 @@ const MessageBubble = ({
                     {regularTools.map(item => (
                       <div
                         key={item.id || `${item.name}-${item.arguments}`}
-                        className="flex items-center gap-2 text-[11px] text-gray-600 dark:text-gray-400"
+                        className="flex items-center gap-2 text-[11px] text-gray-600 dark:text-gray-400 w-full"
                       >
-                        <span className="font-medium text-gray-700 dark:text-gray-300">
-                          {item.name}
+                        <span className="font-medium text-gray-700 dark:text-gray-300 shrink-0 flex items-center gap-1.5">
+                          {item.status === 'error' && (
+                            <AlertTriangle size={14} className="text-red-500 dark:text-red-400" />
+                          )}
+                          {item.status === 'error' ? t('messageBubble.toolCallError') : item.name}
                         </span>
+                        <div className="flex-1 min-w-0" />
+                        {item.status !== 'done' && item.status !== 'error' && <DotLoader />}
+                        {typeof item.durationMs === 'number' && (
+                          <span className="text-[10px] text-gray-500 dark:text-gray-400 shrink-0 whitespace-nowrap">
+                            {t('messageBubble.toolDuration', {
+                              duration: (item.durationMs / 1000).toFixed(2),
+                            })}
+                          </span>
+                        )}
                         <span
                           className={clsx(
-                            'px-2 py-0.5 rounded-full text-[10px]',
+                            'px-2 py-0.5 rounded-full text-[10px] shrink-0 whitespace-nowrap',
                             item.status === 'error'
                               ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
                               : item.status === 'done'
@@ -1294,18 +1361,10 @@ const MessageBubble = ({
                               ? t('messageBubble.toolStatusDone')
                               : t('messageBubble.toolStatusCalling')}
                         </span>
-                        {item.status !== 'done' && item.status !== 'error' && <DotLoader />}
-                        {typeof item.durationMs === 'number' && (
-                          <span className="text-[10px] text-gray-500 dark:text-gray-400">
-                            {t('messageBubble.toolDuration', {
-                              duration: (item.durationMs / 1000).toFixed(2),
-                            })}
-                          </span>
-                        )}
                         <button
                           type="button"
                           onClick={() => setActiveToolDetail(item)}
-                          className="ml-auto text-[10px] text-primary-600 dark:text-primary-300 hover:underline"
+                          className="text-[10px] text-primary-600 dark:text-primary-300 hover:underline shrink-0 whitespace-nowrap"
                         >
                           {t('messageBubble.toolDetails')}
                         </button>
@@ -1336,66 +1395,74 @@ const MessageBubble = ({
                         }[iconName]
                       : null
                     return (
-                      <div
-                        key={item.id || `${item.name}-${item.arguments}`}
-                        className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400"
-                      >
-                        <div className="flex items-center gap-1 sm:gap-2 w-full">
-                          <span className="font-medium text-gray-600 dark:text-gray-300 whitespace-nowrap shrink-0 flex items-center gap-1.5">
-                            {IconComponent && (
-                              <IconComponent
-                                size={14}
-                                className="text-gray-500 dark:text-gray-400"
-                              />
-                            )}
-                            {TOOL_TRANSLATION_KEYS[item.name]
-                              ? t(TOOL_TRANSLATION_KEYS[item.name])
-                              : item.name}
-                          </span>
-                          <div className="flex items-center gap-1 sm:gap-2 flex-1 min-w-0">
-                            {Object.keys(TOOL_TRANSLATION_KEYS).includes(item.name) &&
-                              (() => {
-                                try {
-                                  const args = JSON.parse(item.arguments || '{}')
-                                  if (args.query) {
-                                    return (
-                                      <span className="opacity-75 truncate w-full">
-                                        &quot;{args.query}&quot;
-                                      </span>
-                                    )
-                                  }
-                                } catch {
-                                  return null
-                                }
-                              })()}
-                          </div>
-                          {typeof item.durationMs === 'number' && (
-                            <span className="text-[11px] text-gray-500 dark:text-gray-400 whitespace-nowrap shrink-0">
-                              {t('messageBubble.toolDuration', {
-                                duration: (item.durationMs / 1000).toFixed(2),
-                              })}
+                      <ToolEnter key={item.id || `${item.name}-${item.arguments}`}>
+                        <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                          <div className="flex items-center gap-1 sm:gap-2 w-full">
+                            <span className="font-medium text-gray-600 dark:text-gray-300 whitespace-nowrap shrink-0 flex items-center gap-1.5">
+                              {item.status === 'error' ? (
+                                <AlertTriangle
+                                  size={14}
+                                  className="text-red-500 dark:text-red-400"
+                                />
+                              ) : (
+                                IconComponent && (
+                                  <IconComponent
+                                    size={14}
+                                    className="text-gray-500 dark:text-gray-400"
+                                  />
+                                )
+                              )}
+                              {item.status === 'error'
+                                ? t('messageBubble.toolCallError')
+                                : TOOL_TRANSLATION_KEYS[item.name]
+                                  ? t(TOOL_TRANSLATION_KEYS[item.name])
+                                  : item.name}
                             </span>
-                          )}
-                          <span
-                            className={clsx(
-                              'px-2 py-0.5 rounded-full text-[11px] ml-auto shrink-0 flex items-center justify-center min-w-[24px]',
-                              item.status === 'error'
-                                ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
-                                : item.status === 'done'
-                                  ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
-                                  : 'bg-gray-200/70 dark:bg-zinc-700/70 text-gray-600 dark:text-gray-400',
+                            <div className="flex items-center gap-1 sm:gap-2 flex-1 min-w-0">
+                              {Object.keys(TOOL_TRANSLATION_KEYS).includes(item.name) &&
+                                (() => {
+                                  try {
+                                    const args = JSON.parse(item.arguments || '{}')
+                                    if (args.query) {
+                                      return (
+                                        <span className="opacity-75 truncate w-full">
+                                          &quot;{args.query}&quot;
+                                        </span>
+                                      )
+                                    }
+                                  } catch {
+                                    return null
+                                  }
+                                })()}
+                            </div>
+                            {typeof item.durationMs === 'number' && (
+                              <span className="text-[11px] text-gray-500 dark:text-gray-400 whitespace-nowrap shrink-0">
+                                {t('messageBubble.toolDuration', {
+                                  duration: (item.durationMs / 1000).toFixed(2),
+                                })}
+                              </span>
                             )}
-                          >
-                            {item.status === 'error' ? (
-                              <X className="w-4 h-4" />
-                            ) : item.status === 'done' ? (
-                              <Check className="w-4 h-4" />
-                            ) : (
-                              <DotLoader />
-                            )}
-                          </span>
+                            <span
+                              className={clsx(
+                                'px-2 py-0.5 rounded-full text-[11px] ml-auto shrink-0 flex items-center justify-center min-w-[24px]',
+                                item.status === 'error'
+                                  ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
+                                  : item.status === 'done'
+                                    ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
+                                    : 'bg-gray-200/70 dark:bg-zinc-700/70 text-gray-600 dark:text-gray-400',
+                              )}
+                            >
+                              {item.status === 'error' ? (
+                                <X className="w-4 h-4" />
+                              ) : item.status === 'done' ? (
+                                <Check className="w-4 h-4" />
+                              ) : (
+                                <DotLoader />
+                              )}
+                            </span>
+                          </div>
                         </div>
-                      </div>
+                      </ToolEnter>
                     )
                   })}
                 </div>
@@ -1473,7 +1540,13 @@ const MessageBubble = ({
       return (
         <React.Fragment key={`text-${idx}`}>
           {showStatusBeforeText && <FormStatusBadge waiting={false} />}
-          <div data-answer-scope="true">
+          <div
+            data-answer-scope="true"
+            className={clsx(
+              'transition-all duration-300 ease-[cubic-bezier(0.2,0.6,0.2,1)]',
+              hasMainText ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-1',
+            )}
+          >
             <Streamdown
               mermaid={mermaidOptions}
               remarkPlugins={[remarkGfm]}
@@ -1919,7 +1992,9 @@ const MessageBubble = ({
                   {!shouldShowPlanStatus && <Check size="1em" />}
                   {shouldShowPlanStatus && (
                     <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                      <span className="text-left mr-4">{researchStatusText}</span>
+                      <span className="text-left mr-4 transition-opacity duration-200 ease-out">
+                        {researchStatusText}
+                      </span>
                       <DotLoader />
                     </div>
                   )}
@@ -1955,7 +2030,9 @@ const MessageBubble = ({
                   {!shouldShowResearchStatus && <Check size="1em" />}
                   {shouldShowResearchStatus && (
                     <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                      <span className="text-left mr-4">{researchStatusText}</span>
+                      <span className="text-left mr-4 transition-opacity duration-200 ease-out">
+                        {researchStatusText}
+                      </span>
                       <DotLoader />
                     </div>
                   )}
@@ -2040,14 +2117,33 @@ const MessageBubble = ({
                                   {stepToolCalls.map(item => (
                                     <div
                                       key={item.id || `${item.name}-${item.arguments}`}
-                                      className="flex items-center gap-2 text-[11px] text-gray-600 dark:text-gray-400"
+                                      className="flex items-center gap-2 text-[11px] text-gray-600 dark:text-gray-400 w-full"
                                     >
-                                      <span className="font-medium text-gray-700 dark:text-gray-300">
-                                        {item.name}
+                                      <span className="font-medium text-gray-700 dark:text-gray-300 shrink-0 flex items-center gap-1.5">
+                                        {item.status === 'error' && (
+                                          <AlertTriangle
+                                            size={14}
+                                            className="text-red-500 dark:text-red-400"
+                                          />
+                                        )}
+                                        {item.status === 'error'
+                                          ? t('messageBubble.toolCallError')
+                                          : item.name}
                                       </span>
+                                      <div className="flex-1 min-w-0" />
+                                      {item.status !== 'done' && item.status !== 'error' && (
+                                        <DotLoader />
+                                      )}
+                                      {typeof item.durationMs === 'number' && (
+                                        <span className="text-[10px] text-gray-500 dark:text-gray-400 shrink-0 whitespace-nowrap">
+                                          {t('messageBubble.toolDuration', {
+                                            duration: (item.durationMs / 1000).toFixed(2),
+                                          })}
+                                        </span>
+                                      )}
                                       <span
                                         className={clsx(
-                                          'px-2 py-0.5 rounded-full text-[10px]',
+                                          'px-2 py-0.5 rounded-full text-[10px] shrink-0 whitespace-nowrap',
                                           item.status === 'error'
                                             ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
                                             : item.status === 'done'
@@ -2061,20 +2157,10 @@ const MessageBubble = ({
                                             ? t('messageBubble.toolStatusDone')
                                             : t('messageBubble.toolStatusCalling')}
                                       </span>
-                                      {item.status !== 'done' && item.status !== 'error' && (
-                                        <DotLoader />
-                                      )}
-                                      {typeof item.durationMs === 'number' && (
-                                        <span className="text-[10px] text-gray-500 dark:text-gray-400">
-                                          {t('messageBubble.toolDuration', {
-                                            duration: (item.durationMs / 1000).toFixed(2),
-                                          })}
-                                        </span>
-                                      )}
                                       <button
                                         type="button"
                                         onClick={() => setActiveToolDetail(item)}
-                                        className="ml-auto text-[10px] text-primary-600 dark:text-primary-300 hover:underline"
+                                        className="text-[10px] text-primary-600 dark:text-primary-300 hover:underline shrink-0 whitespace-nowrap"
                                       >
                                         {t('messageBubble.toolDetails')}
                                       </button>
@@ -2106,15 +2192,24 @@ const MessageBubble = ({
                                       >
                                         <div className="grid grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-1 sm:gap-1.5 w-full">
                                           <span className="font-medium text-gray-600 dark:text-gray-300 whitespace-nowrap flex items-center gap-1">
-                                            {IconComponent && (
-                                              <IconComponent
+                                            {item.status === 'error' ? (
+                                              <AlertTriangle
                                                 size={12}
-                                                className="text-gray-500 dark:text-gray-400"
+                                                className="text-red-500 dark:text-red-400"
                                               />
+                                            ) : (
+                                              IconComponent && (
+                                                <IconComponent
+                                                  size={12}
+                                                  className="text-gray-500 dark:text-gray-400"
+                                                />
+                                              )
                                             )}
-                                            {TOOL_TRANSLATION_KEYS[item.name]
-                                              ? t(TOOL_TRANSLATION_KEYS[item.name])
-                                              : item.name}
+                                            {item.status === 'error'
+                                              ? t('messageBubble.toolCallError')
+                                              : TOOL_TRANSLATION_KEYS[item.name]
+                                                ? t(TOOL_TRANSLATION_KEYS[item.name])
+                                                : item.name}
                                           </span>
                                           <div className="flex items-center min-w-0">
                                             {Object.keys(TOOL_TRANSLATION_KEYS).includes(
@@ -2233,43 +2328,49 @@ const MessageBubble = ({
           userSelect: isMobile ? 'text' : 'auto',
         }}
       >
-        {!mergedMessage.content && (!toolCallHistory || toolCallHistory.length === 0) ? (
-          <div className="flex flex-col gap-2 animate-pulse">
-            <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-3/4"></div>
-            <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-1/2"></div>
-            <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-5/6"></div>
-          </div>
-        ) : (
-          <>
-            {renderedInterleavedContent}
-            {!isDeepResearch &&
-              isStreaming &&
-              hasMainText &&
-              !mergedMessage._isContinuationLoading && (
-                <div className="mt-4 flex flex-col gap-2 animate-pulse">
-                  <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-3/4"></div>
-                  <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-1/2"></div>
-                  <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-5/6"></div>
-                </div>
+        <>
+          {renderedInterleavedContent}
+          {renderInitialSkeleton && (
+            <div
+              className={clsx(
+                'flex flex-col gap-2 animate-pulse transition-opacity duration-300 ease-[cubic-bezier(0.2,0.6,0.2,1)]',
+                showInitialSkeleton ? 'opacity-100' : 'opacity-0',
               )}
-            {isDeepResearch && isStreaming && !hasMainText && !hasActiveResearchStep && (
-              <div className="mt-4 flex items-center gap-2 text-gray-500 dark:text-gray-400 animate-pulse pl-1">
-                <DotLoader />
-                <span className="text-sm font-medium">{t('chat.deepResearchDrafting')}</span>
+            >
+              <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-3/4"></div>
+              <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-1/2"></div>
+              <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-5/6"></div>
+            </div>
+          )}
+          {!isDeepResearch &&
+            isStreaming &&
+            hasMainText &&
+            !mergedMessage._isContinuationLoading && (
+              <div className="mt-4 flex flex-col gap-2 animate-pulse">
+                <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-3/4"></div>
+                <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-1/2"></div>
+                <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-5/6"></div>
               </div>
             )}
-            {mergedMessage._isContinuationLoading && (
-              <div className="mt-4 flex flex-col gap-3">
-                <FormStatusBadge waiting={false} />
-                <div className="flex flex-col gap-2 animate-pulse">
-                  <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-3/4"></div>
-                  <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-1/2"></div>
-                  <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-5/6"></div>
-                </div>
+          {isDeepResearch && isStreaming && !hasMainText && !hasActiveResearchStep && (
+            <div className="mt-4 flex items-center gap-2 text-gray-500 dark:text-gray-400 animate-pulse pl-1">
+              <DotLoader />
+              <span className="text-sm font-medium transition-opacity duration-200 ease-out">
+                {t('chat.deepResearchDrafting')}
+              </span>
+            </div>
+          )}
+          {mergedMessage._isContinuationLoading && (
+            <div className="mt-4 flex flex-col gap-3">
+              <FormStatusBadge waiting={false} />
+              <div className="flex flex-col gap-2 animate-pulse">
+                <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-3/4"></div>
+                <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-1/2"></div>
+                <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-5/6"></div>
               </div>
-            )}
-          </>
-        )}
+            </div>
+          )}
+        </>
       </div>
 
       {isFormWaitingForInput && <FormStatusBadge waiting />}

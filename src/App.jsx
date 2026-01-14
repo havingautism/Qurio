@@ -166,11 +166,13 @@ function App() {
     }
   }, [location.pathname, location.search])
 
+  // Combined theme application to avoid race conditions and ensure CSS variables are applied before first render
   useLayoutEffect(() => {
     const root = document.documentElement
     const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
 
-    const applyTheme = t => {
+    // Apply dark/light mode class
+    const applyDarkMode = t => {
       if (t === 'dark' || (t === 'system' && systemTheme === 'dark')) {
         root.classList.add('dark')
       } else {
@@ -178,40 +180,39 @@ function App() {
       }
     }
 
-    applyTheme(theme)
-
-    // Listener for system theme changes if in system mode
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
-    const handleChange = () => {
-      if (theme === 'system') {
-        applyTheme('system')
-      }
-    }
-
-    mediaQuery.addEventListener('change', handleChange)
-    return () => mediaQuery.removeEventListener('change', handleChange)
-  }, [theme])
-
-  // Apply User Configured Theme Color
-  useLayoutEffect(() => {
-    const applyConfiguredTheme = () => {
+    // Apply theme color CSS variables
+    const applyThemeColor = () => {
       const settings = loadSettings()
       if (settings.themeColor) {
         applyTheme(settings.themeColor)
       }
     }
 
-    // Apply immediately
-    applyConfiguredTheme()
+    // Apply both synchronously to prevent flash
+    applyDarkMode(theme)
+    applyThemeColor()
 
-    // Re-apply on settings change
-    const handleSettingsChange = () => {
-      applyConfiguredTheme()
+    // Listener for system theme changes if in system mode
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+    const handleSystemThemeChange = () => {
+      if (theme === 'system') {
+        applyDarkMode('system')
+      }
     }
 
+    // Re-apply theme color on settings change
+    const handleSettingsChange = () => {
+      applyThemeColor()
+    }
+
+    mediaQuery.addEventListener('change', handleSystemThemeChange)
     window.addEventListener('settings-changed', handleSettingsChange)
-    return () => window.removeEventListener('settings-changed', handleSettingsChange)
-  }, [])
+
+    return () => {
+      mediaQuery.removeEventListener('change', handleSystemThemeChange)
+      window.removeEventListener('settings-changed', handleSettingsChange)
+    }
+  }, [theme])
 
   // Apply User Configured Message Font Size
   useLayoutEffect(() => {

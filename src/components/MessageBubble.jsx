@@ -23,6 +23,9 @@ import {
   Wrench,
   FormInput,
   Globe,
+  AlertCircle,
+  RotateCcw,
+  Zap,
 } from 'lucide-react'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
@@ -483,7 +486,22 @@ const MessageBubble = ({
   }
 
   const isAsciiWordChar = char => /[A-Za-z0-9]/.test(char)
-  const toolBoundaryChars = new Set([' ', '\n', '\t', '.', ',', '!', '?', ';', ':', '。', '！', '？', '；', '：'])
+  const toolBoundaryChars = new Set([
+    ' ',
+    '\n',
+    '\t',
+    '.',
+    ',',
+    '!',
+    '?',
+    ';',
+    ':',
+    '。',
+    '！',
+    '？',
+    '；',
+    '：',
+  ])
   const toolPunctuationChars = new Set(['.', ',', '!', '?', ';', ':', '。', '！', '？', '；', '：'])
   const normalizeToolIndex = (content, index) => {
     if (!content) return 0
@@ -1574,8 +1592,10 @@ const MessageBubble = ({
         >
           <div
             className={clsx(
-              'flex flex-col gap-2 max-w-[85%] sm:max-w-[85%]',
-              isDeepResearchContext ? 'items-center' : 'items-end',
+              'flex flex-col gap-2',
+              isDeepResearchContext
+                ? 'w-full max-w-full items-center'
+                : 'max-w-[85%] sm:max-w-[85%] items-end',
             )}
           >
             {/* Message Content */}
@@ -1712,7 +1732,7 @@ const MessageBubble = ({
   const researchSteps = Array.isArray(message.researchSteps) ? message.researchSteps : []
   const hasResearchSteps = researchSteps.length > 0
   const hasActiveResearchStep = researchSteps.some(
-    step => step.status === 'running' || step.status === 'pending',
+    step => step.status === 'running' || step.status === 'pending' || step.status === 'retrying',
   )
   const shouldShowPlan = isDeepResearch && (hasPlanText || researchPlanLoading)
   const shouldShowResearch = isDeepResearch && hasResearchSteps
@@ -1748,7 +1768,7 @@ const MessageBubble = ({
         containerRef.current = el
         if (typeof bubbleRef === 'function') bubbleRef(el)
       }}
-      className="w-full max-w-3xl mb-12 flex flex-col gap-4 relative px-5 sm:px-0"
+      className="w-full mb-12 flex flex-col gap-4 relative px-5 sm:px-0"
       onMouseUp={handleMouseUp}
       onTouchEnd={handleTouchEnd}
       onContextMenu={handleContextMenu}
@@ -1970,7 +1990,8 @@ const MessageBubble = ({
                   {researchSteps.map(step => {
                     const isRunning = step.status === 'running'
                     const isPending = step.status === 'pending'
-                    const isActive = isRunning || isPending
+                    const isRetrying = step.status === 'retrying'
+                    const isActive = isRunning || isPending || isRetrying
                     const isDone = step.status === 'done'
                     const isError = step.status === 'error'
                     const stepToolCalls = getToolCallsForStep(step.step)
@@ -1980,13 +2001,21 @@ const MessageBubble = ({
                             duration: (step.durationMs / 1000).toFixed(2),
                           })
                         : null
-                    const statusLabel = isError
+                    // Build status label with attempt info for retrying
+                    let statusLabel = isError
                       ? t('messageBubble.researchStepStatusError')
                       : isDone
                         ? t('messageBubble.researchStepStatusDone')
-                        : isRunning
-                          ? t('messageBubble.researchStepStatusRunning')
-                          : t('messageBubble.researchStepStatusPending') || 'Wait'
+                        : isRetrying
+                          ? t('messageBubble.researchStepStatusRetrying') || 'Retrying'
+                          : isRunning
+                            ? t('messageBubble.researchStepStatusRunning')
+                            : t('messageBubble.researchStepStatusPending') || 'Wait'
+
+                    // Add attempt count to retrying status
+                    if (isRetrying && step.attempt && step.maxAttempts) {
+                      statusLabel += ` (${step.attempt}/${step.maxAttempts})`
+                    }
                     return (
                       <div
                         key={`${step.step}-${step.title}`}
@@ -2007,7 +2036,9 @@ const MessageBubble = ({
                                   ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
                                   : isDone
                                     ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
-                                    : 'bg-gray-200/70 dark:bg-zinc-700/70 text-gray-600 dark:text-gray-400',
+                                    : isRetrying
+                                      ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400'
+                                      : 'bg-gray-200/70 dark:bg-zinc-700/70 text-gray-600 dark:text-gray-400',
                               )}
                             >
                               {statusLabel}
@@ -2023,9 +2054,119 @@ const MessageBubble = ({
                             {step.title}
                             {isActive ? '...' : ''}
                           </div>
+                          {/* Retry message display */}
+                          {isRetrying && step.message && (
+                            <div className="text-[11px] text-yellow-600 dark:text-yellow-400 flex items-center gap-2">
+                              <span>{step.message}</span>
+                              {step.retryDelay && (
+                                <span className="text-gray-500 dark:text-gray-400">
+                                  ({(step.retryDelay / 1000).toFixed(1)}s)
+                                </span>
+                              )}
+                            </div>
+                          )}
+                          {/* Retry history display */}
+                          {Array.isArray(step.retryHistory) && step.retryHistory.length > 0 && (
+                            <div className="mt-2 rounded-lg border border-red-200/60 dark:border-red-900/30 bg-red-50/50 dark:bg-red-950/20 overflow-hidden">
+                              {/* Header */}
+                              <div className="flex items-center gap-2 px-3 py-2 border-b border-red-200/40 dark:border-red-900/20">
+                                <RotateCcw size={12} className="text-red-500 dark:text-red-400" />
+                                <span className="text-xs font-semibold text-red-700 dark:text-red-300">
+                                  {t('messageBubble.retryHistory')} ({step.retryHistory.length}{' '}
+                                  {step.retryHistory.length > 1
+                                    ? t('messageBubble.attempts')
+                                    : t('messageBubble.attempt')}
+                                  )
+                                </span>
+                              </div>
+
+                              {/* Retry attempts list */}
+                              <div className="p-2 space-y-1">
+                                {step.retryHistory.map((retry, idx) => {
+                                  const isSuccess = retry.status === 'success'
+                                  return (
+                                    <div
+                                      key={idx}
+                                      className={`flex items-center gap-2 px-2 py-1.5 rounded-md border ${
+                                        isSuccess
+                                          ? 'bg-green-50/60 dark:bg-green-950/20 border-green-200/40 dark:border-green-900/20'
+                                          : 'bg-white/60 dark:bg-zinc-900/40 border-red-100/40 dark:border-red-900/20'
+                                      }`}
+                                    >
+                                      <div
+                                        className={`flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold ${
+                                          isSuccess
+                                            ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
+                                            : 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
+                                        }`}
+                                      >
+                                        {isSuccess ? (
+                                          <Check size={10} strokeWidth={3} />
+                                        ) : (
+                                          retry.attempt
+                                        )}
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-1.5">
+                                          <span
+                                            className={`text-[10px] font-medium capitalize ${
+                                              isSuccess
+                                                ? 'text-green-600 dark:text-green-400'
+                                                : 'text-red-600 dark:text-red-400'
+                                            }`}
+                                          >
+                                            {isSuccess
+                                              ? t('messageBubble.success')
+                                              : retry.errorType}
+                                          </span>
+                                          <span className="text-[10px] text-gray-400 dark:text-gray-500">
+                                            •
+                                          </span>
+                                          <span className="text-[10px] text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                                            <Clock size={8} />
+                                            {retry.timestamp
+                                              ? (retry.timestamp / 1000).toFixed(1)
+                                              : '0'}
+                                            s
+                                          </span>
+                                        </div>
+                                        {!isSuccess && retry.message && (
+                                          <div className="text-[9px] text-gray-400 dark:text-gray-500 mt-0.5 truncate">
+                                            {retry.message}
+                                          </div>
+                                        )}
+                                      </div>
+                                      {!isSuccess &&
+                                        idx ===
+                                          step.retryHistory.filter(r => r.status !== 'success')
+                                            .length -
+                                            1 && (
+                                          <Zap
+                                            size={10}
+                                            className="text-yellow-500 dark:text-yellow-400"
+                                          />
+                                        )}
+                                      {isSuccess && idx === step.retryHistory.length - 1 && (
+                                        <Check
+                                          size={12}
+                                          className="text-green-500 dark:text-green-400"
+                                        />
+                                      )}
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                          )}
                           {step.error && (
-                            <div className="text-[11px] text-red-500 dark:text-red-400">
-                              {step.error}
+                            <div className="mt-1.5 flex items-start gap-2 px-2.5 py-2 rounded-lg bg-red-50/50 dark:bg-red-950/20 border border-red-200/40 dark:border-red-900/20">
+                              <AlertCircle
+                                size={12}
+                                className="text-red-500 dark:text-red-400 mt-0.5 shrink-0"
+                              />
+                              <span className="text-xs text-red-600 dark:text-red-400 break-words">
+                                {step.error}
+                              </span>
                             </div>
                           )}
                           {stepToolCalls.length > 0 && (

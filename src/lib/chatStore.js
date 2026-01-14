@@ -1007,9 +1007,29 @@ const callAIAPI = async (
                 status: chunk.status || 'running',
                 durationMs: typeof chunk.duration_ms === 'number' ? chunk.duration_ms : undefined,
                 error: chunk.error || null,
+                // Retry fields
+                attempt: typeof chunk.attempt === 'number' ? chunk.attempt : undefined,
+                maxAttempts: typeof chunk.maxAttempts === 'number' ? chunk.maxAttempts : undefined,
+                retryDelay: typeof chunk.retryDelay === 'number' ? chunk.retryDelay : undefined,
+                message: chunk.message || undefined,
+                // Retry history - array of previous retry attempts
+                retryHistory: Array.isArray(chunk.retryHistory) ? chunk.retryHistory : undefined,
               }
               if (targetIndex >= 0) {
-                steps[targetIndex] = { ...steps[targetIndex], ...stepEntry }
+                // Merge stepEntry with existing step, only overwriting defined fields
+                const existingStep = steps[targetIndex]
+                const mergedStep = { ...existingStep }
+                // Only copy defined fields from stepEntry
+                Object.keys(stepEntry).forEach(key => {
+                  if (stepEntry[key] !== undefined) {
+                    mergedStep[key] = stepEntry[key]
+                  }
+                })
+                // Special handling for retryHistory: always use the new value if provided
+                if (stepEntry.retryHistory) {
+                  mergedStep.retryHistory = stepEntry.retryHistory
+                }
+                steps[targetIndex] = mergedStep
               } else {
                 steps.push(stepEntry)
               }
@@ -1174,6 +1194,7 @@ const callAIAPI = async (
         question: firstUserText || lastMessage?.content || '',
         researchType, // Pass researchType to deep research execution
         concurrentExecution: toggles?.concurrentResearch || false, // Pass concurrent execution flag
+        testConfig: get().retryTestConfig, // Use test config from store
       })
       // Debug: Log toggles
       console.log(
@@ -1759,6 +1780,13 @@ const useChatStore = create((set, get) => ({
   isAgentPreselecting: false,
   /** Optimistic selection info for newly created conversations */
   optimisticSelection: null,
+  /** Test configuration for retry mechanism (development only) */
+  retryTestConfig: {
+    enabled: false,
+    failAtStep: 0,
+    failAttempts: 1,
+    errorType: 'network',
+  },
 
   // ========================================
   // STATE SETTERS
@@ -1786,6 +1814,11 @@ const useChatStore = create((set, get) => ({
   setOptimisticSelection: optimisticSelection => set({ optimisticSelection }),
   /** Clears optimistic selection info */
   clearOptimisticSelection: () => set({ optimisticSelection: null }),
+  /** Updates retry test configuration */
+  setRetryTestConfig: config =>
+    set(state => ({
+      retryTestConfig: { ...state.retryTestConfig, ...config },
+    })),
 
   /** Resets conversation to initial state */
   resetConversation: () =>

@@ -18,6 +18,7 @@ const MessageList = ({
   onQuote,
   onUserRegenerate,
   onFormSubmit,
+  maxWidthClass = 'max-w-3xl',
 }) => {
   // Get messages directly from chatStore using shallow selector
   const { messages } = useChatStore(
@@ -27,7 +28,7 @@ const MessageList = ({
   )
 
   return (
-    <div className="flex flex-col w-full max-w-3xl mx-auto pb-5 sm:pb-16">
+    <div className={`flex flex-col w-full ${maxWidthClass} mx-auto pb-5 sm:pb-16`}>
       {messages
         .map((msg, originalIndex) => ({ msg, originalIndex })) // Preserve original index
         .filter(({ msg, originalIndex }) => {

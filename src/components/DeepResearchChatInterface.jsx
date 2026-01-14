@@ -1561,7 +1561,7 @@ const DeepResearchChatInterface = ({
           ref={messagesContainerRef}
           className="flex-1 overflow-y-auto overflow-x-hidden sm:p-2 relative no-scrollbar"
         >
-          <div className="w-full px-0 sm:px-5 max-w-3xl mx-auto">
+          <div className="w-full px-0 sm:px-5 max-w-5xl mx-auto">
             {showHistoryLoader && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
                 <FancyLoader />
@@ -1573,6 +1573,7 @@ const DeepResearchChatInterface = ({
               onRelatedClick={handleRelatedClick}
               onMessageRef={registerMessageRef}
               onEdit={handleEdit}
+              maxWidthClass="max-w-5xl"
             />
             {/* Bottom Anchor */}
             <div ref={bottomRef} className="h-1" />

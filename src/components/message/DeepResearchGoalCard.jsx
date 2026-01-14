@@ -75,7 +75,7 @@ const DeepResearchGoalCard = ({ content }) => {
   }, [content, t])
 
   return (
-    <div className="w-full max-w-2xl bg-white dark:bg-[#18181b]/50 backdrop-blur-sm rounded-2xl p-3 sm:p-5 border border-gray-200 dark:border-zinc-800 shadow-sm mb-3 sm:mb-10 cursor-text select-text">
+    <div className="w-full bg-white dark:bg-[#18181b]/50 backdrop-blur-sm rounded-2xl p-3 sm:p-5 border border-gray-200 dark:border-zinc-800 shadow-sm mb-3 sm:mb-10 cursor-text select-text">
       <div className="flex flex-col gap-3 sm:gap-4">
         <div>
           <div className="text-gray-500 dark:text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1.5 flex items-center gap-1.5">

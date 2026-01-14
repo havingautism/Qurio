@@ -629,6 +629,7 @@ export const streamDeepResearchViaBackend = async params => {
     concurrentExecution, // Enable concurrent step execution (experimental)
     searchProvider,
     tavilyApiKey,
+    testConfig, // Test configuration for simulating failures
     onChunk,
     onFinish,
     onError,
@@ -675,6 +676,7 @@ export const streamDeepResearchViaBackend = async params => {
         concurrentExecution, // Pass concurrentExecution to backend
         searchProvider,
         tavilyApiKey,
+        testConfig, // Pass testConfig to backend
       }),
       signal,
     })

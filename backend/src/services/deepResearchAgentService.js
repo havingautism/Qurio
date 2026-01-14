@@ -6,6 +6,15 @@
 import { ChatOpenAI } from '@langchain/openai'
 import { generateAcademicResearchPlan } from './academicResearchPlanService.js'
 import { generateResearchPlan } from './researchPlanService.js'
+import {
+  calculateBackoff,
+  classifyError,
+  createTestError,
+  delay,
+  ensureStepIds,
+  getRetryMessage,
+  shouldRetry,
+} from './retryService.js'
 import { normalizeTextContent, safeJsonParse, toLangChainMessages } from './serviceUtils.js'
 import { executeToolByName, getToolDefinitionsByIds, isLocalToolName } from './toolsService.js'
 
@@ -140,7 +149,19 @@ const buildToolResultEvent = (toolCall, error, durationMs, output, meta = {}) =>
   ...(typeof meta.total === 'number' ? { total: meta.total } : {}),
 })
 
-const buildResearchStepEvent = ({ stepIndex, totalSteps, title, status, durationMs, error }) => ({
+const buildResearchStepEvent = ({
+  stepIndex,
+  totalSteps,
+  title,
+  status,
+  durationMs,
+  error,
+  attempt,
+  maxAttempts,
+  retryDelay,
+  message,
+  retryHistory,
+}) => ({
   type: 'research_step',
   step: stepIndex + 1,
   total: totalSteps,
@@ -148,6 +169,13 @@ const buildResearchStepEvent = ({ stepIndex, totalSteps, title, status, duration
   status,
   duration_ms: typeof durationMs === 'number' ? durationMs : undefined,
   error: error ? String(error.message || error) : undefined,
+  // Retry fields
+  attempt: typeof attempt === 'number' ? attempt : undefined,
+  maxAttempts: typeof maxAttempts === 'number' ? maxAttempts : undefined,
+  retryDelay: typeof retryDelay === 'number' ? retryDelay : undefined,
+  message: message || undefined,
+  // Retry history - array of previous retry attempts
+  retryHistory: Array.isArray(retryHistory) ? retryHistory : undefined,
 })
 
 // collect web search sources
@@ -540,6 +568,7 @@ const parsePlan = planText => {
 /**
  * Execute all research steps concurrently using Promise.all
  * This is an experimental feature that runs all steps in parallel
+ * Now with retry support for individual steps
  */
 const runStepsConcurrently = async ({
   steps,
@@ -553,6 +582,7 @@ const runStepsConcurrently = async ({
   toolConfig,
   researchType,
   yieldEvent,
+  testConfig, // NEW: test configuration for simulating failures
 }) => {
   console.log('[DeepResearch] Concurrent mode: emitting all step pending states')
 
@@ -568,10 +598,18 @@ const runStepsConcurrently = async ({
     )
   }
 
-  // Create all step promises
+  // Create all step promises with retry support
   const stepPromises = steps.map(async (step, i) => {
     const stepTitle = step.action || 'Research'
     const stepStartedAt = Date.now()
+
+    // Step state for retry tracking
+    const stepState = {
+      id: step.id,
+      attempts: 0,
+      status: 'pending',
+      retryHistory: [], // Track retry attempts
+    }
 
     // Yield running event
     await yieldEvent(
@@ -601,57 +639,156 @@ const runStepsConcurrently = async ({
       { role: 'user', content: question || '' },
     ]
 
-    try {
-      const stepResult = await runToolCallingStep({
-        modelInstance: toolModel,
-        baseMessages: stepMessages,
-        sourcesMap,
-        signal,
-        stepIndex: i,
-        totalSteps: steps.length,
-        toolConfig,
-      })
+    // Retry loop for this step
+    let stepResult = null
 
-      // Yield tool events
-      if (stepResult?.toolEvents?.length) {
-        for (const event of stepResult.toolEvents) {
-          await yieldEvent(event)
+    while (stepState.attempts === 0 || stepState.status === 'retrying') {
+      stepState.attempts += 1
+
+      try {
+        // Test mode: inject failure if configured
+        // Must respect BOTH the test config's failAttempts AND the error type's maxRetries
+        if (testConfig?.enabled && testConfig.failAtStep === i) {
+          // Check if this error type allows more retries based on attempt count
+          const testError = createTestError(testConfig.errorType || 'network')
+          const errorInfo = classifyError(testError)
+          const maxAllowedAttempts = (errorInfo.maxRetries || 2) + 1 // +1 for initial attempt
+
+          // Only inject failure if within BOTH retry limits AND configured fail attempts
+          if (
+            testConfig.failAttempts &&
+            stepState.attempts <= testConfig.failAttempts &&
+            stepState.attempts <= maxAllowedAttempts
+          ) {
+            throw testError
+          }
+          // If beyond retry limits, let it succeed (don't throw)
         }
+
+        stepResult = await runToolCallingStep({
+          modelInstance: toolModel,
+          baseMessages: stepMessages,
+          sourcesMap,
+          signal,
+          stepIndex: i,
+          totalSteps: steps.length,
+          toolConfig,
+        })
+
+        // Success: update state and break retry loop
+        stepState.status = 'success'
+        console.log(`[DeepResearch] Step ${i} succeeded on attempt ${stepState.attempts}`)
+
+        // Yield tool events
+        if (stepResult?.toolEvents?.length) {
+          for (const event of stepResult.toolEvents) {
+            await yieldEvent(event)
+          }
+        }
+
+        // Success: add successful attempt to retry history ONLY if there were retries
+        // (attempts > 1 means we had at least one retry)
+        if (stepState.attempts > 1) {
+          stepState.retryHistory.push({
+            attempt: stepState.attempts - 1, // Record retry number, not total attempts
+            status: 'success',
+            timestamp: Date.now() - stepStartedAt,
+          })
+        }
+
+        // Yield done event
+        await yieldEvent(
+          buildResearchStepEvent({
+            stepIndex: i,
+            totalSteps: steps.length,
+            title: stepTitle,
+            status: 'done',
+            durationMs: Date.now() - stepStartedAt,
+            retryHistory: stepState.retryHistory.length > 0 ? stepState.retryHistory : undefined,
+          }),
+        )
+
+        return { content: stepResult?.content || '', index: i, success: true }
+      } catch (error) {
+        // Classify error to determine retry strategy
+        const errorInfo = classifyError(error)
+        console.log(
+          `[DeepResearch] Step ${i} error (attempt ${stepState.attempts}): ${errorInfo.type} - ${errorInfo.message}`,
+        )
+
+        // Only add to retry history if this is a retry attempt (attempts > 1)
+        // The first attempt (attempts = 1) is NOT a retry, so don't record it
+        if (stepState.attempts > 1) {
+          stepState.retryHistory.push({
+            attempt: stepState.attempts - 1, // Record retry number, not total attempts
+            errorType: errorInfo.type,
+            message: errorInfo.message,
+            timestamp: Date.now() - stepStartedAt,
+          })
+        }
+
+        // Decide whether to retry
+        const retryDecision = shouldRetry(errorInfo, stepState)
+
+        if (!retryDecision.shouldRetry) {
+          // Non-retriable error or max retries exceeded
+          stepState.status = 'failed'
+          await yieldEvent(
+            buildResearchStepEvent({
+              stepIndex: i,
+              totalSteps: steps.length,
+              title: stepTitle,
+              status: 'error',
+              durationMs: Date.now() - stepStartedAt,
+              error,
+              retryHistory: stepState.retryHistory,
+            }),
+          )
+          return { content: '', index: i, success: false }
+        }
+
+        // Prepare for retry
+        stepState.status = 'retrying'
+        const retryDelay = calculateBackoff(stepState.attempts - 1) // attempts-1 = retry count
+        const maxAttempts = errorInfo.maxRetries + 1 // +1 for initial attempt
+
+        // Send retry status to frontend
+        await yieldEvent(
+          buildResearchStepEvent({
+            stepIndex: i,
+            totalSteps: steps.length,
+            title: stepTitle,
+            status: 'retrying',
+            attempt: stepState.attempts + 1,
+            maxAttempts: maxAttempts,
+            retryDelay: retryDelay,
+            message: getRetryMessage({
+              attempt: stepState.attempts + 1,
+              maxAttempts: maxAttempts,
+              errorType: errorInfo.type,
+            }),
+            retryHistory: stepState.retryHistory,
+          }),
+        )
+
+        // Wait before retry
+        await delay(retryDelay)
+
+        // Continue retry loop
       }
-
-      // Yield done event
-      await yieldEvent(
-        buildResearchStepEvent({
-          stepIndex: i,
-          totalSteps: steps.length,
-          title: stepTitle,
-          status: 'done',
-          durationMs: Date.now() - stepStartedAt,
-        }),
-      )
-
-      return { content: stepResult?.content, index: i }
-    } catch (error) {
-      await yieldEvent(
-        buildResearchStepEvent({
-          stepIndex: i,
-          totalSteps: steps.length,
-          title: stepTitle,
-          status: 'error',
-          durationMs: Date.now() - stepStartedAt,
-          error,
-        }),
-      )
-      return { content: '', index: i }
     }
+
+    // This should never be reached, but TypeScript needs it
+    return { content: '', index: i, success: false }
   })
 
-  // Execute all steps concurrently
+  // Execute all steps concurrently (each with its own retry loop)
   const results = await Promise.all(stepPromises)
 
-  // Collect findings in order
+  // Collect findings in order (only successful ones)
   return results
     .sort((a, b) => a.index - b.index)
+    .filter(r => r.success)
     .map(r => r.content)
     .filter(Boolean)
 }
@@ -679,6 +816,7 @@ export const streamDeepResearch = async function* (params) {
     searchProvider,
     tavilyApiKey,
     signal,
+    testConfig, // NEW: test configuration for simulating failures
   } = params
 
   const toolConfig = { searchProvider, tavilyApiKey }
@@ -732,6 +870,9 @@ export const streamDeepResearch = async function* (params) {
   const planMeta = parsePlan(planContent)
   const steps = Array.isArray(planMeta.plan) ? planMeta.plan : []
 
+  // Ensure all steps have stable IDs for retry tracking
+  const stepsWithIds = ensureStepIds(steps)
+
   const sourcesMap = new Map()
   const findings = []
 
@@ -784,7 +925,7 @@ export const streamDeepResearch = async function* (params) {
     let workError = null
 
     const workPromise = runStepsConcurrently({
-      steps,
+      steps: stepsWithIds, // Use stepsWithIds for consistency
       planMeta,
       trimmedMessages,
       question,
@@ -795,6 +936,7 @@ export const streamDeepResearch = async function* (params) {
       toolConfig,
       researchType,
       yieldEvent,
+      testConfig, // Pass test config to concurrent executor
     })
       .then(res => {
         isWorkDone = true
@@ -838,16 +980,25 @@ export const streamDeepResearch = async function* (params) {
 
     findings.push(...workResult)
   } else {
-    // SEQUENTIAL MODE: Original implementation (default)
+    // SEQUENTIAL MODE: Original implementation (default) with retry support
     console.log('[DeepResearch] Running steps sequentially')
 
-    for (let i = 0; i < steps.length; i += 1) {
-      const step = steps[i] || {}
+    for (let i = 0; i < stepsWithIds.length; i += 1) {
+      const step = stepsWithIds[i] || {}
       const stepTitle = step.action || 'Research'
       const stepStartedAt = Date.now()
+
+      // Step state for retry tracking
+      const stepState = {
+        id: step.id,
+        attempts: 0,
+        status: 'pending',
+        retryHistory: [], // Track retry attempts
+      }
+
       yield buildResearchStepEvent({
         stepIndex: i,
-        totalSteps: steps.length,
+        totalSteps: stepsWithIds.length,
         title: stepTitle,
         status: 'running',
       })
@@ -868,38 +1019,148 @@ export const streamDeepResearch = async function* (params) {
         { role: 'user', content: question || '' },
       ]
 
-      try {
-        const stepResult = await runToolCallingStep({
-          modelInstance: toolModel,
-          baseMessages: stepMessages,
-          sourcesMap,
-          signal,
-          stepIndex: i,
-          totalSteps: steps.length,
-          toolConfig,
-        })
+      // Retry loop for step execution
+      let stepResult = null
+      let lastError = null
 
-        if (stepResult?.toolEvents?.length) {
-          for (const event of stepResult.toolEvents) {
-            yield event
+      while (stepState.attempts === 0 || stepState.status === 'retrying') {
+        stepState.attempts += 1
+
+        try {
+          // Test mode: inject failure if configured
+          // Must respect BOTH the test config's failAttempts AND the error type's maxRetries
+          if (testConfig?.enabled && testConfig.failAtStep === i) {
+            // Check if this error type allows more retries based on attempt count
+            const testError = createTestError(testConfig.errorType || 'network')
+            const errorInfo = classifyError(testError)
+            const maxAllowedAttempts = (errorInfo.maxRetries || 2) + 1 // +1 for initial attempt
+
+            // Only inject failure if within BOTH retry limits AND configured fail attempts
+            if (
+              testConfig.failAttempts &&
+              stepState.attempts <= testConfig.failAttempts &&
+              stepState.attempts <= maxAllowedAttempts
+            ) {
+              throw testError
+            }
+            // If beyond retry limits, let it succeed (don't throw)
           }
+
+          stepResult = await runToolCallingStep({
+            modelInstance: toolModel,
+            baseMessages: stepMessages,
+            sourcesMap,
+            signal,
+            stepIndex: i,
+            totalSteps: stepsWithIds.length,
+            toolConfig,
+          })
+
+          // Success: update state and break retry loop
+          stepState.status = 'success'
+          console.log(`[DeepResearch] Step ${i} succeeded on attempt ${stepState.attempts}`)
+
+          // Success: add successful attempt to retry history ONLY if there were retries
+          // (attempts > 1 means we had at least one retry)
+          if (stepState.attempts > 1) {
+            stepState.retryHistory.push({
+              attempt: stepState.attempts - 1, // Record retry number, not total attempts
+              status: 'success',
+              timestamp: Date.now() - stepStartedAt,
+            })
+          }
+
+          // Send success event to frontend
+          yield buildResearchStepEvent({
+            stepIndex: i,
+            totalSteps: stepsWithIds.length,
+            title: stepTitle,
+            status: 'done',
+            durationMs: Date.now() - stepStartedAt,
+            retryHistory: stepState.retryHistory.length > 0 ? stepState.retryHistory : undefined,
+          })
+
+          if (stepResult?.toolEvents?.length) {
+            for (const event of stepResult.toolEvents) {
+              yield event
+            }
+          }
+        } catch (error) {
+          lastError = error
+
+          // Classify error to determine retry strategy
+          const errorInfo = classifyError(error)
+          console.log(
+            `[DeepResearch] Step ${i} error (attempt ${stepState.attempts}): ${errorInfo.type} - ${errorInfo.message}`,
+          )
+
+          // Only add to retry history if this is a retry attempt (attempts > 1)
+          // The first attempt (attempts = 1) is NOT a retry, so don't record it
+          if (stepState.attempts > 1) {
+            stepState.retryHistory.push({
+              attempt: stepState.attempts - 1, // Record retry number, not total attempts
+              errorType: errorInfo.type,
+              message: errorInfo.message,
+              timestamp: Date.now() - stepStartedAt,
+            })
+          }
+
+          // Decide whether to retry
+          const retryDecision = shouldRetry(errorInfo, stepState)
+
+          if (!retryDecision.shouldRetry) {
+            // Non-retriable error or max retries exceeded
+            stepState.status = 'failed'
+            yield buildResearchStepEvent({
+              stepIndex: i,
+              totalSteps: stepsWithIds.length,
+              title: stepTitle,
+              status: 'error',
+              durationMs: Date.now() - stepStartedAt,
+              error,
+              retryHistory: stepState.retryHistory,
+            })
+            break // Exit retry loop
+          }
+
+          // Prepare for retry
+          stepState.status = 'retrying'
+          const retryDelay = calculateBackoff(stepState.attempts - 1) // attempts-1 = retry count
+          const maxAttempts = errorInfo.maxRetries + 1 // +1 for initial attempt
+
+          // Send retry status to frontend
+          yield buildResearchStepEvent({
+            stepIndex: i,
+            totalSteps: stepsWithIds.length,
+            title: stepTitle,
+            status: 'retrying',
+            attempt: stepState.attempts + 1,
+            maxAttempts: maxAttempts,
+            retryDelay: retryDelay,
+            message: getRetryMessage({
+              attempt: stepState.attempts + 1,
+              maxAttempts: maxAttempts,
+              errorType: errorInfo.type,
+            }),
+            retryHistory: stepState.retryHistory,
+          })
+
+          // Wait before retry
+          await delay(retryDelay)
+
+          // Continue retry loop
         }
-        if (stepResult?.content) findings.push(stepResult.content)
+      }
+
+      // Only collect findings if step succeeded
+      if (stepState.status === 'success' && stepResult?.content) {
+        findings.push(stepResult.content)
         yield buildResearchStepEvent({
           stepIndex: i,
-          totalSteps: steps.length,
+          totalSteps: stepsWithIds.length,
           title: stepTitle,
           status: 'done',
           durationMs: Date.now() - stepStartedAt,
-        })
-      } catch (error) {
-        yield buildResearchStepEvent({
-          stepIndex: i,
-          totalSteps: steps.length,
-          title: stepTitle,
-          status: 'error',
-          durationMs: Date.now() - stepStartedAt,
-          error,
         })
       }
     }

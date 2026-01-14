@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate } from '@tanstack/react-router'
 import useScrollLock from '../hooks/useScrollLock'
 import { addConversationEvent, createConversation } from '../lib/conversationsService'
+import RetryTestPanel from '../components/RetryTestPanel'
 
 const DeepResearchGuideContext = createContext(null)
 
@@ -304,6 +305,11 @@ export const DeepResearchGuideProvider = ({
                             </div>
                           </button>
                         </div>
+                      </div>
+
+                      {/* Retry Test Panel (Development Only) */}
+                      <div className="pt-4">
+                        <RetryTestPanel />
                       </div>
 
                       {deepResearchType === 'academic' && (

@@ -33,6 +33,7 @@ router.post('/stream-deep-research', async (req, res) => {
       concurrentExecution, // Enable concurrent step execution (experimental)
       searchProvider,
       tavilyApiKey,
+      testConfig, // Test configuration for simulating failures
     } = req.body
 
     // Debug: Log the received parameters
@@ -102,6 +103,7 @@ router.post('/stream-deep-research', async (req, res) => {
       concurrentExecution, // Pass concurrentExecution to service
       searchProvider,
       tavilyApiKey,
+      testConfig, // Pass testConfig to service
       signal: controller.signal,
     })) {
       sse.sendEvent(chunk)

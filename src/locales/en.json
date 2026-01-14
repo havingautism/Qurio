@@ -750,6 +750,7 @@
     "researchStepLabel": "Step {{step}}/{{total}}",
     "researchStepStatusPending": "Waiting",
     "researchStepStatusRunning": "Running",
+    "researchStepStatusRetrying": "Retrying",
     "researchStepStatusDone": "Done",
     "researchStepStatusError": "Failed",
     "researchStepDuration": "{{duration}}s",
@@ -765,7 +766,11 @@
     "toolClose": "Close",
     "researchGoalLabel": "Goal",
     "researchScopeLabel": "Scope",
-    "researchRequirementsLabel": "Output Requirements"
+    "researchRequirementsLabel": "Output Requirements",
+    "retryHistory": "Retry History",
+    "attempts": "attempts",
+    "attempt": "attempt",
+    "success": "Success"
   },
   "interactiveForm": {
     "errors": {
@@ -964,5 +969,32 @@
       "source": "Source",
       "updated": "Updated"
     }
+  },
+  "retryTest": {
+    "panelTitle": "Retry Test Panel",
+    "panelTitleActive": "Test Mode Active",
+    "on": "ON",
+    "enableTestMode": "Enable Test Mode",
+    "failAtStep": "Fail at Step",
+    "failAtStepHint": "0 = first step",
+    "failAttempts": "Retry Count",
+    "failAttemptsHint": "Succeed after X failures (must be ≤ max retries), current",
+    "maxRetries": "Max Retries",
+    "errorType": "Error Type",
+    "errorTypes": {
+      "network": "Network Error",
+      "networkDesc": "Simulates network connection issues",
+      "timeout": "Timeout",
+      "timeoutDesc": "Simulates request timeout",
+      "rate_limit": "Rate Limit",
+      "rate_limitDesc": "Simulates API rate limiting",
+      "api_error": "API Error",
+      "api_errorDesc": "Simulates generic API errors",
+      "invalid_auth": "Auth Error",
+      "invalid_authDesc": "Permanent error (no retry)"
+    },
+    "disableTestMode": "Disable Test Mode",
+    "enableTestModeBtn": "Enable Test Mode",
+    "resetConfig": "Reset Config"
   }
 }

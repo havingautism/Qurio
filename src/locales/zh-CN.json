@@ -742,6 +742,7 @@
     "researchStepLabel": "步骤 {{step}}/{{total}}",
     "researchStepStatusPending": "等待中",
     "researchStepStatusRunning": "进行中",
+    "researchStepStatusRetrying": "重试中",
     "researchStepStatusDone": "已完成",
     "researchStepStatusError": "失败",
     "researchStepDuration": "耗时 {{duration}} 秒",
@@ -757,7 +758,11 @@
     "toolClose": "关闭",
     "researchGoalLabel": "研究目标",
     "researchScopeLabel": "研究范围",
-    "researchRequirementsLabel": "输出要求"
+    "researchRequirementsLabel": "输出要求",
+    "retryHistory": "重试记录",
+    "attempts": "次尝试",
+    "attempt": "次尝试",
+    "success": "成功"
   },
   "interactiveForm": {
     "errors": {
@@ -956,5 +961,32 @@
       "source": "来源",
       "updated": "更新"
     }
+  },
+  "retryTest": {
+    "panelTitle": "重试测试面板",
+    "panelTitleActive": "测试模式已激活",
+    "on": "开",
+    "enableTestMode": "启用测试模式",
+    "failAtStep": "失败步骤",
+    "failAtStepHint": "0 = 第一步",
+    "failAttempts": "重试次数",
+    "failAttemptsHint": "失败X次后成功（需≤最大重试），当前",
+    "maxRetries": "最大重试",
+    "errorType": "错误类型",
+    "errorTypes": {
+      "network": "网络错误",
+      "networkDesc": "模拟网络连接问题",
+      "timeout": "超时",
+      "timeoutDesc": "模拟请求超时",
+      "rate_limit": "速率限制",
+      "rate_limitDesc": "模拟 API 速率限制",
+      "api_error": "API 错误",
+      "api_errorDesc": "模拟通用 API 错误",
+      "invalid_auth": "认证错误",
+      "invalid_authDesc": "永久错误（不重试）"
+    },
+    "disableTestMode": "禁用测试模式",
+    "enableTestModeBtn": "启用测试模式",
+    "resetConfig": "重置配置"
   }
 }

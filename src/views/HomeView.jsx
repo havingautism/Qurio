@@ -620,22 +620,35 @@ const HomeView = () => {
     <div className="flex-1 h-full overflow-hidden bg-background text-foreground transition-colors duration-300 relative flex flex-col">
       {/* Immersive Animated Background Blobs - Global for HomeView */}
       <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden select-none opacity-20 dark:opacity-15">
-        <div
-          className="absolute h-[600px] w-[600px] -left-40 -top-40 rounded-full blur-[100px] animate-blob-float"
-          style={{
-            background:
-              'linear-gradient(135deg, var(--color-primary-400) 0%, var(--color-primary-600) 100%)',
-            opacity: 0.4,
-          }}
-        />
-        <div
-          className="absolute h-[700px] w-[700px] -right-40 -bottom-40 rounded-full blur-[120px] animate-blob-float-alt"
-          style={{
-            background:
-              'linear-gradient(225deg, var(--color-primary-500) 0%, var(--color-primary-300) 100%)',
-            opacity: 0.3,
-          }}
-        />
+        {!isHomeMobile ? (
+          <>
+            <div
+              className="absolute h-[600px] w-[600px] -left-40 -top-40 rounded-full blur-[100px] animate-blob-float"
+              style={{
+                background:
+                  'linear-gradient(135deg, var(--color-primary-400) 0%, var(--color-primary-600) 100%)',
+                opacity: 0.4,
+              }}
+            />
+            <div
+              className="absolute h-[700px] w-[700px] -right-40 -bottom-40 rounded-full blur-[120px] animate-blob-float-alt"
+              style={{
+                background:
+                  'linear-gradient(225deg, var(--color-primary-500) 0%, var(--color-primary-300) 100%)',
+                opacity: 0.3,
+              }}
+            />
+          </>
+        ) : (
+          /* Mobile Static Background - No Blur/Animation for Performance */
+          <div
+            className="absolute inset-0 opacity-30"
+            style={{
+              background:
+                'radial-gradient(circle at top left, var(--color-primary-400) 0%, transparent 40%), radial-gradient(circle at bottom right, var(--color-primary-300) 0%, transparent 40%)',
+            }}
+          />
+        )}
       </div>
 
       {/* Mobile Header for Home View */}

@@ -4,6 +4,34 @@
     <meta charset="UTF-8" />
     <script>
       ;(function () {
+        // Immediate theme application to prevent flash
+        try {
+          var theme = localStorage.getItem('themeColor') // Note: This is color, not mode.
+          // Mode is 'theme' (light/dark/system) but we might need to check how it's saved.
+          // Looking at Settings.js: localStorage.setItem('themeColor', settings.themeColor)
+          // Wait, we need to check the MODE ('light', 'dark', 'system').
+          // In App.jsx: const [theme, setTheme] = useState('system') and local storage key is NOT clearly set for 'mode'
+          // App.jsx doesn't seem to persist 'theme' mode to localStorage directly in a simple key?
+          // Let's check App.jsx again.
+          // It seems it defaults to 'system' effectively.
+
+          // Let's implement a robust check here corresponding to what we will add in App.jsx
+          // We will save 'app-theme-mode' in App.jsx.
+
+          var savedMode = localStorage.getItem('app-theme-mode') || 'system'
+          var systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches
+            ? 'dark'
+            : 'light'
+
+          if (savedMode === 'dark' || (savedMode === 'system' && systemTheme === 'dark')) {
+            document.documentElement.classList.add('dark')
+          } else {
+            document.documentElement.classList.remove('dark')
+          }
+        } catch (e) {
+          console.error('Theme init failed', e)
+        }
+
         var basePath = location.pathname.indexOf('/Qurio/') === 0 ? '/Qurio/' : '/'
         var icon = document.createElement('link')
         icon.rel = 'icon'

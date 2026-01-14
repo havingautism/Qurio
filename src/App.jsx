@@ -46,7 +46,12 @@ function App() {
   const navigate = useNavigate()
 
   // Initialize theme based on system preference or default to dark
-  const [theme, setTheme] = useState('system') // 'light' | 'dark' | 'system'
+  const [theme, setTheme] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('app-theme-mode') || 'system'
+    }
+    return 'system'
+  })
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
 
   // Space Modal State
@@ -191,6 +196,9 @@ function App() {
     // Apply both synchronously to prevent flash
     applyDarkMode(theme)
     applyThemeColor()
+
+    // Save theme mode to localStorage
+    localStorage.setItem('app-theme-mode', theme)
 
     // Listener for system theme changes if in system mode
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')

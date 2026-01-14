@@ -345,10 +345,12 @@ const InteractiveForm = ({
                   {t('common.commited')}
                 </span>
               ) : (
-                <span className="relative z-10 flex items-center justify-center gap-2">
-                  {t('common.commit')}
+                <>
+                  <span className="relative z-10 flex items-center justify-center gap-2">
+                    {t('common.commit')}
+                  </span>
                   <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-500 ease-out" />
-                </span>
+                </>
               )}
             </button>
           </form>

@@ -36,7 +36,7 @@
     "jsonRepairInfo": "Automatically fix malformed JSON data to ensure data structure integrity",
     "interactiveForm": "Interactive Form",
     "interactiveFormInfo": "Create dynamic forms within conversations to collect structured information and user input",
-    "webpageReader": "Webpage reader",
+    "webpageReader": "Web Scraper",
     "webpageReaderInfo": "Fetch webpage content and return JSON."
   },
   "knowledgeBase": {
@@ -758,6 +758,7 @@
     "toolStatusCalling": "Calling",
     "toolStatusDone": "Done",
     "toolStatusError": "Error",
+    "toolCallError": "Tool Call Error",
     "toolDuration": "{{duration}}s",
     "toolDetails": "Details",
     "toolInput": "Input",

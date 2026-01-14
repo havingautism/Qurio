@@ -750,6 +750,7 @@
     "toolStatusCalling": "调用中",
     "toolStatusDone": "已完成",
     "toolStatusError": "失败",
+    "toolCallError": "工具调用错误",
     "toolDuration": "耗时 {{duration}} 秒",
     "toolDetails": "详情",
     "toolInput": "入参",

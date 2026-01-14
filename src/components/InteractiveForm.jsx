@@ -62,8 +62,8 @@ const CustomSelect = ({ value, onChange, options, placeholder, disabled, error }
       {/* Dropdown Menu */}
       <div
         className={clsx(
-          'absolute z-50 w-full mt-2 py-1.5 rounded-2xl border border-gray-100 dark:border-white/10 shadow-2xl overflow-hidden',
-          'bg-white/90 dark:bg-zinc-900/95 backdrop-blur-xl origin-top transition-all duration-200',
+          'absolute z-[60] w-full mt-2 py-1.5 rounded-2xl border border-gray-100 dark:border-white/10 shadow-2xl overflow-hidden',
+          'bg-white dark:bg-zinc-900  origin-top transition-all duration-200',
           isOpen
             ? 'opacity-100 scale-100 translate-y-0'
             : 'opacity-0 scale-95 -translate-y-2 pointer-events-none',
@@ -179,7 +179,7 @@ const InteractiveForm = ({
   }
 
   return (
-    <div className="mb-4 mx-1">
+    <div className="mb-4 w-fit mx-1 relative z-30">
       <div className="p-6 md:p-8 rounded-[2rem]  bg-white/60 dark:bg-black/40 backdrop-blur-xl border border-gray-200 dark:border-white/10 shadow-2xl shadow-gray-200/50 dark:shadow-black/50 relative group">
         {/* Decorative Background Gradients */}
         <div className="absolute -top-20 -right-20 w-60 h-60 bg-primary-500/10 rounded-full blur-[80px] group-hover:bg-primary-500/15 transition-colors duration-700 pointer-events-none" />
@@ -216,7 +216,7 @@ const InteractiveForm = ({
                 className="space-y-2.5 animate-in slide-in-from-bottom-2 fade-in duration-500"
                 style={{ animationDelay: `${idx * 50}ms` }}
               >
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 ml-1">
+                <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-gray-400 ml-1">
                   {field.label}
                   {field.required && <span className="text-primary-500 ml-0.5">*</span>}
                 </label>
@@ -349,7 +349,6 @@ const InteractiveForm = ({
                   <span className="relative z-10 flex items-center justify-center gap-2">
                     {t('common.commit')}
                   </span>
-                  <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-500 ease-out" />
                 </>
               )}
             </button>

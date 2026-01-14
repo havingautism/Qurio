@@ -1,5 +1,5 @@
 import { Outlet, useLocation, useNavigate } from '@tanstack/react-router'
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { I18nextProvider } from 'react-i18next'
 import AgentModal from './components/AgentModal'
 import ConfirmationModal from './components/ConfirmationModal'
@@ -166,7 +166,7 @@ function App() {
     }
   }, [location.pathname, location.search])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const root = document.documentElement
     const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
 
@@ -193,7 +193,7 @@ function App() {
   }, [theme])
 
   // Apply User Configured Theme Color
-  useEffect(() => {
+  useLayoutEffect(() => {
     const applyConfiguredTheme = () => {
       const settings = loadSettings()
       if (settings.themeColor) {
@@ -214,7 +214,7 @@ function App() {
   }, [])
 
   // Apply User Configured Message Font Size
-  useEffect(() => {
+  useLayoutEffect(() => {
     const applyFontSize = () => {
       const settings = loadSettings()
       const fontSizeMap = {

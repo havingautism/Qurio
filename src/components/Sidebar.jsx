@@ -660,7 +660,12 @@ const Sidebar = ({
           'fixed inset-0 z-40 bg-black/50 backdrop-blur-sm md:hidden transition-opacity duration-200 transform-gpu',
           isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none',
         )}
-        style={{ willChange: 'opacity, backdrop-filter' }}
+        style={{
+          willChange: 'opacity, backdrop-filter, transform',
+          backfaceVisibility: 'hidden',
+          WebkitBackfaceVisibility: 'hidden',
+          transform: 'translateZ(0)',
+        }}
         onClick={isOpen ? onClose : undefined}
         // onWheel={e => e.preventDefault()}
         // onTouchMove={e => e.preventDefault()}

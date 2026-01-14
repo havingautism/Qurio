@@ -4,7 +4,7 @@ import { I18nextProvider } from 'react-i18next'
 import AgentModal from './components/AgentModal'
 import ConfirmationModal from './components/ConfirmationModal'
 import { GitHubPagesRedirectHandler } from './components/GitHubPagesRedirectHandler'
-import SettingsModal from './components/SettingsModal'
+const SettingsModal = React.lazy(() => import('./components/SettingsModal'))
 import ToolsModal from './components/ToolsModal'
 import Sidebar from './components/Sidebar'
 import SpaceModal from './components/SpaceModal'
@@ -913,7 +913,9 @@ function App() {
                     <Outlet />
                   </div>
                 </div>
-                <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+                <React.Suspense fallback={null}>
+                  <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+                </React.Suspense>
                 <ToolsModal isOpen={isToolsModalOpen} onClose={() => setIsToolsModalOpen(false)} />
                 <KnowledgeBaseModal
                   isOpen={isKnowledgeBaseModalOpen}

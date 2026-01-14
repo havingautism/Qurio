@@ -5,7 +5,7 @@ import App from './App'
 import { getNodeEnv, getPublicEnv } from './lib/publicEnv'
 
 const HomeView = React.lazy(() => import('./views/HomeView'))
-import ConversationView from './views/ConversationView'
+const ConversationView = React.lazy(() => import('./views/ConversationView'))
 const SpacesView = React.lazy(() => import('./views/SpacesView'))
 const AgentsView = React.lazy(() => import('./views/AgentsView'))
 const SpaceView = React.lazy(() => import('./views/SpaceView'))
@@ -13,7 +13,9 @@ const LibraryView = React.lazy(() => import('./views/LibraryView'))
 const DeepResearchView = React.lazy(() => import('./views/DeepResearchView'))
 const BookmarksView = React.lazy(() => import('./views/BookmarksView'))
 const ShareImageView = React.lazy(() => import('./views/ShareImageView'))
-import DeepResearchConversationView from './views/DeepResearchConversationView'
+const DeepResearchConversationView = React.lazy(
+  () => import('./views/DeepResearchConversationView'),
+)
 
 const SuspensePage = ({ children }) => (
   <React.Suspense fallback={<div className="min-h-screen bg-background text-foreground" />}>

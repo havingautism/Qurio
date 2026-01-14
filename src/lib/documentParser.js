@@ -1,15 +1,15 @@
 import * as mammoth from 'mammoth/mammoth.browser'
-import * as pdfjsLib from 'pdfjs-dist'
+// import * as pdfjsLib from 'pdfjs-dist'
 
-const { GlobalWorkerOptions, getDocument } = pdfjsLib
+// const { GlobalWorkerOptions, getDocument } = pdfjsLib
 
 const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 const DEFAULT_ALLOWED_EXTENSIONS = new Set(['pdf', 'docx', 'txt', 'md', 'csv', 'json'])
 
-if (typeof window !== 'undefined') {
-  GlobalWorkerOptions.workerSrc =
-    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs'
-}
+// if (typeof window !== 'undefined') {
+//   GlobalWorkerOptions.workerSrc =
+//     'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs'
+// }
 
 export const normalizeExtractedText = text =>
   String(text || '')
@@ -51,6 +51,13 @@ export const extractTextFromFile = async (file, options = {}) => {
 
   if (isPdf) {
     try {
+      const pdfjsLib = await import('pdfjs-dist')
+      const { GlobalWorkerOptions, getDocument } = pdfjsLib
+
+      if (typeof window !== 'undefined' && !GlobalWorkerOptions.workerSrc) {
+        GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`
+      }
+
       const data = await file.arrayBuffer()
       const pdf = await getDocument({ data }).promise
       const pages = []
@@ -78,7 +85,7 @@ export const extractTextFromFile = async (file, options = {}) => {
 
       // Calculate font size statistics
       const avgFontSize = fontSizes.reduce((sum, size) => sum + size, 0) / fontSizes.length
-      const sortedSizes = [...new Set(fontSizes)].sort((a, b) => b - a)
+      // const sortedSizes = [...new Set(fontSizes)].sort((a, b) => b - a)
 
       // Determine heading thresholds (sizes significantly larger than average)
       const headingThreshold1 = avgFontSize * 1.5 // H1: 150% of average
@@ -105,7 +112,7 @@ export const extractTextFromFile = async (file, options = {}) => {
 
           // Check if font indicates a heading (Bold, Heavy, etc.)
           const isBoldFont = /bold|heavy|black|semibold/i.test(fontName)
-          const isItalicFont = /italic|oblique/i.test(fontName)
+          // const isItalicFont = /italic|oblique/i.test(fontName)
 
           // Determine heading level based on font size and style
           let headingLevel = 0

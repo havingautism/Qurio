@@ -2643,35 +2643,49 @@ const SettingsModal = ({ isOpen, onClose }) => {
                     {t('settings.themeColorHint')}
                   </p>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                   {Object.entries(THEMES).map(([themeKey, theme]) => (
                     <button
                       key={themeKey}
                       type="button"
                       onClick={() => setThemeColor(themeKey)}
                       className={clsx(
-                        'flex items-center justify-between gap-3 px-4 py-3 rounded-lg border text-left transition-colors',
+                        'group relative flex flex-col items-center gap-2 p-3 rounded-2xl border text-left transition-all duration-300',
                         themeColor === themeKey
-                          ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
-                          : 'border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-900 hover:bg-gray-100 dark:hover:bg-zinc-800',
+                          ? 'border-primary-500 bg-primary-50/50 dark:bg-primary-900/20 shadow-md scale-[1.02]'
+                          : 'border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:bg-gray-50 dark:hover:bg-zinc-800 hover:shadow-md hover:scale-[1.01]',
                       )}
                     >
-                      <div className="flex items-center gap-3">
-                        <span
-                          className="h-8 w-8 rounded-full border border-black/5 dark:border-white/10"
-                          style={{ backgroundColor: theme.colors['--color-primary-500'] }}
-                          aria-hidden="true"
+                      {/* Color preview with gradient */}
+                      <div className="relative w-full aspect-square rounded-xl overflow-hidden shadow-inner">
+                        <div
+                          className="absolute inset-0"
+                          style={{
+                            background: `linear-gradient(135deg, ${theme.colors['--color-primary-400']} 0%, ${theme.colors['--color-primary-600']} 100%)`,
+                          }}
                         />
-                        <div className="flex flex-col">
-                          <span className="text-sm font-medium text-gray-900 dark:text-white">
-                            {theme.label}
-                          </span>
-                          <span className="text-xs text-gray-500 dark:text-gray-400">
-                            {theme.colors['--color-primary-500']}
-                          </span>
-                        </div>
+                        {/* Highlight effect */}
+                        <div className="absolute inset-0 bg-gradient-to-tr from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                       </div>
-                      {themeColor === themeKey && <Check size={16} className="text-primary-500" />}
+                      <div className="flex flex-col items-center w-full">
+                        <span className="text-sm font-semibold text-gray-900 dark:text-white truncate w-full text-center">
+                          {theme.label}
+                        </span>
+                        <span className="text-[10px] text-gray-400 font-mono uppercase tracking-wider">
+                          {theme.colors['--color-primary-500']}
+                        </span>
+                      </div>
+                      {/* Check indicator */}
+                      <div
+                        className={clsx(
+                          'absolute top-2 right-2 w-6 h-6 rounded-full flex items-center justify-center transition-all duration-200',
+                          themeColor === themeKey
+                            ? 'bg-primary-500 text-white scale-100'
+                            : 'bg-white/80 dark:bg-zinc-800/80 text-transparent scale-90 opacity-0 group-hover:scale-100 group-hover:opacity-100',
+                        )}
+                      >
+                        <Check size={14} strokeWidth={3} />
+                      </div>
                     </button>
                   ))}
                 </div>

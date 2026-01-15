@@ -1937,16 +1937,16 @@ const ChatInterface = ({
         />
 
         {/* Input Area */}
-        <div className="w-full shrink-0 bg-background pt-0 pb-[calc(0.75rem+env(safe-area-inset-bottom))] px-2 sm:px-0 flex justify-center z-20">
+        <div className="w-full shrink-0 bg-background pt-0 pb-[calc(0.75rem+env(safe-area-inset-bottom))] px-2 sm:px-0 flex justify-center z-50">
           <div className="w-full max-w-3xl relative">
             {/* Scroll to bottom button - positioned relative to input area */}
 
             {showScrollButton && (
               <button
                 onClick={() => scrollToBottom('smooth')}
-                className="absolute -top-12 left-1/2  sm:hover:scale-105 -translate-x-1/2 p-2 bg-background border border-[#0d0d0d1a] dark:border-[#ffffff26] rounded-full shadow-lg hover:bg-muted transition-all duration-300 animate-in fade-in slide-in-from-bottom-2 z-30"
+                className="absolute -top-14 left-1/2 -translate-x-1/2 p-2.5 bg-white dark:bg-zinc-800 border border-gray-200/60 dark:border-zinc-700/60 rounded-full shadow-lg hover:bg-gray-50 dark:hover:bg-zinc-700 transition-all duration-300 animate-in fade-in slide-in-from-bottom-2 z-30 hover:scale-105 active:scale-95"
               >
-                <ArrowDown size={16} className="text-foreground" />
+                <ArrowDown size={18} className="text-gray-700 dark:text-gray-300" strokeWidth={2} />
               </button>
             )}
 

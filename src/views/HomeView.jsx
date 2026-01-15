@@ -80,6 +80,8 @@ const HomeView = () => {
   const [homeDocumentsLoading, setHomeDocumentsLoading] = useState(false)
   const [homeSelectedDocumentIds, setHomeSelectedDocumentIds] = useState([])
   const homePreviousSpaceIdRef = useRef(null)
+  const homeTextareaRef = useRef(null)
+  const homeInputHighlightRef = useRef(null)
 
   useScrollLock((isHomeSpaceSelectorOpen && isHomeMobile) || isDeepResearchGuideOpen)
 
@@ -550,7 +552,7 @@ const HomeView = () => {
               </div>
             </button>
             {homeExpandedSpaceId === space.id && (
-              <div className="ml-9 mt-1 mb-2 flex flex-col gap-1">
+              <div className="ml-3 mt-1 mb-2 flex flex-col gap-1">
                 <button
                   type="button"
                   onClick={() => handleSelectHomeAgentAuto(space)}
@@ -665,7 +667,7 @@ const HomeView = () => {
           {/* Search Box */}
           <div className="home-search-box w-full relative group z-20">
             <div className="absolute inset-0 input-glow-veil rounded-xl blur-2xl opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-500 pointer-events-none" />
-            <div className="relative bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-xl shadow-sm hover:shadow-md transition-all duration-300 p-4">
+            <div className="relative bg-white dark:bg-zinc-900 border border-gray-200/60 dark:border-zinc-700/60 rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 p-4">
               {(homeAttachments.length > 0 || homeSelectedDocuments.length > 0) && (
                 <div className="flex gap-2 mb-3 px-2 py-2 code-scrollbar overflow-x-auto rounded-xl border border-gray-200/70 dark:border-zinc-700/50 bg-[#F9F9F9] dark:bg-[#1a1a1a]">
                   {homeAttachments.map((att, idx) => (
@@ -712,8 +714,9 @@ const HomeView = () => {
               <div className="relative">
                 {homeInput && (
                   <div
+                    ref={homeInputHighlightRef}
                     aria-hidden="true"
-                    className="pointer-events-none absolute inset-0 text-lg whitespace-pre-wrap break-words text-gray-900 dark:text-gray-100"
+                    className="pointer-events-none absolute inset-0 overflow-hidden text-lg whitespace-pre-wrap break-words text-gray-900 dark:text-gray-100"
                   >
                     {homeInputParts.map((part, index) =>
                       part.type === 'url' ? (
@@ -730,11 +733,17 @@ const HomeView = () => {
                   </div>
                 )}
                 <textarea
+                  ref={homeTextareaRef}
                   value={homeInput}
                   onChange={e => {
                     setHomeInput(e.target.value)
                     e.target.style.height = 'auto'
                     e.target.style.height = `${e.target.scrollHeight}px`
+                  }}
+                  onScroll={e => {
+                    if (homeInputHighlightRef.current) {
+                      homeInputHighlightRef.current.scrollTop = e.target.scrollTop
+                    }
                   }}
                   onKeyDown={e => {
                     if (e.key === 'Enter' && !e.shiftKey) {

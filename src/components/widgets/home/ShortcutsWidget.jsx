@@ -504,7 +504,7 @@ const ShortcutsWidget = () => {
                 style={{ transform: `translateX(-${currentPage * 100}%)` }}
               >
                 {Array.from({ length: Math.max(1, totalPages) }).map((_, pageIndex) => (
-                  <div key={pageIndex} className="relative w-full h-full flex-shrink-0 p-2">
+                  <div key={pageIndex} className=" relative w-full h-full shrink-0 p-2">
                     {shortcuts.length > 0 &&
                       getPageShortcuts(pageIndex).map((shortcut, idx) => {
                         // Calculate absolute position

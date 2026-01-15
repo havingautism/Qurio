@@ -1586,9 +1586,9 @@ const DeepResearchChatInterface = ({
         {showScrollButton && (
           <button
             onClick={() => scrollToBottom('smooth')}
-            className="absolute bottom-6 sm:hover:scale-105 left-1/2 -translate-x-1/2 p-2 bg-background border border-[#0d0d0d1a] dark:border-[#ffffff26] rounded-full shadow-lg hover:bg-muted transition-all duration-300 animate-in fade-in slide-in-from-bottom-2 z-30"
+            className="absolute bottom-6 sm:bottom-8 left-1/2 -translate-x-1/2 p-2.5 bg-white dark:bg-zinc-800 border border-gray-200/60 dark:border-zinc-700/60 rounded-full shadow-lg hover:bg-gray-50 dark:hover:bg-zinc-700 transition-all duration-300 animate-in fade-in slide-in-from-bottom-2 z-30 hover:scale-105 active:scale-95"
           >
-            <ArrowDown size={16} className="text-foreground" />
+            <ArrowDown size={18} className="text-gray-700 dark:text-gray-300" strokeWidth={2} />
           </button>
         )}
 
@@ -1628,12 +1628,12 @@ const DeepResearchChatInterface = ({
 
         {/* Deep research conversations are single-turn; no input area. */}
         {isLoading && (
-          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-40">
+          <div className="absolute bottom-6 sm:bottom-8 left-1/2 -translate-x-1/2 z-40">
             <button
               onClick={stopGeneration}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-900 dark:bg-zinc-100 text-white dark:text-gray-900 hover:bg-gray-800 dark:hover:bg-zinc-200 rounded-full shadow-lg transition-all animate-in fade-in slide-in-from-bottom-2 font-medium"
+              className="flex items-center gap-2 px-5 py-2.5 bg-gray-900 dark:bg-zinc-100 text-white dark:text-gray-900 hover:bg-gray-800 dark:hover:bg-zinc-200 rounded-full shadow-lg transition-all animate-in fade-in slide-in-from-bottom-2 font-medium hover:scale-105 active:scale-95"
             >
-              <Square size={16} fill="currentColor" />
+              <Square size={16} fill="currentColor" strokeWidth={2.5} />
               <span>{t('common.stop') || 'Stop'}</span>
             </button>
           </div>

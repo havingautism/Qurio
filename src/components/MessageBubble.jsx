@@ -433,7 +433,7 @@ const MessageBubble = ({
           <span>{String(language || 'CODE').toUpperCase()}</span>
           <button
             onClick={() => copyToClipboard(codeText)}
-            className="px-2 py-1 rounded bg-gray-200 dark:bg-zinc-700 text-gray-700 dark:text-gray-200 text-[11px] opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+            className="px-2 py-1 rounded-md bg-gray-200 dark:bg-zinc-700 text-gray-700 dark:text-gray-200 text-[11px] opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
           >
             Copy
           </button>
@@ -1090,7 +1090,7 @@ const MessageBubble = ({
               <span>{langLabel}</span>
               <button
                 onClick={() => copyToClipboard(codeText)}
-                className="px-2 py-1 rounded bg-gray-200 dark:bg-zinc-700 text-gray-700 dark:text-gray-200 text-[11px] opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+                className="px-2 py-1 rounded-md bg-gray-200 dark:bg-zinc-700 text-gray-700 dark:text-gray-200 text-[11px] opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
               >
                 Copy
               </button>

@@ -2,7 +2,7 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [main]
+    branches: [dev-ui-improve-0115]
 
 permissions:
   contents: read
@@ -36,7 +36,7 @@ jobs:
 
       - name: Build application
         env:
-           PUBLIC_USE_FLUENT_EMOJI: "0"
+          PUBLIC_USE_FLUENT_EMOJI: '0'
         run: bun run build
 
       - name: Setup GitHub Pages

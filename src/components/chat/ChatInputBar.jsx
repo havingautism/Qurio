@@ -572,7 +572,7 @@ const ChatInputBar = React.memo(
                       <div className="flex h-full flex-col items-center justify-center gap-1 px-2 py-2 text-center">
                         <FileIcon fileType={doc.file_type} size={20} />
                         <span className="text-[12px] font-semibold text-gray-900 dark:text-white truncate">
-                          {doc.name}
+                          {doc.name.replace(/\.[^/.]+$/, '')}
                         </span>
                         {/* <span className="text-[10px] uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400">
                           {(doc.file_type || 'DOC').toUpperCase()}

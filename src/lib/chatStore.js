@@ -2326,12 +2326,33 @@ Analyze the submitted data. If critical information is still missing or if the r
     if (abortController) {
       console.log('[chatStore] Stopping generation by user request')
       abortController.abort()
-      set({ abortController: null, isLoading: false })
-    } else if (isLoading) {
-      // Fallback: forcefully reset loading state if no controller found
-      console.warn('[chatStore] No abort controller found, resetting loading state')
-      set({ isLoading: false })
     }
+
+    // Update last message tool status if it's 'calling'
+    set(state => {
+      const messages = [...state.messages]
+      const lastMsgIndex = messages.length - 1
+      if (lastMsgIndex >= 0 && messages[lastMsgIndex].role === 'ai') {
+        const lastMsg = { ...messages[lastMsgIndex] }
+        if (Array.isArray(lastMsg.toolCallHistory)) {
+          let hasUpdated = false
+          const updatedHistory = lastMsg.toolCallHistory.map(tc => {
+            if (tc.status === 'calling') {
+              hasUpdated = true
+              return { ...tc, status: 'error', error: 'Interrupted by user' }
+            }
+            return tc
+          })
+
+          if (hasUpdated) {
+            lastMsg.toolCallHistory = updatedHistory
+            messages[lastMsgIndex] = lastMsg
+            return { messages, abortController: null, isLoading: false }
+          }
+        }
+      }
+      return { abortController: null, isLoading: false }
+    })
   },
 }))
 

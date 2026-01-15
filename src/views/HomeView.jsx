@@ -493,16 +493,29 @@ const HomeView = () => {
     setIsHomeThinkingActive(homeThinkingRule.isThinkingActive)
   }, [isHomeThinkingLocked, homeThinkingRule.isThinkingActive])
 
-  const homeSpaceButtonLabel = useMemo(() => {
-    if (isHomeSpaceAuto) return t('homeView.spacesAuto')
-    const spaceLabel = homeSelectedSpace
+  const homeSpaceButtonContent = useMemo(() => {
+    const autoLabelWithSparkle = `${t('homeView.auto')} ✨`
+    const spaceLabel = isHomeSpaceAuto
+      ? autoLabelWithSparkle
+      : homeSelectedSpace
       ? getSpaceDisplayLabel(homeSelectedSpace, t)
-      : t('homeView.spacesNone')
+      : t('homeView.none')
     const agentLabel = isHomeAgentAuto
-      ? t('homeView.agentsAuto')
+      ? autoLabelWithSparkle
       : getAgentDisplayName(selectedHomeAgent, t) || t('homeView.agentsLabel')
-    return `${t('homeView.spacesLabel', { label: spaceLabel })} · ${agentLabel}`
+    return {
+      spaceLabel,
+      agentLabel,
+      spaceEmoji: homeSelectedSpace?.emoji || '',
+      agentEmoji: selectedHomeAgent?.emoji || '',
+    }
   }, [isHomeSpaceAuto, homeSelectedSpace, isHomeAgentAuto, selectedHomeAgent, t])
+  const {
+    spaceLabel: resolvedSpaceLabel,
+    agentLabel: resolvedAgentLabel,
+    spaceEmoji: resolvedSpaceEmoji,
+    agentEmoji: resolvedAgentEmoji,
+  } = homeSpaceButtonContent
 
   const availableHomeSpaces = useMemo(() => {
     const deepResearchId = deepResearchSpace?.id ? String(deepResearchSpace.id) : null
@@ -620,14 +633,38 @@ const HomeView = () => {
 
   return (
     <div className="flex-1 h-full overflow-hidden bg-background text-foreground transition-colors duration-300 relative flex flex-col">
-      {/* Immersive Animated Background Blobs - Global for HomeView */}
-      <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden select-none opacity-20 dark:opacity-15">
-        {/* Static Background - No Blur/Animation for Performance/Stability */}
+      {/* Elegant Ambient Background Glow - Layered for Depth */}
+      <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden select-none">
+        {/* Deep ambient base layer */}
         <div
-          className="absolute inset-0 opacity-30"
+          className="absolute inset-0 opacity-40"
           style={{
             background:
-              'radial-gradient(circle at top left, var(--color-primary-400) 0%, transparent 40%), radial-gradient(circle at bottom right, var(--color-primary-300) 0%, transparent 40%)',
+              'radial-gradient(ellipse 120% 100% at 20% 0%, var(--color-primary-500) 0%, transparent 50%), radial-gradient(ellipse 100% 80% at 80% 100%, var(--color-primary-600) 0%, transparent 50%)',
+          }}
+        />
+        {/* Mid-tone accent layer - softer and larger */}
+        <div
+          className="absolute inset-0 opacity-35 blur-3xl"
+          style={{
+            background:
+              'radial-gradient(circle at 30% 20%, var(--color-primary-300) 0%, transparent 35%), radial-gradient(circle at 70% 60%, var(--color-primary-400) 0%, transparent 40%)',
+          }}
+        />
+        {/* Highlight layer - subtle warm accents */}
+        <div
+          className="absolute inset-0 opacity-25 blur-2xl"
+          style={{
+            background:
+              'radial-gradient(circle at 15% 35%, rgba(168, 85, 247, 0.4) 0%, transparent 30%), radial-gradient(circle at 85% 15%, rgba(59, 130, 246, 0.3) 0%, transparent 35%)',
+          }}
+        />
+        {/* Edge vignette for depth */}
+        <div
+          className="absolute inset-0 opacity-20"
+          style={{
+            background:
+              'radial-gradient(ellipse 80% 120% at 50% 100%, var(--color-primary-700) 0%, transparent 60%)',
           }}
         />
       </div>
@@ -897,7 +934,15 @@ const HomeView = () => {
                       } hover:bg-gray-100 dark:hover:bg-zinc-800`}
                     >
                       <LayoutGrid size={18} />
-                      <span className="hidden md:inline">{homeSpaceButtonLabel}</span>
+                      <div className="hidden md:flex items-center gap-1 text-sm font-medium text-gray-900 dark:text-white min-w-0">
+                        {resolvedSpaceEmoji && <EmojiDisplay emoji={resolvedSpaceEmoji} size="1.15rem" />}
+                        <span className="truncate">{resolvedSpaceLabel}</span>
+                        <span className="text-gray-400 dark:text-gray-500 select-none">·</span>
+                        {resolvedAgentEmoji && <EmojiDisplay emoji={resolvedAgentEmoji} size="1.15rem" />}
+                        <span className="truncate text-gray-600 dark:text-gray-300">
+                          {resolvedAgentLabel}
+                        </span>
+                      </div>
                       <ChevronDown size={14} />
                     </button>
                     {!isHomeMobile && isHomeSpaceSelectorOpen && (

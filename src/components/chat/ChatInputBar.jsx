@@ -26,6 +26,104 @@ import EmojiDisplay from '../EmojiDisplay'
 import useIsMobile from '../../hooks/useIsMobile'
 import MobileDrawer from '../MobileDrawer'
 
+// Extracted FileIcon component to avoid recreation on each render
+const FileIcon = React.memo(
+  function FileIcon({ fileType, className }) {
+    const type = (fileType || '').toLowerCase()
+    if (type.includes('pdf')) return <FileText className={clsx('text-red-500', className)} />
+    if (type.includes('doc') || type.includes('word'))
+      return <FileText className={clsx('text-blue-500', className)} />
+    if (type.includes('json')) return <FileJson className={clsx('text-yellow-500', className)} />
+    if (type.includes('csv') || type.includes('excel') || type.includes('sheet'))
+      return <FileSpreadsheet className={clsx('text-emerald-500', className)} />
+    if (
+      type.includes('md') ||
+      type.includes('start') ||
+      type.includes('code') ||
+      type === 'js' ||
+      type === 'py'
+    )
+      return <FileCode className={clsx('text-purple-500', className)} />
+    return <File className={clsx('text-gray-400', className)} />
+  },
+  // Custom comparison: only re-render if fileType changes (className changes are cheap)
+  (prevProps, nextProps) => prevProps.fileType === nextProps.fileType,
+)
+
+// Extracted document list renderer for capsule variant
+function DocumentsList({ documents, documentsLoading, selectedDocumentIdSet, onToggleDocument, t }) {
+  if (documentsLoading) {
+    return (
+      <div className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400">
+        {t('chatInterface.documentsLoading')}
+      </div>
+    )
+  }
+  if (documents.length === 0) {
+    return (
+      <div className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400">
+        {t('chatInterface.documentsEmpty')}
+      </div>
+    )
+  }
+  return documents.map(doc => {
+    const isSelected = selectedDocumentIdSet.has(String(doc.id))
+    return (
+      <button
+        key={doc.id}
+        onClick={() => onToggleDocument?.(doc.id)}
+        className={clsx(
+          'flex items-start gap-2.5 w-full px-3 py-2 rounded-xl text-sm transition-colors text-left',
+          isSelected
+            ? 'bg-gray-100 dark:bg-zinc-700/50 text-gray-900 dark:text-white font-medium'
+            : 'hover:bg-gray-100 dark:hover:bg-zinc-700/50 text-gray-600 dark:text-gray-300',
+        )}
+        aria-pressed={isSelected}
+      >
+        <span
+          className={clsx(
+            'mt-0.5 flex items-center justify-center w-4 h-4 rounded border transition-colors',
+            isSelected
+              ? 'bg-primary-500 border-primary-500 text-white'
+              : 'border-gray-300 dark:border-zinc-600 text-transparent',
+          )}
+        >
+          <Check size={12} />
+        </span>
+        <div className="flex items-center justify-between w-full min-w-0 gap-2">
+          <span className="truncate">{doc.name}</span>
+          <span className="text-[10px] text-gray-400 font-normal shrink-0">
+            {(() => {
+              const type = (doc.file_type || '').toUpperCase()
+              return type === 'MD' ? 'MARKDOWN' : type
+            })()}
+          </span>
+        </div>
+      </button>
+    )
+  })
+}
+
+// Extracted documents section renderer
+function DocumentsSection({ documents, documentsLoading, selectedDocumentCount, selectedDocumentIdSet, onToggleDocument, t }) {
+  return (
+    <div className="space-y-2">
+      <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-2">
+        {t('chatInterface.documents')} ({selectedDocumentCount})
+      </div>
+      <div className="flex flex-col gap-0.5 max-h-[250px] overflow-y-auto no-scrollbar">
+        <DocumentsList
+          documents={documents}
+          documentsLoading={documentsLoading}
+          selectedDocumentIdSet={selectedDocumentIdSet}
+          onToggleDocument={onToggleDocument}
+          t={t}
+        />
+      </div>
+    </div>
+  )
+}
+
 /**
  * ChatInputBar Component
  * Input bar for chat messages with support for attachments, search, thinking toggle, and agent selection.
@@ -122,24 +220,6 @@ const ChatInputBar = React.memo(
       if (!documents || documents.length === 0) return []
       return documents.filter(doc => selectedDocumentIdSet.has(String(doc.id)))
     }, [documents, selectedDocumentIdSet])
-    const FileIcon = ({ fileType, className }) => {
-      const type = (fileType || '').toLowerCase()
-      if (type.includes('pdf')) return <FileText className={clsx('text-red-500', className)} />
-      if (type.includes('doc') || type.includes('word'))
-        return <FileText className={clsx('text-blue-500', className)} />
-      if (type.includes('json')) return <FileJson className={clsx('text-yellow-500', className)} />
-      if (type.includes('csv') || type.includes('excel') || type.includes('sheet'))
-        return <FileSpreadsheet className={clsx('text-emerald-500', className)} />
-      if (
-        type.includes('md') ||
-        type.includes('start') ||
-        type.includes('code') ||
-        type === 'js' ||
-        type === 'py'
-      )
-        return <FileCode className={clsx('text-purple-500', className)} />
-      return <File className={clsx('text-gray-400', className)} />
-    }
     // Auto-resize and multiline detection
     useEffect(() => {
       const textarea = textareaRef.current
@@ -284,66 +364,6 @@ const ChatInputBar = React.memo(
     if (variant === 'capsule') {
       const hasDocuments = documents && documents.length > 0
 
-      const renderDocumentsList = () => (
-        <div className="flex flex-col gap-0.5 max-h-[250px] overflow-y-auto no-scrollbar">
-          {documentsLoading && (
-            <div className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400">
-              {t('chatInterface.documentsLoading')}
-            </div>
-          )}
-          {!documentsLoading && documents.length === 0 && (
-            <div className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400">
-              {t('chatInterface.documentsEmpty')}
-            </div>
-          )}
-          {!documentsLoading &&
-            documents.map(doc => {
-              const isSelected = selectedDocumentIdSet.has(String(doc.id))
-              return (
-                <button
-                  key={doc.id}
-                  onClick={() => onToggleDocument?.(doc.id)}
-                  className={clsx(
-                    'flex items-start gap-2.5 w-full px-3 py-2 rounded-xl text-sm transition-colors text-left',
-                    isSelected
-                      ? 'bg-gray-100 dark:bg-zinc-700/50 text-gray-900 dark:text-white font-medium'
-                      : 'hover:bg-gray-100 dark:hover:bg-zinc-700/50 text-gray-600 dark:text-gray-300',
-                  )}
-                >
-                  <span
-                    className={clsx(
-                      'mt-0.5 flex items-center justify-center w-4 h-4 rounded border transition-colors',
-                      isSelected
-                        ? 'bg-primary-500 border-primary-500 text-white'
-                        : 'border-gray-300 dark:border-zinc-600 text-transparent',
-                    )}
-                  >
-                    <Check size={12} />
-                  </span>
-                  <div className="flex items-center justify-between w-full min-w-0 gap-2">
-                    <span className="truncate">{doc.name}</span>
-                    <span className="text-[10px] text-gray-400 font-normal shrink-0">
-                      {(() => {
-                        const type = (doc.file_type || '').toUpperCase()
-                        return type === 'MD' ? 'MARKDOWN' : type
-                      })()}
-                    </span>
-                  </div>
-                </button>
-              )
-            })}
-        </div>
-      )
-
-      const renderDocumentsSection = () => (
-        <div className="space-y-2">
-          <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-2">
-            {t('chatInterface.documents')} ({selectedDocumentCount})
-          </div>
-          {renderDocumentsList()}
-        </div>
-      )
-
       const uploadMenuButton = (
         <button
           onClick={handleUploadImage}
@@ -365,7 +385,14 @@ const ChatInputBar = React.memo(
             {uploadMenuButton}
             {hasDocuments && (
               <div className="border-t border-gray-200/70 dark:border-zinc-700/50 pt-3">
-                {renderDocumentsSection()}
+                <DocumentsSection
+                  documents={documents}
+                  documentsLoading={documentsLoading}
+                  selectedDocumentCount={selectedDocumentCount}
+                  selectedDocumentIdSet={selectedDocumentIdSet}
+                  onToggleDocument={onToggleDocument}
+                  t={t}
+                />
               </div>
             )}
           </div>
@@ -631,6 +658,9 @@ const ChatInputBar = React.memo(
                     onClick={() => setIsUploadMenuOpen(!isUploadMenuOpen)}
                     className="p-1.5 sm:p-2 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 hover:bg-gray-200 dark:hover:bg-zinc-800 rounded-full transition-colors"
                     title={t('common.upload')}
+                    aria-label={t('common.upload')}
+                    aria-expanded={isUploadMenuOpen}
+                    aria-haspopup="menu"
                   >
                     <Plus size={20} strokeWidth={2.5} />
                   </button>
@@ -645,7 +675,14 @@ const ChatInputBar = React.memo(
                         {uploadMenuButton}
                         {hasDocuments && (
                           <div className="border-t border-gray-200/70 dark:border-zinc-700/50 pt-3">
-                            {renderDocumentsSection()}
+                            <DocumentsSection
+                              documents={documents}
+                              documentsLoading={documentsLoading}
+                              selectedDocumentCount={selectedDocumentCount}
+                              selectedDocumentIdSet={selectedDocumentIdSet}
+                              onToggleDocument={onToggleDocument}
+                              t={t}
+                            />
                           </div>
                         )}
                       </div>
@@ -695,6 +732,9 @@ const ChatInputBar = React.memo(
                         : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 hover:bg-gray-200 dark:hover:bg-zinc-800',
                     )}
                     title="Model & Settings"
+                    aria-label={t('chatInterface.modelSettings')}
+                    aria-expanded={isCapsuleMenuOpen}
+                    aria-haspopup="menu"
                   >
                     <SlidersHorizontal size={20} strokeWidth={2} />
                   </button>
@@ -918,6 +958,9 @@ const ChatInputBar = React.memo(
                       ? 'text-primary-500 bg-primary-50 dark:bg-primary-900/20'
                       : 'text-gray-500 dark:text-gray-400',
                   )}
+                  aria-label={t('common.upload')}
+                  aria-expanded={isUploadMenuOpen}
+                  aria-haspopup="menu"
                 >
                   <Paperclip size={18} strokeWidth={2} />
                 </button>
@@ -992,6 +1035,9 @@ const ChatInputBar = React.memo(
                       : 'text-gray-500 dark:text-gray-400',
                   )}
                   disabled={agentsLoading}
+                  aria-label={t('chatInterface.agentsLabel')}
+                  aria-expanded={isAgentSelectorOpen}
+                  aria-haspopup="menu"
                 >
                   {isAgentAutoMode || !selectedAgent ? (
                     <Smile size={18} strokeWidth={2} />

@@ -25,8 +25,6 @@ import {
   Globe,
   AlertTriangle,
 } from 'lucide-react'
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
-import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import remarkGfm from 'remark-gfm'
 import { Streamdown } from 'streamdown'
 import { useAppContext } from '../App'
@@ -53,65 +51,26 @@ import { useMessageExport } from './message/useMessageExport'
 import MobileSourcesDrawer from './MobileSourcesDrawer'
 import DocumentSourcesPanel from './DocumentSourcesPanel'
 import ShareModal from './ShareModal'
-
-const PROVIDER_META = {
-  gemini: {
-    label: 'Google Gemini',
-    id: 'gemini',
-    fallback: 'G',
-  },
-  openai_compatibility: {
-    label: 'OpenAI Compatible',
-    id: 'openai_compatibility',
-    fallback: 'O',
-  },
-  siliconflow: {
-    label: 'SiliconFlow',
-    id: 'siliconflow',
-    fallback: 'S',
-  },
-  glm: {
-    label: 'GLM',
-    id: 'glm',
-    fallback: 'G',
-  },
-  modelscope: {
-    label: '魔塔社区',
-    id: 'modelscope',
-    fallback: 'M',
-  },
-  kimi: {
-    label: 'Kimi',
-    id: 'kimi',
-    fallback: 'K',
-  },
-  nvidia: {
-    label: 'NVIDIA NIM',
-    id: 'nvidia',
-    fallback: 'N',
-  },
-}
-
-const ToolEnter = ({ children, className }) => {
-  const [entered, setEntered] = useState(false)
-
-  useEffect(() => {
-    const frame = requestAnimationFrame(() => setEntered(true))
-    return () => cancelAnimationFrame(frame)
-  }, [])
-
-  return (
-    <div
-      className={clsx(
-        'transition-all duration-200 ease-out origin-top transform-gpu',
-        entered ? 'opacity-100 scale-100' : 'opacity-0 scale-95',
-        className,
-      )}
-    >
-      {children}
-    </div>
-  )
-}
+import { PROVIDER_META } from './messageBubble/messageConstants'
+import ToolEnter from './messageBubble/ToolEnter'
+import FormStatusBadge from './messageBubble/FormStatusBadge'
+import { CodeBlock, PlainCodeBlock } from './messageBubble/CodeBlock'
+import {
+  formatJsonForDisplay,
+  parseFormPayload,
+  createInterleavedContent,
+  getToolCallsForStep as getToolCallsForStepUtil,
+  hasMainTextContent,
+} from './messageBubble/messageUtils'
+import { formatResearchPlanMarkdown } from './messageBubble/formatResearchPlan'
+import { useDarkMode } from '../hooks/messageBubble/useDarkMode'
+import { useThinkingStatus } from '../hooks/messageBubble/useThinkingStatus'
+import { useMessageSelection } from '../hooks/messageBubble/useMessageSelection'
+import { useCopySuccess } from '../hooks/messageBubble/useCopySuccess'
+import { useImagePreview } from '../hooks/messageBubble/useImagePreview'
+import { useDownloadMenu } from '../hooks/messageBubble/useDownloadMenu'
+import { useMergedFormMessage } from '../hooks/messageBubble/useMergedFormMessage'
+import { useInitialSkeleton } from '../hooks/messageBubble/useInitialSkeleton'
 
 /**
  * MessageBubble component that directly accesses messages from chatStore via index
@@ -148,180 +107,7 @@ const MessageBubble = ({
   const message = messages[messageIndex]
 
   // Merge content if this is a form message followed by continuation(s)
-  const mergedMessage = useMemo(() => {
-    if (!message || message.role !== 'ai') return message
-
-    const messageContent = String(message.content || '')
-    const initialToolCallHistory = message.toolCallHistory || []
-    const hasForm = initialToolCallHistory.some(tc => tc.name === 'interactive_form')
-
-    if (!hasForm) return message
-
-    // Recursively merge all form submission chains
-    let currentIndex = messageIndex
-    let mergedContent = messageContent
-    // Clone the toolCallHistory to avoid mutating the original message object!
-    // We map to new objects so we can add properties like _isSubmitted
-    let toolCallHistory = (message.toolCallHistory || []).map(tc => ({ ...tc }))
-    let sources = [...(message.sources || [])]
-    let related = [...(message.related || [])]
-    let relatedLoading = message.relatedLoading || false
-    let documentSources = [...(message.documentSources || [])]
-    let allSubmittedValues = {}
-    let hasAnySubmission = false
-    let isContinuationStreaming = false
-
-    // Keep scanning forward for [Form Submission] → AI pairs
-    while (true) {
-      const nextUserMsg = messages[currentIndex + 1]
-      const nextAiMsg = messages[currentIndex + 2]
-
-      // Check if we have a submission
-      if (
-        nextUserMsg &&
-        nextUserMsg.role === 'user' &&
-        typeof nextUserMsg.content === 'string' &&
-        nextUserMsg.content.startsWith('[Form Submission]')
-      ) {
-        hasAnySubmission = true
-
-        // Mark all current interactive_form tools as submitted BY THIS user message
-        toolCallHistory.forEach(tc => {
-          if (tc.name === 'interactive_form') {
-            tc._isSubmitted = true
-          }
-        })
-
-        // Parse submitted values from this [Form Submission]
-        const submissionContent = nextUserMsg.content
-        const lines = submissionContent.split('\n').slice(1) // Skip "[Form Submission]" line
-        lines.forEach(line => {
-          const match = line.match(/^([^:]+):\s*(.+)$/)
-          if (match) {
-            const fieldName = match[1].trim()
-            const value = match[2].trim()
-            allSubmittedValues[fieldName] = value
-          }
-        })
-
-        // If generic AI response follows, merge it
-        if (nextAiMsg && nextAiMsg.role === 'ai') {
-          const nextAiIndex = currentIndex + 2
-          const nextAiIsStreaming =
-            nextAiMsg.isStreaming || (isLoading && nextAiIndex === messages.length - 1)
-          if (nextAiIsStreaming) {
-            isContinuationStreaming = true
-          }
-          // Merge tool calls if any
-          if (nextAiMsg.toolCallHistory && nextAiMsg.toolCallHistory.length > 0) {
-            // Avoid duplicates by checking IDs
-            const existingIds = new Set(toolCallHistory.map(tc => tc.id))
-            const offset = mergedContent.length + 2 // +2 for the '\n\n' separator
-
-            const newTools = (nextAiMsg.toolCallHistory || [])
-              .filter(tc => !existingIds.has(tc.id))
-              .map(tc => ({
-                ...tc,
-                // Adjust textIndex by adding the current content length + separator
-                textIndex: (tc.textIndex || 0) + offset,
-              }))
-
-            toolCallHistory.push(...newTools)
-          }
-
-          // Merge sources if any
-          if (nextAiMsg.sources && nextAiMsg.sources.length > 0) {
-            const existingTitles = new Set(sources.map(s => s.title))
-            const newSources = nextAiMsg.sources.filter(s => !existingTitles.has(s.title))
-            sources.push(...newSources)
-          }
-
-          // Merge document sources if any
-          if (nextAiMsg.documentSources && nextAiMsg.documentSources.length > 0) {
-            const existingDocIds = new Set(documentSources.map(doc => doc.id))
-            const newDocumentSources = nextAiMsg.documentSources.filter(
-              doc => !existingDocIds.has(doc.id),
-            )
-            documentSources.push(...newDocumentSources)
-          }
-
-          // Merge related questions if any
-          if (nextAiMsg.related && nextAiMsg.related.length > 0) {
-            related = nextAiMsg.related
-          }
-          // Update relatedLoading status
-          if (nextAiMsg.relatedLoading) {
-            relatedLoading = nextAiMsg.relatedLoading
-          }
-
-          const continuationPrefixLength = mergedContent.length + 2
-          mergedContent += '\n\n' + (nextAiMsg.content || '')
-          toolCallHistory.push({
-            id: `form-status-${currentIndex + 1}`,
-            name: 'form_submission_status',
-            textIndex: continuationPrefixLength,
-          })
-
-          currentIndex += 2
-        } else {
-          // Orphan form submission (e.g. streaming started but no placeholder yet, or error)
-          // Mark as submitted but stop merging sequence
-          break
-        }
-      } else {
-        // No more form submission pairs, stop
-        break
-      }
-    }
-
-    // Check if the chain is currently waiting for a continuation
-    let isContinuationLoading = false
-    if (isLoading && hasAnySubmission) {
-      // If we broke out of the loop because of an orphan submission or finished merging
-      // Check if we are at the end of the known chain
-      const nextUserMsg = messages[currentIndex + 1]
-      const nextAiMsg = messages[currentIndex + 2]
-
-      // Check if nextUserMsg is a form submission
-      const isFormSubmission =
-        nextUserMsg &&
-        nextUserMsg.role === 'user' &&
-        typeof nextUserMsg.content === 'string' &&
-        nextUserMsg.content.startsWith('[Form Submission]')
-
-      if (isFormSubmission) {
-        // If we have a submission but no AI message yet OR an empty AI message
-        if (
-          !nextAiMsg ||
-          (nextAiMsg &&
-            nextAiMsg.role === 'ai' &&
-            !nextAiMsg.content &&
-            (!nextAiMsg.toolCallHistory || nextAiMsg.toolCallHistory.length === 0))
-        ) {
-          isContinuationLoading = true
-        }
-      }
-    }
-
-    // If we found any submissions, return merged message
-    if (hasAnySubmission) {
-      return {
-        ...message,
-        content: mergedContent,
-        toolCallHistory: toolCallHistory,
-        sources: sources,
-        documentSources: documentSources,
-        related: related,
-        relatedLoading: relatedLoading,
-        _formSubmitted: true,
-        _formSubmittedValues: allSubmittedValues,
-        _isContinuationLoading: isContinuationLoading,
-        _isContinuationStreaming: isContinuationStreaming,
-      }
-    }
-
-    return message
-  }, [message, messages, messageIndex, isLoading])
+  const mergedMessage = useMergedFormMessage(message, messages, messageIndex, isLoading)
 
   const isDeepResearch =
     !!mergedMessage?.deepResearch ||
@@ -352,116 +138,29 @@ const MessageBubble = ({
     hasInteractiveForm && !mergedMessage._formSubmitted && !isFormInterrupted
 
   const getToolCallsForStep = useCallback(
-    stepNumber =>
-      toolCallHistory.filter(item =>
-        typeof item.step === 'number' ? item.step === stepNumber : false,
-      ),
+    stepNumber => getToolCallsForStepUtil(toolCallHistory, stepNumber),
     [toolCallHistory],
   )
 
-  const formatJsonForDisplay = value => {
-    if (value == null) return ''
-    if (typeof value === 'string') {
-      try {
-        const parsed = JSON.parse(value)
-        return JSON.stringify(parsed, null, 2)
-      } catch {
-        return value
-      }
-    }
-    try {
-      return JSON.stringify(value, null, 2)
-    } catch {
-      return String(value)
-    }
-  }
-
-  const parseFormPayload = raw => {
-    if (!raw) return null
-    if (typeof raw === 'object') return raw
-    if (typeof raw === 'string') {
-      try {
-        return JSON.parse(raw)
-      } catch {
-        return null
-      }
-    }
-    return null
-  }
-
-  const [isDark, setIsDark] = useState(document.documentElement.classList.contains('dark'))
+  const isDark = useDarkMode()
   const mainContentRef = useRef(null)
   const researchExportRef = useRef(null)
   const thoughtExportRef = useRef(null)
   const containerRef = useRef(null) // Local ref for the wrapper
 
-  // State to track copy success
-  const [isCopied, setIsCopied] = useState(false)
-  const [activeImageUrl, setActiveImageUrl] = useState(null)
+  // State and hooks for UI interactions
+  const { isCopied, setIsCopied } = useCopySuccess()
+  const { activeImageUrl, setActiveImageUrl } = useImagePreview()
+  const { isDownloadMenuOpen, setIsDownloadMenuOpen, downloadMenuRef } = useDownloadMenu()
   const [isDocumentSourcesOpen, setIsDocumentSourcesOpen] = useState(false)
 
   useEffect(() => {
     setIsDocumentSourcesOpen(false)
   }, [message?.id])
 
-  // Utility function to copy text to clipboard
-  const copyToClipboard = async text => {
-    try {
-      if (navigator?.clipboard?.writeText) {
-        await navigator.clipboard.writeText(text)
-      } else {
-        const textarea = document.createElement('textarea')
-        textarea.value = text
-        textarea.style.position = 'fixed'
-        textarea.style.opacity = '0'
-        document.body.appendChild(textarea)
-        textarea.select()
-        document.execCommand('copy')
-        document.body.removeChild(textarea)
-      }
-      // Show a brief success indication
-      console.log('Text copied to clipboard')
-    } catch (err) {
-      console.error('Failed to copy text: ', err)
-    }
-  }
-
+  // Render plain code block component
   const renderPlainCodeBlock = useCallback(
-    (codeText, language) => (
-      <div className="relative group mb-4 border border-gray-200 dark:border-zinc-700 rounded-xl overflow-x-auto bg-user-bubble/20 dark:bg-zinc-800/30">
-        <div className="flex items-center justify-between px-3 py-2 text-[11px] font-semibold bg-user-bubble/50 dark:bg-zinc-800/50 text-gray-600 dark:text-gray-300 border-b border-gray-200 dark:border-zinc-700">
-          <span>{String(language || 'CODE').toUpperCase()}</span>
-          <button
-            onClick={() => copyToClipboard(codeText)}
-            className="px-2 py-1 rounded bg-gray-200 dark:bg-zinc-700 text-gray-700 dark:text-gray-200 text-[11px] opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
-          >
-            Copy
-          </button>
-        </div>
-        <SyntaxHighlighter
-          style={isDark ? oneDark : oneLight}
-          language={language || 'text'}
-          PreTag="div"
-          className="code-scrollbar text-sm text-shadow-none! font-code!"
-          customStyle={{
-            margin: 0,
-            padding: '1rem',
-            background: 'transparent',
-            whiteSpace: 'pre',
-            wordBreak: 'normal',
-          }}
-          codeTagProps={{
-            style: {
-              backgroundColor: 'transparent',
-              fontFamily: 'inherit',
-              whiteSpace: 'inherit',
-            },
-          }}
-        >
-          {codeText}
-        </SyntaxHighlighter>
-      </div>
-    ),
+    (codeText, language) => <PlainCodeBlock codeText={codeText} language={language} isDark={isDark} />,
     [isDark],
   )
 
@@ -478,354 +177,32 @@ const MessageBubble = ({
     [isDark, MermaidErrorFallback],
   )
 
-  const FormStatusBadge = ({ waiting }) => {
-    const { t } = useTranslation()
-    const statusLabel = waiting
-      ? t('messageBubble.formStatus.waiting')
-      : t('messageBubble.formStatus.submitted')
-    const statusIcon = waiting ? (
-      <Clock size={14} strokeWidth={2.5} />
-    ) : (
-      <Check size={14} strokeWidth={3} />
-    )
+  // FormStatusBadge is now imported as a component
 
-    const lineColorClass = waiting
-      ? 'from-sky-200/50 via-sky-300/50 to-transparent dark:from-sky-800/30 dark:via-sky-700/30'
-      : 'from-emerald-200/50 via-emerald-300/50 to-transparent dark:from-emerald-800/30 dark:via-emerald-700/30'
+  // Create interleaved content from tools and text
+  const interleavedContent = useMemo(
+    () => createInterleavedContent(mainContent, toolCallHistory, isDeepResearch),
+    [mainContent, toolCallHistory, isDeepResearch],
+  )
 
-    const badgeClass = waiting
-      ? 'bg-sky-50 text-sky-600 border-sky-200 dark:bg-sky-900/20 dark:text-sky-300 dark:border-sky-800/50'
-      : 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-800/50'
-
-    return (
-      <div className="flex w-full items-center gap-3 my-4 opacity-90">
-        <div className={clsx('h-px flex-1 bg-gradient-to-r', lineColorClass)} />
-
-        <div
-          className={clsx(
-            'flex items-center gap-1.5 px-3 py-1 rounded-full border shadow-sm transition-all duration-300',
-            'text-[11px] font-bold tracking-wider uppercase',
-            badgeClass,
-          )}
-        >
-          {statusIcon}
-          <span>{statusLabel}</span>
-        </div>
-
-        <div className={clsx('h-px flex-1 bg-gradient-to-l', lineColorClass)} />
-      </div>
-    )
-  }
-
-  const isAsciiWordChar = char => /[A-Za-z0-9]/.test(char)
-  const toolBoundaryChars = new Set([
-    ' ',
-    '\n',
-    '\t',
-    '.',
-    ',',
-    '!',
-    '?',
-    ';',
-    ':',
-    '。',
-    '！',
-    '？',
-    '；',
-    '：',
-  ])
-  const toolPunctuationChars = new Set(['.', ',', '!', '?', ';', ':', '。', '！', '？', '；', '：'])
-  const normalizeToolIndex = (content, index) => {
-    if (!content) return 0
-    const clamped = Math.max(0, Math.min(index, content.length))
-    if (clamped === 0 || clamped === content.length) return clamped
-    const prev = content[clamped - 1]
-    const next = content[clamped]
-    if (!isAsciiWordChar(prev) || !isAsciiWordChar(next)) return clamped
-
-    const maxForward = 80
-    for (let i = clamped; i < content.length && i < clamped + maxForward; i += 1) {
-      const ch = content[i]
-      if (toolBoundaryChars.has(ch)) {
-        const adjusted = i + (toolPunctuationChars.has(ch) ? 1 : 0)
-        return Math.min(adjusted, content.length)
-      }
-    }
-    return clamped
-  }
-
-  const interleavedContent = useMemo(() => {
-    if (isDeepResearch || !toolCallHistory.length) {
-      return [{ type: 'text', content: mainContent || '' }]
-    }
-
-    const parts = []
-    let lastIndex = 0
-    const rawContent = mainContent || ''
-
-    // Group tools by index
-    const toolsByIndex = {}
-    toolCallHistory.forEach(tool => {
-      // Use textIndex if available
-      // If missing: default interactive_form to end, others to start
-      const rawIndex = tool.textIndex ?? (tool.name === 'interactive_form' ? rawContent.length : 0)
-      const idx = normalizeToolIndex(rawContent, rawIndex)
-      if (!toolsByIndex[idx]) toolsByIndex[idx] = []
-      toolsByIndex[idx].push(tool)
-    })
-
-    // Get all unique indices
-    const indices = Object.keys(toolsByIndex)
-      .map(Number)
-      .sort((a, b) => a - b)
-
-    indices.forEach(index => {
-      const safeIndex = Math.min(index, rawContent.length)
-      if (safeIndex > lastIndex) {
-        parts.push({
-          type: 'text',
-          content: rawContent.substring(lastIndex, safeIndex),
-        })
-      }
-      parts.push({ type: 'tools', items: toolsByIndex[index] })
-      lastIndex = Math.max(lastIndex, safeIndex)
-    })
-
-    if (lastIndex < rawContent.length) {
-      parts.push({ type: 'text', content: rawContent.substring(lastIndex) })
-    }
-
-    return parts
-  }, [mainContent, toolCallHistory, isDeepResearch])
-
-  // Effect to handle copy success timeout with proper cleanup
-  useEffect(() => {
-    if (isCopied) {
-      const timer = setTimeout(() => {
-        setIsCopied(false)
-      }, 2000)
-
-      // Cleanup function to clear timeout if component unmounts
-      return () => clearTimeout(timer)
-    }
-  }, [isCopied])
-
-  useEffect(() => {
-    if (!activeImageUrl) return
-
-    const handleKeyDown = event => {
-      if (event.key === 'Escape') {
-        setActiveImageUrl(null)
-      }
-    }
-
-    const previousOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    document.addEventListener('keydown', handleKeyDown)
-
-    return () => {
-      document.body.style.overflow = previousOverflow
-      document.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [activeImageUrl])
-
-  // Selection Menu State
-  const [selectionMenu, setSelectionMenu] = useState(null)
+  // Selection and tool detail state
   const [activeToolDetail, setActiveToolDetail] = useState(null)
+  const { selectionMenu, setSelectionMenu, handleMouseUp, handleTouchEnd, handleContextMenu } =
+    useMessageSelection(containerRef)
 
   // Share Modal State
   const [isShareModalOpen, setIsShareModalOpen] = useState(false)
-  const [isDownloadMenuOpen, setIsDownloadMenuOpen] = useState(false)
-  const downloadMenuRef = useRef(null)
 
   // Detect mobile view
   const isMobile = useIsMobile()
 
-  // Calculate optimal menu position to avoid viewport edges and selection
-  const calculateMenuPosition = selectionRect => {
-    const viewportWidth = window.innerWidth
-    const viewportHeight = window.innerHeight
-    const menuWidth = isMobile ? 160 : 150 // Slightly wider for text on mobile
-    const menuHeight = isMobile ? 38 : 40
-    const menuTopOffset = isMobile ? 8 : 10 // Distance above selection
-    const edgePadding = 10 // Padding from viewport edges
-
-    // Center the menu horizontally on the selection
-    let x = selectionRect.left + selectionRect.width / 2
-
-    // For desktop: Position above the selection
-    // Since CSS has -translate-y-full (moves menu up by its own height),
-    // we only need to position the bottom edge at the selection top
-    let y = selectionRect.top - menuTopOffset
-
-    // For mobile, always place below selection to avoid covering selected text
-    if (isMobile) {
-      y = selectionRect.bottom + menuTopOffset
-    }
-
-    // Ensure menu stays within viewport bounds horizontally
-    // Account for the -translate-x-1/2 transform (centers the menu at x position)
-    const menuLeft = x - menuWidth / 2
-    const menuRight = x + menuWidth / 2
-
-    // If menu would go off left edge, adjust x to align left edge with padding
-    if (menuLeft < edgePadding) {
-      x = edgePadding + menuWidth / 2
-    }
-    // If menu would go off right edge, adjust x to align right edge with padding
-    else if (menuRight > viewportWidth - edgePadding) {
-      x = viewportWidth - edgePadding - menuWidth / 2
-    }
-
-    // For desktop: Ensure menu stays within viewport bounds vertically
-    if (!isMobile) {
-      // Since CSS has -translate-y-full, the actual top position after transform is y - menuHeight
-      const actualMenuTop = y - menuHeight
-      const actualMenuBottom = y
-
-      // If menu would go off top edge, place below selection instead
-      if (actualMenuTop < edgePadding) {
-        y = selectionRect.bottom + menuTopOffset
-      }
-      // If menu would go off bottom edge when placed below, place above instead
-      else if (actualMenuBottom > viewportHeight - edgePadding) {
-        y = selectionRect.top - menuTopOffset
-      }
-    }
-    // For mobile: Ensure menu stays within viewport bounds vertically
-    else {
-      // Mobile menu is placed below selection, check if it goes off bottom
-      const menuBottom = y + menuHeight
-      if (menuBottom > viewportHeight - edgePadding) {
-        // Place above selection instead
-        y = selectionRect.top - menuTopOffset - menuHeight
-      }
-    }
-
-    return { x, y }
-  }
-
-  const isNodeInAnswerScope = node => {
-    if (!node) return false
-    const element = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement
-    return Boolean(element?.closest?.('[data-answer-scope="true"]'))
-  }
-
-  const updateSelectionMenuFromSelection = () => {
-    const selection = window.getSelection()
-    const text = selection?.toString().trim()
-
-    if (!text) {
-      setSelectionMenu(null)
-      return false
-    }
-
-    const container = containerRef.current
-    if (!container || !container.contains(selection.anchorNode)) {
-      setSelectionMenu(null)
-      return false
-    }
-
-    if (!isNodeInAnswerScope(selection.anchorNode) || !isNodeInAnswerScope(selection.focusNode)) {
-      setSelectionMenu(null)
-      return false
-    }
-
-    if (!selection.rangeCount) return false
-    const range = selection.getRangeAt(0)
-    const rect = range.getBoundingClientRect()
-
-    if (!rect || rect.width === 0 || rect.height === 0) {
-      setSelectionMenu(null)
-      return false
-    }
-
-    const position = calculateMenuPosition(rect)
-
-    setSelectionMenu({
-      x: position.x,
-      y: position.y,
-      text,
-    })
-    return true
-  }
-
-  const handleMouseUp = e => {
-    // Only handle mouse events on desktop
-    if (isMobile) return
-    if (e.target.closest('.selection-menu')) return
-    if (!updateSelectionMenuFromSelection()) {
-      setSelectionMenu(null)
-    }
-  }
-
-  // Handle touch events for mobile
-  const handleTouchEnd = () => {
-    if (!isMobile) return
-
-    // Don't prevent default here to allow text selection
-    // Instead, we'll handle it in contextmenu event
-
-    // Use setTimeout to allow selection to complete after touch ends
-    setTimeout(() => {
-      if (!updateSelectionMenuFromSelection()) {
-        setSelectionMenu(null)
-      }
-    }, 150) // Slightly longer delay for mobile
-  }
-
-  // Prevent context menu on mobile for text selection
-  const handleContextMenu = e => {
-    if (isMobile && e.target.closest('.message-content')) {
-      e.preventDefault()
-    }
-  }
-
-  // Clear menu on click/touch outside
-  useEffect(() => {
-    const handleDocumentInteraction = e => {
-      // Clear menu if clicking/touching outside of it
-      if (selectionMenu && !e.target.closest('.selection-menu')) {
-        setSelectionMenu(null)
-      }
-    }
-
-    // Use mousedown for desktop, touchstart for mobile
-    const eventType = isMobile ? 'touchstart' : 'mousedown'
-    document.addEventListener(eventType, handleDocumentInteraction)
-
-    return () => document.removeEventListener(eventType, handleDocumentInteraction)
-  }, [selectionMenu, isMobile])
-
-  // Handle selection changes for mobile
-  useEffect(() => {
-    if (!isMobile) return
-
-    const handleSelectionChange = () => {
-      const selection = window.getSelection()
-      const text = selection.toString().trim()
-
-      if (!text) {
-        setSelectionMenu(null)
-        return
-      }
-
-      // On Android long-press selection may not fire touchend, so update menu here
-      updateSelectionMenuFromSelection()
-    }
-
-    document.addEventListener('selectionchange', handleSelectionChange)
-
-    return () => {
-      document.removeEventListener('selectionchange', handleSelectionChange)
-    }
-  }, [isMobile])
-
+  // Dark mode observer effect - now handled by useDarkMode hook
   useEffect(() => {
     const observer = new MutationObserver(mutations => {
       mutations.forEach(mutation => {
         if (mutation.attributeName === 'class') {
-          setIsDark(document.documentElement.classList.contains('dark'))
+          // Dark mode is now handled by useDarkMode hook
+          // This effect is kept for any additional class-based logic if needed
         }
       })
     })
@@ -833,24 +210,12 @@ const MessageBubble = ({
     return () => observer.disconnect()
   }, [])
 
-  useEffect(() => {
-    if (!isDownloadMenuOpen) return
-    const handleOutside = event => {
-      if (downloadMenuRef.current && downloadMenuRef.current.contains(event.target)) return
-      setIsDownloadMenuOpen(false)
-    }
-    document.addEventListener('mousedown', handleOutside)
-    document.addEventListener('touchstart', handleOutside)
-    return () => {
-      document.removeEventListener('mousedown', handleOutside)
-      document.removeEventListener('touchstart', handleOutside)
-    }
-  }, [isDownloadMenuOpen])
+  // Download menu outside click handler - now handled by useDownloadMenu hook
 
+  // State for expanded sections
   const [isThoughtExpanded, setIsThoughtExpanded] = useState(false)
   const [isResearchExpanded, setIsResearchExpanded] = useState(false)
   const [isPlanExpanded, setIsPlanExpanded] = useState(false)
-  const [thinkingStatusIndex, setThinkingStatusIndex] = useState(0)
 
   const { t, i18n } = useTranslation()
   const { showConfirmation } = useAppContext()
@@ -858,125 +223,11 @@ const MessageBubble = ({
 
   const planContent = typeof message?.researchPlan === 'string' ? message.researchPlan.trim() : ''
 
-  // Dynamic thinking status messages using translations
-  const THINKING_STATUS_MESSAGES = [
-    t('chat.thinking'),
-    t('chat.analyzing'),
-    t('chat.workingThroughIt'),
-    t('chat.checkingDetails'),
-  ]
-  const DEEP_RESEARCH_STATUS_MESSAGES = [
-    t('chat.deepResearchPlanning'),
-    t('chat.deepResearchSynthesizing'),
-    t('chat.deepResearchDrafting'),
-    t('chat.deepResearchRefining'),
-  ]
-  const planMarkdown = useMemo(() => {
-    if (!planContent) return ''
-    const trimmed = planContent.trim()
-    if (!trimmed) return ''
-    try {
-      const parsed = JSON.parse(trimmed)
-      const goal = parsed.goal ? `**${t('messageBubble.researchGoal')}:** ${parsed.goal}` : ''
-
-      // New fields: complexity and question_type
-      const complexity = parsed.complexity
-        ? `**${t('messageBubble.researchComplexity')}:** ${parsed.complexity}`
-        : ''
-      const questionType = parsed.question_type
-        ? `**${t('messageBubble.researchQuestionType')}:** ${parsed.question_type}`
-        : ''
-
-      const assumptions = Array.isArray(parsed.assumptions)
-        ? parsed.assumptions
-            .filter(Boolean)
-            .map(item => `- ${item}`)
-            .join('\n')
-        : ''
-      const steps = Array.isArray(parsed.plan)
-        ? parsed.plan
-            .map(step => {
-              if (!step) return ''
-              const title = step.step ? `**${step.step}.**` : '**-**'
-              const action = step.action ? ` ${step.action}` : ''
-              const expected = step.expected_output
-                ? `\n  - ${t('messageBubble.researchExpected')}: ${step.expected_output}`
-                : ''
-              const thought = step.thought
-                ? `\n  - ${t('messageBubble.researchThought')}: ${step.thought}`
-                : ''
-              // New fields: deliverable_format, acceptance_criteria, depth
-              const format = step.deliverable_format
-                ? `\n  - ${t('messageBubble.researchDeliverableFormat')}: ${step.deliverable_format}`
-                : ''
-              const criteria = Array.isArray(step.acceptance_criteria)
-                ? step.acceptance_criteria
-                    .filter(Boolean)
-                    .map(item => `\n  - ${t('messageBubble.researchAcceptanceCriteria')}: ${item}`)
-                    .join('')
-                : ''
-              const depth = step.depth
-                ? `\n  - ${t('messageBubble.researchDepth')}: ${step.depth}`
-                : ''
-              const requiresSearch =
-                step.requires_search !== undefined
-                  ? `\n  - ${t('messageBubble.researchRequiresSearch')}: ${step.requires_search ? '✅' : '❌'}`
-                  : ''
-              return `${title}${action}${thought}${expected}${format}${depth}${requiresSearch}${criteria}`.trim()
-            })
-            .filter(Boolean)
-            .join('\n\n')
-        : ''
-      const risks = Array.isArray(parsed.risks)
-        ? parsed.risks
-            .filter(Boolean)
-            .map(item => `- ${item}`)
-            .join('\n')
-        : ''
-      const success = Array.isArray(parsed.success_criteria)
-        ? parsed.success_criteria
-            .filter(Boolean)
-            .map(item => `- ${item}`)
-            .join('\n')
-        : ''
-
-      const sections = []
-      sections.push(`### ${t('messageBubble.researchPlan')}`)
-
-      // New field: research_type
-      if (parsed.research_type) {
-        const typeLabel =
-          parsed.research_type === 'academic'
-            ? t('messageBubble.researchTypeAcademic')
-            : t('messageBubble.researchTypeGeneral')
-        sections.push(`**${t('messageBubble.researchType')}:** ${typeLabel}`)
-      }
-
-      if (goal) sections.push(goal)
-      // Add new fields after goal
-      if (complexity) sections.push(complexity)
-      if (questionType) sections.push(questionType)
-      if (assumptions) {
-        sections.push(`**${t('messageBubble.researchAssumptions')}:**`)
-        sections.push(assumptions)
-      }
-      if (steps) {
-        sections.push(`**${t('messageBubble.researchSteps')}:**`)
-        sections.push(steps)
-      }
-      if (risks) {
-        sections.push(`**${t('messageBubble.researchRisks')}:**`)
-        sections.push(risks)
-      }
-      if (success) {
-        sections.push(`**${t('messageBubble.researchSuccessCriteria')}:**`)
-        sections.push(success)
-      }
-      return sections.filter(Boolean).join('\n\n')
-    } catch {
-      return `${t('messageBubble.researchPlan')}\n\n${trimmed}`
-    }
-  }, [planContent, t])
+  // Format research plan using extracted utility
+  const planMarkdown = useMemo(
+    () => formatResearchPlanMarkdown(planContent, t),
+    [planContent, t],
+  )
 
   const { handleDownloadPdf, handleDownloadWord } = useMessageExport({
     message,
@@ -1004,135 +255,40 @@ const MessageBubble = ({
     [mergedMessage.sources, t],
   )
 
+  // Streaming and content detection
   const isStreaming =
     message?.isStreaming ??
     ((isLoading && message.role === 'ai' && messageIndex === messages.length - 1) ||
       !!mergedMessage?._isContinuationLoading ||
       !!mergedMessage?._isContinuationStreaming)
-  const hasMainText = (() => {
-    const content = message?.content
-    if (typeof content === 'string') return content.trim().length > 0
-    if (Array.isArray(content)) {
-      return content.some(part => {
-        if (typeof part === 'string') return part.trim().length > 0
-        if (part?.type === 'text' && typeof part.text === 'string')
-          return part.text.trim().length > 0
-        if (part?.text != null) return String(part.text).trim().length > 0
-        return false
-      })
-    }
-    if (content && typeof content === 'object' && Array.isArray(content.parts)) {
-      return content.parts.some(part =>
-        typeof part === 'string'
-          ? part.trim().length > 0
-          : String(part?.text || '').trim().length > 0,
-      )
-    }
-    return false
-  })()
-  const shouldShowInitialSkeleton =
-    !hasMainText && isStreaming && !isDeepResearch && !mergedMessage?._isContinuationLoading
-  const skeletonFadeMs = 320
-  const [renderInitialSkeleton, setRenderInitialSkeleton] = useState(shouldShowInitialSkeleton)
-  const [showInitialSkeleton, setShowInitialSkeleton] = useState(shouldShowInitialSkeleton)
-  useEffect(() => {
-    if (shouldShowInitialSkeleton) {
-      setRenderInitialSkeleton(true)
-      const frame = requestAnimationFrame(() => setShowInitialSkeleton(true))
-      return () => cancelAnimationFrame(frame)
-    }
-    setShowInitialSkeleton(false)
-    const timer = setTimeout(() => setRenderInitialSkeleton(false), skeletonFadeMs)
-    return () => clearTimeout(timer)
-  }, [shouldShowInitialSkeleton, skeletonFadeMs])
-  const baseThinkingStatusActive =
-    message.role === 'ai' && message.thinkingEnabled !== false && isStreaming && !hasMainText
-  const researchStatusText = DEEP_RESEARCH_STATUS_MESSAGES[0]
-  const thinkingStatusText =
-    THINKING_STATUS_MESSAGES[thinkingStatusIndex] || THINKING_STATUS_MESSAGES[0]
-  const statusMessageCount = Math.max(
-    DEEP_RESEARCH_STATUS_MESSAGES.length,
-    THINKING_STATUS_MESSAGES.length,
+
+  // Check if message has main text content
+  const hasMainText = hasMainTextContent(message?.content)
+
+  // Initial skeleton state using extracted hook
+  const { renderInitialSkeleton, showInitialSkeleton } = useInitialSkeleton(
+    message,
+    isLoading,
+    messageIndex,
+    messages,
+    isDeepResearch,
+    mergedMessage,
   )
-  useEffect(() => {
-    if (!baseThinkingStatusActive) return undefined
-    setThinkingStatusIndex(0)
-    const intervalId = setInterval(() => {
-      setThinkingStatusIndex(prev => (prev + 1) % statusMessageCount)
-    }, 1800)
-    return () => clearInterval(intervalId)
-  }, [baseThinkingStatusActive, statusMessageCount])
 
-  const CodeBlock = useCallback(
-    ({ inline, className, children, ...props }) => {
-      const match = /language-(\w+)/.exec(className || '')
-      const language = match ? match[1].toLowerCase() : ''
-      const langLabel = match ? match[1].toUpperCase() : 'CODE'
-      const rawCodeText = String(children)
-      const codeText = rawCodeText.replace(/\n$/, '')
-      const isBlock =
-        !inline && (language || rawCodeText.includes('\n') || className?.includes('language-'))
+  // Thinking status using extracted hook
+  const baseThinkingStatusActive =
+    message.role === 'ai' && message.thinkingEnabled !== false && isStreaming && !hasMainTextContent(message?.content)
 
-      if (isBlock && language === 'mermaid') {
-        return (
-          <div className="mb-4">
-            <Streamdown mode="static" mermaid={mermaidOptions} controls={{ mermaid: true }}>
-              {`\`\`\`mermaid\n${codeText}\n\`\`\``}
-            </Streamdown>
-          </div>
-        )
-      }
+  const { thinkingStatusText, researchStatusText } = useThinkingStatus(baseThinkingStatusActive)
 
-      if (isBlock) {
-        return (
-          <div className="relative group mb-4 border border-gray-200 dark:border-zinc-700 rounded-xl overflow-x-auto bg-user-bubble/20 dark:bg-zinc-800/30">
-            <div className="flex items-center justify-between px-3 py-2 text-[11px] font-semibold bg-user-bubble/50 dark:bg-zinc-800/50 text-gray-600 dark:text-gray-300 border-b border-gray-200 dark:border-zinc-700">
-              <span>{langLabel}</span>
-              <button
-                onClick={() => copyToClipboard(codeText)}
-                className="px-2 py-1 rounded bg-gray-200 dark:bg-zinc-700 text-gray-700 dark:text-gray-200 text-[11px] opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
-              >
-                Copy
-              </button>
-            </div>
-            <SyntaxHighlighter
-              style={isDark ? oneDark : oneLight}
-              language={language || 'text'}
-              PreTag="div"
-              className="code-scrollbar text-sm text-shadow-none! font-code!"
-              customStyle={{
-                margin: 0,
-                padding: '1rem',
-                background: 'transparent',
-                borderRadius: 'inherit',
-                whiteSpace: 'pre',
-                wordBreak: 'normal',
-              }}
-              codeTagProps={{
-                style: {
-                  backgroundColor: 'transparent',
-                  fontFamily: 'inherit',
-                  whiteSpace: 'inherit',
-                },
-              }}
-              {...props}
-            >
-              {codeText}
-            </SyntaxHighlighter>
-          </div>
-        )
-      }
-
-      return (
-        <code
-          className={`${className} bg-user-bubble dark:bg-zinc-800 px-1.5 py-0.5 rounded text-sm font-mono font-semibold text-black dark:text-white`}
-          {...props}
-        >
-          {children}
-        </code>
-      )
-    },
-    [isDark, mermaidOptions],
+  // CodeBlock component is now imported - create wrapper for use with props
+  const CodeBlockWrapper = useCallback(
+    ({ inline, className, children, ...props }) => (
+      <CodeBlock inline={inline} className={className} isDark={isDark} {...props}>
+        {children}
+      </CodeBlock>
+    ),
+    [isDark],
   )
 
   const headingCounterRef = useRef(0)

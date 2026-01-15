@@ -2033,7 +2033,7 @@ const ChatInterface = ({
               selectedDocumentIds={selectedDocumentIds}
               onToggleDocument={handleToggleDocument}
             />
-            <div className="text-center mt-2 text-xs text-gray-400 dark:text-gray-500">
+            <div className="text-center text-[10px] sm:text-xs text-gray-400 dark:text-gray-500">
               {t('chatInterface.warning')}
             </div>
           </div>

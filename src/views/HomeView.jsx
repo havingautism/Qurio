@@ -581,94 +581,98 @@ const HomeView = () => {
         <span className="text-sm font-medium">{t('homeView.auto')}</span>
         {isHomeSpaceAuto && <Check size={14} className="text-primary-500" />}
       </button>
-      {availableHomeSpaces.length > 0 && <div className="h-px bg-gray-100 dark:bg-zinc-800 my-1" />}
+      {/* {availableHomeSpaces.length > 0 && <div className="h-px bg-gray-100 dark:bg-zinc-800 my-1" />} */}
       {availableHomeSpaces.map((space, idx) => {
         const isSelected = homeSelectedSpace?.label === space.label
         return (
-          <div key={idx} className="rounded-lg">
-            <button
-              onClick={() => handleToggleHomeSpace(space)}
-              className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left"
-            >
-              <div className="flex items-center gap-3">
-                <span className="text-lg flex items-center justify-center">
-                  <EmojiDisplay emoji={space.emoji} size="1.25rem" />
-                </span>
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
-                  {getSpaceDisplayLabel(space, t)}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                {isSelected && <Check size={14} className="text-primary-500" />}
-                <ChevronDown
-                  size={14}
-                  className={`text-gray-400 transition-transform ${
-                    homeExpandedSpaceId === space.id ? 'rotate-180' : ''
-                  }`}
-                />
-              </div>
-            </button>
-            {homeExpandedSpaceId === space.id && (
-              <div className="ml-3 mt-1 mb-2 flex flex-col gap-1">
-                <button
-                  type="button"
-                  onClick={() => handleSelectHomeAgentAuto(space)}
-                  className={`flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left ${
-                    isHomeAgentAuto && isSelected
-                      ? 'text-primary-500'
-                      : 'text-gray-700 dark:text-gray-200'
-                  }`}
-                >
-                  <span className="text-sm font-medium">{t('homeView.auto')}</span>
-                  {isHomeAgentAuto && isSelected && (
-                    <Check size={14} className="text-primary-500" />
-                  )}
-                </button>
-                {homeAgentsLoading && isSelected ? (
-                  <div className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400">
-                    <div className="flex items-center gap-1">
-                      <span className="inline-flex w-1.5 h-1.5 rounded-full bg-current animate-bounce [animation-delay:-0.2s]" />
-                      <span className="inline-flex w-1.5 h-1.5 rounded-full bg-current animate-bounce [animation-delay:-0.1s]" />
-                      <span className="inline-flex w-1.5 h-1.5 rounded-full bg-current animate-bounce" />
+          <div key={idx}>
+            <div key={idx + 'divider'} className="h-px bg-gray-100 dark:bg-zinc-800 my-1" />
+
+            <div key={idx + 'content'} className="rounded-lg">
+              <button
+                onClick={() => handleToggleHomeSpace(space)}
+                className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-lg flex items-center justify-center">
+                    <EmojiDisplay emoji={space.emoji} size="1.25rem" />
+                  </span>
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                    {getSpaceDisplayLabel(space, t)}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {isSelected && <Check size={14} className="text-primary-500" />}
+                  <ChevronDown
+                    size={14}
+                    className={`text-gray-400 transition-transform ${
+                      homeExpandedSpaceId === space.id ? 'rotate-180' : ''
+                    }`}
+                  />
+                </div>
+              </button>
+              {homeExpandedSpaceId === space.id && (
+                <div className="ml-3 mt-1 mb-2 flex flex-col gap-1">
+                  <button
+                    type="button"
+                    onClick={() => handleSelectHomeAgentAuto(space)}
+                    className={`flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left ${
+                      isHomeAgentAuto && isSelected
+                        ? 'text-primary-500'
+                        : 'text-gray-700 dark:text-gray-200'
+                    }`}
+                  >
+                    <span className="text-sm font-medium">{t('homeView.auto')}</span>
+                    {isHomeAgentAuto && isSelected && (
+                      <Check size={14} className="text-primary-500" />
+                    )}
+                  </button>
+                  {homeAgentsLoading && isSelected ? (
+                    <div className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400">
+                      <div className="flex items-center gap-1">
+                        <span className="inline-flex w-1.5 h-1.5 rounded-full bg-current animate-bounce [animation-delay:-0.2s]" />
+                        <span className="inline-flex w-1.5 h-1.5 rounded-full bg-current animate-bounce [animation-delay:-0.1s]" />
+                        <span className="inline-flex w-1.5 h-1.5 rounded-full bg-current animate-bounce" />
+                      </div>
                     </div>
-                  </div>
-                ) : homeAgents.length === 0 && isSelected ? (
-                  <div className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400">
-                    {t('homeView.agentsNone')}
-                  </div>
-                ) : (
-                  isSelected &&
-                  homeAgents.map(agent => {
-                    const isAgentSelected = !isHomeAgentAuto && selectedHomeAgent?.id === agent.id
-                    const isDefault =
-                      agent.isDefault || String(agent.id) === String(homePrimaryAgentId)
-                    return (
-                      <button
-                        key={agent.id}
-                        type="button"
-                        onClick={() => handleSelectHomeAgent(space, agent.id)}
-                        className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left"
-                      >
-                        <div className="flex items-center gap-2">
-                          <span className="text-lg">
-                            <EmojiDisplay emoji={agent.emoji} size="1.125rem" />
-                          </span>
-                          <span className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate">
-                            {getAgentDisplayName(agent, t)}
-                          </span>
-                          {isDefault && (
-                            <span className="text-xs px-1.5 py-0.5 bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 rounded-md font-medium">
-                              {t('homeView.default')}
+                  ) : homeAgents.length === 0 && isSelected ? (
+                    <div className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400">
+                      {t('homeView.agentsNone')}
+                    </div>
+                  ) : (
+                    isSelected &&
+                    homeAgents.map(agent => {
+                      const isAgentSelected = !isHomeAgentAuto && selectedHomeAgent?.id === agent.id
+                      const isDefault =
+                        agent.isDefault || String(agent.id) === String(homePrimaryAgentId)
+                      return (
+                        <button
+                          key={agent.id}
+                          type="button"
+                          onClick={() => handleSelectHomeAgent(space, agent.id)}
+                          className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg">
+                              <EmojiDisplay emoji={agent.emoji} size="1.125rem" />
                             </span>
-                          )}
-                        </div>
-                        {isAgentSelected && <Check size={14} className="text-primary-500" />}
-                      </button>
-                    )
-                  })
-                )}
-              </div>
-            )}
+                            <span className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate">
+                              {getAgentDisplayName(agent, t)}
+                            </span>
+                            {isDefault && (
+                              <span className="text-xs px-1.5 py-0.5 bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 rounded-md font-medium">
+                                {t('homeView.default')}
+                              </span>
+                            )}
+                          </div>
+                          {isAgentSelected && <Check size={14} className="text-primary-500" />}
+                        </button>
+                      )
+                    })
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         )
       })}
@@ -862,14 +866,14 @@ const HomeView = () => {
                     </button>
                     {/* Upload Dropdown */}
                     {isHomeUploadMenuOpen && !isHomeMobile && (
-                      <UploadPopover className="w-72">{homeUploadMenuContent}</UploadPopover>
+                      <UploadPopover>{homeUploadMenuContent}</UploadPopover>
                     )}
                     <MobileDrawer
                       isOpen={isHomeUploadMenuOpen && isHomeMobile}
                       onClose={() => setIsHomeUploadMenuOpen(false)}
-                      title={t('common.upload')}
+                      title={t('common.files')}
                     >
-                      <div className="py-2">{homeUploadMenuContent}</div>
+                      <div className="space-y-2">{homeUploadMenuContent}</div>
                     </MobileDrawer>
                   </div>
                   <button

@@ -13,7 +13,8 @@
     "commited": "已提交",
     "uploadImage": "上传图片",
     "selectAll": "全选",
-    "deselectAll": "取消全选"
+    "deselectAll": "取消全选",
+    "files": "文件"
   },
   "app": {
     "name": "Qurio",

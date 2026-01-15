@@ -688,14 +688,20 @@ const ChatInputBar = React.memo(
                     <MobileDrawer
                       isOpen={isUploadMenuOpen}
                       onClose={() => setIsUploadMenuOpen(false)}
-                      title={t('common.upload')}
+                      title={t('common.files')}
                     >
                       <div className="space-y-2">
+                        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-2 mb-2">
+                          {t('common.upload')}
+                        </div>
                         <button
                           onClick={handleUploadImage}
                           className="flex items-center gap-1.5 w-full px-3 py-2 hover:bg-gray-50 dark:hover:bg-zinc-800 text-sm rounded-xl"
                         >
-                          <Image size={16} /> {t('common.uploadImage')}
+                          <div className="p-1.5 bg-primary-100 dark:bg-primary-900/30 rounded-lg">
+                            <Image size={16} className="text-primary-500" />
+                          </div>
+                          {t('common.uploadImage')}
                         </button>
                         {hasDocuments && (
                           <div className="border-t border-gray-200/70 dark:border-zinc-700/50 pt-3">

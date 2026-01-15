@@ -1,23 +1,22 @@
 import clsx from 'clsx'
-import {
-  ArrowRight,
-  ArrowUp,
-  Brain,
-  Check,
-  ChevronDown,
-  FileText,
-  Globe,
-  Image,
-  Paperclip,
-  Plus,
-  SlidersHorizontal,
-  Smile,
-  X,
-  FileJson,
-  FileSpreadsheet,
-  FileCode,
-  File,
-} from 'lucide-react'
+import ArrowRight from 'lucide-react/dist/esm/icons/arrow-right'
+import ArrowUp from 'lucide-react/dist/esm/icons/arrow-up'
+import Brain from 'lucide-react/dist/esm/icons/brain'
+import Check from 'lucide-react/dist/esm/icons/check'
+import ChevronDown from 'lucide-react/dist/esm/icons/chevron-down'
+import FileText from 'lucide-react/dist/esm/icons/file-text'
+import Globe from 'lucide-react/dist/esm/icons/globe'
+import Image from 'lucide-react/dist/esm/icons/image'
+import Paperclip from 'lucide-react/dist/esm/icons/paperclip'
+import Plus from 'lucide-react/dist/esm/icons/plus'
+import SlidersHorizontal from 'lucide-react/dist/esm/icons/sliders-horizontal'
+import Smile from 'lucide-react/dist/esm/icons/smile'
+import Square from 'lucide-react/dist/esm/icons/square'
+import X from 'lucide-react/dist/esm/icons/x'
+import FileJson from 'lucide-react/dist/esm/icons/file-json'
+import FileSpreadsheet from 'lucide-react/dist/esm/icons/file-spreadsheet'
+import FileCode from 'lucide-react/dist/esm/icons/file-code'
+import File from 'lucide-react/dist/esm/icons/file'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { getAgentDisplayName } from '../../lib/agentDisplay'
@@ -94,6 +93,7 @@ const ChatInputBar = React.memo(
     documentsLoading = false,
     selectedDocumentIds = [],
     onToggleDocument,
+    onStop, // Add onStop prop
     variant = 'default',
   }) => {
     const { t } = useTranslation()
@@ -773,17 +773,19 @@ const ChatInputBar = React.memo(
                 )}
               >
                 <button
-                  onClick={handleSend}
-                  disabled={isLoading || (!inputValue.trim() && attachments.length === 0)}
+                  onClick={isLoading ? onStop : handleSend}
+                  disabled={!isLoading && !inputValue.trim() && attachments.length === 0}
                   className={clsx(
                     'p-1.5 sm:p-2 rounded-full transition-all duration-300 shadow-sm flex items-center justify-center',
-                    (inputValue.trim() || attachments.length > 0) && !isLoading
-                      ? 'bg-primary-500 text-white hover:bg-primary-600 hover:scale-105 active:scale-95'
-                      : 'bg-gray-200 dark:bg-zinc-800 text-gray-400 dark:text-zinc-600 cursor-not-allowed',
+                    isLoading
+                      ? 'bg-gray-200 dark:bg-zinc-800 text-gray-900 dark:text-white hover:bg-gray-300 dark:hover:bg-zinc-700'
+                      : inputValue.trim() || attachments.length > 0
+                        ? 'bg-primary-500 text-white hover:bg-primary-600 hover:scale-105 active:scale-95'
+                        : 'bg-gray-200 dark:bg-zinc-800 text-gray-400 dark:text-zinc-600 cursor-not-allowed',
                   )}
                 >
                   {isLoading ? (
-                    <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                    <Square size={16} fill="currentColor" strokeWidth={2.5} />
                   ) : (
                     <ArrowUp size={20} strokeWidth={2.5} />
                   )}
@@ -1070,11 +1072,20 @@ const ChatInputBar = React.memo(
 
             <div className="flex gap-2">
               <button
-                onClick={handleSend}
-                disabled={isLoading || (!inputValue.trim() && attachments.length === 0)}
-                className="p-2 bg-primary-500 dark:bg-primary-800 hover:bg-primary-600 text-white rounded-full transition-colors disabled:opacity-50  disabled:hover:bg-primary-500"
+                onClick={isLoading ? onStop : handleSend}
+                disabled={!isLoading && !inputValue.trim() && attachments.length === 0}
+                className={clsx(
+                  'p-2 rounded-full transition-colors flex items-center justify-center',
+                  isLoading
+                    ? 'bg-gray-200 dark:bg-zinc-700 text-gray-900 dark:text-white hover:bg-gray-300 dark:hover:bg-zinc-600'
+                    : 'bg-primary-500 dark:bg-primary-800 hover:bg-primary-600 text-white disabled:opacity-50 disabled:hover:bg-primary-500',
+                )}
               >
-                <ArrowRight size={18} />
+                {isLoading ? (
+                  <Square size={16} fill="currentColor" strokeWidth={2.5} />
+                ) : (
+                  <ArrowRight size={18} />
+                )}
               </button>
             </div>
           </div>

@@ -179,7 +179,7 @@ const InteractiveForm = ({
   }
 
   return (
-    <div className="mb-4 w-fit mx-1 relative z-30">
+    <div className="mb-4 w-full max-w-2xl mx-1 relative z-30">
       <div className="p-6 md:p-8 rounded-[2rem]  bg-white/60 dark:bg-black/40 backdrop-blur-xl border border-gray-200 dark:border-white/10 shadow-2xl shadow-gray-200/50 dark:shadow-black/50 relative group">
         {/* Decorative Background Gradients */}
         <div className="absolute -top-20 -right-20 w-60 h-60 bg-primary-500/10 rounded-full blur-[80px] group-hover:bg-primary-500/15 transition-colors duration-700 pointer-events-none" />

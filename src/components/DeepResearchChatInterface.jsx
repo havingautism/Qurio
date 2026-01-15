@@ -7,7 +7,8 @@ import FancyLoader from './FancyLoader'
 import MessageList from './MessageList'
 // import QuestionNavigator from './QuestionNavigator'
 import clsx from 'clsx'
-import { ArrowDown } from 'lucide-react'
+import ArrowDown from 'lucide-react/dist/esm/icons/arrow-down'
+import Square from 'lucide-react/dist/esm/icons/square'
 import { useAppContext } from '../App'
 import { updateConversation } from '../lib/conversationsService'
 import { getProvider, providerSupportsSearch, resolveThinkingToggleRule } from '../lib/providers'
@@ -108,6 +109,7 @@ const DeepResearchChatInterface = ({
     isMetaLoading,
     isAgentPreselecting,
     sendMessage,
+    stopGeneration,
   } = useChatStore(
     useShallow(state => ({
       messages: state.messages,
@@ -123,6 +125,7 @@ const DeepResearchChatInterface = ({
       isMetaLoading: state.isMetaLoading,
       isAgentPreselecting: state.isAgentPreselecting,
       sendMessage: state.sendMessage,
+      stopGeneration: state.stopGeneration,
     })),
   )
 
@@ -1624,6 +1627,17 @@ const DeepResearchChatInterface = ({
         )}
 
         {/* Deep research conversations are single-turn; no input area. */}
+        {isLoading && (
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-40">
+            <button
+              onClick={stopGeneration}
+              className="flex items-center gap-2 px-4 py-2 bg-gray-900 dark:bg-zinc-100 text-white dark:text-gray-900 hover:bg-gray-800 dark:hover:bg-zinc-200 rounded-full shadow-lg transition-all animate-in fade-in slide-in-from-bottom-2 font-medium"
+            >
+              <Square size={16} fill="currentColor" />
+              <span>{t('common.stop') || 'Stop'}</span>
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )

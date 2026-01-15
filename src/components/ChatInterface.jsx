@@ -6,7 +6,7 @@ import FancyLoader from './FancyLoader'
 import MessageList from './MessageList'
 // import QuestionNavigator from './QuestionNavigator'
 import clsx from 'clsx'
-import { ArrowDown } from 'lucide-react'
+import ArrowDown from 'lucide-react/dist/esm/icons/arrow-down'
 import { useAppContext } from '../App'
 import { useToast } from '../contexts/ToastContext'
 import { updateConversation } from '../lib/conversationsService'
@@ -127,11 +127,11 @@ const formatDocumentAppendText = sources => {
   if (!filtered.length) return ''
   const lines = filtered.map(source => {
     const label = source.fileType ? `${source.title} (${source.fileType})` : source.title
-    const similarity =
-      typeof source.similarity === 'number' ? source.similarity.toFixed(2) : 'n/a'
-    const path = Array.isArray(source.titlePath) && source.titlePath.length > 0
-      ? `: ${source.titlePath.join(' > ')}`
-      : ''
+    const similarity = typeof source.similarity === 'number' ? source.similarity.toFixed(2) : 'n/a'
+    const path =
+      Array.isArray(source.titlePath) && source.titlePath.length > 0
+        ? `: ${source.titlePath.join(' > ')}`
+        : ''
     return `- [score=${similarity} | ${label}]${path}\n  ${source.snippet}`
   })
   return [
@@ -215,6 +215,7 @@ const ChatInterface = ({
     isMetaLoading,
     isAgentPreselecting,
     sendMessage,
+    stopGeneration,
     submitInteractiveForm,
     resetLoading,
   } = useChatStore(
@@ -232,6 +233,7 @@ const ChatInterface = ({
       isMetaLoading: state.isMetaLoading,
       isAgentPreselecting: state.isAgentPreselecting,
       sendMessage: state.sendMessage,
+      stopGeneration: state.stopGeneration,
       submitInteractiveForm: state.submitInteractiveForm,
       resetLoading: state.resetLoading,
     })),
@@ -583,10 +585,10 @@ const ChatInterface = ({
     return (spaceDocuments || []).filter(doc => idSet.has(String(doc.id)))
   }, [selectedDocumentIds, spaceDocuments])
 
-const baseDocumentSources = useMemo(
-  () => buildDocumentSources(selectedDocuments),
-  [selectedDocuments],
-)
+  const baseDocumentSources = useMemo(
+    () => buildDocumentSources(selectedDocuments),
+    [selectedDocuments],
+  )
 
   // Agent selection is fully user-controlled:
   // - Auto mode: updated via onAgentResolved callback (preselection before sending)
@@ -1847,17 +1849,17 @@ const baseDocumentSources = useMemo(
   const inputAgentAutoMode = isAgentAutoMode
 
   return (
-        <div
-          className={clsx(
-            'flex-1 h-full bg-background text-foreground transition-all duration-300 flex flex-col sm:px-4',
-            isSidebarPinned ? 'md:ml-72' : 'md:ml-16',
-            // Fixed left shift for large screens
-            // 'xl:-translate-x-30',
-            // Dynamic movement follows sidebar state for small screens
-            !isXLScreen && 'sidebar-shift',
-          )}
-        >
-          <div className="w-full relative flex flex-col flex-1 min-h-0">
+    <div
+      className={clsx(
+        'flex-1 h-full bg-background text-foreground transition-all duration-300 flex flex-col sm:px-4',
+        isSidebarPinned ? 'md:ml-72' : 'md:ml-16',
+        // Fixed left shift for large screens
+        // 'xl:-translate-x-30',
+        // Dynamic movement follows sidebar state for small screens
+        !isXLScreen && 'sidebar-shift',
+      )}
+    >
+      <div className="w-full relative flex flex-col flex-1 min-h-0">
         {/* Title Bar */}
         <ChatHeader
           toggleSidebar={toggleSidebar}
@@ -1882,10 +1884,10 @@ const baseDocumentSources = useMemo(
         />
 
         {/* Messages Scroll Container */}
-          <div
-            ref={messagesContainerRef}
-            className="flex-1 overflow-y-auto overflow-x-hidden sm:p-2 relative no-scrollbar"
-          >
+        <div
+          ref={messagesContainerRef}
+          className="flex-1 overflow-y-auto overflow-x-hidden sm:p-2 relative no-scrollbar"
+        >
           <div className="w-full px-0 sm:px-5 max-w-3xl mx-auto">
             {showHistoryLoader && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
@@ -1951,6 +1953,7 @@ const baseDocumentSources = useMemo(
             <ChatInputBar
               variant="capsule"
               isLoading={isLoading}
+              onStop={stopGeneration}
               apiProvider={effectiveProvider}
               isSearchActive={isSearchActive}
               isThinkingActive={isThinkingActive}

@@ -776,6 +776,10 @@ const callAIAPI = async (
   let pendingThought = ''
   let rafId = null
 
+  // Create AbortController for this request
+  const controller = new AbortController()
+  set({ abortController: controller })
+
   const schedule = cb => {
     if (typeof window !== 'undefined' && window.requestAnimationFrame) {
       return window.requestAnimationFrame(cb)
@@ -988,6 +992,7 @@ const callAIAPI = async (
       tools: provider.getTools(toggles.search),
       toolIds: resolvedToolIds,
       thinking: provider.getThinking(thinkingActive, modelConfig.model),
+      signal: controller.signal,
       onChunk: chunk => {
         if (typeof chunk === 'object' && chunk !== null) {
           if (chunk.type === 'research_step') {
@@ -1029,9 +1034,12 @@ const callAIAPI = async (
               const history = Array.isArray(lastMsg.toolCallHistory)
                 ? [...lastMsg.toolCallHistory]
                 : []
-              const pendingThoughtLength = lastMsg.thinkingEnabled ? 0 : (pendingThought || '').length
+              const pendingThoughtLength = lastMsg.thinkingEnabled
+                ? 0
+                : (pendingThought || '').length
               const pendingTextLength = (pendingText || '').length
-              const baseIndex = (lastMsg.content || '').length + pendingTextLength + pendingThoughtLength
+              const baseIndex =
+                (lastMsg.content || '').length + pendingTextLength + pendingThoughtLength
               history.push({
                 id: chunk.id || `${chunk.name || 'tool'}-${Date.now()}`,
                 name: chunk.name || 'tool',
@@ -1040,10 +1048,7 @@ const callAIAPI = async (
                 durationMs: null,
                 step: typeof chunk.step === 'number' ? chunk.step : undefined,
                 total: typeof chunk.total === 'number' ? chunk.total : undefined,
-                textIndex:
-                  typeof chunk.textIndex === 'number'
-                    ? chunk.textIndex
-                    : baseIndex,
+                textIndex: typeof chunk.textIndex === 'number' ? chunk.textIndex : baseIndex,
               })
               lastMsg.toolCallHistory = history
               updated[lastMsgIndex] = lastMsg
@@ -1113,6 +1118,11 @@ const callAIAPI = async (
       },
       onFinish: async result => {
         // Handle streaming completion and finalization
+        const { abortController } = get()
+        if (abortController === controller) {
+          set({ abortController: null })
+        }
+
         flushPending()
         set({ isLoading: false })
         const currentStore = get() // Get fresh state
@@ -1137,6 +1147,17 @@ const callAIAPI = async (
       },
       onError: err => {
         // Handle streaming errors
+        const { abortController } = get()
+        if (abortController === controller) {
+          set({ abortController: null })
+        }
+
+        if (err.name === 'AbortError') {
+          console.log('Chat generation aborted')
+          set({ isLoading: false })
+          return
+        }
+
         flushPending()
         console.error('Chat error:', err)
         set({ isLoading: false })
@@ -1798,6 +1819,7 @@ const useChatStore = create((set, get) => ({
       isMetaLoading: false,
       isAgentPreselecting: false,
       optimisticSelection: null,
+      abortController: null,
     }),
 
   // ========================================
@@ -2292,8 +2314,24 @@ Analyze the submitted data. If critical information is still missing or if the r
       text,
       documentSources,
       isAgentAutoMode,
-      researchType, // Pass researchType to callAIAPI
+      researchType,
     )
+  },
+
+  /**
+   * Stops the current AI generation
+   */
+  stopGeneration: () => {
+    const { abortController, isLoading } = get()
+    if (abortController) {
+      console.log('[chatStore] Stopping generation by user request')
+      abortController.abort()
+      set({ abortController: null, isLoading: false })
+    } else if (isLoading) {
+      // Fallback: forcefully reset loading state if no controller found
+      console.warn('[chatStore] No abort controller found, resetting loading state')
+      set({ isLoading: false })
+    }
   },
 }))
 

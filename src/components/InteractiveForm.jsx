@@ -1,5 +1,6 @@
 import clsx from 'clsx'
-import { Check, ChevronDown } from 'lucide-react'
+import Check from 'lucide-react/dist/esm/icons/check'
+import ChevronDown from 'lucide-react/dist/esm/icons/chevron-down'
 import React, { useState, useRef, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 

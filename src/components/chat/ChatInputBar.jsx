@@ -17,7 +17,7 @@ import FileJson from 'lucide-react/dist/esm/icons/file-json'
 import FileSpreadsheet from 'lucide-react/dist/esm/icons/file-spreadsheet'
 import FileCode from 'lucide-react/dist/esm/icons/file-code'
 import File from 'lucide-react/dist/esm/icons/file'
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { getAgentDisplayName } from '../../lib/agentDisplay'
 import { providerSupportsSearch } from '../../lib/providers'
@@ -25,6 +25,8 @@ import { splitTextWithUrls } from '../../lib/urlHighlight'
 import EmojiDisplay from '../EmojiDisplay'
 import useIsMobile from '../../hooks/useIsMobile'
 import MobileDrawer from '../MobileDrawer'
+import UploadPopover from '../UploadPopover'
+import DocumentsSection from '../DocumentsSection'
 
 // Extracted FileIcon component to avoid recreation on each render
 const FileIcon = React.memo(
@@ -50,79 +52,179 @@ const FileIcon = React.memo(
   (prevProps, nextProps) => prevProps.fileType === nextProps.fileType,
 )
 
-// Extracted document list renderer for capsule variant
-function DocumentsList({ documents, documentsLoading, selectedDocumentIdSet, onToggleDocument, t }) {
-  if (documentsLoading) {
-    return (
-      <div className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400">
-        {t('chatInterface.documentsLoading')}
+const CapsuleUploadMenu = React.memo(
+  ({
+    hasDocuments,
+    documents,
+    documentsLoading,
+    selectedDocumentCount,
+    selectedDocumentIdSet,
+    onToggleDocument,
+    onUploadImage,
+    t,
+  }) => (
+    <>
+      <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-2 mb-2">
+        {t('common.upload')}
       </div>
-    )
-  }
-  if (documents.length === 0) {
-    return (
-      <div className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400">
-        {t('chatInterface.documentsEmpty')}
-      </div>
-    )
-  }
-  return documents.map(doc => {
-    const isSelected = selectedDocumentIdSet.has(String(doc.id))
-    return (
-      <button
-        key={doc.id}
-        onClick={() => onToggleDocument?.(doc.id)}
-        className={clsx(
-          'flex items-start gap-2.5 w-full px-3 py-2 rounded-xl text-sm transition-colors text-left',
-          isSelected
-            ? 'bg-gray-100 dark:bg-zinc-700/50 text-gray-900 dark:text-white font-medium'
-            : 'hover:bg-gray-100 dark:hover:bg-zinc-700/50 text-gray-600 dark:text-gray-300',
-        )}
-        aria-pressed={isSelected}
-      >
-        <span
-          className={clsx(
-            'mt-0.5 flex items-center justify-center w-4 h-4 rounded border transition-colors',
-            isSelected
-              ? 'bg-primary-500 border-primary-500 text-white'
-              : 'border-gray-300 dark:border-zinc-600 text-transparent',
-          )}
+      <div className="space-y-1">
+        <button
+          onClick={onUploadImage}
+          className="flex items-center gap-1.5 w-full px-3 py-2 hover:bg-gray-50 dark:hover:bg-zinc-800 text-sm rounded-xl"
         >
-          <Check size={12} />
-        </span>
-        <div className="flex items-center justify-between w-full min-w-0 gap-2">
-          <span className="truncate">{doc.name}</span>
-          <span className="text-[10px] text-gray-400 font-normal shrink-0">
-            {(() => {
-              const type = (doc.file_type || '').toUpperCase()
-              return type === 'MD' ? 'MARKDOWN' : type
-            })()}
-          </span>
-        </div>
-      </button>
-    )
-  })
-}
-
-// Extracted documents section renderer
-function DocumentsSection({ documents, documentsLoading, selectedDocumentCount, selectedDocumentIdSet, onToggleDocument, t }) {
-  return (
-    <div className="space-y-2">
-      <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-2">
-        {t('chatInterface.documents')} ({selectedDocumentCount})
+          <Image size={16} /> {t('common.uploadImage')}
+        </button>
+        {hasDocuments && (
+          <div className="border-t border-gray-200/70 dark:border-zinc-700/50 pt-3">
+            <DocumentsSection
+              documents={documents}
+              documentsLoading={documentsLoading}
+              selectedDocumentCount={selectedDocumentCount}
+              selectedDocumentIdSet={selectedDocumentIdSet}
+              onToggleDocument={onToggleDocument}
+              t={t}
+            />
+          </div>
+        )}
       </div>
-      <div className="flex flex-col gap-0.5 max-h-[250px] overflow-y-auto no-scrollbar">
-        <DocumentsList
-          documents={documents}
-          documentsLoading={documentsLoading}
-          selectedDocumentIdSet={selectedDocumentIdSet}
-          onToggleDocument={onToggleDocument}
-          t={t}
-        />
+    </>
+  ),
+)
+
+const CapsuleSettingsMenu = React.memo(
+  ({
+    agents,
+    isAgentAutoMode,
+    onAgentAutoModeToggle,
+    onAgentSelect,
+    selectedAgent,
+    spacePrimaryAgentId,
+    isThinkingLocked,
+    isThinkingActive,
+    onToggleThinking,
+    isSearchActive,
+    onToggleSearch,
+    t,
+    isSearchSupported,
+  }) => (
+    <div className="space-y-3">
+      {/* Models List */}
+      <div>
+        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-2 mb-2">
+          {t('chatInterface.agentsLabel')}
+        </div>
+        <div className="flex flex-col gap-1.5 max-h-[300px] overflow-y-auto no-scrollbar">
+          <button
+            onClick={() => {
+              onAgentAutoModeToggle()
+            }}
+            className={clsx(
+              'flex items-center justify-between w-full px-3 py-2 rounded-xl text-sm transition-colors',
+              isAgentAutoMode
+                ? 'bg-gray-100 dark:bg-zinc-700/50 text-gray-900 dark:text-white font-medium'
+                : 'hover:bg-gray-100 dark:hover:bg-zinc-700/50 text-gray-600 dark:text-gray-300',
+            )}
+          >
+            <div className="flex items-center gap-2.5">
+              <span className="text-lg">✨</span>
+              <span>{t('chatInterface.agentAuto')}</span>
+            </div>
+            {isAgentAutoMode && <Check size={14} className="text-primary-500" />}
+          </button>
+          {agents.map(agent => {
+            const isSelected = !isAgentAutoMode && selectedAgent?.id === agent.id
+            const isDefault = agent.isDefault || String(agent.id) === String(spacePrimaryAgentId)
+            return (
+              <button
+                key={agent.id}
+                onClick={() => {
+                  onAgentSelect(agent)
+                }}
+                className={clsx(
+                  'flex items-center justify-between w-full px-3 py-2 rounded-xl text-sm transition-colors',
+                  isSelected
+                    ? 'bg-gray-100 dark:bg-zinc-700/50 text-gray-900 dark:text-white font-medium'
+                    : 'hover:bg-gray-100 dark:hover:bg-zinc-700/50 text-gray-600 dark:text-gray-300',
+                )}
+              >
+                <div className="flex items-center gap-2.5">
+                  <EmojiDisplay emoji={agent.emoji} size="1.1em" />
+                  <span className="truncate">{getAgentDisplayName(agent, t)}</span>
+                  {isDefault && (
+                    <span className="text-[10px] px-1.5 py-0.5 bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 rounded-md font-medium">
+                      {t('chatInterface.default')}
+                    </span>
+                  )}
+                </div>
+                {isSelected && <Check size={14} className="text-primary-500" />}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      <div className="h-px bg-gray-100 dark:bg-zinc-700/50" />
+
+      {/* Capabilities */}
+      <div>
+        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-2 mb-2">
+          {t('chatInterface.capabilities')}
+        </div>
+        <div className="space-y-0.5">
+          <button
+            disabled={isThinkingLocked}
+            onClick={onToggleThinking}
+            className="flex items-center justify-between w-full px-3 py-2 rounded-xl text-sm hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors"
+          >
+            <div className="flex items-center gap-2.5 text-gray-700 dark:text-gray-200">
+              <Brain
+                size={16}
+                className={isThinkingActive ? 'text-primary-500' : 'text-gray-400'}
+              />
+              <span>{t('homeView.think')}</span>
+            </div>
+            <div
+              className={clsx(
+                'w-8 h-4 rounded-full relative transition-colors',
+                isThinkingActive ? 'bg-primary-500' : 'bg-gray-200 dark:bg-zinc-600',
+              )}
+            >
+              <div
+                className={clsx(
+                  'absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all shadow-sm',
+                  isThinkingActive ? 'left-4.5' : 'left-0.5',
+                )}
+              />
+            </div>
+          </button>
+          <button
+            disabled={!isSearchSupported}
+            onClick={onToggleSearch}
+            className="flex items-center justify-between w-full px-3 py-2 rounded-xl text-sm hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors disabled:opacity-50"
+          >
+            <div className="flex items-center gap-2.5 text-gray-700 dark:text-gray-200">
+              <Globe size={16} className={isSearchActive ? 'text-primary-500' : 'text-gray-400'} />
+              <span>{t('homeView.search')}</span>
+            </div>
+            <div
+              className={clsx(
+                'w-8 h-4 rounded-full relative transition-colors',
+                isSearchActive ? 'bg-primary-500' : 'bg-gray-200 dark:bg-zinc-600',
+              )}
+            >
+              <div
+                className={clsx(
+                  'absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all shadow-sm',
+                  isSearchActive ? 'left-4.5' : 'left-0.5',
+                )}
+              />
+            </div>
+          </button>
+        </div>
       </div>
     </div>
-  )
-}
+  ),
+)
 
 /**
  * ChatInputBar Component
@@ -336,10 +438,10 @@ const ChatInputBar = React.memo(
       e.target.value = ''
     }
 
-    const handleUploadImage = () => {
+    const handleUploadImage = useCallback(() => {
       fileInputRef.current?.click()
       setIsUploadMenuOpen(false)
-    }
+    }, [])
 
     const handleSend = () => {
       if (isLoading) return
@@ -360,170 +462,87 @@ const ChatInputBar = React.memo(
       }
     }
 
+    const handleCapsuleAgentAutoToggle = useCallback(() => {
+      onAgentAutoModeToggle()
+      setIsCapsuleMenuOpen(false)
+    }, [onAgentAutoModeToggle])
+
+    const handleCapsuleAgentSelect = useCallback(
+      agent => {
+        onAgentSelect(agent)
+        setIsCapsuleMenuOpen(false)
+      },
+      [onAgentSelect],
+    )
+
+    const hasDocuments = documents && documents.length > 0
+    const isSearchSupported = providerSupportsSearch(apiProvider)
+
+    const desktopUploadMenuContent = useMemo(
+      () => (
+        <UploadPopover className="w-72">
+          <CapsuleUploadMenu
+            hasDocuments={hasDocuments}
+            documents={documents}
+            documentsLoading={documentsLoading}
+            selectedDocumentCount={selectedDocumentCount}
+            selectedDocumentIdSet={selectedDocumentIdSet}
+            onToggleDocument={onToggleDocument}
+            onUploadImage={handleUploadImage}
+            t={t}
+          />
+        </UploadPopover>
+      ),
+      [
+        hasDocuments,
+        documents,
+        documentsLoading,
+        selectedDocumentCount,
+        selectedDocumentIdSet,
+        onToggleDocument,
+        t,
+        handleUploadImage,
+      ],
+    )
+
+    const settingsMenuContent = useMemo(
+      () => (
+        <CapsuleSettingsMenu
+          agents={agents}
+          isAgentAutoMode={isAgentAutoMode}
+          onAgentAutoModeToggle={handleCapsuleAgentAutoToggle}
+          onAgentSelect={handleCapsuleAgentSelect}
+          selectedAgent={selectedAgent}
+          spacePrimaryAgentId={spacePrimaryAgentId}
+          isThinkingLocked={isThinkingLocked}
+          isThinkingActive={isThinkingActive}
+          onToggleThinking={onToggleThinking}
+          isSearchActive={isSearchActive}
+          onToggleSearch={onToggleSearch}
+          t={t}
+          isSearchSupported={isSearchSupported}
+        />
+      ),
+      [
+        agents,
+        isAgentAutoMode,
+        handleCapsuleAgentAutoToggle,
+        handleCapsuleAgentSelect,
+        selectedAgent,
+        spacePrimaryAgentId,
+        isThinkingLocked,
+        isThinkingActive,
+        onToggleThinking,
+        isSearchActive,
+        onToggleSearch,
+        t,
+        isSearchSupported,
+      ],
+    )
+
     // === CAPSULE VARIANT ===
+
     if (variant === 'capsule') {
-      const hasDocuments = documents && documents.length > 0
-
-      const uploadMenuButton = (
-        <button
-          onClick={handleUploadImage}
-          className="flex items-center gap-1.5 w-full px-3 py-2 hover:bg-gray-50 dark:hover:bg-zinc-800 text-sm rounded-xl"
-        >
-          <Image size={16} /> {t('common.uploadImage')}
-        </button>
-      )
-
-      const popoverSurfaceClass =
-        'absolute bottom-full left-0 mb-3 bg-white/80 dark:bg-[#1C1C1E]/80 dark:bg-[#1a1a1a] bg-[#F9F9F9] dark:bg-[#1a1a1a] backdrop-blur-xl border border-gray-200/50 dark:border-zinc-700/50 rounded-2xl shadow-2xl z-999 overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-4 p-3'
-
-      const desktopUploadMenuContent = (
-        <div className={clsx(popoverSurfaceClass, 'w-72')}>
-          <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-2 mb-2">
-            {t('common.upload')}
-          </div>
-          <div className="space-y-1">
-            {uploadMenuButton}
-            {hasDocuments && (
-              <div className="border-t border-gray-200/70 dark:border-zinc-700/50 pt-3">
-                <DocumentsSection
-                  documents={documents}
-                  documentsLoading={documentsLoading}
-                  selectedDocumentCount={selectedDocumentCount}
-                  selectedDocumentIdSet={selectedDocumentIdSet}
-                  onToggleDocument={onToggleDocument}
-                  t={t}
-                />
-              </div>
-            )}
-          </div>
-        </div>
-      )
-
-      const settingsMenuContent = (
-        <div className="space-y-3">
-          {/* Models List */}
-          <div>
-            <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-2 mb-2">
-              {t('chatInterface.agentsLabel')}
-            </div>
-            <div className="flex flex-col gap-1.5 max-h-[300px] overflow-y-auto no-scrollbar">
-              <button
-                onClick={() => {
-                  onAgentAutoModeToggle()
-                  setIsCapsuleMenuOpen(false)
-                }}
-                className={clsx(
-                  'flex items-center justify-between w-full px-3 py-2 rounded-xl text-sm transition-colors',
-                  isAgentAutoMode
-                    ? 'bg-gray-100 dark:bg-zinc-700/50 text-gray-900 dark:text-white font-medium'
-                    : 'hover:bg-gray-100 dark:hover:bg-zinc-700/50 text-gray-600 dark:text-gray-300',
-                )}
-              >
-                <div className="flex items-center gap-2.5">
-                  <span className="text-lg">🤖</span>
-                  <span>{t('chatInterface.agentAuto')}</span>
-                </div>
-                {isAgentAutoMode && <Check size={14} className="text-primary-500" />}
-              </button>
-              {agents.map(agent => {
-                const isSelected = !isAgentAutoMode && selectedAgent?.id === agent.id
-                const isDefault =
-                  agent.isDefault || String(agent.id) === String(spacePrimaryAgentId)
-                return (
-                  <button
-                    key={agent.id}
-                    onClick={() => {
-                      onAgentSelect(agent)
-                      setIsCapsuleMenuOpen(false)
-                    }}
-                    className={clsx(
-                      'flex items-center justify-between w-full px-3 py-2 rounded-xl text-sm transition-colors',
-                      isSelected
-                        ? 'bg-gray-100 dark:bg-zinc-700/50 text-gray-900 dark:text-white font-medium'
-                        : 'hover:bg-gray-100 dark:hover:bg-zinc-700/50 text-gray-600 dark:text-gray-300',
-                    )}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <EmojiDisplay emoji={agent.emoji} size="1.1em" />
-                      <span className="truncate">{getAgentDisplayName(agent, t)}</span>
-                      {isDefault && (
-                        <span className="text-[10px] px-1.5 py-0.5 bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 rounded-md font-medium">
-                          {t('chatInterface.default')}
-                        </span>
-                      )}
-                    </div>
-                    {isSelected && <Check size={14} className="text-primary-500" />}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-
-          <div className="h-px bg-gray-100 dark:bg-zinc-700/50" />
-
-          {/* Capabilities */}
-          <div>
-            <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-2 mb-2">
-              {t('chatInterface.capabilities')}
-            </div>
-            <div className="space-y-0.5">
-              <button
-                disabled={isThinkingLocked}
-                onClick={onToggleThinking}
-                className="flex items-center justify-between w-full px-3 py-2 rounded-xl text-sm hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors"
-              >
-                <div className="flex items-center gap-2.5 text-gray-700 dark:text-gray-200">
-                  <Brain
-                    size={16}
-                    className={isThinkingActive ? 'text-primary-500' : 'text-gray-400'}
-                  />
-                  <span>{t('homeView.think')}</span>
-                </div>
-                <div
-                  className={clsx(
-                    'w-8 h-4 rounded-full relative transition-colors',
-                    isThinkingActive ? 'bg-primary-500' : 'bg-gray-200 dark:bg-zinc-600',
-                  )}
-                >
-                  <div
-                    className={clsx(
-                      'absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all shadow-sm',
-                      isThinkingActive ? 'left-4.5' : 'left-0.5',
-                    )}
-                  />
-                </div>
-              </button>
-              <button
-                disabled={!providerSupportsSearch(apiProvider)}
-                onClick={onToggleSearch}
-                className="flex items-center justify-between w-full px-3 py-2 rounded-xl text-sm hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors disabled:opacity-50"
-              >
-                <div className="flex items-center gap-2.5 text-gray-700 dark:text-gray-200">
-                  <Globe
-                    size={16}
-                    className={isSearchActive ? 'text-primary-500' : 'text-gray-400'}
-                  />
-                  <span>{t('homeView.search')}</span>
-                </div>
-                <div
-                  className={clsx(
-                    'w-8 h-4 rounded-full relative transition-colors',
-                    isSearchActive ? 'bg-primary-500' : 'bg-gray-200 dark:bg-zinc-600',
-                  )}
-                >
-                  <div
-                    className={clsx(
-                      'absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all shadow-sm',
-                      isSearchActive ? 'left-4.5' : 'left-0.5',
-                    )}
-                  />
-                </div>
-              </button>
-            </div>
-          </div>
-        </div>
-      )
-
       return (
         <div className="w-full max-w-3xl relative group pb-2 flex flex-col gap-2">
           {/* Floating Context Indicators */}
@@ -662,7 +681,7 @@ const ChatInputBar = React.memo(
                     aria-expanded={isUploadMenuOpen}
                     aria-haspopup="menu"
                   >
-                    <Plus size={20} strokeWidth={2.5} />
+                    <Paperclip size={20} strokeWidth={2.5} />
                   </button>
                   {!isMobile && isUploadMenuOpen && desktopUploadMenuContent}
                   {isMobile && (
@@ -672,7 +691,12 @@ const ChatInputBar = React.memo(
                       title={t('common.upload')}
                     >
                       <div className="space-y-2">
-                        {uploadMenuButton}
+                        <button
+                          onClick={handleUploadImage}
+                          className="flex items-center gap-1.5 w-full px-3 py-2 hover:bg-gray-50 dark:hover:bg-zinc-800 text-sm rounded-xl"
+                        >
+                          <Image size={16} /> {t('common.uploadImage')}
+                        </button>
                         {hasDocuments && (
                           <div className="border-t border-gray-200/70 dark:border-zinc-700/50 pt-3">
                             <DocumentsSection
@@ -741,7 +765,7 @@ const ChatInputBar = React.memo(
 
                   {/* Popover Menu (Desktop) */}
                   {!isMobile && isCapsuleMenuOpen && (
-                    <div className={clsx(popoverSurfaceClass, 'w-72')}>{settingsMenuContent}</div>
+                    <UploadPopover className="w-72">{settingsMenuContent}</UploadPopover>
                   )}
 
                   {/* Drawer Menu (Mobile) */}

@@ -286,14 +286,14 @@
 
   /* Dynamic background variables injected by src/lib/themes.js */
   --background: var(--theme-bg-light, #fffcf7);
-  --foreground: #1f2937;
-  /* gray-800 -> stone-800 */
+  --foreground: #44403c;
+  /* gray-800 -> stone-800 - lighter for softer light mode text */
   --sidebar: var(--theme-sidebar-light, #fffcf7);
   /* stone-200 */
-  --sidebar-foreground: #44403c;
-  /* stone-700 */
-  --border: #d6d3d1;
-  /* stone-300 */
+  --sidebar-foreground: #78716c;
+  /* stone-600 - lighter for softer light mode text */
+  --border: #e7e5e4;
+  /* stone-200 - lighter border */
 
   --user-bubble: #f7f2f1;
 
@@ -303,10 +303,10 @@
   --font-google-sans-code: 'Google Sans Code';
   --font-noto-sans-sc: 'Noto Sans SC';
 
-  /* Glow defaults (Fox Rust) */
-  --theme-glow-1: rgba(234, 205, 196, 0.35);
-  --theme-glow-2: rgba(207, 146, 122, 0.28);
-  --theme-glow-3: rgba(153, 75, 48, 0.32);
+  /* Glow defaults (Fox Rust) - Lighter for light mode */
+  --theme-glow-1: rgba(245, 220, 210, 0.5);
+  --theme-glow-2: rgba(235, 190, 170, 0.4);
+  --theme-glow-3: rgba(210, 144, 124, 0.35);
 }
 
 .dark {

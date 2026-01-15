@@ -824,7 +824,7 @@ const Sidebar = ({
                     so users know they can go there. */}
                 <button
                   onClick={() => onNavigate(displayTab)}
-                  className="md:hidden px-2 py-1 text-xs font-medium rounded bg-user-bubble dark:bg-zinc-800 hover:bg-user-bubble/10 dark:hover:bg-zinc-700 text-gray-700 dark:text-gray-200 transition-colors"
+                  className="md:hidden px-2 py-1 text-xs font-medium rounded-md bg-user-bubble dark:bg-zinc-800 hover:bg-user-bubble/10 dark:hover:bg-zinc-700 text-gray-700 dark:text-gray-200 transition-colors"
                 >
                   {t('sidebar.seeAll')}
                 </button>

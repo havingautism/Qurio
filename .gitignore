@@ -24,7 +24,7 @@ out
 .vscode/
 .idea/
 .claude/
-.agent/
+
 # VSCode specific extensions that should be shared
 !.vscode/extensions.json
 

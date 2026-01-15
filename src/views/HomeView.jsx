@@ -2,23 +2,21 @@ import { useGSAP } from '@gsap/react'
 import { useNavigate } from '@tanstack/react-router'
 import clsx from 'clsx'
 import gsap from 'gsap'
-import {
-  ArrowRight,
-  Brain,
-  Check,
-  ChevronDown,
-  File,
-  FileCode,
-  FileJson,
-  FileSpreadsheet,
-  FileText,
-  Globe,
-  Image,
-  LayoutGrid,
-  Menu,
-  Paperclip,
-  X,
-} from 'lucide-react'
+import ArrowRight from 'lucide-react/dist/esm/icons/arrow-right'
+import Brain from 'lucide-react/dist/esm/icons/brain'
+import Check from 'lucide-react/dist/esm/icons/check'
+import ChevronDown from 'lucide-react/dist/esm/icons/chevron-down'
+import File from 'lucide-react/dist/esm/icons/file'
+import FileCode from 'lucide-react/dist/esm/icons/file-code'
+import FileJson from 'lucide-react/dist/esm/icons/file-json'
+import FileSpreadsheet from 'lucide-react/dist/esm/icons/file-spreadsheet'
+import FileText from 'lucide-react/dist/esm/icons/file-text'
+import Globe from 'lucide-react/dist/esm/icons/globe'
+import Image from 'lucide-react/dist/esm/icons/image'
+import LayoutGrid from 'lucide-react/dist/esm/icons/layout-grid'
+import Menu from 'lucide-react/dist/esm/icons/menu'
+import Paperclip from 'lucide-react/dist/esm/icons/paperclip'
+import X from 'lucide-react/dist/esm/icons/x'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
@@ -28,6 +26,9 @@ import SpaceShortcutCard from '../components/SpaceShortcutCard'
 import EmojiDisplay from '../components/EmojiDisplay'
 import Logo from '../components/Logo'
 import HomeWidgets from '../components/widgets/HomeWidgets'
+import MobileDrawer from '../components/MobileDrawer'
+import UploadPopover from '../components/UploadPopover'
+import DocumentsSection from '../components/DocumentsSection'
 import useScrollLock from '../hooks/useScrollLock'
 import { getAgentDisplayName } from '../lib/agentDisplay'
 import useChatStore from '../lib/chatStore'
@@ -78,8 +79,10 @@ const HomeView = () => {
   const homeUploadMenuRef = useRef(null)
   const [homeSpaceDocuments, setHomeSpaceDocuments] = useState([])
   const [homeDocumentsLoading, setHomeDocumentsLoading] = useState(false)
-  const [homeSelectedDocumentIds, setHomeSelectedDocumentIds] = useState([])
+  const [_homeSelectedDocumentIds, setHomeSelectedDocumentIds] = useState([])
   const homePreviousSpaceIdRef = useRef(null)
+  const homeTextareaRef = useRef(null)
+  const homeInputHighlightRef = useRef(null)
 
   useScrollLock((isHomeSpaceSelectorOpen && isHomeMobile) || isDeepResearchGuideOpen)
 
@@ -242,7 +245,7 @@ const HomeView = () => {
   }, [isHomeSpaceSelectorOpen, isHomeMobile])
 
   useEffect(() => {
-    if (!isHomeUploadMenuOpen) return
+    if (!isHomeUploadMenuOpen || isHomeMobile) return
     const handleClickOutside = event => {
       if (homeUploadMenuRef.current && !homeUploadMenuRef.current.contains(event.target)) {
         setIsHomeUploadMenuOpen(false)
@@ -250,7 +253,7 @@ const HomeView = () => {
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [isHomeUploadMenuOpen])
+  }, [isHomeUploadMenuOpen, isHomeMobile])
 
   const handleFileChange = async e => {
     const files = Array.from(e.target.files || [])
@@ -309,7 +312,61 @@ const HomeView = () => {
     fileInputRef.current?.click()
   }
 
-  const toggleHomeDocument = documentId => {
+  const isHomeSpaceAuto = homeSpaceSelectionType === 'auto'
+  const shouldShowHomeDocuments = !isHomeSpaceAuto && Boolean(homeSelectedSpace?.id)
+  const homeSelectedDocumentCount = _homeSelectedDocumentIds.length
+  const homeSelectedDocumentIdSet = useMemo(
+    () => new Set((_homeSelectedDocumentIds || []).map(id => String(id))),
+    [_homeSelectedDocumentIds],
+  )
+  const homeSelectedDocuments = useMemo(() => {
+    if (!homeSpaceDocuments || homeSpaceDocuments.length === 0) return []
+    return homeSpaceDocuments.filter(doc => homeSelectedDocumentIdSet.has(String(doc.id)))
+  }, [homeSpaceDocuments, homeSelectedDocumentIdSet])
+
+  const homeUploadMenuContent = (
+    <>
+      <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-2 mb-2">
+        {t('common.upload')}
+      </div>
+      <div className="space-y-1">
+        <button
+          type="button"
+          onClick={handleHomeImageUpload}
+          className="flex items-center gap-1.5 w-full px-3 py-2 hover:bg-gray-50 dark:hover:bg-zinc-800 text-sm rounded-xl"
+        >
+          <div className="p-1.5 bg-primary-100 dark:bg-primary-900/30 rounded-lg">
+            <Image size={16} className="text-primary-500" />
+          </div>
+          {t('common.uploadImage')}
+        </button>
+        {/* <button
+          type="button"
+          disabled
+          className="flex items-center gap-1.5 w-full px-3 py-2 rounded-xl text-sm text-gray-400 dark:text-gray-500 cursor-not-allowed opacity-60"
+        >
+          <div className="p-1.5 bg-gray-100 dark:bg-zinc-800 rounded-lg">
+            <FileText size={16} />
+          </div>
+          {t('common.uploadDocument')}
+        </button> */}
+      </div>
+      {shouldShowHomeDocuments && (
+        <div className="border-t border-gray-200/70 dark:border-zinc-700/50 pt-3">
+          <DocumentsSection
+            documents={homeSpaceDocuments}
+            documentsLoading={homeDocumentsLoading}
+            selectedDocumentCount={homeSelectedDocumentCount}
+            selectedDocumentIdSet={homeSelectedDocumentIdSet}
+            onToggleDocument={toggleHomeDocument}
+            t={t}
+          />
+        </div>
+      )}
+    </>
+  )
+
+  function toggleHomeDocument(documentId) {
     const docKey = String(documentId)
     setHomeSelectedDocumentIds(prev =>
       prev.some(id => String(id) === docKey)
@@ -379,7 +436,7 @@ const HomeView = () => {
       const chatState = {
         initialMessage: homeInput,
         initialAttachments: homeAttachments,
-        initialDocumentIds: homeSelectedDocumentIds,
+        initialDocumentIds: _homeSelectedDocumentIds,
         initialToggles: {
           search: isHomeSearchActive,
           thinking: resolvedThinkingActive,
@@ -418,17 +475,6 @@ const HomeView = () => {
     }
   }
 
-  const isHomeSpaceAuto = homeSpaceSelectionType === 'auto'
-  const shouldShowHomeDocuments = !isHomeSpaceAuto && Boolean(homeSelectedSpace?.id)
-  const homeSelectedDocumentCount = homeSelectedDocumentIds.length
-  const homeSelectedDocumentIdSet = useMemo(
-    () => new Set((homeSelectedDocumentIds || []).map(id => String(id))),
-    [homeSelectedDocumentIds],
-  )
-  const homeSelectedDocuments = useMemo(() => {
-    if (!homeSpaceDocuments || homeSpaceDocuments.length === 0) return []
-    return homeSpaceDocuments.filter(doc => homeSelectedDocumentIdSet.has(String(doc.id)))
-  }, [homeSpaceDocuments, homeSelectedDocumentIdSet])
   const FileIcon = ({ fileType, className }) => {
     const type = (fileType || '').toLowerCase()
     if (type.includes('pdf')) return <FileText className={clsx('text-red-500', className)} />
@@ -491,16 +537,29 @@ const HomeView = () => {
     setIsHomeThinkingActive(homeThinkingRule.isThinkingActive)
   }, [isHomeThinkingLocked, homeThinkingRule.isThinkingActive])
 
-  const homeSpaceButtonLabel = useMemo(() => {
-    if (isHomeSpaceAuto) return t('homeView.spacesAuto')
-    const spaceLabel = homeSelectedSpace
-      ? getSpaceDisplayLabel(homeSelectedSpace, t)
-      : t('homeView.spacesNone')
+  const homeSpaceButtonContent = useMemo(() => {
+    const autoLabelWithSparkle = `${t('homeView.auto')} ✨`
+    const spaceLabel = isHomeSpaceAuto
+      ? autoLabelWithSparkle
+      : homeSelectedSpace
+        ? getSpaceDisplayLabel(homeSelectedSpace, t)
+        : t('homeView.none')
     const agentLabel = isHomeAgentAuto
-      ? t('homeView.agentsAuto')
+      ? autoLabelWithSparkle
       : getAgentDisplayName(selectedHomeAgent, t) || t('homeView.agentsLabel')
-    return `${t('homeView.spacesLabel', { label: spaceLabel })} · ${agentLabel}`
+    return {
+      spaceLabel,
+      agentLabel,
+      spaceEmoji: homeSelectedSpace?.emoji || '',
+      agentEmoji: selectedHomeAgent?.emoji || '',
+    }
   }, [isHomeSpaceAuto, homeSelectedSpace, isHomeAgentAuto, selectedHomeAgent, t])
+  const {
+    spaceLabel: resolvedSpaceLabel,
+    agentLabel: resolvedAgentLabel,
+    spaceEmoji: resolvedSpaceEmoji,
+    agentEmoji: resolvedAgentEmoji,
+  } = homeSpaceButtonContent
 
   const availableHomeSpaces = useMemo(() => {
     const deepResearchId = deepResearchSpace?.id ? String(deepResearchSpace.id) : null
@@ -522,94 +581,98 @@ const HomeView = () => {
         <span className="text-sm font-medium">{t('homeView.auto')}</span>
         {isHomeSpaceAuto && <Check size={14} className="text-primary-500" />}
       </button>
-      {availableHomeSpaces.length > 0 && <div className="h-px bg-gray-100 dark:bg-zinc-800 my-1" />}
+      {/* {availableHomeSpaces.length > 0 && <div className="h-px bg-gray-100 dark:bg-zinc-800 my-1" />} */}
       {availableHomeSpaces.map((space, idx) => {
         const isSelected = homeSelectedSpace?.label === space.label
         return (
-          <div key={idx} className="rounded-lg">
-            <button
-              onClick={() => handleToggleHomeSpace(space)}
-              className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left"
-            >
-              <div className="flex items-center gap-3">
-                <span className="text-lg flex items-center justify-center">
-                  <EmojiDisplay emoji={space.emoji} size="1.25rem" />
-                </span>
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
-                  {getSpaceDisplayLabel(space, t)}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                {isSelected && <Check size={14} className="text-primary-500" />}
-                <ChevronDown
-                  size={14}
-                  className={`text-gray-400 transition-transform ${
-                    homeExpandedSpaceId === space.id ? 'rotate-180' : ''
-                  }`}
-                />
-              </div>
-            </button>
-            {homeExpandedSpaceId === space.id && (
-              <div className="ml-9 mt-1 mb-2 flex flex-col gap-1">
-                <button
-                  type="button"
-                  onClick={() => handleSelectHomeAgentAuto(space)}
-                  className={`flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left ${
-                    isHomeAgentAuto && isSelected
-                      ? 'text-primary-500'
-                      : 'text-gray-700 dark:text-gray-200'
-                  }`}
-                >
-                  <span className="text-sm font-medium">{t('homeView.auto')}</span>
-                  {isHomeAgentAuto && isSelected && (
-                    <Check size={14} className="text-primary-500" />
-                  )}
-                </button>
-                {homeAgentsLoading && isSelected ? (
-                  <div className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400">
-                    <div className="flex items-center gap-1">
-                      <span className="inline-flex w-1.5 h-1.5 rounded-full bg-current animate-bounce [animation-delay:-0.2s]" />
-                      <span className="inline-flex w-1.5 h-1.5 rounded-full bg-current animate-bounce [animation-delay:-0.1s]" />
-                      <span className="inline-flex w-1.5 h-1.5 rounded-full bg-current animate-bounce" />
+          <div key={idx}>
+            <div key={idx + 'divider'} className="h-px bg-gray-100 dark:bg-zinc-800 my-1" />
+
+            <div key={idx + 'content'} className="rounded-lg">
+              <button
+                onClick={() => handleToggleHomeSpace(space)}
+                className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-lg flex items-center justify-center">
+                    <EmojiDisplay emoji={space.emoji} size="1.25rem" />
+                  </span>
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                    {getSpaceDisplayLabel(space, t)}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {isSelected && <Check size={14} className="text-primary-500" />}
+                  <ChevronDown
+                    size={14}
+                    className={`text-gray-400 transition-transform ${
+                      homeExpandedSpaceId === space.id ? 'rotate-180' : ''
+                    }`}
+                  />
+                </div>
+              </button>
+              {homeExpandedSpaceId === space.id && (
+                <div className="ml-3 mt-1 mb-2 flex flex-col gap-1">
+                  <button
+                    type="button"
+                    onClick={() => handleSelectHomeAgentAuto(space)}
+                    className={`flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left ${
+                      isHomeAgentAuto && isSelected
+                        ? 'text-primary-500'
+                        : 'text-gray-700 dark:text-gray-200'
+                    }`}
+                  >
+                    <span className="text-sm font-medium">{t('homeView.auto')}</span>
+                    {isHomeAgentAuto && isSelected && (
+                      <Check size={14} className="text-primary-500" />
+                    )}
+                  </button>
+                  {homeAgentsLoading && isSelected ? (
+                    <div className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400">
+                      <div className="flex items-center gap-1">
+                        <span className="inline-flex w-1.5 h-1.5 rounded-full bg-current animate-bounce [animation-delay:-0.2s]" />
+                        <span className="inline-flex w-1.5 h-1.5 rounded-full bg-current animate-bounce [animation-delay:-0.1s]" />
+                        <span className="inline-flex w-1.5 h-1.5 rounded-full bg-current animate-bounce" />
+                      </div>
                     </div>
-                  </div>
-                ) : homeAgents.length === 0 && isSelected ? (
-                  <div className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400">
-                    {t('homeView.agentsNone')}
-                  </div>
-                ) : (
-                  isSelected &&
-                  homeAgents.map(agent => {
-                    const isAgentSelected = !isHomeAgentAuto && selectedHomeAgent?.id === agent.id
-                    const isDefault =
-                      agent.isDefault || String(agent.id) === String(homePrimaryAgentId)
-                    return (
-                      <button
-                        key={agent.id}
-                        type="button"
-                        onClick={() => handleSelectHomeAgent(space, agent.id)}
-                        className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left"
-                      >
-                        <div className="flex items-center gap-2">
-                          <span className="text-lg">
-                            <EmojiDisplay emoji={agent.emoji} size="1.125rem" />
-                          </span>
-                          <span className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate">
-                            {getAgentDisplayName(agent, t)}
-                          </span>
-                          {isDefault && (
-                            <span className="text-xs px-1.5 py-0.5 bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 rounded-md font-medium">
-                              {t('homeView.default')}
+                  ) : homeAgents.length === 0 && isSelected ? (
+                    <div className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400">
+                      {t('homeView.agentsNone')}
+                    </div>
+                  ) : (
+                    isSelected &&
+                    homeAgents.map(agent => {
+                      const isAgentSelected = !isHomeAgentAuto && selectedHomeAgent?.id === agent.id
+                      const isDefault =
+                        agent.isDefault || String(agent.id) === String(homePrimaryAgentId)
+                      return (
+                        <button
+                          key={agent.id}
+                          type="button"
+                          onClick={() => handleSelectHomeAgent(space, agent.id)}
+                          className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg">
+                              <EmojiDisplay emoji={agent.emoji} size="1.125rem" />
                             </span>
-                          )}
-                        </div>
-                        {isAgentSelected && <Check size={14} className="text-primary-500" />}
-                      </button>
-                    )
-                  })
-                )}
-              </div>
-            )}
+                            <span className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate">
+                              {getAgentDisplayName(agent, t)}
+                            </span>
+                            {isDefault && (
+                              <span className="text-xs px-1.5 py-0.5 bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 rounded-md font-medium">
+                                {t('homeView.default')}
+                              </span>
+                            )}
+                          </div>
+                          {isAgentSelected && <Check size={14} className="text-primary-500" />}
+                        </button>
+                      )
+                    })
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         )
       })}
@@ -617,15 +680,39 @@ const HomeView = () => {
   )
 
   return (
-    <div className="flex-1 h-full overflow-hidden bg-background text-foreground transition-colors duration-300 relative flex flex-col">
-      {/* Immersive Animated Background Blobs - Global for HomeView */}
-      <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden select-none opacity-20 dark:opacity-15">
-        {/* Static Background - No Blur/Animation for Performance/Stability */}
+    <div className="flex-1 h-full bg-background text-foreground transition-colors duration-300 relative flex flex-col overflow-hidden">
+      {/* Elegant Ambient Background Glow - Layered for Depth */}
+      <div className="absolute inset-0 z-0 pointer-events-none select-none">
+        {/* Deep ambient base layer - lighter for light mode */}
         <div
-          className="absolute inset-0 opacity-30"
+          className="absolute inset-0 opacity-20 dark:opacity-40"
           style={{
             background:
-              'radial-gradient(circle at top left, var(--color-primary-400) 0%, transparent 40%), radial-gradient(circle at bottom right, var(--color-primary-300) 0%, transparent 40%)',
+              'radial-gradient(ellipse 120% 100% at 20% 0%, var(--color-primary-300) 0%, transparent 50%), radial-gradient(ellipse 100% 80% at 80% 100%, var(--color-primary-400) 0%, transparent 50%)',
+          }}
+        />
+        {/* Mid-tone accent layer - softer and larger */}
+        <div
+          className="absolute inset-0 opacity-15 dark:opacity-35 blur-3xl"
+          style={{
+            background:
+              'radial-gradient(circle at 30% 20%, var(--color-primary-200) 0%, transparent 35%), radial-gradient(circle at 70% 60%, var(--color-primary-300) 0%, transparent 40%)',
+          }}
+        />
+        {/* Highlight layer - subtle warm accents */}
+        <div
+          className="absolute inset-0 opacity-10 dark:opacity-25 blur-2xl"
+          style={{
+            background:
+              'radial-gradient(circle at 15% 35%, rgba(168, 85, 247, 0.2) 0%, transparent 30%), radial-gradient(circle at 85% 15%, rgba(59, 130, 246, 0.15) 0%, transparent 35%)',
+          }}
+        />
+        {/* Edge vignette for depth */}
+        <div
+          className="absolute inset-0 opacity-8 dark:opacity-20"
+          style={{
+            background:
+              'radial-gradient(ellipse 80% 120% at 50% 100%, var(--color-primary-500) 0%, transparent 60%)',
           }}
         />
       </div>
@@ -658,14 +745,14 @@ const HomeView = () => {
             <Logo size={128} className="text-gray-900 dark:text-white" priority />
           </div>
           {/* Title */}
-          <h1 className="home-title text-3xl md:text-5xl font-serif! font-medium text-center mb-4 mt-0 sm:mb-8 text-[#1f2937] dark:text-white">
+          <h1 className="home-title text-3xl md:text-5xl font-serif! font-medium text-center mb-4 mt-0 sm:mb-8 text-gray-700 dark:text-white">
             {t('app.tagline')}
           </h1>
 
           {/* Search Box */}
           <div className="home-search-box w-full relative group z-20">
             <div className="absolute inset-0 input-glow-veil rounded-xl blur-2xl opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-500 pointer-events-none" />
-            <div className="relative bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-xl shadow-sm hover:shadow-md transition-all duration-300 p-4">
+            <div className="relative bg-white dark:bg-zinc-900 border border-stone-200/60 dark:border-zinc-700/60 rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 p-4">
               {(homeAttachments.length > 0 || homeSelectedDocuments.length > 0) && (
                 <div className="flex gap-2 mb-3 px-2 py-2 code-scrollbar overflow-x-auto rounded-xl border border-gray-200/70 dark:border-zinc-700/50 bg-[#F9F9F9] dark:bg-[#1a1a1a]">
                   {homeAttachments.map((att, idx) => (
@@ -696,12 +783,12 @@ const HomeView = () => {
                       <div className="flex h-full flex-col items-center justify-center gap-1 px-2 py-2 text-center">
                         <FileIcon fileType={doc.file_type} className="h-5 w-5" />
                         <span className="text-[12px] font-semibold text-gray-900 dark:text-white truncate">
-                          {doc.name}
+                          {doc.name.replace(/\.[^/.]+$/, '')}
                         </span>
                       </div>
                       <button
                         onClick={() => toggleHomeDocument(doc.id)}
-                        className="absolute top-0.5 right-0.5 bg-black/60 dark:bg-white/60 dark:text-black text-white rounded-full p-0.5 opacity-100 sm:opacity-0 sm:group-hover/doc:opacity-100 transition-opacity"
+                        className="absolute top-1.5 right-3 bg-black/60 dark:bg-white/60 dark:text-black text-white rounded-full p-0.5 opacity-100 sm:opacity-0 sm:group-hover/doc:opacity-100 transition-opacity"
                       >
                         <X size={12} />
                       </button>
@@ -712,8 +799,9 @@ const HomeView = () => {
               <div className="relative">
                 {homeInput && (
                   <div
+                    ref={homeInputHighlightRef}
                     aria-hidden="true"
-                    className="pointer-events-none absolute inset-0 text-lg whitespace-pre-wrap break-words text-gray-900 dark:text-gray-100"
+                    className="pointer-events-none absolute inset-0 overflow-hidden text-lg whitespace-pre-wrap break-words text-gray-900 dark:text-gray-100"
                   >
                     {homeInputParts.map((part, index) =>
                       part.type === 'url' ? (
@@ -730,11 +818,17 @@ const HomeView = () => {
                   </div>
                 )}
                 <textarea
+                  ref={homeTextareaRef}
                   value={homeInput}
                   onChange={e => {
                     setHomeInput(e.target.value)
                     e.target.style.height = 'auto'
                     e.target.style.height = `${e.target.scrollHeight}px`
+                  }}
+                  onScroll={e => {
+                    if (homeInputHighlightRef.current) {
+                      homeInputHighlightRef.current.scrollTop = e.target.scrollTop
+                    }
                   }}
                   onKeyDown={e => {
                     if (e.key === 'Enter' && !e.shiftKey) {
@@ -762,86 +856,25 @@ const HomeView = () => {
                     <button
                       type="button"
                       onClick={() => setIsHomeUploadMenuOpen(prev => !prev)}
-                      className={`p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
+                      className={`p-2 rounded-lg transition-all duration-200 flex items-center gap-2 text-sm font-medium ${
                         homeAttachments.length > 0
-                          ? 'text-primary-500'
-                          : 'text-gray-500 dark:text-gray-400'
+                          ? 'text-primary-500 bg-primary-50 dark:bg-primary-900/20'
+                          : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-zinc-800'
                       }`}
                     >
-                      <Paperclip size={18} />
+                      <Paperclip size={18} strokeWidth={2} />
                     </button>
-                    {isHomeUploadMenuOpen && (
-                      <div className="absolute top-full left-0 mt-2 w-72 bg-white dark:bg-[#202222] border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl z-50 overflow-hidden">
-                        <div className="p-2 flex flex-col gap-2">
-                          <button
-                            type="button"
-                            onClick={handleHomeImageUpload}
-                            className="flex items-center gap-2 w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left text-sm text-gray-700 dark:text-gray-200"
-                          >
-                            <Image size={16} />
-                            {t('common.upload')}
-                          </button>
-
-                          {shouldShowHomeDocuments && (
-                            <div className="border-t border-gray-200/70 dark:border-zinc-700/50 pt-3">
-                              <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-2 mb-2">
-                                {t('chatInterface.documents')} ({homeSelectedDocumentCount})
-                              </div>
-                              <div className="flex flex-col gap-0.5 max-h-[220px] overflow-y-auto no-scrollbar">
-                                {homeDocumentsLoading && (
-                                  <div className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400">
-                                    {t('chatInterface.documentsLoading')}
-                                  </div>
-                                )}
-                                {!homeDocumentsLoading && homeSpaceDocuments.length === 0 && (
-                                  <div className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400">
-                                    {t('chatInterface.documentsEmpty')}
-                                  </div>
-                                )}
-                                {!homeDocumentsLoading &&
-                                  homeSpaceDocuments.map(doc => {
-                                    const isSelected = homeSelectedDocumentIds.some(
-                                      id => String(id) === String(doc.id),
-                                    )
-                                    return (
-                                      <button
-                                        key={doc.id}
-                                        onClick={() => toggleHomeDocument(doc.id)}
-                                        className={clsx(
-                                          'flex items-start gap-2.5 w-full px-3 py-2 rounded-xl text-sm transition-colors text-left',
-                                          isSelected
-                                            ? 'bg-gray-100 dark:bg-zinc-700/50 text-gray-900 dark:text-white font-medium'
-                                            : 'hover:bg-gray-100 dark:hover:bg-zinc-700/50 text-gray-600 dark:text-gray-300',
-                                        )}
-                                      >
-                                        <span
-                                          className={clsx(
-                                            'mt-0.5 flex items-center justify-center w-4 h-4 rounded border transition-colors',
-                                            isSelected
-                                              ? 'bg-primary-500 border-primary-500 text-white'
-                                              : 'border-gray-300 dark:border-zinc-600 text-transparent',
-                                          )}
-                                        >
-                                          <Check size={12} />
-                                        </span>
-                                        <div className="flex items-center justify-between w-full min-w-0 gap-2">
-                                          <span className="truncate">{doc.name}</span>
-                                          <span className="text-[10px] text-gray-400 font-normal shrink-0">
-                                            {(() => {
-                                              const type = (doc.file_type || '').toUpperCase()
-                                              return type === 'MD' ? 'MARKDOWN' : type
-                                            })()}
-                                          </span>
-                                        </div>
-                                      </button>
-                                    )
-                                  })}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
+                    {/* Upload Dropdown */}
+                    {isHomeUploadMenuOpen && !isHomeMobile && (
+                      <UploadPopover>{homeUploadMenuContent}</UploadPopover>
                     )}
+                    <MobileDrawer
+                      isOpen={isHomeUploadMenuOpen && isHomeMobile}
+                      onClose={() => setIsHomeUploadMenuOpen(false)}
+                      title={t('common.files')}
+                    >
+                      <div className="space-y-2">{homeUploadMenuContent}</div>
+                    </MobileDrawer>
                   </div>
                   <button
                     disabled={isHomeThinkingLocked}
@@ -888,7 +921,19 @@ const HomeView = () => {
                       } hover:bg-gray-100 dark:hover:bg-zinc-800`}
                     >
                       <LayoutGrid size={18} />
-                      <span className="hidden md:inline">{homeSpaceButtonLabel}</span>
+                      <div className="hidden md:flex items-center gap-1 text-sm font-medium text-gray-900 dark:text-white min-w-0">
+                        {resolvedSpaceEmoji && (
+                          <EmojiDisplay emoji={resolvedSpaceEmoji} size="1.15rem" />
+                        )}
+                        <span className="truncate">{resolvedSpaceLabel}</span>
+                        <span className="text-gray-400 dark:text-gray-500 select-none">·</span>
+                        {resolvedAgentEmoji && (
+                          <EmojiDisplay emoji={resolvedAgentEmoji} size="1.15rem" />
+                        )}
+                        <span className="truncate text-gray-600 dark:text-gray-300">
+                          {resolvedAgentLabel}
+                        </span>
+                      </div>
                       <ChevronDown size={14} />
                     </button>
                     {!isHomeMobile && isHomeSpaceSelectorOpen && (
@@ -911,11 +956,11 @@ const HomeView = () => {
                           <div className="px-5 py-4 flex items-center justify-between shrink-0 border-b border-gray-100 dark:border-zinc-800/50">
                             <div className="flex flex-col">
                               <h3 className="text-base font-bold text-gray-900 dark:text-gray-100 leading-none mb-1">
-                                {t('homeView.spaces')}
+                                {t('homeView.spaces') + ' and ' + t('homeView.agents')}
                               </h3>
-                              <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">
+                              {/* <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">
                                 {t('homeView.agents')}
-                              </p>
+                              </p> */}
                             </div>
                             <button
                               onClick={() => setIsHomeSpaceSelectorOpen(false)}

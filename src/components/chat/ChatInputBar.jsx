@@ -1,24 +1,23 @@
 import clsx from 'clsx'
-import {
-  ArrowRight,
-  ArrowUp,
-  Brain,
-  Check,
-  ChevronDown,
-  FileText,
-  Globe,
-  Image,
-  Paperclip,
-  Plus,
-  SlidersHorizontal,
-  Smile,
-  X,
-  FileJson,
-  FileSpreadsheet,
-  FileCode,
-  File,
-} from 'lucide-react'
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import ArrowRight from 'lucide-react/dist/esm/icons/arrow-right'
+import ArrowUp from 'lucide-react/dist/esm/icons/arrow-up'
+import Brain from 'lucide-react/dist/esm/icons/brain'
+import Check from 'lucide-react/dist/esm/icons/check'
+import ChevronDown from 'lucide-react/dist/esm/icons/chevron-down'
+import FileText from 'lucide-react/dist/esm/icons/file-text'
+import Globe from 'lucide-react/dist/esm/icons/globe'
+import Image from 'lucide-react/dist/esm/icons/image'
+import Paperclip from 'lucide-react/dist/esm/icons/paperclip'
+import Plus from 'lucide-react/dist/esm/icons/plus'
+import SlidersHorizontal from 'lucide-react/dist/esm/icons/sliders-horizontal'
+import Smile from 'lucide-react/dist/esm/icons/smile'
+import Square from 'lucide-react/dist/esm/icons/square'
+import X from 'lucide-react/dist/esm/icons/x'
+import FileJson from 'lucide-react/dist/esm/icons/file-json'
+import FileSpreadsheet from 'lucide-react/dist/esm/icons/file-spreadsheet'
+import FileCode from 'lucide-react/dist/esm/icons/file-code'
+import File from 'lucide-react/dist/esm/icons/file'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { getAgentDisplayName } from '../../lib/agentDisplay'
 import { providerSupportsSearch } from '../../lib/providers'
@@ -26,6 +25,206 @@ import { splitTextWithUrls } from '../../lib/urlHighlight'
 import EmojiDisplay from '../EmojiDisplay'
 import useIsMobile from '../../hooks/useIsMobile'
 import MobileDrawer from '../MobileDrawer'
+import UploadPopover from '../UploadPopover'
+import DocumentsSection from '../DocumentsSection'
+
+// Extracted FileIcon component to avoid recreation on each render
+const FileIcon = React.memo(
+  function FileIcon({ fileType, className }) {
+    const type = (fileType || '').toLowerCase()
+    if (type.includes('pdf')) return <FileText className={clsx('text-red-500', className)} />
+    if (type.includes('doc') || type.includes('word'))
+      return <FileText className={clsx('text-blue-500', className)} />
+    if (type.includes('json')) return <FileJson className={clsx('text-yellow-500', className)} />
+    if (type.includes('csv') || type.includes('excel') || type.includes('sheet'))
+      return <FileSpreadsheet className={clsx('text-emerald-500', className)} />
+    if (
+      type.includes('md') ||
+      type.includes('start') ||
+      type.includes('code') ||
+      type === 'js' ||
+      type === 'py'
+    )
+      return <FileCode className={clsx('text-purple-500', className)} />
+    return <File className={clsx('text-gray-400', className)} />
+  },
+  // Custom comparison: only re-render if fileType changes (className changes are cheap)
+  (prevProps, nextProps) => prevProps.fileType === nextProps.fileType,
+)
+
+const CapsuleUploadMenu = React.memo(
+  ({
+    hasDocuments,
+    documents,
+    documentsLoading,
+    selectedDocumentCount,
+    selectedDocumentIdSet,
+    onToggleDocument,
+    onUploadImage,
+    t,
+  }) => (
+    <>
+      <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-2 mb-2">
+        {t('common.upload')}
+      </div>
+      <div className="space-y-1">
+        <button
+          onClick={onUploadImage}
+          className="flex items-center gap-1.5 w-full px-3 py-2 hover:bg-gray-50 dark:hover:bg-zinc-800 text-sm rounded-xl"
+        >
+          <Image size={16} /> {t('common.uploadImage')}
+        </button>
+        {hasDocuments && (
+          <div className="border-t border-gray-200/70 dark:border-zinc-700/50 pt-3">
+            <DocumentsSection
+              documents={documents}
+              documentsLoading={documentsLoading}
+              selectedDocumentCount={selectedDocumentCount}
+              selectedDocumentIdSet={selectedDocumentIdSet}
+              onToggleDocument={onToggleDocument}
+              t={t}
+            />
+          </div>
+        )}
+      </div>
+    </>
+  ),
+)
+
+const CapsuleSettingsMenu = React.memo(
+  ({
+    agents,
+    isAgentAutoMode,
+    onAgentAutoModeToggle,
+    onAgentSelect,
+    selectedAgent,
+    spacePrimaryAgentId,
+    isThinkingLocked,
+    isThinkingActive,
+    onToggleThinking,
+    isSearchActive,
+    onToggleSearch,
+    t,
+    isSearchSupported,
+  }) => (
+    <div className="space-y-3">
+      {/* Models List */}
+      <div>
+        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-2 mb-2">
+          {t('chatInterface.agentsLabel')}
+        </div>
+        <div className="flex flex-col gap-1.5 max-h-[300px] overflow-y-auto no-scrollbar">
+          <button
+            onClick={() => {
+              onAgentAutoModeToggle()
+            }}
+            className={clsx(
+              'flex items-center justify-between w-full px-3 py-2 rounded-xl text-sm transition-colors',
+              isAgentAutoMode
+                ? 'bg-gray-100 dark:bg-zinc-700/50 text-gray-900 dark:text-white font-medium'
+                : 'hover:bg-gray-100 dark:hover:bg-zinc-700/50 text-gray-600 dark:text-gray-300',
+            )}
+          >
+            <div className="flex items-center gap-2.5">
+              <span className="text-lg">✨</span>
+              <span>{t('chatInterface.agentAuto')}</span>
+            </div>
+            {isAgentAutoMode && <Check size={14} className="text-primary-500" />}
+          </button>
+          {agents.map(agent => {
+            const isSelected = !isAgentAutoMode && selectedAgent?.id === agent.id
+            const isDefault = agent.isDefault || String(agent.id) === String(spacePrimaryAgentId)
+            return (
+              <button
+                key={agent.id}
+                onClick={() => {
+                  onAgentSelect(agent)
+                }}
+                className={clsx(
+                  'flex items-center justify-between w-full px-3 py-2 rounded-xl text-sm transition-colors',
+                  isSelected
+                    ? 'bg-gray-100 dark:bg-zinc-700/50 text-gray-900 dark:text-white font-medium'
+                    : 'hover:bg-gray-100 dark:hover:bg-zinc-700/50 text-gray-600 dark:text-gray-300',
+                )}
+              >
+                <div className="flex items-center gap-2.5">
+                  <EmojiDisplay emoji={agent.emoji} size="1.1em" />
+                  <span className="truncate">{getAgentDisplayName(agent, t)}</span>
+                  {isDefault && (
+                    <span className="text-[10px] px-1.5 py-0.5 bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 rounded-md font-medium">
+                      {t('chatInterface.default')}
+                    </span>
+                  )}
+                </div>
+                {isSelected && <Check size={14} className="text-primary-500" />}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      <div className="h-px bg-gray-100 dark:bg-zinc-700/50" />
+
+      {/* Capabilities */}
+      <div>
+        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-2 mb-2">
+          {t('chatInterface.capabilities')}
+        </div>
+        <div className="space-y-0.5">
+          <button
+            disabled={isThinkingLocked}
+            onClick={onToggleThinking}
+            className="flex items-center justify-between w-full px-3 py-2 rounded-xl text-sm hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors"
+          >
+            <div className="flex items-center gap-2.5 text-gray-700 dark:text-gray-200">
+              <Brain
+                size={16}
+                className={isThinkingActive ? 'text-primary-500' : 'text-gray-400'}
+              />
+              <span>{t('homeView.think')}</span>
+            </div>
+            <div
+              className={clsx(
+                'w-8 h-4 rounded-full relative transition-colors',
+                isThinkingActive ? 'bg-primary-500' : 'bg-gray-200 dark:bg-zinc-600',
+              )}
+            >
+              <div
+                className={clsx(
+                  'absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all shadow-sm',
+                  isThinkingActive ? 'left-4.5' : 'left-0.5',
+                )}
+              />
+            </div>
+          </button>
+          <button
+            disabled={!isSearchSupported}
+            onClick={onToggleSearch}
+            className="flex items-center justify-between w-full px-3 py-2 rounded-xl text-sm hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors disabled:opacity-50"
+          >
+            <div className="flex items-center gap-2.5 text-gray-700 dark:text-gray-200">
+              <Globe size={16} className={isSearchActive ? 'text-primary-500' : 'text-gray-400'} />
+              <span>{t('homeView.search')}</span>
+            </div>
+            <div
+              className={clsx(
+                'w-8 h-4 rounded-full relative transition-colors',
+                isSearchActive ? 'bg-primary-500' : 'bg-gray-200 dark:bg-zinc-600',
+              )}
+            >
+              <div
+                className={clsx(
+                  'absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all shadow-sm',
+                  isSearchActive ? 'left-4.5' : 'left-0.5',
+                )}
+              />
+            </div>
+          </button>
+        </div>
+      </div>
+    </div>
+  ),
+)
 
 /**
  * ChatInputBar Component
@@ -94,6 +293,7 @@ const ChatInputBar = React.memo(
     documentsLoading = false,
     selectedDocumentIds = [],
     onToggleDocument,
+    onStop, // Add onStop prop
     variant = 'default',
   }) => {
     const { t } = useTranslation()
@@ -122,24 +322,6 @@ const ChatInputBar = React.memo(
       if (!documents || documents.length === 0) return []
       return documents.filter(doc => selectedDocumentIdSet.has(String(doc.id)))
     }, [documents, selectedDocumentIdSet])
-    const FileIcon = ({ fileType, className }) => {
-      const type = (fileType || '').toLowerCase()
-      if (type.includes('pdf')) return <FileText className={clsx('text-red-500', className)} />
-      if (type.includes('doc') || type.includes('word'))
-        return <FileText className={clsx('text-blue-500', className)} />
-      if (type.includes('json')) return <FileJson className={clsx('text-yellow-500', className)} />
-      if (type.includes('csv') || type.includes('excel') || type.includes('sheet'))
-        return <FileSpreadsheet className={clsx('text-emerald-500', className)} />
-      if (
-        type.includes('md') ||
-        type.includes('start') ||
-        type.includes('code') ||
-        type === 'js' ||
-        type === 'py'
-      )
-        return <FileCode className={clsx('text-purple-500', className)} />
-      return <File className={clsx('text-gray-400', className)} />
-    }
     // Auto-resize and multiline detection
     useEffect(() => {
       const textarea = textareaRef.current
@@ -256,10 +438,10 @@ const ChatInputBar = React.memo(
       e.target.value = ''
     }
 
-    const handleUploadImage = () => {
+    const handleUploadImage = useCallback(() => {
       fileInputRef.current?.click()
       setIsUploadMenuOpen(false)
-    }
+    }, [])
 
     const handleSend = () => {
       if (isLoading) return
@@ -280,223 +462,87 @@ const ChatInputBar = React.memo(
       }
     }
 
+    const handleCapsuleAgentAutoToggle = useCallback(() => {
+      onAgentAutoModeToggle()
+      setIsCapsuleMenuOpen(false)
+    }, [onAgentAutoModeToggle])
+
+    const handleCapsuleAgentSelect = useCallback(
+      agent => {
+        onAgentSelect(agent)
+        setIsCapsuleMenuOpen(false)
+      },
+      [onAgentSelect],
+    )
+
+    const hasDocuments = documents && documents.length > 0
+    const isSearchSupported = providerSupportsSearch(apiProvider)
+
+    const desktopUploadMenuContent = useMemo(
+      () => (
+        <UploadPopover className="w-72">
+          <CapsuleUploadMenu
+            hasDocuments={hasDocuments}
+            documents={documents}
+            documentsLoading={documentsLoading}
+            selectedDocumentCount={selectedDocumentCount}
+            selectedDocumentIdSet={selectedDocumentIdSet}
+            onToggleDocument={onToggleDocument}
+            onUploadImage={handleUploadImage}
+            t={t}
+          />
+        </UploadPopover>
+      ),
+      [
+        hasDocuments,
+        documents,
+        documentsLoading,
+        selectedDocumentCount,
+        selectedDocumentIdSet,
+        onToggleDocument,
+        t,
+        handleUploadImage,
+      ],
+    )
+
+    const settingsMenuContent = useMemo(
+      () => (
+        <CapsuleSettingsMenu
+          agents={agents}
+          isAgentAutoMode={isAgentAutoMode}
+          onAgentAutoModeToggle={handleCapsuleAgentAutoToggle}
+          onAgentSelect={handleCapsuleAgentSelect}
+          selectedAgent={selectedAgent}
+          spacePrimaryAgentId={spacePrimaryAgentId}
+          isThinkingLocked={isThinkingLocked}
+          isThinkingActive={isThinkingActive}
+          onToggleThinking={onToggleThinking}
+          isSearchActive={isSearchActive}
+          onToggleSearch={onToggleSearch}
+          t={t}
+          isSearchSupported={isSearchSupported}
+        />
+      ),
+      [
+        agents,
+        isAgentAutoMode,
+        handleCapsuleAgentAutoToggle,
+        handleCapsuleAgentSelect,
+        selectedAgent,
+        spacePrimaryAgentId,
+        isThinkingLocked,
+        isThinkingActive,
+        onToggleThinking,
+        isSearchActive,
+        onToggleSearch,
+        t,
+        isSearchSupported,
+      ],
+    )
+
     // === CAPSULE VARIANT ===
+
     if (variant === 'capsule') {
-      const hasDocuments = documents && documents.length > 0
-
-      const renderDocumentsList = () => (
-        <div className="flex flex-col gap-0.5 max-h-[250px] overflow-y-auto no-scrollbar">
-          {documentsLoading && (
-            <div className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400">
-              {t('chatInterface.documentsLoading')}
-            </div>
-          )}
-          {!documentsLoading && documents.length === 0 && (
-            <div className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400">
-              {t('chatInterface.documentsEmpty')}
-            </div>
-          )}
-          {!documentsLoading &&
-            documents.map(doc => {
-              const isSelected = selectedDocumentIdSet.has(String(doc.id))
-              return (
-                <button
-                  key={doc.id}
-                  onClick={() => onToggleDocument?.(doc.id)}
-                  className={clsx(
-                    'flex items-start gap-2.5 w-full px-3 py-2 rounded-xl text-sm transition-colors text-left',
-                    isSelected
-                      ? 'bg-gray-100 dark:bg-zinc-700/50 text-gray-900 dark:text-white font-medium'
-                      : 'hover:bg-gray-100 dark:hover:bg-zinc-700/50 text-gray-600 dark:text-gray-300',
-                  )}
-                >
-                  <span
-                    className={clsx(
-                      'mt-0.5 flex items-center justify-center w-4 h-4 rounded border transition-colors',
-                      isSelected
-                        ? 'bg-primary-500 border-primary-500 text-white'
-                        : 'border-gray-300 dark:border-zinc-600 text-transparent',
-                    )}
-                  >
-                    <Check size={12} />
-                  </span>
-                  <div className="flex items-center justify-between w-full min-w-0 gap-2">
-                    <span className="truncate">{doc.name}</span>
-                    <span className="text-[10px] text-gray-400 font-normal shrink-0">
-                      {(() => {
-                        const type = (doc.file_type || '').toUpperCase()
-                        return type === 'MD' ? 'MARKDOWN' : type
-                      })()}
-                    </span>
-                  </div>
-                </button>
-              )
-            })}
-        </div>
-      )
-
-      const renderDocumentsSection = () => (
-        <div className="space-y-2">
-          <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-2">
-            {t('chatInterface.documents')} ({selectedDocumentCount})
-          </div>
-          {renderDocumentsList()}
-        </div>
-      )
-
-      const uploadMenuButton = (
-        <button
-          onClick={handleUploadImage}
-          className="flex items-center gap-1.5 w-full px-3 py-2 hover:bg-gray-50 dark:hover:bg-zinc-800 text-sm rounded-xl"
-        >
-          <Image size={16} /> {t('common.uploadImage')}
-        </button>
-      )
-
-      const popoverSurfaceClass =
-        'absolute bottom-full left-0 mb-3 bg-white/80 dark:bg-[#1C1C1E]/80 dark:bg-[#1a1a1a] bg-[#F9F9F9] dark:bg-[#1a1a1a] backdrop-blur-xl border border-gray-200/50 dark:border-zinc-700/50 rounded-2xl shadow-2xl z-50 overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-4 p-3'
-
-      const desktopUploadMenuContent = (
-        <div className={clsx(popoverSurfaceClass, 'w-72')}>
-          <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-2 mb-2">
-            {t('common.upload')}
-          </div>
-          <div className="space-y-1">
-            {uploadMenuButton}
-            {hasDocuments && (
-              <div className="border-t border-gray-200/70 dark:border-zinc-700/50 pt-3">
-                {renderDocumentsSection()}
-              </div>
-            )}
-          </div>
-        </div>
-      )
-
-      const settingsMenuContent = (
-        <div className="space-y-3">
-          {/* Models List */}
-          <div>
-            <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-2 mb-2">
-              {t('chatInterface.agentsLabel')}
-            </div>
-            <div className="flex flex-col gap-1.5 max-h-[300px] overflow-y-auto no-scrollbar">
-              <button
-                onClick={() => {
-                  onAgentAutoModeToggle()
-                  setIsCapsuleMenuOpen(false)
-                }}
-                className={clsx(
-                  'flex items-center justify-between w-full px-3 py-2 rounded-xl text-sm transition-colors',
-                  isAgentAutoMode
-                    ? 'bg-gray-100 dark:bg-zinc-700/50 text-gray-900 dark:text-white font-medium'
-                    : 'hover:bg-gray-100 dark:hover:bg-zinc-700/50 text-gray-600 dark:text-gray-300',
-                )}
-              >
-                <div className="flex items-center gap-2.5">
-                  <span className="text-lg">🤖</span>
-                  <span>{t('chatInterface.agentAuto')}</span>
-                </div>
-                {isAgentAutoMode && <Check size={14} className="text-primary-500" />}
-              </button>
-              {agents.map(agent => {
-                const isSelected = !isAgentAutoMode && selectedAgent?.id === agent.id
-                const isDefault =
-                  agent.isDefault || String(agent.id) === String(spacePrimaryAgentId)
-                return (
-                  <button
-                    key={agent.id}
-                    onClick={() => {
-                      onAgentSelect(agent)
-                      setIsCapsuleMenuOpen(false)
-                    }}
-                    className={clsx(
-                      'flex items-center justify-between w-full px-3 py-2 rounded-xl text-sm transition-colors',
-                      isSelected
-                        ? 'bg-gray-100 dark:bg-zinc-700/50 text-gray-900 dark:text-white font-medium'
-                        : 'hover:bg-gray-100 dark:hover:bg-zinc-700/50 text-gray-600 dark:text-gray-300',
-                    )}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <EmojiDisplay emoji={agent.emoji} size="1.1em" />
-                      <span className="truncate">{getAgentDisplayName(agent, t)}</span>
-                      {isDefault && (
-                        <span className="text-[10px] px-1.5 py-0.5 bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 rounded-md font-medium">
-                          {t('chatInterface.default')}
-                        </span>
-                      )}
-                    </div>
-                    {isSelected && <Check size={14} className="text-primary-500" />}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-
-          <div className="h-px bg-gray-100 dark:bg-zinc-700/50" />
-
-          {/* Capabilities */}
-          <div>
-            <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-2 mb-2">
-              {t('chatInterface.capabilities')}
-            </div>
-            <div className="space-y-0.5">
-              <button
-                disabled={isThinkingLocked}
-                onClick={onToggleThinking}
-                className="flex items-center justify-between w-full px-3 py-2 rounded-xl text-sm hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors"
-              >
-                <div className="flex items-center gap-2.5 text-gray-700 dark:text-gray-200">
-                  <Brain
-                    size={16}
-                    className={isThinkingActive ? 'text-primary-500' : 'text-gray-400'}
-                  />
-                  <span>{t('homeView.think')}</span>
-                </div>
-                <div
-                  className={clsx(
-                    'w-8 h-4 rounded-full relative transition-colors',
-                    isThinkingActive ? 'bg-primary-500' : 'bg-gray-200 dark:bg-zinc-600',
-                  )}
-                >
-                  <div
-                    className={clsx(
-                      'absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all shadow-sm',
-                      isThinkingActive ? 'left-4.5' : 'left-0.5',
-                    )}
-                  />
-                </div>
-              </button>
-              <button
-                disabled={!providerSupportsSearch(apiProvider)}
-                onClick={onToggleSearch}
-                className="flex items-center justify-between w-full px-3 py-2 rounded-xl text-sm hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors disabled:opacity-50"
-              >
-                <div className="flex items-center gap-2.5 text-gray-700 dark:text-gray-200">
-                  <Globe
-                    size={16}
-                    className={isSearchActive ? 'text-primary-500' : 'text-gray-400'}
-                  />
-                  <span>{t('homeView.search')}</span>
-                </div>
-                <div
-                  className={clsx(
-                    'w-8 h-4 rounded-full relative transition-colors',
-                    isSearchActive ? 'bg-primary-500' : 'bg-gray-200 dark:bg-zinc-600',
-                  )}
-                >
-                  <div
-                    className={clsx(
-                      'absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all shadow-sm',
-                      isSearchActive ? 'left-4.5' : 'left-0.5',
-                    )}
-                  />
-                </div>
-              </button>
-            </div>
-          </div>
-        </div>
-      )
-
       return (
         <div className="w-full max-w-3xl relative group pb-2 flex flex-col gap-2">
           {/* Floating Context Indicators */}
@@ -572,7 +618,7 @@ const ChatInputBar = React.memo(
                       <div className="flex h-full flex-col items-center justify-center gap-1 px-2 py-2 text-center">
                         <FileIcon fileType={doc.file_type} size={20} />
                         <span className="text-[12px] font-semibold text-gray-900 dark:text-white truncate">
-                          {doc.name}
+                          {doc.name.replace(/\.[^/.]+$/, '')}
                         </span>
                         {/* <span className="text-[10px] uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400">
                           {(doc.file_type || 'DOC').toUpperCase()}
@@ -580,7 +626,7 @@ const ChatInputBar = React.memo(
                       </div>
                       <button
                         onClick={() => onToggleDocument?.(doc.id)}
-                        className="absolute top-0.5 right-0.5 bg-black/60 dark:bg-white/60 dark:text-black text-white rounded-full p-0.5 opacity-100 sm:opacity-0 sm:group-hover/doc:opacity-100 transition-opacity"
+                        className="absolute top-1.5 right-3 bg-black/60 dark:bg-white/60 dark:text-black text-white rounded-full p-0.5 opacity-100 sm:opacity-0 sm:group-hover/doc:opacity-100 transition-opacity"
                       >
                         <X size={12} />
                       </button>
@@ -631,21 +677,42 @@ const ChatInputBar = React.memo(
                     onClick={() => setIsUploadMenuOpen(!isUploadMenuOpen)}
                     className="p-1.5 sm:p-2 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 hover:bg-gray-200 dark:hover:bg-zinc-800 rounded-full transition-colors"
                     title={t('common.upload')}
+                    aria-label={t('common.upload')}
+                    aria-expanded={isUploadMenuOpen}
+                    aria-haspopup="menu"
                   >
-                    <Plus size={20} strokeWidth={2.5} />
+                    <Paperclip size={20} strokeWidth={2.5} />
                   </button>
                   {!isMobile && isUploadMenuOpen && desktopUploadMenuContent}
                   {isMobile && (
                     <MobileDrawer
                       isOpen={isUploadMenuOpen}
                       onClose={() => setIsUploadMenuOpen(false)}
-                      title={t('common.upload')}
+                      title={t('common.files')}
                     >
                       <div className="space-y-2">
-                        {uploadMenuButton}
+                        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-2 mb-2">
+                          {t('common.upload')}
+                        </div>
+                        <button
+                          onClick={handleUploadImage}
+                          className="flex items-center gap-1.5 w-full px-3 py-2 hover:bg-gray-50 dark:hover:bg-zinc-800 text-sm rounded-xl"
+                        >
+                          <div className="p-1.5 bg-primary-100 dark:bg-primary-900/30 rounded-lg">
+                            <Image size={16} className="text-primary-500" />
+                          </div>
+                          {t('common.uploadImage')}
+                        </button>
                         {hasDocuments && (
                           <div className="border-t border-gray-200/70 dark:border-zinc-700/50 pt-3">
-                            {renderDocumentsSection()}
+                            <DocumentsSection
+                              documents={documents}
+                              documentsLoading={documentsLoading}
+                              selectedDocumentCount={selectedDocumentCount}
+                              selectedDocumentIdSet={selectedDocumentIdSet}
+                              onToggleDocument={onToggleDocument}
+                              t={t}
+                            />
                           </div>
                         )}
                       </div>
@@ -695,13 +762,16 @@ const ChatInputBar = React.memo(
                         : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 hover:bg-gray-200 dark:hover:bg-zinc-800',
                     )}
                     title="Model & Settings"
+                    aria-label={t('chatInterface.modelSettings')}
+                    aria-expanded={isCapsuleMenuOpen}
+                    aria-haspopup="menu"
                   >
                     <SlidersHorizontal size={20} strokeWidth={2} />
                   </button>
 
                   {/* Popover Menu (Desktop) */}
                   {!isMobile && isCapsuleMenuOpen && (
-                    <div className={clsx(popoverSurfaceClass, 'w-72')}>{settingsMenuContent}</div>
+                    <UploadPopover className="w-72">{settingsMenuContent}</UploadPopover>
                   )}
 
                   {/* Drawer Menu (Mobile) */}
@@ -773,17 +843,19 @@ const ChatInputBar = React.memo(
                 )}
               >
                 <button
-                  onClick={handleSend}
-                  disabled={isLoading || (!inputValue.trim() && attachments.length === 0)}
+                  onClick={isLoading ? onStop : handleSend}
+                  disabled={!isLoading && !inputValue.trim() && attachments.length === 0}
                   className={clsx(
                     'p-1.5 sm:p-2 rounded-full transition-all duration-300 shadow-sm flex items-center justify-center',
-                    (inputValue.trim() || attachments.length > 0) && !isLoading
-                      ? 'bg-primary-500 text-white hover:bg-primary-600 hover:scale-105 active:scale-95'
-                      : 'bg-gray-200 dark:bg-zinc-800 text-gray-400 dark:text-zinc-600 cursor-not-allowed',
+                    isLoading
+                      ? 'bg-gray-200 dark:bg-zinc-800 text-gray-900 dark:text-white hover:bg-gray-300 dark:hover:bg-zinc-700'
+                      : inputValue.trim() || attachments.length > 0
+                        ? 'bg-primary-500 text-white hover:bg-primary-600 hover:scale-105 active:scale-95'
+                        : 'bg-gray-200 dark:bg-zinc-800 text-gray-400 dark:text-zinc-600 cursor-not-allowed',
                   )}
                 >
                   {isLoading ? (
-                    <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                    <Square size={16} fill="currentColor" strokeWidth={2.5} />
                   ) : (
                     <ArrowUp size={20} strokeWidth={2.5} />
                   )}
@@ -798,23 +870,23 @@ const ChatInputBar = React.memo(
     // === DEFAULT VARIANT ===
     return (
       <div className="w-full max-w-3xl relative group">
-        <div className="absolute inset-0 input-glow-veil rounded-xl blur-2xl opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-500 pointer-events-none" />
-        <div className="relative bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700/50 focus-within:border-primary-500/50 rounded-2xl transition-all duration-300 p-3 shadow-md hover:shadow-lg group-hover:shadow-lg focus-within:shadow-xl">
+        <div className="absolute inset-0 input-glow-veil rounded-2xl blur-2xl opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-all duration-500 pointer-events-none bg-gradient-to-r from-primary-500/20 via-primary-400/20 to-primary-500/20" />
+        <div className="relative bg-white dark:bg-zinc-800/90 backdrop-blur-sm border border-gray-200/60 dark:border-zinc-700/50 focus-within:border-primary-500/50 focus-within:ring-4 focus-within:ring-primary-500/10 rounded-2xl transition-all duration-300 p-3.5 shadow-lg hover:shadow-xl">
           {showEditing && (
-            <div className="flex items-center justify-between bg-gray-200 dark:bg-zinc-700/50 rounded-lg px-3 py-2 mb-2 ">
+            <div className="flex items-center justify-between bg-gray-100 dark:bg-zinc-700/50 rounded-xl px-4 py-2.5 mb-3 border border-gray-200/50 dark:border-zinc-600/50">
               <div className="flex items-center gap-3 overflow-hidden">
                 <div className="flex flex-col">
-                  <span className="text-xs font-semibold text-primary-600 dark:text-primary-400 uppercase tracking-wide">
+                  <span className="text-xs font-bold text-primary-600 dark:text-primary-400 uppercase tracking-wider">
                     Editing
                   </span>
-                  <span className="text-sm text-gray-600 dark:text-gray-300 truncate max-w-[200px] md:max-w-md">
+                  <span className="text-sm text-gray-700 dark:text-gray-200 truncate max-w-[200px] md:max-w-md font-medium">
                     {editingLabel}
                   </span>
                 </div>
               </div>
               <button
                 onClick={() => onEditingClear?.()}
-                className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors rounded-full hover:bg-gray-300 dark:hover:bg-zinc-600"
+                className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors rounded-lg hover:bg-gray-200 dark:hover:bg-zinc-600"
               >
                 <X size={14} />
               </button>
@@ -822,20 +894,20 @@ const ChatInputBar = React.memo(
           )}
 
           {quotedText && (
-            <div className="flex items-center justify-between bg-gray-200 dark:bg-zinc-700/50 rounded-lg px-3 py-2 mb-2">
+            <div className="flex items-center justify-between bg-gray-100 dark:bg-zinc-700/50 rounded-xl px-4 py-2.5 mb-3 border border-gray-200/50 dark:border-zinc-600/50">
               <div className="flex items-center gap-3 overflow-hidden">
                 <div className="flex flex-col min-w-0">
-                  <span className="text-xs font-semibold text-primary-600 dark:text-primary-400 uppercase tracking-wide">
+                  <span className="text-xs font-bold text-primary-600 dark:text-primary-400 uppercase tracking-wider">
                     Quote
                   </span>
-                  <span className="text-sm text-gray-600 dark:text-gray-300 truncate max-w-[200px] md:max-w-md italic">
+                  <span className="text-sm text-gray-700 dark:text-gray-200 truncate max-w-[200px] md:max-w-md italic">
                     &quot;{quotedText}&quot;
                   </span>
                 </div>
               </div>
               <button
                 onClick={onQuoteClear}
-                className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors rounded-full hover:bg-gray-300 dark:hover:bg-zinc-600"
+                className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors rounded-lg hover:bg-gray-200 dark:hover:bg-zinc-600"
               >
                 <X size={14} />
               </button>
@@ -843,7 +915,7 @@ const ChatInputBar = React.memo(
           )}
 
           {attachments.length > 0 && (
-            <div className="flex gap-2 mb-3 px-2 py-2 overflow-x-auto rounded-xl border border-gray-200/70 dark:border-zinc-700/50 bg-white/70 dark:bg-[#202222]/70">
+            <div className="flex gap-2.5 mb-3 px-2 py-2 overflow-x-auto rounded-xl border border-gray-200/70 dark:border-zinc-700/50 bg-white/70 dark:bg-[#202222]/70">
               {attachments.map((att, idx) => (
                 <div key={idx} className="relative group shrink-0">
                   <div className="w-16 h-16 rounded-xl overflow-hidden border border-gray-200 dark:border-zinc-700 shadow-sm">
@@ -855,7 +927,7 @@ const ChatInputBar = React.memo(
                   </div>
                   <button
                     onClick={() => setAttachments(attachments.filter((_, i) => i !== idx))}
-                    className="absolute -top-1.5 -right-1.5 bg-gray-900 text-white rounded-full p-0.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shadow-md"
+                    className="absolute -top-1.5 -right-1.5 bg-gray-900 text-white rounded-full p-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-200 shadow-md hover:bg-red-500"
                   >
                     <X size={12} />
                   </button>
@@ -864,17 +936,17 @@ const ChatInputBar = React.memo(
             </div>
           )}
 
-          <div className="relative w-full flex items-center min-h-[44px]">
+          <div className="relative w-full flex items-center min-h-[48px]">
             {inputValue && (
               <div
                 aria-hidden="true"
-                className="pointer-events-none absolute inset-0 py-3 flex items-center text-base leading-[1.6] whitespace-pre-wrap break-words text-gray-900 dark:text-gray-100"
+                className="pointer-events-none absolute inset-0 py-3.5 flex items-center text-[15px] leading-[1.6] whitespace-pre-wrap break-words text-gray-900 dark:text-gray-100"
               >
                 {highlightedInputParts.map((part, index) =>
                   part.type === 'url' ? (
                     <span
                       key={`url-${index}`}
-                      className="bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 rounded-sm underline decoration-primary-400/70"
+                      className="bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 rounded-md underline decoration-primary-400/70 underline-offset-2"
                     >
                       {part.value}
                     </span>
@@ -891,13 +963,13 @@ const ChatInputBar = React.memo(
               onChange={e => setInputValue(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder={t('chatInterface.askFollowUp')}
-              className="relative z-10 w-full bg-transparent border-none outline-none resize-none text-base leading-[1.6] text-transparent caret-gray-900 dark:caret-gray-100 placeholder-gray-500 dark:placeholder-gray-400 min-h-[48px] max-h-[200px] overflow-y-auto py-3 disabled:cursor-not-allowed"
+              className="relative z-10 w-full bg-transparent border-none outline-none resize-none text-[15px] leading-[1.6] text-transparent caret-gray-900 dark:caret-gray-100 placeholder-gray-400 dark:placeholder-gray-500 min-h-[48px] max-h-[200px] overflow-y-auto py-3.5 disabled:cursor-not-allowed"
               rows={1}
             />
           </div>
 
-          <div className="flex justify-between items-center mt-2">
-            <div className="flex gap-2">
+          <div className="flex justify-between items-center mt-3 pt-2 border-t border-gray-100 dark:border-zinc-700/50">
+            <div className="flex gap-1.5">
               <input
                 type="file"
                 ref={fileInputRef}
@@ -911,32 +983,39 @@ const ChatInputBar = React.memo(
                   type="button"
                   onClick={() => setIsUploadMenuOpen(prev => !prev)}
                   className={clsx(
-                    'p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium',
+                    'p-2.5 hover:bg-gray-100 dark:hover:bg-zinc-700 rounded-xl transition-all duration-200 flex items-center gap-2 text-sm font-medium',
                     attachments.length > 0
-                      ? 'text-primary-500'
+                      ? 'text-primary-500 bg-primary-50 dark:bg-primary-900/20'
                       : 'text-gray-500 dark:text-gray-400',
                   )}
+                  aria-label={t('common.upload')}
+                  aria-expanded={isUploadMenuOpen}
+                  aria-haspopup="menu"
                 >
-                  <Paperclip size={18} />
+                  <Paperclip size={18} strokeWidth={2} />
                 </button>
                 {isUploadMenuOpen && (
-                  <div className="absolute bottom-full left-0 mb-2 w-48 bg-white dark:bg-[#202222] border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl z-30 overflow-hidden">
+                  <div className="absolute bottom-full left-0 mb-2 w-56 bg-white dark:bg-[#202222] border border-gray-200 dark:border-zinc-700 rounded-2xl shadow-2xl z-30 overflow-hidden animate-in slide-in-from-bottom-2">
                     <div className="p-2 flex flex-col gap-1">
                       <button
                         type="button"
                         onClick={handleUploadImage}
-                        className="flex items-center gap-2 w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left text-sm text-gray-700 dark:text-gray-200"
+                        className="flex items-center gap-3 w-full px-4 py-2.5 rounded-xl hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left text-sm text-gray-700 dark:text-gray-200 font-medium"
                       >
-                        <Image size={16} />
-                        {t('common.upload')}
+                        <div className="p-1.5 bg-primary-100 dark:bg-primary-900/30 rounded-lg">
+                          <Image size={16} className="text-primary-500" />
+                        </div>
+                        {t('common.uploadImage')}
                       </button>
                       <button
                         type="button"
                         disabled
                         onClick={() => setIsUploadMenuOpen(false)}
-                        className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-left text-sm text-gray-400 dark:text-gray-500 cursor-not-allowed"
+                        className="flex items-center gap-3 w-full px-4 py-2.5 rounded-xl text-left text-sm text-gray-400 dark:text-gray-500 cursor-not-allowed opacity-60"
                       >
-                        <FileText size={16} />
+                        <div className="p-1.5 bg-gray-100 dark:bg-zinc-800 rounded-lg">
+                          <FileText size={16} />
+                        </div>
                         {t('common.uploadDocument')}
                       </button>
                     </div>
@@ -947,28 +1026,28 @@ const ChatInputBar = React.memo(
                 disabled={isThinkingLocked}
                 onClick={onToggleThinking}
                 className={clsx(
-                  'p-2 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium',
+                  'p-2.5 rounded-xl transition-all duration-200 flex items-center gap-2 text-sm font-medium',
                   isThinkingActive
-                    ? 'text-primary-500 bg-gray-200 dark:bg-zinc-700'
+                    ? 'text-primary-500 bg-primary-50 dark:bg-primary-900/20'
                     : 'text-gray-500 dark:text-gray-400',
                   isThinkingLocked && 'opacity-60 cursor-not-allowed',
-                  !isThinkingLocked && 'hover:bg-gray-200 dark:hover:bg-zinc-700',
+                  !isThinkingLocked && 'hover:bg-gray-100 dark:hover:bg-zinc-700',
                 )}
               >
-                <Brain size={18} />
+                <Brain size={18} strokeWidth={2} />
                 <span className="hidden md:inline">{t('homeView.think')}</span>
               </button>
               <button
                 disabled={!apiProvider || !providerSupportsSearch(apiProvider)}
                 onClick={onToggleSearch}
                 className={clsx(
-                  'p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium',
+                  'p-2.5 hover:bg-gray-100 dark:hover:bg-zinc-700 rounded-xl transition-all duration-200 flex items-center gap-2 text-sm font-medium',
                   isSearchActive
-                    ? 'text-primary-500 bg-gray-200 dark:bg-zinc-700'
+                    ? 'text-primary-500 bg-primary-50 dark:bg-primary-900/20'
                     : 'text-gray-500 dark:text-gray-400',
                 )}
               >
-                <Globe size={18} />
+                <Globe size={18} strokeWidth={2} />
                 <span className="hidden md:inline">{t('homeView.search')}</span>
               </button>
               <div className="relative" ref={agentSelectorRef}>
@@ -980,15 +1059,18 @@ const ChatInputBar = React.memo(
                     onAgentSelectorToggle()
                   }}
                   className={clsx(
-                    'p-2 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium',
+                    'p-2.5 hover:bg-gray-100 dark:hover:bg-zinc-700 rounded-xl transition-all duration-200 flex items-center gap-2 text-sm font-medium',
                     selectedAgent || isAgentAutoMode
-                      ? 'text-primary-500 bg-gray-200 dark:bg-zinc-700'
+                      ? 'text-primary-500 bg-primary-50 dark:bg-primary-900/20'
                       : 'text-gray-500 dark:text-gray-400',
                   )}
                   disabled={agentsLoading}
+                  aria-label={t('chatInterface.agentsLabel')}
+                  aria-expanded={isAgentSelectorOpen}
+                  aria-haspopup="menu"
                 >
                   {isAgentAutoMode || !selectedAgent ? (
-                    <Smile size={18} />
+                    <Smile size={18} strokeWidth={2} />
                   ) : (
                     <EmojiDisplay emoji={selectedAgent.emoji} size="1.125rem" />
                   )}
@@ -1004,32 +1086,34 @@ const ChatInputBar = React.memo(
                         ? t('chatInterface.agentAuto')
                         : getAgentDisplayName(selectedAgent, t) || t('chatInterface.agentsLabel')}
                   </span>
-                  <ChevronDown size={14} />
+                  <ChevronDown size={14} strokeWidth={2} />
                 </button>
                 {isAgentSelectorOpen && (
-                  <div className="absolute bottom-full left-0 mb-2 w-56 bg-white dark:bg-[#202222] border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl z-30 overflow-hidden">
+                  <div className="absolute bottom-full left-0 mb-2 w-64 bg-white dark:bg-[#202222] border border-gray-200 dark:border-zinc-700 rounded-2xl shadow-2xl z-30 overflow-hidden animate-in slide-in-from-bottom-2">
                     <div className="p-2 flex flex-col gap-1">
                       {/* Auto mode option */}
                       <button
                         type="button"
                         onClick={() => onAgentAutoModeToggle()}
                         className={clsx(
-                          'flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left',
+                          'flex items-center justify-between w-full px-4 py-2.5 rounded-xl hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left',
                           isAgentAutoMode ? 'text-primary-500' : 'text-gray-700 dark:text-gray-200',
                         )}
                       >
                         <div className="flex items-center gap-3">
-                          <span className="text-lg">🤖</span>
+                          <span className="text-lg p-1 bg-gray-100 dark:bg-zinc-800 rounded-lg">
+                            🤖
+                          </span>
                           <span className="text-sm font-medium truncate">
                             {t('chatInterface.agentAuto')}
                           </span>
                         </div>
-                        {isAgentAutoMode && <Check size={14} className="text-primary-500" />}
+                        {isAgentAutoMode && <Check size={16} className="text-primary-500" />}
                       </button>
                       <div className="h-px bg-gray-100 dark:bg-zinc-800 my-1" />
                       {/* Manual agent options */}
                       {agents.length === 0 ? (
-                        <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
+                        <div className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
                           {t('chatInterface.agentsNone')}
                         </div>
                       ) : (
@@ -1042,22 +1126,22 @@ const ChatInputBar = React.memo(
                               key={agent.id}
                               type="button"
                               onClick={() => onAgentSelect(agent)}
-                              className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left"
+                              className="flex items-center justify-between w-full px-4 py-2.5 rounded-xl hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left"
                             >
-                              <div className="flex items-center gap-2">
-                                <span className="text-lg">
+                              <div className="flex items-center gap-3">
+                                <span className="text-lg p-1 bg-gray-100 dark:bg-zinc-800 rounded-lg">
                                   <EmojiDisplay emoji={agent.emoji} size="1.125rem" />
                                 </span>
                                 <span className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate">
                                   {getAgentDisplayName(agent, t)}
                                 </span>
                                 {isDefault && (
-                                  <span className="text-xs px-1.5 py-0.5 bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 rounded-md font-medium">
+                                  <span className="text-xs px-2 py-0.5 bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 rounded-md font-medium">
                                     {t('chatInterface.default')}
                                   </span>
                                 )}
                               </div>
-                              {isSelected && <Check size={14} className="text-primary-500" />}
+                              {isSelected && <Check size={16} className="text-primary-500" />}
                             </button>
                           )
                         })
@@ -1070,11 +1154,22 @@ const ChatInputBar = React.memo(
 
             <div className="flex gap-2">
               <button
-                onClick={handleSend}
-                disabled={isLoading || (!inputValue.trim() && attachments.length === 0)}
-                className="p-2 bg-primary-500 dark:bg-primary-800 hover:bg-primary-600 text-white rounded-full transition-colors disabled:opacity-50  disabled:hover:bg-primary-500"
+                onClick={isLoading ? onStop : handleSend}
+                disabled={!isLoading && !inputValue.trim() && attachments.length === 0}
+                className={clsx(
+                  'p-2.5 rounded-xl transition-all duration-300 flex items-center justify-center shadow-sm',
+                  isLoading
+                    ? 'bg-gray-200 dark:bg-zinc-700 text-gray-900 dark:text-white hover:bg-gray-300 dark:hover:bg-zinc-600'
+                    : inputValue.trim() || attachments.length > 0
+                      ? 'bg-primary-500 text-white hover:bg-primary-600 hover:scale-105 active:scale-95 shadow-md hover:shadow-lg'
+                      : 'bg-gray-100 dark:bg-zinc-700 text-gray-400 dark:text-zinc-500 cursor-not-allowed',
+                )}
               >
-                <ArrowRight size={18} />
+                {isLoading ? (
+                  <Square size={16} fill="currentColor" strokeWidth={2.5} />
+                ) : (
+                  <ArrowRight size={20} strokeWidth={2.5} />
+                )}
               </button>
             </div>
           </div>

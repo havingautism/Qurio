@@ -673,7 +673,7 @@ const Sidebar = ({
 
       <div
         className={clsx(
-          'fixed left-0 top-0 h-[100dvh] z-50 flex transition-transform duration-300 md:translate-x-0',
+          'fixed left-0 top-0 h-dvh z-90 flex transition-transform duration-300 md:translate-x-0',
           // On mobile, control via isOpen. On desktop, always visible (handled by layout margin)
           // Actually, fixed sidebar on desktop is always visible (icon strip).
           // Mobile: hidden by default (-translate-x-full), shown if isOpen
@@ -700,14 +700,15 @@ const Sidebar = ({
           <div className="mb-6">
             <button
               onClick={() => onNavigate('home')}
-              className="w-10 h-10 flex items-center justify-center rounded-full bg-user-bubble dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-transform duration-200 hover:scale-110 active:scale-95 cursor-pointer"
+              className="w-10 h-10 flex items-center justify-center rounded-xl bg-user-bubble dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-all duration-300 hover:scale-110 hover:bg-primary-500 hover:text-white active:scale-95 cursor-pointer shadow-sm hover:shadow-md"
+              title={t('sidebar.newChat')}
             >
               <Plus size={20} />
             </button>
           </div>
 
           {/* Nav Icons */}
-          <div className="flex flex-col gap-4 w-full">
+          <div className="flex flex-col gap-3 w-full px-1">
             {navItems.map(item => (
               <button
                 key={item.id}
@@ -724,25 +725,37 @@ const Sidebar = ({
                 }}
                 onMouseEnter={() => setHoveredTab(item.id)}
                 className={clsx(
-                  'flex flex-col items-center justify-center py-2 mx-2 rounded-xl transition-all duration-200 cursor-pointer group',
+                  'flex flex-col items-center justify-center py-2.5 px-1 rounded-xl transition-all duration-300 cursor-pointer group relative overflow-hidden',
                   activeTab === item.id
                     ? 'text-primary-500 dark:text-primary-400'
                     : 'text-[#13343bbf] dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200',
                 )}
               >
+                {/* Active indicator bar - removed */}
+                {/* Hover background effect */}
                 <div
                   className={clsx(
-                    'p-3 rounded-lg transition-all',
+                    'absolute inset-0 rounded-xl transition-opacity duration-200',
                     activeTab === item.id
-                      ? 'bg-user-bubble dark:bg-user-bubble/10'
-                      : 'group-hover:bg-user-bubble dark:group-hover:bg-zinc-800/50',
+                      ? 'bg-primary-500/10 dark:bg-primary-500/20'
+                      : 'opacity-0 group-hover:opacity-100 bg-gray-100 dark:bg-zinc-800/50',
                   )}
-                >
-                  <item.icon size={20} />
+                />
+                <div className="flex flex-col items-center gap-0.5 relative z-10">
+                  <div className="p-1.5 rounded-xl transition-all duration-300">
+                    <item.icon size={20} strokeWidth={activeTab === item.id ? 2.5 : 2} />
+                  </div>
+                  <span
+                    className={clsx(
+                      'text-[10px] font-semibold font-sans transition-all duration-300 overflow-hidden',
+                      activeTab === item.id
+                        ? 'max-h-[14px] opacity-100'
+                        : 'max-h-0 md:max-h-[14px] md:opacity-0 md:group-hover:max-h-[14px] md:group-hover:opacity-100',
+                    )}
+                  >
+                    {item.label}
+                  </span>
                 </div>
-                <span className="text-[11px] font-semibold font-sans overflow-hidden transition-all duration-300 ease-in-out max-h-[20px] opacity-100 mt-1 md:max-h-0 md:opacity-0 md:mt-0 md:group-hover:max-h-[20px] md:group-hover:opacity-100 md:group-hover:mt-1">
-                  {item.label}
-                </span>
               </button>
             ))}
           </div>
@@ -750,28 +763,28 @@ const Sidebar = ({
           {/* Spacer */}
           <div className="flex-1" />
 
-          {/* Theme Toggle Button */}
-          <div className="flex flex-col items-center gap-3">
+          {/* Bottom Action Buttons */}
+          <div className="flex flex-col items-center gap-2 pb-2">
             <button
               onClick={onToggleTheme}
-              className="w-10 h-10 flex items-center justify-center rounded-full bg-user-bubble dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-transform duration-200 hover:scale-110 active:scale-95 cursor-pointer"
-              //  title={`Current theme: ${theme}`}
+              className="w-10 h-10 flex items-center justify-center rounded-xl bg-user-bubble dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-all duration-300 hover:scale-105 hover:bg-gray-100 dark:hover:bg-zinc-700 active:scale-95 cursor-pointer shadow-sm hover:shadow-md"
+              title={`Current theme: ${theme}`}
             >
               {getThemeIcon()}
             </button>
 
-            {/* Tools Button */}
             <button
               onClick={onOpenTools}
-              className="w-10 h-10 flex items-center justify-center rounded-full bg-user-bubble dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-transform duration-200 hover:scale-110 active:scale-95 cursor-pointer"
+              className="w-10 h-10 flex items-center justify-center rounded-xl bg-user-bubble dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-all duration-300 hover:scale-105 hover:bg-gray-100 dark:hover:bg-zinc-700 active:scale-95 cursor-pointer shadow-sm hover:shadow-md"
+              title={t('sidebar.tools')}
             >
               <Blocks size={20} />
             </button>
 
-            {/* Settings Button (Icon Only) */}
             <button
               onClick={onOpenSettings}
-              className="w-10 h-10 flex items-center justify-center rounded-full bg-user-bubble dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-transform duration-200 hover:scale-110 active:scale-95 cursor-pointer"
+              className="w-10 h-10 flex items-center justify-center rounded-xl bg-user-bubble dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-all duration-300 hover:scale-105 hover:bg-gray-100 dark:hover:bg-zinc-700 active:scale-95 cursor-pointer shadow-sm hover:shadow-md"
+              title={t('sidebar.settings')}
             >
               <Settings size={20} />
             </button>
@@ -811,7 +824,7 @@ const Sidebar = ({
                     so users know they can go there. */}
                 <button
                   onClick={() => onNavigate(displayTab)}
-                  className="md:hidden px-2 py-1 text-xs font-medium rounded bg-user-bubble dark:bg-zinc-800 hover:bg-user-bubble/10 dark:hover:bg-zinc-700 text-gray-700 dark:text-gray-200 transition-colors"
+                  className="md:hidden px-2 py-1 text-xs font-medium rounded-md bg-user-bubble dark:bg-zinc-800 hover:bg-user-bubble/10 dark:hover:bg-zinc-700 text-gray-700 dark:text-gray-200 transition-colors"
                 >
                   {t('sidebar.seeAll')}
                 </button>
@@ -876,40 +889,41 @@ const Sidebar = ({
                                 onOpenConversation && onOpenConversation(conv)
                               }}
                               className={clsx(
-                                'text-sm p-2 rounded cursor-pointer truncate transition-colors group relative',
+                                'text-sm p-2.5 rounded-xl cursor-pointer truncate transition-all duration-200 group relative overflow-hidden',
                                 isActive
-                                  ? 'bg-primary-500/10 dark:bg-primary-500/20 border border-primary-500/30 text-primary-700 dark:text-primary-300'
-                                  : 'text-gray-700 dark:text-gray-300 hover:bg-primary-50 dark:hover:bg-zinc-800',
+                                  ? 'bg-primary-500/10 dark:bg-primary-500/20 border border-primary-500/30 text-primary-700 dark:text-primary-300 shadow-sm'
+                                  : 'text-gray-700 dark:text-gray-300 hover:bg-primary-50 dark:hover:bg-zinc-800 hover:shadow-sm',
                                 isExpanded &&
-                                  'bg-primary-50/70 dark:bg-primary-900/20  border-primary-200/60  dark:border-primary-800/60 ring-1 ring-primary-100/70 dark:ring-primary-800/60',
+                                  'bg-primary-50/70 dark:bg-primary-900/20 border-primary-200/60 dark:border-primary-800/60 ring-1 ring-primary-100/70 dark:ring-primary-800/60',
                               )}
                               title={conv.title}
                             >
-                              <div className="flex items-center justify-between w-full overflow-hidden">
+                              {/* Hover shine effect removed */}
+                              <div className="flex items-center justify-between w-full overflow-hidden relative z-10">
                                 <div className="flex items-center gap-3 overflow-hidden flex-1 min-w-0">
-                                  <div className="w-8 h-8 rounded bg-transparent flex items-center justify-center shrink-0 text-base">
+                                  <div className="w-9 h-9 rounded-lg bg-primary-100/50 dark:bg-primary-900/30 flex items-center justify-center shrink-0 text-base">
                                     <EmojiDisplay
                                       emoji={resolveConversationEmoji(conv, space?.emoji)}
-                                      size="1.4em"
+                                      size="1.3em"
                                       className="shrink-0"
                                     />
                                   </div>
                                   <div className="flex flex-col overflow-hidden flex-1 min-w-0">
-                                    <div className="flex items-center gap-1 min-w-0">
+                                    <div className="flex items-center gap-1.5 min-w-0">
                                       <span className="truncate font-medium flex-1 min-w-0">
                                         {conv.title}
                                       </span>
                                       {conv.is_favorited && (
                                         <Bookmark
-                                          size={12}
-                                          className="text-primary-500 fill-current shrink-0"
+                                          size={13}
+                                          className="text-amber-500 fill-current shrink-0"
                                         />
                                       )}
                                       {renderConversationStatusDot(conversationStatuses[conv.id])}
                                     </div>
                                     <span
                                       className={clsx(
-                                        'text-xs',
+                                        'text-[11px] mt-0.5',
                                         isActive
                                           ? 'text-primary-600 dark:text-primary-400'
                                           : 'text-gray-400',
@@ -929,13 +943,13 @@ const Sidebar = ({
                                       )
                                     }}
                                     className={clsx(
-                                      'p-1.5 rounded-md hover:bg-gray-300 dark:hover:bg-zinc-700 transition-all',
+                                      'p-2 rounded-lg transition-all duration-200',
                                       isActive
-                                        ? 'text-primary-600 dark:text-primary-400 bg-primary-100 dark:bg-primary-900/20'
-                                        : 'text-gray-500 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-zinc-700',
+                                        ? 'text-primary-600 dark:text-primary-400 bg-primary-100 dark:bg-primary-900/30'
+                                        : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-200 dark:hover:bg-zinc-700',
                                       'opacity-100',
                                       'md:opacity-0 md:group-hover:opacity-100',
-                                      'min-w-[32px] min-h-[32px] flex items-center justify-center',
+                                      'min-w-[36px] min-h-[36px] flex items-center justify-center',
                                     )}
                                   >
                                     {isExpanded ? (
@@ -948,7 +962,7 @@ const Sidebar = ({
                               </div>
                             </div>
                             {isExpanded && (
-                              <div className="grid grid-cols-2 gap-2 mt-2 px-2 text-xs">
+                              <div className="grid grid-cols-2 gap-2 mt-2 px-2 pb-1">
                                 <button
                                   onClick={e => {
                                     e.stopPropagation()
@@ -956,10 +970,10 @@ const Sidebar = ({
                                     closeActions()
                                   }}
                                   className={clsx(
-                                    'py-1.5 rounded-md transition-colors flex items-center justify-center gap-1.5 font-medium border border-transparent',
+                                    'py-2 rounded-lg transition-all duration-200 flex items-center justify-center gap-1.5 font-medium border',
                                     conv.is_favorited
-                                      ? 'bg-primary-50 text-primary-500 border-primary-50 dark:bg-primary-600/20 dark:text-primary-500 dark:border-primary-50/30'
-                                      : 'text-gray-500 dark:text-gray-400 hover:bg-primary-50 dark:hover:bg-zinc-700 hover:text-primary-600 dark:hover:text-primary-400',
+                                      ? 'bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800/30'
+                                      : 'text-gray-500 dark:text-gray-400 hover:bg-primary-50 dark:hover:bg-zinc-700 hover:text-primary-600 dark:hover:text-primary-400 border-transparent hover:border-primary-200 dark:hover:border-primary-800/30',
                                   )}
                                   title={
                                     conv.is_favorited
@@ -968,11 +982,11 @@ const Sidebar = ({
                                   }
                                 >
                                   <Bookmark
-                                    size={13}
+                                    size={14}
                                     className={conv.is_favorited ? 'fill-current' : ''}
                                   />
-                                  <span className="truncate">
-                                    {conv.is_favorited ? t('sidebar.added') : t('sidebar.add')}
+                                  <span className="text-xs">
+                                    {conv.is_favorited ? t('sidebar.saved') : t('sidebar.save')}
                                   </span>
                                 </button>
                                 <button
@@ -980,10 +994,10 @@ const Sidebar = ({
                                     e.stopPropagation()
                                     handleDeleteConversation(conv)
                                   }}
-                                  className="py-1.5 rounded-md transition-colors flex items-center justify-center gap-1.5 font-medium border border-transparent text-gray-500 dark:text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400 hover:border-red-100 dark:hover:border-red-800/30"
+                                  className="py-2 rounded-lg transition-all duration-200 flex items-center justify-center gap-1.5 font-medium border border-transparent text-gray-500 dark:text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400 hover:border-red-100 dark:hover:border-red-800/30"
                                 >
-                                  <Trash2 size={13} />
-                                  <span>{t('sidebar.delete')}</span>
+                                  <Trash2 size={14} />
+                                  <span className="text-xs">{t('sidebar.delete')}</span>
                                 </button>
                               </div>
                             )}
@@ -1003,7 +1017,7 @@ const Sidebar = ({
                           fetchConversations(false)
                         }}
                         disabled={loadingMore}
-                        className="w-full py-2 text-xs font-medium text-gray-700 dark:text-gray-200 bg-user-bubble dark:bg-zinc-800 hover:transform hover:translate-y-[-2px] rounded transition-colors flex items-center justify-center gap-2"
+                        className="w-full py-2 text-xs font-medium text-gray-700 rounded-xl dark:text-gray-200 bg-user-bubble dark:bg-zinc-800 hover:transform hover:translate-y-[-2px] transition-colors flex items-center justify-center gap-2"
                       >
                         {loadingMore ? <DotLoader /> : t('sidebar.loadMore')}
                       </button>
@@ -1047,18 +1061,18 @@ const Sidebar = ({
                                   onOpenConversation && onOpenConversation(conv)
                                 }}
                                 className={clsx(
-                                  'text-sm p-2 rounded cursor-pointer truncate transition-colors group relative',
+                                  'text-sm p-2.5 rounded-xl cursor-pointer truncate transition-all duration-200 group relative',
                                   isActive
                                     ? 'bg-primary-500/10 dark:bg-primary-500/20 border border-primary-500/30 text-primary-700 dark:text-primary-300'
                                     : 'text-gray-700 dark:text-gray-300 hover:bg-primary-50 dark:hover:bg-zinc-800',
                                   isExpanded &&
-                                    'bg-primary-50/70 dark:bg-primary-900/20  border-primary-200/60  dark:border-primary-800/60 ring-1 ring-primary-100/70 dark:ring-primary-800/60',
+                                    'bg-primary-50/70 dark:bg-primary-900/20 border-primary-200/60 dark:border-primary-800/60 ring-1 ring-primary-100/70 dark:ring-primary-800/60',
                                 )}
                                 title={conv.title}
                               >
-                                <div className="flex items-center justify-between w-full overflow-hidden">
+                                <div className="flex items-center justify-between w-full overflow-hidden relative z-10">
                                   <div className="flex items-center gap-3 overflow-hidden flex-1 min-w-0">
-                                    <div className="w-8 h-8 rounded bg-transparent flex items-center justify-center shrink-0 text-base">
+                                    <div className="w-9 h-9 rounded-lg bg-primary-100/50 dark:bg-primary-900/30 flex items-center justify-center shrink-0 text-base">
                                       <EmojiDisplay
                                         emoji={resolveConversationEmoji(conv, space?.emoji)}
                                         size="1.4em"
@@ -1207,7 +1221,7 @@ const Sidebar = ({
                             onOpenConversation && onOpenConversation(conv)
                           }}
                           className={clsx(
-                            'text-sm p-2 rounded cursor-pointer truncate transition-colors group relative',
+                            'text-sm p-2.5 rounded-xl cursor-pointer truncate transition-all duration-200 group relative',
                             isActive
                               ? 'bg-primary-500/10 dark:bg-primary-500/20 border border-primary-500/30 text-primary-700 dark:text-primary-300'
                               : 'text-gray-700 dark:text-gray-300 hover:bg-primary-50 dark:hover:bg-zinc-800',
@@ -1216,9 +1230,9 @@ const Sidebar = ({
                           )}
                           title={conv.title}
                         >
-                          <div className="flex items-center justify-between w-full overflow-hidden">
+                          <div className="flex items-center justify-between w-full overflow-hidden relative z-10">
                             <div className="flex items-center gap-3 overflow-hidden flex-1 min-w-0">
-                              <div className="w-8 h-8 rounded bg-transparent flex items-center justify-center shrink-0 text-base">
+                              <div className="w-9 h-9 rounded-lg bg-primary-100/50 dark:bg-primary-900/30 flex items-center justify-center shrink-0 text-base">
                                 <EmojiDisplay
                                   emoji={resolveConversationEmoji(conv, space?.emoji)}
                                   size="1.4em"
@@ -1356,12 +1370,14 @@ const Sidebar = ({
                 {/* Create New Space */}
                 <button
                   onClick={onCreateSpace}
-                  className="flex items-center gap-3 bg-user-bubble hover:scale-105 dark:bg-zinc-800 transition-transform p-2 rounded-lg hover:bg-user-bubble dark:hover:bg-user-bubble/10  text-gray-6600 dark:text-gray-300  w-full text-left cursor-pointer "
+                  className="flex items-center gap-3 bg-user-bubble hover:scale-105 dark:bg-zinc-800 transition-transform p-2.5 rounded-xl hover:bg-user-bubble dark:hover:bg-user-bubble/10 text-gray-600 dark:text-gray-300 w-full text-left cursor-pointer relative"
                 >
-                  <div className="w-8 h-8 rounded  flex items-center justify-center text-gray-700 dark:text-gray-100">
+                  <div className="w-9 h-9 rounded-lg bg-primary-100/50 dark:bg-primary-900/30 flex items-center justify-center shrink-0 text-base text-gray-700 dark:text-gray-100">
                     <Plus size={16} />
                   </div>
-                  <span className="text-sm font-medium">{t('sidebar.createNewSpace')}</span>
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {t('sidebar.createNewSpace')}
+                  </span>
                 </button>
 
                 <div className="h-px bg-gray-200 dark:bg-zinc-800 mb-2" />
@@ -1435,17 +1451,54 @@ const Sidebar = ({
                           <div key={conv.id} className="flex flex-col">
                             <div
                               data-conversation-id={conv.id}
+                              onClick={() => {
+                                if (expandedActionId) {
+                                  closeActions()
+                                  return
+                                }
+                                onOpenConversation && onOpenConversation(conv)
+                              }}
                               className={clsx(
-                                'group relative flex items-center justify-between text-sm py-1.5 px-2 rounded cursor-pointer truncate transition-colors',
+                                'text-sm p-2.5 rounded-xl cursor-pointer truncate transition-all duration-200 group relative',
                                 conv.id === activeConversationId
-                                  ? 'bg-primary-500/10 text-primary-700 dark:text-primary-300 font-medium'
-                                  : 'text-gray-600 dark:text-gray-400 hover:bg-primary-50 dark:hover:bg-zinc-800 hover:shadow-sm hover:ring-1 hover:ring-primary-200 dark:hover:ring-zinc-700 hover:z-10',
+                                  ? 'bg-primary-500/10 dark:bg-primary-500/20 border border-primary-500/30 text-primary-700 dark:text-primary-300'
+                                  : 'text-gray-600 dark:text-gray-400 hover:bg-primary-50 dark:hover:bg-zinc-800',
                               )}
-                              onClick={() => onOpenConversation && onOpenConversation(conv)}
                               title={conv.title}
                             >
-                              <div className="flex-1 truncate">
-                                {conv.title || t('sidebar.untitled')}
+                              <div className="flex items-center justify-between w-full overflow-hidden relative z-10">
+                                <div className="flex items-center gap-3 overflow-hidden flex-1 min-w-0">
+                                  <div className="w-9 h-9 rounded-lg bg-primary-100/50 dark:bg-primary-900/30 flex items-center justify-center shrink-0 text-base">
+                                    <EmojiDisplay
+                                      emoji={resolveConversationEmoji(conv, space?.emoji)}
+                                      size="1.4em"
+                                      className="shrink-0"
+                                    />
+                                  </div>
+                                  <div className="flex flex-col overflow-hidden flex-1 min-w-0">
+                                    <div className="flex items-center gap-1.5 min-w-0">
+                                      <span className="truncate font-medium flex-1 min-w-0">
+                                        {conv.title || t('sidebar.untitled')}
+                                      </span>
+                                      {conv.is_favorited && (
+                                        <Bookmark
+                                          size={13}
+                                          className="text-amber-500 fill-current shrink-0"
+                                        />
+                                      )}
+                                    </div>
+                                    <span
+                                      className={clsx(
+                                        'text-xs mt-0.5',
+                                        conv.id === activeConversationId
+                                          ? 'text-primary-600 dark:text-primary-400'
+                                          : 'text-gray-400',
+                                      )}
+                                    >
+                                      {formatDateTime(conv.updated_at || conv.created_at)}
+                                    </span>
+                                  </div>
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -1542,12 +1595,14 @@ const Sidebar = ({
                 {/* Create New Agent */}
                 <button
                   onClick={onCreateAgent}
-                  className="flex items-center gap-3 bg-user-bubble hover:scale-105 dark:bg-zinc-800 transition-transform p-2 rounded-lg hover:bg-user-bubble dark:hover:bg-user-bubble/10 text-gray-600 dark:text-gray-300 w-full text-left cursor-pointer"
+                  className="flex items-center gap-3 bg-user-bubble hover:scale-105 dark:bg-zinc-800 transition-transform p-2.5 rounded-xl hover:bg-user-bubble dark:hover:bg-user-bubble/10 text-gray-600 dark:text-gray-300 w-full text-left cursor-pointer relative"
                 >
-                  <div className="w-8 h-8 rounded flex items-center justify-center text-gray-700 dark:text-gray-100">
+                  <div className="w-9 h-9 rounded-lg bg-primary-100/50 dark:bg-primary-900/30 flex items-center justify-center shrink-0 text-base text-gray-700 dark:text-gray-100">
                     <Plus size={16} />
                   </div>
-                  <span className="text-sm font-medium">{t('sidebar.createNewAgent')}</span>
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {t('sidebar.createNewAgent')}
+                  </span>
                 </button>
 
                 <div className="h-px bg-gray-200 dark:bg-zinc-800 mb-2" />
@@ -1570,10 +1625,10 @@ const Sidebar = ({
                     <div
                       key={agent.id}
                       onClick={() => onEditAgent && onEditAgent(agent)}
-                      className="flex items-center justify-between p-2 rounded cursor-pointer transition-colors group hover:bg-primary-50 dark:hover:bg-zinc-800"
+                      className="flex items-center justify-between p-2.5 rounded-xl cursor-pointer transition-all duration-200 group hover:bg-primary-50 dark:hover:bg-zinc-800 relative"
                     >
                       <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <div className="w-8 h-8 rounded bg-transparent flex items-center justify-center shrink-0 text-base">
+                        <div className="w-9 h-9 rounded-lg bg-primary-100/50 dark:bg-primary-900/30 flex items-center justify-center shrink-0 text-base">
                           <EmojiDisplay emoji={agent.emoji} size="1.4em" className="shrink-0" />
                         </div>
                         <div className="flex flex-col min-w-0">
@@ -1581,7 +1636,7 @@ const Sidebar = ({
                             {getAgentDisplayName(agent, t)}
                           </span>
                           {getAgentDisplayDescription(agent, t) && (
-                            <span className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                            <span className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">
                               {getAgentDisplayDescription(agent, t)}
                             </span>
                           )}
@@ -1594,7 +1649,7 @@ const Sidebar = ({
                           e.stopPropagation()
                           onEditAgent && onEditAgent(agent)
                         }}
-                        className="p-1.5 rounded-md ml-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:bg-primary-50 dark:hover:bg-zinc-800 text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors shrink-0"
+                        className="p-2 rounded-lg ml-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:bg-gray-200 dark:hover:bg-zinc-700 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-all shrink-0"
                       >
                         <Settings size={16} />
                       </button>

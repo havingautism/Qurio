@@ -82,20 +82,6 @@ const ChatHeader = ({
 
   return (
     <div className="shrink-0 z-20 w-full border-b border-gray-200 dark:border-zinc-800 bg-background/80 backdrop-blur-md pb-1.5 pt-[calc(0.375rem+env(safe-area-inset-top))] transition-all flex justify-center">
-      <style>{`
-        @media (max-width: 640px) {
-          .chat-title-scroll {
-            overflow-x: auto;
-            overflow-y: hidden;
-            white-space: nowrap;
-            -webkit-overflow-scrolling: touch;
-            scrollbar-width: none;
-          }
-          .chat-title-scroll::-webkit-scrollbar {
-            display: none;
-          }
-        }
-      `}</style>
       <div className="w-full max-w-3xl flex items-center gap-1 px-3">
         {/* Mobile Menu Button */}
         <button
@@ -188,7 +174,7 @@ const ChatHeader = ({
             ) : (
               <span className="inline-flex items-center gap-2 min-w-0 ">
                 {activeEmoji && <EmojiDisplay emoji={activeEmoji} size="1.2rem" className="mb-1" />}
-                <span className="chat-title-scroll min-w-0 max-w-full">
+                <span className="overflow-x-auto whitespace-nowrap no-scrollbar min-w-0 max-w-full">
                   <span>{conversationTitle || 'New Conversation'}</span>
                 </span>
               </span>

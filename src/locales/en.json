@@ -13,7 +13,8 @@
     "commited": "Commited",
     "uploadImage": "Upload Image",
     "selectAll": "Select All",
-    "deselectAll": "Deselect All"
+    "deselectAll": "Deselect All",
+    "files": "Files"
   },
   "app": {
     "name": "Qurio",

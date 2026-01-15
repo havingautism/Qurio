@@ -263,6 +263,10 @@ const MessageBubble = ({
           })
 
           currentIndex += 2
+        } else {
+          // Orphan form submission (e.g. streaming started but no placeholder yet, or error)
+          // Mark as submitted but stop merging sequence
+          break
         }
       } else {
         // No more form submission pairs, stop
@@ -273,8 +277,8 @@ const MessageBubble = ({
     // Check if the chain is currently waiting for a continuation
     let isContinuationLoading = false
     if (isLoading && hasAnySubmission) {
-      // After the loop, currentIndex points to the last merged AI message
-      // Check if there's a [Form Submission] after it that's waiting for a response
+      // If we broke out of the loop because of an orphan submission or finished merging
+      // Check if we are at the end of the known chain
       const nextUserMsg = messages[currentIndex + 1]
       const nextAiMsg = messages[currentIndex + 2]
 
@@ -336,7 +340,16 @@ const MessageBubble = ({
     : []
   const formToolHistory = toolCallHistory.filter(item => item.name === 'interactive_form')
   const hasInteractiveForm = formToolHistory.length > 0
-  const isFormWaitingForInput = hasInteractiveForm && !mergedMessage._formSubmitted
+
+  const nextMsgForFormCheck = messages[messageIndex + 1]
+  const isFormInterrupted =
+    nextMsgForFormCheck &&
+    nextMsgForFormCheck.role === 'user' &&
+    (typeof nextMsgForFormCheck.content !== 'string' ||
+      !nextMsgForFormCheck.content.startsWith('[Form Submission]'))
+
+  const isFormWaitingForInput =
+    hasInteractiveForm && !mergedMessage._formSubmitted && !isFormInterrupted
 
   const getToolCallsForStep = useCallback(
     stepNumber =>
@@ -420,7 +433,7 @@ const MessageBubble = ({
           <span>{String(language || 'CODE').toUpperCase()}</span>
           <button
             onClick={() => copyToClipboard(codeText)}
-            className="px-2 py-1 rounded bg-gray-200 dark:bg-zinc-700 text-gray-700 dark:text-gray-200 text-[11px] opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+            className="px-2 py-1 rounded-md bg-gray-200 dark:bg-zinc-700 text-gray-700 dark:text-gray-200 text-[11px] opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
           >
             Copy
           </button>
@@ -1077,7 +1090,7 @@ const MessageBubble = ({
               <span>{langLabel}</span>
               <button
                 onClick={() => copyToClipboard(codeText)}
-                className="px-2 py-1 rounded bg-gray-200 dark:bg-zinc-700 text-gray-700 dark:text-gray-200 text-[11px] opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+                className="px-2 py-1 rounded-md bg-gray-200 dark:bg-zinc-700 text-gray-700 dark:text-gray-200 text-[11px] opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
               >
                 Copy
               </button>
@@ -1305,10 +1318,7 @@ const MessageBubble = ({
         }
 
         return (
-          <div
-            key={`tools-container-${idx}`}
-            className="relative z-30 flex flex-col gap-4"
-          >
+          <div key={`tools-container-${idx}`} className="relative z-30 flex flex-col gap-4">
             {/* Render regular tools */}
             {regularTools.length > 0 &&
               (developerMode ? (
@@ -1472,6 +1482,18 @@ const MessageBubble = ({
             {formTools.map((item, formIdx) => {
               const formData = parseFormPayload(item.arguments) || parseFormPayload(item.output)
 
+              // Check if flow continues with something other than form submission
+              const nextMsg = messages[messageIndex + 1]
+              const isInterruptedByDifferentMessage =
+                nextMsg &&
+                nextMsg.role === 'user' &&
+                (typeof nextMsg.content !== 'string' ||
+                  !nextMsg.content.startsWith('[Form Submission]'))
+
+              const shouldDisableForm = !!item._isSubmitted || isInterruptedByDifferentMessage
+
+              const isWaiting = !item._isSubmitted && !isInterruptedByDifferentMessage
+
               if (formData) {
                 return (
                   <InteractiveForm
@@ -1479,7 +1501,7 @@ const MessageBubble = ({
                     formData={formData}
                     onSubmit={handleFormSubmit}
                     messageId={message.id}
-                    isSubmitted={!!item._isSubmitted}
+                    isSubmitted={shouldDisableForm} // Disable if submitted OR interrupted
                     submittedValues={mergedMessage._formSubmittedValues || {}}
                     developerMode={developerMode}
                     onShowDetails={() => setActiveToolDetail(item)}

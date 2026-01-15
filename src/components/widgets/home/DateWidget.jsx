@@ -41,8 +41,6 @@ const DateWidget = () => {
       action={null}
       className="h-full min-h-[160px] relative overflow-hidden group"
     >
-      <div className="absolute -right-8 -bottom-8 w-32 h-32 bg-blue-500/20 rounded-full blur-2xl group-hover:bg-blue-500/30 transition-all duration-500" />
-
       <div className="flex flex-col h-full justify-between relative z-10">
         <div>
           <h2 className="text-3xl font-light text-gray-800 dark:text-white mb-1">{weekDay}</h2>

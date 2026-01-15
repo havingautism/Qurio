@@ -113,7 +113,6 @@ export const THEMES = {
       '--user-bubble': '#ecfdf5',
     },
   },
-
   charcoal: {
     label: 'Charcoal Gray',
     colors: {
@@ -146,6 +145,58 @@ export const THEMES = {
       '--color-primary-900': '#592B1E',
       '--color-primary-950': '#33160F',
       '--user-bubble': '#f7f2f1',
+    },
+  },
+  // New modern themes
+  sunset: {
+    label: 'Sunset',
+    colors: {
+      '--color-primary-50': '#fff7ed',
+      '--color-primary-100': '#ffedd5',
+      '--color-primary-200': '#fed7aa',
+      '--color-primary-300': '#fdba74',
+      '--color-primary-400': '#fb923c',
+      '--color-primary-500': '#f97316',
+      '--color-primary-600': '#ea580c',
+      '--color-primary-700': '#c2410c',
+      '--color-primary-800': '#9a3412',
+      '--color-primary-900': '#7c2d12',
+      '--color-primary-950': '#431407',
+      '--user-bubble': '#fff7ed',
+    },
+  },
+  rose: {
+    label: 'Rose',
+    colors: {
+      '--color-primary-50': '#fff1f2',
+      '--color-primary-100': '#ffe4e6',
+      '--color-primary-200': '#fecdd3',
+      '--color-primary-300': '#fda4af',
+      '--color-primary-400': '#fb7185',
+      '--color-primary-500': '#f43f5e',
+      '--color-primary-600': '#e11d48',
+      '--color-primary-700': '#be123c',
+      '--color-primary-800': '#9f1239',
+      '--color-primary-900': '#881337',
+      '--color-primary-950': '#4c0519',
+      '--user-bubble': '#fff1f2',
+    },
+  },
+  indigo: {
+    label: 'Indigo',
+    colors: {
+      '--color-primary-50': '#eef2ff',
+      '--color-primary-100': '#e0e7ff',
+      '--color-primary-200': '#c7d2fe',
+      '--color-primary-300': '#a5b4fc',
+      '--color-primary-400': '#818cf8',
+      '--color-primary-500': '#6366f1',
+      '--color-primary-600': '#4f46e5',
+      '--color-primary-700': '#4338ca',
+      '--color-primary-800': '#3730a3',
+      '--color-primary-900': '#312e81',
+      '--color-primary-950': '#1e1b4b',
+      '--user-bubble': '#eef2ff',
     },
   },
 }

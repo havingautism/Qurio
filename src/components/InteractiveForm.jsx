@@ -1,5 +1,6 @@
 import clsx from 'clsx'
-import { Check, ChevronDown } from 'lucide-react'
+import Check from 'lucide-react/dist/esm/icons/check'
+import ChevronDown from 'lucide-react/dist/esm/icons/chevron-down'
 import React, { useState, useRef, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -179,11 +180,11 @@ const InteractiveForm = ({
   }
 
   return (
-    <div className="mb-4 w-fit mx-1 relative z-30">
-      <div className="p-6 md:p-8 rounded-[2rem]  bg-white/60 dark:bg-black/40 backdrop-blur-xl border border-gray-200 dark:border-white/10 shadow-2xl shadow-gray-200/50 dark:shadow-black/50 relative group">
+    <div className="mb-4 w-full max-w-2xl mx-1 relative z-30">
+      <div className="p-6 md:p-8 rounded-4xl mb-4 bg-white/80 dark:bg-black/40 backdrop-blur-xl border border-gray-200 dark:border-white/10 shadow-xl shadow-gray-200/50 dark:shadow-black/50 relative group transition-all duration-300">
         {/* Decorative Background Gradients */}
         <div className="absolute -top-20 -right-20 w-60 h-60 bg-primary-500/10 rounded-full blur-[80px] group-hover:bg-primary-500/15 transition-colors duration-700 pointer-events-none" />
-        <div className="absolute -bottom-20 -left-20 w-60 h-60 bg-blue-500/10 rounded-full blur-[80px] group-hover:bg-blue-500/15 transition-colors duration-700 pointer-events-none" />
+        <div className="absolute -bottom-20 -left-20 w-60 h-60 bg-orange-500/10 rounded-full blur-[80px] group-hover:bg-orange-500/15 transition-colors duration-700 pointer-events-none" />
         {developerMode && (
           <button
             type="button"
@@ -336,7 +337,7 @@ const InteractiveForm = ({
                 'w-full px-6 py-4 mt-4 font-bold rounded-2xl transition-all duration-300 relative overflow-hidden group',
                 isSubmitted
                   ? 'bg-gray-100 dark:bg-white/5 text-gray-400 cursor-not-allowed'
-                  : 'bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 dark:from-white dark:via-gray-200 dark:to-white text-white dark:text-black shadow-xl shadow-gray-900/10 dark:shadow-white/5 hover:scale-[1.01] hover:shadow-2xl hover:shadow-gray-900/20 dark:hover:shadow-white/10 active:scale-[0.99]',
+                  : 'bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 dark:from-white dark:via-gray-200 dark:to-white text-white dark:text-black shadow-xl shadow-gray-900/10 dark:shadow-white/5 hover:shadow-2xl hover:shadow-gray-900/20 dark:hover:shadow-white/10 active:scale-[0.98]',
               )}
             >
               {isSubmitted ? (

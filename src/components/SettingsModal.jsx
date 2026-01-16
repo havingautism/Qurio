@@ -1922,7 +1922,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                     <button
                       onClick={handleTestConnection}
                       disabled={testing || !supabaseUrl || !supabaseKey}
-                      className="self-end px-4 py-2 text-xs font-medium text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="self-start px-4 py-2 text-xs font-medium text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {testing ? t('settings.testing') : t('settings.testConnectionAndTables')}
                     </button>

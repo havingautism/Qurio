@@ -38,7 +38,9 @@
     "interactiveForm": "Interactive Form",
     "interactiveFormInfo": "Create dynamic forms within conversations to collect structured information and user input",
     "webpageReader": "Web Scraper",
-    "webpageReaderInfo": "Fetch webpage content and return JSON."
+    "webpageReaderInfo": "Fetch webpage content and return JSON.",
+    "documentEmbedding": "Document Embedding",
+    "documentEmbeddingInfo": "Run embedding-based document retrieval for selected files."
   },
   "knowledgeBase": {
     "title": "Knowledge Base",

@@ -38,7 +38,9 @@
     "interactiveForm": "交互式表单",
     "interactiveFormInfo": "在对话中创建动态表单，收集结构化信息和用户输入",
     "webpageReader": "网页读取",
-    "webpageReaderInfo": "获取网页内容并返回 JSON。"
+    "webpageReaderInfo": "获取网页内容并返回 JSON。",
+    "documentEmbedding": "文档向量检索",
+    "documentEmbeddingInfo": "对已选文档执行向量检索。"
   },
   "customTools": {
     "title": "我的工具",

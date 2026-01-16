@@ -26,14 +26,10 @@ import { loadSettings } from '../lib/settings'
 import { deleteMessageById } from '../lib/supabase'
 import ChatHeader from './chat/ChatHeader'
 import ChatInputBar from './chat/ChatInputBar'
-import { fetchDocumentChunkContext } from '../lib/documentRetrievalService'
 import { resolveEmbeddingConfig } from '../lib/embeddingService'
 
 const DOCUMENT_CONTEXT_MAX_TOTAL = 12000
 const DOCUMENT_CONTEXT_MAX_PER_DOC = 4000
-const DOCUMENT_RETRIEVAL_CHUNK_LIMIT = 250
-const DOCUMENT_RETRIEVAL_TOP_CHUNKS = 5
-
 const truncateText = (text, limit) => {
   if (!text) return ''
   if (text.length <= limit) return text
@@ -76,40 +72,6 @@ const buildDocumentSources = documents => {
     .filter(Boolean)
 }
 
-const buildDocumentContextFromSources = sources => {
-  if (!sources || sources.length === 0) return ''
-  const lines = sources.map(source => {
-    const label = source.fileType ? `${source.title} (${source.fileType})` : source.title
-    return `### ${label}\n${source.snippet}`
-  })
-  let context = lines.join('\n\n')
-  if (context.length > DOCUMENT_CONTEXT_MAX_TOTAL) {
-    context = `${context.slice(0, DOCUMENT_CONTEXT_MAX_TOTAL)}\n\n[Truncated]`
-  }
-  return context
-}
-
-const fetchRelevantDocumentSources = async (documents, queryText) => {
-  if (!documents.length || !queryText.trim()) {
-    return null
-  }
-  const dynamicChunkLimit = Math.min(
-    DOCUMENT_RETRIEVAL_CHUNK_LIMIT * Math.max(1, documents.length),
-    2000,
-  )
-  try {
-    return await fetchDocumentChunkContext({
-      documents,
-      queryText,
-      chunkLimit: dynamicChunkLimit,
-      topChunks: DOCUMENT_RETRIEVAL_TOP_CHUNKS,
-    })
-  } catch (error) {
-    console.error('Document retrieval failed', error)
-    return null
-  }
-}
-
 const buildEmbeddingModelKey = ({ model }) => {
   const normalizedModel = typeof model === 'string' ? model.trim() : ''
   return normalizedModel || null
@@ -120,24 +82,6 @@ const getRelevanceLabel = similarity => {
   if (similarity >= 0.8) return 'High relevance'
   if (similarity >= 0.68) return 'Medium relevance'
   return 'Low relevance'
-}
-
-const formatDocumentAppendText = sources => {
-  const filtered = (sources || []).filter(source => source?.snippet)
-  if (!filtered.length) return ''
-  const lines = filtered.map(source => {
-    const label = source.fileType ? `${source.title} (${source.fileType})` : source.title
-    const similarity = typeof source.similarity === 'number' ? source.similarity.toFixed(2) : 'n/a'
-    const path =
-      Array.isArray(source.titlePath) && source.titlePath.length > 0
-        ? `: ${source.titlePath.join(' > ')}`
-        : ''
-    return `- [score=${similarity} | ${label}]${path}\n  ${source.snippet}`
-  })
-  return [
-    '# The following document excerpts may help answer this question (may be incomplete):',
-    ...lines,
-  ].join('\n')
 }
 
 const ChatInterface = ({
@@ -1370,7 +1314,6 @@ const ChatInterface = ({
       const agentForSend =
         selectedAgent || (!isAgentAutoMode && initialAgentSelection) || defaultAgent || null
 
-      let retrievedDocumentSources = null
       let skipDocumentRetrieval = false
 
       if (selectedDocuments.length > 0) {
@@ -1393,16 +1336,6 @@ const ChatInterface = ({
         }
       }
 
-      if (!skipDocumentRetrieval && selectedDocuments.length > 0 && textToSend.trim()) {
-        const retrieval = await fetchRelevantDocumentSources(selectedDocuments, textToSend)
-        if (retrieval) {
-          retrievedDocumentSources = retrieval.sources || null
-        }
-      }
-
-      const documentContextAppend = formatDocumentAppendText(retrievedDocumentSources)
-      const sourcesForSend = retrievedDocumentSources || baseDocumentSources
-
       await sendMessage({
         text: textToSend,
         attachments: attToSend,
@@ -1416,8 +1349,11 @@ const ChatInterface = ({
         selectedAgent: agentForSend,
         isAgentAutoMode,
         agents: appAgents,
-        documentSources: sourcesForSend,
-        documentContextAppend: documentContextAppend,
+        documentSources: baseDocumentSources,
+        documentSelection: {
+          documents: selectedDocuments,
+          skipRetrieval: skipDocumentRetrieval,
+        },
         editingInfo,
         callbacks: {
           onTitleAndSpaceGenerated,

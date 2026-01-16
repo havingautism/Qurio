@@ -117,7 +117,7 @@ export const syncMcpTools = async (serverName, serverUrl, newTools, options = {}
     updated: 0,
     added: 0,
     deleted: 0,
-    unchanged: 0
+    unchanged: 0,
   }
 
   // Create maps for easy comparison (use tool.name as key)
@@ -145,7 +145,7 @@ export const syncMcpTools = async (serverName, serverUrl, newTools, options = {}
         headers: options.headers || existingTool.config?.headers,
         toolId: newTool.id,
         description: newTool.description,
-        parameters: newTool.parameters
+        parameters: newTool.parameters,
       }
 
       await supabase
@@ -153,31 +153,29 @@ export const syncMcpTools = async (serverName, serverUrl, newTools, options = {}
         .update({
           description: newTool.description,
           config: updatedConfig,
-          input_schema: newTool.parameters
+          input_schema: newTool.parameters,
         })
         .eq('id', existingTool.id)
 
       stats.updated++
     } else {
       // Add new tool
-      await supabase
-        .from(table)
-        .insert({
-          user_id: userId,
-          name: newTool.name,
-          description: newTool.description,
-          type: 'mcp',
-          config: {
-            serverName: serverName,
-            serverUrl: serverUrl,
-            transport: options.transport,
-            bearerToken: options.bearerToken,
-            headers: options.headers,
-            toolId: newTool.id,
-            toolName: newTool.name
-          },
-          input_schema: newTool.parameters
-        })
+      await supabase.from(table).insert({
+        user_id: userId,
+        name: newTool.name,
+        description: newTool.description,
+        type: 'mcp',
+        config: {
+          serverName: serverName,
+          serverUrl: serverUrl,
+          transport: options.transport,
+          bearerToken: options.bearerToken,
+          headers: options.headers,
+          toolId: newTool.id,
+          toolName: newTool.name,
+        },
+        input_schema: newTool.parameters,
+      })
 
       stats.added++
     }
@@ -188,7 +186,7 @@ export const syncMcpTools = async (serverName, serverUrl, newTools, options = {}
   return {
     success: true,
     serverName,
-    ...stats
+    ...stats,
   }
 }
 
@@ -221,7 +219,7 @@ export const updateMcpServerUrl = async (serverName, newUrl) => {
   for (const tool of toolsToUpdate) {
     const updatedConfig = {
       ...tool.config,
-      serverUrl: newUrl
+      serverUrl: newUrl,
     }
 
     const { error: updateError } = await supabase

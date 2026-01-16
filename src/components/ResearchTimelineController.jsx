@@ -1,12 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import QuestionTimelineSidebar from './QuestionTimelineSidebar'
 
-const ResearchTimelineController = ({
-  messages = [],
-  messagesContainerRef,
-  isOpen,
-  onToggle,
-}) => {
+const ResearchTimelineController = ({ messages = [], messagesContainerRef, isOpen, onToggle }) => {
   const [activeId, setActiveId] = useState(null)
   const [items, setItems] = useState([])
 
@@ -23,12 +18,12 @@ const ResearchTimelineController = ({
           return tag === 'h1' || tag === 'h2'
         })
         .map(node => {
-        const id = node.getAttribute('data-heading-id') || node.id
-        const label = node.textContent?.trim() || ''
-        const tag = node.tagName?.toLowerCase?.() || ''
-        const level = tag === 'h1' ? 1 : tag === 'h2' ? 2 : tag === 'h3' ? 3 : 3
-        return { id, label, level }
-      })
+          const id = node.getAttribute('data-heading-id') || node.id
+          const label = node.textContent?.trim() || ''
+          const tag = node.tagName?.toLowerCase?.() || ''
+          const level = tag === 'h1' ? 1 : tag === 'h2' ? 2 : tag === 'h3' ? 3 : 3
+          return { id, label, level }
+        })
       setItems(nextItems.filter(item => item.id && item.label))
     }
 

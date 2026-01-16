@@ -28,8 +28,6 @@ const DEFAULT_MODELS = {
   kimi: 'moonshot-v1-8k',
 }
 
- 
-
 // ============================================================================
 // Model builders
 // ============================================================================
@@ -527,7 +525,10 @@ Return the result as a JSON object with keys "title", "spaceLabel", and "emojis"
   const spaceLabel = parsed.spaceLabel
   const selectedSpace = (spaces || []).find(s => s.label === spaceLabel) || null
   const emojis = Array.isArray(parsed.emojis)
-    ? parsed.emojis.map(item => String(item || '').trim()).filter(Boolean).slice(0, 1)
+    ? parsed.emojis
+        .map(item => String(item || '').trim())
+        .filter(Boolean)
+        .slice(0, 1)
     : []
   return { title, space: selectedSpace, emojis }
 }

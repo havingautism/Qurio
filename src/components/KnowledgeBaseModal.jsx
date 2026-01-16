@@ -2,12 +2,9 @@ import { useState, useMemo } from 'react'
 import {
   X,
   Plus,
-  Trash2,
-  Edit2,
   Save,
   Search,
   Database,
-  CloudAlert,
   ChevronRight,
   FileText,
   Upload,

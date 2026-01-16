@@ -54,11 +54,11 @@ export const createSseStream = (res, config = {}) => {
     }
   }
 
-  const writeComment = (comment) => {
+  const writeComment = comment => {
     writeRaw(`:${comment}\n\n`, true)
   }
 
-  const sendEvent = (data) => {
+  const sendEvent = data => {
     writeRaw(`data: ${JSON.stringify(data)}\n\n`)
   }
 

@@ -102,7 +102,8 @@ const QuestionTimelineController = ({
       const containerRect = messagesContainerRef.current.getBoundingClientRect()
       const nodeRect = node.getBoundingClientRect()
       const yOffset = 20
-      const scrollTop = nodeRect.top - containerRect.top + messagesContainerRef.current.scrollTop - yOffset
+      const scrollTop =
+        nodeRect.top - containerRect.top + messagesContainerRef.current.scrollTop - yOffset
 
       messagesContainerRef.current.scrollTo({
         top: scrollTop,

@@ -16,7 +16,7 @@ export default defineConfig(({ env }) => {
   // Base path for GitHub Pages (set to "/Qurio/" for project page). Allow override via env.
   // In development, use root path to avoid issues with chunk loading
   const isDev = env.mode === 'development'
-  const assetPrefix = isDev ? '/' : (process.env.PUBLIC_BASE_PATH || '/Qurio/')
+  const assetPrefix = isDev ? '/' : process.env.PUBLIC_BASE_PATH || '/Qurio/'
 
   return {
     plugins: [pluginReact(), pluginNodePolyfill()],

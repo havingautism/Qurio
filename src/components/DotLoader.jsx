@@ -1,4 +1,3 @@
-import React from 'react'
 import styled from 'styled-components'
 
 const DotLoader = ({ size = '6px', color, gap = '4px', className }) => {

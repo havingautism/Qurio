@@ -27,7 +27,7 @@ const RelatedQuestions = ({ t, questions, isLoading, onRelatedClick }) => {
             <div
               key={index}
               onClick={() => onRelatedClick && onRelatedClick(question)}
-              className="flex items-center rounded-2xl border sm:hover:scale-102 border-gray-200 dark:border-zinc-800 bg-user-bubble dark:bg-zinc-800/50 justify-between p-2 hover:bg-user-bubble dark:hover:bg-zinc-800/50 cursor-pointer transition-colors group"
+              className="flex items-center rounded-2xl border sm:hover:scale-102 border-gray-200 dark:border-zinc-800 bg-user-bubble dark:bg-zinc-800/50 justify-between py-2 px-3 hover:bg-user-bubble dark:hover:bg-zinc-800/50 cursor-pointer transition-colors group"
             >
               <span className="text-gray-700 dark:text-gray-300 font-medium text-sm md:text-balance">
                 {question}

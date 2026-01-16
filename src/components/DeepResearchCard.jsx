@@ -1,4 +1,4 @@
-import { ArrowRight, Microscope, Sparkles } from 'lucide-react'
+import { ArrowRight, Microscope } from 'lucide-react'
 import { memo } from 'react'
 import { useTranslation } from 'react-i18next'
 

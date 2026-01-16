@@ -124,8 +124,7 @@ export const updateAgent = async (id, payload) => {
   if (payload.name !== undefined) updatePayload.name = payload.name
   if (payload.description !== undefined) updatePayload.description = payload.description
   if (payload.prompt !== undefined) updatePayload.prompt = payload.prompt
-  if (payload.isDeepResearch !== undefined)
-    updatePayload.is_deep_research = payload.isDeepResearch
+  if (payload.isDeepResearch !== undefined) updatePayload.is_deep_research = payload.isDeepResearch
   if (payload.emoji !== undefined) updatePayload.emoji = payload.emoji
   if (payload.provider !== undefined) updatePayload.provider = payload.provider
   if (payload.defaultModelProvider !== undefined)

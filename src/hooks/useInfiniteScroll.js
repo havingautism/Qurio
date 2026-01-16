@@ -75,7 +75,6 @@ export function useInfiniteScroll(fetchFunction, options = {}) {
   // Fetch initial data when dependencies change
   useEffect(() => {
     fetchInitialData()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, ...dependencies])
 
   // Listen for conversation changes (e.g., favorite/delete)

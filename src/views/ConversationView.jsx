@@ -5,7 +5,6 @@ import { getConversation } from '../lib/conversationsService'
 import { useAppContext } from '../App'
 import ChatInterface from '../components/ChatInterface'
 import DeepResearchChatInterface from '../components/DeepResearchChatInterface'
-import FancyLoader from '../components/FancyLoader'
 import { useShallow } from 'zustand/react/shallow'
 import useChatStore from '../lib/chatStore'
 

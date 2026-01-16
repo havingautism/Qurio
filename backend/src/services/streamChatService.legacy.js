@@ -1138,7 +1138,6 @@ export const streamChat = async function* (params) {
                 yield buildToolResultEvent(toolCall, error, Date.now() - startedAt)
               }
             }
-
           }
 
           preProcessedToolCall = true

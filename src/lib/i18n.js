@@ -1,10 +1,10 @@
-import i18n from 'i18next';
-import { initReactI18next } from 'react-i18next';
-import LanguageDetector from 'i18next-browser-languagedetector';
+import i18n from 'i18next'
+import { initReactI18next } from 'react-i18next'
+import LanguageDetector from 'i18next-browser-languagedetector'
 
 // Import translation files
-import en from '../locales/en.json';
-import zhCN from '../locales/zh-CN.json';
+import en from '../locales/en.json'
+import zhCN from '../locales/zh-CN.json'
 
 // Configure i18next
 i18n
@@ -40,6 +40,6 @@ i18n
       // Lookup keys in localStorage
       lookupLocalStorage: 'qurio_interface_language',
     },
-  });
+  })
 
-export default i18n;
+export default i18n

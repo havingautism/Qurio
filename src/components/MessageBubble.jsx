@@ -1653,8 +1653,12 @@ const MessageBubble = ({
         >
           <div
             className={clsx(
-              'flex flex-col gap-2 max-w-[85%] sm:max-w-[85%]',
-              isDeepResearchContext ? 'items-center' : 'items-end',
+              'flex flex-col gap-2',
+              // For Deep Research: centered and wide
+              // For Standard: right-aligned (user) or left-aligned (AI) but constrained width
+              isDeepResearchContext
+                ? 'items-center w-full max-w-full'
+                : 'items-end max-w-[85%] sm:max-w-3xl',
             )}
           >
             {/* Message Content */}

@@ -517,41 +517,25 @@ const MessageBubble = ({
     )
   }
 
-  const isAsciiWordChar = char => /[A-Za-z0-9]/.test(char)
-  const toolBoundaryChars = new Set([
-    ' ',
-    '\n',
-    '\t',
-    '.',
-    ',',
-    '!',
-    '?',
-    ';',
-    ':',
-    '。',
-    '！',
-    '？',
-    '；',
-    '：',
-  ])
-  const toolPunctuationChars = new Set(['.', ',', '!', '?', ';', ':', '。', '！', '？', '；', '：'])
+  // Normalize tool index to paragraph boundaries instead of word boundaries
+  // Tools will be displayed after paragraphs (after newlines) for better readability
   const normalizeToolIndex = (content, index) => {
     if (!content) return 0
     const clamped = Math.max(0, Math.min(index, content.length))
     if (clamped === 0 || clamped === content.length) return clamped
-    const prev = content[clamped - 1]
-    const next = content[clamped]
-    if (!isAsciiWordChar(prev) || !isAsciiWordChar(next)) return clamped
 
-    const maxForward = 80
-    for (let i = clamped; i < content.length && i < clamped + maxForward; i += 1) {
-      const ch = content[i]
-      if (toolBoundaryChars.has(ch)) {
-        const adjusted = i + (toolPunctuationChars.has(ch) ? 1 : 0)
-        return Math.min(adjusted, content.length)
+    // Search forward for the next newline (paragraph boundary)
+    // Tools will be placed after the current paragraph ends
+    const maxSearch = 500 // Search up to 500 characters ahead
+    for (let i = clamped; i < content.length && i < clamped + maxSearch; i += 1) {
+      if (content[i] === '\n') {
+        // Found a paragraph boundary, place tool after the newline
+        return i + 1
       }
     }
-    return clamped
+
+    // If no newline found, place tool at the end of content
+    return content.length
   }
 
   const interleavedContent = useMemo(() => {

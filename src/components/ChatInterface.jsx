@@ -1937,7 +1937,7 @@ const ChatInterface = ({
         />
 
         {/* Input Area */}
-        <div className="w-full shrink-0 bg-background rounded-b-3xl pt-0 pb-[calc(0.75rem+env(safe-area-inset-bottom))] px-2 sm:px-0 flex justify-center z-50">
+        <div className="w-full shrink-0 bg-transparent rounded-b-3xl pt-0 pb-[calc(0.75rem+env(safe-area-inset-bottom))] px-2 sm:px-0 flex justify-center z-50">
           <div className="w-full max-w-3xl relative">
             {/* Scroll to bottom button - positioned relative to input area */}
 

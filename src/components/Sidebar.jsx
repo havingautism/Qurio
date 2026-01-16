@@ -700,7 +700,7 @@ const Sidebar = ({
           <div className="mb-6">
             <button
               onClick={() => onNavigate('home')}
-              className="w-10 h-10 flex items-center justify-center rounded-xl bg-user-bubble dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-all duration-300 hover:scale-110 hover:bg-primary-500 hover:text-white active:scale-95 cursor-pointer shadow-sm hover:shadow-md"
+              className="w-10 h-10 flex items-center justify-center rounded-xl bg-user-bubble dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-all duration-300 hover:scale-110 hover:bg-primary-500 hover:text-white active:scale-95 cursor-pointer"
               title={t('sidebar.newChat')}
             >
               <Plus size={20} />
@@ -767,7 +767,7 @@ const Sidebar = ({
           <div className="flex flex-col items-center gap-2 pb-2">
             <button
               onClick={onToggleTheme}
-              className="w-10 h-10 flex items-center justify-center rounded-xl bg-user-bubble dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-all duration-300 hover:scale-105 hover:bg-gray-100 dark:hover:bg-zinc-700 active:scale-95 cursor-pointer shadow-sm hover:shadow-md"
+              className="w-10 h-10 flex items-center justify-center rounded-xl bg-user-bubble dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-all duration-300 hover:scale-105 hover:bg-gray-100 dark:hover:bg-zinc-700 active:scale-95 cursor-pointer"
               title={`Current theme: ${theme}`}
             >
               {getThemeIcon()}
@@ -775,7 +775,7 @@ const Sidebar = ({
 
             <button
               onClick={onOpenTools}
-              className="w-10 h-10 flex items-center justify-center rounded-xl bg-user-bubble dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-all duration-300 hover:scale-105 hover:bg-gray-100 dark:hover:bg-zinc-700 active:scale-95 cursor-pointer shadow-sm hover:shadow-md"
+              className="w-10 h-10 flex items-center justify-center rounded-xl bg-user-bubble dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-all duration-300 hover:scale-105 hover:bg-gray-100 dark:hover:bg-zinc-700 active:scale-95 cursor-pointer"
               title={t('sidebar.tools')}
             >
               <Blocks size={20} />
@@ -783,7 +783,7 @@ const Sidebar = ({
 
             <button
               onClick={onOpenSettings}
-              className="w-10 h-10 flex items-center justify-center rounded-xl bg-user-bubble dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-all duration-300 hover:scale-105 hover:bg-gray-100 dark:hover:bg-zinc-700 active:scale-95 cursor-pointer shadow-sm hover:shadow-md"
+              className="w-10 h-10 flex items-center justify-center rounded-xl bg-user-bubble dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-all duration-300 hover:scale-105 hover:bg-gray-100 dark:hover:bg-zinc-700 active:scale-95 cursor-pointer"
               title={t('sidebar.settings')}
             >
               <Settings size={20} />
@@ -889,10 +889,10 @@ const Sidebar = ({
                                 onOpenConversation && onOpenConversation(conv)
                               }}
                               className={clsx(
-                                'text-sm p-2.5 rounded-xl cursor-pointer truncate transition-all duration-200 group relative overflow-hidden',
+                                'text-sm px-1 py-2.5 md:p-2.5 rounded-xl cursor-pointer truncate transition-all duration-200 group relative overflow-hidden',
                                 isActive
-                                  ? 'bg-primary-500/10 dark:bg-primary-500/20 border border-primary-500/30 text-primary-700 dark:text-primary-300 shadow-sm'
-                                  : 'text-gray-700 dark:text-gray-300 hover:bg-primary-50 dark:hover:bg-zinc-800 hover:shadow-sm',
+                                  ? 'bg-primary-500/10 dark:bg-primary-500/20 text-primary-500 dark:text-primary-400'
+                                  : 'text-gray-700 dark:text-gray-300 hover:bg-primary-50 dark:hover:bg-zinc-800',
                                 isExpanded &&
                                   'bg-primary-50/70 dark:bg-primary-900/20 border-primary-200/60 dark:border-primary-800/60 ring-1 ring-primary-100/70 dark:ring-primary-800/60',
                               )}
@@ -934,7 +934,7 @@ const Sidebar = ({
                                   </div>
                                 </div>
 
-                                <div className="relative ml-2 shrink-0">
+                                <div className="relative ml-1 shrink-0">
                                   <button
                                     onClick={e => {
                                       e.stopPropagation()
@@ -943,13 +943,13 @@ const Sidebar = ({
                                       )
                                     }}
                                     className={clsx(
-                                      'p-2 rounded-lg transition-all duration-200',
+                                      'p-1 rounded-lg transition-all duration-200',
                                       isActive
                                         ? 'text-primary-600 dark:text-primary-400 bg-primary-100 dark:bg-primary-900/30'
                                         : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-200 dark:hover:bg-zinc-700',
                                       'opacity-100',
                                       'md:opacity-0 md:group-hover:opacity-100',
-                                      'min-w-[36px] min-h-[36px] flex items-center justify-center',
+                                      'min-w-[28px] min-h-[28px] flex items-center justify-center',
                                     )}
                                   >
                                     {isExpanded ? (
@@ -1061,9 +1061,9 @@ const Sidebar = ({
                                   onOpenConversation && onOpenConversation(conv)
                                 }}
                                 className={clsx(
-                                  'text-sm p-2.5 rounded-xl cursor-pointer truncate transition-all duration-200 group relative',
+                                  'text-sm px-1 py-2.5 md:p-2.5 rounded-xl cursor-pointer truncate transition-all duration-200 group relative',
                                   isActive
-                                    ? 'bg-primary-500/10 dark:bg-primary-500/20 border border-primary-500/30 text-primary-700 dark:text-primary-300'
+                                    ? 'bg-primary-500/10 dark:bg-primary-500/20 text-primary-500 dark:text-primary-400'
                                     : 'text-gray-700 dark:text-gray-300 hover:bg-primary-50 dark:hover:bg-zinc-800',
                                   isExpanded &&
                                     'bg-primary-50/70 dark:bg-primary-900/20 border-primary-200/60 dark:border-primary-800/60 ring-1 ring-primary-100/70 dark:ring-primary-800/60',
@@ -1105,7 +1105,7 @@ const Sidebar = ({
                                     </div>
                                   </div>
 
-                                  <div className="relative ml-2 shrink-0">
+                                  <div className="relative ml-1 shrink-0">
                                     <button
                                       onClick={e => {
                                         e.stopPropagation()
@@ -1114,13 +1114,13 @@ const Sidebar = ({
                                         )
                                       }}
                                       className={clsx(
-                                        'p-1.5 rounded-md hover:bg-gray-300 dark:hover:bg-zinc-700 transition-all',
+                                        'p-1 rounded-md hover:bg-gray-300 dark:hover:bg-zinc-700 transition-all',
                                         isActive
                                           ? 'text-primary-600 dark:text-primary-400 bg-primary-100 dark:bg-primary-900/20'
                                           : 'text-gray-500 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-zinc-700',
                                         'opacity-100',
                                         'md:opacity-0 md:group-hover:opacity-100',
-                                        'min-w-[32px] min-h-[32px] flex items-center justify-center',
+                                        'min-w-[28px] min-h-[28px] flex items-center justify-center',
                                       )}
                                     >
                                       {isExpanded ? (
@@ -1221,9 +1221,9 @@ const Sidebar = ({
                             onOpenConversation && onOpenConversation(conv)
                           }}
                           className={clsx(
-                            'text-sm p-2.5 rounded-xl cursor-pointer truncate transition-all duration-200 group relative',
+                            'text-sm px-1 py-2.5 md:p-2.5 rounded-xl cursor-pointer truncate transition-all duration-200 group relative',
                             isActive
-                              ? 'bg-primary-500/10 dark:bg-primary-500/20 border border-primary-500/30 text-primary-700 dark:text-primary-300'
+                              ? 'bg-primary-500/10 dark:bg-primary-500/20 text-primary-500 dark:text-primary-400'
                               : 'text-gray-700 dark:text-gray-300 hover:bg-primary-50 dark:hover:bg-zinc-800',
                             isExpanded &&
                               'bg-primary-50/70 dark:bg-primary-900/20 border border-primary-200/60 dark:border-primary-800/60 ring-1 ring-primary-100/70 dark:ring-primary-800/60',
@@ -1263,20 +1263,20 @@ const Sidebar = ({
                               </div>
                             </div>
 
-                            <div className="relative ml-2 shrink-0">
+                            <div className="relative ml-1 shrink-0">
                               <button
                                 onClick={e => {
                                   e.stopPropagation()
                                   setExpandedActionId(prev => (prev === conv.id ? null : conv.id))
                                 }}
                                 className={clsx(
-                                  'p-1.5 rounded-md hover:bg-gray-300 dark:hover:bg-zinc-700 transition-all',
+                                  'p-1 rounded-md hover:bg-gray-300 dark:hover:bg-zinc-700 transition-all',
                                   isActive
                                     ? 'text-primary-600 dark:text-primary-400 bg-primary-100 dark:bg-primary-900/20'
                                     : 'text-gray-500 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-zinc-700',
                                   'opacity-100',
                                   'md:opacity-0 md:group-hover:opacity-100',
-                                  'min-w-[32px] min-h-[32px] flex items-center justify-center',
+                                  'min-w-[28px] min-h-[28px] flex items-center justify-center',
                                 )}
                               >
                                 {isExpanded ? (
@@ -1461,7 +1461,7 @@ const Sidebar = ({
                               className={clsx(
                                 'text-sm p-2.5 rounded-xl cursor-pointer truncate transition-all duration-200 group relative',
                                 conv.id === activeConversationId
-                                  ? 'bg-primary-500/10 dark:bg-primary-500/20 border border-primary-500/30 text-primary-700 dark:text-primary-300'
+                                  ? 'bg-primary-500/10 dark:bg-primary-500/20 text-primary-500 dark:text-primary-400'
                                   : 'text-gray-600 dark:text-gray-400 hover:bg-primary-50 dark:hover:bg-zinc-800',
                               )}
                               title={conv.title}

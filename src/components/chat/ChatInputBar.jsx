@@ -648,7 +648,7 @@ const ChatInputBar = React.memo(
             {/* Capsule Input Grid Container */}
             <div
               className={clsx(
-                'relative p-1.5 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-zinc-800 shadow-sm transition-all duration-300 focus-within:shadow-md grid gap-2',
+                'relative p-1.5 bg-transparent border border-gray-200 dark:border-zinc-800 shadow-sm transition-all duration-300 focus-within:shadow-md grid gap-2',
                 isMultiline
                   ? 'rounded-[26px] grid-cols-[1fr_auto] items-end'
                   : 'rounded-[32px] grid-cols-[auto_1fr_auto] items-center',

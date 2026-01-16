@@ -10,9 +10,7 @@ export const listSpaceDocuments = async spaceId => {
 
   const { data, error } = await supabase
     .from(DOCUMENTS_TABLE)
-    .select(
-      'id,space_id,name,file_type,content_text,created_at,embedding_provider,embedding_model',
-    )
+    .select('id,space_id,name,file_type,content_text,created_at,embedding_provider,embedding_model')
     .eq('space_id', spaceId)
     .order('created_at', { ascending: false })
 

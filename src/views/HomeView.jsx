@@ -37,7 +37,7 @@ import { providerSupportsSearch, resolveThinkingToggleRule } from '../lib/provid
 import { loadSettings } from '../lib/settings'
 import { getSpaceDisplayLabel } from '../lib/spaceDisplay'
 import { listSpaceAgents } from '../lib/spacesService'
-import { listSpaceDocuments } from '../lib/documentsService'
+import { listSpaceDocuments, setConversationDocuments } from '../lib/documentsService'
 import { useDeepResearchGuide } from '../contexts/DeepResearchGuideContext'
 import { splitTextWithUrls } from '../lib/urlHighlight'
 
@@ -333,7 +333,7 @@ const HomeView = () => {
         <button
           type="button"
           onClick={handleHomeImageUpload}
-          className="flex items-center gap-1.5 w-full px-3 py-2 hover:bg-gray-50 dark:hover:bg-zinc-800 text-sm rounded-xl"
+          className="flex items-center mb-2 gap-1.5 w-full px-3 py-2 hover:bg-gray-50 dark:hover:bg-zinc-800 text-sm rounded-xl"
         >
           <div className="p-1.5 bg-primary-100 dark:bg-primary-900/30 rounded-lg">
             <Image size={16} className="text-primary-500" />
@@ -431,6 +431,13 @@ const HomeView = () => {
       if (error || !conversation) {
         console.error('Failed to create conversation:', error)
         return
+      }
+      if (_homeSelectedDocumentIds.length > 0) {
+        const { success: documentsPersisted, error: documentError } =
+          await setConversationDocuments(conversation.id, _homeSelectedDocumentIds)
+        if (!documentsPersisted) {
+          console.error('Failed to persist selected documents for conversation:', documentError)
+        }
       }
       // Prepare initial chat state to pass via router state
       const chatState = {
@@ -866,7 +873,9 @@ const HomeView = () => {
                     </button>
                     {/* Upload Dropdown */}
                     {isHomeUploadMenuOpen && !isHomeMobile && (
-                      <UploadPopover>{homeUploadMenuContent}</UploadPopover>
+                      <UploadPopover className="top-full w-72">
+                        {homeUploadMenuContent}
+                      </UploadPopover>
                     )}
                     <MobileDrawer
                       isOpen={isHomeUploadMenuOpen && isHomeMobile}

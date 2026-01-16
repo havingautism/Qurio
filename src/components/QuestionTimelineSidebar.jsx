@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { Search, PanelRightClose, Clock, MessageSquare, ArrowUpDown } from 'lucide-react'
+import { PanelRightClose, Clock, MessageSquare } from 'lucide-react'
 import clsx from 'clsx'
 import { useTranslation } from 'react-i18next'
 import useScrollLock from '../hooks/useScrollLock'

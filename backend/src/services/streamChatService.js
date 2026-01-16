@@ -385,7 +385,9 @@ export const streamChat = async function* (params) {
         const headers = tool.config?.headers
 
         if (!serverName || !serverUrl) {
-          console.warn(`[streamChat] MCP tool ${tool.name} missing serverName or serverUrl in config`)
+          console.warn(
+            `[streamChat] MCP tool ${tool.name} missing serverName or serverUrl in config`,
+          )
           continue
         }
 
@@ -397,7 +399,7 @@ export const streamChat = async function* (params) {
               url: serverUrl,
               transport: serverTransport,
               bearerToken,
-              headers
+              headers,
             })
           }
         }
@@ -415,8 +417,8 @@ export const streamChat = async function* (params) {
             parameters: tool.parameters || tool.input_schema,
             config: {
               mcpServer: serverName,
-              toolName: tool.config.toolName || tool.name
-            }
+              toolName: tool.config.toolName || tool.name,
+            },
           })
         }
       }
@@ -433,11 +435,15 @@ export const streamChat = async function* (params) {
 
   // Convert all user tools (HTTP + MCP) to tool definitions
   const userToolDefinitions = userTools.map(tool => {
-    const parameters = tool.type === 'mcp' ? (tool.parameters || tool.input_schema) : tool.input_schema
+    const parameters =
+      tool.type === 'mcp' ? tool.parameters || tool.input_schema : tool.input_schema
 
     // Debug log for MCP tool parameters
     if (tool.type === 'mcp') {
-      console.log(`[streamChat] MCP Tool "${tool.name}" parameters:`, JSON.stringify(parameters, null, 2))
+      console.log(
+        `[streamChat] MCP Tool "${tool.name}" parameters:`,
+        JSON.stringify(parameters, null, 2),
+      )
     }
 
     return {

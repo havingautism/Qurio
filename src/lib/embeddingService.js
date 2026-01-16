@@ -99,7 +99,9 @@ export const fetchEmbeddingVector = async ({
   if (provider === 'openai_compatibility') {
     const apiKey = config.OpenAICompatibilityKey || getPublicEnv('PUBLIC_OPENAI_API_KEY')
     const baseUrl =
-      config.OpenAICompatibilityUrl || getPublicEnv('PUBLIC_OPENAI_BASE_URL') || 'https://api.openai.com/v1'
+      config.OpenAICompatibilityUrl ||
+      getPublicEnv('PUBLIC_OPENAI_BASE_URL') ||
+      'https://api.openai.com/v1'
     return await buildOpenAIEmbeddingRequest({
       apiKey,
       baseUrl,

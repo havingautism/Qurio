@@ -8,7 +8,6 @@ import FileText from 'lucide-react/dist/esm/icons/file-text'
 import Globe from 'lucide-react/dist/esm/icons/globe'
 import Image from 'lucide-react/dist/esm/icons/image'
 import Paperclip from 'lucide-react/dist/esm/icons/paperclip'
-import Plus from 'lucide-react/dist/esm/icons/plus'
 import SlidersHorizontal from 'lucide-react/dist/esm/icons/sliders-horizontal'
 import Smile from 'lucide-react/dist/esm/icons/smile'
 import Square from 'lucide-react/dist/esm/icons/square'
@@ -64,15 +63,18 @@ const CapsuleUploadMenu = React.memo(
     t,
   }) => (
     <>
-      <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-2 mb-2">
+      <div className="text-[10px]  font-bold text-gray-400 uppercase tracking-widest px-2 mb-2">
         {t('common.upload')}
       </div>
       <div className="space-y-1">
         <button
           onClick={onUploadImage}
-          className="flex items-center gap-1.5 w-full px-3 py-2 hover:bg-gray-50 dark:hover:bg-zinc-800 text-sm rounded-xl"
+          className="flex items-center gap-1.5 mb-1.5 w-full px-3 py-2 hover:bg-gray-50 dark:hover:bg-zinc-800 text-sm rounded-xl"
         >
-          <Image size={16} /> {t('common.uploadImage')}
+          <div className="p-1.5 bg-primary-100 dark:bg-primary-900/30 rounded-lg">
+            <Image size={16} className="text-primary-500" />
+          </div>
+          {t('common.uploadImage')}
         </button>
         {hasDocuments && (
           <div className="border-t border-gray-200/70 dark:border-zinc-700/50 pt-3">
@@ -90,6 +92,7 @@ const CapsuleUploadMenu = React.memo(
     </>
   ),
 )
+CapsuleUploadMenu.displayName = 'CapsuleUploadMenu'
 
 const CapsuleSettingsMenu = React.memo(
   ({
@@ -225,6 +228,7 @@ const CapsuleSettingsMenu = React.memo(
     </div>
   ),
 )
+CapsuleSettingsMenu.displayName = 'CapsuleSettingsMenu'
 
 /**
  * ChatInputBar Component
@@ -480,7 +484,7 @@ const ChatInputBar = React.memo(
 
     const desktopUploadMenuContent = useMemo(
       () => (
-        <UploadPopover className="w-72">
+        <UploadPopover className="w-72 bottom-full">
           <CapsuleUploadMenu
             hasDocuments={hasDocuments}
             documents={documents}
@@ -648,7 +652,7 @@ const ChatInputBar = React.memo(
             {/* Capsule Input Grid Container */}
             <div
               className={clsx(
-                'relative p-1.5 bg-transparent border border-gray-200 dark:border-zinc-800 shadow-sm transition-all duration-300 focus-within:shadow-md grid gap-2',
+                'relative p-1.5 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 shadow-sm transition-all duration-300 focus-within:shadow-md grid gap-2',
                 isMultiline
                   ? 'rounded-[26px] grid-cols-[1fr_auto] items-end'
                   : 'rounded-[32px] grid-cols-[auto_1fr_auto] items-center',
@@ -771,7 +775,9 @@ const ChatInputBar = React.memo(
 
                   {/* Popover Menu (Desktop) */}
                   {!isMobile && isCapsuleMenuOpen && (
-                    <UploadPopover className="w-72">{settingsMenuContent}</UploadPopover>
+                    <UploadPopover className="w-72 bottom-full">
+                      {settingsMenuContent}
+                    </UploadPopover>
                   )}
 
                   {/* Drawer Menu (Mobile) */}

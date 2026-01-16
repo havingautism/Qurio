@@ -1,6 +1,5 @@
 import { useEffect } from 'react'
 import { useRouter } from '@tanstack/react-router'
-import { useNavigate } from '@tanstack/react-router'
 import { getPublicEnv } from '../lib/publicEnv'
 
 /**
@@ -36,7 +35,7 @@ export function GitHubPagesRedirectHandler() {
           to: relativePath,
           search: search ? new URLSearchParams(search.substring(1)) : undefined,
           hash: hash.substring(1) || undefined,
-          replace: true // Replace in history to avoid back button issues
+          replace: true, // Replace in history to avoid back button issues
         })
       } catch (error) {
         console.error('Failed to parse saved redirect:', error)

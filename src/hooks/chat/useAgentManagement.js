@@ -54,7 +54,7 @@ const useAgentManagement = ({
   selectedSpace,
   isManualSpaceSelection,
   isAgentPreselecting = false,
-  t = (key) => key,
+  t = key => key,
 }) => {
   const [spaceAgentIds, setSpaceAgentIds] = useState([])
   const [spacePrimaryAgentId, setSpacePrimaryAgentId] = useState(null)
@@ -154,13 +154,10 @@ const useAgentManagement = ({
   }, [isAgentResolving])
 
   // Computed agents loading label with animated dots
-  const agentsLoadingLabel = useMemo(
-    () => {
-      const baseLabel = t('chatInterface.agentsLoading')
-      return `${baseLabel.replace(/\.\.\.$/, '')}${agentLoadingDots}`
-    },
-    [agentLoadingDots, t],
-  )
+  const agentsLoadingLabel = useMemo(() => {
+    const baseLabel = t('chatInterface.agentsLoading')
+    return `${baseLabel.replace(/\.\.\.$/, '')}${agentLoadingDots}`
+  }, [agentLoadingDots, t])
 
   return {
     spaceAgentIds,

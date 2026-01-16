@@ -4,7 +4,7 @@ import { useEffect } from 'react'
  * Hook to update CSS variable for sidebar width
  * This enables smooth CSS transitions using Tailwind classes
  */
-export const useSidebarOffset = (isSidebarOpen) => {
+export const useSidebarOffset = isSidebarOpen => {
   useEffect(() => {
     const updateSidebarWidth = () => {
       // On xl screens and up (>= 1280px), sidebar is always visible, so always move

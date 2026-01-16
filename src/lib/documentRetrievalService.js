@@ -351,14 +351,14 @@ export const fetchDocumentChunkContext = async ({
         sectionId: chunk.section_id ? String(chunk.section_id) : null,
         title: doc?.name || 'Document',
         fileType: doc?.file_type || '',
-          snippet: truncateText(chunk.text, DEFAULT_SNIPPET_LENGTH),
-          sourceHint: chunk.source_hint || '',
-          chunkIndex: chunk.chunk_index ?? null,
-          titlePath: Array.isArray(chunk.title_path) ? chunk.title_path : [],
-          isNeighbor: true,
-          score: null,
-          similarity: null,
-        })
+        snippet: truncateText(chunk.text, DEFAULT_SNIPPET_LENGTH),
+        sourceHint: chunk.source_hint || '',
+        chunkIndex: chunk.chunk_index ?? null,
+        titlePath: Array.isArray(chunk.title_path) ? chunk.title_path : [],
+        isNeighbor: true,
+        score: null,
+        similarity: null,
+      })
     })
 
     const ordered = []

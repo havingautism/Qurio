@@ -35,7 +35,6 @@ import { deleteConversation } from '../lib/supabase'
 import DotLoader from './DotLoader'
 import EmojiDisplay from './EmojiDisplay'
 import Logo from './Logo'
-import MCPIcon from '../assets/mcp.svg'
 
 const SIDEBAR_FETCH_LIMIT = 20
 

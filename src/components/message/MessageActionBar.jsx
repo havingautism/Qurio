@@ -89,7 +89,11 @@ const MessageActionBar = ({
             <span className="hidden sm:block text-xs font-medium max-w-0 overflow-hidden opacity-0 whitespace-nowrap transition-all duration-300 ease-in-out group-hover:max-w-[80px] group-hover:opacity-100">
               {t('messageBubble.download')}
             </span>
-            <ChevronDown size={14} strokeWidth={2} className="hidden sm:block transition-transform duration-200" />
+            <ChevronDown
+              size={14}
+              strokeWidth={2}
+              className="hidden sm:block transition-transform duration-200"
+            />
           </button>
           {isDownloadMenuOpen && (
             <div

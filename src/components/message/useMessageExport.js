@@ -40,7 +40,10 @@ export const useMessageExport = ({
 
   const shouldExportOnlyAnswer = useCallback(() => {
     if (message?.deepResearch) return true
-    if (message?.agent_name === 'Deep Research Agent' || message?.agentName === 'Deep Research Agent')
+    if (
+      message?.agent_name === 'Deep Research Agent' ||
+      message?.agentName === 'Deep Research Agent'
+    )
       return true
     if (message?.researchPlan) return true
     if (typeof message?.thinking_process !== 'string') return false

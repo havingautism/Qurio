@@ -1437,9 +1437,8 @@ const ToolsModal = ({ isOpen, onClose }) => {
                     <button
                       onClick={() => handleDeleteMcpGroup(editingServerUrl)}
                       disabled={updatingServerUrl}
-                      className="flex items-center justify-center gap-2 px-4 py-2 bg-red-600/10 hover:bg-red-600 disabled:bg-red-600/30 text-red-600 hover:text-white border border-red-600/20 rounded-lg text-sm font-medium transition-all cursor-pointer"
+                      className="px-4 py-2 rounded-lg text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                     >
-                      <Trash2 size={16} />
                       {t('customTools.mcp.deleteGroup')}
                     </button>
                     <div className="flex items-center gap-3">
@@ -1455,11 +1454,7 @@ const ToolsModal = ({ isOpen, onClose }) => {
                         disabled={updatingServerUrl}
                         className="flex items-center justify-center gap-2 px-4 py-2 bg-primary-500 text-white hover:opacity-90 rounded-lg text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                       >
-                        {updatingServerUrl ? (
-                          <Loader2 size={16} className="animate-spin" />
-                        ) : (
-                          <Save size={16} />
-                        )}
+                        {updatingServerUrl ? <Loader2 size={16} className="animate-spin" /> : <></>}
                         {updatingServerUrl ? t('common.loading') : t('common.save')}
                       </button>
                     </div>

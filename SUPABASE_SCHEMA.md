@@ -149,3 +149,23 @@ Manual selection of space documents per conversation.
 | `conversation_id` | uuid        | FK -> `conversations.id`               |
 | `document_id`     | uuid        | FK -> `space_documents.id`             |
 | `created_at`      | timestamptz |                                        |
+
+## 10. `long_term_memory`
+
+Stores a single user-authored memory blob per user along with embedding metadata.
+
+| Column             | Type        | Notes                                  |
+| ------------------ | ----------- | -------------------------------------- |
+| `id`               | uuid        | Primary key                            |
+| `user_id`          | uuid        | FK -> `auth.users.id`                  |
+| `content_text`     | text        | Full memory text                       |
+| `content_hash`     | text        | Hash of content for change detection   |
+| `embedding`        | real[]      | Optional embedding for retrieval       |
+| `embedding_provider` | text      | Provider used for embedding            |
+| `embedding_model`    | text      | Embedding model used                   |
+| `created_at`       | timestamptz |                                        |
+| `updated_at`       | timestamptz |                                        |
+
+Notes:
+- One row per user (unique on `user_id`).
+- `embedding` can be null when the memory is short and used directly without vector search.

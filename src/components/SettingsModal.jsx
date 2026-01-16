@@ -27,6 +27,7 @@ import { getModelsForProvider } from '../lib/models_api'
 import { getPublicEnv } from '../lib/publicEnv'
 import { GLM_BASE_URL, SILICONFLOW_BASE_URL } from '../lib/providerConstants'
 import { loadSettings, saveSettings } from '../lib/settings'
+import { ensureLongTermMemoryIndex } from '../lib/longTermMemoryService'
 import { fetchRemoteSettings, saveRemoteSettings, testConnection } from '../lib/supabase'
 import { THEMES } from '../lib/themes'
 import Logo from './Logo'
@@ -1308,6 +1309,18 @@ const SettingsModal = ({ isOpen, onClose }) => {
 
       await saveSettings(newSettings)
 
+      if (enableLongTermMemory && userSelfIntro.trim()) {
+        try {
+          await ensureLongTermMemoryIndex({
+            text: userSelfIntro,
+            provider: embeddingProvider,
+            model: embeddingModel,
+          })
+        } catch (error) {
+          console.error('Failed to update long-term memory index:', error)
+        }
+      }
+
       // Save Remote (if connected)
       if (supabaseUrl && supabaseKey) {
         await saveRemoteSettings(newSettings)
@@ -2350,11 +2363,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                     className="w-32 mt-1 px-3 py-2 bg-white disabled:bg-gray-50/20 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600 disabled:opacity-60 disabled:cursor-not-allowed"
                   />
                 </div>
-              </div>
-            )}
 
-            {activeTab === 'personalization' && (
-              <div className="flex flex-col gap-8 max-w-2xl">
                 <div className="flex flex-col gap-2">
                   <label className="text-sm font-medium text-gray-900 dark:text-white">
                     {t('settings.userSelfIntro')}
@@ -2367,12 +2376,15 @@ const SettingsModal = ({ isOpen, onClose }) => {
                     onChange={e => setUserSelfIntro(e.target.value)}
                     placeholder={t('settings.userSelfIntroPlaceholder')}
                     rows={5}
-                    className="w-full px-4 py-2 text-sm bg-white disabled:bg-gray-50/20 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20 resize-none"
+                    disabled={!enableLongTermMemory}
+                    className="w-full px-4 py-2 text-sm bg-white disabled:bg-gray-50/20 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20 resize-none disabled:opacity-60 disabled:cursor-not-allowed"
                   />
                 </div>
+              </div>
+            )}
 
-                <div className="h-px bg-gray-100 dark:bg-zinc-800" />
-
+            {activeTab === 'personalization' && (
+              <div className="flex flex-col gap-8 max-w-2xl">
                 <div className="flex flex-col gap-4">
                   <div className="flex flex-col gap-1">
                     <label className="text-sm font-medium text-gray-900 dark:text-white">

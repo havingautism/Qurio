@@ -9,6 +9,7 @@ export const TOOL_TRANSLATION_KEYS = {
   interactive_form: 'tools.interactiveForm',
   webpage_reader: 'tools.webpageReader',
   document_embedding: 'tools.documentEmbedding',
+  memory_check: 'tools.memoryCheck',
 }
 
 // Tool icons mapping (using lucide-react icon names)
@@ -23,6 +24,7 @@ export const TOOL_ICONS = {
   interactive_form: 'FormInput',
   webpage_reader: 'Globe',
   document_embedding: 'ScanText',
+  memory_check: 'Brain',
 }
 
 // Tool usage info keys for translations
@@ -37,4 +39,5 @@ export const TOOL_INFO_KEYS = {
   interactive_form: 'tools.interactiveFormInfo',
   webpage_reader: 'tools.webpageReaderInfo',
   document_embedding: 'tools.documentEmbeddingInfo',
+  memory_check: 'tools.memoryCheckInfo',
 }

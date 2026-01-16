@@ -40,7 +40,9 @@
     "webpageReader": "Web Scraper",
     "webpageReaderInfo": "Fetch webpage content and return JSON.",
     "documentEmbedding": "Document Embedding",
-    "documentEmbeddingInfo": "Run embedding-based document retrieval for selected files."
+    "documentEmbeddingInfo": "Run embedding-based document retrieval for selected files.",
+    "memoryCheck": "Checking long-term memory",
+    "memoryCheckInfo": "Look up stored personal memory to improve the response."
   },
   "knowledgeBase": {
     "title": "Knowledge Base",

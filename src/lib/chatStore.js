@@ -13,6 +13,13 @@ import { buildResponseStylePromptFromAgent } from './settings'
 import { listSpaceAgents } from './spacesService'
 import { fetchDocumentChunkContext } from './documentRetrievalService'
 import { formatDocumentAppendText } from './documentContextUtils'
+import {
+  formatMemoryAppendText,
+  buildDirectMemoryContext,
+  getLongTermMemoryRecord,
+  shouldUseDirectMemory,
+  searchLongTermMemory,
+} from './longTermMemoryService'
 
 // ================================================================================
 // CHAT STORE HELPER FUNCTIONS
@@ -150,6 +157,181 @@ const parseDocumentQueryResponse = content => {
     return trimmed.replace(/^"+|"+$/g, '').trim()
   }
   return trimmed.replace(/^"+|"+$/g, '').trim()
+}
+
+const buildMemoryDecisionPrompt = ({ question, historyForSend, memoryText }) => {
+  const recentHistory = (historyForSend || [])
+    .slice(-QUERY_HISTORY_MAX_MESSAGES)
+    .map(msg => {
+      const role = msg.role === 'ai' ? 'assistant' : msg.role
+      const text = extractPlainText(msg.content)
+      return `${role}: ${text}`.trim()
+    })
+    .filter(Boolean)
+    .join('\n')
+    .slice(0, QUERY_CONTEXT_MAX_CHARS)
+
+  return [
+    `Decide if long-term memory is needed to answer the user's question.`,
+    `Return JSON only: {"use_memory": boolean, "query": string}.`,
+    `If use_memory is false, set query to an empty string.`,
+    '',
+    `User question:\n${question}`,
+    recentHistory ? `Recent conversation:\n${recentHistory}` : '',
+    memoryText ? `Memory preview:\n${memoryText}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n\n')
+}
+
+const parseMemoryDecisionResponse = content => {
+  const trimmed = String(content || '').trim()
+  if (!trimmed) return { useMemory: false, query: '' }
+  try {
+    const parsed = JSON.parse(trimmed)
+    const useMemory = Boolean(parsed?.use_memory ?? parsed?.useMemory)
+    const query = typeof parsed?.query === 'string' ? parsed.query.trim() : ''
+    return { useMemory, query }
+  } catch {
+    return { useMemory: false, query: '' }
+  }
+}
+
+const buildMemorySnippetPrompt = ({ question, memoryText }) => {
+  return [
+    `Summarize only the memory details that help answer the user's question.`,
+    `Keep it concise and factual. Do NOT quote the memory verbatim.`,
+    `Return JSON only: {"snippet": string}.`,
+    '',
+    `User question:\n${question}`,
+    `Memory:\n${memoryText}`,
+  ].join('\n\n')
+}
+
+const parseMemorySnippetResponse = content => {
+  const trimmed = String(content || '').trim()
+  if (!trimmed) return ''
+  try {
+    const parsed = JSON.parse(trimmed)
+    return typeof parsed?.snippet === 'string' ? parsed.snippet.trim() : ''
+  } catch {
+    return ''
+  }
+}
+
+const selectMemorySnippet = async ({ question, memoryText, settings, selectedAgent, agents }) => {
+  const fallbackAgent = agents?.find(agent => agent.isDefault)
+  const agentForQuery = selectedAgent || fallbackAgent
+  const modelConfig = getModelConfigForAgent(
+    agentForQuery,
+    settings,
+    'generateMemoryQuery',
+    fallbackAgent,
+  )
+  if (!modelConfig?.model || !modelConfig?.provider) return ''
+  const provider = getProvider(modelConfig.provider)
+  if (!provider?.streamChatCompletion) return ''
+  const credentials = provider.getCredentials(settings)
+  if (!credentials?.apiKey) return ''
+
+  const prompt = buildMemorySnippetPrompt({ question, memoryText })
+  const messages = [
+    {
+      role: 'system',
+      content: 'You summarize memory for retrieval context. Output JSON only.',
+    },
+    { role: 'user', content: prompt },
+  ]
+
+  let fullContent = ''
+  try {
+    await provider.streamChatCompletion({
+      ...credentials,
+      model: modelConfig.model,
+      messages,
+      temperature: 0.2,
+      responseFormat: modelConfig.provider !== 'gemini' ? { type: 'json_object' } : undefined,
+      onChunk: chunk => {
+        if (typeof chunk === 'object' && chunk?.type === 'text' && chunk.content) {
+          fullContent += chunk.content
+        } else if (typeof chunk === 'string') {
+          fullContent += chunk
+        }
+      },
+      onFinish: result => {
+        if (result?.content) fullContent = result.content
+      },
+    })
+  } catch (error) {
+    console.error('Lite model memory snippet failed:', error)
+    return ''
+  }
+
+  return parseMemorySnippetResponse(fullContent)
+}
+
+const selectMemoryQuery = async ({
+  question,
+  historyForSend,
+  memoryText,
+  settings,
+  selectedAgent,
+  agents,
+}) => {
+  const fallbackAgent = agents?.find(agent => agent.isDefault)
+  const agentForQuery = selectedAgent || fallbackAgent
+  const modelConfig = getModelConfigForAgent(
+    agentForQuery,
+    settings,
+    'generateMemoryQuery',
+    fallbackAgent,
+  )
+  if (!modelConfig?.model || !modelConfig?.provider) {
+    return { useMemory: true, query: String(question || '').trim() }
+  }
+  const provider = getProvider(modelConfig.provider)
+  if (!provider?.streamChatCompletion) {
+    return { useMemory: true, query: String(question || '').trim() }
+  }
+  const credentials = provider.getCredentials(settings)
+  if (!credentials?.apiKey) {
+    return { useMemory: true, query: String(question || '').trim() }
+  }
+
+  const prompt = buildMemoryDecisionPrompt({ question, historyForSend, memoryText })
+  const messages = [
+    {
+      role: 'system',
+      content: 'You are a memory gate. Output only JSON with keys use_memory and query.',
+    },
+    { role: 'user', content: prompt },
+  ]
+
+  let fullContent = ''
+  try {
+    await provider.streamChatCompletion({
+      ...credentials,
+      model: modelConfig.model,
+      messages,
+      temperature: 0.2,
+      responseFormat: modelConfig.provider !== 'gemini' ? { type: 'json_object' } : undefined,
+      onChunk: chunk => {
+        if (typeof chunk === 'object' && chunk?.type === 'text' && chunk.content) {
+          fullContent += chunk.content
+        } else if (typeof chunk === 'string') {
+          fullContent += chunk
+        }
+      },
+      onFinish: result => {
+        if (result?.content) fullContent = result.content
+      },
+    })
+  } catch (error) {
+    console.error('Lite model memory decision failed:', error)
+    return { useMemory: true, query: String(question || '').trim() }
+  }
+
+  return parseMemoryDecisionResponse(fullContent)
 }
 
 const selectDocumentQuery = async ({
@@ -448,7 +630,8 @@ const getModelConfigForAgent = (agent, settings, task = 'streamChatCompletion', 
       task === 'generateTitleAndSpace' ||
       task === 'generateRelatedQuestions' ||
       task === 'generateResearchPlan' ||
-      task === 'generateDocumentQuery'
+      task === 'generateDocumentQuery' ||
+      task === 'generateMemoryQuery'
 
     const model = isLiteTask ? liteModel || defaultModel : defaultModel || liteModel
     const provider = isLiteTask
@@ -2401,6 +2584,11 @@ Analyze the submitted data. If critical information is still missing or if the r
       : []
     const shouldRetrieveDocs =
       !documentSelection?.skipRetrieval && selectedDocuments.length > 0 && text.trim()
+    const memoryEnabled = !!settings?.enableLongTermMemory
+    const memoryRecord = memoryEnabled ? await getLongTermMemoryRecord() : null
+    const memoryTextPreview = memoryRecord?.content_text
+      ? String(memoryRecord.content_text).slice(0, 800)
+      : ''
 
     // Step 8: Create AI Placeholder (shows immediately, then we run retrieval)
     const aiMessagePlaceholder = appendAIPlaceholder(
@@ -2412,6 +2600,119 @@ Analyze the submitted data. If critical information is still missing or if the r
 
     let resolvedDocumentSources = baseDocumentSources
     let resolvedDocumentContextAppend = documentContextAppend
+    let resolvedMemoryAppend = ''
+
+    if (memoryEnabled && memoryRecord?.content_text) {
+      const toolCallId = `memory-check-${Date.now()}`
+      const toolStart = Date.now()
+
+      set(state => {
+        const updated = [...state.messages]
+        const lastMsgIndex = updated.length - 1
+        if (lastMsgIndex < 0 || updated[lastMsgIndex].role !== 'ai') {
+          return { messages: updated }
+        }
+        const lastMsg = { ...updated[lastMsgIndex] }
+        const history = Array.isArray(lastMsg.toolCallHistory)
+          ? [...lastMsg.toolCallHistory]
+          : []
+        history.push({
+          id: toolCallId,
+          name: 'memory_check',
+          arguments: JSON.stringify({ query: '' }),
+          status: 'calling',
+          durationMs: null,
+          textIndex: 0,
+        })
+        lastMsg.toolCallHistory = history
+        updated[lastMsgIndex] = lastMsg
+        return { messages: updated }
+      })
+
+      let toolStatus = 'done'
+      let toolError = null
+      let queryText = ''
+      let matchCount = 0
+      let skippedReason = null
+
+      try {
+        const decision = await selectMemoryQuery({
+          question: text,
+          historyForSend,
+          memoryText: memoryTextPreview,
+          settings,
+          selectedAgent: resolvedAgent,
+          agents,
+        })
+        if (decision.useMemory) {
+          queryText = decision.query || ''
+          if (shouldUseDirectMemory(memoryRecord)) {
+            const snippet = await selectMemorySnippet({
+              question: text,
+              memoryText: memoryTextPreview,
+              settings,
+              selectedAgent: resolvedAgent,
+              agents,
+            })
+            resolvedMemoryAppend = snippet ? `# Long-term memory:\n${snippet}` : ''
+            matchCount = resolvedMemoryAppend ? 1 : 0
+            skippedReason = resolvedMemoryAppend ? null : 'empty'
+          } else if (queryText) {
+            const result = await searchLongTermMemory({
+              record: memoryRecord,
+              queryText,
+              similarityThreshold: 0.3,
+            })
+            matchCount = result.matches?.length || 0
+            if (matchCount > 0) {
+              resolvedMemoryAppend = formatMemoryAppendText(result.matches)
+            }
+            if (result.skipped) skippedReason = result.skipped
+          } else {
+            skippedReason = 'no_query'
+          }
+        } else {
+          skippedReason = 'not_needed'
+        }
+      } catch (error) {
+        console.error('Long-term memory check failed:', error)
+        toolStatus = 'error'
+        toolError = error?.message || 'Memory check failed'
+      }
+
+      set(state => {
+        const updated = [...state.messages]
+        const lastMsgIndex = updated.length - 1
+        if (lastMsgIndex < 0 || updated[lastMsgIndex].role !== 'ai') {
+          return { messages: updated }
+        }
+        const lastMsg = { ...updated[lastMsgIndex] }
+        const history = Array.isArray(lastMsg.toolCallHistory)
+          ? [...lastMsg.toolCallHistory]
+          : []
+        const targetIndex = history.findIndex(item => item.id === toolCallId)
+        const durationMs = Date.now() - toolStart
+        const toolOutput = {
+          query: queryText,
+          matches: matchCount,
+          skipped: skippedReason,
+          error: toolError,
+        }
+        if (targetIndex >= 0) {
+          history[targetIndex] = {
+            ...history[targetIndex],
+            arguments: JSON.stringify({ query: queryText }),
+            status: toolStatus,
+            error: toolError,
+            output: toolOutput,
+            durationMs,
+          }
+        }
+        lastMsg.toolCallHistory = history
+        updated[lastMsgIndex] = lastMsg
+        return { messages: updated }
+      })
+    }
 
     if (shouldRetrieveDocs) {
       const toolCallId = `document-embedding-${Date.now()}`
@@ -2521,11 +2822,14 @@ Analyze the submitted data. If critical information is still missing or if the r
       })
     }
 
+    const combinedContextAppend = [resolvedMemoryAppend, resolvedDocumentContextAppend]
+      .filter(Boolean)
+      .join('\n\n')
     const { payloadContent } = buildUserMessage(
       text,
       attachments,
       quoteContext,
-      resolvedDocumentContextAppend,
+      combinedContextAppend,
     )
     const userMessageForSend = { ...userMessage, content: payloadContent }
     const conversationMessages = buildConversationMessages(

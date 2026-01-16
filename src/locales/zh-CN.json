@@ -40,7 +40,9 @@
     "webpageReader": "网页读取",
     "webpageReaderInfo": "获取网页内容并返回 JSON。",
     "documentEmbedding": "文档向量检索",
-    "documentEmbeddingInfo": "对已选文档执行向量检索。"
+    "documentEmbeddingInfo": "对已选文档执行向量检索。",
+    "memoryCheck": "正在检查长期记忆",
+    "memoryCheckInfo": "检索已保存的长期记忆以改进回答。"
   },
   "customTools": {
     "title": "我的工具",

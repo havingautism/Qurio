@@ -27,7 +27,7 @@ const MessageList = ({
   )
 
   return (
-    <div className="flex flex-col w-full max-w-3xl mx-auto pb-5 sm:pb-16">
+    <div className="flex flex-col w-full max-w-7xl mx-auto pb-5 sm:pb-16">
       {messages
         .map((msg, originalIndex) => ({ msg, originalIndex })) // Preserve original index
         .filter(({ msg, originalIndex }) => {

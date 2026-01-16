@@ -75,30 +75,38 @@ const DeepResearchGoalCard = ({ content }) => {
   }, [content, t])
 
   return (
-    <div className="w-full max-w-2xl bg-white dark:bg-[#18181b]/50 backdrop-blur-sm rounded-2xl p-3 sm:p-5 border border-gray-200 dark:border-zinc-800 shadow-sm mb-3 sm:mb-10 cursor-text select-text">
-      <div className="flex flex-col gap-3 sm:gap-4">
+    <div className="w-full max-w-7xl bg-white/80 dark:bg-[#18181b]/60 backdrop-blur-md rounded-2xl p-4 sm:p-6 border border-gray-200/50 dark:border-zinc-700/50 shadow-lg dark:shadow-zinc-900/20 mb-4 sm:mb-8 cursor-text select-text transition-all duration-300 hover:shadow-xl hover:border-gray-300/50 dark:hover:border-zinc-600/50 group">
+      <div className="flex flex-col gap-4 sm:gap-6">
         <div>
-          <div className="text-gray-500 dark:text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-            <EmojiDisplay emoji="🎯" size="1.1em" />
+          <div className="text-blue-600 dark:text-blue-400 text-xs font-bold uppercase tracking-widest mb-2 flex items-center gap-2">
+            <span className="p-1 bg-blue-50 dark:bg-blue-900/20 rounded-md">
+              <EmojiDisplay emoji="🎯" size="1.2em" />
+            </span>
             {t('messageBubble.researchGoalLabel')}
           </div>
-          <div className="text-base font-medium text-gray-900 dark:text-gray-100 leading-relaxed font-sans">
+          <div className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-50 leading-relaxed font-sans tracking-tight">
             {displayContent}
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 mt-1">
-          <div className="flex-1 bg-gray-50 dark:bg-zinc-800/50 rounded-lg p-2.5 sm:p-3 border border-gray-100 dark:border-zinc-700/50">
-            <div className="text-gray-400 dark:text-gray-500 text-[10px] font-bold uppercase tracking-wider mb-1">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mt-2">
+          <div className="bg-gray-50/50 dark:bg-zinc-800/30 rounded-xl p-3 sm:p-4 border border-gray-100 dark:border-zinc-700/30 transition-colors hover:bg-gray-50 dark:hover:bg-zinc-800/50">
+            <div className="text-gray-400 dark:text-gray-500 text-[10px] font-bold uppercase tracking-wider mb-2 flex items-center gap-2">
+              <div className="w-1 h-1 rounded-full bg-indigo-500"></div>
               {t('messageBubble.researchScopeLabel')}
             </div>
-            <div className="text-gray-700 dark:text-gray-300 text-sm font-medium">Auto</div>
+            <div className="text-gray-600 dark:text-gray-300 text-sm font-medium pl-3 border-l-2 border-indigo-500/20">
+              Auto
+            </div>
           </div>
-          <div className="flex-1 bg-gray-50 dark:bg-zinc-800/50 rounded-lg p-2.5 sm:p-3 border border-gray-100 dark:border-zinc-700/50">
-            <div className="text-gray-400 dark:text-gray-500 text-[10px] font-bold uppercase tracking-wider mb-1">
+          <div className="bg-gray-50/50 dark:bg-zinc-800/30 rounded-xl p-3 sm:p-4 border border-gray-100 dark:border-zinc-700/30 transition-colors hover:bg-gray-50 dark:hover:bg-zinc-800/50">
+            <div className="text-gray-400 dark:text-gray-500 text-[10px] font-bold uppercase tracking-wider mb-2 flex items-center gap-2">
+              <div className="w-1 h-1 rounded-full bg-emerald-500"></div>
               {t('messageBubble.researchRequirementsLabel')}
             </div>
-            <div className="text-gray-700 dark:text-gray-300 text-sm font-medium">Auto</div>
+            <div className="text-gray-600 dark:text-gray-300 text-sm font-medium pl-3 border-l-2 border-emerald-500/20">
+              Auto
+            </div>
           </div>
         </div>
       </div>

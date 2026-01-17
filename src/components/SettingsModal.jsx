@@ -736,6 +736,12 @@ const SettingsModal = ({ isOpen, onClose }) => {
             if (data.embeddingModel) setEmbeddingModel(data.embeddingModel)
             if (data.embeddingModelSource === 'custom')
               setEmbeddingCustomModel(data.embeddingModel || '')
+            if (typeof data.enableLongTermMemory === 'boolean')
+              setEnableLongTermMemory(data.enableLongTermMemory)
+            if (typeof data.userSelfIntro === 'string') {
+              setUserSelfIntro(data.userSelfIntro)
+              initialSelfIntroRef.current = data.userSelfIntro
+            }
           }
         })
       }

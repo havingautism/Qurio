@@ -394,12 +394,12 @@ h6 {
   padding-left: 1rem !important;
   margin: 1em 0 !important;
   font-style: italic !important;
-  color: var(--color-primary-700) !important;
+  /* color: var(--color-primary-700) !important; */
 }
 
-.dark .message-content blockquote {
-  color: var(--color-primary-300) !important;
-}
+/* .dark .message-content blockquote {
+  /* color: var(--color-primary-300) !important; */
+/* } */
 
 .message-content {
   font-size: var(--message-font-size) !important;
@@ -409,7 +409,7 @@ h6 {
 .message-content p {
   font-size: var(--message-font-size) !important;
   line-height: 1.75 !important;
-  margin-bottom: 0.85em !important;
+  /* margin-bottom: 0.85em !important; */
 }
 
 /* .message-content p:last-child {

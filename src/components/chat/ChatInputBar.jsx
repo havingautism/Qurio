@@ -557,7 +557,7 @@ const ChatInputBar = React.memo(
             <div className="flex flex-col gap-2">
               {/* Edited Message Indicator */}
               {showEditing && (
-                <div className="flex items-center justify-between bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-zinc-800 rounded-xl px-4 py-2 shadow-sm animate-in slide-in-from-bottom-2">
+                <div className="flex items-center justify-between z-50 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-zinc-800 rounded-xl px-4 py-2 shadow-sm animate-in slide-in-from-bottom-2">
                   <div className="flex flex-col overflow-hidden mr-2">
                     <span className="text-[10px] font-bold text-primary-500 uppercase tracking-wider">
                       Editing
@@ -576,7 +576,7 @@ const ChatInputBar = React.memo(
               )}
               {/* Quote Indicator */}
               {quotedText && (
-                <div className="flex items-center justify-between bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-zinc-800 rounded-xl px-4 py-2 shadow-sm animate-in slide-in-from-bottom-2">
+                <div className="flex items-center justify-between z-50 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-zinc-800 rounded-xl px-4 py-2 shadow-sm animate-in slide-in-from-bottom-2">
                   <div className="flex flex-col overflow-hidden mr-2">
                     <span className="text-[10px] font-bold text-primary-500 uppercase tracking-wider">
                       Quote

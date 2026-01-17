@@ -149,3 +149,49 @@ Manual selection of space documents per conversation.
 | `conversation_id` | uuid        | FK -> `conversations.id`               |
 | `document_id`     | uuid        | FK -> `space_documents.id`             |
 | `created_at`      | timestamptz |                                        |
+
+## 10. `memory_domains`
+
+High-level memory routing directory (domain cards).
+
+| Column        | Type        | Notes                                  |
+| ------------- | ----------- | -------------------------------------- |
+| `id`          | uuid        | Primary key                            |
+| `user_id`     | uuid        | FK -> `auth.users.id`                  |
+| `domain_key`  | text        | Stable domain identifier (e.g., `music`) |
+| `aliases`     | text[]      | Synonyms for routing                   |
+| `scope`       | text        | One-line boundary/definition           |
+| `created_at`  | timestamptz |                                        |
+| `updated_at`  | timestamptz |                                        |
+
+## 11. `memory_summaries`
+
+Single summary per domain (injectable memory).
+
+| Column        | Type        | Notes                                  |
+| ------------- | ----------- | -------------------------------------- |
+| `id`          | uuid        | Primary key                            |
+| `domain_id`   | uuid        | FK -> `memory_domains.id`              |
+| `summary`     | text        | Concise facts/preferences              |
+| `evidence`    | text        | Optional source snippets               |
+| `created_at`  | timestamptz |                                        |
+| `updated_at`  | timestamptz |                                        |
+
+## 12. `long_term_memory` (legacy)
+
+Single-user memory blob with optional embeddings.
+
+| Column             | Type        | Notes                                  |
+| ------------------ | ----------- | -------------------------------------- |
+| `id`               | uuid        | Primary key                            |
+| `user_id`          | uuid        | FK -> `auth.users.id`                  |
+| `content_text`     | text        | Full memory text                       |
+| `content_hash`     | text        | Hash of content for change detection   |
+| `embedding`        | real[]      | Optional embedding for retrieval       |
+| `embedding_provider` | text      | Provider used for embedding            |
+| `embedding_model`    | text      | Embedding model used                   |
+| `created_at`       | timestamptz |                                        |
+| `updated_at`       | timestamptz |                                        |
+
+Notes:
+- `long_term_memory` is retained for backward compatibility; new routing uses `memory_domains` + `memory_summaries`.

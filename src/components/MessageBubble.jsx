@@ -24,6 +24,7 @@ import {
   FormInput,
   Globe,
   AlertTriangle,
+  Brain,
 } from 'lucide-react'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
@@ -1386,6 +1387,7 @@ const MessageBubble = ({
                           Wrench,
                           FormInput,
                           Globe,
+                          Brain,
                         }[iconName]
                       : null
                     return (

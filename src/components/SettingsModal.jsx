@@ -27,9 +27,17 @@ import { getModelsForProvider } from '../lib/models_api'
 import { getPublicEnv } from '../lib/publicEnv'
 import { GLM_BASE_URL, SILICONFLOW_BASE_URL } from '../lib/providerConstants'
 import { loadSettings, saveSettings } from '../lib/settings'
+import {
+  deleteMemoryDomain,
+  ensureLongTermMemoryIndex,
+  getMemoryDomains,
+  upsertMemoryDomainSummary,
+} from '../lib/longTermMemoryService'
 import { fetchRemoteSettings, saveRemoteSettings, testConnection } from '../lib/supabase'
 import { THEMES } from '../lib/themes'
 import Logo from './Logo'
+import { useAppContext } from '../App'
+import { getProvider } from '../lib/providers'
 
 const ENV_VARS = {
   supabaseUrl: getPublicEnv('PUBLIC_SUPABASE_URL'),
@@ -277,6 +285,48 @@ CREATE TRIGGER trg_user_settings_updated_at
 BEFORE UPDATE ON public.user_settings
 FOR EACH ROW EXECUTE PROCEDURE public.set_updated_at();
 
+CREATE TABLE IF NOT EXISTS public.memory_domains (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  domain_key TEXT NOT NULL,
+  aliases TEXT[] NOT NULL DEFAULT '{}'::text[],
+  scope TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_memory_domains_updated_at
+  ON public.memory_domains(updated_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_memory_domains_user_key
+  ON public.memory_domains(user_id, domain_key);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_memory_domains_key_single_user
+  ON public.memory_domains(domain_key)
+  WHERE user_id IS NULL;
+
+CREATE TRIGGER trg_memory_domains_updated_at
+BEFORE UPDATE ON public.memory_domains
+FOR EACH ROW EXECUTE PROCEDURE public.set_updated_at();
+
+CREATE TABLE IF NOT EXISTS public.memory_summaries (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  domain_id UUID NOT NULL REFERENCES public.memory_domains(id) ON DELETE CASCADE,
+  summary TEXT NOT NULL,
+  evidence TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_memory_summaries_domain_id
+  ON public.memory_summaries(domain_id);
+CREATE INDEX IF NOT EXISTS idx_memory_summaries_updated_at
+  ON public.memory_summaries(updated_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_memory_summaries_domain_id_unique
+  ON public.memory_summaries(domain_id);
+
+CREATE TRIGGER trg_memory_summaries_updated_at
+BEFORE UPDATE ON public.memory_summaries
+FOR EACH ROW EXECUTE PROCEDURE public.set_updated_at();
+
 -- Enable RLS (Security Best Practice)
 -- ALTER TABLE public.user_settings ENABLE ROW LEVEL SECURITY;
 -- CREATE POLICY "Allow all actions for authenticated users" ON public.user_settings FOR ALL USING (auth.role() = 'authenticated');
@@ -302,14 +352,96 @@ const DOCUMENT_MAX_CHUNKS = 60
 const DOCUMENT_TOP_K = 3
 
 const EMBEDDING_KEYWORDS = ['embed', 'bge', 'vector']
+const MEMORY_DOMAIN_MAX_ITEMS = 8
+const MEMORY_DOMAIN_SUMMARY_MAX_CHARS = 240
 
 const matchesEmbeddingKeyword = model => {
   const text = String((model?.value || model?.label) ?? '').toLowerCase()
   return EMBEDDING_KEYWORDS.some(keyword => text.includes(keyword))
 }
 
+const normalizeDomainKey = value => {
+  const raw = String(value || '').trim().toLowerCase()
+  if (!raw) return ''
+  return raw.replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')
+}
+
+const truncateDomainSummary = value => {
+  const trimmed = String(value || '').trim()
+  if (!trimmed) return ''
+  if (trimmed.length <= MEMORY_DOMAIN_SUMMARY_MAX_CHARS) return trimmed
+  return `${trimmed.slice(0, MEMORY_DOMAIN_SUMMARY_MAX_CHARS)}...`
+}
+
+const extractJsonObject = text => {
+  const trimmed = String(text || '').trim()
+  if (!trimmed) return ''
+  if (trimmed.startsWith('{') && trimmed.endsWith('}')) return trimmed
+  const start = trimmed.indexOf('{')
+  const end = trimmed.lastIndexOf('}')
+  if (start >= 0 && end > start) {
+    return trimmed.slice(start, end + 1)
+  }
+  return ''
+}
+
+const parseMemoryDomainExtractionResponse = content => {
+  const raw = extractJsonObject(content)
+  if (!raw) return []
+  try {
+    const parsed = JSON.parse(raw)
+    const domains = Array.isArray(parsed?.domains) ? parsed.domains : []
+    return domains
+  } catch {
+    return []
+  }
+}
+
+const buildMemoryDomainExtractionPrompt = introText => {
+  return [
+    `Extract stable user preference/background domains from the self-introduction.`,
+    `Return JSON only: {"domains":[{"domain_key":string,"summary":string,"aliases":string[],"scope":string}]}`,
+    `Rules:`,
+    `- domain_key: short lowercase id (e.g., "music", "movie", "programming")`,
+    `- summary: short, factual, no timelines, <= 2 sentences`,
+    `- include only stable, long-term info; skip temporary context`,
+    `- return empty domains if nothing qualifies`,
+    '',
+    `Self-introduction:\n${introText}`,
+  ].join('\n')
+}
+
+const resolveLiteModelConfig = (agent, settings) => {
+  const defaultModel = agent?.default_model ?? agent?.defaultModel
+  const liteModel = agent?.lite_model ?? agent?.liteModel
+  const defaultModelProvider =
+    agent?.default_model_provider ?? agent?.defaultModelProvider ?? ''
+  const liteModelProvider = agent?.lite_model_provider ?? agent?.liteModelProvider ?? ''
+  const model = (liteModel || defaultModel || settings?.liteModel || settings?.defaultModel || '')
+    .trim()
+  const provider = (
+    liteModelProvider ||
+    defaultModelProvider ||
+    agent?.provider ||
+    settings?.apiProvider ||
+    ''
+  ).trim()
+
+  if (!model || !provider) return null
+  return { model, provider }
+}
+
+const validateSettingsForSave = settings => {
+  const contextLimit = Number(settings.contextMessageLimit)
+  if (!Number.isFinite(contextLimit) || contextLimit < 1 || contextLimit > 50) return false
+  const memoryLimit = Number(settings.memoryRecallLimit)
+  if (!Number.isFinite(memoryLimit) || memoryLimit < 1 || memoryLimit > 20) return false
+  return true
+}
+
 const SettingsModal = ({ isOpen, onClose }) => {
   const { t, i18n } = useTranslation()
+  const { defaultAgent } = useAppContext()
 
   const renderEnvHint = hasEnv =>
     hasEnv ? (
@@ -409,6 +541,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
   const [initModalResult, setInitModalResult] = useState(null)
   const [copiedInitSql, setCopiedInitSql] = useState(false)
   const [retestingDb, setRetestingDb] = useState(false)
+  const initialSelfIntroRef = useRef('')
 
   // Handle click outside provider dropdown
   useEffect(() => {
@@ -548,7 +681,12 @@ const SettingsModal = ({ isOpen, onClose }) => {
       if (settings.embeddingModel) setEmbeddingModel(settings.embeddingModel)
       if (settings.embeddingModelSource === 'custom')
         setEmbeddingCustomModel(settings.embeddingModel || '')
-      if (typeof settings.userSelfIntro === 'string') setUserSelfIntro(settings.userSelfIntro)
+      if (typeof settings.userSelfIntro === 'string') {
+        setUserSelfIntro(settings.userSelfIntro)
+        initialSelfIntroRef.current = settings.userSelfIntro
+      } else {
+        initialSelfIntroRef.current = ''
+      }
       setDeveloperMode(settings.developerMode || false)
       setIntroQuery('')
       setIntroEmbeddingVector(null)
@@ -1157,6 +1295,109 @@ const SettingsModal = ({ isOpen, onClose }) => {
     return requiredTables.filter(table => !result.tables[table])
   }
 
+  const updateMemoryDomainsFromIntro = async (introText, settings) => {
+    const trimmedIntro = String(introText || '').trim()
+    if (!trimmedIntro) return { updated: false, reason: 'empty' }
+
+    const modelConfig = resolveLiteModelConfig(defaultAgent, settings)
+    if (!modelConfig?.provider || !modelConfig?.model) {
+      return { updated: false, reason: 'no_model' }
+    }
+
+    const provider = getProvider(modelConfig.provider)
+    if (!provider?.streamChatCompletion) {
+      return { updated: false, reason: 'no_provider' }
+    }
+
+    const credentials = provider.getCredentials(settings)
+    if (!credentials?.apiKey) {
+      return { updated: false, reason: 'no_key' }
+    }
+
+    const prompt = buildMemoryDomainExtractionPrompt(trimmedIntro)
+    const messages = [
+      {
+        role: 'system',
+        content: 'You extract long-term memory domains. Output JSON only.',
+      },
+      { role: 'user', content: prompt },
+    ]
+
+    let fullContent = ''
+    try {
+      await provider.streamChatCompletion({
+        ...credentials,
+        model: modelConfig.model,
+        messages,
+        temperature: 0.2,
+        responseFormat: modelConfig.provider !== 'gemini' ? { type: 'json_object' } : undefined,
+        onChunk: chunk => {
+          if (typeof chunk === 'object' && chunk?.type === 'text' && chunk.content) {
+            fullContent += chunk.content
+          } else if (typeof chunk === 'string') {
+            fullContent += chunk
+          }
+        },
+        onFinish: result => {
+          if (result?.content) fullContent = result.content
+        },
+      })
+    } catch (error) {
+      console.error('Lite model memory domain extraction failed:', error)
+      return { updated: false, reason: 'model_error' }
+    }
+
+    const rawDomains = parseMemoryDomainExtractionResponse(fullContent)
+    const normalizedDomains = (rawDomains || [])
+      .map(item => {
+        const domainKey = normalizeDomainKey(item?.domain_key || item?.domainKey)
+        if (!domainKey) return null
+        const summary = truncateDomainSummary(item?.summary)
+        if (!summary) return null
+        const aliases = Array.isArray(item?.aliases)
+          ? item.aliases.map(alias => String(alias || '').trim()).filter(Boolean)
+          : []
+        const scope = typeof item?.scope === 'string' ? item.scope.trim() : ''
+        return {
+          domainKey,
+          summary,
+          aliases,
+          scope,
+        }
+      })
+      .filter(Boolean)
+      .slice(0, MEMORY_DOMAIN_MAX_ITEMS)
+
+    if (normalizedDomains.length === 0) {
+      return { updated: false, reason: 'no_domains' }
+    }
+
+    const existingDomains = await getMemoryDomains()
+    const keepKeys = new Set(normalizedDomains.map(domain => domain.domainKey))
+
+    await Promise.all(
+      (existingDomains || [])
+        .filter(domain => {
+          const key = normalizeDomainKey(domain?.domain_key)
+          return key && !keepKeys.has(key)
+        })
+        .map(domain => deleteMemoryDomain(domain.domain_key)),
+    )
+
+    await Promise.all(
+      normalizedDomains.map(domain =>
+        upsertMemoryDomainSummary({
+          domainKey: domain.domainKey,
+          summary: domain.summary,
+          aliases: domain.aliases,
+          scope: domain.scope,
+        }),
+      ),
+    )
+
+    return { updated: true, count: normalizedDomains.length }
+  }
+
   const copyInitSql = async () => {
     try {
       await navigator.clipboard.writeText(INIT_SQL_SCRIPT)
@@ -1306,7 +1547,36 @@ const SettingsModal = ({ isOpen, onClose }) => {
         developerMode,
       }
 
+      const didPassValidation = validateSettingsForSave(newSettings)
+
       await saveSettings(newSettings)
+
+      if (enableLongTermMemory && didPassValidation) {
+        const introText = userSelfIntro.trim()
+        const initialIntroText = String(initialSelfIntroRef.current || '').trim()
+        const introChanged = introText !== initialIntroText
+        if (introChanged && introText) {
+          try {
+            const result = await updateMemoryDomainsFromIntro(introText, newSettings)
+            if (!result.updated) {
+              await ensureLongTermMemoryIndex({ text: introText })
+            }
+          } catch (error) {
+            console.error('Failed to update long-term memory index:', error)
+            try {
+              await ensureLongTermMemoryIndex({ text: introText })
+            } catch (fallbackError) {
+              console.error('Fallback memory update failed:', fallbackError)
+            }
+          }
+        } else if (introChanged) {
+          try {
+            await ensureLongTermMemoryIndex({ text: '' })
+          } catch (error) {
+            console.error('Failed to clear long-term memory:', error)
+          }
+        }
+      }
 
       // Save Remote (if connected)
       if (supabaseUrl && supabaseKey) {
@@ -1922,7 +2192,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                     <button
                       onClick={handleTestConnection}
                       disabled={testing || !supabaseUrl || !supabaseKey}
-                      className="self-end px-4 py-2 text-xs font-medium text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="self-start px-4 py-2 text-xs font-medium text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {testing ? t('settings.testing') : t('settings.testConnectionAndTables')}
                     </button>
@@ -2350,11 +2620,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                     className="w-32 mt-1 px-3 py-2 bg-white disabled:bg-gray-50/20 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600 disabled:opacity-60 disabled:cursor-not-allowed"
                   />
                 </div>
-              </div>
-            )}
 
-            {activeTab === 'personalization' && (
-              <div className="flex flex-col gap-8 max-w-2xl">
                 <div className="flex flex-col gap-2">
                   <label className="text-sm font-medium text-gray-900 dark:text-white">
                     {t('settings.userSelfIntro')}
@@ -2367,12 +2633,15 @@ const SettingsModal = ({ isOpen, onClose }) => {
                     onChange={e => setUserSelfIntro(e.target.value)}
                     placeholder={t('settings.userSelfIntroPlaceholder')}
                     rows={5}
-                    className="w-full px-4 py-2 text-sm bg-white disabled:bg-gray-50/20 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20 resize-none"
+                    disabled={!enableLongTermMemory}
+                    className="w-full px-4 py-2 text-sm bg-white disabled:bg-gray-50/20 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20 resize-none disabled:opacity-60 disabled:cursor-not-allowed"
                   />
                 </div>
+              </div>
+            )}
 
-                <div className="h-px bg-gray-100 dark:bg-zinc-800" />
-
+            {activeTab === 'personalization' && (
+              <div className="flex flex-col gap-8 max-w-2xl">
                 <div className="flex flex-col gap-4">
                   <div className="flex flex-col gap-1">
                     <label className="text-sm font-medium text-gray-900 dark:text-white">

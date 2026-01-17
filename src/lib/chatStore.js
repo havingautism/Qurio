@@ -11,6 +11,9 @@ import { getUserTools } from '../lib/userToolsService'
 import { deleteMessageById } from '../lib/supabase'
 import { buildResponseStylePromptFromAgent } from './settings'
 import { listSpaceAgents } from './spacesService'
+import { fetchDocumentChunkContext } from './documentRetrievalService'
+import { formatDocumentAppendText } from './documentContextUtils'
+import { formatMemorySummariesAppendText, getMemoryDomains } from './longTermMemoryService'
 
 // ================================================================================
 // CHAT STORE HELPER FUNCTIONS
@@ -80,6 +83,360 @@ const buildUserMessage = (text, attachments, quoteContext, documentContextAppend
   const userMessage = { role: 'user', content: displayContent, created_at: now }
 
   return { userMessage, payloadContent }
+}
+
+const DOCUMENT_RETRIEVAL_CHUNK_LIMIT = 250
+const DOCUMENT_RETRIEVAL_TOP_CHUNKS = 5
+const QUERY_CONTEXT_MAX_CHARS = 1200
+const QUERY_HISTORY_MAX_MESSAGES = 6
+const MEMORY_DOMAIN_PROMPT_LIMIT = 20
+
+const extractPlainText = content => {
+  if (!content) return ''
+  if (typeof content === 'string') return content
+  if (Array.isArray(content)) {
+    return content
+      .map(part => {
+        if (typeof part === 'string') return part
+        if (part?.type === 'text' && part.text) return part.text
+        if (part?.text) return part.text
+        return ''
+      })
+      .filter(Boolean)
+      .join('\n')
+  }
+  if (content?.text) return String(content.text)
+  return String(content)
+}
+
+const buildDocumentQueryPrompt = ({ question, historyForSend, documents }) => {
+  const docTitles = (documents || [])
+    .map(doc => (typeof doc?.name === 'string' ? doc.name.trim() : ''))
+    .filter(Boolean)
+  const recentHistory = (historyForSend || [])
+    .slice(-QUERY_HISTORY_MAX_MESSAGES)
+    .map(msg => {
+      const role = msg.role === 'ai' ? 'assistant' : msg.role
+      const text = extractPlainText(msg.content)
+      return `${role}: ${text}`.trim()
+    })
+    .filter(Boolean)
+    .join('\n')
+    .slice(0, QUERY_CONTEXT_MAX_CHARS)
+
+  const docSection = docTitles.length ? `Selected documents:\n- ${docTitles.join('\n- ')}` : ''
+  const historySection = recentHistory ? `Recent conversation:\n${recentHistory}` : ''
+
+  return [
+    `You generate a single concise vector search query for document retrieval.`,
+    `Use the same language as the user's question.`,
+    `If no document retrieval is needed, return an empty string for "query".`,
+    `Return JSON only: {"query": string}.`,
+    '',
+    `User question:\n${question}`,
+    historySection,
+    docSection,
+  ]
+    .filter(Boolean)
+    .join('\n\n')
+}
+
+const parseDocumentQueryResponse = content => {
+  const trimmed = String(content || '').trim()
+  if (!trimmed) return ''
+  try {
+    const parsed = JSON.parse(trimmed)
+    if (typeof parsed?.query === 'string') return parsed.query.trim()
+    if (Array.isArray(parsed?.queries)) return parsed.queries.filter(Boolean).join(' ')
+  } catch {
+    return trimmed.replace(/^"+|"+$/g, '').trim()
+  }
+  return trimmed.replace(/^"+|"+$/g, '').trim()
+}
+
+const formatMemoryDomainIndex = domains => {
+  if (!Array.isArray(domains) || domains.length === 0) return ''
+  const lines = domains.slice(0, MEMORY_DOMAIN_PROMPT_LIMIT).map(domain => {
+    const key = String(domain?.domain_key || '').trim()
+    if (!key) return null
+    const aliases = Array.isArray(domain?.aliases) ? domain.aliases.filter(Boolean) : []
+    const scope = typeof domain?.scope === 'string' ? domain.scope.trim() : ''
+      const aliasText = aliases.length ? `aliases: ${aliases.join(', ')}` : 'aliases: none'
+      const scopeText = scope ? `scope: ${scope}` : 'scope: n/a'
+      return `- ${key} (${aliasText}; ${scopeText})`
+    })
+  return lines.filter(Boolean).join('\n')
+}
+
+const buildMemoryDomainDecisionPrompt = ({ question, historyForSend, domains }) => {
+  const recentHistory = (historyForSend || [])
+    .slice(-QUERY_HISTORY_MAX_MESSAGES)
+    .map(msg => {
+      const role = msg.role === 'ai' ? 'assistant' : msg.role
+      const text = extractPlainText(msg.content)
+      return `${role}: ${text}`.trim()
+    })
+    .filter(Boolean)
+    .join('\n')
+    .slice(0, QUERY_CONTEXT_MAX_CHARS)
+
+  const domainIndex = formatMemoryDomainIndex(domains)
+
+  return [
+    `Decide if long-term profile memory is needed to answer the user's question.`,
+    `Return JSON only: {"need_memory": boolean, "hit_domains": string[]}.`,
+    `If need_memory is false, set hit_domains to an empty array.`,
+    `Only use domain_key values from the list.`,
+    '',
+    `User question:\n${question}`,
+    recentHistory ? `Recent conversation:\n${recentHistory}` : '',
+    domainIndex ? `Domain index:\n${domainIndex}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n\n')
+}
+
+const parseMemoryDomainDecisionResponse = content => {
+  const trimmed = String(content || '').trim()
+  if (!trimmed) return { needMemory: false, hitDomains: [] }
+  try {
+    const parsed = JSON.parse(trimmed)
+    const needMemory = Boolean(parsed?.need_memory ?? parsed?.needMemory)
+    const hitDomainsRaw = Array.isArray(parsed?.hit_domains ?? parsed?.hitDomains)
+      ? parsed.hit_domains ?? parsed.hitDomains
+      : []
+    const hitDomains = hitDomainsRaw.map(item => String(item || '').trim()).filter(Boolean)
+    return { needMemory, hitDomains }
+  } catch {
+    return { needMemory: false, hitDomains: [] }
+  }
+}
+
+const fallbackMemoryDecision = (question, domains) => {
+  const trimmedQuestion = String(question || '').toLowerCase()
+  if (!Array.isArray(domains) || domains.length === 0) {
+    return { needMemory: false, hitDomains: [] }
+  }
+  const usePersonalContext =
+    /(\bmy\b|\bmine\b|\bme\b|\bwe\b|\bi\b|我的|我们|我在|我想)/i.test(trimmedQuestion)
+  if (!usePersonalContext) {
+    return { needMemory: false, hitDomains: [] }
+  }
+
+  const matched = domains
+    .filter(domain => {
+      const key = String(domain?.domain_key || '').toLowerCase()
+      const aliases = Array.isArray(domain?.aliases)
+        ? domain.aliases.map(item => String(item || '').toLowerCase())
+        : []
+      const tokens = [key, ...aliases].filter(Boolean)
+      return tokens.some(token => token && trimmedQuestion.includes(token))
+    })
+    .map(domain => String(domain.domain_key || '').trim())
+    .filter(Boolean)
+
+  if (matched.length > 0) {
+    return { needMemory: true, hitDomains: matched }
+  }
+
+  return {
+    needMemory: false,
+    hitDomains: [],
+  }
+}
+
+const selectMemoryDomains = async ({
+  question,
+  historyForSend,
+  domains,
+  settings,
+  selectedAgent,
+  agents,
+}) => {
+  const fallbackAgent = agents?.find(agent => agent.isDefault)
+  const agentForQuery = selectedAgent || fallbackAgent
+  const modelConfig = getModelConfigForAgent(
+    agentForQuery,
+    settings,
+    'generateMemoryQuery',
+    fallbackAgent,
+  )
+  if (!modelConfig?.model || !modelConfig?.provider) {
+    return fallbackMemoryDecision(question, domains)
+  }
+  const provider = getProvider(modelConfig.provider)
+  if (!provider?.streamChatCompletion) {
+    return fallbackMemoryDecision(question, domains)
+  }
+  const credentials = provider.getCredentials(settings)
+  if (!credentials?.apiKey) {
+    return fallbackMemoryDecision(question, domains)
+  }
+
+  const prompt = buildMemoryDomainDecisionPrompt({ question, historyForSend, domains })
+  const messages = [
+    {
+      role: 'system',
+      content: 'You are a memory router. Output only JSON with keys need_memory and hit_domains.',
+    },
+    { role: 'user', content: prompt },
+  ]
+
+  let fullContent = ''
+  try {
+    await provider.streamChatCompletion({
+      ...credentials,
+      model: modelConfig.model,
+      messages,
+      temperature: 0.2,
+      responseFormat: modelConfig.provider !== 'gemini' ? { type: 'json_object' } : undefined,
+      onChunk: chunk => {
+        if (typeof chunk === 'object' && chunk?.type === 'text' && chunk.content) {
+          fullContent += chunk.content
+        } else if (typeof chunk === 'string') {
+          fullContent += chunk
+        }
+      },
+      onFinish: result => {
+        if (result?.content) fullContent = result.content
+      },
+    })
+  } catch (error) {
+    console.error('Lite model memory decision failed:', error)
+    return fallbackMemoryDecision(question, domains)
+  }
+
+  return parseMemoryDomainDecisionResponse(fullContent)
+}
+
+const normalizeDomainKey = value => String(value || '').trim().toLowerCase()
+
+const resolveMemoryDomain = (domains, domainKey) => {
+  const normalizedKey = normalizeDomainKey(domainKey)
+  if (!normalizedKey) return null
+  const directMatch = domains.find(
+    domain => normalizeDomainKey(domain?.domain_key) === normalizedKey,
+  )
+  if (directMatch) return directMatch
+  return domains.find(domain => {
+    const aliases = Array.isArray(domain?.aliases) ? domain.aliases : []
+    return aliases.some(alias => normalizeDomainKey(alias) === normalizedKey)
+  })
+}
+
+const selectMemoryDomainsByKeys = (domains, keys, maxCount) => {
+  const limit = Math.max(1, Number(maxCount) || 1)
+  const selected = []
+  const seen = new Set()
+  const normalizedKeys = Array.isArray(keys) ? keys : []
+
+  normalizedKeys.forEach(key => {
+    const domain = resolveMemoryDomain(domains, key)
+    if (!domain) return
+    const canonical = normalizeDomainKey(domain.domain_key)
+    if (!canonical || seen.has(canonical)) return
+    selected.push(domain)
+    seen.add(canonical)
+  })
+
+  if (selected.length >= limit) return selected.slice(0, limit)
+
+  return selected
+}
+
+const selectDocumentQuery = async ({
+  question,
+  historyForSend,
+  documents,
+  settings,
+  selectedAgent,
+  agents,
+}) => {
+  const fallbackAgent = agents?.find(agent => agent.isDefault)
+  const agentForQuery = selectedAgent || fallbackAgent
+  const modelConfig = getModelConfigForAgent(
+    agentForQuery,
+    settings,
+    'generateDocumentQuery',
+    fallbackAgent,
+  )
+  if (!modelConfig?.model || !modelConfig?.provider) {
+    return String(question || '').trim()
+  }
+  const provider = getProvider(modelConfig.provider)
+  if (!provider?.streamChatCompletion) {
+    return String(question || '').trim()
+  }
+  const credentials = provider.getCredentials(settings)
+  if (!credentials?.apiKey) {
+    return String(question || '').trim()
+  }
+
+  const prompt = buildDocumentQueryPrompt({ question, historyForSend, documents })
+  const messages = [
+    {
+      role: 'system',
+      content:
+        'You are a retrieval query planner. Output only JSON with a "query" string. No markdown.',
+    },
+    { role: 'user', content: prompt },
+  ]
+
+  let fullContent = ''
+  try {
+    await provider.streamChatCompletion({
+      ...credentials,
+      model: modelConfig.model,
+      messages,
+      temperature: 0.2,
+      responseFormat: modelConfig.provider !== 'gemini' ? { type: 'json_object' } : undefined,
+      onChunk: chunk => {
+        if (typeof chunk === 'object' && chunk?.type === 'text' && chunk.content) {
+          fullContent += chunk.content
+        } else if (typeof chunk === 'string') {
+          fullContent += chunk
+        }
+      },
+      onFinish: result => {
+        if (result?.content) fullContent = result.content
+      },
+    })
+  } catch (error) {
+    console.error('Lite model document query selection failed:', error)
+    return String(question || '').trim()
+  }
+
+  const resolved = parseDocumentQueryResponse(fullContent)
+  return resolved || String(question || '').trim()
+}
+
+const buildConversationMessages = (historyForSend, userMessageForSend, selectedAgent, settings) => {
+  const resolvedPrompt = buildAgentPrompt(selectedAgent, settings)
+  const conversationMessagesBase = [
+    ...(resolvedPrompt ? [{ role: 'system', content: resolvedPrompt }] : []),
+    ...historyForSend,
+  ]
+  return [...conversationMessagesBase, userMessageForSend]
+}
+
+const appendAIPlaceholder = (selectedAgent, toggles, documentSources, set) => {
+  const aiMessagePlaceholder = {
+    role: 'ai',
+    content: '',
+    created_at: new Date().toISOString(),
+    thinkingEnabled: !!(toggles?.thinking || toggles?.deepResearch),
+    deepResearch: !!toggles?.deepResearch,
+    researchPlan: '',
+    researchPlanLoading: !!toggles?.deepResearch,
+    agentId: selectedAgent?.id || null,
+    agentName: selectedAgent?.name || null,
+    agentEmoji: selectedAgent?.emoji || '',
+    agentIsDefault: !!selectedAgent?.isDefault,
+    documentSources: documentSources || [],
+  }
+
+  set(state => ({ messages: [...state.messages, aiMessagePlaceholder] }))
+  return aiMessagePlaceholder
 }
 
 /**
@@ -282,7 +639,9 @@ const getModelConfigForAgent = (agent, settings, task = 'streamChatCompletion', 
       task === 'generateTitle' ||
       task === 'generateTitleAndSpace' ||
       task === 'generateRelatedQuestions' ||
-      task === 'generateResearchPlan'
+      task === 'generateResearchPlan' ||
+      task === 'generateDocumentQuery' ||
+      task === 'generateMemoryQuery'
 
     const model = isLiteTask ? liteModel || defaultModel : defaultModel || liteModel
     const provider = isLiteTask
@@ -679,58 +1038,6 @@ const persistUserMessage = async (convId, editingInfo, content, set) => {
 // ========================================
 // AI API INTEGRATION
 // ========================================
-
-/**
- * Prepares AI message placeholder and conversation context for API call
- * @param {Array} historyForSend - Message history to send to AI
- * @param {Object} userMessage - Current user message
- * @param {Object} spaceInfo - Space selection information
- * @param {Object} selectedAgent - Currently selected agent (optional)
- * @param {Object} settings - User settings
- * @param {Function} set - Zustand set function
- * @returns {Object} Contains conversationMessages (for API) and aiMessagePlaceholder (for UI)
- */
-const prepareAIPlaceholder = (
-  historyForSend,
-  userMessageForSend,
-  spaceInfo,
-  selectedAgent,
-  settings,
-  set,
-  toggles,
-  documentSources = [],
-) => {
-  const resolvedPrompt = buildAgentPrompt(selectedAgent, settings)
-
-  const conversationMessagesBase = [
-    ...(resolvedPrompt ? [{ role: 'system', content: resolvedPrompt }] : []),
-    ...historyForSend,
-  ]
-
-  // Combine base messages with user message
-  const conversationMessages = [...conversationMessagesBase, userMessageForSend]
-
-  // Create AI message placeholder for streaming updates
-  const aiMessagePlaceholder = {
-    role: 'ai',
-    content: '',
-    created_at: new Date().toISOString(),
-    thinkingEnabled: !!(toggles?.thinking || toggles?.deepResearch),
-    deepResearch: !!toggles?.deepResearch,
-    researchPlan: '',
-    researchPlanLoading: !!toggles?.deepResearch,
-    agentId: selectedAgent?.id || null,
-    agentName: selectedAgent?.name || null,
-    agentEmoji: selectedAgent?.emoji || '',
-    agentIsDefault: !!selectedAgent?.isDefault,
-    documentSources: documentSources || [],
-  }
-
-  // Add placeholder to UI
-  set(state => ({ messages: [...state.messages, aiMessagePlaceholder] }))
-
-  return { conversationMessages, aiMessagePlaceholder }
-}
 
 /**
  * Calls AI provider API with streaming support
@@ -1956,6 +2263,9 @@ Analyze the submitted data. If critical information is still missing or if the r
    * @param {Array} params.agents - Available agents list (optional)
    * @param {string} params.documentContextAppend - Optional document information appended to user question
    * @param {Array} params.documentSources - Optional metadata for document references (used by UI)
+   * @param {Object|null} params.documentSelection - Optional document selection context
+   * @param {Array} params.documentSelection.documents - Selected documents for retrieval
+   * @param {boolean} params.documentSelection.skipRetrieval - Skip retrieval when embedding config is incompatible
    * @param {Object|null} params.editingInfo - Information about message being edited { index, targetId, partnerId }
    * @param {Object|null} params.callbacks - Callback functions { onTitleAndSpaceGenerated, onSpaceResolved, onAgentResolved, onConversationReady }
    * @param {Array} params.spaces - Available spaces for auto-generation (optional)
@@ -1987,6 +2297,7 @@ Analyze the submitted data. If critical information is still missing or if the r
     agents = [], // available agents list for resolving defaults
     documentContextAppend = '',
     documentSources = [],
+    documentSelection = null,
     editingInfo, // { index, targetId, partnerId } (optional)
     callbacks, // { onTitleAndSpaceGenerated, onSpaceResolved } (optional)
     spaces = [], // passed from component
@@ -2007,14 +2318,8 @@ Analyze the submitted data. If critical information is still missing or if the r
 
     set({ isLoading: true })
 
-    // Step 2: Construct User Message
-    const { userMessage, payloadContent } = buildUserMessage(
-      text,
-      attachments,
-      quoteContext,
-      documentContextAppend,
-    )
-    const userMessageForSend = { ...userMessage, content: payloadContent }
+    // Step 2: Construct User Message (defer document context append until retrieval completes)
+    const { userMessage } = buildUserMessage(text, attachments, quoteContext, '')
 
     // When quoting, the original answer has already been embedded into textWithPrefix,
     // so we don't need to resend it as separate context.
@@ -2283,16 +2588,251 @@ Analyze the submitted data. If critical information is still missing or if the r
       await persistUserMessage(convId, editingInfo, userMessage.content, set)
     }
 
-    // Step 8: Prepare AI Placeholder
-    const { conversationMessages, aiMessagePlaceholder } = prepareAIPlaceholder(
+    const baseDocumentSources = Array.isArray(documentSources) ? documentSources : []
+    const selectedDocuments = Array.isArray(documentSelection?.documents)
+      ? documentSelection.documents
+      : []
+    const shouldRetrieveDocs =
+      !documentSelection?.skipRetrieval && selectedDocuments.length > 0 && text.trim()
+    const memoryEnabled = !!settings?.enableLongTermMemory
+    const memoryDomains = memoryEnabled ? await getMemoryDomains() : []
+    const memoryDomainIndex = Array.isArray(memoryDomains)
+      ? memoryDomains.map(domain => ({
+          domain_key: domain.domain_key,
+          aliases: domain.aliases,
+          scope: domain.scope,
+        }))
+      : []
+
+    // Step 8: Create AI Placeholder (shows immediately, then we run retrieval)
+    const aiMessagePlaceholder = appendAIPlaceholder(
+      resolvedAgent,
+      toggles,
+      baseDocumentSources,
+      set,
+    )
+
+    let resolvedDocumentSources = baseDocumentSources
+    let resolvedDocumentContextAppend = documentContextAppend
+    let resolvedMemoryAppend = ''
+
+    if (memoryEnabled && memoryDomains.length > 0) {
+      const toolCallId = `memory-check-${Date.now()}`
+      const toolStart = Date.now()
+
+      set(state => {
+        const updated = [...state.messages]
+        const lastMsgIndex = updated.length - 1
+        if (lastMsgIndex < 0 || updated[lastMsgIndex].role !== 'ai') {
+          return { messages: updated }
+        }
+        const lastMsg = { ...updated[lastMsgIndex] }
+        const history = Array.isArray(lastMsg.toolCallHistory)
+          ? [...lastMsg.toolCallHistory]
+          : []
+        history.push({
+          id: toolCallId,
+          name: 'memory_check',
+          arguments: JSON.stringify({ hitDomains: [] }),
+          status: 'calling',
+          durationMs: null,
+          textIndex: 0,
+        })
+        lastMsg.toolCallHistory = history
+        updated[lastMsgIndex] = lastMsg
+        return { messages: updated }
+      })
+
+      let toolStatus = 'done'
+      let toolError = null
+      let matchCount = 0
+      let skippedReason = null
+      let hitDomains = []
+      let selectedDomains = []
+
+      try {
+        const decision = await selectMemoryDomains({
+          question: text,
+          historyForSend,
+          domains: memoryDomainIndex,
+          settings,
+          selectedAgent: resolvedAgent,
+          agents,
+        })
+        hitDomains = decision.hitDomains || []
+        if (decision.needMemory) {
+          const recallLimit = Math.max(1, Number(settings?.memoryRecallLimit || 5))
+          selectedDomains = selectMemoryDomainsByKeys(memoryDomains, hitDomains, recallLimit)
+          resolvedMemoryAppend = formatMemorySummariesAppendText(selectedDomains)
+          matchCount = selectedDomains.filter(domain => domain?.latest_summary?.summary).length
+          skippedReason = resolvedMemoryAppend ? null : 'no_summary'
+        } else {
+          skippedReason = 'not_needed'
+        }
+      } catch (error) {
+        console.error('Long-term memory check failed:', error)
+        toolStatus = 'error'
+        toolError = error?.message || 'Memory check failed'
+      }
+
+      set(state => {
+        const updated = [...state.messages]
+        const lastMsgIndex = updated.length - 1
+        if (lastMsgIndex < 0 || updated[lastMsgIndex].role !== 'ai') {
+          return { messages: updated }
+        }
+        const lastMsg = { ...updated[lastMsgIndex] }
+        const history = Array.isArray(lastMsg.toolCallHistory)
+          ? [...lastMsg.toolCallHistory]
+          : []
+        const targetIndex = history.findIndex(item => item.id === toolCallId)
+        const durationMs = Date.now() - toolStart
+        const toolOutput = {
+          hitDomains,
+          selectedDomains: selectedDomains.map(domain => domain?.domain_key).filter(Boolean),
+          matches: matchCount,
+          skipped: skippedReason,
+          error: toolError,
+        }
+        if (targetIndex >= 0) {
+          history[targetIndex] = {
+            ...history[targetIndex],
+            arguments: JSON.stringify({ hitDomains }),
+            status: toolStatus,
+            error: toolError,
+            output: toolOutput,
+            durationMs,
+          }
+        }
+        lastMsg.toolCallHistory = history
+        updated[lastMsgIndex] = lastMsg
+        return { messages: updated }
+      })
+    }
+
+    if (shouldRetrieveDocs) {
+      const toolCallId = `document-embedding-${Date.now()}`
+      const toolStart = Date.now()
+
+      set(state => {
+        const updated = [...state.messages]
+        const lastMsgIndex = updated.length - 1
+        if (lastMsgIndex < 0 || updated[lastMsgIndex].role !== 'ai') {
+          return { messages: updated }
+        }
+        const lastMsg = { ...updated[lastMsgIndex] }
+        const history = Array.isArray(lastMsg.toolCallHistory)
+          ? [...lastMsg.toolCallHistory]
+          : []
+        history.push({
+          id: toolCallId,
+          name: 'document_embedding',
+          arguments: JSON.stringify({ query: '' }),
+          status: 'calling',
+          durationMs: null,
+          textIndex: 0,
+        })
+        lastMsg.toolCallHistory = history
+        updated[lastMsgIndex] = lastMsg
+        return { messages: updated }
+      })
+
+      let queryText = ''
+      let toolStatus = 'done'
+      let toolError = null
+      try {
+        queryText = await selectDocumentQuery({
+          question: text,
+          historyForSend,
+          documents: selectedDocuments,
+          settings,
+          selectedAgent: resolvedAgent,
+          agents,
+        })
+      } catch (error) {
+        console.error('Failed to select document query:', error)
+        toolStatus = 'error'
+        toolError = error?.message || 'Query selection failed'
+      }
+
+      if (queryText && toolStatus !== 'error') {
+        try {
+          const dynamicChunkLimit = Math.min(
+            DOCUMENT_RETRIEVAL_CHUNK_LIMIT * Math.max(1, selectedDocuments.length),
+            2000,
+          )
+          const retrieval = await fetchDocumentChunkContext({
+            documents: selectedDocuments,
+            queryText,
+            chunkLimit: dynamicChunkLimit,
+            topChunks: DOCUMENT_RETRIEVAL_TOP_CHUNKS,
+          })
+          if (retrieval?.sources?.length) {
+            resolvedDocumentSources = retrieval.sources
+            resolvedDocumentContextAppend = formatDocumentAppendText(retrieval.sources)
+          }
+        } catch (error) {
+          console.error('Document retrieval failed:', error)
+          toolStatus = 'error'
+          toolError = error?.message || 'Document retrieval failed'
+          resolvedDocumentSources = baseDocumentSources
+          resolvedDocumentContextAppend = ''
+        }
+      } else if (!queryText) {
+        resolvedDocumentSources = baseDocumentSources
+        resolvedDocumentContextAppend = ''
+      }
+
+      set(state => {
+        const updated = [...state.messages]
+        const lastMsgIndex = updated.length - 1
+        if (lastMsgIndex < 0 || updated[lastMsgIndex].role !== 'ai') {
+          return { messages: updated }
+        }
+        const lastMsg = { ...updated[lastMsgIndex] }
+        const history = Array.isArray(lastMsg.toolCallHistory)
+          ? [...lastMsg.toolCallHistory]
+          : []
+        const targetIndex = history.findIndex(item => item.id === toolCallId)
+        const durationMs = Date.now() - toolStart
+        const toolOutput = {
+          query: queryText,
+          sources: resolvedDocumentSources.length,
+          skipped: !queryText,
+          error: toolError,
+        }
+        if (targetIndex >= 0) {
+          history[targetIndex] = {
+            ...history[targetIndex],
+            arguments: JSON.stringify({ query: queryText }),
+            status: toolStatus,
+            error: toolError,
+            output: toolOutput,
+            durationMs,
+          }
+        }
+        lastMsg.toolCallHistory = history
+        lastMsg.documentSources = resolvedDocumentSources
+        updated[lastMsgIndex] = lastMsg
+        return { messages: updated }
+      })
+    }
+
+    const combinedContextAppend = [resolvedMemoryAppend, resolvedDocumentContextAppend]
+      .filter(Boolean)
+      .join('\n\n')
+    const { payloadContent } = buildUserMessage(
+      text,
+      attachments,
+      quoteContext,
+      combinedContextAppend,
+    )
+    const userMessageForSend = { ...userMessage, content: payloadContent }
+    const conversationMessages = buildConversationMessages(
       historyForSend,
       userMessageForSend,
-      resolvedSpaceInfo,
       resolvedAgent,
       settings,
-      set,
-      toggles,
-      documentSources,
     )
 
     // Step 9: Call API & Stream
@@ -2312,7 +2852,7 @@ Analyze the submitted data. If critical information is still missing or if the r
       set,
       historyLengthBeforeSend,
       text,
-      documentSources,
+      resolvedDocumentSources,
       isAgentAutoMode,
       researchType,
     )

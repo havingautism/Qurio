@@ -6,10 +6,11 @@
 ![RSBuild](https://img.shields.io/badge/RSBuild-fast-orange)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS-v4-38bdf8?logo=tailwindcss&logoColor=fff)
 ![Supabase](https://img.shields.io/badge/Supabase-backend-3ecf8e?logo=supabase&logoColor=fff)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/havingautism/Qurio)
 
 > Not another chat UI. Qurio is a research-grade cockpit for real work.
 
-**Qurio** is a high-velocity AI knowledge workspace built for teams that demand more than basic chat. It supports generic OpenAI-compatible providers, Gemini, SiliconFlow, Kimi (Moonshot), MiniMax, GLM (Zhipu), NVIDIA NIM, and more. Highlights include **Deep Research** for complex tasks, **Custom Agents** for specialized workflows, rich tool orchestration (MCP + HTTP), and structured reasoning views with export-ready outputs.
+**Qurio** is a high-velocity AI knowledge workspace built for teams that demand more than basic chat. It supports generic OpenAI-compatible providers, Gemini, SiliconFlow, Kimi (Moonshot), MiniMax, GLM (Zhipu), NVIDIA NIM, and more. Highlights include **Deep Research** for complex tasks, **Custom Agents** for specialized workflows, rich tool orchestration (MCP + HTTP), and structured reasoning views with export-ready outputs. The stack is designed around **separation of concerns**: lightweight models for routing/planning, stronger models for answers, and structured storage for memory and documents.
 
 **In one line:** plan, tool, and deliver from a single workspace without switching apps.
 
@@ -42,8 +43,18 @@ Recommended size: 1600x900 or 1920x1080.
 - **Tool Orchestration Beyond LLM Chat**: Built-in MCP + HTTP tooling, tool grouping, and per-tool enable/disable controls so agents only see what you want them to use.
 - **Deep Research, Not Just Search**: Dedicated research workflow that plans, executes, and reports with structured steps, citations, and export-ready outputs.
 - **Agent System That Scales**: Per-agent prompts, model preferences, and toolsets with clean switching and workspace binding.
+- **Document Intelligence**: Parse, embed, and retrieve across uploaded documents with hybrid search (vector + keyword) for grounded answers.
+- **Long-Term Memory That Stays Useful**: Domain-indexed summaries with Lite routing so only relevant preferences/background get injected.
 - **Premium UX**: Streaming, rich Markdown/Code rendering, inline images, reasoning visibility, and thoughtful UI for research/think/tool panels.
 - **Production-Grade**: Light/Dark/System themes, secure API key handling, i18n (en/zh), responsive design, Supabase persistence.
+
+## Design Philosophy
+
+- **Route first, retrieve second**: Lite models decide if memory/docs are needed; only then inject relevant snippets.
+- **Separation of models**: Fast models handle planning/routing; stronger models handle final answers.
+- **Structured memory over keyword lists**: Domain-indexed summaries keep personalization usable and controllable.
+- **Hybrid retrieval**: Vector + keyword search balances recall with precision for real-world docs.
+- **Tool governance**: MCP groups, HTTP tools, and per-tool visibility keep agents safe and focused.
 
 ## Highlights
 
@@ -79,6 +90,18 @@ Recommended size: 1600x900 or 1920x1080.
 - **Real-time Validation**: Form inputs are validated before submission, ensuring data quality.
 - **Seamless UX**: Forms appear inline in the conversation flow, maintaining context while collecting detailed information.
 
+### Document Embeddings & Hybrid Search
+
+- **Upload & Parse**: Add documents to a space; text is parsed and chunked automatically.
+- **Hybrid Retrieval**: Combines embeddings with keyword search for stronger recall.
+- **Context Controls**: Only selected documents are retrieved and injected per conversation.
+
+### Long-Term Memory (Domain Routing)
+
+- **Domain Index + Summary**: Memory is stored as domain cards with concise summaries.
+- **Lite Gating**: A lightweight model decides if memory is needed and which domains to inject.
+- **Selective Injection**: Only hit domains are appended, keeping prompts tight and relevant.
+
 ### 🌐 Extended Provider Support
 
 Out-of-the-box support for:
@@ -101,11 +124,12 @@ Out-of-the-box support for:
 
 ## Tech Stack
 
-- **Frontend**: React 19, TanStack Router v1, Zustand (State), Tailwind CSS v4, Lucide Icons.
-- **Build**: RSBuild + Bun for lightning-fast dev and build.
-- **Data**: Supabase (PostgreSQL) for Spaces, Conversations, Messages, and Settings.
-- **AI Integration**: Custom adapter layer unifying various provider SDKs and REST APIs; LangChain integration for agentic workflows.
-- **Rendering**: `react-markdown`, `remark-gfm`, `react-syntax-highlighter` for rich content.
+- **Frontend**: React 19, TanStack Router v1, Zustand (State), Tailwind CSS v4, Lucide Icons — componentized UI with predictable state.
+- **Build**: RSBuild + Bun — fast dev loops and reproducible builds.
+- **Data**: Supabase (PostgreSQL) — structured persistence for spaces, messages, documents, and long-term memory.
+- **AI Integration**: Custom adapter layer that normalizes providers and enforces model routing (Lite vs Default).
+- **Retrieval**: Embeddings + keyword hybrid search to reduce misses and hallucinations.
+- **Rendering**: `react-markdown`, `remark-gfm`, `react-syntax-highlighter` for reliable output UX.
 
 ## Getting Started
 

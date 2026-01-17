@@ -11,6 +11,25 @@ const getBackendUrl = () => {
   return settings.backendUrl || 'http://localhost:3001'
 }
 
+const getBackendErrorMessage = (error, status) => {
+  if (!error || typeof error !== 'object') {
+    return `Backend error: ${status}`
+  }
+
+  const message = error.error || error.message || error.detail || error.details
+
+  if (Array.isArray(message)) {
+    const joined = message.map(item => String(item || '').trim()).filter(Boolean).join('; ')
+    return joined || `Backend error: ${status}`
+  }
+
+  if (typeof message === 'string' && message.trim()) {
+    return message
+  }
+
+  return `Backend error: ${status}`
+}
+
 /**
  * Generate a title for a conversation based on the first user message
  * @param {string} provider - AI provider name
@@ -37,7 +56,7 @@ export const generateTitleViaBackend = async (provider, message, apiKey, baseUrl
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Unknown error' }))
-    throw new Error(error.message || `Backend error: ${response.status}`)
+    throw new Error(getBackendErrorMessage(error, response.status))
   }
 
   return response.json()
@@ -78,7 +97,7 @@ export const generateDailyTipViaBackend = async (
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Unknown error' }))
-    throw new Error(error.message || `Backend error: ${response.status}`)
+    throw new Error(getBackendErrorMessage(error, response.status))
   }
 
   return response.json()
@@ -119,7 +138,7 @@ export const generateResearchPlanViaBackend = async (
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Unknown error' }))
-    throw new Error(error.message || `Backend error: ${response.status}`)
+    throw new Error(getBackendErrorMessage(error, response.status))
   }
 
   return response.json()
@@ -211,7 +230,7 @@ export const streamResearchPlanViaBackend = async params => {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ message: 'Unknown error' }))
-      throw new Error(error.message || `Backend error: ${response.status}`)
+      throw new Error(getBackendErrorMessage(error, response.status))
     }
 
     const reader = response.body.getReader()
@@ -304,7 +323,7 @@ export const generateTitleSpaceAndAgentViaBackend = async (
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Unknown error' }))
-    throw new Error(error.message || `Backend error: ${response.status}`)
+    throw new Error(getBackendErrorMessage(error, response.status))
   }
 
   return response.json()
@@ -358,7 +377,7 @@ export const generateTitleAndSpaceViaBackend = async (
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Unknown error' }))
-    throw new Error(error.message || `Backend error: ${response.status}`)
+    throw new Error(getBackendErrorMessage(error, response.status))
   }
 
   return response.json()
@@ -399,7 +418,7 @@ export const generateAgentForAutoViaBackend = async (
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Unknown error' }))
-    throw new Error(error.message || `Backend error: ${response.status}`)
+    throw new Error(getBackendErrorMessage(error, response.status))
   }
 
   return response.json()
@@ -437,7 +456,7 @@ export const generateRelatedQuestionsViaBackend = async (
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Unknown error' }))
-    throw new Error(error.message || `Backend error: ${response.status}`)
+    throw new Error(getBackendErrorMessage(error, response.status))
   }
 
   return response.json()
@@ -540,7 +559,7 @@ export const streamChatViaBackend = async params => {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ message: 'Unknown error' }))
-      throw new Error(error.message || `Backend error: ${response.status}`)
+      throw new Error(getBackendErrorMessage(error, response.status))
     }
 
     const reader = response.body.getReader()
@@ -681,7 +700,7 @@ export const streamDeepResearchViaBackend = async params => {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ message: 'Unknown error' }))
-      throw new Error(error.message || `Backend error: ${response.status}`)
+      throw new Error(getBackendErrorMessage(error, response.status))
     }
 
     const reader = response.body.getReader()
@@ -739,7 +758,7 @@ export const listToolsViaBackend = async () => {
   const response = await fetch(`${getBackendUrl()}/api/tools`)
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Unknown error' }))
-    throw new Error(error.error || error.message || `Backend error: ${response.status}`)
+    throw new Error(getBackendErrorMessage(error, response.status))
   }
   const data = await response.json()
   return data?.tools || []
@@ -755,7 +774,7 @@ export const listUserToolsViaBackend = async () => {
   })
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Unknown error' }))
-    throw new Error(error.error || error.message || `Backend error: ${response.status}`)
+    throw new Error(getBackendErrorMessage(error, response.status))
   }
   const data = await response.json()
   return data?.tools || []
@@ -778,7 +797,7 @@ export const createUserToolViaBackend = async toolData => {
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Unknown error' }))
-    throw new Error(error.error || error.message || `Backend error: ${response.status}`)
+    throw new Error(getBackendErrorMessage(error, response.status))
   }
   return response.json()
 }
@@ -801,7 +820,7 @@ export const updateUserToolViaBackend = async (id, toolData) => {
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Unknown error' }))
-    throw new Error(error.message || `Backend error: ${response.status}`)
+    throw new Error(getBackendErrorMessage(error, response.status))
   }
   return response.json()
 }
@@ -819,7 +838,7 @@ export const deleteUserToolViaBackend = async id => {
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Unknown error' }))
-    throw new Error(error.message || `Backend error: ${response.status}`)
+    throw new Error(getBackendErrorMessage(error, response.status))
   }
   return true
 }
@@ -848,7 +867,7 @@ export const fetchMcpToolsViaBackend = async (name, url, options = {}) => {
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Unknown error' }))
-    throw new Error(error.error || error.message || `Backend error: ${response.status}`)
+    throw new Error(getBackendErrorMessage(error, response.status))
   }
 
   return response.json()

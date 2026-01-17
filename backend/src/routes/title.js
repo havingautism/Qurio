@@ -14,7 +14,7 @@ const router = express.Router()
  *
  * Request body:
  * {
- *   "provider": "gemini" | "openai" | "siliconflow" | "glm" | "modelscope" | "kimi",
+ *   "provider": "gemini" | "openai" | "openai_compatibility" | "siliconflow" | "glm" | "modelscope" | "kimi",
  *   "message": "User's first message",
  *   "apiKey": "API key for the provider",
  *   "baseUrl": "Custom base URL (optional)",
@@ -38,6 +38,7 @@ router.post('/title', async (req, res) => {
     const supportedProviders = [
       'gemini',
       'openai',
+      'openai_compatibility',
       'siliconflow',
       'glm',
       'modelscope',

@@ -19,6 +19,7 @@ router.post('/related-questions', async (req, res) => {
     const supportedProviders = [
       'gemini',
       'openai',
+      'openai_compatibility',
       'siliconflow',
       'glm',
       'modelscope',

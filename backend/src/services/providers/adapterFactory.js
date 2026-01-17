@@ -31,6 +31,7 @@ export function getProviderAdapter(provider) {
 
   switch (provider) {
     case 'openai':
+    case 'openai_compatibility':
       adapter = new OpenAIAdapter()
       break
     case 'siliconflow':
@@ -75,6 +76,7 @@ export function getProviderAdapter(provider) {
 export function isProviderSupported(provider) {
   return [
     'openai',
+    'openai_compatibility',
     'siliconflow',
     'kimi',
     'glm',

@@ -14,7 +14,7 @@ const router = express.Router()
  *
  * Request body:
  * {
- *   "provider": "gemini" | "openai" | "siliconflow" | "glm" | "modelscope" | "kimi",
+ *   "provider": "gemini" | "openai" | "openai_compatibility" | "siliconflow" | "glm" | "modelscope" | "kimi",
  *   "language": "Language code (optional)",
  *   "category": "Tip category (optional)",
  *   "apiKey": "API key for the provider",
@@ -38,6 +38,7 @@ router.post('/daily-tip', async (req, res) => {
     const supportedProviders = [
       'gemini',
       'openai',
+      'openai_compatibility',
       'siliconflow',
       'glm',
       'modelscope',

@@ -27,7 +27,7 @@ out
 .agent/
 .codex/
 .cursor/
-.shard/
+.shared/
 
 # VSCode specific extensions that should be shared
 !.vscode/extensions.json

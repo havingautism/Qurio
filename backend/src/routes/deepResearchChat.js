@@ -56,6 +56,7 @@ router.post('/stream-deep-research', async (req, res) => {
     const supportedProviders = [
       'gemini',
       'openai',
+      'openai_compatibility',
       'siliconflow',
       'glm',
       'modelscope',

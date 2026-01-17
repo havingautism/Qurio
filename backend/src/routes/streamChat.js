@@ -16,7 +16,7 @@ const router = express.Router()
  *
  * Request body:
  * {
- *   "provider": "gemini" | "openai" | "siliconflow" | "glm" | "modelscope" | "kimi",
+ *   "provider": "gemini" | "openai" | "openai_compatibility" | "siliconflow" | "glm" | "modelscope" | "kimi",
  *   "apiKey": "API key for the provider",
  *   "baseUrl": "Custom base URL (optional)",
  *   "model": "model-name" (optional),
@@ -83,6 +83,7 @@ router.post('/stream-chat', async (req, res) => {
     const supportedProviders = [
       'gemini',
       'openai',
+      'openai_compatibility',
       'siliconflow',
       'glm',
       'modelscope',

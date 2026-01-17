@@ -31,7 +31,7 @@ export const PROVIDER_CAPABILITIES = {
   openai: {
     supportsStreaming: true,
     supportsToolCalls: true,
-    supportsStreamingToolCalls: true,
+    supportsStreamingToolCalls: false,
     supportsJsonSchema: true,
     supportsThinking: false,
     supportsVision: true,

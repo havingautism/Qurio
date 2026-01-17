@@ -36,6 +36,7 @@ export class OpenAIAdapter extends BaseProviderAdapter {
       tools,
       toolChoice,
       responseFormat,
+      thinking,
       streaming,
     } = params
 

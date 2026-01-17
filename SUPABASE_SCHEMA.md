@@ -150,9 +150,36 @@ Manual selection of space documents per conversation.
 | `document_id`     | uuid        | FK -> `space_documents.id`             |
 | `created_at`      | timestamptz |                                        |
 
-## 10. `long_term_memory`
+## 10. `memory_domains`
 
-Stores a single user-authored memory blob per user along with embedding metadata.
+High-level memory routing directory (domain cards).
+
+| Column        | Type        | Notes                                  |
+| ------------- | ----------- | -------------------------------------- |
+| `id`          | uuid        | Primary key                            |
+| `user_id`     | uuid        | FK -> `auth.users.id`                  |
+| `domain_key`  | text        | Stable domain identifier (e.g., `music`) |
+| `aliases`     | text[]      | Synonyms for routing                   |
+| `scope`       | text        | One-line boundary/definition           |
+| `created_at`  | timestamptz |                                        |
+| `updated_at`  | timestamptz |                                        |
+
+## 11. `memory_summaries`
+
+Single summary per domain (injectable memory).
+
+| Column        | Type        | Notes                                  |
+| ------------- | ----------- | -------------------------------------- |
+| `id`          | uuid        | Primary key                            |
+| `domain_id`   | uuid        | FK -> `memory_domains.id`              |
+| `summary`     | text        | Concise facts/preferences              |
+| `evidence`    | text        | Optional source snippets               |
+| `created_at`  | timestamptz |                                        |
+| `updated_at`  | timestamptz |                                        |
+
+## 12. `long_term_memory` (legacy)
+
+Single-user memory blob with optional embeddings.
 
 | Column             | Type        | Notes                                  |
 | ------------------ | ----------- | -------------------------------------- |
@@ -167,5 +194,4 @@ Stores a single user-authored memory blob per user along with embedding metadata
 | `updated_at`       | timestamptz |                                        |
 
 Notes:
-- One row per user (unique on `user_id`).
-- `embedding` can be null when the memory is short and used directly without vector search.
+- `long_term_memory` is retained for backward compatibility; new routing uses `memory_domains` + `memory_summaries`.

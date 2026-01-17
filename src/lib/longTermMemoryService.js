@@ -1,252 +1,314 @@
-import { fetchEmbeddingVector, resolveEmbeddingConfig } from './embeddingService'
-import { cosineSimilarity } from './vectorUtils'
 import { getSupabaseClient } from './supabase'
 
-const MEMORY_STORAGE_KEY = 'longTermMemoryIndex'
-const MEMORY_TABLE = 'long_term_memory'
-const DEFAULT_SIMILARITY_THRESHOLD = 0.3
-const DIRECT_MEMORY_MAX_CHARS = 600
-const MEMORY_CONTEXT_MAX_CHARS = 1600
+const MEMORY_STORAGE_KEY = 'longTermMemoryDomainsV1'
+const MEMORY_DOMAIN_TABLE = 'memory_domains'
+const MEMORY_SUMMARY_TABLE = 'memory_summaries'
 const CACHE_TTL_MS = 5 * 60 * 1000
+const SUMMARY_MAX_CHARS = 800
 
-let memoryCache = { record: null, fetchedAt: 0 }
+let memoryCache = { domains: [], fetchedAt: 0 }
 
-const buildMemoryEmbeddingPrompt = text => `passage: Long-term memory. ${text}`
+const normalizeText = value => String(value || '').trim()
 
-const normalizeEmbedding = embedding =>
-  Array.isArray(embedding) ? embedding.map(value => Number(value)) : []
-
-const hashText = text => {
-  const str = String(text || '')
-  let hash = 5381
-  for (let i = 0; i < str.length; i += 1) {
-    hash = (hash * 33) ^ str.charCodeAt(i)
-  }
-  return (hash >>> 0).toString(16)
+const normalizeAliases = aliases => {
+  if (!Array.isArray(aliases)) return []
+  return aliases.map(item => normalizeText(item)).filter(Boolean)
 }
 
-const truncateMemoryText = text => {
-  const trimmed = String(text || '').trim()
+
+const truncateSummary = text => {
+  const trimmed = normalizeText(text)
   if (!trimmed) return ''
-  if (trimmed.length <= MEMORY_CONTEXT_MAX_CHARS) return trimmed
-  return `${trimmed.slice(0, MEMORY_CONTEXT_MAX_CHARS)}...`
+  if (trimmed.length <= SUMMARY_MAX_CHARS) return trimmed
+  return `${trimmed.slice(0, SUMMARY_MAX_CHARS)}...`
 }
 
-const loadLocalMemoryRecord = () => {
-  if (typeof localStorage === 'undefined') return null
+const loadLocalMemoryState = () => {
+  if (typeof localStorage === 'undefined') return []
   try {
     const raw = localStorage.getItem(MEMORY_STORAGE_KEY)
-    if (!raw) return null
+    if (!raw) return []
     const parsed = JSON.parse(raw)
-    if (!parsed) return null
-    return parsed
+    return Array.isArray(parsed) ? parsed : []
   } catch {
-    return null
+    return []
   }
 }
 
-const saveLocalMemoryRecord = record => {
+const saveLocalMemoryState = domains => {
   if (typeof localStorage === 'undefined') return
-  localStorage.setItem(MEMORY_STORAGE_KEY, JSON.stringify(record))
+  localStorage.setItem(MEMORY_STORAGE_KEY, JSON.stringify(domains || []))
 }
 
-const clearLocalMemoryRecord = () => {
-  if (typeof localStorage === 'undefined') return
-  localStorage.removeItem(MEMORY_STORAGE_KEY)
+const updateLocalCache = domains => {
+  memoryCache = { domains: domains || [], fetchedAt: Date.now() }
+  saveLocalMemoryState(domains || [])
 }
 
-export const getLongTermMemoryRecord = async () => {
+export const getMemoryDomains = async () => {
   const now = Date.now()
-  if (memoryCache.record && now - memoryCache.fetchedAt < CACHE_TTL_MS) {
-    return memoryCache.record
+  if (memoryCache.domains && now - memoryCache.fetchedAt < CACHE_TTL_MS) {
+    return memoryCache.domains
   }
 
   const supabase = getSupabaseClient()
   if (!supabase) {
-    const local = loadLocalMemoryRecord()
-    memoryCache = { record: local, fetchedAt: now }
+    const local = loadLocalMemoryState()
+    memoryCache = { domains: local, fetchedAt: now }
     return local
   }
 
-  const { data, error } = await supabase
-    .from(MEMORY_TABLE)
+  const { data: domains, error } = await supabase
+    .from(MEMORY_DOMAIN_TABLE)
     .select('*')
     .order('updated_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
 
   if (error) {
-    console.error('Failed to fetch long-term memory:', error)
-    const local = loadLocalMemoryRecord()
-    memoryCache = { record: local, fetchedAt: now }
+    console.error('Failed to fetch memory domains:', error)
+    const local = loadLocalMemoryState()
+    memoryCache = { domains: local, fetchedAt: now }
     return local
   }
 
-  memoryCache = { record: data || null, fetchedAt: now }
-  return data || null
-}
+  if (!domains || domains.length === 0) {
+    memoryCache = { domains: [], fetchedAt: now }
+    saveLocalMemoryState([])
+    return []
+  }
 
-const saveLongTermMemoryRecord = record => {
-  memoryCache = { record, fetchedAt: Date.now() }
-  saveLocalMemoryRecord(record)
-}
+  const domainIds = domains.map(domain => domain.id)
+  const { data: summaries, error: summariesError } = await supabase
+    .from(MEMORY_SUMMARY_TABLE)
+    .select('*')
+    .in('domain_id', domainIds)
 
-const clearLongTermMemoryRecord = () => {
-  memoryCache = { record: null, fetchedAt: Date.now() }
-  clearLocalMemoryRecord()
-}
+  if (summariesError) {
+    console.error('Failed to fetch memory summaries:', summariesError)
+  }
 
-export const ensureLongTermMemoryIndex = async ({ text, provider, model }) => {
-  const trimmed = String(text || '').trim()
-  if (!trimmed) {
-    const supabase = getSupabaseClient()
-    if (supabase) {
-      await supabase.from(MEMORY_TABLE).delete().neq('id', '')
+  const latestSummaryMap = new Map()
+  for (const summary of summaries || []) {
+    if (!latestSummaryMap.has(summary.domain_id)) {
+      latestSummaryMap.set(summary.domain_id, summary)
     }
-    clearLongTermMemoryRecord()
-    return { updated: false, cleared: true }
   }
 
-  const contentHash = hashText(trimmed)
+  const enriched = domains.map(domain => ({
+    ...domain,
+    latest_summary: latestSummaryMap.get(domain.id) || null,
+  }))
+
+  updateLocalCache(enriched)
+  return enriched
+}
+
+const deleteMemoryDomainLocal = domainKey => {
+  const trimmedKey = normalizeText(domainKey)
+  if (!trimmedKey) return
+  const nextDomains = (memoryCache.domains || []).filter(
+    domain => normalizeText(domain.domain_key) !== trimmedKey,
+  )
+  updateLocalCache(nextDomains)
+}
+
+export const deleteMemoryDomain = async domainKey => {
+  const trimmedKey = normalizeText(domainKey)
+  if (!trimmedKey) return { cleared: false }
+
   const supabase = getSupabaseClient()
-  const existing = await getLongTermMemoryRecord()
-  const shouldEmbed = trimmed.length > DIRECT_MEMORY_MAX_CHARS && provider && model
-  const sameContent = existing?.content_hash === contentHash
-  const sameProvider = existing?.embedding_provider === provider
-  const sameModel = existing?.embedding_model === model
-  const hasEmbedding = Array.isArray(existing?.embedding)
-
-  if (sameContent && sameProvider && sameModel && (!shouldEmbed || hasEmbedding)) {
-    return { updated: false, cleared: false }
-  }
-
-  let embedding = null
-  if (shouldEmbed) {
-    embedding = await fetchEmbeddingVector({
-      text: trimmed,
-      prompt: buildMemoryEmbeddingPrompt(trimmed),
-      taskType: 'RETRIEVAL_DOCUMENT',
-      overrides: { provider, model },
-    })
-  }
-
-  const payload = {
-    content_text: trimmed,
-    content_hash: contentHash,
-    embedding: embedding ? normalizeEmbedding(embedding) : null,
-    embedding_provider: shouldEmbed ? provider : null,
-    embedding_model: shouldEmbed ? model : null,
-    updated_at: new Date().toISOString(),
-  }
-
   if (supabase) {
+    const { error } = await supabase
+      .from(MEMORY_DOMAIN_TABLE)
+      .delete()
+      .eq('domain_key', trimmedKey)
+    if (error) {
+      console.error('Failed to delete memory domain:', error)
+    }
+  }
+
+  deleteMemoryDomainLocal(trimmedKey)
+  return { cleared: true }
+}
+
+export const upsertMemoryDomainSummary = async ({
+  domainKey,
+  summary,
+  scope = '',
+  aliases = [],
+  evidence = '',
+}) => {
+  const trimmedKey = normalizeText(domainKey)
+  const trimmedSummary = truncateSummary(summary)
+  if (!trimmedKey || !trimmedSummary) {
+    return { updated: false }
+  }
+
+  const resolvedAliases = normalizeAliases(aliases)
+  const resolvedScope = normalizeText(scope)
+  const resolvedEvidence = normalizeText(evidence)
+  const updatedAt = new Date().toISOString()
+
+  const supabase = getSupabaseClient()
+  if (supabase) {
+    const { data: existing, error: existingError } = await supabase
+      .from(MEMORY_DOMAIN_TABLE)
+      .select('*')
+      .eq('domain_key', trimmedKey)
+      .maybeSingle()
+
+    if (existingError) {
+      console.error('Failed to load memory domain:', existingError)
+    }
+
     if (existing?.id) {
-      const { data, error } = await supabase
-        .from(MEMORY_TABLE)
-        .update(payload)
+      const { data: updatedDomain, error: updateError } = await supabase
+        .from(MEMORY_DOMAIN_TABLE)
+        .update({
+          aliases: resolvedAliases,
+          scope: resolvedScope,
+          updated_at: updatedAt,
+        })
         .eq('id', existing.id)
         .select()
         .maybeSingle()
-      if (!error && data) {
-        saveLongTermMemoryRecord(data)
-        return { updated: true, cleared: false, record: data }
+
+      if (updateError) {
+        console.error('Failed to update memory domain:', updateError)
       }
-      console.error('Failed to update long-term memory:', error)
-    } else {
-      const { data, error } = await supabase
-        .from(MEMORY_TABLE)
-        .insert([payload])
+
+      const { data: summaryRecord, error: summaryError } = await supabase
+        .from(MEMORY_SUMMARY_TABLE)
+        .upsert(
+          [
+            {
+              domain_id: existing.id,
+              summary: trimmedSummary,
+              evidence: resolvedEvidence || null,
+              updated_at: updatedAt,
+            },
+          ],
+          { onConflict: 'domain_id' },
+        )
         .select()
         .maybeSingle()
-      if (!error && data) {
-        saveLongTermMemoryRecord(data)
-        return { updated: true, cleared: false, record: data }
+
+      if (summaryError) {
+        console.error('Failed to insert memory summary:', summaryError)
       }
-      console.error('Failed to insert long-term memory:', error)
+
+      memoryCache = { domains: [], fetchedAt: 0 }
+      await getMemoryDomains()
+      return { updated: true, domain: updatedDomain || existing, summary: summaryRecord }
+    }
+
+    const { data: insertedDomain, error: insertError } = await supabase
+      .from(MEMORY_DOMAIN_TABLE)
+      .insert([
+        {
+          domain_key: trimmedKey,
+          aliases: resolvedAliases,
+          scope: resolvedScope,
+          updated_at: updatedAt,
+        },
+      ])
+      .select()
+      .maybeSingle()
+
+    if (insertError) {
+      console.error('Failed to insert memory domain:', insertError)
+    }
+
+    if (insertedDomain?.id) {
+      const { data: summaryRecord, error: summaryError } = await supabase
+        .from(MEMORY_SUMMARY_TABLE)
+        .upsert(
+          [
+            {
+              domain_id: insertedDomain.id,
+              summary: trimmedSummary,
+              evidence: resolvedEvidence || null,
+              updated_at: updatedAt,
+            },
+          ],
+          { onConflict: 'domain_id' },
+        )
+        .select()
+        .maybeSingle()
+
+      if (summaryError) {
+        console.error('Failed to insert memory summary:', summaryError)
+      }
+
+      memoryCache = { domains: [], fetchedAt: 0 }
+      await getMemoryDomains()
+      return { updated: true, domain: insertedDomain, summary: summaryRecord }
     }
   }
 
-  const localRecord = {
-    id: existing?.id || `memory-${Date.now()}`,
-    content_text: trimmed,
-    content_hash: contentHash,
-    embedding: payload.embedding,
-    embedding_provider: payload.embedding_provider,
-    embedding_model: payload.embedding_model,
-    updated_at: payload.updated_at,
+  const localDomains = memoryCache.domains || []
+  const existingIndex = localDomains.findIndex(
+    domain => normalizeText(domain.domain_key) === trimmedKey,
+  )
+
+  const nextDomain = {
+    ...(existingIndex >= 0 ? localDomains[existingIndex] : {}),
+    domain_key: trimmedKey,
+    aliases: resolvedAliases,
+    scope: resolvedScope,
+    updated_at: updatedAt,
+    latest_summary: {
+      id: `local-summary-${Date.now()}`,
+      domain_id: existingIndex >= 0 ? localDomains[existingIndex].id : `local-${Date.now()}`,
+      summary: trimmedSummary,
+      evidence: resolvedEvidence || null,
+      updated_at: updatedAt,
+    },
   }
-  saveLongTermMemoryRecord(localRecord)
-  return { updated: true, cleared: false, record: localRecord }
+
+  const updatedDomains = [...localDomains]
+  if (existingIndex >= 0) {
+    updatedDomains[existingIndex] = nextDomain
+  } else {
+    updatedDomains.unshift(nextDomain)
+  }
+  updateLocalCache(updatedDomains)
+  return { updated: true, domain: nextDomain, summary: nextDomain.latest_summary }
 }
 
-export const searchLongTermMemory = async ({
-  record,
-  queryText,
-  similarityThreshold = DEFAULT_SIMILARITY_THRESHOLD,
-}) => {
-  const trimmed = String(queryText || '').trim()
-  if (!trimmed) return { matches: [], query: '' }
-  if (!record) return { matches: [], query: trimmed }
-
-  const { provider, model } = resolveEmbeddingConfig()
-  if (!record.embedding || !provider || !model) {
-    return { matches: [], query: trimmed, skipped: 'no_embedding' }
-  }
-  if (provider !== record.embedding_provider || model !== record.embedding_model) {
-    return { matches: [], query: trimmed, skipped: 'embedding_mismatch' }
+export const ensureLongTermMemoryIndex = async ({ text }) => {
+  const trimmed = normalizeText(text)
+  if (!trimmed) {
+    await deleteMemoryDomain('profile')
+    return { updated: false, cleared: true }
   }
 
-  const queryEmbedding = await fetchEmbeddingVector({
-    text: trimmed,
-    prompt: `query: ${trimmed}`,
-    taskType: 'RETRIEVAL_QUERY',
-  })
-
-  const queryVector = normalizeEmbedding(queryEmbedding)
-  if (!queryVector.length) return { matches: [], query: trimmed }
-
-  const embedding = normalizeEmbedding(record.embedding)
-  if (!embedding.length || embedding.length !== queryVector.length) {
-    return { matches: [], query: trimmed }
+  const payload = {
+    domainKey: 'profile',
+    scope: 'User background, preferences, and long-term context.',
+    summary: trimmed,
+    aliases: ['profile', 'preferences', 'background'],
   }
 
-  const score = cosineSimilarity(queryVector, embedding)
-  if (score === null) return { matches: [], query: trimmed }
-
-  const passes = score >= similarityThreshold
-  if (!passes) {
-    return { matches: [], query: trimmed, score }
-  }
-
-  return {
-    matches: [
-      {
-        id: record.id,
-        text: truncateMemoryText(record.content_text),
-        score,
-      },
-    ],
-    query: trimmed,
-    score,
-  }
+  const result = await upsertMemoryDomainSummary(payload)
+  return { updated: !!result.updated, cleared: false, record: result }
 }
 
-export const formatMemoryAppendText = matches => {
-  if (!Array.isArray(matches) || matches.length === 0) return ''
-  const lines = matches.map(item => {
-    const score = typeof item.score === 'number' ? item.score.toFixed(2) : 'n/a'
-    return `- [score=${score}] ${item.text}`
-  })
-  return ['# Long-term memory:', ...lines].join('\n')
-}
+export const formatMemorySummariesAppendText = domains => {
+  if (!Array.isArray(domains) || domains.length === 0) return ''
+  const lines = domains
+    .map(domain => {
+      const summary = normalizeText(domain?.latest_summary?.summary || domain?.summary)
+      if (!summary) return null
+      const label = normalizeText(domain?.domain_key || domain?.domainKey || 'domain')
+      return `- ${label}: ${summary}`
+    })
+    .filter(Boolean)
+  if (lines.length === 0) return ''
 
-export const shouldUseDirectMemory = record => {
-  if (!record?.content_text) return false
-  return String(record.content_text).length <= DIRECT_MEMORY_MAX_CHARS
-}
-
-export const buildDirectMemoryContext = record => {
-  if (!record?.content_text) return ''
-  const text = truncateMemoryText(record.content_text)
-  return text ? `# Long-term memory:\n${text}` : ''
+  return [
+    '# User profile memory (preferences & background):',
+    ...lines,
+    '',
+    'Note: Treat this as user preferences/background, not external factual sources.',
+  ].join('\n')
 }

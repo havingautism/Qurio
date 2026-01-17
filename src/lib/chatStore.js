@@ -13,13 +13,7 @@ import { buildResponseStylePromptFromAgent } from './settings'
 import { listSpaceAgents } from './spacesService'
 import { fetchDocumentChunkContext } from './documentRetrievalService'
 import { formatDocumentAppendText } from './documentContextUtils'
-import {
-  formatMemoryAppendText,
-  buildDirectMemoryContext,
-  getLongTermMemoryRecord,
-  shouldUseDirectMemory,
-  searchLongTermMemory,
-} from './longTermMemoryService'
+import { formatMemorySummariesAppendText, getMemoryDomains } from './longTermMemoryService'
 
 // ================================================================================
 // CHAT STORE HELPER FUNCTIONS
@@ -95,6 +89,7 @@ const DOCUMENT_RETRIEVAL_CHUNK_LIMIT = 250
 const DOCUMENT_RETRIEVAL_TOP_CHUNKS = 5
 const QUERY_CONTEXT_MAX_CHARS = 1200
 const QUERY_HISTORY_MAX_MESSAGES = 6
+const MEMORY_DOMAIN_PROMPT_LIMIT = 20
 
 const extractPlainText = content => {
   if (!content) return ''
@@ -159,7 +154,21 @@ const parseDocumentQueryResponse = content => {
   return trimmed.replace(/^"+|"+$/g, '').trim()
 }
 
-const buildMemoryDecisionPrompt = ({ question, historyForSend, memoryText }) => {
+const formatMemoryDomainIndex = domains => {
+  if (!Array.isArray(domains) || domains.length === 0) return ''
+  const lines = domains.slice(0, MEMORY_DOMAIN_PROMPT_LIMIT).map(domain => {
+    const key = String(domain?.domain_key || '').trim()
+    if (!key) return null
+    const aliases = Array.isArray(domain?.aliases) ? domain.aliases.filter(Boolean) : []
+    const scope = typeof domain?.scope === 'string' ? domain.scope.trim() : ''
+      const aliasText = aliases.length ? `aliases: ${aliases.join(', ')}` : 'aliases: none'
+      const scopeText = scope ? `scope: ${scope}` : 'scope: n/a'
+      return `- ${key} (${aliasText}; ${scopeText})`
+    })
+  return lines.filter(Boolean).join('\n')
+}
+
+const buildMemoryDomainDecisionPrompt = ({ question, historyForSend, domains }) => {
   const recentHistory = (historyForSend || [])
     .slice(-QUERY_HISTORY_MAX_MESSAGES)
     .map(msg => {
@@ -171,109 +180,75 @@ const buildMemoryDecisionPrompt = ({ question, historyForSend, memoryText }) => 
     .join('\n')
     .slice(0, QUERY_CONTEXT_MAX_CHARS)
 
+  const domainIndex = formatMemoryDomainIndex(domains)
+
   return [
-    `Decide if long-term memory is needed to answer the user's question.`,
-    `Return JSON only: {"use_memory": boolean, "query": string}.`,
-    `If use_memory is false, set query to an empty string.`,
+    `Decide if long-term profile memory is needed to answer the user's question.`,
+    `Return JSON only: {"need_memory": boolean, "hit_domains": string[]}.`,
+    `If need_memory is false, set hit_domains to an empty array.`,
+    `Only use domain_key values from the list.`,
     '',
     `User question:\n${question}`,
     recentHistory ? `Recent conversation:\n${recentHistory}` : '',
-    memoryText ? `Memory preview:\n${memoryText}` : '',
+    domainIndex ? `Domain index:\n${domainIndex}` : '',
   ]
     .filter(Boolean)
     .join('\n\n')
 }
 
-const parseMemoryDecisionResponse = content => {
+const parseMemoryDomainDecisionResponse = content => {
   const trimmed = String(content || '').trim()
-  if (!trimmed) return { useMemory: false, query: '' }
+  if (!trimmed) return { needMemory: false, hitDomains: [] }
   try {
     const parsed = JSON.parse(trimmed)
-    const useMemory = Boolean(parsed?.use_memory ?? parsed?.useMemory)
-    const query = typeof parsed?.query === 'string' ? parsed.query.trim() : ''
-    return { useMemory, query }
+    const needMemory = Boolean(parsed?.need_memory ?? parsed?.needMemory)
+    const hitDomainsRaw = Array.isArray(parsed?.hit_domains ?? parsed?.hitDomains)
+      ? parsed.hit_domains ?? parsed.hitDomains
+      : []
+    const hitDomains = hitDomainsRaw.map(item => String(item || '').trim()).filter(Boolean)
+    return { needMemory, hitDomains }
   } catch {
-    return { useMemory: false, query: '' }
+    return { needMemory: false, hitDomains: [] }
   }
 }
 
-const buildMemorySnippetPrompt = ({ question, memoryText }) => {
-  return [
-    `Summarize only the memory details that help answer the user's question.`,
-    `Keep it concise and factual. Do NOT quote the memory verbatim.`,
-    `Return JSON only: {"snippet": string}.`,
-    '',
-    `User question:\n${question}`,
-    `Memory:\n${memoryText}`,
-  ].join('\n\n')
-}
-
-const parseMemorySnippetResponse = content => {
-  const trimmed = String(content || '').trim()
-  if (!trimmed) return ''
-  try {
-    const parsed = JSON.parse(trimmed)
-    return typeof parsed?.snippet === 'string' ? parsed.snippet.trim() : ''
-  } catch {
-    return ''
+const fallbackMemoryDecision = (question, domains) => {
+  const trimmedQuestion = String(question || '').toLowerCase()
+  if (!Array.isArray(domains) || domains.length === 0) {
+    return { needMemory: false, hitDomains: [] }
   }
-}
+  const usePersonalContext =
+    /(\bmy\b|\bmine\b|\bme\b|\bwe\b|\bi\b|我的|我们|我在|我想)/i.test(trimmedQuestion)
+  if (!usePersonalContext) {
+    return { needMemory: false, hitDomains: [] }
+  }
 
-const selectMemorySnippet = async ({ question, memoryText, settings, selectedAgent, agents }) => {
-  const fallbackAgent = agents?.find(agent => agent.isDefault)
-  const agentForQuery = selectedAgent || fallbackAgent
-  const modelConfig = getModelConfigForAgent(
-    agentForQuery,
-    settings,
-    'generateMemoryQuery',
-    fallbackAgent,
-  )
-  if (!modelConfig?.model || !modelConfig?.provider) return ''
-  const provider = getProvider(modelConfig.provider)
-  if (!provider?.streamChatCompletion) return ''
-  const credentials = provider.getCredentials(settings)
-  if (!credentials?.apiKey) return ''
-
-  const prompt = buildMemorySnippetPrompt({ question, memoryText })
-  const messages = [
-    {
-      role: 'system',
-      content: 'You summarize memory for retrieval context. Output JSON only.',
-    },
-    { role: 'user', content: prompt },
-  ]
-
-  let fullContent = ''
-  try {
-    await provider.streamChatCompletion({
-      ...credentials,
-      model: modelConfig.model,
-      messages,
-      temperature: 0.2,
-      responseFormat: modelConfig.provider !== 'gemini' ? { type: 'json_object' } : undefined,
-      onChunk: chunk => {
-        if (typeof chunk === 'object' && chunk?.type === 'text' && chunk.content) {
-          fullContent += chunk.content
-        } else if (typeof chunk === 'string') {
-          fullContent += chunk
-        }
-      },
-      onFinish: result => {
-        if (result?.content) fullContent = result.content
-      },
+  const matched = domains
+    .filter(domain => {
+      const key = String(domain?.domain_key || '').toLowerCase()
+      const aliases = Array.isArray(domain?.aliases)
+        ? domain.aliases.map(item => String(item || '').toLowerCase())
+        : []
+      const tokens = [key, ...aliases].filter(Boolean)
+      return tokens.some(token => token && trimmedQuestion.includes(token))
     })
-  } catch (error) {
-    console.error('Lite model memory snippet failed:', error)
-    return ''
+    .map(domain => String(domain.domain_key || '').trim())
+    .filter(Boolean)
+
+  if (matched.length > 0) {
+    return { needMemory: true, hitDomains: matched }
   }
 
-  return parseMemorySnippetResponse(fullContent)
+  return {
+    needMemory: false,
+    hitDomains: [],
+  }
 }
 
-const selectMemoryQuery = async ({
+const selectMemoryDomains = async ({
   question,
   historyForSend,
-  memoryText,
+  domains,
   settings,
   selectedAgent,
   agents,
@@ -287,22 +262,22 @@ const selectMemoryQuery = async ({
     fallbackAgent,
   )
   if (!modelConfig?.model || !modelConfig?.provider) {
-    return { useMemory: true, query: String(question || '').trim() }
+    return fallbackMemoryDecision(question, domains)
   }
   const provider = getProvider(modelConfig.provider)
   if (!provider?.streamChatCompletion) {
-    return { useMemory: true, query: String(question || '').trim() }
+    return fallbackMemoryDecision(question, domains)
   }
   const credentials = provider.getCredentials(settings)
   if (!credentials?.apiKey) {
-    return { useMemory: true, query: String(question || '').trim() }
+    return fallbackMemoryDecision(question, domains)
   }
 
-  const prompt = buildMemoryDecisionPrompt({ question, historyForSend, memoryText })
+  const prompt = buildMemoryDomainDecisionPrompt({ question, historyForSend, domains })
   const messages = [
     {
       role: 'system',
-      content: 'You are a memory gate. Output only JSON with keys use_memory and query.',
+      content: 'You are a memory router. Output only JSON with keys need_memory and hit_domains.',
     },
     { role: 'user', content: prompt },
   ]
@@ -328,10 +303,45 @@ const selectMemoryQuery = async ({
     })
   } catch (error) {
     console.error('Lite model memory decision failed:', error)
-    return { useMemory: true, query: String(question || '').trim() }
+    return fallbackMemoryDecision(question, domains)
   }
 
-  return parseMemoryDecisionResponse(fullContent)
+  return parseMemoryDomainDecisionResponse(fullContent)
+}
+
+const normalizeDomainKey = value => String(value || '').trim().toLowerCase()
+
+const resolveMemoryDomain = (domains, domainKey) => {
+  const normalizedKey = normalizeDomainKey(domainKey)
+  if (!normalizedKey) return null
+  const directMatch = domains.find(
+    domain => normalizeDomainKey(domain?.domain_key) === normalizedKey,
+  )
+  if (directMatch) return directMatch
+  return domains.find(domain => {
+    const aliases = Array.isArray(domain?.aliases) ? domain.aliases : []
+    return aliases.some(alias => normalizeDomainKey(alias) === normalizedKey)
+  })
+}
+
+const selectMemoryDomainsByKeys = (domains, keys, maxCount) => {
+  const limit = Math.max(1, Number(maxCount) || 1)
+  const selected = []
+  const seen = new Set()
+  const normalizedKeys = Array.isArray(keys) ? keys : []
+
+  normalizedKeys.forEach(key => {
+    const domain = resolveMemoryDomain(domains, key)
+    if (!domain) return
+    const canonical = normalizeDomainKey(domain.domain_key)
+    if (!canonical || seen.has(canonical)) return
+    selected.push(domain)
+    seen.add(canonical)
+  })
+
+  if (selected.length >= limit) return selected.slice(0, limit)
+
+  return selected
 }
 
 const selectDocumentQuery = async ({
@@ -2585,10 +2595,14 @@ Analyze the submitted data. If critical information is still missing or if the r
     const shouldRetrieveDocs =
       !documentSelection?.skipRetrieval && selectedDocuments.length > 0 && text.trim()
     const memoryEnabled = !!settings?.enableLongTermMemory
-    const memoryRecord = memoryEnabled ? await getLongTermMemoryRecord() : null
-    const memoryTextPreview = memoryRecord?.content_text
-      ? String(memoryRecord.content_text).slice(0, 800)
-      : ''
+    const memoryDomains = memoryEnabled ? await getMemoryDomains() : []
+    const memoryDomainIndex = Array.isArray(memoryDomains)
+      ? memoryDomains.map(domain => ({
+          domain_key: domain.domain_key,
+          aliases: domain.aliases,
+          scope: domain.scope,
+        }))
+      : []
 
     // Step 8: Create AI Placeholder (shows immediately, then we run retrieval)
     const aiMessagePlaceholder = appendAIPlaceholder(
@@ -2602,7 +2616,7 @@ Analyze the submitted data. If critical information is still missing or if the r
     let resolvedDocumentContextAppend = documentContextAppend
     let resolvedMemoryAppend = ''
 
-    if (memoryEnabled && memoryRecord?.content_text) {
+    if (memoryEnabled && memoryDomains.length > 0) {
       const toolCallId = `memory-check-${Date.now()}`
       const toolStart = Date.now()
 
@@ -2619,7 +2633,7 @@ Analyze the submitted data. If critical information is still missing or if the r
         history.push({
           id: toolCallId,
           name: 'memory_check',
-          arguments: JSON.stringify({ query: '' }),
+          arguments: JSON.stringify({ hitDomains: [] }),
           status: 'calling',
           durationMs: null,
           textIndex: 0,
@@ -2631,46 +2645,27 @@ Analyze the submitted data. If critical information is still missing or if the r
 
       let toolStatus = 'done'
       let toolError = null
-      let queryText = ''
       let matchCount = 0
       let skippedReason = null
+      let hitDomains = []
+      let selectedDomains = []
 
       try {
-        const decision = await selectMemoryQuery({
+        const decision = await selectMemoryDomains({
           question: text,
           historyForSend,
-          memoryText: memoryTextPreview,
+          domains: memoryDomainIndex,
           settings,
           selectedAgent: resolvedAgent,
           agents,
         })
-        if (decision.useMemory) {
-          queryText = decision.query || ''
-          if (shouldUseDirectMemory(memoryRecord)) {
-            const snippet = await selectMemorySnippet({
-              question: text,
-              memoryText: memoryTextPreview,
-              settings,
-              selectedAgent: resolvedAgent,
-              agents,
-            })
-            resolvedMemoryAppend = snippet ? `# Long-term memory:\n${snippet}` : ''
-            matchCount = resolvedMemoryAppend ? 1 : 0
-            skippedReason = resolvedMemoryAppend ? null : 'empty'
-          } else if (queryText) {
-            const result = await searchLongTermMemory({
-              record: memoryRecord,
-              queryText,
-              similarityThreshold: 0.3,
-            })
-            matchCount = result.matches?.length || 0
-            if (matchCount > 0) {
-              resolvedMemoryAppend = formatMemoryAppendText(result.matches)
-            }
-            if (result.skipped) skippedReason = result.skipped
-          } else {
-            skippedReason = 'no_query'
-          }
+        hitDomains = decision.hitDomains || []
+        if (decision.needMemory) {
+          const recallLimit = Math.max(1, Number(settings?.memoryRecallLimit || 5))
+          selectedDomains = selectMemoryDomainsByKeys(memoryDomains, hitDomains, recallLimit)
+          resolvedMemoryAppend = formatMemorySummariesAppendText(selectedDomains)
+          matchCount = selectedDomains.filter(domain => domain?.latest_summary?.summary).length
+          skippedReason = resolvedMemoryAppend ? null : 'no_summary'
         } else {
           skippedReason = 'not_needed'
         }
@@ -2693,7 +2688,8 @@ Analyze the submitted data. If critical information is still missing or if the r
         const targetIndex = history.findIndex(item => item.id === toolCallId)
         const durationMs = Date.now() - toolStart
         const toolOutput = {
-          query: queryText,
+          hitDomains,
+          selectedDomains: selectedDomains.map(domain => domain?.domain_key).filter(Boolean),
           matches: matchCount,
           skipped: skippedReason,
           error: toolError,
@@ -2701,7 +2697,7 @@ Analyze the submitted data. If critical information is still missing or if the r
         if (targetIndex >= 0) {
           history[targetIndex] = {
             ...history[targetIndex],
-            arguments: JSON.stringify({ query: queryText }),
+            arguments: JSON.stringify({ hitDomains }),
             status: toolStatus,
             error: toolError,
             output: toolOutput,

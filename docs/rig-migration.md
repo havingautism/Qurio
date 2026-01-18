@@ -89,7 +89,10 @@
 
 1. 设置环境变量（如需搜索）：
    - `TAVILY_API_KEY` 或 `PUBLIC_TAVILY_API_KEY`
-2. 启动应用（Tauri 会同时拉起 Rust 后端与 Node 后端）：
+2. 一键启动（推荐）：
+   - `bun run dev:tauri:oneclick`
+   - 该命令会通过 Tauri 的 `beforeDevCommand` 先拉起前端/后端，再启动桌面端。
+3. 仅启动后端（调试 Rust 后端时）：
    - `cargo run --manifest-path src-tauri/Cargo.toml`
 
 ## 验证方式

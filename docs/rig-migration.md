@@ -1,0 +1,98 @@
+# Rig 后端迁移（第一阶段）
+
+本次变更在 Tauri 进程内新增 Rust 版后端服务，用于逐步替换现有 Node.js 后端。当前策略是“保留旧接口 + 新增 Rig 能力 + 代理旧接口”，确保功能不中断。
+
+## 变更概览
+
+- 新增 Rust 后端（Axum）并内置 Rig，提供 `/api/rig/complete` 入口。
+- Rust 后端将未迁移的 `/api/*` 请求反向代理到旧 Node 后端。
+- 旧 Node 后端改为启动在 `NODE_BACKEND_PORT`（默认 3002）。
+- 前端仍通过原来的 `PUBLIC_BACKEND_URL`（默认 3001）访问，实际由 Rust 服务接管。
+
+## 新增接口
+
+### POST /api/rig/complete
+
+用于快速验证 Rig 通路。请求示例：
+
+```json
+{
+  "provider": "openai",
+  "prompt": "你好，介绍一下 Rig。",
+  "model": "gpt-4o-mini",
+  "apiKey": "sk-xxx",
+  "baseUrl": "https://api.openai.com/v1"
+}
+```
+
+响应示例：
+
+```json
+{
+  "response": "…",
+  "model": "gpt-4o-mini"
+}
+```
+
+说明：
+
+- `provider` 使用 Rig 内置的 provider 名称（如 `openai`、`gemini`、`moonshot` 等）。
+- 如果 provider 无法匹配，默认使用 Azure OpenAI provider。
+- Azure fallback 可通过 `azureEndpoint` / `azureApiVersion` / `apiKey` 传入；也支持环境变量。
+
+## 启动与端口
+
+- Rust 后端端口：`HOST` + `PORT`（默认 `127.0.0.1:3001`）。
+- Node 后端端口：`NODE_BACKEND_PORT`（默认 `3002`）。
+- Tauri 进程启动时会同时拉起 Rust 后端与 Node 后端。
+
+## 环境变量说明
+
+为兼容现有 OpenAI 兼容配置，Rust 侧会做以下映射：
+
+- 如果未设置 `OPENAI_API_KEY`，自动读取 `PUBLIC_OPENAI_API_KEY`。
+- 如果未设置 `OPENAI_BASE_URL`，自动读取 `PUBLIC_OPENAI_BASE_URL`。
+
+## 迁移策略
+
+1. 先在 Rust 侧新增对应路由。
+2. 验证功能后再移除 Node 侧实现。
+3. 保持前端请求路径不变（均走 `/api/*`）。
+
+## 相关文件
+
+- `src-tauri/src/rig_server.rs`
+- `src-tauri/src/main.rs`
+- `src-tauri/Cargo.toml`
+
+## 最新改动（Rust + Rig 端）
+
+- 新增 `/api/stream-chat` Rust 实现，支持 SSE 流式输出与多轮工具调用。
+- 目前仅保留本地工具：`calculator` + `Tavily_web_search` + `Tavily_academic_search`。
+- `/api/tools` 在 Rust 端返回上述三类工具，其他工具暂不暴露。
+- 其他尚未迁移的 `/api/*` 继续反向代理到旧 Node 后端，保持兼容。
+
+## 仍未迁移的接口（仍走 Node 后端）
+
+- `/api/title`
+- `/api/title-and-space`
+- `/api/title-space-agent`
+- `/api/agent-for-auto`
+- `/api/daily-tip`
+- `/api/related-questions`
+- `/api/research-plan`
+- `/api/research-plan-stream`
+- `/api/stream-deep-research`
+- `/api/mcp-tools/*`
+
+## 启动步骤
+
+1. 设置环境变量（如需搜索）：
+   - `TAVILY_API_KEY` 或 `PUBLIC_TAVILY_API_KEY`
+2. 启动应用（Tauri 会同时拉起 Rust 后端与 Node 后端）：
+   - `cargo run --manifest-path src-tauri/Cargo.toml`
+
+## 验证方式
+
+- `POST /api/stream-chat`：确认 SSE 有 `text`/`tool_call`/`tool_result`/`done` 事件。
+- `GET /api/tools`：确认仅列出 `calculator` 与两类 Tavily 搜索工具。

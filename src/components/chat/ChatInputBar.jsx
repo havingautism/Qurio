@@ -23,6 +23,7 @@ import { providerSupportsSearch } from '../../lib/providers'
 import { splitTextWithUrls } from '../../lib/urlHighlight'
 import EmojiDisplay from '../EmojiDisplay'
 import useIsMobile from '../../hooks/useIsMobile'
+import { triggerHaptic } from '../../lib/haptics'
 import MobileDrawer from '../MobileDrawer'
 import UploadPopover from '../UploadPopover'
 import DocumentsSection from '../DocumentsSection'
@@ -459,6 +460,34 @@ const ChatInputBar = React.memo(
       scrollToBottom('auto')
     }
 
+    const triggerMobileHaptic = useCallback(
+      pattern => {
+      if (isMobile) {
+        triggerHaptic(pattern)
+      }
+      },
+      [isMobile],
+    )
+
+    const handlePrimaryAction = () => {
+      triggerMobileHaptic('light')
+      if (isLoading) {
+        onStop?.()
+        return
+      }
+      handleSend()
+    }
+
+    const handleToggleThinking = () => {
+      triggerMobileHaptic('light')
+      onToggleThinking()
+    }
+
+    const handleToggleSearch = () => {
+      triggerMobileHaptic('light')
+      onToggleSearch()
+    }
+
     const handleKeyDown = e => {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault()
@@ -467,16 +496,18 @@ const ChatInputBar = React.memo(
     }
 
     const handleCapsuleAgentAutoToggle = useCallback(() => {
+      triggerMobileHaptic('light')
       onAgentAutoModeToggle()
       setIsCapsuleMenuOpen(false)
-    }, [onAgentAutoModeToggle])
+    }, [onAgentAutoModeToggle, triggerMobileHaptic])
 
     const handleCapsuleAgentSelect = useCallback(
       agent => {
+        triggerMobileHaptic('light')
         onAgentSelect(agent)
         setIsCapsuleMenuOpen(false)
       },
-      [onAgentSelect],
+      [onAgentSelect, triggerMobileHaptic],
     )
 
     const hasDocuments = documents && documents.length > 0
@@ -520,9 +551,9 @@ const ChatInputBar = React.memo(
           spacePrimaryAgentId={spacePrimaryAgentId}
           isThinkingLocked={isThinkingLocked}
           isThinkingActive={isThinkingActive}
-          onToggleThinking={onToggleThinking}
+          onToggleThinking={handleToggleThinking}
           isSearchActive={isSearchActive}
-          onToggleSearch={onToggleSearch}
+          onToggleSearch={handleToggleSearch}
           t={t}
           isSearchSupported={isSearchSupported}
         />
@@ -536,9 +567,9 @@ const ChatInputBar = React.memo(
         spacePrimaryAgentId,
         isThinkingLocked,
         isThinkingActive,
-        onToggleThinking,
+        handleToggleThinking,
         isSearchActive,
-        onToggleSearch,
+        handleToggleSearch,
         t,
         isSearchSupported,
       ],
@@ -849,7 +880,7 @@ const ChatInputBar = React.memo(
                 )}
               >
                 <button
-                  onClick={isLoading ? onStop : handleSend}
+                  onClick={handlePrimaryAction}
                   disabled={!isLoading && !inputValue.trim() && attachments.length === 0}
                   className={clsx(
                     'p-1.5 sm:p-2 rounded-full transition-all duration-300 shadow-sm flex items-center justify-center',
@@ -1030,7 +1061,7 @@ const ChatInputBar = React.memo(
               </div>
               <button
                 disabled={isThinkingLocked}
-                onClick={onToggleThinking}
+                onClick={handleToggleThinking}
                 className={clsx(
                   'p-2.5 rounded-xl transition-all duration-200 flex items-center gap-2 text-sm font-medium',
                   isThinkingActive
@@ -1045,7 +1076,7 @@ const ChatInputBar = React.memo(
               </button>
               <button
                 disabled={!apiProvider || !providerSupportsSearch(apiProvider)}
-                onClick={onToggleSearch}
+                onClick={handleToggleSearch}
                 className={clsx(
                   'p-2.5 hover:bg-gray-100 dark:hover:bg-zinc-700 rounded-xl transition-all duration-200 flex items-center gap-2 text-sm font-medium',
                   isSearchActive
@@ -1062,6 +1093,7 @@ const ChatInputBar = React.memo(
                   onClick={e => {
                     e.stopPropagation()
                     e.preventDefault()
+                    triggerMobileHaptic('light')
                     onAgentSelectorToggle()
                   }}
                   className={clsx(
@@ -1160,7 +1192,7 @@ const ChatInputBar = React.memo(
 
             <div className="flex gap-2">
               <button
-                onClick={isLoading ? onStop : handleSend}
+                onClick={handlePrimaryAction}
                 disabled={!isLoading && !inputValue.trim() && attachments.length === 0}
                 className={clsx(
                   'p-2.5 rounded-xl transition-all duration-300 flex items-center justify-center shadow-sm',

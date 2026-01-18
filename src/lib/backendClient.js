@@ -5,11 +5,12 @@
 
 import { loadSettings } from './settings'
 
-// Backend URL - env > user settings
-const getBackendUrl = () => {
+const getNodeBackendUrl = () => {
   const settings = loadSettings()
-  return settings.backendUrl || 'http://localhost:3001'
+  return settings.backendUrl || 'http://198.18.0.1:3001'
 }
+
+const getRustBackendUrl = () => 'http://198.18.0.1:3002'
 
 const getBackendErrorMessage = (error, status) => {
   if (!error || typeof error !== 'object') {
@@ -40,7 +41,7 @@ const getBackendErrorMessage = (error, status) => {
  * @returns {Promise<{title: string, emojis?: string[]}>}
  */
 export const generateTitleViaBackend = async (provider, message, apiKey, baseUrl, model) => {
-  const response = await fetch(`${getBackendUrl()}/api/title`, {
+  const response = await fetch(`${getNodeBackendUrl()}/api/title`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -80,7 +81,7 @@ export const generateDailyTipViaBackend = async (
   baseUrl,
   model,
 ) => {
-  const response = await fetch(`${getBackendUrl()}/api/daily-tip`, {
+  const response = await fetch(`${getNodeBackendUrl()}/api/daily-tip`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -121,7 +122,7 @@ export const generateResearchPlanViaBackend = async (
   model,
   researchType = 'general',
 ) => {
-  const response = await fetch(`${getBackendUrl()}/api/research-plan`, {
+  const response = await fetch(`${getNodeBackendUrl()}/api/research-plan`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -202,7 +203,7 @@ export const streamResearchPlanViaBackend = async params => {
   }
 
   try {
-    const response = await fetch(`${getBackendUrl()}/api/research-plan-stream`, {
+    const response = await fetch(`${getNodeBackendUrl()}/api/research-plan-stream`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -306,7 +307,7 @@ export const generateTitleSpaceAndAgentViaBackend = async (
   baseUrl,
   model,
 ) => {
-  const response = await fetch(`${getBackendUrl()}/api/title-space-agent`, {
+  const response = await fetch(`${getNodeBackendUrl()}/api/title-space-agent`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -335,7 +336,7 @@ export const generateTitleSpaceAndAgentViaBackend = async (
  */
 export const checkBackendHealth = async () => {
   try {
-    const response = await fetch(`${getBackendUrl()}/api/health`)
+    const response = await fetch(`${getRustBackendUrl()}/api/health`)
     return response.ok
   } catch {
     return false
@@ -360,7 +361,7 @@ export const generateTitleAndSpaceViaBackend = async (
   baseUrl,
   model,
 ) => {
-  const response = await fetch(`${getBackendUrl()}/api/title-and-space`, {
+  const response = await fetch(`${getNodeBackendUrl()}/api/title-and-space`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -401,7 +402,7 @@ export const generateAgentForAutoViaBackend = async (
   baseUrl,
   model,
 ) => {
-  const response = await fetch(`${getBackendUrl()}/api/agent-for-auto`, {
+  const response = await fetch(`${getNodeBackendUrl()}/api/agent-for-auto`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -440,7 +441,7 @@ export const generateRelatedQuestionsViaBackend = async (
   baseUrl,
   model,
 ) => {
-  const response = await fetch(`${getBackendUrl()}/api/related-questions`, {
+  const response = await fetch(`${getNodeBackendUrl()}/api/related-questions`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -528,7 +529,7 @@ export const streamChatViaBackend = async params => {
   }
 
   try {
-    const response = await fetch(`${getBackendUrl()}/api/stream-chat`, {
+  const response = await fetch(`${getRustBackendUrl()}/api/stream-chat`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -668,7 +669,7 @@ export const streamDeepResearchViaBackend = async params => {
   }
 
   try {
-    const response = await fetch(`${getBackendUrl()}/api/stream-deep-research`, {
+  const response = await fetch(`${getNodeBackendUrl()}/api/stream-deep-research`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -755,7 +756,7 @@ export const streamDeepResearchViaBackend = async params => {
 }
 
 export const listToolsViaBackend = async () => {
-  const response = await fetch(`${getBackendUrl()}/api/tools`)
+  const response = await fetch(`${getRustBackendUrl()}/api/tools`)
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Unknown error' }))
     throw new Error(getBackendErrorMessage(error, response.status))
@@ -769,7 +770,7 @@ export const listToolsViaBackend = async () => {
  * @returns {Promise<Array>}
  */
 export const listUserToolsViaBackend = async () => {
-  const response = await fetch(`${getBackendUrl()}/api/user-tools`, {
+  const response = await fetch(`${getNodeBackendUrl()}/api/user-tools`, {
     headers: { 'x-user-id': 'default' },
   })
   if (!response.ok) {
@@ -786,7 +787,7 @@ export const listUserToolsViaBackend = async () => {
  * @returns {Promise<Object>}
  */
 export const createUserToolViaBackend = async toolData => {
-  const response = await fetch(`${getBackendUrl()}/api/user-tools`, {
+  const response = await fetch(`${getNodeBackendUrl()}/api/user-tools`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -809,7 +810,7 @@ export const createUserToolViaBackend = async toolData => {
  * @returns {Promise<Object>}
  */
 export const updateUserToolViaBackend = async (id, toolData) => {
-  const response = await fetch(`${getBackendUrl()}/api/user-tools/${id}`, {
+  const response = await fetch(`${getNodeBackendUrl()}/api/user-tools/${id}`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
@@ -831,7 +832,7 @@ export const updateUserToolViaBackend = async (id, toolData) => {
  * @returns {Promise<boolean>}
  */
 export const deleteUserToolViaBackend = async id => {
-  const response = await fetch(`${getBackendUrl()}/api/user-tools/${id}`, {
+  const response = await fetch(`${getNodeBackendUrl()}/api/user-tools/${id}`, {
     method: 'DELETE',
     headers: { 'x-user-id': 'default' },
   })
@@ -851,7 +852,7 @@ export const deleteUserToolViaBackend = async id => {
  * @returns {Promise<Object>} { success, tools, total }
  */
 export const fetchMcpToolsViaBackend = async (name, url, options = {}) => {
-  const response = await fetch(`${getBackendUrl()}/api/mcp-tools/fetch`, {
+  const response = await fetch(`${getNodeBackendUrl()}/api/mcp-tools/fetch`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

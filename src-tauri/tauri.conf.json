@@ -1,0 +1,35 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Qurio",
+  "version": "0.0.1",
+  "identifier": "com.qurio.app",
+  "build": {
+    "beforeBuildCommand": "bun run build:tauri",
+    "beforeDevCommand": "node scripts/tauri-dev-with-backend.js --prepare-only",
+    "devUrl": "http://198.18.0.1:3000",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Qurio",
+        "width": 1200,
+        "height": 800,
+        "minWidth": 960,
+        "minHeight": 640
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/icon.ico",
+      "icons/icon.png"
+    ],
+    "resources": ["../backend"]
+  }
+}

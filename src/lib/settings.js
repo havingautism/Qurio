@@ -213,7 +213,8 @@ export const loadSettings = (overrides = {}) => {
     defaultModel: overrides.defaultModel || '',
 
     // Backend API
-    backendUrl: envBackendUrl || localBackendUrl || overrides.backendUrl || 'http://localhost:3001',
+    backendUrl:
+      envBackendUrl || localBackendUrl || overrides.backendUrl || 'http://198.18.0.1:3001',
 
     // Search provider
     searchProvider: localSearchProvider || overrides.searchProvider || 'tavily',

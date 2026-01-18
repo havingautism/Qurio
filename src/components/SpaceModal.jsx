@@ -4,8 +4,8 @@ import { X } from 'lucide-react'
 import useScrollLock from '../hooks/useScrollLock'
 import EmojiDisplay from './EmojiDisplay'
 import CustomEmojiPicker from './CustomEmojiPicker'
-import Checkbox from './ui/Checkbox'
-import Radio from './ui/Radio'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Radio } from '@/components/ui/radio'
 import { useAppContext } from '../App'
 import { listSpaceAgents } from '../lib/spacesService'
 import { getAgentDisplayName } from '../lib/agentDisplay'
@@ -363,7 +363,7 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
                               >
                                 <Checkbox
                                   checked={availableSelectedIds.includes(agent.id)}
-                                  onChange={() => {}}
+                                  onCheckedChange={() => {}}
                                   disabled={isDeepResearchSpace}
                                 />
                                 <span className="truncate">
@@ -416,7 +416,7 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
                                 >
                                   <Checkbox
                                     checked={assignedSelectedIds.includes(agent.id)}
-                                    onChange={() => {}}
+                                    onCheckedChange={() => {}}
                                     disabled={isDeepResearchSpace}
                                   />
                                   <span className="truncate">
@@ -430,9 +430,8 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
                                 >
                                   {t('spaceModal.defaultAgent')}
                                   <Radio
-                                    name="space-default-agent"
                                     checked={String(defaultAgentId) === String(agent.id)}
-                                    onChange={() => setDefaultAgentId(agent.id)}
+                                    onClick={() => !isDeepResearchSpace && setDefaultAgentId(agent.id)}
                                     disabled={isDeepResearchSpace}
                                   />
                                 </div>

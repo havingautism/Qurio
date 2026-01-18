@@ -11,6 +11,7 @@ import SpaceModal from './components/SpaceModal'
 import { ToastProvider } from './contexts/ToastContext'
 import KnowledgeBaseModal from './components/KnowledgeBaseModal'
 import { createAgent, deleteAgent, listAgents, updateAgent } from './lib/agentsService'
+import SupabaseSetupModal from './components/SupabaseSetupModal'
 import { listConversations } from './lib/conversationsService'
 import {
   DEEP_RESEARCH_AGENT_DESCRIPTION,
@@ -70,6 +71,9 @@ function App() {
 
   // Mobile Sidebar State
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+
+  // Supabase Setup Modal State
+  const [isSupabaseSetupOpen, setIsSupabaseSetupOpen] = useState(false)
 
   // Spaces Data
   const [spaces, setSpaces] = useState([])
@@ -250,7 +254,14 @@ function App() {
   useEffect(() => {
     const syncRemoteSettings = async () => {
       // 1. Ensure Client is initialized (reads from LocalStorage/Env)
-      initSupabase()
+      const client = initSupabase()
+
+      // Check if Supabase is configured
+      const localSettings = loadSettings()
+      if (!localSettings.supabaseUrl || !localSettings.supabaseKey) {
+        setIsSupabaseSetupOpen(true)
+        return
+      }
 
       // 2. Fetch API Keys from DB
       const { data } = await fetchRemoteSettings()
@@ -922,7 +933,14 @@ function App() {
                   </div>
                 </div>
                 <React.Suspense fallback={null}>
-                  <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+                  <SettingsModal
+                    isOpen={isSettingsOpen}
+                    onClose={() => setIsSettingsOpen(false)}
+                    onOpenSupabaseSetup={() => {
+                      setIsSettingsOpen(false) // Close settings first
+                      setTimeout(() => setIsSupabaseSetupOpen(true), 150) // Small delay for smooth transition
+                    }}
+                  />
                 </React.Suspense>
                 <ToolsModal isOpen={isToolsModalOpen} onClose={() => setIsToolsModalOpen(false)} />
                 <KnowledgeBaseModal
@@ -958,6 +976,15 @@ function App() {
                   confirmText={confirmation.confirmText}
                   cancelText={confirmation.cancelText}
                   isDangerous={confirmation.isDangerous}
+                />
+                <SupabaseSetupModal
+                  isOpen={isSupabaseSetupOpen}
+                  isManual={Boolean(loadSettings().supabaseUrl)} // If URL exists, it's a manual reconfigure
+                  onConfigured={() => {
+                    setIsSupabaseSetupOpen(false)
+                    // Trigger a re-sync or reload to fetch data
+                    window.location.reload()
+                  }}
                 />
               </div>
             )}

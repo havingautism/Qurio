@@ -361,7 +361,9 @@ const matchesEmbeddingKeyword = model => {
 }
 
 const normalizeDomainKey = value => {
-  const raw = String(value || '').trim().toLowerCase()
+  const raw = String(value || '')
+    .trim()
+    .toLowerCase()
   if (!raw) return ''
   return raw.replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')
 }
@@ -414,11 +416,15 @@ const buildMemoryDomainExtractionPrompt = introText => {
 const resolveLiteModelConfig = (agent, settings) => {
   const defaultModel = agent?.default_model ?? agent?.defaultModel
   const liteModel = agent?.lite_model ?? agent?.liteModel
-  const defaultModelProvider =
-    agent?.default_model_provider ?? agent?.defaultModelProvider ?? ''
+  const defaultModelProvider = agent?.default_model_provider ?? agent?.defaultModelProvider ?? ''
   const liteModelProvider = agent?.lite_model_provider ?? agent?.liteModelProvider ?? ''
-  const model = (liteModel || defaultModel || settings?.liteModel || settings?.defaultModel || '')
-    .trim()
+  const model = (
+    liteModel ||
+    defaultModel ||
+    settings?.liteModel ||
+    settings?.defaultModel ||
+    ''
+  ).trim()
   const provider = (
     liteModelProvider ||
     defaultModelProvider ||
@@ -439,7 +445,7 @@ const validateSettingsForSave = settings => {
   return true
 }
 
-const SettingsModal = ({ isOpen, onClose }) => {
+const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
   const { t, i18n } = useTranslation()
   const { defaultAgent } = useAppContext()
 
@@ -736,8 +742,9 @@ const SettingsModal = ({ isOpen, onClose }) => {
             if (data.embeddingModel) setEmbeddingModel(data.embeddingModel)
             if (data.embeddingModelSource === 'custom')
               setEmbeddingCustomModel(data.embeddingModel || '')
-            if (typeof data.enableLongTermMemory === 'boolean')
-              setEnableLongTermMemory(data.enableLongTermMemory)
+            if (data.enableLongTermMemory !== undefined) {
+              setEnableLongTermMemory(String(data.enableLongTermMemory) === 'true')
+            }
             if (typeof data.userSelfIntro === 'string') {
               setUserSelfIntro(data.userSelfIntro)
               initialSelfIntroRef.current = data.userSelfIntro
@@ -1507,21 +1514,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
   const handleSave = async () => {
     setIsSaving(true)
     try {
-      // Validate database before saving to guide users through setup
-      if (supabaseUrl && supabaseKey) {
-        setTesting(true)
-        const result = await testConnection(supabaseUrl, supabaseKey)
-        setTestResult(result)
-        setTesting(false)
-        if (!result.success) {
-          setInitModalResult(result)
-          setIsInitModalOpen(true)
-          return
-        }
-      }
-
-      // TODO: Validate inputs
-
+      // Validate inputs could go here
       const newSettings = {
         apiProvider,
         googleApiKey,
@@ -1554,6 +1547,43 @@ const SettingsModal = ({ isOpen, onClose }) => {
       }
 
       const didPassValidation = validateSettingsForSave(newSettings)
+
+      // Prevent accidental overwrite of remote keys with empty local keys
+      if (supabaseUrl && supabaseKey) {
+        try {
+          const { data: remoteData } = await fetchRemoteSettings()
+          if (remoteData) {
+            const SYNC_KEYS = [
+              'OpenAICompatibilityKey',
+              'OpenAICompatibilityUrl',
+              'SiliconFlowKey',
+              'GlmKey',
+              'ModelScopeKey',
+              'KimiKey',
+              'googleApiKey',
+              'tavilyApiKey',
+              'backendUrl',
+              'NvidiaKey',
+              'MinimaxKey',
+              'embeddingProvider',
+              'embeddingModel',
+              'embeddingModelSource',
+              'enableLongTermMemory',
+              'userSelfIntro',
+            ]
+
+            SYNC_KEYS.forEach(key => {
+              const val = newSettings[key]
+              // Only overwrite if local is empty/null/undefined (preserve false/0)
+              if ((val === '' || val === null || val === undefined) && remoteData[key]) {
+                newSettings[key] = remoteData[key]
+              }
+            })
+          }
+        } catch (err) {
+          console.error('Failed to merge remote settings:', err)
+        }
+      }
 
       await saveSettings(newSettings)
 
@@ -2160,10 +2190,9 @@ const SettingsModal = ({ isOpen, onClose }) => {
                           value={supabaseUrl}
                           onChange={e => setSupabaseUrl(e.target.value)}
                           placeholder="https://your-project.supabase.co"
-                          disabled={Boolean(ENV_VARS.supabaseUrl)}
+                          disabled={true} // Locked - use Reconfigure button
                           className={clsx(
-                            'w-full pl-10 pr-4 py-2.5 bg-white disabled:bg-gray-50/20 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
-                            ENV_VARS.supabaseUrl && 'opacity-70 cursor-not-allowed',
+                            'w-full pl-10 pr-4 py-2.5 bg-gray-50/50 dark:bg-zinc-900/50 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none cursor-not-allowed text-gray-500 dark:text-gray-400',
                           )}
                         />
                       </div>
@@ -2183,10 +2212,9 @@ const SettingsModal = ({ isOpen, onClose }) => {
                           value={supabaseKey}
                           onChange={e => setSupabaseKey(e.target.value)}
                           placeholder="••••••••••••••••••••••••••••••••"
-                          disabled={Boolean(ENV_VARS.supabaseKey)}
+                          disabled={true} // Locked - use Reconfigure button
                           className={clsx(
-                            'w-full pl-10 pr-4 py-2.5 bg-white disabled:bg-gray-50/20 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
-                            ENV_VARS.supabaseKey && 'opacity-70 cursor-not-allowed',
+                            'w-full pl-10 pr-4 py-2.5 bg-gray-50/50 dark:bg-zinc-900/50 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none cursor-not-allowed text-gray-500 dark:text-gray-400',
                           )}
                         />
                       </div>
@@ -2196,52 +2224,13 @@ const SettingsModal = ({ isOpen, onClose }) => {
 
                   <div className="flex flex-col gap-3">
                     <button
-                      onClick={handleTestConnection}
-                      disabled={testing || !supabaseUrl || !supabaseKey}
-                      className="self-start px-4 py-2 text-xs font-medium text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      onClick={onOpenSupabaseSetup}
+                      className="self-start px-4 py-2 text-xs font-medium text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-colors border border-primary-200 dark:border-primary-900/40"
                     >
-                      {testing ? t('settings.testing') : t('settings.testConnectionAndTables')}
+                      {t('settings.reconfigureSupabase') || 'Reconfigure Connection'}
                     </button>
 
-                    {testResult && (
-                      <div
-                        className={clsx(
-                          'p-4 rounded-lg border',
-                          testResult.success
-                            ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
-                            : testResult.connection
-                              ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800'
-                              : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800',
-                        )}
-                      >
-                        <div className="text-sm font-medium mb-2 text-gray-900 dark:text-white">
-                          {testResult.message}
-                        </div>
-
-                        {testResult.connection && (
-                          <div className="space-y-1 text-xs">
-                            <div className="flex items-center gap-2">
-                              <span>{testResult.tables.spaces ? '✅' : '❌'}</span>
-                              <span className="text-gray-700 dark:text-gray-300">
-                                {t('settings.spacesTable')}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span>{testResult.tables.conversations ? '✅' : '❌'}</span>
-                              <span className="text-gray-700 dark:text-gray-300">
-                                {t('settings.chatSessionsTable')}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span>{testResult.tables.conversation_messages ? '✅' : '❌'}</span>
-                              <span className="text-gray-700 dark:text-gray-300">
-                                {t('settings.messagesTable')}
-                              </span>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
+                    {/* Explicit Test removed as reconfiguration handles it */}
                   </div>
                 </div>
                 <div className="h-px bg-gray-100 dark:bg-zinc-800" />

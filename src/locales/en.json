@@ -240,6 +240,7 @@
     "backendHealthCheckSuccess": "Backend is reachable",
     "backendHealthCheckFailure": "Backend health check failed",
     "backendHealthCheckSummary": "Connection successful; backend /health responded.",
+    "reconfigureSupabase": "Reconfigure Connection",
     "testConnection": "Test Connection",
     "testConnectionAndTables": "Test Connection & Database Tables",
     "connectionSuccess": "Connection successful!",
@@ -453,7 +454,12 @@
       "copied": "Copied",
       "close": "Close",
       "retest": "Re-test",
-      "retesting": "Re-testing..."
+      "retesting": "Re-testing...",
+      "clearAndRestart": "Clear & Restart"
+    },
+    "supabaseSetup": {
+      "title": "Connect to Supabase",
+      "description": "This application requires a Supabase connection to store your data. Please enter your project credentials below."
     },
     "advanced": {
       "developerMode": "Developer Mode",

@@ -1929,7 +1929,7 @@ const MessageBubble = ({
                     {providerMeta.fallback?.slice(0, 2).toUpperCase()}
                   </span>
                 )}
-                <span>{providerMeta.label}</span>
+                <span className="truncate">{providerMeta.label}</span>
                 {getModelIcon(resolvedModel) && (
                   <img
                     src={getModelIcon(resolvedModel)}
@@ -1940,7 +1940,7 @@ const MessageBubble = ({
                     loading="lazy"
                   />
                 )}
-                <span>{resolvedModel}</span>
+                <span className="truncate">{resolvedModel}</span>
               </div>
             </div>
           </>

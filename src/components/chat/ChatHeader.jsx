@@ -129,7 +129,7 @@ const ChatHeader = ({
               className="absolute top-full left-0 mt-2 w-56 bg-white dark:bg-[#202222] border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl z-30 overflow-hidden"
               onMouseDown={e => e.stopPropagation()}
             >
-              <div className="p-2 flex flex-col gap-1">
+              <div className="p-2 flex flex-col divide-y divide-gray-200 dark:divide-zinc-800">
                 <button
                   type="button"
                   onClick={onClearSpaceSelection}
@@ -140,7 +140,6 @@ const ChatHeader = ({
                   <span className="text-sm font-medium">None</span>
                   {!displaySpace && <Check size={14} className="text-primary-500" />}
                 </button>
-                <div className="h-px bg-gray-100 dark:bg-zinc-800 my-1" />
                 {availableSpaces.map((space, idx) => {
                   const isSelected = selectedSpace?.label === space.label
                   return (

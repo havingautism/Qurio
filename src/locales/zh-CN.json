@@ -224,6 +224,7 @@
     "backendHealthCheckSuccess": "后端可访问",
     "backendHealthCheckFailure": "后端健康检查失败",
     "backendHealthCheckSummary": "连接成功；后端的 /health 接口可访问。",
+    "reconfigureSupabase": "重新配置连接",
     "testConnection": "测试连接",
     "testConnectionAndTables": "测试连接和数据库表",
     "connectionSuccess": "连接成功！",
@@ -437,7 +438,13 @@
       "copied": "已复制",
       "close": "关闭",
       "retest": "重新测试",
-      "retesting": "重新测试中..."
+      "retesting": "重新测试中...",
+      "clearAndRestart": "清空并重启",
+      "missingFields": "请填写所有字段"
+    },
+    "supabaseSetup": {
+      "title": "连接到 Supabase",
+      "description": "此应用程序需要连接 Supabase 来存储数据。请输入您的项目凭据。"
     },
     "advanced": {
       "developerMode": "开发者模式",

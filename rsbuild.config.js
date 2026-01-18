@@ -33,6 +33,9 @@ export default defineConfig(({ env }) => {
       define: {
         ...envVars.publicVars,
       },
+      alias: {
+        '@': './src',
+      },
     },
     server: {
       host: '0.0.0.0',

@@ -23,7 +23,7 @@ import {
 import useScrollLock from '../hooks/useScrollLock'
 import EmojiDisplay from './EmojiDisplay'
 import CustomEmojiPicker from './CustomEmojiPicker'
-import Checkbox from './ui/Checkbox'
+import { Checkbox } from '@/components/ui/checkbox'
 import clsx from 'clsx'
 import { getModelsForProvider } from '../lib/models_api'
 import { useAppContext } from '../App'
@@ -1223,7 +1223,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
           </div>
           <Checkbox
             checked={isEnabled}
-            onChange={checked => {
+            onCheckedChange={checked => {
               if (checked) {
                 onChange(defaultValue)
               } else {

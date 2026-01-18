@@ -1106,7 +1106,7 @@ const ChatInputBar = React.memo(
                           isAgentAutoMode ? 'text-primary-500' : 'text-gray-700 dark:text-gray-200',
                         )}
                       >
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center divide-y divide-gray-200 dark:divide-zinc-800">
                           <span className="text-lg p-1 bg-gray-100 dark:bg-zinc-800 rounded-lg">
                             🤖
                           </span>
@@ -1116,7 +1116,6 @@ const ChatInputBar = React.memo(
                         </div>
                         {isAgentAutoMode && <Check size={16} className="text-primary-500" />}
                       </button>
-                      <div className="h-px bg-gray-100 dark:bg-zinc-800 my-1" />
                       {/* Manual agent options */}
                       {agents.length === 0 ? (
                         <div className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">

@@ -578,24 +578,30 @@ const HomeView = () => {
   }, [spaces, deepResearchSpace?.id])
 
   const renderHomeSpaceMenuContent = () => (
-    <div className="p-2 flex flex-col gap-1">
-      <button
-        onClick={handleSelectHomeSpaceAuto}
-        className={`flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left ${
-          isHomeSpaceAuto ? 'text-primary-500' : 'text-gray-700 dark:text-gray-200'
-        }`}
-      >
-        <span className="text-sm font-medium">{t('homeView.auto')}</span>
-        {isHomeSpaceAuto && <Check size={14} className="text-primary-500" />}
-      </button>
-      {/* {availableHomeSpaces.length > 0 && <div className="h-px bg-gray-100 dark:bg-zinc-800 my-1" />} */}
+    <div className="px-2 py-1 flex flex-col divide-y space-y-1  divide-gray-200 dark:divide-zinc-800">
+      <div>
+        <button
+          onClick={handleSelectHomeSpaceAuto}
+          className={`flex mb-1 items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left ${
+            isHomeSpaceAuto ? 'text-primary-500' : 'text-gray-700 dark:text-gray-200'
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            <span className="text-lg flex items-center justify-center">
+              <EmojiDisplay emoji={'✨'} size="1.25rem" />
+            </span>
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
+              {t('homeView.auto')}
+            </span>
+          </div>
+          {isHomeSpaceAuto && <Check size={14} className="text-primary-500" />}
+        </button>
+      </div>
       {availableHomeSpaces.map((space, idx) => {
         const isSelected = homeSelectedSpace?.label === space.label
         return (
           <div key={idx}>
-            <div key={idx + 'divider'} className="h-px bg-gray-100 dark:bg-zinc-800 my-1" />
-
-            <div key={idx + 'content'} className="rounded-lg">
+            <div key={idx + 'content'} className="rounded-lg mb-1">
               <button
                 onClick={() => handleToggleHomeSpace(space)}
                 className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left"
@@ -978,7 +984,7 @@ const HomeView = () => {
                               <X size={20} />
                             </button>
                           </div>
-                          <div className="overflow-y-auto min-h-0 py-2">
+                          <div className="overflow-y-auto min-h-0 ">
                             {renderHomeSpaceMenuContent()}
                           </div>
                           <div className="h-6 shrink-0" />

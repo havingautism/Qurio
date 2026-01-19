@@ -136,6 +136,33 @@ struct TitleResponse {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+struct TitleAndSpaceRequest {
+  provider: String,
+  message: String,
+  spaces: Option<Vec<Space>>,
+  api_key: String,
+  base_url: Option<String>,
+  model: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct Space {
+  label: String,
+  #[serde(flatten)]
+  extra: Value,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct TitleAndSpaceResponse {
+  title: String,
+  space: Option<Space>,
+  emojis: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct RelatedQuestionsRequest {
   provider: String,
   messages: Vec<ChatMessage>,
@@ -585,6 +612,7 @@ pub async fn serve(config: RigServerConfig) -> Result<(), Box<dyn std::error::Er
     .route("/api/rig/complete", post(rig_complete))
     .route("/api/stream-chat", post(stream_chat))
     .route("/api/title", post(generate_title))
+    .route("/api/title-and-space", post(generate_title_and_space))
     .route("/api/related-questions", post(generate_related_questions))
     .route("/api/tools", get(list_tools))
     .route("/api/*path", any(proxy_api))
@@ -892,6 +920,136 @@ Return JSON with keys "title" and "emojis". "emojis" must be an array with 1 emo
     .unwrap_or_default();
 
   Ok(Json(TitleResponse { title, emojis }))
+}
+
+async fn generate_title_and_space(
+  State(_state): State<AppState>,
+  Json(payload): Json<TitleAndSpaceRequest>,
+) -> Result<Json<TitleAndSpaceResponse>, (StatusCode, Json<Value>)> {
+  if payload.provider.trim().is_empty() {
+    return Err(bad_request("Missing required field: provider"));
+  }
+  if payload.message.trim().is_empty() {
+    return Err(bad_request("Missing required field: message"));
+  }
+  if payload.api_key.trim().is_empty() {
+    return Err(bad_request("Missing required field: apiKey"));
+  }
+
+  let space_labels = payload
+    .spaces
+    .as_ref()
+    .map(|s| s.iter().map(|sp| sp.label.as_str()).collect::<Vec<_>>().join(", "))
+    .unwrap_or_default();
+
+  let system_prompt = format!(
+    r#"You are a helpful assistant.
+## Task
+1. Generate a short, concise title (max 5 words) for this conversation based on the user's first message.
+2. Select the most appropriate space from the following list: [{}]. If none fit well, return null.
+3. Select 1 emoji that best matches the conversation.
+
+## Output
+Return the result as a JSON object with keys "title", "spaceLabel", and "emojis"."#,
+    space_labels
+  );
+
+  let prompt_text = format!("{}\n\nUser message: {}", system_prompt, payload.message);
+
+  let model = payload.model.clone().unwrap_or_else(|| {
+    if payload.provider == "gemini" {
+      DEFAULT_GEMINI_MODEL.to_string()
+    } else {
+      DEFAULT_OPENAI_MODEL.to_string()
+    }
+  });
+
+  let response_text = match payload.provider.as_str() {
+    "gemini" => {
+      let client = gemini::Client::builder()
+        .api_key(payload.api_key.clone())
+        .build()
+        .map_err(|err| internal_error(err.to_string()))?;
+
+      let agent = client.agent(model).build();
+      agent
+        .prompt(&prompt_text)
+        .await
+        .map_err(|err| internal_error(err.to_string()))?
+    }
+    _ => {
+      let mut builder =
+        openai::CompletionsClient::<reqwest::Client>::builder().api_key(payload.api_key.clone());
+      if let Some(base_url) = resolve_base_url(payload.base_url.clone()) {
+        builder = builder.base_url(&base_url);
+      }
+      let client = builder
+        .build()
+        .map_err(|err| internal_error(err.to_string()))?;
+
+      let mut agent_builder = client.agent(model.clone());
+      agent_builder = agent_builder.additional_params(json!({
+        "response_format": { "type": "json_object" }
+      }));
+      let agent = agent_builder.build();
+
+      agent
+        .prompt(&prompt_text)
+        .await
+        .map_err(|err| internal_error(err.to_string()))?
+    }
+  };
+
+  // Parse JSON response
+  let parsed: Value = serde_json::from_str(&response_text)
+    .or_else(|_| {
+      if let Some(start) = response_text.find('{') {
+        if let Some(end) = response_text.rfind('}') {
+          return serde_json::from_str(&response_text[start..=end]);
+        }
+      }
+      Ok(json!({}))
+    })
+    .unwrap_or_else(|_| json!({}));
+
+  let title = parsed
+    .get("title")
+    .and_then(|v| v.as_str())
+    .map(|s| s.trim().to_string())
+    .filter(|s| !s.is_empty())
+    .unwrap_or_else(|| "New Conversation".to_string());
+
+  let space_label = parsed
+    .get("spaceLabel")
+    .and_then(|v| v.as_str())
+    .map(|s| s.trim().to_string());
+
+  let selected_space = space_label.as_ref().and_then(|label| {
+    payload
+      .spaces
+      .as_ref()
+      .and_then(|spaces| spaces.iter().find(|sp| &sp.label == label).cloned())
+  });
+
+  let emojis = parsed
+    .get("emojis")
+    .and_then(|v| v.as_array())
+    .map(|arr| {
+      arr
+        .iter()
+        .filter_map(|e| e.as_str())
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .take(1)
+        .collect::<Vec<_>>()
+    })
+    .unwrap_or_default();
+
+  Ok(Json(TitleAndSpaceResponse {
+    title,
+    space: selected_space,
+    emojis,
+  }))
 }
 
 async fn generate_related_questions(

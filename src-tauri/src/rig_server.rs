@@ -163,6 +163,41 @@ struct TitleAndSpaceResponse {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+struct TitleSpaceAgentRequest {
+  provider: String,
+  message: String,
+  spaces_with_agents: Option<Vec<SpaceWithAgents>>,
+  api_key: String,
+  base_url: Option<String>,
+  model: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SpaceWithAgents {
+  label: String,
+  description: Option<String>,
+  agents: Option<Vec<AgentOption>>,
+}
+
+#[derive(Debug, Deserialize, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AgentOption {
+  name: String,
+  description: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct TitleSpaceAgentResponse {
+  title: String,
+  space_label: Option<String>,
+  agent_name: Option<String>,
+  emojis: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct RelatedQuestionsRequest {
   provider: String,
   messages: Vec<ChatMessage>,
@@ -613,6 +648,7 @@ pub async fn serve(config: RigServerConfig) -> Result<(), Box<dyn std::error::Er
     .route("/api/stream-chat", post(stream_chat))
     .route("/api/title", post(generate_title))
     .route("/api/title-and-space", post(generate_title_and_space))
+    .route("/api/title-space-agent", post(generate_title_space_agent))
     .route("/api/related-questions", post(generate_related_questions))
     .route("/api/tools", get(list_tools))
     .route("/api/*path", any(proxy_api))
@@ -1048,6 +1084,214 @@ Return the result as a JSON object with keys "title", "spaceLabel", and "emojis"
   Ok(Json(TitleAndSpaceResponse {
     title,
     space: selected_space,
+    emojis,
+  }))
+}
+
+async fn generate_title_space_agent(
+  State(_state): State<AppState>,
+  Json(payload): Json<TitleSpaceAgentRequest>,
+) -> Result<Json<TitleSpaceAgentResponse>, (StatusCode, Json<Value>)> {
+  if payload.provider.trim().is_empty() {
+    return Err(bad_request("Missing required field: provider"));
+  }
+  if payload.message.trim().is_empty() {
+    return Err(bad_request("Missing required field: message"));
+  }
+  if payload.api_key.trim().is_empty() {
+    return Err(bad_request("Missing required field: apiKey"));
+  }
+
+  // Build space lines with agents for the prompt
+  let space_lines: Vec<String> = payload
+    .spaces_with_agents
+    .as_ref()
+    .map(|spaces| {
+      spaces
+        .iter()
+        .map(|space| {
+          let label = space
+            .label
+            .replace(|c| c == '{' || c == '}', "")
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ");
+          let description = space
+            .description
+            .as_ref()
+            .map(|d| {
+              d.replace(|c| c == '{' || c == '}', "")
+                .split_whitespace()
+                .collect::<Vec<_>>()
+                .join(" ")
+            })
+            .unwrap_or_default();
+          let space_token = if !description.is_empty() {
+            format!("{} - {}", label, description)
+          } else {
+            label.clone()
+          };
+
+          let agent_tokens: Vec<String> = space
+            .agents
+            .as_ref()
+            .map(|agents| {
+              agents
+                .iter()
+                .map(|agent| {
+                  let name = agent
+                    .name
+                    .replace(|c| c == '{' || c == '}', "")
+                    .split_whitespace()
+                    .collect::<Vec<_>>()
+                    .join(" ");
+                  let description = agent
+                    .description
+                    .as_ref()
+                    .map(|d| {
+                      d.replace(|c| c == '{' || c == '}', "")
+                        .split_whitespace()
+                        .collect::<Vec<_>>()
+                        .join(" ")
+                    })
+                    .unwrap_or_default();
+                  if !description.is_empty() {
+                    format!("{} - {}", name, description)
+                  } else {
+                    name
+                  }
+                })
+                .filter(|s| !s.is_empty())
+                .collect()
+            })
+            .unwrap_or_default();
+
+          let agent_str = agent_tokens.join(",");
+          if !agent_str.is_empty() {
+            format!("{}:{{{}}}", space_token, agent_str)
+          } else {
+            space_token
+          }
+        })
+        .collect()
+    })
+    .unwrap_or_default();
+
+  let system_prompt = r#"You are a helpful assistant.
+## Task
+1. Generate a short, concise title (max 5 words) for this conversation based on the user's first message.
+2. Select the most appropriate space from the list below and return its spaceLabel (the space name only, without the description).
+3. If the chosen space has agents, select the best matching agent by agentName (agent name only). Otherwise return null.
+4. Select 1 emoji that best matches the conversation.
+
+## Output
+Return the result as JSON with keys "title", "spaceLabel", "agentName", and "emojis". "emojis" must be an array with 1 emoji character."#;
+
+  let user_content = if !space_lines.is_empty() {
+    format!(
+      "{}\n\nSpaces and agents:\n{}",
+      payload.message,
+      space_lines.join("\n")
+    )
+  } else {
+    payload.message.clone()
+  };
+
+  let prompt_text = format!("{}\n\nUser message: {}", system_prompt, user_content);
+
+  let model = payload.model.clone().unwrap_or_else(|| {
+    if payload.provider == "gemini" {
+      DEFAULT_GEMINI_MODEL.to_string()
+    } else {
+      DEFAULT_OPENAI_MODEL.to_string()
+    }
+  });
+
+  let response_text = match payload.provider.as_str() {
+    "gemini" => {
+      let client = gemini::Client::builder()
+        .api_key(payload.api_key.clone())
+        .build()
+        .map_err(|err| internal_error(err.to_string()))?;
+
+      let agent = client.agent(model).build();
+      agent
+        .prompt(&prompt_text)
+        .await
+        .map_err(|err| internal_error(err.to_string()))?
+    }
+    _ => {
+      let mut builder =
+        openai::CompletionsClient::<reqwest::Client>::builder().api_key(payload.api_key.clone());
+      if let Some(base_url) = resolve_base_url(payload.base_url.clone()) {
+        builder = builder.base_url(&base_url);
+      }
+      let client = builder
+        .build()
+        .map_err(|err| internal_error(err.to_string()))?;
+
+      let mut agent_builder = client.agent(model.clone());
+      agent_builder = agent_builder.additional_params(json!({
+        "response_format": { "type": "json_object" }
+      }));
+      let agent = agent_builder.build();
+
+      agent
+        .prompt(&prompt_text)
+        .await
+        .map_err(|err| internal_error(err.to_string()))?
+    }
+  };
+
+  // Parse JSON response
+  let parsed: Value = serde_json::from_str(&response_text)
+    .or_else(|_| {
+      if let Some(start) = response_text.find('{') {
+        if let Some(end) = response_text.rfind('}') {
+          return serde_json::from_str(&response_text[start..=end]);
+        }
+      }
+      Ok(json!({}))
+    })
+    .unwrap_or_else(|_| json!({}));
+
+  let title = parsed
+    .get("title")
+    .and_then(|v| v.as_str())
+    .map(|s| s.trim().to_string())
+    .filter(|s| !s.is_empty())
+    .unwrap_or_else(|| "New Conversation".to_string());
+
+  let space_label = parsed
+    .get("spaceLabel")
+    .and_then(|v| v.as_str())
+    .map(|s| s.trim().to_string())
+    .filter(|s| !s.is_empty());
+
+  let agent_name = parsed
+    .get("agentName")
+    .and_then(|v| v.as_str())
+    .map(|s| s.trim().to_string())
+    .filter(|s| !s.is_empty());
+
+  let emojis = parsed
+    .get("emojis")
+    .and_then(|v| v.as_array())
+    .map(|arr| {
+      arr
+        .iter()
+        .filter_map(|e| e.as_str())
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .take(1)
+        .collect::<Vec<_>>()
+    })
+    .unwrap_or_default();
+
+  Ok(Json(TitleSpaceAgentResponse {
+    title,
+    space_label,
+    agent_name,
     emojis,
   }))
 }

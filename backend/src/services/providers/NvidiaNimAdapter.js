@@ -44,13 +44,11 @@ export class NvidiaNimAdapter extends BaseProviderAdapter {
 
     const resolvedBase = baseUrl || this.config.baseURL
     const modelKwargs = {}
-    let chat_template_kwargs = {}
 
-    // Thinking mode support
-    if (thinking) {
-      chat_template_kwargs = {
-        thinking: thinking,
-      }
+    // Thinking mode support - pass as direct parameter for NVIDIA
+    // const chat_template_kwargs = thinking ? { thinking: true } : undefined
+    if(thinking){
+      modelKwargs.chat_template_kwargs={thinking: true}
     }
 
     if (tools && tools.length > 0) modelKwargs.tools = tools
@@ -71,7 +69,7 @@ export class NvidiaNimAdapter extends BaseProviderAdapter {
       streaming,
       __includeRawResponse: true,
       modelKwargs,
-      chat_template_kwargs,
+      // chat_template_kwargs,
       configuration: { baseURL: resolvedBase },
     })
   }
@@ -82,8 +80,6 @@ export class NvidiaNimAdapter extends BaseProviderAdapter {
   async execute(messages, params) {
     const { tools, stream } = params
 
-    // NVIDIA NIM typically supports streaming tool calls (OpenAI compatible)
-    // If not, we can fall back closer to SiliconFlow's logic, but for now assuming standard OpenAI behavior
     const modelInstance = this.buildModel({
       ...params,
       tools,
@@ -98,22 +94,17 @@ export class NvidiaNimAdapter extends BaseProviderAdapter {
       }
     }
 
-    // Non-streaming fallback
     return this.executeNonStreamingForToolCalls(messages, params)
   }
 
   /**
    * Extract thinking/reasoning content from streaming chunk
-   * Override to support NVIDIA's specific location if different,
-   * but typically it's in additional_kwargs.reasoning_content
+   * NVIDIA DeepSeek: chunk.choices[0].delta.reasoning_content
    */
   extractThinkingContent(messageChunk) {
-    // Check standard locations first (handled by base)
     const baseContent = super.extractThinkingContent(messageChunk)
     if (baseContent) return baseContent
 
-    // Check NVIDIA specific locations if any (based on user prompt, it's just chunk.additional_kwargs["reasoning_content"])
-    // which is already covered by base adapter's check for messageChunk?.additional_kwargs?.reasoning_content
-    return null
+    return messageChunk?.choices?.[0]?.delta?.reasoning_content || null
   }
 }

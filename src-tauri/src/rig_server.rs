@@ -134,6 +134,22 @@ struct TitleResponse {
   emojis: Vec<String>,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RelatedQuestionsRequest {
+  provider: String,
+  messages: Vec<ChatMessage>,
+  api_key: String,
+  base_url: Option<String>,
+  model: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct RelatedQuestionsResponse {
+  questions: Vec<String>,
+}
+
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 struct StreamChatRequest {
@@ -569,6 +585,7 @@ pub async fn serve(config: RigServerConfig) -> Result<(), Box<dyn std::error::Er
     .route("/api/rig/complete", post(rig_complete))
     .route("/api/stream-chat", post(stream_chat))
     .route("/api/title", post(generate_title))
+    .route("/api/related-questions", post(generate_related_questions))
     .route("/api/tools", get(list_tools))
     .route("/api/*path", any(proxy_api))
     .with_state(state)
@@ -875,6 +892,177 @@ Return JSON with keys "title" and "emojis". "emojis" must be an array with 1 emo
     .unwrap_or_default();
 
   Ok(Json(TitleResponse { title, emojis }))
+}
+
+async fn generate_related_questions(
+  State(_state): State<AppState>,
+  Json(payload): Json<RelatedQuestionsRequest>,
+) -> Result<Json<RelatedQuestionsResponse>, (StatusCode, Json<Value>)> {
+  // Validate required fields
+  if payload.provider.is_empty() {
+    return Err((
+      StatusCode::BAD_REQUEST,
+      Json(json!({"error": "Missing required field: provider"})),
+    ));
+  }
+
+  if payload.api_key.is_empty() {
+    return Err((
+      StatusCode::BAD_REQUEST,
+      Json(json!({"error": "Missing required field: apiKey"})),
+    ));
+  }
+
+  // Construct conversation history + prompt
+  let mut history_messages = payload.messages.clone();
+  history_messages.push(ChatMessage {
+    role: "user".to_string(),
+    content: Some(json!("Based on our conversation, suggest 3 short, relevant follow-up questions I might ask. Return them as a JSON array of strings. Example: [\"Question 1?\", \"Question 2?\", \"Question 3?\"]")),
+    tool_calls: None,
+    tool_call_id: None,
+    name: None,
+    id: None,
+  });
+
+  // Build prompt for agent
+  let prompt_text = history_messages
+    .iter()
+    .filter_map(|msg| {
+      msg.content.as_ref().and_then(|content| {
+        match content {
+          Value::String(s) => Some(format!("{}: {}", msg.role, s)),
+          _ => content.as_str().map(|s| format!("{}: {}", msg.role, s)),
+        }
+      })
+    })
+    .collect::<Vec<_>>()
+    .join("\n");
+
+  // Create appropriate client based on provider
+  let provider_lower = payload.provider.to_lowercase();
+  let response_text = match provider_lower.as_str() {
+    "gemini" => {
+      // Use Gemini client
+      let client = gemini::Client::builder()
+        .api_key(payload.api_key.clone())
+        .build()
+        .map_err(|err| {
+          eprintln!("Gemini client build error: {}", err);
+          (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({"error": "Internal server error", "message": format!("{}", err)})),
+          )
+        })?;
+
+      let model_name = payload
+        .model
+        .clone()
+        .unwrap_or_else(|| DEFAULT_GEMINI_MODEL.to_string());
+
+      let agent = client.agent(&model_name).build();
+      agent
+        .prompt(&prompt_text)
+        .await
+        .map_err(|e| {
+          eprintln!("Gemini prompt error: {}", e);
+          (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({"error": "Internal server error", "message": format!("{}", e)})),
+          )
+        })?
+    }
+    _ => {
+      // Use OpenAI-compatible client for other providers
+      let mut builder =
+        openai::CompletionsClient::<reqwest::Client>::builder().api_key(payload.api_key.clone());
+      if let Some(base_url) = resolve_base_url(payload.base_url.clone()) {
+        builder = builder.base_url(&base_url);
+      }
+      let client = builder
+        .build()
+        .map_err(|err| {
+          eprintln!("OpenAI client build error: {}", err);
+          (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({"error": "Internal server error", "message": format!("{}", err)})),
+          )
+        })?;
+
+      let model_name = payload
+        .model
+        .clone()
+        .unwrap_or_else(|| DEFAULT_OPENAI_MODEL.to_string());
+
+      // Set JSON response format for non-gemini providers
+      let mut agent_builder = client.agent(model_name.clone());
+      agent_builder = agent_builder.additional_params(json!({
+        "response_format": { "type": "json_object" }
+      }));
+      let agent = agent_builder.build();
+
+      agent
+        .prompt(&prompt_text)
+        .await
+        .map_err(|e| {
+          eprintln!("OpenAI-compatible prompt error: {}", e);
+          (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({"error": "Internal server error", "message": format!("{}", e)})),
+          )
+        })?
+    }
+  };
+
+  // Parse JSON response
+  let parsed: Value = serde_json::from_str(&response_text)
+    .or_else(|_| {
+      // Try to extract JSON from the response if it's embedded in text
+      if let Some(start) = response_text.find('{') {
+        if let Some(end) = response_text.rfind('}') {
+          return serde_json::from_str(&response_text[start..=end]);
+        }
+      }
+      if let Some(start) = response_text.find('[') {
+        if let Some(end) = response_text.rfind(']') {
+          return serde_json::from_str(&response_text[start..=end]);
+        }
+      }
+      // Return empty object as fallback
+      Ok(json!({}))
+    })
+    .unwrap_or_else(|_| json!({}));
+
+  // Extract questions array
+  let questions = if parsed.is_array() {
+    // Response is directly an array
+    parsed
+      .as_array()
+      .unwrap()
+      .iter()
+      .filter_map(|v| v.as_str())
+      .map(|s| s.trim().to_string())
+      .filter(|s| !s.is_empty())
+      .take(3)
+      .collect::<Vec<_>>()
+  } else {
+    // Response is an object, try to extract "questions", "related_questions", or array fields
+    parsed
+      .get("questions")
+      .or_else(|| parsed.get("related_questions"))
+      .and_then(|v| v.as_array())
+      .map(|arr| {
+        arr
+          .iter()
+          .filter_map(|v| v.as_str())
+          .map(|s| s.trim().to_string())
+          .filter(|s| !s.is_empty())
+          .take(3)
+          .collect::<Vec<_>>()
+      })
+      .unwrap_or_else(Vec::new)
+  };
+
+  Ok(Json(RelatedQuestionsResponse { questions }))
 }
 
 async fn list_tools() -> impl IntoResponse {

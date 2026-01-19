@@ -2055,7 +2055,7 @@ const MessageBubble = ({
               </button>
 
               {isResearchExpanded && hasResearchSteps && (
-                <div className="p-4  font-stretch-semi-condensed  border-t border-gray-200 dark:border-zinc-700 text-sm text-gray-600 dark:text-gray-400 leading-relaxed space-y-3 [&>p:last-child]:mb-0">
+                <div className="p-4  font-stretch-semi-condensed  border-t border-gray-200 dark:border-zinc-700 text-sm text-gray-600 dark:text-gray-400 leading-relaxed space-y-3 [&>p:last-child]:mb-0!">
                   {researchSteps.map(step => {
                     const isRunning = step.status === 'running'
                     const isPending = step.status === 'pending'
@@ -2310,7 +2310,7 @@ const MessageBubble = ({
             </button>
 
             {isThoughtExpanded && (hasThoughtText || hasPlanText) && (
-              <div className="p-4  font-stretch-semi-condensed  border-t border-gray-200 dark:border-zinc-700 text-sm text-gray-600 dark:text-gray-400 leading-relaxed [&>p:last-child]:mb-0">
+              <div className="p-4  font-stretch-semi-condensed  border-t border-gray-200 dark:border-zinc-700 text-sm text-gray-600 dark:text-gray-400 leading-relaxed [&>p:last-child]:mb-0!">
                 <Streamdown
                   mermaid={mermaidOptions}
                   remarkPlugins={[remarkGfm]}

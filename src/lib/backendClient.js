@@ -203,7 +203,7 @@ export const streamResearchPlanViaBackend = async params => {
   }
 
   try {
-    const response = await fetch(`${getNodeBackendUrl()}/api/research-plan-stream`, {
+    const response = await fetch(`${getRustBackendUrl()}/api/research-plan-stream`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

@@ -75,13 +75,13 @@
 - 新增 `/api/agent-for-auto` Rust 实现，自动选择最佳代理。
 - 新增 `/api/daily-tip` Rust 实现，生成每日提示。
 - 新增 `/api/research-plan` Rust 实现，生成研究计划（支持 general 和 academic 两种类型）。
+- 新增 `/api/research-plan-stream` Rust 实现，SSE 流式输出研究计划。
 - 目前仅保留本地工具：`calculator` + `Tavily_web_search` + `Tavily_academic_search`。
 - `/api/tools` 在 Rust 端返回上述三类工具，其他工具暂不暴露。
 - 其他尚未迁移的 `/api/*` 继续反向代理到旧 Node 后端，保持兼容。
 
 ## 仍未迁移的接口（仍走 Node 后端）
 
-- `/api/research-plan-stream`
 - `/api/stream-deep-research`
 - `/api/mcp-tools/*`
 

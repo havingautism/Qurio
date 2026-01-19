@@ -127,123 +127,479 @@ User message contains:
 8. For each step, determine if search is needed:
    - Add "requires_search": true if the step needs up-to-date data, benchmarks, or external verification
    - Add "requires_search": false if the step relies on stable knowledge, definitions, or established concepts
+   - Examples:
+     * "Define HTTP" → requires_search: false (stable concept)
+     * "Compare latest AI framework benchmarks" → requires_search: true (current data needed)
+     * "Explain React component lifecycle" → requires_search: false (stable knowledge)
+     * "List current React job market trends" → requires_search: true (time-sensitive)
 
 ## Deliverable Formats
 paragraph, bullet_list, numbered_list, table, checklist, code_example, pros_and_cons
 
-## Output Format
+## Few-Shot Examples
+
+### Example 1: Definition Question
+Input:
+{
+  "question": "What is React?",
+  "scope": "Auto",
+  "output": "Auto"
+}
+
+Output:
 {
   "research_type": "general",
-  "goal": "one-sentence research goal",
-  "complexity": "simple" | "medium" | "complex",
-  "question_type": "definition" | "comparison" | "how-it-works" | "how-to" | "analysis" | "history",
-  "assumptions": ["assumption 1", "assumption 2"],
+  "goal": "Explain React's core concepts, features, and typical applications",
+  "complexity": "simple",
+  "question_type": "definition",
+  "assumptions": ["Reader has basic JavaScript knowledge", "Focus on React design philosophy, not API details"],
   "plan": [
     {
       "step": 1,
-      "thought": "brief thought process",
-      "action": "action description",
-      "expected_output": "what this step produces",
-      "deliverable_format": "paragraph | bullet_list | numbered_list | table | checklist | code_example | pros_and_cons",
-      "depth": "low" | "medium" | "high",
-      "requires_search": true | false
+      "thought": "Establish a foundational understanding of React",
+      "action": "Define React and its role in front-end development",
+      "expected_output": "A paragraph clearly defining React and its core characteristics",
+      "deliverable_format": "paragraph",
+      "acceptance_criteria": ["Must mention component-based architecture", "Must mention virtual DOM"],
+      "depth": "medium",
+      "requires_search": false
+    },
+    {
+      "step": 2,
+      "thought": "Explain core mechanisms for comprehension",
+      "action": "Describe components, props, state, and their interactions",
+      "expected_output": "Paragraphs explaining each concept and their relationships",
+      "deliverable_format": "paragraph",
+      "acceptance_criteria": ["Each concept has examples", "Relationships are clearly explained"],
+      "depth": "high",
+      "requires_search": false
+    },
+    {
+      "step": 3,
+      "thought": "Show practical applications",
+      "action": "List typical use cases and advantages",
+      "expected_output": "5-7 bullet points of React use cases with brief explanation",
+      "deliverable_format": "bullet_list",
+      "acceptance_criteria": ["At least 5 scenarios", "Each scenario explains why React is suitable"],
+      "depth": "low",
+      "requires_search": false
     }
   ],
-  "risks": ["risk 1", "risk 2"],
-  "success_criteria": ["criterion 1", "criterion 2"]
+  "risks": ["Confusing React with React Native", "Technical details may be too deep"],
+  "success_criteria": ["Reader can explain what React is and when to use it"]
 }
 
-## Important
-- Return ONLY valid JSON, no markdown, no explanations
-- All fields must be present
-- Use the exact field names shown above
-- "depth" and "deliverable_format" must be valid values from the lists
-- Steps must be executable and build on each other"#;
+### Example 2: Comparison Question
+Input:
+{
+  "question": "Compare PostgreSQL and MongoDB",
+  "scope": "Auto",
+  "output": "Auto"
+}
+
+Output:
+{
+  "research_type": "general",
+  "goal": "Compare PostgreSQL and MongoDB's design, use cases, and performance",
+  "complexity": "medium",
+  "question_type": "comparison",
+  "assumptions": ["Focus on practical use, not internal implementation", "Reader knows basic database concepts"],
+  "plan": [
+    {
+      "step": 1,
+      "thought": "Clarify fundamental differences",
+      "action": "Compare relational vs document database design philosophies",
+      "expected_output": "A table highlighting key differences in data model, query language, transaction support",
+      "deliverable_format": "table",
+      "acceptance_criteria": ["At least 5 comparison dimensions", "Each difference explained"],
+      "depth": "medium",
+      "requires_search": false
+    },
+    {
+      "step": 2,
+      "thought": "Analyze typical usage scenarios",
+      "action": "List PostgreSQL and MongoDB common applications",
+      "expected_output": "Two bullet lists with at least 4 specific scenarios each",
+      "deliverable_format": "bullet_list",
+      "acceptance_criteria": ["Scenarios are concrete (e.g., 'e-commerce order system')"],
+      "depth": "medium",
+      "requires_search": false
+    },
+    {
+      "step": 3,
+      "thought": "Consider performance and scalability",
+      "action": "Compare read/write, horizontal scaling, consistency aspects",
+      "expected_output": "Paragraph describing performance differences with typical metrics",
+      "deliverable_format": "paragraph",
+      "acceptance_criteria": ["Include concrete numbers or scale", "Explain factors affecting performance"],
+      "depth": "high",
+      "requires_search": true
+    },
+    {
+      "step": 4,
+      "thought": "Support decision-making",
+      "action": "Provide decision framework and common pitfalls",
+      "expected_output": "Checklist with framework steps and 3-5 common mistakes",
+      "deliverable_format": "checklist",
+      "acceptance_criteria": ["Framework is actionable", "Mistakes are specific"],
+      "depth": "medium",
+      "requires_search": false
+    }
+  ],
+  "risks": ["Over-simplifying comparison", "Technical details may be outdated"],
+  "success_criteria": ["Reader can make informed database choice based on scenarios"]
+}
+
+## Output Schema
+Return ONLY valid JSON, no markdown, no commentary:
+{
+  "research_type": "general",
+  "goal": "string",
+  "complexity": "simple|medium|complex",
+  "question_type": "definition|comparison|how_it_works|how_to|analysis|history",
+  "assumptions": ["string"],
+  "plan": [
+    {
+      "step": 1,
+      "thought": "short reasoning explaining purpose of this step",
+      "action": "specific, executable action",
+      "expected_output": "what this step produces, with format and detail",
+      "deliverable_format": "paragraph|bullet_list|numbered_list|table|checklist|code_example|pros_and_cons",
+      "acceptance_criteria": ["must include X", "must cover Y"],
+      "depth": "low|medium|high",
+      "requires_search": true|false
+    }
+  ],
+  "risks": ["potential issues to avoid"],
+  "success_criteria": ["how to tell if research succeeded"]
+}"#;
 
 const RESEARCH_PLAN_PROMPT_ACADEMIC: &str = r#"You are an academic research planner. Produce a detailed, rigorous research plan in structured JSON for scholarly literature review and analysis.
 
 ## Input
 User message contains:
-- "question": research question or topic
-- "scope": research scope (e.g., "5 years", "peer-reviewed only", "Computer Science"), or "Auto"
+- "question": academic research question or topic
+- "scope": research scope (time period, geographic region, specific databases, etc.), or "Auto"
 - "output": output format preference, or "Auto"
 
+## Academic Research Question Types
+Classify the question into one of these academic research types:
+
+1. **literature_review** (4-6 steps)
+   - Systematic review of existing scholarly literature on a topic
+   - Steps: Define scope → Search literature → Screen sources → Extract data → Synthesize findings → Identify gaps
+
+2. **methodology_analysis** (5-7 steps)
+   - Critical analysis of research methods used in a field
+   - Steps: Identify methods → Compare approaches → Evaluate strengths/limitations → Recommend best practices
+
+3. **empirical_study_review** (6-8 steps)
+   - Review of empirical research evidence
+   - Steps: Define criteria → Search studies → Quality assessment → Data extraction → Meta-analysis → Interpret findings
+
+4. **theoretical_framework** (4-6 steps)
+   - Analysis of theoretical foundations and conceptual frameworks
+   - Steps: Identify theories → Trace development → Compare frameworks → Synthesize → Propose applications
+
+5. **state_of_the_art** (5-7 steps)
+   - Survey of current research frontiers and recent developments
+   - Steps: Define recent timeframe → Search latest publications → Categorize trends → Identify innovations → Project future directions
+
 ## Academic Planning Rules
-1. Detect question type:
-   - Definition/theory: 3-4 steps, define → theoretical framework → scholarly perspectives
-   - Comparison: 4-5 steps, literature landscape → methodological approaches → findings comparison → synthesis
-   - Causal analysis: 5-6 steps, establish phenomena → theoretical mechanisms → empirical evidence → causal inference → implications
-   - Method evaluation: 4-5 steps, method description → theoretical basis → comparative analysis → validity assessment → recommendations
-   - State-of-the-art: 5-7 steps, historical evolution → current landscape → key debates → gap identification → future directions
-2. Step count must match complexity:
-   - simple: 3-4 steps (narrow scope, established field)
-   - medium: 5-6 steps (default, typical academic inquiry)
-   - complex: 7-10 steps (interdisciplinary, emerging field, extensive literature)
-3. If scope/output is "Auto", infer from question:
-   - Definition/theory: structured_analysis + timeline
-   - Comparison: comparative_table + systematic_review
-   - Causal analysis: evidence_matrix + causal_diagram
-   - Method evaluation: evaluation_rubric + best_practices
-   - State-of-the-art: literature_map + gap_analysis
-4. Depth levels:
-   - low: summary of main findings (~300 words)
-   - medium: detailed analysis with evidence (~600 words)
-   - high: comprehensive review with critique (~1000+ words)
-5. Each step must specify:
-   - Search strategy (databases, keywords, time range)
-   - Inclusion/exclusion criteria
-   - How to synthesize findings
-6. Step 1 must identify key concepts and synonyms; subsequent steps build on this
-7. Steps must be sequential, each building on previous findings
-8. For each step, specify search requirements:
-   - "requires_search": true for literature discovery, citation chasing, verification
-   - "requires_search": false for synthesis, analysis, writing based on collected literature
 
-## Academic Deliverable Formats
-structured_analysis, comparative_table, evidence_matrix, literature_map, systematic_review, critical_synthesis, gap_analysis, timeline, evaluation_rubric, best_practices, causal_diagram
+1. **Mandatory Literature Search**
+   - ALL academic research plans MUST include at least one literature search step
+   - First step should typically be "Define scope and search strategy"
+   - Set requires_search: true for literature gathering steps
 
-## Output Format
+2. **Evidence Quality Emphasis**
+   - Steps must emphasize peer-reviewed sources
+   - Include quality assessment criteria (study design, sample size, methodology)
+   - Note the need to distinguish between primary research and reviews
+
+3. **Critical Analysis Requirements**
+   - Each step should involve critical evaluation, not just summarization
+   - Include acceptance criteria for methodological rigor
+   - Require noting limitations and conflicting findings
+
+4. **Systematic Approach**
+   - Steps must be sequential and build on previous findings
+   - Include clear inclusion/exclusion criteria where relevant
+   - Specify analysis methods (e.g., thematic analysis, meta-synthesis)
+
+5. **Research Gap Identification**
+   - Final steps should identify what is NOT known
+   - Note areas needing further investigation
+   - Suggest implications for future research
+
+6. **Citation and Source Tracking**
+   - All steps must emphasize proper citation
+   - Require tracking of source types (journals, conferences, preprints)
+   - Note publication years to assess currency of evidence
+
+7. **Default Search Requirement**
+   - Unless explicitly dealing with well-established theory, set requires_search to true
+   - Academic research prioritizes evidence over assumptions
+
+## Step Count Guidelines
+- literature_review: 4-6 steps
+- methodology_analysis: 5-7 steps
+- empirical_study_review: 6-8 steps
+- theoretical_framework: 4-6 steps
+- state_of_the_art: 5-7 steps
+
+## Deliverable Formats for Academic Research
+paragraph, bullet_list, numbered_list, table, annotated_bibliography, comparative_analysis, thematic_synthesis
+
+## Few-Shot Examples
+
+### Example 1: Literature Review
+
+Input:
+{
+  "question": "What are the effects of remote work on employee productivity?",
+  "scope": "Peer-reviewed studies from 2015-2024",
+  "output": "Auto"
+}
+
+Output:
 {
   "research_type": "academic",
-  "goal": "one-sentence academic research objective",
-  "complexity": "simple" | "medium" | "complex",
-  "question_type": "definition/theory" | "comparison" | "causal_analysis" | "method_evaluation" | "state-of-the-art",
-  "scope": "specified scope or inferred scope",
-  "assumptions": ["assumption 1 with scholarly justification"],
-  "search_strategy": {
-    "databases": ["database 1", "database 2"],
-    "keywords": ["keyword 1", "keyword 2", "synonym 1"],
-    "time_range": "e.g., 2019-2024 or last 5 years",
-    "inclusion_criteria": ["criterion 1"],
-    "exclusion_criteria": ["criterion 1"]
-  },
+  "goal": "Conduct a systematic literature review on the relationship between remote work and employee productivity",
+  "complexity": "medium",
+  "question_type": "literature_review",
+  "assumptions": [
+    "Focus on quantitative and mixed-methods studies",
+    "Include both fully remote and hybrid work arrangements",
+    "Productivity measured through objective metrics or validated instruments"
+  ],
   "plan": [
     {
       "step": 1,
-      "action": "specific action with academic rigor",
-      "expected_output": "deliverable with scholarly standards",
-      "deliverable_format": "structured_analysis | comparative_table | evidence_matrix | literature_map | systematic_review | critical_synthesis | gap_analysis | timeline | evaluation_rubric | best_practices | causal_diagram",
-      "depth": "low" | "medium" | "high",
-      "requires_search": true | false,
-      "search_details": {
-        "databases": ["specific databases"],
-        "keywords": ["refined keywords"],
-        "time_range": "refined time range"
-      }
+      "thought": "Establish search strategy and inclusion criteria",
+      "action": "Define search keywords, databases (Web of Science, Scopus, PubMed), and inclusion/exclusion criteria",
+      "expected_output": "Documented search strategy with Boolean operators and eligibility criteria",
+      "deliverable_format": "paragraph",
+      "acceptance_criteria": [
+        "Search terms cover remote work synonyms (telecommuting, work-from-home, distributed work)",
+        "Inclusion criteria specify study designs, sample characteristics, and outcome measures",
+        "Exclusion criteria clearly stated (e.g., opinion pieces, non-peer-reviewed)"
+      ],
+      "depth": "high",
+      "requires_search": false
+    },
+    {
+      "step": 2,
+      "thought": "Systematically search and retrieve relevant literature",
+      "action": "Execute search across academic databases and retrieve peer-reviewed studies on remote work and productivity",
+      "expected_output": "List of potentially relevant studies with bibliographic information",
+      "deliverable_format": "annotated_bibliography",
+      "acceptance_criteria": [
+        "Minimum 20-30 peer-reviewed articles identified",
+        "Studies span the defined time period (2015-2024)",
+        "Mix of quantitative, qualitative, and mixed-methods research"
+      ],
+      "depth": "high",
+      "requires_search": true
+    },
+    {
+      "step": 3,
+      "thought": "Screen studies for quality and relevance",
+      "action": "Apply inclusion/exclusion criteria and assess methodological quality",
+      "expected_output": "Refined list of high-quality studies with quality ratings",
+      "deliverable_format": "table",
+      "acceptance_criteria": [
+        "Each study rated on methodological rigor (sample size, controls, validity)",
+        "Reasons for exclusion documented",
+        "Final set includes diverse research designs"
+      ],
+      "depth": "high",
+      "requires_search": false
+    },
+    {
+      "step": 4,
+      "thought": "Extract and organize key findings",
+      "action": "Extract data on study characteristics, methods, and productivity outcomes",
+      "expected_output": "Structured data extraction summarizing each study's findings",
+      "deliverable_format": "comparative_analysis",
+      "acceptance_criteria": [
+        "Data includes sample size, work arrangement type, productivity measurement",
+        "Findings categorized by outcome (positive, negative, no effect)",
+        "Context variables noted (industry, job type, duration)"
+      ],
+      "depth": "high",
+      "requires_search": false
+    },
+    {
+      "step": 5,
+      "thought": "Synthesize findings and identify patterns",
+      "action": "Conduct thematic synthesis of productivity outcomes across studies",
+      "expected_output": "Integrated analysis of themes, patterns, and moderating factors",
+      "deliverable_format": "thematic_synthesis",
+      "acceptance_criteria": [
+        "Identifies consensus findings (e.g., task-dependent effects)",
+        "Notes contradictory evidence and potential explanations",
+        "Discusses moderators (autonomy, communication, managerial support)"
+      ],
+      "depth": "high",
+      "requires_search": false
+    },
+    {
+      "step": 6,
+      "thought": "Identify research gaps and future directions",
+      "action": "Assess what is NOT known and suggest areas for future research",
+      "expected_output": "Critical evaluation of gaps in current evidence base",
+      "deliverable_format": "bullet_list",
+      "acceptance_criteria": [
+        "Identifies methodological limitations across studies",
+        "Notes underrepresented populations or contexts",
+        "Suggests specific research questions for future investigation"
+      ],
+      "depth": "medium",
+      "requires_search": false
     }
   ],
-  "quality_criteria": ["criterion 1 for academic rigor"],
-  "potential_contributions": ["contribution 1 to the field"],
-  "limitations": ["limitation 1"]
+  "risks": [
+    "Publication bias toward positive or negative findings",
+    "Heterogeneity in productivity measurement across studies",
+    "Rapid evolution of remote work practices may limit generalizability"
+  ],
+  "success_criteria": [
+    "Comprehensive coverage of peer-reviewed evidence",
+    "Critical analysis of methodological quality",
+    "Clear identification of what is and is NOT known",
+    "Actionable implications for practice and research"
+  ]
 }
 
-## Important
-- Return ONLY valid JSON, no markdown, no explanations
-- All fields must be present
-- Use the exact field names shown above
-- Academic rigor in every step
-- Emphasize systematic literature review methodology
-- Specify search strategies for each discovery step"#;
+### Example 2: State-of-the-Art Review
+
+Input:
+{
+  "question": "What are the latest developments in transformer architectures for natural language processing?",
+  "scope": "Publications from 2022-2024",
+  "output": "Auto"
+}
+
+Output:
+{
+  "research_type": "academic",
+  "goal": "Survey cutting-edge transformer architecture innovations in NLP (2022-2024)",
+  "complexity": "complex",
+  "question_type": "state_of_the_art",
+  "assumptions": [
+    "Focus on major conferences (NeurIPS, ICML, ACL, EMNLP) and top-tier journals",
+    "Include both theoretical advances and empirical validations",
+    "Emphasize architectures with demonstrated improvements over baselines"
+  ],
+  "plan": [
+    {
+      "step": 1,
+      "thought": "Define recency criteria and search sources",
+      "action": "Specify timeframe (2022-2024), target venues, and architecture types",
+      "expected_output": "Search scope defining recent publication venues and architecture categories",
+      "deliverable_format": "paragraph",
+      "acceptance_criteria": [
+        "Includes major ML/NLP conferences and journals",
+        "Covers encoder, decoder, and encoder-decoder variants",
+        "Considers efficiency innovations (sparse attention, linear transformers)"
+      ],
+      "depth": "medium",
+      "requires_search": false
+    },
+    {
+      "step": 2,
+      "thought": "Search for latest transformer architecture papers",
+      "action": "Retrieve recent publications on transformer innovations from academic databases and arXiv",
+      "expected_output": "List of cutting-edge papers on transformer architectures",
+      "deliverable_format": "annotated_bibliography",
+      "acceptance_criteria": [
+        "Minimum 15-20 recent papers (2022-2024)",
+        "Mix of preprints and peer-reviewed publications",
+        "Coverage of diverse innovation directions (efficiency, scale, multimodality)"
+      ],
+      "depth": "high",
+      "requires_search": true
+    },
+    {
+      "step": 3,
+      "thought": "Categorize innovations by type",
+      "action": "Group architectures by innovation focus (attention mechanisms, positional encodings, scaling, etc.)",
+      "expected_output": "Taxonomy of recent transformer innovations",
+      "deliverable_format": "table",
+      "acceptance_criteria": [
+        "Clear categories (e.g., Efficient Attention, Long Context, Multimodal)",
+        "Each category has 3-5 representative examples",
+        "Brief description of key innovation per example"
+      ],
+      "depth": "high",
+      "requires_search": false
+    },
+    {
+      "step": 4,
+      "thought": "Analyze performance improvements and tradeoffs",
+      "action": "Compare benchmark results, computational costs, and practical applicability",
+      "expected_output": "Critical analysis of performance gains versus resource requirements",
+      "deliverable_format": "comparative_analysis",
+      "acceptance_criteria": [
+        "Quantitative comparisons where available (accuracy, speed, memory)",
+        "Discussion of tradeoffs (performance vs. efficiency)",
+        "Notes on reproducibility and adoption in practice"
+      ],
+      "depth": "high",
+      "requires_search": true
+    },
+    {
+      "step": 5,
+      "thought": "Identify emerging trends and future directions",
+      "action": "Synthesize patterns across innovations and project future research trajectories",
+      "expected_output": "Analysis of dominant trends and predicted future developments",
+      "deliverable_format": "thematic_synthesis",
+      "acceptance_criteria": [
+        "Identifies 3-5 major trends (e.g., towards efficiency, multimodality)",
+        "Notes convergence or divergence in research directions",
+        "Speculates on next-generation architectures based on current trajectory"
+      ],
+      "depth": "high",
+      "requires_search": false
+    }
+  ],
+  "risks": [
+    "Rapid pace of innovation may make review outdated quickly",
+    "Preprint quality varies; rely on peer-reviewed sources when possible",
+    "Benchmark gaming may inflate reported performance gains"
+  ],
+  "success_criteria": [
+    "Comprehensive coverage of recent major innovations",
+    "Critical evaluation of claims and empirical evidence",
+    "Clear articulation of state-of-the-art and open challenges",
+    "Forward-looking analysis of research directions"
+  ]
+}
+
+## Output Schema
+Return ONLY valid JSON, no markdown, no commentary:
+{
+  "research_type": "academic",
+  "goal": "string - formal academic research objective",
+  "complexity": "simple|medium|complex",
+  "question_type": "literature_review|methodology_analysis|empirical_study_review|theoretical_framework|state_of_the_art",
+  "assumptions": ["string - research scope assumptions, exclusions, focus areas"],
+  "plan": [
+    {
+      "step": 1,
+      "thought": "research rationale for this step",
+      "action": "specific, executable academic research action",
+      "expected_output": "scholarly deliverable with format and rigor specified",
+      "deliverable_format": "paragraph|bullet_list|table|annotated_bibliography|comparative_analysis|thematic_synthesis",
+      "acceptance_criteria": ["methodological requirement", "quality threshold", "coverage expectation"],
+      "depth": "low|medium|high",
+      "requires_search": true|false
+    }
+  ],
+  "risks": ["potential methodological issues", "evidence limitations", "generalizability concerns"],
+  "success_criteria": ["scholarly standard for completion", "quality benchmark"]
+}"#;
 
 #[derive(Clone)]
 pub struct RigServerConfig {
@@ -401,6 +757,25 @@ struct ResearchPlanRequest {
 #[serde(rename_all = "camelCase")]
 struct ResearchPlanResponse {
   plan: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ResearchPlanStreamRequest {
+  provider: String,
+  message: String,
+  api_key: String,
+  base_url: Option<String>,
+  model: Option<String>,
+  response_format: Option<Value>,
+  thinking: Option<Value>,
+  temperature: Option<f64>,
+  top_k: Option<u32>,
+  top_p: Option<f64>,
+  frequency_penalty: Option<f64>,
+  presence_penalty: Option<f64>,
+  context_message_limit: Option<usize>,
+  research_type: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -876,6 +1251,7 @@ pub async fn serve(config: RigServerConfig) -> Result<(), Box<dyn std::error::Er
     .route("/api/agent-for-auto", post(generate_agent_for_auto))
     .route("/api/daily-tip", post(generate_daily_tip))
     .route("/api/research-plan", post(generate_research_plan))
+    .route("/api/research-plan-stream", post(research_plan_stream))
     .route("/api/related-questions", post(generate_related_questions))
     .route("/api/tools", get(list_tools))
     .route("/api/*path", any(proxy_api))
@@ -1835,6 +2211,119 @@ async fn generate_research_plan(
   };
 
   Ok(Json(ResearchPlanResponse { plan }))
+}
+
+async fn research_plan_stream(
+  State(state): State<AppState>,
+  Json(payload): Json<ResearchPlanStreamRequest>,
+) -> Result<Sse<impl Stream<Item = Result<Event, Infallible>>>, (StatusCode, Json<Value>)> {
+  if payload.provider.trim().is_empty() {
+    return Err(bad_request("Missing required field: provider"));
+  }
+  if payload.message.trim().is_empty() {
+    return Err(bad_request("Missing required field: message"));
+  }
+  if payload.api_key.trim().is_empty() {
+    return Err(bad_request("Missing required field: apiKey"));
+  }
+
+  let is_academic = payload.research_type.as_deref() == Some("academic");
+
+  let preamble = if is_academic {
+    RESEARCH_PLAN_PROMPT_ACADEMIC.to_string()
+  } else {
+    RESEARCH_PLAN_PROMPT_GENERAL.to_string()
+  };
+
+  let user_message = Message::user(payload.message.clone());
+
+  let model = payload.model.clone().unwrap_or_else(|| {
+    if payload.provider == "gemini" {
+      DEFAULT_GEMINI_MODEL.to_string()
+    } else {
+      DEFAULT_OPENAI_MODEL.to_string()
+    }
+  });
+
+  // Resolve response_format and thinking
+  let resolved_response_format = payload.response_format.clone().or_else(|| {
+    if payload.provider != "gemini" {
+      Some(json!({"type": "json_object"}))
+    } else {
+      None
+    }
+  });
+
+  let resolved_thinking = payload.thinking.clone().or_else(|| {
+    if payload.provider == "glm" || payload.provider == "modelscope" {
+      Some(json!({"type": "disabled"}))
+    } else {
+      None
+    }
+  });
+
+  // Build additional params
+  let mut additional_params = serde_json::Map::new();
+  if let Some(response_format) = resolved_response_format {
+    additional_params.insert("response_format".to_string(), response_format);
+  }
+  if let Some(thinking) = resolved_thinking {
+    additional_params.insert("thinking".to_string(), thinking);
+  }
+  if let Some(top_k) = payload.top_k {
+    additional_params.insert("top_k".to_string(), json!(top_k));
+  }
+  if let Some(top_p) = payload.top_p {
+    additional_params.insert("top_p".to_string(), json!(top_p));
+  }
+  if let Some(temp) = payload.temperature {
+    additional_params.insert("temperature".to_string(), json!(temp));
+  }
+  if let Some(freq) = payload.frequency_penalty {
+    additional_params.insert("frequency_penalty".to_string(), json!(freq));
+  }
+  if let Some(presence) = payload.presence_penalty {
+    additional_params.insert("presence_penalty".to_string(), json!(presence));
+  }
+
+  let event_stream = match payload.provider.as_str() {
+    "gemini" => {
+      let client = gemini::Client::builder()
+        .api_key(payload.api_key.clone())
+        .build()
+        .map_err(|err| internal_error(err.to_string()))?;
+
+      let mut builder = AgentBuilderWrapper::Plain(client.agent(model.clone()));
+      builder = builder.preamble(&preamble);
+      if !additional_params.is_empty() {
+        builder = builder.additional_params(Value::Object(additional_params));
+      }
+      let agent = builder.build();
+
+      stream_chat_with_agent(agent, user_message, vec![], false)
+    }
+    _ => {
+      let mut builder =
+        openai::CompletionsClient::<reqwest::Client>::builder().api_key(payload.api_key.clone());
+      if let Some(base_url) = payload.base_url.clone().filter(|s| !s.trim().is_empty()) {
+        builder = builder.base_url(&base_url);
+      }
+      let client = builder
+        .build()
+        .map_err(|err| internal_error(err.to_string()))?;
+
+      let mut builder = AgentBuilderWrapper::Plain(client.agent(model.clone()));
+      builder = builder.preamble(&preamble);
+      if !additional_params.is_empty() {
+        builder = builder.additional_params(Value::Object(additional_params.clone()));
+      }
+      let agent = builder.build();
+
+      stream_chat_with_agent(agent, user_message, vec![], false)
+    }
+  };
+
+  Ok(Sse::new(event_stream))
 }
 
 async fn generate_related_questions(

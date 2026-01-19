@@ -86,6 +86,165 @@ const ACADEMIC_DOMAINS: &[&str] = &[
   "academia.edu",
 ];
 
+// ============================================================================
+// Research Plan Prompts
+// ============================================================================
+
+const RESEARCH_PLAN_PROMPT_GENERAL: &str = r#"You are a task planner. Produce a detailed, execution-ready research plan in structured JSON.
+
+## Input
+User message contains:
+- "question": research question
+- "scope": research scope, or "Auto"
+- "output": output format preference, or "Auto"
+
+## Planning Rules
+1. Detect question type:
+   - Definition: 2-3 steps, define → characteristics → applications
+   - Comparison: 3-4 steps, differences → scenarios → trade-offs → decision
+   - How-it-works: 4-5 steps, overview → deep dive → examples → edge cases
+   - How-to: 4-6 steps, prerequisites → process → alternatives → pitfalls
+   - Analysis: 5-7 steps, context → factors → evidence → implications → recommendations
+   - History: 3-5 steps, timeline → milestones → causes → effects
+2. Hybrid questions: assign 70-80% steps to primary type, 20-30% to secondary
+3. Step count must match complexity:
+   - simple: 2-3 steps
+   - medium: 4-5 steps (default)
+   - complex: 6-8 steps
+4. If scope/output is "Auto", choose formats:
+   - Definition: paragraph
+   - Comparison: table + bullet_list
+   - How-it-works: paragraph + code_example
+   - How-to: numbered_list + checklist
+   - Analysis: mix formats
+   - History: paragraph or timeline
+5. Depth:
+   - low: 1-2 paragraphs (~100-200 words)
+   - medium: 3-4 paragraphs (~300-500 words)
+   - high: 5+ paragraphs (~600+ words)
+6. Step 1 must list assumptions if needed; all steps use these assumptions
+7. Steps must be sequential, each with a clear, unique purpose, and executable using previous outputs
+8. For each step, determine if search is needed:
+   - Add "requires_search": true if the step needs up-to-date data, benchmarks, or external verification
+   - Add "requires_search": false if the step relies on stable knowledge, definitions, or established concepts
+
+## Deliverable Formats
+paragraph, bullet_list, numbered_list, table, checklist, code_example, pros_and_cons
+
+## Output Format
+{
+  "research_type": "general",
+  "goal": "one-sentence research goal",
+  "complexity": "simple" | "medium" | "complex",
+  "question_type": "definition" | "comparison" | "how-it-works" | "how-to" | "analysis" | "history",
+  "assumptions": ["assumption 1", "assumption 2"],
+  "plan": [
+    {
+      "step": 1,
+      "thought": "brief thought process",
+      "action": "action description",
+      "expected_output": "what this step produces",
+      "deliverable_format": "paragraph | bullet_list | numbered_list | table | checklist | code_example | pros_and_cons",
+      "depth": "low" | "medium" | "high",
+      "requires_search": true | false
+    }
+  ],
+  "risks": ["risk 1", "risk 2"],
+  "success_criteria": ["criterion 1", "criterion 2"]
+}
+
+## Important
+- Return ONLY valid JSON, no markdown, no explanations
+- All fields must be present
+- Use the exact field names shown above
+- "depth" and "deliverable_format" must be valid values from the lists
+- Steps must be executable and build on each other"#;
+
+const RESEARCH_PLAN_PROMPT_ACADEMIC: &str = r#"You are an academic research planner. Produce a detailed, rigorous research plan in structured JSON for scholarly literature review and analysis.
+
+## Input
+User message contains:
+- "question": research question or topic
+- "scope": research scope (e.g., "5 years", "peer-reviewed only", "Computer Science"), or "Auto"
+- "output": output format preference, or "Auto"
+
+## Academic Planning Rules
+1. Detect question type:
+   - Definition/theory: 3-4 steps, define → theoretical framework → scholarly perspectives
+   - Comparison: 4-5 steps, literature landscape → methodological approaches → findings comparison → synthesis
+   - Causal analysis: 5-6 steps, establish phenomena → theoretical mechanisms → empirical evidence → causal inference → implications
+   - Method evaluation: 4-5 steps, method description → theoretical basis → comparative analysis → validity assessment → recommendations
+   - State-of-the-art: 5-7 steps, historical evolution → current landscape → key debates → gap identification → future directions
+2. Step count must match complexity:
+   - simple: 3-4 steps (narrow scope, established field)
+   - medium: 5-6 steps (default, typical academic inquiry)
+   - complex: 7-10 steps (interdisciplinary, emerging field, extensive literature)
+3. If scope/output is "Auto", infer from question:
+   - Definition/theory: structured_analysis + timeline
+   - Comparison: comparative_table + systematic_review
+   - Causal analysis: evidence_matrix + causal_diagram
+   - Method evaluation: evaluation_rubric + best_practices
+   - State-of-the-art: literature_map + gap_analysis
+4. Depth levels:
+   - low: summary of main findings (~300 words)
+   - medium: detailed analysis with evidence (~600 words)
+   - high: comprehensive review with critique (~1000+ words)
+5. Each step must specify:
+   - Search strategy (databases, keywords, time range)
+   - Inclusion/exclusion criteria
+   - How to synthesize findings
+6. Step 1 must identify key concepts and synonyms; subsequent steps build on this
+7. Steps must be sequential, each building on previous findings
+8. For each step, specify search requirements:
+   - "requires_search": true for literature discovery, citation chasing, verification
+   - "requires_search": false for synthesis, analysis, writing based on collected literature
+
+## Academic Deliverable Formats
+structured_analysis, comparative_table, evidence_matrix, literature_map, systematic_review, critical_synthesis, gap_analysis, timeline, evaluation_rubric, best_practices, causal_diagram
+
+## Output Format
+{
+  "research_type": "academic",
+  "goal": "one-sentence academic research objective",
+  "complexity": "simple" | "medium" | "complex",
+  "question_type": "definition/theory" | "comparison" | "causal_analysis" | "method_evaluation" | "state-of-the-art",
+  "scope": "specified scope or inferred scope",
+  "assumptions": ["assumption 1 with scholarly justification"],
+  "search_strategy": {
+    "databases": ["database 1", "database 2"],
+    "keywords": ["keyword 1", "keyword 2", "synonym 1"],
+    "time_range": "e.g., 2019-2024 or last 5 years",
+    "inclusion_criteria": ["criterion 1"],
+    "exclusion_criteria": ["criterion 1"]
+  },
+  "plan": [
+    {
+      "step": 1,
+      "action": "specific action with academic rigor",
+      "expected_output": "deliverable with scholarly standards",
+      "deliverable_format": "structured_analysis | comparative_table | evidence_matrix | literature_map | systematic_review | critical_synthesis | gap_analysis | timeline | evaluation_rubric | best_practices | causal_diagram",
+      "depth": "low" | "medium" | "high",
+      "requires_search": true | false,
+      "search_details": {
+        "databases": ["specific databases"],
+        "keywords": ["refined keywords"],
+        "time_range": "refined time range"
+      }
+    }
+  ],
+  "quality_criteria": ["criterion 1 for academic rigor"],
+  "potential_contributions": ["contribution 1 to the field"],
+  "limitations": ["limitation 1"]
+}
+
+## Important
+- Return ONLY valid JSON, no markdown, no explanations
+- All fields must be present
+- Use the exact field names shown above
+- Academic rigor in every step
+- Emphasize systematic literature review methodology
+- Specify search strategies for each discovery step"#;
+
 #[derive(Clone)]
 pub struct RigServerConfig {
   pub host: String,
@@ -196,17 +355,6 @@ struct TitleSpaceAgentResponse {
   emojis: Vec<String>,
 }
 
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct AgentForAutoRequest {
-  provider: String,
-  message: String,
-  current_space: Option<CurrentSpace>,
-  api_key: String,
-  base_url: Option<String>,
-  model: Option<String>,
-}
-
 #[derive(Debug, Deserialize, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct CurrentSpace {
@@ -214,10 +362,45 @@ struct CurrentSpace {
   agents: Option<Vec<AgentOption>>,
 }
 
+#[derive(Debug, Deserialize, Clone, Serialize)]
+#[serde(untagged)]
+enum CurrentSpaceOrString {
+  Object(CurrentSpace),
+  String(String),
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct AgentForAutoRequest {
+  provider: String,
+  message: String,
+  current_space: Option<CurrentSpaceOrString>,
+  api_key: String,
+  base_url: Option<String>,
+  model: Option<String>,
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct AgentForAutoResponse {
   agent_name: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ResearchPlanRequest {
+  provider: String,
+  message: String,
+  api_key: String,
+  base_url: Option<String>,
+  model: Option<String>,
+  research_type: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ResearchPlanResponse {
+  plan: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -692,6 +875,7 @@ pub async fn serve(config: RigServerConfig) -> Result<(), Box<dyn std::error::Er
     .route("/api/title-space-agent", post(generate_title_space_agent))
     .route("/api/agent-for-auto", post(generate_agent_for_auto))
     .route("/api/daily-tip", post(generate_daily_tip))
+    .route("/api/research-plan", post(generate_research_plan))
     .route("/api/related-questions", post(generate_related_questions))
     .route("/api/tools", get(list_tools))
     .route("/api/*path", any(proxy_api))
@@ -1353,48 +1537,50 @@ async fn generate_agent_for_auto(
     return Err(bad_request("Missing required field: apiKey"));
   }
 
-  let space_label = payload
-    .current_space
-    .as_ref()
-    .and_then(|s| s.label.as_ref())
-    .map(|s| s.as_str())
-    .unwrap_or("Default");
+  let space_label = match &payload.current_space {
+    Some(CurrentSpaceOrString::String(s)) => s.as_str(),
+    Some(CurrentSpaceOrString::Object(obj)) => obj.label.as_deref().unwrap_or("Default"),
+    None => "Default",
+  };
 
   // Build agent tokens
-  let agent_tokens: Vec<String> = payload
-    .current_space
-    .as_ref()
-    .and_then(|s| s.agents.as_ref())
-    .map(|agents| {
+  let agent_tokens: Vec<String> = match &payload.current_space {
+    Some(CurrentSpaceOrString::Object(obj)) => {
+      let agents = obj.agents.as_ref();
       agents
-        .iter()
-        .map(|agent| {
-          let name = agent
-            .name
-            .replace(|c| c == '{' || c == '}', "")
-            .split_whitespace()
-            .collect::<Vec<_>>()
-            .join(" ");
-          let description = agent
-            .description
-            .as_ref()
-            .map(|d| {
-              d.replace(|c| c == '{' || c == '}', "")
+        .map(|agents| {
+          agents
+            .iter()
+            .map(|agent| {
+              let name = agent
+                .name
+                .replace(|c| c == '{' || c == '}', "")
                 .split_whitespace()
                 .collect::<Vec<_>>()
-                .join(" ")
+                .join(" ");
+              let description = agent
+                .description
+                .as_ref()
+                .map(|d| {
+                  d.replace(|c| c == '{' || c == '}', "")
+                    .split_whitespace()
+                    .collect::<Vec<_>>()
+                    .join(" ")
+                })
+                .unwrap_or_default();
+              if !description.is_empty() {
+                format!("{} - {}", name, description)
+              } else {
+                name
+              }
             })
-            .unwrap_or_default();
-          if !description.is_empty() {
-            format!("{} - {}", name, description)
-          } else {
-            name
-          }
+            .filter(|s| !s.is_empty())
+            .collect()
         })
-        .filter(|s| !s.is_empty())
-        .collect()
-    })
-    .unwrap_or_default();
+        .unwrap_or_default()
+    }
+    _ => vec![],
+  };
 
   let agents_text = agent_tokens.join("\n");
 
@@ -1560,6 +1746,95 @@ Return only the tip text."#,
   let tip = response_text.trim().to_string();
 
   Ok(Json(DailyTipResponse { tip }))
+}
+
+async fn generate_research_plan(
+  State(_state): State<AppState>,
+  Json(payload): Json<ResearchPlanRequest>,
+) -> Result<Json<ResearchPlanResponse>, (StatusCode, Json<Value>)> {
+  if payload.provider.trim().is_empty() {
+    return Err(bad_request("Missing required field: provider"));
+  }
+  if payload.message.trim().is_empty() {
+    return Err(bad_request("Missing required field: message"));
+  }
+  if payload.api_key.trim().is_empty() {
+    return Err(bad_request("Missing required field: apiKey"));
+  }
+
+  let is_academic = payload.research_type.as_deref() == Some("academic");
+
+  let system_prompt = if is_academic {
+    RESEARCH_PLAN_PROMPT_ACADEMIC
+  } else {
+    RESEARCH_PLAN_PROMPT_GENERAL
+  };
+
+  let prompt_text = format!("{}\n\nUser message: {}", system_prompt, payload.message);
+
+  let model = payload.model.clone().unwrap_or_else(|| {
+    if payload.provider == "gemini" {
+      DEFAULT_GEMINI_MODEL.to_string()
+    } else {
+      DEFAULT_OPENAI_MODEL.to_string()
+    }
+  });
+
+  let response_text = match payload.provider.as_str() {
+    "gemini" => {
+      let client = gemini::Client::builder()
+        .api_key(payload.api_key.clone())
+        .build()
+        .map_err(|err| internal_error(err.to_string()))?;
+
+      let agent = client.agent(model).build();
+      agent
+        .prompt(&prompt_text)
+        .await
+        .map_err(|err| internal_error(err.to_string()))?
+    }
+    _ => {
+      let mut builder =
+        openai::CompletionsClient::<reqwest::Client>::builder().api_key(payload.api_key.clone());
+      if let Some(base_url) = payload.base_url.clone().filter(|s| !s.trim().is_empty()) {
+        builder = builder.base_url(&base_url);
+      }
+      let client = builder
+        .build()
+        .map_err(|err| internal_error(err.to_string()))?;
+
+      let mut agent_builder = client.agent(model.clone());
+      agent_builder = agent_builder.additional_params(json!({
+        "response_format": { "type": "json_object" }
+      }));
+      let agent = agent_builder.build();
+
+      agent
+        .prompt(&prompt_text)
+        .await
+        .map_err(|err| internal_error(err.to_string()))?
+    }
+  };
+
+  // Parse JSON and format
+  let parsed: Value = serde_json::from_str(&response_text)
+    .or_else(|_| {
+      if let Some(start) = response_text.find('{') {
+        if let Some(end) = response_text.rfind('}') {
+          return serde_json::from_str(&response_text[start..=end]);
+        }
+      }
+      Ok(json!({}))
+    })
+    .unwrap_or_else(|_| json!({}));
+
+  let plan = if parsed.is_object() {
+    serde_json::to_string_pretty(&parsed).unwrap_or_else(|_| response_text.trim().to_string())
+  } else {
+    response_text.trim().to_string()
+  };
+
+  Ok(Json(ResearchPlanResponse { plan }))
 }
 
 async fn generate_related_questions(

@@ -41,7 +41,7 @@ const getBackendErrorMessage = (error, status) => {
  * @returns {Promise<{title: string, emojis?: string[]}>}
  */
 export const generateTitleViaBackend = async (provider, message, apiKey, baseUrl, model) => {
-  const response = await fetch(`${getNodeBackendUrl()}/api/title`, {
+  const response = await fetch(`${getRustBackendUrl()}/api/title`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -81,7 +81,7 @@ export const generateDailyTipViaBackend = async (
   baseUrl,
   model,
 ) => {
-  const response = await fetch(`${getNodeBackendUrl()}/api/daily-tip`, {
+  const response = await fetch(`${getRustBackendUrl()}/api/daily-tip`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -122,7 +122,7 @@ export const generateResearchPlanViaBackend = async (
   model,
   researchType = 'general',
 ) => {
-  const response = await fetch(`${getNodeBackendUrl()}/api/research-plan`, {
+  const response = await fetch(`${getRustBackendUrl()}/api/research-plan`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -307,7 +307,7 @@ export const generateTitleSpaceAndAgentViaBackend = async (
   baseUrl,
   model,
 ) => {
-  const response = await fetch(`${getNodeBackendUrl()}/api/title-space-agent`, {
+  const response = await fetch(`${getRustBackendUrl()}/api/title-space-agent`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -361,7 +361,7 @@ export const generateTitleAndSpaceViaBackend = async (
   baseUrl,
   model,
 ) => {
-  const response = await fetch(`${getNodeBackendUrl()}/api/title-and-space`, {
+  const response = await fetch(`${getRustBackendUrl()}/api/title-and-space`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -402,7 +402,7 @@ export const generateAgentForAutoViaBackend = async (
   baseUrl,
   model,
 ) => {
-  const response = await fetch(`${getNodeBackendUrl()}/api/agent-for-auto`, {
+  const response = await fetch(`${getRustBackendUrl()}/api/agent-for-auto`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -441,7 +441,7 @@ export const generateRelatedQuestionsViaBackend = async (
   baseUrl,
   model,
 ) => {
-  const response = await fetch(`${getNodeBackendUrl()}/api/related-questions`, {
+  const response = await fetch(`${getRustBackendUrl()}/api/related-questions`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

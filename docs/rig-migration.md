@@ -68,13 +68,13 @@
 ## 最新改动（Rust + Rig 端）
 
 - 新增 `/api/stream-chat` Rust 实现，支持 SSE 流式输出与多轮工具调用。
+- 新增 `/api/title` Rust 实现，支持多 provider 生成对话标题和表情符号。
 - 目前仅保留本地工具：`calculator` + `Tavily_web_search` + `Tavily_academic_search`。
 - `/api/tools` 在 Rust 端返回上述三类工具，其他工具暂不暴露。
 - 其他尚未迁移的 `/api/*` 继续反向代理到旧 Node 后端，保持兼容。
 
 ## 仍未迁移的接口（仍走 Node 后端）
 
-- `/api/title`
 - `/api/title-and-space`
 - `/api/title-space-agent`
 - `/api/agent-for-auto`

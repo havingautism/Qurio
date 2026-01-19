@@ -117,6 +117,23 @@ struct RigCompleteResponse {
   model: String,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct TitleRequest {
+  provider: String,
+  message: String,
+  api_key: String,
+  base_url: Option<String>,
+  model: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct TitleResponse {
+  title: String,
+  emojis: Vec<String>,
+}
+
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 struct StreamChatRequest {
@@ -551,6 +568,7 @@ pub async fn serve(config: RigServerConfig) -> Result<(), Box<dyn std::error::Er
     .route("/api/health", get(health))
     .route("/api/rig/complete", post(rig_complete))
     .route("/api/stream-chat", post(stream_chat))
+    .route("/api/title", post(generate_title))
     .route("/api/tools", get(list_tools))
     .route("/api/*path", any(proxy_api))
     .with_state(state)
@@ -558,6 +576,10 @@ pub async fn serve(config: RigServerConfig) -> Result<(), Box<dyn std::error::Er
 
   let addr: SocketAddr = format!("{}:{}", config.host, config.port).parse()?;
   let listener = tokio::net::TcpListener::bind(addr).await?;
+  
+  eprintln!("🚀 Qurio backend running on http://{}:{}", config.host, config.port);
+  eprintln!("📡 API endpoints available at http://{}:{}/api", config.host, config.port);
+  
   axum::serve(listener, app).await?;
   Ok(())
 }
@@ -748,6 +770,111 @@ async fn stream_chat(
   };
 
   Ok(Sse::new(event_stream))
+}
+
+async fn generate_title(
+  State(_state): State<AppState>,
+  Json(payload): Json<TitleRequest>,
+) -> Result<Json<TitleResponse>, (StatusCode, Json<Value>)> {
+  if payload.provider.trim().is_empty() {
+    return Err(bad_request("Missing required field: provider"));
+  }
+  if payload.message.trim().is_empty() {
+    return Err(bad_request("Missing required field: message"));
+  }
+  if payload.api_key.trim().is_empty() {
+    return Err(bad_request("Missing required field: apiKey"));
+  }
+
+  let system_prompt = r#"## Task
+Generate a short, concise title (max 5 words) for this conversation based on the user's first message. Do not use quotes.
+Select 1 emoji that best matches the conversation.
+
+## Output
+Return JSON with keys "title" and "emojis". "emojis" must be an array with 1 emoji character."#;
+
+  let prompt_text = format!("{}\n\nUser message: {}", system_prompt, payload.message);
+  let model = payload.model.clone().unwrap_or_else(|| {
+    if payload.provider == "gemini" {
+      DEFAULT_GEMINI_MODEL.to_string()
+    } else {
+      DEFAULT_OPENAI_MODEL.to_string()
+    }
+  });
+
+  let response_text = match payload.provider.as_str() {
+    "gemini" => {
+      let client = gemini::Client::builder()
+        .api_key(payload.api_key.clone())
+        .build()
+        .map_err(|err| internal_error(err.to_string()))?;
+
+      let agent = client.agent(model).build();
+      agent
+        .prompt(&prompt_text)
+        .await
+        .map_err(|err| internal_error(err.to_string()))?
+    }
+    _ => {
+      let mut builder =
+        openai::CompletionsClient::<reqwest::Client>::builder().api_key(payload.api_key.clone());
+      if let Some(base_url) = resolve_base_url(payload.base_url.clone()) {
+        builder = builder.base_url(&base_url);
+      }
+      let client = builder
+        .build()
+        .map_err(|err| internal_error(err.to_string()))?;
+
+      // Set JSON response format for non-gemini providers
+      let mut agent_builder = client.agent(model.clone());
+      agent_builder = agent_builder.additional_params(json!({
+        "response_format": { "type": "json_object" }
+      }));
+      let agent = agent_builder.build();
+
+      agent
+        .prompt(&prompt_text)
+        .await
+        .map_err(|err| internal_error(err.to_string()))?
+    }
+  };
+
+  // Parse JSON response
+  let parsed: Value = serde_json::from_str(&response_text)
+    .or_else(|_| {
+      // Try to extract JSON from the response if it's embedded in text
+      if let Some(start) = response_text.find('{') {
+        if let Some(end) = response_text.rfind('}') {
+          return serde_json::from_str(&response_text[start..=end]);
+        }
+      }
+      // Return empty object as fallback
+      Ok(json!({}))
+    })
+    .unwrap_or_else(|_| json!({}));
+
+  let title = parsed
+    .get("title")
+    .and_then(|v| v.as_str())
+    .map(|s| s.trim().to_string())
+    .filter(|s| !s.is_empty())
+    .unwrap_or_else(|| "New Conversation".to_string());
+
+  let emojis = parsed
+    .get("emojis")
+    .and_then(|v| v.as_array())
+    .map(|arr| {
+      arr
+        .iter()
+        .filter_map(|e| e.as_str())
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .take(1)
+        .collect::<Vec<_>>()
+    })
+    .unwrap_or_default();
+
+  Ok(Json(TitleResponse { title, emojis }))
 }
 
 async fn list_tools() -> impl IntoResponse {

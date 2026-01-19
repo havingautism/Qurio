@@ -87,7 +87,7 @@ fn main() {
         .and_then(|value| value.parse().ok())
         .unwrap_or(3001);
       let frontend_urls = std::env::var("FRONTEND_URLS").unwrap_or_else(|_| {
-        "tauri://localhost,http://198.18.0.1:3000".to_string()
+        "tauri://localhost,http://127.0.0.1:3000".to_string()
       });
 
       spawn_rig_backend(host.clone(), port, node_port, frontend_urls.clone());
@@ -124,7 +124,7 @@ fn resolve_rig_host_and_port() -> (String, u16) {
   }
 
   (
-    host_env.unwrap_or_else(|| "198.18.0.1".to_string()),
+    host_env.unwrap_or_else(|| "127.0.0.1".to_string()),
     port_env.unwrap_or(3002),
   )
 }

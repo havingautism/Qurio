@@ -222,6 +222,23 @@ struct AgentForAutoResponse {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+struct DailyTipRequest {
+  provider: String,
+  language: Option<String>,
+  category: Option<String>,
+  api_key: String,
+  base_url: Option<String>,
+  model: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct DailyTipResponse {
+  tip: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct RelatedQuestionsRequest {
   provider: String,
   messages: Vec<ChatMessage>,
@@ -674,6 +691,7 @@ pub async fn serve(config: RigServerConfig) -> Result<(), Box<dyn std::error::Er
     .route("/api/title-and-space", post(generate_title_and_space))
     .route("/api/title-space-agent", post(generate_title_space_agent))
     .route("/api/agent-for-auto", post(generate_agent_for_auto))
+    .route("/api/daily-tip", post(generate_daily_tip))
     .route("/api/related-questions", post(generate_related_questions))
     .route("/api/tools", get(list_tools))
     .route("/api/*path", any(proxy_api))
@@ -1462,6 +1480,86 @@ Return the result as JSON with key "agentName" (agent name only, or null if no m
     .filter(|s| !s.is_empty());
 
   Ok(Json(AgentForAutoResponse { agent_name }))
+}
+
+async fn generate_daily_tip(
+  State(_state): State<AppState>,
+  Json(payload): Json<DailyTipRequest>,
+) -> Result<Json<DailyTipResponse>, (StatusCode, Json<Value>)> {
+  if payload.provider.trim().is_empty() {
+    return Err(bad_request("Missing required field: provider"));
+  }
+  if payload.api_key.trim().is_empty() {
+    return Err(bad_request("Missing required field: apiKey"));
+  }
+
+  // Build prompt
+  let language_block = payload
+    .language
+    .as_ref()
+    .map(|lang| format!("\n\n## Language\nReply in {}.", lang))
+    .unwrap_or_default();
+
+  let category_block = payload
+    .category
+    .as_ref()
+    .map(|cat| format!("\n\n## Category\n{}", cat))
+    .unwrap_or_default();
+
+  let system_prompt = format!(
+    r#"## Task
+Generate a short, practical tip for today. Keep it to 1-2 sentences and avoid emojis.{}{}
+
+## Output
+Return only the tip text."#,
+    category_block, language_block
+  );
+
+  let prompt_text = format!("{}\n\nUser message: Daily tip.", system_prompt);
+
+  let model = payload.model.clone().unwrap_or_else(|| {
+    if payload.provider == "gemini" {
+      DEFAULT_GEMINI_MODEL.to_string()
+    } else {
+      DEFAULT_OPENAI_MODEL.to_string()
+    }
+  });
+
+  let response_text = match payload.provider.as_str() {
+    "gemini" => {
+      let client = gemini::Client::builder()
+        .api_key(payload.api_key.clone())
+        .build()
+        .map_err(|err| internal_error(err.to_string()))?;
+
+      let agent = client.agent(model).build();
+      agent
+        .prompt(&prompt_text)
+        .await
+        .map_err(|err| internal_error(err.to_string()))?
+    }
+    _ => {
+      let mut builder =
+        openai::CompletionsClient::<reqwest::Client>::builder().api_key(payload.api_key.clone());
+      if let Some(base_url) = resolve_base_url(payload.base_url.clone()) {
+        builder = builder.base_url(&base_url);
+      }
+      let client = builder
+        .build()
+        .map_err(|err| internal_error(err.to_string()))?;
+
+      let agent = client.agent(model).build();
+
+      agent
+        .prompt(&prompt_text)
+        .await
+        .map_err(|err| internal_error(err.to_string()))?
+    }
+  };
+
+  let tip = response_text.trim().to_string();
+
+  Ok(Json(DailyTipResponse { tip }))
 }
 
 async fn generate_related_questions(

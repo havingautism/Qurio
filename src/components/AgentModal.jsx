@@ -1821,7 +1821,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                                       >
                                         <Checkbox
                                           checked={checked}
-                                          onChange={() => {
+                                          onCheckedChange={() => {
                                             setSelectedToolIds(prev =>
                                               prev.includes(tool.id)
                                                 ? prev.filter(id => id !== tool.id)
@@ -1889,7 +1889,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                                 >
                                   <Checkbox
                                     checked={checked}
-                                    onChange={() => {
+                                    onCheckedChange={() => {
                                       setSelectedToolIds(prev =>
                                         prev.includes(tool.id)
                                           ? prev.filter(id => id !== tool.id)

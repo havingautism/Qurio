@@ -2811,6 +2811,7 @@ dependencies = [
  "futures",
  "jsonrepair",
  "meval",
+ "once_cell",
  "regex",
  "reqwest",
  "rig-core",

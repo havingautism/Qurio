@@ -30,8 +30,8 @@ use std::{
 };
 use tower_http::cors::{Any, CorsLayer};
 
-const DEFAULT_OPENAI_MODEL: &str = "gpt-4o-mini";
-const DEFAULT_GEMINI_MODEL: &str = "gemini-2.0-flash-exp";
+pub use crate::providers::*;
+
 const MAX_STREAM_TURNS: usize = 10;
 
 const ACADEMIC_DOMAINS: &[&str] = &[
@@ -1288,7 +1288,7 @@ async fn rig_complete(
 
   match payload.provider.as_str() {
     "gemini" => {
-      let model = payload.model.unwrap_or_else(|| DEFAULT_GEMINI_MODEL.to_string());
+      let model = payload.model.unwrap_or_else(|| get_default_model("gemini").unwrap_or("gemini-2.0-flash-exp").to_string());
       let client = gemini::Client::builder()
         .api_key(payload.api_key)
         .build()
@@ -1306,10 +1306,10 @@ async fn rig_complete(
       Ok(Json(RigCompleteResponse { response, model }))
     }
     _ => {
-      let model = payload.model.unwrap_or_else(|| DEFAULT_OPENAI_MODEL.to_string());
+      let model = payload.model.unwrap_or_else(|| get_default_model("openai").unwrap_or("gpt-4o-mini").to_string());
       let mut builder =
         openai::CompletionsClient::<reqwest::Client>::builder().api_key(payload.api_key);
-      if let Some(base_url) = resolve_base_url(payload.base_url) {
+      if let Some(base_url) = resolve_base_url(&payload.provider, payload.base_url.as_deref()) {
         builder = builder.base_url(&base_url);
       }
       let client = builder.build().map_err(|err| internal_error(err.to_string()))?;
@@ -1346,9 +1346,9 @@ async fn stream_chat(
   let tavily_key = resolve_tavily_key(&payload);
   let model = payload.model.unwrap_or_else(|| {
     if payload.provider == "gemini" {
-      DEFAULT_GEMINI_MODEL.to_string()
+      get_default_model("gemini").unwrap_or("gemini-2.0-flash-exp").to_string()
     } else {
-      DEFAULT_OPENAI_MODEL.to_string()
+      get_default_model("openai").unwrap_or("gpt-4o-mini").to_string()
     }
   });
 
@@ -1415,7 +1415,7 @@ async fn stream_chat(
     _ => {
       let mut builder =
         openai::CompletionsClient::<reqwest::Client>::builder().api_key(payload.api_key.clone());
-      if let Some(base_url) = resolve_base_url(payload.base_url.clone()) {
+      if let Some(base_url) = resolve_base_url(&payload.provider, payload.base_url.as_deref()) {
         builder = builder.base_url(&base_url);
       }
       let client = builder
@@ -1480,9 +1480,9 @@ Return JSON with keys "title" and "emojis". "emojis" must be an array with 1 emo
   let prompt_text = format!("{}\n\nUser message: {}", system_prompt, payload.message);
   let model = payload.model.clone().unwrap_or_else(|| {
     if payload.provider == "gemini" {
-      DEFAULT_GEMINI_MODEL.to_string()
+      get_default_model("gemini").unwrap_or("gemini-2.0-flash-exp").to_string()
     } else {
-      DEFAULT_OPENAI_MODEL.to_string()
+      get_default_model("openai").unwrap_or("gpt-4o-mini").to_string()
     }
   });
 
@@ -1502,7 +1502,7 @@ Return JSON with keys "title" and "emojis". "emojis" must be an array with 1 emo
     _ => {
       let mut builder =
         openai::CompletionsClient::<reqwest::Client>::builder().api_key(payload.api_key.clone());
-      if let Some(base_url) = resolve_base_url(payload.base_url.clone()) {
+      if let Some(base_url) = resolve_base_url(&payload.provider, payload.base_url.as_deref()) {
         builder = builder.base_url(&base_url);
       }
       let client = builder
@@ -1597,9 +1597,9 @@ Return the result as a JSON object with keys "title", "spaceLabel", and "emojis"
 
   let model = payload.model.clone().unwrap_or_else(|| {
     if payload.provider == "gemini" {
-      DEFAULT_GEMINI_MODEL.to_string()
+      get_default_model("gemini").unwrap_or("gemini-2.0-flash-exp").to_string()
     } else {
-      DEFAULT_OPENAI_MODEL.to_string()
+      get_default_model("openai").unwrap_or("gpt-4o-mini").to_string()
     }
   });
 
@@ -1619,7 +1619,7 @@ Return the result as a JSON object with keys "title", "spaceLabel", and "emojis"
     _ => {
       let mut builder =
         openai::CompletionsClient::<reqwest::Client>::builder().api_key(payload.api_key.clone());
-      if let Some(base_url) = resolve_base_url(payload.base_url.clone()) {
+      if let Some(base_url) = resolve_base_url(&payload.provider, payload.base_url.as_deref()) {
         builder = builder.base_url(&base_url);
       }
       let client = builder
@@ -1804,9 +1804,9 @@ Return the result as JSON with keys "title", "spaceLabel", "agentName", and "emo
 
   let model = payload.model.clone().unwrap_or_else(|| {
     if payload.provider == "gemini" {
-      DEFAULT_GEMINI_MODEL.to_string()
+      get_default_model("gemini").unwrap_or("gemini-2.0-flash-exp").to_string()
     } else {
-      DEFAULT_OPENAI_MODEL.to_string()
+      get_default_model("openai").unwrap_or("gpt-4o-mini").to_string()
     }
   });
 
@@ -1826,7 +1826,7 @@ Return the result as JSON with keys "title", "spaceLabel", "agentName", and "emo
     _ => {
       let mut builder =
         openai::CompletionsClient::<reqwest::Client>::builder().api_key(payload.api_key.clone());
-      if let Some(base_url) = resolve_base_url(payload.base_url.clone()) {
+      if let Some(base_url) = resolve_base_url(&payload.provider, payload.base_url.as_deref()) {
         builder = builder.base_url(&base_url);
       }
       let client = builder
@@ -1981,9 +1981,9 @@ Return the result as JSON with key "agentName" (agent name only, or null if no m
 
   let model = payload.model.clone().unwrap_or_else(|| {
     if payload.provider == "gemini" {
-      DEFAULT_GEMINI_MODEL.to_string()
+      get_default_model("gemini").unwrap_or("gemini-2.0-flash-exp").to_string()
     } else {
-      DEFAULT_OPENAI_MODEL.to_string()
+      get_default_model("openai").unwrap_or("gpt-4o-mini").to_string()
     }
   });
 
@@ -2003,7 +2003,7 @@ Return the result as JSON with key "agentName" (agent name only, or null if no m
     _ => {
       let mut builder =
         openai::CompletionsClient::<reqwest::Client>::builder().api_key(payload.api_key.clone());
-      if let Some(base_url) = resolve_base_url(payload.base_url.clone()) {
+      if let Some(base_url) = resolve_base_url(&payload.provider, payload.base_url.as_deref()) {
         builder = builder.base_url(&base_url);
       }
       let client = builder
@@ -2081,9 +2081,9 @@ Return only the tip text."#,
 
   let model = payload.model.clone().unwrap_or_else(|| {
     if payload.provider == "gemini" {
-      DEFAULT_GEMINI_MODEL.to_string()
+      get_default_model("gemini").unwrap_or("gemini-2.0-flash-exp").to_string()
     } else {
-      DEFAULT_OPENAI_MODEL.to_string()
+      get_default_model("openai").unwrap_or("gpt-4o-mini").to_string()
     }
   });
 
@@ -2103,7 +2103,7 @@ Return only the tip text."#,
     _ => {
       let mut builder =
         openai::CompletionsClient::<reqwest::Client>::builder().api_key(payload.api_key.clone());
-      if let Some(base_url) = resolve_base_url(payload.base_url.clone()) {
+      if let Some(base_url) = resolve_base_url(&payload.provider, payload.base_url.as_deref()) {
         builder = builder.base_url(&base_url);
       }
       let client = builder
@@ -2150,9 +2150,9 @@ async fn generate_research_plan(
 
   let model = payload.model.clone().unwrap_or_else(|| {
     if payload.provider == "gemini" {
-      DEFAULT_GEMINI_MODEL.to_string()
+      get_default_model("gemini").unwrap_or("gemini-2.0-flash-exp").to_string()
     } else {
-      DEFAULT_OPENAI_MODEL.to_string()
+      get_default_model("openai").unwrap_or("gpt-4o-mini").to_string()
     }
   });
 
@@ -2239,9 +2239,9 @@ async fn research_plan_stream(
 
   let model = payload.model.clone().unwrap_or_else(|| {
     if payload.provider == "gemini" {
-      DEFAULT_GEMINI_MODEL.to_string()
+      get_default_model("gemini").unwrap_or("gemini-2.0-flash-exp").to_string()
     } else {
-      DEFAULT_OPENAI_MODEL.to_string()
+      get_default_model("openai").unwrap_or("gpt-4o-mini").to_string()
     }
   });
 
@@ -2389,7 +2389,7 @@ async fn generate_related_questions(
       let model_name = payload
         .model
         .clone()
-        .unwrap_or_else(|| DEFAULT_GEMINI_MODEL.to_string());
+        .unwrap_or_else(|| get_default_model("gemini").unwrap_or("gemini-2.0-flash-exp").to_string());
 
       let agent = client.agent(&model_name).build();
       agent
@@ -2407,7 +2407,7 @@ async fn generate_related_questions(
       // Use OpenAI-compatible client for other providers
       let mut builder =
         openai::CompletionsClient::<reqwest::Client>::builder().api_key(payload.api_key.clone());
-      if let Some(base_url) = resolve_base_url(payload.base_url.clone()) {
+      if let Some(base_url) = resolve_base_url(&payload.provider, payload.base_url.as_deref()) {
         builder = builder.base_url(&base_url);
       }
       let client = builder
@@ -2423,7 +2423,7 @@ async fn generate_related_questions(
       let model_name = payload
         .model
         .clone()
-        .unwrap_or_else(|| DEFAULT_OPENAI_MODEL.to_string());
+        .unwrap_or_else(|| get_default_model("openai").unwrap_or("gpt-4o-mini").to_string());
 
       // Set JSON response format for non-gemini providers
       let mut agent_builder = client.agent(model_name.clone());
@@ -2597,17 +2597,6 @@ async fn proxy_api(
     }
     Err(_) => StatusCode::BAD_GATEWAY.into_response(),
   }
-}
-
-fn resolve_base_url(base_url: Option<String>) -> Option<String> {
-  if let Some(base_url) = base_url {
-    if !base_url.trim().is_empty() {
-      return Some(base_url);
-    }
-  }
-  std::env::var("OPENAI_BASE_URL")
-    .ok()
-    .or_else(|| std::env::var("PUBLIC_OPENAI_BASE_URL").ok())
 }
 
 fn resolve_tavily_key(payload: &StreamChatRequest) -> String {

@@ -6,6 +6,7 @@ use std::sync::Mutex;
 use tauri::Manager;
 
 mod rig_server;
+mod providers;
 
 struct BackendProcess(Mutex<Option<Child>>);
 

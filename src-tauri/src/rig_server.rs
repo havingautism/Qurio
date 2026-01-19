@@ -198,6 +198,30 @@ struct TitleSpaceAgentResponse {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+struct AgentForAutoRequest {
+  provider: String,
+  message: String,
+  current_space: Option<CurrentSpace>,
+  api_key: String,
+  base_url: Option<String>,
+  model: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct CurrentSpace {
+  label: Option<String>,
+  agents: Option<Vec<AgentOption>>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AgentForAutoResponse {
+  agent_name: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct RelatedQuestionsRequest {
   provider: String,
   messages: Vec<ChatMessage>,
@@ -649,6 +673,7 @@ pub async fn serve(config: RigServerConfig) -> Result<(), Box<dyn std::error::Er
     .route("/api/title", post(generate_title))
     .route("/api/title-and-space", post(generate_title_and_space))
     .route("/api/title-space-agent", post(generate_title_space_agent))
+    .route("/api/agent-for-auto", post(generate_agent_for_auto))
     .route("/api/related-questions", post(generate_related_questions))
     .route("/api/tools", get(list_tools))
     .route("/api/*path", any(proxy_api))
@@ -1294,6 +1319,149 @@ Return the result as JSON with keys "title", "spaceLabel", "agentName", and "emo
     agent_name,
     emojis,
   }))
+}
+
+async fn generate_agent_for_auto(
+  State(_state): State<AppState>,
+  Json(payload): Json<AgentForAutoRequest>,
+) -> Result<Json<AgentForAutoResponse>, (StatusCode, Json<Value>)> {
+  if payload.provider.trim().is_empty() {
+    return Err(bad_request("Missing required field: provider"));
+  }
+  if payload.message.trim().is_empty() {
+    return Err(bad_request("Missing required field: message"));
+  }
+  if payload.api_key.trim().is_empty() {
+    return Err(bad_request("Missing required field: apiKey"));
+  }
+
+  let space_label = payload
+    .current_space
+    .as_ref()
+    .and_then(|s| s.label.as_ref())
+    .map(|s| s.as_str())
+    .unwrap_or("Default");
+
+  // Build agent tokens
+  let agent_tokens: Vec<String> = payload
+    .current_space
+    .as_ref()
+    .and_then(|s| s.agents.as_ref())
+    .map(|agents| {
+      agents
+        .iter()
+        .map(|agent| {
+          let name = agent
+            .name
+            .replace(|c| c == '{' || c == '}', "")
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ");
+          let description = agent
+            .description
+            .as_ref()
+            .map(|d| {
+              d.replace(|c| c == '{' || c == '}', "")
+                .split_whitespace()
+                .collect::<Vec<_>>()
+                .join(" ")
+            })
+            .unwrap_or_default();
+          if !description.is_empty() {
+            format!("{} - {}", name, description)
+          } else {
+            name
+          }
+        })
+        .filter(|s| !s.is_empty())
+        .collect()
+    })
+    .unwrap_or_default();
+
+  let agents_text = agent_tokens.join("\n");
+
+  let system_prompt = format!(
+    r#"You are a helpful assistant.
+## Task
+Select the best matching agent for the user's message from the "{}" space. Consider the agent's name and description to determine which one is most appropriate. If no agent is a good match, return null.
+
+## Output
+Return the result as JSON with key "agentName" (agent name only, or null if no match)."#,
+    space_label
+  );
+
+  let user_content = format!(
+    "{}\n\nAvailable agents in {}:\n{}",
+    payload.message,
+    space_label,
+    agents_text
+  );
+
+  let prompt_text = format!("{}\n\nUser message: {}", system_prompt, user_content);
+
+  let model = payload.model.clone().unwrap_or_else(|| {
+    if payload.provider == "gemini" {
+      DEFAULT_GEMINI_MODEL.to_string()
+    } else {
+      DEFAULT_OPENAI_MODEL.to_string()
+    }
+  });
+
+  let response_text = match payload.provider.as_str() {
+    "gemini" => {
+      let client = gemini::Client::builder()
+        .api_key(payload.api_key.clone())
+        .build()
+        .map_err(|err| internal_error(err.to_string()))?;
+
+      let agent = client.agent(model).build();
+      agent
+        .prompt(&prompt_text)
+        .await
+        .map_err(|err| internal_error(err.to_string()))?
+    }
+    _ => {
+      let mut builder =
+        openai::CompletionsClient::<reqwest::Client>::builder().api_key(payload.api_key.clone());
+      if let Some(base_url) = resolve_base_url(payload.base_url.clone()) {
+        builder = builder.base_url(&base_url);
+      }
+      let client = builder
+        .build()
+        .map_err(|err| internal_error(err.to_string()))?;
+
+      let mut agent_builder = client.agent(model.clone());
+      agent_builder = agent_builder.additional_params(json!({
+        "response_format": { "type": "json_object" }
+      }));
+      let agent = agent_builder.build();
+
+      agent
+        .prompt(&prompt_text)
+        .await
+        .map_err(|err| internal_error(err.to_string()))?
+    }
+  };
+
+  // Parse JSON response
+  let parsed: Value = serde_json::from_str(&response_text)
+    .or_else(|_| {
+      if let Some(start) = response_text.find('{') {
+        if let Some(end) = response_text.rfind('}') {
+          return serde_json::from_str(&response_text[start..=end]);
+        }
+      }
+      Ok(json!({}))
+    })
+    .unwrap_or_else(|_| json!({}));
+
+  let agent_name = parsed
+    .get("agentName")
+    .and_then(|v| v.as_str())
+    .map(|s| s.trim().to_string())
+    .filter(|s| !s.is_empty());
+
+  Ok(Json(AgentForAutoResponse { agent_name }))
 }
 
 async fn generate_related_questions(

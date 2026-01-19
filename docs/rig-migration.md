@@ -72,13 +72,13 @@
 - 新增 `/api/related-questions` Rust 实现，基于对话历史生成3个相关问题。
 - 新增 `/api/title-and-space` Rust 实现，生成标题并选择合适的空间。
 - 新增 `/api/title-space-agent` Rust 实现，生成标题、选择空间并选择代理。
+- 新增 `/api/agent-for-auto` Rust 实现，自动选择最佳代理。
 - 目前仅保留本地工具：`calculator` + `Tavily_web_search` + `Tavily_academic_search`。
 - `/api/tools` 在 Rust 端返回上述三类工具，其他工具暂不暴露。
 - 其他尚未迁移的 `/api/*` 继续反向代理到旧 Node 后端，保持兼容。
 
 ## 仍未迁移的接口（仍走 Node 后端）
 
-- `/api/agent-for-auto`
 - `/api/daily-tip`
 - `/api/research-plan`
 - `/api/research-plan-stream`

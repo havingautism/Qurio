@@ -1289,6 +1289,8 @@ const callAIAPI = async (
       contextMessageLimit: settings.contextMessageLimit,
       searchProvider,
       tavilyApiKey,
+      userTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      userLocale: navigator.language || 'en-US',
       messages: conversationMessagesWithPlan.map(m => ({
         role: m.role === 'ai' ? 'assistant' : m.role,
         content: m.content,

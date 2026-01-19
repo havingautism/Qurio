@@ -297,6 +297,8 @@ export const streamChat = async function* (params) {
     searchProvider,
     userId,
     tavilyApiKey,
+    userTimezone,
+    userLocale,
   } = params
 
   const toolConfig = { searchProvider, tavilyApiKey }
@@ -321,10 +323,10 @@ export const streamChat = async function* (params) {
       try {
         console.log('[TimeInject] Injecting local time context...')
         const startedAt = Date.now()
-        // Prepare tool arguments with timezone and locale
+        // Prepare tool arguments with user's timezone and locale
         const timeArgs = {
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-          locale: 'zh-CN',
+          timezone: userTimezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
+          locale: userLocale || 'en-US',
         }
         const timeResult = await executeToolByName('local_time', timeArgs, {})
         const timeContext = `\n\n[SYSTEM INJECTED CONTEXT]\nCurrent Local Time: ${timeResult.formatted} (${timeResult.timezone})`

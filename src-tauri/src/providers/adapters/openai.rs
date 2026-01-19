@@ -2,8 +2,10 @@
 //! Handles OpenAI and OpenAI-compatible APIs (default fallback)
 
 use super::base::BaseAdapter;
-use super::traits::{ProviderAdapter, BuildModelParams};
-use crate::providers::{get_capabilities, get_provider_config, ProviderConfig, ProviderCapabilities};
+use super::traits::{BuildModelParams, ProviderAdapter};
+use crate::providers::{
+    get_capabilities, get_provider_config, ProviderCapabilities, ProviderConfig,
+};
 use std::collections::HashMap;
 
 pub struct OpenAIAdapter {

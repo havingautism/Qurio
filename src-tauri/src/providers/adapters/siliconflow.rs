@@ -3,7 +3,9 @@
 
 use super::base::BaseAdapter;
 use super::traits::{BuildModelParams, ProviderAdapter};
-use crate::providers::{get_capabilities, get_provider_config, ProviderConfig, ProviderCapabilities};
+use crate::providers::{
+    get_capabilities, get_provider_config, ProviderCapabilities, ProviderConfig,
+};
 use std::collections::HashMap;
 
 pub struct SiliconFlowAdapter {
@@ -45,9 +47,12 @@ impl ProviderAdapter for SiliconFlowAdapter {
             let budget = thinking.budget_tokens.unwrap_or(1024);
             kwargs.insert("enable_thinking".to_string(), serde_json::json!(true));
             kwargs.insert("thinking_budget".to_string(), serde_json::json!(budget));
-            kwargs.insert("extra_body".to_string(), serde_json::json!({
-                "thinking_budget": budget
-            }));
+            kwargs.insert(
+                "extra_body".to_string(),
+                serde_json::json!({
+                    "thinking_budget": budget
+                }),
+            );
         }
 
         // SiliconFlow doesn't support streaming tool calls
@@ -66,7 +71,8 @@ impl ProviderAdapter for SiliconFlowAdapter {
 
     fn extract_thinking_content(&self, chunk: &serde_json::Value) -> Option<String> {
         // SiliconFlow/DeepSeek specific: also check raw_response for reasoning_content
-        self.base.extract_thinking_content(chunk)
+        self.base
+            .extract_thinking_content(chunk)
             .or_else(|| {
                 chunk
                     .get("response_metadata")
@@ -81,7 +87,8 @@ impl ProviderAdapter for SiliconFlowAdapter {
             })
             .or_else(|| {
                 // Check content for <think> tags
-                let content = chunk.get("content")
+                let content = chunk
+                    .get("content")
                     .or(chunk.get("message").and_then(|m| m.get("content")))
                     .and_then(|v| v.as_str())?;
 

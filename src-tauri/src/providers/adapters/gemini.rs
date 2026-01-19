@@ -2,7 +2,9 @@
 //! Handles Google's Gemini models
 
 use super::traits::{BuildModelParams, ProviderAdapter};
-use crate::providers::{get_capabilities, get_provider_config, ProviderConfig, ProviderCapabilities};
+use crate::providers::{
+    get_capabilities, get_provider_config, ProviderCapabilities, ProviderConfig,
+};
 use std::collections::HashMap;
 
 pub struct GeminiAdapter;
@@ -69,7 +71,8 @@ impl ProviderAdapter for GeminiAdapter {
     /// Extract thinking content from Gemini's response format
     /// Gemini returns content as parts array with { thought: true, text: "..." }
     fn extract_thinking_content(&self, chunk: &serde_json::Value) -> Option<String> {
-        let content = chunk.get("content")
+        let content = chunk
+            .get("content")
             .or(chunk.get("message").and_then(|m| m.get("content")))?;
 
         // Gemini returns content as array of parts

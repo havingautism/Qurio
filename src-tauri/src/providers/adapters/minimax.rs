@@ -3,7 +3,9 @@
 
 use super::base::BaseAdapter;
 use super::traits::{BuildModelParams, ProviderAdapter};
-use crate::providers::{get_capabilities, get_provider_config, ProviderConfig, ProviderCapabilities};
+use crate::providers::{
+    get_capabilities, get_provider_config, ProviderCapabilities, ProviderConfig,
+};
 use std::collections::HashMap;
 
 pub struct MinimaxAdapter {
@@ -44,8 +46,17 @@ impl ProviderAdapter for MinimaxAdapter {
         // MiniMax supports interleaved Thinking via reasoning_split
 
         if let Some(ref thinking) = params.thinking {
-            if let Some(budget) = thinking.budget_tokens {
-                kwargs.insert("reasoning_split".to_string(), serde_json::json!(true));
+            let thinking_enabled = thinking
+                .thinking_type
+                .as_ref()
+                .map(|value| value != "disabled")
+                .unwrap_or(true);
+            if thinking_enabled {
+                // Mirror the Node.js adapter: reasoning_split=true keeps thinking content separate
+                kwargs.insert(
+                    "extra_body".to_string(),
+                    serde_json::json!({ "reasoning_split": true }),
+                );
             }
         }
 

@@ -3,7 +3,9 @@
 
 use super::base::BaseAdapter;
 use super::traits::{BuildModelParams, ProviderAdapter};
-use crate::providers::{get_capabilities, get_provider_config, ProviderConfig, ProviderCapabilities};
+use crate::providers::{
+    get_capabilities, get_provider_config, ProviderCapabilities, ProviderConfig,
+};
 use std::collections::HashMap;
 
 pub struct NvidiaNimAdapter {
@@ -39,6 +41,18 @@ impl ProviderAdapter for NvidiaNimAdapter {
 
     fn build_model_kwargs(&self, params: &BuildModelParams) -> HashMap<String, serde_json::Value> {
         let mut kwargs = self.base.build_model_kwargs(params);
+
+        // NVIDIA NIM exposes explicit chat_template_kwargs when thinking mode is requested.
+        if let Some(ref thinking) = params.thinking {
+            if let Ok(thinking_value) = serde_json::to_value(thinking) {
+                if !thinking_value.is_null() {
+                    kwargs.insert(
+                        "chat_template_kwargs".to_string(),
+                        serde_json::json!({ "thinking": thinking_value }),
+                    );
+                }
+            }
+        }
 
         // Nvidia NIM specific configurations
         // Nvidia supports streaming tool calls

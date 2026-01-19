@@ -42,14 +42,9 @@ pub struct ThinkingConfig {
 #[derive(Debug, Clone)]
 pub enum AdapterExecutionResult {
     /// Streaming response
-    Stream {
-        model_id: String,
-    },
+    Stream { model_id: String },
     /// Non-streaming response with content
-    Response {
-        content: String,
-        model_id: String,
-    },
+    Response { content: String, model_id: String },
     /// Tool calls detected
     ToolCalls {
         tool_calls: Vec<ToolCall>,
@@ -106,7 +101,8 @@ pub trait ProviderAdapter: Send + Sync {
             .and_then(|choices| choices.as_array()?.first())
             .and_then(|choice| choice.get("delta"))
             .and_then(|delta| {
-                delta.get("reasoning_content")
+                delta
+                    .get("reasoning_content")
                     .or(delta.get("reasoning"))
                     .and_then(|v| v.as_str().map(String::from))
             })
@@ -114,21 +110,24 @@ pub trait ProviderAdapter: Send + Sync {
                 chunk
                     .get("additional_kwargs")
                     .and_then(|akh| akh.get("reasoning_content"))
-                    .or(chunk.get("additional_kwargs").and_then(|akh| akh.get("reasoning")))
+                    .or(chunk
+                        .get("additional_kwargs")
+                        .and_then(|akh| akh.get("reasoning")))
                     .and_then(|v| v.as_str().map(String::from))
             })
     }
 
     /// Normalize tool calls to standard format
-    fn normalize_tool_calls(
-        &self,
-        tool_calls: &[serde_json::Value],
-    ) -> Vec<ToolCall> {
+    fn normalize_tool_calls(&self, tool_calls: &[serde_json::Value]) -> Vec<ToolCall> {
         tool_calls
             .iter()
             .filter_map(|tc| {
                 let id = tc.get("id").and_then(|v| v.as_str())?.to_string();
-                let call_type = tc.get("type").and_then(|v| v.as_str()).map(|s| s.to_string()).unwrap_or_else(|| "function".to_string());
+                let call_type = tc
+                    .get("type")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string())
+                    .unwrap_or_else(|| "function".to_string());
 
                 // Extract function name from various possible locations
                 let function = tc.get("function");
@@ -136,7 +135,9 @@ pub trait ProviderAdapter: Send + Sync {
                     .and_then(|f| f.get("name"))
                     .or(tc.get("name"))
                     .or(tc.get("tool").and_then(|t| t.get("name")))
-                    .or(tc.get("tool").and_then(|t| t.get("function").and_then(|f| f.get("name"))))
+                    .or(tc
+                        .get("tool")
+                        .and_then(|t| t.get("function").and_then(|f| f.get("name"))))
                     .and_then(|v| v.as_str())?
                     .to_string();
 
@@ -145,7 +146,9 @@ pub trait ProviderAdapter: Send + Sync {
                     .and_then(|f| f.get("arguments"))
                     .or(tc.get("arguments"))
                     .or(tc.get("args"))
-                    .or(tc.get("tool").and_then(|t| t.get("function").and_then(|f| f.get("arguments"))))
+                    .or(tc
+                        .get("tool")
+                        .and_then(|t| t.get("function").and_then(|f| f.get("arguments"))))
                     .or(tc.get("tool").and_then(|t| t.get("arguments")))
                     .or(tc.get("tool").and_then(|t| t.get("args")));
 
@@ -158,7 +161,10 @@ pub trait ProviderAdapter: Send + Sync {
                 Some(ToolCall {
                     id,
                     r#type: call_type,
-                    function: ToolCallFunction { name, arguments: args_str },
+                    function: ToolCallFunction {
+                        name,
+                        arguments: args_str,
+                    },
                 })
             })
             .filter(|tc| !tc.id.is_empty() && !tc.function.name.is_empty())

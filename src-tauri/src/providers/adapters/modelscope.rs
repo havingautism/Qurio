@@ -3,7 +3,9 @@
 
 use super::base::BaseAdapter;
 use super::traits::{BuildModelParams, ProviderAdapter};
-use crate::providers::{get_capabilities, get_provider_config, ProviderConfig, ProviderCapabilities};
+use crate::providers::{
+    get_capabilities, get_provider_config, ProviderCapabilities, ProviderConfig,
+};
 use std::collections::HashMap;
 
 pub struct ModelScopeAdapter {
@@ -40,11 +42,32 @@ impl ProviderAdapter for ModelScopeAdapter {
     fn build_model_kwargs(&self, params: &BuildModelParams) -> HashMap<String, serde_json::Value> {
         let mut kwargs = self.base.build_model_kwargs(params);
 
-        // ModelScope API limitations - no streaming tool calls
-        if params.tools.as_ref().map(|t| !t.is_empty()).unwrap_or(false) {
-            // Remove tools from kwargs for non-streaming if needed
-            // The service layer should handle probe-and-stream pattern
+        // ModelScope thinking mode follows an explicit enable/disable pattern
+        if params.streaming && params.thinking.is_some() {
+            let thinking = params.thinking.as_ref().unwrap();
+            let budget = thinking.budget_tokens.unwrap_or(1024);
+            kwargs.insert(
+                "extra_body".to_string(),
+                serde_json::json!({
+                    "enable_thinking": true,
+                    "thinking_budget": budget
+                }),
+            );
+            kwargs.insert("enable_thinking".to_string(), serde_json::json!(true));
+            kwargs.insert("thinking_budget".to_string(), serde_json::json!(budget));
+        } else if !params.streaming {
+            // Disable thinking explicitly when not streaming to match the Node.js behavior
+            kwargs.insert(
+                "extra_body".to_string(),
+                serde_json::json!({
+                    "enable_thinking": false
+                }),
+            );
+            kwargs.insert("enable_thinking".to_string(), serde_json::json!(false));
         }
+
+        // ModelScope API does not support streaming tool calls; the service layer
+        // should implement the probe-and-stream fallback when tools are present.
 
         kwargs
     }

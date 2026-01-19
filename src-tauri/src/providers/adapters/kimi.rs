@@ -3,7 +3,9 @@
 
 use super::base::BaseAdapter;
 use super::traits::{BuildModelParams, ProviderAdapter};
-use crate::providers::{get_capabilities, get_provider_config, ProviderConfig, ProviderCapabilities};
+use crate::providers::{
+    get_capabilities, get_provider_config, ProviderCapabilities, ProviderConfig,
+};
 use std::collections::HashMap;
 
 pub struct KimiAdapter {
@@ -38,19 +40,11 @@ impl ProviderAdapter for KimiAdapter {
     }
 
     fn build_model_kwargs(&self, params: &BuildModelParams) -> HashMap<String, serde_json::Value> {
-        let mut kwargs = self.base.build_model_kwargs(params);
-
-        // Kimi specific configurations can be added here
-        // Kimi doesn't support streaming tool calls
-
-        kwargs
+        // Use the BaseAdapter defaults for common settings; Kimi currently mirrors the default behavior.
+        self.base.build_model_kwargs(params)
     }
 
     fn get_base_url(&self, custom_url: Option<&str>) -> Option<String> {
         crate::providers::resolve_base_url("kimi", custom_url)
-    }
-
-    fn supports_streaming_tool_calls(&self) -> bool {
-        false // Kimi doesn't support streaming tool calls
     }
 }

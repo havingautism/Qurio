@@ -2,7 +2,7 @@
 //! Abstract base implementation for provider adapters
 
 use super::traits::{BuildModelParams, ProviderAdapter};
-use crate::providers::{get_capabilities, get_default_model, get_provider_config, ProviderConfig, ProviderCapabilities};
+use crate::providers::{get_capabilities, get_provider_config, ProviderCapabilities, ProviderConfig};
 use std::collections::HashMap;
 
 pub struct BaseAdapter {
@@ -35,9 +35,15 @@ impl ProviderAdapter for BaseAdapter {
 
         // Default response format
         if let Some(ref response_format) = params.response_format {
-            kwargs.insert("response_format".to_string(), serde_json::to_value(response_format).unwrap_or_default());
+            kwargs.insert(
+                "response_format".to_string(),
+                serde_json::to_value(response_format).unwrap_or_default(),
+            );
         } else {
-            kwargs.insert("response_format".to_string(), serde_json::json!({"type": "text"}));
+            kwargs.insert(
+                "response_format".to_string(),
+                serde_json::json!({"type": "text"}),
+            );
         }
 
         // Thinking mode (for providers that support it)
@@ -46,7 +52,10 @@ impl ProviderAdapter for BaseAdapter {
                 kwargs.insert("thinking_budget".to_string(), serde_json::json!(budget));
             }
             if let Some(ref thinking_type) = thinking.thinking_type {
-                kwargs.insert("thinking".to_string(), serde_json::json!({"type": thinking_type}));
+                kwargs.insert(
+                    "thinking".to_string(),
+                    serde_json::json!({"type": thinking_type}),
+                );
             }
         }
 
@@ -67,7 +76,10 @@ impl ProviderAdapter for BaseAdapter {
         // Tools
         if let Some(ref tools) = params.tools {
             if !tools.is_empty() {
-                kwargs.insert("tools".to_string(), serde_json::to_value(tools).unwrap_or_default());
+                kwargs.insert(
+                    "tools".to_string(),
+                    serde_json::to_value(tools).unwrap_or_default(),
+                );
             }
         }
 
@@ -78,7 +90,10 @@ impl ProviderAdapter for BaseAdapter {
 
         // Streaming options
         if params.streaming {
-            kwargs.insert("stream_options".to_string(), serde_json::json!({"include_usage": false}));
+            kwargs.insert(
+                "stream_options".to_string(),
+                serde_json::json!({"include_usage": false}),
+            );
         }
 
         kwargs

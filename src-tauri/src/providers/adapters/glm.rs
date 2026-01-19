@@ -3,7 +3,9 @@
 
 use super::base::BaseAdapter;
 use super::traits::{BuildModelParams, ProviderAdapter};
-use crate::providers::{get_capabilities, get_provider_config, ProviderConfig, ProviderCapabilities};
+use crate::providers::{
+    get_capabilities, get_provider_config, ProviderCapabilities, ProviderConfig,
+};
 use std::collections::HashMap;
 
 pub struct GLMAdapter {
@@ -43,7 +45,10 @@ impl ProviderAdapter for GLMAdapter {
         // GLM has specific thinking mode configuration
         if let Some(ref thinking) = params.thinking {
             if let Some(ref thinking_type) = thinking.thinking_type {
-                kwargs.insert("thinking".to_string(), serde_json::json!({"type": thinking_type}));
+                kwargs.insert(
+                    "thinking".to_string(),
+                    serde_json::json!({"type": thinking_type}),
+                );
 
                 // Add to extra_body as well for GLM
                 let extra_body = serde_json::json!({
@@ -54,8 +59,16 @@ impl ProviderAdapter for GLMAdapter {
         }
 
         // GLM supports tool streaming for glm-4.6/4.7 when using tools
-        if params.streaming && params.tools.as_ref().map(|t| !t.is_empty()).unwrap_or(false) {
-            let model = params.model.as_ref()
+        if params.streaming
+            && params
+                .tools
+                .as_ref()
+                .map(|t| !t.is_empty())
+                .unwrap_or(false)
+        {
+            let model = params
+                .model
+                .as_ref()
                 .map(|s| s.to_lowercase())
                 .unwrap_or_default();
             if model.contains("glm-4.6") || model.contains("glm-4.7") {

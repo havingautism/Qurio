@@ -77,7 +77,7 @@ pub const PROVIDER_CAPABILITIES: &[(&str, ProviderCapabilities)] = &[
     ProviderCapabilities {
       supports_streaming: true,
       supports_tool_calls: true,
-      supports_streaming_tool_calls: false,
+      supports_streaming_tool_calls: true,
       supports_json_schema: true,
       supports_thinking: false,
       supports_vision: false,

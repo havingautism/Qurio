@@ -10,7 +10,7 @@ const getNodeBackendUrl = () => {
   return settings.backendUrl || 'http://198.18.0.1:3001'
 }
 
-const getRustBackendUrl = () => 'http://198.18.0.1:3002'
+const getRustBackendUrl = () => 'http://127.0.0.1:3002'
 
 const getBackendErrorMessage = (error, status) => {
   if (!error || typeof error !== 'object') {

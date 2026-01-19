@@ -67,23 +67,32 @@
 
 ## 最新改动（Rust + Rig 端）
 
-- 新增 `/api/stream-chat` Rust 实现，支持 SSE 流式输出与多轮工具调用。
-- 新增 `/api/title` Rust 实现，支持多 provider 生成对话标题和表情符号。
-- 新增 `/api/related-questions` Rust 实现，基于对话历史生成3个相关问题。
-- 新增 `/api/title-and-space` Rust 实现，生成标题并选择合适的空间。
-- 新增 `/api/title-space-agent` Rust 实现，生成标题、选择空间并选择代理。
-- 新增 `/api/agent-for-auto` Rust 实现，自动选择最佳代理。
-- 新增 `/api/daily-tip` Rust 实现，生成每日提示。
-- 新增 `/api/research-plan` Rust 实现，生成研究计划（支持 general 和 academic 两种类型）。
-- 新增 `/api/research-plan-stream` Rust 实现，SSE 流式输出研究计划。
-- 目前仅保留本地工具：`calculator` + `Tavily_web_search` + `Tavily_academic_search`。
-- `/api/tools` 在 Rust 端返回上述三类工具，其他工具暂不暴露。
-- 其他尚未迁移的 `/api/*` 继续反向代理到旧 Node 后端，保持兼容。
+**已完成迁移的接口（10个）**：
+
+- ✅ `/api/stream-chat` - SSE 流式对话，支持多轮工具调用
+- ✅ `/api/title` - 生成对话标题和表情符号 **[已测试]**
+- ✅ `/api/related-questions` - 基于对话历史生成3个相关问题 **[已测试]**
+- ✅ `/api/title-and-space` - 生成标题并选择合适的 Space
+- ✅ `/api/title-space-agent` - 生成标题、选择 Space 和 Agent
+- ✅ `/api/agent-for-auto` - 自动选择最佳 Agent
+- ✅ `/api/daily-tip` - 生成每日提示
+- ✅ `/api/research-plan` - 生成研究计划（支持 general 和 academic）
+- ✅ `/api/research-plan-stream` - SSE 流式输出研究计划
+- ✅ `/api/tools` - 返回可用工具列表
+
+**工具支持**：
+- 目前仅保留本地工具：`calculator` + `Tavily_web_search` + `Tavily_academic_search`
+- 其他工具暂不暴露
+
+**代理机制**：
+- 其他尚未迁移的 `/api/*` 继续反向代理到旧 Node 后端，保持兼容
 
 ## 仍未迁移的接口（仍走 Node 后端）
 
-- `/api/stream-deep-research`
-- `/api/mcp-tools/*`
+- `/api/stream-deep-research` - 深度研究（复杂的多步骤流程）
+- `/api/mcp-tools/*` - MCP 工具相关接口
+
+**迁移进度**: 10/12 (83%)
 
 ## 启动步骤
 

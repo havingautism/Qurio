@@ -6,6 +6,7 @@ pub mod constants;
 pub mod glm_provider;
 pub mod kimi_provider;
 pub mod modelscope_provider;
+pub mod nvidia_provider;
 pub mod siliconflow_provider;
 
 pub use constants::{

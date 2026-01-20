@@ -36,9 +36,13 @@ use crate::providers::modelscope_provider::ModelScopeClient;
 use crate::providers::nvidia_provider::NvidiaNimClient;
 
 // Import application modules
-use crate::modules::mcp_manager::{McpServerConfig, MCP_TOOL_MANAGER};
 use crate::modules::deep_research::{DeepResearchRequest, DEEP_RESEARCH_SERVICE};
+use crate::modules::mcp_manager::{McpServerConfig, MCP_TOOL_MANAGER};
+// Import local tools
+use crate::modules::{InteractiveFormTool, LocalTimeTool, WebpageReaderTool};
 
+use once_cell::sync::Lazy;
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{
@@ -109,7 +113,7 @@ const ACADEMIC_DOMAINS: &[&str] = &[
 fn normalize_provider(provider: &str) -> &str {
     // Note: "kimi" stays as "kimi" to use our custom Kimi provider with reasoning support
     match provider {
-        "moonshot" => "moonshot",  // Native Rig moonshot (no reasoning_content support)
+        "moonshot" => "moonshot", // Native Rig moonshot (no reasoning_content support)
         _ => provider,
     }
 }
@@ -1229,10 +1233,8 @@ impl TaggedTextParser {
                     emit_text(remaining);
                     return;
                 }
-            } else if let Some((idx, len)) = find_first_tag(
-                remaining,
-                &["</think>", "</thought>", "</thinking>"],
-            )
+            } else if let Some((idx, len)) =
+                find_first_tag(remaining, &["</think>", "</thought>", "</thinking>"])
             {
                 if idx > 0 {
                     emit_thought(&remaining[..idx]);
@@ -1308,7 +1310,10 @@ pub async fn serve(
         // MCP tools endpoints
         .route("/api/mcp-tools/servers", get(mcp_list_servers))
         .route("/api/mcp-tools/servers", post(mcp_load_server))
-        .route("/api/mcp-tools/servers/:name/tools", get(mcp_list_server_tools))
+        .route(
+            "/api/mcp-tools/servers/:name/tools",
+            get(mcp_list_server_tools),
+        )
         .route("/api/mcp-tools/servers/:name", delete(mcp_unload_server))
         .route("/api/mcp-tools/tools", get(mcp_list_all_tools))
         .route("/api/mcp-tools/tool/:toolId", get(mcp_get_tool))
@@ -1504,15 +1509,25 @@ async fn stream_chat(
                     http.clone(),
                 ));
             }
+            if enabled.local_time {
+                builder = builder.tool(LocalTimeTool);
+            }
+            if enabled.webpage_reader {
+                builder = builder.tool(WebpageReaderTool::new());
+            }
+            if enabled.interactive_form {
+                builder = builder.tool(InteractiveFormTool);
+            }
             let agent = builder.build();
             stream_chat_with_agent(agent, prompt, history, enable_tag_parsing)
         }
         "siliconflow" => {
             // Use custom SiliconFlow provider with reasoning_content support (DeepSeek models)
-            let mut client_builder = SiliconFlowClient::builder()
-                .api_key(payload.api_key.clone());
+            let mut client_builder = SiliconFlowClient::builder().api_key(payload.api_key.clone());
 
-            if let Some(base_url) = resolve_base_url(normalized_provider, payload.base_url.as_deref()) {
+            if let Some(base_url) =
+                resolve_base_url(normalized_provider, payload.base_url.as_deref())
+            {
                 client_builder = client_builder.base_url(&base_url);
             }
 
@@ -1545,6 +1560,15 @@ async fn stream_chat(
                     tavily_key.clone(),
                     http.clone(),
                 ));
+            }
+            if enabled.local_time {
+                builder = builder.tool(LocalTimeTool);
+            }
+            if enabled.webpage_reader {
+                builder = builder.tool(WebpageReaderTool::new());
+            }
+            if enabled.interactive_form {
+                builder = builder.tool(InteractiveFormTool);
             }
 
             let agent = builder.build();
@@ -1552,10 +1576,11 @@ async fn stream_chat(
         }
         "modelscope" => {
             // Use custom ModelScope provider with reasoning_content support (GLM-based models)
-            let mut client_builder = ModelScopeClient::builder()
-                .api_key(payload.api_key.clone());
+            let mut client_builder = ModelScopeClient::builder().api_key(payload.api_key.clone());
 
-            if let Some(base_url) = resolve_base_url(normalized_provider, payload.base_url.as_deref()) {
+            if let Some(base_url) =
+                resolve_base_url(normalized_provider, payload.base_url.as_deref())
+            {
                 client_builder = client_builder.base_url(&base_url);
             }
 
@@ -1588,6 +1613,15 @@ async fn stream_chat(
                     tavily_key.clone(),
                     http.clone(),
                 ));
+            }
+            if enabled.local_time {
+                builder = builder.tool(LocalTimeTool);
+            }
+            if enabled.webpage_reader {
+                builder = builder.tool(WebpageReaderTool::new());
+            }
+            if enabled.interactive_form {
+                builder = builder.tool(InteractiveFormTool);
             }
 
             let agent = builder.build();
@@ -1629,15 +1663,25 @@ async fn stream_chat(
                     http.clone(),
                 ));
             }
+            if enabled.local_time {
+                builder = builder.tool(LocalTimeTool);
+            }
+            if enabled.webpage_reader {
+                builder = builder.tool(WebpageReaderTool::new());
+            }
+            if enabled.interactive_form {
+                builder = builder.tool(InteractiveFormTool);
+            }
             let agent = builder.build();
             stream_chat_with_agent(agent, prompt, history, enable_tag_parsing)
         }
         "kimi" => {
             // Use custom Kimi provider with reasoning support
-            let mut client_builder = KimiClient::builder()
-                .api_key(payload.api_key.clone());
+            let mut client_builder = KimiClient::builder().api_key(payload.api_key.clone());
 
-            if let Some(base_url) = resolve_base_url(normalized_provider, payload.base_url.as_deref()) {
+            if let Some(base_url) =
+                resolve_base_url(normalized_provider, payload.base_url.as_deref())
+            {
                 client_builder = client_builder.base_url(&base_url);
             }
 
@@ -1670,6 +1714,15 @@ async fn stream_chat(
                     tavily_key.clone(),
                     http.clone(),
                 ));
+            }
+            if enabled.local_time {
+                builder = builder.tool(LocalTimeTool);
+            }
+            if enabled.webpage_reader {
+                builder = builder.tool(WebpageReaderTool::new());
+            }
+            if enabled.interactive_form {
+                builder = builder.tool(InteractiveFormTool);
             }
 
             let agent = builder.build();
@@ -1677,19 +1730,20 @@ async fn stream_chat(
         }
         "glm" => {
             // Use custom GLM provider with reasoning support
-            let mut client_builder = GLMClient::builder()
-                .api_key(payload.api_key.clone());
-            
-            if let Some(base_url) = resolve_base_url(normalized_provider, payload.base_url.as_deref()) {
+            let mut client_builder = GLMClient::builder().api_key(payload.api_key.clone());
+
+            if let Some(base_url) =
+                resolve_base_url(normalized_provider, payload.base_url.as_deref())
+            {
                 client_builder = client_builder.base_url(&base_url);
             }
-            
+
             let client = client_builder
                 .build()
                 .map_err(|err| internal_error(err.to_string()))?;
-            
+
             let mut builder = AgentBuilderWrapper::Plain(client.agent(model.clone()));
-            
+
             if let Some(preamble) = preamble.as_deref() {
                 builder = builder.preamble(preamble);
             }
@@ -1714,16 +1768,26 @@ async fn stream_chat(
                     http.clone(),
                 ));
             }
-            
+            if enabled.local_time {
+                builder = builder.tool(LocalTimeTool);
+            }
+            if enabled.webpage_reader {
+                builder = builder.tool(WebpageReaderTool::new());
+            }
+            if enabled.interactive_form {
+                builder = builder.tool(InteractiveFormTool);
+            }
+
             let agent = builder.build();
             stream_chat_with_agent(agent, prompt, history, enable_tag_parsing)
         }
         "nvidia" => {
             // Use custom NVIDIA NIM provider with reasoning_content support (DeepSeek R1, etc.)
-            let mut client_builder = NvidiaNimClient::builder()
-                .api_key(payload.api_key.clone());
+            let mut client_builder = NvidiaNimClient::builder().api_key(payload.api_key.clone());
 
-            if let Some(base_url) = resolve_base_url(normalized_provider, payload.base_url.as_deref()) {
+            if let Some(base_url) =
+                resolve_base_url(normalized_provider, payload.base_url.as_deref())
+            {
                 client_builder = client_builder.base_url(&base_url);
             }
 
@@ -1756,6 +1820,15 @@ async fn stream_chat(
                     tavily_key.clone(),
                     http.clone(),
                 ));
+            }
+            if enabled.local_time {
+                builder = builder.tool(LocalTimeTool);
+            }
+            if enabled.webpage_reader {
+                builder = builder.tool(WebpageReaderTool::new());
+            }
+            if enabled.interactive_form {
+                builder = builder.tool(InteractiveFormTool);
             }
 
             let agent = builder.build();
@@ -1763,10 +1836,11 @@ async fn stream_chat(
         }
         "minimax" => {
             // Use custom MiniMax provider with reasoning_details support
-            let mut client_builder = MinimaxClient::builder()
-                .api_key(payload.api_key.clone());
+            let mut client_builder = MinimaxClient::builder().api_key(payload.api_key.clone());
 
-            if let Some(base_url) = resolve_base_url(normalized_provider, payload.base_url.as_deref()) {
+            if let Some(base_url) =
+                resolve_base_url(normalized_provider, payload.base_url.as_deref())
+            {
                 client_builder = client_builder.base_url(&base_url);
             }
 
@@ -1799,6 +1873,15 @@ async fn stream_chat(
                     tavily_key.clone(),
                     http.clone(),
                 ));
+            }
+            if enabled.local_time {
+                builder = builder.tool(LocalTimeTool);
+            }
+            if enabled.webpage_reader {
+                builder = builder.tool(WebpageReaderTool::new());
+            }
+            if enabled.interactive_form {
+                builder = builder.tool(InteractiveFormTool);
             }
 
             let agent = builder.build();
@@ -1837,6 +1920,15 @@ async fn stream_chat(
                     tavily_key.clone(),
                     http.clone(),
                 ));
+            }
+            if enabled.local_time {
+                builder = builder.tool(LocalTimeTool);
+            }
+            if enabled.webpage_reader {
+                builder = builder.tool(WebpageReaderTool::new());
+            }
+            if enabled.interactive_form {
+                builder = builder.tool(InteractiveFormTool);
             }
             let agent = builder.build();
             stream_chat_with_agent(agent, prompt, history, enable_tag_parsing)
@@ -3135,6 +3227,80 @@ async fn list_tools() -> impl IntoResponse {
             }),
         },
         ToolDescriptor {
+            id: "local_time".to_string(),
+            name: "local_time".to_string(),
+            category: "time".to_string(),
+            description: "Get current local date and time for a timezone.".to_string(),
+            parameters: json!({
+              "type": "object",
+              "required": [],
+              "properties": {
+                "timezone": {
+                  "type": "string",
+                  "description": "IANA timezone, e.g. \"Asia/Shanghai\". Defaults to system timezone."
+                },
+                "locale": {
+                  "type": "string",
+                  "description": "Locale for formatting, e.g. \"zh-CN\" or \"en-US\". Defaults to \"en-US\"."
+                }
+              }
+            }),
+        },
+        ToolDescriptor {
+            id: "webpage_reader".to_string(),
+            name: "webpage_reader".to_string(),
+            category: "web".to_string(),
+            description: "Fetch webpage content and return clean text.".to_string(),
+            parameters: json!({
+              "type": "object",
+              "required": ["url"],
+              "properties": {
+                "url": {
+                  "type": "string",
+                  "description": "Target webpage URL (e.g., https://example.com)."
+                }
+              }
+            }),
+        },
+        ToolDescriptor {
+            id: "interactive_form".to_string(),
+            name: "interactive_form".to_string(),
+            category: "interaction".to_string(),
+            description: "Display an interactive form to collect structured user input."
+                .to_string(),
+            parameters: json!({
+              "type": "object",
+              "required": ["id", "title", "fields"],
+              "properties": {
+                "id": { "type": "string", "description": "Unique identifier for this form" },
+                "title": { "type": "string", "description": "Form title displayed to user" },
+                "description": { "type": "string", "description": "Optional form description" },
+                "fields": {
+                  "type": "array",
+                  "description": "Form fields to collect",
+                  "items": {
+                    "type": "object",
+                    "required": ["name", "label", "type"],
+                    "properties": {
+                      "name": { "type": "string", "description": "Field identifier" },
+                      "label": { "type": "string", "description": "Field label" },
+                      "type": {
+                        "type": "string",
+                        "enum": ["text", "number", "select", "checkbox", "range"],
+                        "description": "Field type"
+                      },
+                      "required": { "type": "boolean", "description": "Is this field required" },
+                      "options": { "type": "array", "items": { "type": "string" }, "description": "Options" },
+                      "default": { "description": "Default value" },
+                      "min": { "type": "number", "description": "Min value" },
+                      "max": { "type": "number", "description": "Max value" }
+                    }
+                  }
+                }
+              }
+            }),
+        },
+        ToolDescriptor {
             id: "Tavily_web_search".to_string(),
             name: "Tavily_web_search".to_string(),
             category: "search".to_string(),
@@ -3253,8 +3419,15 @@ async fn stream_deep_research(
 
     // Validate provider
     let supported_providers = [
-        "gemini", "openai", "openai_compatibility", "siliconflow",
-        "glm", "modelscope", "kimi", "nvidia", "minimax",
+        "gemini",
+        "openai",
+        "openai_compatibility",
+        "siliconflow",
+        "glm",
+        "modelscope",
+        "kimi",
+        "nvidia",
+        "minimax",
     ];
     if !supported_providers.contains(&payload.provider.as_str()) {
         return Err((
@@ -3332,9 +3505,7 @@ async fn mcp_load_server(
 
 /// List tools from a specific MCP server
 /// GET /api/mcp-tools/servers/:name/tools
-async fn mcp_list_server_tools(
-    Path(name): Path<String>,
-) -> Json<serde_json::Value> {
+async fn mcp_list_server_tools(Path(name): Path<String>) -> Json<serde_json::Value> {
     let manager = MCP_TOOL_MANAGER.clone();
     let response = manager.list_tools_by_server(&name).await;
 
@@ -3674,9 +3845,24 @@ fn convert_tool_call(
     ))
 }
 
+static JSON_EXTRACT_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"\{[\s\S]*\}|\[[\s\S]*\]").unwrap());
+
+fn safe_parse_json_text(text: &str) -> Option<Value> {
+    if text.trim().is_empty() {
+        return None;
+    }
+    if let Ok(value) = serde_json::from_str::<Value>(text) {
+        return Some(value);
+    }
+    JSON_EXTRACT_REGEX
+        .find(text)
+        .and_then(|mat| serde_json::from_str(mat.as_str()).ok())
+}
+
 fn normalize_tool_arguments(args: Value) -> Value {
     match args {
-        Value::String(text) => serde_json::from_str(&text).unwrap_or(Value::String(text)),
+        Value::String(text) => safe_parse_json_text(&text).unwrap_or(Value::String(text)),
         other => other,
     }
 }
@@ -3706,6 +3892,9 @@ fn parse_tool_choice(value: Option<&Value>) -> Option<ToolChoice> {
 
 struct EnabledTools {
     calculator: bool,
+    local_time: bool,
+    webpage_reader: bool,
+    interactive_form: bool,
     web_search: bool,
     academic_search: bool,
 }
@@ -3739,9 +3928,15 @@ fn resolve_enabled_tools(payload: &StreamChatRequest) -> EnabledTools {
     let enable_academic =
         names.contains("Tavily_academic_search") || names.contains("academic_search");
     let enable_calculator = names.contains("calculator");
+    let enable_local_time = names.contains("local_time");
+    let enable_webpage_reader = names.contains("webpage_reader");
+    let enable_interactive_form = names.contains("interactive_form");
 
     EnabledTools {
         calculator: enable_calculator,
+        local_time: enable_local_time,
+        webpage_reader: enable_webpage_reader,
+        interactive_form: enable_interactive_form,
         web_search: enable_web,
         academic_search: enable_academic,
     }
@@ -3813,7 +4008,8 @@ where
             }
           }
           Ok(MultiTurnStreamItem::StreamAssistantItem(StreamedAssistantContent::ToolCall(tool_call))) => {
-            let args = serde_json::to_string(&tool_call.function.arguments).unwrap_or_default();
+            let normalized_args = normalize_tool_arguments(tool_call.function.arguments.clone());
+            let args = serde_json::to_string(&normalized_args).unwrap_or_default();
             tool_names.insert(tool_call.id.clone(), tool_call.function.name.clone());
             yield Ok(Event::default().data(json!({
               "type": "tool_call",

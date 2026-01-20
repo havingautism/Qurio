@@ -14,6 +14,7 @@ tauri = { version = "2.5.3", features = [] }
 axum = "0.7.9"
 async-stream = "0.3.6"
 chrono = { version = "0.4.41", default-features = false, features = ["clock"] }
+chrono-tz = "0.8"
 futures = "0.3.31"
 jsonrepair = "0.1.0"
 meval = "0.2.0"

@@ -1,7 +1,6 @@
 //! Providers module
 //! Centralized provider management for AI models
 
-pub mod adapters;
 pub mod constants;
 pub mod glm_provider;
 pub mod kimi_provider;

@@ -7,10 +7,10 @@ import { loadSettings } from './settings'
 
 const getNodeBackendUrl = () => {
   const settings = loadSettings()
-  return settings.backendUrl || 'http://198.18.0.1:3001'
+  return settings.backendUrl || 'http://localhost:3002'
 }
 
-const getRustBackendUrl = () => 'http://127.0.0.1:3002'
+const getRustBackendUrl = () => 'http://localhost:3001'
 
 const getBackendErrorMessage = (error, status) => {
   if (!error || typeof error !== 'object') {
@@ -669,7 +669,7 @@ export const streamDeepResearchViaBackend = async params => {
   }
 
   try {
-  const response = await fetch(`${getNodeBackendUrl()}/api/stream-deep-research`, {
+  const response = await fetch(`${getRustBackendUrl()}/api/stream-deep-research`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -852,7 +852,7 @@ export const deleteUserToolViaBackend = async id => {
  * @returns {Promise<Object>} { success, tools, total }
  */
 export const fetchMcpToolsViaBackend = async (name, url, options = {}) => {
-  const response = await fetch(`${getNodeBackendUrl()}/api/mcp-tools/fetch`, {
+  const response = await fetch(`${getRustBackendUrl()}/api/mcp-tools/fetch`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

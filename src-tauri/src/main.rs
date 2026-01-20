@@ -7,6 +7,7 @@ use tauri::Manager;
 
 mod providers;
 mod rig_server;
+mod modules;
 
 struct BackendProcess(Mutex<Option<Child>>);
 
@@ -86,7 +87,7 @@ fn main() {
             let node_port = std::env::var("NODE_BACKEND_PORT")
                 .ok()
                 .and_then(|value| value.parse().ok())
-                .unwrap_or(3001);
+                .unwrap_or(3002);
             let frontend_urls = std::env::var("FRONTEND_URLS")
                 .unwrap_or_else(|_| "tauri://localhost,http://127.0.0.1:3000,http://localhost:3000".to_string());
 
@@ -127,7 +128,7 @@ fn resolve_rig_host_and_port() -> (String, u16) {
 
     (
         host_env.unwrap_or_else(|| "127.0.0.1".to_string()),
-        port_env.unwrap_or(3002),
+        port_env.unwrap_or(3001),
     )
 }
 
@@ -151,7 +152,7 @@ fn parse_host_port_from_url(raw: &str) -> Option<(String, u16)> {
     let port = parts
         .next()
         .and_then(|value| value.parse::<u16>().ok())
-        .unwrap_or(3002);
+        .unwrap_or(3001);
 
     if host.is_empty() {
         None

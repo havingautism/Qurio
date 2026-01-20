@@ -214,7 +214,7 @@ export const loadSettings = (overrides = {}) => {
 
     // Backend API
     backendUrl:
-      envBackendUrl || localBackendUrl || overrides.backendUrl || 'http://198.18.0.1:3001',
+      envBackendUrl || localBackendUrl || overrides.backendUrl || 'http://localhost:3001',
 
     // Search provider
     searchProvider: localSearchProvider || overrides.searchProvider || 'tavily',

@@ -67,7 +67,7 @@
 
 ## 最新改动（Rust + Rig 端）
 
-**已完成迁移的接口（10个）**：
+**已完成迁移的接口（12个）**：
 
 - ✅ `/api/stream-chat` - SSE 流式对话，支持多轮工具调用
 - ✅ `/api/title` - 生成对话标题和表情符号 **[已测试]**
@@ -79,20 +79,17 @@
 - ✅ `/api/research-plan` - 生成研究计划（支持 general 和 academic）
 - ✅ `/api/research-plan-stream` - SSE 流式输出研究计划
 - ✅ `/api/tools` - 返回可用工具列表
+- ✅ `/api/stream-deep-research` - 深度研究（多步骤研究计划执行）
+- ✅ `/api/mcp-tools/*` - MCP 工具管理接口
 
 **工具支持**：
 - 目前仅保留本地工具：`calculator` + `Tavily_web_search` + `Tavily_academic_search`
 - 其他工具暂不暴露
 
 **代理机制**：
-- 其他尚未迁移的 `/api/*` 继续反向代理到旧 Node 后端，保持兼容
+- 所有接口均已迁移完成，不再需要反向代理到 Node 后端。
 
-## 仍未迁移的接口（仍走 Node 后端）
-
-- `/api/stream-deep-research` - 深度研究（复杂的多步骤流程）
-- `/api/mcp-tools/*` - MCP 工具相关接口
-
-**迁移进度**: 10/12 (83%)
+**迁移进度**: 12/12 (100%)
 
 ## 启动步骤
 

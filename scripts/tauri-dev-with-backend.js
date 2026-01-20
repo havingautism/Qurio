@@ -61,7 +61,7 @@ const resolveFrontendTarget = () => {
       // Ignore invalid URL and fall back to defaults.
     }
   }
-  const host = effectiveEnv.FRONTEND_HOST || '198.18.0.1'
+  const host = effectiveEnv.FRONTEND_HOST || 'localhost'
   const port = Number(effectiveEnv.FRONTEND_PORT || 3000)
   return { host, port }
 }
@@ -110,11 +110,12 @@ const spawnCommand = (command, args, options = {}) =>
     ...options,
   })
 
-const spawnBackground = (command, args) => {
+const spawnBackground = (command, args, env = {}) => {
   const child = spawn(command, args, {
     stdio: 'ignore',
     shell: process.platform === 'win32',
     detached: true,
+    env: { ...process.env, ...env },
   })
   child.unref()
   return child
@@ -127,11 +128,32 @@ const terminate = child => {
 
 const main = async () => {
   const prepareOnly = process.argv.includes('--prepare-only')
+  const isRustMode = backendPort === 3001
+
+  console.log(`[${isRustMode ? 'Rust' : 'Node.js'} Mode] Starting Tauri development...`)
+  console.log(`[${isRustMode ? 'Rust' : 'Node.js'} Mode] Frontend: http://${frontendHost}:${frontendPort}`)
+  console.log(`[${isRustMode ? 'Rust' : 'Node.js'} Mode] Backend:  http://${backendHost}:${backendPort}`)
+
   const backendRunning = await isPortOpen(backendHost, backendPort)
   const frontendRunning = await isPortOpen(frontendHost, frontendPort)
 
-  const backendProcess = backendRunning ? null : spawnBackground('bun', ['run', 'dev:backend'])
-  const frontendProcess = frontendRunning ? null : spawnBackground('bun', ['run', 'dev:tauri'])
+  let backendProcess = null
+
+  if (!backendRunning) {
+    if (isRustMode) {
+      // Rust mode: backend will be started by Tauri, just wait for it
+      console.log('[Rust Mode] Waiting for Rust backend to be ready (started by Tauri)...')
+    } else {
+      // Node.js mode: explicitly start Node backend
+      console.log(`[Node.js Mode] Starting Node.js backend on port ${backendPort}...`)
+      backendProcess = spawnBackground('bun', ['run', 'dev:backend'], {
+        PORT: String(backendPort),
+        NODE_BACKEND_PORT: String(backendPort),
+      })
+    }
+  } else {
+    console.log(`[${isRustMode ? 'Rust' : 'Node.js'} Mode] Backend already running on port ${backendPort}`)
+  }
 
   if (backendProcess) {
     backendProcess.on('exit', code => {
@@ -140,6 +162,8 @@ const main = async () => {
       }
     })
   }
+
+  const frontendProcess = frontendRunning ? null : spawnBackground('bun', ['run', 'dev:tauri'])
 
   const waits = []
   if (!backendRunning) waits.push(waitForPort(backendHost, backendPort))

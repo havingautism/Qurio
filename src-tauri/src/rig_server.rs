@@ -6,7 +6,7 @@ use axum::{
         sse::{Event, Sse},
         IntoResponse, Response,
     },
-    routing::{any, get, post},
+    routing::{any, delete, get, post},
     Router,
 };
 use futures::{Stream, StreamExt};
@@ -34,6 +34,11 @@ use crate::providers::siliconflow_provider::SiliconFlowClient;
 use crate::providers::modelscope_provider::ModelScopeClient;
 // Import our custom NVIDIA NIM provider
 use crate::providers::nvidia_provider::NvidiaNimClient;
+
+// Import application modules
+use crate::modules::mcp_manager::{McpServerConfig, MCP_TOOL_MANAGER};
+use crate::modules::deep_research::{DeepResearchRequest, DEEP_RESEARCH_SERVICE};
+
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{
@@ -1298,6 +1303,16 @@ pub async fn serve(
         .route("/api/research-plan-stream", post(research_plan_stream))
         .route("/api/related-questions", post(generate_related_questions))
         .route("/api/tools", get(list_tools))
+        // Deep research endpoints
+        .route("/api/stream-deep-research", post(stream_deep_research))
+        // MCP tools endpoints
+        .route("/api/mcp-tools/servers", get(mcp_list_servers))
+        .route("/api/mcp-tools/servers", post(mcp_load_server))
+        .route("/api/mcp-tools/servers/:name/tools", get(mcp_list_server_tools))
+        .route("/api/mcp-tools/servers/:name", delete(mcp_unload_server))
+        .route("/api/mcp-tools/tools", get(mcp_list_all_tools))
+        .route("/api/mcp-tools/tool/:toolId", get(mcp_get_tool))
+        .route("/api/mcp-tools/fetch", post(mcp_fetch_tools))
         .route("/api/*path", any(proxy_api))
         .with_state(state)
         .layer(cors);
@@ -3214,6 +3229,226 @@ fn resolve_tavily_key(payload: &StreamChatRequest) -> String {
         .ok()
         .or_else(|| std::env::var("PUBLIC_TAVILY_API_KEY").ok())
         .unwrap_or_default()
+}
+
+// ============================================================================
+// Deep Research Handlers
+// ============================================================================
+
+/// Stream deep research - multi-step research with plan execution
+/// POST /api/stream-deep-research
+async fn stream_deep_research(
+    Json(payload): Json<DeepResearchRequest>,
+) -> Result<Sse<impl Stream<Item = Result<Event, Infallible>>>, (StatusCode, Json<Value>)> {
+    // Validate required fields
+    if payload.provider.trim().is_empty() {
+        return Err(bad_request("Missing required field: provider"));
+    }
+    if payload.api_key.trim().is_empty() {
+        return Err(bad_request("Missing required field: apiKey"));
+    }
+    if payload.messages.is_empty() {
+        return Err(bad_request("Missing required field: messages"));
+    }
+
+    // Validate provider
+    let supported_providers = [
+        "gemini", "openai", "openai_compatibility", "siliconflow",
+        "glm", "modelscope", "kimi", "nvidia", "minimax",
+    ];
+    if !supported_providers.contains(&payload.provider.as_str()) {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({
+                "error": format!(
+                    "Unsupported provider: {}. Supported: {}",
+                    payload.provider,
+                    supported_providers.join(", ")
+                )
+            })),
+        ));
+    }
+
+    let service = DEEP_RESEARCH_SERVICE.clone();
+    let stream = service.execute_stream(payload).await;
+
+    Ok(Sse::new(stream))
+}
+
+// ============================================================================
+// MCP Tool Handlers
+// ============================================================================
+
+/// List all loaded MCP servers
+/// GET /api/mcp-tools/servers
+async fn mcp_list_servers() -> Json<serde_json::Value> {
+    let manager = MCP_TOOL_MANAGER.clone();
+    let status = manager.get_status().await;
+
+    Json(json!({
+        "success": true,
+        "servers": status.servers,
+        "totalTools": status.total_tools
+    }))
+}
+
+/// Load an MCP server
+/// POST /api/mcp-tools/servers
+async fn mcp_load_server(
+    Json(payload): Json<McpServerConfig>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<Value>)> {
+    if payload.name.trim().is_empty() {
+        return Err(bad_request("Missing required field: name"));
+    }
+    if payload.url.trim().is_empty() {
+        return Err(bad_request("Missing required field: url"));
+    }
+
+    // Clone name before moving payload
+    let server_name = payload.name.clone();
+    let manager = MCP_TOOL_MANAGER.clone();
+    match manager.load_server(payload).await {
+        Ok(tools) => Ok(Json(json!({
+            "success": true,
+            "message": format!("Loaded {} tools from {}", tools.len(), tools.iter().next().map(|t| t.server.clone()).unwrap_or_else(|| server_name.clone())),
+            "server": server_name,
+            "toolsLoaded": tools.len(),
+            "tools": tools.iter().map(|t| json!({
+                "id": t.id,
+                "name": t.name,
+                "description": t.description,
+                "parameters": t.parameters
+            })).collect::<Vec<_>>()
+        }))),
+        Err(e) => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "success": false,
+                "error": e
+            })),
+        )),
+    }
+}
+
+/// List tools from a specific MCP server
+/// GET /api/mcp-tools/servers/:name/tools
+async fn mcp_list_server_tools(
+    Path(name): Path<String>,
+) -> Json<serde_json::Value> {
+    let manager = MCP_TOOL_MANAGER.clone();
+    let response = manager.list_tools_by_server(&name).await;
+
+    Json(json!({
+        "success": response.success,
+        "server": name,
+        "tools": response.tools.iter().map(|t| json!({
+            "id": t.id,
+            "name": t.name,
+            "description": t.description,
+            "parameters": t.parameters
+        })).collect::<Vec<_>>(),
+        "total": response.total
+    }))
+}
+
+/// Unload an MCP server
+/// DELETE /api/mcp-tools/servers/:name
+async fn mcp_unload_server(
+    Path(name): Path<String>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<Value>)> {
+    let manager = MCP_TOOL_MANAGER.clone();
+    match manager.unload_server(&name).await {
+        Ok(_) => Ok(Json(json!({
+            "success": true,
+            "message": format!("Unloaded server: {}", name)
+        }))),
+        Err(e) => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "success": false,
+                "error": e
+            })),
+        )),
+    }
+}
+
+/// List all MCP tools from all servers
+/// GET /api/mcp-tools/tools
+async fn mcp_list_all_tools() -> Json<serde_json::Value> {
+    let manager = MCP_TOOL_MANAGER.clone();
+    let response = manager.list_all_tools().await;
+
+    Json(json!({
+        "success": response.success,
+        "tools": response.tools.iter().map(|t| json!({
+            "id": t.id,
+            "name": t.name,
+            "description": t.description,
+            "category": t.category,
+            "parameters": t.parameters,
+            "server": t.server
+        })).collect::<Vec<_>>(),
+        "total": response.total
+    }))
+}
+
+/// Get a specific MCP tool
+/// GET /api/mcp-tools/tool/:toolId
+async fn mcp_get_tool(
+    Path(tool_id): Path<String>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<Value>)> {
+    let manager = MCP_TOOL_MANAGER.clone();
+    match manager.get_tool(&tool_id).await {
+        Some(tool) => Ok(Json(json!({
+            "success": true,
+            "tool": {
+                "id": tool.id,
+                "name": tool.name,
+                "description": tool.description,
+                "category": tool.category,
+                "parameters": tool.parameters,
+                "server": tool.server,
+                "metadata": tool.metadata
+            }
+        }))),
+        None => Err((
+            StatusCode::NOT_FOUND,
+            Json(json!({
+                "success": false,
+                "error": format!("Tool not found: {}", tool_id)
+            })),
+        )),
+    }
+}
+
+/// Fetch tools from an MCP server URL (preview/temporary)
+/// POST /api/mcp-tools/fetch
+async fn mcp_fetch_tools(
+    Json(payload): Json<McpServerConfig>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<Value>)> {
+    if payload.name.trim().is_empty() {
+        return Err(bad_request("Missing required field: name"));
+    }
+    if payload.url.trim().is_empty() {
+        return Err(bad_request("Missing required field: url"));
+    }
+
+    let manager = MCP_TOOL_MANAGER.clone();
+    match manager.fetch_tools_from_url(&payload.name, &payload).await {
+        Ok(tools) => Ok(Json(json!({
+            "success": true,
+            "server": payload.name,
+            "tools": tools,
+            "total": tools.len()
+        }))),
+        Err(e) => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "success": false,
+                "error": e
+            })),
+        )),
+    }
 }
 
 fn apply_context_limit(messages: &[ChatMessage], limit: Option<usize>) -> Vec<ChatMessage> {

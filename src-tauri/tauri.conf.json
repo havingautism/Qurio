@@ -6,7 +6,7 @@
   "build": {
     "beforeBuildCommand": "bun run build:tauri",
     "beforeDevCommand": "node scripts/tauri-dev-with-backend.js --prepare-only",
-    "devUrl": "http://127.0.0.1:3000",
+    "devUrl": "http://localhost:3000",
     "frontendDist": "../dist"
   },
   "app": {

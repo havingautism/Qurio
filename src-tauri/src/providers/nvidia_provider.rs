@@ -280,10 +280,15 @@ async fn stream_nvidia_completion(
     }
 
     // Add additional parameters (for thinking mode, etc.)
+    // NVIDIA NIM requires `chat_template_kwargs: { thinking: true }` for thinking mode
     if let Some(additional) = &request.additional_params {
         if let Value::Object(map) = additional {
             for (key, value) in map.iter() {
-                if !request_body.get(key).is_some() {
+                if key == "thinking" {
+                    // Convert thinking parameter to chat_template_kwargs for NVIDIA
+                    // e.g., `thinking: true` becomes `chat_template_kwargs: { thinking: true }`
+                    request_body["chat_template_kwargs"] = json!({ "thinking": true });
+                } else if !request_body.get(key).is_some() {
                     request_body[key] = value.clone();
                 }
             }

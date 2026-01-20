@@ -26,6 +26,8 @@ use rig::{
 use crate::providers::glm_provider::GLMClient;
 // Import our custom Kimi provider
 use crate::providers::kimi_provider::KimiClient;
+// Import our custom MiniMax provider
+use crate::providers::minimax_provider::MinimaxClient;
 // Import our custom SiliconFlow provider
 use crate::providers::siliconflow_provider::SiliconFlowClient;
 // Import our custom ModelScope provider
@@ -1704,6 +1706,49 @@ async fn stream_chat(
         "nvidia" => {
             // Use custom NVIDIA NIM provider with reasoning_content support (DeepSeek R1, etc.)
             let mut client_builder = NvidiaNimClient::builder()
+                .api_key(payload.api_key.clone());
+
+            if let Some(base_url) = resolve_base_url(normalized_provider, payload.base_url.as_deref()) {
+                client_builder = client_builder.base_url(&base_url);
+            }
+
+            let client = client_builder
+                .build()
+                .map_err(|err| internal_error(err.to_string()))?;
+
+            let mut builder = AgentBuilderWrapper::Plain(client.agent(model.clone()));
+
+            if let Some(preamble) = preamble.as_deref() {
+                builder = builder.preamble(preamble);
+            }
+            if let Some(tool_choice) = tool_choice.clone() {
+                builder = builder.tool_choice(tool_choice);
+            }
+            if let Some(temp) = payload.temperature {
+                builder = builder.temperature(temp);
+            }
+            if !additional_params.is_empty() {
+                builder = builder.additional_params(Value::Object(additional_params.clone()));
+            }
+            if enabled.calculator {
+                builder = builder.tool(CalculatorTool);
+            }
+            if enabled.web_search {
+                builder = builder.tool(TavilyWebSearchTool::new(tavily_key.clone(), http.clone()));
+            }
+            if enabled.academic_search {
+                builder = builder.tool(TavilyAcademicSearchTool::new(
+                    tavily_key.clone(),
+                    http.clone(),
+                ));
+            }
+
+            let agent = builder.build();
+            stream_chat_with_agent(agent, prompt, history, enable_tag_parsing)
+        }
+        "minimax" => {
+            // Use custom MiniMax provider with reasoning_details support
+            let mut client_builder = MinimaxClient::builder()
                 .api_key(payload.api_key.clone());
 
             if let Some(base_url) = resolve_base_url(normalized_provider, payload.base_url.as_deref()) {

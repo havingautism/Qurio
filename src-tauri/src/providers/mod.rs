@@ -3,6 +3,7 @@
 
 pub mod adapters;
 pub mod constants;
+pub mod glm_provider;
 
 pub use constants::{
     get_base_url, get_capabilities, get_default_model, get_provider_config, supports_capability,

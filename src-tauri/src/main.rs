@@ -88,7 +88,7 @@ fn main() {
                 .and_then(|value| value.parse().ok())
                 .unwrap_or(3001);
             let frontend_urls = std::env::var("FRONTEND_URLS")
-                .unwrap_or_else(|_| "tauri://localhost,http://127.0.0.1:3000".to_string());
+                .unwrap_or_else(|_| "tauri://localhost,http://127.0.0.1:3000,http://localhost:3000".to_string());
 
             spawn_rig_backend(host.clone(), port, node_port, frontend_urls.clone());
             let child = spawn_legacy_backend(&app.handle(), &host, node_port, &frontend_urls);

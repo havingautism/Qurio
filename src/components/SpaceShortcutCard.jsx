@@ -62,9 +62,9 @@ const SpaceShortcutCard = memo(({ spaces = [], selectedSpaceId, onSpaceSelect, o
                   <button
                     key={space.id}
                     onClick={() => onSpaceSelect(space)}
-                    className={`flex-none flex flex-col items-center gap-1 p-1.5 rounded-md transition-all duration-300 min-w-[60px] ${'bg-gray-200/30 dark:bg-zinc-800/40 text-gray-600 dark:text-gray-400 hover:bg-gray-200/50 dark:hover:bg-zinc-800/60'}`}
+                    className={`flex-none flex flex-col items-center gap-1 p-1.5 rounded-md transition-all duration-300 min-w-[60px] group/icon ${'bg-gray-200/30 dark:bg-zinc-800/40 text-gray-600 dark:text-gray-400 hover:bg-gray-200/50 dark:hover:bg-zinc-800/60'}`}
                   >
-                    <div className={`w-10 h-10 flex items-center justify-center rounded-xl  `}>
+                    <div className={`w-10 h-10 flex items-center justify-center rounded-xl transition-transform duration-300 group-hover/icon:scale-110`}>
                       <EmojiDisplay emoji={space.emoji} size="1.5rem" />
                     </div>
                     <span className="text-[10px] font-bold truncate max-w-[52px]">

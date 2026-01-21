@@ -1,8 +1,10 @@
-import { useRef, useEffect, useState } from 'react'
-import { createPortal } from 'react-dom'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { X, Globe, ExternalLink, ChevronLeft, ChevronRight } from 'lucide-react'
-import useScrollLock from '../hooks/useScrollLock'
+import {
+  Drawer,
+  DrawerContent,
+} from '@/components/ui/drawer'
 
 const MobileSourcesDrawer = ({ isOpen, onClose, sources = [], title }) => {
   const { t } = useTranslation()
@@ -19,51 +21,9 @@ const MobileSourcesDrawer = ({ isOpen, onClose, sources = [], title }) => {
   }
   const resolveUrl = source => source?.url || source?.uri || source?.link || source?.href || ''
 
-  useScrollLock(isOpen)
-  const drawerRef = useRef(null)
-
-  // Reset page on open/sources change
-  useEffect(() => {
-    if (isOpen) {
-      // Logic for resetting could go here, but avoiding setState in render
-    }
-  }, [isOpen, sources])
-
-  // Close on click outside logic is handled by the backdrop overlay
-
-  if (!isOpen) return null
-
-  return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-end justify-center">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
-        onClick={event => {
-          event.preventDefault()
-          event.stopPropagation()
-          onClose()
-        }}
-        onMouseDown={event => {
-          event.preventDefault()
-          event.stopPropagation()
-        }}
-        onTouchStart={event => {
-          event.preventDefault()
-          event.stopPropagation()
-        }}
-        onTouchEnd={event => {
-          event.preventDefault()
-          event.stopPropagation()
-          onClose()
-        }}
-        aria-hidden="true"
-      />
-
-      {/* Drawer */}
-      <div
-        ref={drawerRef}
-        className="relative w-full max-w-md bg-white dark:bg-[#1E1E1E] rounded-t-3xl shadow-2xl flex flex-col max-h-[85vh] animate-slide-up"
-      >
+  return (
+    <Drawer open={isOpen} onOpenChange={onClose}>
+      <DrawerContent className="max-h-[85vh] rounded-t-3xl bg-white dark:bg-[#1E1E1E] border-t border-gray-200 dark:border-zinc-800">
         {/* Header */}
         <div className="px-5 py-4 flex items-center justify-between shrink-0 border-b border-gray-100 dark:border-zinc-800/50">
           <div className="flex items-center gap-3">
@@ -88,7 +48,7 @@ const MobileSourcesDrawer = ({ isOpen, onClose, sources = [], title }) => {
         </div>
 
         {/* Content */}
-        <div className="overflow-y-auto min-h-0 py-2">
+        <div className="overflow-y-auto min-h-0 py-2 px-3">
           {sources.length === 0 ? (
             <div className="p-8 text-center text-gray-500 dark:text-gray-400">
               {t('sources.noSources')}
@@ -168,12 +128,8 @@ const MobileSourcesDrawer = ({ isOpen, onClose, sources = [], title }) => {
             </div>
           </div>
         )}
-
-        {/* Bottom Safe Area Spacer */}
-        {/* <div className="h-6 shrink-0" /> */}
-      </div>
-    </div>,
-    document.body,
+      </DrawerContent>
+    </Drawer>
   )
 }
 

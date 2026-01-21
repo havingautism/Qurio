@@ -18,7 +18,10 @@ import Menu from 'lucide-react/dist/esm/icons/menu'
 import Paperclip from 'lucide-react/dist/esm/icons/paperclip'
 import X from 'lucide-react/dist/esm/icons/x'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
+import {
+  Drawer,
+  DrawerContent,
+} from '@/components/ui/drawer'
 import { useTranslation } from 'react-i18next'
 import { useAppContext } from '../App'
 import DeepResearchCard from '../components/DeepResearchCard'
@@ -554,11 +557,14 @@ const HomeView = () => {
     const agentLabel = isHomeAgentAuto
       ? autoLabelWithSparkle
       : getAgentDisplayName(selectedHomeAgent, t) || t('homeView.agentsLabel')
+    // When both space and agent are auto, show only one auto label
+    const showOnlySpaceLabel = isHomeSpaceAuto && isHomeAgentAuto
     return {
-      spaceLabel,
-      agentLabel,
+      spaceLabel: showOnlySpaceLabel ? autoLabelWithSparkle : spaceLabel,
+      agentLabel: showOnlySpaceLabel ? null : agentLabel,
       spaceEmoji: homeSelectedSpace?.emoji || '',
-      agentEmoji: selectedHomeAgent?.emoji || '',
+      agentEmoji: showOnlySpaceLabel ? '' : (selectedHomeAgent?.emoji || ''),
+      showOnlySpaceLabel,
     }
   }, [isHomeSpaceAuto, homeSelectedSpace, isHomeAgentAuto, selectedHomeAgent, t])
   const {
@@ -566,6 +572,7 @@ const HomeView = () => {
     agentLabel: resolvedAgentLabel,
     spaceEmoji: resolvedSpaceEmoji,
     agentEmoji: resolvedAgentEmoji,
+    showOnlySpaceLabel,
   } = homeSpaceButtonContent
 
   const availableHomeSpaces = useMemo(() => {
@@ -936,18 +943,22 @@ const HomeView = () => {
                       } hover:bg-gray-100 dark:hover:bg-zinc-800`}
                     >
                       <LayoutGrid size={18} />
-                      <div className="hidden md:flex items-center gap-1 text-sm font-medium text-gray-900 dark:text-white min-w-0">
+                      <div className="hidden md:flex items-center gap-1 text-xs font-medium text-gray-900 dark:text-white min-w-0">
                         {resolvedSpaceEmoji && (
                           <EmojiDisplay emoji={resolvedSpaceEmoji} size="1.15rem" />
                         )}
                         <span className="truncate">{resolvedSpaceLabel}</span>
-                        <span className="text-gray-400 dark:text-gray-500 select-none">·</span>
-                        {resolvedAgentEmoji && (
-                          <EmojiDisplay emoji={resolvedAgentEmoji} size="1.15rem" />
+                        {!showOnlySpaceLabel && (
+                          <>
+                            <span className="text-gray-400 dark:text-gray-500 select-none">·</span>
+                            {resolvedAgentEmoji && (
+                              <EmojiDisplay emoji={resolvedAgentEmoji} size="1.15rem" />
+                            )}
+                            <span className="truncate text-gray-600 dark:text-gray-300">
+                              {resolvedAgentLabel}
+                            </span>
+                          </>
                         )}
-                        <span className="truncate text-gray-600 dark:text-gray-300">
-                          {resolvedAgentLabel}
-                        </span>
                       </div>
                       <ChevronDown size={14} />
                     </button>
@@ -958,40 +969,29 @@ const HomeView = () => {
                     )}
                   </div>
 
-                  {isHomeMobile &&
-                    isHomeSpaceSelectorOpen &&
-                    createPortal(
-                      <div className="fixed inset-0 z-50 flex items-end justify-center">
-                        <div
-                          className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
-                          onClick={() => setIsHomeSpaceSelectorOpen(false)}
-                          aria-hidden="true"
-                        />
-                        <div className="relative w-full max-w-md bg-white dark:bg-[#1E1E1E] rounded-t-3xl shadow-2xl flex flex-col max-h-[85vh] animate-slide-up">
-                          <div className="px-5 py-4 flex items-center justify-between shrink-0 border-b border-gray-100 dark:border-zinc-800/50">
-                            <div className="flex flex-col">
-                              <h3 className="text-base font-bold text-gray-900 dark:text-gray-100 leading-none mb-1">
-                                {t('homeView.spaces') + ' and ' + t('homeView.agents')}
-                              </h3>
-                              {/* <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">
-                                {t('homeView.agents')}
-                              </p> */}
-                            </div>
-                            <button
-                              onClick={() => setIsHomeSpaceSelectorOpen(false)}
-                              className="p-2 -mr-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-full hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
-                            >
-                              <X size={20} />
-                            </button>
+                  {isHomeMobile && (
+                    <Drawer open={isHomeSpaceSelectorOpen} onOpenChange={setIsHomeSpaceSelectorOpen}>
+                      <DrawerContent className="max-h-[85vh] rounded-t-3xl bg-white dark:bg-[#1E1E1E] border-t border-gray-200 dark:border-zinc-800">
+                        <div className="px-5 py-4 flex items-center justify-between shrink-0 border-b border-gray-100 dark:border-zinc-800/50">
+                          <div className="flex flex-col">
+                            <h3 className="text-base font-bold text-gray-900 dark:text-gray-100 leading-none mb-1">
+                              {t('homeView.spaces') + ' and ' + t('homeView.agents')}
+                            </h3>
                           </div>
-                          <div className="overflow-y-auto min-h-0 ">
-                            {renderHomeSpaceMenuContent()}
-                          </div>
-                          <div className="h-6 shrink-0" />
+                          <button
+                            onClick={() => setIsHomeSpaceSelectorOpen(false)}
+                            className="p-2 -mr-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-full hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
+                          >
+                            <X size={20} />
+                          </button>
                         </div>
-                      </div>,
-                      document.body,
-                    )}
+                        <div className="overflow-y-auto min-h-0 p-3">
+                          {renderHomeSpaceMenuContent()}
+                        </div>
+                        <div className="h-6 shrink-0" />
+                      </DrawerContent>
+                    </Drawer>
+                  )}
                 </div>
 
                 <div className="flex gap-2">

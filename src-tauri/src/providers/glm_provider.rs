@@ -308,19 +308,12 @@ async fn stream_glm_completion(
                                 break;
                             }
 
-                            // Debug: Print raw data to see what GLM is returning
-                            eprintln!("[GLM DEBUG] Raw chunk: {}", data);
-
                             // Parse JSON chunk
                             match serde_json::from_str::<GLMStreamingChunk>(data) {
                                 Ok(glm_chunk) => {
                                     if let Some(choice) = glm_chunk.choices.first() {
                                         let delta = &choice.delta;
                                         let finish_reason = &choice.finish_reason;
-
-                                        // Debug: Print delta structure
-                                        eprintln!("[GLM DEBUG] Delta - content: {:?}, reasoning: {:?}, tool_calls: {:?}",
-                                            delta.content, delta.reasoning_content, delta.tool_calls.len());
 
                                         // Handle reasoning_content - KEY FEATURE!
                                         if let Some(reasoning) = &delta.reasoning_content {
@@ -341,7 +334,6 @@ async fn stream_glm_completion(
 
                                         // Handle tool calls - streaming format
                                         if !delta.tool_calls.is_empty() {
-                                            eprintln!("[GLM DEBUG] Processing {} tool calls", delta.tool_calls.len());
                                             for tool_call in &delta.tool_calls {
                                                 let index = tool_call.index.unwrap_or(0);
 
@@ -363,7 +355,6 @@ async fn stream_glm_completion(
                                                 if let Some(ref name) = tool_call.function.name {
                                                     if !name.is_empty() {
                                                         existing_tool_call.name = name.clone();
-                                                        eprintln!("[GLM DEBUG] Yielding ToolCallDelta::Name: {}", name);
                                                         yield Ok(RawStreamingChoice::ToolCallDelta {
                                                             id: existing_tool_call.id.clone(),
                                                             content: rig::streaming::ToolCallDeltaContent::Name(name.clone()),
@@ -375,7 +366,6 @@ async fn stream_glm_completion(
                                                 if let Some(ref args) = tool_call.function.arguments {
                                                     if !args.is_empty() {
                                                         existing_tool_call.arguments.push_str(args);
-                                                        eprintln!("[GLM DEBUG] Yielding ToolCallDelta::Delta: {}", args);
                                                         yield Ok(RawStreamingChoice::ToolCallDelta {
                                                             id: existing_tool_call.id.clone(),
                                                             content: rig::streaming::ToolCallDeltaContent::Delta(args.clone()),
@@ -387,11 +377,8 @@ async fn stream_glm_completion(
 
                                         // When finish_reason is "tool_calls", emit the final ToolCall
                                         if finish_reason.as_ref().map(|s| s == "tool_calls").unwrap_or(false) {
-                                            eprintln!("[GLM DEBUG] Finish reason is tool_calls, emitting {} accumulated tool calls", tool_calls.len());
                                             for (_, tool_call_state) in tool_calls.into_iter() {
                                                 if !tool_call_state.name.is_empty() {
-                                                    eprintln!("[GLM DEBUG] Yielding ToolCall: id={}, name={}, args={}",
-                                                        tool_call_state.id, tool_call_state.name, tool_call_state.arguments);
                                                     yield Ok(RawStreamingChoice::ToolCall(
                                                         RawStreamingToolCall::new(
                                                             tool_call_state.id,

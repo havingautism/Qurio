@@ -1,7 +1,10 @@
 import clsx from 'clsx'
 import { useTranslation } from 'react-i18next'
 import { FileText, X, FileJson, FileSpreadsheet, FileCode, File } from 'lucide-react'
-import { createPortal } from 'react-dom'
+import {
+  Drawer,
+  DrawerContent,
+} from '@/components/ui/drawer'
 import useIsMobile from '../hooks/useIsMobile'
 
 const FileIcon = ({ fileType, className }) => {
@@ -61,14 +64,10 @@ const cleanSnippet = value => {
 
 const SourcesModal = ({ isOpen, onClose, sources }) => {
   const { t } = useTranslation()
-  if (!isOpen) return null
 
-  return createPortal(
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-200">
-      <div
-        className="w-full h-[85vh] sm:h-auto sm:max-h-[80vh] sm:max-w-2xl bg-white dark:bg-zinc-900 rounded-t-3xl sm:rounded-2xl shadow-xl flex flex-col animate-in slide-in-from-bottom duration-300"
-        onClick={e => e.stopPropagation()}
-      >
+  return (
+    <Drawer open={isOpen} onOpenChange={onClose}>
+      <DrawerContent className="max-h-[85vh] sm:max-h-[80vh] sm:max-w-2xl rounded-t-3xl sm:rounded-2xl bg-white dark:bg-zinc-900 border-t border-gray-200 dark:border-zinc-800">
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-zinc-800">
           <div className="font-semibold text-lg text-gray-900 dark:text-gray-100">
             {t('sources.documentSources')} ({sources.length})
@@ -108,9 +107,8 @@ const SourcesModal = ({ isOpen, onClose, sources }) => {
             </div>
           ))}
         </div>
-      </div>
-    </div>,
-    document.body,
+      </DrawerContent>
+    </Drawer>
   )
 }
 

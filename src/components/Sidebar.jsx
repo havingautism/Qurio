@@ -724,7 +724,7 @@ const Sidebar = ({
                 }}
                 onMouseEnter={() => setHoveredTab(item.id)}
                 className={clsx(
-                  'flex flex-col items-center justify-center py-2.5 px-1 rounded-xl transition-all duration-300 cursor-pointer group relative overflow-hidden',
+                  'flex flex-col items-center justify-center py-2.5 px-0 rounded-xl transition-all duration-300 cursor-pointer group relative overflow-hidden',
                   activeTab === item.id
                     ? 'text-primary-500 dark:text-primary-400'
                     : 'text-[#13343bbf] dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200',

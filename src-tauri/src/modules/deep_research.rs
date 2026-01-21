@@ -703,9 +703,12 @@ impl DeepResearchService {
             &client,
             &model_name,
             research_type,
-            tavily_api_key,
+            tavily_api_key.clone(),
             None,
         )?;
+
+        tracing::info!("[DeepResearch] Agent created for step {} with research_type={}, has_tavily_key={}", 
+                      step_index, research_type, tavily_api_key.is_some());
 
         let mut stream = agent.stream_chat(prompt, vec![]).multi_turn(MAX_TURNS).await;
         let mut content = String::new();
@@ -722,16 +725,24 @@ impl DeepResearchService {
                 Ok(MultiTurnStreamItem::StreamAssistantItem(
                     rig::streaming::StreamedAssistantContent::ToolCall(tc),
                 )) => {
-                    tracing::info!("[DeepResearch] Tool call received: {}", tc.function.name);
+                    tracing::info!("[DeepResearch] Tool call received: name={}, id={}", tc.function.name, tc.id);
                     tool_names.insert(tc.id.clone(), tc.function.name.clone());
                     let args = serde_json::to_string(&tc.function.arguments).unwrap_or_default();
-                    tool_events.push(DeepResearchEvent::ToolCall {
-                        id: Some(tc.id),
-                        name: Some(tc.function.name),
-                        arguments: args,
+                    tracing::info!("[DeepResearch] Tool arguments serialized: {}", &args);
+                    
+                    let event = DeepResearchEvent::ToolCall {
+                        id: Some(tc.id.clone()),
+                        name: Some(tc.function.name.clone()),
+                        arguments: args.clone(),
                         step: Some(step_index),
                         total: Some(total_steps),
-                    });
+                    };
+                    
+                    // Log the serialized event to verify it's correct
+                    let event_json = serde_json::to_string(&event).unwrap_or_default();
+                    tracing::info!("[DeepResearch] ToolCall event JSON: {}", &event_json);
+                    
+                    tool_events.push(event);
                 }
                 Ok(MultiTurnStreamItem::StreamUserItem(
                     rig::streaming::StreamedUserContent::ToolResult(tr),
@@ -772,8 +783,9 @@ impl DeepResearchService {
         if texts.is_empty() {
             return "{}".to_string();
         }
-        serde_json::to_string(&texts[0])
-            .unwrap_or_else(|_| texts[0].clone())
+        // Return raw text directly - it's already in JSON format from tools
+        // Don't double-serialize with serde_json::to_string
+        texts[0].clone()
     }
 
     /// Extract text from streamed assistant content

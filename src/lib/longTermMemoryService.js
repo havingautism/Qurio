@@ -15,7 +15,6 @@ const normalizeAliases = aliases => {
   return aliases.map(item => normalizeText(item)).filter(Boolean)
 }
 
-
 const truncateSummary = text => {
   const trimmed = normalizeText(text)
   if (!trimmed) return ''
@@ -117,10 +116,7 @@ export const deleteMemoryDomain = async domainKey => {
 
   const supabase = getSupabaseClient()
   if (supabase) {
-    const { error } = await supabase
-      .from(MEMORY_DOMAIN_TABLE)
-      .delete()
-      .eq('domain_key', trimmedKey)
+    const { error } = await supabase.from(MEMORY_DOMAIN_TABLE).delete().eq('domain_key', trimmedKey)
     if (error) {
       console.error('Failed to delete memory domain:', error)
     }

@@ -12,6 +12,7 @@ from sse_starlette.sse import EventSourceResponse
 
 from ..models.stream_chat import StreamChatRequest
 from ..services.stream_chat import get_stream_chat_service
+from ..services.tools import list_tools  # Imported list_tools
 from ..utils.sse import get_sse_config
 
 router = APIRouter(tags=["stream-chat"])
@@ -83,6 +84,13 @@ async def stream_chat(request: Request) -> Response:
         event_generator(),
         media_type="text/event-stream",
     )
+
+
+@router.get("/tools")
+async def get_tools() -> dict[str, list[dict]]:
+    """Get list of available tools."""
+    tools = list_tools()
+    return {"tools": tools}
 
 
 @router.get("/health")

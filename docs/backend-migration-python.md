@@ -12,7 +12,43 @@
 | API 格式 | REST + SSE | REST + SSE (兼容) |
 | 配置管理 | dotenv | Pydantic Settings |
 
-## 主要变化
+### 迁移进度
+
+| API 端点 | 状态 |
+|----------|------|
+| `POST /api/stream-chat` | ✅ 已迁移 |
+| `POST /api/related-questions` | ⏳ 待迁移 |
+| `GET/POST /api/tools` | ⏳ 待迁移 |
+| `POST /api/research-plan` | ⏳ 待迁移 |
+| `POST /api/title-space-agent` | ⏳ 待迁移 |
+| `POST /api/agent-for-auto` | ⏳ 待迁移 |
+| `POST /api/title` | ⏳ 待迁移 |
+| `GET /api/mcp-tools` | ⏳ 待迁移 |
+| `POST /api/title-and-space` | ⏳ 待迁移 |
+| `POST /api/deep-research-chat` | ⏳ 待迁移 |
+| `GET /api/daily-tip` | ⏳ 待迁移 |
+
+### 当前实现
+
+当前实现是 Node.js stream-chat 的 Agno 包装版本，尚未完全利用 Agno 的高级特性：
+
+| Agno 特性 | 使用状态 | 说明 |
+|-----------|----------|------|
+| Agent 模型包装 | ✅ 已使用 | 用于统一多 Provider API |
+| 流式事件处理 | ✅ 已使用 | RunEvent、RunContentEvent |
+| external_execution | ✅ 已使用 | 暂停 Agent 执行外部工具 |
+| Agent Teams | ❌ 未使用 | 多 Agent 协作能力 |
+| 内置工具库 | ❌ 未使用 | 仍用自定义工具 |
+| 记忆/存储 | ❌ 未使用 | Agno 持久化能力 |
+| Structured Output | ❌ 未使用 | Pydantic 输出验证 |
+
+#### 技术债务
+
+- 工具仍通过 `external_execution=True` 手动执行，未完全利用 Agno 工具生态
+- stream_chat.py 保留了 Node.js 风格的循环和消息处理逻辑
+- 未使用 Agno 的多 Agent 协作能力
+
+后续可逐步重构以充分利用 Agno 的全部功能。
 
 ### 1. 项目结构
 

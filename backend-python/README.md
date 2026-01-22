@@ -196,7 +196,57 @@ def _create_tool_function(tool_name: str, tool_def: dict):
 3. **异步优先**: 原生 async/await 支持
 4. **生产就绪**: 为可扩展性而构建
 
-## 从 Node.js 迁移
+## 迁移状态
+
+### 已迁移
+
+| API 端点 | 状态 | 说明 |
+|----------|------|------|
+| `POST /api/stream-chat` | ✅ 完成 | 流式聊天补全，支持工具调用 |
+
+### 未迁移
+
+| API 端点 | 说明 |
+|----------|------|
+| `POST /api/related-questions` | 获取相关问题 |
+| `GET/POST /api/tools` | 工具定义管理 |
+| `POST /api/research-plan` | 研究计划生成 |
+| `POST /api/title-space-agent` | 标题空间 Agent |
+| `POST /api/agent-for-auto` | 自动 Agent |
+| `POST /api/title` | 标题生成 |
+| `GET /api/mcp-tools` | MCP 工具列表 |
+| `POST /api/title-and-space` | 标题和空间生成 |
+| `POST /api/deep-research-chat` | 深度研究对话 |
+| `GET /api/daily-tip` | 每日提示 |
+
+### 当前实现
+
+此实现目前是 Node.js stream-chat 的 Agno 包装版本：
+
+- **已迁移**: `/api/stream-chat` 端点
+- **未迁移**: 其他 API 端点
+
+### Agno 使用程度
+
+当前仅使用了 Agno 的基础功能：
+
+| 特性 | 状态 | 说明 |
+|------|------|------|
+| Agent 模型包装 | ✓ | 用于统一多 Provider API |
+| 流式事件处理 | ✓ | RunEvent、RunContentEvent |
+| external_execution | ✓ | 暂停 Agent 执行外部工具 |
+| Agent Teams | ✗ | 未使用 |
+| 内置工具库 | ✗ | 未使用（仍用自定义工具） |
+| 记忆/存储 | ✗ | 未使用 |
+| Structured Output | ✗ | 未使用 |
+
+### 技术债务
+
+- 工具仍通过 `external_execution=True` 手动执行，未完全利用 Agno 工具生态
+- stream_chat.py 保留了 Node.js 风格的循环和消息处理逻辑
+- 未使用 Agno 的多 Agent 协作能力
+
+后续可逐步重构以充分利用 Agno 的全部功能。
 
 此 Python 后端与 Node.js 后端 API 兼容，可以渐进式迁移。
 

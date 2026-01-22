@@ -164,6 +164,31 @@ data: {"type":"error","error":"出现错误"}
 - **工具支持**: 兼容 Agno 的工具生态系统
 - **存储就绪**: 设计为与 Agno 的存储后端一起工作
 
+### 外部工具执行 (External Execution)
+
+使用 Agno 的 `external_execution=True` 模式实现工具调用：
+
+```python
+from agno.tools.function import Function
+
+def _create_tool_function(tool_name: str, tool_def: dict):
+    """创建标记为外部执行的 Agno 工具函数"""
+    agno_func = Function(
+        name=tool_name,
+        description=description,
+        parameters=parameters,
+        external_execution=True,  # 关键：告诉 Agno 暂停等待外部执行
+    )
+    return agno_func
+```
+
+执行流程：
+1. Agent 决定调用工具 → Agno 发出 `RunPausedEvent`
+2. 提取工具信息 (`tool_name`, `tool_args`)
+3. 在后端执行工具 (如 Tavily 搜索)
+4. 将结果作为 `tool_result` 事件发出
+5. 创建新的 Agent 运行，将工具结果注入消息
+
 ### Agno 核心优势
 
 1. **模型无关**: 易于添加新 providers
@@ -173,16 +198,38 @@ data: {"type":"error","error":"出现错误"}
 
 ## 从 Node.js 迁移
 
-此 Python 后端与 Node.js 后端 API 兼容：
+此 Python 后端与 Node.js 后端 API 兼容，可以渐进式迁移。
+
+### 快速切换
+
+| 后端 | 端口 | 启动命令 |
+|------|------|----------|
+| Node.js | 3001 | `cd backend-node && node run.js` |
+| Python | 3002 | `python run.py` |
+
+### 架构差异
+
+| 方面 | Node.js | Python (Agno) |
+|------|---------|---------------|
+| Web 框架 | Express | FastAPI |
+| AI 框架 | Direct API | Agno Agent |
+| 工具执行 | 内部实现 | `external_execution=True` |
+
+### 迁移文档
+
+详细迁移指南请参考 [后端迁移文档](../../docs/backend-migration-python.md)，包含：
+- 项目结构对比
+- Provider 适配器模式
+- 工具调用机制
+- 调试技巧
+- 常见问题解决方案
+
+### API 兼容性
 
 - 相同的 `/api/stream-chat` 端点
 - 相同的 SSE 事件格式
-- 相同的工具定义
+- 相同的工具定义结构
 - 相同的 provider 配置
-
-你可以通过更改端口在后端之间切换：
-- Node.js: 端口 3001
-- Python: 端口 3002
 
 ## 开发
 

@@ -5,6 +5,7 @@ FastAPI endpoints for streaming chat completion.
 
 import json
 from typing import AsyncGenerator
+import asyncio
 
 from fastapi import APIRouter, Request, Response
 from fastapi.responses import StreamingResponse
@@ -63,21 +64,22 @@ async def stream_chat(request: Request) -> Response:
     async def event_generator() -> AsyncGenerator[dict[str, str], None]:
         """Generate SSE events."""
         try:
-            # Send initial comment to establish connection
-            yield {"event": "comment", "data": "ok"}
-
             # Get stream chat service
             service = get_stream_chat_service()
 
             # Stream chat completion
             async for event in service.stream_chat(stream_request):
+                if await request.is_disconnected():
+                    break
                 # Send event as SSE data
-                yield {"data": json.dumps(event)}
+                yield {"data": json.dumps(event, ensure_ascii=False)}
 
+        except asyncio.CancelledError:
+            return
         except Exception as e:
             # Send error event
             error_event = {"type": "error", "error": str(e)}
-            yield {"data": json.dumps(error_event)}
+            yield {"data": json.dumps(error_event, ensure_ascii=False)}
 
     # Create EventSourceResponse
     return EventSourceResponse(

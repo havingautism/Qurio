@@ -16,6 +16,7 @@ import {
   Code,
   FormInput,
   Globe,
+  LineChart,
   Settings,
   User,
   Box,
@@ -1804,6 +1805,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                                           Wrench,
                                           FormInput,
                                           Globe,
+                                          LineChart,
                                         }[iconName]
                                       : Code
                                     const infoKey = TOOL_INFO_KEYS[tool.name]
@@ -1875,6 +1877,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                                     Wrench,
                                     FormInput,
                                     Globe,
+                                    LineChart,
                                   }[iconName]
                                 : Code
                               const infoKey = TOOL_INFO_KEYS[tool.name]

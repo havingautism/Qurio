@@ -1,20 +1,18 @@
 """
-Stream chat service using Agno framework.
-Main service that orchestrates AI providers, tools, and SSE streaming.
+Stream chat service implemented with Agno SDK (Agent + tools + DB).
 """
+
+from __future__ import annotations
 
 import json
 import re
+import time
 from datetime import datetime
-from typing import Any, AsyncGenerator, Callable
+from typing import Any, AsyncGenerator
+from zoneinfo import ZoneInfo
 
-from agno.tools.tavily import TavilyTools
-# JinaReaderTools removed
-from agno.tools.calculator import CalculatorTools
-from agno.tools.yfinance import YFinanceTools
-from agno.tools.arxiv import ArxivTools
-from agno.tools.wikipedia import WikipediaTools
-from agno.tools.duckduckgo import DuckDuckGoTools
+from agno.agent import RunEvent
+from agno.run.agent import ToolCallCompletedEvent, ToolCallStartedEvent
 from agno.utils.log import logger
 
 from ..models.stream_chat import (
@@ -27,458 +25,321 @@ from ..models.stream_chat import (
     ToolCallEvent,
     ToolResultEvent,
 )
-from ..providers import ExecutionContext, get_provider_adapter
-from .tools import execute_tool_by_name, get_tool_definitions_by_ids, is_local_tool_name, resolve_tool_name
+from .agent_registry import get_agent_for_provider
+from .tool_registry import resolve_tool_name
 
-# Regex for thinking tag parsing
-THINKING_OPEN_PATTERN = re.compile(r"<(think|thought)>", re.IGNORECASE)
-THINKING_CLOSE_PATTERN = re.compile(r"</(think|thought)>", re.IGNORECASE)
+TIME_KEYWORDS_REGEX = re.compile(
+    r"\u4eca\u5929|\u4eca\u5e74|\u73b0\u5728|\u672c\u5468|\u672c\u6708|\u6700\u8fd1|\u521a\u521a|"
+    r"\u660e\u5929|\u6628\u5929|\u4e0a\u5468|\u4e0a\u4e2a\u6708|\u53bb\u5e74|"
+    r"today|current|now|this week|this month|recently|tomorrow|yesterday|last week|last month|last year",
+    re.IGNORECASE,
+)
 
 class StreamChatService:
-    """
-    Stream chat service that handles:
-    - Multi-provider support (OpenAI, Gemini, GLM, etc.)
-    - Tool calling (local, custom, MCP, Agno Toolkits)
-    - SSE streaming with text, thoughts, and tool calls
-    - Context limit handling
-    """
-
-    def __init__(self):
-        self.max_loops = 10
-
-    def _get_agno_toolkits(self, request: StreamChatRequest, tool_ids: list[str]) -> tuple[list[Any], dict[str, Callable]]:
-        """
-        Instantiate Agno toolkits based on request and return (schemas, function_map).
-        Maps legacy tool IDs to new toolkits.
-        """
-        toolkits = []
-        
-        # Legacy ID mapping to Toolkits
-        ids_set = set(tool_ids)
-        
-        # Check Legacy IDs or new IDs
-        enable_tavily = any(id in ids_set for id in ["Tavily_web_search", "web_search", "search", "Tavily_academic_search", "academic_search"])
-        # enable_jina removed - native webpage_reader used instead via CUSTOM_TOOLS
-        enable_calc = any(id in ids_set for id in ["calculator", "math"])
-        
-        # Auto-enable new tools if they are in the list or if we want them default (optional)
-        enable_finance = "yfinance" in ids_set or "finance" in ids_set
-        enable_arxiv = "arxiv" in ids_set or "research" in ids_set
-        enable_wiki = "wikipedia" in ids_set or "wiki" in ids_set
-        enable_ddg = "duckduckgo" in ids_set
-        
-        # Instantiate Toolkits
-        if enable_tavily and request.tavily_api_key:
-            toolkits.append(TavilyTools(api_key=request.tavily_api_key))
-        elif enable_ddg: # Fallback or explicit
-             toolkits.append(DuckDuckGoTools())
-             
-        # Jina logic removed
-
-        if enable_calc:
-            toolkits.append(CalculatorTools())
-            
-        if enable_finance:
-            toolkits.append(YFinanceTools(stock_price=True, company_info=True, analyst_recommendations=True))
-            
-        if enable_arxiv:
-            toolkits.append(ArxivTools())
-            
-        if enable_wiki:
-            toolkits.append(WikipediaTools())
-
-        # Reset registry
-        schemas = []
-        registry = {}
-
-        # Extract tools from toolkits
-        for tk in toolkits:
-            # Toolkit.get_tools() returns a list of Tool objects (which contain 'endpoint' callable and 'entrypoint' name)
-            # OR directly functions. Agno Toolkits are diverse.
-            # Most Official Toolkits in Agno:
-            # toolkit.get_tools() returns list of `ToolkitTool` or `Function`.
-            
-            # We rely on the toolkit's export.
-            # Usually: toolkit.get_tools() -> list of tools
-            tk_tools = tk.get_tools() if hasattr(tk, "get_tools") else []
-            
-            for tool in tk_tools:
-                # schema
-                if hasattr(tool, "to_openai_function"):
-                    schemas.append({"type": "function", "function": tool.to_openai_function()})
-                elif hasattr(tool, "to_dict"):
-                    schemas.append(tool.to_dict())
-                else: 
-                     # Fallback for manual inspection (rare in Agno)
-                     pass
-                
-                # registry
-                # Agno tools have .name and .entrypoint (callable)
-                if hasattr(tool, "name") and hasattr(tool, "entrypoint"):
-                     registry[tool.name] = tool.entrypoint
-                elif hasattr(tool, "__name__"):
-                     registry[tool.__name__] = tool
-
-        return schemas, registry
+    """Stream chat service implemented using Agno Agent streaming events."""
 
     async def stream_chat(
         self,
         request: StreamChatRequest,
     ) -> AsyncGenerator[dict[str, Any], None]:
-        """
-        Stream chat completion with tool calling support.
-        """
         try:
-            # Validate request
-            self._validate_request(request)
+            if not request.provider:
+                raise ValueError("Missing required field: provider")
+            if not request.messages:
+                raise ValueError("Missing required field: messages")
 
-            # Get provider adapter
-            adapter = get_provider_adapter(request.provider)
-
-            # Prepare messages with context limit
-            messages = adapter.apply_context_limit(
-                request.messages,
-                request.context_message_limit,
-            )
-
-            # 1. Get Custom/Legacy Tool Definitions
-            # These are tools STILL in tools.py (interactive_form, etc.)
-            custom_tool_definitions = get_tool_definitions_by_ids(request.tool_ids)
-            
-            # 2. Get User Tools (frontend defined)
-            user_tool_definitions = self._convert_user_tools(request.user_tools)
-
-            # 3. Get Agno Toolkit Tools
-            toolkit_schemas, toolkit_registry = self._get_agno_toolkits(request, request.tool_ids)
-
-            # Convert ToolDefinition models to dicts and combine all tools
-            request_tools_dict = [tool.model_dump() for tool in (request.tools or [])]
-            all_tools = [
-                *request_tools_dict,
-                *custom_tool_definitions,
-                *user_tool_definitions,
-                *toolkit_schemas,
-            ]
-            all_tools = self._deduplicate_tools(all_tools)
-
-            # Tool calling loop
-            current_messages = messages
-            loops = 0
+            agent = get_agent_for_provider(request)
             sources_map: dict[str, Any] = {}
             full_content = ""
             full_thought = ""
 
-            while loops < self.max_loops:
-                loops += 1
+            messages = self._apply_context_limit(
+                request.messages,
+                request.context_message_limit,
+            )
+            pre_events: list[dict[str, Any]] = []
+            messages = self._inject_local_time_context(messages, request, pre_events)
+            enabled_tool_names = self._collect_enabled_tool_names(request)
+            messages = self._inject_tool_guidance(messages, enabled_tool_names)
 
-                # Build execution context
-                context = ExecutionContext(
-                    messages=current_messages,
-                    tools=all_tools if all_tools else None,
-                    tool_choice=request.tool_choice,
-                    temperature=request.temperature,
-                    top_p=request.top_p,
-                    top_k=request.top_k,
-                    frequency_penalty=request.frequency_penalty,
-                    presence_penalty=request.presence_penalty,
-                    response_format=request.response_format,
-                    thinking=request.thinking,
-                    stream=request.stream,
-                    tavily_api_key=request.tavily_api_key,
-                )
+            for event in pre_events:
+                yield event
 
-                # Execute via provider
-                chunk_buffer = {"text": "", "thought": ""}
-                pending_tool_calls: list[dict[str, Any]] = []
+            stream = agent.run(
+                input=messages,
+                stream=True,
+                stream_events=True,
+                user_id=request.user_id,
+                session_id=request.user_id,
+                output_schema=request.response_format,
+            )
 
-                async for chunk in adapter.execute(
-                    context=context,
-                    api_key=request.api_key,
-                    model=request.model,
-                    base_url=request.base_url,
-                ):
-                    match chunk.type:
-                        case "text":
-                            content = chunk.content
-                            parsed = self._parse_thinking_tags(content, request.thinking is not None)
-                            chunk_buffer["text"] += parsed["text"]
-                            if parsed["thought"]:
-                                chunk_buffer["thought"] += parsed["thought"]
-
-                            if chunk_buffer["text"]:
-                                full_content += chunk_buffer["text"]
-                                yield TextEvent(content=chunk_buffer["text"]).model_dump()
-                                chunk_buffer["text"] = ""
-
-                            if chunk_buffer["thought"]:
-                                full_thought += chunk_buffer["thought"]
-                                yield ThoughtEvent(content=chunk_buffer["thought"]).model_dump()
-                                chunk_buffer["thought"] = ""
-
-                        case "thought":
-                            full_thought += chunk.thought
-                            yield ThoughtEvent(content=chunk.thought).model_dump()
-
-                        case "tool_calls":
-                            pending_tool_calls = chunk.tool_calls or []
-                            for tool_call in pending_tool_calls:
-                                function = tool_call.get("function", {})
-                                yield ToolCallEvent(
-                                    id=tool_call.get("id"),
-                                    name=function.get("name", ""),
-                                    arguments=function.get("arguments", ""),
-                                ).model_dump()
-
-                        case "tool_result":
-                            tool_results = chunk.tool_calls or []
-                            for tool_res in tool_results:
-                                yield ToolResultEvent(
-                                    id=tool_res.get("id"),
-                                    name=tool_res.get("name", ""),
-                                    status=tool_res.get("status", "done"),
-                                    output=tool_res.get("output"),
-                                ).model_dump()
-
-                        case "done":
-                            if chunk.finish_reason != "tool_calls":
-                                yield DoneEvent(
-                                    content=full_content,
-                                    thought=full_thought or None,
-                                    sources=list(sources_map.values()) or None,
-                                ).model_dump()
-                                return
-
-                        case "error":
-                            yield ErrorEvent(error=chunk.error or "Unknown error").model_dump()
-                            return
-
-                # Execute tools if any
-                if pending_tool_calls:
-                    current_messages.append({
-                        "role": "assistant",
-                        "content": "",
-                        "tool_calls": pending_tool_calls,
-                    })
-
-                    for tool_call in pending_tool_calls:
-                        function = tool_call.get("function", {})
-                        tool_name = function.get("name", "")
-                        tool_args_str = function.get("arguments", "{}")
-
-                        try:
-                            try:
-                                tool_args = json.loads(tool_args_str)
-                            except json.JSONDecodeError:
-                                tool_args = {}
-
-                            started_at = datetime.now()
-                            
-                            # EXECUTE TOOL
-                            # Check Agno Toolkit Registry first
-                            if tool_name in toolkit_registry:
-                                func = toolkit_registry[tool_name]
-                                # Call function - support both sync and async?
-                                # Agno tools are generally synchronous or async. We wrap them.
-                                try:
-                                    if asyncio.iscoroutinefunction(func):
-                                        result = await func(**tool_args)
-                                    else:
-                                        result = func(**tool_args)
-                                        # If result is an object/Toolkit wrapper, dump it?
-                                        # Agno tools return specific types sometimes, but usually strings/dicts.
-                                        if hasattr(result, "content"): # Message object?
-                                            result = result.content
-                                except Exception as e_inner:
-                                     raise ValueError(f"Agno Tool Error: {e_inner}")
-                            else:
-                                # Fallback to existing logic
-                                result = await self._execute_tool(
-                                    tool_name=tool_name,
-                                    args=tool_args,
-                                    request=request,
-                                )
-                                
-                            duration_ms = int((datetime.now() - started_at).total_seconds() * 1000)
-
-                            if self._is_search_tool(tool_name):
-                                self._collect_search_sources(result, sources_map)
-
-                            yield ToolResultEvent(
-                                id=tool_call.get("id"),
-                                name=tool_name,
-                                status="done",
-                                output=result,
-                                duration_ms=duration_ms,
-                            ).model_dump()
-
-                            current_messages.append({
-                                "role": "tool",
-                                "tool_call_id": tool_call.get("id"),
-                                "name": tool_name,
-                                "content": json.dumps(result, default=str),
-                            })
-
-                        except Exception as e:
-                            logger.error(f"Tool execution failed: {e}")
-                            yield ToolResultEvent(
-                                id=tool_call.get("id"),
-                                name=tool_name,
-                                status="error",
-                                error=str(e),
-                            ).model_dump()
-
-                            current_messages.append({
-                                "role": "tool",
-                                "tool_call_id": tool_call.get("id"),
-                                "name": tool_name,
-                                "content": json.dumps({"error": str(e)}),
-                            })
-
+            for event in stream:
+                if not hasattr(event, "event"):
                     continue
 
-                yield DoneEvent(
-                    content=full_content,
-                    thought=full_thought or None,
-                    sources=list(sources_map.values()) or None,
-                ).model_dump()
-                return
+                match event.event:
+                    case RunEvent.run_content.value:
+                        content = getattr(event, "content", None)
+                        if content:
+                            full_content += str(content)
+                            yield TextEvent(content=str(content)).model_dump()
+                        reasoning = getattr(event, "reasoning_content", None)
+                        if reasoning:
+                            full_thought += str(reasoning)
+                            yield ThoughtEvent(content=str(reasoning)).model_dump()
 
-            yield DoneEvent(
-                content=full_content,
-                thought=full_thought or None,
-                sources=list(sources_map.values()) or None,
-            ).model_dump()
+                    case RunEvent.reasoning_content_delta.value:
+                        reasoning = getattr(event, "reasoning_content", None)
+                        if reasoning:
+                            full_thought += str(reasoning)
+                            yield ThoughtEvent(content=str(reasoning)).model_dump()
 
-        except Exception as e:
-            logger.error(f"Stream chat error: {e}")
-            yield ErrorEvent(error=str(e)).model_dump()
+                    case RunEvent.tool_call_started.value:
+                        tool_event: ToolCallStartedEvent = event  # type: ignore[assignment]
+                        tool = tool_event.tool
+                        if tool:
+                            yield ToolCallEvent(
+                                id=tool.tool_call_id,
+                                name=tool.tool_name or "",
+                                arguments=json.dumps(tool.tool_args or {}),
+                            ).model_dump()
 
-    def _validate_request(self, request: StreamChatRequest) -> None:
-        if not request.provider:
-            raise ValueError("Missing required field: provider")
-        if not request.api_key:
-            raise ValueError("Missing required field: apiKey")
-        if not request.messages:
-            raise ValueError("Missing required field: messages")
+                    case RunEvent.tool_call_completed.value:
+                        tool_event: ToolCallCompletedEvent = event  # type: ignore[assignment]
+                        tool = tool_event.tool
+                        if tool:
+                            output = self._normalize_tool_output(tool.result)
+                            if output and isinstance(output, str):
+                                try:
+                                    parsed = json.loads(output)
+                                    output = parsed
+                                except Exception:
+                                    pass
+                            yield ToolResultEvent(
+                                id=tool.tool_call_id,
+                                name=tool.tool_name or "",
+                                status="done" if not tool.tool_call_error else "error",
+                                output=output,
+                            ).model_dump()
+                            self._collect_search_sources(output, sources_map)
 
-        from ..providers import is_provider_supported
-        if not is_provider_supported(request.provider):
-            raise ValueError(f"Unsupported provider: {request.provider}")
+                    case RunEvent.run_completed.value:
+                        yield DoneEvent(
+                            content=full_content,
+                            thought=full_thought or None,
+                            sources=list(sources_map.values()) or None,
+                        ).model_dump()
+                        return
 
-    def _convert_user_tools(self, user_tools: list[Any]) -> list[dict[str, Any]]:
-        definitions = []
-        for tool in user_tools:
-            parameters = (
-                tool.input_schema
-                if hasattr(tool, "input_schema") and tool.input_schema
-                else tool.parameters if hasattr(tool, "parameters") else {}
-            )
-            definitions.append({
-                "type": "function",
-                "function": {
-                    "name": tool.name,
-                    "description": tool.description,
-                    "parameters": parameters,
-                },
-            })
-        return definitions
+                    case RunEvent.run_error.value:
+                        error_msg = getattr(event, "content", None) or "Unknown error"
+                        yield ErrorEvent(error=str(error_msg)).model_dump()
+                        return
 
-    def _deduplicate_tools(self, tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        seen = set()
-        unique_tools = []
-        for tool in tools:
-            name = tool.get("function", {}).get("name", "")
-            if name and name not in seen:
-                seen.add(name)
-                unique_tools.append(tool)
-        return unique_tools
+        except Exception as exc:
+            logger.error(f"Stream chat error: {exc}")
+            yield ErrorEvent(error=str(exc)).model_dump()
 
-    def _parse_thinking_tags(self, text: str, enable_tags: bool) -> dict[str, str]:
-        if not enable_tags:
-            return {"text": text, "thought": ""}
-
-        result = {"text": "", "thought": ""}
-        remaining = text
-        in_thought = False
-
-        while remaining:
-            if not in_thought:
-                match = THINKING_OPEN_PATTERN.search(remaining)
-                if not match:
-                    result["text"] += remaining
-                    break
-                result["text"] += remaining[:match.start()]
-                remaining = remaining[match.end():]
-                in_thought = True
-            else:
-                match = THINKING_CLOSE_PATTERN.search(remaining)
-                if not match:
-                    result["thought"] += remaining
-                    break
-                result["thought"] += remaining[:match.start()]
-                remaining = remaining[match.end():]
-                in_thought = False
-
-        return result
-
-    async def _execute_tool(
+    def _apply_context_limit(
         self,
-        tool_name: str,
-        args: dict[str, Any],
+        messages: list[dict[str, Any]],
+        limit: int | None,
+    ) -> list[dict[str, Any]]:
+        if not limit or limit <= 0 or len(messages) <= limit:
+            return messages
+        system_messages = [m for m in messages if m.get("role") == "system"]
+        non_system = [m for m in messages if m.get("role") != "system"]
+        recent = non_system[-limit:]
+        return system_messages + recent
+
+    def _collect_enabled_tool_names(self, request: StreamChatRequest) -> set[str]:
+        names: list[str] = []
+        if request.provider != "gemini":
+            for tool_id in request.tool_ids or []:
+                names.append(resolve_tool_name(str(tool_id)))
+        for tool_def in request.tools or []:
+            if hasattr(tool_def, "model_dump"):
+                tool_def = tool_def.model_dump()
+            if not isinstance(tool_def, dict):
+                continue
+            name = tool_def.get("function", {}).get("name") or tool_def.get("name")
+            if name:
+                names.append(resolve_tool_name(str(name)))
+        for user_tool in request.user_tools or []:
+            if hasattr(user_tool, "name") and user_tool.name:
+                names.append(str(user_tool.name))
+        return set(names)
+
+    def _inject_local_time_context(
+        self,
+        messages: list[dict[str, Any]],
         request: StreamChatRequest,
-    ) -> dict[str, Any]:
-        """Execute a local/custom tool by name."""
-        user_tools_map = {tool.name: tool for tool in request.user_tools}
+        pre_events: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        if not messages:
+            return messages
 
-        if tool_name in user_tools_map:
-            return await self._execute_custom_tool(user_tools_map[tool_name], args)
+        last_user_index = -1
+        last_user_message = None
+        for idx in range(len(messages) - 1, -1, -1):
+            if messages[idx].get("role") == "user":
+                last_user_index = idx
+                last_user_message = messages[idx]
+                break
+        if last_user_message is None:
+            return messages
 
-        if is_local_tool_name(tool_name) or resolve_tool_name(tool_name) != tool_name:
-            tool_config = {
-                "tavilyApiKey": request.tavily_api_key,
-                "searchProvider": request.search_provider,
-            }
-            return await execute_tool_by_name(tool_name, args, tool_config)
+        content = last_user_message.get("content", "")
+        if isinstance(content, list):
+            content = " ".join(
+                [str(part.get("text") or part.get("content") or part) for part in content if part]
+            )
+        if not isinstance(content, str):
+            content = str(content)
 
-        raise ValueError(f"Unknown tool: {tool_name}")
+        if not TIME_KEYWORDS_REGEX.search(content or ""):
+            return messages
 
-    def _is_search_tool(self, tool_name: str) -> bool:
-        # Check standard names and Agno function names
-        return tool_name in {
-            "Tavily_web_search", 
-            "tavily_search", 
-            "web_search", 
-            "academic_search", 
-            "search",
-            "duckduckgo_search",
-            "search_google", # if using google search
-        } or "search" in tool_name.lower()
+        tool_ids = {resolve_tool_name(str(tool_id)) for tool_id in request.tool_ids or []}
+        if "local_time" not in tool_ids:
+            return messages
 
-    def _collect_search_sources(
+        timezone = request.user_timezone or "UTC"
+        locale = request.user_locale or "en-US"
+        time_args = {"timezone": timezone, "locale": locale}
+        time_result = self._compute_local_time(timezone, locale)
+
+        tool_call_id = f"local-time-{int(time.time() * 1000)}"
+        pre_events.append(
+            ToolCallEvent(
+                id=tool_call_id,
+                name="local_time",
+                arguments=json.dumps(time_args),
+                textIndex=0,
+            ).model_dump()
+        )
+        pre_events.append(
+            ToolResultEvent(
+                id=tool_call_id,
+                name="local_time",
+                status="done",
+                output=time_result,
+            ).model_dump()
+        )
+
+        injected = (
+            "\n\n[SYSTEM INJECTED CONTEXT]\n"
+            f"Current Local Time: {time_result.get('formatted')} ({time_result.get('timezone')})"
+        )
+        updated_message = dict(last_user_message)
+        updated_message["content"] = f"{content}{injected}"
+        messages[last_user_index] = updated_message
+        return messages
+
+    def _compute_local_time(self, timezone: str, locale: str) -> dict[str, Any]:
+        try:
+            tzinfo = ZoneInfo(timezone)
+            now = datetime.now(tzinfo)
+        except Exception:
+            now = datetime.now()
+        return {
+            "timezone": timezone,
+            "locale": locale,
+            "formatted": now.strftime("%Y-%m-%d %H:%M:%S"),
+            "iso": now.isoformat(),
+        }
+
+    def _inject_tool_guidance(
         self,
-        result: Any,
-        sources_map: dict[str, Any],
-    ) -> None:
-        """Collect sources from search tool result."""
-        # Agno results usually return string or object.
-        # If string, we might try to extract URLs? No, usually formatted.
-        # If it returns a JSON-like dict, we look for 'results'
-        
+        messages: list[dict[str, Any]],
+        enabled_tools: set[str],
+    ) -> list[dict[str, Any]]:
+        if not enabled_tools:
+            return messages
+
+        updated = list(messages)
+        system_index = next((i for i, m in enumerate(updated) if m.get("role") == "system"), -1)
+
+        if "interactive_form" in enabled_tools:
+            form_guidance = (
+                "\n[TOOL USE GUIDANCE]\n"
+                "When you need to collect structured information from the user (e.g. preferences, requirements, "
+                "booking details), use the 'interactive_form' tool.\n"
+                "CRITICAL: DO NOT list questions in text or markdown. YOU MUST USE the 'interactive_form' tool to "
+                "display fields.\n"
+                "Keep forms concise (3-6 fields).\n\n"
+                "[MANDATORY TEXT-FIRST RULE]\n"
+                "CRITICAL: You MUST output meaningful introductory text BEFORE calling 'interactive_form'.\n"
+                "- NEVER call 'interactive_form' as the very first thing in your response\n"
+                "- ALWAYS explain the context, acknowledge the user's request, or provide guidance BEFORE the form\n"
+                "- Minimum: Output at least 1-2 sentences before the form call\n"
+                '- Example: "I can help you with that. To provide the best recommendation, please share some '
+                'details below:"\n\n'
+                "[SINGLE FORM PER RESPONSE]\n"
+                "CRITICAL: You may call 'interactive_form' ONLY ONCE per response. Do NOT call it multiple times in "
+                "the same answer.\n"
+                "If you need to collect information, design ONE comprehensive form that gathers all necessary "
+                "details at once.\n\n"
+                "[MULTI-TURN INTERACTIONS]\n"
+                "1. If the information from a submitted form is insufficient, you MAY present another "
+                "'interactive_form' in your NEXT response (after the user submits the first form).\n"
+                "2. LIMIT: Use at most 2-3 forms total across the entire conversation. Excessive questioning "
+                "frustrates users.\n"
+                "3. INTERLEAVING: You can place the form anywhere in your response. Output introductory text FIRST "
+                "(e.g., \"I can help with that. Please provide some details below:\"), then call 'interactive_form' "
+                "once.\n"
+                "4. If the user has provided enough context through previous forms, proceed directly to the final "
+                "answer without requesting more information."
+            )
+            updated = self._append_system_message(updated, form_guidance, system_index)
+            system_index = next((i for i, m in enumerate(updated) if m.get("role") == "system"), -1)
+
+        if "Tavily_web_search" in enabled_tools:
+            citation_prompt = (
+                '\n\n[IMPORTANT] You have access to a "Tavily_web_search" tool. When you use this tool to answer a '
+                "question, you MUST cite the search results in your answer using the format [1], [2], etc., "
+                "corresponding to the index of the search result provided in the tool output. Do not fabricate "
+                "citations."
+            )
+            updated = self._append_system_message(updated, citation_prompt, system_index)
+
+        return updated
+
+    def _append_system_message(
+        self,
+        messages: list[dict[str, Any]],
+        addition: str,
+        system_index: int,
+    ) -> list[dict[str, Any]]:
+        updated = list(messages)
+        if system_index != -1:
+            updated[system_index] = {
+                **updated[system_index],
+                "content": f"{updated[system_index].get('content', '')}{addition}",
+            }
+        else:
+            updated.insert(0, {"role": "system", "content": addition})
+        return updated
+
+    def _normalize_tool_output(self, output: Any) -> Any:
+        if hasattr(output, "model_dump"):
+            try:
+                return output.model_dump()
+            except Exception:
+                return str(output)
+        if isinstance(output, dict):
+            return output
+        if isinstance(output, list):
+            return [self._normalize_tool_output(item) for item in output]
+        return output
+
+    def _collect_search_sources(self, result: Any, sources_map: dict[str, Any]) -> None:
         results = []
         if isinstance(result, dict):
             results = result.get("results", [])
-        elif isinstance(result, str):
-             # Try to parse if it's JSON string
-             try:
-                 parsed = json.loads(result)
-                 if isinstance(parsed, dict):
-                     results = parsed.get("results", [])
-             except:
-                 pass
-        
         if not isinstance(results, list):
             return
-
         for item in results:
             url = item.get("url") or item.get("link") or item.get("uri")
             if not url or url in sources_map:
@@ -486,19 +347,8 @@ class StreamChatService:
             sources_map[url] = SourceEvent(
                 uri=url,
                 title=item.get("title", "Unknown Source"),
-                snippet=item.get("content", item.get("snippet", ""))[:200],
+                snippet=(item.get("content") or item.get("snippet") or "")[:200],
             ).model_dump()
-
-    async def _execute_custom_tool(
-        self,
-        tool: Any,
-        args: dict[str, Any],
-    ) -> dict[str, Any]:
-        return {
-            "tool": tool.name,
-            "executed": True,
-            "args": args,
-        }
 
 _stream_chat_service: StreamChatService | None = None
 

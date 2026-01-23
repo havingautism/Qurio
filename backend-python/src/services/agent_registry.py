@@ -135,7 +135,7 @@ def _apply_thinking_params(model: Any, provider: str, thinking: dict[str, Any] |
         if isinstance(thinking, dict) and thinking.get("type"):
             payload = {"thinking": {"type": thinking.get("type")}}
             _merge_model_dict_attr(model, "extra_body", payload)
-            _merge_model_dict_attr(model, "request_params", payload)
+            # _merge_model_dict_attr(model, "request_params", payload)
         return
 
     if provider == "kimi":

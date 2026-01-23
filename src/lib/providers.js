@@ -7,6 +7,7 @@ import {
   MINIMAX_BASE_URL,
 } from './providerConstants'
 import { getPublicEnv } from './publicEnv'
+import { createSearchToolDefinition, DEFAULT_SEARCH_TOOL_ID } from './searchTools'
 
 /**
  * Provider Registry
@@ -44,6 +45,9 @@ const defaultParseMessage = input => {
       Object.prototype.hasOwnProperty.call(input, 'thinkingProcess') ||
       Object.prototype.hasOwnProperty.call(input, 'reasoning_content'))
 
+  let thought = null
+  let rawContent = ''
+
   if (hasExplicitThought) {
     const thoughtField =
       input.thought ??
@@ -51,25 +55,26 @@ const defaultParseMessage = input => {
       input.thinkingProcess ??
       input?.thought ??
       input?.reasoning_content
-    const thoughtText = extractText(thoughtField)
-    const rawContent = extractText(input.content || '')
-    return {
-      thought: thoughtText || null,
-      content: rawContent.replace(/<thought>[\s\S]*?(?:<\/thought>|$)/, '').trim(),
-    }
+    thought = extractText(thoughtField) || null
+    rawContent = extractText(input.content || '')
+  } else {
+    rawContent = typeof input === 'string' ? input : extractText(input?.content ?? input)
   }
 
-  const rawContent = typeof input === 'string' ? input : extractText(input?.content ?? input)
-
-  const thoughtMatch = /<thought>([\s\S]*?)(?:<\/thought>|$)/.exec(rawContent)
+  // Support both <thought> and <think> tags
+  const thoughtMatch = /<(thought|think)>([\s\S]*?)(?:<\/\1>|$)/i.exec(rawContent)
   if (thoughtMatch) {
+    const extractedThought = thoughtMatch[2]
+    // Clean content of the first found tag block
+    const cleanedContent = rawContent.replace(/<(thought|think)>[\s\S]*?(?:<\/\1>|$)/i, '').trim()
+
     return {
-      thought: thoughtMatch[1],
-      content: rawContent.replace(/<thought>[\s\S]*?(?:<\/thought>|$)/, '').trim(),
+      thought: thought ? `${thought}\n\n${extractedThought}`.trim() : extractedThought,
+      content: cleanedContent,
     }
   }
 
-  return { content: rawContent, thought: null }
+  return { content: rawContent, thought }
 }
 
 const normalizeMarkdownSpacing = text => {
@@ -90,6 +95,13 @@ export const TOOL_DISPLAY_NAMES = {
   Tavily_academic_search: 'Academic Search',
 }
 
+const resolveSearchTools = (isSearchActive, searchTool) => {
+  if (!isSearchActive) return undefined
+  const toolIds = Array.isArray(searchTool) ? searchTool : [searchTool]
+  const resolved = toolIds.filter(Boolean).map(id => createSearchToolDefinition(id))
+  return resolved.length > 0 ? resolved : undefined
+}
+
 export const PROVIDERS = {
   openai_compatibility: {
     ...createBackendProvider('openai_compatibility'),
@@ -99,25 +111,7 @@ export const PROVIDERS = {
       apiKey: settings.OpenAICompatibilityKey,
       baseUrl: settings.OpenAICompatibilityUrl,
     }),
-    getTools: isSearchActive =>
-      isSearchActive
-        ? [
-            {
-              type: 'function',
-              function: {
-                name: 'Tavily_web_search',
-                description: 'Search the web for current information.',
-                parameters: {
-                  type: 'object',
-                  properties: {
-                    query: { type: 'string', description: 'Search query' },
-                  },
-                  required: ['query'],
-                },
-              },
-            },
-          ]
-        : undefined,
+    getTools: (isSearchActive, searchTool) => resolveSearchTools(isSearchActive, searchTool),
     getThinking: isThinkingActive =>
       isThinkingActive
         ? {
@@ -141,36 +135,7 @@ export const PROVIDERS = {
       apiKey: settings.SiliconFlowKey,
       baseUrl: SILICONFLOW_BASE_URL,
     }),
-    getTools: isSearchActive =>
-      isSearchActive
-        ? [
-            // Native Implementation:
-            // {
-            //   type: 'web_search',
-            //   web_search: {
-            //     enable: true,
-            //     search_result: true,
-            //     // Add search_prompt to guide GLM to include citation markers
-            //     // search_prompt:
-            //     //   'When answering, mark the resources you have cited. If it is an academic article, use the format [a][b][c]; if it is a web resource (not an academic article), use the format [1][2][3]. Do not fabricate resources. Use the actual referenced resources as the basis.',
-            //   },
-            // },
-            {
-              type: 'function',
-              function: {
-                name: 'Tavily_web_search',
-                description: 'Search the web for current information.',
-                parameters: {
-                  type: 'object',
-                  properties: {
-                    query: { type: 'string', description: 'Search query' },
-                  },
-                  required: ['query'],
-                },
-              },
-            },
-          ]
-        : undefined,
+    getTools: (isSearchActive, searchTool) => resolveSearchTools(isSearchActive, searchTool),
     getThinking: isThinkingActive =>
       isThinkingActive
         ? {
@@ -187,82 +152,7 @@ export const PROVIDERS = {
       apiKey: settings.googleApiKey || getPublicEnv('PUBLIC_GOOGLE_API_KEY'),
       baseUrl: undefined, // Native SDK usually handles its own endpoints
     }),
-    getTools: isSearchActive => {
-      // Replaced Native Google Search with Tavily
-      // Native Implementation:
-      // let toolList = []
-      // if (isSearchActive) {
-      //   toolList.push({ googleSearch: {} })
-      // }
-      // return toolList
-      return isSearchActive
-        ? [
-            {
-              type: 'function',
-              function: {
-                name: 'Tavily_web_search',
-                description: 'Search the web for current information.',
-                parameters: {
-                  type: 'object',
-                  properties: {
-                    query: { type: 'string', description: 'Search query' },
-                  },
-                  required: ['query'],
-                },
-              },
-            },
-          ]
-        : undefined
-    }, // Replaced Native Gemini Google Search tool
-    getThinking: (isThinkingActive, model) => {
-      if (!isThinkingActive) return undefined
-      const isGemini3Preview = model === 'gemini-3-pro-preview'
-      return {
-        thinkingConfig: isGemini3Preview
-          ? { includeThoughts: true, thinkingLevel: 'high' }
-          : { includeThoughts: true, thinkingBudget: 1024 },
-      }
-    }, // Native Gemini thinking config
-    parseMessage: defaultParseMessage,
-  },
-  glm: {
-    ...createBackendProvider('glm'),
-    id: 'glm',
-    name: 'GLM (Zhipu AI)',
-    getCredentials: settings => ({
-      apiKey: settings.GlmKey || getPublicEnv('PUBLIC_GLM_API_KEY'),
-      baseUrl: GLM_BASE_URL,
-    }),
-    getTools: isSearchActive =>
-      isSearchActive
-        ? [
-            // Native Implementation:
-            // {
-            //   type: 'web_search',
-            //   web_search: {
-            //     enable: true,
-            //     search_result: true,
-            //     // Add search_prompt to guide GLM to include citation markers
-            //     // search_prompt:
-            //     //   'When answering, mark the resources you have cited. If it is an academic article, use the format [a][b][c]; if it is a web resource (not an academic article), use the format [1][2][3]. Do not fabricate resources. Use the actual referenced resources as the basis.',
-            //   },
-            // },
-            {
-              type: 'function',
-              function: {
-                name: 'Tavily_web_search',
-                description: 'Search the web for current information.',
-                parameters: {
-                  type: 'object',
-                  properties: {
-                    query: { type: 'string', description: 'Search query' },
-                  },
-                  required: ['query'],
-                },
-              },
-            },
-          ]
-        : undefined,
+    getTools: (isSearchActive, searchTool) => resolveSearchTools(isSearchActive, searchTool),
     // GLM requires explicit { type: "disabled" } to suppress thinking content
     getThinking: isThinkingActive => ({
       type: isThinkingActive ? 'enabled' : 'disabled',
@@ -277,33 +167,7 @@ export const PROVIDERS = {
       apiKey: settings.ModelScopeKey || getPublicEnv('PUBLIC_MODELSCOPE_API_KEY'),
       baseUrl: MODELSCOPE_BASE_URL,
     }),
-    getTools: isSearchActive =>
-      isSearchActive
-        ? [
-            // Native Implementation:
-            // {
-            //   type: 'web_search',
-            //   web_search: {
-            //     enable: true,
-            //     search_result: true,
-            //   },
-            // },
-            {
-              type: 'function',
-              function: {
-                name: 'Tavily_web_search',
-                description: 'Search the web for current information.',
-                parameters: {
-                  type: 'object',
-                  properties: {
-                    query: { type: 'string', description: 'Search query' },
-                  },
-                  required: ['query'],
-                },
-              },
-            },
-          ]
-        : undefined,
+    getTools: (isSearchActive, searchTool) => resolveSearchTools(isSearchActive, searchTool),
     getThinking: isThinkingActive =>
       isThinkingActive
         ? {
@@ -324,32 +188,7 @@ export const PROVIDERS = {
       apiKey: settings.KimiKey || getPublicEnv('PUBLIC_KIMI_API_KEY'),
       baseUrl: getPublicEnv('PUBLIC_KIMI_BASE_URL'),
     }),
-    getTools: isSearchActive =>
-      isSearchActive
-        ? [
-            // Native Implementation:
-            // {
-            //   type: 'builtin_function',
-            //   function: {
-            //     name: '$web_search',
-            //   },
-            // },
-            {
-              type: 'function',
-              function: {
-                name: 'Tavily_web_search',
-                description: 'Search the web for current information.',
-                parameters: {
-                  type: 'object',
-                  properties: {
-                    query: { type: 'string', description: 'Search query' },
-                  },
-                  required: ['query'],
-                },
-              },
-            },
-          ]
-        : undefined,
+    getTools: (isSearchActive, searchTool) => resolveSearchTools(isSearchActive, searchTool),
     getThinking: isThinkingActive =>
       isThinkingActive
         ? {
@@ -369,25 +208,7 @@ export const PROVIDERS = {
       apiKey: settings.NvidiaKey,
       baseUrl: NVIDIA_BASE_URL,
     }),
-    getTools: isSearchActive =>
-      isSearchActive
-        ? [
-            {
-              type: 'function',
-              function: {
-                name: 'Tavily_web_search',
-                description: 'Search the web for current information.',
-                parameters: {
-                  type: 'object',
-                  properties: {
-                    query: { type: 'string', description: 'Search query' },
-                  },
-                  required: ['query'],
-                },
-              },
-            },
-          ]
-        : undefined,
+    getTools: (isSearchActive, searchTool) => resolveSearchTools(isSearchActive, searchTool),
     getThinking: isThinkingActive => (isThinkingActive ? true : undefined),
     parseMessage: defaultParseMessage,
   },
@@ -399,25 +220,7 @@ export const PROVIDERS = {
       apiKey: settings.MinimaxKey,
       baseUrl: MINIMAX_BASE_URL,
     }),
-    getTools: isSearchActive =>
-      isSearchActive
-        ? [
-            {
-              type: 'function',
-              function: {
-                name: 'Tavily_web_search',
-                description: 'Search the web for current information.',
-                parameters: {
-                  type: 'object',
-                  properties: {
-                    query: { type: 'string', description: 'Search query' },
-                  },
-                  required: ['query'],
-                },
-              },
-            },
-          ]
-        : undefined,
+    getTools: (isSearchActive, searchTool) => resolveSearchTools(isSearchActive, searchTool),
     getThinking: isThinkingActive =>
       isThinkingActive
         ? {
@@ -452,7 +255,7 @@ export const getProvider = providerName => {
 export const providerSupportsSearch = providerName => {
   const provider = getProvider(providerName)
   if (!provider || !provider.getTools) return false
-  const tools = provider.getTools(true)
+  const tools = provider.getTools(true, DEFAULT_SEARCH_TOOL_ID)
   return tools && tools.length > 0
 }
 

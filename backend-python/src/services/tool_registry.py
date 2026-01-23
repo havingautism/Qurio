@@ -7,10 +7,7 @@ from __future__ import annotations
 from typing import Any
 
 
-TOOL_ALIASES: dict[str, str] = {
-    "web_search": "Tavily_web_search",
-    "academic_search": "Tavily_academic_search",
-}
+TOOL_ALIASES: dict[str, str] = {}
 
 GLOBAL_TOOLS: list[dict[str, Any]] = [
     {
@@ -248,7 +245,7 @@ AGNO_TOOLS: list[dict[str, Any]] = [
         "id": "web_search",
         "name": "web_search",
         "category": "agno",
-        "description": "Search the web using DuckDuckGo (DDGS).",
+        "description": "Search the web using WebSearchTools backend (DuckDuckGo/Google/Bing/Brave/Yandex/Yahoo).",
         "parameters": {
             "type": "object",
             "required": ["query"],
@@ -265,7 +262,7 @@ AGNO_TOOLS: list[dict[str, Any]] = [
         "id": "search_news",
         "name": "search_news",
         "category": "agno",
-        "description": "Search news using DuckDuckGo (DDGS).",
+        "description": "Search news using WebSearchTools backend (DuckDuckGo/Google/Bing/Brave/Yandex/Yahoo).",
         "parameters": {
             "type": "object",
             "required": ["query"],

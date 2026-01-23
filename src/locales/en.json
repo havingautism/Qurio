@@ -22,7 +22,7 @@
   },
   "tools": {
     "webSearch": "Web Search",
-    "webSearchInfo": "Search real-time web information through Tavily API for latest articles, news, and data",
+    "webSearchInfo": "Search the web using the selected backend for latest articles, news, and data",
     "academicSearch": "Academic Search",
     "academicSearchInfo": "Search academic papers, research, and scientific literature for authoritative resources",
     "calculator": "Calculator",
@@ -53,6 +53,8 @@
     "ddgWebSearchInfo": "Search the web using DuckDuckGo (DDGS).",
     "ddgNewsSearch": "DuckDuckGo News",
     "ddgNewsSearchInfo": "Search recent news using DuckDuckGo (DDGS).",
+    "newsSearch": "News Search",
+    "newsSearchInfo": "Search news using the selected web search backend.",
     "arxivSearch": "arXiv Search",
     "arxivSearchInfo": "Search arXiv for papers and return article metadata.",
     "arxivRead": "arXiv Read Papers",
@@ -77,6 +79,15 @@
     "technicalIndicatorsInfo": "Calculate technical indicators for a stock.",
     "historicalPrices": "Historical Prices",
     "historicalPricesInfo": "Get historical stock prices for a symbol."
+  },
+  "searchBackends": {
+    "auto": "Auto",
+    "duckduckgo": "DuckDuckGo",
+    "google": "Google",
+    "bing": "Bing",
+    "brave": "Brave",
+    "yandex": "Yandex",
+    "yahoo": "Yahoo"
   },
   "knowledgeBase": {
     "title": "Knowledge Base",
@@ -840,6 +851,7 @@
     "documentEmbeddingMismatch": "Selected documents were indexed with {{model}}. Switch your embedding model to match before retrieving them.",
     "documentEmbeddingMixedModels": "Selected documents use multiple embedding models. Select docs that share the same model before retrieving them.",
     "capabilities": "Capabilities",
+    "searchMenuTitle": "Search provider",
     "warning": "Qurio can make mistakes. Please use with caution."
   },
   "agentsView": {

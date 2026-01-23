@@ -22,6 +22,7 @@ import { useSidebarOffset } from '../hooks/useSidebarOffset'
 // import { getAgentDisplayName } from '../lib/agentDisplay'
 // import { getSpaceDisplayLabel } from '../lib/spaceDisplay'
 import { loadSettings } from '../lib/settings'
+import { DEFAULT_SEARCH_TOOL_ID } from '../lib/searchTools'
 import { deleteMessageById } from '../lib/supabase'
 import ChatHeader from './chat/ChatHeader'
 
@@ -138,6 +139,7 @@ const DeepResearchChatInterface = ({
 
   // New state for toggles and attachments
   const [isSearchActive, setIsSearchActive] = useState(false)
+  const [selectedSearchTools, setSelectedSearchTools] = useState([])
   const [isThinkingActive, setIsThinkingActive] = useState(false)
   const [isDeepResearchActive, setIsDeepResearchActive] = useState(false)
   const [isConcurrentResearchActive, setIsConcurrentResearchActive] = useState(false) // Concurrent research (experimental)
@@ -569,6 +571,18 @@ const DeepResearchChatInterface = ({
     messages.length,
     isLoadingHistory,
   ])
+
+  useEffect(() => {
+    if (isSearchActive) {
+      if (selectedSearchTools.length === 0) {
+        setSelectedSearchTools([DEFAULT_SEARCH_TOOL_ID])
+      }
+      return
+    }
+    if (selectedSearchTools.length > 0) {
+      setSelectedSearchTools([])
+    }
+  }, [isSearchActive, selectedSearchTools])
 
   // Load existing conversation messages when switching conversations
   useEffect(() => {
@@ -1096,6 +1110,7 @@ const DeepResearchChatInterface = ({
       const textToSend = msgOverride !== null ? msgOverride : ''
       const attToSend = attOverride !== null ? attOverride : []
       const searchActive = togglesOverride ? togglesOverride.search : isSearchActive
+      const searchTool = togglesOverride ? togglesOverride.searchTool : selectedSearchTools
       const thinkingActive = togglesOverride ? togglesOverride.thinking : isThinkingActive
       const deepResearchActive = togglesOverride
         ? togglesOverride.deepResearch
@@ -1163,6 +1178,7 @@ const DeepResearchChatInterface = ({
         attachments: attToSend,
         toggles: {
           search: searchActive,
+          searchTool,
           thinking: resolvedThinkingActive,
           deepResearch: deepResearchActive,
           concurrentResearch: deepResearchActive ? concurrentResearchActive : false, // Only apply when deepResearch is active

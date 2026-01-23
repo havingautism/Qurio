@@ -1,4 +1,4 @@
-import clsx from 'clsx'
+﻿import clsx from 'clsx'
 import ArrowRight from 'lucide-react/dist/esm/icons/arrow-right'
 import ArrowUp from 'lucide-react/dist/esm/icons/arrow-up'
 import Brain from 'lucide-react/dist/esm/icons/brain'
@@ -107,126 +107,223 @@ const CapsuleSettingsMenu = React.memo(
     onToggleThinking,
     isSearchActive,
     onToggleSearch,
+    searchBackend,
+    searchBackendOptions = [],
+    selectedSearchTools = [],
+    searchOptions = [],
     t,
     isSearchSupported,
-  }) => (
-    <div className="space-y-3">
-      {/* Models List */}
-      <div>
-        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-2 mb-2">
-          {t('chatInterface.agentsLabel')}
+    isSearchMenuOpen,
+    onSearchToolSelect,
+    onSearchBackendChange,
+    searchMenuRef,
+  }) => {
+    const backendLabel = React.useMemo(() => {
+      if (!searchBackend) return null
+      const option = (searchBackendOptions || []).find(item => item.id === searchBackend)
+      return option ? t(option.labelKey) : searchBackend
+    }, [searchBackend, searchBackendOptions, t])
+
+    const activeSearchLabel = React.useMemo(() => {
+      if (!isSearchActive) return t('homeView.search')
+      const academicCount = selectedSearchTools?.length || 0
+      const activeCount = (searchBackend ? 1 : 0) + (academicCount > 0 ? 1 : 0)
+      if (activeCount > 1) {
+        return `${t('homeView.search')} (${activeCount})`
+      }
+      if (searchBackend) {
+        return `${t('tools.webSearch')} · ${backendLabel || searchBackend}`
+      }
+      if (academicCount > 0) {
+        return `${t('tools.academicSearch')} (${academicCount})`
+      }
+      return t('homeView.search')
+    }, [isSearchActive, selectedSearchTools, searchBackend, backendLabel, t])
+    return (
+      <div className="space-y-3">
+        {/* Models List */}
+        <div>
+          <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-2 mb-2">
+            {t('chatInterface.agentsLabel')}
+          </div>
+          <div className="flex flex-col gap-1.5 max-h-[300px] overflow-y-auto no-scrollbar">
+            <button
+              onClick={() => {
+                onAgentAutoModeToggle()
+              }}
+              className={clsx(
+                'flex items-center justify-between w-full px-3 py-2 rounded-xl text-sm transition-colors',
+                isAgentAutoMode
+                  ? 'bg-gray-100 dark:bg-zinc-700/50 text-gray-900 dark:text-white font-medium'
+                  : 'hover:bg-gray-100 dark:hover:bg-zinc-700/50 text-gray-600 dark:text-gray-300',
+              )}
+            >
+              <div className="flex items-center gap-2.5">
+                <span className="text-lg">✨</span>
+                <span>{t('chatInterface.agentAuto')}</span>
+              </div>
+              {isAgentAutoMode && <Check size={14} className="text-primary-500" />}
+            </button>
+            {agents.map(agent => {
+              const isSelected = !isAgentAutoMode && selectedAgent?.id === agent.id
+              const isDefault = agent.isDefault || String(agent.id) === String(spacePrimaryAgentId)
+              return (
+                <button
+                  key={agent.id}
+                  onClick={() => {
+                    onAgentSelect(agent)
+                  }}
+                  className={clsx(
+                    'flex items-center justify-between w-full px-3 py-2 rounded-xl text-sm transition-colors',
+                    isSelected
+                      ? 'bg-gray-100 dark:bg-zinc-700/50 text-gray-900 dark:text-white font-medium'
+                      : 'hover:bg-gray-100 dark:hover:bg-zinc-700/50 text-gray-600 dark:text-gray-300',
+                  )}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <EmojiDisplay emoji={agent.emoji} size="1.1em" />
+                    <span className="truncate">{getAgentDisplayName(agent, t)}</span>
+                    {isDefault && (
+                      <span className="text-[10px] px-1.5 py-0.5 bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 rounded-md font-medium">
+                        {t('chatInterface.default')}
+                      </span>
+                    )}
+                  </div>
+                  {isSelected && <Check size={14} className="text-primary-500" />}
+                </button>
+              )
+            })}
+          </div>
         </div>
-        <div className="flex flex-col gap-1.5 max-h-[300px] overflow-y-auto no-scrollbar">
-          <button
-            onClick={() => {
-              onAgentAutoModeToggle()
-            }}
-            className={clsx(
-              'flex items-center justify-between w-full px-3 py-2 rounded-xl text-sm transition-colors',
-              isAgentAutoMode
-                ? 'bg-gray-100 dark:bg-zinc-700/50 text-gray-900 dark:text-white font-medium'
-                : 'hover:bg-gray-100 dark:hover:bg-zinc-700/50 text-gray-600 dark:text-gray-300',
-            )}
-          >
-            <div className="flex items-center gap-2.5">
-              <span className="text-lg">✨</span>
-              <span>{t('chatInterface.agentAuto')}</span>
-            </div>
-            {isAgentAutoMode && <Check size={14} className="text-primary-500" />}
-          </button>
-          {agents.map(agent => {
-            const isSelected = !isAgentAutoMode && selectedAgent?.id === agent.id
-            const isDefault = agent.isDefault || String(agent.id) === String(spacePrimaryAgentId)
-            return (
-              <button
-                key={agent.id}
-                onClick={() => {
-                  onAgentSelect(agent)
-                }}
+
+        <div className="h-px bg-gray-100 dark:bg-zinc-700/50" />
+
+        {/* Capabilities */}
+        <div>
+          <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-2 mb-2">
+            {t('chatInterface.capabilities')}
+          </div>
+          <div className="space-y-0.5">
+            <button
+              disabled={isThinkingLocked}
+              onClick={onToggleThinking}
+              className="flex items-center justify-between w-full px-3 py-2 rounded-xl text-sm hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors"
+            >
+              <div className="flex items-center gap-2.5 text-gray-700 dark:text-gray-200">
+                <Brain
+                  size={16}
+                  className={isThinkingActive ? 'text-primary-500' : 'text-gray-400'}
+                />
+                <span>{t('homeView.think')}</span>
+              </div>
+              <div
                 className={clsx(
-                  'flex items-center justify-between w-full px-3 py-2 rounded-xl text-sm transition-colors',
-                  isSelected
-                    ? 'bg-gray-100 dark:bg-zinc-700/50 text-gray-900 dark:text-white font-medium'
-                    : 'hover:bg-gray-100 dark:hover:bg-zinc-700/50 text-gray-600 dark:text-gray-300',
+                  'w-8 h-4 rounded-full relative transition-colors',
+                  isThinkingActive ? 'bg-primary-500' : 'bg-gray-200 dark:bg-zinc-600',
                 )}
               >
-                <div className="flex items-center gap-2.5">
-                  <EmojiDisplay emoji={agent.emoji} size="1.1em" />
-                  <span className="truncate">{getAgentDisplayName(agent, t)}</span>
-                  {isDefault && (
-                    <span className="text-[10px] px-1.5 py-0.5 bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 rounded-md font-medium">
-                      {t('chatInterface.default')}
-                    </span>
+                <div
+                  className={clsx(
+                    'absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all shadow-sm',
+                    isThinkingActive ? 'left-4.5' : 'left-0.5',
                   )}
+                />
+              </div>
+            </button>
+            <div className="relative">
+              <button
+                disabled={!isSearchSupported}
+                onClick={onToggleSearch}
+                className="flex items-center justify-between w-full px-3 py-2 rounded-xl text-sm hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors disabled:opacity-50"
+                aria-expanded={isSearchMenuOpen}
+                aria-controls="capsule-search-options"
+              >
+                <div className="flex items-center gap-2.5 text-gray-700 dark:text-gray-200">
+                  <Globe
+                    size={16}
+                    className={isSearchActive ? 'text-primary-500' : 'text-gray-400'}
+                  />
+                  <span>{activeSearchLabel}</span>
                 </div>
-                {isSelected && <Check size={14} className="text-primary-500" />}
+                <ChevronDown
+                  size={14}
+                  className={clsx(
+                    'text-gray-400 transition-transform',
+                    isSearchMenuOpen && 'rotate-180',
+                  )}
+                />
               </button>
-            )
-          })}
+              {isSearchMenuOpen && (
+                <div ref={searchMenuRef} id="capsule-search-options" className="mt-2 space-y-3">
+                  <div className="space-y-3">
+                    <div className="px-4 py-1 text-[10px] uppercase tracking-wide text-gray-500 dark:text-zinc-400">
+                      {t('tools.webSearch')}
+                    </div>
+                    <div className="space-y-1">
+                      {searchBackendOptions.map(option => {
+                        const isActive = searchBackend === option.id
+                        return (
+                          <button
+                            key={option.id}
+                            type="button"
+                            onClick={() => onSearchBackendChange?.(option.id)}
+                            className={clsx(
+                              'w-full px-4 py-2 text-left text-sm flex items-center justify-between rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800',
+                              isActive
+                                ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400'
+                                : 'text-gray-700 dark:text-gray-200',
+                            )}
+                          >
+                            <span>{t(option.labelKey)}</span>
+                            {isActive && <Check size={14} className="text-primary-500" />}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                  <div className="h-px bg-gray-200 dark:bg-zinc-700/70" />
+                  <div className="space-y-3">
+                    <div className="px-4 py-1 text-[10px] uppercase tracking-wide text-gray-500 dark:text-zinc-400">
+                      {t('tools.academicSearch')}
+                    </div>
+                    <div className="space-y-1">
+                      {searchOptions.map(option => {
+                        const isActive = selectedSearchTools.includes(option.id)
+                        return (
+                          <button
+                            key={option.id}
+                            type="button"
+                            onClick={() => onSearchToolSelect?.(option.id)}
+                            className={clsx(
+                              'w-full px-4 py-2 text-left text-sm flex items-center justify-between rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800',
+                              isActive
+                                ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400'
+                                : 'text-gray-700 dark:text-gray-200',
+                            )}
+                          >
+                            <span>{t(option.labelKey)}</span>
+                            {isActive && <Check size={14} className="text-primary-500" />}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                  <div className="h-px bg-gray-200 dark:bg-zinc-700/70" />
+                  <button
+                    type="button"
+                    onClick={() => onSearchBackendChange?.(null)}
+                    className="w-full px-4 py-2 text-left text-sm text-gray-500 dark:text-gray-400 flex items-center justify-between rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
+                  >
+                    <span>{t('common.close')}</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
-
-      <div className="h-px bg-gray-100 dark:bg-zinc-700/50" />
-
-      {/* Capabilities */}
-      <div>
-        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-2 mb-2">
-          {t('chatInterface.capabilities')}
-        </div>
-        <div className="space-y-0.5">
-          <button
-            disabled={isThinkingLocked}
-            onClick={onToggleThinking}
-            className="flex items-center justify-between w-full px-3 py-2 rounded-xl text-sm hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors"
-          >
-            <div className="flex items-center gap-2.5 text-gray-700 dark:text-gray-200">
-              <Brain
-                size={16}
-                className={isThinkingActive ? 'text-primary-500' : 'text-gray-400'}
-              />
-              <span>{t('homeView.think')}</span>
-            </div>
-            <div
-              className={clsx(
-                'w-8 h-4 rounded-full relative transition-colors',
-                isThinkingActive ? 'bg-primary-500' : 'bg-gray-200 dark:bg-zinc-600',
-              )}
-            >
-              <div
-                className={clsx(
-                  'absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all shadow-sm',
-                  isThinkingActive ? 'left-4.5' : 'left-0.5',
-                )}
-              />
-            </div>
-          </button>
-          <button
-            disabled={!isSearchSupported}
-            onClick={onToggleSearch}
-            className="flex items-center justify-between w-full px-3 py-2 rounded-xl text-sm hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors disabled:opacity-50"
-          >
-            <div className="flex items-center gap-2.5 text-gray-700 dark:text-gray-200">
-              <Globe size={16} className={isSearchActive ? 'text-primary-500' : 'text-gray-400'} />
-              <span>{t('homeView.search')}</span>
-            </div>
-            <div
-              className={clsx(
-                'w-8 h-4 rounded-full relative transition-colors',
-                isSearchActive ? 'bg-primary-500' : 'bg-gray-200 dark:bg-zinc-600',
-              )}
-            >
-              <div
-                className={clsx(
-                  'absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all shadow-sm',
-                  isSearchActive ? 'left-4.5' : 'left-0.5',
-                )}
-              />
-            </div>
-          </button>
-        </div>
-      </div>
-    </div>
-  ),
+    )
+  },
 )
 CapsuleSettingsMenu.displayName = 'CapsuleSettingsMenu'
 
@@ -252,6 +349,14 @@ CapsuleSettingsMenu.displayName = 'CapsuleSettingsMenu'
  * @param {Function} props.onAgentSelectorToggle - Callback to toggle agent selector
  * @param {Object} props.agentSelectorRef - Ref for agent selector dropdown
  * @param {Function} props.onToggleSearch - Callback to toggle search mode
+ * @param {string|null} props.searchBackend - Selected web search backend
+ * @param {Array} props.searchBackendOptions - Web search backend options
+ * @param {Array} props.selectedSearchTools - Selected academic search tool IDs
+ * @param {Array} props.searchOptions - Academic search options to show in the picker
+ * @param {boolean} props.isSearchMenuOpen - Whether the search picker is open
+ * @param {Function} props.onSearchToolSelect - Called when an academic search option is chosen
+ * @param {Function} props.onSearchBackendChange - Called when a web search backend is chosen
+ * @param {Function} props.onSearchMenuClose - Called to close the search picker
  * @param {Function} props.onToggleThinking - Callback to toggle thinking mode
  * @param {string|null} props.quotedText - Currently quoted text (or null)
  * @param {Function} props.onQuoteClear - Callback to clear quoted text
@@ -283,6 +388,14 @@ const ChatInputBar = React.memo(
     onAgentSelectorToggle,
     agentSelectorRef,
     onToggleSearch,
+    searchBackend,
+    searchBackendOptions = [],
+    selectedSearchTools = [],
+    searchOptions = [],
+    isSearchMenuOpen,
+    onSearchToolSelect,
+    onSearchBackendChange,
+    onSearchMenuClose,
     onToggleThinking,
     quotedText,
     onQuoteClear,
@@ -316,7 +429,21 @@ const ChatInputBar = React.memo(
     const documentMenuRef = useRef(null)
     const [isMultiline, setIsMultiline] = useState(false)
     const highlightRef = useRef(null)
+    const searchMenuRef = useRef(null)
     const highlightedInputParts = useMemo(() => splitTextWithUrls(inputValue), [inputValue])
+    const resolvedSearchLabel = useMemo(() => {
+      if (!isSearchActive) return t('homeView.search')
+      const academicCount = selectedSearchTools?.length || 0
+      const activeCount = (searchBackend ? 1 : 0) + (academicCount > 0 ? 1 : 0)
+      if (activeCount > 1) return `${t('homeView.search')} (${activeCount})`
+      if (searchBackend) {
+        const option = (searchBackendOptions || []).find(item => item.id === searchBackend)
+        const label = option ? t(option.labelKey) : searchBackend
+        return `${t('tools.webSearch')} · ${label}`
+      }
+      if (academicCount > 0) return `${t('tools.academicSearch')} (${academicCount})`
+      return t('homeView.search')
+    }, [isSearchActive, selectedSearchTools, searchBackend, searchBackendOptions, t])
     const selectedDocumentIdSet = useMemo(
       () => new Set((selectedDocumentIds || []).map(id => String(id))),
       [selectedDocumentIds],
@@ -387,6 +514,17 @@ const ChatInputBar = React.memo(
       document.addEventListener('mousedown', handleClickOutside)
       return () => document.removeEventListener('mousedown', handleClickOutside)
     }, [isCapsuleMenuOpen, isMobile])
+
+    useEffect(() => {
+      if (!isSearchMenuOpen) return
+      const handleClickOutside = event => {
+        if (searchMenuRef.current && !searchMenuRef.current.contains(event.target)) {
+          onSearchMenuClose?.()
+        }
+      }
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }, [isSearchMenuOpen, onSearchMenuClose])
 
     const handleFileChange = async e => {
       const files = Array.from(e.target.files)
@@ -523,8 +661,16 @@ const ChatInputBar = React.memo(
           onToggleThinking={onToggleThinking}
           isSearchActive={isSearchActive}
           onToggleSearch={onToggleSearch}
+          searchBackend={searchBackend}
+          searchBackendOptions={searchBackendOptions}
+          selectedSearchTools={selectedSearchTools}
+          searchOptions={searchOptions}
           t={t}
           isSearchSupported={isSearchSupported}
+          isSearchMenuOpen={isSearchMenuOpen}
+          onSearchToolSelect={onSearchToolSelect}
+          onSearchBackendChange={onSearchBackendChange}
+          searchMenuRef={searchMenuRef}
         />
       ),
       [
@@ -539,8 +685,15 @@ const ChatInputBar = React.memo(
         onToggleThinking,
         isSearchActive,
         onToggleSearch,
+        searchBackend,
+        searchBackendOptions,
+        selectedSearchTools,
+        searchOptions,
         t,
         isSearchSupported,
+        isSearchMenuOpen,
+        onSearchToolSelect,
+        onSearchBackendChange,
       ],
     )
 
@@ -1043,19 +1196,94 @@ const ChatInputBar = React.memo(
                 <Brain size={18} strokeWidth={2} />
                 <span className="hidden md:inline">{t('homeView.think')}</span>
               </button>
-              <button
-                disabled={!apiProvider || !providerSupportsSearch(apiProvider)}
-                onClick={onToggleSearch}
-                className={clsx(
-                  'p-2.5 hover:bg-gray-100 dark:hover:bg-zinc-700 rounded-xl transition-all duration-200 flex items-center gap-2 text-sm font-medium',
-                  isSearchActive
-                    ? 'text-primary-500 bg-primary-50 dark:bg-primary-900/20'
-                    : 'text-gray-500 dark:text-gray-400',
+              <div className="relative">
+                <button
+                  disabled={!apiProvider || !providerSupportsSearch(apiProvider)}
+                  onClick={onToggleSearch}
+                  className={clsx(
+                    'p-2.5 hover:bg-gray-100 dark:hover:bg-zinc-700 rounded-xl transition-all duration-200 flex items-center gap-2 text-sm font-medium',
+                    isSearchActive
+                      ? 'text-primary-500 bg-primary-50 dark:bg-primary-900/20'
+                      : 'text-gray-500 dark:text-gray-400',
+                  )}
+                >
+                  <Globe size={18} strokeWidth={2} />
+                  <span className="hidden md:inline">{resolvedSearchLabel}</span>
+                </button>
+                {isSearchMenuOpen && (
+                  <div
+                    ref={searchMenuRef}
+                    className="absolute bottom-full left-0 mb-2 w-48 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-2xl shadow-2xl z-30 overflow-hidden"
+                  >
+                    <div className="px-4 py-2 text-[10px] uppercase tracking-wide text-gray-500 dark:text-zinc-400">
+                      {t('chatInterface.searchMenuTitle')}
+                    </div>
+                    <div className="px-2 pb-2 space-y-3">
+                      <div className="space-y-3">
+                        <div className="px-2 py-1 text-[10px] uppercase tracking-wide text-gray-500 dark:text-zinc-400">
+                          {t('tools.webSearch')}
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          {searchBackendOptions.map(option => {
+                            const isActive = searchBackend === option.id
+                            return (
+                              <button
+                                key={option.id}
+                                type="button"
+                                onClick={() => onSearchBackendChange?.(option.id)}
+                                className={clsx(
+                                  'w-full px-3 py-2 text-left text-sm flex items-center justify-between rounded-xl transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800',
+                                  isActive
+                                    ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400'
+                                    : 'text-gray-700 dark:text-gray-200',
+                                )}
+                              >
+                                <span>{t(option.labelKey)}</span>
+                                {isActive && <Check size={14} className="text-primary-500" />}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                      <div className="h-px bg-gray-200 dark:bg-zinc-700/70" />
+                      <div className="space-y-3">
+                        <div className="px-2 py-1 text-[10px] uppercase tracking-wide text-gray-500 dark:text-zinc-400">
+                          {t('tools.academicSearch')}
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          {searchOptions.map(option => {
+                            const isActive = selectedSearchTools.includes(option.id)
+                            return (
+                              <button
+                                key={option.id}
+                                type="button"
+                                onClick={() => onSearchToolSelect?.(option.id)}
+                                className={clsx(
+                                  'w-full px-3 py-2 text-left text-sm flex items-center justify-between rounded-xl transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800',
+                                  isActive
+                                    ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400'
+                                    : 'text-gray-700 dark:text-gray-200',
+                                )}
+                              >
+                                <span>{t(option.labelKey)}</span>
+                                {isActive && <Check size={14} className="text-primary-500" />}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                      <div className="h-px bg-gray-200 dark:bg-zinc-700/70" />
+                      <button
+                        type="button"
+                        onClick={() => onSearchBackendChange?.(null)}
+                        className="w-full px-3 py-2 text-left text-sm text-gray-500 dark:text-gray-400 flex items-center justify-between rounded-xl hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
+                      >
+                        <span>{t('common.close')}</span>
+                      </button>
+                    </div>
+                  </div>
                 )}
-              >
-                <Globe size={18} strokeWidth={2} />
-                <span className="hidden md:inline">{t('homeView.search')}</span>
-              </button>
+              </div>
               <div className="relative" ref={agentSelectorRef}>
                 <button
                   type="button"
@@ -1108,7 +1336,7 @@ const ChatInputBar = React.memo(
                       >
                         <div className="flex items-center divide-y divide-gray-200 dark:divide-zinc-800">
                           <span className="text-lg p-1 bg-gray-100 dark:bg-zinc-800 rounded-lg">
-                            🤖
+                            馃
                           </span>
                           <span className="text-sm font-medium truncate">
                             {t('chatInterface.agentAuto')}

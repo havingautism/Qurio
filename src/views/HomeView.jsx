@@ -18,10 +18,7 @@ import Menu from 'lucide-react/dist/esm/icons/menu'
 import Paperclip from 'lucide-react/dist/esm/icons/paperclip'
 import X from 'lucide-react/dist/esm/icons/x'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import {
-  Drawer,
-  DrawerContent,
-} from '@/components/ui/drawer'
+import { Drawer, DrawerContent } from '@/components/ui/drawer'
 import { useTranslation } from 'react-i18next'
 import { useAppContext } from '../App'
 import DeepResearchCard from '../components/DeepResearchCard'
@@ -34,6 +31,13 @@ import UploadPopover from '../components/UploadPopover'
 import DocumentsSection from '../components/DocumentsSection'
 import useScrollLock from '../hooks/useScrollLock'
 import { getAgentDisplayName } from '../lib/agentDisplay'
+import {
+  ACADEMIC_SEARCH_TOOL_OPTIONS,
+  SEARCH_BACKEND_OPTIONS,
+  getSearchToolOptions,
+  setSearchToolRegistry,
+  TAVILY_TOOL_IDS,
+} from '../lib/searchTools'
 import useChatStore from '../lib/chatStore'
 import { createConversation } from '../lib/conversationsService'
 import { providerSupportsSearch, resolveThinkingToggleRule } from '../lib/providers'
@@ -43,6 +47,7 @@ import { listSpaceAgents } from '../lib/spacesService'
 import { listSpaceDocuments, setConversationDocuments } from '../lib/documentsService'
 import { useDeepResearchGuide } from '../contexts/DeepResearchGuideContext'
 import { splitTextWithUrls } from '../lib/urlHighlight'
+import { listToolsViaBackend } from '../lib/backendClient'
 
 const HomeView = () => {
   const { t } = useTranslation()
@@ -64,6 +69,9 @@ const HomeView = () => {
   const [homeInput, setHomeInput] = useState('')
   const homeInputParts = useMemo(() => splitTextWithUrls(homeInput), [homeInput])
   const [isHomeSearchActive, setIsHomeSearchActive] = useState(false)
+  const [homeSearchBackend, setHomeSearchBackend] = useState(null)
+  const [homeSearchTools, setHomeSearchTools] = useState([])
+  const [isHomeSearchMenuOpen, setIsHomeSearchMenuOpen] = useState(false)
   const [isHomeThinkingActive, setIsHomeThinkingActive] = useState(false)
   const [homeAttachments, setHomeAttachments] = useState([])
   const [homeSelectedSpace, setHomeSelectedSpace] = useState(null)
@@ -80,6 +88,7 @@ const HomeView = () => {
   const [isHomeMobile, setIsHomeMobile] = useState(() => window.innerWidth < 768)
   const [isHomeUploadMenuOpen, setIsHomeUploadMenuOpen] = useState(false)
   const homeUploadMenuRef = useRef(null)
+  const homeSearchMenuRef = useRef(null)
   const [homeSpaceDocuments, setHomeSpaceDocuments] = useState([])
   const [homeDocumentsLoading, setHomeDocumentsLoading] = useState(false)
   const [_homeSelectedDocumentIds, setHomeSelectedDocumentIds] = useState([])
@@ -137,6 +146,7 @@ const HomeView = () => {
     const handleSettingsChange = () => {
       const newSettings = loadSettings()
       setSettings(newSettings)
+      void refreshHomeSearchTools(Boolean(newSettings.tavilyApiKey))
     }
 
     const handleSpaceAgentsChange = async event => {
@@ -164,6 +174,43 @@ const HomeView = () => {
       window.removeEventListener('space-agents-changed', handleSpaceAgentsChange)
     }
   }, [homeSelectedSpace?.id])
+
+  useEffect(() => {
+    setIsHomeSearchActive(Boolean(homeSearchBackend) || homeSearchTools.length > 0)
+  }, [homeSearchBackend, homeSearchTools])
+
+  const refreshHomeSearchTools = async tavilyEnabledOverride => {
+    try {
+      const tools = await listToolsViaBackend()
+      const tavilyEnabled =
+        typeof tavilyEnabledOverride === 'boolean'
+          ? tavilyEnabledOverride
+          : Boolean(loadSettings().tavilyApiKey)
+      const filteredTools = tavilyEnabled
+        ? tools
+        : tools.filter(tool => {
+            const id = String(tool?.id || tool?.name || '')
+            return !TAVILY_TOOL_IDS.has(id)
+          })
+      setSearchToolRegistry(filteredTools)
+      const options = getSearchToolOptions()
+      const academicIds = new Set(ACADEMIC_SEARCH_TOOL_OPTIONS.map(option => option.id))
+      if (homeSearchTools.length > 0) {
+        const filtered = homeSearchTools.filter(id =>
+          options.some(option => option.id === id && academicIds.has(option.id)),
+        )
+        if (filtered.length !== homeSearchTools.length) {
+          setHomeSearchTools(filtered)
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load search tools:', err)
+    }
+  }
+
+  useEffect(() => {
+    void refreshHomeSearchTools()
+  }, [])
 
   useEffect(() => {
     const handleResize = () => {
@@ -258,6 +305,39 @@ const HomeView = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [isHomeUploadMenuOpen, isHomeMobile])
 
+  useEffect(() => {
+    if (!isHomeSearchMenuOpen || isHomeMobile) return
+    const handleClickOutside = event => {
+      if (homeSearchMenuRef.current && !homeSearchMenuRef.current.contains(event.target)) {
+        setIsHomeSearchMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [isHomeSearchMenuOpen, isHomeMobile])
+
+  const handleSelectHomeSearchTool = toolId => {
+    if (!toolId) {
+      setHomeSearchTools([])
+      return
+    }
+
+    setHomeSearchTools(prev => {
+      const normalized = String(toolId)
+      return prev.includes(normalized)
+        ? prev.filter(id => id !== normalized)
+        : [...prev, normalized]
+    })
+  }
+
+  const handleSelectHomeSearchBackend = backendId => {
+    if (!backendId) {
+      setHomeSearchBackend(null)
+      return
+    }
+    setHomeSearchBackend(String(backendId))
+  }
+
   const handleFileChange = async e => {
     const files = Array.from(e.target.files || [])
     if (files.length === 0) return
@@ -336,7 +416,7 @@ const HomeView = () => {
         <button
           type="button"
           onClick={handleHomeImageUpload}
-          className="flex items-center mb-2 gap-1.5 w-full px-3 py-2 hover:bg-gray-50 dark:hover:bg-zinc-800 text-sm rounded-xl"
+          className="flex items-center mb-1.5 gap-1.5 w-full px-3 py-2 hover:bg-gray-50 dark:hover:bg-zinc-800 text-sm rounded-xl"
         >
           <div className="p-1.5 bg-primary-100 dark:bg-primary-900/30 rounded-lg">
             <Image size={16} className="text-primary-500" />
@@ -443,12 +523,17 @@ const HomeView = () => {
         }
       }
       // Prepare initial chat state to pass via router state
+      const resolvedSearchTools = new Set()
+      if (homeSearchBackend) resolvedSearchTools.add('web_search')
+      homeSearchTools.forEach(id => resolvedSearchTools.add(String(id)))
       const chatState = {
         initialMessage: homeInput,
         initialAttachments: homeAttachments,
         initialDocumentIds: _homeSelectedDocumentIds,
         initialToggles: {
           search: isHomeSearchActive,
+          searchTool: isHomeSearchActive ? Array.from(resolvedSearchTools) : [],
+          searchBackend: homeSearchBackend || null,
           thinking: resolvedThinkingActive,
           deepResearch: false,
           related: Boolean(settings.enableRelatedQuestions),
@@ -472,6 +557,8 @@ const HomeView = () => {
       setHomeInput('')
       setHomeAttachments([])
       setIsHomeSearchActive(false)
+      setHomeSearchTools([])
+      setHomeSearchBackend(null)
       setIsHomeThinkingActive(false)
       setHomeSelectedSpace(null)
       setHomeSpaceSelectionType('auto')
@@ -563,7 +650,7 @@ const HomeView = () => {
       spaceLabel: showOnlySpaceLabel ? autoLabelWithSparkle : spaceLabel,
       agentLabel: showOnlySpaceLabel ? null : agentLabel,
       spaceEmoji: homeSelectedSpace?.emoji || '',
-      agentEmoji: showOnlySpaceLabel ? '' : (selectedHomeAgent?.emoji || ''),
+      agentEmoji: showOnlySpaceLabel ? '' : selectedHomeAgent?.emoji || '',
       showOnlySpaceLabel,
     }
   }, [isHomeSpaceAuto, homeSelectedSpace, isHomeAgentAuto, selectedHomeAgent, t])
@@ -915,23 +1002,183 @@ const HomeView = () => {
                     <Brain size={18} />
                     <span className="hidden md:inline">{t('homeView.think')}</span>
                   </button>
-                  <button
-                    disabled={
-                      !isHomeSpaceAuto &&
-                      Boolean(selectedHomeAgent?.provider || defaultAgent?.provider) &&
-                      !providerSupportsSearch(selectedHomeAgent?.provider || defaultAgent?.provider)
-                    }
-                    value={isHomeSearchActive}
-                    onClick={() => setIsHomeSearchActive(!isHomeSearchActive)}
-                    className={`p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
-                      isHomeSearchActive
-                        ? 'text-primary-500 bg-gray-100 dark:bg-zinc-800'
-                        : 'text-gray-500 dark:text-gray-400'
-                    }`}
-                  >
-                    <Globe size={18} />
-                    <span className="hidden md:inline">{t('homeView.search')}</span>
-                  </button>
+                  <div className="relative" ref={homeSearchMenuRef}>
+                    <button
+                      disabled={
+                        !isHomeSpaceAuto &&
+                        Boolean(selectedHomeAgent?.provider || defaultAgent?.provider) &&
+                        !providerSupportsSearch(
+                          selectedHomeAgent?.provider || defaultAgent?.provider,
+                        )
+                      }
+                      value={isHomeSearchActive}
+                      onClick={() => setIsHomeSearchMenuOpen(prev => !prev)}
+                      className={`p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
+                        isHomeSearchActive
+                          ? 'text-primary-500 bg-gray-100 dark:bg-zinc-800'
+                          : 'text-gray-500 dark:text-gray-400'
+                      }`}
+                    >
+                      <Globe size={18} />
+                      <span className="hidden md:inline">{t('homeView.search')}</span>
+                    </button>
+                    {isHomeSearchMenuOpen && !isHomeMobile && (
+                      <div className="absolute top-full left-0 mt-2 w-56 bg-white dark:bg-[#202222] border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl z-50 overflow-hidden">
+                        <div className="px-4 py-2 text-[10px] uppercase tracking-wide text-gray-500 dark:text-zinc-400">
+                          {/* {t('chatInterface.searchMenuTitle')} */}
+                        </div>
+                        <div className="px-2 pb-2 space-y-3">
+                          <div className="space-y-3">
+                            <div className="px-2 py-1 text-[10px] uppercase tracking-wide text-gray-500 dark:text-zinc-400">
+                              {t('tools.webSearch')}
+                            </div>
+                            <div className="flex flex-col gap-1">
+                              {SEARCH_BACKEND_OPTIONS.map(option => {
+                                const isActive = homeSearchBackend === option.id
+                                return (
+                                  <button
+                                    key={option.id}
+                                    type="button"
+                                    onClick={() => handleSelectHomeSearchBackend(option.id)}
+                                    className={clsx(
+                                      'w-full px-3 py-2 text-left text-sm flex items-center justify-between transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg',
+                                      isActive
+                                        ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400'
+                                        : 'text-gray-700 dark:text-gray-200',
+                                    )}
+                                  >
+                                    <span>{t(option.labelKey)}</span>
+                                    {isActive && <Check size={14} className="text-primary-500" />}
+                                  </button>
+                                )
+                              })}
+                            </div>
+                          </div>
+                          <div className="h-px bg-gray-200 dark:bg-zinc-700/70" />
+                          <div className="space-y-3">
+                            <div className="px-2 py-1 text-[10px] uppercase tracking-wide text-gray-500 dark:text-zinc-400">
+                              {t('tools.academicSearch')}
+                            </div>
+                            <div className="flex flex-col gap-1">
+                              {ACADEMIC_SEARCH_TOOL_OPTIONS.map(option => {
+                                const isActive =
+                                  isHomeSearchActive && homeSearchTools.includes(option.id)
+                                return (
+                                  <button
+                                    key={option.id}
+                                    type="button"
+                                    onClick={() => handleSelectHomeSearchTool(option.id)}
+                                    className={clsx(
+                                      'w-full px-3 py-2 text-left text-sm flex items-center justify-between transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg',
+                                      isActive
+                                        ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400'
+                                        : 'text-gray-700 dark:text-gray-200',
+                                    )}
+                                  >
+                                    <span>{t(option.labelKey)}</span>
+                                    {isActive && <Check size={14} className="text-primary-500" />}
+                                  </button>
+                                )
+                              })}
+                            </div>
+                          </div>
+                          <div className="h-px bg-gray-200 dark:bg-zinc-700/70" />
+                          <button
+                            type="button"
+                            onClick={() => handleSelectHomeSearchBackend(null)}
+                            className="w-full px-3 py-2 text-left text-sm text-gray-500 dark:text-gray-400 flex items-center justify-between hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors rounded-lg"
+                          >
+                            <span>{t('common.close')}</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    <Drawer
+                      open={isHomeSearchMenuOpen && isHomeMobile}
+                      onOpenChange={setIsHomeSearchMenuOpen}
+                    >
+                      <DrawerContent className="max-h-[70vh] rounded-t-3xl bg-white dark:bg-[#1E1E1E] border-t border-gray-200 dark:border-zinc-800">
+                        <div className="px-5 py-4 flex items-center justify-between shrink-0 border-b border-gray-100 dark:border-zinc-800/50">
+                          <h3 className="text-base font-bold text-gray-900 dark:text-gray-100 leading-none">
+                            {/* {t('chatInterface.searchMenuTitle')} */}
+                          </h3>
+                          <button
+                            onClick={() => setIsHomeSearchMenuOpen(false)}
+                            className="p-2 -mr-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-full hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
+                          >
+                            <X size={20} />
+                          </button>
+                        </div>
+                        <div className="overflow-y-auto min-h-0 p-3">
+                          <div className="space-y-4">
+                            <div className="space-y-3">
+                              <div className="px-2 py-1 text-[10px] uppercase tracking-wide text-gray-500 dark:text-zinc-400">
+                                {t('tools.webSearch')}
+                              </div>
+                              <div className="flex flex-col gap-1">
+                                {SEARCH_BACKEND_OPTIONS.map(option => {
+                                  const isActive = homeSearchBackend === option.id
+                                  return (
+                                    <button
+                                      key={option.id}
+                                      type="button"
+                                      onClick={() => handleSelectHomeSearchBackend(option.id)}
+                                      className={clsx(
+                                        'w-full px-4 py-3 text-left text-sm flex items-center justify-between transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg',
+                                        isActive
+                                          ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400'
+                                          : 'text-gray-700 dark:text-gray-200',
+                                      )}
+                                    >
+                                      <span>{t(option.labelKey)}</span>
+                                      {isActive && <Check size={14} className="text-primary-500" />}
+                                    </button>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                            <div className="h-px bg-gray-200 dark:bg-zinc-700/70" />
+                            <div className="space-y-3">
+                              <div className="px-2 py-1 text-[10px] uppercase tracking-wide text-gray-500 dark:text-zinc-400">
+                                {t('tools.academicSearch')}
+                              </div>
+                              <div className="flex flex-col gap-1">
+                                {ACADEMIC_SEARCH_TOOL_OPTIONS.map(option => {
+                                  const isActive =
+                                    isHomeSearchActive && homeSearchTools.includes(option.id)
+                                  return (
+                                    <button
+                                      key={option.id}
+                                      type="button"
+                                      onClick={() => handleSelectHomeSearchTool(option.id)}
+                                      className={clsx(
+                                        'w-full px-4 py-3 text-left text-sm flex items-center justify-between transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg',
+                                        isActive
+                                          ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400'
+                                          : 'text-gray-700 dark:text-gray-200',
+                                      )}
+                                    >
+                                      <span>{t(option.labelKey)}</span>
+                                      {isActive && <Check size={14} className="text-primary-500" />}
+                                    </button>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                            <div className="h-px bg-gray-200 dark:bg-zinc-700/70" />
+                            <button
+                              type="button"
+                              onClick={() => handleSelectHomeSearchBackend(null)}
+                              className="w-full px-4 py-3 text-left text-sm text-gray-500 dark:text-gray-400 flex items-center justify-between hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg"
+                            >
+                              <span>{t('common.close')}</span>
+                            </button>
+                          </div>
+                        </div>
+                        <div className="h-4 shrink-0" />
+                      </DrawerContent>
+                    </Drawer>
+                  </div>
 
                   <div className="relative" ref={homeSpaceSelectorRef}>
                     <button
@@ -970,7 +1217,10 @@ const HomeView = () => {
                   </div>
 
                   {isHomeMobile && (
-                    <Drawer open={isHomeSpaceSelectorOpen} onOpenChange={setIsHomeSpaceSelectorOpen}>
+                    <Drawer
+                      open={isHomeSpaceSelectorOpen}
+                      onOpenChange={setIsHomeSpaceSelectorOpen}
+                    >
                       <DrawerContent className="max-h-[85vh] rounded-t-3xl bg-white dark:bg-[#1E1E1E] border-t border-gray-200 dark:border-zinc-800">
                         <div className="px-5 py-4 flex items-center justify-between shrink-0 border-b border-gray-100 dark:border-zinc-800/50">
                           <div className="flex flex-col">

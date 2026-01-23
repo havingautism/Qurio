@@ -484,6 +484,7 @@ export const generateRelatedQuestionsViaBackend = async (
  * @param {number} params.contextMessageLimit - Optional context message limit
  * @param {string} params.searchProvider - Optional search provider
  * @param {string} params.tavilyApiKey - Optional Tavily API key
+ * @param {string} params.searchBackend - Optional web search backend
  * @param {Function} params.onChunk - Callback for each chunk (chunk) => void
  * @param {Function} params.onFinish - Callback when stream completes (result) => void
  * @param {Function} params.onError - Callback for errors (error) => void
@@ -510,6 +511,7 @@ export const streamChatViaBackend = async params => {
     contextMessageLimit,
     searchProvider,
     tavilyApiKey,
+    searchBackend,
     userTools,
     onChunk,
     onFinish,
@@ -552,6 +554,7 @@ export const streamChatViaBackend = async params => {
         contextMessageLimit,
         searchProvider,
         tavilyApiKey,
+        searchBackend,
         userTools,
       }),
       signal,

@@ -229,15 +229,21 @@ def _build_agno_toolkits(request: Any, include_agno: list[str]) -> list[Any]:
             selected = [name for name in include_agno if name in tavily_tools]
             toolkits.append(TavilyTools(api_key=request.tavily_api_key, include_tools=selected))
 
-    duckduckgo_tools = {"web_search", "search_news"}
-    if include_set.intersection(duckduckgo_tools):
+    websearch_tools = {"web_search", "search_news"}
+    if include_set.intersection(websearch_tools):
         try:
-            from agno.tools.duckduckgo import DuckDuckGoTools
+            from agno.tools.websearch import WebSearchTools
         except Exception:
-            DuckDuckGoTools = None
-        if DuckDuckGoTools:
-            selected = [name for name in include_agno if name in duckduckgo_tools]
-            toolkits.append(DuckDuckGoTools(include_tools=selected))
+            WebSearchTools = None
+        if WebSearchTools:
+            selected = [name for name in include_agno if name in websearch_tools]
+            backend = getattr(request, "search_backend", None) or "auto"
+            toolkits.append(
+                WebSearchTools(
+                    include_tools=selected,
+                    backend=backend,
+                )
+            )
 
     arxiv_tools = {"search_arxiv_and_return_articles", "read_arxiv_papers"}
     if include_set.intersection(arxiv_tools):

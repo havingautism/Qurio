@@ -144,6 +144,7 @@ const MessageBubble = ({
 
   const { developerMode } = useSettings()
   const { agents = [], onEditAgent } = useAppContext()
+  const { t, i18n } = useTranslation()
 
   // Extract message by index
   const message = messages[messageIndex]
@@ -339,6 +340,48 @@ const MessageBubble = ({
   const toolCallHistory = Array.isArray(mergedMessage.toolCallHistory)
     ? mergedMessage.toolCallHistory
     : []
+
+  const resolvedSearchBackend = useMemo(() => {
+    if (mergedMessage?.searchBackend) return mergedMessage.searchBackend
+    for (const item of toolCallHistory) {
+      if (!item || (item.name !== 'web_search' && item.name !== 'search_news')) continue
+      if (!item.arguments) continue
+      if (typeof item.arguments === 'object') {
+        if (item.arguments.backend) return item.arguments.backend
+        continue
+      }
+      if (typeof item.arguments !== 'string') continue
+      try {
+        const parsed = JSON.parse(item.arguments)
+        if (parsed && typeof parsed === 'object' && parsed.backend) return parsed.backend
+      } catch {
+        continue
+      }
+    }
+    return null
+  }, [mergedMessage?.searchBackend, toolCallHistory])
+
+  const resolveSearchBackendLabel = useCallback(
+    backend => {
+      if (!backend) return ''
+      return t(`searchBackends.${backend}`, { defaultValue: backend })
+    },
+    [t],
+  )
+
+  const getToolDisplayName = useCallback(
+    tool => {
+      if (!tool) return ''
+      const baseName =
+        TOOL_TRANSLATION_KEYS[tool.name] ? t(TOOL_TRANSLATION_KEYS[tool.name]) : tool.name
+      if (tool.name === 'web_search' || tool.name === 'search_news') {
+        const backendLabel = resolveSearchBackendLabel(resolvedSearchBackend)
+        return backendLabel ? `${baseName} · ${backendLabel}` : baseName
+      }
+      return baseName
+    },
+    [resolveSearchBackendLabel, resolvedSearchBackend, t],
+  )
   const formToolHistory = toolCallHistory.filter(item => item.name === 'interactive_form')
   const hasInteractiveForm = formToolHistory.length > 0
 
@@ -376,6 +419,33 @@ const MessageBubble = ({
       return String(value)
     }
   }
+
+  const getToolArgumentsForDisplay = useCallback(
+    tool => {
+      if (!tool || !tool.arguments) return tool?.arguments
+      if (tool.name !== 'web_search' && tool.name !== 'search_news') return tool.arguments
+      if (!resolvedSearchBackend) return tool.arguments
+
+      if (typeof tool.arguments === 'object') {
+        if (tool.arguments.backend) return tool.arguments
+        return { ...tool.arguments, backend: resolvedSearchBackend }
+      }
+
+      if (typeof tool.arguments === 'string') {
+        try {
+          const parsed = JSON.parse(tool.arguments)
+          if (!parsed || typeof parsed !== 'object') return tool.arguments
+          if (parsed.backend) return tool.arguments
+          return JSON.stringify({ ...parsed, backend: resolvedSearchBackend })
+        } catch {
+          return tool.arguments
+        }
+      }
+
+      return tool.arguments
+    },
+    [resolvedSearchBackend],
+  )
 
   const parseFormPayload = raw => {
     if (!raw) return null
@@ -837,7 +907,6 @@ const MessageBubble = ({
   const [isPlanExpanded, setIsPlanExpanded] = useState(false)
   const [thinkingStatusIndex, setThinkingStatusIndex] = useState(0)
 
-  const { t, i18n } = useTranslation()
   const { showConfirmation } = useAppContext()
   const isUser = message.role === 'user'
 
@@ -1329,7 +1398,9 @@ const MessageBubble = ({
                           {item.status === 'error' && (
                             <AlertTriangle size={14} className="text-red-500 dark:text-red-400" />
                           )}
-                          {item.status === 'error' ? t('messageBubble.toolCallError') : item.name}
+                          {item.status === 'error'
+                            ? t('messageBubble.toolCallError')
+                            : getToolDisplayName(item)}
                         </span>
                         <div className="flex-1 min-w-0" />
                         {item.status !== 'done' && item.status !== 'error' && <DotLoader />}
@@ -1410,9 +1481,7 @@ const MessageBubble = ({
                               )}
                               {item.status === 'error'
                                 ? t('messageBubble.toolCallError')
-                                : TOOL_TRANSLATION_KEYS[item.name]
-                                  ? t(TOOL_TRANSLATION_KEYS[item.name])
-                                  : item.name}
+                                : getToolDisplayName(item)}
                             </span>
                             <div className="flex items-center gap-1 sm:gap-2 flex-1 min-w-0">
                               {Object.keys(TOOL_TRANSLATION_KEYS).includes(item.name) &&
@@ -2140,7 +2209,7 @@ const MessageBubble = ({
                                         )}
                                         {item.status === 'error'
                                           ? t('messageBubble.toolCallError')
-                                          : item.name}
+                                          : getToolDisplayName(item)}
                                       </span>
                                       <div className="flex-1 min-w-0" />
                                       {item.status !== 'done' && item.status !== 'error' && (
@@ -2219,9 +2288,7 @@ const MessageBubble = ({
                                             )}
                                             {item.status === 'error'
                                               ? t('messageBubble.toolCallError')
-                                              : TOOL_TRANSLATION_KEYS[item.name]
-                                                ? t(TOOL_TRANSLATION_KEYS[item.name])
-                                                : item.name}
+                                              : getToolDisplayName(item)}
                                           </span>
                                           <div className="flex items-center min-w-0">
                                             {Object.keys(TOOL_TRANSLATION_KEYS).includes(
@@ -2495,7 +2562,7 @@ const MessageBubble = ({
             <div className="w-full h-screen md:max-w-4xl md:h-[80vh] bg-white dark:bg-[#191a1a] rounded-none md:rounded-2xl shadow-2xl flex flex-col overflow-hidden border-0 md:border border-gray-200 dark:border-zinc-800">
               <div className="h-14 border-b border-gray-200 dark:border-zinc-800 flex items-center justify-between px-4 sm:px-6 shrink-0 bg-white dark:bg-[#191a1a]">
                 <div className="text-base font-semibold text-gray-900 dark:text-white truncate pr-4">
-                  {activeToolDetail.name}
+                  {getToolDisplayName(activeToolDetail)}
                 </div>
                 <button
                   type="button"
@@ -2517,7 +2584,9 @@ const MessageBubble = ({
                       components={markdownComponents}
                     >
                       {(() => {
-                        const content = formatJsonForDisplay(activeToolDetail.arguments)
+                        const content = formatJsonForDisplay(
+                          getToolArgumentsForDisplay(activeToolDetail),
+                        )
                         const trimmed = content.trim()
                         return (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
                           (trimmed.startsWith('[') && trimmed.endsWith(']'))

@@ -433,6 +433,7 @@ const appendAIPlaceholder = (selectedAgent, toggles, documentSources, set) => {
     agentEmoji: selectedAgent?.emoji || '',
     agentIsDefault: !!selectedAgent?.isDefault,
     documentSources: documentSources || [],
+    searchBackend: toggles?.searchBackend || null,
   }
 
   set(state => ({ messages: [...state.messages, aiMessagePlaceholder] }))
@@ -446,6 +447,7 @@ const appendAIPlaceholder = (selectedAgent, toggles, documentSources, set) => {
 const normalizeMessageForSend = message => {
   if (!message) return message
   const content = message.content
+  const sanitizedMessage = { ...message }
   if (Array.isArray(content)) {
     const attachments = content.filter(part => part?.type === 'image_url')
     const textValue = content
@@ -461,10 +463,18 @@ const normalizeMessageForSend = message => {
     const normalizedContent =
       attachments.length > 0 ? [{ type: 'text', text: textValue }, ...attachments] : textValue
 
-    return { ...message, content: normalizedContent }
+    sanitizedMessage.content = normalizedContent
+  } else {
+    sanitizedMessage.content = content
   }
 
-  return message
+  // Avoid sending tool call history to providers that require paired tool responses.
+  if (sanitizedMessage.role === 'ai' || sanitizedMessage.role === 'assistant') {
+    delete sanitizedMessage.tool_calls
+    delete sanitizedMessage.tool_call_id
+  }
+
+  return sanitizedMessage
 }
 
 const sanitizeJson = value => {
@@ -1262,6 +1272,7 @@ const callAIAPI = async (
 
     const searchProvider = settings.searchProvider || 'tavily'
     const tavilyApiKey = searchProvider === 'tavily' ? settings.tavilyApiKey : undefined
+    const searchBackend = toggles?.searchBackend || null
 
     // Fetch and filter user tools based on selected agent
     let activeUserTools = []
@@ -1289,6 +1300,7 @@ const callAIAPI = async (
       contextMessageLimit: settings.contextMessageLimit,
       searchProvider,
       tavilyApiKey,
+      searchBackend,
       userTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       userLocale: navigator.language || 'en-US',
       messages: conversationMessagesWithPlan.map(m => ({
@@ -1298,7 +1310,7 @@ const callAIAPI = async (
         ...(m.tool_call_id && { tool_call_id: m.tool_call_id }),
         ...(m.name && { name: m.name }),
       })),
-      tools: provider.getTools(toggles.search),
+      tools: provider.getTools(toggles.search, toggles.searchTool),
       toolIds: resolvedToolIds,
       thinking: provider.getThinking(thinkingActive, modelConfig.model),
       signal: controller.signal,
@@ -1343,6 +1355,25 @@ const callAIAPI = async (
               const history = Array.isArray(lastMsg.toolCallHistory)
                 ? [...lastMsg.toolCallHistory]
                 : []
+              const toolName = chunk.name || 'tool'
+              const injectedArguments = (() => {
+                if (!searchBackend) return chunk.arguments || ''
+                if (toolName !== 'web_search' && toolName !== 'search_news') return chunk.arguments || ''
+                if (!chunk.arguments) return JSON.stringify({ backend: searchBackend })
+                if (typeof chunk.arguments === 'object') {
+                  if (chunk.arguments.backend) return chunk.arguments
+                  return { ...chunk.arguments, backend: searchBackend }
+                }
+                if (typeof chunk.arguments !== 'string') return chunk.arguments || ''
+                try {
+                  const parsed = JSON.parse(chunk.arguments)
+                  if (!parsed || typeof parsed !== 'object') return chunk.arguments
+                  if (parsed.backend) return chunk.arguments
+                  return JSON.stringify({ ...parsed, backend: searchBackend })
+                } catch {
+                  return chunk.arguments
+                }
+              })()
               const pendingThoughtLength = lastMsg.thinkingEnabled
                 ? 0
                 : (pendingThought || '').length
@@ -1351,8 +1382,8 @@ const callAIAPI = async (
                 (lastMsg.content || '').length + pendingTextLength + pendingThoughtLength
               history.push({
                 id: chunk.id || `${chunk.name || 'tool'}-${Date.now()}`,
-                name: chunk.name || 'tool',
-                arguments: chunk.arguments || '',
+                name: toolName,
+                arguments: injectedArguments,
                 status: 'calling',
                 durationMs: null,
                 step: typeof chunk.step === 'number' ? chunk.step : undefined,
@@ -1395,10 +1426,15 @@ const callAIAPI = async (
                   total: typeof chunk.total === 'number' ? chunk.total : history[targetIndex].total,
                 }
               } else {
+                const fallbackArguments = (() => {
+                  if (!searchBackend) return ''
+                  if (chunk.name !== 'web_search' && chunk.name !== 'search_news') return ''
+                  return JSON.stringify({ backend: searchBackend })
+                })()
                 history.push({
                   id: chunk.id || `${chunk.name || 'tool'}-${Date.now()}`,
                   name: chunk.name || 'tool',
-                  arguments: '',
+                  arguments: fallbackArguments,
                   status: chunk.status || 'done',
                   error: chunk.error || null,
                   output: typeof chunk.output !== 'undefined' ? chunk.output : null,

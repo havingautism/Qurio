@@ -53,7 +53,8 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+/lib/
+!src/lib/searchTools.js
 lib64/
 parts/
 sdist/

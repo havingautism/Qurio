@@ -90,6 +90,7 @@ class StreamChatRequest(BaseModel):
     # Search configuration
     search_provider: Literal["tavily"] | None = Field(default=None, alias="searchProvider")
     tavily_api_key: str | None = Field(default=None, alias="tavilyApiKey")
+    search_backend: str | None = Field(default=None, alias="searchBackend")
 
     # User context
     user_id: str | None = Field(default=None, alias="userId")

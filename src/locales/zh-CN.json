@@ -14,7 +14,8 @@
     "uploadImage": "上传图片",
     "selectAll": "全选",
     "deselectAll": "取消全选",
-    "files": "文件"
+    "files": "文件",
+    "close": "关闭"
   },
   "app": {
     "name": "Qurio",
@@ -22,7 +23,7 @@
   },
   "tools": {
     "webSearch": "网络搜索",
-    "webSearchInfo": "通过 Tavily API 搜索实时网络信息，获取最新的文章、新闻和数据",
+    "webSearchInfo": "使用所选搜索后端检索最新的文章、新闻和数据",
     "academicSearch": "学术搜索",
     "academicSearchInfo": "搜索学术论文、研究和科学文献，获取权威的学术资源",
     "calculator": "计算器",
@@ -53,6 +54,8 @@
     "ddgWebSearchInfo": "使用 DuckDuckGo (DDGS) 搜索网页。",
     "ddgNewsSearch": "DuckDuckGo 新闻搜索",
     "ddgNewsSearchInfo": "使用 DuckDuckGo (DDGS) 搜索新闻。",
+    "newsSearch": "新闻搜索",
+    "newsSearchInfo": "使用所选搜索后端检索新闻。",
     "arxivSearch": "arXiv 搜索",
     "arxivSearchInfo": "搜索 arXiv 论文并返回元数据。",
     "arxivRead": "arXiv 阅读论文",
@@ -77,6 +80,15 @@
     "technicalIndicatorsInfo": "计算股票的技术指标。",
     "historicalPrices": "历史价格",
     "historicalPricesInfo": "获取股票的历史价格数据。"
+  },
+  "searchBackends": {
+    "auto": "自动",
+    "duckduckgo": "DuckDuckGo",
+    "google": "Google",
+    "bing": "Bing",
+    "brave": "Brave",
+    "yandex": "Yandex",
+    "yahoo": "Yahoo"
   },
   "customTools": {
     "title": "我的工具",
@@ -832,6 +844,7 @@
     "documentEmbeddingMismatch": "所选文档使用 {{model}} 生成向量，请切换到相同的 embedding 模型后再检索。",
     "documentEmbeddingMixedModels": "所选文档使用了多个 embedding 模型，请只选择使用同一模型的文档或重新生成向量。",
     "capabilities": "能力",
+    "searchMenuTitle": "搜索供应商",
     "warning": "Qurio 可能会犯错，请谨慎使用。"
   },
   "agentsView": {

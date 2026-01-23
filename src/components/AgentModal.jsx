@@ -43,6 +43,7 @@ import { getPublicEnv } from '../lib/publicEnv'
 import { listToolsViaBackend } from '../lib/backendClient'
 import { getUserTools } from '../lib/userToolsService'
 import { TOOL_TRANSLATION_KEYS, TOOL_ICONS, TOOL_INFO_KEYS } from '../lib/toolConstants'
+import { isQuickSearchTool } from '../lib/searchTools'
 
 // Logic reused from SettingsModal
 const FALLBACK_MODEL_OPTIONS = {
@@ -196,6 +197,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
   const [availableTools, setAvailableTools] = useState([])
   const [toolsLoading, setToolsLoading] = useState(false)
   const [selectedToolIds, setSelectedToolIds] = useState([])
+  const searchToolIdSetRef = useRef(new Set())
 
   // Dropdown states
   const [isResponseLanguageOpen, setIsResponseLanguageOpen] = useState(false)
@@ -277,7 +279,16 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
             }))
         : []
 
-      setAvailableTools([...validSystemTools, ...validUserTools])
+      const searchTools = validSystemTools.filter(isQuickSearchTool)
+      searchToolIdSetRef.current = new Set(
+        searchTools.map(tool => String(tool.id || tool.name)),
+      )
+      const filteredSystemTools = validSystemTools.filter(tool => !isQuickSearchTool(tool))
+
+      setAvailableTools([...filteredSystemTools, ...validUserTools])
+      setSelectedToolIds(prev =>
+        prev.filter(id => !searchToolIdSetRef.current.has(String(id))),
+      )
     } catch (err) {
       console.error('Failed to load tools list:', err)
       setAvailableTools([])
@@ -528,6 +539,10 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
       const resolvedHeadings = isDeepResearchAgent ? DEEP_RESEARCH_PROFILE.headings : headings
       const resolvedEmojis = isDeepResearchAgent ? DEEP_RESEARCH_PROFILE.emojis : emojis
 
+      const filteredToolIds = selectedToolIds.filter(
+        id => !searchToolIdSetRef.current.has(String(id)),
+      )
+
       await onSave?.({
         id: editingAgent?.id,
         name: resolvedName,
@@ -553,7 +568,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
         topP,
         frequencyPenalty,
         presencePenalty,
-        toolIds: selectedToolIds,
+        toolIds: filteredToolIds,
       })
       onClose()
     } catch (err) {

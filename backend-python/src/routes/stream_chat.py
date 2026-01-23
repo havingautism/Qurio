@@ -43,7 +43,8 @@ async def stream_chat(request: Request) -> Response:
         "contextMessageLimit": 10 (optional),
         "toolIds": ["calculator", "local_time"] (optional),
         "searchProvider": "tavily" (optional),
-        "tavilyApiKey": "Tavily API key" (optional)
+        "tavilyApiKey": "Tavily API key" (optional),
+        "searchBackend": "auto|duckduckgo|google|bing|brave|yandex|yahoo" (optional)
     }
 
     Response: Server-Sent Events stream

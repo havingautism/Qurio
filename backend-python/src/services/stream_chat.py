@@ -36,6 +36,40 @@ TIME_KEYWORDS_REGEX = re.compile(
     re.IGNORECASE,
 )
 
+class TaggedTextHandler:
+    def __init__(self):
+        self.in_thought_block = False
+
+    def handle(self, text: str):
+        remaining = text
+        while remaining:
+            if not self.in_thought_block:
+                # Use regex to find start of thought block
+                match = re.search(r"<(think|thought)>", remaining, re.IGNORECASE)
+                if not match:
+                    yield "text", remaining
+                    return
+                
+                start_index = match.start()
+                if start_index > 0:
+                    yield "text", remaining[:start_index]
+                
+                remaining = remaining[match.end():]
+                self.in_thought_block = True
+            else:
+                # Use regex to find end of thought block
+                match = re.search(r"</(think|thought)>", remaining, re.IGNORECASE)
+                if not match:
+                    yield "thought", remaining
+                    return
+                
+                end_index = match.start()
+                if end_index > 0:
+                    yield "thought", remaining[:end_index]
+                
+                remaining = remaining[match.end():]
+                self.in_thought_block = False
+
 class StreamChatService:
     """Stream chat service implemented using Agno Agent streaming events."""
 
@@ -53,6 +87,18 @@ class StreamChatService:
             sources_map: dict[str, Any] = {}
             full_content = ""
             full_thought = ""
+            
+            tagged_handler = TaggedTextHandler()
+
+            def process_text(text: str):
+                nonlocal full_content, full_thought
+                for type, part in tagged_handler.handle(text):
+                    if type == "text":
+                        full_content += part
+                        yield TextEvent(content=part).model_dump()
+                    else:
+                        full_thought += part
+                        yield ThoughtEvent(content=part).model_dump()
 
             messages = self._apply_context_limit(
                 request.messages,
@@ -83,8 +129,8 @@ class StreamChatService:
                     case RunEvent.run_content.value:
                         content = getattr(event, "content", None)
                         if content:
-                            full_content += str(content)
-                            yield TextEvent(content=str(content)).model_dump()
+                            for e in process_text(str(content)):
+                                yield e
                         reasoning = getattr(event, "reasoning_content", None)
                         if reasoning:
                             full_thought += str(reasoning)
@@ -135,9 +181,16 @@ class StreamChatService:
                             self._collect_search_sources(output, sources_map)
 
                     case RunEvent.run_completed.value:
+                        # Clean tags from final full_content if they survived
+                        cleaned_content = re.sub(r"<(think|thought)>[\s\S]*?(?:</\1>|$)", "", full_content, flags=re.IGNORECASE).strip()
+                        
+                        # Extra check: if cleaning made content empty, revert to full_content
+                        # unless they were purely tags.
+                        final_content = cleaned_content if cleaned_content or not full_content else full_content
+
                         yield DoneEvent(
-                            content=full_content,
-                            thought=full_thought or None,
+                            content=final_content,
+                            thought=full_thought.strip() or None,
                             sources=list(sources_map.values()) or None,
                         ).model_dump()
                         return
@@ -305,10 +358,19 @@ class StreamChatService:
             updated = self._append_system_message(updated, form_guidance, system_index)
             system_index = next((i for i, m in enumerate(updated) if m.get("role") == "system"), -1)
 
-        if "Tavily_web_search" in enabled_tools:
+        search_tools_requiring_citations = {
+            "Tavily_web_search",
+            "Tavily_academic_search",
+            "web_search_using_tavily",
+            "web_search",
+            "search_news",
+            "search_arxiv_and_return_articles",
+            "search_wikipedia",
+        }
+        if enabled_tools.intersection(search_tools_requiring_citations):
             citation_prompt = (
-                '\n\n[IMPORTANT] You have access to a "Tavily_web_search" tool. When you use this tool to answer a '
-                "question, you MUST cite the search results in your answer using the format [1], [2], etc., "
+                "\n\n[IMPORTANT] You have access to search tools. When you use them to answer a question, "
+                "you MUST cite the search results in your answer using the format [1], [2], etc., "
                 "corresponding to the index of the search result provided in the tool output. Do not fabricate "
                 "citations."
             )
@@ -345,19 +407,48 @@ class StreamChatService:
         return output
 
     def _collect_search_sources(self, result: Any, sources_map: dict[str, Any]) -> None:
-        results = []
-        if isinstance(result, dict):
-            results = result.get("results", [])
-        if not isinstance(results, list):
+        def _extract_results(payload: Any) -> list[dict[str, Any]]:
+            if isinstance(payload, list):
+                return [item for item in payload if isinstance(item, dict)]
+            if isinstance(payload, dict):
+                for key in ("results", "items", "data", "sources", "articles", "news", "papers"):
+                    value = payload.get(key)
+                    if isinstance(value, list):
+                        return [item for item in value if isinstance(item, dict)]
+            return []
+
+        results = _extract_results(result)
+        if not results:
             return
+
         for item in results:
-            url = item.get("url") or item.get("link") or item.get("uri")
+            url = (
+                item.get("url")
+                or item.get("link")
+                or item.get("uri")
+                or item.get("source")
+                or item.get("href")
+            )
             if not url or url in sources_map:
                 continue
+            title = (
+                item.get("title")
+                or item.get("name")
+                or item.get("headline")
+                or item.get("paper_title")
+                or "Unknown Source"
+            )
+            snippet = (
+                item.get("content")
+                or item.get("snippet")
+                or item.get("summary")
+                or item.get("abstract")
+                or ""
+            )
             sources_map[url] = SourceEvent(
                 uri=url,
-                title=item.get("title", "Unknown Source"),
-                snippet=(item.get("content") or item.get("snippet") or "")[:200],
+                title=title,
+                snippet=str(snippet)[:200],
             ).model_dump()
 
 _stream_chat_service: StreamChatService | None = None

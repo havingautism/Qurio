@@ -27,6 +27,14 @@ import { deleteMessageById } from '../lib/supabase'
 import ChatHeader from './chat/ChatHeader'
 import ChatInputBar from './chat/ChatInputBar'
 import { resolveEmbeddingConfig } from '../lib/embeddingService'
+import {
+  ACADEMIC_SEARCH_TOOL_OPTIONS,
+  SEARCH_BACKEND_OPTIONS,
+  getSearchToolOptions,
+  setSearchToolRegistry,
+  TAVILY_TOOL_IDS,
+} from '../lib/searchTools'
+import { listToolsViaBackend } from '../lib/backendClient'
 
 const DOCUMENT_CONTEXT_MAX_TOTAL = 12000
 const DOCUMENT_CONTEXT_MAX_PER_DOC = 4000
@@ -229,6 +237,61 @@ const ChatInterface = ({
   // New state for toggles and attachments
   const [isSearchActive, setIsSearchActive] = useState(false)
   const [isThinkingActive, setIsThinkingActive] = useState(false)
+  const [searchBackend, setSearchBackend] = useState(null)
+  const [selectedSearchTools, setSelectedSearchTools] = useState([])
+  const [isSearchMenuOpen, setIsSearchMenuOpen] = useState(false)
+
+  const handleSelectSearchTool = useCallback(toolId => {
+    if (!toolId) {
+      setSelectedSearchTools([])
+      return
+    }
+
+    setSelectedSearchTools(prev => {
+      const normalized = String(toolId)
+      return prev.includes(normalized)
+        ? prev.filter(id => id !== normalized)
+        : [...prev, normalized]
+    })
+  }, [])
+
+  const handleSelectSearchBackend = useCallback(backendId => {
+    if (!backendId) {
+      setSearchBackend(null)
+      return
+    }
+    setSearchBackend(String(backendId))
+  }, [])
+
+  const handleSearchMenuClose = useCallback(() => {
+    setIsSearchMenuOpen(false)
+  }, [])
+
+  const toggleSearchMenu = useCallback(() => {
+    setIsSearchMenuOpen(prev => !prev)
+  }, [])
+
+  const refreshSearchTools = useCallback(async tavilyEnabledOverride => {
+    try {
+      const tools = await listToolsViaBackend()
+      const tavilyEnabled =
+        typeof tavilyEnabledOverride === 'boolean'
+          ? tavilyEnabledOverride
+          : Boolean(loadSettings().tavilyApiKey)
+      const filteredTools = tavilyEnabled
+        ? tools
+        : tools.filter(tool => {
+            const id = String(tool?.id || tool?.name || '')
+            return !TAVILY_TOOL_IDS.has(id)
+          })
+
+      setSearchToolRegistry(filteredTools)
+      const options = getSearchToolOptions()
+      setSelectedSearchTools(prev => prev.filter(id => options.some(option => option.id === id)))
+    } catch (err) {
+      console.error('Failed to load search tools:', err)
+    }
+  }, [])
 
   const isPlaceholderConversation = Boolean(activeConversation?._isPlaceholder)
 
@@ -642,6 +705,15 @@ const ChatInterface = ({
   const thinkingRule = resolveThinkingToggleRule(effectiveProvider, resolvedModelName)
   const isThinkingLocked = thinkingRule.isLocked
 
+  const resolvedSearchToolIds = useMemo(() => {
+    const ids = new Set()
+    if (searchBackend) {
+      ids.add('web_search')
+    }
+    selectedSearchTools.forEach(id => ids.add(String(id)))
+    return Array.from(ids)
+  }, [searchBackend, selectedSearchTools])
+
   useEffect(() => {
     if (!isThinkingLocked) return
     setIsThinkingActive(thinkingRule.isThinkingActive)
@@ -653,19 +725,23 @@ const ChatInterface = ({
 
   useEffect(() => {
     const handleSettingsChange = () => {
-      setSettings(loadSettings())
+      const nextSettings = loadSettings()
+      setSettings(nextSettings)
 
       const nextProvider = effectiveAgent?.provider || defaultAgent?.provider
       if (!nextProvider || !providerSupportsSearch(nextProvider)) {
-        setIsSearchActive(false)
+        setSearchBackend(null)
+        setSelectedSearchTools([])
+        setIsSearchMenuOpen(false)
       }
+      void refreshSearchTools(Boolean(nextSettings.tavilyApiKey))
     }
 
     window.addEventListener('settings-changed', handleSettingsChange)
     return () => {
       window.removeEventListener('settings-changed', handleSettingsChange)
     }
-  }, [effectiveAgent?.provider, defaultAgent?.provider])
+  }, [effectiveAgent?.provider, defaultAgent?.provider, refreshSearchTools])
 
   useEffect(() => {
     const processInitialMessage = async () => {
@@ -714,7 +790,21 @@ const ChatInterface = ({
       hasInitialized.current = true
 
       // Set initial state
-      if (initialToggles.search) setIsSearchActive(true)
+      if (initialToggles.search) {
+        const initialBackend =
+          typeof initialToggles.searchBackend === 'string'
+            ? initialToggles.searchBackend
+            : 'auto'
+        setSearchBackend(initialBackend || 'auto')
+        const initialTools = Array.isArray(initialToggles.searchTool)
+          ? initialToggles.searchTool
+          : initialToggles.searchTool
+            ? [initialToggles.searchTool]
+            : []
+        const academicIds = new Set(ACADEMIC_SEARCH_TOOL_OPTIONS.map(option => option.id))
+        const initialAcademic = initialTools.filter(id => academicIds.has(String(id)))
+        setSelectedSearchTools(initialAcademic.map(id => String(id)))
+      }
       if (initialToggles.thinking) setIsThinkingActive(true)
 
       // CRITICAL: Sync conversationId to store IMMEDIATELY before sending
@@ -753,6 +843,15 @@ const ChatInterface = ({
     documentsLoading,
     normalizedInitialDocumentIds,
   ])
+
+  useEffect(() => {
+    refreshSearchTools()
+  }, [refreshSearchTools])
+
+  useEffect(() => {
+    const active = Boolean(searchBackend) || selectedSearchTools.length > 0
+    setIsSearchActive(active)
+  }, [searchBackend, selectedSearchTools])
 
   // Load existing conversation messages when switching conversations
   useEffect(() => {
@@ -1265,6 +1364,10 @@ const ChatInterface = ({
       const searchActive = togglesOverride ? togglesOverride.search : isSearchActive
       const thinkingActive = togglesOverride ? togglesOverride.thinking : isThinkingActive
       const relatedActive = togglesOverride ? togglesOverride.related : isRelatedEnabled
+      const searchTool = togglesOverride ? togglesOverride.searchTool : resolvedSearchToolIds
+      const searchBackendValue = togglesOverride
+        ? togglesOverride.searchBackend
+        : searchBackend
 
       if (!textToSend.trim() && attToSend.length === 0) return
       if (isLoading) return
@@ -1341,6 +1444,8 @@ const ChatInterface = ({
         attachments: attToSend,
         toggles: {
           search: searchActive,
+          searchTool,
+          searchBackend: searchBackendValue,
           thinking: thinkingActive,
           related: relatedActive,
         },
@@ -1405,6 +1510,8 @@ const ChatInterface = ({
       onTitleAndSpaceGenerated,
       spaces,
       quoteContext,
+      resolvedSearchToolIds,
+      searchBackend,
       appAgents,
       spaceAgentIds,
       spaceAgents,
@@ -1433,6 +1540,8 @@ const ChatInterface = ({
         settings,
         toggles: {
           search: isSearchActive,
+          searchTool: resolvedSearchToolIds,
+          searchBackend,
           thinking: isThinkingActive,
           related: isRelatedEnabled,
         },
@@ -1444,6 +1553,7 @@ const ChatInterface = ({
     },
     [
       isSearchActive,
+      selectedSearchTools,
       isThinkingActive,
       isRelatedEnabled,
       submitInteractiveForm,
@@ -1546,6 +1656,8 @@ const ChatInterface = ({
         msgAttachments,
         {
           search: isSearchActive,
+          searchTool: resolvedSearchToolIds,
+          searchBackend,
           thinking: isThinkingActive,
           related: isRelatedEnabled,
         },
@@ -1560,6 +1672,7 @@ const ChatInterface = ({
       messages,
       setMessages,
       isSearchActive,
+      selectedSearchTools,
       isThinkingActive,
       isRelatedEnabled,
     ],
@@ -1608,6 +1721,8 @@ const ChatInterface = ({
         msgAttachments,
         {
           search: isSearchActive,
+          searchTool: resolvedSearchToolIds,
+          searchBackend,
           thinking: isThinkingActive,
           related: isRelatedEnabled,
         },
@@ -1621,6 +1736,7 @@ const ChatInterface = ({
       messages,
       setMessages,
       isSearchActive,
+      selectedSearchTools,
       isThinkingActive,
       isRelatedEnabled,
     ],
@@ -1941,7 +2057,15 @@ const ChatInterface = ({
                 setIsAgentSelectorOpen(prev => !prev)
               }}
               agentSelectorRef={agentSelectorRef}
-              onToggleSearch={() => setIsSearchActive(prev => !prev)}
+              onToggleSearch={toggleSearchMenu}
+              searchBackend={searchBackend}
+              searchBackendOptions={SEARCH_BACKEND_OPTIONS}
+              selectedSearchTools={selectedSearchTools}
+              searchOptions={ACADEMIC_SEARCH_TOOL_OPTIONS}
+              isSearchMenuOpen={isSearchMenuOpen}
+              onSearchToolSelect={handleSelectSearchTool}
+              onSearchBackendChange={handleSelectSearchBackend}
+              onSearchMenuClose={handleSearchMenuClose}
               onToggleThinking={() => setIsThinkingActive(prev => !prev)}
               quotedText={quotedText}
               onQuoteClear={() => {

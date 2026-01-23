@@ -24,6 +24,15 @@ from .tool_registry import (
 )
 
 CUSTOM_TOOLS = REGISTRY_LOCAL_TOOLS
+EXTERNAL_SEARCH_TOOL_NAMES = {
+    "web_search_using_tavily",
+    "web_search_with_tavily",
+    "extract_url_content",
+    "web_search",
+    "search_news",
+    "search_arxiv_and_return_articles",
+    "search_wikipedia",
+}
 
 
 def list_tools() -> list[dict[str, Any]]:
@@ -44,6 +53,18 @@ async def execute_local_tool(
     match resolved_name:
         case "Tavily_web_search":
             return await _execute_tavily_web_search(args, tool_config)
+        case "web_search_using_tavily":
+            return await _execute_tavily_web_search(args, tool_config)
+        case "web_search_with_tavily":
+            return await _execute_tavily_web_search(args, tool_config, search_depth="advanced")
+        case "search_arxiv_and_return_articles":
+            return await _execute_tavily_academic_search(args, tool_config)
+        case "web_search":
+            return await _execute_tavily_web_search(args, tool_config)
+        case "search_news":
+            return await _execute_tavily_web_search(args, tool_config)
+        case "search_wikipedia":
+            return await _execute_tavily_web_search(args, tool_config)
         case "local_time":
             return await _execute_local_time(args)
         case "summarize_text":
@@ -58,6 +79,8 @@ async def execute_local_tool(
             return await _execute_webpage_reader(args)
         case "Tavily_academic_search":
             return await _execute_tavily_academic_search(args, tool_config)
+        case "extract_url_content":
+            return await _execute_url_extract(args)
         case _:
             raise ValueError(f"Unknown local tool: {resolved_name}")
 
@@ -159,6 +182,7 @@ def _resolve_tavily_api_key(tool_config: dict[str, Any] | None) -> str:
 async def _execute_tavily_web_search(
     args: dict[str, Any],
     tool_config: dict[str, Any] | None = None,
+    search_depth: str = "basic",
 ) -> dict[str, Any]:
     query = str(args.get("query", "")).strip()
     max_results = int(args.get("max_results") or 5)
@@ -172,7 +196,7 @@ async def _execute_tavily_web_search(
     payload = {
         "api_key": api_key,
         "query": query,
-        "search_depth": "basic",
+        "search_depth": search_depth,
         "include_answer": True,
         "max_results": max_results,
     }
@@ -237,6 +261,35 @@ async def _execute_tavily_academic_search(
     }
 
 
+async def _execute_url_extract(args: dict[str, Any]) -> dict[str, Any]:
+    urls = args.get("urls") or args.get("url") or ""
+    if isinstance(urls, str):
+        url_list = [u.strip() for u in urls.split(",") if u.strip()]
+    elif isinstance(urls, list):
+        url_list = [str(u).strip() for u in urls if str(u).strip()]
+    else:
+        url_list = []
+
+    if not url_list:
+        raise ValueError("Missing required field: urls")
+
+    results = []
+    for url in url_list:
+        try:
+            content_result = await _execute_webpage_reader({"url": url})
+            results.append(
+                {
+                    "url": content_result.get("url") or url,
+                    "content": content_result.get("content") or "",
+                    "title": content_result.get("title") or "",
+                }
+            )
+        except Exception as exc:
+            results.append({"url": url, "error": str(exc)})
+
+    return {"results": results}
+
+
 def is_local_tool_name(tool_name: str) -> bool:
     resolved = resolve_tool_name(tool_name)
     return any(t["id"] == resolved for t in CUSTOM_TOOLS)
@@ -247,9 +300,10 @@ async def execute_tool_by_name(
     args: dict[str, Any],
     tool_config: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    if is_local_tool_name(tool_name):
-        return await execute_local_tool(tool_name, args, tool_config)
-    raise ValueError(f"Tool {tool_name} not found")
+    resolved_name = resolve_tool_name(tool_name)
+    if is_local_tool_name(resolved_name) or resolved_name in EXTERNAL_SEARCH_TOOL_NAMES:
+        return await execute_local_tool(resolved_name, args, tool_config)
+    raise ValueError(f"Tool {resolved_name} not found")
 
 
 GLOBAL_TOOLS = REGISTRY_GLOBAL_TOOLS

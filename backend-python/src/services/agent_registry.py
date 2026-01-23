@@ -113,11 +113,11 @@ def _apply_thinking_params(model: Any, provider: str, thinking: dict[str, Any] |
             "extra_body",
             {"enable_thinking": True, "thinking_budget": budget},
         )
-        _merge_model_dict_attr(
-            model,
-            "request_params",
-            {"enable_thinking": True, "thinking_budget": budget},
-        )
+        # _merge_model_dict_attr(
+        #     model,
+        #     "request_params",
+        #     {"enable_thinking": True, "thinking_budget": budget},
+        # )
         return
 
     if provider == "nvidia":

@@ -65,7 +65,7 @@ class StreamChatService:
             for event in pre_events:
                 yield event
 
-            stream = agent.run(
+            stream = agent.arun(
                 input=messages,
                 stream=True,
                 stream_events=True,
@@ -74,7 +74,7 @@ class StreamChatService:
                 output_schema=request.response_format,
             )
 
-            for event in stream:
+            async for event in stream:
                 if not hasattr(event, "event"):
                     continue
 

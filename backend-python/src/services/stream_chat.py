@@ -4,6 +4,7 @@ Stream chat service implemented with Agno SDK (Agent + tools + DB).
 
 from __future__ import annotations
 
+import ast
 import json
 import re
 import time
@@ -111,11 +112,20 @@ class StreamChatService:
                         if tool:
                             output = self._normalize_tool_output(tool.result)
                             if output and isinstance(output, str):
+                                # Try JSON format (double quotes)
                                 try:
                                     parsed = json.loads(output)
                                     output = parsed
-                                except Exception:
+                                except json.JSONDecodeError:
                                     pass
+                                # Try Python repr format (single quotes)
+                                if isinstance(output, str):
+                                    try:
+                                        parsed = ast.literal_eval(output)
+                                        if isinstance(parsed, dict):
+                                            output = parsed
+                                    except (ValueError, SyntaxError):
+                                        pass
                             yield ToolResultEvent(
                                 id=tool.tool_call_id,
                                 name=tool.tool_name or "",

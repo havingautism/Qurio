@@ -14,9 +14,56 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 import httpx
-from agno.tools import Toolkit, tool
+from agno.tools import Function, Toolkit, tool
 
 from .academic_domains import ACADEMIC_DOMAINS
+
+
+def _interactive_form_impl(id: str, title: str, fields: list[dict[str, Any]]) -> dict[str, Any]:
+    return {
+        "form_id": id,
+        "title": title,
+        "fields": fields,
+        "status": "pending_user_input",
+    }
+
+
+interactive_form = Function(
+    name="interactive_form",
+    description="Display an interactive form to collect structured user input.",
+    parameters={
+        "type": "object",
+        "properties": {
+            "id": {"type": "string"},
+            "title": {"type": "string"},
+            "fields": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "required": ["name", "label", "type"],
+                    "properties": {
+                        "name": {"type": "string", "description": "Field identifier"},
+                        "label": {"type": "string", "description": "Display label for the field"},
+                        "type": {"type": "string", "enum": ["text", "number", "select", "checkbox", "range"]},
+                        "required": {"type": "boolean"},
+                        "placeholder": {"type": "string"},
+                        "options": {"type": "array", "items": {"type": "string"}},
+                        "min": {"type": "number"},
+                        "max": {"type": "number"},
+                        "step": {"type": "number"},
+                        "unit": {"type": "string"},
+                        "default": {"type": ["string", "number"]},
+                    },
+                    "additionalProperties": False,
+                },
+            },
+        },
+        "required": ["id", "title", "fields"],
+        "additionalProperties": False,
+    },
+    strict=True,
+    entrypoint=_interactive_form_impl,
+)
 
 
 class QurioLocalTools(Toolkit):
@@ -28,7 +75,7 @@ class QurioLocalTools(Toolkit):
             self.summarize_text,
             self.extract_text,
             self.json_repair,
-            self.interactive_form,
+            interactive_form,
             self.webpage_reader,
             self.tavily_web_search,
             self.tavily_academic_search,
@@ -83,18 +130,6 @@ class QurioLocalTools(Toolkit):
                 return {"valid": False, "repaired": repaired, "data": data}
             except Exception as exc:
                 return {"valid": False, "error": f"Unable to repair JSON: {exc}"}
-
-    @tool(
-        name="interactive_form",
-        description="Display an interactive form to collect structured user input. Each field must have 'name' property.",
-    )
-    def interactive_form(self, id: str, title: str, fields: list[dict[str, Any]]) -> dict[str, Any]:
-        return {
-            "form_id": id,
-            "title": title,
-            "fields": fields,
-            "status": "pending_user_input",
-        }
 
     @tool(name="webpage_reader", description="Read and scrape webpages.")
     async def webpage_reader(self, url: str) -> dict[str, Any]:

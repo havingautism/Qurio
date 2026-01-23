@@ -3,7 +3,6 @@ import {
   Brain,
   Box,
   Check,
-  ChevronDown,
   Copy,
   Github,
   Info,
@@ -18,11 +17,18 @@ import {
   Terminal,
   X,
 } from 'lucide-react'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import useScrollLock from '../hooks/useScrollLock'
 import { extractTextFromFile, normalizeExtractedText } from '../lib/documentParser'
-import { renderProviderIcon } from '../lib/modelIcons'
+import { renderProviderIcon, getModelIcon, getModelIconClassName } from '../lib/modelIcons'
 import { getModelsForProvider } from '../lib/models_api'
 import { getPublicEnv } from '../lib/publicEnv'
 import { GLM_BASE_URL, SILICONFLOW_BASE_URL } from '../lib/providerConstants'
@@ -1692,52 +1698,32 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                   <p className="text-xs text-gray-500 dark:text-gray-400">
                     {t('settings.interfaceLanguageHint')}
                   </p>
-                  <div className="relative w-full" ref={interfaceLanguageDropdownRef}>
-                    <button
-                      onClick={() => {
-                        const nextOpen = !isInterfaceLanguageDropdownOpen
-                        setIsProviderDropdownOpen(false)
-                        setIsSearchProviderDropdownOpen(false)
-                        setIsInterfaceLanguageDropdownOpen(nextOpen)
+                  <div className="relative w-full">
+                    <Select
+                      value={interfaceLanguage}
+                      onValueChange={val => {
+                        setInterfaceLanguage(val)
+                        i18n.changeLanguage(val)
                       }}
-                      className="w-full flex items-center justify-between pl-10 pr-4 py-2.5 bg-white disabled:bg-gray-50/20 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-zinc-800"
                     >
-                      <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center">
-                        <Monitor size={16} className="text-gray-400" />
-                      </div>
-                      <span>
-                        {interfaceLanguageOptions.find(option => option.value === interfaceLanguage)
-                          ?.label || interfaceLanguage}
-                      </span>
-                      <ChevronDown
-                        size={16}
-                        className={clsx(
-                          'text-gray-400 transition-transform duration-200',
-                          isInterfaceLanguageDropdownOpen && 'rotate-180',
-                        )}
-                      />
-                    </button>
-
-                    {isInterfaceLanguageDropdownOpen && (
-                      <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg shadow-xl z-20 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+                      <SelectTrigger className="w-full pl-10 h-10">
+                        <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center">
+                          <Monitor size={16} className="text-gray-400" />
+                        </div>
+                        <SelectValue>
+                          {interfaceLanguageOptions.find(
+                            option => option.value === interfaceLanguage,
+                          )?.label || interfaceLanguage}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
                         {interfaceLanguageOptions.map(option => (
-                          <button
-                            key={option.key}
-                            onClick={() => {
-                              setInterfaceLanguage(option.value)
-                              i18n.changeLanguage(option.value)
-                              setIsInterfaceLanguageDropdownOpen(false)
-                            }}
-                            className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
-                          >
-                            <span>{option.label}</span>
-                            {interfaceLanguage === option.value && (
-                              <Check size={14} className="text-primary-500" />
-                            )}
-                          </button>
+                          <SelectItem key={option.key} value={option.value}>
+                            {option.label}
+                          </SelectItem>
                         ))}
-                      </div>
-                    )}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
                 <div className="flex items-start justify-between gap-4">
@@ -1780,57 +1766,33 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                     </p>
                   </div>
 
-                  <div className="relative" ref={providerDropdownRef}>
-                    <button
-                      onClick={() => {
-                        const nextOpen = !isProviderDropdownOpen
-                        setIsInterfaceLanguageDropdownOpen(false)
-                        setIsSearchProviderDropdownOpen(false)
-                        setIsProviderDropdownOpen(nextOpen)
-                      }}
-                      className="w-full flex items-center justify-between pl-10 pr-4 py-2.5 bg-white disabled:bg-gray-50/20 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-zinc-800"
-                    >
-                      <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center">
-                        <Box size={16} className="text-gray-400" />
-                      </div>
-                      <div className="flex items-center gap-3">
-                        {renderProviderIcon(apiProvider, {
-                          size: 16,
-                          alt: t(`settings.providers.${apiProvider}`),
-                        })}
-                        <span>{t(`settings.providers.${apiProvider}`)}</span>
-                      </div>
-                      <ChevronDown
-                        size={16}
-                        className={clsx(
-                          'text-gray-400 transition-transform duration-200',
-                          isProviderDropdownOpen && 'rotate-180',
-                        )}
-                      />
-                    </button>
-
-                    {isProviderDropdownOpen && (
-                      <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg shadow-xl z-20 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+                  <div className="relative">
+                    <Select value={apiProvider} onValueChange={setApiProvider}>
+                      <SelectTrigger className="w-full pl-10 h-10">
+                        <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center">
+                          <Box size={16} className="text-gray-400" />
+                        </div>
+                        <SelectValue>
+                          <div className="flex items-center gap-3">
+                            {renderProviderIcon(apiProvider, {
+                              size: 16,
+                              alt: t(`settings.providers.${apiProvider}`),
+                            })}
+                            <span>{t(`settings.providers.${apiProvider}`)}</span>
+                          </div>
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
                         {providerOptions.map(option => (
-                          <button
-                            key={option.key}
-                            onClick={() => {
-                              setApiProvider(option.value)
-                              setIsProviderDropdownOpen(false)
-                            }}
-                            className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
-                          >
+                          <SelectItem key={option.key} value={option.value}>
                             <div className="flex items-center gap-3">
                               {renderProviderIcon(option.value, { size: 16, alt: option.label })}
                               <span>{option.label}</span>
                             </div>
-                            {apiProvider === option.value && (
-                              <Check size={14} className="text-primary-500" />
-                            )}
-                          </button>
+                          </SelectItem>
                         ))}
-                      </div>
-                    )}
+                      </SelectContent>
+                    </Select>
                   </div>
 
                   {/* Google Settings */}
@@ -2251,49 +2213,29 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                       <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
                         {t('settings.searchProvider')}
                       </label>
-                      <div className="relative w-full" ref={searchProviderDropdownRef}>
-                        <button
-                          onClick={() => {
-                            const nextOpen = !isSearchProviderDropdownOpen
-                            setIsProviderDropdownOpen(false)
-                            setIsInterfaceLanguageDropdownOpen(false)
-                            setIsSearchProviderDropdownOpen(nextOpen)
-                          }}
-                          className="w-full flex items-center justify-between pl-10 pr-4 py-2.5 bg-white disabled:bg-gray-50/20 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-zinc-800"
-                        >
-                          <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center">
-                            <Search size={16} className="text-gray-400" />
-                          </div>
-                          <div className="flex items-center gap-3">
-                            {renderProviderIcon(searchProvider, {
-                              size: 16,
-                              alt: t(`settings.searchProviders.${searchProvider}`),
-                            })}
-                            <span>
-                              {searchProviderOptions.find(option => option.value === searchProvider)
-                                ?.label || searchProvider}
-                            </span>
-                          </div>
-                          <ChevronDown
-                            size={16}
-                            className={clsx(
-                              'text-gray-400 transition-transform duration-200',
-                              isSearchProviderDropdownOpen && 'rotate-180',
-                            )}
-                          />
-                        </button>
-
-                        {isSearchProviderDropdownOpen && (
-                          <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg shadow-xl z-20 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+                      <div className="relative w-full">
+                        <Select value={searchProvider} onValueChange={setSearchProvider}>
+                          <SelectTrigger className="w-full pl-10 h-10">
+                            <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center">
+                              <Search size={16} className="text-gray-400" />
+                            </div>
+                            <SelectValue>
+                              <div className="flex items-center gap-3">
+                                {renderProviderIcon(searchProvider, {
+                                  size: 16,
+                                  alt: t(`settings.searchProviders.${searchProvider}`),
+                                })}
+                                <span>
+                                  {searchProviderOptions.find(
+                                    option => option.value === searchProvider,
+                                  )?.label || searchProvider}
+                                </span>
+                              </div>
+                            </SelectValue>
+                          </SelectTrigger>
+                          <SelectContent>
                             {searchProviderOptions.map(option => (
-                              <button
-                                key={option.key}
-                                onClick={() => {
-                                  setSearchProvider(option.value)
-                                  setIsSearchProviderDropdownOpen(false)
-                                }}
-                                className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
-                              >
+                              <SelectItem key={option.key} value={option.value}>
                                 <div className="flex items-center gap-3">
                                   {renderProviderIcon(option.value, {
                                     size: 16,
@@ -2301,13 +2243,10 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                                   })}
                                   <span>{option.label}</span>
                                 </div>
-                                {searchProvider === option.value && (
-                                  <Check size={14} className="text-primary-500" />
-                                )}
-                              </button>
+                              </SelectItem>
                             ))}
-                          </div>
-                        )}
+                          </SelectContent>
+                        </Select>
                       </div>
                     </div>
 
@@ -2441,48 +2380,25 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
 
                       <div className="rounded-lg border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-3">
                         <div className="flex flex-col gap-3">
-                          <div
-                            className="flex flex-col gap-2 relative"
-                            ref={embeddingProviderDropdownRef}
-                          >
+                          <div className="flex flex-col gap-2 relative">
                             <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
                               {t('settings.embeddingProvider')}
                             </span>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const nextOpen = !isEmbeddingProviderDropdownOpen
-                                setIsEmbeddingProviderDropdownOpen(nextOpen)
-                              }}
-                              className="w-full flex items-center justify-between px-3 py-2 bg-white disabled:bg-gray-50/20 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-                            >
-                              <div className="flex items-center gap-3">
-                                {renderProviderIcon(embeddingProvider, {
-                                  size: 16,
-                                  alt: embeddingProviderLabel,
-                                })}
-                                <span>{embeddingProviderLabel}</span>
-                              </div>
-                              <ChevronDown
-                                size={16}
-                                className={clsx(
-                                  'text-gray-400 transition-transform',
-                                  isEmbeddingProviderDropdownOpen && 'rotate-180',
-                                )}
-                              />
-                            </button>
-                            {isEmbeddingProviderDropdownOpen && (
-                              <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg shadow-xl z-20 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+                            <Select value={embeddingProvider} onValueChange={setEmbeddingProvider}>
+                              <SelectTrigger className="w-full h-10">
+                                <SelectValue>
+                                  <div className="flex items-center gap-3">
+                                    {renderProviderIcon(embeddingProvider, {
+                                      size: 16,
+                                      alt: embeddingProviderLabel,
+                                    })}
+                                    <span>{embeddingProviderLabel}</span>
+                                  </div>
+                                </SelectValue>
+                              </SelectTrigger>
+                              <SelectContent>
                                 {embeddingAvailableProviders.map(key => (
-                                  <button
-                                    key={key}
-                                    type="button"
-                                    onClick={() => {
-                                      setEmbeddingProvider(key)
-                                      setIsEmbeddingProviderDropdownOpen(false)
-                                    }}
-                                    className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
-                                  >
+                                  <SelectItem key={key} value={key}>
                                     <div className="flex items-center gap-3">
                                       {renderProviderIcon(key, {
                                         size: 16,
@@ -2490,13 +2406,10 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                                       })}
                                       <span>{t(`settings.providers.${key}`)}</span>
                                     </div>
-                                    {embeddingProvider === key && (
-                                      <Check size={14} className="text-primary-500" />
-                                    )}
-                                  </button>
+                                  </SelectItem>
                                 ))}
-                              </div>
-                            )}
+                              </SelectContent>
+                            </Select>
                           </div>
 
                           <div className="flex flex-col gap-2">
@@ -2504,34 +2417,59 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                               {t('settings.embeddingModel')}
                             </span>
                             {embeddingModelSource === 'list' ? (
-                              <div className="max-h-56 overflow-y-auto rounded-lg border border-gray-200 dark:border-zinc-700">
-                                {activeEmbeddingModels.length > 0 ? (
-                                  activeEmbeddingModels.map(model => (
-                                    <button
-                                      key={model.value}
-                                      type="button"
-                                      onClick={() => {
-                                        setEmbeddingModel(model.value)
-                                      }}
-                                      className={clsx(
-                                        'w-full text-left px-4 py-2 text-sm flex items-center justify-between gap-2',
-                                        embeddingModel === model.value
-                                          ? 'bg-primary-50 text-primary-700 dark:bg-primary-900/20 dark:text-primary-200'
-                                          : 'text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-zinc-800',
+                              <Select
+                                value={embeddingModel}
+                                onValueChange={setEmbeddingModel}
+                                disabled={!activeEmbeddingModels.length}
+                              >
+                                <SelectTrigger className="w-full h-10">
+                                  <SelectValue placeholder={t('agents.model.notSelected')}>
+                                    <div className="flex items-center gap-2 truncate">
+                                      {getModelIcon(embeddingModel) && (
+                                        <img
+                                          src={getModelIcon(embeddingModel)}
+                                          alt=""
+                                          className={clsx(
+                                            'w-4 h-4 shrink-0',
+                                            getModelIconClassName(embeddingModel),
+                                          )}
+                                        />
                                       )}
-                                    >
-                                      <span className="truncate">{model.label}</span>
-                                      {embeddingModel === model.value && (
-                                        <Check size={14} className="text-primary-500 shrink-0" />
-                                      )}
-                                    </button>
-                                  ))
-                                ) : (
-                                  <div className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
-                                    {t('agents.model.noModels')}
-                                  </div>
-                                )}
-                              </div>
+                                      <span className="truncate">
+                                        {activeEmbeddingModels.find(m => m.value === embeddingModel)
+                                          ?.label ||
+                                          embeddingModel ||
+                                          t('agents.model.notSelected')}
+                                      </span>
+                                    </div>
+                                  </SelectValue>
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {activeEmbeddingModels.length > 0 ? (
+                                    activeEmbeddingModels.map(model => (
+                                      <SelectItem key={model.value} value={model.value}>
+                                        <div className="flex items-center gap-2 truncate">
+                                          {getModelIcon(model.value) && (
+                                            <img
+                                              src={getModelIcon(model.value)}
+                                              alt=""
+                                              className={clsx(
+                                                'w-4 h-4 shrink-0',
+                                                getModelIconClassName(model.value),
+                                              )}
+                                            />
+                                          )}
+                                          <span className="truncate">{model.label}</span>
+                                        </div>
+                                      </SelectItem>
+                                    ))
+                                  ) : (
+                                    <div className="px-2 py-2 text-sm text-gray-500 dark:text-gray-400 text-center">
+                                      {t('agents.model.noModels')}
+                                    </div>
+                                  )}
+                                </SelectContent>
+                              </Select>
                             ) : (
                               <input
                                 value={embeddingCustomModel}

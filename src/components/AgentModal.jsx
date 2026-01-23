@@ -21,6 +21,13 @@ import {
   User,
   Box,
 } from 'lucide-react'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import useScrollLock from '../hooks/useScrollLock'
 import EmojiDisplay from './EmojiDisplay'
 import CustomEmojiPicker from './CustomEmojiPicker'
@@ -280,15 +287,11 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
         : []
 
       const searchTools = validSystemTools.filter(isQuickSearchTool)
-      searchToolIdSetRef.current = new Set(
-        searchTools.map(tool => String(tool.id || tool.name)),
-      )
+      searchToolIdSetRef.current = new Set(searchTools.map(tool => String(tool.id || tool.name)))
       const filteredSystemTools = validSystemTools.filter(tool => !isQuickSearchTool(tool))
 
       setAvailableTools([...filteredSystemTools, ...validUserTools])
-      setSelectedToolIds(prev =>
-        prev.filter(id => !searchToolIdSetRef.current.has(String(id))),
-      )
+      setSelectedToolIds(prev => prev.filter(id => !searchToolIdSetRef.current.has(String(id))))
     } catch (err) {
       console.error('Failed to load tools list:', err)
       setAvailableTools([])
@@ -626,105 +629,34 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
     value,
     onChange,
     options,
-    isOpen,
-    setIsOpen,
-    ref,
-    isGrouped = false,
+    _isOpen,
+    _setIsOpen,
+    _ref,
+    _isGrouped = false,
     disabled = false,
   ) => (
-    <div className="flex flex-col gap-2 relative" ref={ref}>
+    <div className="flex flex-col gap-2 relative">
       <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{label}</label>
-      <button
-        onClick={() => !disabled && setIsOpen(!isOpen)}
-        disabled={disabled}
-        className={clsx(
-          'w-full flex items-center justify-between px-3 py-2 bg-white disabled:bg-gray-50/20 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500/20',
-          disabled && 'opacity-50 cursor-not-allowed',
-        )}
-      >
-        <div className="flex items-center gap-2 overflow-hidden">
-          {isGrouped && getModelIcon(value) && (
-            <img
-              src={getModelIcon(value)}
-              alt=""
-              className={clsx('w-4 h-4 shrink-0', getModelIconClassName(value))}
-            />
-          )}
-          <span className="truncate">
-            {isGrouped
-              ? Object.values(groupedModels)
-                  .flat()
-                  .find(m => m.value === value)?.label ||
-                value ||
-                t('agents.model.notSelected')
-              : options.find(o => (o.value || o) === value)?.label ||
-                options.find(o => (o.value || o) === value) ||
-                value}
-          </span>
-        </div>
-        <ChevronDown
-          size={16}
-          className={clsx('text-gray-400 transition-transform shrink-0', isOpen && 'rotate-180')}
-        />
-      </button>
-      {isOpen && (
-        <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg shadow-xl z-50 max-h-60 overflow-y-auto">
-          {isGrouped
-            ? // Grouped Model Rendering
-              Object.entries(groupedModels).map(([groupProvider, models]) => (
-                <div key={groupProvider}>
-                  <div className="px-3 py-1.5 text-xs font-semibold text-gray-500 bg-gray-50 dark:bg-zinc-800 uppercase tracking-wider flex items-center gap-2">
-                    {renderProviderIcon(groupProvider, { size: 12, className: 'shrink-0' })}
-                    {t(`settings.providers.${groupProvider}`)}
-                  </div>
-                  {models.map(opt => (
-                    <button
-                      key={opt.value}
-                      onClick={() => {
-                        onChange(opt.value)
-                        setIsOpen(false)
-                      }}
-                      className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-zinc-800 flex items-center justify-between"
-                    >
-                      <div className="flex items-center gap-2 truncate">
-                        {getModelIcon(opt.value) && (
-                          <img
-                            src={getModelIcon(opt.value)}
-                            alt=""
-                            className={clsx('w-4 h-4 shrink-0', getModelIconClassName(opt.value))}
-                          />
-                        )}
-                        <span className="truncate">{opt.label}</span>
-                      </div>
-                      {value === opt.value && (
-                        <Check size={14} className="text-primary-500 shrink-0" />
-                      )}
-                    </button>
-                  ))}
-                </div>
-              ))
-            : // Flat Option Rendering
-              options.map(opt => {
-                const optValue = opt.value || opt
-                const optLabel = opt.label || opt
-                return (
-                  <button
-                    key={optValue}
-                    onClick={() => {
-                      onChange(optValue)
-                      setIsOpen(false)
-                    }}
-                    className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-zinc-800 flex items-center justify-between"
-                  >
-                    <span className="truncate">{optLabel}</span>
-                    {value === optValue && (
-                      <Check size={14} className="text-primary-500 shrink-0" />
-                    )}
-                  </button>
-                )
-              })}
-        </div>
-      )}
+      <Select value={value} onValueChange={onChange} disabled={disabled}>
+        <SelectTrigger className="w-full bg-white disabled:bg-gray-50/20 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 h-10">
+          <SelectValue>
+            {options.find(o => (o.value || o) === value)?.label ||
+              options.find(o => (o.value || o) === value) ||
+              value}
+          </SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          {options.map(opt => {
+            const optValue = opt.value || opt
+            const optLabel = opt.label || opt
+            return (
+              <SelectItem key={optValue} value={optValue}>
+                {optLabel}
+              </SelectItem>
+            )
+          })}
+        </SelectContent>
+      </Select>
     </div>
   )
 
@@ -945,9 +877,9 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
     onChange,
     activeProvider,
     onProviderChange,
-    isProviderOpen,
-    setIsProviderOpen,
-    providerRef,
+    _isProviderOpen,
+    _setIsProviderOpen,
+    _providerRef,
     customValue,
     onCustomValueChange,
     modelSource,
@@ -1085,42 +1017,30 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
         <div className="rounded-lg border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-3">
           <div className="flex flex-col gap-3">
             {!hideProviderSelector && (
-              <div className="flex flex-col gap-2 relative" ref={providerRef}>
+              <div className="flex flex-col gap-2 relative">
                 <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
                   {t('agents.model.providers')}
                 </span>
-                <button
-                  type="button"
-                  onClick={() => setIsProviderOpen(!isProviderOpen)}
-                  className="w-full flex items-center justify-between px-3 py-2 bg-white disabled:bg-gray-50/20 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                <Select
+                  value={activeProvider}
+                  onValueChange={val => {
+                    onProviderChange(val)
+                  }}
                 >
-                  <div className="flex items-center gap-3">
-                    {renderProviderIcon(activeProvider, {
-                      size: 16,
-                      alt: t(`settings.providers.${activeProvider}`),
-                    })}
-                    <span>{t(`settings.providers.${activeProvider}`)}</span>
-                  </div>
-                  <ChevronDown
-                    size={16}
-                    className={clsx(
-                      'text-gray-400 transition-transform',
-                      isProviderOpen && 'rotate-180',
-                    )}
-                  />
-                </button>
-                {isProviderOpen && (
-                  <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg shadow-xl z-20 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+                  <SelectTrigger className="w-full h-10">
+                    <SelectValue>
+                      <div className="flex items-center gap-3">
+                        {renderProviderIcon(activeProvider, {
+                          size: 16,
+                          alt: t(`settings.providers.${activeProvider}`),
+                        })}
+                        <span>{t(`settings.providers.${activeProvider}`)}</span>
+                      </div>
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
                     {providers.map(key => (
-                      <button
-                        key={key}
-                        type="button"
-                        onClick={() => {
-                          onProviderChange(key)
-                          setIsProviderOpen(false)
-                        }}
-                        className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
-                      >
+                      <SelectItem key={key} value={key}>
                         <div className="flex items-center gap-3">
                           {renderProviderIcon(key, {
                             size: 16,
@@ -1128,11 +1048,10 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                           })}
                           <span>{t(`settings.providers.${key}`)}</span>
                         </div>
-                        {activeProvider === key && <Check size={14} className="text-primary-500" />}
-                      </button>
+                      </SelectItem>
                     ))}
-                  </div>
-                )}
+                  </SelectContent>
+                </Select>
               </div>
             )}
             <div className="flex flex-col gap-2">
@@ -1140,60 +1059,59 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                 {t('agents.model.models')}
               </span>
               {showList ? (
-                <div className="max-h-56 overflow-y-auto rounded-lg border border-gray-200 dark:border-zinc-700">
-                  {allowEmpty && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onChange('')
-                      }}
-                      className={clsx(
-                        'w-full text-left px-4 py-2 text-sm flex items-center justify-between',
-                        value === ''
-                          ? 'bg-primary-50 text-primary-700 dark:bg-primary-900/20 dark:text-primary-200'
-                          : 'text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-zinc-800',
-                      )}
-                    >
-                      <span>{t('agents.model.none')}</span>
-                      {value === '' && <Check size={14} className="text-primary-500 shrink-0" />}
-                    </button>
-                  )}
-                  {activeModels.length > 0 ? (
-                    activeModels.map(model => (
-                      <button
-                        key={model.value}
-                        type="button"
-                        onClick={() => {
-                          onChange(model.value)
-                        }}
-                        className={clsx(
-                          'w-full text-left px-4 py-2 text-sm flex items-center justify-between gap-2',
-                          value === model.value
-                            ? 'bg-primary-50 text-primary-700 dark:bg-primary-900/20 dark:text-primary-200'
-                            : 'text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-zinc-800',
+                <Select
+                  value={value || (allowEmpty ? '__none__' : undefined)}
+                  onValueChange={val => onChange(val === '__none__' ? '' : val)}
+                  disabled={!activeModels.length && !allowEmpty}
+                >
+                  <SelectTrigger className="w-full h-10">
+                    <SelectValue placeholder={t('agents.model.notSelected')}>
+                      <div className="flex items-center gap-2 truncate">
+                        {getModelIcon(value) && (
+                          <img
+                            src={getModelIcon(value)}
+                            alt=""
+                            className={clsx('w-4 h-4 shrink-0', getModelIconClassName(value))}
+                          />
                         )}
-                      >
-                        <div className="flex items-center gap-2 truncate">
-                          {getModelIcon(model.value) && (
-                            <img
-                              src={getModelIcon(model.value)}
-                              alt=""
-                              className={clsx('w-4 h-4', getModelIconClassName(model.value))}
-                            />
-                          )}
-                          <span className="truncate">{model.label}</span>
-                        </div>
-                        {value === model.value && (
-                          <Check size={14} className="text-primary-500 shrink-0" />
-                        )}
-                      </button>
-                    ))
-                  ) : (
-                    <div className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
-                      {t('agents.model.noModels')}
-                    </div>
-                  )}
-                </div>
+                        <span className="truncate">
+                          {value === ''
+                            ? t('agents.model.none')
+                            : activeModels.find(m => m.value === value)?.label ||
+                              value ||
+                              t('agents.model.notSelected')}
+                        </span>
+                      </div>
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allowEmpty && (
+                      <SelectItem value="__none__">
+                        <span className="text-gray-500">{t('agents.model.none')}</span>
+                      </SelectItem>
+                    )}
+                    {activeModels.length > 0 ? (
+                      activeModels.map(model => (
+                        <SelectItem key={model.value} value={model.value}>
+                          <div className="flex items-center gap-2 truncate">
+                            {getModelIcon(model.value) && (
+                              <img
+                                src={getModelIcon(model.value)}
+                                alt=""
+                                className={clsx('w-4 h-4', getModelIconClassName(model.value))}
+                              />
+                            )}
+                            <span className="truncate">{model.label}</span>
+                          </div>
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <div className="px-2 py-2 text-sm text-gray-500 dark:text-gray-400 text-center">
+                        {t('agents.model.noModels')}
+                      </div>
+                    )}
+                  </SelectContent>
+                </Select>
               ) : (
                 <input
                   value={customValue}

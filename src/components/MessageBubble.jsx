@@ -341,25 +341,39 @@ const MessageBubble = ({
     ? mergedMessage.toolCallHistory
     : []
 
-  const resolvedSearchBackend = useMemo(() => {
-    if (mergedMessage?.searchBackend) return mergedMessage.searchBackend
+  const resolvedSearchBackends = useMemo(() => {
+    if (Array.isArray(mergedMessage?.searchBackends) && mergedMessage.searchBackends.length > 0) {
+      return mergedMessage.searchBackends
+        .map(item => String(item))
+        .filter(Boolean)
+    }
+    if (typeof mergedMessage?.searchBackend === 'string' && mergedMessage.searchBackend) {
+      return [mergedMessage.searchBackend]
+    }
     for (const item of toolCallHistory) {
       if (!item || (item.name !== 'web_search' && item.name !== 'search_news')) continue
       if (!item.arguments) continue
       if (typeof item.arguments === 'object') {
-        if (item.arguments.backend) return item.arguments.backend
+        if (Array.isArray(item.arguments.backends) && item.arguments.backends.length > 0) {
+          return item.arguments.backends.map(value => String(value)).filter(Boolean)
+        }
+        if (item.arguments.backend) return [String(item.arguments.backend)]
         continue
       }
       if (typeof item.arguments !== 'string') continue
       try {
         const parsed = JSON.parse(item.arguments)
-        if (parsed && typeof parsed === 'object' && parsed.backend) return parsed.backend
+        if (!parsed || typeof parsed !== 'object') continue
+        if (Array.isArray(parsed.backends) && parsed.backends.length > 0) {
+          return parsed.backends.map(value => String(value)).filter(Boolean)
+        }
+        if (parsed.backend) return [String(parsed.backend)]
       } catch {
         continue
       }
     }
-    return null
-  }, [mergedMessage?.searchBackend, toolCallHistory])
+    return []
+  }, [mergedMessage?.searchBackend, mergedMessage?.searchBackends, toolCallHistory])
 
   const resolveSearchBackendLabel = useCallback(
     backend => {
@@ -375,12 +389,17 @@ const MessageBubble = ({
       const baseName =
         TOOL_TRANSLATION_KEYS[tool.name] ? t(TOOL_TRANSLATION_KEYS[tool.name]) : tool.name
       if (tool.name === 'web_search' || tool.name === 'search_news') {
-        const backendLabel = resolveSearchBackendLabel(resolvedSearchBackend)
-        return backendLabel ? `${baseName} · ${backendLabel}` : baseName
+        const backendLabels = resolvedSearchBackends
+          .map(resolveSearchBackendLabel)
+          .filter(Boolean)
+        if (backendLabels.length > 0) {
+          return `${baseName} · ${backendLabels.join(' / ')}`
+        }
+        return baseName
       }
       return baseName
     },
-    [resolveSearchBackendLabel, resolvedSearchBackend, t],
+    [resolveSearchBackendLabel, resolvedSearchBackends, t],
   )
   const formToolHistory = toolCallHistory.filter(item => item.name === 'interactive_form')
   const hasInteractiveForm = formToolHistory.length > 0
@@ -424,19 +443,25 @@ const MessageBubble = ({
     tool => {
       if (!tool || !tool.arguments) return tool?.arguments
       if (tool.name !== 'web_search' && tool.name !== 'search_news') return tool.arguments
-      if (!resolvedSearchBackend) return tool.arguments
+      if (resolvedSearchBackends.length === 0) return tool.arguments
 
       if (typeof tool.arguments === 'object') {
-        if (tool.arguments.backend) return tool.arguments
-        return { ...tool.arguments, backend: resolvedSearchBackend }
+        if (tool.arguments.backend || tool.arguments.backends) return tool.arguments
+        return resolvedSearchBackends.length > 1
+          ? { ...tool.arguments, backend: resolvedSearchBackends[0], backends: resolvedSearchBackends }
+          : { ...tool.arguments, backend: resolvedSearchBackends[0] }
       }
 
       if (typeof tool.arguments === 'string') {
         try {
           const parsed = JSON.parse(tool.arguments)
           if (!parsed || typeof parsed !== 'object') return tool.arguments
-          if (parsed.backend) return tool.arguments
-          return JSON.stringify({ ...parsed, backend: resolvedSearchBackend })
+          if (parsed.backend || parsed.backends) return tool.arguments
+          return JSON.stringify(
+            resolvedSearchBackends.length > 1
+              ? { ...parsed, backend: resolvedSearchBackends[0], backends: resolvedSearchBackends }
+              : { ...parsed, backend: resolvedSearchBackends[0] },
+          )
         } catch {
           return tool.arguments
         }
@@ -444,7 +469,7 @@ const MessageBubble = ({
 
       return tool.arguments
     },
-    [resolvedSearchBackend],
+    [resolvedSearchBackends],
   )
 
   const parseFormPayload = raw => {

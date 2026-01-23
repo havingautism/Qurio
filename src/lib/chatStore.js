@@ -420,6 +420,11 @@ const buildConversationMessages = (historyForSend, userMessageForSend, selectedA
 }
 
 const appendAIPlaceholder = (selectedAgent, toggles, documentSources, set) => {
+  const normalizedSearchBackends = Array.isArray(toggles?.searchBackends)
+    ? toggles.searchBackends.map(item => String(item)).filter(Boolean)
+    : typeof toggles?.searchBackend === 'string'
+      ? [toggles.searchBackend]
+      : []
   const aiMessagePlaceholder = {
     role: 'ai',
     content: '',
@@ -433,7 +438,8 @@ const appendAIPlaceholder = (selectedAgent, toggles, documentSources, set) => {
     agentEmoji: selectedAgent?.emoji || '',
     agentIsDefault: !!selectedAgent?.isDefault,
     documentSources: documentSources || [],
-    searchBackend: toggles?.searchBackend || null,
+    searchBackend: normalizedSearchBackends[0] || null,
+    searchBackends: normalizedSearchBackends,
   }
 
   set(state => ({ messages: [...state.messages, aiMessagePlaceholder] }))
@@ -1272,7 +1278,12 @@ const callAIAPI = async (
 
     const searchProvider = settings.searchProvider || 'tavily'
     const tavilyApiKey = searchProvider === 'tavily' ? settings.tavilyApiKey : undefined
-    const searchBackend = toggles?.searchBackend || null
+    const searchBackends = Array.isArray(toggles?.searchBackends)
+      ? toggles.searchBackends.map(item => String(item)).filter(Boolean)
+      : typeof toggles?.searchBackend === 'string'
+        ? [toggles.searchBackend]
+        : []
+    const searchBackend = searchBackends[0] || null
 
     // Fetch and filter user tools based on selected agent
     let activeUserTools = []
@@ -1357,19 +1368,34 @@ const callAIAPI = async (
                 : []
               const toolName = chunk.name || 'tool'
               const injectedArguments = (() => {
-                if (!searchBackend) return chunk.arguments || ''
-                if (toolName !== 'web_search' && toolName !== 'search_news') return chunk.arguments || ''
-                if (!chunk.arguments) return JSON.stringify({ backend: searchBackend })
+                if (toolName !== 'web_search' && toolName !== 'search_news')
+                  return chunk.arguments || ''
+                const selectedBackends = searchBackends
+                if (selectedBackends.length === 0) return chunk.arguments || ''
+                const primaryBackend = selectedBackends[0]
+                if (!chunk.arguments) {
+                  return JSON.stringify(
+                    selectedBackends.length > 1
+                      ? { backend: primaryBackend, backends: selectedBackends }
+                      : { backend: primaryBackend },
+                  )
+                }
                 if (typeof chunk.arguments === 'object') {
-                  if (chunk.arguments.backend) return chunk.arguments
-                  return { ...chunk.arguments, backend: searchBackend }
+                  if (chunk.arguments.backend || chunk.arguments.backends) return chunk.arguments
+                  return selectedBackends.length > 1
+                    ? { ...chunk.arguments, backend: primaryBackend, backends: selectedBackends }
+                    : { ...chunk.arguments, backend: primaryBackend }
                 }
                 if (typeof chunk.arguments !== 'string') return chunk.arguments || ''
                 try {
                   const parsed = JSON.parse(chunk.arguments)
                   if (!parsed || typeof parsed !== 'object') return chunk.arguments
-                  if (parsed.backend) return chunk.arguments
-                  return JSON.stringify({ ...parsed, backend: searchBackend })
+                  if (parsed.backend || parsed.backends) return chunk.arguments
+                  return JSON.stringify(
+                    selectedBackends.length > 1
+                      ? { ...parsed, backend: primaryBackend, backends: selectedBackends }
+                      : { ...parsed, backend: primaryBackend },
+                  )
                 } catch {
                   return chunk.arguments
                 }
@@ -1427,9 +1453,14 @@ const callAIAPI = async (
                 }
               } else {
                 const fallbackArguments = (() => {
-                  if (!searchBackend) return ''
                   if (chunk.name !== 'web_search' && chunk.name !== 'search_news') return ''
-                  return JSON.stringify({ backend: searchBackend })
+                  if (searchBackends.length === 0) return ''
+                  const primaryBackend = searchBackends[0]
+                  return JSON.stringify(
+                    searchBackends.length > 1
+                      ? { backend: primaryBackend, backends: searchBackends }
+                      : { backend: primaryBackend },
+                  )
                 })()
                 history.push({
                   id: chunk.id || `${chunk.name || 'tool'}-${Date.now()}`,

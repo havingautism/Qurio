@@ -246,7 +246,7 @@ const ChatInterface = ({
       setSelectedSearchTools([])
       return
     }
-
+    setSearchBackend(null)
     setSelectedSearchTools(prev => {
       const normalized = String(toolId)
       return prev.includes(normalized)
@@ -260,7 +260,14 @@ const ChatInterface = ({
       setSearchBackend(null)
       return
     }
+    setSelectedSearchTools([])
     setSearchBackend(String(backendId))
+  }, [])
+
+  const handleClearSearchSelection = useCallback(() => {
+    setSearchBackend(null)
+    setSelectedSearchTools([])
+    setIsSearchMenuOpen(false)
   }, [])
 
   const handleSearchMenuClose = useCallback(() => {
@@ -1445,7 +1452,7 @@ const ChatInterface = ({
         toggles: {
           search: searchActive,
           searchTool,
-          searchBackend: searchBackendValue,
+          searchBackend: searchBackendValue || null,
           thinking: thinkingActive,
           related: relatedActive,
         },
@@ -1553,7 +1560,8 @@ const ChatInterface = ({
     },
     [
       isSearchActive,
-      selectedSearchTools,
+      resolvedSearchToolIds,
+      searchBackend,
       isThinkingActive,
       isRelatedEnabled,
       submitInteractiveForm,
@@ -1672,7 +1680,8 @@ const ChatInterface = ({
       messages,
       setMessages,
       isSearchActive,
-      selectedSearchTools,
+      resolvedSearchToolIds,
+      searchBackend,
       isThinkingActive,
       isRelatedEnabled,
     ],
@@ -1736,7 +1745,8 @@ const ChatInterface = ({
       messages,
       setMessages,
       isSearchActive,
-      selectedSearchTools,
+      resolvedSearchToolIds,
+      searchBackend,
       isThinkingActive,
       isRelatedEnabled,
     ],
@@ -2065,6 +2075,7 @@ const ChatInterface = ({
               isSearchMenuOpen={isSearchMenuOpen}
               onSearchToolSelect={handleSelectSearchTool}
               onSearchBackendChange={handleSelectSearchBackend}
+              onSearchClear={handleClearSearchSelection}
               onSearchMenuClose={handleSearchMenuClose}
               onToggleThinking={() => setIsThinkingActive(prev => !prev)}
               quotedText={quotedText}

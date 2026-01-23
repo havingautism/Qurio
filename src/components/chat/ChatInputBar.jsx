@@ -116,6 +116,7 @@ const CapsuleSettingsMenu = React.memo(
     isSearchMenuOpen,
     onSearchToolSelect,
     onSearchBackendChange,
+    onSearchClear,
     searchMenuRef,
   }) => {
     const backendLabel = React.useMemo(() => {
@@ -274,7 +275,18 @@ const CapsuleSettingsMenu = React.memo(
                                 : 'text-gray-700 dark:text-gray-200',
                             )}
                           >
-                            <span>{t(option.labelKey)}</span>
+                            <span className="flex items-center gap-2">
+                              {option.iconUrl ? (
+                                <img
+                                  src={option.iconUrl}
+                                  alt=""
+                                  className="h-4 w-4 rounded-sm"
+                                />
+                              ) : (
+                                <Globe size={14} className="text-gray-400" />
+                              )}
+                              {t(option.labelKey)}
+                            </span>
                             {isActive && <Check size={14} className="text-primary-500" />}
                           </button>
                         )
@@ -301,7 +313,18 @@ const CapsuleSettingsMenu = React.memo(
                                 : 'text-gray-700 dark:text-gray-200',
                             )}
                           >
-                            <span>{t(option.labelKey)}</span>
+                            <span className="flex items-center gap-2">
+                              {option.iconUrl ? (
+                                <img
+                                  src={option.iconUrl}
+                                  alt=""
+                                  className="h-4 w-4 rounded-sm"
+                                />
+                              ) : (
+                                <Globe size={14} className="text-gray-400" />
+                              )}
+                              {t(option.labelKey)}
+                            </span>
                             {isActive && <Check size={14} className="text-primary-500" />}
                           </button>
                         )
@@ -311,7 +334,7 @@ const CapsuleSettingsMenu = React.memo(
                   <div className="h-px bg-gray-200 dark:bg-zinc-700/70" />
                   <button
                     type="button"
-                    onClick={() => onSearchBackendChange?.(null)}
+                    onClick={() => onSearchClear?.()}
                     className="w-full px-4 py-2 text-left text-sm text-gray-500 dark:text-gray-400 flex items-center justify-between rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
                   >
                     <span>{t('common.close')}</span>
@@ -356,6 +379,7 @@ CapsuleSettingsMenu.displayName = 'CapsuleSettingsMenu'
  * @param {boolean} props.isSearchMenuOpen - Whether the search picker is open
  * @param {Function} props.onSearchToolSelect - Called when an academic search option is chosen
  * @param {Function} props.onSearchBackendChange - Called when a web search backend is chosen
+ * @param {Function} props.onSearchClear - Called to clear search selections and close the menu
  * @param {Function} props.onSearchMenuClose - Called to close the search picker
  * @param {Function} props.onToggleThinking - Callback to toggle thinking mode
  * @param {string|null} props.quotedText - Currently quoted text (or null)
@@ -395,6 +419,7 @@ const ChatInputBar = React.memo(
     isSearchMenuOpen,
     onSearchToolSelect,
     onSearchBackendChange,
+    onSearchClear,
     onSearchMenuClose,
     onToggleThinking,
     quotedText,
@@ -670,6 +695,7 @@ const ChatInputBar = React.memo(
           isSearchMenuOpen={isSearchMenuOpen}
           onSearchToolSelect={onSearchToolSelect}
           onSearchBackendChange={onSearchBackendChange}
+          onSearchClear={onSearchClear}
           searchMenuRef={searchMenuRef}
         />
       ),
@@ -694,6 +720,7 @@ const ChatInputBar = React.memo(
         isSearchMenuOpen,
         onSearchToolSelect,
         onSearchBackendChange,
+        onSearchClear,
       ],
     )
 
@@ -1238,7 +1265,18 @@ const ChatInputBar = React.memo(
                                     : 'text-gray-700 dark:text-gray-200',
                                 )}
                               >
-                                <span>{t(option.labelKey)}</span>
+                                <span className="flex items-center gap-2">
+                                  {option.iconUrl ? (
+                                    <img
+                                      src={option.iconUrl}
+                                      alt=""
+                                      className="h-4 w-4 rounded-sm"
+                                    />
+                                  ) : (
+                                    <Globe size={14} className="text-gray-400" />
+                                  )}
+                                  {t(option.labelKey)}
+                                </span>
                                 {isActive && <Check size={14} className="text-primary-500" />}
                               </button>
                             )
@@ -1265,7 +1303,18 @@ const ChatInputBar = React.memo(
                                     : 'text-gray-700 dark:text-gray-200',
                                 )}
                               >
-                                <span>{t(option.labelKey)}</span>
+                                <span className="flex items-center gap-2">
+                                  {option.iconUrl ? (
+                                    <img
+                                      src={option.iconUrl}
+                                      alt=""
+                                      className="h-4 w-4 rounded-sm"
+                                    />
+                                  ) : (
+                                    <Globe size={14} className="text-gray-400" />
+                                  )}
+                                  {t(option.labelKey)}
+                                </span>
                                 {isActive && <Check size={14} className="text-primary-500" />}
                               </button>
                             )
@@ -1275,7 +1324,7 @@ const ChatInputBar = React.memo(
                       <div className="h-px bg-gray-200 dark:bg-zinc-700/70" />
                       <button
                         type="button"
-                        onClick={() => onSearchBackendChange?.(null)}
+                        onClick={() => onSearchClear?.()}
                         className="w-full px-3 py-2 text-left text-sm text-gray-500 dark:text-gray-400 flex items-center justify-between rounded-xl hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
                       >
                         <span>{t('common.close')}</span>

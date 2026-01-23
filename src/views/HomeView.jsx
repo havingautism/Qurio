@@ -321,7 +321,7 @@ const HomeView = () => {
       setHomeSearchTools([])
       return
     }
-
+    setHomeSearchBackend(null)
     setHomeSearchTools(prev => {
       const normalized = String(toolId)
       return prev.includes(normalized)
@@ -335,7 +335,14 @@ const HomeView = () => {
       setHomeSearchBackend(null)
       return
     }
+    setHomeSearchTools([])
     setHomeSearchBackend(String(backendId))
+  }
+
+  const handleClearHomeSearch = () => {
+    setHomeSearchBackend(null)
+    setHomeSearchTools([])
+    setIsHomeSearchMenuOpen(false)
   }
 
   const handleFileChange = async e => {
@@ -1047,7 +1054,18 @@ const HomeView = () => {
                                         : 'text-gray-700 dark:text-gray-200',
                                     )}
                                   >
-                                    <span>{t(option.labelKey)}</span>
+                                    <span className="flex items-center gap-2">
+                                      {option.iconUrl ? (
+                                        <img
+                                          src={option.iconUrl}
+                                          alt=""
+                                          className="h-4 w-4 rounded-sm"
+                                        />
+                                      ) : (
+                                        <Globe size={14} className="text-gray-400" />
+                                      )}
+                                      {t(option.labelKey)}
+                                    </span>
                                     {isActive && <Check size={14} className="text-primary-500" />}
                                   </button>
                                 )
@@ -1075,7 +1093,18 @@ const HomeView = () => {
                                         : 'text-gray-700 dark:text-gray-200',
                                     )}
                                   >
-                                    <span>{t(option.labelKey)}</span>
+                                    <span className="flex items-center gap-2">
+                                      {option.iconUrl ? (
+                                        <img
+                                          src={option.iconUrl}
+                                          alt=""
+                                          className="h-4 w-4 rounded-sm"
+                                        />
+                                      ) : (
+                                        <Globe size={14} className="text-gray-400" />
+                                      )}
+                                      {t(option.labelKey)}
+                                    </span>
                                     {isActive && <Check size={14} className="text-primary-500" />}
                                   </button>
                                 )
@@ -1083,12 +1112,12 @@ const HomeView = () => {
                             </div>
                           </div>
                           <div className="h-px bg-gray-200 dark:bg-zinc-700/70" />
-                          <button
-                            type="button"
-                            onClick={() => handleSelectHomeSearchBackend(null)}
-                            className="w-full px-3 py-2 text-left text-sm text-gray-500 dark:text-gray-400 flex items-center justify-between hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors rounded-lg"
-                          >
-                            <span>{t('common.close')}</span>
+                            <button
+                              type="button"
+                              onClick={handleClearHomeSearch}
+                              className="w-full px-3 py-2 text-left text-sm text-gray-500 dark:text-gray-400 flex items-center justify-between hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors rounded-lg"
+                            >
+                              <span>{t('common.close')}</span>
                           </button>
                         </div>
                       </div>
@@ -1130,7 +1159,18 @@ const HomeView = () => {
                                           : 'text-gray-700 dark:text-gray-200',
                                       )}
                                     >
-                                      <span>{t(option.labelKey)}</span>
+                                      <span className="flex items-center gap-2">
+                                        {option.iconUrl ? (
+                                          <img
+                                            src={option.iconUrl}
+                                            alt=""
+                                            className="h-4 w-4 rounded-sm"
+                                          />
+                                        ) : (
+                                          <Globe size={14} className="text-gray-400" />
+                                        )}
+                                        {t(option.labelKey)}
+                                      </span>
                                       {isActive && <Check size={14} className="text-primary-500" />}
                                     </button>
                                   )
@@ -1158,7 +1198,18 @@ const HomeView = () => {
                                           : 'text-gray-700 dark:text-gray-200',
                                       )}
                                     >
-                                      <span>{t(option.labelKey)}</span>
+                                      <span className="flex items-center gap-2">
+                                        {option.iconUrl ? (
+                                          <img
+                                            src={option.iconUrl}
+                                            alt=""
+                                            className="h-4 w-4 rounded-sm"
+                                          />
+                                        ) : (
+                                          <Globe size={14} className="text-gray-400" />
+                                        )}
+                                        {t(option.labelKey)}
+                                      </span>
                                       {isActive && <Check size={14} className="text-primary-500" />}
                                     </button>
                                   )
@@ -1168,7 +1219,7 @@ const HomeView = () => {
                             <div className="h-px bg-gray-200 dark:bg-zinc-700/70" />
                             <button
                               type="button"
-                              onClick={() => handleSelectHomeSearchBackend(null)}
+                              onClick={handleClearHomeSearch}
                               className="w-full px-4 py-3 text-left text-sm text-gray-500 dark:text-gray-400 flex items-center justify-between hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg"
                             >
                               <span>{t('common.close')}</span>

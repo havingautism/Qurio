@@ -274,7 +274,7 @@ class MinimaxAdapter(OpenAIAdapter):
         self.config = ProviderConfig(
             name="minimax",
             base_url="https://api.minimax.io/v1",
-            default_model="MiniMax-M2.1",
+            default_model="minimax-m2",
             supports_streaming=True,
             supports_tools=True,
             supports_streaming_tool_calls=True,

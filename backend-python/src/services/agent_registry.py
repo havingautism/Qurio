@@ -26,7 +26,7 @@ DEFAULT_MODELS: Dict[str, str] = {
     "kimi": os.getenv("KIMI_MODEL", "moonshot-v1-8k"),
     "gemini": os.getenv("GEMINI_MODEL", "gemini-2.0-flash-exp"),
     "nvidia": os.getenv("NVIDIA_MODEL", "deepseek-ai/deepseek-r1"),
-    "minimax": os.getenv("MINIMAX_MODEL", "MiniMax-M2.1"),
+    "minimax": os.getenv("MINIMAX_MODEL", "minimax-m2"),
 }
 
 DEFAULT_BASE_URLS: Dict[str, str] = {
@@ -322,7 +322,7 @@ def build_agent(request: Any = None, **kwargs: Any) -> Agent:
         name=f"Qurio {request.provider} Agent",
         model=model,
         tools=tools or None,
-        add_history_to_context=True,
+        add_history_to_context=False,
         markdown=True,
         tool_choice=tool_choice,
     )

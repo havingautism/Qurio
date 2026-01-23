@@ -6,7 +6,7 @@ import {
   updateConversation,
   updateMessageById,
 } from '../lib/conversationsService'
-import { getProvider } from '../lib/providers'
+import { getProvider, resolveThinkingToggleRule } from '../lib/providers'
 import { getUserTools } from '../lib/userToolsService'
 import { deleteMessageById } from '../lib/supabase'
 import { buildResponseStylePromptFromAgent } from './settings'
@@ -1159,7 +1159,10 @@ const callAIAPI = async (
     )
     const provider = getProvider(modelConfig.provider)
     const credentials = provider.getCredentials(settings)
-    const thinkingActive = !!(toggles?.thinking || toggles?.deepResearch)
+    const thinkingRule = resolveThinkingToggleRule(modelConfig.provider, modelConfig.model)
+    const thinkingActive =
+      !!(toggles?.thinking || toggles?.deepResearch) ||
+      (thinkingRule.isLocked && thinkingRule.isThinkingActive)
     let planContent = ''
 
     const updateResearchPlan = content => {
@@ -1246,7 +1249,7 @@ const callAIAPI = async (
         return { messages: [...state.messages, newMessage] }
       })
     } else {
-      // Tag the placeholder with provider/model so UI can show it while streaming
+      // Tag the placeholder with provider/model and thinking flag so UI can show it while streaming
       set(state => {
         const updated = [...state.messages]
         const lastMsgIndex = updated.length - 1
@@ -1255,6 +1258,8 @@ const callAIAPI = async (
         if (lastMsg.role === 'ai') {
           lastMsg.provider = modelConfig.provider
           lastMsg.model = modelConfig.model
+          lastMsg.thinkingEnabled = thinkingActive
+          lastMsg.deepResearch = !!toggles?.deepResearch
           updated[lastMsgIndex] = lastMsg
         }
         return { messages: updated }
@@ -2639,6 +2644,23 @@ Analyze the submitted data. If critical information is still missing or if the r
       }
     }
 
+    // Ensure thinking toggle reflects the resolved agent (auto mode can resolve late).
+    const resolvedToggles = (() => {
+      const next = { ...toggles }
+      const fallbackAgent = agents?.find(agent => agent.isDefault)
+      const modelConfig = getModelConfigForAgent(
+        resolvedAgent || fallbackAgent,
+        settings,
+        'streamChatCompletion',
+        fallbackAgent,
+      )
+      const thinkingRule = resolveThinkingToggleRule(modelConfig.provider, modelConfig.model)
+      if (thinkingRule.isLocked) {
+        next.thinking = thinkingRule.isThinkingActive
+      }
+      return next
+    })()
+
     // Cache optimistic selections for route handoff on first turn
     if (isFirstTurn) {
       set({
@@ -2676,10 +2698,33 @@ Analyze the submitted data. If critical information is still missing or if the r
     // Step 8: Create AI Placeholder (shows immediately, then we run retrieval)
     const aiMessagePlaceholder = appendAIPlaceholder(
       resolvedAgent,
-      toggles,
+      resolvedToggles,
       baseDocumentSources,
       set,
     )
+
+    // Ensure the placeholder shows the resolved agent's provider/model immediately (avoid flicker).
+    const placeholderFallbackAgent = agents?.find(agent => agent.isDefault)
+    const placeholderModelConfig = getModelConfigForAgent(
+      resolvedAgent || placeholderFallbackAgent,
+      settings,
+      'streamChatCompletion',
+      placeholderFallbackAgent,
+    )
+    if (placeholderModelConfig?.provider || placeholderModelConfig?.model) {
+      set(state => {
+        const updated = [...state.messages]
+        const lastMsgIndex = updated.length - 1
+        if (lastMsgIndex < 0 || updated[lastMsgIndex].role !== 'ai') {
+          return { messages: updated }
+        }
+        const lastMsg = { ...updated[lastMsgIndex] }
+        lastMsg.provider = placeholderModelConfig.provider || lastMsg.provider
+        lastMsg.model = placeholderModelConfig.model || lastMsg.model
+        updated[lastMsgIndex] = lastMsg
+        return { messages: updated }
+      })
+    }
 
     let resolvedDocumentSources = baseDocumentSources
     let resolvedDocumentContextAppend = documentContextAppend
@@ -2909,7 +2954,7 @@ Analyze the submitted data. If critical information is still missing or if the r
       conversationMessages,
       aiMessagePlaceholder,
       settings,
-      toggles,
+      resolvedToggles,
       callbacks,
       spaces,
       resolvedSpaceInfo,

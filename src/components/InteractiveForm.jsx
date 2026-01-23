@@ -119,7 +119,7 @@ const InteractiveForm = ({
           <form onSubmit={handleSubmit} className="space-y-6">
             {formData.fields?.map((field, idx) => (
               <div
-                key={field.name}
+                key={field.name || field.id || field.label || idx}
                 className="space-y-2.5 animate-in slide-in-from-bottom-2 fade-in duration-500"
                 style={{ animationDelay: `${idx * 50}ms` }}
               >
@@ -128,34 +128,36 @@ const InteractiveForm = ({
                   {field.required && <span className="text-primary-500 ml-0.5">*</span>}
                 </label>
 
-                <Select
-                  value={values[field.name]}
-                  onValueChange={val => updateValue(field.name, val)}
-                  disabled={isSubmitted}
-                >
-                  <SelectTrigger
-                    className={clsx(
-                      'w-full pl-4 pr-3.5 py-3.5 h-auto rounded-2xl transition-all duration-300 border border-gray-200 dark:border-white/10',
-                      'bg-gray-50/50 dark:bg-zinc-900/50 hover:bg-white dark:hover:bg-zinc-800 backdrop-blur-md',
-                      'hover:border-gray-200 dark:hover:border-white/10',
-                      errors[field.name] && 'border-red-500/50! bg-red-50/10! shadow-none',
-                      'data-[state=open]:ring-2 data-[state=open]:ring-primary-500/20 data-[state=open]:border-primary-500/50 data-[state=open]:shadow-lg data-[state=open]:shadow-primary-500/5',
-                    )}
+                {field.type === 'select' && (
+                  <Select
+                    value={values[field.name]}
+                    onValueChange={val => updateValue(field.name, val)}
+                    disabled={isSubmitted}
                   >
-                    <SelectValue placeholder="请选择..." />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-2xl border-gray-100 dark:border-white/10 shadow-2xl bg-white dark:bg-zinc-900">
-                    {field.options.map(opt => (
-                      <SelectItem
-                        key={opt}
-                        value={opt}
-                        className="px-3.5 py-2.5 my-0.5 rounded-xl cursor-pointer text-sm font-medium transition-all duration-200 data-[state=checked]:bg-primary-50 dark:data-[state=checked]:bg-primary-500/10 data-[state=checked]:text-primary-600 dark:data-[state=checked]:text-primary-400 focus:bg-gray-50 dark:focus:bg-white/5 focus:text-gray-900 dark:focus:text-gray-200"
-                      >
-                        {opt}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                    <SelectTrigger
+                      className={clsx(
+                        'w-full pl-4 pr-3.5 py-3.5 h-auto rounded-2xl transition-all duration-300 border border-gray-200 dark:border-white/10',
+                        'bg-gray-50/50 dark:bg-zinc-900/50 hover:bg-white dark:hover:bg-zinc-800 backdrop-blur-md',
+                        'hover:border-gray-200 dark:hover:border-white/10',
+                        errors[field.name] && 'border-red-500/50! bg-red-50/10! shadow-none',
+                        'data-[state=open]:ring-2 data-[state=open]:ring-primary-500/20 data-[state=open]:border-primary-500/50 data-[state=open]:shadow-lg data-[state=open]:shadow-primary-500/5',
+                      )}
+                    >
+                      <SelectValue placeholder="请选择..." />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-2xl border-gray-100 dark:border-white/10 shadow-2xl bg-white dark:bg-zinc-900">
+                      {(field.options || []).map(opt => (
+                        <SelectItem
+                          key={opt}
+                          value={opt}
+                          className="px-3.5 py-2.5 my-0.5 rounded-xl cursor-pointer text-sm font-medium transition-all duration-200 data-[state=checked]:bg-primary-50 dark:data-[state=checked]:bg-primary-500/10 data-[state=checked]:text-primary-600 dark:data-[state=checked]:text-primary-400 focus:bg-gray-50 dark:focus:bg-white/5 focus:text-gray-900 dark:focus:text-gray-200"
+                        >
+                          {opt}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
 
                 {/* Checkbox Group */}
                 {field.type === 'checkbox' && (

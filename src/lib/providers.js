@@ -189,15 +189,17 @@ export const PROVIDERS = {
       baseUrl: getPublicEnv('PUBLIC_KIMI_BASE_URL'),
     }),
     getTools: (isSearchActive, searchTool) => resolveSearchTools(isSearchActive, searchTool),
-    getThinking: isThinkingActive =>
-      isThinkingActive
+    getThinking: (isThinkingActive, modelName) => {
+      if (shouldOmitThinkingParam(modelName)) return undefined
+      return isThinkingActive
         ? {
             // Kimi k2-thinking model uses reasoning_content field
             // Set max_tokens >= 16000 and temperature = 1.0 for best performance
             max_tokens: 16000,
             temperature: 1.0,
           }
-        : undefined,
+        : undefined
+    },
     parseMessage: defaultParseMessage,
   },
   nvidia: {
@@ -209,7 +211,8 @@ export const PROVIDERS = {
       baseUrl: NVIDIA_BASE_URL,
     }),
     getTools: (isSearchActive, searchTool) => resolveSearchTools(isSearchActive, searchTool),
-    getThinking: isThinkingActive => (isThinkingActive ? true : undefined),
+    getThinking: (isThinkingActive, modelName) =>
+      shouldOmitThinkingParam(modelName) ? undefined : isThinkingActive ? true : undefined,
     parseMessage: defaultParseMessage,
   },
   minimax: {
@@ -221,15 +224,17 @@ export const PROVIDERS = {
       baseUrl: MINIMAX_BASE_URL,
     }),
     getTools: (isSearchActive, searchTool) => resolveSearchTools(isSearchActive, searchTool),
-    getThinking: isThinkingActive =>
-      isThinkingActive
+    getThinking: (isThinkingActive, modelName) => {
+      if (shouldOmitThinkingParam(modelName)) return undefined
+      return isThinkingActive
         ? {
             // MiniMax uses reasoning_split to separate thinking content
             extra_body: {
               reasoning_split: true,
             },
           }
-        : undefined,
+        : undefined
+    },
     parseMessage: defaultParseMessage,
   },
 }
@@ -259,13 +264,38 @@ export const providerSupportsSearch = providerName => {
   return tools && tools.length > 0
 }
 
+const THINKING_MODEL_RULES = [
+  {
+    keywords: ['kimi', 'thinking'],
+    isLocked: true,
+    isThinkingActive: true,
+    omitThinkingParam: true,
+  },
+  {
+    keywords: ['minimax', 'm2'],
+    isLocked: true,
+    isThinkingActive: true,
+    omitThinkingParam: true,
+  },
+]
+
+const matchesKeywords = (modelName, keywords) => {
+  const normalizedModel = String(modelName || '').toLowerCase()
+  if (!normalizedModel) return false
+  return (keywords || []).every(keyword => normalizedModel.includes(keyword))
+}
+
+const shouldOmitThinkingParam = modelName => {
+  return THINKING_MODEL_RULES.some(
+    rule => rule.omitThinkingParam && matchesKeywords(modelName, rule.keywords),
+  )
+}
+
 export const resolveThinkingToggleRule = (providerName, modelName) => {
-  const normalizedModel = (modelName || '').toLowerCase()
-  const hasKimi = normalizedModel.includes('kimi')
-  const hasThinking = normalizedModel.includes('thinking')
-  const isLocked = hasKimi
-  return {
-    isLocked,
-    isThinkingActive: hasKimi && hasThinking,
+  for (const rule of THINKING_MODEL_RULES) {
+    if (matchesKeywords(modelName, rule.keywords)) {
+      return { isLocked: rule.isLocked, isThinkingActive: rule.isThinkingActive }
+    }
   }
+  return { isLocked: false, isThinkingActive: false }
 }

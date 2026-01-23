@@ -1025,6 +1025,9 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                   value={activeProvider}
                   onValueChange={val => {
                     onProviderChange(val)
+                    if (modelSource === 'list' && val !== activeProvider) {
+                      onChange('')
+                    }
                   }}
                 >
                   <SelectTrigger className="w-full h-10">

@@ -2562,7 +2562,7 @@ const MessageBubble = ({
             <div className="w-full h-screen md:max-w-4xl md:h-[80vh] bg-white dark:bg-[#191a1a] rounded-none md:rounded-2xl shadow-2xl flex flex-col overflow-hidden border-0 md:border border-gray-200 dark:border-zinc-800">
               <div className="h-14 border-b border-gray-200 dark:border-zinc-800 flex items-center justify-between px-4 sm:px-6 shrink-0 bg-white dark:bg-[#191a1a]">
                 <div className="text-base font-semibold text-gray-900 dark:text-white truncate pr-4">
-                  {getToolDisplayName(activeToolDetail)}
+                  {developerMode ? activeToolDetail?.name : getToolDisplayName(activeToolDetail)}
                 </div>
                 <button
                   type="button"

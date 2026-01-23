@@ -91,7 +91,7 @@ text / thought / tool_call / tool_result / done / error
 ### 5.2 Agno 内置工具（Agno）
 按勾选动态加载 Toolkit：
 - `TavilyTools`：`web_search_using_tavily` / `web_search_with_tavily` / `extract_url_content`
-- `DuckDuckGoTools`：`web_search` / `search_news`
+- `WebSearchTools`：`web_search` / `search_news`（支持后端：auto/duckduckgo/google/bing/brave/yandex/yahoo）
 - `ArxivTools`：`search_arxiv_and_return_articles` / `read_arxiv_papers`
 - `WikipediaTools`：`search_wikipedia`
 - `YFinanceTools`：`get_current_stock_price` / `get_company_info` / `get_stock_fundamentals` / …
@@ -106,6 +106,50 @@ text / thought / tool_call / tool_result / done / error
 
 **实现位置**：
 - `backend-python/src/services/user_tools.py`
+
+### 5.4 搜索后端选择（前后端联动）
+**目的**：网络搜索不再依赖“工具别名/供应商开关”，而是由输入框选择“搜索后端”，并让工具调用展示/详情可见后端信息。
+
+**前端 UI 行为**
+- 会话输入框与首页输入框：下拉菜单分成三段  
+  1) 网络搜索（后端单选）  
+  2) 学术搜索（arXiv / Wikipedia 多选）  
+  3) 关闭（清空网络搜索后端）  
+- “关闭”统一放在最底部，避免被误认为后端选项。  
+- 展示标签：`网络搜索 · Google` / `网络搜索 · DuckDuckGo` 等。
+
+**前端状态与请求**
+- 选择的后端存到 `searchBackend`（字符串或 null）。  
+- 发起聊天请求时，`searchBackend` 会随请求体发送到后端。
+- 学术搜索仍作为独立工具勾选，不与网络搜索后端耦合。
+
+**后端接收与工具装配**
+- `searchBackend` → `request.search_backend`  
+- `_build_agno_toolkits()` 中 `WebSearchTools(backend=...)` 读取该值  
+- 支持：`auto | duckduckgo | google | bing | brave | yandex | yahoo`
+
+**工具调用展示修复**
+- Agno 的 `web_search/search_news` 默认参数不包含 `backend`，刷新后容易丢失显示。
+- 前端在流式 `tool_call` 事件时**注入 backend**到 `toolCallHistory.arguments`（仅 web_search/search_news）。  
+- `MessageBubble` 会从 `message.searchBackend` 或 `toolCallHistory.arguments.backend` 反推后端，保证刷新后仍能显示 `网络搜索 · Google`。
+- 工具详情“入参 JSON”会补全 `backend` 字段，避免误解。
+
+**涉及文件**
+- 前端请求与状态  
+  - `src/components/ChatInterface.jsx`（维护 searchBackend、传入 ChatInputBar）
+  - `src/views/HomeView.jsx`（首页搜索下拉 + searchBackend）
+  - `src/lib/backendClient.js` / `src/lib/chatStore.js`（请求体携带 searchBackend）
+- 前端展示  
+  - `src/components/chat/ChatInputBar.jsx`（下拉菜单结构 + 标签显示）
+  - `src/components/MessageBubble.jsx`（工具名/详情显示 backend）
+- 后端工具装配  
+  - `backend-python/src/services/agent_registry.py`（WebSearchTools backend 选择）
+  - `backend-python/src/models/stream_chat.py` / `backend-python/src/routes/stream_chat.py`
+  - `backend-python/src/services/tool_registry.py`（工具描述）
+
+**注意事项**
+- 当前 `conversation_messages` 表没有 `search_backend` 字段，刷新后依赖 `toolCallHistory.arguments.backend` 还原显示。
+- 若后续要持久化后端选择，可新增字段并在持久化时写入（前端 + DB schema 需同步调整）。
 
 ---
 

@@ -86,7 +86,7 @@ class QurioLocalTools(Toolkit):
 
     @tool(
         name="interactive_form",
-        description="Display an interactive form to collect structured user input.",
+        description="Display an interactive form to collect structured user input. Each field must have 'name' property.",
     )
     def interactive_form(self, id: str, title: str, fields: list[dict[str, Any]]) -> dict[str, Any]:
         return {

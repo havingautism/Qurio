@@ -87,6 +87,7 @@ class StreamChatService:
             sources_map: dict[str, Any] = {}
             full_content = ""
             full_thought = ""
+            tool_start_times: dict[str, float] = {}
             
             tagged_handler = TaggedTextHandler()
 
@@ -146,6 +147,8 @@ class StreamChatService:
                         tool_event: ToolCallStartedEvent = event  # type: ignore[assignment]
                         tool = tool_event.tool
                         if tool:
+                            if tool.tool_call_id:
+                                tool_start_times[tool.tool_call_id] = time.time()
                             yield ToolCallEvent(
                                 id=tool.tool_call_id,
                                 name=tool.tool_name or "",
@@ -156,6 +159,9 @@ class StreamChatService:
                         tool_event: ToolCallCompletedEvent = event  # type: ignore[assignment]
                         tool = tool_event.tool
                         if tool:
+                            duration_ms = None
+                            if tool.tool_call_id and tool.tool_call_id in tool_start_times:
+                                duration_ms = int((time.time() - tool_start_times[tool.tool_call_id]) * 1000)
                             output = self._normalize_tool_output(tool.result)
                             if output and isinstance(output, str):
                                 # Try JSON format (double quotes)
@@ -177,6 +183,7 @@ class StreamChatService:
                                 name=tool.tool_name or "",
                                 status="done" if not tool.tool_call_error else "error",
                                 output=output,
+                                durationMs=duration_ms,
                             ).model_dump()
                             self._collect_search_sources(output, sources_map)
 

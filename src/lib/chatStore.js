@@ -2846,9 +2846,7 @@ Analyze the submitted data. If critical information is still missing or if the r
       })
     }
 
-    const combinedContextAppend = [resolvedMemoryAppend, resolvedDocumentContextAppend]
-      .filter(Boolean)
-      .join('\n\n')
+    const combinedContextAppend = resolvedDocumentContextAppend || ''
     const { payloadContent } = buildUserMessage(
       text,
       attachments,

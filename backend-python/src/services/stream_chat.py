@@ -485,12 +485,20 @@ class StreamChatService:
             return
 
         try:
+            logger.info("Reading memories for user=%s before optimization", user_id)
             memories = memory_manager.get_user_memories(user_id=user_id) or []
+            logger.info("Found %s memories for user=%s", len(memories), user_id)
         except Exception as exc:
             logger.warning("Failed to list memories for optimization (%s): %s", user_id, exc)
             return
 
         if len(memories) < MEMORY_OPTIMIZE_THRESHOLD:
+            logger.debug(
+                "Skipping optimization for user=%s because count=%s below threshold=%s",
+                user_id,
+                len(memories),
+                MEMORY_OPTIMIZE_THRESHOLD,
+            )
             return
 
         try:

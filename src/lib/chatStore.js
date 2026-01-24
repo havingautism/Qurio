@@ -1347,6 +1347,8 @@ const callAIAPI = async (
       memoryModel: resolvedMemoryModel,
       memoryApiKey,
       memoryBaseUrl,
+      enableLongTermMemory: Boolean(settings.enableLongTermMemory),
+      databaseProvider: settings.databaseProvider || 'supabase',
       thinking: provider.getThinking(thinkingActive, modelConfig.model),
       signal: controller.signal,
       onChunk: chunk => {

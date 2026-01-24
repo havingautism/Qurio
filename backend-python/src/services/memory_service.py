@@ -40,6 +40,13 @@ def optimize_user_memories(
         logger.warning("Memory optimization skipped: missing user_id.")
         return {"success": False, "message": "user_id is required"}
 
+    logger.info(
+        "Optimize memories request: user=%s strategy=%s provider=%s model=%s",
+        user_id,
+        strategy or "SUMMARIZE",
+        provider,
+        model,
+    )
     agent = build_memory_agent(
         user_id=user_id,
         provider=provider,
@@ -58,6 +65,13 @@ def optimize_user_memories(
             user_id=user_id,
             strategy=resolved_strategy,
             apply=apply,
+        )
+        logger.info(
+            "Memory optimization completed for user=%s strategy=%s apply=%s (%s entries)",
+            user_id,
+            resolved_strategy.name,
+            apply,
+            len(optimized or []),
         )
         return {"success": True, "strategy": resolved_strategy.name, "result": optimized}
     except Exception as exc:

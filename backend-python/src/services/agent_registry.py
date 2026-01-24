@@ -11,6 +11,7 @@ from urllib.parse import quote_plus, urlparse
 
 from agno.agent import Agent
 from agno.db.postgres import PostgresDb
+from agno.memory import MemoryManager
 from agno.models.google import Gemini
 from agno.models.openai import OpenAILike
 from agno.utils.log import logger
@@ -53,17 +54,22 @@ MEMORY_AGENT_API_KEY = os.getenv("MEMORY_AGENT_API_KEY") or os.getenv("OPENAI_AP
 
 
 _memory_db: PostgresDb | None = None
+_memory_db_initialized: bool = False
 
 
 def _get_supabase_memory_db() -> PostgresDb | None:
     global _memory_db
+    global _memory_db_initialized
     if _memory_db is not None:
         return _memory_db
+    if _memory_db_initialized:
+        return None
+    _memory_db_initialized = True
     if not PostgresDb:
         return None
 
     settings = get_settings()
-    if not settings.supabase_url or not settings.supabase_service_role_key:
+    if not settings.supabase_url or not settings.supabase_password:
         logger.warning('Supabase credentials are missing; cannot initialize AGNO memory store.')
         return None
 
@@ -74,15 +80,21 @@ def _get_supabase_memory_db() -> PostgresDb | None:
         return None
     db_host = host if host.startswith('db.') else f'db.{host}'
 
-    password = quote_plus(settings.supabase_service_role_key)
-    db_url = f'postgresql://postgres:{password}@{db_host}:5432/postgres?sslmode=require'
-
+    password = quote_plus(settings.supabase_password)
+    # db_url = f'postgresql://postgres:{password}@{db_host}:5432/postgres'
+    db_url = f'postgresql://postgres.{settings.supabase_project_name}:{password}@aws-1-ap-south-1.pooler.supabase.com:6543/postgres'
+    logger.info('Initializing AGNO Supabase memory store with URL: %s', db_url)
     try:
         _memory_db = PostgresDb(db_url=db_url)
     except Exception as exc:
         logger.warning('Failed to initialize AGNO Supabase memory store: %s', exc)
         _memory_db = None
     return _memory_db
+
+
+def init_memory_db() -> PostgresDb | None:
+    """Eagerly initialize the memory DB once on startup."""
+    return _get_supabase_memory_db()
 
 
 def _build_memory_kwargs(request: Any) -> dict[str, Any]:
@@ -96,7 +108,15 @@ def _build_memory_kwargs(request: Any) -> dict[str, Any]:
     if not db:
         logger.warning('Memory requested but Supabase memory store is unavailable.')
         return {}
-    return {'db': db, 'update_memory_on_run': True}
+    memory_manager = _build_memory_manager(request)
+    if not memory_manager:
+        return {}
+    return {
+        'db': db,
+        'memory_manager': memory_manager,
+        'enable_agentic_memory': True,
+        'update_memory_on_run': True,
+    }
 
 
 def _build_model(provider: str, api_key: str | None, base_url: str | None, model: str | None):
@@ -108,6 +128,24 @@ def _build_model(provider: str, api_key: str | None, base_url: str | None, model
         return Gemini(id=model_id, api_key=api_key)
 
     return OpenAILike(id=model_id, api_key=api_key, base_url=resolved_base)
+
+
+def _build_memory_manager(request: Any) -> MemoryManager | None:
+    if not getattr(request, "enable_long_term_memory", False):
+        return None
+
+    provider = getattr(request, "memory_provider", None) or getattr(request, "provider", None) or "openai"
+    model = getattr(request, "memory_model", None) or getattr(request, "model", None)
+    api_key = getattr(request, "memory_api_key", None) or getattr(request, "api_key", None)
+    base_url = getattr(request, "memory_base_url", None) or getattr(request, "base_url", None)
+
+    db = _get_supabase_memory_db()
+    if not db:
+        logger.warning("Memory requested but Supabase memory store is unavailable.")
+        return None
+
+    memory_model = _build_model(provider, api_key, base_url, model)
+    return MemoryManager(model=memory_model, db=db)
 
 
 def _merge_model_dict_attr(model: Any, attr: str, payload: dict[str, Any]) -> None:
@@ -369,7 +407,6 @@ def build_agent(request: Any = None, **kwargs: Any) -> Agent:
     _apply_model_settings(model, request)
     tools = _build_tools(request)
     memory_kwargs = _build_memory_kwargs(request)
-
     tool_choice = request.tool_choice
     if tool_choice is None and tools:
         tool_choice = "auto"

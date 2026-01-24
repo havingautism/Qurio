@@ -180,6 +180,20 @@ export const PROVIDERS = {
     //   return { ...parsed, content: normalizeMarkdownSpacing(parsed.content) }
     // },
   },
+  glm: {
+    ...createBackendProvider('glm'),
+    id: 'glm',
+    name: 'GLM (Zhipu AI)',
+    getCredentials: settings => ({
+      apiKey: settings.GlmKey || getPublicEnv('PUBLIC_GLM_API_KEY'),
+      baseUrl: GLM_BASE_URL,
+    }),
+    getTools: (isSearchActive, searchTool) => resolveSearchTools(isSearchActive, searchTool),
+    getThinking: isThinkingActive => ({
+      type: isThinkingActive ? 'enabled' : 'disabled',
+    }),
+    parseMessage: defaultParseMessage,
+  },
   kimi: {
     ...createBackendProvider('kimi'),
     id: 'kimi',

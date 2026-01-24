@@ -4,6 +4,7 @@
  */
 
 import { loadSettings } from './settings'
+import { getSupabaseClient } from './supabase'
 
 // Backend URL - env > user settings
 const getBackendUrl = () => {
@@ -28,6 +29,18 @@ const getBackendErrorMessage = (error, status) => {
   }
 
   return `Backend error: ${status}`
+}
+
+const getCurrentUserId = async () => {
+  const supabase = getSupabaseClient()
+  if (!supabase?.auth?.getSession) return null
+  try {
+    const { data } = await supabase.auth.getSession()
+    return data?.session?.user?.id || null
+  } catch (error) {
+    console.warn('Failed to fetch Supabase session for userId:', error)
+    return null
+  }
 }
 
 /**
@@ -532,6 +545,7 @@ export const streamChatViaBackend = async params => {
   }
 
   try {
+    const userId = await getCurrentUserId()
     const response = await fetch(`${getBackendUrl()}/api/stream-chat`, {
       method: 'POST',
       headers: {
@@ -558,6 +572,7 @@ export const streamChatViaBackend = async params => {
         tavilyApiKey,
         searchBackend,
         userTools,
+        userId,
         enableLongTermMemory,
         databaseProvider,
       }),

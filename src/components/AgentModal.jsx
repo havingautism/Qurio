@@ -752,16 +752,33 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
   }
 
   const parseJsonFromText = text => {
-    if (!text) return null
+    if (!text || typeof text !== 'string') return null
+    const trimmed = text.trim()
+    const cleaned = trimmed
+      .replace(/^```(?:json)?/i, '')
+      .replace(/```$/i, '')
+      .trim()
+    const normalizePythonishJson = input => {
+      return input
+        .replace(/\bTrue\b/g, 'true')
+        .replace(/\bFalse\b/g, 'false')
+        .replace(/\bNone\b/g, 'null')
+        .replace(/'([^'\\]*(?:\\.[^'\\]*)*)'/g, (_, value) => `"${value.replace(/"/g, '\\"')}"`)
+    }
     try {
-      return JSON.parse(text)
+      return JSON.parse(cleaned)
     } catch {
-      const match = text.match(/\{[\s\S]*\}/)
+      const match = cleaned.match(/\{[\s\S]*\}|\[[\s\S]*\]/)
       if (!match) return null
+      const raw = match[0]
       try {
-        return JSON.parse(match[0])
+        return JSON.parse(raw)
       } catch {
-        return null
+        try {
+          return JSON.parse(normalizePythonishJson(raw))
+        } catch {
+          return null
+        }
       }
     }
   }
@@ -777,8 +794,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
     if (!apiKey) {
       throw new Error(t('agents.model.testMissingKey'))
     }
-    const responseFormat =
-      structured && providerKey !== 'gemini' ? { type: 'json_object' } : undefined
+    const responseFormat = structured && providerKey !== 'gemini' ? { type: 'json_object' } : undefined
     const prompt = structured
       ? 'Return a JSON object with keys "ok" and "echo". Set ok to true.'
       : 'Reply with "pong".'

@@ -58,6 +58,8 @@ async def stream_chat(request: Request) -> Response:
     # Parse request body
     body = await request.json()
     stream_request = StreamChatRequest(**body)
+    if not stream_request.user_id:
+        stream_request.user_id = "default-user"
 
     # Get SSE config
     sse_config = get_sse_config()

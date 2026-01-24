@@ -39,9 +39,9 @@ class Settings(BaseSettings):
     sse_heartbeat_ms: int = Field(default=15000, alias="SSE_HEARTBEAT_MS")
 
     # Supabase Configuration
+    supabase_project_name: str = Field(default="", alias="SUPABASE_PROJECT_NAME")
     supabase_url: str = Field(default="", alias="SUPABASE_URL")
-    supabase_anon_key: str = Field(default="", alias="SUPABASE_ANON_KEY")
-    supabase_service_role_key: str = Field(default="", alias="SUPABASE_SERVICE_ROLE_KEY")
+    supabase_password: str = Field(default="", alias="SUPABASE_PASSWORD")
 
     # Tavily API (for web search)
     tavily_api_key: str = Field(default="", alias="TAVILY_API_KEY")
@@ -85,17 +85,22 @@ def get_settings() -> Settings:
     """Get the global settings instance (singleton)."""
     global _settings
     if _settings is None:
-        # Load from backend-python/.env if it exists
-        backend_dir = Path(__file__).parent.parent
-        env_path = backend_dir / ".env"
-        env_local_path = backend_dir / ".env.local"
+        # Search paths for env files (priority order)
+        src_dir = Path(__file__).parent
+        backend_dir = src_dir.parent
+        
+        candidates = [
+            src_dir / ".env.local",
+            backend_dir / ".env.local",
+            src_dir / ".env",
+            backend_dir / ".env",
+        ]
 
-        # Priority: .env.local > .env > defaults
         env_file = None
-        if env_local_path.exists():
-            env_file = str(env_local_path)
-        elif env_path.exists():
-            env_file = str(env_path)
+        for candidate in candidates:
+            if candidate.exists():
+                env_file = str(candidate)
+                break
 
         _settings = Settings(_env_file=env_file)
     return _settings

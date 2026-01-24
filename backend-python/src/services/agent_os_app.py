@@ -26,7 +26,7 @@ from ..routes import (
     memory as memory_route,
     mcp_tools,
 )
-from .agent_registry import build_agent
+from .agent_registry import build_agent, init_memory_db
 
 _agent_os: AgentOS | None = None
 
@@ -81,6 +81,7 @@ def get_agent_os() -> AgentOS:
         return _agent_os
 
     base_app = _build_base_app()
+    init_memory_db()
     default_request = SimpleNamespace(
         provider="openai",
         api_key=os.getenv("OPENAI_API_KEY"),

@@ -680,6 +680,35 @@ const getModelConfigForAgent = (agent, settings, task = 'streamChatCompletion', 
   }
 }
 
+const resolveProviderConfigWithCredentials = (agent, settings, task, fallbackAgent) => {
+  const primaryConfig = getModelConfigForAgent(agent, settings, task, fallbackAgent)
+  const primaryProvider = getProvider(primaryConfig.provider)
+  const primaryCredentials = primaryProvider.getCredentials(settings)
+
+  if (primaryCredentials?.apiKey) {
+    return {
+      modelConfig: primaryConfig,
+      provider: primaryProvider,
+      credentials: primaryCredentials,
+    }
+  }
+
+  const fallbackConfig = getModelConfigForAgent(
+    agent,
+    settings,
+    'streamChatCompletion',
+    fallbackAgent,
+  )
+  const fallbackProvider = getProvider(fallbackConfig.provider)
+  const fallbackCredentials = fallbackProvider.getCredentials(settings)
+
+  return {
+    modelConfig: fallbackConfig,
+    provider: fallbackProvider,
+    credentials: fallbackCredentials,
+  }
+}
+
 const applyLanguageInstructionToText = (text, instruction) => {
   if (!instruction) return text
   const baseText = typeof text === 'string' ? text.trim() : ''
@@ -827,14 +856,12 @@ const preselectTitleSpaceAndAgentForAuto = async (
   // Global default agent always exists (cannot be deleted)
   const fallbackAgent = agents?.find(agent => agent.isDefault)
   const agentForPreselection = selectedAgent || fallbackAgent
-  const modelConfig = getModelConfigForAgent(
+  const { modelConfig, provider, credentials } = resolveProviderConfigWithCredentials(
     agentForPreselection,
     settings,
     'generateTitleAndSpace',
     fallbackAgent,
   )
-  const provider = getProvider(modelConfig.provider)
-  const credentials = provider.getCredentials(settings)
   const languageInstruction = getLanguageInstruction(agentForPreselection, settings)
   const promptText = applyLanguageInstructionToText(firstMessage, languageInstruction)
   const spaceAgents = await buildSpaceAgentOptions(spaces, agents)
@@ -883,14 +910,12 @@ const preselectTitleForManual = async (
   // Global default agent always exists (cannot be deleted)
   const fallbackAgent = agents?.find(agent => agent.isDefault)
   const agentForTitle = selectedAgent || fallbackAgent
-  const modelConfig = getModelConfigForAgent(
+  const { modelConfig, provider, credentials } = resolveProviderConfigWithCredentials(
     agentForTitle,
     settings,
     'generateTitle',
     fallbackAgent,
   )
-  const provider = getProvider(modelConfig.provider)
-  const credentials = provider.getCredentials(settings)
   const languageInstruction = getLanguageInstruction(agentForTitle, settings)
   const promptText = applyLanguageInstructionToText(firstMessage, languageInstruction)
   const result = await provider.generateTitle(
@@ -934,14 +959,12 @@ const preselectTitleForDeepResearch = async (
 ) => {
   const fallbackAgent = agents?.find(agent => agent.isDefault)
   const agentForTitle = selectedAgent || fallbackAgent
-  const modelConfig = getModelConfigForAgent(
+  const { modelConfig, provider, credentials } = resolveProviderConfigWithCredentials(
     agentForTitle,
     settings,
     'generateTitle',
     fallbackAgent,
   )
-  const provider = getProvider(modelConfig.provider)
-  const credentials = provider.getCredentials(settings)
   const languageInstruction = getLanguageInstruction(agentForTitle, settings)
   const promptText = applyLanguageInstructionToText(firstMessage, languageInstruction)
   const result = await provider.generateTitle(
@@ -1305,20 +1328,10 @@ const callAIAPI = async (
       console.error('Failed to fetch user tools for chat:', err)
     }
 
-    const memoryModelConfig = getModelConfigForAgent(
-      selectedAgent,
-      settings,
-      'generateMemoryQuery',
-      fallbackAgent,
-    )
-    const resolvedMemoryProvider = memoryModelConfig?.provider
-    const resolvedMemoryModel = memoryModelConfig?.model
-    const memoryProviderInstance = resolvedMemoryProvider
-      ? getProvider(resolvedMemoryProvider)
-      : null
-    const memoryCredentials = memoryProviderInstance?.getCredentials(settings)
-    const memoryApiKey = memoryCredentials?.apiKey || credentials.apiKey
-    const memoryBaseUrl = memoryCredentials?.baseUrl || credentials.baseUrl
+    const resolvedMemoryProvider = modelConfig.provider
+    const resolvedMemoryModel = modelConfig.model
+    const memoryApiKey = credentials.apiKey
+    const memoryBaseUrl = credentials.baseUrl
 
     const params = {
       ...credentials,
@@ -1752,101 +1765,104 @@ const finalizeMessage = async (
     ])
 
   if (isFirstTurn) {
-    if (typeof preselectedTitle === 'string' && preselectedTitle.trim()) {
-      resolvedTitle = preselectedTitle.trim()
-      resolvedTitleEmojis = Array.isArray(preselectedEmojis) ? preselectedEmojis : []
-      set({ conversationTitle: resolvedTitle, conversationTitleEmojis: resolvedTitleEmojis })
-    } else if (spaceInfo?.isManualSpaceSelection && spaceInfo?.selectedSpace) {
-      // Generate title only when space is manually selected
-      const titleModelConfig = getModelConfigForAgent(
-        safeAgent,
-        settings,
-        'generateTitle',
-        fallbackAgent,
-      )
-      const provider = getProvider(titleModelConfig.provider)
-      const credentials = provider.getCredentials(settings)
-      const languageInstruction = getLanguageInstruction(safeAgent, settings)
-      const promptText = applyLanguageInstructionToText(firstMessageText, languageInstruction)
-      const titleResult = await provider.generateTitle(
-        promptText,
-        credentials.apiKey,
-        credentials.baseUrl,
-        titleModelConfig.model,
-      )
-      resolvedTitle = titleResult?.title || 'New Conversation'
-      resolvedTitleEmojis = Array.isArray(titleResult?.emojis) ? titleResult.emojis : []
-      set({ conversationTitle: resolvedTitle, conversationTitleEmojis: resolvedTitleEmojis })
-    } else if (callbacks?.onTitleAndSpaceGenerated) {
-      // Use callback to generate both title and space
-      const titleModelConfig = getModelConfigForAgent(
-        safeAgent,
-        settings,
-        'generateTitleAndSpace',
-        fallbackAgent,
-      )
-      const provider = getProvider(titleModelConfig.provider)
-      const credentials = provider.getCredentials(settings)
-      const languageInstruction = getLanguageInstruction(safeAgent, settings)
-      const promptText = applyLanguageInstructionToText(firstMessageText, languageInstruction)
-      const { title, space, emojis } = await callbacks.onTitleAndSpaceGenerated(
-        promptText,
-        credentials.apiKey,
-        credentials.baseUrl,
-      )
-      resolvedTitle = title
-      resolvedTitleEmojis = Array.isArray(emojis) ? emojis : []
-      set({ conversationTitle: title, conversationTitleEmojis: resolvedTitleEmojis })
-      resolvedSpace = space || null
-    } else {
-      // Generate both title and space automatically
-      const titleModelConfig = getModelConfigForAgent(
-        safeAgent,
-        settings,
-        'generateTitleAndSpace',
-        fallbackAgent,
-      )
-      const provider = getProvider(titleModelConfig.provider)
-      const credentials = provider.getCredentials(settings)
-      const languageInstruction = getLanguageInstruction(safeAgent, settings)
-      const promptText = applyLanguageInstructionToText(firstMessageText, languageInstruction)
-      if (!resolvedAgent && provider.generateTitleSpaceAndAgent) {
-        const spaceAgents = await buildSpaceAgentOptions(spaces, agents)
-        if (spaceAgents.length) {
-          const { title, spaceLabel, agentName, emojis } =
-            await provider.generateTitleSpaceAndAgent(
-              promptText,
-              spaceAgents,
-              credentials.apiKey,
-              credentials.baseUrl,
-              titleModelConfig.model,
-            )
-          resolvedTitle = title
-          resolvedTitleEmojis = Array.isArray(emojis) ? emojis : []
-          set({ conversationTitle: title, conversationTitleEmojis: resolvedTitleEmojis })
-          const normalizedSpaceLabel =
-            typeof spaceLabel === 'string' ? spaceLabel.split(' - ')[0].trim() : spaceLabel
-          resolvedSpace = (spaces || []).find(s => s.label === normalizedSpaceLabel) || null
-          if (resolvedSpace && agentName) {
-            resolvedAgent = resolveAgentForSpace(agentName, resolvedSpace, spaceAgents, agents)
-            if (resolvedAgent) {
-              callbacks?.onAgentResolved?.(resolvedAgent)
-            }
-          }
-        }
-      }
-      if (!resolvedTitle || resolvedTitle === 'New Conversation') {
-        const { title, space, emojis } = await provider.generateTitleAndSpace(
+    const hasResolvedTitle =
+      typeof resolvedTitle === 'string' &&
+      resolvedTitle.trim() &&
+      resolvedTitle !== 'New Conversation'
+    if (!hasResolvedTitle) {
+      if (typeof preselectedTitle === 'string' && preselectedTitle.trim()) {
+        resolvedTitle = preselectedTitle.trim()
+        resolvedTitleEmojis = Array.isArray(preselectedEmojis) ? preselectedEmojis : []
+        set({ conversationTitle: resolvedTitle, conversationTitleEmojis: resolvedTitleEmojis })
+      } else if (spaceInfo?.isManualSpaceSelection && spaceInfo?.selectedSpace) {
+        // Generate title only when space is manually selected
+      const { modelConfig: titleModelConfig, provider, credentials } =
+        resolveProviderConfigWithCredentials(
+          safeAgent,
+          settings,
+          'generateTitle',
+          fallbackAgent,
+        )
+        const languageInstruction = getLanguageInstruction(safeAgent, settings)
+        const promptText = applyLanguageInstructionToText(firstMessageText, languageInstruction)
+        const titleResult = await provider.generateTitle(
           promptText,
-          spaces || [],
           credentials.apiKey,
           credentials.baseUrl,
           titleModelConfig.model,
         )
+        resolvedTitle = titleResult?.title || 'New Conversation'
+        resolvedTitleEmojis = Array.isArray(titleResult?.emojis) ? titleResult.emojis : []
+        set({ conversationTitle: resolvedTitle, conversationTitleEmojis: resolvedTitleEmojis })
+      } else if (callbacks?.onTitleAndSpaceGenerated) {
+        // Use callback to generate both title and space
+      const { modelConfig: titleModelConfig, provider, credentials } =
+        resolveProviderConfigWithCredentials(
+          safeAgent,
+          settings,
+          'generateTitleAndSpace',
+          fallbackAgent,
+        )
+        const languageInstruction = getLanguageInstruction(safeAgent, settings)
+        const promptText = applyLanguageInstructionToText(firstMessageText, languageInstruction)
+        const { title, space, emojis } = await callbacks.onTitleAndSpaceGenerated(
+          promptText,
+          credentials.apiKey,
+          credentials.baseUrl,
+        )
         resolvedTitle = title
         resolvedTitleEmojis = Array.isArray(emojis) ? emojis : []
         set({ conversationTitle: title, conversationTitleEmojis: resolvedTitleEmojis })
-        resolvedSpace = space || resolvedSpace || null
+        resolvedSpace = space || null
+      } else {
+        // Generate both title and space automatically
+      const { modelConfig: titleModelConfig, provider, credentials } =
+        resolveProviderConfigWithCredentials(
+          safeAgent,
+          settings,
+          'generateTitleAndSpace',
+          fallbackAgent,
+        )
+        const languageInstruction = getLanguageInstruction(safeAgent, settings)
+        const promptText = applyLanguageInstructionToText(firstMessageText, languageInstruction)
+        if (!resolvedAgent && provider.generateTitleSpaceAndAgent) {
+          const spaceAgents = await buildSpaceAgentOptions(spaces, agents)
+          if (spaceAgents.length) {
+            const { title, spaceLabel, agentName, emojis } =
+              await provider.generateTitleSpaceAndAgent(
+                promptText,
+                spaceAgents,
+                credentials.apiKey,
+                credentials.baseUrl,
+                titleModelConfig.model,
+              )
+            resolvedTitle = title
+            resolvedTitleEmojis = Array.isArray(emojis) ? emojis : []
+            set({ conversationTitle: title, conversationTitleEmojis: resolvedTitleEmojis })
+            const normalizedSpaceLabel =
+              typeof spaceLabel === 'string' ? spaceLabel.split(' - ')[0].trim() : spaceLabel
+            resolvedSpace = (spaces || []).find(s => s.label === normalizedSpaceLabel) || null
+            if (resolvedSpace && agentName) {
+              resolvedAgent = resolveAgentForSpace(agentName, resolvedSpace, spaceAgents, agents)
+              if (resolvedAgent) {
+                callbacks?.onAgentResolved?.(resolvedAgent)
+              }
+            }
+          }
+        }
+        if (!resolvedTitle || resolvedTitle === 'New Conversation') {
+          const { title, space, emojis } = await provider.generateTitleAndSpace(
+            promptText,
+            spaces || [],
+            credentials.apiKey,
+            credentials.baseUrl,
+            titleModelConfig.model,
+          )
+          resolvedTitle = title
+          resolvedTitleEmojis = Array.isArray(emojis) ? emojis : []
+          set({ conversationTitle: title, conversationTitleEmojis: resolvedTitleEmojis })
+          resolvedSpace = space || resolvedSpace || null
+        }
       }
     }
   }
@@ -2083,14 +2099,12 @@ const finalizeMessage = async (
       }
 
       // Use agent's model config if available, otherwise fall back to global settings
-      const modelConfig = getModelConfigForAgent(
+      const { modelConfig, provider, credentials } = resolveProviderConfigWithCredentials(
         safeAgent,
         settings,
         'generateRelatedQuestions',
         fallbackAgent,
       )
-      const provider = getProvider(modelConfig.provider)
-      const credentials = provider.getCredentials(settings)
       related = await withTimeout(
         provider.generateRelatedQuestions(
           relatedMessages, // Only use the last 2 messages (User + AI) for context

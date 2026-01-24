@@ -485,19 +485,17 @@ class StreamChatService:
             return
 
         try:
-            logger.info("Reading memories for user=%s before optimization", user_id)
+            logger.info(f"Reading memories for user={user_id} before optimization")
             memories = memory_manager.get_user_memories(user_id=user_id) or []
-            logger.info("Found %s memories for user=%s", len(memories), user_id)
+            logger.info(f"Found {len(memories)} memories for user={user_id}")
         except Exception as exc:
-            logger.warning("Failed to list memories for optimization (%s): %s", user_id, exc)
+            logger.warning(f"Failed to list memories for optimization ({user_id}): {exc}")
             return
 
         if len(memories) < MEMORY_OPTIMIZE_THRESHOLD:
             logger.debug(
-                "Skipping optimization for user=%s because count=%s below threshold=%s",
-                user_id,
-                len(memories),
-                MEMORY_OPTIMIZE_THRESHOLD,
+                f"Skipping optimization for user={user_id} because count={len(memories)} "
+                f"below threshold={MEMORY_OPTIMIZE_THRESHOLD}"
             )
             return
 
@@ -509,9 +507,10 @@ class StreamChatService:
                 True,
             )
             self._last_memory_optimization[user_id] = now
-            logger.info("Optimized %s memories for user %s", len(memories), user_id)
+            logger.info(f"Optimized {len(memories)} memories for user {user_id}")
         except Exception as exc:
-            logger.error("Memory optimization failed for %s: %s", user_id, exc)
+            logger.error(f"Memory optimization failed for {user_id}: {exc}")
+
 
 _stream_chat_service: StreamChatService | None = None
 

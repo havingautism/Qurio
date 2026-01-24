@@ -1,146 +1,21 @@
 """
-Research plan generation services.
+Research plan generation services using Agno ReasoningTools.
+
+This module replaces the original prompt-based plan generation with an
+agent-based approach using ReasoningTools for transparent, structured planning.
 """
 
 from __future__ import annotations
 
 import json
-from typing import Any
+from types import SimpleNamespace
+from typing import Any, AsyncGenerator
 
-from ..models.stream_chat import StreamChatRequest
-from .llm_utils import run_agent_completion, safe_json_parse
+from agno.agent import Agent
+from agno.tools.reasoning import ReasoningTools
 
-
-def build_research_plan_messages(user_message: str) -> list[dict[str, str]]:
-    return [
-        {
-            "role": "system",
-            "content": (
-                "You are a task planner. Produce a detailed, execution-ready research plan in structured JSON.\n\n"
-                "Input\n"
-                "User message contains:\n"
-                '- "question": research question\n'
-                '- "scope": research scope, or "Auto"\n'
-                '- "output": output format preference, or "Auto"\n\n'
-                "Planning Rules\n"
-                "1. Detect question type:\n"
-                "   - Definition: 2-3 steps, define -> characteristics -> applications\n"
-                "   - Comparison: 3-4 steps, differences -> scenarios -> trade-offs -> decision\n"
-                "   - How-it-works: 4-5 steps, overview -> deep dive -> examples -> edge cases\n"
-                "   - How-to: 4-6 steps, prerequisites -> process -> alternatives -> pitfalls\n"
-                "   - Analysis: 5-7 steps, context -> factors -> evidence -> implications -> recommendations\n"
-                "   - History: 3-5 steps, timeline -> milestones -> causes -> effects\n"
-                "2. Hybrid questions: assign 70-80% steps to primary type, 20-30% to secondary\n"
-                "3. Step count must match complexity:\n"
-                "   - simple: 2-3 steps\n"
-                "   - medium: 4-5 steps (default)\n"
-                "   - complex: 6-8 steps\n"
-                '4. If scope/output is "Auto", choose formats:\n'
-                "   - Definition: paragraph\n"
-                "   - Comparison: table + bullet_list\n"
-                "   - How-it-works: paragraph + code_example\n"
-                "   - How-to: numbered_list + checklist\n"
-                "   - Analysis: mix formats\n"
-                "   - History: paragraph or timeline\n"
-                "5. Depth:\n"
-                "   - low: 1-2 paragraphs (~100-200 words)\n"
-                "   - medium: 3-4 paragraphs (~300-500 words)\n"
-                "   - high: 5+ paragraphs (~600+ words)\n"
-                "6. Step 1 must list assumptions if needed; all steps use these assumptions\n"
-                "7. Steps must be sequential, each with a clear, unique purpose, and executable using previous outputs\n"
-                "8. For each step, determine if search is needed:\n"
-                "   - Add \"requires_search\": true if the step needs up-to-date data, benchmarks, or external verification\n"
-                "   - Add \"requires_search\": false if the step relies on stable knowledge, definitions, or established concepts\n"
-                "   - Examples:\n"
-                '     * "Define HTTP" -> requires_search: false (stable concept)\n'
-                '     * "Compare latest AI framework benchmarks" -> requires_search: true (current data needed)\n'
-                '     * "Explain React component lifecycle" -> requires_search: false (stable knowledge)\n'
-                '     * "List current React job market trends" -> requires_search: true (time-sensitive)\n\n'
-                "Deliverable Formats\n"
-                "paragraph, bullet_list, numbered_list, table, checklist, code_example, pros_and_cons\n\n"
-                "Output Schema\n"
-                "Return ONLY valid JSON, no markdown, no commentary:\n"
-                "{\n"
-                '  "research_type": "general",\n'
-                '  "goal": "string",\n'
-                '  "complexity": "simple|medium|complex",\n'
-                '  "question_type": "definition|comparison|how_it_works|how_to|analysis|history",\n'
-                '  "assumptions": ["string"],\n'
-                '  "plan": [\n'
-                "    {\n"
-                '      "step": 1,\n'
-                '      "thought": "short reasoning explaining purpose of this step",\n'
-                '      "action": "specific, executable action",\n'
-                '      "expected_output": "what this step produces, with format and detail",\n'
-                '      "deliverable_format": "paragraph|bullet_list|numbered_list|table|checklist|code_example|pros_and_cons",\n'
-                '      "acceptance_criteria": ["must include X", "must cover Y"],\n'
-                '      "depth": "low|medium|high",\n'
-                '      "requires_search": true|false\n'
-                "    }\n"
-                "  ],\n"
-                '  "risks": ["potential issues to avoid"],\n'
-                '  "success_criteria": ["how to tell if research succeeded"]\n'
-                "}"
-            ),
-        },
-        {"role": "user", "content": user_message},
-    ]
-
-
-def build_academic_research_plan_messages(user_message: str) -> list[dict[str, str]]:
-    return [
-        {
-            "role": "system",
-            "content": (
-                "You are an academic research planner. Produce a detailed, rigorous research plan in structured JSON for scholarly literature review and analysis.\n\n"
-                "Input\n"
-                "User message contains:\n"
-                '- "question": academic research question or topic\n'
-                '- "scope": research scope (time period, geographic region, specific databases, etc.), or "Auto"\n'
-                '- "output": output format preference, or "Auto"\n\n'
-                "Academic Research Question Types\n"
-                "1. literature_review (4-6 steps)\n"
-                "2. methodology_analysis (5-7 steps)\n"
-                "3. empirical_study_review (6-8 steps)\n"
-                "4. theoretical_framework (4-6 steps)\n"
-                "5. state_of_the_art (5-7 steps)\n\n"
-                "Academic Planning Rules\n"
-                "1. Mandatory literature search steps (requires_search true).\n"
-                "2. Emphasize evidence quality and peer review.\n"
-                "3. Critical evaluation required for each step.\n"
-                "4. Systematic approach with inclusion/exclusion criteria.\n"
-                "5. Identify research gaps and limitations.\n"
-                "6. Track citations and publication years.\n"
-                "7. Default to requires_search: true unless theory is well-established.\n\n"
-                "Deliverable Formats for Academic Research\n"
-                "paragraph, bullet_list, numbered_list, table, annotated_bibliography, comparative_analysis, thematic_synthesis\n\n"
-                "Output Schema\n"
-                "Return ONLY valid JSON, no markdown, no commentary:\n"
-                "{\n"
-                '  "research_type": "academic",\n'
-                '  "goal": "string - formal academic research objective",\n'
-                '  "complexity": "simple|medium|complex",\n'
-                '  "question_type": "literature_review|methodology_analysis|empirical_study_review|theoretical_framework|state_of_the_art",\n'
-                '  "assumptions": ["string - research scope assumptions, exclusions, focus areas"],\n'
-                '  "plan": [\n'
-                "    {\n"
-                '      "step": 1,\n'
-                '      "thought": "research rationale for this step",\n'
-                '      "action": "specific, executable academic research action",\n'
-                '      "expected_output": "scholarly deliverable with format and rigor specified",\n'
-                '      "deliverable_format": "paragraph|bullet_list|table|annotated_bibliography|comparative_analysis|thematic_synthesis",\n'
-                '      "acceptance_criteria": ["methodological requirement", "quality threshold", "coverage expectation"],\n'
-                '      "depth": "low|medium|high",\n'
-                '      "requires_search": true|false\n'
-                "    }\n"
-                "  ],\n"
-                '  "risks": ["potential methodological issues", "evidence limitations", "generalizability concerns"],\n'
-                '  "success_criteria": ["scholarly standard for completion", "quality benchmark"]\n'
-                "}"
-            ),
-        },
-        {"role": "user", "content": user_message},
-    ]
+from ..prompts import GENERAL_PLANNER_PROMPT, ACADEMIC_PLANNER_PROMPT
+from .agent_registry import _build_model, _apply_model_settings
 
 
 async def generate_research_plan(
@@ -150,27 +25,71 @@ async def generate_research_plan(
     api_key: str,
     base_url: str | None = None,
     model: str | None = None,
+    temperature: float | None = None,
+    top_p: float | None = None,
+    top_k: float | None = None,
+    frequency_penalty: float | None = None,
+    presence_penalty: float | None = None,
+    thinking: Any = None,
 ) -> str:
-    messages = build_research_plan_messages(user_message)
-    response_format = {"type": "json_object"} if provider != "gemini" else None
-    request = StreamChatRequest(
+    """
+    Generate a research plan using Agent with ReasoningTools.
+
+    This replaces the original prompt-based approach with an agent that uses
+    think() and analyze() tools for transparent, structured planning.
+    """
+    # Build model using the same approach as agent_registry
+    plan_model = _build_model(provider, api_key, base_url, model)
+
+    # Apply model settings (temperature, top_p, etc.)
+    request = SimpleNamespace(
         provider=provider,
-        apiKey=api_key,
-        baseUrl=base_url,
-        model=model,
-        messages=messages,
-        responseFormat=response_format,
-        stream=True,
+        temperature=temperature,
+        top_p=top_p,
+        top_k=top_k,
+        frequency_penalty=frequency_penalty,
+        presence_penalty=presence_penalty,
+        thinking=thinking,
     )
-    result = await run_agent_completion(request)
-    content = result.get("content", "").strip()
-    parsed = safe_json_parse(content)
-    if parsed is not None:
-        try:
-            return json.dumps(parsed, ensure_ascii=True, indent=2)
-        except Exception:
-            return content
-    return content
+    _apply_model_settings(plan_model, request)
+
+    # Create planner agent with ReasoningTools
+    planner = Agent(
+        model=plan_model,
+        tools=[ReasoningTools(
+            add_instructions=True,
+            enable_think=True,
+            enable_analyze=True
+        )],
+        instructions=GENERAL_PLANNER_PROMPT
+    )
+
+    # Run the planner
+    response = await planner.arun(user_message)
+
+    # Extract content and format as JSON string (for backward compatibility)
+    if hasattr(response, 'content'):
+        plan_text = response.content
+    else:
+        plan_text = str(response)
+
+    plan_text = plan_text.strip()
+
+    # Remove markdown code blocks if present
+    if plan_text.startswith("```"):
+        parts = plan_text.split("```")
+        if len(parts) >= 2:
+            plan_text = parts[1]
+            if plan_text.startswith("json"):
+                plan_text = plan_text[4:]
+            plan_text = plan_text.rstrip("`").strip()
+
+    # Validate it's valid JSON
+    try:
+        plan = json.loads(plan_text)
+        return json.dumps(plan, ensure_ascii=True, indent=2)
+    except json.JSONDecodeError:
+        return plan_text
 
 
 async def generate_academic_research_plan(
@@ -180,24 +99,229 @@ async def generate_academic_research_plan(
     api_key: str,
     base_url: str | None = None,
     model: str | None = None,
+    temperature: float | None = None,
+    top_p: float | None = None,
+    top_k: float | None = None,
+    frequency_penalty: float | None = None,
+    presence_penalty: float | None = None,
+    thinking: Any = None,
 ) -> str:
-    messages = build_academic_research_plan_messages(user_message)
-    response_format = {"type": "json_object"} if provider != "gemini" else None
-    request = StreamChatRequest(
+    """
+    Generate an academic research plan using Agent with ReasoningTools.
+    """
+    # Build model using the same approach as agent_registry
+    plan_model = _build_model(provider, api_key, base_url, model)
+
+    # Apply model settings
+    request = SimpleNamespace(
         provider=provider,
-        apiKey=api_key,
-        baseUrl=base_url,
-        model=model,
-        messages=messages,
-        responseFormat=response_format,
-        stream=True,
+        temperature=temperature,
+        top_p=top_p,
+        top_k=top_k,
+        frequency_penalty=frequency_penalty,
+        presence_penalty=presence_penalty,
+        thinking=thinking,
     )
-    result = await run_agent_completion(request)
-    content = result.get("content", "").strip()
-    parsed = safe_json_parse(content)
-    if parsed is not None:
-        try:
-            return json.dumps(parsed, ensure_ascii=True, indent=2)
-        except Exception:
-            return content
-    return content
+    _apply_model_settings(plan_model, request)
+
+    # Create academic planner agent with ReasoningTools
+    planner = Agent(
+        model=plan_model,
+        tools=[ReasoningTools(
+            add_instructions=True,
+            enable_think=True,
+            enable_analyze=True
+        )],
+        instructions=ACADEMIC_PLANNER_PROMPT
+    )
+
+    # Run the planner with the user message
+    response = await planner.arun(user_message)
+
+    # Extract content and format as JSON string
+    if hasattr(response, 'content'):
+        plan_text = response.content
+    else:
+        plan_text = str(response)
+
+    plan_text = plan_text.strip()
+
+    # Remove markdown code blocks if present
+    if plan_text.startswith("```"):
+        parts = plan_text.split("```")
+        if len(parts) >= 2:
+            plan_text = parts[1]
+            if plan_text.startswith("json"):
+                plan_text = plan_text[4:]
+            plan_text = plan_text.rstrip("`").strip()
+
+    # Validate and format
+    try:
+        plan = json.loads(plan_text)
+        return json.dumps(plan, ensure_ascii=True, indent=2)
+    except json.JSONDecodeError:
+        return plan_text
+
+
+async def stream_generate_research_plan(
+    *,
+    provider: str,
+    user_message: str,
+    api_key: str,
+    base_url: str | None = None,
+    model: str | None = None,
+    temperature: float | None = None,
+    top_p: float | None = None,
+    top_k: float | None = None,
+    frequency_penalty: float | None = None,
+    presence_penalty: float | None = None,
+    thinking: Any = None,
+) -> AsyncGenerator[dict[str, Any], None]:
+    """
+    Stream research plan generation using Agent with ReasoningTools.
+
+    This is the streaming version of generate_research_plan that yields
+    events as the agent plans using think() and analyze() tools.
+    """
+    # Build model using the same approach as agent_registry
+    plan_model = _build_model(provider, api_key, base_url, model)
+
+    # Apply model settings (temperature, top_p, etc.)
+    request = SimpleNamespace(
+        provider=provider,
+        temperature=temperature,
+        top_p=top_p,
+        top_k=top_k,
+        frequency_penalty=frequency_penalty,
+        presence_penalty=presence_penalty,
+        thinking=thinking,
+    )
+    _apply_model_settings(plan_model, request)
+
+    # Create planner agent with ReasoningTools
+    planner = Agent(
+        model=plan_model,
+        tools=[ReasoningTools(
+            add_instructions=True,
+            enable_think=True,
+            enable_analyze=True
+        )],
+        instructions=GENERAL_PLANNER_PROMPT
+    )
+
+    # Stream the planner execution
+    full_content = ""
+    async for chunk in planner.arun(user_message, stream=True):
+        chunk_text = ""
+        if hasattr(chunk, "content"):
+            chunk_text = chunk.content or ""
+        elif isinstance(chunk, str):
+            chunk_text = chunk
+        else:
+            chunk_text = str(chunk)
+
+        if chunk_text:
+            full_content += chunk_text
+            yield {"type": "text", "content": chunk_text}
+
+    # Clean and finalize the plan
+    plan_text = full_content.strip()
+
+    # Remove markdown code blocks if present
+    if plan_text.startswith("```"):
+        parts = plan_text.split("```")
+        if len(parts) >= 2:
+            plan_text = parts[1]
+            if plan_text.startswith("json"):
+                plan_text = plan_text[4:]
+            plan_text = plan_text.rstrip("`").strip()
+
+    # Validate and format
+    try:
+        plan = json.loads(plan_text)
+        final_plan = json.dumps(plan, ensure_ascii=True, indent=2)
+        yield {"type": "done", "content": final_plan}
+    except json.JSONDecodeError:
+        yield {"type": "done", "content": plan_text}
+
+
+async def stream_generate_academic_research_plan(
+    *,
+    provider: str,
+    user_message: str,
+    api_key: str,
+    base_url: str | None = None,
+    model: str | None = None,
+    temperature: float | None = None,
+    top_p: float | None = None,
+    top_k: float | None = None,
+    frequency_penalty: float | None = None,
+    presence_penalty: float | None = None,
+    thinking: Any = None,
+) -> AsyncGenerator[dict[str, Any], None]:
+    """
+    Stream academic research plan generation using Agent with ReasoningTools.
+
+    This is the streaming version of generate_academic_research_plan that yields
+    events as the agent plans using think() and analyze() tools.
+    """
+    # Build model using the same approach as agent_registry
+    plan_model = _build_model(provider, api_key, base_url, model)
+
+    # Apply model settings
+    request = SimpleNamespace(
+        provider=provider,
+        temperature=temperature,
+        top_p=top_p,
+        top_k=top_k,
+        frequency_penalty=frequency_penalty,
+        presence_penalty=presence_penalty,
+        thinking=thinking,
+    )
+    _apply_model_settings(plan_model, request)
+
+    # Create academic planner agent with ReasoningTools
+    planner = Agent(
+        model=plan_model,
+        tools=[ReasoningTools(
+            add_instructions=True,
+            enable_think=True,
+            enable_analyze=True
+        )],
+        instructions=ACADEMIC_PLANNER_PROMPT
+    )
+
+    # Stream the planner execution
+    full_content = ""
+    async for chunk in planner.arun(user_message, stream=True):
+        chunk_text = ""
+        if hasattr(chunk, "content"):
+            chunk_text = chunk.content or ""
+        elif isinstance(chunk, str):
+            chunk_text = chunk
+        else:
+            chunk_text = str(chunk)
+
+        if chunk_text:
+            full_content += chunk_text
+            yield {"type": "text", "content": chunk_text}
+
+    # Clean and finalize the plan
+    plan_text = full_content.strip()
+
+    # Remove markdown code blocks if present
+    if plan_text.startswith("```"):
+        parts = plan_text.split("```")
+        if len(parts) >= 2:
+            plan_text = parts[1]
+            if plan_text.startswith("json"):
+                plan_text = plan_text[4:]
+            plan_text = plan_text.rstrip("`").strip()
+
+    # Validate and format
+    try:
+        plan = json.loads(plan_text)
+        final_plan = json.dumps(plan, ensure_ascii=True, indent=2)
+        yield {"type": "done", "content": final_plan}
+    except json.JSONDecodeError:
+        yield {"type": "done", "content": plan_text}

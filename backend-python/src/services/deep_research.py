@@ -1,15 +1,32 @@
 """
 Deep research agent service (planner/executor).
+
+This module executes research plans using Agno Workflow for structured,
+step-by-step execution with streaming support.
 """
 
 from __future__ import annotations
 
-import asyncio
+import ast
 import json
-from typing import Any, AsyncGenerator, Callable
+from types import SimpleNamespace
+from typing import Any, AsyncGenerator
+
+from agno.agent import Agent
+from agno.workflow import Workflow
+from agno.workflow.parallel import Parallel
+from agno.workflow.step import Step, StepInput, StepOutput
 
 from ..models.stream_chat import StreamChatRequest
+from ..prompts import (
+    GENERAL_FINAL_REPORT_PROMPT,
+    ACADEMIC_FINAL_REPORT_PROMPT,
+    GENERAL_STEP_AGENT_PROMPT,
+    ACADEMIC_STEP_AGENT_PROMPT,
+)
 from ..services.stream_chat import get_stream_chat_service
+from .agent_registry import build_agent, _build_model, _apply_model_settings
+from .custom_tools import QurioLocalTools
 from .llm_utils import safe_json_parse
 from .research_plan import generate_academic_research_plan, generate_research_plan
 
@@ -46,61 +63,6 @@ def build_sources_list(sources_map: dict[str, dict[str, Any]]) -> list[str]:
     return lines
 
 
-def build_step_prompt(
-    *,
-    plan_meta: dict[str, Any],
-    step: dict[str, Any],
-    step_index: int,
-    prior_findings: list[str],
-    sources_list: list[str],
-    research_type: str,
-) -> str:
-    assumptions = plan_meta.get("assumptions") or []
-    acceptance = step.get("acceptance_criteria") or []
-    base_info = (
-        f"Goal: {plan_meta.get('goal') or 'N/A'}\n"
-        f"Question type: {plan_meta.get('question_type') or 'N/A'}\n"
-        f"Step {step_index + 1}: {step.get('action') or ''}\n"
-        f"Expected output: {step.get('expected_output') or 'N/A'}\n"
-        f"Deliverable format: {step.get('deliverable_format') or 'paragraph'}\n"
-        f"Depth: {step.get('depth') or 'medium'}\n"
-        f"Requires search: {'true' if step.get('requires_search') else 'false'}\n\n"
-        "Assumptions:\n"
-        + ("\n".join([f"- {a}" for a in assumptions]) if assumptions else "- None")
-        + "\n\nAcceptance criteria:\n"
-        + ("\n".join([f"- {a}" for a in acceptance]) if acceptance else "- None")
-        + "\n\nPrior findings:\n"
-        + ("\n".join([f"- {f}" for f in prior_findings]) if prior_findings else "- None")
-        + "\n\nKnown sources (cite as [index]):\n"
-        + ("\n".join(sources_list) if sources_list else "- None")
-    )
-
-    if research_type == "academic":
-        return (
-            "You are executing an academic research plan step.\n\n"
-            + base_info
-            + "\n\nCRITICAL ACADEMIC REQUIREMENTS:\n"
-            "1. Source quality: prioritize peer-reviewed sources and report venue/year.\n"
-            "2. Evidence and citation: every factual claim must have citations [x].\n"
-            "3. Critical evaluation: assess methodology, bias, and limitations.\n"
-            "4. Scholarly language: formal tone, hedging, and precise terms.\n"
-            "5. Systematic approach: follow acceptance criteria strictly.\n\n"
-            "Instructions:\n"
-            "- Use Tavily_academic_search or tavily_search tools as needed.\n"
-            "- Cite sources as [1], [2], etc. based on Known sources.\n"
-            "- If sources do not contain the answer, explicitly say so.\n"
-        )
-
-    return (
-        "You are executing a structured research plan step.\n\n"
-        + base_info
-        + "\n\nInstructions:\n"
-        "- Use the available tools when needed to gather evidence.\n"
-        "- When citing sources, use [1], [2], etc. based on the known sources list.\n"
-        "- Return a concise step output that can be used by subsequent steps.\n"
-    )
-
-
 def build_final_report_prompt(
     *,
     plan_meta: dict[str, Any],
@@ -120,24 +82,9 @@ def build_final_report_prompt(
     )
 
     if research_type == "academic":
-        return (
-            "You are writing an academic research report based on a systematic literature review.\n\n"
-            + base_info
-            + "\n\nRequirements:\n"
-            "- Use formal academic tone and strict citations.\n"
-            "- Every factual claim must have citations [x].\n"
-            "- Use the provided Sources list only.\n"
-            "- Include a references section listing the Sources list exactly.\n"
-        )
+        return ACADEMIC_FINAL_REPORT_PROMPT + base_info
 
-    return (
-        "You are a deep research writer producing a final report.\n\n"
-        + base_info
-        + "\n\nRequirements:\n"
-        "- Evidence-driven and traceable: every factual claim must be backed by a citation.\n"
-        "- Include a short 'Self-check' section at the end with 3-5 bullets.\n"
-        "- Use clear headings and complete the full report in one response.\n"
-    )
+    return GENERAL_FINAL_REPORT_PROMPT + base_info
 
 
 def build_research_step_event(
@@ -163,71 +110,494 @@ def build_research_step_event(
     return event
 
 
-async def _run_step(
+def _create_step_agent(
     *,
-    service,
-    step_messages: list[dict[str, Any]],
+    plan_meta: dict[str, Any],
+    step: dict[str, Any],
+    step_index: int,
     provider: str,
     api_key: str,
     base_url: str | None,
     model: str | None,
     tools: list[dict[str, Any]] | None,
-    tool_choice: Any,
     tool_ids: list[str],
-    response_format: dict[str, Any] | None,
-    thinking: dict[str, Any] | bool | None,
     temperature: float | None,
-    top_k: int | None,
+    top_k: float | None,
     top_p: float | None,
     frequency_penalty: float | None,
     presence_penalty: float | None,
-    context_message_limit: int | None,
-    search_provider: str | None,
     tavily_api_key: str | None,
-    step_index: int,
-    total_steps: int,
-    sources_map: dict[str, dict[str, Any]],
-    emit_event: Callable[[dict[str, Any]], Any],
-) -> str:
-    request = StreamChatRequest(
+    research_type: str,
+) -> Agent:
+    """
+    Create an Agent for a research step.
+
+    The agent's instructions include the step-specific context and will
+    automatically receive previous step outputs from the Workflow.
+    """
+
+    # Build step-specific instructions
+    action = step.get("action") or f"Research step {step_index + 1}"
+    expected_output = step.get("expected_output") or ""
+    deliverable_format = step.get("deliverable_format") or "paragraph"
+    acceptance = step.get("acceptance_criteria") or []
+    depth = step.get("depth") or "medium"
+
+    # Get assumptions from plan
+    assumptions = plan_meta.get("assumptions") or []
+
+    # Build the agent instructions
+    if research_type == "academic":
+        instructions = f"""You are executing an academic research step with scholarly rigor.
+
+Step {step_index + 1}: {action}
+
+Expected Output: {expected_output}
+Deliverable Format: {deliverable_format}
+Depth: {depth}
+
+Acceptance Criteria:
+{chr(10).join([f"- {a}" for a in acceptance]) if acceptance else "- None"}
+
+Assumptions:
+{chr(10).join([f"- {a}" for a in assumptions]) if assumptions else "- None"}
+
+{ACADEMIC_STEP_AGENT_PROMPT}
+"""
+    else:
+        instructions = f"""You are executing a deep research step.
+
+Step {step_index + 1}: {action}
+
+Expected Output: {expected_output}
+Deliverable Format: {deliverable_format}
+Depth: {depth}
+
+Acceptance Criteria:
+{chr(10).join([f"- {a}" for a in acceptance]) if acceptance else "- None"}
+
+Assumptions:
+{chr(10).join([f"- {a}" for a in assumptions]) if assumptions else "- None"}
+
+{GENERAL_STEP_AGENT_PROMPT}
+"""
+
+    # Create the agent request
+    step_request = SimpleNamespace(
         provider=provider,
-        apiKey=api_key,
-        baseUrl=base_url,
+        api_key=api_key,
+        base_url=base_url,
         model=model,
-        messages=step_messages,
-        tools=tools or [],
-        toolChoice=tool_choice,
-        toolIds=tool_ids,
-        responseFormat=response_format,
-        thinking=thinking,
+        tavily_api_key=tavily_api_key,
         temperature=temperature,
-        top_k=top_k,
         top_p=top_p,
+        top_k=top_k,
         frequency_penalty=frequency_penalty,
         presence_penalty=presence_penalty,
-        contextMessageLimit=context_message_limit,
-        searchProvider=search_provider,
-        tavilyApiKey=tavily_api_key,
-        stream=True,
+        thinking=None,
+        tool_ids=tool_ids,
+        tools=tools,
+        user_tools=None,
+        tool_choice="auto" if (tool_ids or tools) else None,
     )
 
-    step_content = ""
-    async for event in service.stream_chat(request):
-        event_type = event.get("type")
-        if event_type == "text":
-            step_content += event.get("content", "")
-        elif event_type in ("tool_call", "tool_result"):
-            event["step"] = step_index + 1
-            event["total"] = total_steps
-            await emit_event(event)
-        elif event_type == "done":
-            for source in event.get("sources") or []:
-                uri = source.get("uri")
-                if uri:
-                    sources_map[uri] = source
-        elif event_type == "error":
-            raise RuntimeError(event.get("error") or "Step execution error")
-    return step_content
+    # Build and configure the agent
+    step_agent = build_agent(step_request)
+    step_agent.instructions = instructions
+
+    return step_agent
+
+
+def build_research_workflow(
+    *,
+    plan_meta: dict[str, Any],
+    question: str,
+    provider: str,
+    api_key: str,
+    base_url: str | None,
+    model: str | None,
+    tools: list[dict[str, Any]] | None,
+    tool_ids: list[str],
+    temperature: float | None,
+    top_k: float | None,
+    top_p: float | None,
+    frequency_penalty: float | None,
+    presence_penalty: float | None,
+    tavily_api_key: str | None,
+    research_type: str,
+    concurrent_execution: bool = False,
+) -> Workflow:
+    """
+    Build a Workflow from a research plan.
+
+    Each step in the plan becomes a Workflow Step with an Agent.
+    Agent events (including tool calls) will automatically propagate to the Workflow.
+
+    Args:
+        concurrent_execution: If True, steps that don't require search can run in parallel.
+    """
+    steps = plan_meta.get("plan") or []
+    workflow_steps: list = []
+
+    if concurrent_execution and len(steps) > 1:
+        # Parallel execution
+        parallel_steps = []
+        for step_data in steps:
+            step_number = step_data.get("step", len(parallel_steps) + 1)
+            step_agent = _create_step_agent(
+                plan_meta=plan_meta,
+                step=step_data,
+                step_index=step_number - 1,
+                provider=provider,
+                api_key=api_key,
+                base_url=base_url,
+                model=model,
+                tools=tools,
+                tool_ids=tool_ids,
+                temperature=temperature,
+                top_k=top_k,
+                top_p=top_p,
+                frequency_penalty=frequency_penalty,
+                presence_penalty=presence_penalty,
+                tavily_api_key=tavily_api_key,
+                research_type=research_type,
+            )
+            action = step_data.get("action") or f"Research Step {step_number}"
+            # Merge step number and action for better display in step cards
+            step_name = f"Step {step_number}: {action}"
+            parallel_steps.append(
+                Step(
+                    name=step_name,
+                    description=action,
+                    agent=step_agent,  # Use agent instead of executor
+                )
+            )
+
+        # Wrap all steps in a Parallel construct
+        parallel = Parallel(
+            *parallel_steps,
+            name="parallel_research_steps",
+            description=f"Parallel execution of {len(parallel_steps)} research steps",
+        )
+        workflow_steps.append(parallel)
+    else:
+        # Sequential execution
+        for step_data in steps:
+            step_number = step_data.get("step", len(workflow_steps) + 1)
+            action = step_data.get("action") or f"Research Step {step_number}"
+            description = step_data.get("expected_output") or action
+
+            step_agent = _create_step_agent(
+                plan_meta=plan_meta,
+                step=step_data,
+                step_index=step_number - 1,
+                provider=provider,
+                api_key=api_key,
+                base_url=base_url,
+                model=model,
+                tools=tools,
+                tool_ids=tool_ids,
+                temperature=temperature,
+                top_k=top_k,
+                top_p=top_p,
+                frequency_penalty=frequency_penalty,
+                presence_penalty=presence_penalty,
+                tavily_api_key=tavily_api_key,
+                research_type=research_type,
+            )
+
+            # Merge step number and action for better display in step cards
+            step_name = f"Step {step_number}: {action}"
+
+            workflow_step = Step(
+                name=step_name,
+                description=description,
+                agent=step_agent,  # Use agent instead of executor
+            )
+            workflow_steps.append(workflow_step)
+
+    # Create workflow
+    workflow = Workflow(
+        name="deep_research",
+        description=f"Deep research execution for: {question}",
+        steps=workflow_steps,
+        stream=True,
+        stream_events=True,
+        stream_executor_events=True,
+    )
+    return workflow
+
+
+async def stream_research_workflow(
+    *,
+    workflow: Workflow,
+    question: str,
+    sources_map: dict[str, dict[str, Any]],
+    total_steps: int,
+) -> AsyncGenerator[dict[str, Any], None]:
+    """
+    Execute a research workflow and yield events.
+
+    This function runs the workflow and converts workflow events
+    to the frontend-compatible event format (matching Node.js version).
+
+    Args:
+        total_steps: Total number of research steps (required for proper step display)
+    """
+    import ast
+    import time
+
+    # Track current step info for tool calls
+    current_step_number = None
+    current_step_title = ""
+    step_start_time = None
+
+    # Track current step and its thinking content
+    current_step_content = []
+
+    # Track tool calls for timing
+    active_tool_calls = {}
+
+    # Run the workflow with streaming
+    async for event in workflow.arun(
+        input=question,
+        stream=True,
+        stream_events=True,
+        stream_executor_events=True,
+    ):
+        # Get event type - Agno events use 'event' field
+        event_type = event.get("event") if isinstance(event, dict) else getattr(event, "event", None)
+
+        if event_type == "StepStarted":
+            # Agno SDK uses step_name field (not name or description)
+            step_name = getattr(event, "step_name", "")
+            step_number = getattr(event, "step_index", None)
+
+            if step_number is not None:
+                current_step_number = step_number + 1
+                current_step_title = step_name
+                step_start_time = time.time()
+
+            # Reset content for new step
+            current_step_content = []
+
+            # Yield event in Node.js format
+            yield {
+                "type": "research_step",
+                "step": current_step_number if current_step_number is not None else 1,
+                "total": total_steps,
+                "title": current_step_title or "",
+                "status": "running",
+            }
+        elif event_type == "StepCompleted":
+            # Agno SDK uses step_name field (not name or description)
+            step_name = getattr(event, "step_name", "")
+            step_number = getattr(event, "step_index", None)
+
+            if step_number is not None:
+                step_num = step_number + 1
+            else:
+                step_num = current_step_number or 1
+
+            # Use step_name as the title
+            step_title = step_name or current_step_title
+
+            # Calculate duration
+            duration_ms = None
+            if step_start_time is not None:
+                duration_ms = int((time.time() - step_start_time) * 1000)
+                step_start_time = None
+
+            # Extract step output for report generation
+            step_output = getattr(event, "output", None)
+            if step_output:
+                output_content = getattr(step_output, "content", "")
+            else:
+                output_content = getattr(event, "content", "")
+
+            # First, yield any accumulated step content as step_content events
+            for content_chunk in current_step_content:
+                yield {
+                    "type": "step_content",
+                    "step": step_num,
+                    "content": content_chunk,
+                }
+
+            # Yield step done event in Node.js format
+            yield {
+                "type": "research_step",
+                "step": step_num,
+                "total": total_steps,
+                "title": step_title,
+                "status": "done",
+                "duration_ms": duration_ms,
+            }
+
+            # Also yield step output for report generation
+            if output_content:
+                yield {
+                    "type": "step_output",
+                    "step": step_num,
+                    "content": output_content,
+                }
+
+            # Reset for next step
+            current_step_content = []
+            current_step_number = None
+            current_step_title = ""
+        # Handle Agent run events
+        elif event_type == "RunContent":
+            # Text content from agent during step execution - this is step thinking content
+            content = getattr(event, "content", "")
+            if content:
+                # Accumulate content for the current step - will be yielded on StepCompleted
+                current_step_content.append(content)
+        # Handle WorkflowCompleted - this contains the final content
+        elif event_type == "WorkflowCompleted":
+            # WorkflowCompleted event contains the final output content
+            final_content = getattr(event, "content", "")
+            yield {
+                "type": "workflow_completed",
+                "content": final_content,  # Final content from workflow
+            }
+        elif event_type == "ToolCallStarted":
+            # Extract tool info
+            tool = getattr(event, "tool", None)
+            if tool:
+                tool_id = getattr(tool, "tool_call_id", getattr(event, "tool_call_id", getattr(tool, "id", None)))
+                tool_name = getattr(tool, "tool_name", "unknown")
+                tool_args = getattr(tool, "tool_args", {})
+            else:
+                # Fallback: try direct fields
+                tool_id = getattr(event, "tool_call_id", getattr(event, "id", None))
+                tool_name = getattr(event, "tool_name", getattr(event, "name", "unknown"))
+                tool_args = getattr(event, "tool_args", getattr(event, "arguments", {}))
+
+            # Record tool call start time
+            if tool_id:
+                active_tool_calls[tool_id] = time.time()
+
+            # Ensure tool_args is properly formatted as JSON string with double quotes
+            # If it's already a dict, convert to JSON string with double quotes
+            if isinstance(tool_args, dict):
+                tool_args_json = json.dumps(tool_args, ensure_ascii=False)
+            elif isinstance(tool_args, str):
+                # If it's already a string, make sure it's valid JSON
+                try:
+                    # Try to parse and re-dump to ensure valid JSON
+                    parsed = json.loads(tool_args)
+                    tool_args_json = json.dumps(parsed, ensure_ascii=False)
+                except json.JSONDecodeError:
+                    # Not valid JSON - might be Python repr string with single quotes
+                    # Try ast.literal_eval to parse Python dict/tuple/set representations
+                    try:
+                        parsed = ast.literal_eval(tool_args)
+                        tool_args_json = json.dumps(parsed, ensure_ascii=False)
+                    except (ValueError, SyntaxError):
+                        # If all else fails, use as-is
+                        tool_args_json = tool_args
+            else:
+                tool_args_json = {}
+
+            # Yield event in Node.js format
+            yield {
+                "type": "tool_call",
+                "id": tool_id,
+                "name": tool_name,
+                "arguments": tool_args_json,
+                "step": current_step_number if current_step_number is not None else 1,
+                "total": total_steps,
+            }
+        elif event_type == "ToolCallCompleted":
+            # Extract tool info
+            tool = getattr(event, "tool", None)
+            if tool:
+                tool_id = getattr(tool, "tool_call_id", getattr(event, "tool_call_id", getattr(tool, "id", None)))
+                tool_name = getattr(tool, "tool_name", "unknown")
+                result = getattr(tool, "result", {})
+                tool_error = getattr(tool, "tool_call_error", None)
+            else:
+                # Fallback: try direct fields
+                tool_id = getattr(event, "tool_call_id", getattr(event, "id", None))
+                tool_name = getattr(event, "tool_name", getattr(event, "name", "unknown"))
+                result = getattr(event, "result", {})
+                tool_error = getattr(event, "error", getattr(event, "tool_call_error", None))
+
+            # Calculate duration
+            duration_ms = None
+            if tool_id and tool_id in active_tool_calls:
+                duration_ms = int((time.time() - active_tool_calls[tool_id]) * 1000)
+                del active_tool_calls[tool_id]
+
+            # Parse result to dict for source extraction
+            result_dict = None
+            if isinstance(result, str):
+                try:
+                    result_dict = json.loads(result)
+                except json.JSONDecodeError:
+                    try:
+                        result_dict = ast.literal_eval(result)
+                    except (ValueError, SyntaxError):
+                        result_dict = None
+            elif isinstance(result, dict):
+                result_dict = result
+
+            # Extract sources from result (search tools return "results" with "url" field)
+            # Also support "sources" format if provided by other tools
+            results_list = result_dict.get("results") if result_dict else None
+            sources_list = result_dict.get("sources") if result_dict else None
+
+            if results_list and isinstance(results_list, list):
+                for source in results_list:
+                    url = source.get("url") or source.get("uri")
+                    if url:
+                        sources_map[url] = source
+            elif sources_list and isinstance(sources_list, list):
+                for source in sources_list:
+                    uri = source.get("uri")
+                    if uri:
+                        sources_map[uri] = source
+
+            # Determine status
+            status = "error" if tool_error else "done"
+
+            # Ensure result is properly formatted as JSON string for output field
+            output_value = None
+            if result and not tool_error:
+                # Handle case where result is already a string
+                if isinstance(result, str):
+                    try:
+                        # Try to parse as JSON first (双引号 JSON)
+                        parsed = json.loads(result)
+                        output_value = json.dumps(parsed, ensure_ascii=False)
+                    except json.JSONDecodeError:
+                        try:
+                            # Try to parse as Python repr string (单引号)
+                            parsed = ast.literal_eval(result)
+                            output_value = json.dumps(parsed, ensure_ascii=False)
+                        except (ValueError, SyntaxError):
+                            # If all else fails, wrap as string value
+                            output_value = json.dumps({"output": result}, ensure_ascii=False)
+                elif isinstance(result, dict):
+                    output_value = json.dumps(result, ensure_ascii=False)
+                else:
+                    output_value = json.dumps(result, ensure_ascii=False)
+
+            # Yield event in Node.js format
+            yield {
+                "type": "tool_result",
+                "id": tool_id,
+                "name": tool_name,
+                "status": status,
+                "duration_ms": duration_ms,
+                "output": output_value,
+                "error": str(tool_error) if tool_error else None,
+                "step": current_step_number if current_step_number is not None else 1,
+                "total": total_steps,
+            }
+
+    # After workflow completes, return the final output
+    yield {"type": "workflow_completed"}
 
 
 async def stream_deep_research(params: dict[str, Any]) -> AsyncGenerator[dict[str, Any], None]:
@@ -237,7 +607,6 @@ async def stream_deep_research(params: dict[str, Any]) -> AsyncGenerator[dict[st
     model = params.get("model")
     messages = params.get("messages") or []
     tools = params.get("tools") or []
-    tool_choice = params.get("tool_choice") or params.get("toolChoice")
     temperature = params.get("temperature")
     top_k = params.get("top_k")
     top_p = params.get("top_p")
@@ -248,9 +617,9 @@ async def stream_deep_research(params: dict[str, Any]) -> AsyncGenerator[dict[st
     plan = params.get("plan")
     question = params.get("question") or ""
     research_type = params.get("researchType") or params.get("research_type") or "general"
-    concurrent_execution = bool(params.get("concurrentExecution"))
     search_provider = params.get("search_provider") or params.get("searchProvider")
     tavily_api_key = params.get("tavily_api_key") or params.get("tavilyApiKey")
+    concurrent_execution = params.get("concurrentExecution") or params.get("concurrent_execution") or False
 
     service = get_stream_chat_service()
 
@@ -262,7 +631,6 @@ async def stream_deep_research(params: dict[str, Any]) -> AsyncGenerator[dict[st
 
     search_tool_id = "Tavily_academic_search" if research_type == "academic" else "Tavily_web_search"
     combined_tool_ids = list({*tool_ids, search_tool_id})
-    resolved_tool_choice = tool_choice or ("auto" if tools or combined_tool_ids else None)
 
     plan_content = plan
     if not plan_content or not str(plan_content).strip():
@@ -284,211 +652,68 @@ async def stream_deep_research(params: dict[str, Any]) -> AsyncGenerator[dict[st
             )
 
     plan_meta = parse_plan(plan_content)
-    steps = plan_meta.get("plan") or []
     sources_map: dict[str, dict[str, Any]] = {}
-    findings: list[str] = []
 
-    async def emit_event(event: dict[str, Any]) -> None:
-        await event_queue.put(event)
+    # Build and execute workflow
+    workflow = build_research_workflow(
+        plan_meta=plan_meta,
+        question=question,
+        provider=provider,
+        api_key=api_key,
+        base_url=base_url,
+        model=model,
+        tools=tools,
+        tool_ids=combined_tool_ids,
+        temperature=temperature,
+        top_k=top_k,
+        top_p=top_p,
+        frequency_penalty=frequency_penalty,
+        presence_penalty=presence_penalty,
+        tavily_api_key=tavily_api_key,
+        research_type=research_type,
+        concurrent_execution=concurrent_execution,
+    )
 
-    if concurrent_execution:
-        event_queue: asyncio.Queue = asyncio.Queue()
-        tasks: list[asyncio.Task] = []
+    # Execute workflow and collect findings
+    step_outputs = []  # Collect all step outputs for report generation
+    step_completed_count = 0
+    total_steps = len(plan_meta.get('plan', []))
 
-        for i, step in enumerate(steps):
-            step_title = step.get("action") or "Research"
-            await event_queue.put(
-                build_research_step_event(
-                    step_index=i,
-                    total_steps=len(steps),
-                    title=step_title,
-                    status="pending",
-                )
-            )
+    async for event in stream_research_workflow(
+        workflow=workflow,
+        question=question,
+        sources_map=sources_map,
+        total_steps=total_steps,
+    ):
+        event_type = event.get("type")
 
-        async def run_step_task(i: int, step_data: dict[str, Any]) -> str:
-            step_title = step_data.get("action") or "Research"
-            start = asyncio.get_event_loop().time()
-            await emit_event(
-                build_research_step_event(
-                    step_index=i,
-                    total_steps=len(steps),
-                    title=step_title,
-                    status="running",
-                )
-            )
-            sources_list = build_sources_list(sources_map)
-            step_prompt = build_step_prompt(
-                plan_meta=plan_meta,
-                step=step_data,
-                step_index=i,
-                prior_findings=findings,
-                sources_list=sources_list,
-                research_type=research_type,
-            )
-            step_messages = [
-                {"role": "system", "content": step_prompt},
-                *trimmed_messages,
-                {"role": "user", "content": question},
-            ]
-            try:
-                content = await _run_step(
-                    service=service,
-                    step_messages=step_messages,
-                    provider=provider,
-                    api_key=api_key,
-                    base_url=base_url,
-                    model=model,
-                    tools=tools,
-                    tool_choice=resolved_tool_choice,
-                    tool_ids=combined_tool_ids,
-                    response_format=None,
-                    thinking=None,
-                    temperature=temperature,
-                    top_k=top_k,
-                    top_p=top_p,
-                    frequency_penalty=frequency_penalty,
-                    presence_penalty=presence_penalty,
-                    context_message_limit=context_message_limit,
-                    search_provider=search_provider,
-                    tavily_api_key=tavily_api_key,
-                    step_index=i,
-                    total_steps=len(steps),
-                    sources_map=sources_map,
-                    emit_event=emit_event,
-                )
-                await emit_event(
-                    build_research_step_event(
-                        step_index=i,
-                        total_steps=len(steps),
-                        title=step_title,
-                        status="done",
-                        duration_ms=int((asyncio.get_event_loop().time() - start) * 1000),
-                    )
-                )
-                return content
-            except Exception as exc:
-                await emit_event(
-                    build_research_step_event(
-                        step_index=i,
-                        total_steps=len(steps),
-                        title=step_title,
-                        status="error",
-                        duration_ms=int((asyncio.get_event_loop().time() - start) * 1000),
-                        error=exc,
-                    )
-                )
-                return ""
+        # Track step completion and collect outputs
+        if event_type == "research_step" and event.get("status") == "done":
+            step_completed_count += 1
+            # Also forward the done event to frontend
+            yield event
+        elif event_type == "step_output":
+            # Collect step output for final report
+            output_content = event.get("content", "")
+            if output_content:
+                step_outputs.append(output_content)
+        elif event_type == "workflow_completed":
+            # Workflow completed - we don't need this anymore since we collected step outputs
+            break
+        else:
+            # Yield all other events (tool_call, tool_result, research_step running, etc.)
+            yield event
 
-        for i, step in enumerate(steps):
-            tasks.append(asyncio.create_task(run_step_task(i, step)))
-
-        pending = set(tasks)
-        while pending or not event_queue.empty():
-            while not event_queue.empty():
-                event = await event_queue.get()
-                yield event
-            if pending:
-                done, pending = await asyncio.wait(pending, timeout=0.05, return_when=asyncio.FIRST_COMPLETED)
-                for task in done:
-                    try:
-                        content = task.result()
-                        if content:
-                            findings.append(content)
-                    except Exception:
-                        pass
-        # flush remaining events
-        while not event_queue.empty():
-            yield await event_queue.get()
-    else:
-        for i, step in enumerate(steps):
-            step_title = step.get("action") or "Research"
-            start = asyncio.get_event_loop().time()
-            yield build_research_step_event(
-                step_index=i,
-                total_steps=len(steps),
-                title=step_title,
-                status="running",
-            )
-            sources_list = build_sources_list(sources_map)
-            step_prompt = build_step_prompt(
-                plan_meta=plan_meta,
-                step=step,
-                step_index=i,
-                prior_findings=findings,
-                sources_list=sources_list,
-                research_type=research_type,
-            )
-            step_messages = [
-                {"role": "system", "content": step_prompt},
-                *trimmed_messages,
-                {"role": "user", "content": question},
-            ]
-            try:
-                step_queue: asyncio.Queue = asyncio.Queue()
-
-                async def emit_step_event(event: dict[str, Any]) -> None:
-                    await step_queue.put(event)
-
-                step_task = asyncio.create_task(
-                    _run_step(
-                        service=service,
-                        step_messages=step_messages,
-                        provider=provider,
-                        api_key=api_key,
-                        base_url=base_url,
-                        model=model,
-                        tools=tools,
-                    tool_choice=resolved_tool_choice,
-                        tool_ids=combined_tool_ids,
-                        response_format=None,
-                        thinking=None,
-                        temperature=temperature,
-                        top_k=top_k,
-                        top_p=top_p,
-                        frequency_penalty=frequency_penalty,
-                        presence_penalty=presence_penalty,
-                        context_message_limit=context_message_limit,
-                        search_provider=search_provider,
-                        tavily_api_key=tavily_api_key,
-                        step_index=i,
-                        total_steps=len(steps),
-                        sources_map=sources_map,
-                        emit_event=emit_step_event,
-                    )
-                )
-
-                while not step_task.done() or not step_queue.empty():
-                    while not step_queue.empty():
-                        yield await step_queue.get()
-                    if not step_task.done():
-                        await asyncio.sleep(0.01)
-
-                content = step_task.result()
-                if content:
-                    findings.append(content)
-                yield build_research_step_event(
-                    step_index=i,
-                    total_steps=len(steps),
-                    title=step_title,
-                    status="done",
-                    duration_ms=int((asyncio.get_event_loop().time() - start) * 1000),
-                )
-            except Exception as exc:
-                yield build_research_step_event(
-                    step_index=i,
-                    total_steps=len(steps),
-                    title=step_title,
-                    status="error",
-                    duration_ms=int((asyncio.get_event_loop().time() - start) * 1000),
-                    error=exc,
-                )
-
+    # Generate final report using all step outputs as findings
     report_sources_list = build_sources_list(sources_map)
+
+    # Use step_outputs as findings for comprehensive report generation
+    findings_for_report = step_outputs if step_outputs else ["No step outputs available"]
+
     report_prompt = build_final_report_prompt(
         plan_meta=plan_meta,
         question=question,
-        findings=findings,
+        findings=findings_for_report,
         sources_list=report_sources_list,
         research_type=research_type,
     )
@@ -521,17 +746,20 @@ async def stream_deep_research(params: dict[str, Any]) -> AsyncGenerator[dict[st
         stream=True,
     )
 
-    full_content = ""
+    # Stream report generation and collect report content
+    report_content = ""
     async for event in service.stream_chat(report_request):
         if event.get("type") == "text":
-            text = event.get("content", "")
-            full_content += text
-            yield {"type": "text", "content": text}
+            content = event.get("content", "")
+            report_content += content
+            yield {"type": "text", "content": content}
         elif event.get("type") == "error":
             raise RuntimeError(event.get("error") or "Report generation failed")
 
+    # Send done event with the actual report content (not workflow output)
     yield {
         "type": "done",
-        "content": full_content,
+        "content": report_content,  # Use report_content instead of full_content
         "sources": list(sources_map.values()) or None,
     }
+

@@ -4,6 +4,7 @@ AgentOS app bootstrap using Agno SDK.
 
 from __future__ import annotations
 
+import logging
 import os
 from types import SimpleNamespace
 from fastapi import FastAPI
@@ -11,6 +12,12 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from agno.os import AgentOS
+
+# Configure logging to see debug messages
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 
 from ..config import get_settings
 from ..routes import (

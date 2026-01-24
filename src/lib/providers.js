@@ -159,6 +159,20 @@ export const PROVIDERS = {
     }),
     parseMessage: defaultParseMessage,
   },
+  glm: {
+    ...createBackendProvider('glm'),
+    id: 'glm',
+    name: 'GLM (Zhipu AI)',
+    getCredentials: settings => ({
+      apiKey: settings.GLMKey || getPublicEnv('PUBLIC_GLM_API_KEY'),
+      baseUrl: GLM_BASE_URL,
+    }),
+    getTools: (isSearchActive, searchTool) => resolveSearchTools(isSearchActive, searchTool),
+    getThinking: isThinkingActive => ({
+      type: isThinkingActive ? 'enabled' : 'disabled',
+    }),
+    parseMessage: defaultParseMessage,
+  },
   modelscope: {
     ...createBackendProvider('modelscope'),
     id: 'modelscope',

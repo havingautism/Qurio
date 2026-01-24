@@ -14,13 +14,11 @@ from sse_starlette.sse import EventSourceResponse
 
 from ..providers import is_provider_supported
 from ..services.research_plan import (
-    build_academic_research_plan_messages,
-    build_research_plan_messages,
     generate_academic_research_plan,
     generate_research_plan,
+    stream_generate_academic_research_plan,
+    stream_generate_research_plan,
 )
-from ..services.stream_chat import get_stream_chat_service
-from ..models.stream_chat import StreamChatRequest
 
 
 router = APIRouter(tags=["research-plan"])
@@ -72,14 +70,12 @@ async def research_plan_stream(request: Request) -> EventSourceResponse:
     api_key = body.get("apiKey")
     base_url = body.get("baseUrl")
     model = body.get("model")
-    response_format = body.get("responseFormat")
     thinking = body.get("thinking")
     temperature = body.get("temperature")
     top_k = body.get("top_k")
     top_p = body.get("top_p")
     frequency_penalty = body.get("frequency_penalty")
     presence_penalty = body.get("presence_penalty")
-    context_message_limit = body.get("contextMessageLimit")
     research_type = body.get("researchType") or "general"
 
     if not provider or not message:
@@ -98,40 +94,39 @@ async def research_plan_stream(request: Request) -> EventSourceResponse:
             media_type="text/event-stream",
         )
 
-    resolved_response_format = response_format or (
-        {"type": "json_object"} if provider != "gemini" else None
-    )
-    resolved_thinking = thinking
-    if resolved_thinking is None and provider in ("glm", "modelscope"):
-        resolved_thinking = {"type": "disabled"}
-
-    prompt_builder = (
-        build_academic_research_plan_messages
-        if research_type == "academic"
-        else build_research_plan_messages
-    )
-    prompt_messages = prompt_builder(message)
-
     async def event_generator() -> AsyncGenerator[dict[str, str], None]:
         try:
-            service = get_stream_chat_service()
-            stream_request = StreamChatRequest(
-                provider=provider,
-                apiKey=api_key,
-                baseUrl=base_url,
-                model=model,
-                messages=prompt_messages,
-                responseFormat=resolved_response_format,
-                thinking=resolved_thinking,
-                temperature=temperature,
-                top_k=top_k,
-                top_p=top_p,
-                frequency_penalty=frequency_penalty,
-                presence_penalty=presence_penalty,
-                contextMessageLimit=context_message_limit,
-                stream=True,
-            )
-            async for event in service.stream_chat(stream_request):
+            # Choose the appropriate streaming function based on research type
+            if research_type == "academic":
+                stream_func = stream_generate_academic_research_plan(
+                    provider=provider,
+                    user_message=message,
+                    api_key=api_key,
+                    base_url=base_url,
+                    model=model,
+                    temperature=temperature,
+                    top_p=top_p,
+                    top_k=top_k,
+                    frequency_penalty=frequency_penalty,
+                    presence_penalty=presence_penalty,
+                    thinking=thinking,
+                )
+            else:
+                stream_func = stream_generate_research_plan(
+                    provider=provider,
+                    user_message=message,
+                    api_key=api_key,
+                    base_url=base_url,
+                    model=model,
+                    temperature=temperature,
+                    top_p=top_p,
+                    top_k=top_k,
+                    frequency_penalty=frequency_penalty,
+                    presence_penalty=presence_penalty,
+                    thinking=thinking,
+                )
+
+            async for event in stream_func:
                 if await request.is_disconnected():
                     break
                 yield {"data": json.dumps(event, ensure_ascii=False)}

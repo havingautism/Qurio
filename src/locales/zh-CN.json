@@ -252,6 +252,12 @@
     "relatedQuestionsHint": "助手响应后自动生成后续建议。",
     "contextMessages": "上下文消息数",
     "contextMessagesHint": "每次请求发送多少条最近消息（不包括空间/系统提示词）。",
+    "toolsApiConfiguration": "工具 API 配置",
+    "toolsApiConfigurationHint": "可选地配置工具 API 提供方，用于工具相关功能。",
+    "toolsApiProvider": "工具 API 提供方",
+    "databaseConfiguration": "数据库配置",
+    "databaseConfigurationHint": "选择存储提供方并配置凭据。",
+    "databaseProvider": "数据库提供方",
     "supabaseUrl": "Supabase URL",
     "supabaseKey": "Supabase 密钥",
     "supabaseConfiguration": "Supabase 配置",
@@ -297,8 +303,13 @@
       "nvidia": "NVIDIA NIM",
       "minimax": "MiniMax"
     },
-    "searchProviders": {
+    "toolsApiProviders": {
       "tavily": "Tavily"
+    },
+    "toolsApiKey": "工具 API 密钥",
+    "toolsApiKeyPlaceholder": "输入工具 API 密钥",
+    "databaseProviders": {
+      "supabase": "Supabase"
     },
     "responseStyle": "回复风格",
     "responseStyleHint": "微调回复的语气和结构方式。",

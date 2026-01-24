@@ -13,6 +13,7 @@ import ModelScopeIcon from '../assets/modelscope-color.svg?url'
 import TavilyIcon from '../assets/tavily-color.svg?url'
 import NvidiaIcon from '../assets/nvidia-color.svg?url'
 import MinimaxIcon from '../assets/minimax-color.svg?url'
+import SupabaseIcon from '../assets/supabase.svg?url'
 
 const DEFAULT_ICON_BG_CLASS = 'bg-[#f6f6f6b8] dark:bg-[#0d0d0d]'
 
@@ -43,6 +44,12 @@ export const PROVIDER_ICON_META = {
     src: MinimaxIcon,
     alt: 'MiniMax',
     bgClassName: DEFAULT_ICON_BG_CLASS,
+  },
+  supabase: {
+    src: SupabaseIcon,
+    alt: 'Supabase',
+    bgClassName: 'bg-transparent',
+    imgClassName: '',
   },
 }
 

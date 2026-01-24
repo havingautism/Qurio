@@ -150,7 +150,7 @@ const InteractiveForm = ({
                         <SelectItem
                           key={opt}
                           value={opt}
-                          className="px-3.5 py-2.5 my-0.5 rounded-xl cursor-pointer text-sm font-medium transition-all duration-200 data-[state=checked]:bg-primary-50 dark:data-[state=checked]:bg-primary-500/10 data-[state=checked]:text-primary-600 dark:data-[state=checked]:text-primary-400 focus:bg-gray-50 dark:focus:bg-white/5 focus:text-gray-900 dark:focus:text-gray-200"
+                          className="px-3.5 py-2.5 my-0.5 rounded-xl cursor-pointer text-sm font-medium transition-all duration-200 data-[state=checked]:bg-primary-50 dark:data-[state=checked]:bg-primary-500/10 data-[state=checked]:text-primary-600 dark:data-[state=checked]:text-primary-400 focus:bg-gray-50 dark:focus:bg-white/5 focus:text-gray-900 dark:focus:text-gray-200 pl-10"
                         >
                           {opt}
                         </SelectItem>

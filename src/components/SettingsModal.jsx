@@ -16,6 +16,7 @@ import {
   Settings,
   Terminal,
   X,
+  Database,
 } from 'lucide-react'
 import {
   Select,
@@ -349,7 +350,8 @@ const PROVIDER_KEYS = [
   'modelscope',
   'kimi',
 ]
-const SEARCH_PROVIDER_KEYS = ['tavily']
+const TOOLS_API_PROVIDER_KEYS = ['tavily']
+const DATABASE_PROVIDER_KEYS = ['supabase']
 
 const INTERFACE_LANGUAGE_KEYS = ['en', 'zh-CN']
 const DOCUMENT_CHUNK_SIZE = 1200
@@ -474,6 +476,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
   const [searchProvider, setSearchProvider] = useState('tavily')
   const [tavilyApiKey, setTavilyApiKey] = useState('')
   const [backendUrl, setBackendUrl] = useState(ENV_VARS.backendUrl || '')
+  const [databaseProvider, setDatabaseProvider] = useState('supabase')
   const [supabaseUrl, setSupabaseUrl] = useState('')
   const [supabaseKey, setSupabaseKey] = useState('')
   const [testing, setTesting] = useState(false)
@@ -629,14 +632,33 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
     [t],
   )
 
-  const searchProviderOptions = useMemo(
+  const toolsApiProviderOptions = useMemo(
     () =>
-      SEARCH_PROVIDER_KEYS.map(key => ({
+      TOOLS_API_PROVIDER_KEYS.map(key => ({
         key,
         value: key,
-        label: t(`settings.searchProviders.${key}`),
+        label: t(`settings.toolsApiProviders.${key}`),
       })),
     [t],
+  )
+
+  const databaseProviderOptions = useMemo(
+    () =>
+      DATABASE_PROVIDER_KEYS.map(key => ({
+        key,
+        value: key,
+        label: t(`settings.databaseProviders.${key}`),
+        icon: renderProviderIcon(key, {
+          size: 18,
+          compact: true,
+          wrapperClassName: 'bg-transparent p-0 shadow-none',
+          imgClassName: 'w-4 h-4',
+        }),
+      })),
+    [t],
+  )
+  const selectedDatabaseProviderOption = databaseProviderOptions.find(
+    option => option.value === databaseProvider,
   )
 
   // Interface language options with translated labels
@@ -659,6 +681,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
   useEffect(() => {
     if (isOpen) {
       const settings = loadSettings()
+      if (settings.databaseProvider) setDatabaseProvider(settings.databaseProvider)
       if (settings.supabaseUrl) setSupabaseUrl(settings.supabaseUrl)
       if (settings.supabaseKey) setSupabaseKey(settings.supabaseKey)
       if (settings.OpenAICompatibilityKey)
@@ -727,7 +750,11 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
       setInterfaceLanguage(i18n.language)
 
       // Fetch Remote (Async Update)
-      if (settings.supabaseUrl && settings.supabaseKey) {
+      if (
+        settings.databaseProvider === 'supabase' &&
+        settings.supabaseUrl &&
+        settings.supabaseKey
+      ) {
         fetchRemoteSettings().then(({ data }) => {
           if (data) {
             if (data.OpenAICompatibilityKey) setOpenAICompatibilityKey(data.OpenAICompatibilityKey)
@@ -1428,6 +1455,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
   }
 
   const handleRetestAfterInit = async () => {
+    if (!isSupabaseProvider) return
     setRetestingDb(true)
     const result = await testConnection(supabaseUrl, supabaseKey)
     setTestResult(result)
@@ -1471,6 +1499,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
     embeddingModel &&
     documentSearchState.status !== 'loading',
   )
+  const isSupabaseProvider = databaseProvider === 'supabase'
 
   if (!isOpen) return null
 
@@ -1505,6 +1534,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
   }
 
   const handleTestConnection = async () => {
+    if (!isSupabaseProvider) return
     setTesting(true)
     setTestResult(null)
 
@@ -1527,6 +1557,13 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
         searchProvider,
         tavilyApiKey,
         backendUrl,
+        databaseProvider,
+        databaseConfig: {
+          supabase: {
+            url: supabaseUrl,
+            key: supabaseKey,
+          },
+        },
         OpenAICompatibilityKey,
         OpenAICompatibilityUrl,
         SiliconFlowKey,
@@ -1555,7 +1592,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
       const didPassValidation = validateSettingsForSave(newSettings)
 
       // Prevent accidental overwrite of remote keys with empty local keys
-      if (supabaseUrl && supabaseKey) {
+      if (isSupabaseProvider && supabaseUrl && supabaseKey) {
         try {
           const { data: remoteData } = await fetchRemoteSettings()
           if (remoteData) {
@@ -1621,7 +1658,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
       }
 
       // Save Remote (if connected)
-      if (supabaseUrl && supabaseKey) {
+      if (isSupabaseProvider && supabaseUrl && supabaseKey) {
         await saveRemoteSettings(newSettings)
       }
 
@@ -2127,91 +2164,123 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
 
                 <div className="h-px bg-gray-100 dark:bg-zinc-800" />
 
-                {/* Supabase Config */}
+                {/* Database Config */}
                 <div className="flex flex-col gap-6">
                   <div className="flex flex-col gap-1">
                     <label className="text-sm font-medium text-gray-900 dark:text-white">
-                      {t('settings.supabaseConfiguration')}
+                      {t('settings.databaseConfiguration')}
                     </label>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {t('settings.supabaseConfigurationHint')}
+                      {t('settings.databaseConfigurationHint')}
                     </p>
                   </div>
 
                   <div className="flex flex-col gap-4">
                     <div className="flex flex-col gap-2">
                       <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                        {t('settings.supabaseUrl')}
+                        {t('settings.databaseProvider')}
                       </label>
-                      <div className="relative">
-                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                          <Link size={16} />
-                        </div>
-                        <input
-                          type="text"
-                          value={supabaseUrl}
-                          onChange={e => setSupabaseUrl(e.target.value)}
-                          placeholder="https://your-project.supabase.co"
-                          disabled={true} // Locked - use Reconfigure button
-                          className={clsx(
-                            'w-full pl-10 pr-4 py-2.5 bg-gray-50/50 dark:bg-zinc-900/50 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none cursor-not-allowed text-gray-500 dark:text-gray-400',
-                          )}
-                        />
+                      <div className="relative w-full">
+                        <Select value={databaseProvider} onValueChange={setDatabaseProvider}>
+                          <SelectTrigger className="w-full h-10">
+                            <div className="flex items-center gap-3">
+                              <Database size={16} className="text-gray-400" />
+                              <SelectValue placeholder={t('settings.databaseProvider')} />
+                            </div>
+                          </SelectTrigger>
+                          <SelectContent>
+                            {databaseProviderOptions.map(option => (
+                              <SelectItem key={option.key} value={option.value}>
+                                <div className="flex items-center gap-3">
+                                  {option.icon}
+                                  <span>{option.label}</span>
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
-                      {renderEnvHint(Boolean(ENV_VARS.supabaseUrl))}
                     </div>
 
-                    <div className="flex flex-col gap-2">
-                      <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                        {t('settings.supabaseKey')}
-                      </label>
-                      <div className="relative">
-                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                          <Key size={16} />
+                    {databaseProvider === 'supabase' && (
+                      <>
+                        <div className="flex flex-col gap-2">
+                          <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                            {t('settings.supabaseUrl')}
+                          </label>
+                          <div className="relative">
+                            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                              <Link size={16} />
+                            </div>
+                            <input
+                              type="text"
+                              value={supabaseUrl}
+                              onChange={e => setSupabaseUrl(e.target.value)}
+                              placeholder="https://your-project.supabase.co"
+                              disabled={true} // Locked - use Reconfigure button
+                              className={clsx(
+                                'w-full pl-10 pr-4 py-2.5 bg-gray-50/50 dark:bg-zinc-900/50 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none cursor-not-allowed text-gray-500 dark:text-gray-400',
+                              )}
+                            />
+                          </div>
+                          {renderEnvHint(Boolean(ENV_VARS.supabaseUrl))}
                         </div>
-                        <input
-                          type="password"
-                          value={supabaseKey}
-                          onChange={e => setSupabaseKey(e.target.value)}
-                          placeholder="••••••••••••••••••••••••••••••••"
-                          disabled={true} // Locked - use Reconfigure button
-                          className={clsx(
-                            'w-full pl-10 pr-4 py-2.5 bg-gray-50/50 dark:bg-zinc-900/50 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none cursor-not-allowed text-gray-500 dark:text-gray-400',
-                          )}
-                        />
-                      </div>
-                      {renderEnvHint(Boolean(ENV_VARS.supabaseKey))}
+
+                        <div className="flex flex-col gap-2">
+                          <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                            {t('settings.supabaseKey')}
+                          </label>
+                          <div className="relative">
+                            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                              <Key size={16} />
+                            </div>
+                            <input
+                              type="password"
+                              value={supabaseKey}
+                              onChange={e => setSupabaseKey(e.target.value)}
+                              placeholder="••••••••••••••••••••••••••••••••"
+                              disabled={true} // Locked - use Reconfigure button
+                              className={clsx(
+                                'w-full pl-10 pr-4 py-2.5 bg-gray-50/50 dark:bg-zinc-900/50 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none cursor-not-allowed text-gray-500 dark:text-gray-400',
+                              )}
+                            />
+                          </div>
+                          {renderEnvHint(Boolean(ENV_VARS.supabaseKey))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {databaseProvider === 'supabase' && (
+                    <div className="flex flex-col gap-3">
+                      <button
+                        onClick={onOpenSupabaseSetup}
+                        className="self-start px-4 py-2 text-xs font-medium text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-colors border border-primary-200 dark:border-primary-900/40"
+                      >
+                        {t('settings.reconfigureSupabase') || 'Reconfigure Connection'}
+                      </button>
+
+                      {/* Explicit Test removed as reconfiguration handles it */}
                     </div>
-                  </div>
-
-                  <div className="flex flex-col gap-3">
-                    <button
-                      onClick={onOpenSupabaseSetup}
-                      className="self-start px-4 py-2 text-xs font-medium text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-colors border border-primary-200 dark:border-primary-900/40"
-                    >
-                      {t('settings.reconfigureSupabase') || 'Reconfigure Connection'}
-                    </button>
-
-                    {/* Explicit Test removed as reconfiguration handles it */}
-                  </div>
+                  )}
                 </div>
                 <div className="h-px bg-gray-100 dark:bg-zinc-800" />
 
-                {/* Search Provider */}
+                {/* Tools API Configuration */}
                 <div className="flex flex-col gap-6">
                   <div className="flex flex-col gap-1">
                     <label className="text-sm font-medium text-gray-900 dark:text-white">
-                      {t('settings.searchConfiguration')}
+                      {t('settings.toolsApiConfiguration')}
                     </label>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {t('settings.searchConfigurationHint')}
+                      {t('settings.toolsApiConfigurationHint')}
                     </p>
                   </div>
 
                   <div className="flex flex-col gap-4">
                     <div className="flex flex-col gap-2">
                       <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                        {t('settings.searchProvider')}
+                        {t('settings.toolsApiProvider')}
                       </label>
                       <div className="relative w-full">
                         <Select value={searchProvider} onValueChange={setSearchProvider}>
@@ -2223,10 +2292,10 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                               <div className="flex items-center gap-3">
                                 {renderProviderIcon(searchProvider, {
                                   size: 16,
-                                  alt: t(`settings.searchProviders.${searchProvider}`),
+                                  alt: t(`settings.toolsApiProviders.${searchProvider}`),
                                 })}
                                 <span>
-                                  {searchProviderOptions.find(
+                                  {toolsApiProviderOptions.find(
                                     option => option.value === searchProvider,
                                   )?.label || searchProvider}
                                 </span>
@@ -2234,7 +2303,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                             </SelectValue>
                           </SelectTrigger>
                           <SelectContent>
-                            {searchProviderOptions.map(option => (
+                            {toolsApiProviderOptions.map(option => (
                               <SelectItem key={option.key} value={option.value}>
                                 <div className="flex items-center gap-3">
                                   {renderProviderIcon(option.value, {
@@ -2253,7 +2322,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                     {searchProvider === 'tavily' && (
                       <div className="flex flex-col gap-2 animate-in fade-in slide-in-from-top-2 duration-200">
                         <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                          {t('settings.tavilyApiKey')}
+                          {t('settings.toolsApiKey')}
                         </label>
                         <div className="relative">
                           <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
@@ -2263,7 +2332,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                             type="password"
                             value={tavilyApiKey}
                             onChange={e => setTavilyApiKey(e.target.value)}
-                            placeholder={t('settings.tavilyApiKeyPlaceholder')}
+                            placeholder={t('settings.toolsApiKeyPlaceholder')}
                             disabled={Boolean(ENV_VARS.tavilyApiKey)}
                             className={clsx(
                               'w-full pl-10 pr-4 py-2.5 bg-white disabled:bg-gray-50/20 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',

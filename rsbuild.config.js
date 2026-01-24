@@ -33,6 +33,8 @@ export default defineConfig(({ env }) => {
       define: {
         ...envVars.publicVars,
       },
+    },
+    resolve: {
       alias: {
         '@': './src',
       },

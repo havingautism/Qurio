@@ -31,7 +31,17 @@ export default function SupabaseSetupModal({ isOpen, onConfigured, isManual = fa
 
       if (result.success) {
         // Only save if FULL success (connection + tables)
-        await saveSettings({ supabaseUrl, supabaseKey })
+        await saveSettings({
+          databaseProvider: 'supabase',
+          databaseConfig: {
+            supabase: {
+              url: supabaseUrl,
+              key: supabaseKey,
+            },
+          },
+          supabaseUrl,
+          supabaseKey,
+        })
         onConfigured()
       } else {
         // Show specific error from testConnection (includes missing tables)
@@ -134,6 +144,9 @@ export default function SupabaseSetupModal({ isOpen, onConfigured, isManual = fa
                 onClick={() => {
                   setSupabaseUrl('')
                   setSupabaseKey('')
+                  localStorage.removeItem('databaseProvider')
+                  localStorage.removeItem('databaseSupabaseUrl')
+                  localStorage.removeItem('databaseSupabaseKey')
                   localStorage.removeItem('supabaseUrl')
                   localStorage.removeItem('supabaseKey')
                   window.location.reload()

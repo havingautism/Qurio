@@ -146,6 +146,9 @@ export const loadSettings = (overrides = {}) => {
   const envTavilyApiKey = getPublicEnv('PUBLIC_TAVILY_API_KEY')
 
   // LocalStorage - Only load non-sensitive or essential connection configs
+  const localDatabaseProvider = localStorage.getItem('databaseProvider')
+  const localDatabaseSupabaseUrl = localStorage.getItem('databaseSupabaseUrl')
+  const localDatabaseSupabaseKey = localStorage.getItem('databaseSupabaseKey')
   const localSupabaseUrl = localStorage.getItem('supabaseUrl')
   const localSupabaseKey = localStorage.getItem('supabaseKey')
   const localSearchProvider = localStorage.getItem('searchProvider')
@@ -198,10 +201,35 @@ export const loadSettings = (overrides = {}) => {
         ? localEnableLongTermMemory === 'true'
         : false
 
+  const resolvedDatabaseProvider =
+    overrides.databaseProvider || localDatabaseProvider || 'supabase'
+  const overrideSupabaseUrl =
+    overrides.supabaseUrl ||
+    overrides.databaseSupabaseUrl ||
+    overrides?.databaseConfig?.supabase?.url ||
+    ''
+  const overrideSupabaseKey =
+    overrides.supabaseKey ||
+    overrides.databaseSupabaseKey ||
+    overrides?.databaseConfig?.supabase?.key ||
+    ''
+  const resolvedSupabaseUrl =
+    envSupabaseUrl || localDatabaseSupabaseUrl || localSupabaseUrl || overrideSupabaseUrl || ''
+  const resolvedSupabaseKey =
+    envSupabaseKey || localDatabaseSupabaseKey || localSupabaseKey || overrideSupabaseKey || ''
+
   const settings = {
-    // Supabase (Must be local/env to connect)
-    supabaseUrl: envSupabaseUrl || localSupabaseUrl || overrides.supabaseUrl || '',
-    supabaseKey: envSupabaseKey || localSupabaseKey || overrides.supabaseKey || '',
+    // Database (local/env to connect)
+    databaseProvider: resolvedDatabaseProvider,
+    databaseConfig: {
+      supabase: {
+        url: resolvedSupabaseUrl,
+        key: resolvedSupabaseKey,
+      },
+    },
+    // Keep legacy fields for now (derived from database config)
+    supabaseUrl: resolvedDatabaseProvider === 'supabase' ? resolvedSupabaseUrl : '',
+    supabaseKey: resolvedDatabaseProvider === 'supabase' ? resolvedSupabaseKey : '',
 
     // Init with Env/Local (for migration), but Memory wins below
     // We intentionally don't read API keys from LS here to prefer Memory/Env
@@ -302,8 +330,24 @@ export const saveSettings = async settings => {
   updateMemorySettings(settings)
 
   // Persist Non-Sensitive to LocalStorage
-  if (settings.supabaseUrl !== undefined) localStorage.setItem('supabaseUrl', settings.supabaseUrl)
-  if (settings.supabaseKey !== undefined) localStorage.setItem('supabaseKey', settings.supabaseKey)
+  if (settings.databaseProvider !== undefined) {
+    localStorage.setItem('databaseProvider', settings.databaseProvider)
+  }
+
+  const supabaseConfig = settings?.databaseConfig?.supabase || {}
+  const resolvedSupabaseUrl =
+    settings.supabaseUrl ?? settings.databaseSupabaseUrl ?? supabaseConfig.url
+  const resolvedSupabaseKey =
+    settings.supabaseKey ?? settings.databaseSupabaseKey ?? supabaseConfig.key
+
+  if (resolvedSupabaseUrl !== undefined) {
+    localStorage.setItem('databaseSupabaseUrl', resolvedSupabaseUrl)
+    localStorage.setItem('supabaseUrl', resolvedSupabaseUrl)
+  }
+  if (resolvedSupabaseKey !== undefined) {
+    localStorage.setItem('databaseSupabaseKey', resolvedSupabaseKey)
+    localStorage.setItem('supabaseKey', resolvedSupabaseKey)
+  }
 
   // CLEANUP: Remove Sensitive Keys from LocalStorage (Security)
   const SENSITIVE_KEYS = [

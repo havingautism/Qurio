@@ -258,6 +258,9 @@ function App() {
 
       // Check if Supabase is configured
       const localSettings = loadSettings()
+      if (localSettings.databaseProvider && localSettings.databaseProvider !== 'supabase') {
+        return
+      }
       if (!localSettings.supabaseUrl || !localSettings.supabaseKey) {
         setIsSupabaseSetupOpen(true)
         return
@@ -979,7 +982,9 @@ function App() {
                 />
                 <SupabaseSetupModal
                   isOpen={isSupabaseSetupOpen}
-                  isManual={Boolean(loadSettings().supabaseUrl)} // If URL exists, it's a manual reconfigure
+                  isManual={
+                    loadSettings().databaseProvider === 'supabase' && Boolean(loadSettings().supabaseUrl)
+                  } // If URL exists, it's a manual reconfigure
                   onConfigured={() => {
                     setIsSupabaseSetupOpen(false)
                     // Trigger a re-sync or reload to fetch data

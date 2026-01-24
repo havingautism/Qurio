@@ -26,6 +26,7 @@ let supabaseClient = null
  */
 export const initSupabase = (supabaseUrl, supabaseKey) => {
   const settings = loadSettings({ supabaseUrl, supabaseKey })
+  if (settings.databaseProvider && settings.databaseProvider !== 'supabase') return null
   if (!settings.supabaseUrl || !settings.supabaseKey) return null
 
   supabaseClient = createClient(settings.supabaseUrl, settings.supabaseKey)
@@ -38,6 +39,7 @@ export const initSupabase = (supabaseUrl, supabaseKey) => {
 export const getSupabaseClient = () => {
   if (supabaseClient) return supabaseClient
   const settings = loadSettings()
+  if (settings.databaseProvider && settings.databaseProvider !== 'supabase') return null
   if (!settings.supabaseUrl || !settings.supabaseKey) return null
   supabaseClient = createClient(settings.supabaseUrl, settings.supabaseKey)
   return supabaseClient

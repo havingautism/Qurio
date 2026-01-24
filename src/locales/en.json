@@ -267,6 +267,12 @@
     "relatedQuestionsHint": "Automatically generate follow-up suggestions after the assistant responds.",
     "contextMessages": "Context Messages",
     "contextMessagesHint": "How many recent messages to send with each request (excluding spaces/system prompts).",
+    "toolsApiConfiguration": "Tools API Configuration",
+    "toolsApiConfigurationHint": "Optionally configure a tool API provider for integrations.",
+    "toolsApiProvider": "Tool API Provider",
+    "databaseConfiguration": "Database Configuration",
+    "databaseConfigurationHint": "Choose a storage provider and configure credentials.",
+    "databaseProvider": "Database Provider",
     "supabaseUrl": "Supabase URL",
     "supabaseKey": "Supabase Key",
     "supabaseConfiguration": "Supabase Configuration",
@@ -312,8 +318,13 @@
       "nvidia": "NVIDIA NIM",
       "minimax": "MiniMax"
     },
-    "searchProviders": {
+    "toolsApiProviders": {
       "tavily": "Tavily"
+    },
+    "toolsApiKey": "Tool API Key",
+    "toolsApiKeyPlaceholder": "Enter your tool API key",
+    "databaseProviders": {
+      "supabase": "Supabase"
     },
     "responseStyle": "Response Style",
     "responseStyleHint": "Fine-tune how replies sound and how they are structured.",

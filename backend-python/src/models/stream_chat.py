@@ -96,6 +96,12 @@ class StreamChatRequest(BaseModel):
     user_id: str | None = Field(default=None, alias="userId")
     user_timezone: str | None = Field(default=None, alias="userTimezone")
     user_locale: str | None = Field(default=None, alias="userLocale")
+    enable_long_term_memory: bool = Field(default=False, alias="enableLongTermMemory")
+    database_provider: str | None = Field(default=None, alias="databaseProvider")
+    memory_provider: str | None = Field(default=None, alias="memoryProvider")
+    memory_model: str | None = Field(default=None, alias="memoryModel")
+    memory_base_url: str | None = Field(default=None, alias="memoryBaseUrl")
+    memory_api_key: str | None = Field(default=None, alias="memoryApiKey")
 
     # Stream flag (default true for streaming)
     stream: bool = True

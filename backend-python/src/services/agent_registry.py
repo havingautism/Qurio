@@ -7,11 +7,15 @@ from __future__ import annotations
 import os
 from types import SimpleNamespace
 from typing import Any, Dict, List
+from urllib.parse import quote_plus, urlparse
 
 from agno.agent import Agent
+from agno.db.postgres import PostgresDb
 from agno.models.google import Gemini
 from agno.models.openai import OpenAILike
+from agno.utils.log import logger
 
+from ..config import get_settings
 from .custom_tools import QurioLocalTools
 from .tool_registry import AGNO_TOOLS, LOCAL_TOOLS, resolve_tool_name
 from .user_tools import build_user_tools_toolkit
@@ -40,7 +44,59 @@ DEFAULT_BASE_URLS: Dict[str, str] = {
     "minimax": os.getenv("MINIMAX_BASE_URL", "https://api.minimax.io/v1"),
 }
 
+MEMORY_LITE_PROVIDER = os.getenv("MEMORY_LITE_PROVIDER", "openai")
+MEMORY_LITE_MODEL = os.getenv("MEMORY_LITE_MODEL", "lite-gpt")
+MEMORY_LITE_BASE_URL = os.getenv("MEMORY_LITE_BASE_URL", DEFAULT_BASE_URLS.get(MEMORY_LITE_PROVIDER, DEFAULT_BASE_URLS["openai"]))
+MEMORY_AGENT_API_KEY = os.getenv("MEMORY_AGENT_API_KEY") or os.getenv("OPENAI_API_KEY")
 
+
+
+
+_memory_db: PostgresDb | None = None
+
+
+def _get_supabase_memory_db() -> PostgresDb | None:
+    global _memory_db
+    if _memory_db is not None:
+        return _memory_db
+    if not PostgresDb:
+        return None
+
+    settings = get_settings()
+    if not settings.supabase_url or not settings.supabase_service_role_key:
+        logger.warning('Supabase credentials are missing; cannot initialize AGNO memory store.')
+        return None
+
+    parsed = urlparse(settings.supabase_url)
+    host = parsed.hostname
+    if not host:
+        logger.warning('Invalid Supabase URL provided for AGNO memory store.')
+        return None
+    db_host = host if host.startswith('db.') else f'db.{host}'
+
+    password = quote_plus(settings.supabase_service_role_key)
+    db_url = f'postgresql://postgres:{password}@{db_host}:5432/postgres?sslmode=require'
+
+    try:
+        _memory_db = PostgresDb(db_url=db_url)
+    except Exception as exc:
+        logger.warning('Failed to initialize AGNO Supabase memory store: %s', exc)
+        _memory_db = None
+    return _memory_db
+
+
+def _build_memory_kwargs(request: Any) -> dict[str, Any]:
+    if not getattr(request, 'enable_long_term_memory', False):
+        return {}
+    provider = (getattr(request, 'database_provider', None) or 'supabase').lower()
+    if provider != 'supabase':
+        logger.warning('Memory requested for unsupported provider "%s"', provider)
+        return {}
+    db = _get_supabase_memory_db()
+    if not db:
+        logger.warning('Memory requested but Supabase memory store is unavailable.')
+        return {}
+    return {'db': db, 'update_memory_on_run': True}
 
 
 def _build_model(provider: str, api_key: str | None, base_url: str | None, model: str | None):
@@ -312,6 +368,7 @@ def build_agent(request: Any = None, **kwargs: Any) -> Agent:
     model = _build_model(request.provider, request.api_key, request.base_url, request.model)
     _apply_model_settings(model, request)
     tools = _build_tools(request)
+    memory_kwargs = _build_memory_kwargs(request)
 
     tool_choice = request.tool_choice
     if tool_choice is None and tools:
@@ -325,7 +382,47 @@ def build_agent(request: Any = None, **kwargs: Any) -> Agent:
         add_history_to_context=False,
         markdown=True,
         tool_choice=tool_choice,
+        **memory_kwargs,
     )
+
+
+def build_memory_agent(
+    user_id: str | None = None,
+    provider: str | None = None,
+    model: str | None = None,
+    base_url: str | None = None,
+    api_key: str | None = None,
+) -> Agent:
+    resolved_provider = provider or MEMORY_LITE_PROVIDER
+    resolved_model = model or MEMORY_LITE_MODEL
+    resolved_api_key = api_key or MEMORY_AGENT_API_KEY or os.getenv("OPENAI_API_KEY")
+    resolved_base_url = (
+        base_url
+        or DEFAULT_BASE_URLS.get(resolved_provider)
+        or DEFAULT_BASE_URLS["openai"]
+    )
+
+    memory_request = SimpleNamespace(
+        provider=resolved_provider,
+        api_key=resolved_api_key,
+        base_url=resolved_base_url,
+        model=resolved_model,
+        tavily_api_key=os.getenv("TAVILY_API_KEY"),
+        temperature=None,
+        top_p=None,
+        top_k=None,
+        frequency_penalty=None,
+        presence_penalty=None,
+        thinking=None,
+        tool_ids=[],
+        tools=None,
+        user_tools=None,
+        tool_choice=None,
+        enable_long_term_memory=True,
+        database_provider="supabase",
+        user_id=user_id,
+    )
+    return build_agent(memory_request)
 
 
 def get_agent_for_provider(request: Any) -> Agent:

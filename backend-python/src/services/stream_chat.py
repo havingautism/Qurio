@@ -5,6 +5,7 @@ Stream chat service implemented with Agno SDK (Agent + tools + DB).
 from __future__ import annotations
 
 import ast
+import asyncio
 import json
 import re
 import time
@@ -12,7 +13,8 @@ from datetime import datetime
 from typing import Any, AsyncGenerator
 from zoneinfo import ZoneInfo
 
-from agno.agent import RunEvent
+from agno.agent import Agent, RunEvent
+from agno.memory.strategies.types import MemoryOptimizationStrategyType
 from agno.run.agent import ToolCallCompletedEvent, ToolCallStartedEvent
 from agno.utils.log import logger
 
@@ -35,6 +37,9 @@ TIME_KEYWORDS_REGEX = re.compile(
     r"today|current|now|this week|this month|recently|tomorrow|yesterday|last week|last month|last year",
     re.IGNORECASE,
 )
+
+MEMORY_OPTIMIZE_THRESHOLD = 50
+MEMORY_OPTIMIZE_INTERVAL_SECONDS = 60 * 60 * 12
 
 class TaggedTextHandler:
     def __init__(self):
@@ -72,6 +77,9 @@ class TaggedTextHandler:
 
 class StreamChatService:
     """Stream chat service implemented using Agno Agent streaming events."""
+
+    def __init__(self) -> None:
+        self._last_memory_optimization: dict[str, float] = {}
 
     async def stream_chat(
         self,
@@ -200,6 +208,8 @@ class StreamChatService:
                             thought=full_thought.strip() or None,
                             sources=list(sources_map.values()) or None,
                         ).model_dump()
+                        if request:
+                            asyncio.create_task(self._maybe_optimize_memories(agent, request))
                         return
 
                     case RunEvent.run_error.value:
@@ -457,6 +467,43 @@ class StreamChatService:
                 title=title,
                 snippet=str(snippet)[:200],
             ).model_dump()
+
+    async def _maybe_optimize_memories(self, agent: Agent, request: StreamChatRequest) -> None:
+        if not getattr(request, "enable_long_term_memory", False):
+            return
+        user_id = getattr(request, "user_id", None)
+        if not isinstance(user_id, str) or not user_id.strip():
+            return
+
+        memory_manager = getattr(agent, "memory_manager", None)
+        if not memory_manager:
+            return
+
+        now = time.time()
+        last_run = self._last_memory_optimization.get(user_id)
+        if last_run and now - last_run < MEMORY_OPTIMIZE_INTERVAL_SECONDS:
+            return
+
+        try:
+            memories = memory_manager.get_user_memories(user_id=user_id) or []
+        except Exception as exc:
+            logger.warning("Failed to list memories for optimization (%s): %s", user_id, exc)
+            return
+
+        if len(memories) < MEMORY_OPTIMIZE_THRESHOLD:
+            return
+
+        try:
+            await asyncio.to_thread(
+                memory_manager.optimize_memories,
+                user_id,
+                MemoryOptimizationStrategyType.SUMMARIZE,
+                True,
+            )
+            self._last_memory_optimization[user_id] = now
+            logger.info("Optimized %s memories for user %s", len(memories), user_id)
+        except Exception as exc:
+            logger.error("Memory optimization failed for %s: %s", user_id, exc)
 
 _stream_chat_service: StreamChatService | None = None
 

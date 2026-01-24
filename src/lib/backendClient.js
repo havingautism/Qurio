@@ -513,6 +513,8 @@ export const streamChatViaBackend = async params => {
     tavilyApiKey,
     searchBackend,
     userTools,
+    enableLongTermMemory,
+    databaseProvider,
     onChunk,
     onFinish,
     onError,
@@ -556,6 +558,8 @@ export const streamChatViaBackend = async params => {
         tavilyApiKey,
         searchBackend,
         userTools,
+        enableLongTermMemory,
+        databaseProvider,
       }),
       signal,
     })

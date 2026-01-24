@@ -27,7 +27,8 @@ dependencies = [
     "arxiv>=2.0.0",
     "wikipedia>=1.4.0",
     "ddgs>=0.0.0",
-    "google-genai>=0.0.0"
+    "google-genai>=0.0.0",
+    "sqlalchemy>=2.0.46",
 ]
 
 [project.optional-dependencies]

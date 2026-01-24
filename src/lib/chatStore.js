@@ -1305,6 +1305,21 @@ const callAIAPI = async (
       console.error('Failed to fetch user tools for chat:', err)
     }
 
+    const memoryModelConfig = getModelConfigForAgent(
+      selectedAgent,
+      settings,
+      'generateMemoryQuery',
+      fallbackAgent,
+    )
+    const resolvedMemoryProvider = memoryModelConfig?.provider
+    const resolvedMemoryModel = memoryModelConfig?.model
+    const memoryProviderInstance = resolvedMemoryProvider
+      ? getProvider(resolvedMemoryProvider)
+      : null
+    const memoryCredentials = memoryProviderInstance?.getCredentials(settings)
+    const memoryApiKey = memoryCredentials?.apiKey || credentials.apiKey
+    const memoryBaseUrl = memoryCredentials?.baseUrl || credentials.baseUrl
+
     const params = {
       ...credentials,
       model: modelConfig.model,
@@ -1328,6 +1343,10 @@ const callAIAPI = async (
       })),
       tools: provider.getTools(toggles.search, toggles.searchTool),
       toolIds: resolvedToolIds,
+      memoryProvider: resolvedMemoryProvider,
+      memoryModel: resolvedMemoryModel,
+      memoryApiKey,
+      memoryBaseUrl,
       thinking: provider.getThinking(thinkingActive, modelConfig.model),
       signal: controller.signal,
       onChunk: chunk => {
@@ -2685,16 +2704,6 @@ Analyze the submitted data. If critical information is still missing or if the r
       : []
     const shouldRetrieveDocs =
       !documentSelection?.skipRetrieval && selectedDocuments.length > 0 && text.trim()
-    const memoryEnabled = !!settings?.enableLongTermMemory
-    const memoryDomains = memoryEnabled ? await getMemoryDomains() : []
-    const memoryDomainIndex = Array.isArray(memoryDomains)
-      ? memoryDomains.map(domain => ({
-          domain_key: domain.domain_key,
-          aliases: domain.aliases,
-          scope: domain.scope,
-        }))
-      : []
-
     // Step 8: Create AI Placeholder (shows immediately, then we run retrieval)
     const aiMessagePlaceholder = appendAIPlaceholder(
       resolvedAgent,
@@ -2728,101 +2737,6 @@ Analyze the submitted data. If critical information is still missing or if the r
 
     let resolvedDocumentSources = baseDocumentSources
     let resolvedDocumentContextAppend = documentContextAppend
-    let resolvedMemoryAppend = ''
-
-    if (memoryEnabled && memoryDomains.length > 0) {
-      const toolCallId = `memory-check-${Date.now()}`
-      const toolStart = Date.now()
-
-      set(state => {
-        const updated = [...state.messages]
-        const lastMsgIndex = updated.length - 1
-        if (lastMsgIndex < 0 || updated[lastMsgIndex].role !== 'ai') {
-          return { messages: updated }
-        }
-        const lastMsg = { ...updated[lastMsgIndex] }
-        const history = Array.isArray(lastMsg.toolCallHistory)
-          ? [...lastMsg.toolCallHistory]
-          : []
-        history.push({
-          id: toolCallId,
-          name: 'memory_check',
-          arguments: JSON.stringify({ hitDomains: [] }),
-          status: 'calling',
-          durationMs: null,
-          textIndex: 0,
-        })
-        lastMsg.toolCallHistory = history
-        updated[lastMsgIndex] = lastMsg
-        return { messages: updated }
-      })
-
-      let toolStatus = 'done'
-      let toolError = null
-      let matchCount = 0
-      let skippedReason = null
-      let hitDomains = []
-      let selectedDomains = []
-
-      try {
-        const decision = await selectMemoryDomains({
-          question: text,
-          historyForSend,
-          domains: memoryDomainIndex,
-          settings,
-          selectedAgent: resolvedAgent,
-          agents,
-        })
-        hitDomains = decision.hitDomains || []
-        if (decision.needMemory) {
-          const recallLimit = Math.max(1, Number(settings?.memoryRecallLimit || 5))
-          selectedDomains = selectMemoryDomainsByKeys(memoryDomains, hitDomains, recallLimit)
-          resolvedMemoryAppend = formatMemorySummariesAppendText(selectedDomains)
-          matchCount = selectedDomains.filter(domain => domain?.latest_summary?.summary).length
-          skippedReason = resolvedMemoryAppend ? null : 'no_summary'
-        } else {
-          skippedReason = 'not_needed'
-        }
-      } catch (error) {
-        console.error('Long-term memory check failed:', error)
-        toolStatus = 'error'
-        toolError = error?.message || 'Memory check failed'
-      }
-
-      set(state => {
-        const updated = [...state.messages]
-        const lastMsgIndex = updated.length - 1
-        if (lastMsgIndex < 0 || updated[lastMsgIndex].role !== 'ai') {
-          return { messages: updated }
-        }
-        const lastMsg = { ...updated[lastMsgIndex] }
-        const history = Array.isArray(lastMsg.toolCallHistory)
-          ? [...lastMsg.toolCallHistory]
-          : []
-        const targetIndex = history.findIndex(item => item.id === toolCallId)
-        const durationMs = Date.now() - toolStart
-        const toolOutput = {
-          hitDomains,
-          selectedDomains: selectedDomains.map(domain => domain?.domain_key).filter(Boolean),
-          matches: matchCount,
-          skipped: skippedReason,
-          error: toolError,
-        }
-        if (targetIndex >= 0) {
-          history[targetIndex] = {
-            ...history[targetIndex],
-            arguments: JSON.stringify({ hitDomains }),
-            status: toolStatus,
-            error: toolError,
-            output: toolOutput,
-            durationMs,
-          }
-        }
-        lastMsg.toolCallHistory = history
-        updated[lastMsgIndex] = lastMsg
-        return { messages: updated }
-      })
-    }
 
     if (shouldRetrieveDocs) {
       const toolCallId = `document-embedding-${Date.now()}`

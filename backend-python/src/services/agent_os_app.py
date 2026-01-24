@@ -23,6 +23,7 @@ from ..routes import (
     related_questions,
     research_plan,
     deep_research,
+    memory as memory_route,
     mcp_tools,
 )
 from .agent_registry import build_agent
@@ -69,6 +70,7 @@ def _build_base_app() -> FastAPI:
     app.include_router(related_questions.router, prefix="/api")
     app.include_router(research_plan.router, prefix="/api")
     app.include_router(deep_research.router, prefix="/api")
+    app.include_router(memory_route.router, prefix="/api")
     app.include_router(mcp_tools.router, prefix="/api/mcp-tools")
     return app
 
@@ -95,6 +97,8 @@ def get_agent_os() -> AgentOS:
         tools=None,
         user_tools=None,
         tool_choice=None,
+        enable_long_term_memory=os.getenv("ENABLE_LONG_TERM_MEMORY", "0") == "1",
+        database_provider=os.getenv("DATABASE_PROVIDER", "supabase"),
     )
     default_agent = build_agent(default_request)
 

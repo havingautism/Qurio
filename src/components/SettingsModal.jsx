@@ -34,12 +34,6 @@ import { getModelsForProvider } from '../lib/models_api'
 import { getPublicEnv } from '../lib/publicEnv'
 import { GLM_BASE_URL, SILICONFLOW_BASE_URL } from '../lib/providerConstants'
 import { loadSettings, saveSettings } from '../lib/settings'
-import {
-  deleteMemoryDomain,
-  ensureLongTermMemoryIndex,
-  getMemoryDomains,
-  upsertMemoryDomainSummary,
-} from '../lib/longTermMemoryService'
 import { fetchRemoteSettings, saveRemoteSettings, testConnection } from '../lib/supabase'
 import { THEMES } from '../lib/themes'
 import Logo from './Logo'
@@ -1341,109 +1335,6 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
     return requiredTables.filter(table => !result.tables[table])
   }
 
-  const updateMemoryDomainsFromIntro = async (introText, settings) => {
-    const trimmedIntro = String(introText || '').trim()
-    if (!trimmedIntro) return { updated: false, reason: 'empty' }
-
-    const modelConfig = resolveLiteModelConfig(defaultAgent, settings)
-    if (!modelConfig?.provider || !modelConfig?.model) {
-      return { updated: false, reason: 'no_model' }
-    }
-
-    const provider = getProvider(modelConfig.provider)
-    if (!provider?.streamChatCompletion) {
-      return { updated: false, reason: 'no_provider' }
-    }
-
-    const credentials = provider.getCredentials(settings)
-    if (!credentials?.apiKey) {
-      return { updated: false, reason: 'no_key' }
-    }
-
-    const prompt = buildMemoryDomainExtractionPrompt(trimmedIntro)
-    const messages = [
-      {
-        role: 'system',
-        content: 'You extract long-term memory domains. Output JSON only.',
-      },
-      { role: 'user', content: prompt },
-    ]
-
-    let fullContent = ''
-    try {
-      await provider.streamChatCompletion({
-        ...credentials,
-        model: modelConfig.model,
-        messages,
-        temperature: 0.2,
-        responseFormat: modelConfig.provider !== 'gemini' ? { type: 'json_object' } : undefined,
-        onChunk: chunk => {
-          if (typeof chunk === 'object' && chunk?.type === 'text' && chunk.content) {
-            fullContent += chunk.content
-          } else if (typeof chunk === 'string') {
-            fullContent += chunk
-          }
-        },
-        onFinish: result => {
-          if (result?.content) fullContent = result.content
-        },
-      })
-    } catch (error) {
-      console.error('Lite model memory domain extraction failed:', error)
-      return { updated: false, reason: 'model_error' }
-    }
-
-    const rawDomains = parseMemoryDomainExtractionResponse(fullContent)
-    const normalizedDomains = (rawDomains || [])
-      .map(item => {
-        const domainKey = normalizeDomainKey(item?.domain_key || item?.domainKey)
-        if (!domainKey) return null
-        const summary = truncateDomainSummary(item?.summary)
-        if (!summary) return null
-        const aliases = Array.isArray(item?.aliases)
-          ? item.aliases.map(alias => String(alias || '').trim()).filter(Boolean)
-          : []
-        const scope = typeof item?.scope === 'string' ? item.scope.trim() : ''
-        return {
-          domainKey,
-          summary,
-          aliases,
-          scope,
-        }
-      })
-      .filter(Boolean)
-      .slice(0, MEMORY_DOMAIN_MAX_ITEMS)
-
-    if (normalizedDomains.length === 0) {
-      return { updated: false, reason: 'no_domains' }
-    }
-
-    const existingDomains = await getMemoryDomains()
-    const keepKeys = new Set(normalizedDomains.map(domain => domain.domainKey))
-
-    await Promise.all(
-      (existingDomains || [])
-        .filter(domain => {
-          const key = normalizeDomainKey(domain?.domain_key)
-          return key && !keepKeys.has(key)
-        })
-        .map(domain => deleteMemoryDomain(domain.domain_key)),
-    )
-
-    await Promise.all(
-      normalizedDomains.map(domain =>
-        upsertMemoryDomainSummary({
-          domainKey: domain.domainKey,
-          summary: domain.summary,
-          aliases: domain.aliases,
-          scope: domain.scope,
-        }),
-      ),
-    )
-
-    return { updated: true, count: normalizedDomains.length }
-  }
-
   const copyInitSql = async () => {
     try {
       await navigator.clipboard.writeText(INIT_SQL_SCRIPT)
@@ -1629,33 +1520,6 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
       }
 
       await saveSettings(newSettings)
-
-      if (enableLongTermMemory && didPassValidation) {
-        const introText = userSelfIntro.trim()
-        const initialIntroText = String(initialSelfIntroRef.current || '').trim()
-        const introChanged = introText !== initialIntroText
-        if (introChanged && introText) {
-          try {
-            const result = await updateMemoryDomainsFromIntro(introText, newSettings)
-            if (!result.updated) {
-              await ensureLongTermMemoryIndex({ text: introText })
-            }
-          } catch (error) {
-            console.error('Failed to update long-term memory index:', error)
-            try {
-              await ensureLongTermMemoryIndex({ text: introText })
-            } catch (fallbackError) {
-              console.error('Fallback memory update failed:', fallbackError)
-            }
-          }
-        } else if (introChanged) {
-          try {
-            await ensureLongTermMemoryIndex({ text: '' })
-          } catch (error) {
-            console.error('Failed to clear long-term memory:', error)
-          }
-        }
-      }
 
       // Save Remote (if connected)
       if (isSupabaseProvider && supabaseUrl && supabaseKey) {

@@ -10,7 +10,7 @@ import clsx from 'clsx'
 import ArrowDown from 'lucide-react/dist/esm/icons/arrow-down'
 import Square from 'lucide-react/dist/esm/icons/square'
 import { useAppContext } from '../App'
-import { updateConversation } from '../lib/conversationsService'
+import { notifyConversationsChanged, updateConversation } from '../lib/conversationsService'
 import { getProvider, providerSupportsSearch, resolveThinkingToggleRule } from '../lib/providers'
 import QuestionTimelineController from './QuestionTimelineController'
 import ResearchTimelineController from './ResearchTimelineController'
@@ -1519,7 +1519,7 @@ const DeepResearchChatInterface = ({
           title: newTitle,
           title_emojis: Array.isArray(titleResult?.emojis) ? titleResult.emojis : [],
         })
-        window.dispatchEvent(new Event('conversations-changed'))
+        notifyConversationsChanged()
       }
     } catch (err) {
       console.error('Failed to regenerate title:', err)

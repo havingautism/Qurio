@@ -76,6 +76,10 @@ const FALLBACK_MODEL_OPTIONS = {
     { value: 'deepseek-ai/deepseek-v3.2', label: 'deepseek-v3.2' },
     { value: 'moonshotai/kimi-k2-thinking', label: 'kimi-k2-thinking' },
     { value: 'minimaxai/minimax-m2', label: 'minimax-m2' },
+    { value: 'deepseek-ai/deepseek-v3.1-terminus', label: 'deepseek-v3.1-terminus' },
+    { value: 'moonshotai/kimi-k2-instruct-0905', label: 'kimi-k2-instruct-0905' },
+    { value: 'moonshotai/kimi-k2-instruct', label: 'kimi-k2-instruct' },
+    { value: 'qwen/qwen3-next-80b-a3b-instruct', label: 'qwen3-next-80b-a3b-instruct' },
   ],
   minimax: [{ value: 'MiniMax-M2.1', label: 'MiniMax M2.1' }],
   modelscope: [],
@@ -794,7 +798,8 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
     if (!apiKey) {
       throw new Error(t('agents.model.testMissingKey'))
     }
-    const responseFormat = structured && providerKey !== 'gemini' ? { type: 'json_object' } : undefined
+    const responseFormat =
+      structured && providerKey !== 'gemini' ? { type: 'json_object' } : undefined
     const prompt = structured
       ? 'Return a JSON object with keys "ok" and "echo". Set ok to true.'
       : 'Reply with "pong".'

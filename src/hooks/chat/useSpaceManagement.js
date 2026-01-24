@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { updateConversation } from '../../lib/conversationsService'
+import { notifyConversationsChanged, updateConversation } from '../../lib/conversationsService'
 
 /**
  * useSpaceManagement Hook
@@ -153,7 +153,7 @@ const useSpaceManagement = ({
         })
           .then(() => {
             // Trigger event to refresh sidebar
-            window.dispatchEvent(new Event('conversations-changed'))
+            notifyConversationsChanged()
             window.dispatchEvent(
               new CustomEvent('conversation-space-updated', {
                 detail: {
@@ -190,7 +190,7 @@ const useSpaceManagement = ({
       })
         .then(() => {
           // Trigger event to refresh sidebar
-          window.dispatchEvent(new Event('conversations-changed'))
+          notifyConversationsChanged()
           window.dispatchEvent(
             new CustomEvent('conversation-space-updated', {
               detail: {

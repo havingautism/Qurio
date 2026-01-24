@@ -3,6 +3,7 @@ import {
   addConversationEvent,
   addMessage,
   createConversation,
+  notifyConversationsChanged,
   updateConversation,
   updateMessageById,
 } from '../lib/conversationsService'
@@ -1017,7 +1018,7 @@ const ensureConversationExists = async (
     // Update store with new conversation ID
     set({ conversationId: data.id })
     // Notify other components that conversations list changed
-    window.dispatchEvent(new Event('conversations-changed'))
+    notifyConversationsChanged()
     if (toggles?.deepResearch) {
       addConversationEvent(data.id, 'deep_research', { enabled: true }).catch(err =>
         console.error('Failed to record deep research event:', err),
@@ -2027,7 +2028,7 @@ const finalizeMessage = async (
           last_agent_id: safeAgent?.id || null,
           agent_selection_mode: isAgentAutoMode ? 'auto' : 'manual',
         })
-        window.dispatchEvent(new Event('conversations-changed'))
+        notifyConversationsChanged()
 
         // Dispatch a specific event for conversation update
         window.dispatchEvent(

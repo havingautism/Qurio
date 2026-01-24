@@ -2,6 +2,23 @@ import { getSupabaseClient } from './supabase'
 
 const notesTable = 'home_notes'
 const shortcutsTable = 'home_shortcuts'
+const CACHE_TTL_MS = 1500
+const notesCache = { ts: 0, value: null }
+const shortcutsCache = { ts: 0, value: null }
+let notesInFlight = null
+let shortcutsInFlight = null
+
+const isFresh = entry => entry && Date.now() - entry.ts < CACHE_TTL_MS
+
+const invalidateNotesCache = () => {
+  notesCache.ts = 0
+  notesCache.value = null
+}
+
+const invalidateShortcutsCache = () => {
+  shortcutsCache.ts = 0
+  shortcutsCache.value = null
+}
 
 // ============================================================================
 // Utilities
@@ -50,15 +67,32 @@ export const getFaviconFallbackUrl = (url, size = 64) => {
 // ============================================================================
 
 export const fetchHomeNotes = async () => {
+  if (isFresh(notesCache)) {
+    return notesCache.value
+  }
+  if (notesInFlight) return notesInFlight
   const supabase = getSupabaseClient()
   if (!supabase) return { data: null, error: new Error('Supabase not configured') }
 
-  const { data, error } = await supabase
-    .from(notesTable)
-    .select('*')
-    .order('updated_at', { ascending: false })
+  const request = (async () => {
+    const { data, error } = await supabase
+      .from(notesTable)
+      .select('*')
+      .order('updated_at', { ascending: false })
+    const result = { data: data || [], error }
+    if (!error) {
+      notesCache.ts = Date.now()
+      notesCache.value = result
+    }
+    return result
+  })()
 
-  return { data: data || [], error }
+  notesInFlight = request
+  try {
+    return await request
+  } finally {
+    notesInFlight = null
+  }
 }
 
 export const upsertHomeNote = async ({ id, content = '' }) => {
@@ -72,10 +106,12 @@ export const upsertHomeNote = async ({ id, content = '' }) => {
       .eq('id', id)
       .select()
       .single()
+    if (!error) invalidateNotesCache()
     return { data, error }
   }
 
   const { data, error } = await supabase.from(notesTable).insert([{ content }]).select().single()
+  if (!error) invalidateNotesCache()
   return { data, error }
 }
 
@@ -84,6 +120,7 @@ export const deleteHomeNote = async id => {
   if (!supabase) return { error: new Error('Supabase not configured') }
 
   const { error } = await supabase.from(notesTable).delete().eq('id', id)
+  if (!error) invalidateNotesCache()
   return { error }
 }
 
@@ -92,15 +129,32 @@ export const deleteHomeNote = async id => {
 // ============================================================================
 
 export const fetchHomeShortcuts = async () => {
+  if (isFresh(shortcutsCache)) {
+    return shortcutsCache.value
+  }
+  if (shortcutsInFlight) return shortcutsInFlight
   const supabase = getSupabaseClient()
   if (!supabase) return { data: null, error: new Error('Supabase not configured') }
 
-  const { data, error } = await supabase
-    .from(shortcutsTable)
-    .select('*')
-    .order('position', { ascending: true })
+  const request = (async () => {
+    const { data, error } = await supabase
+      .from(shortcutsTable)
+      .select('*')
+      .order('position', { ascending: true })
+    const result = { data: data || [], error }
+    if (!error) {
+      shortcutsCache.ts = Date.now()
+      shortcutsCache.value = result
+    }
+    return result
+  })()
 
-  return { data: data || [], error }
+  shortcutsInFlight = request
+  try {
+    return await request
+  } finally {
+    shortcutsInFlight = null
+  }
 }
 
 export const upsertHomeShortcut = async ({
@@ -124,10 +178,12 @@ export const upsertHomeShortcut = async ({
       .eq('id', id)
       .select()
       .single()
+    if (!error) invalidateShortcutsCache()
     return { data, error }
   }
 
   const { data, error } = await supabase.from(shortcutsTable).insert([payload]).select().single()
+  if (!error) invalidateShortcutsCache()
   return { data, error }
 }
 
@@ -136,6 +192,7 @@ export const deleteHomeShortcut = async id => {
   if (!supabase) return { error: new Error('Supabase not configured') }
 
   const { error } = await supabase.from(shortcutsTable).delete().eq('id', id)
+  if (!error) invalidateShortcutsCache()
   return { error }
 }
 
@@ -150,5 +207,6 @@ export const reorderHomeShortcuts = async shortcuts => {
 
   const results = await Promise.all(promises)
   const error = results.find(r => r.error)?.error
+  if (!error) invalidateShortcutsCache()
   return { error }
 }

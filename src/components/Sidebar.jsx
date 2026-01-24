@@ -28,6 +28,7 @@ import {
   listBookmarkedConversations,
   listConversations,
   listConversationsBySpace,
+  notifyConversationsChanged,
   toggleFavorite,
 } from '../lib/conversationsService'
 import { getSpaceDisplayLabel } from '../lib/spaceDisplay'
@@ -69,6 +70,7 @@ const Sidebar = ({
   useScrollLock(isOpen && !isStandalone)
 
   const [isHovered, setIsHovered] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
   const [isPinned, setIsPinned] = useState(() => {
     const saved = localStorage.getItem('sidebar-pinned')
     // Default to false on mobile if using simple logic, but here relying on isOpen for mobile
@@ -79,7 +81,6 @@ const Sidebar = ({
   const [conversations, setConversations] = useState([])
   const [nextCursor, setNextCursor] = useState(null)
   const [hasMore, setHasMore] = useState(true)
-  const [isConversationsLoading, setIsConversationsLoading] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
   // const [emojiTick, setEmojiTick] = useState(0)
 
@@ -105,7 +106,14 @@ const Sidebar = ({
   const [spacesLoadingMore, setSpacesLoadingMore] = useState(false)
 
   const toast = useToast()
-  const { showConfirmation, deepResearchSpace, conversationStatuses } = useAppContext()
+  const {
+    showConfirmation,
+    deepResearchSpace,
+    conversationStatuses,
+    conversations: appConversations,
+    conversationsLoading,
+  } = useAppContext()
+  const isConversationsLoading = conversationsLoading && conversations.length === 0
 
   const getConversationStatusMeta = status => {
     if (status === 'loading') {
@@ -219,6 +227,19 @@ const Sidebar = ({
   const closeActions = () => setExpandedActionId(null)
 
   const displayTab = hoveredTab || activeTab
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return undefined
+    const mediaQuery = window.matchMedia('(max-width: 768px)')
+    const update = () => setIsMobile(mediaQuery.matches)
+    update()
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener('change', update)
+      return () => mediaQuery.removeEventListener('change', update)
+    }
+    mediaQuery.addListener(update)
+    return () => mediaQuery.removeListener(update)
+  }, [])
   const isExpanded = isOpen || isPinned || isHovered
 
   // Persist pin state to localStorage and notify parent
@@ -236,13 +257,9 @@ const Sidebar = ({
   //   return () => clearInterval(intervalId)
   // }, [])
 
-  const fetchConversations = async (isInitial = true) => {
+  const fetchMoreConversations = async () => {
     try {
-      if (isInitial) {
-        setIsConversationsLoading(true)
-      } else {
-        setLoadingMore(true)
-      }
+      setLoadingMore(true)
 
       const {
         data,
@@ -251,16 +268,12 @@ const Sidebar = ({
         hasMore: moreAvailable,
       } = await listConversations({
         limit: SIDEBAR_FETCH_LIMIT,
-        cursor: isInitial ? null : nextCursor,
+        cursor: nextCursor,
         excludeSpaceIds: deepResearchSpaceIds,
       })
 
       if (!error && data) {
-        if (isInitial) {
-          setConversations(data)
-        } else {
-          setConversations(prev => [...prev, ...data])
-        }
+        setConversations(prev => [...prev, ...data])
         setNextCursor(newCursor)
         setHasMore(moreAvailable)
       } else {
@@ -269,7 +282,6 @@ const Sidebar = ({
     } catch (err) {
       console.error('Error loading conversations:', err)
     } finally {
-      setIsConversationsLoading(false)
       setLoadingMore(false)
     }
   }
@@ -358,19 +370,25 @@ const Sidebar = ({
   }
 
   useEffect(() => {
-    fetchConversations(true)
+    const filtered = (appConversations || []).filter(
+      conv => !deepResearchSpaceIds.includes(String(conv.space_id)),
+    )
+    setConversations(filtered)
+    setNextCursor(filtered.length > 0 ? filtered[filtered.length - 1].updated_at : null)
+    setHasMore(filtered.length >= SIDEBAR_FETCH_LIMIT)
+    setLoadingMore(false)
+  }, [appConversations, deepResearchSpaceIds])
+
+  useEffect(() => {
     fetchBookmarkedConversations(true)
     fetchDeepResearchConversations(true)
 
     const handleConversationsChanged = () => {
-      fetchConversations(true)
       fetchBookmarkedConversations(true)
       fetchDeepResearchConversations(true)
     }
     window.addEventListener('conversations-changed', handleConversationsChanged)
-    return () => {
-      window.removeEventListener('conversations-changed', handleConversationsChanged)
-    }
+    return () => window.removeEventListener('conversations-changed', handleConversationsChanged)
   }, [deepResearchSpaceId])
 
   // Close dropdown when sidebar collapses (mouse leaves)
@@ -464,12 +482,11 @@ const Sidebar = ({
 
         if (success) {
           closeActions()
-          // Refresh list
-          fetchConversations(true)
-          if (deepResearchSpaceId) {
+          notifyConversationsChanged()
+          if (activeTab === 'deepResearch' && deepResearchSpaceId) {
             fetchDeepResearchConversations(true)
           }
-          if (conversation.is_favorited) {
+          if (activeTab === 'bookmarks' || conversation.is_favorited) {
             fetchBookmarkedConversations(true)
           }
 
@@ -532,6 +549,7 @@ const Sidebar = ({
       }
     } else {
       toast.success(newStatus ? t('sidebar.addedToBookmarks') : t('sidebar.removedFromBookmarks'))
+      notifyConversationsChanged()
     }
   }
 
@@ -722,7 +740,9 @@ const Sidebar = ({
                     else if (item.id === 'agents') onNavigate('agents')
                   }
                 }}
-                onMouseEnter={() => setHoveredTab(item.id)}
+                onMouseEnter={() => {
+                  if (!isMobile) setHoveredTab(item.id)
+                }}
                 className={clsx(
                   'flex flex-col items-center justify-center py-2.5 px-0 rounded-xl transition-all duration-300 cursor-pointer group relative overflow-hidden',
                   activeTab === item.id
@@ -1013,7 +1033,7 @@ const Sidebar = ({
                       <button
                         onClick={e => {
                           e.stopPropagation()
-                          fetchConversations(false)
+                          fetchMoreConversations()
                         }}
                         disabled={loadingMore}
                         className="w-full py-2 text-xs font-medium text-gray-700 rounded-xl dark:text-gray-200 bg-user-bubble dark:bg-zinc-800 hover:transform hover:translate-y-[-2px] transition-colors flex items-center justify-center gap-2"

@@ -1,8 +1,52 @@
 import { getSupabaseClient } from './supabase'
 
 const table = 'conversations'
+const CACHE_TTL_MS = 1500
+const listCache = new Map()
+const inFlight = new Map()
+let conversationsChangedTimer = null
+
+const getCacheKey = (prefix, params) => {
+  try {
+    return `${prefix}:${JSON.stringify(params)}`
+  } catch {
+    return `${prefix}:${String(params)}`
+  }
+}
+
+const getCached = key => {
+  const entry = listCache.get(key)
+  if (!entry) return null
+  if (Date.now() - entry.ts > CACHE_TTL_MS) {
+    listCache.delete(key)
+    return null
+  }
+  return entry.value
+}
+
+const setCached = (key, value) => {
+  listCache.set(key, { ts: Date.now(), value })
+}
+
+const invalidateConversationCaches = () => {
+  listCache.clear()
+  inFlight.clear()
+}
+
+export const notifyConversationsChanged = (delayMs = 150) => {
+  if (typeof window === 'undefined') return
+  if (conversationsChangedTimer) return
+  conversationsChangedTimer = window.setTimeout(() => {
+    conversationsChangedTimer = null
+    window.dispatchEvent(new Event('conversations-changed'))
+  }, delayMs)
+}
 
 export const listConversations = async (options = {}) => {
+  const cacheKey = getCacheKey('listConversations', options)
+  const cached = getCached(cacheKey)
+  if (cached) return cached
+  if (inFlight.has(cacheKey)) return inFlight.get(cacheKey)
   const {
     limit = 10,
     cursor = null,
@@ -83,22 +127,39 @@ export const listConversations = async (options = {}) => {
     query = query.limit(limit)
   }
 
-  const { data, error, count } = await query
+  const request = (async () => {
+    const { data, error, count } = await query
 
-  // Determine next cursor and if there's more data (for infinite scroll compatibility)
-  const hasMore = data && data.length === limit
-  const nextCursor = hasMore && data.length > 0 ? data[data.length - 1][sortBy] : null
+    // Determine next cursor and if there's more data (for infinite scroll compatibility)
+    const hasMore = data && data.length === limit
+    const nextCursor = hasMore && data.length > 0 ? data[data.length - 1][sortBy] : null
 
-  return {
-    data: data || [],
-    error,
-    nextCursor,
-    hasMore,
-    count: count || 0,
+    const result = {
+      data: data || [],
+      error,
+      nextCursor,
+      hasMore,
+      count: count || 0,
+    }
+    if (!error) {
+      setCached(cacheKey, result)
+    }
+    return result
+  })()
+
+  inFlight.set(cacheKey, request)
+  try {
+    return await request
+  } finally {
+    inFlight.delete(cacheKey)
   }
 }
 
 export const listBookmarkedConversations = async (options = {}) => {
+  const cacheKey = getCacheKey('listBookmarkedConversations', options)
+  const cached = getCached(cacheKey)
+  if (cached) return cached
+  if (inFlight.has(cacheKey)) return inFlight.get(cacheKey)
   const {
     limit = 10,
     cursor = null,
@@ -158,17 +219,30 @@ export const listBookmarkedConversations = async (options = {}) => {
     }
   }
 
-  const { data, error } = await query
+  const request = (async () => {
+    const { data, error } = await query
 
-  // Determine next cursor and if there's more data
-  const hasMore = data && data.length === limit
-  const nextCursor = hasMore && data.length > 0 ? data[data.length - 1][sortBy] : null
+    // Determine next cursor and if there's more data
+    const hasMore = data && data.length === limit
+    const nextCursor = hasMore && data.length > 0 ? data[data.length - 1][sortBy] : null
 
-  return {
-    data: data || [],
-    error,
-    nextCursor,
-    hasMore,
+    const result = {
+      data: data || [],
+      error,
+      nextCursor,
+      hasMore,
+    }
+    if (!error) {
+      setCached(cacheKey, result)
+    }
+    return result
+  })()
+
+  inFlight.set(cacheKey, request)
+  try {
+    return await request
+  } finally {
+    inFlight.delete(cacheKey)
   }
 }
 
@@ -189,10 +263,17 @@ export const createConversation = async payload => {
   const supabase = getSupabaseClient()
   if (!supabase) return { data: null, error: new Error('Supabase not configured') }
   const { data, error } = await supabase.from(table).insert([payload]).select().single()
+  if (!error) {
+    invalidateConversationCaches()
+  }
   return { data, error }
 }
 
 export const listConversationsBySpace = async (spaceId, options = {}) => {
+  const cacheKey = getCacheKey('listConversationsBySpace', { spaceId, ...options })
+  const cached = getCached(cacheKey)
+  if (cached) return cached
+  if (inFlight.has(cacheKey)) return inFlight.get(cacheKey)
   const {
     limit = 10,
     cursor = null,
@@ -239,20 +320,33 @@ export const listConversationsBySpace = async (spaceId, options = {}) => {
     }
   }
 
-  const { data, error, count } = await query
+  const request = (async () => {
+    const { data, error, count } = await query
 
-  const hasMore = data && data.length === limit
-  let nextCursor = null
-  if (!page && hasMore && data.length > 0) {
-    nextCursor = data[data.length - 1][sortBy]
-  }
+    const hasMore = data && data.length === limit
+    let nextCursor = null
+    if (!page && hasMore && data.length > 0) {
+      nextCursor = data[data.length - 1][sortBy]
+    }
 
-  return {
-    data: data || [],
-    error,
-    nextCursor,
-    hasMore,
-    count: count || 0,
+    const result = {
+      data: data || [],
+      error,
+      nextCursor,
+      hasMore,
+      count: count || 0,
+    }
+    if (!error) {
+      setCached(cacheKey, result)
+    }
+    return result
+  })()
+
+  inFlight.set(cacheKey, request)
+  try {
+    return await request
+  } finally {
+    inFlight.delete(cacheKey)
   }
 }
 
@@ -271,6 +365,9 @@ export const updateConversation = async (id, payload) => {
   const supabase = getSupabaseClient()
   if (!supabase) return { data: null, error: new Error('Supabase not configured') }
   const { data, error } = await supabase.from(table).update(payload).eq('id', id).select().single()
+  if (!error) {
+    invalidateConversationCaches()
+  }
   return { data, error }
 }
 
@@ -326,5 +423,8 @@ export const toggleFavorite = async (id, isFavorited) => {
     .eq('id', id)
     .select()
     .single()
+  if (!error) {
+    invalidateConversationCaches()
+  }
   return { data, error }
 }

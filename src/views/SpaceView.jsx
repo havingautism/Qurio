@@ -22,7 +22,11 @@ import { useAppContext } from '../App'
 import EmojiDisplay from '../components/EmojiDisplay'
 import FancyLoader from '../components/FancyLoader'
 import { useToast } from '../contexts/ToastContext'
-import { listConversationsBySpace, toggleFavorite } from '../lib/conversationsService'
+import {
+  listConversationsBySpace,
+  notifyConversationsChanged,
+  toggleFavorite,
+} from '../lib/conversationsService'
 import {
   extractTextFromFile,
   getFileTypeLabel,
@@ -219,7 +223,7 @@ const SpaceView = () => {
             toastSuccess(t('views.spaceView.conversationDeleted'))
             setCurrentPage(1)
             // Notify Sidebar to refresh its conversation list
-            window.dispatchEvent(new Event('conversations-changed'))
+            notifyConversationsChanged()
           } else {
             console.error('Failed to delete conversation:', error)
             toastError(t('views.spaceView.failedToDelete'))
@@ -241,7 +245,7 @@ const SpaceView = () => {
       } else {
         toastSuccess(newStatus ? t('views.addBookmark') : t('views.removeBookmark'))
         // Notify Sidebar to refresh its conversation list
-        window.dispatchEvent(new Event('conversations-changed'))
+        notifyConversationsChanged()
       }
     },
     [toastSuccess, toastError, t],
@@ -342,13 +346,13 @@ const SpaceView = () => {
 
       const { sectionMap, error: sectionsError } = await persistDocumentSections(doc.id, sections)
       if (sectionsError) {
-        await deleteSpaceDocument(doc.id)
+        await deleteSpaceDocument(doc.id, activeSpace.id)
         throw sectionsError
       }
 
       const { error: chunksError } = await persistDocumentChunks(doc.id, enrichedChunks, sectionMap)
       if (chunksError) {
-        await deleteSpaceDocument(doc.id)
+        await deleteSpaceDocument(doc.id, activeSpace.id)
         throw chunksError
       }
 
@@ -416,7 +420,7 @@ const SpaceView = () => {
       confirmText: t('confirmation.delete'),
       isDangerous: true,
       onConfirm: async () => {
-        const { success, error } = await deleteSpaceDocument(doc.id)
+        const { success, error } = await deleteSpaceDocument(doc.id, activeSpace.id)
 
         if (success) {
           toastSuccess(t('views.spaceView.documentDeleted'))

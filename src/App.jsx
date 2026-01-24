@@ -88,6 +88,8 @@ function App() {
   // Conversations Data
   const [conversations, setConversations] = useState([])
   const [conversationsLoading, setConversationsLoading] = useState(false)
+  const [conversationsNextCursor, setConversationsNextCursor] = useState(null)
+  const [conversationsHasMore, setConversationsHasMore] = useState(false)
   const [conversationStatuses, setConversationStatuses] = useState({})
   const setConversationStatus = useCallback((conversationId, status) => {
     if (!conversationId) return
@@ -756,9 +758,11 @@ function App() {
     const loadConversations = async () => {
       setConversationsLoading(true)
       try {
-        const { data, error } = await listConversations({ limit: 50 })
+        const { data, error, nextCursor, hasMore } = await listConversations({ limit: 50 })
         if (!error && data) {
           setConversations(data)
+          setConversationsNextCursor(nextCursor || null)
+          setConversationsHasMore(!!hasMore)
         } else {
           console.error('Failed to fetch conversations:', error)
         }
@@ -836,6 +840,8 @@ function App() {
               deepResearchAgent,
               conversations,
               conversationsLoading,
+              conversationsNextCursor,
+              conversationsHasMore,
               spacesLoading,
               agentsLoading,
               onNavigate: handleNavigate,

@@ -20,7 +20,11 @@ import { useAppContext } from '../App'
 import EmojiDisplay from '../components/EmojiDisplay'
 import FancyLoader from '../components/FancyLoader'
 import { useToast } from '../contexts/ToastContext'
-import { listConversations, toggleFavorite } from '../lib/conversationsService'
+import {
+  listConversations,
+  notifyConversationsChanged,
+  toggleFavorite,
+} from '../lib/conversationsService'
 import { deleteConversation } from '../lib/supabase'
 
 // Sort option keys (constant for logic)
@@ -207,7 +211,7 @@ const LibraryView = () => {
     } else {
       toast.success(newStatus ? t('views.addBookmark') : t('views.removeBookmark'))
       // Refresh data
-      window.dispatchEvent(new Event('conversations-changed'))
+      notifyConversationsChanged()
     }
     setExpandedActionId(null)
   }
@@ -227,7 +231,7 @@ const LibraryView = () => {
         if (success) {
           toast.success(t('views.libraryView.conversationDeleted'))
           // Refresh data
-          window.dispatchEvent(new Event('conversations-changed'))
+          notifyConversationsChanged()
         } else {
           console.error('Failed to delete conversation:', error)
           toast.error(t('views.libraryView.failedToDelete'))

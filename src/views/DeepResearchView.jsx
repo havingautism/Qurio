@@ -20,7 +20,11 @@ import { useAppContext } from '../App'
 import EmojiDisplay from '../components/EmojiDisplay'
 import FancyLoader from '../components/FancyLoader'
 import { useToast } from '../contexts/ToastContext'
-import { listConversationsBySpace, toggleFavorite } from '../lib/conversationsService'
+import {
+  listConversationsBySpace,
+  notifyConversationsChanged,
+  toggleFavorite,
+} from '../lib/conversationsService'
 import { deleteConversation } from '../lib/supabase'
 import { useDeepResearchGuide } from '../contexts/DeepResearchGuideContext'
 
@@ -152,7 +156,7 @@ const DeepResearchView = () => {
       toast.error(t('errors.generic'))
     } else {
       toast.success(newStatus ? t('views.addBookmark') : t('views.removeBookmark'))
-      window.dispatchEvent(new Event('conversations-changed'))
+      notifyConversationsChanged()
     }
     setExpandedActionId(null)
   }
@@ -170,7 +174,7 @@ const DeepResearchView = () => {
 
         if (success) {
           toast.success(t('views.deepResearchView.conversationDeleted'))
-          window.dispatchEvent(new Event('conversations-changed'))
+          notifyConversationsChanged()
         } else {
           console.error('Failed to delete conversation:', error)
           toast.error(t('views.deepResearchView.failedToDelete'))

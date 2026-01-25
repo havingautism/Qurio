@@ -346,10 +346,11 @@ class OpenAIAdapter(BaseProviderAdapter):
         if context.tavily_api_key:
             tool_config["tavilyApiKey"] = context.tavily_api_key
 
-        # DEBUG: Log tavily_api_key status
-        import sys
-        print(f"[DEBUG] tavily_api_key received: {bool(context.tavily_api_key)}, length: {len(context.tavily_api_key) if context.tavily_api_key else 0}", file=sys.stderr)
-        print(f"[DEBUG] tool_config keys: {list(tool_config.keys())}", file=sys.stderr)
+        if os.environ.get("DEBUG_AGNO") == "1":
+            # DEBUG: Log tavily_api_key status
+            import sys
+            print(f"[DEBUG] tavily_api_key received: {bool(context.tavily_api_key)}, length: {len(context.tavily_api_key) if context.tavily_api_key else 0}", file=sys.stderr)
+            print(f"[DEBUG] tool_config keys: {list(tool_config.keys())}", file=sys.stderr)
 
         # Import here to avoid circular imports
         from src.services.tools import execute_tool_by_name

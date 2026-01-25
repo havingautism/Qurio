@@ -7,38 +7,32 @@ authors = [
 ]
 requires-python = ">=3.11"
 dependencies = [
-    "fastapi>=0.115.0",
-    "uvicorn[standard]>=0.32.0",
-    "agno>=0.9.0",
-    "pydantic>=2.10.0",
-    "pydantic-settings>=2.6.0",
-    "httpx>=0.28.0",
-    "openai>=1.58.0",
-    "google-generativeai>=0.8.0",
-    "python-multipart>=0.0.17",
-    "sse-starlette>=2.1.0",
-    "aiofiles>=24.1.0",
-    "supabase>=2.10.0",
-    "python-dotenv>=1.0.0",
-    "tavily-python>=0.3.0",
-    "beautifulsoup4>=4.12.0",
-    "pypdf>=5.0.0",
-    "yfinance>=0.2.0",
-    "arxiv>=2.0.0",
+    "fastapi>=0.128.0",
+    "uvicorn[standard]>=0.40.0",
+    "agno>=2.4.3",
+    "pydantic>=2.12.5",
+    "pydantic-settings>=2.12.0",
+    "httpx>=0.28.1",
+    "openai>=2.15.0",
+    "google-generativeai>=0.8.6",
+    "python-multipart>=0.0.21",
+    "sse-starlette>=3.2.0",
+    "aiofiles>=25.1.0",
+    "supabase>=2.27.2",
+    "python-dotenv>=1.2.1",
+    "tavily-python>=0.7.19",
+    "beautifulsoup4>=4.14.3",
+    "pypdf>=6.6.0",
+    "yfinance>=1.1.0",
+    "arxiv>=2.4.0",
     "wikipedia>=1.4.0",
-    "ddgs>=0.0.0",
-    "google-genai>=0.0.0",
+    "ddgs>=9.10.0",
+    "google-genai>=1.60.0",
     "sqlalchemy>=2.0.46",
     "psycopg2-binary>=2.9.11",
 ]
 
-[project.optional-dependencies]
-dev = [
-    "pytest>=8.0.0",
-    "pytest-asyncio>=0.24.0",
-    "ruff>=0.8.0",
-    "mypy>=1.14.0",
-]
+
 
 [build-system]
 requires = ["hatchling"]
@@ -60,3 +54,11 @@ python_version = "3.11"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = false
+
+[dependency-groups]
+dev = [
+    "mypy>=1.19.1",
+    "pytest>=9.0.2",
+    "pytest-asyncio>=1.3.0",
+    "ruff>=0.14.14",
+]

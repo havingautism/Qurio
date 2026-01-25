@@ -83,7 +83,7 @@ def _get_supabase_memory_db() -> PostgresDb | None:
     password = quote_plus(settings.supabase_password)
     # db_url = f'postgresql://postgres:{password}@{db_host}:5432/postgres'
     db_url = f'postgresql://postgres.{settings.supabase_project_name}:{password}@aws-1-ap-south-1.pooler.supabase.com:6543/postgres'
-    logger.info('Initializing AGNO Supabase memory store with URL: %s', db_url)
+    logger.info('Initializing AGNO Supabase memory store')
     try:
         _memory_db = PostgresDb(db_url=db_url)
     except Exception as exc:
@@ -105,6 +105,7 @@ def _build_memory_kwargs(request: Any) -> dict[str, Any]:
         logger.warning('Memory requested for unsupported provider "%s"', provider)
         return {}
     db = _get_supabase_memory_db()
+    logger.info('AGNO Supabase memory store is available')
     if not db:
         logger.warning('Memory requested but Supabase memory store is unavailable.')
         return {}
@@ -114,7 +115,7 @@ def _build_memory_kwargs(request: Any) -> dict[str, Any]:
     return {
         'db': db,
         'memory_manager': memory_manager,
-        'enable_agentic_memory': True,
+        # 'enable_agentic_memory': True,
         'update_memory_on_run': True,
     }
 

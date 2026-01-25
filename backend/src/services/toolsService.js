@@ -2,6 +2,8 @@ import { jsonrepair } from 'jsonrepair'
 import { all, create } from 'mathjs'
 import { z } from 'zod'
 import { ACADEMIC_DOMAINS } from './academicDomains.js'
+import { DuckDuckGoSearch } from '@langchain/community/tools/duckduckgo_search'
+import { WikipediaQueryRun } from '@langchain/community/tools/wikipedia_query_run'
 
 const math = create(all, {})
 
@@ -235,6 +237,39 @@ const AGENT_TOOLS = [
       },
     },
   },
+
+  {
+    id: 'DuckDuckGo_search',
+    name: 'DuckDuckGo_search',
+    category: 'search',
+    description: 'Search the web using DuckDuckGo (privacy-focused).',
+    parameters: {
+      type: 'object',
+      required: ['query'],
+      properties: {
+        query: {
+          type: 'string',
+          description: 'Search query.',
+        },
+      },
+    },
+  },
+  {
+    id: 'Wikipedia_search',
+    name: 'Wikipedia_search',
+    category: 'search',
+    description: 'Search Wikipedia for encyclopedia articles.',
+    parameters: {
+      type: 'object',
+      required: ['query'],
+      properties: {
+        query: {
+          type: 'string',
+          description: 'Search query (topic or keyword).',
+        },
+      },
+    },
+  },
 ]
 
 // Combined list for execution and validation
@@ -271,6 +306,12 @@ const toolSchemas = {
   Tavily_academic_search: z.object({
     query: z.string().min(1, 'query is required'),
     max_results: z.number().int().positive().optional(),
+  }),
+  DuckDuckGo_search: z.object({
+    query: z.string().min(1, 'query is required'),
+  }),
+  Wikipedia_search: z.object({
+    query: z.string().min(1, 'query is required'),
   }),
   interactive_form: z.object({
     id: z.string().min(1, 'id is required'),
@@ -507,6 +548,36 @@ export const executeToolByName = async (toolName, args = {}, toolConfig = {}) =>
         }
       } catch (error) {
         throw new Error(`Academic search failed: ${error.message}`)
+      }
+    }
+    case 'DuckDuckGo_search': {
+      const query = params.query
+      try {
+        const tool = new DuckDuckGoSearch({ maxResults: 5 })
+        const result = await tool.invoke(query)
+        // LangChain DDG returns a string usually.
+        return {
+          answer: '',
+          results: [{ title: 'DuckDuckGo Result', url: '', content: result }],
+        }
+      } catch (error) {
+        throw new Error(`DuckDuckGo search failed: ${error.message}`)
+      }
+    }
+    case 'Wikipedia_search': {
+      const query = params.query
+      try {
+        const tool = new WikipediaQueryRun({
+          topKResults: 1,
+          maxDocContentLength: 4000,
+        })
+        const result = await tool.invoke(query)
+        return {
+          answer: result,
+          results: [{ title: 'Wikipedia', url: '', content: result }],
+        }
+      } catch (error) {
+        throw new Error(`Wikipedia search failed: ${error.message}`)
       }
     }
     case 'interactive_form': {

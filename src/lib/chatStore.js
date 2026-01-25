@@ -161,10 +161,10 @@ const formatMemoryDomainIndex = domains => {
     if (!key) return null
     const aliases = Array.isArray(domain?.aliases) ? domain.aliases.filter(Boolean) : []
     const scope = typeof domain?.scope === 'string' ? domain.scope.trim() : ''
-      const aliasText = aliases.length ? `aliases: ${aliases.join(', ')}` : 'aliases: none'
-      const scopeText = scope ? `scope: ${scope}` : 'scope: n/a'
-      return `- ${key} (${aliasText}; ${scopeText})`
-    })
+    const aliasText = aliases.length ? `aliases: ${aliases.join(', ')}` : 'aliases: none'
+    const scopeText = scope ? `scope: ${scope}` : 'scope: n/a'
+    return `- ${key} (${aliasText}; ${scopeText})`
+  })
   return lines.filter(Boolean).join('\n')
 }
 
@@ -203,7 +203,7 @@ const parseMemoryDomainDecisionResponse = content => {
     const parsed = JSON.parse(trimmed)
     const needMemory = Boolean(parsed?.need_memory ?? parsed?.needMemory)
     const hitDomainsRaw = Array.isArray(parsed?.hit_domains ?? parsed?.hitDomains)
-      ? parsed.hit_domains ?? parsed.hitDomains
+      ? (parsed.hit_domains ?? parsed.hitDomains)
       : []
     const hitDomains = hitDomainsRaw.map(item => String(item || '').trim()).filter(Boolean)
     return { needMemory, hitDomains }
@@ -217,8 +217,9 @@ const fallbackMemoryDecision = (question, domains) => {
   if (!Array.isArray(domains) || domains.length === 0) {
     return { needMemory: false, hitDomains: [] }
   }
-  const usePersonalContext =
-    /(\bmy\b|\bmine\b|\bme\b|\bwe\b|\bi\b|我的|我们|我在|我想)/i.test(trimmedQuestion)
+  const usePersonalContext = /(\bmy\b|\bmine\b|\bme\b|\bwe\b|\bi\b|我的|我们|我在|我想)/i.test(
+    trimmedQuestion,
+  )
   if (!usePersonalContext) {
     return { needMemory: false, hitDomains: [] }
   }
@@ -309,7 +310,10 @@ const selectMemoryDomains = async ({
   return parseMemoryDomainDecisionResponse(fullContent)
 }
 
-const normalizeDomainKey = value => String(value || '').trim().toLowerCase()
+const normalizeDomainKey = value =>
+  String(value || '')
+    .trim()
+    .toLowerCase()
 
 const resolveMemoryDomain = (domains, domainKey) => {
   const normalizedKey = normalizeDomainKey(domainKey)
@@ -1253,15 +1257,14 @@ const callAIAPI = async (
     const agentPresencePenalty = selectedAgent?.presencePenalty ?? selectedAgent?.presence_penalty
 
     // Prepare API parameters
-    const resolvedAgent = selectedAgent || defaultAgent || null
+    const resolvedAgent = selectedAgent || fallbackAgent || null
     const resolvedToolIds = (() => {
       if (resolvedAgent?.toolIds?.length) return resolvedAgent.toolIds
       if (resolvedAgent?.tool_ids?.length) return resolvedAgent.tool_ids
       return []
     })()
 
-    const searchProvider = settings.searchProvider || 'tavily'
-    const tavilyApiKey = searchProvider === 'tavily' ? settings.tavilyApiKey : undefined
+    const tavilyApiKey = settings.tavilyApiKey
 
     // Fetch and filter user tools based on selected agent
     let activeUserTools = []
@@ -1278,6 +1281,8 @@ const callAIAPI = async (
       console.error('Failed to fetch user tools for chat:', err)
     }
 
+    const searchSource = toggles?.searchSource || undefined
+
     const params = {
       ...credentials,
       model: modelConfig.model,
@@ -1287,7 +1292,7 @@ const callAIAPI = async (
       frequency_penalty: agentFrequencyPenalty ?? undefined,
       presence_penalty: agentPresencePenalty ?? undefined,
       contextMessageLimit: settings.contextMessageLimit,
-      searchProvider,
+      searchSource,
       tavilyApiKey,
       userTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       userLocale: navigator.language || 'en-US',
@@ -2629,9 +2634,7 @@ Analyze the submitted data. If critical information is still missing or if the r
           return { messages: updated }
         }
         const lastMsg = { ...updated[lastMsgIndex] }
-        const history = Array.isArray(lastMsg.toolCallHistory)
-          ? [...lastMsg.toolCallHistory]
-          : []
+        const history = Array.isArray(lastMsg.toolCallHistory) ? [...lastMsg.toolCallHistory] : []
         history.push({
           id: toolCallId,
           name: 'memory_check',
@@ -2684,9 +2687,7 @@ Analyze the submitted data. If critical information is still missing or if the r
           return { messages: updated }
         }
         const lastMsg = { ...updated[lastMsgIndex] }
-        const history = Array.isArray(lastMsg.toolCallHistory)
-          ? [...lastMsg.toolCallHistory]
-          : []
+        const history = Array.isArray(lastMsg.toolCallHistory) ? [...lastMsg.toolCallHistory] : []
         const targetIndex = history.findIndex(item => item.id === toolCallId)
         const durationMs = Date.now() - toolStart
         const toolOutput = {
@@ -2723,9 +2724,7 @@ Analyze the submitted data. If critical information is still missing or if the r
           return { messages: updated }
         }
         const lastMsg = { ...updated[lastMsgIndex] }
-        const history = Array.isArray(lastMsg.toolCallHistory)
-          ? [...lastMsg.toolCallHistory]
-          : []
+        const history = Array.isArray(lastMsg.toolCallHistory) ? [...lastMsg.toolCallHistory] : []
         history.push({
           id: toolCallId,
           name: 'document_embedding',
@@ -2792,9 +2791,7 @@ Analyze the submitted data. If critical information is still missing or if the r
           return { messages: updated }
         }
         const lastMsg = { ...updated[lastMsgIndex] }
-        const history = Array.isArray(lastMsg.toolCallHistory)
-          ? [...lastMsg.toolCallHistory]
-          : []
+        const history = Array.isArray(lastMsg.toolCallHistory) ? [...lastMsg.toolCallHistory] : []
         const targetIndex = history.findIndex(item => item.id === toolCallId)
         const durationMs = Date.now() - toolStart
         const toolOutput = {

@@ -228,6 +228,7 @@ const ChatInterface = ({
 
   // New state for toggles and attachments
   const [isSearchActive, setIsSearchActive] = useState(false)
+  const [searchSource, setSearchSource] = useState('tavily')
   const [isThinkingActive, setIsThinkingActive] = useState(false)
 
   const isPlaceholderConversation = Boolean(activeConversation?._isPlaceholder)
@@ -715,6 +716,7 @@ const ChatInterface = ({
 
       // Set initial state
       if (initialToggles.search) setIsSearchActive(true)
+      if (initialToggles.searchSource) setSearchSource(initialToggles.searchSource)
       if (initialToggles.thinking) setIsThinkingActive(true)
 
       // CRITICAL: Sync conversationId to store IMMEDIATELY before sending
@@ -1263,6 +1265,7 @@ const ChatInterface = ({
       const textToSend = msgOverride !== null ? msgOverride : ''
       const attToSend = attOverride !== null ? attOverride : []
       const searchActive = togglesOverride ? togglesOverride.search : isSearchActive
+      const searchSourceActive = togglesOverride?.searchSource || searchSource
       const thinkingActive = togglesOverride ? togglesOverride.thinking : isThinkingActive
       const relatedActive = togglesOverride ? togglesOverride.related : isRelatedEnabled
 
@@ -1341,6 +1344,7 @@ const ChatInterface = ({
         attachments: attToSend,
         toggles: {
           search: searchActive,
+          searchSource: searchSourceActive,
           thinking: thinkingActive,
           related: relatedActive,
         },
@@ -1433,6 +1437,7 @@ const ChatInterface = ({
         settings,
         toggles: {
           search: isSearchActive,
+          searchSource,
           thinking: isThinkingActive,
           related: isRelatedEnabled,
         },
@@ -1546,6 +1551,7 @@ const ChatInterface = ({
         msgAttachments,
         {
           search: isSearchActive,
+          searchSource,
           thinking: isThinkingActive,
           related: isRelatedEnabled,
         },
@@ -1892,6 +1898,8 @@ const ChatInterface = ({
               onStop={stopGeneration}
               apiProvider={effectiveProvider}
               isSearchActive={isSearchActive}
+              searchSource={searchSource}
+              onSearchSourceChange={setSearchSource}
               isThinkingActive={isThinkingActive}
               isThinkingLocked={isThinkingLocked}
               agents={selectableAgents}

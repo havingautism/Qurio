@@ -24,6 +24,7 @@ import { splitTextWithUrls } from '../../lib/urlHighlight'
 import EmojiDisplay from '../EmojiDisplay'
 import useIsMobile from '../../hooks/useIsMobile'
 import MobileDrawer from '../MobileDrawer'
+import SearchSourceSelector from '../SearchSourceSelector'
 import UploadPopover from '../UploadPopover'
 import DocumentsSection from '../DocumentsSection'
 
@@ -109,6 +110,8 @@ const CapsuleSettingsMenu = React.memo(
     onToggleSearch,
     t,
     isSearchSupported,
+    searchSource,
+    onSearchSourceChange,
   }) => (
     <div className="space-y-3">
       {/* Models List */}
@@ -223,6 +226,16 @@ const CapsuleSettingsMenu = React.memo(
               />
             </div>
           </button>
+
+          {isSearchActive && (
+            <div className="px-3 py-1">
+              <SearchSourceSelector
+                selectedSource={searchSource}
+                onSelect={onSearchSourceChange}
+                isMobile={false} // CapsuleSettingsMenu is inside a popover/drawer usually, but checking context
+              />
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -298,6 +311,8 @@ const ChatInputBar = React.memo(
     selectedDocumentIds = [],
     onToggleDocument,
     onStop, // Add onStop prop
+    searchSource,
+    onSearchSourceChange,
     variant = 'default',
   }) => {
     const { t } = useTranslation()
@@ -525,6 +540,8 @@ const ChatInputBar = React.memo(
           onToggleSearch={onToggleSearch}
           t={t}
           isSearchSupported={isSearchSupported}
+          searchSource={searchSource}
+          onSearchSourceChange={onSearchSourceChange}
         />
       ),
       [
@@ -541,6 +558,8 @@ const ChatInputBar = React.memo(
         onToggleSearch,
         t,
         isSearchSupported,
+        searchSource,
+        onSearchSourceChange,
       ],
     )
 

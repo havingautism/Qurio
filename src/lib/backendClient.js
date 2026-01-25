@@ -19,7 +19,10 @@ const getBackendErrorMessage = (error, status) => {
   const message = error.error || error.message || error.detail || error.details
 
   if (Array.isArray(message)) {
-    const joined = message.map(item => String(item || '').trim()).filter(Boolean).join('; ')
+    const joined = message
+      .map(item => String(item || '').trim())
+      .filter(Boolean)
+      .join('; ')
     return joined || `Backend error: ${status}`
   }
 
@@ -220,7 +223,6 @@ export const streamResearchPlanViaBackend = async params => {
         top_p,
         frequency_penalty,
         presence_penalty,
-        contextMessageLimit,
         contextMessageLimit,
         toolIds,
         researchType, // Pass researchType to backend
@@ -508,7 +510,7 @@ export const streamChatViaBackend = async params => {
     frequency_penalty,
     presence_penalty,
     contextMessageLimit,
-    searchProvider,
+    searchSource,
     tavilyApiKey,
     userTools,
     onChunk,
@@ -550,7 +552,7 @@ export const streamChatViaBackend = async params => {
         frequency_penalty,
         presence_penalty,
         contextMessageLimit,
-        searchProvider,
+        searchSource,
         tavilyApiKey,
         userTools,
       }),
@@ -646,7 +648,7 @@ export const streamDeepResearchViaBackend = async params => {
     question,
     researchType, // 'general' or 'academic'
     concurrentExecution, // Enable concurrent step execution (experimental)
-    searchProvider,
+    searchSource,
     tavilyApiKey,
     onChunk,
     onFinish,
@@ -692,7 +694,7 @@ export const streamDeepResearchViaBackend = async params => {
         question,
         researchType, // Pass researchType to backend
         concurrentExecution, // Pass concurrentExecution to backend
-        searchProvider,
+        searchSource,
         tavilyApiKey,
       }),
       signal,

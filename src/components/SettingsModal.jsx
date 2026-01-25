@@ -12,7 +12,6 @@ import {
   Loader2,
   MessageSquare,
   Monitor,
-  Search,
   RefreshCw,
   Settings,
   Terminal,
@@ -343,7 +342,6 @@ const PROVIDER_KEYS = [
   'modelscope',
   'kimi',
 ]
-const SEARCH_PROVIDER_KEYS = ['tavily']
 
 const INTERFACE_LANGUAGE_KEYS = ['en', 'zh-CN']
 const DOCUMENT_CHUNK_SIZE = 1200
@@ -470,8 +468,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
   const [backendUrl, setBackendUrl] = useState(ENV_VARS.backendUrl || '')
   const [supabaseUrl, setSupabaseUrl] = useState('')
   const [supabaseKey, setSupabaseKey] = useState('')
-  const [testing, setTesting] = useState(false)
-  const [testResult, setTestResult] = useState(null)
+
   const [backendHealthState, setBackendHealthState] = useState({
     status: 'idle',
     message: '',
@@ -619,16 +616,6 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
         key,
         value: key,
         label: t(`settings.providers.${key}`),
-      })),
-    [t],
-  )
-
-  const searchProviderOptions = useMemo(
-    () =>
-      SEARCH_PROVIDER_KEYS.map(key => ({
-        key,
-        value: key,
-        label: t(`settings.searchProviders.${key}`),
       })),
     [t],
   )
@@ -1424,7 +1411,6 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
   const handleRetestAfterInit = async () => {
     setRetestingDb(true)
     const result = await testConnection(supabaseUrl, supabaseKey)
-    setTestResult(result)
     setInitModalResult(result)
     setRetestingDb(false)
     if (result.success) {
@@ -1495,19 +1481,6 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
         ? `${t('settings.backendHealthCheckFailure')}: ${err.message}`
         : t('settings.backendHealthCheckFailure')
       setBackendHealthState({ status: 'error', message: failureMessage })
-    }
-  }
-
-  const handleTestConnection = async () => {
-    setTesting(true)
-    setTestResult(null)
-
-    const result = await testConnection(supabaseUrl, supabaseKey)
-    setTestResult(result)
-    setTesting(false)
-    if (!result.success) {
-      setInitModalResult(result)
-      setIsInitModalOpen(true)
     }
   }
 
@@ -2239,106 +2212,42 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                 <div className="flex flex-col gap-6">
                   <div className="flex flex-col gap-1">
                     <label className="text-sm font-medium text-gray-900 dark:text-white">
-                      {t('settings.searchConfiguration')}
+                      {t('settings.toolsApiConfiguration') || 'Tools API Configuration'}
                     </label>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {t('settings.searchConfigurationHint')}
+                      {t('settings.toolsApiConfigurationHint') ||
+                        'Configure API keys for external tools and services.'}
                     </p>
                   </div>
 
                   <div className="flex flex-col gap-4">
+                    {/* Tavily Settings */}
                     <div className="flex flex-col gap-2">
                       <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                        {t('settings.searchProvider')}
+                        {t('settings.tavilyApiKey')}
                       </label>
-                      <div className="relative w-full" ref={searchProviderDropdownRef}>
-                        <button
-                          onClick={() => {
-                            const nextOpen = !isSearchProviderDropdownOpen
-                            setIsProviderDropdownOpen(false)
-                            setIsInterfaceLanguageDropdownOpen(false)
-                            setIsSearchProviderDropdownOpen(nextOpen)
-                          }}
-                          className="w-full flex items-center justify-between pl-10 pr-4 py-2.5 bg-white disabled:bg-gray-50/20 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-zinc-800"
-                        >
-                          <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center">
-                            <Search size={16} className="text-gray-400" />
-                          </div>
-                          <div className="flex items-center gap-3">
-                            {renderProviderIcon(searchProvider, {
-                              size: 16,
-                              alt: t(`settings.searchProviders.${searchProvider}`),
-                            })}
-                            <span>
-                              {searchProviderOptions.find(option => option.value === searchProvider)
-                                ?.label || searchProvider}
-                            </span>
-                          </div>
-                          <ChevronDown
-                            size={16}
-                            className={clsx(
-                              'text-gray-400 transition-transform duration-200',
-                              isSearchProviderDropdownOpen && 'rotate-180',
-                            )}
-                          />
-                        </button>
-
-                        {isSearchProviderDropdownOpen && (
-                          <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg shadow-xl z-20 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
-                            {searchProviderOptions.map(option => (
-                              <button
-                                key={option.key}
-                                onClick={() => {
-                                  setSearchProvider(option.value)
-                                  setIsSearchProviderDropdownOpen(false)
-                                }}
-                                className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors flex items-center justify-between"
-                              >
-                                <div className="flex items-center gap-3">
-                                  {renderProviderIcon(option.value, {
-                                    size: 16,
-                                    alt: option.label,
-                                  })}
-                                  <span>{option.label}</span>
-                                </div>
-                                {searchProvider === option.value && (
-                                  <Check size={14} className="text-primary-500" />
-                                )}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {searchProvider === 'tavily' && (
-                      <div className="flex flex-col gap-2 animate-in fade-in slide-in-from-top-2 duration-200">
-                        <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                          {t('settings.tavilyApiKey')}
-                        </label>
-                        <div className="relative">
-                          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                            <Key size={16} />
-                          </div>
-                          <input
-                            type="password"
-                            value={tavilyApiKey}
-                            onChange={e => setTavilyApiKey(e.target.value)}
-                            placeholder={t('settings.tavilyApiKeyPlaceholder')}
-                            disabled={Boolean(ENV_VARS.tavilyApiKey)}
-                            className={clsx(
-                              'w-full pl-10 pr-4 py-2.5 bg-white disabled:bg-gray-50/20 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
-                              ENV_VARS.tavilyApiKey && 'opacity-70 cursor-not-allowed',
-                            )}
-                          />
+                      <div className="relative">
+                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                          <Key size={16} />
                         </div>
-                        {ENV_VARS.tavilyApiKey && (
-                          <p className="text-emerald-600 text-xs dark:text-emerald-400">
-                            {t('settings.loadedFromEnvironment')}
-                          </p>
-                        )}
+                        <input
+                          type="password"
+                          value={tavilyApiKey}
+                          onChange={e => setTavilyApiKey(e.target.value)}
+                          placeholder={t('settings.tavilyApiKeyPlaceholder')}
+                          disabled={Boolean(ENV_VARS.tavilyApiKey)}
+                          className={clsx(
+                            'w-full pl-10 pr-4 py-2.5 bg-white disabled:bg-gray-50/20 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
+                            ENV_VARS.tavilyApiKey && 'opacity-70 cursor-not-allowed',
+                          )}
+                        />
                       </div>
-                    )}
+                      {ENV_VARS.tavilyApiKey && (
+                        <p className="text-emerald-600 text-xs dark:text-emerald-400">
+                          {t('settings.loadedFromEnvironment')}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>

@@ -9,17 +9,19 @@
     "dev": "node --watch src/server.js"
   },
   "dependencies": {
-    "@langchain/community": "^1.1.1",
-    "@langchain/core": "^1.1.15",
-    "@langchain/google-genai": "^2.1.10",
-    "@langchain/mcp-adapters": "^1.1.1",
-    "@langchain/openai": "^1.2.2",
+    "@langchain/community": "^1.1.7",
+    "@langchain/core": "^1.1.17",
+    "@langchain/google-genai": "^2.1.13",
+    "@langchain/mcp-adapters": "^1.1.2",
+    "@langchain/openai": "^1.2.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
-    "express": "^5.0.1",
+    "duck-duck-scrape": "^2.2.7",
+    "express": "^5.2.1",
     "jsonrepair": "^3.7.0",
-    "langchain": "^1.2.10",
+    "langchain": "^1.2.13",
     "mathjs": "^12.4.2",
-    "zod": "^3.23.8"
+    "wikipedia": "^2.4.2",
+    "zod": "^4.3.6"
   }
 }

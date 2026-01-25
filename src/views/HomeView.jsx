@@ -18,10 +18,7 @@ import Menu from 'lucide-react/dist/esm/icons/menu'
 import Paperclip from 'lucide-react/dist/esm/icons/paperclip'
 import X from 'lucide-react/dist/esm/icons/x'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import {
-  Drawer,
-  DrawerContent,
-} from '@/components/ui/drawer'
+import { Drawer, DrawerContent } from '@/components/ui/drawer'
 import { useTranslation } from 'react-i18next'
 import { useAppContext } from '../App'
 import DeepResearchCard from '../components/DeepResearchCard'
@@ -32,6 +29,7 @@ import HomeWidgets from '../components/widgets/HomeWidgets'
 import MobileDrawer from '../components/MobileDrawer'
 import UploadPopover from '../components/UploadPopover'
 import DocumentsSection from '../components/DocumentsSection'
+import SearchSourceSelector from '../components/SearchSourceSelector'
 import useScrollLock from '../hooks/useScrollLock'
 import { getAgentDisplayName } from '../lib/agentDisplay'
 import useChatStore from '../lib/chatStore'
@@ -64,6 +62,7 @@ const HomeView = () => {
   const [homeInput, setHomeInput] = useState('')
   const homeInputParts = useMemo(() => splitTextWithUrls(homeInput), [homeInput])
   const [isHomeSearchActive, setIsHomeSearchActive] = useState(false)
+  const [homeSearchSource, setHomeSearchSource] = useState('web')
   const [isHomeThinkingActive, setIsHomeThinkingActive] = useState(false)
   const [homeAttachments, setHomeAttachments] = useState([])
   const [homeSelectedSpace, setHomeSelectedSpace] = useState(null)
@@ -449,6 +448,7 @@ const HomeView = () => {
         initialDocumentIds: _homeSelectedDocumentIds,
         initialToggles: {
           search: isHomeSearchActive,
+          searchSource: isHomeSearchActive ? homeSearchSource : undefined,
           thinking: resolvedThinkingActive,
           deepResearch: false,
           related: Boolean(settings.enableRelatedQuestions),
@@ -472,6 +472,7 @@ const HomeView = () => {
       setHomeInput('')
       setHomeAttachments([])
       setIsHomeSearchActive(false)
+      setHomeSearchSource('web')
       setIsHomeThinkingActive(false)
       setHomeSelectedSpace(null)
       setHomeSpaceSelectionType('auto')
@@ -563,7 +564,7 @@ const HomeView = () => {
       spaceLabel: showOnlySpaceLabel ? autoLabelWithSparkle : spaceLabel,
       agentLabel: showOnlySpaceLabel ? null : agentLabel,
       spaceEmoji: homeSelectedSpace?.emoji || '',
-      agentEmoji: showOnlySpaceLabel ? '' : (selectedHomeAgent?.emoji || ''),
+      agentEmoji: showOnlySpaceLabel ? '' : selectedHomeAgent?.emoji || '',
       showOnlySpaceLabel,
     }
   }, [isHomeSpaceAuto, homeSelectedSpace, isHomeAgentAuto, selectedHomeAgent, t])
@@ -933,6 +934,16 @@ const HomeView = () => {
                     <span className="hidden md:inline">{t('homeView.search')}</span>
                   </button>
 
+                  {isHomeSearchActive && (
+                    <div className="flex items-center">
+                      <SearchSourceSelector
+                        selectedSource={homeSearchSource}
+                        onSelect={setHomeSearchSource}
+                        isMobile={isHomeMobile}
+                      />
+                    </div>
+                  )}
+
                   <div className="relative" ref={homeSpaceSelectorRef}>
                     <button
                       onClick={() => setIsHomeSpaceSelectorOpen(!isHomeSpaceSelectorOpen)}
@@ -970,7 +981,10 @@ const HomeView = () => {
                   </div>
 
                   {isHomeMobile && (
-                    <Drawer open={isHomeSpaceSelectorOpen} onOpenChange={setIsHomeSpaceSelectorOpen}>
+                    <Drawer
+                      open={isHomeSpaceSelectorOpen}
+                      onOpenChange={setIsHomeSpaceSelectorOpen}
+                    >
                       <DrawerContent className="max-h-[85vh] rounded-t-3xl bg-white dark:bg-[#1E1E1E] border-t border-gray-200 dark:border-zinc-800">
                         <div className="px-5 py-4 flex items-center justify-between shrink-0 border-b border-gray-100 dark:border-zinc-800/50">
                           <div className="flex flex-col">

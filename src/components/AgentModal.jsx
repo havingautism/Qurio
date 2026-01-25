@@ -264,7 +264,19 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
     try {
       const [systemTools, userTools] = await Promise.all([listToolsViaBackend(), getUserTools()])
 
-      const validSystemTools = Array.isArray(systemTools) ? systemTools : []
+      const validSystemTools = Array.isArray(systemTools)
+        ? systemTools.filter(
+            tool =>
+              ![
+                'Tavily_web_search',
+                'Tavily_academic_search',
+                'DuckDuckGo_search',
+                'Wikipedia_search',
+                'web_search',
+                'academic_search',
+              ].includes(tool.id),
+          )
+        : []
       const validUserTools = Array.isArray(userTools)
         ? userTools
             .filter(tool => !tool.config?.disabled)

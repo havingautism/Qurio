@@ -140,6 +140,8 @@ const collectWebSearchSources = (result, sourcesMap) => {
 const isSearchToolName = name =>
   name === 'Tavily_web_search' ||
   name === 'Tavily_academic_search' ||
+  name === 'DuckDuckGo_search' ||
+  name === 'Wikipedia_search' ||
   name === 'web_search' ||
   name === 'academic_search' ||
   name === 'search' // Kimi native search tool
@@ -294,14 +296,42 @@ export const streamChat = async function* (params) {
     stream = true,
     signal,
     toolIds = [],
-    searchProvider,
     userId,
     tavilyApiKey,
     userTimezone,
     userLocale,
+    searchSource,
   } = params
 
-  const toolConfig = { searchProvider, tavilyApiKey }
+  // Resolve effective search tool based on searchSource
+  // Resolve effective search tool based on searchSource
+  let effectiveToolIds = [...(toolIds || [])]
+  if (searchSource) {
+    const searchToolMap = {
+      duckduckgo: 'DuckDuckGo_search',
+      wikipedia: 'Wikipedia_search',
+      // web: 'Tavily_web_search',
+      tavily: 'Tavily_web_search',
+    }
+    const targetToolId = searchToolMap[searchSource]
+
+    if (targetToolId) {
+      // 1. Remove ALL known search tools from the list to prevent conflicts
+      const searchToolIds = [
+        ...Object.values(searchToolMap),
+        'web_search',
+        'academic_search',
+        'Tavily_academic_search',
+      ]
+      effectiveToolIds = effectiveToolIds.filter(id => !searchToolIds.includes(id))
+
+      // 2. Add the target tool ID (avoid duplicates if logic changes)
+      if (!effectiveToolIds.includes(targetToolId)) {
+        effectiveToolIds.push(targetToolId)
+      }
+    }
+  }
+  const toolConfig = { tavilyApiKey }
 
   // Apply context limit
   const trimmedMessages = applyContextLimit(messages, contextMessageLimit)
@@ -465,17 +495,40 @@ export const streamChat = async function* (params) {
 
   // Prepare tool definitions
   // Always include interactive_form as it is a global tool
-  const agentToolDefinitions = provider === 'gemini' ? [] : getToolDefinitionsByIds(toolIds)
+  const agentToolDefinitions =
+    provider === 'gemini' ? [] : getToolDefinitionsByIds(effectiveToolIds)
   const combinedTools = [
     ...(Array.isArray(tools) ? tools : []),
     ...agentToolDefinitions,
     ...userToolDefinitions,
   ].filter(Boolean)
 
+  // Enforce searchSource selection by filtering combinedTools
+  let finalTools = combinedTools
+  if (searchSource) {
+    const searchToolMap = {
+      duckduckgo: 'DuckDuckGo_search',
+      wikipedia: 'Wikipedia_search',
+      tavily: 'Tavily_web_search',
+    }
+    const targetToolId = searchToolMap[searchSource]
+
+    if (targetToolId) {
+      finalTools = combinedTools.filter(tool => {
+        const name = tool.function?.name || tool.name
+        // If it's a known search tool, only keep the target one
+        if (isSearchToolName(name)) {
+          return name === targetToolId
+        }
+        return true
+      })
+    }
+  }
+
   // Deduplicate tools by name
   const normalizedTools = []
   const toolNames = new Set()
-  for (const tool of combinedTools) {
+  for (const tool of finalTools) {
     const name = tool?.function?.name
     if (name && toolNames.has(name)) continue
     if (name) toolNames.add(name)

@@ -178,7 +178,7 @@ const SearchSourceSelector = ({ selectedSource, onSelect, isMobile, disabled }) 
             leaveFrom="opacity-100 translate-y-0 scale-100"
             leaveTo="opacity-0 translate-y-2 scale-95"
           >
-            <PopoverPanel className="absolute top-full left-0 mb-2 w-64 origin-bottom-left rounded-2xl bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-zinc-800 shadow-xl focus:outline-none z-50">
+            <PopoverPanel className="absolute bottom-full left-0 mb-2 w-64 origin-bottom-left rounded-2xl bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-zinc-800 shadow-xl focus:outline-none z-50">
               {renderContent()}
             </PopoverPanel>
           </Transition>

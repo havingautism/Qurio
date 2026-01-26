@@ -1,8 +1,102 @@
 import clsx from 'clsx'
 import Check from 'lucide-react/dist/esm/icons/check'
-import React, { useState } from 'react'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
+import ChevronDown from 'lucide-react/dist/esm/icons/chevron-down'
+import React, { useState, useRef, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
+
+/**
+ * Custom Select Component
+ */
+const CustomSelect = ({ value, onChange, options, placeholder, disabled, error }) => {
+  const [isOpen, setIsOpen] = useState(false)
+  const containerRef = useRef(null)
+
+  useEffect(() => {
+    const handleClickOutside = event => {
+      if (containerRef.current && !containerRef.current.contains(event.target)) {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const handleSelect = option => {
+    if (disabled) return
+    onChange(option)
+    setIsOpen(false)
+  }
+
+  return (
+    <div className="relative" ref={containerRef}>
+      <div
+        onClick={() => !disabled && setIsOpen(!isOpen)}
+        className={clsx(
+          'w-full pl-4 pr-10 py-3.5 rounded-2xl cursor-pointer transition-all duration-300 border border-gray-200 dark:border-white/10',
+          'flex items-center justify-between',
+          'bg-gray-50/50 dark:bg-zinc-900/50 hover:bg-white dark:hover:bg-zinc-800 backdrop-blur-md',
+          isOpen
+            ? 'ring-2 ring-primary-500/20 border-primary-500/50 shadow-lg shadow-primary-500/5'
+            : ' hover:border-gray-200 dark:hover:border-white/10',
+          disabled && 'opacity-60 cursor-not-allowed',
+          error && 'border-red-500/50! bg-red-50/10! shadow-none',
+        )}
+      >
+        <span
+          className={clsx(
+            'truncate text-sm font-medium',
+            value ? 'text-gray-900 dark:text-gray-100' : 'text-gray-400',
+          )}
+        >
+          {value || placeholder}
+        </span>
+        <div
+          className={clsx(
+            'absolute right-3.5 transition-transform duration-300 text-gray-400',
+            isOpen && 'rotate-180',
+          )}
+        >
+          <ChevronDown size={18} strokeWidth={2.5} />
+        </div>
+      </div>
+
+      {/* Dropdown Menu */}
+      <div
+        className={clsx(
+          'absolute z-[60] w-full mt-2 py-1.5 rounded-2xl border border-gray-100 dark:border-white/10 shadow-2xl overflow-hidden',
+          'bg-white dark:bg-zinc-900  origin-top transition-all duration-200',
+          isOpen
+            ? 'opacity-100 scale-100 translate-y-0'
+            : 'opacity-0 scale-95 -translate-y-2 pointer-events-none',
+        )}
+      >
+        <div className="max-h-[300px] overflow-y-auto px-1.5 scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-white/10">
+          {options.map(opt => (
+            <div
+              key={opt}
+              onClick={() => handleSelect(opt)}
+              className={clsx(
+                'px-3.5 py-2.5 my-0.5 rounded-xl cursor-pointer text-sm font-medium transition-all duration-200 flex items-center justify-between group',
+                value === opt
+                  ? 'bg-primary-50 dark:bg-primary-500/10 text-primary-600 dark:text-primary-400'
+                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5 hover:text-gray-900 dark:hover:text-gray-200',
+              )}
+            >
+              <span>{opt}</span>
+              {value === opt && (
+                <Check
+                  size={16}
+                  className="text-primary-500 animate-in zoom-in spin-in-90 duration-300"
+                  strokeWidth={3}
+                />
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
 
 /**
  * InteractiveForm Component
@@ -119,7 +213,7 @@ const InteractiveForm = ({
           <form onSubmit={handleSubmit} className="space-y-6">
             {formData.fields?.map((field, idx) => (
               <div
-                key={field.name || field.id || field.label || idx}
+                key={field.name}
                 className="space-y-2.5 animate-in slide-in-from-bottom-2 fade-in duration-500"
                 style={{ animationDelay: `${idx * 50}ms` }}
               >
@@ -128,35 +222,16 @@ const InteractiveForm = ({
                   {field.required && <span className="text-primary-500 ml-0.5">*</span>}
                 </label>
 
+                {/* Custom Select */}
                 {field.type === 'select' && (
-                  <Select
+                  <CustomSelect
                     value={values[field.name]}
-                    onValueChange={val => updateValue(field.name, val)}
+                    onChange={val => updateValue(field.name, val)}
+                    options={field.options}
+                    placeholder="请选择..."
                     disabled={isSubmitted}
-                  >
-                    <SelectTrigger
-                      className={clsx(
-                        'w-full pl-4 pr-3.5 py-3.5 h-auto rounded-2xl transition-all duration-300 border border-gray-200 dark:border-white/10',
-                        'bg-gray-50/50 dark:bg-zinc-900/50 hover:bg-white dark:hover:bg-zinc-800 backdrop-blur-md',
-                        'hover:border-gray-200 dark:hover:border-white/10',
-                        errors[field.name] && 'border-red-500/50! bg-red-50/10! shadow-none',
-                        'data-[state=open]:ring-2 data-[state=open]:ring-primary-500/20 data-[state=open]:border-primary-500/50 data-[state=open]:shadow-lg data-[state=open]:shadow-primary-500/5',
-                      )}
-                    >
-                      <SelectValue placeholder="请选择..." />
-                    </SelectTrigger>
-                    <SelectContent className="rounded-2xl border-gray-100 dark:border-white/10 shadow-2xl bg-white dark:bg-zinc-900">
-                      {(field.options || []).map(opt => (
-                        <SelectItem
-                          key={opt}
-                          value={opt}
-                          className="px-3.5 py-2.5 my-0.5 rounded-xl cursor-pointer text-sm font-medium transition-all duration-200 data-[state=checked]:bg-primary-50 dark:data-[state=checked]:bg-primary-500/10 data-[state=checked]:text-primary-600 dark:data-[state=checked]:text-primary-400 focus:bg-gray-50 dark:focus:bg-white/5 focus:text-gray-900 dark:focus:text-gray-200 pl-10"
-                        >
-                          {opt}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    error={errors[field.name]}
+                  />
                 )}
 
                 {/* Checkbox Group */}

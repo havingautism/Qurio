@@ -277,13 +277,17 @@ def build_research_workflow(
                 )
             )
 
-        # Wrap all steps in a Parallel construct
-        parallel = Parallel(
-            *parallel_steps,
-            name="parallel_research_steps",
-            description=f"Parallel execution of {len(parallel_steps)} research steps",
-        )
-        workflow_steps.append(parallel)
+        # Wrap steps in Parallel constructs, batched by 3
+        batch_size = 3
+        for i in range(0, len(parallel_steps), batch_size):
+            batch = parallel_steps[i : i + batch_size]
+            workflow_steps.append(
+                Parallel(
+                    *batch,
+                    name=f"parallel_research_batch_{i // batch_size + 1}",
+                    description=f"Parallel execution batch {i // batch_size + 1}",
+                )
+            )
     else:
         # Sequential execution
         for step_data in steps:
@@ -338,6 +342,7 @@ async def stream_research_workflow(
     question: str,
     sources_map: dict[str, dict[str, Any]],
     total_steps: int,
+    steps_meta: list[dict[str, Any]] | None = None,
 ) -> AsyncGenerator[dict[str, Any], None]:
     """
     Execute a research workflow and yield events.
@@ -347,9 +352,24 @@ async def stream_research_workflow(
 
     Args:
         total_steps: Total number of research steps (required for proper step display)
+        steps_meta: Optional list of plan steps to emit initial pending events
     """
     import ast
     import time
+    import re
+
+    # Emit pending events for all steps if metadata is provided
+    if steps_meta:
+        for i, step_data in enumerate(steps_meta):
+            step_num = step_data.get("step", i + 1)
+            action = step_data.get("action") or f"Research Step {step_num}"
+            yield {
+                "type": "research_step",
+                "step": step_num,
+                "total": total_steps,
+                "title": action,  # Use raw action text without "Step X" prefix
+                "status": "pending",
+            }
 
     # Track tool calls for timing
     # Map internal unique_id -> start_time
@@ -385,38 +405,50 @@ async def stream_research_workflow(
             step_name = getattr(event, "step_name", "")
             step_number = getattr(event, "step_index", None)
             
-            # Defensive check: step_number might be a tuple in parallel execution
-            # structure is (parent_index, child_index)
-            if isinstance(step_number, tuple):
-                # Use the child index (which increments 0, 1, 2...) for display
-                step_number = step_number[1]
-                
-            logger.info(f"DEBUG_EVENT: StepStarted name={step_name} number={step_number}")
+            # Extract real step number from name (e.g. "Step 5: Analysis...")
+            # This handles batched parallel execution where step_index resets for each batch
+            name_match = re.match(r"^Step\s+(\d+):", step_name)
+            if name_match:
+                # Use the global step number from the name
+                display_number = int(name_match.group(1))
+                # For `active_steps_info` internal logic, we use this directly
+                # step_number variable is less relevant now but we keep it compatible
+            else:
+                # Fallback to index logic
+                if isinstance(step_number, tuple):
+                    step_number = step_number[1]
+                display_number = (step_number + 1) if step_number is not None else 1
+            
+            # Map step_number to display_number for logging consistency
+            step_number = display_number - 1 # approximate 0-based index
 
-            if step_number is not None:
-                # Register active step
-                active_steps_info[step_name] = {
-                    "number": step_number + 1,
-                    "title": step_name,
-                    "start_time": time.time(),
-                    "content": [] # Buffer for this step's thinking content
-                }
-                
-                # Update current context default (for sequential fallback)
-                current_step_context = {
-                    "number": step_number + 1,
-                    "title": step_name
-                }
+            logger.info(f"DEBUG_EVENT: StepStarted name={step_name} number={display_number}")
+
+            # Always register using the derived display number
+            active_steps_info[step_name] = {
+                "number": display_number,
+                "title": step_name,
+                "start_time": time.time(),
+                "content": [] # Buffer for this step's thinking content
+            }
+            
+            # Update current context default (for sequential fallback)
+            current_step_context = {
+                "number": display_number,
+                "title": step_name
+            }
             
             # Use data from active_steps if available, else fallback
             step_display_num = active_steps_info.get(step_name, {}).get("number", 1)
 
             # Yield event in Node.js format
+            # Strip "Step X:" prefix for cleaner UI display
+            clean_title = re.sub(r"^Step\s+\d+:\s*", "", step_name)
             yield {
                 "type": "research_step",
                 "step": step_display_num,
                 "total": total_steps,
-                "title": step_name,
+                "title": clean_title,
                 "status": "running",
             }
         elif event_type == "StepCompleted":
@@ -424,11 +456,16 @@ async def stream_research_workflow(
             step_name = getattr(event, "step_name", "")
             step_number = getattr(event, "step_index", None)
             
-            # Defensive check: step_number might be a tuple
-            if isinstance(step_number, tuple):
-                step_number = step_number[1]
+            # Extract real step number from name (e.g. "Step 5: Analysis...")
+            name_match = re.match(r"^Step\s+(\d+):", step_name)
+            if name_match:
+                display_number = int(name_match.group(1))
+            else:
+                if isinstance(step_number, tuple):
+                    step_number = step_number[1]
+                display_number = (step_number + 1) if step_number is not None else 1
                 
-            logger.info(f"DEBUG_EVENT: StepCompleted name={step_name} number={step_number}")
+            logger.info(f"DEBUG_EVENT: StepCompleted name={step_name} number={display_number}")
             
             # Retrieve step info
             step_info = active_steps_info.get(step_name, {})
@@ -458,11 +495,13 @@ async def stream_research_workflow(
                 }
 
             # Yield step done event in Node.js format
+            # Strip "Step X:" prefix for cleaner UI display
+            clean_title = re.sub(r"^Step\s+\d+:\s*", "", step_title)
             yield {
                 "type": "research_step",
                 "step": step_num,
                 "total": total_steps,
-                "title": step_title,
+                "title": clean_title,
                 "status": "done",
                 "duration_ms": duration_ms,
             }
@@ -795,6 +834,7 @@ async def stream_deep_research(params: dict[str, Any]) -> AsyncGenerator[dict[st
         question=question,
         sources_map=sources_map,
         total_steps=total_steps,
+        steps_meta=plan_meta.get("plan", []) if concurrent_execution else None,
     ):
         event_type = event.get("type")
 

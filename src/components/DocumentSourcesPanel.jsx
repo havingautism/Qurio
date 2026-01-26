@@ -1,10 +1,7 @@
 import clsx from 'clsx'
 import { useTranslation } from 'react-i18next'
 import { FileText, X, FileJson, FileSpreadsheet, FileCode, File } from 'lucide-react'
-import {
-  Drawer,
-  DrawerContent,
-} from '@/components/ui/drawer'
+import { Drawer, DrawerContent } from '@/components/ui/drawer'
 import useIsMobile from '../hooks/useIsMobile'
 
 const FileIcon = ({ fileType, className }) => {
@@ -84,7 +81,7 @@ const SourcesModal = ({ isOpen, onClose, sources }) => {
           {sources.map((source, idx) => (
             <div
               key={idx}
-              className="p-4 rounded-xl bg-gray-50 dark:bg-zinc-800/50 border border-gray-100 dark:border-zinc-700/50"
+              className="p-2.5 rounded-xl bg-gray-50 dark:bg-zinc-800/50 border border-gray-100 dark:border-zinc-700/50"
             >
               <div className="flex items-start gap-3 mb-2">
                 <div className="p-2 rounded-lg bg-white dark:bg-zinc-700 shadow-sm leading-none flex items-center justify-center">
@@ -101,7 +98,7 @@ const SourcesModal = ({ isOpen, onClose, sources }) => {
                   )}
                 </div>
               </div>
-              <div className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed pl-1 border-l-2 border-gray-200 dark:border-zinc-700 ml-1">
+              <div className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed pl-1 ml-1">
                 {cleanSnippet(source.snippet)}
               </div>
             </div>

@@ -20,7 +20,10 @@ const getBackendErrorMessage = (error, status) => {
   const message = error.error || error.message || error.detail || error.details
 
   if (Array.isArray(message)) {
-    const joined = message.map(item => String(item || '').trim()).filter(Boolean).join('; ')
+    const joined = message
+      .map(item => String(item || '').trim())
+      .filter(Boolean)
+      .join('; ')
     return joined || `Backend error: ${status}`
   }
 
@@ -38,8 +41,47 @@ const getCurrentUserId = async () => {
     const { data } = await supabase.auth.getSession()
     return data?.session?.user?.id || null
   } catch (error) {
-    console.warn('Failed to fetch Supabase session for userId:', error)
     return null
+  }
+}
+
+/**
+ * Fetch wrapper with timeout support
+ * @param {string} url
+ * @param {Object} options
+ * @param {number} timeoutMs
+ * @returns {Promise<Response>}
+ */
+const fetchWithTimeout = async (url, options = {}, timeoutMs = 15000) => {
+  const { signal, ...fetchOptions } = options
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+
+  // Merge external signal if provided
+  if (signal) {
+    signal.addEventListener('abort', () => {
+      clearTimeout(timeoutId)
+      controller.abort()
+    })
+  }
+
+  try {
+    const response = await fetch(url, {
+      ...fetchOptions,
+      signal: controller.signal,
+    })
+    return response
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      // Differentiate between user abort and timeout
+      if (signal?.aborted) {
+        throw error // Rethrow original user abort
+      }
+      throw new Error(`Request timed out after ${timeoutMs}ms`)
+    }
+    throw error
+  } finally {
+    clearTimeout(timeoutId)
   }
 }
 
@@ -53,19 +95,23 @@ const getCurrentUserId = async () => {
  * @returns {Promise<{title: string, emojis?: string[]}>}
  */
 export const generateTitleViaBackend = async (provider, message, apiKey, baseUrl, model) => {
-  const response = await fetch(`${getBackendUrl()}/api/title`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
+  const response = await fetchWithTimeout(
+    `${getBackendUrl()}/api/title`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        provider,
+        message,
+        apiKey,
+        baseUrl,
+        model,
+      }),
     },
-    body: JSON.stringify({
-      provider,
-      message,
-      apiKey,
-      baseUrl,
-      model,
-    }),
-  })
+    15000,
+  )
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Unknown error' }))
@@ -93,20 +139,24 @@ export const generateDailyTipViaBackend = async (
   baseUrl,
   model,
 ) => {
-  const response = await fetch(`${getBackendUrl()}/api/daily-tip`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
+  const response = await fetchWithTimeout(
+    `${getBackendUrl()}/api/daily-tip`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        provider,
+        language,
+        category,
+        apiKey,
+        baseUrl,
+        model,
+      }),
     },
-    body: JSON.stringify({
-      provider,
-      language,
-      category,
-      apiKey,
-      baseUrl,
-      model,
-    }),
-  })
+    15000,
+  )
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Unknown error' }))
@@ -134,20 +184,24 @@ export const generateResearchPlanViaBackend = async (
   model,
   researchType = 'general',
 ) => {
-  const response = await fetch(`${getBackendUrl()}/api/research-plan`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
+  const response = await fetchWithTimeout(
+    `${getBackendUrl()}/api/research-plan`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        provider,
+        message,
+        apiKey,
+        baseUrl,
+        model,
+        researchType, // Pass researchType to backend
+      }),
     },
-    body: JSON.stringify({
-      provider,
-      message,
-      apiKey,
-      baseUrl,
-      model,
-      researchType, // Pass researchType to backend
-    }),
-  })
+    30000,
+  )
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Unknown error' }))
@@ -215,31 +269,35 @@ export const streamResearchPlanViaBackend = async params => {
   }
 
   try {
-    const response = await fetch(`${getBackendUrl()}/api/research-plan-stream`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
+    const response = await fetchWithTimeout(
+      `${getBackendUrl()}/api/research-plan-stream`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          provider,
+          message,
+          apiKey,
+          baseUrl,
+          model,
+          responseFormat,
+          thinking,
+          temperature,
+          top_k,
+          top_p,
+          frequency_penalty,
+          presence_penalty,
+          contextMessageLimit,
+          contextMessageLimit,
+          toolIds,
+          researchType, // Pass researchType to backend
+        }),
+        signal,
       },
-      body: JSON.stringify({
-        provider,
-        message,
-        apiKey,
-        baseUrl,
-        model,
-        responseFormat,
-        thinking,
-        temperature,
-        top_k,
-        top_p,
-        frequency_penalty,
-        presence_penalty,
-        contextMessageLimit,
-        contextMessageLimit,
-        toolIds,
-        researchType, // Pass researchType to backend
-      }),
-      signal,
-    })
+      30000,
+    )
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ message: 'Unknown error' }))
@@ -319,20 +377,24 @@ export const generateTitleSpaceAndAgentViaBackend = async (
   baseUrl,
   model,
 ) => {
-  const response = await fetch(`${getBackendUrl()}/api/title-space-agent`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
+  const response = await fetchWithTimeout(
+    `${getBackendUrl()}/api/title-space-agent`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        provider,
+        message,
+        spacesWithAgents,
+        apiKey,
+        baseUrl,
+        model,
+      }),
     },
-    body: JSON.stringify({
-      provider,
-      message,
-      spacesWithAgents,
-      apiKey,
-      baseUrl,
-      model,
-    }),
-  })
+    20000,
+  )
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Unknown error' }))
@@ -348,7 +410,7 @@ export const generateTitleSpaceAndAgentViaBackend = async (
  */
 export const checkBackendHealth = async () => {
   try {
-    const response = await fetch(`${getBackendUrl()}/api/health`)
+    const response = await fetchWithTimeout(`${getBackendUrl()}/api/health`, {}, 5000)
     return response.ok
   } catch {
     return false
@@ -373,20 +435,24 @@ export const generateTitleAndSpaceViaBackend = async (
   baseUrl,
   model,
 ) => {
-  const response = await fetch(`${getBackendUrl()}/api/title-and-space`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
+  const response = await fetchWithTimeout(
+    `${getBackendUrl()}/api/title-and-space`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        provider,
+        message,
+        spaces,
+        apiKey,
+        baseUrl,
+        model,
+      }),
     },
-    body: JSON.stringify({
-      provider,
-      message,
-      spaces,
-      apiKey,
-      baseUrl,
-      model,
-    }),
-  })
+    15000,
+  )
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Unknown error' }))
@@ -414,20 +480,24 @@ export const generateAgentForAutoViaBackend = async (
   baseUrl,
   model,
 ) => {
-  const response = await fetch(`${getBackendUrl()}/api/agent-for-auto`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
+  const response = await fetchWithTimeout(
+    `${getBackendUrl()}/api/agent-for-auto`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        provider,
+        message,
+        currentSpace,
+        apiKey,
+        baseUrl,
+        model,
+      }),
     },
-    body: JSON.stringify({
-      provider,
-      message,
-      currentSpace,
-      apiKey,
-      baseUrl,
-      model,
-    }),
-  })
+    15000,
+  )
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Unknown error' }))
@@ -453,19 +523,23 @@ export const generateRelatedQuestionsViaBackend = async (
   baseUrl,
   model,
 ) => {
-  const response = await fetch(`${getBackendUrl()}/api/related-questions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
+  const response = await fetchWithTimeout(
+    `${getBackendUrl()}/api/related-questions`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        provider,
+        messages,
+        apiKey,
+        baseUrl,
+        model,
+      }),
     },
-    body: JSON.stringify({
-      provider,
-      messages,
-      apiKey,
-      baseUrl,
-      model,
-    }),
-  })
+    30000,
+  )
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Unknown error' }))
@@ -546,38 +620,42 @@ export const streamChatViaBackend = async params => {
 
   try {
     const userId = await getCurrentUserId()
-    const response = await fetch(`${getBackendUrl()}/api/stream-chat`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
+    const response = await fetchWithTimeout(
+      `${getBackendUrl()}/api/stream-chat`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          provider,
+          apiKey,
+          baseUrl,
+          model,
+          messages,
+          tools,
+          toolIds,
+          toolChoice,
+          responseFormat,
+          thinking,
+          temperature,
+          top_k,
+          top_p,
+          frequency_penalty,
+          presence_penalty,
+          contextMessageLimit,
+          searchProvider,
+          tavilyApiKey,
+          searchBackend,
+          userTools,
+          userId,
+          enableLongTermMemory,
+          databaseProvider,
+        }),
+        signal,
       },
-      body: JSON.stringify({
-        provider,
-        apiKey,
-        baseUrl,
-        model,
-        messages,
-        tools,
-        toolIds,
-        toolChoice,
-        responseFormat,
-        thinking,
-        temperature,
-        top_k,
-        top_p,
-        frequency_penalty,
-        presence_penalty,
-        contextMessageLimit,
-        searchProvider,
-        tavilyApiKey,
-        searchBackend,
-        userTools,
-        userId,
-        enableLongTermMemory,
-        databaseProvider,
-      }),
-      signal,
-    })
+      30000,
+    )
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ message: 'Unknown error' }))
@@ -690,35 +768,39 @@ export const streamDeepResearchViaBackend = async params => {
   }
 
   try {
-    const response = await fetch(`${getBackendUrl()}/api/stream-deep-research`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
+    const response = await fetchWithTimeout(
+      `${getBackendUrl()}/api/stream-deep-research`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          provider,
+          apiKey,
+          baseUrl,
+          model,
+          messages,
+          tools,
+          toolIds,
+          toolChoice,
+          temperature,
+          top_k,
+          top_p,
+          frequency_penalty,
+          presence_penalty,
+          contextMessageLimit,
+          plan,
+          question,
+          researchType, // Pass researchType to backend
+          concurrentExecution, // Pass concurrentExecution to backend
+          searchProvider,
+          tavilyApiKey,
+        }),
+        signal,
       },
-      body: JSON.stringify({
-        provider,
-        apiKey,
-        baseUrl,
-        model,
-        messages,
-        tools,
-        toolIds,
-        toolChoice,
-        temperature,
-        top_k,
-        top_p,
-        frequency_penalty,
-        presence_penalty,
-        contextMessageLimit,
-        plan,
-        question,
-        researchType, // Pass researchType to backend
-        concurrentExecution, // Pass concurrentExecution to backend
-        searchProvider,
-        tavilyApiKey,
-      }),
-      signal,
-    })
+      30000,
+    )
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ message: 'Unknown error' }))
@@ -777,7 +859,7 @@ export const streamDeepResearchViaBackend = async params => {
 }
 
 export const listToolsViaBackend = async () => {
-  const response = await fetch(`${getBackendUrl()}/api/tools`)
+  const response = await fetchWithTimeout(`${getBackendUrl()}/api/tools`, {}, 15000)
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Unknown error' }))
     throw new Error(getBackendErrorMessage(error, response.status))
@@ -791,9 +873,13 @@ export const listToolsViaBackend = async () => {
  * @returns {Promise<Array>}
  */
 export const listUserToolsViaBackend = async () => {
-  const response = await fetch(`${getBackendUrl()}/api/user-tools`, {
-    headers: { 'x-user-id': 'default' },
-  })
+  const response = await fetchWithTimeout(
+    `${getBackendUrl()}/api/user-tools`,
+    {
+      headers: { 'x-user-id': 'default' },
+    },
+    15000,
+  )
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Unknown error' }))
     throw new Error(getBackendErrorMessage(error, response.status))

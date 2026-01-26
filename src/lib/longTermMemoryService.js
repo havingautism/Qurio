@@ -3,7 +3,7 @@ import { getSupabaseClient } from './supabase'
 const MEMORY_STORAGE_KEY = 'longTermMemoryDomainsV1'
 const MEMORY_DOMAIN_TABLE = 'memory_domains'
 const MEMORY_SUMMARY_TABLE = 'memory_summaries'
-const CACHE_TTL_MS = 5 * 60 * 1000
+const CACHE_TTL_MS = 0 // Disabled cache for immediate updates
 const SUMMARY_MAX_CHARS = 800
 
 let memoryCache = { domains: [], fetchedAt: 0 }
@@ -193,6 +193,7 @@ export const upsertMemoryDomainSummary = async ({
       }
 
       memoryCache = { domains: [], fetchedAt: 0 }
+      console.log(`[Memory] Upserted domain: ${trimmedKey}`)
       await getMemoryDomains()
       return { updated: true, domain: updatedDomain || existing, summary: summaryRecord }
     }

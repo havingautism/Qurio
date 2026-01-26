@@ -469,48 +469,7 @@ class StreamChatService:
             ).model_dump()
 
     async def _maybe_optimize_memories(self, agent: Agent, request: StreamChatRequest) -> None:
-        if not getattr(request, "enable_long_term_memory", False):
-            return
-        user_id = getattr(request, "user_id", None)
-        if not isinstance(user_id, str) or not user_id.strip():
-            return
-
-        memory_manager = getattr(agent, "memory_manager", None)
-        if not memory_manager:
-            return
-
-        now = time.time()
-        last_run = self._last_memory_optimization.get(user_id)
-        if last_run and now - last_run < MEMORY_OPTIMIZE_INTERVAL_SECONDS:
-            return
-
-        try:
-            logger.info(f"Reading memories for user={user_id} before optimization")
-            memories = memory_manager.get_user_memories(user_id=user_id) or []
-            logger.info(f"Found {len(memories)} memories for user={user_id}")
-        except Exception as exc:
-            logger.warning(f"Failed to list memories for optimization ({user_id}): {exc}")
-            return
-
-        if len(memories) < MEMORY_OPTIMIZE_THRESHOLD:
-            logger.debug(
-                f"Skipping optimization for user={user_id} because count={len(memories)} "
-                f"below threshold={MEMORY_OPTIMIZE_THRESHOLD}"
-            )
-            return
-
-        try:
-            await asyncio.to_thread(
-                memory_manager.optimize_memories,
-                user_id,
-                MemoryOptimizationStrategyType.SUMMARIZE,
-                True,
-            )
-            self._last_memory_optimization[user_id] = now
-            logger.info(f"Optimized {len(memories)} memories for user {user_id}")
-        except Exception as exc:
-            logger.error(f"Memory optimization failed for {user_id}: {exc}")
-
+        return
 
 _stream_chat_service: StreamChatService | None = None
 
@@ -519,3 +478,5 @@ def get_stream_chat_service() -> StreamChatService:
     if _stream_chat_service is None:
         _stream_chat_service = StreamChatService()
     return _stream_chat_service
+
+

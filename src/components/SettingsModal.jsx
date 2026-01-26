@@ -38,6 +38,11 @@ import { fetchRemoteSettings, saveRemoteSettings, testConnection } from '../lib/
 import { THEMES } from '../lib/themes'
 import Logo from './Logo'
 import { useAppContext } from '../App'
+import {
+  formatMemorySummariesAppendText,
+  upsertMemoryDomainSummary,
+  ensureLongTermMemoryIndex,
+} from '../lib/longTermMemoryService'
 import { getProvider } from '../lib/providers'
 
 const ENV_VARS = {
@@ -389,13 +394,51 @@ const extractJsonObject = text => {
   return ''
 }
 
+const safeJsonParse = str => {
+  let cleaned = String(str || '').trim()
+  if (!cleaned) return null
+
+  try {
+    return JSON.parse(cleaned)
+  } catch (e) {
+    // If it fails, it might be using single quotes (common in some Lite models)
+    try {
+      // Heuristic: swap single quotes with double quotes
+      // and handle common issues like trailing commas
+      const normalized = cleaned.replace(/'/g, '"').replace(/,\s*([\]}])/g, '$1') // remove trailing commas
+      return JSON.parse(normalized)
+    } catch (e2) {
+      console.warn('[Settings] Final JSON parse attempt failed:', e2)
+      return null
+    }
+  }
+}
+
 const parseMemoryDomainExtractionResponse = content => {
   const raw = extractJsonObject(content)
   if (!raw) return []
+  const parsed = safeJsonParse(raw)
+  if (!parsed) return []
+
   try {
-    const parsed = JSON.parse(raw)
     const domains = Array.isArray(parsed?.domains) ? parsed.domains : []
+    // Flatten tags back to domain_key + aliases logic for DB compatibility
     return domains
+      .map(d => {
+        const tags = Array.isArray(d.tags)
+          ? d.tags.filter(Boolean)
+          : d.domain_key
+            ? [d.domain_key, ...(Array.isArray(d.aliases) ? d.aliases : [])]
+            : []
+        if (tags.length === 0) return null
+        return {
+          domain_key: String(tags[0]).toLowerCase(), // First tag becomes primary ID
+          aliases: tags.slice(1).map(t => String(t).toLowerCase()), // Rest become aliases
+          summary: d.summary || '',
+          scope: d.scope || '',
+        }
+      })
+      .filter(Boolean)
   } catch {
     return []
   }
@@ -403,15 +446,43 @@ const parseMemoryDomainExtractionResponse = content => {
 
 const buildMemoryDomainExtractionPrompt = introText => {
   return [
-    `Extract stable user preference/background domains from the self-introduction.`,
-    `Return JSON only: {"domains":[{"domain_key":string,"summary":string,"aliases":string[],"scope":string}]}`,
+    `Task: Act as an information extraction expert. Analyze the User's Self-Introduction and extract MULTIPLE significant, granular factual memory tags.`,
+    ``,
     `Rules:`,
-    `- domain_key: short lowercase id (e.g., "music", "movie", "programming")`,
-    `- summary: short, factual, no timelines, <= 2 sentences`,
-    `- include only stable, long-term info; skip temporary context`,
-    `- return empty domains if nothing qualifies`,
-    '',
-    `Self-introduction:\n${introText}`,
+    `1. Extract separate domains for each category: Career, Skills, Hobbies, Location, Preferences, etc.`,
+    `2. Each domain MUST have a 'tags' array (e.g. ["python", "coding", "backend"]) and a 'summary'.`,
+    `3. Use the user's PRECISE language for the summary (e.g., if input is Chinese, summary MUST be Chinese).`,
+    `4. Return ONLY valid JSON in the specified format.`,
+    `5. CRITICAL: Use DOUBLE QUOTES (") for all keys and strings. NEVER use single quotes (').`,
+    ``,
+    `Example Input:`,
+    `"I am a backend dev based in Beijing. I love basketball and hip-hop."`,
+    ``,
+    `Example Output:`,
+    `{`,
+    `  "domains": [`,
+    `    {"tags": ["career", "backend", "developer"], "summary": "User is a backend developer.", "scope": "Career"},`,
+    `    {"tags": ["location", "beijing"], "summary": "User is based in Beijing.", "scope": "Location"},`,
+    `    {"tags": ["sports", "basketball"], "summary": "User loves basketball.", "scope": "Hobbies"},`,
+    `    {"tags": ["music", "hiphop"], "summary": "User enjoys hip-hop music.", "scope": "Interests"}`,
+    `  ]`,
+    `}`,
+    ``,
+    `Example Input (Chinese):`,
+    `"我是一名全栈开发，喜欢单机游戏。"`,
+    ``,
+    `Example Output (Chinese):`,
+    `{`,
+    `  "domains": [`,
+    `    {"tags": ["career", "fullstack", "developer"], "summary": "用户是一名全栈软件开发程序员。", "scope": "职业背景"},`,
+    `    {"tags": ["gaming", "single-player"], "summary": "用户喜欢有剧情的单机游戏。", "scope": "兴趣爱好"}`,
+    `  ]`,
+    `}`,
+    ``,
+    `Analyze this Introduction:`,
+    `"""`,
+    `${introText}`,
+    `"""`,
   ].join('\n')
 }
 
@@ -1441,52 +1512,173 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
   const handleSave = async () => {
     setIsSaving(true)
     try {
-      // Validate inputs could go here
-      const newSettings = {
+      const settingsToSave = {
         apiProvider,
         googleApiKey,
         searchProvider,
         tavilyApiKey,
         backendUrl,
-        databaseProvider,
-        databaseConfig: {
-          supabase: {
-            url: supabaseUrl,
-            key: supabaseKey,
-          },
-        },
+        // API Keys
         OpenAICompatibilityKey,
         OpenAICompatibilityUrl,
+        GoogleApiKey: googleApiKey,
         SiliconFlowKey,
         NvidiaKey,
         MinimaxKey,
         GlmKey,
         ModelScopeKey,
         KimiKey,
+        // Providers
+        databaseProvider,
         supabaseUrl,
         supabaseKey,
-        contextMessageLimit,
+        // UI
         themeColor,
-        fontSize,
+        messageFontSize: fontSize,
+        interfaceLanguage,
+        followInterfaceLanguage,
+        // Advanced
+        developerMode,
+        // Chat
         enableRelatedQuestions,
+        contextMessageLimit,
+        // Memory
         enableLongTermMemory,
         memoryRecallLimit,
+        userSelfIntro,
+        // Embedding
         embeddingProvider,
         embeddingModel,
         embeddingModelSource,
-        userSelfIntro,
-        interfaceLanguage,
-        followInterfaceLanguage,
-        developerMode,
+        embeddingCustomModel,
       }
 
-      const didPassValidation = validateSettingsForSave(newSettings)
+      const didPassValidation = validateSettingsForSave(settingsToSave)
+      if (!didPassValidation) {
+        // Validation failed (toast/alert would handle it inside validate or UI)
+        return
+      }
+
+      // Save to local storage
+      await saveSettings(settingsToSave)
+
+      // Handle personal intro memory extraction if changed
+      const introChanged = userSelfIntro.trim() !== (initialSelfIntroRef.current || '').trim()
+
+      if (userSelfIntro && introChanged) {
+        console.log('[Settings] Intro changed, starting memory extraction...')
+        try {
+          // 1. Update the base profile domain immediately
+          await ensureLongTermMemoryIndex({ text: userSelfIntro })
+
+          // 2. Resolve a lightweight model and its corresponding provider
+          const liteConfig = resolveLiteModelConfig(defaultAgent, settingsToSave)
+          const extractionProviderName = liteConfig?.provider || apiProvider
+          const extractionProvider = getProvider(extractionProviderName)
+
+          const canRunExtraction =
+            extractionProvider &&
+            (extractionProvider.streamChatCompletion || extractionProvider.generateChatCompletion)
+
+          console.log(
+            `[Settings] Extraction check: provider=${liteConfig?.provider || apiProvider}, model=${liteConfig?.model}, canRun=${!!canRunExtraction}`,
+          )
+
+          if (canRunExtraction && liteConfig?.model) {
+            const extractionPrompt = buildMemoryDomainExtractionPrompt(userSelfIntro)
+            const messages = [
+              { role: 'system', content: 'You are a precise JSON extractor.' },
+              { role: 'user', content: extractionPrompt },
+            ]
+
+            let fullContent = ''
+            try {
+              if (extractionProvider.streamChatCompletion) {
+                // Resolve the specific API Key for the extraction provider
+                let extractionApiKey = ''
+                switch (extractionProviderName) {
+                  case 'gemini':
+                    extractionApiKey = googleApiKey
+                    break
+                  case 'openai':
+                    extractionApiKey = OpenAICompatibilityKey
+                    break
+                  case 'siliconflow':
+                    extractionApiKey = SiliconFlowKey
+                    break
+                  case 'nvidia':
+                    extractionApiKey = NvidiaKey
+                    break
+                  case 'minimax':
+                    extractionApiKey = MinimaxKey
+                    break
+                  case 'glm':
+                    extractionApiKey = GlmKey
+                    break
+                  case 'kimi':
+                    extractionApiKey = KimiKey
+                    break
+                  case 'modelscope':
+                    extractionApiKey = ModelScopeKey
+                    break
+                }
+
+                await extractionProvider.streamChatCompletion({
+                  ...settingsToSave,
+                  apiKey: extractionApiKey, // Explicitly pass as apiKey
+                  baseUrl: extractionProviderName === 'openai' ? OpenAICompatibilityUrl : undefined,
+                  model: liteConfig.model,
+                  messages,
+                  temperature: 0.1,
+                  responseFormat: { type: 'json_object' },
+                  onChunk: chunk => {
+                    const text = typeof chunk === 'string' ? chunk : chunk?.content || ''
+                    fullContent += text
+                  },
+                  onFinish: result => {
+                    if (result?.content) fullContent = result.content
+                  },
+                })
+              } else {
+                // Fallback for non-streaming providers if any (currently mostly stream)
+              }
+
+              // Parse and save extracted domains
+              if (fullContent) {
+                console.log('[Settings] Extraction raw output:', fullContent)
+                const domains = parseMemoryDomainExtractionResponse(fullContent)
+                if (Array.isArray(domains) && domains.length > 0) {
+                  for (const domain of domains) {
+                    await upsertMemoryDomainSummary({
+                      domainKey: domain.domain_key,
+                      summary: domain.summary,
+                      aliases: domain.aliases,
+                      scope: domain.scope,
+                    })
+                  }
+                  console.log('[Settings] Extracted and saved memory domains:', domains.length)
+                } else {
+                  console.warn('[Settings] No domains extracted from model output.')
+                }
+              }
+            } catch (extractError) {
+              console.error('[Settings] Failed to extract memory domains:', extractError)
+            }
+          }
+        } catch (memoryError) {
+          console.error('[Settings] Failed to update memory profile:', memoryError)
+        }
+
+        // Update ref
+        initialSelfIntroRef.current = userSelfIntro
+      }
 
       // Prevent accidental overwrite of remote keys with empty local keys
       if (isSupabaseProvider && supabaseUrl && supabaseKey) {
         try {
           const { data: remoteData } = await fetchRemoteSettings()
           if (remoteData) {
+            // Keys to keep on sync mismatch
             const SYNC_KEYS = [
               'OpenAICompatibilityKey',
               'OpenAICompatibilityUrl',
@@ -1507,10 +1699,10 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
             ]
 
             SYNC_KEYS.forEach(key => {
-              const val = newSettings[key]
+              const val = settingsToSave[key]
               // Only overwrite if local is empty/null/undefined (preserve false/0)
               if ((val === '' || val === null || val === undefined) && remoteData[key]) {
-                newSettings[key] = remoteData[key]
+                settingsToSave[key] = remoteData[key]
               }
             })
           }
@@ -1519,11 +1711,9 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
         }
       }
 
-      await saveSettings(newSettings)
-
       // Save Remote (if connected)
       if (isSupabaseProvider && supabaseUrl && supabaseKey) {
-        await saveRemoteSettings(newSettings)
+        await saveRemoteSettings(settingsToSave)
       }
 
       onClose()

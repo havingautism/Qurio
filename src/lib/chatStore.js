@@ -92,6 +92,42 @@ const QUERY_CONTEXT_MAX_CHARS = 1200
 const QUERY_HISTORY_MAX_MESSAGES = 6
 const MEMORY_DOMAIN_PROMPT_LIMIT = 20
 
+const extractJsonObject = content => {
+  const str = String(content || '').trim()
+  const start = str.indexOf('{')
+  const end = str.lastIndexOf('}')
+  if (start !== -1 && end !== -1 && end > start) {
+    return str.substring(start, end + 1)
+  }
+  return ''
+}
+
+const safeJsonParse = str => {
+  let cleaned = String(str || '').trim()
+  if (!cleaned) return null
+
+  try {
+    return JSON.parse(cleaned)
+  } catch (e) {
+    // If it fails, it might be using single quotes (common in some Lite models)
+    try {
+      // Heuristic: swap single quotes with double quotes
+      // and handle common issues like trailing commas
+      // Note: This is a simple heuristic and might fail on nested content with single quotes
+      const normalized = cleaned
+        .replace(/'/g, '"')
+        .replace(/,\s*([\]}])/g, '$1') // remove trailing commas
+        .replace(/True/g, 'true')
+        .replace(/False/g, 'false')
+        .replace(/None/g, 'null')
+      return JSON.parse(normalized)
+    } catch (e2) {
+      console.warn('[Chat] Final JSON parse attempt failed:', e2)
+      return null
+    }
+  }
+}
+
 const extractPlainText = content => {
   if (!content) return ''
   if (typeof content === 'string') return content
@@ -143,29 +179,32 @@ const buildDocumentQueryPrompt = ({ question, historyForSend, documents }) => {
 }
 
 const parseDocumentQueryResponse = content => {
-  const trimmed = String(content || '').trim()
-  if (!trimmed) return ''
+  const raw = extractJsonObject(content)
+  if (!raw) return content.replace(/^"+|"+$/g, '').trim()
+  const parsed = safeJsonParse(raw)
+  if (!parsed) return content.replace(/^"+|"+$/g, '').trim()
+
   try {
-    const parsed = JSON.parse(trimmed)
     if (typeof parsed?.query === 'string') return parsed.query.trim()
     if (Array.isArray(parsed?.queries)) return parsed.queries.filter(Boolean).join(' ')
   } catch {
-    return trimmed.replace(/^"+|"+$/g, '').trim()
+    return content.replace(/^"+|"+$/g, '').trim()
   }
-  return trimmed.replace(/^"+|"+$/g, '').trim()
+  return content.replace(/^"+|"+$/g, '').trim()
 }
 
 const formatMemoryDomainIndex = domains => {
   if (!Array.isArray(domains) || domains.length === 0) return ''
+  // Deduplicate and aggregate aliases for clearer prompt presentation
   const lines = domains.slice(0, MEMORY_DOMAIN_PROMPT_LIMIT).map(domain => {
     const key = String(domain?.domain_key || '').trim()
     if (!key) return null
     const aliases = Array.isArray(domain?.aliases) ? domain.aliases.filter(Boolean) : []
+    // Ensure key is treated as an alias too for matching purposes
+    const allTags = [...new Set([key, ...aliases])].join(', ')
     const scope = typeof domain?.scope === 'string' ? domain.scope.trim() : ''
-      const aliasText = aliases.length ? `aliases: ${aliases.join(', ')}` : 'aliases: none'
-      const scopeText = scope ? `scope: ${scope}` : 'scope: n/a'
-      return `- ${key} (${aliasText}; ${scopeText})`
-    })
+    return `ID: ${key} | Tags: [${allTags}] | Scope: ${scope}`
+  })
   return lines.filter(Boolean).join('\n')
 }
 
@@ -184,27 +223,32 @@ const buildMemoryDomainDecisionPrompt = ({ question, historyForSend, domains }) 
   const domainIndex = formatMemoryDomainIndex(domains)
 
   return [
-    `Decide if long-term profile memory is needed to answer the user's question.`,
-    `Return JSON only: {"need_memory": boolean, "hit_domains": string[]}.`,
-    `If need_memory is false, set hit_domains to an empty array.`,
-    `Only use domain_key values from the list.`,
+    `Role: You are a semantic tag matcher.`,
+    `Task: Analyze the User Question and determine if it relates to any of the available Memory IDs based on their Tags and Scope.`,
+    `Reflect: Does the user's input imply a need to retrieve context about these specific topics?`,
+    `Return JSON only: {"need_memory": boolean, "hit_domains": string[]}`,
+    `- need_memory: true if ANY tag matches semantically.`,
+    `- hit_domains: list of matched IDs (exact string match from list).`,
     '',
-    `User question:\n${question}`,
-    recentHistory ? `Recent conversation:\n${recentHistory}` : '',
-    domainIndex ? `Domain index:\n${domainIndex}` : '',
+    `Available Memory IDs & Tags:\n${domainIndex}`,
+    '',
+    `User Question:\n${question}`,
+    recentHistory ? `Recent Conversation:\n${recentHistory}` : '',
   ]
     .filter(Boolean)
     .join('\n\n')
 }
 
 const parseMemoryDomainDecisionResponse = content => {
-  const trimmed = String(content || '').trim()
-  if (!trimmed) return { needMemory: false, hitDomains: [] }
+  const raw = extractJsonObject(content)
+  if (!raw) return { needMemory: false, hitDomains: [] }
+  const parsed = safeJsonParse(raw)
+  if (!parsed) return { needMemory: false, hitDomains: [] }
+
   try {
-    const parsed = JSON.parse(trimmed)
     const needMemory = Boolean(parsed?.need_memory ?? parsed?.needMemory)
     const hitDomainsRaw = Array.isArray(parsed?.hit_domains ?? parsed?.hitDomains)
-      ? parsed.hit_domains ?? parsed.hitDomains
+      ? (parsed.hit_domains ?? parsed.hitDomains)
       : []
     const hitDomains = hitDomainsRaw.map(item => String(item || '').trim()).filter(Boolean)
     return { needMemory, hitDomains }
@@ -218,8 +262,9 @@ const fallbackMemoryDecision = (question, domains) => {
   if (!Array.isArray(domains) || domains.length === 0) {
     return { needMemory: false, hitDomains: [] }
   }
-  const usePersonalContext =
-    /(\bmy\b|\bmine\b|\bme\b|\bwe\b|\bi\b|我的|我们|我在|我想)/i.test(trimmedQuestion)
+  const usePersonalContext = /(\bmy\b|\bmine\b|\bme\b|\bwe\b|\bi\b|我的|我们|我在|我想)/i.test(
+    trimmedQuestion,
+  )
   if (!usePersonalContext) {
     return { needMemory: false, hitDomains: [] }
   }
@@ -278,7 +323,8 @@ const selectMemoryDomains = async ({
   const messages = [
     {
       role: 'system',
-      content: 'You are a memory router. Output only JSON with keys need_memory and hit_domains.',
+      content:
+        'You are a precise JSON extractor. Output ONLY valid JSON with DOUBLE QUOTES. Keys: need_memory (boolean), hit_domains (string[]).',
     },
     { role: 'user', content: prompt },
   ]
@@ -310,7 +356,10 @@ const selectMemoryDomains = async ({
   return parseMemoryDomainDecisionResponse(fullContent)
 }
 
-const normalizeDomainKey = value => String(value || '').trim().toLowerCase()
+const normalizeDomainKey = value =>
+  String(value || '')
+    .trim()
+    .toLowerCase()
 
 const resolveMemoryDomain = (domains, domainKey) => {
   const normalizedKey = normalizeDomainKey(domainKey)
@@ -1298,6 +1347,7 @@ const callAIAPI = async (
     const agentPresencePenalty = selectedAgent?.presencePenalty ?? selectedAgent?.presence_penalty
 
     // Prepare API parameters
+    const defaultAgent = agents.find(a => a.isDefault)
     const resolvedAgent = selectedAgent || defaultAgent || null
     const resolvedToolIds = (() => {
       if (resolvedAgent?.toolIds?.length) return resolvedAgent.toolIds
@@ -1777,8 +1827,11 @@ const finalizeMessage = async (
         set({ conversationTitle: resolvedTitle, conversationTitleEmojis: resolvedTitleEmojis })
       } else if (spaceInfo?.isManualSpaceSelection && spaceInfo?.selectedSpace) {
         // Generate title only when space is manually selected
-      const { modelConfig: titleModelConfig, provider, credentials } =
-        resolveProviderConfigWithCredentials(
+        const {
+          modelConfig: titleModelConfig,
+          provider,
+          credentials,
+        } = resolveProviderConfigWithCredentials(
           safeAgent,
           settings,
           'generateTitle',
@@ -1797,8 +1850,11 @@ const finalizeMessage = async (
         set({ conversationTitle: resolvedTitle, conversationTitleEmojis: resolvedTitleEmojis })
       } else if (callbacks?.onTitleAndSpaceGenerated) {
         // Use callback to generate both title and space
-      const { modelConfig: titleModelConfig, provider, credentials } =
-        resolveProviderConfigWithCredentials(
+        const {
+          modelConfig: titleModelConfig,
+          provider,
+          credentials,
+        } = resolveProviderConfigWithCredentials(
           safeAgent,
           settings,
           'generateTitleAndSpace',
@@ -1817,8 +1873,11 @@ const finalizeMessage = async (
         resolvedSpace = space || null
       } else {
         // Generate both title and space automatically
-      const { modelConfig: titleModelConfig, provider, credentials } =
-        resolveProviderConfigWithCredentials(
+        const {
+          modelConfig: titleModelConfig,
+          provider,
+          credentials,
+        } = resolveProviderConfigWithCredentials(
           safeAgent,
           settings,
           'generateTitleAndSpace',
@@ -2078,10 +2137,22 @@ const finalizeMessage = async (
   if (toggles?.related && !isInteractiveForm) {
     set(state => {
       const updated = [...state.messages]
-      const lastMsgIndex = updated.length - 1
-      if (lastMsgIndex >= 0 && updated[lastMsgIndex].role === 'ai') {
-        updated[lastMsgIndex] = {
-          ...updated[lastMsgIndex],
+      let targetIndex = -1
+      if (insertedAiId) {
+        targetIndex = updated.findIndex(m => m.id === insertedAiId)
+      }
+      if (targetIndex === -1) {
+        for (let i = updated.length - 1; i >= 0; i--) {
+          if (updated[i].role === 'ai') {
+            targetIndex = i
+            break
+          }
+        }
+      }
+
+      if (targetIndex >= 0) {
+        updated[targetIndex] = {
+          ...updated[targetIndex],
           relatedLoading: true,
         }
       }
@@ -2120,10 +2191,22 @@ const finalizeMessage = async (
       console.error('[chatStore] Failed to generate related questions:', error)
       set(state => {
         const updated = [...state.messages]
-        const lastMsgIndex = updated.length - 1
-        if (lastMsgIndex >= 0 && updated[lastMsgIndex].role === 'ai') {
-          updated[lastMsgIndex] = {
-            ...updated[lastMsgIndex],
+        let targetIndex = -1
+        if (insertedAiId) {
+          targetIndex = updated.findIndex(m => m.id === insertedAiId)
+        }
+        if (targetIndex === -1) {
+          for (let i = updated.length - 1; i >= 0; i--) {
+            if (updated[i].role === 'ai') {
+              targetIndex = i
+              break
+            }
+          }
+        }
+
+        if (targetIndex >= 0) {
+          updated[targetIndex] = {
+            ...updated[targetIndex],
             relatedLoading: false,
           }
         }
@@ -2132,10 +2215,22 @@ const finalizeMessage = async (
     } finally {
       set(state => {
         const updated = [...state.messages]
-        const lastMsgIndex = updated.length - 1
-        if (lastMsgIndex >= 0 && updated[lastMsgIndex].role === 'ai') {
-          updated[lastMsgIndex] = {
-            ...updated[lastMsgIndex],
+        let targetIndex = -1
+        if (insertedAiId) {
+          targetIndex = updated.findIndex(m => m.id === insertedAiId)
+        }
+        if (targetIndex === -1) {
+          for (let i = updated.length - 1; i >= 0; i--) {
+            if (updated[i].role === 'ai') {
+              targetIndex = i
+              break
+            }
+          }
+        }
+
+        if (targetIndex >= 0) {
+          updated[targetIndex] = {
+            ...updated[targetIndex],
             relatedLoading: false,
           }
         }
@@ -2147,16 +2242,30 @@ const finalizeMessage = async (
   if (related && related.length > 0) {
     set(state => {
       const updated = [...state.messages]
-      const lastMsgIndex = updated.length - 1
-      const lastMsg = { ...updated[lastMsgIndex] }
-      lastMsg.related = related
-      if (result.sources && result.sources.length > 0) {
-        lastMsg.sources = result.sources
+      let targetIndex = -1
+      if (insertedAiId) {
+        targetIndex = updated.findIndex(m => m.id === insertedAiId)
       }
-      if (result.groundingSupports && result.groundingSupports.length > 0) {
-        lastMsg.groundingSupports = result.groundingSupports
+      if (targetIndex === -1) {
+        for (let i = updated.length - 1; i >= 0; i--) {
+          if (updated[i].role === 'ai') {
+            targetIndex = i
+            break
+          }
+        }
       }
-      updated[lastMsgIndex] = lastMsg
+
+      if (targetIndex >= 0) {
+        const lastMsg = { ...updated[targetIndex] }
+        lastMsg.related = related
+        if (result.sources && result.sources.length > 0) {
+          lastMsg.sources = result.sources
+        }
+        if (result.groundingSupports && result.groundingSupports.length > 0) {
+          lastMsg.groundingSupports = result.groundingSupports
+        }
+        updated[targetIndex] = lastMsg
+      }
       return { messages: updated }
     })
   }
@@ -2766,9 +2875,7 @@ Analyze the submitted data. If critical information is still missing or if the r
           return { messages: updated }
         }
         const lastMsg = { ...updated[lastMsgIndex] }
-        const history = Array.isArray(lastMsg.toolCallHistory)
-          ? [...lastMsg.toolCallHistory]
-          : []
+        const history = Array.isArray(lastMsg.toolCallHistory) ? [...lastMsg.toolCallHistory] : []
         history.push({
           id: toolCallId,
           name: 'document_embedding',
@@ -2835,9 +2942,7 @@ Analyze the submitted data. If critical information is still missing or if the r
           return { messages: updated }
         }
         const lastMsg = { ...updated[lastMsgIndex] }
-        const history = Array.isArray(lastMsg.toolCallHistory)
-          ? [...lastMsg.toolCallHistory]
-          : []
+        const history = Array.isArray(lastMsg.toolCallHistory) ? [...lastMsg.toolCallHistory] : []
         const targetIndex = history.findIndex(item => item.id === toolCallId)
         const durationMs = Date.now() - toolStart
         const toolOutput = {
@@ -2863,7 +2968,112 @@ Analyze the submitted data. If critical information is still missing or if the r
       })
     }
 
-    const combinedContextAppend = resolvedDocumentContextAppend || ''
+    // ========================================
+    // MEMORY RETRIEVAL (Lite Model)
+    // ========================================
+    let memoryContextAppend = ''
+    if (settings.enableLongTermMemory) {
+      const toolCallId = `memory-check-${Date.now()}`
+      const toolStart = Date.now()
+
+      let allDomains = []
+      try {
+        allDomains = await getMemoryDomains()
+      } catch (e) {
+        console.error('Failed to get domains:', e)
+      }
+
+      // 1. Initial "Calling" State
+      set(state => {
+        const updated = [...state.messages]
+        const lastMsgIndex = updated.length - 1
+        if (lastMsgIndex < 0 || updated[lastMsgIndex].role !== 'ai') {
+          return { messages: updated }
+        }
+        const lastMsg = { ...updated[lastMsgIndex] }
+        const history = Array.isArray(lastMsg.toolCallHistory) ? [...lastMsg.toolCallHistory] : []
+        history.push({
+          id: toolCallId,
+          name: 'memory_check',
+          arguments: JSON.stringify({
+            query: text,
+            available_tags: allDomains.flatMap(d => [d.domain_key, ...(d.aliases || [])]),
+          }),
+          status: 'calling',
+          durationMs: null,
+          textIndex: 0,
+        })
+        lastMsg.toolCallHistory = history
+        updated[lastMsgIndex] = lastMsg
+        return { messages: updated }
+      })
+
+      let hitDomainKeys = []
+      let memStatus = 'done'
+      let memError = null
+
+      try {
+        // Only proceed if we have memorable domains
+        if (allDomains.length > 0) {
+          const memResult = await selectMemoryDomains({
+            question: text,
+            historyForSend,
+            domains: allDomains,
+            settings,
+            selectedAgent: resolvedAgent,
+            agents,
+          })
+
+          if (memResult?.needMemory && Array.isArray(memResult.hitDomains)) {
+            const relevantDomains = allDomains.filter(d =>
+              memResult.hitDomains.includes(d.domain_key),
+            )
+
+            if (relevantDomains.length > 0) {
+              hitDomainKeys = relevantDomains.map(d => d.domain_key)
+              memoryContextAppend = formatMemorySummariesAppendText(relevantDomains)
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Memory check failed:', err)
+        memStatus = 'error'
+        memError = err?.message || 'Memory check failed'
+      }
+
+      // 2. Final "Done" State
+      set(state => {
+        const updated = [...state.messages]
+        const lastMsgIndex = updated.length - 1
+        if (lastMsgIndex < 0 || updated[lastMsgIndex].role !== 'ai') {
+          return { messages: updated }
+        }
+        const lastMsg = { ...updated[lastMsgIndex] }
+        const history = Array.isArray(lastMsg.toolCallHistory) ? [...lastMsg.toolCallHistory] : []
+        const targetIndex = history.findIndex(item => item.id === toolCallId)
+
+        if (targetIndex >= 0) {
+          history[targetIndex] = {
+            ...history[targetIndex],
+            status: memStatus,
+            error: memError,
+            output: {
+              domains: hitDomainKeys,
+              found: hitDomainKeys.length > 0,
+            },
+            durationMs: Date.now() - toolStart,
+          }
+        }
+        lastMsg.toolCallHistory = history
+        updated[lastMsgIndex] = lastMsg
+        return { messages: updated }
+      })
+    }
+
+    const combinedContextAppend = [resolvedDocumentContextAppend, memoryContextAppend]
+      .filter(Boolean)
+      .join('\n\n')
+
     const { payloadContent } = buildUserMessage(
       text,
       attachments,

@@ -98,26 +98,27 @@ def init_memory_db() -> PostgresDb | None:
 
 
 def _build_memory_kwargs(request: Any) -> dict[str, Any]:
-    if not getattr(request, 'enable_long_term_memory', False):
-        return {}
-    provider = (getattr(request, 'database_provider', None) or 'supabase').lower()
-    if provider != 'supabase':
-        logger.warning('Memory requested for unsupported provider "%s"', provider)
-        return {}
-    db = _get_supabase_memory_db()
-    logger.info('AGNO Supabase memory store is available')
-    if not db:
-        logger.warning('Memory requested but Supabase memory store is unavailable.')
-        return {}
-    memory_manager = _build_memory_manager(request)
-    if not memory_manager:
-        return {}
-    return {
-        'db': db,
-        'memory_manager': memory_manager,
-        # 'enable_agentic_memory': True,
-        'update_memory_on_run': True,
-    }
+    # if not getattr(request, 'enable_long_term_memory', False):
+    #     return {}
+    # provider = (getattr(request, 'database_provider', None) or 'supabase').lower()
+    # if provider != 'supabase':
+    #     logger.warning('Memory requested for unsupported provider "%s"', provider)
+    #     return {}
+    # db = _get_supabase_memory_db()
+    # logger.info('AGNO Supabase memory store is available')
+    # if not db:
+    #     logger.warning('Memory requested but Supabase memory store is unavailable.')
+    #     return {}
+    # memory_manager = _build_memory_manager(request)
+    # if not memory_manager:
+    #     return {}
+    # return {
+    #     'db': db,
+    #     'memory_manager': memory_manager,
+    #     # 'enable_agentic_memory': True,
+    #     'update_memory_on_run': True,
+    # }
+    return {}
 
 
 def _build_model(provider: str, api_key: str | None, base_url: str | None, model: str | None):
@@ -407,7 +408,7 @@ def build_agent(request: Any = None, **kwargs: Any) -> Agent:
     model = _build_model(request.provider, request.api_key, request.base_url, request.model)
     _apply_model_settings(model, request)
     tools = _build_tools(request)
-    memory_kwargs = _build_memory_kwargs(request)
+    # memory_kwargs = _build_memory_kwargs(request)
     tool_choice = request.tool_choice
     if tool_choice is None and tools:
         tool_choice = "auto"
@@ -420,7 +421,7 @@ def build_agent(request: Any = None, **kwargs: Any) -> Agent:
         add_history_to_context=False,
         markdown=True,
         tool_choice=tool_choice,
-        **memory_kwargs,
+        # **memory_kwargs,
     )
 
 

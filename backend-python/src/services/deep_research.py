@@ -384,6 +384,13 @@ async def stream_research_workflow(
             # Agno SDK uses step_name field (not name or description)
             step_name = getattr(event, "step_name", "")
             step_number = getattr(event, "step_index", None)
+            
+            # Defensive check: step_number might be a tuple in parallel execution
+            # structure is (parent_index, child_index)
+            if isinstance(step_number, tuple):
+                # Use the child index (which increments 0, 1, 2...) for display
+                step_number = step_number[1]
+                
             logger.info(f"DEBUG_EVENT: StepStarted name={step_name} number={step_number}")
 
             if step_number is not None:
@@ -416,6 +423,11 @@ async def stream_research_workflow(
             # Agno SDK uses step_name field (not name or description)
             step_name = getattr(event, "step_name", "")
             step_number = getattr(event, "step_index", None)
+            
+            # Defensive check: step_number might be a tuple
+            if isinstance(step_number, tuple):
+                step_number = step_number[1]
+                
             logger.info(f"DEBUG_EVENT: StepCompleted name={step_name} number={step_number}")
             
             # Retrieve step info

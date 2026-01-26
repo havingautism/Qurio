@@ -306,31 +306,30 @@ export const DeepResearchGuideProvider = ({
                         </div>
                       </div>
 
-                      {deepResearchType === 'academic' && (
-                        <div className="space-y-2 pt-4 border-t border-gray-100 dark:border-zinc-800">
-                          <label className="flex items-start gap-3 cursor-pointer group">
-                            <input
-                              type="checkbox"
-                              checked={deepResearchConcurrent}
-                              onChange={e => setDeepResearchConcurrent(e.target.checked)}
-                              className="w-4 h-4 mt-0.5 rounded border-gray-300 dark:border-zinc-600 text-primary-500 focus:ring-2 focus:ring-primary-500/20 cursor-pointer"
-                            />
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="text-sm font-medium text-gray-900 dark:text-gray-100 group-hover:text-primary-500 transition-colors">
-                                  {t('homeView.concurrentExecution')}
-                                </span>
-                                <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
-                                  {t('homeView.experimental')}
-                                </span>
-                              </div>
-                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                {t('homeView.concurrentExecutionDesc')}
-                              </p>
+                      {/* Concurrent Execution Toggle - Available for ALL research types */}
+                      <div className="space-y-2 pt-4 border-t border-gray-100 dark:border-zinc-800">
+                        <label className="flex items-start gap-3 cursor-pointer group">
+                          <input
+                            type="checkbox"
+                            checked={deepResearchConcurrent}
+                            onChange={e => setDeepResearchConcurrent(e.target.checked)}
+                            className="w-4 h-4 mt-0.5 rounded border-gray-300 dark:border-zinc-600 text-primary-500 focus:ring-2 focus:ring-primary-500/20 cursor-pointer"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-sm font-medium text-gray-900 dark:text-gray-100 group-hover:text-primary-500 transition-colors">
+                                {t('homeView.concurrentExecution')}
+                              </span>
+                              <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                                {t('homeView.experimental')}
+                              </span>
                             </div>
-                          </label>
-                        </div>
-                      )}
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                              {t('homeView.concurrentExecutionDesc')}
+                            </p>
+                          </div>
+                        </label>
+                      </div>
                     </div>
                   )}
 

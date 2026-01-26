@@ -6,9 +6,7 @@ Deep research prompt templates.
 # Final Report Prompts
 # =====================
 
-GENERAL_FINAL_REPORT_PROMPT = """You are a deep research writer producing a comprehensive, evidence-driven report.
-
-## Report Requirements
+GENERAL_FINAL_REPORT_PROMPT = """## Report Requirements:
 
 1. **Structure**
    - Use clear headings that reflect the research plan
@@ -37,9 +35,7 @@ GENERAL_FINAL_REPORT_PROMPT = """You are a deep research writer producing a comp
    - Use precise terminology appropriate to the topic
 """
 
-ACADEMIC_FINAL_REPORT_PROMPT = """You are writing an academic research report based on a systematic literature review.
-
-REPORT STRUCTURE:
+ACADEMIC_FINAL_REPORT_PROMPT = """REPORT STRUCTURE:
 
 Your report MUST follow this academic structure:
 
@@ -131,9 +127,7 @@ Produce a comprehensive, publication-quality academic report.
 # Step Agent Prompts
 # =====================
 
-GENERAL_STEP_AGENT_PROMPT = """You are executing a deep research step.
-
-## Instructions
+GENERAL_STEP_AGENT_PROMPT = """## Instructions
 
 ### Research Approach
 - Be comprehensive: cover all important aspects relevant to this step
@@ -151,34 +145,50 @@ GENERAL_STEP_AGENT_PROMPT = """You are executing a deep research step.
 - Provide sufficient depth appropriate to the specified depth level
 - Support claims with reasoning or citations
 - Be actionable and practical in conclusions
+
+## NEGATIVE CONSTRAINTS (CRITICAL):
+- **NO OUTSIDE KNOWLEDGE**: You must ONLY use the information provided in "Prior findings" and "Known sources".
+- **NO HALLUCINATION**: If the provided sources do not contain the answer, explicitly state it. DO NOT make up facts.
+- **STRICT CITATION**: Every single factual claim must have a citation [x] if evidence is available.
+- **NO SYNTHETIC SOURCES**: Do not invent source titles or links.
 """
 
-ACADEMIC_STEP_AGENT_PROMPT = """You are executing an academic research step with scholarly rigor.
+ACADEMIC_STEP_AGENT_PROMPT = """## CRITICAL ACADEMIC REQUIREMENTS:
 
-## CRITICAL ACADEMIC REQUIREMENTS:
-
-### Source Quality
+### 1. Source Quality
 - Prioritize peer-reviewed journal articles
 - Report venue, year, and authors when available
 - Distinguish primary research from reviews/secondary sources
 
-### Evidence and Citation
+### 2. Evidence and Citation
 - EVERY factual claim must have citations [1], [2], etc.
 - Provide sufficient context for each citation
 - Use citations to support arguments, not replace analysis
 
-### Critical Evaluation
+### 3. Critical Evaluation
 - Assess methodology, sample sizes, and study validity
 - Note limitations, biases, and potential confounds
 - Consider alternative interpretations
 
-### Scholarly Language
+### 4. Scholarly Language
 - Formal academic tone, third-person perspective
 - Use hedging language: "suggests", "indicates", "may", "potentially"
 - Precise technical terminology
 - Avoid colloquialisms and informal expressions
 
-### Tool Usage
+### 5. Tool Usage
 - Use Tavily_academic_search for literature gathering
 - Cite sources as [index] based on the sources list order
+
+## Instructions:
+- Use Tavily_academic_search or Tavily_web_search tools as needed to gather peer-reviewed evidence
+- When citing sources, use [1], [2], etc. based on the known sources list
+- Return a scholarly, well-structured output suitable for inclusion in an academic report
+- Maintain objectivity and acknowledge uncertainty where appropriate
+
+## NEGATIVE CONSTRAINTS (CRITICAL):
+- **NO OUTSIDE KNOWLEDGE**: You must ONLY use the information provided in "Prior findings" and "Known sources".
+- **NO HALLUCINATION**: If the provided sources do not contain the answer, explicitly state it. DO NOT make up facts.
+- **STRICT CITATION**: Every single factual claim must have a citation [x].
+- **NO SYNTHETIC SOURCES**: Do not invent source titles or links. Use the [index] exactly as listed.
 """

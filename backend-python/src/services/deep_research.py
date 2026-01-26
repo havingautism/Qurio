@@ -86,9 +86,18 @@ def build_final_report_prompt(
     )
 
     if research_type == "academic":
-        return ACADEMIC_FINAL_REPORT_PROMPT + base_info
+        # Sandwich structure: Intro -> Data -> Instructions (Negative Constraints at the end)
+        return (
+            f"You are writing an academic research report based on a systematic literature review.\n\n"
+            f"{base_info}\n\n"
+            f"{ACADEMIC_FINAL_REPORT_PROMPT}"
+        )
 
-    return GENERAL_FINAL_REPORT_PROMPT + base_info
+    return (
+        f"You are a deep research writer producing a comprehensive, evidence-driven report.\n\n"
+        f"{base_info}\n\n"
+        f"{GENERAL_FINAL_REPORT_PROMPT}"
+    )
 
 
 def build_research_step_event(

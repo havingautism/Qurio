@@ -351,20 +351,18 @@ async def stream_research_workflow(
     import ast
     import time
 
-    # Track current step info for tool calls
-    current_step_number = None
-    current_step_title = ""
-    step_start_time = None
-
-    # Track current step and its thinking content
-    current_step_content = []
-
     # Track tool calls for timing
     # Map internal unique_id -> start_time
     active_tool_calls = {}
     
-    # Map (step_number, original_tool_id) -> unique_id to handle reuse across steps
-    tool_id_mapping = {}
+    # Registry of active steps: step_name -> { number, title, start_time, content }
+    active_steps_info = {}
+    
+    # Scoped Tool ID Mapping: step_name -> { original_id: unique_id }
+    step_tool_mappings = {}
+
+    # Current/Latest step info (fallback for sequential or when event lacks step context)
+    current_step_context = {"number": None, "title": ""}
 
     # Run the workflow with streaming
     async for event in workflow.arun(
@@ -376,26 +374,42 @@ async def stream_research_workflow(
         # Get event type - Agno events use 'event' field
         event_type = event.get("event") if isinstance(event, dict) else getattr(event, "event", None)
 
-        if event_type == "StepStarted":
+        if event_type == "ParallelExecutionStarted":
+             logger.info("DEBUG_EVENT: ParallelExecutionStarted")
+
+        elif event_type == "ParallelExecutionCompleted":
+             logger.info("DEBUG_EVENT: ParallelExecutionCompleted")
+
+        elif event_type == "StepStarted":
             # Agno SDK uses step_name field (not name or description)
             step_name = getattr(event, "step_name", "")
             step_number = getattr(event, "step_index", None)
             logger.info(f"DEBUG_EVENT: StepStarted name={step_name} number={step_number}")
 
             if step_number is not None:
-                current_step_number = step_number + 1
-                current_step_title = step_name
-                step_start_time = time.time()
-
-            # Reset content for new step
-            current_step_content = []
+                # Register active step
+                active_steps_info[step_name] = {
+                    "number": step_number + 1,
+                    "title": step_name,
+                    "start_time": time.time(),
+                    "content": [] # Buffer for this step's thinking content
+                }
+                
+                # Update current context default (for sequential fallback)
+                current_step_context = {
+                    "number": step_number + 1,
+                    "title": step_name
+                }
+            
+            # Use data from active_steps if available, else fallback
+            step_display_num = active_steps_info.get(step_name, {}).get("number", 1)
 
             # Yield event in Node.js format
             yield {
                 "type": "research_step",
-                "step": current_step_number if current_step_number is not None else 1,
+                "step": step_display_num,
                 "total": total_steps,
-                "title": current_step_title or "",
+                "title": step_name,
                 "status": "running",
             }
         elif event_type == "StepCompleted":
@@ -403,20 +417,18 @@ async def stream_research_workflow(
             step_name = getattr(event, "step_name", "")
             step_number = getattr(event, "step_index", None)
             logger.info(f"DEBUG_EVENT: StepCompleted name={step_name} number={step_number}")
-
-            if step_number is not None:
-                step_num = step_number + 1
-            else:
-                step_num = current_step_number or 1
-
-            # Use step_name as the title
-            step_title = step_name or current_step_title
+            
+            # Retrieve step info
+            step_info = active_steps_info.get(step_name, {})
+            step_num = step_info.get("number", current_step_context["number"] or 1)
+            step_title = step_name or current_step_context["title"]
+            step_start = step_info.get("start_time")
+            step_content_buffer = step_info.get("content", [])
 
             # Calculate duration
             duration_ms = None
-            if step_start_time is not None:
-                duration_ms = int((time.time() - step_start_time) * 1000)
-                step_start_time = None
+            if step_start is not None:
+                duration_ms = int((time.time() - step_start) * 1000)
 
             # Extract step output for report generation
             step_output = getattr(event, "output", None)
@@ -425,8 +437,8 @@ async def stream_research_workflow(
             else:
                 output_content = getattr(event, "content", "")
 
-            # First, yield any accumulated step content as step_content events
-            for content_chunk in current_step_content:
+            # First, yield any accumulated step content
+            for content_chunk in step_content_buffer:
                 yield {
                     "type": "step_content",
                     "step": step_num,
@@ -443,10 +455,6 @@ async def stream_research_workflow(
                 "duration_ms": duration_ms,
             }
 
-            # Clear active tool calls and mapping for next step safety
-            active_tool_calls.clear()
-            tool_id_mapping.clear()
-
             # Also yield step output for report generation
             if output_content:
                 yield {
@@ -455,17 +463,30 @@ async def stream_research_workflow(
                     "content": output_content,
                 }
 
-            # Reset for next step
-            current_step_content = []
-            current_step_number = None
-            current_step_title = ""
+            # Cleanup step context
+            if step_name in active_steps_info:
+                del active_steps_info[step_name]
+            
+            # Global cleanup is minimized, we rely on scoped clear. 
+            # active_tool_calls.clear()  <-- Removing this global nuke to support parallel
+            # tool_id_mapping.clear()    <-- Removing this global nuke to support parallel
         # Handle Agent run events
         elif event_type == "RunContent":
             # Text content from agent during step execution - this is step thinking content
             content = getattr(event, "content", "")
             if content:
-                # Accumulate content for the current step - will be yielded on StepCompleted
-                current_step_content.append(content)
+                # Appending content logic:
+                # 1. Start Content: Should go to the current RUNNING step.
+                # In parallel, multiple steps might be running.
+                # We append to the latest active step as a heuristic, or ALL?
+                # Usually RunContent comes from the currently executing agent loop.
+                # Since we don't have step ID in RunContent, we use `active_steps_info` heuristic:
+                if active_steps_info:
+                    # Get the most recently added step (python dicts preserve insertion order)
+                    latest_step = list(active_steps_info.values())[-1]
+                    latest_step["content"].append(content)
+                else:
+                    pass
         # Handle WorkflowCompleted - this contains the final content
         elif event_type == "WorkflowCompleted":
             # WorkflowCompleted event contains the final output content
@@ -487,17 +508,31 @@ async def stream_research_workflow(
                 tool_name = getattr(event, "tool_name", getattr(event, "name", "unknown"))
                 tool_args = getattr(event, "tool_args", getattr(event, "arguments", {}))
             
-            # Generate a unique ID to ensure frontend uniqueness across steps
-            # Kimi reuse IDs like 'Tavily_web_search:0' in every step
+            # Generate a unique ID to ensure frontend uniqueness and parallel safety
+            # Kimi/Agno might reuse IDs like 'Tavily:0' across steps
             original_id = tool_id
             unique_id = f"{tool_name}_{uuid.uuid4().hex[:8]}"
             
-            # Map original ID to unique ID for this step
-            # We use a simple mapping since we clear it every step or handle it carefully
-            map_key = original_id if original_id is not None else "unknown_id"
-            tool_id_mapping[map_key] = unique_id
+            # Identify which step this tool call belongs to
+            # 1. Try to get step_name from event directly
+            event_step_name = getattr(event, "step_name", None)
+            target_step_name = None
+            
+            if event_step_name and event_step_name in active_steps_info:
+                target_step_name = event_step_name
+            elif len(active_steps_info) > 0:
+                # 2. Fallback: Assumption - if not specified, it belongs to the most recently started active step
+                target_step_name = list(active_steps_info.keys())[-1]
+            
+            # Store mapping in the correct scope
+            step_num_for_report = current_step_context["number"] or 1
+            if target_step_name:
+                if target_step_name not in step_tool_mappings:
+                     step_tool_mappings[target_step_name] = {}
+                step_tool_mappings[target_step_name][original_id if original_id else "unknown_id"] = unique_id
+                step_num_for_report = active_steps_info[target_step_name]["number"]
 
-            logger.info(f"DEBUG_EVENT: ToolCallStarted original_id={original_id} unique_id={unique_id} name={tool_name}")
+            logger.info(f"DEBUG_EVENT: ToolCallStarted original_id={original_id} unique_id={unique_id} name={tool_name} step={target_step_name}")
 
             # Record tool call start time with UNIQUE ID
             active_tool_calls[unique_id] = time.time()
@@ -524,13 +559,13 @@ async def stream_research_workflow(
             else:
                 tool_args_json = {}
 
-            # Yield event in Node.js format with UNIQUE ID
+            # Yield event in Node.js format with UNIQUE ID and CORRECT STEP
             yield {
                 "type": "tool_call",
                 "id": unique_id,
                 "name": tool_name,
                 "arguments": tool_args_json,
-                "step": current_step_number if current_step_number is not None else 1,
+                "step": step_num_for_report,
                 "total": total_steps,
             }
         elif event_type == "ToolCallCompleted":
@@ -548,16 +583,32 @@ async def stream_research_workflow(
                 result = getattr(event, "result", {})
                 tool_error = getattr(event, "error", getattr(event, "tool_call_error", None))
             
-            # Resolve to unique ID
+            # Resolve to unique ID with Scoped Lookup
             original_id = tool_id
-            map_key = original_id if original_id is not None else "unknown_id"
-            unique_id = tool_id_mapping.get(map_key)
-
-            # Fallback if mapping lost (shouldn't happen in normal flow)
+            unique_id = None
+            found_step_name = None
+            
+            # 1. Try direct lookup if step name known
+            event_step_name = getattr(event, "step_name", None)
+            if event_step_name and event_step_name in step_tool_mappings:
+                mapping = step_tool_mappings[event_step_name]
+                unique_id = mapping.get(original_id if original_id else "unknown_id")
+                found_step_name = event_step_name
+            else:
+                # 2. Search all active/recent mappings (Handle race or missing step info)
+                # Prioritize active steps
+                for s_name, mapping in reversed(step_tool_mappings.items()):
+                     uid = mapping.get(original_id if original_id else "unknown_id")
+                     if uid:
+                         unique_id = uid
+                         found_step_name = s_name
+                         break
+            
+            # Fallback if mapping lost
             if not unique_id:
                 unique_id = original_id or f"fallback_{uuid.uuid4().hex[:8]}"
 
-            logger.info(f"DEBUG_EVENT: ToolCallCompleted original_id={original_id} unique_id={unique_id} name={tool_name} error={tool_error}")
+            logger.info(f"DEBUG_EVENT: ToolCallCompleted original_id={original_id} unique_id={unique_id} name={tool_name} error={tool_error} step={found_step_name}")
 
             # Calculate duration
             duration_ms = None
@@ -565,9 +616,17 @@ async def stream_research_workflow(
                 duration_ms = int((time.time() - active_tool_calls[unique_id]) * 1000)
                 del active_tool_calls[unique_id]
             
-            # Remove mapping to keep clean
-            if map_key in tool_id_mapping:
-                del tool_id_mapping[map_key]
+            # Specific cleanup from mapping
+            if found_step_name and found_step_name in step_tool_mappings:
+                 map_key = original_id if original_id else "unknown_id"
+                 # Optional: clean up immediately or wait for step end?
+                 # Agno reuses IDs in loops? If loop, we shouldn't delete?
+                 # Safest for Kimi is to delete to prevent stale lookups, assuming 1 call = 1 event pair.
+                 if map_key in step_tool_mappings[found_step_name]:
+                     del step_tool_mappings[found_step_name][map_key]
+            
+            # Determine correct step number
+            step_num_for_report = active_steps_info.get(found_step_name, {}).get("number", current_step_context["number"] or 1)
 
             # Parse result to dict for source extraction
             result_dict = None
@@ -632,7 +691,7 @@ async def stream_research_workflow(
                 "duration_ms": duration_ms,
                 "output": output_value,
                 "error": str(tool_error) if tool_error else None,
-                "step": current_step_number if current_step_number is not None else 1,
+                "step": step_num_for_report,
                 "total": total_steps,
             }
 
@@ -735,8 +794,10 @@ async def stream_deep_research(params: dict[str, Any]) -> AsyncGenerator[dict[st
         elif event_type == "step_output":
             # Collect step output for final report
             output_content = event.get("content", "")
+            step_num = event.get("step", 999) # Default to high number if missing
             if output_content:
-                step_outputs.append(output_content)
+                # Store dict of (step_num, content) to sort later
+                step_outputs.append({"step": step_num, "content": output_content})
         elif event_type == "workflow_completed":
             # Workflow completed - we don't need this anymore since we collected step outputs
             break
@@ -747,8 +808,12 @@ async def stream_deep_research(params: dict[str, Any]) -> AsyncGenerator[dict[st
     # Generate final report using all step outputs as findings
     report_sources_list = build_sources_list(sources_map)
 
+    # Sort outputs by step number to ensure logical order (critical for parallel execution)
+    step_outputs.sort(key=lambda x: x["step"])
+    sorted_contents = [x["content"] for x in step_outputs]
+
     # Use step_outputs as findings for comprehensive report generation
-    findings_for_report = step_outputs if step_outputs else ["No step outputs available"]
+    findings_for_report = sorted_contents if sorted_contents else ["No step outputs available"]
 
     report_prompt = build_final_report_prompt(
         plan_meta=plan_meta,

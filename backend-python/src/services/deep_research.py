@@ -11,6 +11,10 @@ import ast
 import json
 from types import SimpleNamespace
 from typing import Any, AsyncGenerator
+from types import SimpleNamespace
+from typing import Any, AsyncGenerator
+import uuid
+from agno.utils.log import logger
 
 from agno.agent import Agent
 from agno.workflow import Workflow
@@ -356,7 +360,11 @@ async def stream_research_workflow(
     current_step_content = []
 
     # Track tool calls for timing
+    # Map internal unique_id -> start_time
     active_tool_calls = {}
+    
+    # Map (step_number, original_tool_id) -> unique_id to handle reuse across steps
+    tool_id_mapping = {}
 
     # Run the workflow with streaming
     async for event in workflow.arun(
@@ -372,6 +380,7 @@ async def stream_research_workflow(
             # Agno SDK uses step_name field (not name or description)
             step_name = getattr(event, "step_name", "")
             step_number = getattr(event, "step_index", None)
+            logger.info(f"DEBUG_EVENT: StepStarted name={step_name} number={step_number}")
 
             if step_number is not None:
                 current_step_number = step_number + 1
@@ -393,6 +402,7 @@ async def stream_research_workflow(
             # Agno SDK uses step_name field (not name or description)
             step_name = getattr(event, "step_name", "")
             step_number = getattr(event, "step_index", None)
+            logger.info(f"DEBUG_EVENT: StepCompleted name={step_name} number={step_number}")
 
             if step_number is not None:
                 step_num = step_number + 1
@@ -433,6 +443,10 @@ async def stream_research_workflow(
                 "duration_ms": duration_ms,
             }
 
+            # Clear active tool calls and mapping for next step safety
+            active_tool_calls.clear()
+            tool_id_mapping.clear()
+
             # Also yield step output for report generation
             if output_content:
                 yield {
@@ -472,10 +486,21 @@ async def stream_research_workflow(
                 tool_id = getattr(event, "tool_call_id", getattr(event, "id", None))
                 tool_name = getattr(event, "tool_name", getattr(event, "name", "unknown"))
                 tool_args = getattr(event, "tool_args", getattr(event, "arguments", {}))
+            
+            # Generate a unique ID to ensure frontend uniqueness across steps
+            # Kimi reuse IDs like 'Tavily_web_search:0' in every step
+            original_id = tool_id
+            unique_id = f"{tool_name}_{uuid.uuid4().hex[:8]}"
+            
+            # Map original ID to unique ID for this step
+            # We use a simple mapping since we clear it every step or handle it carefully
+            map_key = original_id if original_id is not None else "unknown_id"
+            tool_id_mapping[map_key] = unique_id
 
-            # Record tool call start time
-            if tool_id:
-                active_tool_calls[tool_id] = time.time()
+            logger.info(f"DEBUG_EVENT: ToolCallStarted original_id={original_id} unique_id={unique_id} name={tool_name}")
+
+            # Record tool call start time with UNIQUE ID
+            active_tool_calls[unique_id] = time.time()
 
             # Ensure tool_args is properly formatted as JSON string with double quotes
             # If it's already a dict, convert to JSON string with double quotes
@@ -499,10 +524,10 @@ async def stream_research_workflow(
             else:
                 tool_args_json = {}
 
-            # Yield event in Node.js format
+            # Yield event in Node.js format with UNIQUE ID
             yield {
                 "type": "tool_call",
-                "id": tool_id,
+                "id": unique_id,
                 "name": tool_name,
                 "arguments": tool_args_json,
                 "step": current_step_number if current_step_number is not None else 1,
@@ -522,12 +547,27 @@ async def stream_research_workflow(
                 tool_name = getattr(event, "tool_name", getattr(event, "name", "unknown"))
                 result = getattr(event, "result", {})
                 tool_error = getattr(event, "error", getattr(event, "tool_call_error", None))
+            
+            # Resolve to unique ID
+            original_id = tool_id
+            map_key = original_id if original_id is not None else "unknown_id"
+            unique_id = tool_id_mapping.get(map_key)
+
+            # Fallback if mapping lost (shouldn't happen in normal flow)
+            if not unique_id:
+                unique_id = original_id or f"fallback_{uuid.uuid4().hex[:8]}"
+
+            logger.info(f"DEBUG_EVENT: ToolCallCompleted original_id={original_id} unique_id={unique_id} name={tool_name} error={tool_error}")
 
             # Calculate duration
             duration_ms = None
-            if tool_id and tool_id in active_tool_calls:
-                duration_ms = int((time.time() - active_tool_calls[tool_id]) * 1000)
-                del active_tool_calls[tool_id]
+            if unique_id and unique_id in active_tool_calls:
+                duration_ms = int((time.time() - active_tool_calls[unique_id]) * 1000)
+                del active_tool_calls[unique_id]
+            
+            # Remove mapping to keep clean
+            if map_key in tool_id_mapping:
+                del tool_id_mapping[map_key]
 
             # Parse result to dict for source extraction
             result_dict = None
@@ -583,10 +623,10 @@ async def stream_research_workflow(
                 else:
                     output_value = json.dumps(result, ensure_ascii=False)
 
-            # Yield event in Node.js format
+            # Yield event in Node.js format with UNIQUE ID
             yield {
                 "type": "tool_result",
-                "id": tool_id,
+                "id": unique_id,
                 "name": tool_name,
                 "status": status,
                 "duration_ms": duration_ms,

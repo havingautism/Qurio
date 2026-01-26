@@ -93,6 +93,41 @@ const normalizeMarkdownSpacing = text => {
 export const TOOL_DISPLAY_NAMES = {
   Tavily_web_search: 'Web Search',
   Tavily_academic_search: 'Academic Search',
+  memory_update: 'Long-term Memory',
+}
+
+const MEMORY_UPDATE_TOOL = {
+  type: 'function',
+  function: {
+    name: 'memory_update',
+    description:
+      'Updates or adds a specific domain of long-term memory about the user. Use this when the user shares personal background, preferences, or important context that should be remembered across sessions.',
+    parameters: {
+      type: 'object',
+      properties: {
+        domain_key: {
+          type: 'string',
+          description:
+            'A unique ID for the memory domain (e.g. "music", "career", "personal_intro"). Use existing IDs if they match.',
+        },
+        summary: {
+          type: 'string',
+          description: 'A concise summary of the information to be remembered.',
+        },
+        aliases: {
+          type: 'array',
+          items: { type: 'string' },
+          description:
+            'Optional synonyms or tags. IMPORTANT: MUST be a list of strings, e.g. ["tag1", "tag2"].',
+        },
+        scope: {
+          type: 'string',
+          description: 'Optional description of what this domain covers.',
+        },
+      },
+      required: ['domain_key', 'summary'],
+    },
+  },
 }
 
 const resolveSearchTools = (isSearchActive, searchTool) => {
@@ -100,6 +135,14 @@ const resolveSearchTools = (isSearchActive, searchTool) => {
   const toolIds = Array.isArray(searchTool) ? searchTool : [searchTool]
   const resolved = toolIds.filter(Boolean).map(id => createSearchToolDefinition(id))
   return resolved.length > 0 ? resolved : undefined
+}
+
+const resolveTools = (isSearchActive, searchTool, enableMemory) => {
+  const tools = resolveSearchTools(isSearchActive, searchTool) || []
+  if (enableMemory) {
+    tools.push(MEMORY_UPDATE_TOOL)
+  }
+  return tools.length > 0 ? tools : undefined
 }
 
 export const PROVIDERS = {
@@ -111,7 +154,8 @@ export const PROVIDERS = {
       apiKey: settings.OpenAICompatibilityKey,
       baseUrl: settings.OpenAICompatibilityUrl,
     }),
-    getTools: (isSearchActive, searchTool) => resolveSearchTools(isSearchActive, searchTool),
+    getTools: (isSearchActive, searchTool, enableMemory) =>
+      resolveTools(isSearchActive, searchTool, enableMemory),
     getThinking: isThinkingActive =>
       isThinkingActive
         ? {
@@ -135,7 +179,8 @@ export const PROVIDERS = {
       apiKey: settings.SiliconFlowKey,
       baseUrl: SILICONFLOW_BASE_URL,
     }),
-    getTools: (isSearchActive, searchTool) => resolveSearchTools(isSearchActive, searchTool),
+    getTools: (isSearchActive, searchTool, enableMemory) =>
+      resolveTools(isSearchActive, searchTool, enableMemory),
     getThinking: isThinkingActive =>
       isThinkingActive
         ? {
@@ -152,7 +197,8 @@ export const PROVIDERS = {
       apiKey: settings.googleApiKey || getPublicEnv('PUBLIC_GOOGLE_API_KEY'),
       baseUrl: undefined, // Native SDK usually handles its own endpoints
     }),
-    getTools: (isSearchActive, searchTool) => resolveSearchTools(isSearchActive, searchTool),
+    getTools: (isSearchActive, searchTool, enableMemory) =>
+      resolveTools(isSearchActive, searchTool, enableMemory),
     // GLM requires explicit { type: "disabled" } to suppress thinking content
     getThinking: isThinkingActive => ({
       type: isThinkingActive ? 'enabled' : 'disabled',
@@ -164,10 +210,11 @@ export const PROVIDERS = {
     id: 'glm',
     name: 'GLM (Zhipu AI)',
     getCredentials: settings => ({
-      apiKey: settings.GLMKey || getPublicEnv('PUBLIC_GLM_API_KEY'),
+      apiKey: settings.GlmKey || settings.GLMKey || getPublicEnv('PUBLIC_GLM_API_KEY'),
       baseUrl: GLM_BASE_URL,
     }),
-    getTools: (isSearchActive, searchTool) => resolveSearchTools(isSearchActive, searchTool),
+    getTools: (isSearchActive, searchTool, enableMemory) =>
+      resolveTools(isSearchActive, searchTool, enableMemory),
     getThinking: isThinkingActive => ({
       type: isThinkingActive ? 'enabled' : 'disabled',
     }),
@@ -181,31 +228,14 @@ export const PROVIDERS = {
       apiKey: settings.ModelScopeKey || getPublicEnv('PUBLIC_MODELSCOPE_API_KEY'),
       baseUrl: MODELSCOPE_BASE_URL,
     }),
-    getTools: (isSearchActive, searchTool) => resolveSearchTools(isSearchActive, searchTool),
+    getTools: (isSearchActive, searchTool, enableMemory) =>
+      resolveTools(isSearchActive, searchTool, enableMemory),
     getThinking: isThinkingActive =>
       isThinkingActive
         ? {
             budget_tokens: 1024,
           }
         : undefined,
-    parseMessage: defaultParseMessage,
-    // parseMessage: input => {
-    //   const parsed = defaultParseMessage(input)
-    //   return { ...parsed, content: normalizeMarkdownSpacing(parsed.content) }
-    // },
-  },
-  glm: {
-    ...createBackendProvider('glm'),
-    id: 'glm',
-    name: 'GLM (Zhipu AI)',
-    getCredentials: settings => ({
-      apiKey: settings.GlmKey || getPublicEnv('PUBLIC_GLM_API_KEY'),
-      baseUrl: GLM_BASE_URL,
-    }),
-    getTools: (isSearchActive, searchTool) => resolveSearchTools(isSearchActive, searchTool),
-    getThinking: isThinkingActive => ({
-      type: isThinkingActive ? 'enabled' : 'disabled',
-    }),
     parseMessage: defaultParseMessage,
   },
   kimi: {
@@ -216,7 +246,8 @@ export const PROVIDERS = {
       apiKey: settings.KimiKey || getPublicEnv('PUBLIC_KIMI_API_KEY'),
       baseUrl: getPublicEnv('PUBLIC_KIMI_BASE_URL'),
     }),
-    getTools: (isSearchActive, searchTool) => resolveSearchTools(isSearchActive, searchTool),
+    getTools: (isSearchActive, searchTool, enableMemory) =>
+      resolveTools(isSearchActive, searchTool, enableMemory),
     getThinking: (isThinkingActive, modelName) => {
       if (shouldOmitThinkingParam(modelName)) return undefined
       return isThinkingActive
@@ -238,7 +269,8 @@ export const PROVIDERS = {
       apiKey: settings.NvidiaKey,
       baseUrl: NVIDIA_BASE_URL,
     }),
-    getTools: (isSearchActive, searchTool) => resolveSearchTools(isSearchActive, searchTool),
+    getTools: (isSearchActive, searchTool, enableMemory) =>
+      resolveTools(isSearchActive, searchTool, enableMemory),
     getThinking: (isThinkingActive, modelName) =>
       shouldOmitThinkingParam(modelName) ? undefined : isThinkingActive ? true : undefined,
     parseMessage: defaultParseMessage,
@@ -251,7 +283,8 @@ export const PROVIDERS = {
       apiKey: settings.MinimaxKey,
       baseUrl: MINIMAX_BASE_URL,
     }),
-    getTools: (isSearchActive, searchTool) => resolveSearchTools(isSearchActive, searchTool),
+    getTools: (isSearchActive, searchTool, enableMemory) =>
+      resolveTools(isSearchActive, searchTool, enableMemory),
     getThinking: (isThinkingActive, modelName) => {
       if (shouldOmitThinkingParam(modelName)) return undefined
       return isThinkingActive

@@ -192,6 +192,38 @@ AGENT_TOOLS: list[dict[str, Any]] = [
             },
         },
     },
+    {
+        "id": "memory_update",
+        "name": "memory_update",
+        "category": "memory",
+        "description": (
+            "Updates or adds a specific domain of long-term memory about the user. "
+            "Use this when the user shares personal background, preferences, or important context that should be remembered across sessions."
+        ),
+        "parameters": {
+            "type": "object",
+            "required": ["domain_key", "summary"],
+            "properties": {
+                "domain_key": {
+                    "type": "string",
+                    "description": 'A unique ID for the memory domain (e.g. "music", "career", "personal_intro").',
+                },
+                "summary": {
+                    "type": "string",
+                    "description": "A concise summary of the information to be remembered.",
+                },
+                "aliases": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Optional synonyms or related tags for this domain.",
+                },
+                "scope": {
+                    "type": "string",
+                    "description": "Optional description of what this domain covers.",
+                },
+            },
+        },
+    },
 ]
 
 AGNO_TOOLS: list[dict[str, Any]] = [

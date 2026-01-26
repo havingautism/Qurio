@@ -77,8 +77,10 @@ class QurioLocalTools(Toolkit):
             self.json_repair,
             interactive_form,
             self.webpage_reader,
+            self.webpage_reader,
             self.tavily_web_search,
             self.tavily_academic_search,
+            self.memory_update,
         ]
         super().__init__(name="QurioLocalTools", tools=tools, include_tools=include_tools)
 
@@ -206,6 +208,36 @@ class QurioLocalTools(Toolkit):
     def _split_sentences(self, text: str) -> list[str]:
         parts = re.split(r"[.!?\u3002\uff01\uff1f]+", text or "")
         return [s.strip() for s in parts if s.strip()]
+
+    @tool(
+        name="memory_update",
+        description="Updates or adds a specific domain of long-term memory about the user.",
+    )
+    def memory_update(self, domain_key: str, summary: str, aliases: Any = None, scope: str = "") -> str:
+        """
+        No-op implementation for backend. The real save happens on the frontend asynchronously.
+        Resilience: Handles models that pass aliases as stringified JSON arrays instead of proper lists.
+        """
+        # Actual validation/parsing of aliases is handled here to satisfy Pydantic
+        actual_aliases = []
+        if isinstance(aliases, list):
+            actual_aliases = aliases
+        elif isinstance(aliases, dict):
+            # Handle dictionary-style aliases (keys and string values)
+            actual_aliases = [str(k) for k in aliases.keys()] + [
+                str(v) for v in aliases.values() if isinstance(v, (str, int, float))
+            ]
+        elif isinstance(aliases, str) and aliases.strip().startswith("["):
+            try:
+                import json
+
+                parsed = json.loads(aliases)
+                if isinstance(parsed, list):
+                    actual_aliases = parsed
+            except:
+                pass
+
+        return f"Memory domain '{domain_key}' updated successfully."
 
     def _resolve_tavily_api_key(self) -> str:
         if self._tavily_api_key:

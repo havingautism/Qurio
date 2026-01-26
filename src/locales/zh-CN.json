@@ -79,7 +79,9 @@
     "technicalIndicators": "技术指标",
     "technicalIndicatorsInfo": "计算股票的技术指标。",
     "historicalPrices": "历史价格",
-    "historicalPricesInfo": "获取股票的历史价格数据。"
+    "historicalPricesInfo": "获取股票的历史价格数据。",
+    "memoryUpdate": "更新记忆",
+    "memoryUpdateInfo": "自动将对话中的重要信息存入长期记忆。"
   },
   "searchBackends": {
     "auto": "自动",

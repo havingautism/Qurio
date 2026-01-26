@@ -11,7 +11,28 @@ let memoryCache = { domains: [], fetchedAt: 0 }
 const normalizeText = value => String(value || '').trim()
 
 const normalizeAliases = aliases => {
-  if (!Array.isArray(aliases)) return []
+  if (typeof aliases === 'string' && aliases.trim().startsWith('[')) {
+    try {
+      const parsed = JSON.parse(aliases)
+      if (Array.isArray(parsed)) return parsed.map(item => normalizeText(item)).filter(Boolean)
+    } catch (e) {
+      // Not valid JSON array, treat as single string
+    }
+  }
+
+  // Handle object/dictionary style aliases (keys/values)
+  if (aliases && typeof aliases === 'object' && !Array.isArray(aliases)) {
+    try {
+      return Object.entries(aliases)
+        .flatMap(([k, v]) => [k, v])
+        .map(item => normalizeText(item))
+        .filter(Boolean)
+    } catch (e) {
+      // Fallback
+    }
+  }
+
+  if (!Array.isArray(aliases)) return aliases ? [normalizeText(aliases)].filter(Boolean) : []
   return aliases.map(item => normalizeText(item)).filter(Boolean)
 }
 
@@ -129,26 +150,56 @@ export const deleteMemoryDomain = async domainKey => {
 export const upsertMemoryDomainSummary = async ({
   domainKey,
   summary,
-  scope = '',
   aliases = [],
+  scope = '',
   evidence = '',
+  append = false,
 }) => {
-  const trimmedKey = normalizeText(domainKey)
+  const trimmedKey = normalizeText(domainKey).toLowerCase()
   const trimmedSummary = truncateSummary(summary)
-  if (!trimmedKey || !trimmedSummary) {
-    return { updated: false }
-  }
-
   const resolvedAliases = normalizeAliases(aliases)
   const resolvedScope = normalizeText(scope)
   const resolvedEvidence = normalizeText(evidence)
   const updatedAt = new Date().toISOString()
 
+  if (!trimmedKey || !trimmedSummary) {
+    return { updated: false, error: 'Domain key and summary are required' }
+  }
+
   const supabase = getSupabaseClient()
-  if (supabase) {
+  if (!supabase) {
+    // Local storage fallback logic
+    const domains = loadLocalMemoryState()
+    const index = domains.findIndex(d => d.domain_key === trimmedKey)
+
+    let updatedSummary = trimmedSummary
+    if (append && index !== -1) {
+      updatedSummary = truncateSummary(`${domains[index].summary}\n${trimmedSummary}`)
+    }
+
+    const entry = {
+      domain_key: trimmedKey,
+      summary: updatedSummary,
+      aliases:
+        resolvedAliases.length > 0 ? resolvedAliases : index !== -1 ? domains[index].aliases : [],
+      scope: resolvedScope || (index !== -1 ? domains[index].scope : ''),
+      updated_at: updatedAt,
+    }
+
+    if (index !== -1) {
+      domains[index] = entry
+    } else {
+      domains.push(entry)
+    }
+    updateLocalCache(domains)
+    return { updated: true, domain: entry }
+  }
+
+  try {
+    // 1. Ensure domain exists
     const { data: existing, error: existingError } = await supabase
       .from(MEMORY_DOMAIN_TABLE)
-      .select('*')
+      .select('*, memory_summaries(summary)')
       .eq('domain_key', trimmedKey)
       .maybeSingle()
 
@@ -160,8 +211,8 @@ export const upsertMemoryDomainSummary = async ({
       const { data: updatedDomain, error: updateError } = await supabase
         .from(MEMORY_DOMAIN_TABLE)
         .update({
-          aliases: resolvedAliases,
-          scope: resolvedScope,
+          aliases: resolvedAliases.length > 0 ? resolvedAliases : existing.aliases,
+          scope: resolvedScope || existing.scope,
           updated_at: updatedAt,
         })
         .eq('id', existing.id)
@@ -172,13 +223,23 @@ export const upsertMemoryDomainSummary = async ({
         console.error('Failed to update memory domain:', updateError)
       }
 
+      let finalSummary = trimmedSummary
+      if (append) {
+        const oldSummary = Array.isArray(existing.memory_summaries)
+          ? existing.memory_summaries[0]?.summary
+          : existing.memory_summaries?.summary || ''
+        if (oldSummary) {
+          finalSummary = truncateSummary(`${oldSummary}\n${trimmedSummary}`)
+        }
+      }
+
       const { data: summaryRecord, error: summaryError } = await supabase
         .from(MEMORY_SUMMARY_TABLE)
         .upsert(
           [
             {
               domain_id: existing.id,
-              summary: trimmedSummary,
+              summary: finalSummary,
               evidence: resolvedEvidence || null,
               updated_at: updatedAt,
             },
@@ -237,39 +298,15 @@ export const upsertMemoryDomainSummary = async ({
       }
 
       memoryCache = { domains: [], fetchedAt: 0 }
+      console.log(`[Memory] Upserted domain: ${trimmedKey}`)
       await getMemoryDomains()
       return { updated: true, domain: insertedDomain, summary: summaryRecord }
     }
+    return { updated: false, error: 'Failed' }
+  } catch (err) {
+    console.error('Unexpected error in upsertMemoryDomainSummary:', err)
+    return { updated: false, error: err.message }
   }
-
-  const localDomains = memoryCache.domains || []
-  const existingIndex = localDomains.findIndex(
-    domain => normalizeText(domain.domain_key) === trimmedKey,
-  )
-
-  const nextDomain = {
-    ...(existingIndex >= 0 ? localDomains[existingIndex] : {}),
-    domain_key: trimmedKey,
-    aliases: resolvedAliases,
-    scope: resolvedScope,
-    updated_at: updatedAt,
-    latest_summary: {
-      id: `local-summary-${Date.now()}`,
-      domain_id: existingIndex >= 0 ? localDomains[existingIndex].id : `local-${Date.now()}`,
-      summary: trimmedSummary,
-      evidence: resolvedEvidence || null,
-      updated_at: updatedAt,
-    },
-  }
-
-  const updatedDomains = [...localDomains]
-  if (existingIndex >= 0) {
-    updatedDomains[existingIndex] = nextDomain
-  } else {
-    updatedDomains.unshift(nextDomain)
-  }
-  updateLocalCache(updatedDomains)
-  return { updated: true, domain: nextDomain, summary: nextDomain.latest_summary }
 }
 
 export const ensureLongTermMemoryIndex = async ({ text }) => {

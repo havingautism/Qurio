@@ -343,9 +343,7 @@ const MessageBubble = ({
 
   const resolvedSearchBackends = useMemo(() => {
     if (Array.isArray(mergedMessage?.searchBackends) && mergedMessage.searchBackends.length > 0) {
-      return mergedMessage.searchBackends
-        .map(item => String(item))
-        .filter(Boolean)
+      return mergedMessage.searchBackends.map(item => String(item)).filter(Boolean)
     }
     if (typeof mergedMessage?.searchBackend === 'string' && mergedMessage.searchBackend) {
       return [mergedMessage.searchBackend]
@@ -386,12 +384,11 @@ const MessageBubble = ({
   const getToolDisplayName = useCallback(
     tool => {
       if (!tool) return ''
-      const baseName =
-        TOOL_TRANSLATION_KEYS[tool.name] ? t(TOOL_TRANSLATION_KEYS[tool.name]) : tool.name
+      const baseName = TOOL_TRANSLATION_KEYS[tool.name]
+        ? t(TOOL_TRANSLATION_KEYS[tool.name])
+        : tool.name
       if (tool.name === 'web_search' || tool.name === 'search_news') {
-        const backendLabels = resolvedSearchBackends
-          .map(resolveSearchBackendLabel)
-          .filter(Boolean)
+        const backendLabels = resolvedSearchBackends.map(resolveSearchBackendLabel).filter(Boolean)
         if (backendLabels.length > 0) {
           return `${baseName} · ${backendLabels.join(' / ')}`
         }
@@ -448,7 +445,11 @@ const MessageBubble = ({
       if (typeof tool.arguments === 'object') {
         if (tool.arguments.backend || tool.arguments.backends) return tool.arguments
         return resolvedSearchBackends.length > 1
-          ? { ...tool.arguments, backend: resolvedSearchBackends[0], backends: resolvedSearchBackends }
+          ? {
+              ...tool.arguments,
+              backend: resolvedSearchBackends[0],
+              backends: resolvedSearchBackends,
+            }
           : { ...tool.arguments, backend: resolvedSearchBackends[0] }
       }
 
@@ -2634,10 +2635,18 @@ const MessageBubble = ({
                       {(() => {
                         const content = formatJsonForDisplay(activeToolDetail.output)
                         const trimmed = content.trim()
-                        return (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+                        // If it's already JSON-like, it probably used the json code block logic in formatJsonForDisplay or similar
+                        if (
+                          (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
                           (trimmed.startsWith('[') && trimmed.endsWith(']'))
-                          ? `\`\`\`json\n${content}\n\`\`\``
-                          : content
+                        ) {
+                          return `\`\`\`json\n${content}\n\`\`\``
+                        }
+                        // If it's a non-empty string, wrap it in a text code block for better readability
+                        if (trimmed.length > 0) {
+                          return `\`\`\`TEXT\n${content}\n\`\`\``
+                        }
+                        return content
                       })()}
                     </Streamdown>
                   </div>

@@ -14,7 +14,11 @@ import { buildResponseStylePromptFromAgent } from './settings'
 import { listSpaceAgents } from './spacesService'
 import { fetchDocumentChunkContext } from './documentRetrievalService'
 import { formatDocumentAppendText } from './documentContextUtils'
-import { formatMemorySummariesAppendText, getMemoryDomains } from './longTermMemoryService'
+import {
+  formatMemorySummariesAppendText,
+  getMemoryDomains,
+  upsertMemoryDomainSummary,
+} from './longTermMemoryService'
 
 // ================================================================================
 // CHAT STORE HELPER FUNCTIONS
@@ -1405,7 +1409,7 @@ const callAIAPI = async (
         ...(m.tool_call_id && { tool_call_id: m.tool_call_id }),
         ...(m.name && { name: m.name }),
       })),
-      tools: provider.getTools(toggles.search, toggles.searchTool),
+      tools: provider.getTools(toggles.search, toggles.searchTool, settings.enableLongTermMemory),
       toolIds: resolvedToolIds,
       memoryProvider: resolvedMemoryProvider,
       memoryModel: resolvedMemoryModel,
@@ -1754,11 +1758,12 @@ const finalizeMessage = async (
     const lastMsgIndex = updated.length - 1
     if (lastMsgIndex >= 0 && updated[lastMsgIndex].role === 'ai') {
       const lastMsg = { ...updated[lastMsgIndex] }
+      const validToolCallHistory = Array.isArray(lastMsg.toolCallHistory)
+        ? lastMsg.toolCallHistory
+        : []
+
       if (typeof result?.content !== 'undefined') {
         // Check if existing content has a form (continuation scenario)
-        const validToolCallHistory = Array.isArray(lastMsg.toolCallHistory)
-          ? lastMsg.toolCallHistory
-          : []
         const hasFormInExisting = validToolCallHistory.some(tc => tc.name === 'interactive_form')
 
         if (!hasFormInExisting) {
@@ -1769,8 +1774,54 @@ const finalizeMessage = async (
       }
       const thoughtToApply = normalizedThought || lastMsg.thought || ''
       lastMsg.thought = thoughtToApply ? thoughtToApply : undefined
-      if (result?.toolCalls) {
-        lastMsg.tool_calls = result.toolCalls
+      const toolCallsToProcess = result?.toolCalls || validToolCallHistory
+
+      if (toolCallsToProcess && toolCallsToProcess.length > 0) {
+        lastMsg.tool_calls = toolCallsToProcess
+
+        // Background memory updates if long-term memory is enabled
+        if (settings.enableLongTermMemory) {
+          console.log('[Memory] Checking for auto-updates in background...', {
+            toolCalls: toolCallsToProcess.length,
+          })
+          toolCallsToProcess.forEach(tc => {
+            const toolName = tc.name || tc.function?.name
+            if (toolName === 'memory_update') {
+              try {
+                const args =
+                  typeof tc.arguments === 'string' ? JSON.parse(tc.arguments) : tc.arguments
+                if (args?.domain_key && args?.summary) {
+                  console.log(`[Memory] Background auto-update triggered for: ${args.domain_key}`, {
+                    domain: args.domain_key,
+                    summary: args.summary,
+                  })
+                  // Fire and forget
+                  upsertMemoryDomainSummary({
+                    domainKey: args.domain_key,
+                    summary: args.summary,
+                    aliases: args.aliases || [],
+                    scope: args.scope || '',
+                    append: true,
+                  })
+                    .then(() => {
+                      console.log(`[Memory] Background auto-update successful: ${args.domain_key}`)
+                      getMemoryDomains() // Refresh cache
+                    })
+                    .catch(err => {
+                      console.error(
+                        `[Memory] Background auto-update failed: ${args.domain_key}`,
+                        err,
+                      )
+                    })
+                } else {
+                  console.warn('[Memory] Skipping auto-update: Missing domain_key or summary', args)
+                }
+              } catch (e) {
+                console.error('[Memory] Failed to parse memory_update arguments:', e)
+              }
+            }
+          })
+        }
       }
       lastMsg.provider = modelConfig.provider
       lastMsg.model = modelConfig.model

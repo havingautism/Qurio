@@ -27,6 +27,7 @@ export const TOOL_TRANSLATION_KEYS = {
   get_company_news: 'tools.companyNews',
   get_technical_indicators: 'tools.technicalIndicators',
   get_historical_stock_prices: 'tools.historicalPrices',
+  memory_update: 'tools.memoryUpdate',
 }
 
 // Tool icons mapping (using lucide-react icon names)
@@ -59,6 +60,7 @@ export const TOOL_ICONS = {
   get_company_news: 'Search',
   get_technical_indicators: 'LineChart',
   get_historical_stock_prices: 'LineChart',
+  memory_update: 'BrainCircuit',
 }
 
 // Tool usage info keys for translations
@@ -91,4 +93,5 @@ export const TOOL_INFO_KEYS = {
   get_company_news: 'tools.companyNewsInfo',
   get_technical_indicators: 'tools.technicalIndicatorsInfo',
   get_historical_stock_prices: 'tools.historicalPricesInfo',
+  memory_update: 'tools.memoryUpdateInfo',
 }

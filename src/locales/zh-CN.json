@@ -438,8 +438,7 @@
     "longTermMemory": "长期记忆",
     "longTermMemoryHint": "启用长期记忆将降低每个会话的响应速度。",
     "enableLongTermMemory": "启用长期记忆",
-    "memoryRecallLimit": "每次召回数量",
-    "memoryRecallLimitHint": "每次回答最多召回的记忆条数。",
+
     "liteModel": "轻量",
     "liteModelHelper": "标题、相关问题、空间建议",
     "defaultModel": "默认",

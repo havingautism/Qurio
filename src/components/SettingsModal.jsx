@@ -513,8 +513,7 @@ const resolveLiteModelConfig = (agent, settings) => {
 const validateSettingsForSave = settings => {
   const contextLimit = Number(settings.contextMessageLimit)
   if (!Number.isFinite(contextLimit) || contextLimit < 1 || contextLimit > 50) return false
-  const memoryLimit = Number(settings.memoryRecallLimit)
-  if (!Number.isFinite(memoryLimit) || memoryLimit < 1 || memoryLimit > 20) return false
+
   return true
 }
 
@@ -566,7 +565,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
   const [interfaceLanguage, setInterfaceLanguage] = useState('en')
   const [followInterfaceLanguage, setFollowInterfaceLanguage] = useState(false)
   const [enableLongTermMemory, setEnableLongTermMemory] = useState(false)
-  const [memoryRecallLimit, setMemoryRecallLimit] = useState(5)
+
   const [embeddingProvider, setEmbeddingProvider] = useState('')
   const [embeddingModel, setEmbeddingModel] = useState('')
   const [embeddingModelSource, setEmbeddingModelSource] = useState('list')
@@ -773,8 +772,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
         setFollowInterfaceLanguage(settings.followInterfaceLanguage)
       if (typeof settings.enableLongTermMemory === 'boolean')
         setEnableLongTermMemory(settings.enableLongTermMemory)
-      const parsedRecallLimit = Number(settings.memoryRecallLimit)
-      if (Number.isFinite(parsedRecallLimit)) setMemoryRecallLimit(parsedRecallLimit)
+
       if (settings.embeddingProvider) setEmbeddingProvider(settings.embeddingProvider)
       if (settings.embeddingModelSource)
         setEmbeddingModelSource(settings.embeddingModelSource || 'list')
@@ -1544,7 +1542,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
         contextMessageLimit,
         // Memory
         enableLongTermMemory,
-        memoryRecallLimit,
+
         userSelfIntro,
         // Embedding
         embeddingProvider,
@@ -2655,26 +2653,6 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                       )}
                     />
                   </button>
-                </div>
-
-                <div className="flex flex-col gap-2">
-                  <label className="text-sm font-medium text-gray-900 dark:text-white">
-                    {t('settings.memoryRecallLimit')}
-                  </label>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {t('settings.memoryRecallLimitHint')}
-                  </p>
-                  <input
-                    type="number"
-                    min={1}
-                    max={20}
-                    value={memoryRecallLimit}
-                    onChange={e =>
-                      setMemoryRecallLimit(Math.min(20, Math.max(1, Number(e.target.value) || 1)))
-                    }
-                    disabled={!enableLongTermMemory}
-                    className="w-32 mt-1 px-3 py-2 bg-white disabled:bg-gray-50/20 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600 disabled:opacity-60 disabled:cursor-not-allowed"
-                  />
                 </div>
 
                 <div className="flex flex-col gap-2">

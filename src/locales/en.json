@@ -1,5 +1,6 @@
 {
   "common": {
+    "close": "Close",
     "loading": "Loading...",
     "cancel": "Cancel",
     "save": "Save",
@@ -453,8 +454,7 @@
     "longTermMemory": "Long-term Memory",
     "longTermMemoryHint": "Enabling long-term memory will slow down the response time for each session.",
     "enableLongTermMemory": "Enable long-term memory",
-    "memoryRecallLimit": "Memories per response",
-    "memoryRecallLimitHint": "Maximum memories to retrieve for each answer.",
+
     "liteModel": "Lite",
     "liteModelHelper": "Titles, related questions, space suggestions",
     "defaultModel": "Default",

@@ -937,7 +937,7 @@ const Sidebar = ({
                                       {conv.is_favorited && (
                                         <Bookmark
                                           size={13}
-                                          className="text-amber-500 fill-current shrink-0"
+                                          className="text-primary-500 fill-current shrink-0"
                                         />
                                       )}
                                       {renderConversationStatusDot(conversationStatuses[conv.id])}
@@ -1185,9 +1185,9 @@ const Sidebar = ({
                                         closeActions()
                                       }}
                                       className={clsx(
-                                        'py-1.5 rounded-md transition-colors flex items-center justify-center gap-1.5 font-medium border border-transparent',
+                                        'py-1.5 rounded-md transition-colors flex items-center justify-center gap-1.5 font-medium',
                                         conv.is_favorited
-                                          ? 'bg-primary-50 text-primary-500 border-primary-50 dark:bg-primary-600/20 dark:text-primary-500 dark:border-primary-50/30'
+                                          ? 'bg-primary-50 text-primary-500 dark:bg-primary-600/20 dark:text-primary-500 '
                                           : 'text-gray-500 dark:text-gray-400 hover:bg-primary-50 dark:hover:bg-zinc-700 hover:text-primary-600 dark:hover:text-primary-400',
                                       )}
                                       title={
@@ -1346,7 +1346,7 @@ const Sidebar = ({
                               className={clsx(
                                 'py-1.5 rounded-md transition-colors flex items-center justify-center gap-1.5 font-medium border border-transparent',
                                 conv.is_favorited
-                                  ? 'bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-200 dark:border-yellow-800/30'
+                                  ? 'bg-primary-50 text-primary-500 dark:bg-primary-600/20 dark:text-primary-500 '
                                   : 'text-gray-500 dark:text-gray-400 hover:bg-primary-50 dark:hover:bg-zinc-700 hover:text-primary-600 dark:hover:text-primary-400',
                               )}
                               title={
@@ -1360,7 +1360,7 @@ const Sidebar = ({
                                 className={conv.is_favorited ? 'fill-current' : ''}
                               />
                               <span className="truncate">
-                                {conv.is_favorited ? t('sidebar.saved') : t('sidebar.save')}
+                                {conv.is_favorited ? t('sidebar.added') : t('sidebar.add')}
                               </span>
                             </button>
                             <button
@@ -1533,7 +1533,7 @@ const Sidebar = ({
                                         {conv.is_favorited && (
                                           <Bookmark
                                             size={13}
-                                            className="text-amber-500 fill-current shrink-0"
+                                            className="text-primary-500 fill-current shrink-0"
                                           />
                                         )}
                                       </div>

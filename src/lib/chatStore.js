@@ -6,10 +6,10 @@ import {
   notifyConversationsChanged,
   updateConversation,
   updateMessageById,
-} from '../lib/conversationsService'
-import { getProvider, resolveThinkingToggleRule } from '../lib/providers'
-import { getUserTools } from '../lib/userToolsService'
-import { deleteMessageById } from '../lib/supabase'
+} from './conversationsService'
+import { getProvider, resolveThinkingToggleRule } from './providers'
+import { getUserTools } from './userToolsService'
+import { deleteMessageById } from './supabase'
 import { buildResponseStylePromptFromAgent } from './settings'
 import { listSpaceAgents } from './spacesService'
 import { fetchDocumentChunkContext } from './documentRetrievalService'
@@ -2470,9 +2470,49 @@ Analyze the submitted data. If critical information is still missing or if the r
 
     // 3. Stream Response (Append to last message)
     // We include the hidden message in the context sent to AI
+    const lastAiMsg = messages[messages.length - 1]
+
+    // Find the original agent that triggered the form to ensure continuity
+    // This prevents auto-mode from switching providers mid-interaction (e.g. GLM -> SiliconFlow)
+    let formAgent = null
+    if (lastAiMsg?.agentId) {
+      formAgent = agents?.find(a => a.id === lastAiMsg.agentId)
+    }
     const fallbackAgent = agents?.find(agent => agent.isDefault)
-    const effectiveAgent = selectedAgent || fallbackAgent
-    const contextMessages = [...messages, hiddenUserMessage]
+    const effectiveAgent = formAgent || selectedAgent || fallbackAgent
+
+    const toolMessages = []
+
+    if (
+      lastAiMsg &&
+      lastAiMsg.role === 'ai' &&
+      Array.isArray(lastAiMsg.toolCallHistory) &&
+      lastAiMsg.toolCallHistory.length > 0
+    ) {
+      lastAiMsg.toolCallHistory.forEach(tc => {
+        // For interactive_form, use the submitted form data as result
+        if (tc.name === 'interactive_form') {
+          toolMessages.push({
+            role: 'tool',
+            tool_call_id: tc.id,
+            content: JSON.stringify(formData.values),
+            created_at: new Date().toISOString(),
+          })
+        }
+        // For other tools (like memory_check) that are already done, use their output
+        else if (tc.output !== undefined) {
+          toolMessages.push({
+            role: 'tool',
+            tool_call_id: tc.id,
+            content: typeof tc.output === 'string' ? tc.output : JSON.stringify(tc.output),
+            created_at: new Date().toISOString(),
+          })
+        }
+      })
+    }
+
+    // Insert tool messages between AI message and User Form Submission message
+    const contextMessages = [...messages, ...toolMessages, hiddenUserMessage]
 
     // Create AI placeholder for the response
     const aiMessagePlaceholder = {
@@ -2511,8 +2551,8 @@ Analyze the submitted data. If critical information is still missing or if the r
         set,
         messages.length,
         '', // firstUserText
-        [], // documentSources
-        isAgentAutoMode,
+        [], // documentSources,
+        false, // FORCE DISABLE AUTO MODE for form submission to maintain context
       )
     } catch (e) {
       console.error('Form submission stream failed', e)

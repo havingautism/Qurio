@@ -1,5 +1,6 @@
 {
   "common": {
+    "close": "Close",
     "loading": "Loading...",
     "cancel": "Cancel",
     "save": "Save",
@@ -182,6 +183,9 @@
     "domainRequired": "At least one allowed domain is required"
   },
   "sidebar": {
+    "newChat": "New Chat",
+    "tools": "Tools",
+    "settings": "Settings",
     "deletedConversation": "Conversation deleted",
     "failedToUpdateFavorite": "Failed to update favorite status",
     "library": "Library",
@@ -207,6 +211,7 @@
     "noSpacesYet": "No spaces yet.",
     "noHistory": "No history",
     "createNewAgent": "Create New Agent",
+    "createNewDeepResearch": "New Deep Research",
     "noAgentsYet": "No agents yet.",
     "delete": "Delete",
     "add": "Add",
@@ -447,11 +452,9 @@
     "modelSourceList": "List",
     "modelSourceCustom": "Custom",
     "longTermMemory": "Long-term Memory",
-    "longTermMemoryHint": "AGNO’s built-in memory tools own persistence; this toggle simply signals whether to sync profile data for AGNO (see https://docs.agno.com/context/memory/overview and https://docs.agno.com/context/memory/working-with-memories/overview).",
+    "longTermMemoryHint": "Enabling long-term memory will slow down the response time for each session.",
     "enableLongTermMemory": "Enable long-term memory",
-    "enableLongTermMemoryHint": "Let AGNO’s memory service know whether to keep profile context (currently powered by Supabase) in sync.",
-    "memoryRecallLimit": "Memories per response",
-    "memoryRecallLimitHint": "Maximum memories to retrieve for each answer.",
+
     "liteModel": "Lite",
     "liteModelHelper": "Titles, related questions, space suggestions",
     "defaultModel": "Default",

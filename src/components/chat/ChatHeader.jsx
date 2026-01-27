@@ -81,7 +81,7 @@ const ChatHeader = ({
   // }, [normalizedEmojis.length])
 
   return (
-    <div className="shrink-0 z-20 w-full border-b border-gray-200 dark:border-zinc-800 bg-background/80 backdrop-blur-md pb-1.5 pt-[calc(0.375rem+env(safe-area-inset-top))] transition-all flex justify-center">
+    <div className="shrink-0 z-40 w-full border-b border-gray-200 dark:border-zinc-800 bg-background/80 backdrop-blur-md pb-1.5 pt-[calc(0.375rem+env(safe-area-inset-top))] transition-all flex justify-center">
       <div className="w-full max-w-3xl flex items-center gap-1 px-3">
         {/* Mobile Menu Button */}
         <button

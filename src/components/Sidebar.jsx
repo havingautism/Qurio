@@ -36,6 +36,7 @@ import { deleteConversation } from '../lib/supabase'
 import DotLoader from './DotLoader'
 import EmojiDisplay from './EmojiDisplay'
 import Logo from './Logo'
+import { useDeepResearchGuide } from '../contexts/DeepResearchGuideContext'
 
 const SIDEBAR_FETCH_LIMIT = 20
 
@@ -60,6 +61,7 @@ const Sidebar = ({
   activeConversationId,
   onPinChange,
 }) => {
+  const { openDeepResearchGuide } = useDeepResearchGuide()
   const { t, i18n } = useTranslation()
   const isStandalone =
     typeof window !== 'undefined' &&
@@ -935,7 +937,7 @@ const Sidebar = ({
                                       {conv.is_favorited && (
                                         <Bookmark
                                           size={13}
-                                          className="text-amber-500 fill-current shrink-0"
+                                          className="text-primary-500 fill-current shrink-0"
                                         />
                                       )}
                                       {renderConversationStatusDot(conversationStatuses[conv.id])}
@@ -1051,175 +1053,201 @@ const Sidebar = ({
                 )}
 
                 {displayTab === 'deepResearch' && (
-                  <>
-                    {!isDeepResearchLoading && deepResearchConversations.length === 0 && (
-                      <div className="flex flex-col items-center gap-2 text-xs text-gray-500 dark:text-gray-400 px-2 py-3">
-                        <Coffee size={24} className="text-black dark:text-white" />
-                        <div>{t('sidebar.noDeepResearchConversations')}</div>
-                      </div>
-                    )}
-
-                    {groupedDeepResearchConversations.map(section => (
-                      <div key={section.title} className="flex flex-col gap-1">
-                        <div className="text-[10px] justify-center flex uppercase tracking-wide text-gray-400 px-2 mt-1">
-                          {translateDateTitle(section.title)}
+                  <div className="flex flex-col h-full min-h-0">
+                    {/* Create New Deep Research - Fixed Header */}
+                    <div className="px-2 pb-2 shrink-0">
+                      <button
+                        onClick={() => {
+                          openDeepResearchGuide()
+                          if (onClose) onClose()
+                        }}
+                        className="flex items-center gap-3 bg-user-bubble hover:scale-105 dark:bg-zinc-800 transition-transform p-2.5 rounded-xl hover:bg-user-bubble dark:hover:bg-user-bubble/10 text-gray-600 dark:text-gray-300 w-full text-left cursor-pointer relative"
+                      >
+                        <div className="w-9 h-9 rounded-lg bg-primary-100/50 dark:bg-primary-900/30 flex items-center justify-center shrink-0 text-base text-gray-700 dark:text-gray-100">
+                          <Plus size={16} />
                         </div>
-                        {section.items.map(conv => {
-                          const isActive = conv.id === activeConversationId
-                          const isExpanded = expandedActionId === conv.id
-                          const space = getConversationSpace(conv)
-                          return (
-                            <div key={conv.id} className="flex flex-col">
-                              <div
-                                data-conversation-id={conv.id}
-                                onClick={() => {
-                                  if (expandedActionId) {
-                                    closeActions()
-                                    return
-                                  }
-                                  onOpenConversation && onOpenConversation(conv)
-                                }}
-                                className={clsx(
-                                  'text-sm px-1 py-2.5 md:p-2.5 rounded-xl cursor-pointer truncate transition-all duration-200 group relative',
-                                  isActive
-                                    ? 'bg-primary-500/10 dark:bg-primary-500/20 text-primary-500 dark:text-primary-400'
-                                    : 'text-gray-700 dark:text-gray-300 hover:bg-primary-50 dark:hover:bg-zinc-800',
-                                  isExpanded &&
-                                    'bg-primary-50/70 dark:bg-primary-900/20 border-primary-200/60 dark:border-primary-800/60 ring-1 ring-primary-100/70 dark:ring-primary-800/60',
-                                )}
-                                title={conv.title}
-                              >
-                                <div className="flex items-center justify-between w-full overflow-hidden relative z-10">
-                                  <div className="flex items-center gap-3 overflow-hidden flex-1 min-w-0">
-                                    <div className="w-9 h-9 rounded-lg bg-primary-100/50 dark:bg-primary-900/30 flex items-center justify-center shrink-0 text-base">
-                                      <EmojiDisplay
-                                        emoji={resolveConversationEmoji(conv, space?.emoji)}
-                                        size="1.4em"
-                                        className="shrink-0"
-                                      />
-                                    </div>
-                                    <div className="flex flex-col overflow-hidden flex-1 min-w-0">
-                                      <div className="flex items-center gap-1 min-w-0">
-                                        <span className="truncate font-medium flex-1 min-w-0">
-                                          {conv.title}
-                                        </span>
-                                        {conv.is_favorited && (
-                                          <Bookmark
-                                            size={12}
-                                            className="text-primary-500 fill-current shrink-0"
-                                          />
-                                        )}
-                                        {renderConversationStatusDot(conversationStatuses[conv.id])}
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                          {t('sidebar.createNewDeepResearch')}
+                        </span>
+                      </button>
+                      <div className="h-px bg-gray-200 dark:bg-zinc-800 mt-2" />
+                    </div>
+
+                    {/* Deep Research List - Scrollable Area */}
+                    <div className="flex-1 overflow-y-auto overscroll-contain no-scrollbar px-2 flex flex-col gap-2">
+                      {!isDeepResearchLoading && deepResearchConversations.length === 0 && (
+                        <div className="flex flex-col items-center gap-2 text-xs text-gray-500 dark:text-gray-400 px-2 py-3">
+                          <Coffee size={24} className="text-black dark:text-white" />
+                          <div>{t('sidebar.noDeepResearchConversations')}</div>
+                        </div>
+                      )}
+
+                      {groupedDeepResearchConversations.map(section => (
+                        <div key={section.title} className="flex flex-col gap-1">
+                          <div className="text-[10px] justify-center flex uppercase tracking-wide text-gray-400 px-2 mt-1">
+                            {translateDateTitle(section.title)}
+                          </div>
+                          {section.items.map(conv => {
+                            const isActive = conv.id === activeConversationId
+                            const isExpanded = expandedActionId === conv.id
+                            const space = getConversationSpace(conv)
+                            return (
+                              <div key={conv.id} className="flex flex-col">
+                                <div
+                                  data-conversation-id={conv.id}
+                                  onClick={() => {
+                                    if (expandedActionId) {
+                                      closeActions()
+                                      return
+                                    }
+                                    onOpenConversation && onOpenConversation(conv)
+                                  }}
+                                  className={clsx(
+                                    'text-sm px-1 py-2.5 md:p-2.5 rounded-xl cursor-pointer truncate transition-all duration-200 group relative',
+                                    isActive
+                                      ? 'bg-primary-500/10 dark:bg-primary-500/20 text-primary-500 dark:text-primary-400'
+                                      : 'text-gray-700 dark:text-gray-300 hover:bg-primary-50 dark:hover:bg-zinc-800',
+                                    isExpanded &&
+                                      'bg-primary-50/70 dark:bg-primary-900/20 border-primary-200/60 dark:border-primary-800/60 ring-1 ring-primary-100/70 dark:ring-primary-800/60',
+                                  )}
+                                  title={conv.title}
+                                >
+                                  <div className="flex items-center justify-between w-full overflow-hidden relative z-10">
+                                    <div className="flex items-center gap-3 overflow-hidden flex-1 min-w-0">
+                                      <div className="w-9 h-9 rounded-lg bg-primary-100/50 dark:bg-primary-900/30 flex items-center justify-center shrink-0 text-base">
+                                        <EmojiDisplay
+                                          emoji={resolveConversationEmoji(conv, space?.emoji)}
+                                          size="1.4em"
+                                          className="shrink-0"
+                                        />
                                       </div>
-                                      <span
+                                      <div className="flex flex-col overflow-hidden flex-1 min-w-0">
+                                        <div className="flex items-center gap-1 min-w-0">
+                                          <span className="truncate font-medium flex-1 min-w-0">
+                                            {conv.title}
+                                          </span>
+                                          {conv.is_favorited && (
+                                            <Bookmark
+                                              size={12}
+                                              className="text-primary-500 fill-current shrink-0"
+                                            />
+                                          )}
+                                          {renderConversationStatusDot(
+                                            conversationStatuses[conv.id],
+                                          )}
+                                        </div>
+                                        <span
+                                          className={clsx(
+                                            'text-xs',
+                                            isActive
+                                              ? 'text-primary-600 dark:text-primary-400'
+                                              : 'text-gray-400',
+                                          )}
+                                        >
+                                          {formatDateTime(conv.updated_at || conv.created_at)}
+                                        </span>
+                                      </div>
+                                    </div>
+
+                                    <div className="relative ml-1 shrink-0">
+                                      <button
+                                        onClick={e => {
+                                          e.stopPropagation()
+                                          setExpandedActionId(prev =>
+                                            prev === conv.id ? null : conv.id,
+                                          )
+                                        }}
                                         className={clsx(
-                                          'text-xs',
+                                          'p-1 rounded-md hover:bg-gray-300 dark:hover:bg-zinc-700 transition-all',
                                           isActive
-                                            ? 'text-primary-600 dark:text-primary-400'
-                                            : 'text-gray-400',
+                                            ? 'text-primary-600 dark:text-primary-400 bg-primary-100 dark:bg-primary-900/20'
+                                            : 'text-gray-500 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-zinc-700',
+                                          'opacity-100',
+                                          'md:opacity-0 md:group-hover:opacity-100',
+                                          'min-w-[28px] min-h-[28px] flex items-center justify-center',
                                         )}
                                       >
-                                        {formatDateTime(conv.updated_at || conv.created_at)}
-                                      </span>
+                                        {isExpanded ? (
+                                          <ChevronUp size={16} strokeWidth={2.5} />
+                                        ) : (
+                                          <ChevronDown size={16} strokeWidth={2.5} />
+                                        )}
+                                      </button>
                                     </div>
                                   </div>
-
-                                  <div className="relative ml-1 shrink-0">
+                                </div>
+                                {isExpanded && (
+                                  <div className="grid grid-cols-2 gap-2 mt-2 px-2 text-xs">
                                     <button
                                       onClick={e => {
                                         e.stopPropagation()
-                                        setExpandedActionId(prev =>
-                                          prev === conv.id ? null : conv.id,
-                                        )
+                                        handleToggleFavorite(conv)
+                                        closeActions()
                                       }}
                                       className={clsx(
-                                        'p-1 rounded-md hover:bg-gray-300 dark:hover:bg-zinc-700 transition-all',
-                                        isActive
-                                          ? 'text-primary-600 dark:text-primary-400 bg-primary-100 dark:bg-primary-900/20'
-                                          : 'text-gray-500 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-zinc-700',
-                                        'opacity-100',
-                                        'md:opacity-0 md:group-hover:opacity-100',
-                                        'min-w-[28px] min-h-[28px] flex items-center justify-center',
+                                        'py-1.5 rounded-md transition-colors flex items-center justify-center gap-1.5 font-medium',
+                                        conv.is_favorited
+                                          ? 'bg-primary-50 text-primary-500 dark:bg-primary-600/20 dark:text-primary-500 '
+                                          : 'text-gray-500 dark:text-gray-400 hover:bg-primary-50 dark:hover:bg-zinc-700 hover:text-primary-600 dark:hover:text-primary-400',
                                       )}
+                                      title={
+                                        conv.is_favorited
+                                          ? t('sidebar.removeBookmark')
+                                          : t('sidebar.addBookmark')
+                                      }
                                     >
-                                      {isExpanded ? (
-                                        <ChevronUp size={16} strokeWidth={2.5} />
-                                      ) : (
-                                        <ChevronDown size={16} strokeWidth={2.5} />
-                                      )}
+                                      <Bookmark
+                                        size={13}
+                                        className={conv.is_favorited ? 'fill-current' : ''}
+                                      />
+                                      <span className="truncate">
+                                        {conv.is_favorited ? t('sidebar.added') : t('sidebar.add')}
+                                      </span>
+                                    </button>
+                                    <button
+                                      onClick={e => {
+                                        e.stopPropagation()
+                                        handleDeleteConversation(conv)
+                                      }}
+                                      className="py-1.5 rounded-md transition-colors flex items-center justify-center gap-1.5 font-medium border border-transparent text-gray-500 dark:text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400 hover:border-red-100 dark:hover:border-red-800/30"
+                                    >
+                                      <Trash2 size={13} />
+                                      <span>{t('sidebar.delete')}</span>
                                     </button>
                                   </div>
-                                </div>
+                                )}
                               </div>
-                              {isExpanded && (
-                                <div className="grid grid-cols-2 gap-2 mt-2 px-2 text-xs">
-                                  <button
-                                    onClick={e => {
-                                      e.stopPropagation()
-                                      handleToggleFavorite(conv)
-                                      closeActions()
-                                    }}
-                                    className={clsx(
-                                      'py-1.5 rounded-md transition-colors flex items-center justify-center gap-1.5 font-medium border border-transparent',
-                                      conv.is_favorited
-                                        ? 'bg-primary-50 text-primary-500 border-primary-50 dark:bg-primary-600/20 dark:text-primary-500 dark:border-primary-50/30'
-                                        : 'text-gray-500 dark:text-gray-400 hover:bg-primary-50 dark:hover:bg-zinc-700 hover:text-primary-600 dark:hover:text-primary-400',
-                                    )}
-                                    title={
-                                      conv.is_favorited
-                                        ? t('sidebar.removeBookmark')
-                                        : t('sidebar.addBookmark')
-                                    }
-                                  >
-                                    <Bookmark
-                                      size={13}
-                                      className={conv.is_favorited ? 'fill-current' : ''}
-                                    />
-                                    <span className="truncate">
-                                      {conv.is_favorited ? t('sidebar.added') : t('sidebar.add')}
-                                    </span>
-                                  </button>
-                                  <button
-                                    onClick={e => {
-                                      e.stopPropagation()
-                                      handleDeleteConversation(conv)
-                                    }}
-                                    className="py-1.5 rounded-md transition-colors flex items-center justify-center gap-1.5 font-medium border border-transparent text-gray-500 dark:text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400 hover:border-red-100 dark:hover:border-red-800/30"
-                                  >
-                                    <Trash2 size={13} />
-                                    <span>{t('sidebar.delete')}</span>
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          )
-                        })}
-                      </div>
-                    ))}
+                            )
+                          })}
+                        </div>
+                      ))}
 
-                    {deepResearchConversations.length > 0 && (
-                      <div className="px-2 py-2">
-                        {deepResearchHasMore ? (
-                          <button
-                            onClick={e => {
-                              e.stopPropagation()
-                              fetchDeepResearchConversations(false)
-                            }}
-                            disabled={deepResearchLoadingMore}
-                            className="w-full py-2 text-xs font-medium text-gray-700 dark:text-gray-200 bg-user-bubble dark:bg-zinc-800 hover:transform hover:translate-y-[-2px] rounded transition-colors flex items-center justify-center gap-2"
-                          >
-                            {deepResearchLoadingMore ? <DotLoader /> : t('sidebar.loadMore')}
-                          </button>
-                        ) : (
-                          <div className="flex items-center gap-2 text-[10px] text-gray-400 py-2">
-                            <span className="flex-1 h-px bg-gray-200 dark:bg-zinc-800" />
-                            <span className="whitespace-nowrap">{t('sidebar.noMoreThreads')}</span>
-                            <span className="flex-1 h-px bg-gray-200 dark:bg-zinc-800" />
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </>
+                      {deepResearchConversations.length > 0 && (
+                        <div className="px-2 py-2">
+                          {deepResearchHasMore ? (
+                            <button
+                              onClick={e => {
+                                e.stopPropagation()
+                                fetchDeepResearchConversations(false)
+                              }}
+                              disabled={deepResearchLoadingMore}
+                              className="w-full py-2 text-xs font-medium text-gray-700 dark:text-gray-200 bg-user-bubble dark:bg-zinc-800 hover:transform hover:translate-y-[-2px] rounded-xl transition-colors flex items-center justify-center gap-2"
+                            >
+                              {deepResearchLoadingMore ? <DotLoader /> : t('sidebar.loadMore')}
+                            </button>
+                          ) : (
+                            <div className="flex items-center gap-2 text-[10px] text-gray-400 py-2">
+                              <span className="flex-1 h-px bg-gray-200 dark:bg-zinc-800" />
+                              <span className="whitespace-nowrap">
+                                {t('sidebar.noMoreThreads')}
+                              </span>
+                              <span className="flex-1 h-px bg-gray-200 dark:bg-zinc-800" />
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 )}
 
                 {/* For bookmarks tab, match library interaction */}
@@ -1318,7 +1346,7 @@ const Sidebar = ({
                               className={clsx(
                                 'py-1.5 rounded-md transition-colors flex items-center justify-center gap-1.5 font-medium border border-transparent',
                                 conv.is_favorited
-                                  ? 'bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-200 dark:border-yellow-800/30'
+                                  ? 'bg-primary-50 text-primary-500 dark:bg-primary-600/20 dark:text-primary-500 '
                                   : 'text-gray-500 dark:text-gray-400 hover:bg-primary-50 dark:hover:bg-zinc-700 hover:text-primary-600 dark:hover:text-primary-400',
                               )}
                               title={
@@ -1332,7 +1360,7 @@ const Sidebar = ({
                                 className={conv.is_favorited ? 'fill-current' : ''}
                               />
                               <span className="truncate">
-                                {conv.is_favorited ? t('sidebar.saved') : t('sidebar.save')}
+                                {conv.is_favorited ? t('sidebar.added') : t('sidebar.add')}
                               </span>
                             </button>
                             <button
@@ -1368,7 +1396,7 @@ const Sidebar = ({
                           fetchBookmarkedConversations(false)
                         }}
                         disabled={bookmarksLoadingMore}
-                        className="w-full py-2 text-xs font-medium text-gray-700 dark:text-gray-200 bg-user-bubble dark:bg-zinc-800 hover:bg-user-bubble/10 dark:hover:bg-zinc-700 rounded transition-colors flex items-center justify-center gap-2"
+                        className="w-full py-2 text-xs font-medium text-gray-700 dark:text-gray-200 bg-user-bubble dark:bg-zinc-800 hover:bg-user-bubble/10 dark:hover:bg-zinc-700 rounded-xl transition-colors flex items-center justify-center gap-2"
                       >
                         {bookmarksLoadingMore ? <DotLoader /> : t('sidebar.loadMore')}
                       </button>
@@ -1385,155 +1413,157 @@ const Sidebar = ({
             )}
             {/* SPACES TAB CONTENT */}
             {displayTab === 'spaces' && (
-              <div className="flex flex-col gap-2 overflow-y-auto overscroll-contain flex-1 min-h-0 px-2 ">
-                {/* Create New Space */}
-                <button
-                  onClick={onCreateSpace}
-                  className="flex items-center gap-3 bg-user-bubble hover:scale-105 dark:bg-zinc-800 transition-transform p-2.5 rounded-xl hover:bg-user-bubble dark:hover:bg-user-bubble/10 text-gray-600 dark:text-gray-300 w-full text-left cursor-pointer relative"
-                >
-                  <div className="w-9 h-9 rounded-lg bg-primary-100/50 dark:bg-primary-900/30 flex items-center justify-center shrink-0 text-base text-gray-700 dark:text-gray-100">
-                    <Plus size={16} />
-                  </div>
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    {t('sidebar.createNewSpace')}
-                  </span>
-                </button>
+              <div className="flex flex-col h-full min-h-0">
+                {/* Create New Space - Fixed Header */}
+                <div className="px-2 pb-2 shrink-0">
+                  <button
+                    onClick={onCreateSpace}
+                    className="flex items-center gap-3 bg-user-bubble hover:scale-105 dark:bg-zinc-800 transition-transform p-2.5 rounded-xl hover:bg-user-bubble dark:hover:bg-user-bubble/10 text-gray-600 dark:text-gray-300 w-full text-left cursor-pointer relative"
+                  >
+                    <div className="w-9 h-9 rounded-lg bg-primary-100/50 dark:bg-primary-900/30 flex items-center justify-center shrink-0 text-base text-gray-700 dark:text-gray-100">
+                      <Plus size={16} />
+                    </div>
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      {t('sidebar.createNewSpace')}
+                    </span>
+                  </button>
+                  <div className="h-px bg-gray-200 dark:bg-zinc-800 mt-2" />
+                </div>
 
-                <div className="h-px bg-gray-200 dark:bg-zinc-800 mb-2" />
+                {/* Spaces List - Scrollable Area */}
+                <div className="flex-1 overflow-y-auto overscroll-contain no-scrollbar px-2 flex flex-col gap-2">
+                  {/* Spaces List */}
+                  {spacesLoading && (
+                    <div className="flex justify-center py-2">
+                      <DotLoader />
+                    </div>
+                  )}
+                  {!spacesLoading && spaces.length === 0 && (
+                    <div className="flex flex-col items-center gap-2 text-xs text-gray-500 dark:text-gray-400 px-2 py-3">
+                      <Coffee size={24} className="text-black dark:text-white" />
+                      <div>{t('sidebar.noSpacesYet')}</div>
+                    </div>
+                  )}
+                  {visibleSpaces.map(space => (
+                    <React.Fragment key={space.id || space.label}>
+                      <div className="flex items-center group relative mb-0.5">
+                        <button
+                          onClick={e => {
+                            e.stopPropagation()
+                            toggleSpace(space.id)
+                          }}
+                          className="p-1.5 rounded-md hover:bg-primary-50 dark:hover:bg-zinc-800/50 text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-all shrink-0 z-10"
+                        >
+                          <ChevronDown
+                            size={14}
+                            className={clsx(
+                              'transition-transform duration-200',
+                              expandedSpaces.has(space.id) ? '' : '-rotate-90',
+                            )}
+                          />
+                        </button>
 
-                {/* Spaces List */}
-                {spacesLoading && (
-                  <div className="flex justify-center py-2">
-                    <DotLoader />
-                  </div>
-                )}
-                {!spacesLoading && spaces.length === 0 && (
-                  <div className="flex flex-col items-center gap-2 text-xs text-gray-500 dark:text-gray-400 px-2 py-3">
-                    <Coffee size={24} className="text-black dark:text-white" />
-                    <div>{t('sidebar.noSpacesYet')}</div>
-                  </div>
-                )}
-                {visibleSpaces.map(space => (
-                  <React.Fragment key={space.id || space.label}>
-                    <div className="flex items-center group relative mb-0.5">
-                      <button
-                        onClick={e => {
-                          e.stopPropagation()
-                          toggleSpace(space.id)
-                        }}
-                        className="p-1.5 rounded-md hover:bg-primary-50 dark:hover:bg-zinc-800/50 text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-all shrink-0 z-10"
-                      >
-                        <ChevronDown
-                          size={14}
-                          className={clsx(
-                            'transition-transform duration-200',
-                            expandedSpaces.has(space.id) ? '' : '-rotate-90',
-                          )}
-                        />
-                      </button>
-
-                      <div
-                        onClick={() => onNavigateToSpace(space)}
-                        className="flex-1 min-w-0 flex items-center gap-2 p-1.5 rounded-lg cursor-pointer transition-colors hover:bg-primary-50 dark:hover:bg-zinc-800 group/content"
-                      >
-                        <div className="w-8 h-8 rounded bg-transparent flex items-center justify-center shrink-0 text-base">
-                          <EmojiDisplay emoji={space.emoji} size="1.4em" />
+                        <div
+                          onClick={() => onNavigateToSpace(space)}
+                          className="flex-1 min-w-0 flex items-center gap-2 p-1.5 rounded-lg cursor-pointer transition-colors hover:bg-primary-50 dark:hover:bg-zinc-800 group/content"
+                        >
+                          <div className="w-8 h-8 rounded bg-transparent flex items-center justify-center shrink-0 text-base">
+                            <EmojiDisplay emoji={space.emoji} size="1.4em" />
+                          </div>
+                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300 group-hover/content:text-primary-600 dark:group-hover/content:text-gray-200 transition-colors truncate">
+                            {getSpaceDisplayLabel(space, t)}
+                          </span>
                         </div>
-                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300 group-hover/content:text-primary-600 dark:group-hover/content:text-gray-200 transition-colors truncate">
-                          {getSpaceDisplayLabel(space, t)}
-                        </span>
+
+                        {/* Edit Button (Visible on Hover) */}
+                        <button
+                          onClick={e => {
+                            e.stopPropagation()
+                            onEditSpace(space)
+                          }}
+                          className="p-1.5 rounded-md ml-1 opacity-0 group-hover:opacity-100 hover:bg-primary-50 dark:hover:bg-zinc-800 text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-all shrink-0"
+                        >
+                          <Settings size={14} />
+                        </button>
                       </div>
 
-                      {/* Edit Button (Visible on Hover) */}
-                      <button
-                        onClick={e => {
-                          e.stopPropagation()
-                          onEditSpace(space)
-                        }}
-                        className="p-1.5 rounded-md ml-1 opacity-0 group-hover:opacity-100 hover:bg-primary-50 dark:hover:bg-zinc-800 text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-all shrink-0"
-                      >
-                        <Settings size={14} />
-                      </button>
-                    </div>
+                      {/* Expandable Content for Space */}
+                      {expandedSpaces.has(space.id) && (
+                        <div className="ml-2 sm:ml-4 mr-2 flex flex-col gap-1 border-l border-gray-200 dark:border-zinc-800 pl-2 mb-2">
+                          {spaceConversations[space.id]?.loading &&
+                            spaceConversations[space.id]?.items?.length === 0 && (
+                              <div className="px-2">
+                                <DotLoader />
+                              </div>
+                            )}
 
-                    {/* Expandable Content for Space */}
-                    {expandedSpaces.has(space.id) && (
-                      <div className="ml-2 sm:ml-4 mr-2 flex flex-col gap-1 border-l border-gray-200 dark:border-zinc-800 pl-2 mb-2">
-                        {spaceConversations[space.id]?.loading &&
-                          spaceConversations[space.id]?.items?.length === 0 && (
-                            <div className="px-2">
-                              <DotLoader />
-                            </div>
-                          )}
-
-                        {spaceConversations[space.id]?.items?.map(conv => (
-                          <div key={conv.id} className="flex flex-col">
-                            <div
-                              data-conversation-id={conv.id}
-                              onClick={() => {
-                                if (expandedActionId) {
-                                  closeActions()
-                                  return
-                                }
-                                onOpenConversation && onOpenConversation(conv)
-                              }}
-                              className={clsx(
-                                'text-sm p-2.5 rounded-xl cursor-pointer truncate transition-all duration-200 group relative',
-                                conv.id === activeConversationId
-                                  ? 'bg-primary-500/10 dark:bg-primary-500/20 text-primary-500 dark:text-primary-400'
-                                  : 'text-gray-600 dark:text-gray-400 hover:bg-primary-50 dark:hover:bg-zinc-800',
-                              )}
-                              title={conv.title}
-                            >
-                              <div className="flex items-center justify-between w-full overflow-hidden relative z-10">
-                                <div className="flex items-center gap-3 overflow-hidden flex-1 min-w-0">
-                                  <div className="w-9 h-9 rounded-lg bg-primary-100/50 dark:bg-primary-900/30 flex items-center justify-center shrink-0 text-base">
-                                    <EmojiDisplay
-                                      emoji={resolveConversationEmoji(conv, space?.emoji)}
-                                      size="1.4em"
-                                      className="shrink-0"
-                                    />
-                                  </div>
-                                  <div className="flex flex-col overflow-hidden flex-1 min-w-0">
-                                    <div className="flex items-center gap-1.5 min-w-0">
-                                      <span className="truncate font-medium flex-1 min-w-0">
-                                        {conv.title || t('sidebar.untitled')}
-                                      </span>
-                                      {conv.is_favorited && (
-                                        <Bookmark
-                                          size={13}
-                                          className="text-amber-500 fill-current shrink-0"
-                                        />
-                                      )}
+                          {spaceConversations[space.id]?.items?.map(conv => (
+                            <div key={conv.id} className="flex flex-col">
+                              <div
+                                data-conversation-id={conv.id}
+                                onClick={() => {
+                                  if (expandedActionId) {
+                                    closeActions()
+                                    return
+                                  }
+                                  onOpenConversation && onOpenConversation(conv)
+                                }}
+                                className={clsx(
+                                  'text-sm p-2.5 rounded-xl cursor-pointer truncate transition-all duration-200 group relative',
+                                  conv.id === activeConversationId
+                                    ? 'bg-primary-500/10 dark:bg-primary-500/20 text-primary-500 dark:text-primary-400'
+                                    : 'text-gray-600 dark:text-gray-400 hover:bg-primary-50 dark:hover:bg-zinc-800',
+                                )}
+                                title={conv.title}
+                              >
+                                <div className="flex items-center justify-between w-full overflow-hidden relative z-10">
+                                  <div className="flex items-center gap-3 overflow-hidden flex-1 min-w-0">
+                                    <div className="w-9 h-9 rounded-lg bg-primary-100/50 dark:bg-primary-900/30 flex items-center justify-center shrink-0 text-base">
+                                      <EmojiDisplay
+                                        emoji={resolveConversationEmoji(conv, space?.emoji)}
+                                        size="1.4em"
+                                        className="shrink-0"
+                                      />
                                     </div>
-                                    <span
-                                      className={clsx(
-                                        'text-xs mt-0.5',
-                                        conv.id === activeConversationId
-                                          ? 'text-primary-600 dark:text-primary-400'
-                                          : 'text-gray-400',
-                                      )}
-                                    >
-                                      {formatDateTime(conv.updated_at || conv.created_at)}
-                                    </span>
+                                    <div className="flex flex-col overflow-hidden flex-1 min-w-0">
+                                      <div className="flex items-center gap-1.5 min-w-0">
+                                        <span className="truncate font-medium flex-1 min-w-0">
+                                          {conv.title || t('sidebar.untitled')}
+                                        </span>
+                                        {conv.is_favorited && (
+                                          <Bookmark
+                                            size={13}
+                                            className="text-primary-500 fill-current shrink-0"
+                                          />
+                                        )}
+                                      </div>
+                                      <span
+                                        className={clsx(
+                                          'text-xs mt-0.5',
+                                          conv.id === activeConversationId
+                                            ? 'text-primary-600 dark:text-primary-400'
+                                            : 'text-gray-400',
+                                        )}
+                                      >
+                                        {formatDateTime(conv.updated_at || conv.created_at)}
+                                      </span>
+                                    </div>
                                   </div>
                                 </div>
                               </div>
                             </div>
-                          </div>
-                        ))}
+                          ))}
 
-                        {spaceConversations[space.id]?.items?.length > 0 &&
-                          spaceConversations[space.id]?.hasMore && (
-                            <div className="px-2 py-2">
-                              {
+                          {spaceConversations[space.id]?.items?.length > 0 &&
+                            spaceConversations[space.id]?.hasMore && (
+                              <div className="px-2 py-2">
                                 <button
                                   onClick={e => {
                                     e.stopPropagation()
                                     fetchSpaceConversations(space.id, false)
                                   }}
                                   disabled={spaceConversations[space.id]?.loading}
-                                  className="w-full py-2 text-xs font-medium text-gray-700 dark:text-gray-200 bg-user-bubble dark:bg-zinc-800 hover:bg-user-bubble/10 dark:hover:bg-zinc-700 rounded transition-colors flex items-center justify-center gap-2"
+                                  className="w-full py-2 text-xs font-medium text-gray-700 dark:text-gray-200 bg-user-bubble dark:bg-zinc-800 hover:bg-user-bubble/10 dark:hover:bg-zinc-700 rounded-xl transition-colors flex items-center justify-center gap-2"
                                 >
                                   {spaceConversations[space.id]?.loading ? (
                                     <DotLoader />
@@ -1541,139 +1571,121 @@ const Sidebar = ({
                                     t('sidebar.loadMore')
                                   )}
                                 </button>
-                                // : (
-                                //   <div className="hidden  items-center gap-2 text-[10px] text-gray-400 py-2">
-                                //     <span className="flex-1 h-px bg-gray-200 dark:bg-zinc-800" />
-                                //     <span className="whitespace-nowrap">No more threads</span>
-                                //     <span className="flex-1 h-px bg-gray-200 dark:bg-zinc-800" />
-                                //   </div>
-                                // )
-                              }
-                            </div>
-                          )}
+                              </div>
+                            )}
 
-                        {!spaceConversations[space.id]?.loading &&
-                          spaceConversations[space.id]?.items?.length === 0 && (
-                            <div className="flex flex-col items-center gap-1 text-[10px] text-gray-400 py-1 px-2">
-                              <SquareStack size={18} className="text-black dark:text-white" />
-                              <div>{t('sidebar.noHistory')}</div>
-                            </div>
-                          )}
-                      </div>
-                    )}
-                  </React.Fragment>
-                ))}
+                          {!spaceConversations[space.id]?.loading &&
+                            spaceConversations[space.id]?.items?.length === 0 && (
+                              <div className="flex flex-col items-center gap-1 text-[10px] text-gray-400 py-1 px-2">
+                                <SquareStack size={18} className="text-black dark:text-white" />
+                                <div>{t('sidebar.noHistory')}</div>
+                              </div>
+                            )}
+                        </div>
+                      )}
+                    </React.Fragment>
+                  ))}
 
-                {/* Spaces Load More */}
-                {!spacesLoading && spaces.length > 0 && (
-                  <div className="px-2 py-2">
-                    {spacesHasMore ? (
-                      <button
-                        onClick={e => {
-                          e.stopPropagation()
-                          setSpacesLoadingMore(true)
-                          setTimeout(() => {
-                            setSpacesLimit(prev => prev + SIDEBAR_FETCH_LIMIT)
-                            setSpacesLoadingMore(false)
-                          }, 150)
-                        }}
-                        disabled={spacesLoadingMore}
-                        className="w-full py-2 text-xs font-medium text-gray-700 dark:text-gray-200 bg-user-bubble dark:bg-zinc-800 hover:bg-user-bubble/10 dark:hover:bg-zinc-700 rounded transition-colors flex items-center justify-center gap-2"
-                      >
-                        {spacesLoadingMore ? <DotLoader /> : t('sidebar.loadMore')}
-                      </button>
-                    ) : (
-                      <div className="flex items-center gap-2 text-[10px] text-gray-400 py-2">
-                        <span className="flex-1 h-px bg-gray-200 dark:bg-zinc-800" />
-                        <span className="whitespace-nowrap">{t('sidebar.noMoreSpaces')}</span>
-                        <span className="flex-1 h-px bg-gray-200 dark:bg-zinc-800" />
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* See All Button - only for spaces tab when there are more spaces */}
-                {/* {displayTab === 'spaces' && spacesHasMore && (
-                  <div className="flex flex-col gap-1 mt-2">
-                    <button
-                      onClick={() => {
-                        setActiveTab('spaces')
-                        onNavigate('spaces')
-                      }}
-                      className="flex items-center justify-center gap-2 p-2 text-sm text-gray-500 dark:text-gray-400 hover:text-primary-700 dark:hover:text-primary-300 transition-colors rounded hover:bg-primary-50 dark:hover:bg-zinc-800"
-                    >
-                      <span>See all</span>
-                    </button>
-                  </div>
-                )} */}
+                  {/* Spaces Load More */}
+                  {!spacesLoading && spaces.length > 0 && (
+                    <div className="px-2 py-2">
+                      {spacesHasMore ? (
+                        <button
+                          onClick={e => {
+                            e.stopPropagation()
+                            setSpacesLoadingMore(true)
+                            setTimeout(() => {
+                              setSpacesLimit(prev => prev + SIDEBAR_FETCH_LIMIT)
+                              setSpacesLoadingMore(false)
+                            }, 150)
+                          }}
+                          disabled={spacesLoadingMore}
+                          className="w-full py-2 text-xs font-medium text-gray-700 dark:text-gray-200 bg-user-bubble dark:bg-zinc-800 hover:bg-user-bubble/10 dark:hover:bg-zinc-700 rounded-xl transition-colors flex items-center justify-center gap-2"
+                        >
+                          {spacesLoadingMore ? <DotLoader /> : t('sidebar.loadMore')}
+                        </button>
+                      ) : (
+                        <div className="flex items-center gap-2 text-[10px] text-gray-400 py-2">
+                          <span className="flex-1 h-px bg-gray-200 dark:bg-zinc-800" />
+                          <span className="whitespace-nowrap">{t('sidebar.noMoreSpaces')}</span>
+                          <span className="flex-1 h-px bg-gray-200 dark:bg-zinc-800" />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
             {/* AGENTS TAB CONTENT */}
             {displayTab === 'agents' && (
-              <div className="flex flex-col gap-2 overflow-y-auto overscroll-contain flex-1 min-h-0 px-2">
-                {/* Create New Agent */}
-                <button
-                  onClick={onCreateAgent}
-                  className="flex items-center gap-3 bg-user-bubble hover:scale-105 dark:bg-zinc-800 transition-transform p-2.5 rounded-xl hover:bg-user-bubble dark:hover:bg-user-bubble/10 text-gray-600 dark:text-gray-300 w-full text-left cursor-pointer relative"
-                >
-                  <div className="w-9 h-9 rounded-lg bg-primary-100/50 dark:bg-primary-900/30 flex items-center justify-center shrink-0 text-base text-gray-700 dark:text-gray-100">
-                    <Plus size={16} />
-                  </div>
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    {t('sidebar.createNewAgent')}
-                  </span>
-                </button>
-
-                <div className="h-px bg-gray-200 dark:bg-zinc-800 mb-2" />
-
-                {/* Agents List */}
-                {agentsLoading && (
-                  <div className="flex justify-center py-2">
-                    <DotLoader />
-                  </div>
-                )}
-                {!agentsLoading && agents.length === 0 && (
-                  <div className="flex flex-col items-center gap-2 text-xs text-gray-500 dark:text-gray-400 px-2 py-3">
-                    <Smile size={24} className="text-black dark:text-white" />
-                    <div>{t('sidebar.noAgentsYet')}</div>
-                  </div>
-                )}
-                {[...agents]
-                  .sort((a, b) => Number(Boolean(b.isDefault)) - Number(Boolean(a.isDefault)))
-                  .map(agent => (
-                    <div
-                      key={agent.id}
-                      onClick={() => onEditAgent && onEditAgent(agent)}
-                      className="flex items-center justify-between p-2.5 rounded-xl cursor-pointer transition-all duration-200 group hover:bg-primary-50 dark:hover:bg-zinc-800 relative"
-                    >
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <div className="w-9 h-9 rounded-lg bg-primary-100/50 dark:bg-primary-900/30 flex items-center justify-center shrink-0 text-base">
-                          <EmojiDisplay emoji={agent.emoji} size="1.4em" className="shrink-0" />
-                        </div>
-                        <div className="flex flex-col min-w-0">
-                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">
-                            {getAgentDisplayName(agent, t)}
-                          </span>
-                          {getAgentDisplayDescription(agent, t) && (
-                            <span className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">
-                              {getAgentDisplayDescription(agent, t)}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Edit Button (Visible on Hover) */}
-                      <button
-                        onClick={e => {
-                          e.stopPropagation()
-                          onEditAgent && onEditAgent(agent)
-                        }}
-                        className="p-2 rounded-lg ml-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:bg-gray-200 dark:hover:bg-zinc-700 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-all shrink-0"
-                      >
-                        <Settings size={16} />
-                      </button>
+              <div className="flex flex-col h-full min-h-0">
+                {/* Create New Agent - Fixed Header */}
+                <div className="px-2 pb-2 shrink-0">
+                  <button
+                    onClick={onCreateAgent}
+                    className="flex items-center gap-3 bg-user-bubble hover:scale-105 dark:bg-zinc-800 transition-transform p-2.5 rounded-xl hover:bg-user-bubble dark:hover:bg-user-bubble/10 text-gray-600 dark:text-gray-300 w-full text-left cursor-pointer relative"
+                  >
+                    <div className="w-9 h-9 rounded-lg bg-primary-100/50 dark:bg-primary-900/30 flex items-center justify-center shrink-0 text-base text-gray-700 dark:text-gray-100">
+                      <Plus size={16} />
                     </div>
-                  ))}
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      {t('sidebar.createNewAgent')}
+                    </span>
+                  </button>
+                  <div className="h-px bg-gray-200 dark:bg-zinc-800 mt-2" />
+                </div>
+
+                {/* Agents List - Scrollable Area */}
+                <div className="flex-1 overflow-y-auto overscroll-contain no-scrollbar px-2 flex flex-col gap-2">
+                  {/* Agents List */}
+                  {agentsLoading && (
+                    <div className="flex justify-center py-2">
+                      <DotLoader />
+                    </div>
+                  )}
+                  {!agentsLoading && agents.length === 0 && (
+                    <div className="flex flex-col items-center gap-2 text-xs text-gray-500 dark:text-gray-400 px-2 py-3">
+                      <Smile size={24} className="text-black dark:text-white" />
+                      <div>{t('sidebar.noAgentsYet')}</div>
+                    </div>
+                  )}
+                  {[...agents]
+                    .sort((a, b) => Number(Boolean(b.isDefault)) - Number(Boolean(a.isDefault)))
+                    .map(agent => (
+                      <div
+                        key={agent.id}
+                        onClick={() => onEditAgent && onEditAgent(agent)}
+                        className="flex items-center justify-between p-2.5 rounded-xl cursor-pointer transition-all duration-200 group hover:bg-primary-50 dark:hover:bg-zinc-800 relative"
+                      >
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          <div className="w-9 h-9 rounded-lg bg-primary-100/50 dark:bg-primary-900/30 flex items-center justify-center shrink-0 text-base">
+                            <EmojiDisplay emoji={agent.emoji} size="1.4em" className="shrink-0" />
+                          </div>
+                          <div className="flex flex-col min-w-0">
+                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">
+                              {getAgentDisplayName(agent, t)}
+                            </span>
+                            {getAgentDisplayDescription(agent, t) && (
+                              <span className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">
+                                {getAgentDisplayDescription(agent, t)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Edit Button (Visible on Hover) */}
+                        <button
+                          onClick={e => {
+                            e.stopPropagation()
+                            onEditAgent && onEditAgent(agent)
+                          }}
+                          className="p-2 rounded-lg ml-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:bg-gray-200 dark:hover:bg-zinc-700 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-all shrink-0"
+                        >
+                          <Settings size={16} />
+                        </button>
+                      </div>
+                    ))}
+                </div>
               </div>
             )}
           </div>

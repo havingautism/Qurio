@@ -317,10 +317,10 @@
 
 .dark {
   /* Dynamic background variables injected by src/lib/themes.js */
-  --background: var(--theme-bg-dark, #1c1917);
+  --background: #141414;
   --foreground: #e5e7eb;
   /* stone-950 */
-  --sidebar: var(--theme-sidebar-dark, #1c1917);
+  --sidebar: #141414;
   /* stone-900 */
   --sidebar-foreground: #a8a29e;
   /* stone-400 */

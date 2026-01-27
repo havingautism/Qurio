@@ -1402,13 +1402,98 @@ const callAIAPI = async (
       searchBackend,
       userTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       userLocale: navigator.language || 'en-US',
-      messages: conversationMessagesWithPlan.map(m => ({
-        role: m.role === 'ai' ? 'assistant' : m.role,
-        content: m.content,
-        ...(m.tool_calls && { tool_calls: m.tool_calls }),
-        ...(m.tool_call_id && { tool_call_id: m.tool_call_id }),
-        ...(m.name && { name: m.name }),
-      })),
+      messages: (() => {
+        return conversationMessagesWithPlan.flatMap((m, i, arr) => {
+          // 1. Handle AI/Assistant Messages
+          if (m.role === 'ai') {
+            let formCallId = null
+
+            // Normalize tool_calls & Find form ID
+            const normalizedToolCalls = m.tool_calls?.map(tc => {
+              if ((tc.function?.name || tc.name) === 'interactive_form') {
+                formCallId = tc.id
+              }
+              return {
+                id: tc.id,
+                type: tc.type || 'function',
+                function: {
+                  name: tc.function?.name || tc.name, // Handle both Agno internal & standard formats
+                  arguments:
+                    typeof tc.function?.arguments === 'object'
+                      ? JSON.stringify(tc.function.arguments)
+                      : tc.function?.arguments ||
+                        (typeof tc.arguments === 'object'
+                          ? JSON.stringify(tc.arguments)
+                          : tc.arguments),
+                },
+              }
+            })
+
+            const baseMessage = {
+              role: 'assistant',
+              content: m.content,
+              ...(normalizedToolCalls && { tool_calls: normalizedToolCalls }),
+              ...(m.tool_call_id && { tool_call_id: m.tool_call_id }),
+              ...(m.name && { name: m.name }),
+            }
+
+            // Restore output for successful non-form tools (like memory_check)
+            // Agno stores these results in 'toolCallHistory' on the message object
+            const restoredToolMessages = []
+            if (Array.isArray(m.toolCallHistory)) {
+              m.toolCallHistory.forEach(tc => {
+                const isForm = (tc.function?.name || tc.name) === 'interactive_form'
+                if (!isForm && tc.status === 'done' && tc.output !== undefined) {
+                  restoredToolMessages.push({
+                    role: 'tool',
+                    tool_call_id: tc.id,
+                    content: typeof tc.output === 'string' ? tc.output : JSON.stringify(tc.output),
+                    name: tc.name, // Include name for debugging clarity
+                  })
+                }
+              })
+            }
+
+            // Check next message for form submission
+            const nextMsg = arr[i + 1]
+            const nextIsSubmission =
+              nextMsg &&
+              nextMsg.role === 'user' &&
+              (nextMsg.formValues ||
+                (typeof nextMsg.content === 'string' &&
+                  nextMsg.content.startsWith('[Form Submission]')))
+
+            // Inject "pending" tool result + dummy assistant if followed by submission
+            // Strategy: Assistant -> Tool("pending") -> Assistant("Ready") -> User(Submission)
+            if (formCallId && nextIsSubmission) {
+              const pendingToolMsg = {
+                role: 'tool',
+                tool_call_id: formCallId,
+                content: 'pending',
+                name: 'interactive_form',
+              }
+              const dummyAssistantMsg = {
+                role: 'assistant',
+                content: 'Please proceed with the form submission.',
+              }
+              return [baseMessage, ...restoredToolMessages, pendingToolMsg, dummyAssistantMsg]
+            }
+
+            return [baseMessage, ...restoredToolMessages]
+          }
+
+          // 2. Standard Message Fallback (Includes User Form Submission as standard User msg)
+          return [
+            {
+              role: m.role === 'ai' ? 'assistant' : m.role,
+              content: m.content,
+              ...(m.tool_calls && { tool_calls: m.tool_calls }),
+              ...(m.tool_call_id && { tool_call_id: m.tool_call_id }),
+              ...(m.name && { name: m.name }),
+            },
+          ]
+        })
+      })(),
       tools: provider.getTools(toggles.search, toggles.searchTool, settings.enableLongTermMemory),
       toolIds: resolvedToolIds,
       memoryProvider: resolvedMemoryProvider,
@@ -2450,8 +2535,11 @@ Analyze the submitted data. If critical information is still missing or if the r
     // We must add it to state so the UI (MessageBubble) knows the form is submitted
     await addMessage(hiddenUserMessage)
 
+    // Store raw form values in state message for API swap logic (User -> Tool)
+    const stateMessage = { ...hiddenUserMessage, formValues: formData.values }
+
     set(state => {
-      const updated = [...state.messages, hiddenUserMessage]
+      const updated = [...state.messages, stateMessage]
       return { messages: updated }
     })
 
@@ -2481,38 +2569,9 @@ Analyze the submitted data. If critical information is still missing or if the r
     const fallbackAgent = agents?.find(agent => agent.isDefault)
     const effectiveAgent = formAgent || selectedAgent || fallbackAgent
 
-    const toolMessages = []
-
-    if (
-      lastAiMsg &&
-      lastAiMsg.role === 'ai' &&
-      Array.isArray(lastAiMsg.toolCallHistory) &&
-      lastAiMsg.toolCallHistory.length > 0
-    ) {
-      lastAiMsg.toolCallHistory.forEach(tc => {
-        // For interactive_form, use the submitted form data as result
-        if (tc.name === 'interactive_form') {
-          toolMessages.push({
-            role: 'tool',
-            tool_call_id: tc.id,
-            content: JSON.stringify(formData.values),
-            created_at: new Date().toISOString(),
-          })
-        }
-        // For other tools (like memory_check) that are already done, use their output
-        else if (tc.output !== undefined) {
-          toolMessages.push({
-            role: 'tool',
-            tool_call_id: tc.id,
-            content: typeof tc.output === 'string' ? tc.output : JSON.stringify(tc.output),
-            created_at: new Date().toISOString(),
-          })
-        }
-      })
-    }
-
-    // Insert tool messages between AI message and User Form Submission message
-    const contextMessages = [...messages, ...toolMessages, hiddenUserMessage]
+    // No manual tool messages insertion.
+    // We rely on callAIAPI's swap logic to transform the User message into a Tool message.
+    const contextMessages = [...messages, hiddenUserMessage]
 
     // Create AI placeholder for the response
     const aiMessagePlaceholder = {

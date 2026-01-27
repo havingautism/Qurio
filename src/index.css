@@ -243,16 +243,22 @@
   }
 
   @keyframes pulse-glow {
-    0%, 100% {
-      box-shadow: 0 0 20px var(--theme-glow-1), 0 0 40px var(--theme-glow-2);
+    0%,
+    100% {
+      box-shadow:
+        0 0 20px var(--theme-glow-1),
+        0 0 40px var(--theme-glow-2);
     }
     50% {
-      box-shadow: 0 0 30px var(--theme-glow-1), 0 0 60px var(--theme-glow-2);
+      box-shadow:
+        0 0 30px var(--theme-glow-1),
+        0 0 60px var(--theme-glow-2);
     }
   }
 
   @keyframes float {
-    0%, 100% {
+    0%,
+    100% {
       transform: translateY(0);
     }
     50% {
@@ -285,10 +291,10 @@
   --color-primary-950: #33160f;
 
   /* Dynamic background variables injected by src/lib/themes.js */
-  --background: var(--theme-bg-light, #fffcf7);
+  --background: #f9f9f9;
   --foreground: #44403c;
   /* gray-800 -> stone-800 - lighter for softer light mode text */
-  --sidebar: var(--theme-sidebar-light, #fffcf7);
+  --sidebar: #f9f9f9;
   /* stone-200 */
   --sidebar-foreground: #78716c;
   /* stone-600 - lighter for softer light mode text */

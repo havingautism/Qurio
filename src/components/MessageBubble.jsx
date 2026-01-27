@@ -25,6 +25,7 @@ import {
   Globe,
   AlertTriangle,
   Brain,
+  BrainCircuit,
 } from 'lucide-react'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
@@ -1405,11 +1406,11 @@ const MessageBubble = ({
                 // Developer Mode: Simplified view consistent with Deep Research within a card container
                 <div
                   className={clsx(
-                    'border border-gray-200 dark:border-zinc-700 rounded-xl overflow-hidden bg-user-bubble/20 dark:bg-zinc-800/30',
+                    'rounded-xl overflow-hidden bg-[#ececec5e] dark:bg-zinc-800/30',
                     'mb-4',
                   )}
                 >
-                  <div className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-zinc-700">
+                  <div className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-zinc-900">
                     <div className="flex items-center gap-2 font-medium text-gray-700 dark:text-gray-300">
                       <EmojiDisplay emoji={'🔧'} size="1.2em" /> {t('messageBubble.toolCalls')}
                     </div>
@@ -1467,7 +1468,7 @@ const MessageBubble = ({
               ) : (
                 <div
                   className={clsx(
-                    'p-3 border flex flex-col gap-2 border-gray-200 dark:border-zinc-700 rounded-xl overflow-hidden bg-transparent',
+                    'p-3 flex flex-col gap-2  rounded-xl overflow-hidden dark:bg-zinc-800/30 bg-[#ececec5e]',
                     'mb-4',
                   )}
                 >
@@ -1485,6 +1486,7 @@ const MessageBubble = ({
                           FormInput,
                           Globe,
                           Brain,
+                          BrainCircuit,
                         }[iconName]
                       : null
                     return (
@@ -2290,6 +2292,8 @@ const MessageBubble = ({
                                           Wrench,
                                           FormInput,
                                           Globe,
+                                          Brain,
+                                          BrainCircuit,
                                         }[iconName]
                                       : null
                                     return (
@@ -2379,10 +2383,10 @@ const MessageBubble = ({
         </>
       ) : (
         shouldShowThinking && (
-          <div className="border border-gray-200 dark:border-zinc-700 rounded-xl overflow-hidden">
+          <div className=" rounded-xl overflow-hidden">
             <button
               onClick={() => setIsThoughtExpanded(!isThoughtExpanded)}
-              className="w-full flex items-center justify-between p-2 bg-user-bubble/30 dark:bg-zinc-800/50 hover:bg-user-bubble dark:hover:bg-zinc-800 transition-colors"
+              className="w-full flex items-center justify-between p-2 bg-[#ececec5e] dark:bg-zinc-800/50 hover:bg-[#ececec] dark:hover:bg-zinc-800 transition-colors"
             >
               <div className="flex items-center gap-2 font-medium text-gray-700 dark:text-gray-300">
                 <EmojiDisplay emoji={'🧠'} size="1.2em" />
@@ -2403,7 +2407,7 @@ const MessageBubble = ({
             </button>
 
             {isThoughtExpanded && (hasThoughtText || hasPlanText) && (
-              <div className="p-4 font-stretch-semi-condensed  border-t border-gray-200 dark:border-zinc-700 text-sm text-gray-600 dark:text-gray-400 leading-relaxed [&>div>p:last-child]:mb-0!">
+              <div className="p-4 font-stretch-semi-condensed bg-[#ececec5e] dark:bg-zinc-800/30 text-sm text-gray-600 dark:text-gray-400 leading-relaxed [&>div>p:last-child]:mb-0!">
                 <Streamdown
                   mermaid={mermaidOptions}
                   remarkPlugins={[remarkGfm]}

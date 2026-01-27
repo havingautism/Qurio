@@ -526,7 +526,7 @@ const MessageBubble = ({
   const renderPlainCodeBlock = useCallback(
     (codeText, language) => (
       <div className="relative group mb-4 border border-gray-200 dark:border-zinc-700 rounded-xl overflow-x-auto bg-user-bubble/20 dark:bg-zinc-800/30">
-        <div className="flex items-center justify-between px-3 py-2 text-[11px] font-semibold bg-user-bubble/50 dark:bg-zinc-800/50 text-gray-600 dark:text-gray-300 border-b border-gray-200 dark:border-zinc-700">
+        <div className="flex items-center justify-between px-4 py-2 text-[11px] font-semibold bg-user-bubble/50 dark:bg-zinc-800/50 text-gray-600 dark:text-gray-300 border-b border-gray-200 dark:border-zinc-700">
           <span>{String(language || 'CODE').toUpperCase()}</span>
           <button
             onClick={() => copyToClipboard(codeText)}
@@ -1166,7 +1166,7 @@ const MessageBubble = ({
       if (isBlock) {
         return (
           <div className="relative group mb-4 border border-gray-200 dark:border-zinc-700 rounded-xl overflow-x-auto bg-user-bubble/20 dark:bg-zinc-800/30">
-            <div className="flex items-center justify-between px-3 py-2 text-[11px] font-semibold bg-user-bubble/50 dark:bg-zinc-800/50 text-gray-600 dark:text-gray-300 border-b border-gray-200 dark:border-zinc-700">
+            <div className="flex items-center justify-between px-4 py-2 text-[11px] font-semibold bg-user-bubble/50 dark:bg-zinc-800/50 text-gray-600 dark:text-gray-300 border-b border-gray-200 dark:border-zinc-700">
               <span>{langLabel}</span>
               <button
                 onClick={() => copyToClipboard(codeText)}
@@ -1708,7 +1708,7 @@ const MessageBubble = ({
           containerRef.current = el
           if (typeof bubbleRef === 'function') bubbleRef(el)
         }}
-        className={clsx('w-full mt-4 group px-3 sm:px-0 flex flex-col gap-1')}
+        className={clsx('w-full mt-2.5 group px-3 sm:px-0 flex flex-col gap-1')}
         onMouseUp={handleMouseUp}
         onTouchEnd={handleTouchEnd}
         onContextMenu={handleContextMenu}

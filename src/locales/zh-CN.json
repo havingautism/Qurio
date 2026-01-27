@@ -167,6 +167,9 @@
     "domainRequired": "必须至少指定一个允许的域名"
   },
   "sidebar": {
+    "newChat": "新对话",
+    "tools": "工具",
+    "settings": "设置",
     "deletedConversation": "对话已删除",
     "failedToUpdateFavorite": "更新收藏状态失败",
     "library": "对话库",
@@ -191,6 +194,7 @@
     "noSpacesYet": "暂无空间。",
     "noHistory": "暂无历史",
     "createNewAgent": "创建新智能体",
+    "createNewDeepResearch": "新建深度研究",
     "noAgentsYet": "暂无智能体。",
     "delete": "删除",
     "add": "添加",
@@ -432,9 +436,8 @@
     "modelSourceList": "列表",
     "modelSourceCustom": "自定义",
     "longTermMemory": "长期记忆",
-    "longTermMemoryHint": "AGNO 自带的记忆工具负责存取，此开关只用于通知 AGNO 是否同步偏好（参见 https://docs.agno.com/context/memory/overview 与 https://docs.agno.com/context/memory/working-with-memories/overview）。",
+    "longTermMemoryHint": "启用长期记忆将降低每个会话的响应速度。",
     "enableLongTermMemory": "启用长期记忆",
-    "enableLongTermMemoryHint": "告知 AGNO 的记忆服务是否应保持 Supabase 中的用户资料同步。",
     "memoryRecallLimit": "每次召回数量",
     "memoryRecallLimitHint": "每次回答最多召回的记忆条数。",
     "liteModel": "轻量",

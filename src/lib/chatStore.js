@@ -6,10 +6,10 @@ import {
   notifyConversationsChanged,
   updateConversation,
   updateMessageById,
-} from '../lib/conversationsService'
-import { getProvider, resolveThinkingToggleRule } from '../lib/providers'
-import { getUserTools } from '../lib/userToolsService'
-import { deleteMessageById } from '../lib/supabase'
+} from './conversationsService'
+import { getProvider, resolveThinkingToggleRule } from './providers'
+import { getUserTools } from './userToolsService'
+import { deleteMessageById } from './supabase'
 import { buildResponseStylePromptFromAgent } from './settings'
 import { listSpaceAgents } from './spacesService'
 import { fetchDocumentChunkContext } from './documentRetrievalService'

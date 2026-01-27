@@ -2632,9 +2632,9 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                     <label className="text-sm font-semibold text-gray-900 dark:text-white">
                       {t('settings.enableLongTermMemory')}
                     </label>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {/* <p className="text-xs text-gray-500 dark:text-gray-400">
                       {t('settings.enableLongTermMemoryHint')}
-                    </p>
+                    </p> */}
                   </div>
                   <button
                     type="button"

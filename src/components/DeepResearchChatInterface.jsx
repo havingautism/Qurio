@@ -254,9 +254,19 @@ const DeepResearchChatInterface = ({
       nextEmojis.length !== conversationTitleEmojis.length ||
       nextEmojis.some((emoji, index) => emoji !== conversationTitleEmojis[index])
 
-    const hasIncomingTitle = nextTitle && nextTitle !== 'New Conversation'
+    const isGenericTitle = title =>
+      !title ||
+      title === 'New Conversation' ||
+      title === 'Deep Research' ||
+      title === 'Deep Research Space'
+
+    const hasIncomingTitle = nextTitle && !isGenericTitle(nextTitle)
+    // Only update if incoming is different AND (incoming is not generic OR current is generic/empty)
+    const shouldUpdateTitle =
+      nextTitle !== conversationTitle &&
+      (hasIncomingTitle || (isGenericTitle(nextTitle) && isGenericTitle(conversationTitle)))
+
     const hasIncomingEmojis = nextEmojis.length > 0
-    const shouldUpdateTitle = hasIncomingTitle && nextTitle !== conversationTitle
     const shouldUpdateEmojis = hasIncomingEmojis && emojisChanged
 
     if (!shouldUpdateTitle && !shouldUpdateEmojis) return

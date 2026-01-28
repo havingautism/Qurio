@@ -1573,9 +1573,9 @@ const MessageBubble = ({
                 (typeof nextMsg.content !== 'string' ||
                   !nextMsg.content.startsWith('[Form Submission]'))
 
+              // Logic update: Form is disabled if it was submitted OR if it was interrupted
+              // Rely on mergedMessage._formSubmitted for submission state
               const shouldDisableForm = !!item._isSubmitted || isInterruptedByDifferentMessage
-
-              const isWaiting = !item._isSubmitted && !isInterruptedByDifferentMessage
 
               if (formData) {
                 return (
@@ -1584,7 +1584,7 @@ const MessageBubble = ({
                     formData={formData}
                     onSubmit={handleFormSubmit}
                     messageId={message.id}
-                    isSubmitted={shouldDisableForm} // Disable if submitted OR interrupted
+                    isSubmitted={shouldDisableForm} // consistent naming: true means "read only" mode
                     submittedValues={mergedMessage._formSubmittedValues || {}}
                     developerMode={developerMode}
                     onShowDetails={() => setActiveToolDetail(item)}

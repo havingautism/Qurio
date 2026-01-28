@@ -94,7 +94,10 @@ def _get_supabase_memory_db() -> PostgresDb | None:
 
 def init_memory_db() -> PostgresDb | None:
     """Eagerly initialize the memory DB once on startup."""
-    return _get_supabase_memory_db()
+    # if os.getenv("ENABLE_LONG_TERM_MEMORY", "0") != "1":
+    #     return None
+    # return _get_supabase_memory_db()
+    return None
 
 
 def _build_memory_kwargs(request: Any) -> dict[str, Any]:

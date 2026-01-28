@@ -88,6 +88,7 @@ async def stream_chat(request: Request) -> Response:
     return EventSourceResponse(
         event_generator(),
         media_type="text/event-stream",
+        ping=sse_config.heartbeat_ms / 1000,
     )
 
 

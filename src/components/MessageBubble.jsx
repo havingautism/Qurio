@@ -617,9 +617,14 @@ const MessageBubble = ({
 
   // Normalize tool index to paragraph boundaries instead of word boundaries
   // Tools will be displayed after paragraphs (after newlines) for better readability
-  const normalizeToolIndex = (content, index) => {
+  const normalizeToolIndex = (content, index, toolName) => {
     if (!content) return 0
     const clamped = Math.max(0, Math.min(index, content.length))
+
+    // Interactive forms should use the exact index where they were generated
+    // to allow natural placement (e.g. "Please fill this form: [Form] and then...")
+    if (toolName === 'interactive_form') return clamped
+
     if (clamped === 0 || clamped === content.length) return clamped
 
     // Search forward for the next newline (paragraph boundary)
@@ -651,7 +656,7 @@ const MessageBubble = ({
       // Use textIndex if available
       // If missing: default interactive_form to end, others to start
       const rawIndex = tool.textIndex ?? (tool.name === 'interactive_form' ? rawContent.length : 0)
-      const idx = normalizeToolIndex(rawContent, rawIndex)
+      const idx = normalizeToolIndex(rawContent, rawIndex, tool.name)
       if (!toolsByIndex[idx]) toolsByIndex[idx] = []
       toolsByIndex[idx].push(tool)
     })
@@ -1573,9 +1578,9 @@ const MessageBubble = ({
                 (typeof nextMsg.content !== 'string' ||
                   !nextMsg.content.startsWith('[Form Submission]'))
 
+              // Logic update: Form is disabled if it was submitted OR if it was interrupted
+              // Rely on mergedMessage._formSubmitted for submission state
               const shouldDisableForm = !!item._isSubmitted || isInterruptedByDifferentMessage
-
-              const isWaiting = !item._isSubmitted && !isInterruptedByDifferentMessage
 
               if (formData) {
                 return (
@@ -1584,7 +1589,7 @@ const MessageBubble = ({
                     formData={formData}
                     onSubmit={handleFormSubmit}
                     messageId={message.id}
-                    isSubmitted={shouldDisableForm} // Disable if submitted OR interrupted
+                    isSubmitted={shouldDisableForm} // consistent naming: true means "read only" mode
                     submittedValues={mergedMessage._formSubmittedValues || {}}
                     developerMode={developerMode}
                     onShowDetails={() => setActiveToolDetail(item)}

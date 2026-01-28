@@ -2629,14 +2629,25 @@ Analyze the submitted data. If critical information is still missing or if the r
       return { messages: updated }
     })
 
-    // Append newline to last AI message to separate form from new content
+    // Mark the form tool as done to transition the UI badge to "Submitted"
     set(state => {
       const updated = [...state.messages]
-      const lastMsgIndex = updated.length - 2 // The AI message is now second to last
-      if (lastMsgIndex >= 0 && updated[lastMsgIndex].role === 'ai') {
-        updated[lastMsgIndex] = {
-          ...updated[lastMsgIndex],
-          content: updated[lastMsgIndex].content + '\n\n',
+      // The AI message is before the hidden user message (which was just added)
+      // So index is length - 2
+      const lastMsgIndex = updated.length - 2
+      if (
+        lastMsgIndex >= 0 &&
+        updated[lastMsgIndex].role === 'ai' &&
+        updated[lastMsgIndex].toolCallHistory
+      ) {
+        const tools = [...updated[lastMsgIndex].toolCallHistory]
+        // Find the most recent interactive_form that isn't done
+        const formToolIndex = tools.findIndex(
+          t => t.name === 'interactive_form' && t.status !== 'done',
+        )
+        if (formToolIndex !== -1) {
+          tools[formToolIndex] = { ...tools[formToolIndex], status: 'done' }
+          updated[lastMsgIndex] = { ...updated[lastMsgIndex], toolCallHistory: tools }
         }
       }
       return { messages: updated }
@@ -2694,7 +2705,7 @@ Analyze the submitted data. If critical information is still missing or if the r
         [], // emojis
         get,
         set,
-        messages.length,
+        messages.length + 1, // CORRECT INDEX: Target the new placeholder (Index N+1), not the hidden user msg (Index N)
         '', // firstUserText
         [], // documentSources,
         false, // FORCE DISABLE AUTO MODE for form submission to maintain context

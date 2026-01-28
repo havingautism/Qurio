@@ -44,7 +44,7 @@ const DeepResearchCard = memo(({ onClick }) => {
 
           <div className="relative z-20 h-full flex flex-col justify-between">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-white/20 dark:bg-zinc-800/30 rounded-xl backdrop-blur-sm shadow-sm group-hover:rotate-12 transition-transform duration-300">
+              <div className="p-2 bg-white/20 dark:bg-zinc-800/40 rounded-xl backdrop-blur-sm shadow-sm group-hover:rotate-12 transition-transform duration-300">
                 <Microscope
                   size={20}
                   className="text-primary-600 dark:text-primary-400 animate-pulse"

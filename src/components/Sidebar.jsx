@@ -922,7 +922,7 @@ const Sidebar = ({
                               {/* Hover shine effect removed */}
                               <div className="flex items-center justify-between w-full overflow-hidden relative z-10">
                                 <div className="flex items-center gap-3 overflow-hidden flex-1 min-w-0">
-                                  <div className="w-9 h-9 rounded-lg bg-primary-100/50 dark:bg-primary-900/30 flex items-center justify-center shrink-0 text-base">
+                                  <div className="w-9 h-9 rounded-lg bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center shrink-0 text-base">
                                     <EmojiDisplay
                                       emoji={resolveConversationEmoji(conv, space?.emoji)}
                                       size="1.3em"
@@ -1061,9 +1061,9 @@ const Sidebar = ({
                           openDeepResearchGuide()
                           if (onClose) onClose()
                         }}
-                        className="flex items-center gap-3 bg-user-bubble hover:scale-105 dark:bg-zinc-800 transition-transform p-2.5 rounded-xl hover:bg-user-bubble dark:hover:bg-user-bubble/10 text-gray-600 dark:text-gray-300 w-full text-left cursor-pointer relative"
+                        className="flex items-center gap-3 bg-user-bubble/50 hover:scale-105 dark:bg-zinc-800 transition-transform p-2.5 rounded-xl hover:bg-user-bubble dark:hover:bg-user-bubble/10 text-gray-600 dark:text-gray-300 w-full text-left cursor-pointer relative"
                       >
-                        <div className="w-9 h-9 rounded-lg bg-primary-100/50 dark:bg-primary-900/30 flex items-center justify-center shrink-0 text-base text-gray-700 dark:text-gray-100">
+                        <div className="w-9 h-9 rounded-lg bg-primary-100/70 dark:bg-primary-900/30 flex items-center justify-center shrink-0 text-base text-gray-700 dark:text-gray-100">
                           <Plus size={16} />
                         </div>
                         <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -1114,7 +1114,7 @@ const Sidebar = ({
                                 >
                                   <div className="flex items-center justify-between w-full overflow-hidden relative z-10">
                                     <div className="flex items-center gap-3 overflow-hidden flex-1 min-w-0">
-                                      <div className="w-9 h-9 rounded-lg bg-primary-100/50 dark:bg-primary-900/30 flex items-center justify-center shrink-0 text-base">
+                                      <div className="w-9 h-9 rounded-lg bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center shrink-0 text-base">
                                         <EmojiDisplay
                                           emoji={resolveConversationEmoji(conv, space?.emoji)}
                                           size="1.4em"
@@ -1279,7 +1279,7 @@ const Sidebar = ({
                         >
                           <div className="flex items-center justify-between w-full overflow-hidden relative z-10">
                             <div className="flex items-center gap-3 overflow-hidden flex-1 min-w-0">
-                              <div className="w-9 h-9 rounded-lg bg-primary-100/50 dark:bg-primary-900/30 flex items-center justify-center shrink-0 text-base">
+                              <div className="w-9 h-9 rounded-lg bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center shrink-0 text-base">
                                 <EmojiDisplay
                                   emoji={resolveConversationEmoji(conv, space?.emoji)}
                                   size="1.4em"
@@ -1418,9 +1418,9 @@ const Sidebar = ({
                 <div className="px-2 pb-2 shrink-0">
                   <button
                     onClick={onCreateSpace}
-                    className="flex items-center gap-3 bg-user-bubble hover:scale-105 dark:bg-zinc-800 transition-transform p-2.5 rounded-xl hover:bg-user-bubble dark:hover:bg-user-bubble/10 text-gray-600 dark:text-gray-300 w-full text-left cursor-pointer relative"
+                    className="flex items-center gap-3 bg-user-bubble/50 hover:scale-105 dark:bg-zinc-800 transition-transform p-2.5 rounded-xl hover:bg-user-bubble dark:hover:bg-user-bubble/10 text-gray-600 dark:text-gray-300 w-full text-left cursor-pointer relative"
                   >
-                    <div className="w-9 h-9 rounded-lg bg-primary-100/50 dark:bg-primary-900/30 flex items-center justify-center shrink-0 text-base text-gray-700 dark:text-gray-100">
+                    <div className="w-9 h-9 rounded-lg bg-primary-100/70 dark:bg-primary-900/30 flex items-center justify-center shrink-0 text-base text-gray-700 dark:text-gray-100">
                       <Plus size={16} />
                     </div>
                     <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -1518,7 +1518,7 @@ const Sidebar = ({
                               >
                                 <div className="flex items-center justify-between w-full overflow-hidden relative z-10">
                                   <div className="flex items-center gap-3 overflow-hidden flex-1 min-w-0">
-                                    <div className="w-9 h-9 rounded-lg bg-primary-100/50 dark:bg-primary-900/30 flex items-center justify-center shrink-0 text-base">
+                                    <div className="w-9 h-9 rounded-lg bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center shrink-0 text-base">
                                       <EmojiDisplay
                                         emoji={resolveConversationEmoji(conv, space?.emoji)}
                                         size="1.4em"
@@ -1623,9 +1623,9 @@ const Sidebar = ({
                 <div className="px-2 pb-2 shrink-0">
                   <button
                     onClick={onCreateAgent}
-                    className="flex items-center gap-3 bg-user-bubble hover:scale-105 dark:bg-zinc-800 transition-transform p-2.5 rounded-xl hover:bg-user-bubble dark:hover:bg-user-bubble/10 text-gray-600 dark:text-gray-300 w-full text-left cursor-pointer relative"
+                    className="flex items-center gap-3 bg-user-bubble/50 hover:scale-105 dark:bg-zinc-800 transition-transform p-2.5 rounded-xl hover:bg-user-bubble dark:hover:bg-user-bubble/10 text-gray-600 dark:text-gray-300 w-full text-left cursor-pointer relative"
                   >
-                    <div className="w-9 h-9 rounded-lg bg-primary-100/50 dark:bg-primary-900/30 flex items-center justify-center shrink-0 text-base text-gray-700 dark:text-gray-100">
+                    <div className="w-9 h-9 rounded-lg bg-primary-100/70 dark:bg-primary-900/30 flex items-center justify-center shrink-0 text-base text-gray-700 dark:text-gray-100">
                       <Plus size={16} />
                     </div>
                     <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -1658,7 +1658,7 @@ const Sidebar = ({
                         className="flex items-center justify-between p-2.5 rounded-xl cursor-pointer transition-all duration-200 group hover:bg-primary-50 dark:hover:bg-zinc-800 relative"
                       >
                         <div className="flex items-center gap-3 flex-1 min-w-0">
-                          <div className="w-9 h-9 rounded-lg bg-primary-100/50 dark:bg-primary-900/30 flex items-center justify-center shrink-0 text-base">
+                          <div className="w-9 h-9 rounded-lg bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center shrink-0 text-base">
                             <EmojiDisplay emoji={agent.emoji} size="1.4em" className="shrink-0" />
                           </div>
                           <div className="flex flex-col min-w-0">

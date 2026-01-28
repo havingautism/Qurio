@@ -526,7 +526,7 @@ const MessageBubble = ({
 
   const renderPlainCodeBlock = useCallback(
     (codeText, language) => (
-      <div className="relative group mb-4 border border-gray-200 dark:border-zinc-700 rounded-xl overflow-x-auto bg-user-bubble/20 dark:bg-zinc-800/30">
+      <div className="relative group mb-4 border border-gray-200 dark:border-zinc-700 rounded-xl overflow-x-auto bg-user-bubble/20 dark:bg-zinc-800/40">
         <div className="flex items-center justify-between px-4 py-2 text-[11px] font-semibold bg-user-bubble/50 dark:bg-zinc-800/50 text-gray-600 dark:text-gray-300 border-b border-gray-200 dark:border-zinc-700">
           <span>{String(language || 'CODE').toUpperCase()}</span>
           <button
@@ -1171,7 +1171,7 @@ const MessageBubble = ({
 
       if (isBlock) {
         return (
-          <div className="relative group mb-4 border border-gray-200 dark:border-zinc-700 rounded-xl overflow-x-auto bg-user-bubble/20 dark:bg-zinc-800/30">
+          <div className="relative group mb-4 border border-gray-200 dark:border-zinc-700 rounded-xl overflow-x-auto bg-user-bubble/20 dark:bg-zinc-800/40">
             <div className="flex items-center justify-between px-4 py-2 text-[11px] font-semibold bg-user-bubble/50 dark:bg-zinc-800/50 text-gray-600 dark:text-gray-300 border-b border-gray-200 dark:border-zinc-700">
               <span>{langLabel}</span>
               <button
@@ -1411,16 +1411,16 @@ const MessageBubble = ({
                 // Developer Mode: Simplified view consistent with Deep Research within a card container
                 <div
                   className={clsx(
-                    'rounded-xl overflow-hidden bg-[#ececec5e] dark:bg-zinc-800/30',
+                    'rounded-lg overflow-hidden border border-gray-200 dark:border-zinc-800',
                     'mb-4',
                   )}
                 >
-                  <div className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-zinc-900">
+                  <div className="w-full flex items-center justify-between p-2 bg-user-bubble/30 dark:bg-zinc-800/50 hover:bg-user-bubble dark:hover:bg-zinc-800 transition-colors">
                     <div className="flex items-center gap-2 font-medium text-gray-700 dark:text-gray-300">
                       <EmojiDisplay emoji={'🔧'} size="1.2em" /> {t('messageBubble.toolCalls')}
                     </div>
                   </div>
-                  <div className="px-4 py-3 space-y-2">
+                  <div className="p-3 space-y-2 bg-white/70 dark:bg-zinc-800/70">
                     {regularTools.map(item => (
                       <div
                         key={item.id || `${item.name}-${item.arguments}`}
@@ -1473,7 +1473,7 @@ const MessageBubble = ({
               ) : (
                 <div
                   className={clsx(
-                    'p-3 flex flex-col gap-2  rounded-xl overflow-hidden dark:bg-zinc-800/30 bg-[#ececec5e]',
+                    'p-2 flex flex-col gap-2 rounded-lg border bg-white/70 dark:bg-zinc-800/50 border-gray-200 dark:border-zinc-800 ',
                     'mb-4',
                   )}
                 >
@@ -2095,7 +2095,7 @@ const MessageBubble = ({
       {isDeepResearch ? (
         <>
           {shouldShowPlan && (
-            <div className="border border-gray-200 dark:border-zinc-700 rounded-xl overflow-hidden">
+            <div className="border border-gray-200/70 dark:border-zinc-800 rounded-xl overflow-hidden">
               <button
                 onClick={() => setIsPlanExpanded(!isPlanExpanded)}
                 className="w-full flex items-center justify-between p-2 bg-user-bubble/30 dark:bg-zinc-800/50 hover:bg-user-bubble dark:hover:bg-zinc-800 transition-colors"
@@ -2119,7 +2119,7 @@ const MessageBubble = ({
               </button>
 
               {isPlanExpanded && (hasPlanText || shouldShowPlanStatus) && (
-                <div className="p-4 font-stretch-semi-condensed border-t border-gray-200 dark:border-zinc-700 text-sm text-gray-600 dark:text-gray-400 leading-relaxed space-y-4 [&>div>p:last-child]:mb-0!">
+                <div className="p-4 font-stretch-semi-condensed bg-white/70 dark:bg-zinc-800/70  text-sm text-gray-600 dark:text-gray-400 leading-relaxed space-y-4 [&>div>p:last-child]:mb-0!">
                   <Streamdown
                     mermaid={mermaidOptions}
                     remarkPlugins={[remarkGfm]}
@@ -2133,7 +2133,7 @@ const MessageBubble = ({
           )}
 
           {shouldShowResearch && (
-            <div className="border border-gray-200 dark:border-zinc-700 rounded-xl overflow-hidden">
+            <div className="border border-gray-200/70 dark:border-zinc-800 rounded-xl overflow-hidden">
               <button
                 onClick={() => setIsResearchExpanded(!isResearchExpanded)}
                 className="w-full flex items-center justify-between p-2 bg-user-bubble/30 dark:bg-zinc-800/50 hover:bg-user-bubble dark:hover:bg-zinc-800 transition-colors"
@@ -2157,7 +2157,7 @@ const MessageBubble = ({
               </button>
 
               {isResearchExpanded && hasResearchSteps && (
-                <div className="p-4 font-stretch-semi-condensed  border-t border-gray-200 dark:border-zinc-700 text-sm text-gray-600 dark:text-gray-400 leading-relaxed space-y-3 [&>div>p:last-child]:mb-0!">
+                <div className="p-4 font-stretch-semi-condensed  text-sm text-gray-600 dark:text-gray-400 leading-relaxed space-y-3 [&>div>p:last-child]:mb-0!">
                   {researchSteps.map(step => {
                     const isRunning = step.status === 'running'
                     const isPending = step.status === 'pending'
@@ -2181,7 +2181,7 @@ const MessageBubble = ({
                     return (
                       <div
                         key={`${step.step}-${step.title}`}
-                        className="flex items-start gap-3 rounded-lg border border-gray-200/60 dark:border-zinc-700/60 bg-white/40 dark:bg-zinc-900/30 p-3"
+                        className="flex items-start gap-3 rounded-lg border border-gray-200/60 dark:border-zinc-800/70 bg-white/70 dark:bg-zinc-800/70 p-3"
                       >
                         <div className="flex-1 space-y-1">
                           <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -2388,10 +2388,10 @@ const MessageBubble = ({
         </>
       ) : (
         shouldShowThinking && (
-          <div className=" rounded-xl overflow-hidden">
+          <div className="border border-gray-200/70 dark:border-zinc-800 rounded-xl overflow-hidden">
             <button
               onClick={() => setIsThoughtExpanded(!isThoughtExpanded)}
-              className="w-full flex items-center justify-between p-2 bg-[#ececec5e] dark:bg-zinc-800/50 hover:bg-[#ececec] dark:hover:bg-zinc-800 transition-colors"
+              className="w-full flex items-center justify-between p-2 bg-user-bubble/30 dark:bg-zinc-800/50 hover:bg-user-bubble dark:hover:bg-zinc-800 transition-colors"
             >
               <div className="flex items-center gap-2 font-medium text-gray-700 dark:text-gray-300">
                 <EmojiDisplay emoji={'🧠'} size="1.2em" />
@@ -2412,7 +2412,7 @@ const MessageBubble = ({
             </button>
 
             {isThoughtExpanded && (hasThoughtText || hasPlanText) && (
-              <div className="p-4 font-stretch-semi-condensed bg-[#ececec5e] dark:bg-zinc-800/30 text-sm text-gray-600 dark:text-gray-400 leading-relaxed [&>div>p:last-child]:mb-0!">
+              <div className="p-4 font-stretch-semi-condensed text-sm bg-white/70 dark:bg-zinc-800/70 text-gray-600 dark:text-gray-400 leading-relaxed [&>div>p:last-child]:mb-0!">
                 <Streamdown
                   mermaid={mermaidOptions}
                   remarkPlugins={[remarkGfm]}

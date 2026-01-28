@@ -849,24 +849,96 @@ const handleEditingAndHistory = (messages, editingInfo, userMessage, historyOver
   const historyForSend = historyOverride !== null ? historyOverride : baseHistory
   const safeHistoryForSend = (historyForSend || []).map(normalizeMessageForSend)
 
+  // Initialize idsToRemove at the top level to avoid ReferenceError
+  const idsToRemove = new Set()
+
   // UI state: remove edited user message (and its paired AI answer if any), then append the new user message at the end
   let newMessages
   if (editingInfo?.index !== undefined && editingInfo.index !== null) {
-    const partnerIds = new Set(
-      Array.isArray(editingInfo.partnerIds) ? editingInfo.partnerIds.filter(Boolean) : [],
+    // Intelligently identify related messages to remove (e.g. form interactions)
+    // We scan forward from the edited message to find the "chain" of interaction
+
+    // Always remove the edited message itself
+    const editedMsgId = messages[editingInfo.index]?.id
+    if (editedMsgId) idsToRemove.add(editedMsgId)
+
+    // Add explicitly provided partner IDs if any
+    if (Array.isArray(editingInfo.partnerIds)) {
+      editingInfo.partnerIds.forEach(id => id && idsToRemove.add(id))
+    }
+    if (editingInfo.partnerId) idsToRemove.add(editingInfo.partnerId)
+
+    // AUTO-SCAN: Identify subsequent messages belonging to the same flow (like Forms)
+    // We start looking AFTER the edited message
+    console.log(
+      '[EditDebug] Scanning for related messages. Start index:',
+      editingInfo.index + 1,
+      'Total messages:',
+      messages.length,
     )
-    // Remove the edited user message and any specified partner messages by id
+    for (let i = editingInfo.index + 1; i < messages.length; i++) {
+      const m = messages[i]
+      console.log('[EditDebug] Checking message at index:', i, 'ID:', m.id, 'Role:', m.role)
+
+      // 1. AI Messages: usually responses to the edited message or part of a form flow
+      if (m.role === 'ai' || m.role === 'assistant') {
+        console.log('[EditDebug] -> Matched AI message, removing.')
+        idsToRemove.add(m.id)
+        continue
+      }
+
+      // 2. User Messages: Only remove if they are Form Submissions
+      // If we hit a normal user message, that's a new turn/topic, so we stop scanning.
+      if (m.role === 'user') {
+        // Check for form submission content
+        // Content might be JSON stringified (wrapped in quotes) or raw string
+        let contentToCheck = ''
+        if (typeof m.content === 'string') {
+          contentToCheck = m.content
+        } else if (typeof m.content === 'object' && m.content !== null) {
+          // If content is somehow an object (shouldn't be for user message usually, but safety first)
+          contentToCheck = JSON.stringify(m.content)
+        }
+
+        // Robust check: unwrap potential double-encoding if it starts with quote
+        if (contentToCheck.startsWith('"')) {
+          try {
+            const parsed = JSON.parse(contentToCheck)
+            if (typeof parsed === 'string') contentToCheck = parsed
+          } catch (e) {
+            // ignore parse error
+          }
+        }
+
+        console.log('[EditDebug] User message content check:', {
+          raw: m.content,
+          checked: contentToCheck,
+        })
+
+        const isFormSubmission =
+          (contentToCheck && contentToCheck.includes('[Form Submission]')) || m.formValues // Check for internal flag if content isn't sufficient
+
+        if (isFormSubmission) {
+          console.log('[EditDebug] -> Matched Form user message, removing.')
+          idsToRemove.add(m.id)
+          continue
+        } else {
+          console.log('[EditDebug] -> Found normal user message, stopping scan.')
+          // Found a normal user message -> Stop scanning/deleting
+          break
+        }
+      }
+    }
+
+    // Filter out all identified messages
     const filtered = messages.filter((msg, idx) => {
+      // Safety check: always skip by index too
       if (idx === editingInfo.index) return false
-      if (partnerIds.has(msg.id)) return false
-      // Also drop immediate partnerId if provided separately
-      if (editingInfo.partnerId && msg.id === editingInfo.partnerId) return false
-      return true
+      return !idsToRemove.has(msg.id)
     })
 
     // Reinsert the new user message
     // Default to moveToEnd: true so that edited messages jump to the bottom
-    // unless explicitly told not to (though currently we always want this behavior)
     const shouldMoveToEnd = editingInfo.moveToEnd !== false
 
     if (shouldMoveToEnd) {
@@ -882,7 +954,7 @@ const handleEditingAndHistory = (messages, editingInfo, userMessage, historyOver
     newMessages = [...messages, userMessage]
   }
 
-  return { newMessages, historyForSend: safeHistoryForSend }
+  return { newMessages, historyForSend: safeHistoryForSend, idsToDelete: Array.from(idsToRemove) }
 }
 
 // ========================================
@@ -1092,12 +1164,21 @@ const ensureConversationExists = async (
  * @param {Object|null} editingInfo - Information about message being edited
  * @param {string|Array} content - Message content (text or structured with attachments)
  * @param {Function} set - Zustand set function
+ * @param {Array} extraIdsToDelete - Additional message IDs to delete (e.g. form chain)
  */
-const persistUserMessage = async (convId, editingInfo, content, set) => {
+const persistUserMessage = async (convId, editingInfo, content, set, extraIdsToDelete = []) => {
   // Handle editing: delete old messages if editing
   if (editingInfo?.index !== undefined && editingInfo.index !== null) {
-    if (editingInfo.targetId) await deleteMessageById(editingInfo.targetId)
-    if (editingInfo.partnerId) await deleteMessageById(editingInfo.partnerId)
+    const ids = new Set()
+    if (editingInfo.targetId) ids.add(editingInfo.targetId)
+    if (editingInfo.partnerId) ids.add(editingInfo.partnerId)
+    if (Array.isArray(extraIdsToDelete)) {
+      extraIdsToDelete.forEach(id => id && ids.add(id))
+    }
+
+    // Delete all collected IDs
+    const deletePromises = Array.from(ids).map(id => deleteMessageById(id))
+    await Promise.all(deletePromises)
   }
 
   // Insert the new user message into database
@@ -2533,10 +2614,15 @@ Analyze the submitted data. If critical information is still missing or if the r
 
     // 2. Persist to DB and add to STATE to maintain context
     // We must add it to state so the UI (MessageBubble) knows the form is submitted
-    await addMessage(hiddenUserMessage)
+    const { data: insertedMsg } = await addMessage(hiddenUserMessage)
 
     // Store raw form values in state message for API swap logic (User -> Tool)
-    const stateMessage = { ...hiddenUserMessage, formValues: formData.values }
+    // CRITICAL: Ensure we use the ID from the database, otherwise this message CANNOT be deleted later
+    const stateMessage = {
+      ...hiddenUserMessage,
+      id: insertedMsg?.id,
+      formValues: formData.values,
+    }
 
     set(state => {
       const updated = [...state.messages, stateMessage]
@@ -2695,7 +2781,7 @@ Analyze the submitted data. If critical information is still missing or if the r
     const historyOverride = quoteContext ? [] : null
 
     // Step 3: Handle Editing & History
-    const { newMessages, historyForSend } = handleEditingAndHistory(
+    const { newMessages, historyForSend, idsToDelete } = handleEditingAndHistory(
       messages,
       editingInfo,
       userMessage,
@@ -2971,7 +3057,8 @@ Analyze the submitted data. If critical information is still missing or if the r
 
     // Step 7: Persist User Message
     if (convId) {
-      await persistUserMessage(convId, editingInfo, userMessage.content, set)
+      // Pass idsToDelete to persist function to ensure DB consistency
+      await persistUserMessage(convId, editingInfo, userMessage.content, set, idsToDelete)
     }
 
     const baseDocumentSources = Array.isArray(documentSources) ? documentSources : []

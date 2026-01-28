@@ -1473,7 +1473,7 @@ const MessageBubble = ({
               ) : (
                 <div
                   className={clsx(
-                    'p-2 flex flex-col gap-2 rounded-lg border bg-white/70 dark:bg-zinc-800/70 border-gray-200 dark:border-white/10 ',
+                    'p-2 flex flex-col gap-2 rounded-lg border bg-white/70 dark:bg-zinc-800/50 border-gray-200 dark:border-zinc-800 ',
                     'mb-4',
                   )}
                 >

@@ -2257,9 +2257,9 @@ const finalizeMessage = async (
       : (currentStore.messages?.[currentStore.messages.length - 1]?.content ?? ''),
   )
   const isInteractiveForm =
-    result?.toolCalls?.some(tc => tc.name === 'interactive_form') ||
+    result?.toolCalls?.some(tc => (tc.name || tc.function?.name) === 'interactive_form') ||
     (currentStore.messages?.[currentStore.messages.length - 1]?.toolCallHistory || []).some(
-      tc => tc.name === 'interactive_form',
+      tc => (tc.name || tc.function?.name) === 'interactive_form',
     )
 
   // Generate related questions (only if enabled and NOT a form)

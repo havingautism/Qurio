@@ -90,7 +90,7 @@ const DeepResearchGoalCard = ({ content }) => {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mt-2">
-          <div className="bg-gray-50/50 dark:bg-zinc-800/30 rounded-xl p-3 sm:p-4 border border-gray-100 dark:border-zinc-700/30 transition-colors hover:bg-gray-50 dark:hover:bg-zinc-800/50">
+          <div className="bg-gray-50/50 dark:bg-zinc-800/40 rounded-xl p-3 sm:p-4 border border-gray-100 dark:border-zinc-700/30 transition-colors hover:bg-gray-50 dark:hover:bg-zinc-800/50">
             <div className="text-gray-400 dark:text-gray-500 text-[10px] font-bold uppercase tracking-wider mb-2 flex items-center gap-2">
               <div className="w-1 h-1 rounded-full bg-indigo-500"></div>
               {t('messageBubble.researchScopeLabel')}
@@ -99,7 +99,7 @@ const DeepResearchGoalCard = ({ content }) => {
               Auto
             </div>
           </div>
-          <div className="bg-gray-50/50 dark:bg-zinc-800/30 rounded-xl p-3 sm:p-4 border border-gray-100 dark:border-zinc-700/30 transition-colors hover:bg-gray-50 dark:hover:bg-zinc-800/50">
+          <div className="bg-gray-50/50 dark:bg-zinc-800/40 rounded-xl p-3 sm:p-4 border border-gray-100 dark:border-zinc-700/30 transition-colors hover:bg-gray-50 dark:hover:bg-zinc-800/50">
             <div className="text-gray-400 dark:text-gray-500 text-[10px] font-bold uppercase tracking-wider mb-2 flex items-center gap-2">
               <div className="w-1 h-1 rounded-full bg-emerald-500"></div>
               {t('messageBubble.researchRequirementsLabel')}

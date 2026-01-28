@@ -291,10 +291,10 @@
   --color-primary-950: #33160f;
 
   /* Dynamic background variables injected by src/lib/themes.js */
-  --background: #f9f9f9;
+  --background: #fbfbfb;
   --foreground: #44403c;
   /* gray-800 -> stone-800 - lighter for softer light mode text */
-  --sidebar: #f9f9f9;
+  --sidebar: #fbfbfb;
   /* stone-200 */
   --sidebar-foreground: #78716c;
   /* stone-600 - lighter for softer light mode text */

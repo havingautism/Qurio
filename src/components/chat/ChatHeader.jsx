@@ -99,7 +99,7 @@ const ChatHeader = ({
               if (isDeepResearchConversation) return
               setIsSelectorOpen(prev => !prev)
             }}
-            className={`flex items-center dark:bg-zinc-800/30 bg-[#ececec5e] backdrop-blur-md gap-2 px-1.5 py-1.5 mr-2 rounded-lg transition-colors text-sm font-medium text-gray-700 dark:text-gray-300 ${
+            className={`flex items-center bg-user-bubble dark:bg-zinc-800 gap-2 px-1.5 py-1.5 mr-2 rounded-lg transition-colors text-sm font-medium text-gray-700 dark:text-gray-300 ${
               isDeepResearchConversation
                 ? 'opacity-60 cursor-not-allowed'
                 : 'hover:bg-gray-200 dark:hover:bg-zinc-800'
@@ -183,7 +183,7 @@ const ChatHeader = ({
           <button
             onClick={onRegenerateTitle}
             disabled={isRegeneratingTitle || messages.length === 0}
-            className="p-2 rounded-lg bg-[#ececec5e] dark:bg-zinc-800/30 backdrop-blur-md hover:bg-gray-200 dark:hover:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-colors shrink-0"
+            className="p-2 rounded-lg bg-user-bubble dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-colors shrink-0"
             title={t('chatInterface.regenerateTitle')}
           >
             <Sparkles size={18} />

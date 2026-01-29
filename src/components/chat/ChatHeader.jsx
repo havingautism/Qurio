@@ -119,7 +119,7 @@ const ChatHeader = ({
                 </span>
               </div>
             ) : (
-              <span className="text-gray-500 text-xs sm:text-s">None</span>
+              <span className="text-gray-500 text-xs ml-1.5 sm:text-s">None</span>
             )}
             <ChevronDown size={14} className="text-gray-400" />
           </button>

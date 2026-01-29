@@ -163,6 +163,7 @@ const MessageBubble = ({
     // Recursively merge all form submission chains
     let currentIndex = messageIndex
     let mergedContent = messageContent
+    let mergedThought = message.thought || ''
     // Clone the toolCallHistory to avoid mutating the original message object!
     // We map to new objects so we can add properties like _isSubmitted
     let toolCallHistory = (message.toolCallHistory || []).map(tc => ({ ...tc }))
@@ -259,6 +260,12 @@ const MessageBubble = ({
 
           const continuationPrefixLength = mergedContent.length + 2
           mergedContent += '\n\n' + (nextAiMsg.content || '')
+
+          // Merge thoughts if available
+          if (nextAiMsg.thought) {
+            mergedThought = (mergedThought ? mergedThought + '\n\n' : '') + nextAiMsg.thought
+          }
+
           toolCallHistory.push({
             id: `form-status-${currentIndex + 1}`,
             name: 'form_submission_status',
@@ -311,6 +318,7 @@ const MessageBubble = ({
       return {
         ...message,
         content: mergedContent,
+        thought: mergedThought || undefined,
         toolCallHistory: toolCallHistory,
         sources: sources,
         documentSources: documentSources,

@@ -342,8 +342,7 @@ const MessageBubble = ({
   const providerId = mergedMessage.provider || apiProvider
   const provider = getProvider(providerId)
   const parsed = provider.parseMessage(mergedMessage)
-  const thoughtContent =
-    isDeepResearch || mergedMessage.thinkingEnabled === false ? null : parsed.thought
+  const thoughtContent = isDeepResearch ? null : parsed.thought
   const mainContent = parsed.content
 
   const toolCallHistory = Array.isArray(mergedMessage.toolCallHistory)
@@ -1424,7 +1423,7 @@ const MessageBubble = ({
                   )}
                 >
                   <div className="w-full flex items-center justify-between p-2 bg-user-bubble/30 dark:bg-zinc-800/50 hover:bg-user-bubble dark:hover:bg-zinc-800 transition-colors">
-                    <div className="flex items-center gap-2 font-medium text-gray-700 dark:text-gray-300">
+                    <div className="flex items-center gap-2 font-medium text-sm text-gray-700 dark:text-gray-300">
                       <EmojiDisplay emoji={'🔧'} size="1.2em" /> {t('messageBubble.toolCalls')}
                     </div>
                   </div>
@@ -1913,8 +1912,7 @@ const MessageBubble = ({
   const shouldShowResearch = isDeepResearch && hasResearchSteps
   const shouldShowThinking =
     !isDeepResearch &&
-    message.thinkingEnabled !== false &&
-    (isStreaming || hasThoughtText || hasPlanText)
+    ((message.thinkingEnabled !== false && isStreaming) || hasThoughtText || hasPlanText)
   const shouldShowPlanStatus = isDeepResearch && researchPlanLoading
   const shouldShowResearchStatus = isDeepResearch && hasActiveResearchStep
 
@@ -2108,7 +2106,7 @@ const MessageBubble = ({
                 onClick={() => setIsPlanExpanded(!isPlanExpanded)}
                 className="w-full flex items-center justify-between p-2 bg-user-bubble/30 dark:bg-zinc-800/50 hover:bg-user-bubble dark:hover:bg-zinc-800 transition-colors"
               >
-                <div className="flex items-center gap-2 font-medium text-gray-700 dark:text-gray-300">
+                <div className="flex items-center gap-2 font-medium text-sm text-gray-700 dark:text-gray-300">
                   <EmojiDisplay emoji={'🧭'} size="1.2em" />
                   <span className="text-sm">{t('messageBubble.planProcess')}</span>
                   {!shouldShowPlanStatus && <Check size="1em" />}
@@ -2146,7 +2144,7 @@ const MessageBubble = ({
                 onClick={() => setIsResearchExpanded(!isResearchExpanded)}
                 className="w-full flex items-center justify-between p-2 bg-user-bubble/30 dark:bg-zinc-800/50 hover:bg-user-bubble dark:hover:bg-zinc-800 transition-colors"
               >
-                <div className="flex items-center gap-2 font-medium text-gray-700 dark:text-gray-300">
+                <div className="flex items-center gap-2 font-medium text-sm text-gray-700 dark:text-gray-300">
                   <EmojiDisplay emoji={'📋'} size="1.2em" />
                   <span className="text-sm">{t('messageBubble.researchProcess')}</span>
                   {!shouldShowResearchStatus && <Check size="1em" />}
@@ -2401,12 +2399,13 @@ const MessageBubble = ({
               onClick={() => setIsThoughtExpanded(!isThoughtExpanded)}
               className="w-full flex items-center justify-between p-2 bg-user-bubble/30 dark:bg-zinc-800/50 hover:bg-user-bubble dark:hover:bg-zinc-800 transition-colors"
             >
-              <div className="flex items-center gap-2 font-medium text-gray-700 dark:text-gray-300">
+              <div className="flex items-center gap-2 font-medium text-sm text-gray-700 dark:text-gray-300">
                 <EmojiDisplay emoji={'🧠'} size="1.2em" />
                 {!baseThinkingStatusActive && (
                   <span className="text-sm">{t('messageBubble.thinkingProcess')}</span>
                 )}
-                {!baseThinkingStatusActive && <Check size="1em" />}
+                {!baseThinkingStatusActive && (hasMainText || !isStreaming) && <Check size="1em" />}
+                {!baseThinkingStatusActive && !hasMainText && isStreaming && <DotLoader />}
                 {baseThinkingStatusActive && (
                   <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
                     <span className="text-left mr-4">{thinkingStatusText}</span>

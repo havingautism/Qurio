@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Check, ChevronDown, LayoutGrid, Menu, PanelRightOpen, Sparkles } from 'lucide-react'
 import EmojiDisplay from '../EmojiDisplay'
 import { getSpaceDisplayLabel } from '../../lib/spaceDisplay'
+import DotLoader from '../DotLoader'
 
 /**
  * ChatHeader Component
@@ -99,19 +100,19 @@ const ChatHeader = ({
               if (isDeepResearchConversation) return
               setIsSelectorOpen(prev => !prev)
             }}
-            className={`flex items-center bg-user-bubble dark:bg-zinc-800 gap-2 px-1.5 py-1.5 mr-2 rounded-lg transition-colors text-sm font-medium text-gray-700 dark:text-gray-300 ${
+            className={`flex items-center bg-user-bubble dark:bg-zinc-800 gap-2 p-1 mr-2 rounded-lg transition-colors text-sm font-medium text-gray-700 dark:text-gray-300 ${
               isDeepResearchConversation
                 ? 'opacity-60 cursor-not-allowed'
-                : 'hover:bg-gray-200 dark:hover:bg-zinc-800'
+                : 'hover:bg-gray-200 dark:hover:bg-zinc-700'
             }`}
           >
-            <LayoutGrid size={16} className="text-gray-400 hidden sm:inline" />
+            {/* <LayoutGrid size={16} className="text-gray-400 hidden sm:inline" /> */}
             {isMetaLoading ? (
-              <span className="text-gray-500 animate-pulse">...</span>
+              <DotLoader />
             ) : displaySpace ? (
               <div className="inline-flex items-center gap-1">
                 <span className="text-lg">
-                  <EmojiDisplay emoji={displaySpace.emoji} size="1.125rem" className="mb-1.5" />
+                  <EmojiDisplay emoji={displaySpace.emoji} size="1rem" className="mb-2 ml-1.5" />
                 </span>
                 <span className="hidden opacity-0 w-0 md:inline md:opacity-100 md:w-auto truncate max-w-[200px] transition-all">
                   {getSpaceDisplayLabel(displaySpace, t)}
@@ -169,7 +170,7 @@ const ChatHeader = ({
         <div className="flex items-center gap-2 flex-1 min-w-0 relative">
           <h1 className="text-m sm:text-xl font-medium text-gray-800 dark:text-gray-100 truncate flex items-center gap-2 min-w-0">
             {isTitleLoading || isMetaLoading ? (
-              <span className="inline-block h-5 w-40 sm:w-56 rounded-md bg-gray-200 dark:bg-zinc-700 animate-pulse" />
+              <DotLoader />
             ) : (
               <span className="inline-flex items-center gap-2 min-w-0 ">
                 {activeEmoji && <EmojiDisplay emoji={activeEmoji} size="1.2rem" className="mb-1" />}
@@ -178,12 +179,12 @@ const ChatHeader = ({
                 </span>
               </span>
             )}
-            {isRegeneratingTitle && <span className="animate-pulse">...</span>}
+            {isRegeneratingTitle && <DotLoader />}
           </h1>
           <button
             onClick={onRegenerateTitle}
             disabled={isRegeneratingTitle || messages.length === 0}
-            className="p-2 rounded-lg bg-user-bubble dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-colors shrink-0"
+            className="p-2 rounded-lg bg-user-bubble dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 text-gray-600 dark:text-gray-300 transition-colors shrink-0"
             title={t('chatInterface.regenerateTitle')}
           >
             <Sparkles size={18} />

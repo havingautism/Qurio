@@ -77,19 +77,6 @@ const defaultParseMessage = input => {
   return { content: rawContent, thought }
 }
 
-const normalizeMarkdownSpacing = text => {
-  if (!text || typeof text !== 'string') return text
-  let normalized = text
-  normalized = normalized.replace(/([^\n])(\s*#{1,6}\s+)/g, '$1\n$2')
-  normalized = normalized.replace(/([^\n])(\s*[-*+]\s+)/g, '$1\n$2')
-  normalized = normalized.replace(/([^\n])(\s*\d+\.\s+)/g, '$1\n$2')
-  normalized = normalized.replace(/([^\n])(\s*```)/g, '$1\n$2')
-  normalized = normalized.replace(/```(\w+)?(?!\n)/g, '```$1\n')
-  normalized = normalized.replace(/([^\n])(\s*\|[-:\s]+\|)/g, '$1\n$2')
-  normalized = normalized.replace(/([^\n])(\s*\|[^|\n]+?\|)/g, '$1\n$2')
-  return normalized
-}
-
 export const TOOL_DISPLAY_NAMES = {
   Tavily_web_search: 'Web Search',
   Tavily_academic_search: 'Academic Search',
@@ -248,8 +235,7 @@ export const PROVIDERS = {
     }),
     getTools: (isSearchActive, searchTool, enableMemory) =>
       resolveTools(isSearchActive, searchTool, enableMemory),
-    getThinking: (isThinkingActive, modelName) => {
-      if (shouldOmitThinkingParam(modelName)) return undefined
+    getThinking: (isThinkingActive, _modelName) => {
       return isThinkingActive
         ? {
             // Kimi k2-thinking model uses reasoning_content field
@@ -271,8 +257,7 @@ export const PROVIDERS = {
     }),
     getTools: (isSearchActive, searchTool, enableMemory) =>
       resolveTools(isSearchActive, searchTool, enableMemory),
-    getThinking: (isThinkingActive, modelName) =>
-      shouldOmitThinkingParam(modelName) ? undefined : isThinkingActive ? true : undefined,
+    getThinking: (isThinkingActive, _modelName) => (isThinkingActive ? true : undefined),
     parseMessage: defaultParseMessage,
   },
   minimax: {
@@ -285,8 +270,7 @@ export const PROVIDERS = {
     }),
     getTools: (isSearchActive, searchTool, enableMemory) =>
       resolveTools(isSearchActive, searchTool, enableMemory),
-    getThinking: (isThinkingActive, modelName) => {
-      if (shouldOmitThinkingParam(modelName)) return undefined
+    getThinking: (isThinkingActive, _modelName) => {
       return isThinkingActive
         ? {
             // MiniMax uses reasoning_split to separate thinking content
@@ -325,38 +309,6 @@ export const providerSupportsSearch = providerName => {
   return tools && tools.length > 0
 }
 
-const THINKING_MODEL_RULES = [
-  {
-    keywords: ['kimi', 'thinking'],
-    isLocked: true,
-    isThinkingActive: true,
-    omitThinkingParam: true,
-  },
-  {
-    keywords: ['minimax', 'm2'],
-    isLocked: true,
-    isThinkingActive: true,
-    omitThinkingParam: true,
-  },
-]
-
-const matchesKeywords = (modelName, keywords) => {
-  const normalizedModel = String(modelName || '').toLowerCase()
-  if (!normalizedModel) return false
-  return (keywords || []).every(keyword => normalizedModel.includes(keyword))
-}
-
-const shouldOmitThinkingParam = modelName => {
-  return THINKING_MODEL_RULES.some(
-    rule => rule.omitThinkingParam && matchesKeywords(modelName, rule.keywords),
-  )
-}
-
-export const resolveThinkingToggleRule = (providerName, modelName) => {
-  for (const rule of THINKING_MODEL_RULES) {
-    if (matchesKeywords(modelName, rule.keywords)) {
-      return { isLocked: rule.isLocked, isThinkingActive: rule.isThinkingActive }
-    }
-  }
+export const resolveThinkingToggleRule = (_providerName, _modelName) => {
   return { isLocked: false, isThinkingActive: false }
 }

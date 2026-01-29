@@ -129,12 +129,8 @@ export const callAIAPI = async (
       }
 
       if (pendingThought) {
-        if (lastMsg.thinkingEnabled) {
-          streamedThought += pendingThought
-          lastMsg.thought = (lastMsg.thought || '') + pendingThought
-        } else {
-          lastMsg.content += pendingThought
-        }
+        streamedThought += pendingThought
+        lastMsg.thought = (lastMsg.thought || '') + pendingThought
       }
 
       updated[lastMsgIndex] = lastMsg

@@ -24,13 +24,13 @@ def _interactive_form_impl(id: str, title: str, fields: list[dict[str, Any]]) ->
         "form_id": id,
         "title": title,
         "fields": fields,
-        "status": "pending_user_input",
+        "status": "PENDING",
     }
 
 
 interactive_form = Function(
     name="interactive_form",
-    description="Display an interactive form to collect structured user input.",
+    description="Display an interactive form to collect structured user input. Returns status: 'PENDING'. CRITICAL: If this tool returns status 'PENDING', you MUST stop generating text immediately. Do NOT output any explanation.",
     parameters={
         "type": "object",
         "properties": {

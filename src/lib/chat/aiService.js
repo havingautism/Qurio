@@ -812,110 +812,121 @@ export const finalizeMessage = async (
     ])
 
   if (isFirstTurn) {
-    const hasResolvedTitle =
-      typeof resolvedTitle === 'string' &&
-      resolvedTitle.trim() &&
-      resolvedTitle !== 'New Conversation'
-    if (!hasResolvedTitle) {
-      if (typeof preselectedTitle === 'string' && preselectedTitle.trim()) {
-        resolvedTitle = preselectedTitle.trim()
-        resolvedTitleEmojis = Array.isArray(preselectedEmojis) ? preselectedEmojis : []
-        set({ conversationTitle: resolvedTitle, conversationTitleEmojis: resolvedTitleEmojis })
-      } else if (spaceInfo?.isManualSpaceSelection && spaceInfo?.selectedSpace) {
-        const {
-          modelConfig: titleModelConfig,
-          provider,
-          credentials,
-        } = resolveProviderConfigWithCredentials(
-          safeAgent,
-          settings,
-          'generateTitle',
-          fallbackAgent,
-        )
-        const languageInstruction = getLanguageInstruction(safeAgent, settings)
-        const promptText = applyLanguageInstructionToText(firstMessageText, languageInstruction)
-        const titleResult = await provider.generateTitle(
-          promptText,
-          credentials.apiKey,
-          credentials.baseUrl,
-          titleModelConfig.model,
-        )
-        resolvedTitle = titleResult?.title || 'New Conversation'
-        resolvedTitleEmojis = Array.isArray(titleResult?.emojis) ? titleResult.emojis : []
-        set({ conversationTitle: resolvedTitle, conversationTitleEmojis: resolvedTitleEmojis })
-      } else if (callbacks?.onTitleAndSpaceGenerated) {
-        const {
-          modelConfig: titleModelConfig,
-          provider,
-          credentials,
-        } = resolveProviderConfigWithCredentials(
-          safeAgent,
-          settings,
-          'generateTitleAndSpace',
-          fallbackAgent,
-        )
-        const languageInstruction = getLanguageInstruction(safeAgent, settings)
-        const promptText = applyLanguageInstructionToText(firstMessageText, languageInstruction)
-        const { title, space, emojis } = await callbacks.onTitleAndSpaceGenerated(
-          promptText,
-          credentials.apiKey,
-          credentials.baseUrl,
-        )
-        resolvedTitle = title
-        resolvedTitleEmojis = Array.isArray(emojis) ? emojis : []
-        set({ conversationTitle: title, conversationTitleEmojis: resolvedTitleEmojis })
-        resolvedSpace = space || null
-      } else {
-        const {
-          modelConfig: titleModelConfig,
-          provider,
-          credentials,
-        } = resolveProviderConfigWithCredentials(
-          safeAgent,
-          settings,
-          'generateTitleAndSpace',
-          fallbackAgent,
-        )
-        const languageInstruction = getLanguageInstruction(safeAgent, settings)
-        const promptText = applyLanguageInstructionToText(firstMessageText, languageInstruction)
-        if (!resolvedAgent && provider.generateTitleSpaceAndAgent) {
-          const spaceAgents = await buildSpaceAgentOptions(spaces, agents)
-          if (spaceAgents.length) {
-            const { title, spaceLabel, agentName, emojis } =
-              await provider.generateTitleSpaceAndAgent(
-                promptText,
-                spaceAgents,
-                credentials.apiKey,
-                credentials.baseUrl,
-                titleModelConfig.model,
-              )
-            resolvedTitle = title
-            resolvedTitleEmojis = Array.isArray(emojis) ? emojis : []
-            set({ conversationTitle: title, conversationTitleEmojis: resolvedTitleEmojis })
-            const normalizedSpaceLabel =
-              typeof spaceLabel === 'string' ? spaceLabel.split(' - ')[0].trim() : spaceLabel
-            resolvedSpace = (spaces || []).find(s => s.label === normalizedSpaceLabel) || null
-            if (resolvedSpace && agentName) {
-              resolvedAgent = resolveAgentForSpace(agentName, resolvedSpace, spaceAgents, agents)
-              if (resolvedAgent) {
-                callbacks?.onAgentResolved?.(resolvedAgent)
-              }
-            }
-          }
-        }
-        if (!resolvedTitle || resolvedTitle === 'New Conversation') {
-          const { title, space, emojis } = await provider.generateTitleAndSpace(
+    try {
+      const hasResolvedTitle =
+        typeof resolvedTitle === 'string' &&
+        resolvedTitle.trim() &&
+        resolvedTitle !== 'New Conversation'
+      if (!hasResolvedTitle) {
+        if (typeof preselectedTitle === 'string' && preselectedTitle.trim()) {
+          resolvedTitle = preselectedTitle.trim()
+          resolvedTitleEmojis = Array.isArray(preselectedEmojis) ? preselectedEmojis : []
+          set({ conversationTitle: resolvedTitle, conversationTitleEmojis: resolvedTitleEmojis })
+        } else if (spaceInfo?.isManualSpaceSelection && spaceInfo?.selectedSpace) {
+          const {
+            modelConfig: titleModelConfig,
+            provider,
+            credentials,
+          } = resolveProviderConfigWithCredentials(
+            safeAgent,
+            settings,
+            'generateTitle',
+            fallbackAgent,
+          )
+          const languageInstruction = getLanguageInstruction(safeAgent, settings)
+          const promptText = applyLanguageInstructionToText(firstMessageText, languageInstruction)
+          const titleResult = await provider.generateTitle(
             promptText,
-            spaces || [],
             credentials.apiKey,
             credentials.baseUrl,
             titleModelConfig.model,
           )
+          resolvedTitle = titleResult?.title || 'New Conversation'
+          resolvedTitleEmojis = Array.isArray(titleResult?.emojis) ? titleResult.emojis : []
+          set({ conversationTitle: resolvedTitle, conversationTitleEmojis: resolvedTitleEmojis })
+        } else if (callbacks?.onTitleAndSpaceGenerated) {
+          const {
+            modelConfig: titleModelConfig,
+            provider,
+            credentials,
+          } = resolveProviderConfigWithCredentials(
+            safeAgent,
+            settings,
+            'generateTitleAndSpace',
+            fallbackAgent,
+          )
+          const languageInstruction = getLanguageInstruction(safeAgent, settings)
+          const promptText = applyLanguageInstructionToText(firstMessageText, languageInstruction)
+          const { title, space, emojis } = await callbacks.onTitleAndSpaceGenerated(
+            promptText,
+            credentials.apiKey,
+            credentials.baseUrl,
+          )
           resolvedTitle = title
           resolvedTitleEmojis = Array.isArray(emojis) ? emojis : []
           set({ conversationTitle: title, conversationTitleEmojis: resolvedTitleEmojis })
-          resolvedSpace = space || resolvedSpace || null
+          resolvedSpace = space || null
+        } else {
+          const {
+            modelConfig: titleModelConfig,
+            provider,
+            credentials,
+          } = resolveProviderConfigWithCredentials(
+            safeAgent,
+            settings,
+            'generateTitleAndSpace',
+            fallbackAgent,
+          )
+          const languageInstruction = getLanguageInstruction(safeAgent, settings)
+          const promptText = applyLanguageInstructionToText(firstMessageText, languageInstruction)
+          if (!resolvedAgent && provider.generateTitleSpaceAndAgent) {
+            const spaceAgents = await buildSpaceAgentOptions(spaces, agents)
+            if (spaceAgents.length) {
+              const { title, spaceLabel, agentName, emojis } =
+                await provider.generateTitleSpaceAndAgent(
+                  promptText,
+                  spaceAgents,
+                  credentials.apiKey,
+                  credentials.baseUrl,
+                  titleModelConfig.model,
+                )
+              resolvedTitle = title
+              resolvedTitleEmojis = Array.isArray(emojis) ? emojis : []
+              set({ conversationTitle: title, conversationTitleEmojis: resolvedTitleEmojis })
+              const normalizedSpaceLabel =
+                typeof spaceLabel === 'string' ? spaceLabel.split(' - ')[0].trim() : spaceLabel
+              resolvedSpace = (spaces || []).find(s => s.label === normalizedSpaceLabel) || null
+              if (resolvedSpace && agentName) {
+                resolvedAgent = resolveAgentForSpace(agentName, resolvedSpace, spaceAgents, agents)
+                if (resolvedAgent) {
+                  callbacks?.onAgentResolved?.(resolvedAgent)
+                }
+              }
+            }
+          }
+          if (!resolvedTitle || resolvedTitle === 'New Conversation') {
+            const { title, space, emojis } = await provider.generateTitleAndSpace(
+              promptText,
+              spaces || [],
+              credentials.apiKey,
+              credentials.baseUrl,
+              titleModelConfig.model,
+            )
+            resolvedTitle = title
+            resolvedTitleEmojis = Array.isArray(emojis) ? emojis : []
+            set({ conversationTitle: title, conversationTitleEmojis: resolvedTitleEmojis })
+            resolvedSpace = space || resolvedSpace || null
+          }
         }
+      }
+    } catch (error) {
+      console.error(
+        'Failed to generate title/space/agent metadata (non-fatal, continuing to save message):',
+        error,
+      )
+      // Ensure defaults if generation failed
+      if (!resolvedTitle || resolvedTitle === 'New Conversation') {
+        resolvedTitle = 'New Conversation'
       }
     }
   }

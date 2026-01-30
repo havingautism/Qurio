@@ -195,6 +195,17 @@ class StreamChatService:
                             ).model_dump()
                             self._collect_search_sources(output, sources_map)
 
+                            # CRITICAL: Suspend execution if tool returns PENDING status (e.g. interactive_form)
+                            # This allows the tool pipeline to complete but prevents the model from generating further text.
+                            if isinstance(output, dict) and output.get("status") == "PENDING":
+                                logger.info(f"Tool {tool.tool_name} returned PENDING. Suspending stream.")
+                                yield DoneEvent(
+                                    content=full_content or "",
+                                    thought=full_thought.strip() or None,
+                                    sources=list(sources_map.values()) or None,
+                                ).model_dump()
+                                return
+
                     case RunEvent.run_completed.value:
                         # Clean tags from final full_content if they survived
                         cleaned_content = re.sub(r"<(think|thought)>[\s\S]*?(?:</\1>|$)", "", full_content, flags=re.IGNORECASE).strip()

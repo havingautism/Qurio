@@ -357,8 +357,9 @@ export const callAIAPI = async (
             const restoredToolMessages = []
             if (Array.isArray(m.toolCallHistory)) {
               m.toolCallHistory.forEach(tc => {
-                const isForm = (tc.function?.name || tc.name) === 'interactive_form'
-                if (!isForm && tc.status === 'done' && tc.output !== undefined) {
+                // We allow restoring valid outputs for all tools including interactive_form (PENDING status)
+                // This ensures the tool call lifecycle is complete in the eyes of the LLM.
+                if (tc.status === 'done' && tc.output !== undefined) {
                   restoredToolMessages.push({
                     role: 'tool',
                     tool_call_id: tc.id,
@@ -377,18 +378,13 @@ export const callAIAPI = async (
                 (typeof nextMsg.content === 'string' &&
                   nextMsg.content.startsWith('[Form Submission]')))
 
-            if (formCallId && nextIsSubmission) {
-              const pendingToolMsg = {
-                role: 'tool',
-                tool_call_id: formCallId,
-                content: 'pending',
-                name: 'interactive_form',
-              }
-              const dummyAssistantMsg = {
-                role: 'assistant',
-                content: 'Please proceed with the form submission.',
-              }
-              return [baseMessage, ...restoredToolMessages, pendingToolMsg, dummyAssistantMsg]
+            // If a submission follows, we MUST add a placeholder assistant message
+            // to close the tool cycle before the user's next message.
+            if (
+              nextIsSubmission &&
+              restoredToolMessages.some(tc => tc.name === 'interactive_form')
+            ) {
+              return [baseMessage, ...restoredToolMessages, { role: 'assistant', content: ' ' }]
             }
 
             return [baseMessage, ...restoredToolMessages]

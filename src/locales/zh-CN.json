@@ -38,6 +38,11 @@
     "jsonRepairInfo": "自动修复格式错误的 JSON 数据，确保数据结构完整性",
     "interactiveForm": "交互式表单",
     "interactiveFormInfo": "在对话中创建动态表单，收集结构化信息和用户输入",
+    "interactiveFormStrings": {
+      "requiredError": "此项为必填",
+      "selectPlaceholder": "请选择...",
+      "invalidData": "模型生成的表单数据不完整，无法渲染。"
+    },
     "webpageReader": "网页读取",
     "webpageReaderInfo": "获取网页内容并返回 JSON。",
     "documentEmbedding": "文档向量检索",

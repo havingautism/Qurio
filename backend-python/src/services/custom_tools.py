@@ -30,7 +30,7 @@ def _interactive_form_impl(id: str, title: str, fields: list[dict[str, Any]]) ->
 
 interactive_form = Function(
     name="interactive_form",
-    description="Display an interactive form to collect structured user input. Returns status: 'PENDING'. CRITICAL: If this tool returns status 'PENDING', you MUST stop generating text immediately. Do NOT output any explanation.",
+    description="Display an interactive form to collect structured user input. Returns status: 'PENDING'. CRITICAL: If this tool returns status 'PENDING', you MUST stop generating text immediately. Do NOT output any explanation. IMPORTANT: Every field object in the 'fields' array MUST be fully populated with 'name', 'label', and 'type'. Do NOT return empty objects.",
     parameters={
         "type": "object",
         "properties": {
@@ -52,16 +52,16 @@ interactive_form = Function(
                         "max": {"type": "number"},
                         "step": {"type": "number"},
                         "unit": {"type": "string"},
-                        "default": {"type": ["string", "number"]},
+                        "default": {"type": "string"},
                     },
-                    "additionalProperties": False,
+                    "additionalProperties": True,
                 },
             },
         },
         "required": ["id", "title", "fields"],
-        "additionalProperties": False,
+        "additionalProperties": True,
     },
-    strict=True,
+    strict=False,
     entrypoint=_interactive_form_impl,
 )
 

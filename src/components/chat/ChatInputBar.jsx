@@ -255,7 +255,11 @@ const CapsuleSettingsMenu = React.memo(
                 />
               </button>
               {isSearchMenuOpen && (
-                <div ref={searchMenuRef} id="capsule-search-options" className="mt-2 space-y-3">
+                <div
+                  ref={searchMenuRef}
+                  id="capsule-search-options"
+                  className="mt-2 space-y-3 max-h-[350px] overflow-y-auto no-scrollbar scroll-smooth"
+                >
                   <div className="space-y-3">
                     <div className="px-4 py-1 text-[10px] uppercase tracking-wide text-gray-500 dark:text-zinc-400">
                       {t('tools.webSearch')}
@@ -640,16 +644,18 @@ const ChatInputBar = React.memo(
     const desktopUploadMenuContent = useMemo(
       () => (
         <UploadPopover className="w-72 bottom-full">
-          <CapsuleUploadMenu
-            hasDocuments={hasDocuments}
-            documents={documents}
-            documentsLoading={documentsLoading}
-            selectedDocumentCount={selectedDocumentCount}
-            selectedDocumentIdSet={selectedDocumentIdSet}
-            onToggleDocument={onToggleDocument}
-            onUploadImage={handleUploadImage}
-            t={t}
-          />
+          <div className="max-h-[min(calc(100vh-140px),600px)] overflow-y-auto no-scrollbar scroll-smooth">
+            <CapsuleUploadMenu
+              hasDocuments={hasDocuments}
+              documents={documents}
+              documentsLoading={documentsLoading}
+              selectedDocumentCount={selectedDocumentCount}
+              selectedDocumentIdSet={selectedDocumentIdSet}
+              onToggleDocument={onToggleDocument}
+              onUploadImage={handleUploadImage}
+              t={t}
+            />
+          </div>
         </UploadPopover>
       ),
       [
@@ -948,7 +954,9 @@ const ChatInputBar = React.memo(
                   {/* Popover Menu (Desktop) */}
                   {!isMobile && isCapsuleMenuOpen && (
                     <UploadPopover className="w-72 bottom-full">
-                      {settingsMenuContent}
+                      <div className="max-h-[min(calc(100vh-140px),650px)] overflow-y-auto no-scrollbar scroll-smooth">
+                        {settingsMenuContent}
+                      </div>
                     </UploadPopover>
                   )}
 
@@ -1237,7 +1245,7 @@ const ChatInputBar = React.memo(
                     <div className="px-4 py-2 text-[10px] uppercase tracking-wide text-gray-500 dark:text-zinc-400">
                       {t('chatInterface.searchMenuTitle')}
                     </div>
-                    <div className="px-2 pb-2 space-y-3">
+                    <div className="px-2 pb-2 space-y-3 max-h-[350px] overflow-y-auto no-scrollbar scroll-smooth">
                       <div className="space-y-3">
                         <div className="px-2 py-1 text-[10px] uppercase tracking-wide text-gray-500 dark:text-zinc-400">
                           {t('tools.webSearch')}
@@ -1365,7 +1373,7 @@ const ChatInputBar = React.memo(
                 </button>
                 {isAgentSelectorOpen && (
                   <div className="absolute bottom-full left-0 mb-2 w-64 bg-white dark:bg-[#202222] border border-gray-200 dark:border-zinc-700 rounded-2xl shadow-2xl z-30 overflow-hidden animate-in slide-in-from-bottom-2">
-                    <div className="p-2 flex flex-col gap-1">
+                    <div className="p-2 flex flex-col gap-1 max-h-[min(calc(100vh-140px),500px)] overflow-y-auto no-scrollbar scroll-smooth">
                       {/* Auto mode option */}
                       <button
                         type="button"
@@ -1377,7 +1385,7 @@ const ChatInputBar = React.memo(
                       >
                         <div className="flex items-center divide-y divide-gray-200 dark:divide-zinc-800">
                           <span className="text-lg p-1 bg-gray-100 dark:bg-zinc-800 rounded-lg">
-                            馃
+                            ✨
                           </span>
                           <span className="text-sm font-medium truncate">
                             {t('chatInterface.agentAuto')}

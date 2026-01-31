@@ -357,9 +357,15 @@ export const callAIAPI = async (
             const restoredToolMessages = []
             if (Array.isArray(m.toolCallHistory)) {
               m.toolCallHistory.forEach(tc => {
-                // We allow restoring valid outputs for all tools including interactive_form (PENDING status)
-                // This ensures the tool call lifecycle is complete in the eyes of the LLM.
-                if (tc.status === 'done' && tc.output !== undefined) {
+                const toolName = tc.name || tc.function?.name
+                // ONLY restore tool results for interactive_form.
+                // Normal tools (search, etc.) are already summarized in the assistant response
+                // and sending their raw output often causes ID-mismatch errors on cross-agent switches.
+                if (
+                  toolName === 'interactive_form' &&
+                  tc.status === 'done' &&
+                  tc.output !== undefined
+                ) {
                   restoredToolMessages.push({
                     role: 'tool',
                     tool_call_id: tc.id,

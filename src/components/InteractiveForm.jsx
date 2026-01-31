@@ -114,13 +114,42 @@ const InteractiveForm = ({
   const [values, setValues] = useState({})
   const [errors, setErrors] = useState({})
   const { t } = useTranslation()
+
+  /**
+   * Defensive JSON repair utility for stringified or malformed fields
+   */
+  const repairAndParseFields = React.useCallback(input => {
+    if (Array.isArray(input)) return input
+    if (typeof input !== 'string') return []
+
+    let repaired = input.trim()
+    // Handle common syntax errors like "key": ,
+    repaired = repaired.replace(/:\s*,/g, ': null,').replace(/:\s*}/g, ': null}')
+    // Handle trailing commas
+    repaired = repaired.replace(/,\s*]/g, ']').replace(/,\s*}/g, '}')
+
+    try {
+      const parsed = JSON.parse(repaired)
+      return Array.isArray(parsed) ? parsed : []
+    } catch (e) {
+      console.warn('Failed to parse fields:', e)
+      return []
+    }
+  }, [])
+
+  // filter out malformed fields
+  const validFields = React.useMemo(() => {
+    const rawFields = repairAndParseFields(formData.fields)
+    return rawFields.filter(f => f && f.name && f.label && f.type)
+  }, [formData.fields, repairAndParseFields])
+
   // Initialize values
   const formDataString = JSON.stringify(formData)
   const submittedValuesString = JSON.stringify(submittedValues)
 
   React.useEffect(() => {
     const initialValues = {}
-    formData.fields?.forEach(field => {
+    validFields.forEach(field => {
       const submittedValue = submittedValues[field.label] || submittedValues[field.name]
       if (submittedValue !== undefined) {
         if (field.type === 'checkbox') {
@@ -145,11 +174,11 @@ const InteractiveForm = ({
 
   const validate = () => {
     const newErrors = {}
-    formData.fields?.forEach(field => {
+    validFields.forEach(field => {
       if (field.required) {
         const value = values[field.name]
         if (!value || (Array.isArray(value) && value.length === 0)) {
-          newErrors[field.name] = '此项为必填'
+          newErrors[field.name] = t('tools.interactiveFormStrings.requiredError')
         }
       }
     })
@@ -211,9 +240,16 @@ const InteractiveForm = ({
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            {formData.fields?.map((field, idx) => (
+            {validFields.length === 0 && (
+              <div className="py-8 text-center border-2 border-dashed border-gray-200 dark:border-white/5 rounded-3xl">
+                <p className="text-sm text-gray-400 font-medium">
+                  {t('tools.interactiveFormStrings.invalidData')}
+                </p>
+              </div>
+            )}
+            {validFields.map((field, idx) => (
               <div
-                key={field.name}
+                key={field.name || `field-${idx}`}
                 className="space-y-2.5 animate-in slide-in-from-bottom-2 fade-in duration-500"
                 style={{ animationDelay: `${idx * 50}ms` }}
               >
@@ -228,7 +264,7 @@ const InteractiveForm = ({
                     value={values[field.name]}
                     onChange={val => updateValue(field.name, val)}
                     options={field.options}
-                    placeholder="请选择..."
+                    placeholder={t('tools.interactiveFormStrings.selectPlaceholder')}
                     disabled={isSubmitted}
                     error={errors[field.name]}
                   />

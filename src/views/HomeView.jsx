@@ -981,7 +981,9 @@ const HomeView = () => {
                     {/* Upload Dropdown */}
                     {isHomeUploadMenuOpen && !isHomeMobile && (
                       <UploadPopover className="top-full w-72">
-                        {homeUploadMenuContent}
+                        <div className="max-h-[min(calc(100vh-140px),600px)] overflow-y-auto no-scrollbar scroll-smooth">
+                          {homeUploadMenuContent}
+                        </div>
                       </UploadPopover>
                     )}
                     <MobileDrawer
@@ -1034,7 +1036,7 @@ const HomeView = () => {
                         <div className="px-4 py-2 text-[10px] uppercase tracking-wide text-gray-500 dark:text-zinc-400">
                           {/* {t('chatInterface.searchMenuTitle')} */}
                         </div>
-                        <div className="px-2 pb-2 space-y-3">
+                        <div className="px-2 pb-2 space-y-3 max-h-[min(calc(100vh-140px),550px)] overflow-y-auto no-scrollbar scroll-smooth">
                           <div className="space-y-3">
                             <div className="px-2 py-1 text-[10px] uppercase tracking-wide text-gray-500 dark:text-zinc-400">
                               {t('tools.webSearch')}
@@ -1112,12 +1114,12 @@ const HomeView = () => {
                             </div>
                           </div>
                           <div className="h-px bg-gray-200 dark:bg-zinc-700/70" />
-                            <button
-                              type="button"
-                              onClick={handleClearHomeSearch}
-                              className="w-full px-3 py-2 text-left text-sm text-gray-500 dark:text-gray-400 flex items-center justify-between hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors rounded-lg"
-                            >
-                              <span>{t('common.close')}</span>
+                          <button
+                            type="button"
+                            onClick={handleClearHomeSearch}
+                            className="w-full px-3 py-2 text-left text-sm text-gray-500 dark:text-gray-400 flex items-center justify-between hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors rounded-lg"
+                          >
+                            <span>{t('common.close')}</span>
                           </button>
                         </div>
                       </div>
@@ -1261,8 +1263,10 @@ const HomeView = () => {
                       <ChevronDown size={14} />
                     </button>
                     {!isHomeMobile && isHomeSpaceSelectorOpen && (
-                      <div className="absolute top-full left-0 mt-2 w-60 bg-white dark:bg-[#202222] border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl z-50">
-                        {renderHomeSpaceMenuContent()}
+                      <div className="absolute top-full left-0 mt-2 w-60 bg-white dark:bg-[#202222] border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl z-50 overflow-hidden">
+                        <div className="max-h-[min(calc(100vh-140px),500px)] overflow-y-auto no-scrollbar scroll-smooth">
+                          {renderHomeSpaceMenuContent()}
+                        </div>
                       </div>
                     )}
                   </div>

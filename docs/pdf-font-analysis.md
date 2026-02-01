@@ -7,12 +7,14 @@
 ## 📋 功能概览
 
 ### 改进前
+
 ```javascript
 // 简单文本提取，丢失所有格式信息
 const pageText = content.items.map(item => item.str || '').join(' ')
 ```
 
 ### 改进后
+
 ```javascript
 // 分析字体大小和样式，自动识别标题并转换为 Markdown
 # 第一章 机器学习基础
@@ -49,15 +51,14 @@ const pageText = content.items.map(item => item.str || '').join(' ')
 
 ```javascript
 // 收集所有字体大小
-const fontSizes = allItems
-  .map(item => Math.abs(item.transform[0]))
-  .filter(size => size > 0)
+const fontSizes = allItems.map(item => Math.abs(item.transform[0])).filter(size => size > 0)
 
 // 计算平均字体大小
 const avgFontSize = fontSizes.reduce((sum, size) => sum + size, 0) / fontSizes.length
 ```
 
 **示例**:
+
 - 文档平均字体大小: 12pt
 - 检测到的字体大小范围: 10pt - 24pt
 
@@ -67,13 +68,14 @@ const avgFontSize = fontSizes.reduce((sum, size) => sum + size, 0) / fontSizes.l
 
 根据平均字体大小，动态计算标题阈值：
 
-| 标题级别 | 阈值 | 示例 (avgFontSize = 12pt) |
-|---------|------|---------------------------|
-| **H1** | 150% 平均大小 | ≥ 18pt |
-| **H2** | 130% 平均大小 | ≥ 15.6pt |
-| **H3** | 115% 平均大小 | ≥ 13.8pt |
+| 标题级别 | 阈值          | 示例 (avgFontSize = 12pt) |
+| -------- | ------------- | ------------------------- |
+| **H1**   | 150% 平均大小 | ≥ 18pt                    |
+| **H2**   | 130% 平均大小 | ≥ 15.6pt                  |
+| **H3**   | 115% 平均大小 | ≥ 13.8pt                  |
 
 **为什么使用百分比？**
+
 - 不同 PDF 的基础字体大小不同
 - 自适应阈值可以适配各种文档
 - 避免硬编码固定值导致的误判
@@ -86,11 +88,11 @@ const avgFontSize = fontSizes.reduce((sum, size) => sum + size, 0) / fontSizes.l
 
 ```javascript
 if (fontSize >= avgFontSize * 1.5) {
-  headingLevel = 1  // H1
+  headingLevel = 1 // H1
 } else if (fontSize >= avgFontSize * 1.3) {
-  headingLevel = 2  // H2
+  headingLevel = 2 // H2
 } else if (fontSize >= avgFontSize * 1.15) {
-  headingLevel = 3  // H3
+  headingLevel = 3 // H3
 }
 ```
 
@@ -116,6 +118,7 @@ if (fontSize >= avgFontSize && isBoldFont && text.length < 60) {
 ```
 
 **为什么检查文本长度？**
+
 - 标题通常较短 (< 60 字符)
 - 避免把粗体段落误判为标题
 
@@ -126,13 +129,14 @@ if (fontSize >= avgFontSize && isBoldFont && text.length < 60) {
 通过 Y 坐标变化判断是否为新行：
 
 ```javascript
-const y = item.transform[5]  // Y 坐标
-const lineGap = avgFontSize * 0.5  // 换行阈值（字体大小的 50%）
+const y = item.transform[5] // Y 坐标
+const lineGap = avgFontSize * 0.5 // 换行阈值（字体大小的 50%）
 
 const isNewLine = lastY === null || Math.abs(y - lastY) > lineGap
 ```
 
 **为什么这样做？**
+
 - PDF 文本项不按行分组，需要手动检测
 - Y 坐标相近的文本属于同一行
 - Y 坐标差异大的文本属于不同行
@@ -150,7 +154,7 @@ if (headingLevel > 0 && isNewLine) {
   if (isNewLine) {
     markdown += '\n'
   } else {
-    markdown += ' '  // 同一行的文本用空格连接
+    markdown += ' ' // 同一行的文本用空格连接
   }
   markdown += text
 }
@@ -163,6 +167,7 @@ if (headingLevel > 0 && isNewLine) {
 ### 示例 1: 清晰的层级结构
 
 **输入 PDF**:
+
 ```
 第一章 机器学习基础      (24pt, Bold)
   监督学习              (18pt, Bold)
@@ -171,6 +176,7 @@ if (headingLevel > 0 && isNewLine) {
 ```
 
 **输出 Markdown**:
+
 ```markdown
 # 第一章 机器学习基础
 
@@ -186,6 +192,7 @@ if (headingLevel > 0 && isNewLine) {
 ### 示例 2: 只有字体大小差异
 
 **输入 PDF**:
+
 ```
 Introduction           (20pt, Regular)
   Background          (16pt, Regular)
@@ -194,6 +201,7 @@ Introduction           (20pt, Regular)
 ```
 
 **输出 Markdown**:
+
 ```markdown
 # Introduction
 
@@ -209,6 +217,7 @@ Text content...
 ### 示例 3: 粗体标题
 
 **输入 PDF**:
+
 ```
 概述                   (12pt, Bold)     ← 普通大小但粗体
   这是一段正文...      (12pt, Regular)
@@ -217,6 +226,7 @@ Text content...
 ```
 
 **输出 Markdown**:
+
 ```markdown
 ### 概述
 
@@ -253,17 +263,18 @@ if (fontSizes.length === 0) {
 
 ### 可调整的阈值
 
-| 参数 | 当前值 | 说明 |
-|------|--------|------|
-| `headingThreshold1` | `avgFontSize * 1.5` | H1 的字体大小阈值 |
-| `headingThreshold2` | `avgFontSize * 1.3` | H2 的字体大小阈值 |
-| `headingThreshold3` | `avgFontSize * 1.15` | H3 的字体大小阈值 |
-| `lineGap` | `avgFontSize * 0.5` | 换行检测阈值 |
-| 短文本长度 | `60` 字符 | 判断粗体文本是否为标题的长度限制 |
+| 参数                | 当前值               | 说明                             |
+| ------------------- | -------------------- | -------------------------------- |
+| `headingThreshold1` | `avgFontSize * 1.5`  | H1 的字体大小阈值                |
+| `headingThreshold2` | `avgFontSize * 1.3`  | H2 的字体大小阈值                |
+| `headingThreshold3` | `avgFontSize * 1.15` | H3 的字体大小阈值                |
+| `lineGap`           | `avgFontSize * 0.5`  | 换行检测阈值                     |
+| 短文本长度          | `60` 字符            | 判断粗体文本是否为标题的长度限制 |
 
 **位置**: `src/lib/documentParser.js` Line 85-87
 
 **如果需要调整**:
+
 - 提高阈值 → 更严格，减少误判
 - 降低阈值 → 更宽松，但可能增加误判
 
@@ -272,18 +283,22 @@ if (fontSizes.length === 0) {
 ## 🎯 优势
 
 ### 1. **自适应性强**
+
 - 基于文档自身的字体分布计算阈值
 - 适配各种格式和样式的 PDF
 
 ### 2. **准确率高**
+
 - 结合字体大小和样式（粗体）双重判断
 - 通过文本长度过滤误判
 
 ### 3. **兼容性好**
+
 - 保留降级方案，确保所有 PDF 都能处理
 - 不影响其他格式（DOCX、Markdown 等）
 
 ### 4. **零成本**
+
 - 完全基于本地分析，无需 API 调用
 - 处理速度快（毫秒级）
 
@@ -308,14 +323,17 @@ if (fontSizes.length === 0) {
 ### 影响范围
 
 ✅ **提升 Section 识别准确率**
+
 - 原来无法识别的 PDF 标题，现在可以正确识别
 - Section 数量增加，结构更清晰
 
 ✅ **改进 Chunk 质量**
+
 - 基于准确的 Section，Chunk 切分更合理
 - TitlePath 前缀更有意义
 
 ✅ **提高检索准确性**
+
 - 更好的文档结构 → 更准确的语义检索
 - 用户搜索体验提升
 
@@ -347,9 +365,10 @@ if (fontSizes.length === 0) {
 ### 验证方法
 
 上传 PDF 后，检查生成的 Sections 是否合理：
+
 ```sql
-SELECT title, level, title_path 
-FROM document_sections 
+SELECT title, level, title_path
+FROM document_sections
 WHERE document_id = 'your-document-id'
 ORDER BY external_section_id;
 ```
@@ -359,16 +378,19 @@ ORDER BY external_section_id;
 ## 🚀 未来优化方向
 
 ### 短期
+
 - [ ] 根据用户反馈调整阈值参数
 - [ ] 添加调试日志（可选开启）
 - [ ] 支持更多字体样式识别（斜体、下划线等）
 
 ### 中期
+
 - [ ] 添加用户自定义阈值配置
 - [ ] 识别列表、表格等特殊结构
 - [ ] 支持 TOC (Table of Contents) 提取
 
 ### 长期
+
 - [ ] 结合 LLM 进行后处理优化
 - [ ] 支持图片和图表的文字识别
 

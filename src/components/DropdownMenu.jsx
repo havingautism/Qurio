@@ -54,11 +54,11 @@ const DropdownMenu = ({ isOpen, onClose, items, anchorEl }) => {
 
           // Add highlight classes to the conversation element using Tailwind with !important
           conversationEl.classList.add(
-            '!bg-primary-500/10',
-            '!border',
-            '!border-primary-500/30',
-            'dark:!bg-primary-500/20',
-            'dark:!border-primary-500/40',
+            'bg-primary-500/10!',
+            'border!',
+            'border-primary-500/30!',
+            'dark:bg-primary-500/20!',
+            'dark:border-primary-500/40!',
             'transition-all',
             'duration-200',
           )
@@ -109,11 +109,11 @@ const DropdownMenu = ({ isOpen, onClose, items, anchorEl }) => {
           anchorEl.parentElement
         if (conversationEl) {
           conversationEl.classList.add(
-            '!bg-primary-500/10',
-            '!border',
-            '!border-primary-500/30',
-            'dark:!bg-primary-500/20',
-            'dark:!border-primary-500/40',
+            'bg-primary-500/10!',
+            'border!',
+            'border-primary-500/30!',
+            'dark:bg-primary-500/20!',
+            'dark:border-primary-500/40!',
             'transition-all',
             'duration-200',
           )
@@ -127,19 +127,19 @@ const DropdownMenu = ({ isOpen, onClose, items, anchorEl }) => {
     if (!isOpen) {
       // Remove all highlight classes including !important variants
       document
-        .querySelectorAll('[class*="bg-primary-500"], [class*="!bg-primary-500"]')
+        .querySelectorAll('[class*="bg-primary-500"], [class*="bg-primary-500!"]')
         .forEach(el => {
           el.classList.remove(
             'bg-primary-500/10',
-            '!bg-primary-500/10',
+            'bg-primary-500/10!',
             'border',
-            '!border',
+            'border!',
             'border-primary-500/30',
-            '!border-primary-500/30',
+            'border-primary-500/30!',
             'dark:bg-primary-500/20',
-            'dark:!bg-primary-500/20',
+            'dark:bg-primary-500/20!',
             'dark:border-primary-500/40',
-            'dark:!border-primary-500/40',
+            'dark:border-primary-500/40!',
           )
         })
     }
@@ -178,7 +178,7 @@ const DropdownMenu = ({ isOpen, onClose, items, anchorEl }) => {
       {/* Overlay to absorb clicks/touches so underlying conversation items are not triggered */}
       {/* This overlay is fixed/absolute relative to viewport/body, ensuring it covers everything */}
       <div
-        className="fixed inset-0 z-[9998]"
+        className="fixed inset-0 z-9998"
         onMouseDown={e => {
           e.stopPropagation()
           e.preventDefault()
@@ -200,7 +200,7 @@ const DropdownMenu = ({ isOpen, onClose, items, anchorEl }) => {
           right: isMobile ? position.right : 'auto',
         }}
         className={clsx(
-          'fixed z-[9999] bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 shadow-lg p-1',
+          'fixed z-9999 border border-gray-200 bg-white p-1 shadow-lg dark:border-zinc-700 dark:bg-zinc-800',
           isMobile ? 'rounded-lg' : 'min-w-[160px] rounded-lg',
         )}
       >
@@ -216,11 +216,11 @@ const DropdownMenu = ({ isOpen, onClose, items, anchorEl }) => {
               }, 0)
             }}
             className={clsx(
-              'w-full text-left transition-colors flex items-center gap-2 rounded-lg',
+              'flex w-full items-center gap-2 rounded-lg text-left transition-colors',
               isMobile ? 'px-4 py-3 text-base' : 'px-4 py-2 text-sm',
               item.danger
-                ? 'text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20'
-                : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-zinc-700',
+                ? 'text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20'
+                : 'text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-zinc-700',
             )}
           >
             {item.icon && <span>{item.icon}</span>}

@@ -216,20 +216,20 @@ const DeepResearchView = () => {
   return (
     <div
       className={clsx(
-        'flex-1 h-full overflow-y-auto bg-background text-foreground transition-all duration-300',
+        'bg-background text-foreground h-full flex-1 overflow-y-auto transition-all duration-300',
         isSidebarPinned ? 'ml-0 sm:ml-72' : 'ml-0 sm:ml-16',
       )}
     >
-      <div className="w-full max-w-5xl mx-auto sm:px-6 sm:py-8 px-3 py-5">
+      <div className="mx-auto w-full max-w-5xl px-3 py-5 sm:px-6 sm:py-8">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="mb-8 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Microscope size={32} className="text-primary-500" />
             <h1 className="text-3xl font-medium">{t('views.deepResearchView.title')}</h1>
           </div>
           <button
             onClick={openDeepResearchGuide}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 rounded-lg transition-colors text-sm font-medium"
+            className="flex items-center gap-2 rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium transition-colors hover:bg-gray-200 dark:bg-zinc-800 dark:hover:bg-zinc-700"
           >
             <Plus size={16} />
             <span>{t('views.newResearch')}</span>
@@ -242,7 +242,7 @@ const DeepResearchView = () => {
           <div className="relative">
             <button
               onClick={handleSearch}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors cursor-pointer"
+              className="absolute top-1/2 left-3 -translate-y-1/2 cursor-pointer text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-gray-200"
             >
               <Search size={20} />
             </button>
@@ -252,21 +252,21 @@ const DeepResearchView = () => {
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               onKeyDown={handleKeyDown}
-              className="w-full bg-gray-100 dark:bg-zinc-900 border border-transparent focus:border-gray-300 dark:focus:border-zinc-700 rounded-xl py-3 pl-10 pr-20 outline-none transition-all placeholder-gray-500"
+              className="w-full rounded-xl border border-transparent bg-gray-100 py-3 pr-20 pl-10 placeholder-gray-500 transition-all outline-none focus:border-gray-300 dark:bg-zinc-900 dark:focus:border-zinc-700"
             />
             {searchQuery && (
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
+              <div className="absolute top-1/2 right-3 flex -translate-y-1/2 items-center gap-1">
                 <button
                   onClick={handleClearSearch}
-                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors p-1"
+                  className="p-1 text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-gray-200"
                   title="Clear"
                 >
                   <X size={16} />
                 </button>
-                <div className="w-px h-4 bg-gray-300 dark:bg-zinc-700 mx-1" />
+                <div className="mx-1 h-4 w-px bg-gray-300 dark:bg-zinc-700" />
                 <button
                   onClick={handleSearch}
-                  className="bg-primary-500 hover:bg-primary-600 text-white rounded-md p-1 transition-colors"
+                  className="bg-primary-500 hover:bg-primary-600 rounded-md p-1 text-white transition-colors"
                   title="Search"
                 >
                   <ArrowRight size={16} />
@@ -276,7 +276,7 @@ const DeepResearchView = () => {
             {!searchQuery && (
               <button
                 onClick={handleSearch}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors p-1"
+                className="absolute top-1/2 right-3 -translate-y-1/2 p-1 text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-gray-200"
                 title="Search"
               >
                 <ArrowRight size={16} />
@@ -287,7 +287,7 @@ const DeepResearchView = () => {
           {/* Filter Row */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <button className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 text-xs font-medium transition-colors">
+              <button className="flex items-center gap-1 rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium transition-colors hover:bg-gray-200 dark:bg-zinc-800 dark:hover:bg-zinc-700">
                 <span>Type</span>
                 <ChevronDown size={12} />
               </button>
@@ -295,7 +295,7 @@ const DeepResearchView = () => {
             <div className="relative">
               <button
                 onClick={() => setIsSortOpen(!isSortOpen)}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 text-xs font-medium transition-colors"
+                className="flex items-center gap-1 rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium transition-colors hover:bg-gray-200 dark:bg-zinc-800 dark:hover:bg-zinc-700"
               >
                 <span>
                   {t('views.sort')}: {sortOptions.find(o => o.key === sortOption.key)?.label}
@@ -307,7 +307,7 @@ const DeepResearchView = () => {
               {isSortOpen && (
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => setIsSortOpen(false)} />
-                  <div className="absolute right-0 top-full mt-2 w-40 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-xl shadow-lg z-20 overflow-hidden py-1">
+                  <div className="absolute top-full right-0 z-20 mt-2 w-40 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg dark:border-zinc-800 dark:bg-zinc-900">
                     {sortOptions.map(option => (
                       <button
                         key={option.key}
@@ -315,7 +315,7 @@ const DeepResearchView = () => {
                           setSortOption(SORT_OPTION_KEYS.find(o => o.key === option.key))
                           setIsSortOpen(false)
                         }}
-                        className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-zinc-800 flex items-center justify-between group"
+                        className="group flex w-full items-center justify-between px-4 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-zinc-800"
                       >
                         <span
                           className={
@@ -341,11 +341,11 @@ const DeepResearchView = () => {
         {/* Thread List */}
         <div className="relative space-y-4 pb-24">
           {loading ? (
-            <div className="absolute inset-0 flex items-center justify-center backdrop-blur-md bg-background/40 rounded-2xl">
+            <div className="bg-background/40 absolute inset-0 flex items-center justify-center rounded-2xl backdrop-blur-md">
               <FancyLoader />
             </div>
           ) : conversations.length === 0 ? (
-            <div className="text-center py-12 text-gray-500">
+            <div className="py-12 text-center text-gray-500">
               {t('views.deepResearchView.noThreadsFound')}
             </div>
           ) : (
@@ -361,21 +361,21 @@ const DeepResearchView = () => {
                       params: { conversationId: conv.id },
                     })
                   }
-                  className="group relative p-2 rounded-xl cursor-pointer transition-colors border-b border-gray-100 dark:border-zinc-800/50 last:border-0 hover:bg-primary-500/10 dark:hover:bg-primary-500/20 hover:border hover:border-primary-500/30 dark:hover:border-primary-500/40"
+                  className="group hover:bg-primary-500/10 dark:hover:bg-primary-500/20 hover:border-primary-500/30 dark:hover:border-primary-500/40 relative cursor-pointer rounded-xl border-b border-gray-100 p-2 transition-colors last:border-0 hover:border dark:border-zinc-800/50"
                 >
-                  <div className="flex justify-between items-start gap-4">
-                    <div className="shrink-0 flex items-center justify-center bg-gray-100 dark:bg-zinc-800 rounded-lg w-12 h-12">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-gray-100 dark:bg-zinc-800">
                       <EmojiDisplay
                         emoji={resolveConversationEmoji(conv, space?.emoji)}
                         size="2rem"
                       />
                     </div>
-                    <div className="flex-1 min-w-0">
+                    <div className="min-w-0 flex-1">
                       {/* Title */}
-                      <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-1 truncate flex items-center gap-2">
+                      <h3 className="mb-1 flex items-center gap-2 truncate text-lg font-medium text-gray-900 dark:text-gray-100">
                         {conv.title || t('views.untitledThread')}
                         {conv.is_favorited && (
-                          <Bookmark size={14} className="text-primary-500 fill-current shrink-0" />
+                          <Bookmark size={14} className="text-primary-500 shrink-0 fill-current" />
                         )}
                       </h3>
 
@@ -401,10 +401,10 @@ const DeepResearchView = () => {
                           setExpandedActionId(prev => (prev === conv.id ? null : conv.id))
                         }}
                         className={clsx(
-                          'p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-all rounded-full hover:bg-black/5 dark:hover:bg-white/10',
+                          'rounded-full p-2 text-gray-400 transition-all hover:bg-black/5 hover:text-gray-600 dark:hover:bg-white/10 dark:hover:text-gray-200',
                           'opacity-100',
                           'md:opacity-0 md:group-hover:opacity-100',
-                          'min-w-[44px] min-h-[44px] flex items-center justify-center',
+                          'flex min-h-[44px] min-w-[44px] items-center justify-center',
                         )}
                       >
                         <ChevronDown
@@ -421,17 +421,17 @@ const DeepResearchView = () => {
 
                   {/* Collapsible Actions Section */}
                   {expandedActionId === conv.id && (
-                    <div className="flex flex-wrap gap-2 mt-2 px-1 animate-in fade-in slide-in-from-top-1">
+                    <div className="animate-in fade-in slide-in-from-top-1 mt-2 flex flex-wrap gap-2 px-1">
                       <button
                         onClick={e => {
                           e.stopPropagation()
                           handleToggleFavorite(conv)
                         }}
                         className={clsx(
-                          'flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors',
+                          'flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors',
                           conv.is_favorited
-                            ? 'bg-yellow-50 text-yellow-600 border-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-400 dark:border-yellow-800/30'
-                            : 'bg-white dark:bg-zinc-900 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-zinc-800 hover:bg-gray-50 dark:hover:bg-zinc-800',
+                            ? 'border-yellow-200 bg-yellow-50 text-yellow-600 dark:border-yellow-800/30 dark:bg-yellow-900/20 dark:text-yellow-400'
+                            : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-gray-400 dark:hover:bg-zinc-800',
                         )}
                       >
                         <Bookmark size={13} className={clsx(conv.is_favorited && 'fill-current')} />
@@ -445,7 +445,7 @@ const DeepResearchView = () => {
                           handleDeleteConversation(conv)
                           setExpandedActionId(null)
                         }}
-                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium bg-white dark:bg-zinc-900 text-red-600 dark:text-red-400 border border-red-100 dark:border-red-900/30 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                        className="flex items-center gap-2 rounded-lg border border-red-100 bg-white px-3 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 dark:border-red-900/30 dark:bg-zinc-900 dark:text-red-400 dark:hover:bg-red-900/20"
                       >
                         <Trash2 size={13} />
                         <span>{t('views.deleteConversation')}</span>
@@ -463,16 +463,16 @@ const DeepResearchView = () => {
       {!loading && totalPages > 1 && (
         <div
           className={clsx(
-            'fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur border-t border-gray-200 dark:border-zinc-800',
+            'bg-background/95 fixed right-0 bottom-0 left-0 border-t border-gray-200 backdrop-blur dark:border-zinc-800',
             isSidebarPinned ? 'pl-0 sm:pl-80' : 'pl-0 sm:pl-16',
           )}
         >
-          <div className="max-w-5xl mx-auto px-6">
+          <div className="mx-auto max-w-5xl px-6">
             <div className="flex items-center justify-center gap-4 py-4">
               <button
                 onClick={() => handlePageChange(currentPage - 1)}
                 disabled={currentPage === 1}
-                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="rounded-lg p-2 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-zinc-800"
                 title="Previous Page"
               >
                 <ChevronLeft size={20} />
@@ -485,7 +485,7 @@ const DeepResearchView = () => {
               <button
                 onClick={() => handlePageChange(currentPage + 1)}
                 disabled={currentPage === totalPages}
-                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="rounded-lg p-2 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-zinc-800"
                 title="Next Page"
               >
                 <ChevronRight size={20} />

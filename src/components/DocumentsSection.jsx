@@ -35,26 +35,26 @@ const DocumentsList = ({
         type="button"
         onClick={() => onToggleDocument?.(doc.id)}
         className={clsx(
-          'flex items-start gap-2.5 w-full px-3 py-2 rounded-xl text-sm transition-colors text-left',
+          'flex w-full items-start gap-2.5 rounded-xl px-3 py-2 text-left text-sm transition-colors',
           isSelected
-            ? 'bg-gray-100 dark:bg-zinc-700/50 text-gray-900 dark:text-white font-medium'
-            : 'hover:bg-gray-100 dark:hover:bg-zinc-700/50 text-gray-600 dark:text-gray-300',
+            ? 'bg-gray-100 font-medium text-gray-900 dark:bg-zinc-700/50 dark:text-white'
+            : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-zinc-700/50',
         )}
         aria-pressed={isSelected}
       >
         <span
           className={clsx(
-            'mt-0.5 flex items-center justify-center w-4 h-4 rounded border transition-colors',
+            'mt-0.5 flex h-4 w-4 items-center justify-center rounded border transition-colors',
             isSelected
               ? 'bg-primary-500 border-primary-500 text-white'
-              : 'border-gray-300 dark:border-zinc-600 text-transparent',
+              : 'border-gray-300 text-transparent dark:border-zinc-600',
           )}
         >
           <Check size={12} />
         </span>
-        <div className="flex items-center justify-between w-full min-w-0 gap-2">
+        <div className="flex w-full min-w-0 items-center justify-between gap-2">
           <span className="truncate">{doc.name}</span>
-          <span className="text-[10px] text-gray-400 font-normal shrink-0">
+          <span className="shrink-0 text-[10px] font-normal text-gray-400">
             {(() => {
               const type = (doc.file_type || '').toUpperCase()
               return type === 'MD' ? 'MARKDOWN' : type
@@ -81,10 +81,10 @@ const DocumentsSection = ({
   const translate = t || defaultT
   return (
     <div className="space-y-2">
-      <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-2">
+      <div className="px-2 text-[10px] font-bold tracking-widest text-gray-400 uppercase">
         {(label || translate('chatInterface.documents')) + ` (${selectedDocumentCount})`}
       </div>
-      <div className="flex flex-col gap-0.5 max-h-[250px] overflow-y-auto no-scrollbar">
+      <div className="no-scrollbar flex max-h-[250px] flex-col gap-0.5 overflow-y-auto">
         <DocumentsList
           documents={documents}
           documentsLoading={documentsLoading}

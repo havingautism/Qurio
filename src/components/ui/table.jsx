@@ -21,7 +21,7 @@ TableBody.displayName = 'TableBody'
 const TableFooter = React.forwardRef(({ className, ...props }, ref) => (
   <tfoot
     ref={ref}
-    className={cn('border-t bg-muted/50 font-medium [&>tr]:last:border-b-0', className)}
+    className={cn('bg-muted/50 border-t font-medium [&>tr]:last:border-b-0', className)}
     {...props}
   />
 ))
@@ -31,7 +31,7 @@ const TableRow = React.forwardRef(({ className, ...props }, ref) => (
   <tr
     ref={ref}
     className={cn(
-      'border-b border-gray-200 dark:border-zinc-800 transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted',
+      'hover:bg-muted/50 data-[state=selected]:bg-muted border-b border-gray-200 transition-colors dark:border-zinc-800',
       className,
     )}
     {...props}
@@ -43,7 +43,7 @@ const TableHead = React.forwardRef(({ className, ...props }, ref) => (
   <th
     ref={ref}
     className={cn(
-      'h-10 px-2 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]',
+      'text-muted-foreground h-10 px-2 text-left align-middle font-medium [&:has([role=checkbox])]:pr-0 *:[[role=checkbox]]:translate-y-[2px]',
       className,
     )}
     {...props}
@@ -55,7 +55,7 @@ const TableCell = React.forwardRef(({ className, ...props }, ref) => (
   <td
     ref={ref}
     className={cn(
-      'p-2 align-middle [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]',
+      'p-2 align-middle [&:has([role=checkbox])]:pr-0 *:[[role=checkbox]]:translate-y-[2px]',
       className,
     )}
     {...props}
@@ -64,7 +64,7 @@ const TableCell = React.forwardRef(({ className, ...props }, ref) => (
 TableCell.displayName = 'TableCell'
 
 const TableCaption = React.forwardRef(({ className, ...props }, ref) => (
-  <caption ref={ref} className={cn('mt-4 text-sm text-muted-foreground', className)} {...props} />
+  <caption ref={ref} className={cn('text-muted-foreground mt-4 text-sm', className)} {...props} />
 ))
 TableCaption.displayName = 'TableCaption'
 

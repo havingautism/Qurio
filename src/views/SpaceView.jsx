@@ -434,17 +434,17 @@ const SpaceView = () => {
   }
 
   if (!activeSpace) {
-    return <div className="min-h-screen bg-background text-foreground" />
+    return <div className="bg-background text-foreground min-h-screen" />
   }
 
   return (
     <div
       className={clsx(
-        'flex flex-col items-center min-h-0 h-full overflow-y-auto p-6 pb-24 bg-background text-foreground transition-all duration-300',
+        'bg-background text-foreground flex h-full min-h-0 flex-col items-center overflow-y-auto p-6 pb-24 transition-all duration-300',
         isSidebarPinned ? 'ml-0 sm:ml-72' : 'ml-0 sm:ml-16',
       )}
     >
-      <div className="w-full max-w-3xl flex flex-col gap-8">
+      <div className="flex w-full max-w-3xl flex-col gap-8">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -464,7 +464,7 @@ const SpaceView = () => {
           <div className="flex items-center gap-2">
             <button
               onClick={() => onEditSpace && onEditSpace(activeSpace)}
-              className="w-10 h-10 flex items-center justify-center rounded-full bg-user-bubble dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-transform duration-200 hover:scale-110 active:scale-95 cursor-pointer"
+              className="bg-user-bubble flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-gray-600 transition-transform duration-200 hover:scale-110 active:scale-95 dark:bg-zinc-800 dark:text-gray-300"
               title={t('views.editSpace')}
             >
               <Pencil size={16} />
@@ -474,17 +474,17 @@ const SpaceView = () => {
 
         {/* Section: Documents */}
         <div className="flex flex-col gap-4">
-          <div className="flex items-center gap-2 text-gray-900 dark:text-white font-medium">
+          <div className="flex items-center gap-2 font-medium text-gray-900 dark:text-white">
             <FileText size={18} />
             <span>{t('views.spaceView.documents')}</span>
           </div>
 
           <div
             className={clsx(
-              'relative flex flex-col items-center justify-center p-8 rounded-2xl border-2 border-dashed transition-all cursor-pointer overflow-hidden',
+              'relative flex cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed p-8 transition-all',
               isDragging
                 ? 'border-primary-500 bg-primary-500/5 dark:bg-primary-500/10'
-                : 'border-gray-200 dark:border-zinc-800 bg-white/20 dark:bg-zinc-900/40',
+                : 'border-gray-200 bg-white/20 dark:border-zinc-800 dark:bg-zinc-900/40',
             )}
             onDragOver={onDragOver}
             onDragLeave={onDragLeave}
@@ -499,10 +499,10 @@ const SpaceView = () => {
               className="hidden"
             />
 
-            <div className="flex flex-col items-center gap-3 z-10">
+            <div className="z-10 flex flex-col items-center gap-3">
               <div
                 className={clsx(
-                  'w-12 h-12 rounded-xl flex items-center justify-center transition-colors',
+                  'flex h-12 w-12 items-center justify-center rounded-xl transition-colors',
                   isDragging
                     ? 'bg-primary-100 text-primary-600 dark:bg-primary-500/20 dark:text-primary-400'
                     : 'bg-gray-100 text-gray-500 dark:bg-zinc-800 dark:text-gray-400',
@@ -524,14 +524,14 @@ const SpaceView = () => {
 
             {/* Progress Overlay */}
             {documentUploadState.status === 'loading' && (
-              <div className="absolute inset-0 bg-white dark:bg-zinc-900 flex flex-col items-center justify-center gap-3 z-20">
-                <div className="w-48 h-1.5 bg-gray-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+              <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-white dark:bg-zinc-900">
+                <div className="h-1.5 w-48 overflow-hidden rounded-full bg-gray-100 dark:bg-zinc-800">
                   <div
-                    className="h-full bg-primary-500 transition-all duration-300 ease-out"
+                    className="bg-primary-500 h-full transition-all duration-300 ease-out"
                     style={{ width: `${uploadProgress}%` }}
                   />
                 </div>
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-300 animate-pulse">
+                <p className="animate-pulse text-sm font-medium text-gray-600 dark:text-gray-300">
                   {documentUploadState.message}
                 </p>
               </div>
@@ -540,7 +540,7 @@ const SpaceView = () => {
             {/* Success/Error Overlay */}
             {documentUploadState.status !== 'idle' && documentUploadState.status !== 'loading' && (
               <div
-                className="absolute inset-0 bg-white/95 dark:bg-zinc-900/95 flex flex-col items-center justify-center gap-2 z-20"
+                className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 bg-white/95 dark:bg-zinc-900/95"
                 onClick={e => {
                   e.stopPropagation()
                   setDocumentUploadState(p => ({ ...p, status: 'idle' }))
@@ -583,7 +583,7 @@ const SpaceView = () => {
               </div>
             )}
             {!documentsLoading && spaceDocuments.length === 0 && (
-              <div className="text-sm text-center py-4 text-gray-500 dark:text-gray-400 border border-dashed border-gray-200 dark:border-zinc-800 rounded-xl">
+              <div className="rounded-xl border border-dashed border-gray-200 py-4 text-center text-sm text-gray-500 dark:border-zinc-800 dark:text-gray-400">
                 {t('views.spaceView.documentEmptyList')}
               </div>
             )}
@@ -591,19 +591,19 @@ const SpaceView = () => {
               spaceDocuments.map(doc => (
                 <div
                   key={doc.id}
-                  className="group flex items-start sm:items-center justify-between gap-3 sm:gap-4 rounded-xl border border-gray-100 dark:border-zinc-800/60 bg-white/60 dark:bg-zinc-900/30 px-3 py-3 sm:px-4 sm:py-3 hover:bg-white dark:hover:bg-zinc-900 transition-colors"
+                  className="group flex items-start justify-between gap-3 rounded-xl border border-gray-100 bg-white/60 px-3 py-3 transition-colors hover:bg-white sm:items-center sm:gap-4 sm:px-4 sm:py-3 dark:border-zinc-800/60 dark:bg-zinc-900/30 dark:hover:bg-zinc-900"
                 >
-                  <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1">
-                    <div className="shrink-0 p-2 rounded-lg bg-gray-50 dark:bg-zinc-800 shadow-sm border border-gray-200/50 dark:border-zinc-700/50">
+                  <div className="flex min-w-0 flex-1 items-start gap-3 sm:items-center">
+                    <div className="shrink-0 rounded-lg border border-gray-200/50 bg-gray-50 p-2 shadow-sm dark:border-zinc-700/50 dark:bg-zinc-800">
                       <FileIcon fileType={doc.file_type} size={20} />
                     </div>
-                    <div className="flex flex-col gap-1 min-w-0 flex-1">
-                      <div className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate pr-2">
+                    <div className="flex min-w-0 flex-1 flex-col gap-1">
+                      <div className="truncate pr-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
                         {doc.name.replace(/\.[^/.]+$/, '')}
                       </div>
-                      <div className="text-[11px] sm:text-xs text-gray-500 dark:text-gray-400 flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-gray-500 sm:text-xs dark:text-gray-400">
                         <div className="flex items-center gap-1">
-                          <span className="uppercase font-bold text-[10px] text-gray-400 dark:text-zinc-500">
+                          <span className="text-[10px] font-bold text-gray-400 uppercase dark:text-zinc-500">
                             {formatFileType(doc.file_type)}
                           </span>
                           <span className="text-gray-300 dark:text-zinc-700">·</span>
@@ -615,10 +615,10 @@ const SpaceView = () => {
                         </div>
                         {doc.embedding_model && (
                           <div className="flex items-center gap-1">
-                            <span className="text-gray-300 dark:text-zinc-700 hidden sm:inline">
+                            <span className="hidden text-gray-300 sm:inline dark:text-zinc-700">
                               ·
                             </span>
-                            <span className="bg-primary-500/5 dark:bg-primary-500/10 text-primary-600 dark:text-primary-400 px-1.5 py-0.5 rounded text-[10px]">
+                            <span className="bg-primary-500/5 dark:bg-primary-500/10 text-primary-600 dark:text-primary-400 rounded px-1.5 py-0.5 text-[10px]">
                               {doc.embedding_model}
                             </span>
                           </div>
@@ -629,7 +629,7 @@ const SpaceView = () => {
 
                   <button
                     onClick={e => handleDeleteDocument(doc, e)}
-                    className="shrink-0 p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-200"
+                    className="shrink-0 rounded-lg p-2 text-gray-400 opacity-100 transition-all duration-200 hover:bg-red-50 hover:text-red-500 sm:opacity-0 sm:group-hover:opacity-100 dark:hover:bg-red-900/20"
                     title={t('views.spaceView.deleteDocument')}
                   >
                     <Trash2 size={16} />
@@ -641,7 +641,7 @@ const SpaceView = () => {
 
         {/* Section: My Topics */}
         <div className="flex flex-col gap-4">
-          <div className="flex items-center gap-2 text-gray-900 dark:text-white font-medium">
+          <div className="flex items-center gap-2 font-medium text-gray-900 dark:text-white">
             <Layers size={18} />
             <span>{t('views.spaceView.myTopics')}</span>
           </div>
@@ -649,7 +649,7 @@ const SpaceView = () => {
           {/* Topics List */}
           <div className="relative flex flex-col gap-4">
             {loading && (
-              <div className="absolute inset-0 flex items-center justify-center backdrop-blur-md bg-background/40 rounded-2xl">
+              <div className="bg-background/40 absolute inset-0 flex items-center justify-center rounded-2xl backdrop-blur-md">
                 <FancyLoader />
               </div>
             )}
@@ -663,24 +663,24 @@ const SpaceView = () => {
                 <div
                   key={conv.id || i}
                   data-conversation-id={conv.id || i}
-                  className="group relative py-3 sm:p-4 rounded-xl cursor-pointer transition-colors border-b border-gray-100 dark:border-zinc-800/50 last:border-0 hover:bg-primary-500/10 dark:hover:bg-primary-500/20 hover:border hover:border-primary-500/30 dark:hover:border-primary-500/40"
+                  className="group hover:bg-primary-500/10 dark:hover:bg-primary-500/20 hover:border-primary-500/30 dark:hover:border-primary-500/40 relative cursor-pointer rounded-xl border-b border-gray-100 py-3 transition-colors last:border-0 hover:border sm:p-4 dark:border-zinc-800/50"
                   onClick={() => onOpenConversation && onOpenConversation(conv)}
                 >
-                  <div className="flex justify-between items-start gap-4">
-                    <div className="shrink-0 flex items-center justify-center bg-gray-100 dark:bg-zinc-800 rounded-lg w-12 h-12">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-gray-100 dark:bg-zinc-800">
                       <EmojiDisplay
                         emoji={resolveConversationEmoji(conv, activeSpace?.emoji)}
                         size="2rem"
                       />
                     </div>
                     <div className="flex-1">
-                      <h3 className="font-medium text-gray-900 dark:text-gray-100 group-hover:text-primary-500 transition-colors flex items-center gap-2">
+                      <h3 className="group-hover:text-primary-500 flex items-center gap-2 font-medium text-gray-900 transition-colors dark:text-gray-100">
                         {conv.title || t('views.untitled')}
                         {conv.is_favorited && (
-                          <Bookmark size={14} className="text-yellow-500 fill-current" />
+                          <Bookmark size={14} className="fill-current text-yellow-500" />
                         )}
                       </h3>
-                      <div className="flex items-center gap-2 mt-2 text-xs text-gray-400">
+                      <div className="mt-2 flex items-center gap-2 text-xs text-gray-400">
                         <span>
                           {new Date(conv.updated_at || conv.created_at).toLocaleDateString(
                             i18n.language === 'zh-CN' ? 'zh-CN' : 'en-US',
@@ -698,10 +698,10 @@ const SpaceView = () => {
                     <div className="relative">
                       <button
                         className={clsx(
-                          'p-1 hover:bg-primary-500/10 dark:hover:bg-primary-500/20 rounded text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-all',
+                          'hover:bg-primary-500/10 dark:hover:bg-primary-500/20 hover:text-primary-600 dark:hover:text-primary-400 rounded p-1 text-gray-400 transition-all',
                           'opacity-100',
                           'md:opacity-0 md:group-hover:opacity-100',
-                          'min-w-[44px] min-h-[44px] flex items-center justify-center',
+                          'flex min-h-[44px] min-w-[44px] items-center justify-center',
                         )}
                         onClick={e => {
                           e.stopPropagation()
@@ -722,7 +722,7 @@ const SpaceView = () => {
 
                   {/* Collapsible Actions Section */}
                   {expandedActionId === conv.id && (
-                    <div className="flex flex-wrap gap-2 mt-3 px-1 animate-in fade-in slide-in-from-top-1">
+                    <div className="animate-in fade-in slide-in-from-top-1 mt-3 flex flex-wrap gap-2 px-1">
                       <button
                         onClick={e => {
                           e.stopPropagation()
@@ -730,10 +730,10 @@ const SpaceView = () => {
                           setExpandedActionId(null)
                         }}
                         className={clsx(
-                          'flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors',
+                          'flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors',
                           conv.is_favorited
-                            ? 'bg-yellow-50 text-yellow-600 border-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-400 dark:border-yellow-800/30'
-                            : 'bg-white dark:bg-zinc-900 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-zinc-800 hover:bg-gray-50 dark:hover:bg-zinc-800',
+                            ? 'border-yellow-200 bg-yellow-50 text-yellow-600 dark:border-yellow-800/30 dark:bg-yellow-900/20 dark:text-yellow-400'
+                            : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-gray-400 dark:hover:bg-zinc-800',
                         )}
                       >
                         <Bookmark size={13} className={clsx(conv.is_favorited && 'fill-current')} />
@@ -747,7 +747,7 @@ const SpaceView = () => {
                           handleDeleteConversation(conv)
                           setExpandedActionId(null)
                         }}
-                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium bg-white dark:bg-zinc-900 text-red-600 dark:text-red-400 border border-red-100 dark:border-red-900/30 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                        className="flex items-center gap-2 rounded-lg border border-red-100 bg-white px-3 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 dark:border-red-900/30 dark:bg-zinc-900 dark:text-red-400 dark:hover:bg-red-900/20"
                       >
                         <Trash2 size={13} />
                         <span>{t('views.deleteConversation')}</span>
@@ -764,16 +764,16 @@ const SpaceView = () => {
       {!loading && totalPages > 1 && (
         <div
           className={clsx(
-            'fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur border-t border-gray-200 dark:border-zinc-800',
+            'bg-background/95 fixed right-0 bottom-0 left-0 border-t border-gray-200 backdrop-blur dark:border-zinc-800',
             isSidebarPinned ? 'pl-0 sm:pl-80' : 'pl-0 sm:pl-16',
           )}
         >
-          <div className="max-w-3xl mx-auto px-4">
+          <div className="mx-auto max-w-3xl px-4">
             <div className="flex items-center justify-center gap-4 py-4">
               <button
                 onClick={() => handlePageChange(currentPage - 1)}
                 disabled={currentPage === 1}
-                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="rounded-lg p-2 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-zinc-800"
                 title={t('views.previousPage')}
               >
                 <ChevronLeft size={20} />
@@ -786,7 +786,7 @@ const SpaceView = () => {
               <button
                 onClick={() => handlePageChange(currentPage + 1)}
                 disabled={currentPage === totalPages}
-                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="rounded-lg p-2 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-zinc-800"
                 title={t('views.nextPage')}
               >
                 <ChevronRight size={20} />

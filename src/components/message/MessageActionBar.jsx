@@ -40,40 +40,40 @@ const MessageActionBar = ({
   }, [documentSources])
 
   return (
-    <div className="flex items-center gap-1 border-t border-gray-200/60 dark:border-zinc-800/50 pt-3 mt-2">
+    <div className="mt-2 flex items-center gap-1 border-t border-gray-200/60 pt-3 dark:border-zinc-800/50">
       <button
-        className="group flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-gray-500 dark:text-white hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-all duration-200"
+        className="group flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-gray-500 transition-all duration-200 hover:bg-gray-100 hover:text-gray-700 dark:text-white dark:hover:bg-zinc-800 dark:hover:text-gray-200"
         onClick={onShare}
       >
         <Share2 size={16} strokeWidth={2} />
-        <span className="hidden sm:block text-xs font-medium max-w-0 overflow-hidden opacity-0 whitespace-nowrap transition-all duration-300 ease-in-out group-hover:max-w-[60px] group-hover:opacity-100">
+        <span className="hidden max-w-0 overflow-hidden text-xs font-medium whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[60px] group-hover:opacity-100 sm:block">
           {t('message.share')}
         </span>
       </button>
       <button
-        className="group flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-gray-500 dark:text-white hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-all duration-200"
+        className="group flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-gray-500 transition-all duration-200 hover:bg-gray-100 hover:text-gray-700 dark:text-white dark:hover:bg-zinc-800 dark:hover:text-gray-200"
         onClick={onRegenerate}
       >
         <RefreshCw size={16} strokeWidth={2} />
-        <span className="hidden sm:block text-xs font-medium max-w-0 overflow-hidden opacity-0 whitespace-nowrap transition-all duration-300 ease-in-out group-hover:max-w-[80px] group-hover:opacity-100">
+        <span className="hidden max-w-0 overflow-hidden text-xs font-medium whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[80px] group-hover:opacity-100 sm:block">
           {t('message.regenerate')}
         </span>
       </button>
       <button
-        className="group flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-gray-500 dark:text-white hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-all duration-200"
+        className="group flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-gray-500 transition-all duration-200 hover:bg-gray-100 hover:text-gray-700 dark:text-white dark:hover:bg-zinc-800 dark:hover:text-gray-200"
         onClick={onCopy}
       >
         {isCopied ? (
           <>
             <Check size={16} strokeWidth={2.5} className="text-emerald-500" />
-            <span className="hidden sm:block text-xs font-medium text-emerald-500 max-w-0 overflow-hidden opacity-0 whitespace-nowrap transition-all duration-300 ease-in-out group-hover:max-w-[60px] group-hover:opacity-100">
+            <span className="hidden max-w-0 overflow-hidden text-xs font-medium whitespace-nowrap text-emerald-500 opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[60px] group-hover:opacity-100 sm:block">
               {t('message.copied')}
             </span>
           </>
         ) : (
           <>
             <Copy size={16} strokeWidth={2} />
-            <span className="hidden sm:block text-xs font-medium max-w-0 overflow-hidden opacity-0 whitespace-nowrap transition-all duration-300 ease-in-out group-hover:max-w-[50px] group-hover:opacity-100">
+            <span className="hidden max-w-0 overflow-hidden text-xs font-medium whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[50px] group-hover:opacity-100 sm:block">
               {t('message.copy')}
             </span>
           </>
@@ -82,36 +82,36 @@ const MessageActionBar = ({
       {isDeepResearch && (
         <div className="relative" ref={downloadMenuRef}>
           <button
-            className="group flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-gray-500 dark:text-white hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-all duration-200"
+            className="group flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-gray-500 transition-all duration-200 hover:bg-gray-100 hover:text-gray-700 dark:text-white dark:hover:bg-zinc-800 dark:hover:text-gray-200"
             onClick={() => setIsDownloadMenuOpen(prev => !prev)}
           >
             <Download size={16} strokeWidth={2} />
-            <span className="hidden sm:block text-xs font-medium max-w-0 overflow-hidden opacity-0 whitespace-nowrap transition-all duration-300 ease-in-out group-hover:max-w-[80px] group-hover:opacity-100">
+            <span className="hidden max-w-0 overflow-hidden text-xs font-medium whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[80px] group-hover:opacity-100 sm:block">
               {t('messageBubble.download')}
             </span>
             <ChevronDown
               size={14}
               strokeWidth={2}
-              className="hidden sm:block transition-transform duration-200"
+              className="hidden transition-transform duration-200 sm:block"
             />
           </button>
           {isDownloadMenuOpen && (
             <div
               className={clsx(
-                'absolute left-0 w-48 bg-white dark:bg-[#1E1E1E] border border-gray-200/60 dark:border-zinc-700/60 rounded-2xl shadow-2xl z-30 overflow-hidden animate-in slide-in-from-top-2',
+                'animate-in slide-in-from-top-2 absolute left-0 z-30 w-48 overflow-hidden rounded-2xl border border-gray-200/60 bg-white shadow-2xl dark:border-zinc-700/60 dark:bg-[#1E1E1E]',
                 isMobile ? 'bottom-full mb-2' : 'top-full mt-2',
               )}
             >
-              <div className="p-2 flex flex-col gap-1">
+              <div className="flex flex-col gap-1 p-2">
                 <button
                   type="button"
                   onClick={() => {
                     onDownloadPdf()
                     setIsDownloadMenuOpen(false)
                   }}
-                  className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left text-sm text-gray-700 dark:text-white font-medium"
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:text-white dark:hover:bg-zinc-700/50"
                 >
-                  <div className="p-1.5 bg-red-100 dark:bg-red-900/30 rounded-lg">
+                  <div className="rounded-lg bg-red-100 p-1.5 dark:bg-red-900/30">
                     <FileText size={14} className="text-red-500" />
                   </div>
                   {t('messageBubble.downloadPdf')}
@@ -122,9 +122,9 @@ const MessageActionBar = ({
                     onDownloadWord()
                     setIsDownloadMenuOpen(false)
                   }}
-                  className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left text-sm text-gray-700 dark:text-white font-medium"
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:text-white dark:hover:bg-zinc-700/50"
                 >
-                  <div className="p-1.5 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                  <div className="rounded-lg bg-blue-100 p-1.5 dark:bg-blue-900/30">
                     <FileText size={14} className="text-blue-500" />
                   </div>
                   {t('messageBubble.downloadWord')}
@@ -144,22 +144,22 @@ const MessageActionBar = ({
             }
           }}
           className={clsx(
-            'group flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-all duration-200',
+            'group flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 transition-all duration-200',
             isSourcesOpen
-              ? 'text-primary-600 dark:text-primary-400 font-medium bg-primary-50 dark:bg-primary-900/20'
-              : 'text-gray-500 dark:text-white hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-zinc-800',
+              ? 'text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/20 font-medium'
+              : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-white dark:hover:bg-zinc-800 dark:hover:text-gray-200',
           )}
         >
           <Globe size={16} strokeWidth={2} />
-          <span className="hidden sm:block text-xs font-medium max-w-0 overflow-hidden opacity-0 whitespace-nowrap transition-all duration-300 ease-in-out group-hover:max-w-[60px] group-hover:opacity-100">
+          <span className="hidden max-w-0 overflow-hidden text-xs font-medium whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[60px] group-hover:opacity-100 sm:block">
             {t('sources.title')}
           </span>
           <span
             className={clsx(
-              'flex items-center justify-center rounded-full text-[10px] font-semibold w-5 h-5 transition-colors',
+              'flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-semibold transition-colors',
               isSourcesOpen
                 ? 'bg-primary-200 dark:bg-primary-900/50 text-primary-700 dark:text-primary-300'
-                : 'bg-gray-200 dark:bg-zinc-700 text-gray-700 dark:text-white',
+                : 'bg-gray-200 text-gray-700 dark:bg-zinc-700 dark:text-white',
             )}
           >
             {message.sources.length}
@@ -171,22 +171,22 @@ const MessageActionBar = ({
           type="button"
           onClick={onToggleDocumentSources}
           className={clsx(
-            'group flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-all duration-200',
+            'group flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 transition-all duration-200',
             isDocumentSourcesOpen
-              ? 'text-primary-600 dark:text-primary-400 font-medium bg-primary-50 dark:bg-primary-900/20'
-              : 'text-gray-500 dark:text-white hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-zinc-800',
+              ? 'text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/20 font-medium'
+              : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-white dark:hover:bg-zinc-800 dark:hover:text-gray-200',
           )}
         >
           <FileText size={16} strokeWidth={2} />
-          <span className="hidden sm:block text-xs font-medium max-w-0 overflow-hidden opacity-0 whitespace-nowrap transition-all duration-300 ease-in-out group-hover:max-w-[100px] group-hover:opacity-100">
+          <span className="hidden max-w-0 overflow-hidden text-xs font-medium whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[100px] group-hover:opacity-100 sm:block">
             {t('sources.documentSources')}
           </span>
           <span
             className={clsx(
-              'flex items-center justify-center rounded-full text-[10px] font-semibold w-5 h-5 transition-colors',
+              'flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-semibold transition-colors',
               isDocumentSourcesOpen
                 ? 'bg-primary-200 dark:bg-primary-900/50 text-primary-700 dark:text-primary-300'
-                : 'bg-gray-200 dark:bg-zinc-700 text-gray-700 dark:text-white',
+                : 'bg-gray-200 text-gray-700 dark:bg-zinc-700 dark:text-white',
             )}
           >
             {uniqueDocumentSourcesCount}
@@ -194,11 +194,11 @@ const MessageActionBar = ({
         </button>
       )}
       <button
-        className="group flex items-center gap-1.5 ml-auto px-2.5 py-1.5 rounded-lg text-gray-500 dark:text-white hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-200"
+        className="group ml-auto flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-gray-500 transition-all duration-200 hover:bg-red-50 hover:text-red-600 dark:text-white dark:hover:bg-red-900/20 dark:hover:text-red-400"
         onClick={onDelete}
       >
         <Trash2 size={16} strokeWidth={2} />
-        <span className="hidden sm:block text-xs font-medium max-w-0 overflow-hidden opacity-0 whitespace-nowrap transition-all duration-300 ease-in-out group-hover:max-w-[60px] group-hover:opacity-100">
+        <span className="hidden max-w-0 overflow-hidden text-xs font-medium whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[60px] group-hover:opacity-100 sm:block">
           {t('common.delete')}
         </span>
       </button>

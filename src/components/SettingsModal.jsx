@@ -503,7 +503,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
 
   const renderEnvHint = hasEnv =>
     hasEnv ? (
-      <p className="text-emerald-600 text-xs dark:text-emerald-400">Loaded from environment</p>
+      <p className="text-xs text-emerald-600 dark:text-emerald-400">Loaded from environment</p>
     ) : null
 
   const [activeTab, setActiveTab] = useState('general')
@@ -1683,36 +1683,36 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
   }
 
   return (
-    <div className="fixed inset-0 z-100 flex items-start md:items-center justify-center bg-black/50 backdrop-blur-sm p-0 md:p-4 overflow-y-auto md:overflow-hidden">
-      <div className="w-full h-[100dvh] md:max-w-5xl md:h-[85vh] bg-white dark:bg-[#191a1a] rounded-none md:rounded-2xl shadow-2xl overflow-hidden flex flex-col md:flex-row border-0 md:border border-gray-200 dark:border-zinc-800 relative">
+    <div className="fixed inset-0 z-100 flex items-start justify-center overflow-y-auto bg-black/50 p-0 backdrop-blur-sm md:items-center md:overflow-hidden md:p-4">
+      <div className="relative flex h-dvh w-full flex-col overflow-hidden rounded-none border-0 border-gray-200 bg-white shadow-2xl md:h-[85vh] md:max-w-5xl md:flex-row md:rounded-2xl md:border dark:border-zinc-800 dark:bg-[#191a1a]">
         {/* Mobile Header */}
-        <div className="md:hidden h-14 border-b border-gray-200 dark:border-zinc-800 flex items-center justify-between px-4 bg-white dark:bg-[#191a1a] shrink-0">
+        <div className="flex h-14 shrink-0 items-center justify-between border-b border-gray-200 bg-white px-4 md:hidden dark:border-zinc-800 dark:bg-[#191a1a]">
           <h2 className="text-base font-semibold text-gray-900 dark:text-white">
             {t('settings.title')}
           </h2>
           <button
             onClick={onClose}
-            className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-500 transition-colors"
+            className="rounded-full p-2 text-gray-500 transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800"
           >
             <X size={20} />
           </button>
         </div>
 
         {/* Sidebar */}
-        <div className="w-full md:w-64 bg-primary-50 dark:bg-background/70 border-b md:border-b-0 md:border-r border-gray-200 dark:border-zinc-800 px-1 py-1 sm:py-4 sm:px-4 flex flex-row md:flex-col gap-2 overflow-x-auto md:overflow-visible no-scrollbar shrink-0">
-          <h2 className="text-xl font-bold mb-0 md:mb-6 px-2 text-gray-900 dark:text-white hidden md:block">
+        <div className="bg-primary-50 dark:bg-background/70 no-scrollbar flex w-full shrink-0 flex-row gap-2 overflow-x-auto border-b border-gray-200 px-1 py-1 sm:px-4 sm:py-4 md:w-64 md:flex-col md:overflow-visible md:border-r md:border-b-0 dark:border-zinc-800">
+          <h2 className="mb-0 hidden px-2 text-xl font-bold text-gray-900 md:mb-6 md:block dark:text-white">
             {t('settings.title')}
           </h2>
-          <nav className="flex flex-row md:flex-col gap-1 w-full md:w-auto">
+          <nav className="flex w-full flex-row gap-1 md:w-auto md:flex-col">
             {menuItems.map(item => (
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
                 className={clsx(
-                  'flex items-center gap-1 sm:gap-3 px-3 py-2 rounded-lg text-sm font-semibold transition-colors whitespace-nowrap',
+                  'flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-semibold whitespace-nowrap transition-colors sm:gap-3',
                   activeTab === item.id
-                    ? 'bg-primary-100 dark:bg-zinc-800 text-primary-600 dark:text-primary-400'
-                    : 'text-gray-600 dark:text-gray-400 hover:bg-primary-100 dark:hover:bg-zinc-800',
+                    ? 'bg-primary-100 text-primary-600 dark:text-primary-400 dark:bg-zinc-800'
+                    : 'hover:bg-primary-100 text-gray-600 dark:text-gray-400 dark:hover:bg-zinc-800',
                 )}
               >
                 <item.icon size={18} />
@@ -1723,7 +1723,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
         </div>
 
         {/* Content Area */}
-        <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-[#f9f9f987] dark:bg-[#191a1a]">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-[#f9f9f987] dark:bg-[#191a1a]">
           {/* Header */}
           {/* <div className="h-16 border-b border-gray-200 dark:border-zinc-800 hidden md:flex items-center justify-between px-6 sm:px-8">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white capitalize">
@@ -1738,9 +1738,9 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
           </div> */}
 
           {/* Scrollable Content */}
-          <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-8 sm:py-8 min-h-0 shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07)]">
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07)] sm:px-8 sm:py-8">
             {activeTab === 'general' && (
-              <div className="flex flex-col gap-8 max-w-2xl">
+              <div className="flex max-w-2xl flex-col gap-8">
                 {/* ... existing general settings ... */}
                 <div className="flex flex-col gap-2">
                   <label className="text-sm font-medium text-gray-900 dark:text-white">
@@ -1757,8 +1757,8 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                         i18n.changeLanguage(val)
                       }}
                     >
-                      <SelectTrigger className="w-full pl-10 h-10">
-                        <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center">
+                      <SelectTrigger className="h-10 w-full pl-10">
+                        <div className="absolute top-1/2 left-3 flex -translate-y-1/2 items-center">
                           <Monitor size={16} className="text-gray-400" />
                         </div>
                         <SelectValue>
@@ -1792,10 +1792,10 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                     aria-checked={followInterfaceLanguage}
                     onClick={() => setFollowInterfaceLanguage(prev => !prev)}
                     className={clsx(
-                      'relative inline-flex h-7 w-12 shrink-0 items-center rounded-full border transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500/40',
+                      'focus:ring-primary-500/40 relative inline-flex h-7 w-12 shrink-0 items-center rounded-full border transition-colors focus:ring-2 focus:outline-none',
                       followInterfaceLanguage
                         ? 'bg-primary-500 border-primary-500'
-                        : 'bg-gray-200 dark:bg-zinc-800 border-gray-300 dark:border-zinc-700',
+                        : 'border-gray-300 bg-gray-200 dark:border-zinc-700 dark:bg-zinc-800',
                     )}
                   >
                     <span
@@ -1819,8 +1819,8 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
 
                   <div className="relative">
                     <Select value={apiProvider} onValueChange={setApiProvider}>
-                      <SelectTrigger className="w-full pl-10 h-10">
-                        <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center">
+                      <SelectTrigger className="h-10 w-full pl-10">
+                        <div className="absolute top-1/2 left-3 flex -translate-y-1/2 items-center">
                           <Box size={16} className="text-gray-400" />
                         </div>
                         <SelectValue>
@@ -1848,12 +1848,12 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
 
                   {/* Google Settings */}
                   {apiProvider === 'gemini' && (
-                    <div className="flex flex-col gap-2 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="animate-in fade-in slide-in-from-top-2 flex flex-col gap-2 duration-200">
                       <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
                         {t('settings.googleApiKey')}
                       </label>
                       <div className="relative">
-                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                        <div className="absolute top-1/2 left-3 -translate-y-1/2 text-gray-400">
                           <Key size={16} />
                         </div>
                         <input
@@ -1863,13 +1863,13 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                           placeholder={t('settings.googleApiKeyPlaceholder')}
                           disabled={Boolean(ENV_VARS.googleApiKey)}
                           className={clsx(
-                            'w-full pl-10 pr-4 py-2.5 bg-white disabled:bg-gray-50/20 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
-                            ENV_VARS.googleApiKey && 'opacity-70 cursor-not-allowed',
+                            'focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border border-gray-200 bg-white py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100 dark:placeholder-zinc-600',
+                            ENV_VARS.googleApiKey && 'cursor-not-allowed opacity-70',
                           )}
                         />
                       </div>
                       {ENV_VARS.googleApiKey && (
-                        <p className="text-emerald-600 text-xs dark:text-emerald-400">
+                        <p className="text-xs text-emerald-600 dark:text-emerald-400">
                           {t('settings.loadedFromEnvironment')}
                         </p>
                       )}
@@ -1878,13 +1878,13 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
 
                   {/* MiniMax Settings */}
                   {apiProvider === 'minimax' && (
-                    <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="animate-in fade-in slide-in-from-top-2 flex flex-col gap-4 duration-200">
                       <div className="flex flex-col gap-2">
                         <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
                           {t('settings.minimaxApiKey', { defaultValue: 'MiniMax API Key' })}
                         </label>
                         <div className="relative">
-                          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                          <div className="absolute top-1/2 left-3 -translate-y-1/2 text-gray-400">
                             <Key size={16} />
                           </div>
                           <input
@@ -1895,7 +1895,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                               defaultValue: 'Enter your MiniMax API Key',
                             })}
                             className={clsx(
-                              'w-full pl-10 pr-4 py-2.5 bg-white disabled:bg-gray-50/20 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
+                              'focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border border-gray-200 bg-white py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100 dark:placeholder-zinc-600',
                             )}
                           />
                         </div>
@@ -1905,13 +1905,13 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
 
                   {/* OpenAI Compatible Settings */}
                   {apiProvider === 'openai_compatibility' && (
-                    <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="animate-in fade-in slide-in-from-top-2 flex flex-col gap-4 duration-200">
                       <div className="flex flex-col gap-2">
                         <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
                           {t('settings.openaiApiKey')}
                         </label>
                         <div className="relative">
-                          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                          <div className="absolute top-1/2 left-3 -translate-y-1/2 text-gray-400">
                             <Key size={16} />
                           </div>
                           <input
@@ -1921,8 +1921,8 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                             placeholder={t('settings.openaiApiKeyPlaceholder')}
                             disabled={Boolean(ENV_VARS.openAIKey)}
                             className={clsx(
-                              'w-full pl-10 pr-4 py-2.5 bg-white disabled:bg-gray-50/20 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
-                              ENV_VARS.openAIKey && 'opacity-70 cursor-not-allowed',
+                              'focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border border-gray-200 bg-white py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100 dark:placeholder-zinc-600',
+                              ENV_VARS.openAIKey && 'cursor-not-allowed opacity-70',
                             )}
                           />
                         </div>
@@ -1933,7 +1933,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                           {t('settings.baseUrl')}
                         </label>
                         <div className="relative">
-                          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                          <div className="absolute top-1/2 left-3 -translate-y-1/2 text-gray-400">
                             <Link size={16} />
                           </div>
                           <input
@@ -1943,8 +1943,8 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                             placeholder={t('settings.baseUrlPlaceholder')}
                             disabled={Boolean(ENV_VARS.openAIBaseUrl)}
                             className={clsx(
-                              'w-full pl-10 pr-4 py-2.5 bg-white disabled:bg-gray-50/20 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
-                              ENV_VARS.openAIBaseUrl && 'opacity-70 cursor-not-allowed',
+                              'focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border border-gray-200 bg-white py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100 dark:placeholder-zinc-600',
+                              ENV_VARS.openAIBaseUrl && 'cursor-not-allowed opacity-70',
                             )}
                           />
                         </div>
@@ -1955,13 +1955,13 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
 
                   {/* SiliconFlow Settings */}
                   {apiProvider === 'siliconflow' && (
-                    <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="animate-in fade-in slide-in-from-top-2 flex flex-col gap-4 duration-200">
                       <div className="flex flex-col gap-2">
                         <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
                           {t('settings.siliconflowApiKey')}
                         </label>
                         <div className="relative">
-                          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                          <div className="absolute top-1/2 left-3 -translate-y-1/2 text-gray-400">
                             <Key size={16} />
                           </div>
                           <input
@@ -1971,13 +1971,13 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                             placeholder={t('settings.siliconflowApiKeyPlaceholder')}
                             disabled={Boolean(ENV_VARS.siliconFlowKey)}
                             className={clsx(
-                              'w-full pl-10 pr-4 py-2.5 bg-white disabled:bg-gray-50/20 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
-                              ENV_VARS.siliconFlowKey && 'opacity-70 cursor-not-allowed',
+                              'focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border border-gray-200 bg-white py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100 dark:placeholder-zinc-600',
+                              ENV_VARS.siliconFlowKey && 'cursor-not-allowed opacity-70',
                             )}
                           />
                         </div>
                         {ENV_VARS.siliconFlowKey && (
-                          <p className="text-emerald-600 text-xs dark:text-emerald-400">
+                          <p className="text-xs text-emerald-600 dark:text-emerald-400">
                             {t('settings.loadedFromEnvironment')}
                           </p>
                         )}
@@ -1987,13 +1987,13 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
 
                   {/* NVIDIA Settings */}
                   {apiProvider === 'nvidia' && (
-                    <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="animate-in fade-in slide-in-from-top-2 flex flex-col gap-4 duration-200">
                       <div className="flex flex-col gap-2">
                         <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
                           {t('settings.nvidiaApiKey', { defaultValue: 'NVIDIA API Key' })}
                         </label>
                         <div className="relative">
-                          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                          <div className="absolute top-1/2 left-3 -translate-y-1/2 text-gray-400">
                             <Key size={16} />
                           </div>
                           <input
@@ -2004,7 +2004,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                               defaultValue: 'Enter your NVIDIA API Key',
                             })}
                             className={clsx(
-                              'w-full pl-10 pr-4 py-2.5 bg-white disabled:bg-gray-50/20 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
+                              'focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border border-gray-200 bg-white py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100 dark:placeholder-zinc-600',
                             )}
                           />
                         </div>
@@ -2014,13 +2014,13 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
 
                   {/* GLM Settings */}
                   {apiProvider === 'glm' && (
-                    <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="animate-in fade-in slide-in-from-top-2 flex flex-col gap-4 duration-200">
                       <div className="flex flex-col gap-2">
                         <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
                           {t('settings.glmApiKey')}
                         </label>
                         <div className="relative">
-                          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                          <div className="absolute top-1/2 left-3 -translate-y-1/2 text-gray-400">
                             <Key size={16} />
                           </div>
                           <input
@@ -2030,13 +2030,13 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                             placeholder={t('settings.glmApiKeyPlaceholder')}
                             disabled={Boolean(ENV_VARS.glmKey)}
                             className={clsx(
-                              'w-full pl-10 pr-4 py-2.5 bg-white disabled:bg-gray-50/20 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
-                              ENV_VARS.glmKey && 'opacity-70 cursor-not-allowed',
+                              'focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border border-gray-200 bg-white py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100 dark:placeholder-zinc-600',
+                              ENV_VARS.glmKey && 'cursor-not-allowed opacity-70',
                             )}
                           />
                         </div>
                         {ENV_VARS.glmKey && (
-                          <p className="text-emerald-600 text-xs dark:text-emerald-400">
+                          <p className="text-xs text-emerald-600 dark:text-emerald-400">
                             {t('settings.loadedFromEnvironment')}
                           </p>
                         )}
@@ -2046,13 +2046,13 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
 
                   {/* ModelScope Settings */}
                   {apiProvider === 'modelscope' && (
-                    <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="animate-in fade-in slide-in-from-top-2 flex flex-col gap-4 duration-200">
                       <div className="flex flex-col gap-2">
                         <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
                           {t('settings.modelscopeApiKey')}
                         </label>
                         <div className="relative">
-                          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                          <div className="absolute top-1/2 left-3 -translate-y-1/2 text-gray-400">
                             <Key size={16} />
                           </div>
                           <input
@@ -2062,13 +2062,13 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                             placeholder={t('settings.modelscopeApiKeyPlaceholder')}
                             disabled={Boolean(ENV_VARS.modelscopeKey)}
                             className={clsx(
-                              'w-full pl-10 pr-4 py-2.5 bg-white disabled:bg-gray-50/20 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
-                              ENV_VARS.modelscopeKey && 'opacity-70 cursor-not-allowed',
+                              'focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border border-gray-200 bg-white py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100 dark:placeholder-zinc-600',
+                              ENV_VARS.modelscopeKey && 'cursor-not-allowed opacity-70',
                             )}
                           />
                         </div>
                         {ENV_VARS.modelscopeKey && (
-                          <p className="text-emerald-600 text-xs dark:text-emerald-400">
+                          <p className="text-xs text-emerald-600 dark:text-emerald-400">
                             {t('settings.loadedFromEnvironment')}
                           </p>
                         )}
@@ -2078,13 +2078,13 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
 
                   {/* Kimi Settings */}
                   {apiProvider === 'kimi' && (
-                    <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="animate-in fade-in slide-in-from-top-2 flex flex-col gap-4 duration-200">
                       <div className="flex flex-col gap-2">
                         <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
                           {t('settings.kimiApiKey')}
                         </label>
                         <div className="relative">
-                          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                          <div className="absolute top-1/2 left-3 -translate-y-1/2 text-gray-400">
                             <Key size={16} />
                           </div>
                           <input
@@ -2094,13 +2094,13 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                             placeholder={t('settings.kimiApiKeyPlaceholder')}
                             disabled={Boolean(ENV_VARS.kimiKey)}
                             className={clsx(
-                              'w-full pl-10 pr-4 py-2.5 bg-white disabled:bg-gray-50/20 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
-                              ENV_VARS.kimiKey && 'opacity-70 cursor-not-allowed',
+                              'focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border border-gray-200 bg-white py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100 dark:placeholder-zinc-600',
+                              ENV_VARS.kimiKey && 'cursor-not-allowed opacity-70',
                             )}
                           />
                         </div>
                         {ENV_VARS.kimiKey && (
-                          <p className="text-emerald-600 text-xs dark:text-emerald-400">
+                          <p className="text-xs text-emerald-600 dark:text-emerald-400">
                             {t('settings.loadedFromEnvironment')}
                           </p>
                         )}
@@ -2127,7 +2127,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                         {t('settings.backendUrl')}
                       </label>
                       <div className="relative">
-                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                        <div className="absolute top-1/2 left-3 -translate-y-1/2 text-gray-400">
                           <Link size={16} />
                         </div>
                         <input
@@ -2140,8 +2140,8 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                           placeholder={t('settings.backendUrlPlaceholder')}
                           disabled={Boolean(ENV_VARS.backendUrl)}
                           className={clsx(
-                            'w-full pl-10 pr-4 py-2.5 bg-white disabled:bg-gray-50/20 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
-                            ENV_VARS.backendUrl && 'opacity-70 cursor-not-allowed',
+                            'focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border border-gray-200 bg-white py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100 dark:placeholder-zinc-600',
+                            ENV_VARS.backendUrl && 'cursor-not-allowed opacity-70',
                           )}
                         />
                       </div>
@@ -2151,7 +2151,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                       <button
                         onClick={handleBackendHealthCheck}
                         disabled={backendHealthState.status === 'loading'}
-                        className="px-3 py-2 text-xs font-medium text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg px-3 py-2 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         {backendHealthState.status === 'loading'
                           ? t('settings.backendHealthChecking')
@@ -2196,7 +2196,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                       </label>
                       <div className="relative w-full">
                         <Select value={databaseProvider} onValueChange={setDatabaseProvider}>
-                          <SelectTrigger className="w-full h-10">
+                          <SelectTrigger className="h-10 w-full">
                             <div className="flex items-center gap-3">
                               <Database size={16} className="text-gray-400" />
                               <SelectValue placeholder={t('settings.databaseProvider')} />
@@ -2223,7 +2223,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                             {t('settings.supabaseUrl')}
                           </label>
                           <div className="relative">
-                            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                            <div className="absolute top-1/2 left-3 -translate-y-1/2 text-gray-400">
                               <Link size={16} />
                             </div>
                             <input
@@ -2233,7 +2233,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                               placeholder="https://your-project.supabase.co"
                               disabled={true} // Locked - use Reconfigure button
                               className={clsx(
-                                'w-full pl-10 pr-4 py-2.5 bg-gray-50/50 dark:bg-zinc-900/50 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none cursor-not-allowed text-gray-500 dark:text-gray-400',
+                                'w-full cursor-not-allowed rounded-lg border border-gray-200 bg-gray-50/50 py-2.5 pr-4 pl-10 text-sm text-gray-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900/50 dark:text-gray-400',
                               )}
                             />
                           </div>
@@ -2245,7 +2245,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                             {t('settings.supabaseKey')}
                           </label>
                           <div className="relative">
-                            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                            <div className="absolute top-1/2 left-3 -translate-y-1/2 text-gray-400">
                               <Key size={16} />
                             </div>
                             <input
@@ -2255,7 +2255,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                               placeholder="••••••••••••••••••••••••••••••••"
                               disabled={true} // Locked - use Reconfigure button
                               className={clsx(
-                                'w-full pl-10 pr-4 py-2.5 bg-gray-50/50 dark:bg-zinc-900/50 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none cursor-not-allowed text-gray-500 dark:text-gray-400',
+                                'w-full cursor-not-allowed rounded-lg border border-gray-200 bg-gray-50/50 py-2.5 pr-4 pl-10 text-sm text-gray-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900/50 dark:text-gray-400',
                               )}
                             />
                           </div>
@@ -2269,7 +2269,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                     <div className="flex flex-col gap-3">
                       <button
                         onClick={onOpenSupabaseSetup}
-                        className="self-start px-4 py-2 text-xs font-medium text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-colors border border-primary-200 dark:border-primary-900/40"
+                        className="text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 border-primary-200 dark:border-primary-900/40 self-start rounded-lg border px-4 py-2 text-xs font-medium transition-colors"
                       >
                         {t('settings.reconfigureSupabase') || 'Reconfigure Connection'}
                       </button>
@@ -2298,8 +2298,8 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                       </label>
                       <div className="relative w-full">
                         <Select value={searchProvider} onValueChange={setSearchProvider}>
-                          <SelectTrigger className="w-full pl-10 h-10">
-                            <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center">
+                          <SelectTrigger className="h-10 w-full pl-10">
+                            <div className="absolute top-1/2 left-3 flex -translate-y-1/2 items-center">
                               <Search size={16} className="text-gray-400" />
                             </div>
                             <SelectValue>
@@ -2334,12 +2334,12 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                     </div>
 
                     {searchProvider === 'tavily' && (
-                      <div className="flex flex-col gap-2 animate-in fade-in slide-in-from-top-2 duration-200">
+                      <div className="animate-in fade-in slide-in-from-top-2 flex flex-col gap-2 duration-200">
                         <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
                           {t('settings.toolsApiKey')}
                         </label>
                         <div className="relative">
-                          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                          <div className="absolute top-1/2 left-3 -translate-y-1/2 text-gray-400">
                             <Key size={16} />
                           </div>
                           <input
@@ -2349,13 +2349,13 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                             placeholder={t('settings.toolsApiKeyPlaceholder')}
                             disabled={Boolean(ENV_VARS.tavilyApiKey)}
                             className={clsx(
-                              'w-full pl-10 pr-4 py-2.5 bg-white disabled:bg-gray-50/20 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600',
-                              ENV_VARS.tavilyApiKey && 'opacity-70 cursor-not-allowed',
+                              'focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border border-gray-200 bg-white py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100 dark:placeholder-zinc-600',
+                              ENV_VARS.tavilyApiKey && 'cursor-not-allowed opacity-70',
                             )}
                           />
                         </div>
                         {ENV_VARS.tavilyApiKey && (
-                          <p className="text-emerald-600 text-xs dark:text-emerald-400">
+                          <p className="text-xs text-emerald-600 dark:text-emerald-400">
                             {t('settings.loadedFromEnvironment')}
                           </p>
                         )}
@@ -2367,9 +2367,9 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
             )}
 
             {activeTab === 'model' && (
-              <div className="flex flex-col gap-8 max-w-2xl">
-                <div className="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-lg flex gap-3 text-sm text-blue-700 dark:text-blue-300">
-                  <Info size={18} className="shrink-0 mt-0.5" />
+              <div className="flex max-w-2xl flex-col gap-8">
+                <div className="flex gap-3 rounded-lg bg-blue-50 p-4 text-sm text-blue-700 dark:bg-blue-900/10 dark:text-blue-300">
+                  <Info size={18} className="mt-0.5 shrink-0" />
                   <div>
                     <p className="font-medium">{t('settings.embeddingConfiguration')}</p>
                     <p className="opacity-90">{t('settings.embeddingConfigurationHint')}</p>
@@ -2377,12 +2377,12 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                 </div>
 
                 {embeddingModelsLoading ? (
-                  <div className="flex items-center justify-center py-8 text-gray-500 gap-2">
+                  <div className="flex items-center justify-center gap-2 py-8 text-gray-500">
                     <RefreshCw className="animate-spin" size={20} />
                     <span>{t('settings.loadingModels')}</span>
                   </div>
                 ) : embeddingAvailableProviders.length === 0 ? (
-                  <div className="rounded-lg border border-dashed border-gray-200 dark:border-zinc-700 p-6 text-center text-sm text-gray-500 dark:text-gray-400">
+                  <div className="rounded-lg border border-dashed border-gray-200 p-6 text-center text-sm text-gray-500 dark:border-zinc-700 dark:text-gray-400">
                     <p className="font-medium text-gray-700 dark:text-gray-300">
                       {t('settings.embeddingNoProvidersTitle')}
                     </p>
@@ -2397,7 +2397,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                       <button
                         type="button"
                         onClick={loadEmbeddingModels}
-                        className="flex items-center gap-1 text-primary-600 hover:text-primary-700 dark:text-primary-400"
+                        className="text-primary-600 hover:text-primary-700 dark:text-primary-400 flex items-center gap-1"
                       >
                         <RefreshCw size={14} />
                         {t('settings.embeddingRefreshModels')}
@@ -2405,13 +2405,13 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                     </div>
 
                     <div className="space-y-3">
-                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                        <div className="flex flex-col gap-2 w-full sm:w-auto">
-                          <div className="flex flex-wrap items-center gap-3 w-full">
-                            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 shrink-0">
+                      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
+                        <div className="flex w-full flex-col gap-2 sm:w-auto">
+                          <div className="flex w-full flex-wrap items-center gap-3">
+                            <label className="shrink-0 text-sm font-medium text-gray-700 dark:text-gray-300">
                               {t('settings.embeddingModel')}
                             </label>
-                            <div className="flex bg-gray-100 dark:bg-zinc-800 p-0.5 rounded-lg border border-gray-200 dark:border-zinc-700">
+                            <div className="flex rounded-lg border border-gray-200 bg-gray-100 p-0.5 dark:border-zinc-700 dark:bg-zinc-800">
                               <button
                                 type="button"
                                 onClick={() => {
@@ -2425,10 +2425,10 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                                   }
                                 }}
                                 className={clsx(
-                                  'px-3 py-1 text-xs font-medium rounded-md transition-all',
+                                  'rounded-md px-3 py-1 text-xs font-medium transition-all',
                                   embeddingModelSource === 'list'
-                                    ? 'bg-white dark:bg-zinc-700 text-gray-900 dark:text-gray-100 shadow-sm'
-                                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300',
+                                    ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-gray-100'
+                                    : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300',
                                 )}
                               >
                                 {t('settings.modelSourceList')}
@@ -2442,33 +2442,33 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                                   setEmbeddingModel(nextValue)
                                 }}
                                 className={clsx(
-                                  'px-3 py-1 text-xs font-medium rounded-md transition-all',
+                                  'rounded-md px-3 py-1 text-xs font-medium transition-all',
                                   embeddingModelSource === 'custom'
-                                    ? 'bg-white dark:bg-zinc-700 text-gray-900 dark:text-gray-100 shadow-sm'
-                                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300',
+                                    ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-gray-100'
+                                    : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300',
                                 )}
                               >
                                 {t('settings.modelSourceCustom')}
                               </button>
                             </div>
                           </div>
-                          <p className="text-xs text-gray-500 dark:text-gray-400 max-w-2xl">
+                          <p className="max-w-2xl text-xs text-gray-500 dark:text-gray-400">
                             {t('settings.embeddingModelHint')}
                           </p>
                         </div>
-                        <span className="text-xs text-gray-500 dark:text-gray-400 truncate text-left sm:text-right w-full sm:w-auto mt-1 sm:mt-0">
+                        <span className="mt-1 w-full truncate text-left text-xs text-gray-500 sm:mt-0 sm:w-auto sm:text-right dark:text-gray-400">
                           {embeddingDisplayLabel}
                         </span>
                       </div>
 
-                      <div className="rounded-lg border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-3">
+                      <div className="rounded-lg border border-gray-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900">
                         <div className="flex flex-col gap-3">
-                          <div className="flex flex-col gap-2 relative">
-                            <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                          <div className="relative flex flex-col gap-2">
+                            <span className="text-xs font-semibold tracking-wide text-gray-400 uppercase">
                               {t('settings.embeddingProvider')}
                             </span>
                             <Select value={embeddingProvider} onValueChange={setEmbeddingProvider}>
-                              <SelectTrigger className="w-full h-10">
+                              <SelectTrigger className="h-10 w-full">
                                 <SelectValue>
                                   <div className="flex items-center gap-3">
                                     {renderProviderIcon(embeddingProvider, {
@@ -2496,7 +2496,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                           </div>
 
                           <div className="flex flex-col gap-2">
-                            <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                            <span className="text-xs font-semibold tracking-wide text-gray-400 uppercase">
                               {t('settings.embeddingModel')}
                             </span>
                             {embeddingModelSource === 'list' ? (
@@ -2505,7 +2505,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                                 onValueChange={setEmbeddingModel}
                                 disabled={!activeEmbeddingModels.length}
                               >
-                                <SelectTrigger className="w-full h-10">
+                                <SelectTrigger className="h-10 w-full">
                                   <SelectValue placeholder={t('agents.model.notSelected')}>
                                     <div className="flex items-center gap-2 truncate">
                                       {getModelIcon(embeddingModel) && (
@@ -2513,7 +2513,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                                           src={getModelIcon(embeddingModel)}
                                           alt=""
                                           className={clsx(
-                                            'w-4 h-4 shrink-0',
+                                            'h-4 w-4 shrink-0',
                                             getModelIconClassName(embeddingModel),
                                           )}
                                         />
@@ -2537,7 +2537,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                                               src={getModelIcon(model.value)}
                                               alt=""
                                               className={clsx(
-                                                'w-4 h-4 shrink-0',
+                                                'h-4 w-4 shrink-0',
                                                 getModelIconClassName(model.value),
                                               )}
                                             />
@@ -2547,7 +2547,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                                       </SelectItem>
                                     ))
                                   ) : (
-                                    <div className="px-2 py-2 text-sm text-gray-500 dark:text-gray-400 text-center">
+                                    <div className="px-2 py-2 text-center text-sm text-gray-500 dark:text-gray-400">
                                       {t('agents.model.noModels')}
                                     </div>
                                   )}
@@ -2562,7 +2562,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                                   setEmbeddingModel(nextValue)
                                 }}
                                 placeholder={t('settings.customModelIdPlaceholder')}
-                                className="w-full px-3 py-2 bg-white disabled:bg-gray-50/20 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                                className="focus:ring-primary-500/20 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-200"
                               />
                             )}
                           </div>
@@ -2578,16 +2578,16 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
             )}
 
             {activeTab === 'memory' && (
-              <div className="flex flex-col gap-6 max-w-3xl">
-                <div className="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-lg flex gap-3 text-sm text-blue-700 dark:text-blue-300">
-                  <Info size={18} className="shrink-0 mt-0.5" />
+              <div className="flex max-w-3xl flex-col gap-6">
+                <div className="flex gap-3 rounded-lg bg-blue-50 p-4 text-sm text-blue-700 dark:bg-blue-900/10 dark:text-blue-300">
+                  <Info size={18} className="mt-0.5 shrink-0" />
                   <div>
                     <p className="font-medium">{t('settings.longTermMemory')}</p>
                     <p className="opacity-90">{t('settings.longTermMemoryHint')}</p>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between p-4 border border-gray-200 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900/50">
+                <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900/50">
                   <div className="space-y-0.5">
                     <label className="text-sm font-semibold text-gray-900 dark:text-white">
                       {t('settings.enableLongTermMemory')}
@@ -2602,10 +2602,10 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                     aria-checked={enableLongTermMemory}
                     onClick={() => setEnableLongTermMemory(prev => !prev)}
                     className={clsx(
-                      'relative inline-flex h-7 w-12 shrink-0 items-center rounded-full border transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500/40',
+                      'focus:ring-primary-500/40 relative inline-flex h-7 w-12 shrink-0 items-center rounded-full border transition-colors focus:ring-2 focus:outline-none',
                       enableLongTermMemory
                         ? 'bg-primary-500 border-primary-500'
-                        : 'bg-gray-200 dark:bg-zinc-800 border-gray-300 dark:border-zinc-700',
+                        : 'border-gray-300 bg-gray-200 dark:border-zinc-700 dark:bg-zinc-800',
                     )}
                   >
                     <span
@@ -2618,7 +2618,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                 </div>
 
                 {enableLongTermMemory && (
-                  <div className="flex flex-col gap-8 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className="animate-in fade-in slide-in-from-top-2 flex flex-col gap-8 duration-300">
                     <div className="flex flex-col gap-3">
                       <div className="flex flex-col gap-1">
                         <label className="text-sm font-medium text-gray-900 dark:text-white">
@@ -2633,7 +2633,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                         onChange={e => setUserSelfIntro(e.target.value)}
                         placeholder={t('settings.userSelfIntroPlaceholder')}
                         rows={4}
-                        className="w-full px-4 py-3 text-sm bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all resize-none placeholder-gray-400 dark:placeholder-zinc-600"
+                        className="focus:ring-primary-500/20 focus:border-primary-500 w-full resize-none rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm placeholder-gray-400 transition-all focus:ring-2 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:placeholder-zinc-600"
                       />
                     </div>
 
@@ -2656,7 +2656,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
             )}
 
             {activeTab === 'personalization' && (
-              <div className="flex flex-col gap-8 max-w-2xl">
+              <div className="flex max-w-2xl flex-col gap-8">
                 <div className="flex flex-col gap-4">
                   <div className="flex flex-col gap-1">
                     <label className="text-sm font-medium text-gray-900 dark:text-white">
@@ -2682,7 +2682,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                       value={introQuery}
                       onChange={e => setIntroQuery(e.target.value)}
                       placeholder={t('settings.embeddingTestQueryPlaceholder')}
-                      className="w-full px-3 py-2 bg-white disabled:bg-gray-50/20 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600"
+                      className="focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100 dark:placeholder-zinc-600"
                     />
                   </div>
 
@@ -2691,7 +2691,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                       type="button"
                       onClick={handleIntroEmbedding}
                       disabled={!canRunIntroEmbedding}
-                      className="px-4 py-2 text-xs font-medium text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 border border-primary-200 dark:border-primary-800"
+                      className="text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 border-primary-200 dark:border-primary-800 flex items-center gap-2 rounded-lg border px-4 py-2 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {introEmbeddingState.status === 'loading' && (
                         <RefreshCw size={14} className="animate-spin" />
@@ -2704,7 +2704,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                       type="button"
                       onClick={handleIntroSearchTest}
                       disabled={!canRunIntroSearch}
-                      className="px-4 py-2 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 border border-gray-200 dark:border-zinc-700"
+                      className="flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:text-gray-200 dark:hover:bg-zinc-800"
                     >
                       {introSearchState.status === 'loading' && (
                         <RefreshCw size={14} className="animate-spin" />
@@ -2746,7 +2746,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                   )}
 
                   {introSearchState.status === 'success' && introSearchState.matchText && (
-                    <div className="rounded-lg border border-emerald-200 dark:border-emerald-900/40 bg-emerald-50/60 dark:bg-emerald-900/20 p-3 text-xs text-emerald-900 dark:text-emerald-100 space-y-2">
+                    <div className="space-y-2 rounded-lg border border-emerald-200 bg-emerald-50/60 p-3 text-xs text-emerald-900 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-100">
                       <div className="font-semibold">{t('settings.embeddingTestResultTitle')}</div>
                       <div className="text-emerald-800/80 dark:text-emerald-100/80">
                         {t('settings.embeddingTestQueryUsed')}: {introSearchState.query}
@@ -2781,7 +2781,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                       type="file"
                       accept=".pdf,.docx,.txt,.md,.csv,.json,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                       onChange={handleDocumentUpload}
-                      className="w-full text-sm text-gray-600 dark:text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200 dark:file:bg-zinc-800 dark:file:text-gray-200 dark:hover:file:bg-zinc-700"
+                      className="w-full text-sm text-gray-600 file:mr-4 file:rounded-lg file:border-0 file:bg-gray-100 file:px-4 file:py-2 file:text-xs file:font-medium file:text-gray-700 hover:file:bg-gray-200 dark:text-gray-300 dark:file:bg-zinc-800 dark:file:text-gray-200 dark:hover:file:bg-zinc-700"
                     />
                     <p className="text-xs text-gray-500 dark:text-gray-400">
                       {t('settings.documentUploadHint')}
@@ -2804,7 +2804,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                   )}
 
                   {documentParseState.status === 'success' && (
-                    <div className="rounded-lg border border-gray-200 dark:border-zinc-800 bg-white disabled:bg-gray-50/20 dark:bg-zinc-900 p-3 text-xs text-gray-700 dark:text-gray-300 space-y-1">
+                    <div className="space-y-1 rounded-lg border border-gray-200 bg-white p-3 text-xs text-gray-700 disabled:bg-gray-50/20 dark:border-zinc-800 dark:bg-zinc-900 dark:text-gray-300">
                       <div>
                         {t('settings.documentFileLabel')}: {documentParseState.fileName}
                       </div>
@@ -2814,7 +2814,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                       <div>
                         {t('settings.documentChunks')}: {documentParseState.chunks}
                         {documentParseState.truncated && (
-                          <span className="text-amber-600 dark:text-amber-400 ml-2">
+                          <span className="ml-2 text-amber-600 dark:text-amber-400">
                             {t('settings.documentChunksTruncated', { max: DOCUMENT_MAX_CHUNKS })}
                           </span>
                         )}
@@ -2831,7 +2831,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                       value={documentQuery}
                       onChange={e => setDocumentQuery(e.target.value)}
                       placeholder={t('settings.documentQueryPlaceholder')}
-                      className="w-full px-3 py-2 bg-white disabled:bg-gray-50/20 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600"
+                      className="focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100 dark:placeholder-zinc-600"
                     />
                   </div>
 
@@ -2840,7 +2840,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                       type="button"
                       onClick={handleDocumentIndex}
                       disabled={!canRunDocumentIndex}
-                      className="px-4 py-2 text-xs font-medium text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 border border-primary-200 dark:border-primary-800"
+                      className="text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 border-primary-200 dark:border-primary-800 flex items-center gap-2 rounded-lg border px-4 py-2 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {documentIndexState.status === 'loading' && (
                         <RefreshCw size={14} className="animate-spin" />
@@ -2853,7 +2853,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                       type="button"
                       onClick={handleDocumentSearch}
                       disabled={!canRunDocumentSearch}
-                      className="px-4 py-2 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 border border-gray-200 dark:border-zinc-700"
+                      className="flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:text-gray-200 dark:hover:bg-zinc-800"
                     >
                       {documentSearchState.status === 'loading'
                         ? t('settings.documentSearching')
@@ -2893,14 +2893,14 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
 
                   {documentSearchState.status === 'success' &&
                     documentSearchState.results.length > 0 && (
-                      <div className="rounded-lg border border-emerald-200 dark:border-emerald-900/40 bg-emerald-50/60 dark:bg-emerald-900/20 p-3 text-xs text-emerald-900 dark:text-emerald-100 space-y-3">
+                      <div className="space-y-3 rounded-lg border border-emerald-200 bg-emerald-50/60 p-3 text-xs text-emerald-900 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-100">
                         <div className="font-semibold">{t('settings.documentResultsTitle')}</div>
                         {documentSearchState.results.map(result => (
                           <div
                             key={result.id}
-                            className="rounded-md border border-emerald-200/60 dark:border-emerald-900/60 bg-white/60 dark:bg-zinc-900/40 p-2"
+                            className="rounded-md border border-emerald-200/60 bg-white/60 p-2 dark:border-emerald-900/60 dark:bg-zinc-900/40"
                           >
-                            <div className="text-emerald-800/80 dark:text-emerald-100/80 mb-1">
+                            <div className="mb-1 text-emerald-800/80 dark:text-emerald-100/80">
                               {t('settings.documentResultScore')}: {result.score.toFixed(3)}
                             </div>
                             <div className="whitespace-pre-wrap text-emerald-900 dark:text-emerald-100">
@@ -2917,7 +2917,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
             )}
 
             {activeTab === 'interface' && (
-              <div className="flex flex-col gap-8 max-w-2xl">
+              <div className="flex max-w-2xl flex-col gap-8">
                 <div className="flex flex-col gap-1">
                   <label className="text-sm font-medium text-gray-900 dark:text-white">
                     {t('settings.themeColor')}
@@ -2926,21 +2926,21 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                     {t('settings.themeColorHint')}
                   </p>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
                   {Object.entries(THEMES).map(([themeKey, theme]) => (
                     <button
                       key={themeKey}
                       type="button"
                       onClick={() => setThemeColor(themeKey)}
                       className={clsx(
-                        'group relative flex flex-col items-center gap-2 p-3 rounded-2xl border text-left transition-all duration-300',
+                        'group relative flex flex-col items-center gap-2 rounded-2xl border p-3 text-left transition-all duration-300',
                         themeColor === themeKey
-                          ? 'border-primary-500 bg-primary-50/50 dark:bg-primary-900/20 shadow-md scale-[1.02]'
-                          : 'border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:bg-gray-50 dark:hover:bg-zinc-800 hover:shadow-md hover:scale-[1.01]',
+                          ? 'border-primary-500 bg-primary-50/50 dark:bg-primary-900/20 scale-[1.02] shadow-md'
+                          : 'border-gray-200 bg-white hover:scale-[1.01] hover:bg-gray-50 hover:shadow-md dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800',
                       )}
                     >
                       {/* Color preview with gradient */}
-                      <div className="relative w-full aspect-square rounded-xl overflow-hidden shadow-inner">
+                      <div className="relative aspect-square w-full overflow-hidden rounded-xl shadow-inner">
                         <div
                           className="absolute inset-0"
                           style={{
@@ -2948,23 +2948,23 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                           }}
                         />
                         {/* Highlight effect */}
-                        <div className="absolute inset-0 bg-gradient-to-tr from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                        <div className="absolute inset-0 bg-linear-to-tr from-white/20 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
                       </div>
-                      <div className="flex flex-col items-center w-full">
-                        <span className="text-sm font-semibold text-gray-900 dark:text-white truncate w-full text-center">
+                      <div className="flex w-full flex-col items-center">
+                        <span className="w-full truncate text-center text-sm font-semibold text-gray-900 dark:text-white">
                           {theme.label}
                         </span>
-                        <span className="text-[10px] text-gray-400 font-mono uppercase tracking-wider">
+                        <span className="font-mono text-[10px] tracking-wider text-gray-400 uppercase">
                           {theme.colors['--color-primary-500']}
                         </span>
                       </div>
                       {/* Check indicator */}
                       <div
                         className={clsx(
-                          'absolute top-2 right-2 w-6 h-6 rounded-full flex items-center justify-center transition-all duration-200',
+                          'absolute top-2 right-2 flex h-6 w-6 items-center justify-center rounded-full transition-all duration-200',
                           themeColor === themeKey
-                            ? 'bg-primary-500 text-white scale-100'
-                            : 'bg-white/80 dark:bg-zinc-800/80 text-transparent scale-90 opacity-0 group-hover:scale-100 group-hover:opacity-100',
+                            ? 'bg-primary-500 scale-100 text-white'
+                            : 'scale-90 bg-white/80 text-transparent opacity-0 group-hover:scale-100 group-hover:opacity-100 dark:bg-zinc-800/80',
                         )}
                       >
                         <Check size={14} strokeWidth={3} />
@@ -2973,7 +2973,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                   ))}
                 </div>
 
-                <div className="flex flex-col gap-1 mt-8">
+                <div className="mt-8 flex flex-col gap-1">
                   <label className="text-sm font-medium text-gray-900 dark:text-white">
                     {t('settings.messageFontSize')}
                   </label>
@@ -2981,17 +2981,17 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                     {t('settings.messageFontSizeHint')}
                   </p>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-2">
+                <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-4">
                   {['small', 'medium', 'large', 'extra-large'].map(size => (
                     <button
                       key={size}
                       type="button"
                       onClick={() => setFontSize(size)}
                       className={clsx(
-                        'flex items-center justify-center px-4 py-2.5 rounded-lg border text-sm font-medium transition-all',
+                        'flex items-center justify-center rounded-lg border px-4 py-2.5 text-sm font-medium transition-all',
                         fontSize === size
                           ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400'
-                          : 'border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-900 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-zinc-800',
+                          : 'border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-400 dark:hover:bg-zinc-800',
                       )}
                     >
                       {t(`settings.fontSize.${size}`)}
@@ -3002,7 +3002,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
             )}
 
             {activeTab === 'chat' && (
-              <div className="flex flex-col gap-8 max-w-2xl">
+              <div className="flex max-w-2xl flex-col gap-8">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex flex-col gap-1">
                     <label className="text-sm font-semibold text-gray-900 dark:text-white">
@@ -3018,10 +3018,10 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                     aria-checked={enableRelatedQuestions}
                     onClick={() => setEnableRelatedQuestions(prev => !prev)}
                     className={clsx(
-                      'relative inline-flex h-7 w-12 shrink-0 items-center rounded-full border transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500/40',
+                      'focus:ring-primary-500/40 relative inline-flex h-7 w-12 shrink-0 items-center rounded-full border transition-colors focus:ring-2 focus:outline-none',
                       enableRelatedQuestions
                         ? 'bg-primary-500 border-primary-500'
-                        : 'bg-gray-200 dark:bg-zinc-800 border-gray-300 dark:border-zinc-700',
+                        : 'border-gray-300 bg-gray-200 dark:border-zinc-700 dark:bg-zinc-800',
                     )}
                   >
                     <span
@@ -3048,33 +3048,33 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                     onChange={e =>
                       setContextMessageLimit(Math.min(50, Math.max(1, Number(e.target.value) || 1)))
                     }
-                    className="w-32 mt-1 px-3 py-2 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600"
+                    className="focus:ring-primary-500/20 focus:border-primary-500 mt-1 w-32 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100 dark:placeholder-zinc-600"
                   />
                 </div>
               </div>
             )}
             {activeTab === 'about' && (
-              <div className="flex flex-col items-center justify-center h-full text-center gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="p-4  rounded-3xl mb-2">
+              <div className="animate-in fade-in slide-in-from-bottom-4 flex h-full flex-col items-center justify-center gap-6 text-center duration-500">
+                <div className="mb-2 rounded-3xl p-4">
                   <Logo size={128} className="text-gray-900 dark:text-white" />
                 </div>
 
-                <div className="flex flex-col gap-2 items-center">
-                  <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <div className="flex flex-col items-center gap-2">
+                  <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-900 dark:text-white">
                     Qurio
-                    <span className="px-2 py-0.5 rounded-full bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 text-[10px] font-bold tracking-wide uppercase border border-primary-200 dark:border-primary-800">
+                    <span className="bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 border-primary-200 dark:border-primary-800 rounded-full border px-2 py-0.5 text-[10px] font-bold tracking-wide uppercase">
                       {t('settings.about.beta')}
                     </span>
                   </h1>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 max-w-md leading-relaxed">
+                  <p className="max-w-md text-sm leading-relaxed text-gray-500 dark:text-gray-400">
                     {t('settings.about.description')}
                   </p>
                 </div>
 
-                <div className="flex items-center gap-3 mt-4">
+                <div className="mt-4 flex items-center gap-3">
                   <a
                     href="https://github.com/havingautism/Qurio"
-                    className="p-2 rounded-full bg-gray-50 dark:bg-zinc-900 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-zinc-800 hover:text-gray-900 dark:hover:text-white transition-all border border-gray-200 dark:border-zinc-800"
+                    className="rounded-full border border-gray-200 bg-gray-50 p-2 text-gray-600 transition-all hover:bg-gray-100 hover:text-gray-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-gray-400 dark:hover:bg-zinc-800 dark:hover:text-white"
                   >
                     <Github size={18} />
                   </a>
@@ -3092,8 +3092,8 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                   </a> */}
                 </div>
 
-                <div className="mt-8 pt-8 border-t border-gray-100 dark:border-zinc-800 w-full max-w-xs flex flex-col gap-1">
-                  <p className="text-xs text-gray-400 dark:text-gray-500 font-medium">
+                <div className="mt-8 flex w-full max-w-xs flex-col gap-1 border-t border-gray-100 pt-8 dark:border-zinc-800">
+                  <p className="text-xs font-medium text-gray-400 dark:text-gray-500">
                     {t('settings.about.designedAndBuiltBy')}
                   </p>
                   <p className="text-sm font-semibold text-gray-900 dark:text-white">
@@ -3101,14 +3101,14 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                   </p>
                 </div>
 
-                <p className="text-[10px] text-gray-300 dark:text-gray-600 mt-auto">
+                <p className="mt-auto text-[10px] text-gray-300 dark:text-gray-600">
                   {t('settings.about.version')}
                 </p>
               </div>
             )}
 
             {activeTab === 'advanced' && (
-              <div className="flex flex-col gap-8 max-w-2xl">
+              <div className="flex max-w-2xl flex-col gap-8">
                 <div className="flex flex-col gap-6">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex flex-col gap-1">
@@ -3125,10 +3125,10 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                       aria-checked={developerMode}
                       onClick={() => setDeveloperMode(prev => !prev)}
                       className={clsx(
-                        'relative inline-flex h-7 w-12 shrink-0 items-center rounded-full border transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500/40',
+                        'focus:ring-primary-500/40 relative inline-flex h-7 w-12 shrink-0 items-center rounded-full border transition-colors focus:ring-2 focus:outline-none',
                         developerMode
                           ? 'bg-primary-500 border-primary-500'
-                          : 'bg-gray-200 dark:bg-zinc-800 border-gray-300 dark:border-zinc-700',
+                          : 'border-gray-300 bg-gray-200 dark:border-zinc-700 dark:bg-zinc-800',
                       )}
                     >
                       <span
@@ -3145,17 +3145,17 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
           </div>
 
           {/* Footer */}
-          <div className="h-20 border-t border-gray-200 dark:border-zinc-800 flex items-center justify-end px-6 sm:px-8 gap-3 bg-white dark:bg-[#191a1a] shrink-0">
+          <div className="flex h-20 shrink-0 items-center justify-end gap-3 border-t border-gray-200 bg-white px-6 sm:px-8 dark:border-zinc-800 dark:bg-[#191a1a]">
             <button
               onClick={onClose}
-              className="px-4 cursor-pointer py-2 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-zinc-800 transition-colors"
+              className="cursor-pointer rounded-lg px-4 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-zinc-800"
             >
               {t('settings.cancel')}
             </button>
             <button
               onClick={handleSave}
               disabled={isSaving}
-              className="px-4 cursor-pointer py-2 rounded-lg text-sm font-medium bg-primary-500 text-white hover:opacity-90 transition-opacity flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="bg-primary-500 flex cursor-pointer items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isSaving && <Loader2 size={16} className="animate-spin" />}
               {t('settings.saveChanges')}
@@ -3164,12 +3164,12 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
         </div>
       </div>
       {isInitModalOpen && (
-        <div className="fixed inset-0 z-[130] flex items-center justify-center px-3 sm:px-6">
+        <div className="fixed inset-0 z-130 flex items-center justify-center px-3 sm:px-6">
           <div
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             onClick={() => setIsInitModalOpen(false)}
           />
-          <div className="relative w-full max-w-3xl bg-white dark:bg-[#111] border border-gray-200 dark:border-zinc-800 rounded-2xl shadow-2xl p-5 sm:p-6 space-y-4">
+          <div className="relative w-full max-w-3xl space-y-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-2xl sm:p-6 dark:border-zinc-800 dark:bg-[#111]">
             <div className="flex items-start justify-between gap-3">
               <div className="space-y-1">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -3181,7 +3181,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
               </div>
               <button
                 onClick={() => setIsInitModalOpen(false)}
-                className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-500 transition-colors"
+                className="rounded-full p-2 text-gray-500 transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800"
                 aria-label="Close"
               >
                 <X size={18} />
@@ -3189,23 +3189,23 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
             </div>
 
             {initModalResult && (
-              <div className="rounded-lg border border-primary-200 dark:border-primary-900/40 bg-primary-50 dark:bg-primary-900/20 p-4 space-y-2">
-                <div className="text-sm font-medium text-primary-900 dark:text-primary-100">
+              <div className="border-primary-200 dark:border-primary-900/40 bg-primary-50 dark:bg-primary-900/20 space-y-2 rounded-lg border p-4">
+                <div className="text-primary-900 dark:text-primary-100 text-sm font-medium">
                   {initModalResult.connection
                     ? t('settings.initModal.connectionOk')
                     : t('settings.initModal.connectionFailed')}
                 </div>
                 {initModalResult.tables && (
-                  <div className="flex flex-wrap gap-2 text-xs text-primary-800 dark:text-primary-100">
+                  <div className="text-primary-800 dark:text-primary-100 flex flex-wrap gap-2 text-xs">
                     {requiredTables.map(table => {
                       const exists = initModalResult.tables?.[table]
                       return (
                         <span
                           key={table}
                           className={clsx(
-                            'px-2 py-1 rounded-md border',
+                            'rounded-md border px-2 py-1',
                             exists
-                              ? 'border-emerald-200 dark:border-emerald-900/40 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-800 dark:text-emerald-100'
+                              ? 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-100'
                               : 'border-primary-200 dark:border-primary-900/40 bg-primary-100/70 dark:bg-primary-900/40',
                           )}
                         >
@@ -3217,7 +3217,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                   </div>
                 )}
                 {getMissingTables(initModalResult).length > 0 && (
-                  <div className="text-xs text-primary-800 dark:text-primary-100">
+                  <div className="text-primary-800 dark:text-primary-100 text-xs">
                     {t('settings.initModal.missingLabel')}{' '}
                     {getMissingTables(initModalResult).join(', ')}
                   </div>
@@ -3229,7 +3229,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
               <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
                 {t('settings.initModal.quickFixSteps')}
               </h4>
-              <ol className="list-decimal list-inside text-sm text-gray-700 dark:text-gray-300 space-y-1">
+              <ol className="list-inside list-decimal space-y-1 text-sm text-gray-700 dark:text-gray-300">
                 <li>{t('settings.initModal.step1')}</li>
                 <li>{t('settings.initModal.step2')}</li>
               </ol>
@@ -3238,12 +3238,12 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
             <div className="relative">
               <button
                 onClick={copyInitSql}
-                className="absolute top-3 right-3 flex items-center gap-1 px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-zinc-800 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-zinc-700 transition-colors"
+                className="absolute top-3 right-3 flex items-center gap-1 rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-200 dark:bg-zinc-800 dark:text-gray-200 dark:hover:bg-zinc-700"
               >
                 <Copy size={14} />
                 {copiedInitSql ? t('settings.initModal.copied') : t('settings.initModal.copySql')}
               </button>
-              <pre className="max-h-64 overflow-auto text-xs bg-gray-900 text-gray-100 rounded-lg p-4 border border-gray-800 whitespace-pre-wrap">
+              <pre className="max-h-64 overflow-auto rounded-lg border border-gray-800 bg-gray-900 p-4 text-xs whitespace-pre-wrap text-gray-100">
                 {INIT_SQL_SCRIPT}
               </pre>
             </div>
@@ -3251,14 +3251,14 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
             <div className="flex flex-wrap justify-end gap-2">
               <button
                 onClick={() => setIsInitModalOpen(false)}
-                className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
+                className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-zinc-800"
               >
                 {t('settings.initModal.close')}
               </button>
               <button
                 onClick={handleRetestAfterInit}
                 disabled={retestingDb}
-                className="px-4 py-2 rounded-lg text-sm font-medium bg-primary-500 text-white hover:bg-primary-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
+                className="bg-primary-500 hover:bg-primary-600 flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <RefreshCw size={16} className={retestingDb ? 'animate-spin' : ''} />
                 {retestingDb ? t('settings.initModal.retesting') : t('settings.initModal.retest')}

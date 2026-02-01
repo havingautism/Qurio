@@ -441,7 +441,7 @@ const ShortcutsWidget = () => {
             {isEditMode ? (
               <button
                 onClick={() => setIsEditMode(false)}
-                className="px-3 py-1 text-sm font-medium text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-full transition-colors"
+                className="text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-full px-3 py-1 text-sm font-medium transition-colors"
                 title={t('common.done')}
               >
                 {t('common.done')}
@@ -451,7 +451,7 @@ const ShortcutsWidget = () => {
                 {shortcuts.length > 0 && (
                   <button
                     onClick={() => setIsEditMode(true)}
-                    className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors rounded-full hover:bg-gray-100 dark:hover:bg-zinc-800"
+                    className="rounded-full p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-zinc-800 dark:hover:text-gray-200"
                     title={t('views.widgets.editShortcuts')}
                   >
                     <Settings size={16} />
@@ -462,7 +462,7 @@ const ShortcutsWidget = () => {
                     setEditingShortcut(null)
                     setIsModalOpen(true)
                   }}
-                  className="bg-primary-500 hover:bg-primary-600 text-white p-1.5 rounded-full shadow-lg transition-transform hover:scale-105"
+                  className="bg-primary-500 hover:bg-primary-600 rounded-full p-1.5 text-white shadow-lg transition-transform hover:scale-105"
                   title={t('views.widgets.addShortcut')}
                 >
                   <Plus size={16} />
@@ -474,8 +474,8 @@ const ShortcutsWidget = () => {
         className="h-full min-h-[320px]"
       >
         {isLoading ? (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-gray-400 text-sm">{t('common.loading')}</div>
+          <div className="flex h-full items-center justify-center">
+            <div className="text-sm text-gray-400">{t('common.loading')}</div>
           </div>
         ) : shortcuts.length === 0 ? (
           <div
@@ -483,14 +483,14 @@ const ShortcutsWidget = () => {
               setEditingShortcut(null)
               setIsModalOpen(true)
             }}
-            className="flex flex-col items-center justify-center h-full cursor-pointer text-gray-400 hover:text-primary-500 transition-colors"
+            className="hover:text-primary-500 flex h-full cursor-pointer flex-col items-center justify-center text-gray-400 transition-colors"
           >
             <Plus size={32} className="mb-2 opacity-50" />
             <span className="text-sm font-medium">{t('views.widgets.addFirstShortcut')}</span>
           </div>
         ) : (
           <div
-            className="flex flex-col h-full select-none"
+            className="flex h-full flex-col select-none"
             ref={containerRef}
             style={{ touchAction: isEditMode ? 'none' : 'pan-y' }}
             onPointerDown={handleContainerPointerDown}
@@ -498,13 +498,13 @@ const ShortcutsWidget = () => {
             onDragStart={e => e.preventDefault()}
           >
             {/* Carousel Rendering */}
-            <div className="relative w-full h-full overflow-hidden rounded-2xl">
+            <div className="relative h-full w-full overflow-hidden rounded-2xl">
               <div
-                className="flex h-full transition-transform duration-500 cubic-bezier(0.32, 0.72, 0, 1)"
+                className="cubic-bezier(0.32, 0.72, 0, 1) flex h-full transition-transform duration-500"
                 style={{ transform: `translateX(-${currentPage * 100}%)` }}
               >
                 {Array.from({ length: Math.max(1, totalPages) }).map((_, pageIndex) => (
-                  <div key={pageIndex} className=" relative w-full h-full shrink-0 p-2">
+                  <div key={pageIndex} className="relative h-full w-full shrink-0 p-2">
                     {shortcuts.length > 0 &&
                       getPageShortcuts(pageIndex).map((shortcut, idx) => {
                         // Calculate absolute position
@@ -536,10 +536,7 @@ const ShortcutsWidget = () => {
                               zIndex: isBeingDragged ? 0 : 1,
                               WebkitTouchCallout: 'none',
                             }}
-                            className={`flex flex-col items-center justify-center p-2
-                                    ${isEditMode && !isBeingDragged ? 'animate-shake' : ''}
-                                    ${isBeingDragged ? 'opacity-0' : 'opacity-100'} 
-                                `}
+                            className={`flex flex-col items-center justify-center p-2 ${isEditMode && !isBeingDragged ? 'animate-shake' : ''} ${isBeingDragged ? 'opacity-0' : 'opacity-100'} `}
                             onDragStart={e => e.preventDefault()}
                             onContextMenu={e => e.preventDefault()}
                             onPointerDown={e => handleItemPointerDown(e, shortcut)}
@@ -560,16 +557,13 @@ const ShortcutsWidget = () => {
                                     window.open(shortcut.url, '_blank', 'noopener,noreferrer')
                                   }
                                 }}
-                                className={`w-14 h-14 flex items-center justify-center rounded-2xl bg-white dark:bg-zinc-300 transition-all duration-300 shadow-sm cursor-pointer
-                                  ${!isEditMode && 'hover:bg-gray-50 dark:hover:bg-zinc-700 hover:scale-105'}
-                                  ${isEditMode && 'cursor-grab group'}
-                                `}
+                                className={`flex h-14 w-14 cursor-pointer items-center justify-center rounded-2xl bg-white shadow-sm transition-all duration-300 dark:bg-zinc-300 ${!isEditMode && 'hover:scale-105 hover:bg-gray-50 dark:hover:bg-zinc-700'} ${isEditMode && 'group cursor-grab'} `}
                               >
                                 <ShortcutIcon shortcut={shortcut} size={28} />
 
                                 {/* Edit Hint Overlay */}
                                 {isEditMode && (
-                                  <div className="absolute inset-0 flex items-center justify-center bg-black/20 dark:bg-black/40 rounded-2xl opacity-40 hover:opacity-100 transition-opacity">
+                                  <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-black/20 opacity-40 transition-opacity hover:opacity-100 dark:bg-black/40">
                                     <Settings size={20} className="text-white drop-shadow-md" />
                                   </div>
                                 )}
@@ -578,7 +572,7 @@ const ShortcutsWidget = () => {
                               {/* Delete button relative to icon */}
                               {isEditMode && !isBeingDragged && (
                                 <button
-                                  className="absolute -top-2 -right-2 w-5 h-5 bg-gray-500/80 hover:bg-red-500 text-white rounded-full flex items-center justify-center shadow-md z-10 hover:scale-110 transition-transform backdrop-blur-sm"
+                                  className="absolute -top-2 -right-2 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-gray-500/80 text-white shadow-md backdrop-blur-sm transition-transform hover:scale-110 hover:bg-red-500"
                                   onPointerDown={e => e.stopPropagation()}
                                   onClick={e => {
                                     e.stopPropagation()
@@ -590,7 +584,7 @@ const ShortcutsWidget = () => {
                               )}
                             </div>
 
-                            <span className="text-xs mt-2 truncate max-w-full w-full text-center text-gray-600 dark:text-gray-300 pointer-events-none select-none px-1">
+                            <span className="pointer-events-none mt-2 w-full max-w-full truncate px-1 text-center text-xs text-gray-600 select-none dark:text-gray-300">
                               {shortcut.title}
                             </span>
                           </div>
@@ -608,7 +602,7 @@ const ShortcutsWidget = () => {
                   <button
                     key={i}
                     onClick={() => goToPage(i)}
-                    className={`w-1.5 h-1.5 rounded-full transition-all ${
+                    className={`h-1.5 w-1.5 rounded-full transition-all ${
                       i === currentPage ? 'bg-primary-500 w-4' : 'bg-gray-300 dark:bg-gray-600'
                     }`}
                   />
@@ -638,7 +632,7 @@ const ShortcutsWidget = () => {
             }}
             className="flex items-center justify-center p-0"
           >
-            <div className="w-14 h-14 flex items-center justify-center rounded-2xl bg-white dark:bg-zinc-800 shadow-2xl ring-2 ring-primary-500">
+            <div className="ring-primary-500 flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-2xl ring-2 dark:bg-zinc-800">
               <ShortcutIcon shortcut={dragState.item} size={28} />
             </div>
           </div>,

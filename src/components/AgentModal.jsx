@@ -639,10 +639,10 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
     _isGrouped = false,
     disabled = false,
   ) => (
-    <div className="flex flex-col gap-2 relative">
+    <div className="relative flex flex-col gap-2">
       <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{label}</label>
       <Select value={value} onValueChange={onChange} disabled={disabled}>
-        <SelectTrigger className="w-full bg-white disabled:bg-gray-50/20 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 h-10">
+        <SelectTrigger className="h-10 w-full border border-gray-200 bg-white disabled:bg-gray-50/20 dark:border-zinc-700 dark:bg-zinc-900">
           <SelectValue>
             {options.find(o => (o.value || o) === value)?.label ||
               options.find(o => (o.value || o) === value) ||
@@ -917,15 +917,15 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
 
     return (
       <div className="space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-          <div className="flex flex-col gap-2 w-full sm:w-auto">
-            <div className="flex flex-wrap items-center gap-3 w-full">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300 shrink-0">
+        <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
+          <div className="flex w-full flex-col gap-2 sm:w-auto">
+            <div className="flex w-full flex-wrap items-center gap-3">
+              <label className="shrink-0 text-sm font-medium text-gray-700 dark:text-gray-300">
                 {label}
               </label>
 
               {/* Desktop: Inline Segmented Control */}
-              <div className="hidden sm:flex bg-gray-100 dark:bg-zinc-800 p-0.5 rounded-lg border border-gray-200 dark:border-zinc-700">
+              <div className="hidden rounded-lg border border-gray-200 bg-gray-100 p-0.5 sm:flex dark:border-zinc-700 dark:bg-zinc-800">
                 <button
                   type="button"
                   onClick={() => {
@@ -934,10 +934,10 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                     if (!existsInList) onChange('')
                   }}
                   className={clsx(
-                    'px-3 py-1 text-xs font-medium rounded-md transition-all',
+                    'rounded-md px-3 py-1 text-xs font-medium transition-all',
                     modelSource === 'list'
-                      ? 'bg-white dark:bg-zinc-700 text-gray-900 dark:text-gray-100 shadow-sm'
-                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300',
+                      ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-gray-100'
+                      : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300',
                   )}
                 >
                   {t('agents.model.sourceList')}
@@ -951,10 +951,10 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                     onChange(nextValue)
                   }}
                   className={clsx(
-                    'px-3 py-1 text-xs font-medium rounded-md transition-all',
+                    'rounded-md px-3 py-1 text-xs font-medium transition-all',
                     modelSource === 'custom'
-                      ? 'bg-white dark:bg-zinc-700 text-gray-900 dark:text-gray-100 shadow-sm'
-                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300',
+                      ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-gray-100'
+                      : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300',
                   )}
                 >
                   {t('agents.model.sourceCustom')}
@@ -966,7 +966,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                   type="button"
                   onClick={testAction.onClick}
                   disabled={testAction.status === 'loading'}
-                  className="ml-auto sm:ml-0 px-3 py-1.5 rounded-lg bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400 border border-primary-200 dark:border-primary-800 text-xs font-medium hover:bg-primary-100 dark:hover:bg-primary-900/40 transition-colors disabled:opacity-60 flex items-center gap-1.5"
+                  className="bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400 border-primary-200 dark:border-primary-800 hover:bg-primary-100 dark:hover:bg-primary-900/40 ml-auto flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-60 sm:ml-0"
                 >
                   {testAction.status === 'loading' && (
                     <RefreshCw size={12} className="animate-spin" />
@@ -977,7 +977,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
             </div>
 
             {/* Mobile: Full Width Segmented Control */}
-            <div className="flex sm:hidden w-full bg-gray-100 dark:bg-zinc-800 p-1 rounded-lg border border-gray-200 dark:border-zinc-700">
+            <div className="flex w-full rounded-lg border border-gray-200 bg-gray-100 p-1 sm:hidden dark:border-zinc-700 dark:bg-zinc-800">
               <button
                 type="button"
                 onClick={() => {
@@ -986,10 +986,10 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                   if (!existsInList) onChange('')
                 }}
                 className={clsx(
-                  'flex-1 py-1.5 text-xs font-medium rounded-md transition-all',
+                  'flex-1 rounded-md py-1.5 text-xs font-medium transition-all',
                   modelSource === 'list'
-                    ? 'bg-white dark:bg-zinc-700 text-gray-900 dark:text-gray-100 shadow-sm'
-                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300',
+                    ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-gray-100'
+                    : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300',
                 )}
               >
                 {t('agents.model.sourceList')}
@@ -1003,21 +1003,21 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                   onChange(nextValue)
                 }}
                 className={clsx(
-                  'flex-1 py-1.5 text-xs font-medium rounded-md transition-all',
+                  'flex-1 rounded-md py-1.5 text-xs font-medium transition-all',
                   modelSource === 'custom'
-                    ? 'bg-white dark:bg-zinc-700 text-gray-900 dark:text-gray-100 shadow-sm'
-                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300',
+                    ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-gray-100'
+                    : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300',
                 )}
               >
                 {t('agents.model.sourceCustom')}
               </button>
             </div>
 
-            {hint && <p className="text-xs text-gray-500 dark:text-gray-400 max-w-2xl">{hint}</p>}
+            {hint && <p className="max-w-2xl text-xs text-gray-500 dark:text-gray-400">{hint}</p>}
             {testAction?.message && (
               <p
                 className={clsx(
-                  'text-xs flex items-center gap-1.5',
+                  'flex items-center gap-1.5 text-xs',
                   testAction.status === 'error'
                     ? 'text-red-500'
                     : testAction.status === 'success'
@@ -1031,15 +1031,15 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
               </p>
             )}
           </div>
-          <span className="text-xs text-gray-500 dark:text-gray-400 truncate text-left sm:text-right w-full sm:w-auto mt-1 sm:mt-0">
+          <span className="mt-1 w-full truncate text-left text-xs text-gray-500 sm:mt-0 sm:w-auto sm:text-right dark:text-gray-400">
             {displayLabel}
           </span>
         </div>
-        <div className="rounded-lg border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-3">
+        <div className="rounded-lg border border-gray-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900">
           <div className="flex flex-col gap-3">
             {!hideProviderSelector && (
-              <div className="flex flex-col gap-2 relative">
-                <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+              <div className="relative flex flex-col gap-2">
+                <span className="text-xs font-semibold tracking-wide text-gray-400 uppercase">
                   {t('agents.model.providers')}
                 </span>
                 <Select
@@ -1051,7 +1051,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                     }
                   }}
                 >
-                  <SelectTrigger className="w-full h-10">
+                  <SelectTrigger className="h-10 w-full">
                     <SelectValue>
                       <div className="flex items-center gap-3">
                         {renderProviderIcon(activeProvider, {
@@ -1079,7 +1079,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
               </div>
             )}
             <div className="flex flex-col gap-2">
-              <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+              <span className="text-xs font-semibold tracking-wide text-gray-400 uppercase">
                 {t('agents.model.models')}
               </span>
               {showList ? (
@@ -1088,14 +1088,14 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                   onValueChange={val => onChange(val === '__none__' ? '' : val)}
                   disabled={!activeModels.length && !allowEmpty}
                 >
-                  <SelectTrigger className="w-full h-10">
+                  <SelectTrigger className="h-10 w-full">
                     <SelectValue placeholder={t('agents.model.notSelected')}>
                       <div className="flex items-center gap-2 truncate">
                         {getModelIcon(value) && (
                           <img
                             src={getModelIcon(value)}
                             alt=""
-                            className={clsx('w-4 h-4 shrink-0', getModelIconClassName(value))}
+                            className={clsx('h-4 w-4 shrink-0', getModelIconClassName(value))}
                           />
                         )}
                         <span className="truncate">
@@ -1122,7 +1122,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                               <img
                                 src={getModelIcon(model.value)}
                                 alt=""
-                                className={clsx('w-4 h-4', getModelIconClassName(model.value))}
+                                className={clsx('h-4 w-4', getModelIconClassName(model.value))}
                               />
                             )}
                             <span className="truncate">{model.label}</span>
@@ -1130,7 +1130,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                         </SelectItem>
                       ))
                     ) : (
-                      <div className="px-2 py-2 text-sm text-gray-500 dark:text-gray-400 text-center">
+                      <div className="px-2 py-2 text-center text-sm text-gray-500 dark:text-gray-400">
                         {t('agents.model.noModels')}
                       </div>
                     )}
@@ -1145,7 +1145,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                     onChange(nextValue)
                   }}
                   placeholder={t('agents.model.customPlaceholder')}
-                  className="w-full px-3 py-2 bg-white disabled:bg-gray-50/20 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                  className="focus:ring-primary-500/20 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-200"
                 />
               )}
             </div>
@@ -1174,11 +1174,11 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium text-gray-800 dark:text-gray-100">{label}</span>
-              <span className="px-2 py-0.5 text-xs rounded-md bg-gray-100 dark:bg-zinc-800 text-gray-500 dark:text-gray-400 font-mono">
+              <span className="rounded-md bg-gray-100 px-2 py-0.5 font-mono text-xs text-gray-500 dark:bg-zinc-800 dark:text-gray-400">
                 {param}
               </span>
             </div>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{description}</p>
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{description}</p>
           </div>
           <Checkbox
             checked={isEnabled}
@@ -1201,7 +1201,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
             value={isEnabled ? value : defaultValue}
             onChange={e => onChange(parseFloat(e.target.value))}
             disabled={!isEnabled}
-            className="flex-1 accent-black dark:accent-white cursor-pointer disabled:opacity-40"
+            className="flex-1 cursor-pointer accent-black disabled:opacity-40 dark:accent-white"
           />
           <input
             type="number"
@@ -1219,7 +1219,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
             }}
             placeholder={t('agents.advanced.auto')}
             disabled={!isEnabled}
-            className="w-20 h-10 px-3 bg-white disabled:bg-gray-50/20 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600 disabled:opacity-40"
+            className="focus:ring-primary-500/20 focus:border-primary-500 h-10 w-20 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 disabled:opacity-40 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100 dark:placeholder-zinc-600"
           />
         </div>
       </div>
@@ -1240,27 +1240,27 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
       : description
 
   return (
-    <div className="fixed inset-0 z-100 flex items-start md:items-center justify-center bg-black/50 backdrop-blur-sm p-0 md:p-4 overflow-y-auto md:overflow-hidden">
-      <div className="w-full h-[100dvh] md:max-w-4xl md:h-[85vh] bg-white dark:bg-[#191a1a] rounded-none md:rounded-2xl shadow-2xl flex flex-col md:flex-row overflow-hidden border-0 md:border border-gray-200 dark:border-zinc-800">
+    <div className="fixed inset-0 z-100 flex items-start justify-center overflow-y-auto bg-black/50 p-0 backdrop-blur-sm md:items-center md:overflow-hidden md:p-4">
+      <div className="flex h-dvh w-full flex-col overflow-hidden rounded-none border-0 border-gray-200 bg-white shadow-2xl md:h-[85vh] md:max-w-4xl md:flex-row md:rounded-2xl md:border dark:border-zinc-800 dark:bg-[#191a1a]">
         {/* Mobile Header */}
-        <div className="md:hidden h-14 border-b border-gray-200 dark:border-zinc-800 flex items-center justify-between px-4 bg-white dark:bg-[#191a1a] shrink-0">
+        <div className="flex h-14 shrink-0 items-center justify-between border-b border-gray-200 bg-white px-4 md:hidden dark:border-zinc-800 dark:bg-[#191a1a]">
           <h3 className="text-base font-semibold text-gray-900 dark:text-white">
             {editingAgent ? t('agents.modal.edit') : t('agents.modal.create')}
           </h3>
           <button
             onClick={onClose}
-            className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-500 transition-colors"
+            className="rounded-full p-2 text-gray-500 transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800"
           >
             <X size={20} />
           </button>
         </div>
 
         {/* Sidebar / Tabs */}
-        <div className="w-full md:w-64 bg-primary-50 dark:bg-background/70 border-b md:border-b-0 md:border-r border-gray-200 dark:border-zinc-800 px-1 py-1 sm:py-4 sm:px-4 flex flex-row md:flex-col gap-2 overflow-x-auto md:overflow-visible no-scrollbar shrink-0">
-          <h2 className="text-xl font-bold mb-0 md:mb-6 px-2 text-gray-900 dark:text-white hidden md:block">
+        <div className="bg-primary-50 dark:bg-background/70 no-scrollbar flex w-full shrink-0 flex-row gap-2 overflow-x-auto border-b border-gray-200 px-1 py-1 sm:px-4 sm:py-4 md:w-64 md:flex-col md:overflow-visible md:border-r md:border-b-0 dark:border-zinc-800">
+          <h2 className="mb-0 hidden px-2 text-xl font-bold text-gray-900 md:mb-6 md:block dark:text-white">
             {editingAgent ? t('agents.modal.edit') : t('agents.modal.create')}
           </h2>
-          <nav className="flex flex-row md:flex-col gap-1 w-full md:w-auto">
+          <nav className="flex w-full flex-row gap-1 md:w-auto md:flex-col">
             {[
               { id: 'general', icon: Settings },
               { id: 'model', icon: Box },
@@ -1271,10 +1271,10 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
                 className={clsx(
-                  'flex items-center gap-1 sm:gap-3 px-3 py-2 rounded-lg text-sm font-semibold transition-colors whitespace-nowrap',
+                  'flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-semibold whitespace-nowrap transition-colors sm:gap-3',
                   activeTab === item.id
-                    ? 'bg-primary-100 dark:bg-zinc-800 text-primary-600 dark:text-primary-400'
-                    : 'text-gray-600 dark:text-gray-400 hover:bg-primary-100 dark:hover:bg-zinc-800',
+                    ? 'bg-primary-100 text-primary-600 dark:text-primary-400 dark:bg-zinc-800'
+                    : 'hover:bg-primary-100 text-gray-600 dark:text-gray-400 dark:hover:bg-zinc-800',
                 )}
               >
                 <item.icon size={18} />
@@ -1285,7 +1285,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
         </div>
 
         {/* Content Area */}
-        <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-[#f9f9f987] dark:bg-[#191a1a]">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-[#f9f9f987] dark:bg-[#191a1a]">
           {/* Desktop Header */}
           {/* <div className="h-16 border-b border-gray-200 dark:border-zinc-800 hidden md:flex items-center justify-between px-6 sm:px-8">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white capitalize">
@@ -1300,9 +1300,9 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
           </div> */}
 
           {/* Scrollable Content */}
-          <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-8 sm:py-8 min-h-0 shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07)]">
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07)] sm:px-8 sm:py-8">
             {activeTab === 'general' && (
-              <div className="flex flex-col gap-6 h-full">
+              <div className="flex h-full flex-col gap-6">
                 <div className="flex flex-col gap-2">
                   <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                     {t('agents.general.avatar')} & {t('agents.general.name')}
@@ -1316,14 +1316,14 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                           setShowEmojiPicker(!showEmojiPicker)
                         }}
                         disabled={isGeneralLocked}
-                        className="w-12 h-12 rounded-xl bg-white disabled:bg-gray-50/20 dark:bg-zinc-900 flex items-center justify-center text-2xl hover:bg-gray-200 dark:hover:bg-zinc-700 transition-colors border border-gray-200 dark:border-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex h-12 w-12 items-center justify-center rounded-xl border border-gray-200 bg-white text-2xl transition-colors hover:bg-gray-200 disabled:cursor-not-allowed disabled:bg-gray-50/20 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-700"
                       >
                         <EmojiDisplay emoji={emoji} />
                       </button>
                       {showEmojiPicker && (
                         <div
                           ref={pickerRef}
-                          className="absolute top-full left-0 mt-2 z-50 rounded-xl overflow-hidden shadow-2xl"
+                          className="absolute top-full left-0 z-50 mt-2 overflow-hidden rounded-xl shadow-2xl"
                         >
                           <CustomEmojiPicker
                             onEmojiSelect={e => {
@@ -1340,7 +1340,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                       onChange={e => setName(e.target.value)}
                       placeholder={t('agents.general.namePlaceholder')}
                       disabled={isGeneralLocked}
-                      className="flex-1 px-4 py-2.5 h-12 text-sm bg-white disabled:bg-gray-50/20 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="focus:ring-primary-500/20 h-12 flex-1 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50/20 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900"
                     />
                   </div>
                 </div>
@@ -1355,11 +1355,11 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                     placeholder={t('agents.general.descriptionPlaceholder')}
                     disabled={isGeneralLocked}
                     rows={2}
-                    className="w-full px-4 py-2 text-sm bg-white disabled:bg-gray-50/20 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20 resize-none disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="focus:ring-primary-500/20 w-full resize-none rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50/20 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900"
                   />
                 </div>
 
-                <div className="flex flex-col gap-2 flex-1 min-h-0">
+                <div className="flex min-h-0 flex-1 flex-col gap-2">
                   <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                     {t('agents.general.systemPrompt')}
                   </label>
@@ -1369,7 +1369,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                     placeholder={t('agents.general.systemPromptPlaceholder')}
                     rows={6}
                     disabled={isDeepResearchAgent}
-                    className="w-full flex-1 min-h-0 px-4 py-2 bg-white disabled:bg-gray-50/20 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20 resize-none text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="focus:ring-primary-500/20 min-h-0 w-full flex-1 resize-none rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50/20 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900"
                   />
                 </div>
               </div>
@@ -1377,8 +1377,8 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
 
             {activeTab === 'model' && (
               <div className="space-y-6">
-                <div className="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-lg flex gap-3 text-sm text-blue-700 dark:text-blue-300">
-                  <Info size={18} className="shrink-0 mt-0.5" />
+                <div className="flex gap-3 rounded-lg bg-blue-50 p-4 text-sm text-blue-700 dark:bg-blue-900/10 dark:text-blue-300">
+                  <Info size={18} className="mt-0.5 shrink-0" />
                   <div>
                     <p className="font-medium">{t('agents.model.crossProviderTitle')}</p>
                     <p className="opacity-90">{t('agents.model.crossProviderHint')}</p>
@@ -1386,12 +1386,12 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                 </div>
 
                 {isLoadingModels ? (
-                  <div className="flex items-center justify-center py-8 text-gray-500 gap-2">
+                  <div className="flex items-center justify-center gap-2 py-8 text-gray-500">
                     <RefreshCw className="animate-spin" size={20} />
                     <span>{t('agents.model.loading')}</span>
                   </div>
                 ) : availableProviders.length === 0 ? (
-                  <div className="rounded-lg border border-dashed border-gray-200 dark:border-zinc-700 p-6 text-center text-sm text-gray-500 dark:text-gray-400">
+                  <div className="rounded-lg border border-dashed border-gray-200 p-6 text-center text-sm text-gray-500 dark:border-zinc-700 dark:text-gray-400">
                     <p className="font-medium text-gray-700 dark:text-gray-300">
                       {t('agents.model.noProvidersTitle')}
                     </p>
@@ -1404,7 +1404,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                       <button
                         type="button"
                         onClick={loadKeysAndFetchModels}
-                        className="flex items-center gap-1 text-primary-600 hover:text-primary-700 dark:text-primary-400"
+                        className="text-primary-600 hover:text-primary-700 dark:text-primary-400 flex items-center gap-1"
                       >
                         <RefreshCw size={14} />
                         {t('agents.model.refresh')}
@@ -1462,15 +1462,15 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                   </>
                 )}
                 {(error || modelsError) && (
-                  <div className="text-sm text-red-500 mt-4">{error || modelsError}</div>
+                  <div className="mt-4 text-sm text-red-500">{error || modelsError}</div>
                 )}
               </div>
             )}
 
             {activeTab === 'personalization' && (
               <div className="space-y-4 sm:space-y-6">
-                <div className="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-lg flex gap-3 text-sm text-blue-700 dark:text-blue-300">
-                  <Info size={18} className="shrink-0 mt-0.5" />
+                <div className="flex gap-3 rounded-lg bg-blue-50 p-4 text-sm text-blue-700 dark:bg-blue-900/10 dark:text-blue-300">
+                  <Info size={18} className="mt-0.5 shrink-0" />
                   <div>
                     <p className="font-medium">{t('settings.responseStyle')}</p>
                     <p className="opacity-90">{t('settings.responseStyleHint')}</p>
@@ -1488,7 +1488,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                   isDeepResearchAgent || followInterfaceLanguage,
                 )}
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   {renderDropdown(
                     t('settings.styleBaseTone'),
                     baseTone,
@@ -1519,7 +1519,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                   )}
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   {renderDropdown(
                     t('settings.warmth'),
                     warmth,
@@ -1550,7 +1550,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                   )}
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   {renderDropdown(
                     t('settings.headings'),
                     headings,
@@ -1590,11 +1590,11 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                     onChange={e => setCustomInstruction(e.target.value)}
                     placeholder={t('settings.customInstructionPlaceholder')}
                     rows={3}
-                    className="w-full px-4 py-2 bg-white disabled:bg-gray-50/20 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20 resize-none text-sm"
+                    className="focus:ring-primary-500/20 w-full resize-none rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:border-zinc-700 dark:bg-zinc-900"
                   />
                 </div>
 
-                <div className="rounded-xl border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900">
+                <div className="rounded-xl border border-gray-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">
                   <button
                     type="button"
                     onClick={() => {
@@ -1602,7 +1602,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                       setIsAdvancedOpen(prev => !prev)
                     }}
                     className={clsx(
-                      'w-full flex items-center justify-between px-4 py-3 text-sm font-medium',
+                      'flex w-full items-center justify-between px-4 py-3 text-sm font-medium',
                       isAdvancedOpen
                         ? 'text-gray-900 dark:text-gray-100'
                         : 'text-gray-600 dark:text-gray-400',
@@ -1621,7 +1621,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                   </button>
 
                   {isAdvancedOpen && (
-                    <div className="px-4 pb-4 pt-4 border-t border-gray-200 dark:border-zinc-700 space-y-5">
+                    <div className="space-y-5 border-t border-gray-200 px-4 pt-4 pb-4 dark:border-zinc-700">
                       {renderAdvancedControl({
                         label: t('agents.advanced.frequencyPenaltyLabel'),
                         param: t('agents.advanced.frequencyPenaltyParam'),
@@ -1675,7 +1675,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                             setFrequencyPenalty(null)
                             setPresencePenalty(null)
                           }}
-                          className="text-xs font-medium text-gray-600 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400"
+                          className="hover:text-primary-600 dark:hover:text-primary-400 text-xs font-medium text-gray-600 dark:text-gray-300"
                         >
                           {t('agents.advanced.reset')}
                         </button>
@@ -1687,7 +1687,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
             )}
             {activeTab === 'tools' && (
               <div className="space-y-4">
-                <div className="bg-gray-50 dark:bg-zinc-900/60 p-4 rounded-lg text-sm text-gray-600 dark:text-gray-300">
+                <div className="rounded-lg bg-gray-50 p-4 text-sm text-gray-600 dark:bg-zinc-900/60 dark:text-gray-300">
                   <p className="font-medium">{t('agents.tools.title')}</p>
                   <p className="opacity-90">{t('agents.tools.hint')}</p>
                 </div>
@@ -1716,7 +1716,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                                 {/* Sub-group header */}
                                 <div className="flex items-center justify-between">
                                   <div className="flex items-center gap-2">
-                                    <div className="w-1.5 h-1.5 rounded-full bg-purple-500" />
+                                    <div className="h-1.5 w-1.5 rounded-full bg-purple-500" />
                                     <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
                                       {subGroupName}
                                     </span>
@@ -1741,13 +1741,13 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                                         ])
                                       }
                                     }}
-                                    className="text-[10px] font-bold text-primary-500 hover:text-primary-600 transition-colors px-2 py-1 rounded bg-primary-500/5 hover:bg-primary-500/10 uppercase tracking-tight"
+                                    className="text-primary-500 hover:text-primary-600 bg-primary-500/5 hover:bg-primary-500/10 rounded px-2 py-1 text-[10px] font-bold tracking-tight uppercase transition-colors"
                                   >
                                     {allSelected ? t('common.deselectAll') : t('common.selectAll')}
                                   </button>
                                 </div>
                                 {/* Tools in sub-group */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 ">
+                                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                                   {tools.map(tool => {
                                     const checked = selectedToolIds.includes(tool.id)
                                     const iconName = TOOL_ICONS[tool.name]
@@ -1773,10 +1773,10 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                                       <label
                                         key={tool.id}
                                         className={clsx(
-                                          'flex items-start gap-3 p-3 rounded-lg border transition-colors cursor-pointer group/tool',
+                                          'group/tool flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors',
                                           checked
                                             ? 'border-primary-400 bg-primary-50/40 dark:bg-primary-900/20'
-                                            : 'border-gray-200 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-800/40',
+                                            : 'border-gray-200 hover:bg-gray-50 dark:border-zinc-700 dark:hover:bg-zinc-800/40',
                                         )}
                                       >
                                         <Checkbox
@@ -1789,23 +1789,23 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                                             )
                                           }}
                                         />
-                                        <div className="flex-1 space-y-1.5 min-w-0">
-                                          <div className="flex items-center gap-2 min-w-0">
+                                        <div className="min-w-0 flex-1 space-y-1.5">
+                                          <div className="flex min-w-0 items-center gap-2">
                                             {IconComponent && (
                                               <IconComponent
                                                 size={16}
-                                                className="text-gray-500 dark:text-gray-400 shrink-0"
+                                                className="shrink-0 text-gray-500 dark:text-gray-400"
                                               />
                                             )}
                                             <div
-                                              className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate flex-1"
+                                              className="flex-1 truncate text-sm font-medium text-gray-800 dark:text-gray-100"
                                               title={localizedName}
                                             >
                                               {localizedName}
                                             </div>
                                           </div>
                                           {(infoKey || tool.description) && (
-                                            <div className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed line-clamp-2">
+                                            <div className="line-clamp-2 text-xs leading-relaxed text-gray-500 dark:text-gray-400">
                                               {infoKey ? t(infoKey) : tool.description}
                                             </div>
                                           )}
@@ -1819,7 +1819,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                           })
                         ) : (
                           // Simple grouping for non-custom tools
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                             {groupData.tools.map(tool => {
                               const checked = selectedToolIds.includes(tool.id)
                               const iconName = TOOL_ICONS[tool.name]
@@ -1842,10 +1842,10 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                                 <label
                                   key={tool.id}
                                   className={clsx(
-                                    'flex items-start gap-3 p-3 rounded-lg border transition-colors cursor-pointer',
+                                    'flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors',
                                     checked
                                       ? 'border-primary-400 bg-primary-50/40 dark:bg-primary-900/20'
-                                      : 'border-gray-200 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-800/40',
+                                      : 'border-gray-200 hover:bg-gray-50 dark:border-zinc-700 dark:hover:bg-zinc-800/40',
                                   )}
                                 >
                                   <Checkbox
@@ -1858,23 +1858,23 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                                       )
                                     }}
                                   />
-                                  <div className="flex-1 space-y-1.5 min-w-0">
-                                    <div className="flex items-center gap-2 min-w-0">
+                                  <div className="min-w-0 flex-1 space-y-1.5">
+                                    <div className="flex min-w-0 items-center gap-2">
                                       {IconComponent && (
                                         <IconComponent
                                           size={16}
-                                          className="text-gray-500 dark:text-gray-400 shrink-0"
+                                          className="shrink-0 text-gray-500 dark:text-gray-400"
                                         />
                                       )}
                                       <div
-                                        className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate flex-1"
+                                        className="flex-1 truncate text-sm font-medium text-gray-800 dark:text-gray-100"
                                         title={t(TOOL_TRANSLATION_KEYS[tool.name] || tool.name)}
                                       >
                                         {t(TOOL_TRANSLATION_KEYS[tool.name] || tool.name)}
                                       </div>
                                     </div>
                                     {(infoKey || tool.description) && (
-                                      <div className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed truncate-2-lines">
+                                      <div className="truncate-2-lines text-xs leading-relaxed text-gray-500 dark:text-gray-400">
                                         {infoKey ? t(infoKey) : tool.description}
                                       </div>
                                     )}
@@ -1893,7 +1893,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
           </div>
 
           {/* Footer */}
-          <div className="h-16 border-t border-gray-200 dark:border-zinc-800 flex items-center justify-between px-6 shrink-0 bg-white dark:bg-[#191a1a]">
+          <div className="flex h-16 shrink-0 items-center justify-between border-t border-gray-200 bg-white px-6 dark:border-zinc-800 dark:bg-[#191a1a]">
             {editingAgent && onDelete && !editingAgent.isDefault ? (
               <button
                 onClick={() => {
@@ -1907,7 +1907,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                     onConfirm: () => onDelete(editingAgent.id),
                   })
                 }}
-                className="px-4 py-2 rounded-lg text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                className="rounded-lg px-4 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
               >
                 {t('agents.actions.delete')}
               </button>
@@ -1918,14 +1918,14 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
             <div className="flex gap-3">
               <button
                 onClick={onClose}
-                className="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
+                className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-zinc-800"
               >
                 {t('agents.actions.cancel')}
               </button>
               <button
                 onClick={handleSaveWrapper}
                 disabled={isSaving}
-                className="px-4 py-2 text-sm font-medium text-white bg-primary-500 hover:bg-primary-600 rounded-lg transition-all shadow-md hover:shadow-lg active:scale-95 disabled:opacity-50"
+                className="bg-primary-500 hover:bg-primary-600 rounded-lg px-4 py-2 text-sm font-medium text-white shadow-md transition-all hover:shadow-lg active:scale-95 disabled:opacity-50"
               >
                 {isSaving
                   ? t('agents.actions.saving')

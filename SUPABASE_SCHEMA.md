@@ -4,48 +4,48 @@ The UI is organized around spaces, chat sessions, and per-message controls (sear
 
 ## 1. `spaces`
 
-| Column        | Type        | Notes               |
-| ------------- | ----------- | ------------------- |
-| `id`          | uuid        | Primary key         |
-| `emoji`       | text        | Space icon          |
-| `label`       | text        | Display name        |
-| `description` | text        | Optional summary    |
-| `created_at`  | timestamptz |                     |
-| `updated_at`  | timestamptz |                     |
+| Column        | Type        | Notes            |
+| ------------- | ----------- | ---------------- |
+| `id`          | uuid        | Primary key      |
+| `emoji`       | text        | Space icon       |
+| `label`       | text        | Display name     |
+| `description` | text        | Optional summary |
+| `created_at`  | timestamptz |                  |
+| `updated_at`  | timestamptz |                  |
 
 ## 2. `agents`
 
 Stores reusable agent presets. These can be bound to multiple spaces later.
 
-| Column               | Type        | Notes                               |
-| -------------------- | ----------- | ----------------------------------- |
-| `id`                 | uuid        | Primary key                         |
-| `is_default`         | boolean     | Non-deletable default agent         |
-| `emoji`              | text        | Agent avatar emoji                  |
-| `name`               | text        | Display name                        |
-| `description`        | text        | Optional summary                    |
-| `prompt`             | text        | System prompt template              |
-| `provider`           | text        | Default provider for the agent      |
-| `default_model_provider` | text   | Provider for default model (explicit) |
-| `lite_model_provider` | text      | Provider for lite model (explicit)   |
-| `default_model_source` | text      | `list` or `custom`                  |
-| `lite_model_source`    | text      | `list` or `custom`                  |
-| `lite_model`         | text        | Optional lightweight model override |
-| `default_model`      | text        | Default model id                    |
-| `response_language`  | text        | LLM answer language preset          |
-| `base_tone`          | text        | Style base tone                     |
-| `traits`             | text        | Style traits                        |
-| `warmth`             | text        | Style warmth                        |
-| `enthusiasm`         | text        | Style enthusiasm                    |
-| `headings`           | text        | Style headings                      |
-| `emojis`             | text        | Style emoji usage                   |
-| `custom_instruction` | text        | Additional guidance                 |
-| `temperature`        | float8      | Sampling temperature override       |
-| `top_p`              | float8      | Top-p sampling override             |
-| `frequency_penalty`  | float8      | Repetition penalty                  |
-| `presence_penalty`   | float8      | Novelty penalty                     |
-| `created_at`         | timestamptz |                                     |
-| `updated_at`         | timestamptz |                                     |
+| Column                   | Type        | Notes                                 |
+| ------------------------ | ----------- | ------------------------------------- |
+| `id`                     | uuid        | Primary key                           |
+| `is_default`             | boolean     | Non-deletable default agent           |
+| `emoji`                  | text        | Agent avatar emoji                    |
+| `name`                   | text        | Display name                          |
+| `description`            | text        | Optional summary                      |
+| `prompt`                 | text        | System prompt template                |
+| `provider`               | text        | Default provider for the agent        |
+| `default_model_provider` | text        | Provider for default model (explicit) |
+| `lite_model_provider`    | text        | Provider for lite model (explicit)    |
+| `default_model_source`   | text        | `list` or `custom`                    |
+| `lite_model_source`      | text        | `list` or `custom`                    |
+| `lite_model`             | text        | Optional lightweight model override   |
+| `default_model`          | text        | Default model id                      |
+| `response_language`      | text        | LLM answer language preset            |
+| `base_tone`              | text        | Style base tone                       |
+| `traits`                 | text        | Style traits                          |
+| `warmth`                 | text        | Style warmth                          |
+| `enthusiasm`             | text        | Style enthusiasm                      |
+| `headings`               | text        | Style headings                        |
+| `emojis`                 | text        | Style emoji usage                     |
+| `custom_instruction`     | text        | Additional guidance                   |
+| `temperature`            | float8      | Sampling temperature override         |
+| `top_p`                  | float8      | Top-p sampling override               |
+| `frequency_penalty`      | float8      | Repetition penalty                    |
+| `presence_penalty`       | float8      | Novelty penalty                       |
+| `created_at`             | timestamptz |                                       |
+| `updated_at`             | timestamptz |                                       |
 
 ## 3. `conversations`
 
@@ -116,82 +116,83 @@ References uploads tied to messages (records image URLs, file metadata).
 
 Join table for binding multiple agents to a space.
 
-| Column       | Type        | Notes                                     |
-| ------------ | ----------- | ----------------------------------------- |
-| `space_id`   | uuid        | FK -> `spaces.id`                         |
-| `agent_id`   | uuid        | FK -> `agents.id`                         |
-| `sort_order` | integer     | Display order within the space            |
-| `is_primary` | boolean     | Marks the primary agent for the space     |
-| `created_at` | timestamptz |                                           |
+| Column       | Type        | Notes                                 |
+| ------------ | ----------- | ------------------------------------- |
+| `space_id`   | uuid        | FK -> `spaces.id`                     |
+| `agent_id`   | uuid        | FK -> `agents.id`                     |
+| `sort_order` | integer     | Display order within the space        |
+| `is_primary` | boolean     | Marks the primary agent for the space |
+| `created_at` | timestamptz |                                       |
 
 ## 8. `space_documents`
 
 Parsed text artifacts stored per space (acts like a lightweight knowledge base).
 
-| Column         | Type        | Notes                            |
-| -------------- | ----------- | -------------------------------- |
-| `id`           | uuid        | Primary key                      |
-| `space_id`     | uuid        | FK -> `spaces.id`                |
-| `name`         | text        | Original file name               |
-| `file_type`    | text        | File extension or MIME           |
-| `content_text` | text        | Parsed document content          |
+| Column               | Type        | Notes                                         |
+| -------------------- | ----------- | --------------------------------------------- |
+| `id`                 | uuid        | Primary key                                   |
+| `space_id`           | uuid        | FK -> `spaces.id`                             |
+| `name`               | text        | Original file name                            |
+| `file_type`          | text        | File extension or MIME                        |
+| `content_text`       | text        | Parsed document content                       |
 | `embedding_provider` | text        | Embedding provider used to index the document |
-| `embedding_model`    | text        | Embedding model used to index the document |
-| `created_at`   | timestamptz |                                  |
-| `updated_at`   | timestamptz |                                  |
+| `embedding_model`    | text        | Embedding model used to index the document    |
+| `created_at`         | timestamptz |                                               |
+| `updated_at`         | timestamptz |                                               |
 
 ## 9. `conversation_documents`
 
 Manual selection of space documents per conversation.
 
-| Column            | Type        | Notes                                  |
-| ----------------- | ----------- | -------------------------------------- |
-| `conversation_id` | uuid        | FK -> `conversations.id`               |
-| `document_id`     | uuid        | FK -> `space_documents.id`             |
-| `created_at`      | timestamptz |                                        |
+| Column            | Type        | Notes                      |
+| ----------------- | ----------- | -------------------------- |
+| `conversation_id` | uuid        | FK -> `conversations.id`   |
+| `document_id`     | uuid        | FK -> `space_documents.id` |
+| `created_at`      | timestamptz |                            |
 
 ## 10. `memory_domains`
 
 High-level memory routing directory (domain cards).
 
-| Column        | Type        | Notes                                  |
-| ------------- | ----------- | -------------------------------------- |
-| `id`          | uuid        | Primary key                            |
-| `user_id`     | uuid        | FK -> `auth.users.id`                  |
-| `domain_key`  | text        | Stable domain identifier (e.g., `music`) |
-| `aliases`     | text[]      | Synonyms for routing                   |
-| `scope`       | text        | One-line boundary/definition           |
-| `created_at`  | timestamptz |                                        |
-| `updated_at`  | timestamptz |                                        |
+| Column       | Type        | Notes                                    |
+| ------------ | ----------- | ---------------------------------------- |
+| `id`         | uuid        | Primary key                              |
+| `user_id`    | uuid        | FK -> `auth.users.id`                    |
+| `domain_key` | text        | Stable domain identifier (e.g., `music`) |
+| `aliases`    | text[]      | Synonyms for routing                     |
+| `scope`      | text        | One-line boundary/definition             |
+| `created_at` | timestamptz |                                          |
+| `updated_at` | timestamptz |                                          |
 
 ## 11. `memory_summaries`
 
 Single summary per domain (injectable memory).
 
-| Column        | Type        | Notes                                  |
-| ------------- | ----------- | -------------------------------------- |
-| `id`          | uuid        | Primary key                            |
-| `domain_id`   | uuid        | FK -> `memory_domains.id`              |
-| `summary`     | text        | Concise facts/preferences              |
-| `evidence`    | text        | Optional source snippets               |
-| `created_at`  | timestamptz |                                        |
-| `updated_at`  | timestamptz |                                        |
+| Column       | Type        | Notes                     |
+| ------------ | ----------- | ------------------------- |
+| `id`         | uuid        | Primary key               |
+| `domain_id`  | uuid        | FK -> `memory_domains.id` |
+| `summary`    | text        | Concise facts/preferences |
+| `evidence`   | text        | Optional source snippets  |
+| `created_at` | timestamptz |                           |
+| `updated_at` | timestamptz |                           |
 
 ## 12. `long_term_memory` (legacy)
 
 Single-user memory blob with optional embeddings.
 
-| Column             | Type        | Notes                                  |
-| ------------------ | ----------- | -------------------------------------- |
-| `id`               | uuid        | Primary key                            |
-| `user_id`          | uuid        | FK -> `auth.users.id`                  |
-| `content_text`     | text        | Full memory text                       |
-| `content_hash`     | text        | Hash of content for change detection   |
-| `embedding`        | real[]      | Optional embedding for retrieval       |
-| `embedding_provider` | text      | Provider used for embedding            |
-| `embedding_model`    | text      | Embedding model used                   |
-| `created_at`       | timestamptz |                                        |
-| `updated_at`       | timestamptz |                                        |
+| Column               | Type        | Notes                                |
+| -------------------- | ----------- | ------------------------------------ |
+| `id`                 | uuid        | Primary key                          |
+| `user_id`            | uuid        | FK -> `auth.users.id`                |
+| `content_text`       | text        | Full memory text                     |
+| `content_hash`       | text        | Hash of content for change detection |
+| `embedding`          | real[]      | Optional embedding for retrieval     |
+| `embedding_provider` | text        | Provider used for embedding          |
+| `embedding_model`    | text        | Embedding model used                 |
+| `created_at`         | timestamptz |                                      |
+| `updated_at`         | timestamptz |                                      |
 
 Notes:
+
 - `long_term_memory` is retained for backward compatibility; new routing uses `memory_domains` + `memory_summaries`.

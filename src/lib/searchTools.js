@@ -69,16 +69,14 @@ export const ACADEMIC_SEARCH_TOOL_OPTIONS = [
 
 export const setSearchToolRegistry = tools => {
   searchToolRegistry = new Map()
-  ;(tools || [])
-    .filter(isQuickSearchTool)
-    .forEach(tool => {
-      const id = normalizeToolId(tool)
-      if (!id) return
-      searchToolRegistry.set(id, tool)
-      if (tool.name && tool.name !== id) {
-        searchToolRegistry.set(String(tool.name), tool)
-      }
-    })
+  ;(tools || []).filter(isQuickSearchTool).forEach(tool => {
+    const id = normalizeToolId(tool)
+    if (!id) return
+    searchToolRegistry.set(id, tool)
+    if (tool.name && tool.name !== id) {
+      searchToolRegistry.set(String(tool.name), tool)
+    }
+  })
 }
 
 export const getSearchToolOptions = () => {
@@ -111,14 +109,13 @@ export const createSearchToolDefinition = toolId => {
     function: {
       name,
       description: tool?.description || 'Search the web for current information.',
-      parameters:
-        tool?.parameters || {
-          type: 'object',
-          properties: {
-            query: { type: 'string', description: 'Search query.' },
-          },
-          required: ['query'],
+      parameters: tool?.parameters || {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: 'Search query.' },
         },
+        required: ['query'],
+      },
     },
   }
 }

@@ -64,41 +64,41 @@ const SourcesModal = ({ isOpen, onClose, sources }) => {
 
   return (
     <Drawer open={isOpen} onOpenChange={onClose}>
-      <DrawerContent className="max-h-[85vh] sm:max-h-[80vh] sm:max-w-2xl rounded-t-3xl sm:rounded-2xl bg-white dark:bg-zinc-900 border-t border-gray-200 dark:border-zinc-800">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-zinc-800">
-          <div className="font-semibold text-lg text-gray-900 dark:text-gray-100">
+      <DrawerContent className="max-h-[85vh] rounded-t-3xl border-t border-gray-200 bg-white sm:max-h-[80vh] sm:max-w-2xl sm:rounded-2xl dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3 dark:border-zinc-800">
+          <div className="text-lg font-semibold text-gray-900 dark:text-gray-100">
             {t('sources.documentSources')} ({sources.length})
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-500 transition-colors"
+            className="rounded-full p-2 text-gray-500 transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800"
           >
             <X size={20} />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div className="flex-1 space-y-4 overflow-y-auto p-4">
           {sources.map((source, idx) => (
             <div
               key={idx}
-              className="p-2.5 rounded-xl bg-gray-50 dark:bg-zinc-800/50 border border-gray-100 dark:border-zinc-700/50"
+              className="rounded-xl border border-gray-100 bg-gray-50 p-2.5 dark:border-zinc-700/50 dark:bg-zinc-800/50"
             >
-              <div className="flex items-start gap-3 mb-2">
-                <div className="p-2 rounded-lg bg-white dark:bg-zinc-700 shadow-sm leading-none flex items-center justify-center">
+              <div className="mb-2 flex items-start gap-3">
+                <div className="flex items-center justify-center rounded-lg bg-white p-2 leading-none shadow-sm dark:bg-zinc-700">
                   <FileIcon fileType={source.fileType} size={18} />
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-semibold text-gray-900 dark:text-white">
                     {source.title?.replace(/\.[^/.]+$/, '') || source.title}
                   </div>
                   {source.fileType && (
-                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 uppercase tracking-wider font-medium">
+                    <div className="mt-0.5 text-xs font-medium tracking-wider text-gray-500 uppercase dark:text-gray-400">
                       {formatFileType(source.fileType)}
                     </div>
                   )}
                 </div>
               </div>
-              <div className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed pl-1 ml-1">
+              <div className="ml-1 pl-1 text-sm leading-relaxed text-gray-600 dark:text-gray-300">
                 {cleanSnippet(source.snippet)}
               </div>
             </div>
@@ -122,34 +122,34 @@ const DocumentSourcesPanel = ({ sources = [], isOpen, onClose }) => {
   return (
     <div
       className={clsx(
-        'grid transition-all duration-300 ease-spring overflow-hidden w-full',
-        isOpen ? 'grid-rows-[1fr] opacity-100 mt-3 pb-2' : 'grid-rows-[0fr] opacity-0 mt-0',
+        'ease-spring grid w-full overflow-hidden transition-all duration-300',
+        isOpen ? 'mt-3 grid-rows-[1fr] pb-2 opacity-100' : 'mt-0 grid-rows-[0fr] opacity-0',
       )}
     >
       <div className="min-h-0 w-full">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
           {sources.map((source, idx) => (
             <div
               key={source.id || idx}
-              className="p-3 rounded-2xl border border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-900/50 shadow-sm hover:shadow-md transition-shadow cursor-default group"
+              className="group cursor-default rounded-2xl border border-gray-200 bg-gray-50 p-3 shadow-sm transition-shadow hover:shadow-md dark:border-zinc-700 dark:bg-zinc-900/50"
             >
-              <div className="flex items-center justify-between gap-2 mb-2">
-                <div className="flex items-center gap-2 min-w-0">
-                  <div className="p-1 rounded bg-white dark:bg-zinc-800 shadow-sm leading-none flex items-center justify-center">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <div className="flex min-w-0 items-center gap-2">
+                  <div className="flex items-center justify-center rounded bg-white p-1 leading-none shadow-sm dark:bg-zinc-800">
                     <FileIcon fileType={source.fileType} size={12} />
                   </div>
-                  <div className="text-xs font-semibold text-gray-900 dark:text-white truncate">
+                  <div className="truncate text-xs font-semibold text-gray-900 dark:text-white">
                     {source.title?.replace(/\.[^/.]+$/, '') || source.title}
                   </div>
                 </div>
                 {source.fileType && (
-                  <span className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wide font-medium">
+                  <span className="text-[10px] font-medium tracking-wide text-gray-400 uppercase dark:text-gray-500">
                     {formatFileType(source.fileType)}
                   </span>
                 )}
               </div>
 
-              <div className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 leading-relaxed">
+              <div className="line-clamp-2 text-xs leading-relaxed text-gray-500 dark:text-gray-400">
                 {cleanSnippet(source.snippet)}
               </div>
             </div>

@@ -2,28 +2,28 @@ const QuestionNavigator = ({ items = [], onJump, activeId }) => {
   if (!items.length) return null
 
   return (
-    <div className="hidden xl:block w-64 sticky top-24 self-start mt-8 pl-6 shrink-0">
-      <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-4 uppercase tracking-wider px-2">
+    <div className="sticky top-24 mt-8 hidden w-64 shrink-0 self-start pl-6 xl:block">
+      <div className="mb-4 px-2 text-xs font-medium tracking-wider text-gray-500 uppercase dark:text-gray-400">
         Jump to question
       </div>
-      <div className="relative border-l-2 border-gray-200 dark:border-zinc-800 ml-4 space-y-6 py-2">
+      <div className="relative ml-4 space-y-6 border-l-2 border-gray-200 py-2 dark:border-zinc-800">
         {items.map(item => {
           const isActive = activeId === item.id
           return (
             <div key={item.id} className="relative pl-6">
               {/* Timeline dot */}
               <div
-                className={`absolute -left-[6px] top-1.5 h-2.5 w-2.5 rounded-full  transition-all duration-300 ${
+                className={`absolute top-1.5 -left-[6px] h-2.5 w-2.5 rounded-full transition-all duration-300 ${
                   isActive ? 'bg-primary-500 scale-110' : 'bg-gray-300 dark:bg-zinc-600'
                 }`}
               />
 
               <button
                 onClick={() => onJump && onJump(item.id)}
-                className={`text-left text-sm transition-colors duration-200 line-clamp-2 leading-relaxed ${
+                className={`line-clamp-2 text-left text-sm leading-relaxed transition-colors duration-200 ${
                   isActive
-                    ? 'text-primary-500  font-medium'
-                    : 'text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400'
+                    ? 'text-primary-500 font-medium'
+                    : 'hover:text-primary-600 dark:hover:text-primary-400 text-gray-600 dark:text-gray-400'
                 }`}
               >
                 {item.label}

@@ -248,28 +248,28 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
     : description
 
   return (
-    <div className="fixed inset-0 z-100 flex items-start md:items-center justify-center bg-black/50 backdrop-blur-sm p-0 md:p-4 overflow-y-auto md:overflow-hidden">
-      <div className="w-full h-dvh md:max-w-2xl md:h-[80vh] bg-[#f9f9f9] dark:bg-[#191a1a] rounded-none md:rounded-2xl shadow-2xl flex flex-col overflow-hidden border-0 md:border border-gray-200 dark:border-zinc-800">
+    <div className="fixed inset-0 z-100 flex items-start justify-center overflow-y-auto bg-black/50 p-0 backdrop-blur-sm md:items-center md:overflow-hidden md:p-4">
+      <div className="flex h-dvh w-full flex-col overflow-hidden rounded-none border-0 border-gray-200 bg-[#f9f9f9] shadow-2xl md:h-[80vh] md:max-w-2xl md:rounded-2xl md:border dark:border-zinc-800 dark:bg-[#191a1a]">
         {/* Header */}
-        <div className="h-14 border-b border-gray-200  dark:border-zinc-800 flex items-center justify-between px-4 sm:px-6 shrink-0">
+        <div className="flex h-14 shrink-0 items-center justify-between border-b border-gray-200 px-4 sm:px-6 dark:border-zinc-800">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
             {editingSpace ? t('spaceModal.edit') : t('spaceModal.create')}
           </h3>
           <button
             onClick={onClose}
-            className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-500 transition-colors"
+            className="rounded-full p-2 text-gray-500 transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800"
           >
             <X size={20} />
           </button>
         </div>
 
         {/* Content */}
-        <div className="flex-1 flex flex-col min-h-0">
+        <div className="flex min-h-0 flex-1 flex-col">
           {/* Content */}
-          <div className="flex-1 px-4 sm:px-6 py-6 overflow-y-auto min-h-0">
-            <div className="flex flex-col gap-4 h-full">
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-6">
+            <div className="flex h-full flex-col gap-4">
               {/* Icon and Name Row - Fixed height */}
-              <div className="flex flex-col gap-2 shrink-0">
+              <div className="flex shrink-0 flex-col gap-2">
                 <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                   {t('spaceModal.iconName')}
                 </label>
@@ -283,7 +283,7 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
                         setShowEmojiPicker(!showEmojiPicker)
                       }}
                       disabled={isDeepResearchSpace}
-                      className="w-12 h-12 rounded-xl bg-gray-100 dark:bg-zinc-800 flex items-center justify-center text-2xl hover:bg-gray-200 dark:hover:bg-zinc-700 transition-colors border border-transparent focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="focus:border-primary-500 focus:ring-primary-500/20 flex h-12 w-12 items-center justify-center rounded-xl border border-transparent bg-gray-100 text-2xl transition-colors outline-none hover:bg-gray-200 focus:ring-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-800 dark:hover:bg-zinc-700"
                     >
                       <EmojiDisplay emoji={emoji} />
                     </button>
@@ -292,7 +292,7 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
                     {showEmojiPicker && (
                       <div
                         ref={pickerRef}
-                        className="absolute top-full left-0 mt-2 z-50 shadow-2xl rounded-xl overflow-hidden"
+                        className="absolute top-full left-0 z-50 mt-2 overflow-hidden rounded-xl shadow-2xl"
                       >
                         <CustomEmojiPicker
                           onEmojiSelect={e => {
@@ -311,16 +311,16 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
                     onChange={e => setName(e.target.value)}
                     placeholder={t('spaceModal.namePlaceholder')}
                     disabled={isDeepResearchSpace}
-                    className="flex-1 h-12 px-4 bg-white disabled:bg-gray-50/20 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="focus:ring-primary-500/20 focus:border-primary-500 h-12 flex-1 rounded-lg border border-gray-200 bg-white px-4 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50/20 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100 dark:placeholder-zinc-600"
                   />
                 </div>
               </div>
 
               {/* Description Input - Fixed height */}
-              <div className="flex flex-col gap-2 shrink-0">
+              <div className="flex shrink-0 flex-col gap-2">
                 <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                   {t('spaceModal.description')}{' '}
-                  <span className="text-gray-400 font-normal">
+                  <span className="font-normal text-gray-400">
                     ({t('spaceModal.descriptionOptional')})
                   </span>
                 </label>
@@ -330,7 +330,7 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
                   placeholder={t('spaceModal.descriptionPlaceholder')}
                   rows={2}
                   disabled={isDeepResearchSpace}
-                  className="w-full px-4 py-2.5 bg-white disabled:bg-gray-50/20 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-zinc-600 resize-none disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="focus:ring-primary-500/20 focus:border-primary-500 w-full resize-none rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50/20 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100 dark:placeholder-zinc-600"
                 />
               </div>
 
@@ -338,7 +338,7 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
                 <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                   {t('spaceModal.agents')}
                 </label>
-                <div className="rounded-lg border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-3">
+                <div className="rounded-lg border border-gray-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900">
                   {agentsLoading || isAgentsLoading ? (
                     <div className="text-sm text-gray-500 dark:text-gray-400">
                       {t('spaceModal.agentsLoading')}
@@ -346,7 +346,7 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
                   ) : (
                     <div className="grid grid-cols-1 gap-3">
                       <div className="rounded-lg border border-gray-200 dark:border-zinc-700">
-                        <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                        <div className="px-3 py-2 text-xs font-semibold tracking-wide text-gray-400 uppercase">
                           {t('spaceModal.agentsAvailable')}
                         </div>
                         <div className="max-h-40 overflow-y-auto">
@@ -359,7 +359,7 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
                               <div
                                 key={agent.id}
                                 onClick={() => toggleAvailableAgent(agent.id)}
-                                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800 cursor-pointer"
+                                className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-zinc-800"
                               >
                                 <Checkbox
                                   checked={availableSelectedIds.includes(agent.id)}
@@ -381,7 +381,7 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
                           type="button"
                           onClick={handleAddAgents}
                           disabled={isDeepResearchSpace || availableSelectedIds.length === 0}
-                          className="px-3 py-1.5 rounded-lg text-xs font-medium bg-primary-500 text-white disabled:opacity-40"
+                          className="bg-primary-500 rounded-lg px-3 py-1.5 text-xs font-medium text-white disabled:opacity-40"
                         >
                           {t('spaceModal.agentsAdd')}
                         </button>
@@ -389,14 +389,14 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
                           type="button"
                           onClick={handleRemoveAgents}
                           disabled={isDeepResearchSpace || assignedSelectedIds.length === 0}
-                          className="px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-200 dark:border-zinc-700 text-gray-600 dark:text-gray-300 disabled:opacity-40"
+                          className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 disabled:opacity-40 dark:border-zinc-700 dark:text-gray-300"
                         >
                           {t('spaceModal.agentsRemove')}
                         </button>
                       </div>
 
                       <div className="rounded-lg border border-gray-200 dark:border-zinc-700">
-                        <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                        <div className="px-3 py-2 text-xs font-semibold tracking-wide text-gray-400 uppercase">
                           {t('spaceModal.agentsSelected')}
                         </div>
                         <div className="max-h-40 overflow-y-auto">
@@ -408,10 +408,10 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
                             selectedAgents.map(agent => (
                               <div
                                 key={agent.id}
-                                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-800"
+                                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-zinc-800"
                               >
                                 <div
-                                  className="flex items-center gap-2 cursor-pointer"
+                                  className="flex cursor-pointer items-center gap-2"
                                   onClick={() => toggleAssignedAgent(agent.id)}
                                 >
                                   <Checkbox
@@ -425,13 +425,15 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
                                   </span>
                                 </div>
                                 <div
-                                  className="ml-auto flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 cursor-pointer"
+                                  className="ml-auto flex cursor-pointer items-center gap-2 text-xs text-gray-500 dark:text-gray-400"
                                   onClick={() => setDefaultAgentId(agent.id)}
                                 >
                                   {t('spaceModal.defaultAgent')}
                                   <Radio
                                     checked={String(defaultAgentId) === String(agent.id)}
-                                    onClick={() => !isDeepResearchSpace && setDefaultAgentId(agent.id)}
+                                    onClick={() =>
+                                      !isDeepResearchSpace && setDefaultAgentId(agent.id)
+                                    }
                                     disabled={isDeepResearchSpace}
                                   />
                                 </div>
@@ -451,12 +453,12 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
         </div>
 
         {/* Footer */}
-        <div className="h-16 border-t border-gray-200 dark:border-zinc-800 flex items-center justify-between px-4 sm:px-6 gap-3 bg-gray-50/50 dark:bg-[#191a1a] shrink-0">
+        <div className="flex h-16 shrink-0 items-center justify-between gap-3 border-t border-gray-200 bg-gray-50/50 px-4 sm:px-6 dark:border-zinc-800 dark:bg-[#191a1a]">
           <div className="flex items-center gap-2">
             {editingSpace && (
               <button
                 onClick={handleDelete}
-                className="px-4 py-2 rounded-lg text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                className="rounded-lg px-4 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
               >
                 {t('sidebar.delete')}
               </button>
@@ -466,14 +468,14 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
             <button
               onClick={onClose}
               disabled={isSaving}
-              className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50"
+              className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-200 disabled:opacity-50 dark:text-gray-400 dark:hover:bg-zinc-800"
             >
               {t('spaceModal.cancel')}
             </button>
             <button
               onClick={handleSave}
               disabled={isSaving}
-              className="px-4 py-2 rounded-lg text-sm font-medium bg-primary-500 text-white hover:opacity-90 transition-opacity disabled:opacity-50"
+              className="bg-primary-500 rounded-lg px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
             >
               {isSaving
                 ? t('spaceModal.saving')

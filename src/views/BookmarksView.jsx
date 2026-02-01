@@ -137,13 +137,13 @@ const BookmarksView = () => {
   return (
     <div
       className={clsx(
-        'flex-1 h-full overflow-y-auto bg-background text-foreground transition-all duration-300',
+        'bg-background text-foreground h-full flex-1 overflow-y-auto transition-all duration-300',
         isSidebarPinned ? 'ml-0 sm:ml-72' : 'ml-0 sm:ml-16',
       )}
     >
-      <div className="w-full max-w-5xl mx-auto sm:px-6 sm:py-8 px-3 py-5">
+      <div className="mx-auto w-full max-w-5xl px-3 py-5 sm:px-6 sm:py-8">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="mb-8 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Bookmark size={32} className="text-primary-500 fill-current" />
             <h1 className="text-3xl font-medium">{t('views.bookmarksView.title')}</h1>
@@ -154,23 +154,23 @@ const BookmarksView = () => {
         <div className="mb-8 space-y-4">
           {/* Search Bar */}
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+            <Search className="absolute top-1/2 left-3 -translate-y-1/2 text-gray-400" size={20} />
             <input
               type="text"
               placeholder={t('views.bookmarksView.searchPlaceholder')}
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="w-full bg-gray-100 dark:bg-zinc-900 border border-transparent focus:border-gray-300 dark:focus:border-zinc-700 rounded-xl py-3 pl-10 pr-4 outline-none transition-all placeholder-gray-500"
+              className="w-full rounded-xl border border-transparent bg-gray-100 py-3 pr-4 pl-10 placeholder-gray-500 transition-all outline-none focus:border-gray-300 dark:bg-zinc-900 dark:focus:border-zinc-700"
             />
           </div>
 
           {/* Filter Row */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <button className="px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 text-xs font-medium transition-colors">
+              <button className="rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium transition-colors hover:bg-gray-200 dark:bg-zinc-800 dark:hover:bg-zinc-700">
                 Select
               </button>
-              <button className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 text-xs font-medium transition-colors">
+              <button className="flex items-center gap-1 rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium transition-colors hover:bg-gray-200 dark:bg-zinc-800 dark:hover:bg-zinc-700">
                 <span>Type</span>
                 <ChevronDown size={12} />
               </button>
@@ -178,7 +178,7 @@ const BookmarksView = () => {
             <div className="relative">
               <button
                 onClick={() => setIsSortOpen(!isSortOpen)}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 text-xs font-medium transition-colors"
+                className="flex items-center gap-1 rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium transition-colors hover:bg-gray-200 dark:bg-zinc-800 dark:hover:bg-zinc-700"
               >
                 <span>
                   {t('views.sort')}: {sortOptions.find(o => o.key === sortOption.key)?.label}
@@ -190,7 +190,7 @@ const BookmarksView = () => {
               {isSortOpen && (
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => setIsSortOpen(false)} />
-                  <div className="absolute right-0 top-full mt-2 w-40 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-xl shadow-lg z-20 overflow-hidden py-1">
+                  <div className="absolute top-full right-0 z-20 mt-2 w-40 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg dark:border-zinc-800 dark:bg-zinc-900">
                     {sortOptions.map(option => (
                       <button
                         key={option.key}
@@ -198,7 +198,7 @@ const BookmarksView = () => {
                           setSortOption(SORT_OPTION_KEYS.find(o => o.key === option.key))
                           setIsSortOpen(false)
                         }}
-                        className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-zinc-800 flex items-center justify-between group"
+                        className="group flex w-full items-center justify-between px-4 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-zinc-800"
                       >
                         <span
                           className={
@@ -224,11 +224,11 @@ const BookmarksView = () => {
         {/* Thread List */}
         <div className="relative space-y-4">
           {loading ? (
-            <div className="absolute inset-0 flex items-center justify-center backdrop-blur-md bg-background/40 rounded-2xl">
+            <div className="bg-background/40 absolute inset-0 flex items-center justify-center rounded-2xl backdrop-blur-md">
               <FancyLoader />
             </div>
           ) : filteredConversations.length === 0 ? (
-            <div className="text-center py-12 text-gray-500 flex flex-col items-center gap-3">
+            <div className="flex flex-col items-center gap-3 py-12 text-center text-gray-500">
               <Coffee size={56} className="text-black dark:text-white" />
               <p className="text-sm">{t('views.bookmarksView.noBookmarks')}</p>
             </div>
@@ -242,7 +242,7 @@ const BookmarksView = () => {
                 <div
                   key={conv.id}
                   data-conversation-id={conv.id}
-                  className="group relative py-3 sm:p-4 rounded-xl cursor-pointer transition-colors border-b border-gray-100 dark:border-zinc-800/50 last:border-0 hover:bg-primary-500/10 dark:hover:bg-primary-500/20 hover:border hover:border-primary-500/30 dark:hover:border-primary-500/40"
+                  className="group hover:bg-primary-500/10 dark:hover:bg-primary-500/20 hover:border-primary-500/30 dark:hover:border-primary-500/40 relative cursor-pointer rounded-xl border-b border-gray-100 py-3 transition-colors last:border-0 hover:border sm:p-4 dark:border-zinc-800/50"
                   onClick={() =>
                     navigate({
                       to: isDeepResearchConversation
@@ -252,15 +252,15 @@ const BookmarksView = () => {
                     })
                   }
                 >
-                  <div className="flex justify-between items-start gap-4">
+                  <div className="flex items-start justify-between gap-4">
                     {space?.emoji && (
-                      <div className="shrink-0 flex items-center justify-center bg-gray-100 dark:bg-zinc-800 rounded-lg w-12 h-12">
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-gray-100 dark:bg-zinc-800">
                         <EmojiDisplay emoji={space.emoji} size="2rem" />
                       </div>
                     )}
-                    <div className="flex-1 min-w-0">
+                    <div className="min-w-0 flex-1">
                       {/* Title */}
-                      <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-1 truncate">
+                      <h3 className="mb-1 truncate text-lg font-medium text-gray-900 dark:text-gray-100">
                         {conv.title || t('views.untitledThread')}
                       </h3>
 
@@ -286,10 +286,10 @@ const BookmarksView = () => {
                           setExpandedActionId(prev => (prev === conv.id ? null : conv.id))
                         }}
                         className={clsx(
-                          'p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-all rounded-full hover:bg-black/5 dark:hover:bg-white/10',
+                          'rounded-full p-2 text-gray-400 transition-all hover:bg-black/5 hover:text-gray-600 dark:hover:bg-white/10 dark:hover:text-gray-200',
                           'opacity-100',
                           'md:opacity-0 md:group-hover:opacity-100',
-                          'min-w-[44px] min-h-[44px] flex items-center justify-center',
+                          'flex min-h-[44px] min-w-[44px] items-center justify-center',
                         )}
                       >
                         <ChevronDown
@@ -306,17 +306,17 @@ const BookmarksView = () => {
 
                   {/* Collapsible Actions Section */}
                   {expandedActionId === conv.id && (
-                    <div className="flex flex-wrap gap-2 mt-3 px-1 animate-in fade-in slide-in-from-top-1">
+                    <div className="animate-in fade-in slide-in-from-top-1 mt-3 flex flex-wrap gap-2 px-1">
                       <button
                         onClick={e => {
                           e.stopPropagation()
                           handleToggleFavorite(conv)
                         }}
                         className={clsx(
-                          'flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors',
+                          'flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors',
                           conv.is_favorited
-                            ? 'bg-yellow-50 text-yellow-600 border-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-400 dark:border-yellow-800/30'
-                            : 'bg-white dark:bg-zinc-900 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-zinc-800 hover:bg-gray-50 dark:hover:bg-zinc-800',
+                            ? 'border-yellow-200 bg-yellow-50 text-yellow-600 dark:border-yellow-800/30 dark:bg-yellow-900/20 dark:text-yellow-400'
+                            : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-gray-400 dark:hover:bg-zinc-800',
                         )}
                       >
                         <Bookmark size={13} className={clsx(conv.is_favorited && 'fill-current')} />
@@ -329,7 +329,7 @@ const BookmarksView = () => {
                           e.stopPropagation()
                           handleDeleteConversation(conv)
                         }}
-                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium bg-white dark:bg-zinc-900 text-red-600 dark:text-red-400 border border-red-100 dark:border-red-900/30 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                        className="flex items-center gap-2 rounded-lg border border-red-100 bg-white px-3 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 dark:border-red-900/30 dark:bg-zinc-900 dark:text-red-400 dark:hover:bg-red-900/20"
                       >
                         <Trash2 size={13} />
                         <span>{t('views.deleteConversation')}</span>
@@ -354,7 +354,7 @@ const BookmarksView = () => {
 
           {/* No More Data Message */}
           {!loading && !hasMore && conversations.length > 0 && (
-            <div className="text-center py-8 text-gray-400 text-sm">
+            <div className="py-8 text-center text-sm text-gray-400">
               {t('views.bookmarksView.noMoreToLoad')}
             </div>
           )}

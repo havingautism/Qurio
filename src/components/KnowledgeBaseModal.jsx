@@ -79,12 +79,12 @@ const KnowledgeBaseModal = ({ isOpen, onClose }) => {
   const showForm = isCreating || editingKb
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm md:p-4 animate-in fade-in duration-200">
-      <div className="w-full h-[100dvh] md:max-w-5xl md:h-[85vh] bg-white dark:bg-[#191a1a] md:rounded-2xl shadow-2xl overflow-hidden flex flex-col md:flex-row md:border border-gray-200 dark:border-zinc-800 relative">
+    <div className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm duration-200 md:p-4">
+      <div className="relative flex h-dvh w-full flex-col overflow-hidden border-gray-200 bg-white shadow-2xl md:h-[85vh] md:max-w-5xl md:flex-row md:rounded-2xl md:border dark:border-zinc-800 dark:bg-[#191a1a]">
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 z-30 p-2 rounded-full bg-gray-100/50 dark:bg-zinc-800/50 hover:bg-gray-200 dark:hover:bg-zinc-700 text-gray-500 backdrop-blur-sm transition-colors"
+          className="absolute top-4 right-4 z-30 rounded-full bg-gray-100/50 p-2 text-gray-500 backdrop-blur-sm transition-colors hover:bg-gray-200 dark:bg-zinc-800/50 dark:hover:bg-zinc-700"
         >
           <X size={20} />
         </button>
@@ -92,32 +92,32 @@ const KnowledgeBaseModal = ({ isOpen, onClose }) => {
         {/* LEFT PANE: List */}
         <div
           className={clsx(
-            'flex flex-col w-full md:w-72 bg-primary-50 dark:bg-background/70 border-r border-gray-200 dark:border-zinc-800 h-full shrink-0',
+            'bg-primary-50 dark:bg-background/70 flex h-full w-full shrink-0 flex-col border-r border-gray-200 md:w-72 dark:border-zinc-800',
             showForm ? 'hidden md:flex' : 'flex',
           )}
         >
           {/* Header */}
-          <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-zinc-800 flex flex-col gap-4 mt-8 md:mt-0">
-            <h2 className="text-xl font-bold px-1 text-gray-900 dark:text-white flex items-center gap-2">
+          <div className="mt-8 flex flex-col gap-4 border-b border-gray-200 p-4 sm:p-6 md:mt-0 dark:border-zinc-800">
+            <h2 className="flex items-center gap-2 px-1 text-xl font-bold text-gray-900 dark:text-white">
               <Database size={24} className="text-primary-600 dark:text-primary-400" />
               {t('knowledgeBase.title') || 'Knowledge Base'}
             </h2>
             <div className="relative">
               <Search
                 size={14}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                className="absolute top-1/2 left-3 -translate-y-1/2 text-gray-400"
               />
               <input
                 type="text"
                 placeholder={t('common.search') || 'Search...'}
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 text-sm bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                className="focus:ring-primary-500/20 w-full rounded-lg border border-gray-200 bg-white py-2 pr-4 pl-9 text-sm focus:ring-2 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900"
               />
             </div>
             <button
               onClick={handleCreate}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-lg hover:bg-primary-700 transition-all shadow-sm active:scale-95"
+              className="bg-primary-600 hover:bg-primary-700 flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all active:scale-95"
             >
               <Plus size={16} />
               {t('knowledgeBase.create') || 'New Collection'}
@@ -125,13 +125,13 @@ const KnowledgeBaseModal = ({ isOpen, onClose }) => {
           </div>
 
           {/* List */}
-          <div className="flex-1 overflow-y-auto p-3 space-y-2">
+          <div className="flex-1 space-y-2 overflow-y-auto p-3">
             {loading ? (
-              <div className="flex items-center justify-center h-40 text-gray-500 text-sm">
+              <div className="flex h-40 items-center justify-center text-sm text-gray-500">
                 {t('common.loading') || 'Loading...'}
               </div>
             ) : filteredKbs.length === 0 ? (
-              <div className="text-center py-10 px-4 text-gray-500 dark:text-gray-400">
+              <div className="px-4 py-10 text-center text-gray-500 dark:text-gray-400">
                 <div className="mb-2 flex justify-center">
                   <FolderOpen size={24} className="opacity-20" />
                 </div>
@@ -143,17 +143,17 @@ const KnowledgeBaseModal = ({ isOpen, onClose }) => {
                   key={kb.id}
                   onClick={() => handleEdit(kb)}
                   className={clsx(
-                    'group flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer select-none',
+                    'group flex cursor-pointer items-center justify-between rounded-xl border p-3 transition-all select-none',
                     editingKb?.id === kb.id
-                      ? 'bg-primary-100 dark:bg-zinc-800 border-primary-500/30 shadow-sm'
-                      : 'bg-white dark:bg-zinc-900 border-transparent hover:bg-primary-50 dark:hover:bg-zinc-800/50 hover:border-gray-200 dark:hover:border-zinc-700 hover:shadow-sm',
+                      ? 'bg-primary-100 border-primary-500/30 shadow-sm dark:bg-zinc-800'
+                      : 'hover:bg-primary-50 border-transparent bg-white hover:border-gray-200 hover:shadow-sm dark:bg-zinc-900 dark:hover:border-zinc-700 dark:hover:bg-zinc-800/50',
                   )}
                 >
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 mb-0.5">
+                    <div className="mb-0.5 flex items-center gap-2">
                       <span
                         className={clsx(
-                          'text-sm font-semibold truncate',
+                          'truncate text-sm font-semibold',
                           editingKb?.id === kb.id
                             ? 'text-primary-600 dark:text-primary-400'
                             : 'text-gray-900 dark:text-gray-100',
@@ -162,7 +162,7 @@ const KnowledgeBaseModal = ({ isOpen, onClose }) => {
                         {kb.name}
                       </span>
                     </div>
-                    <div className="flex items-center gap-2 text-[11px] text-gray-500 dark:text-gray-400 font-mono opacity-80">
+                    <div className="flex items-center gap-2 font-mono text-[11px] text-gray-500 opacity-80 dark:text-gray-400">
                       <FileText size={10} />
                       <span>
                         {kb.docCount} {t('knowledgeBase.docs') || 'files'}
@@ -178,12 +178,12 @@ const KnowledgeBaseModal = ({ isOpen, onClose }) => {
         {/* RIGHT PANE: Details */}
         <div
           className={clsx(
-            'flex-1 flex flex-col bg-white dark:bg-[#191a1a] w-full h-full overflow-hidden',
+            'flex h-full w-full flex-1 flex-col overflow-hidden bg-white dark:bg-[#191a1a]',
             !showForm && 'hidden md:flex',
           )}
         >
           {/* Header */}
-          <div className="h-16 border-b border-gray-200 dark:border-zinc-800 flex items-center justify-between px-4 sm:px-8">
+          <div className="flex h-16 items-center justify-between border-b border-gray-200 px-4 sm:px-8 dark:border-zinc-800">
             <div className="flex items-center gap-3">
               {showForm && (
                 <button
@@ -191,12 +191,12 @@ const KnowledgeBaseModal = ({ isOpen, onClose }) => {
                     setIsCreating(false)
                     setEditingKb(null)
                   }}
-                  className="md:hidden p-2 -ml-2 text-gray-600 dark:text-gray-400"
+                  className="-ml-2 p-2 text-gray-600 md:hidden dark:text-gray-400"
                 >
                   <ChevronRight size={20} className="rotate-180" />
                 </button>
               )}
-              <h3 className="font-semibold text-gray-900 dark:text-white capitalize">
+              <h3 className="font-semibold text-gray-900 capitalize dark:text-white">
                 {showForm
                   ? isCreating
                     ? t('knowledgeBase.createTitle') || 'Create Collection'
@@ -204,12 +204,12 @@ const KnowledgeBaseModal = ({ isOpen, onClose }) => {
                   : t('knowledgeBase.selectPrompt') || 'Select a collection'}
               </h3>
             </div>
-            <div className="w-10 h-10 hidden md:block" />
+            <div className="hidden h-10 w-10 md:block" />
           </div>
 
           {showForm ? (
-            <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-8 sm:py-8 min-h-0 shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07)]">
-              <div className="max-w-2xl mx-auto space-y-8">
+            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07)] sm:px-8 sm:py-8">
+              <div className="mx-auto max-w-2xl space-y-8">
                 {/* Basic Info */}
                 <div className="space-y-4">
                   <FormInput
@@ -230,31 +230,31 @@ const KnowledgeBaseModal = ({ isOpen, onClose }) => {
                 {!isCreating && (
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                      <label className="text-sm font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                      <label className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
                         <Upload size={14} />
                         {t('knowledgeBase.documents') || 'Documents'}
                       </label>
-                      <button className="text-xs text-primary-600 dark:text-primary-400 font-medium hover:underline">
+                      <button className="text-primary-600 dark:text-primary-400 text-xs font-medium hover:underline">
                         {t('knowledgeBase.upload') || '+ Upload Files'}
                       </button>
                     </div>
 
-                    <div className="bg-gray-50 dark:bg-zinc-900/50 border border-gray-200 dark:border-zinc-800 rounded-xl p-8 flex flex-col items-center justify-center text-center border-dashed">
-                      <div className="p-3 bg-gray-100 dark:bg-zinc-800 rounded-full mb-3 text-gray-400">
+                    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-gray-200 bg-gray-50 p-8 text-center dark:border-zinc-800 dark:bg-zinc-900/50">
+                      <div className="mb-3 rounded-full bg-gray-100 p-3 text-gray-400 dark:bg-zinc-800">
                         <Upload size={20} />
                       </div>
-                      <p className="text-sm text-gray-600 dark:text-gray-300 font-medium">
+                      <p className="text-sm font-medium text-gray-600 dark:text-gray-300">
                         Drag & drop files here
                       </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                      <p className="mt-1 text-xs text-gray-500 dark:text-gray-500">
                         PDF, TXT, Markdown, CSV
                       </p>
                     </div>
                   </div>
                 )}
 
-                <div className="pt-4 flex flex-col gap-3 pb-8 md:pb-0">
-                  <button className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-xl font-medium transition-all active:scale-95">
+                <div className="flex flex-col gap-3 pt-4 pb-8 md:pb-0">
+                  <button className="bg-primary-600 hover:bg-primary-700 flex flex-1 items-center justify-center gap-2 rounded-xl px-6 py-3 font-medium text-white transition-all active:scale-95">
                     <Save size={18} />
                     {t('common.save') || 'Save Changes'}
                   </button>
@@ -262,14 +262,14 @@ const KnowledgeBaseModal = ({ isOpen, onClose }) => {
               </div>
             </div>
           ) : (
-            <div className="flex-1 flex flex-col items-center justify-center text-center p-8 text-gray-500 dark:text-gray-400">
-              <div className="w-16 h-16 bg-gray-50 dark:bg-zinc-900 rounded-2xl flex items-center justify-center mb-4">
+            <div className="flex flex-1 flex-col items-center justify-center p-8 text-center text-gray-500 dark:text-gray-400">
+              <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-50 dark:bg-zinc-900">
                 <Database size={32} className="text-gray-300 dark:text-zinc-600" />
               </div>
-              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-1">
+              <h3 className="mb-1 text-lg font-medium text-gray-900 dark:text-gray-100">
                 {t('knowledgeBase.selectPrompt') || 'Select a collection'}
               </h3>
-              <p className="text-sm max-w-xs mx-auto mb-6">
+              <p className="mx-auto mb-6 max-w-xs text-sm">
                 {t('knowledgeBase.selectPromptHelp') ||
                   'Manage your documents and embedding indexes from here.'}
               </p>
@@ -282,13 +282,13 @@ const KnowledgeBaseModal = ({ isOpen, onClose }) => {
 }
 
 const FormInput = ({ label, value, onChange, placeholder, type = 'text', icon, rows }) => (
-  <div className="space-y-1.5 w-full">
-    <label className="text-xs font-medium text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
+  <div className="w-full space-y-1.5">
+    <label className="flex items-center gap-1.5 text-xs font-medium text-gray-700 dark:text-gray-300">
       {label}
     </label>
     <div className="relative">
       {icon && (
-        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+        <div className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-gray-400">
           {icon}
         </div>
       )}
@@ -299,8 +299,8 @@ const FormInput = ({ label, value, onChange, placeholder, type = 'text', icon, r
           placeholder={placeholder}
           rows={rows || 3}
           className={clsx(
-            'w-full px-3 py-2.5 bg-white disabled:bg-gray-50/20 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm transition-all resize-none',
-            'focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500',
+            'w-full resize-none rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm transition-all disabled:bg-gray-50/20 dark:border-zinc-700 dark:bg-zinc-900',
+            'focus:ring-primary-500/20 focus:border-primary-500 focus:ring-2 focus:outline-none',
             'placeholder:text-gray-400 dark:placeholder:text-zinc-600',
             icon && 'pl-9',
           )}
@@ -312,8 +312,8 @@ const FormInput = ({ label, value, onChange, placeholder, type = 'text', icon, r
           onChange={e => onChange(e.target.value)}
           placeholder={placeholder}
           className={clsx(
-            'w-full px-3 py-2.5 bg-white disabled:bg-gray-50/20 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg text-sm transition-all',
-            'focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500',
+            'w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm transition-all disabled:bg-gray-50/20 dark:border-zinc-700 dark:bg-zinc-900',
+            'focus:ring-primary-500/20 focus:border-primary-500 focus:ring-2 focus:outline-none',
             'placeholder:text-gray-400 dark:placeholder:text-zinc-600',
             icon && 'pl-9',
           )}

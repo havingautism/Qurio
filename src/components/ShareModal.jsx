@@ -181,23 +181,23 @@ const ShareModal = ({ isOpen, onClose, message, conversationTitle }) => {
   if (!isOpen) return null
 
   return createPortal(
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="bg-[#18181b] border border-zinc-800 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+    <div className="animate-in fade-in fixed inset-0 z-100 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm duration-200">
+      <div className="animate-in zoom-in-95 flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-[#18181b] shadow-2xl duration-200">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 sm:p-5 border-b border-zinc-800">
-          <h2 className="text-lg sm:text-xl font-semibold text-white">{t('shareModal.title')}</h2>
+        <div className="flex items-center justify-between border-b border-zinc-800 p-4 sm:p-5">
+          <h2 className="text-lg font-semibold text-white sm:text-xl">{t('shareModal.title')}</h2>
           <button
             onClick={onClose}
-            className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
+            className="rounded-lg p-2 text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-white"
           >
             <X size={20} />
           </button>
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-[#09090b] flex flex-col items-center justify-center min-h-[260px]">
+        <div className="flex min-h-[260px] flex-1 flex-col items-center justify-center overflow-y-auto bg-[#09090b] p-4 sm:p-6">
           {mergedMessage ? (
-            <div className="relative shadow-2xl rounded-xl overflow-hidden border border-zinc-800 w-full">
+            <div className="relative w-full overflow-hidden rounded-xl border border-zinc-800 shadow-2xl">
               <ShareCanvas
                 captureRef={captureRef}
                 message={mergedMessage}
@@ -212,12 +212,12 @@ const ShareModal = ({ isOpen, onClose, message, conversationTitle }) => {
         </div>
 
         {/* Footer Actions */}
-        <div className="p-4 sm:p-6 border-t border-zinc-800 bg-[#18181b]">
+        <div className="border-t border-zinc-800 bg-[#18181b] p-4 sm:p-6">
           {/* Primary Action */}
           <div className="mb-4 sm:mb-6">
             <button
               onClick={handleDownload}
-              className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-xl font-medium transition-colors"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3 font-medium text-white transition-colors hover:bg-blue-500"
             >
               <Download size={20} />
               {t('shareModal.downloadImage')}
@@ -225,7 +225,7 @@ const ShareModal = ({ isOpen, onClose, message, conversationTitle }) => {
           </div>
 
           {/* Social Actions (Placeholders) */}
-          <div className="flex justify-center gap-6 sm:gap-8 px-2 sm:px-4">
+          <div className="flex justify-center gap-6 px-2 sm:gap-8 sm:px-4">
             <ShareAction
               icon={<Copy size={20} />}
               label={copySuccess ? t('shareModal.copied') : t('shareModal.copyLink')}
@@ -243,7 +243,7 @@ const ShareModal = ({ isOpen, onClose, message, conversationTitle }) => {
               onClick={() => handleSocialShare('linkedin')}
             />
             <ShareAction
-              icon={<div className="font-bold text-lg leading-none">R</div>}
+              icon={<div className="text-lg leading-none font-bold">R</div>}
               label={t('shareModal.reddit')}
               onClick={() => handleSocialShare('reddit')}
             />
@@ -258,10 +258,10 @@ const ShareModal = ({ isOpen, onClose, message, conversationTitle }) => {
 const ShareAction = ({ icon, label, onClick, active }) => (
   <button
     onClick={onClick}
-    className={`flex flex-col items-center gap-2 group ${active ? 'text-green-500' : 'text-zinc-400 hover:text-white'}`}
+    className={`group flex flex-col items-center gap-2 ${active ? 'text-green-500' : 'text-zinc-400 hover:text-white'}`}
   >
     <div
-      className={`w-10 h-10 rounded-full flex items-center justify-center bg-zinc-800 transition-all ${active ? 'bg-green-500/10' : 'group-hover:bg-zinc-700'}`}
+      className={`flex h-10 w-10 items-center justify-center rounded-full bg-zinc-800 transition-all ${active ? 'bg-green-500/10' : 'group-hover:bg-zinc-700'}`}
     >
       {icon}
     </div>

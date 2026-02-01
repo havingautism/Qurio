@@ -1553,7 +1553,7 @@ const DeepResearchChatInterface = ({
   return (
     <div
       className={clsx(
-        'flex-1 h-full bg-background text-foreground transition-all duration-300 flex flex-col sm:px-4',
+        'bg-background text-foreground flex h-full flex-1 flex-col transition-all duration-300 sm:px-4',
         isSidebarPinned ? 'md:ml-72' : 'md:ml-16',
         // Fixed left shift for large screens
         // 'xl:-translate-x-30',
@@ -1561,7 +1561,7 @@ const DeepResearchChatInterface = ({
         !isXLScreen && 'sidebar-shift',
       )}
     >
-      <div className="w-full relative flex flex-col flex-1 min-h-0">
+      <div className="relative flex min-h-0 w-full flex-1 flex-col">
         {/* Title Bar */}
         <ChatHeader
           toggleSidebar={toggleSidebar}
@@ -1588,11 +1588,11 @@ const DeepResearchChatInterface = ({
         {/* Messages Scroll Container */}
         <div
           ref={messagesContainerRef}
-          className="flex-1 overflow-y-auto overflow-x-hidden sm:p-2 relative no-scrollbar"
+          className="no-scrollbar relative flex-1 overflow-x-hidden overflow-y-auto sm:p-2"
         >
-          <div className="w-full px-0 sm:px-5 max-w-3xl mx-auto">
+          <div className="mx-auto w-full max-w-3xl px-0 sm:px-5">
             {showHistoryLoader && (
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+              <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
                 <FancyLoader />
               </div>
             )}
@@ -1612,7 +1612,7 @@ const DeepResearchChatInterface = ({
         {showScrollButton && (
           <button
             onClick={() => scrollToBottom('smooth')}
-            className="absolute bottom-6 sm:bottom-8 left-1/2 -translate-x-1/2 p-2.5 bg-white dark:bg-zinc-800 border border-gray-200/60 dark:border-zinc-700/60 rounded-full shadow-lg hover:bg-gray-50 dark:hover:bg-zinc-700 transition-all duration-300 animate-in fade-in slide-in-from-bottom-2 z-30 hover:scale-105 active:scale-95"
+            className="animate-in fade-in slide-in-from-bottom-2 absolute bottom-6 left-1/2 z-30 -translate-x-1/2 rounded-full border border-gray-200/60 bg-white p-2.5 shadow-lg transition-all duration-300 hover:scale-105 hover:bg-gray-50 active:scale-95 sm:bottom-8 dark:border-zinc-700/60 dark:bg-zinc-800 dark:hover:bg-zinc-700"
           >
             <ArrowDown size={18} className="text-gray-700 dark:text-gray-300" strokeWidth={2} />
           </button>
@@ -1654,10 +1654,10 @@ const DeepResearchChatInterface = ({
 
         {/* Deep research conversations are single-turn; no input area. */}
         {isLoading && (
-          <div className="absolute bottom-6 sm:bottom-8 left-1/2 -translate-x-1/2 z-40">
+          <div className="absolute bottom-6 left-1/2 z-40 -translate-x-1/2 sm:bottom-8">
             <button
               onClick={stopGeneration}
-              className="flex items-center gap-2 px-5 py-2.5 bg-gray-900 dark:bg-zinc-100 text-white dark:text-gray-900 hover:bg-gray-800 dark:hover:bg-zinc-200 rounded-full shadow-lg transition-all animate-in fade-in slide-in-from-bottom-2 font-medium hover:scale-105 active:scale-95"
+              className="animate-in fade-in slide-in-from-bottom-2 flex items-center gap-2 rounded-full bg-gray-900 px-5 py-2.5 font-medium text-white shadow-lg transition-all hover:scale-105 hover:bg-gray-800 active:scale-95 dark:bg-zinc-100 dark:text-gray-900 dark:hover:bg-zinc-200"
             >
               <Square size={16} fill="currentColor" strokeWidth={2.5} />
               <span>{t('common.stop') || 'Stop'}</span>

@@ -14,53 +14,56 @@ The `tool_stream` parameter is designed to bring GLM's streaming tool call capab
 
 ### Capability Comparison Across Models | 跨模型能力对比
 
-| Model 模型 | Native Streaming Tool Calls 原生流式工具调用 | Requires Special Parameter 需要特殊参数 |
-|-------|---------------------------|---------------------------|
-| **OpenAI GPT-4** | ✅ Yes 是 | No 否 |
-| **Anthropic Claude** | ✅ Yes 是 | No 否 |
-| **Google Gemini** | ✅ Yes 是 | No 否 |
-| **GLM-4.6/4.7** | ⚠️ Requires `tool_stream=true` 需开启 | Yes 是 |
+| Model 模型           | Native Streaming Tool Calls 原生流式工具调用 | Requires Special Parameter 需要特殊参数 |
+| -------------------- | -------------------------------------------- | --------------------------------------- |
+| **OpenAI GPT-4**     | ✅ Yes 是                                    | No 否                                   |
+| **Anthropic Claude** | ✅ Yes 是                                    | No 否                                   |
+| **Google Gemini**    | ✅ Yes 是                                    | No 否                                   |
+| **GLM-4.6/4.7**      | ⚠️ Requires `tool_stream=true` 需开启        | Yes 是                                  |
 
 ### GLM Default Behavior | GLM 默认行为
 
 **Without `tool_stream` | 不开启 `tool_stream`:**
+
 ```
 Text 文本: "Let me search for the weather..." [Streaming 流式] ✅
 Tool params 工具参数: {"location":"Beijing","unit":"celsius"} [Single chunk 一次性返回] ❌
 ```
 
 **With `tool_stream=true` | 开启 `tool_stream=true`:**
+
 ```
 Text 文本: "Let me search for the weather..." [Streaming 流式] ✅
 Tool params 工具参数: {"location":"Beijing","unit":"celsius"} [Streaming chunks 流式分块] ✅
 ```
 
 > **Note | 说明:** `tool_stream` is GLM's way of achieving feature parity with industry-standard streaming tool call behavior.
-> 
+>
 > `tool_stream` 是 GLM 为了达到行业标准流式工具调用行为而设计的功能补齐。
 
 ## Feature Comparison | 功能对比
 
 ### Streaming vs Non-Streaming | 流式 vs 非流式
 
-| Aspect 方面 | Non-Streaming 非流式 | Streaming (no `tool_stream`) 流式(无 `tool_stream`) | Streaming (with `tool_stream`) 流式(启用 `tool_stream`) |
-|--------|--------------|----------------------------|-------------------------------|
-| **Text Content 文本内容** | One-time return 一次性返回 | Chunked streaming ✅ 分块流式 | Chunked streaming ✅ 分块流式 |
-| **Tool Parameters 工具参数** | One-time return 一次性返回 | One-time return 一次性返回 | Chunked streaming ✅ 分块流式 |
-| **User Experience 用户体验** | Wait for everything 等待全部完成 | See text first, then tool appears 先看到文本,然后工具出现 | Everything flows smoothly 一切流畅呈现 |
+| Aspect 方面                  | Non-Streaming 非流式             | Streaming (no `tool_stream`) 流式(无 `tool_stream`)       | Streaming (with `tool_stream`) 流式(启用 `tool_stream`) |
+| ---------------------------- | -------------------------------- | --------------------------------------------------------- | ------------------------------------------------------- |
+| **Text Content 文本内容**    | One-time return 一次性返回       | Chunked streaming ✅ 分块流式                             | Chunked streaming ✅ 分块流式                           |
+| **Tool Parameters 工具参数** | One-time return 一次性返回       | One-time return 一次性返回                                | Chunked streaming ✅ 分块流式                           |
+| **User Experience 用户体验** | Wait for everything 等待全部完成 | See text first, then tool appears 先看到文本,然后工具出现 | Everything flows smoothly 一切流畅呈现                  |
 
 ### Tool Parameter Streaming Detail | 工具参数流式详情
 
-| Aspect 方面 | With `tool_stream: true` 启用 `tool_stream: true` | Without `tool_stream` 不启用 `tool_stream` |
-|--------|-------------------------|----------------------|
-| **Chunk Count 分块数量** | 12 chunks 12个分块 | 1 chunk 1个分块 |
-| **Chunk Size 分块大小** | 1-5 characters per chunk 每块1-5字符 | 48-55 characters (complete JSON) 48-55字符(完整JSON) |
-| **Parameter Generation 参数生成** | Streamed during generation 生成过程中流式输出 | Waits for complete JSON 等待完整JSON |
-| **User Experience 用户体验** | Parameters appear to generate in real-time 参数实时生成显示 | Parameters appear all at once 参数一次性出现 |
+| Aspect 方面                       | With `tool_stream: true` 启用 `tool_stream: true`           | Without `tool_stream` 不启用 `tool_stream`           |
+| --------------------------------- | ----------------------------------------------------------- | ---------------------------------------------------- |
+| **Chunk Count 分块数量**          | 12 chunks 12个分块                                          | 1 chunk 1个分块                                      |
+| **Chunk Size 分块大小**           | 1-5 characters per chunk 每块1-5字符                        | 48-55 characters (complete JSON) 48-55字符(完整JSON) |
+| **Parameter Generation 参数生成** | Streamed during generation 生成过程中流式输出               | Waits for complete JSON 等待完整JSON                 |
+| **User Experience 用户体验**      | Parameters appear to generate in real-time 参数实时生成显示 | Parameters appear all at once 参数一次性出现         |
 
 ## Example Comparison | 示例对比
 
 ### With `tool_stream` enabled | 启用 `tool_stream`:
+
 ```
 [GLM RAW TOOL PARAM CHUNK #0] argChunkLength: 2, '{"'
 [GLM RAW TOOL PARAM CHUNK #1] argChunkLength: 5, 'query'
@@ -72,6 +75,7 @@ Tool params 工具参数: {"location":"Beijing","unit":"celsius"} [Streaming chu
 ```
 
 ### Without `tool_stream` | 不启用 `tool_stream`:
+
 ```
 [GLM RAW TOOL PARAM CHUNK #0] argChunkLength: 48, '{"query":"Dota2 latest update patch notes 2025"}'
 ```
@@ -79,6 +83,7 @@ Tool params 工具参数: {"location":"Beijing","unit":"celsius"} [Streaming chu
 ## Implementation Details | 实现细节
 
 ### Request Format | 请求格式
+
 ```json
 {
   "model": "glm-4.7",
@@ -94,10 +99,12 @@ Tool params 工具参数: {"location":"Beijing","unit":"celsius"} [Streaming chu
 **重要:** `tool_stream` 必须位于请求体的顶层,不能嵌套在 `extra_body` 内部。
 
 ### Supported Models | 支持的模型
+
 - GLM-4.6
 - GLM-4.7
 
 ### Code Location | 代码位置
+
 - `backend/src/services/providers/GLMAdapter.js`
 
 ## Key Insights | 核心要点

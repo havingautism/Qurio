@@ -416,16 +416,16 @@ const HomeView = () => {
 
   const homeUploadMenuContent = (
     <>
-      <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-2 mb-2">
+      <div className="mb-2 px-2 text-[10px] font-bold tracking-widest text-gray-400 uppercase">
         {t('common.upload')}
       </div>
       <div className="space-y-1">
         <button
           type="button"
           onClick={handleHomeImageUpload}
-          className="flex items-center mb-1.5 gap-1.5 w-full px-3 py-2 hover:bg-gray-50 dark:hover:bg-zinc-800 text-sm rounded-xl"
+          className="mb-1.5 flex w-full items-center gap-1.5 rounded-xl px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-zinc-800"
         >
-          <div className="p-1.5 bg-primary-100 dark:bg-primary-900/30 rounded-lg">
+          <div className="bg-primary-100 dark:bg-primary-900/30 rounded-lg p-1.5">
             <Image size={16} className="text-primary-500" />
           </div>
           {t('common.uploadImage')}
@@ -442,7 +442,7 @@ const HomeView = () => {
         </button> */}
       </div>
       {shouldShowHomeDocuments && (
-        <div className="border-t border-gray-200/70 dark:border-zinc-700/50 pt-3">
+        <div className="border-t border-gray-200/70 pt-3 dark:border-zinc-700/50">
           <DocumentsSection
             documents={homeSpaceDocuments}
             documentsLoading={homeDocumentsLoading}
@@ -679,16 +679,16 @@ const HomeView = () => {
   }, [spaces, deepResearchSpace?.id])
 
   const renderHomeSpaceMenuContent = () => (
-    <div className="px-2 py-1 flex flex-col divide-y space-y-1  divide-gray-200 dark:divide-zinc-800">
+    <div className="flex flex-col space-y-1 divide-y divide-gray-200 px-2 py-1 dark:divide-zinc-800">
       <div>
         <button
           onClick={handleSelectHomeSpaceAuto}
-          className={`flex mb-1 items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left ${
+          className={`mb-1 flex w-full items-center justify-between rounded-lg px-3 py-2 text-left transition-colors hover:bg-gray-100 dark:hover:bg-zinc-700/50 ${
             isHomeSpaceAuto ? 'text-primary-500' : 'text-gray-700 dark:text-gray-200'
           }`}
         >
           <div className="flex items-center gap-3">
-            <span className="text-lg flex items-center justify-center">
+            <span className="flex items-center justify-center text-lg">
               <EmojiDisplay emoji={'✨'} size="1.25rem" />
             </span>
             <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
@@ -702,13 +702,13 @@ const HomeView = () => {
         const isSelected = homeSelectedSpace?.label === space.label
         return (
           <div key={idx}>
-            <div key={idx + 'content'} className="rounded-lg mb-1">
+            <div key={idx + 'content'} className="mb-1 rounded-lg">
               <button
                 onClick={() => handleToggleHomeSpace(space)}
-                className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left"
+                className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left transition-colors hover:bg-gray-100 dark:hover:bg-zinc-700/50"
               >
                 <div className="flex items-center gap-3">
-                  <span className="text-lg flex items-center justify-center">
+                  <span className="flex items-center justify-center text-lg">
                     <EmojiDisplay emoji={space.emoji} size="1.25rem" />
                   </span>
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
@@ -726,11 +726,11 @@ const HomeView = () => {
                 </div>
               </button>
               {homeExpandedSpaceId === space.id && (
-                <div className="ml-3 mt-1 mb-2 flex flex-col gap-1">
+                <div className="mt-1 mb-2 ml-3 flex flex-col gap-1">
                   <button
                     type="button"
                     onClick={() => handleSelectHomeAgentAuto(space)}
-                    className={`flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left ${
+                    className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left transition-colors hover:bg-gray-100 dark:hover:bg-zinc-700/50 ${
                       isHomeAgentAuto && isSelected
                         ? 'text-primary-500'
                         : 'text-gray-700 dark:text-gray-200'
@@ -744,9 +744,9 @@ const HomeView = () => {
                   {homeAgentsLoading && isSelected ? (
                     <div className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400">
                       <div className="flex items-center gap-1">
-                        <span className="inline-flex w-1.5 h-1.5 rounded-full bg-current animate-bounce [animation-delay:-0.2s]" />
-                        <span className="inline-flex w-1.5 h-1.5 rounded-full bg-current animate-bounce [animation-delay:-0.1s]" />
-                        <span className="inline-flex w-1.5 h-1.5 rounded-full bg-current animate-bounce" />
+                        <span className="inline-flex h-1.5 w-1.5 animate-bounce rounded-full bg-current [animation-delay:-0.2s]" />
+                        <span className="inline-flex h-1.5 w-1.5 animate-bounce rounded-full bg-current [animation-delay:-0.1s]" />
+                        <span className="inline-flex h-1.5 w-1.5 animate-bounce rounded-full bg-current" />
                       </div>
                     </div>
                   ) : homeAgents.length === 0 && isSelected ? (
@@ -764,17 +764,17 @@ const HomeView = () => {
                           key={agent.id}
                           type="button"
                           onClick={() => handleSelectHomeAgent(space, agent.id)}
-                          className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-700/50 transition-colors text-left"
+                          className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left transition-colors hover:bg-gray-100 dark:hover:bg-zinc-700/50"
                         >
                           <div className="flex items-center gap-2">
                             <span className="text-lg">
                               <EmojiDisplay emoji={agent.emoji} size="1.125rem" />
                             </span>
-                            <span className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate">
+                            <span className="truncate text-sm font-medium text-gray-700 dark:text-gray-200">
                               {getAgentDisplayName(agent, t)}
                             </span>
                             {isDefault && (
-                              <span className="text-xs px-1.5 py-0.5 bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 rounded-md font-medium">
+                              <span className="bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 rounded-md px-1.5 py-0.5 text-xs font-medium">
                                 {t('homeView.default')}
                               </span>
                             )}
@@ -794,9 +794,9 @@ const HomeView = () => {
   )
 
   return (
-    <div className="flex-1 h-full bg-background text-foreground transition-colors duration-300 relative flex flex-col overflow-hidden">
+    <div className="bg-background text-foreground relative flex h-full flex-1 flex-col overflow-hidden transition-colors duration-300">
       {/* Elegant Ambient Background Glow - Layered for Depth */}
-      <div className="absolute inset-0 z-0 pointer-events-none select-none">
+      <div className="pointer-events-none absolute inset-0 z-0 select-none">
         {/* Deep ambient base layer - lighter for light mode */}
         <div
           className="absolute inset-0 opacity-20 dark:opacity-40"
@@ -807,7 +807,7 @@ const HomeView = () => {
         />
         {/* Mid-tone accent layer - softer and larger */}
         <div
-          className="absolute inset-0 opacity-15 dark:opacity-35 blur-3xl"
+          className="absolute inset-0 opacity-15 blur-3xl dark:opacity-35"
           style={{
             background:
               'radial-gradient(circle at 30% 20%, var(--color-primary-200) 0%, transparent 35%), radial-gradient(circle at 70% 60%, var(--color-primary-300) 0%, transparent 40%)',
@@ -815,7 +815,7 @@ const HomeView = () => {
         />
         {/* Highlight layer - subtle warm accents */}
         <div
-          className="absolute inset-0 opacity-10 dark:opacity-25 blur-2xl"
+          className="absolute inset-0 opacity-10 blur-2xl dark:opacity-25"
           style={{
             background:
               'radial-gradient(circle at 15% 35%, rgba(168, 85, 247, 0.2) 0%, transparent 30%), radial-gradient(circle at 85% 15%, rgba(59, 130, 246, 0.15) 0%, transparent 35%)',
@@ -832,11 +832,11 @@ const HomeView = () => {
       </div>
 
       {/* Mobile Header for Home View */}
-      <div className="md:hidden w-full h-12 shrink-0 border-b border-gray-200 dark:border-zinc-800 flex items-center justify-between px-4 bg-background z-30">
+      <div className="bg-background z-30 flex h-12 w-full shrink-0 items-center justify-between border-b border-gray-200 px-4 md:hidden dark:border-zinc-800">
         <div className="flex items-center gap-3">
           <button
             onClick={toggleSidebar}
-            className="p-2 -ml-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg"
+            className="-ml-2 rounded-lg p-2 text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-zinc-800"
           >
             <Menu size={20} />
           </button>
@@ -849,41 +849,41 @@ const HomeView = () => {
       <div
         ref={homeContainerRef}
         className={clsx(
-          'flex-1 h-full overflow-y-auto p-4 transition-all duration-300 flex flex-col items-center',
+          'flex h-full flex-1 flex-col items-center overflow-y-auto p-4 transition-all duration-300',
           isSidebarPinned ? 'md:ml-72' : 'md:ml-16',
         )}
       >
         {/* Main Container */}
-        <div className="w-full max-w-3xl flex flex-col items-center gap-4 sm:gap-8 sm:mt-12">
-          <div className="p-4 block sm:hidden rounded-3xl mb-2">
+        <div className="flex w-full max-w-3xl flex-col items-center gap-4 sm:mt-12 sm:gap-8">
+          <div className="mb-2 block rounded-3xl p-4 sm:hidden">
             <Logo size={128} className="text-gray-900 dark:text-white" priority />
           </div>
           {/* Title */}
-          <h1 className="home-title text-3xl md:text-5xl font-serif! font-medium text-center mb-4 mt-0 sm:mb-8 text-gray-700 dark:text-white">
+          <h1 className="home-title mt-0 mb-4 text-center font-serif! text-3xl font-medium text-gray-700 sm:mb-8 md:text-5xl dark:text-white">
             {t('app.tagline')}
           </h1>
 
           {/* Search Box */}
-          <div className="home-search-box w-full relative group z-20">
-            <div className="absolute inset-0 input-glow-veil rounded-xl blur-2xl opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-500 pointer-events-none" />
-            <div className="relative bg-white dark:bg-zinc-900 border border-stone-200/60 dark:border-zinc-700/60 rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 p-4">
+          <div className="home-search-box group relative z-20 w-full">
+            <div className="input-glow-veil pointer-events-none absolute inset-0 rounded-xl opacity-0 blur-2xl transition-opacity duration-500 group-focus-within:opacity-100 group-hover:opacity-100" />
+            <div className="relative rounded-2xl border border-stone-200/60 bg-white p-4 shadow-sm transition-all duration-300 hover:shadow-md dark:border-zinc-700/60 dark:bg-zinc-900">
               {(homeAttachments.length > 0 || homeSelectedDocuments.length > 0) && (
-                <div className="flex gap-2 mb-3 px-2 py-2 code-scrollbar overflow-x-auto rounded-xl border border-gray-200/70 dark:border-zinc-700/50 bg-[#F9F9F9] dark:bg-[#1a1a1a]">
+                <div className="code-scrollbar mb-3 flex gap-2 overflow-x-auto rounded-xl border border-gray-200/70 bg-[#F9F9F9] px-2 py-2 dark:border-zinc-700/50 dark:bg-[#1a1a1a]">
                   {homeAttachments.map((att, idx) => (
                     <div
                       key={`img-${idx}`}
-                      className="relative group/img shrink-0 w-16 h-16 rounded-lg overflow-hidden border border-gray-200 dark:border-zinc-800 shadow-sm"
+                      className="group/img relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-gray-200 shadow-sm dark:border-zinc-800"
                     >
                       <img
                         src={att.image_url.url}
                         alt="attachment"
-                        className="w-full h-full object-cover"
+                        className="h-full w-full object-cover"
                       />
                       <button
                         onClick={() =>
                           setHomeAttachments(homeAttachments.filter((_, i) => i !== idx))
                         }
-                        className="absolute top-0.5 right-0.5 bg-black/60 dark:bg-white/60 dark:text-black text-white rounded-full p-0.5 opacity-100 sm:opacity-0 sm:group-hover/img:opacity-100 transition-opacity"
+                        className="absolute top-0.5 right-0.5 rounded-full bg-black/60 p-0.5 text-white opacity-100 transition-opacity sm:opacity-0 sm:group-hover/img:opacity-100 dark:bg-white/60 dark:text-black"
                       >
                         <X size={12} />
                       </button>
@@ -892,17 +892,17 @@ const HomeView = () => {
                   {homeSelectedDocuments.map(doc => (
                     <div
                       key={`doc-${doc.id}`}
-                      className="relative group/doc shrink-0 min-w-[110px] overflow-hidden rounded-xl border border-gray-200 dark:border-zinc-700/50 bg-white dark:bg-[#111] shadow-sm"
+                      className="group/doc relative min-w-[110px] shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-zinc-700/50 dark:bg-[#111]"
                     >
                       <div className="flex h-full flex-col items-center justify-center gap-1 px-2 py-2 text-center">
                         <FileIcon fileType={doc.file_type} className="h-5 w-5" />
-                        <span className="text-[12px] font-semibold text-gray-900 dark:text-white truncate">
+                        <span className="truncate text-[12px] font-semibold text-gray-900 dark:text-white">
                           {doc.name.replace(/\.[^/.]+$/, '')}
                         </span>
                       </div>
                       <button
                         onClick={() => toggleHomeDocument(doc.id)}
-                        className="absolute top-1.5 right-3 bg-black/60 dark:bg-white/60 dark:text-black text-white rounded-full p-0.5 opacity-100 sm:opacity-0 sm:group-hover/doc:opacity-100 transition-opacity"
+                        className="absolute top-1.5 right-3 rounded-full bg-black/60 p-0.5 text-white opacity-100 transition-opacity sm:opacity-0 sm:group-hover/doc:opacity-100 dark:bg-white/60 dark:text-black"
                       >
                         <X size={12} />
                       </button>
@@ -915,13 +915,13 @@ const HomeView = () => {
                   <div
                     ref={homeInputHighlightRef}
                     aria-hidden="true"
-                    className="pointer-events-none absolute inset-0 overflow-hidden text-lg whitespace-pre-wrap break-words text-gray-900 dark:text-gray-100"
+                    className="pointer-events-none absolute inset-0 overflow-hidden text-lg wrap-break-word whitespace-pre-wrap text-gray-900 dark:text-gray-100"
                   >
                     {homeInputParts.map((part, index) =>
                       part.type === 'url' ? (
                         <span
                           key={`url-${index}`}
-                          className="bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 rounded-sm underline decoration-primary-400/70"
+                          className="bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 decoration-primary-400/70 rounded-sm underline"
                         >
                           {part.value}
                         </span>
@@ -951,12 +951,12 @@ const HomeView = () => {
                     }
                   }}
                   placeholder={t('homeView.askAnything')}
-                  className="relative z-10 w-full bg-transparent border-none outline-none resize-none text-lg text-transparent caret-gray-900 dark:caret-gray-100 placeholder-gray-400 dark:placeholder-gray-500 min-h-[60px] max-h-[200px] overflow-y-auto"
+                  className="relative z-10 max-h-[200px] min-h-[60px] w-full resize-none overflow-y-auto border-none bg-transparent text-lg text-transparent placeholder-gray-400 caret-gray-900 outline-none dark:placeholder-gray-500 dark:caret-gray-100"
                   rows={1}
                 />
               </div>
 
-              <div className="flex justify-between items-center mt-2">
+              <div className="mt-2 flex items-center justify-between">
                 <div className="flex gap-2">
                   <input
                     type="file"
@@ -970,10 +970,10 @@ const HomeView = () => {
                     <button
                       type="button"
                       onClick={() => setIsHomeUploadMenuOpen(prev => !prev)}
-                      className={`p-2 rounded-lg transition-all duration-200 flex items-center gap-2 text-sm font-medium ${
+                      className={`flex items-center gap-2 rounded-lg p-2 text-sm font-medium transition-all duration-200 ${
                         homeAttachments.length > 0
                           ? 'text-primary-500 bg-primary-50 dark:bg-primary-900/20'
-                          : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-zinc-800'
+                          : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-zinc-800'
                       }`}
                     >
                       <Paperclip size={18} strokeWidth={2} />
@@ -981,7 +981,7 @@ const HomeView = () => {
                     {/* Upload Dropdown */}
                     {isHomeUploadMenuOpen && !isHomeMobile && (
                       <UploadPopover className="top-full w-72">
-                        <div className="max-h-[min(calc(100vh-140px),600px)] overflow-y-auto no-scrollbar scroll-smooth">
+                        <div className="no-scrollbar max-h-[min(calc(100vh-140px),600px)] overflow-y-auto scroll-smooth">
                           {homeUploadMenuContent}
                         </div>
                       </UploadPopover>
@@ -1002,11 +1002,11 @@ const HomeView = () => {
                         return next
                       })
                     }
-                    className={`p-2 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
+                    className={`flex items-center gap-2 rounded-lg p-2 text-xs font-medium transition-colors ${
                       isHomeThinkingActive
                         ? 'text-primary-500 bg-gray-100 dark:bg-zinc-800'
                         : 'text-gray-500 dark:text-gray-400'
-                    } ${isHomeThinkingLocked ? 'opacity-60 cursor-not-allowed' : 'hover:bg-gray-100 dark:hover:bg-zinc-800'}`}
+                    } ${isHomeThinkingLocked ? 'cursor-not-allowed opacity-60' : 'hover:bg-gray-100 dark:hover:bg-zinc-800'}`}
                   >
                     <Brain size={18} />
                     <span className="hidden md:inline">{t('homeView.think')}</span>
@@ -1022,7 +1022,7 @@ const HomeView = () => {
                       }
                       value={isHomeSearchActive}
                       onClick={() => setIsHomeSearchMenuOpen(prev => !prev)}
-                      className={`p-2 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
+                      className={`flex items-center gap-2 rounded-lg p-2 text-xs font-medium transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800 ${
                         isHomeSearchActive
                           ? 'text-primary-500 bg-gray-100 dark:bg-zinc-800'
                           : 'text-gray-500 dark:text-gray-400'
@@ -1032,13 +1032,13 @@ const HomeView = () => {
                       <span className="hidden md:inline">{t('homeView.search')}</span>
                     </button>
                     {isHomeSearchMenuOpen && !isHomeMobile && (
-                      <div className="absolute top-full left-0 mt-2 w-56 bg-white dark:bg-[#202222] border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl z-50 overflow-hidden">
-                        <div className="px-4 py-2 text-[10px] uppercase tracking-wide text-gray-500 dark:text-zinc-400">
+                      <div className="absolute top-full left-0 z-50 mt-2 w-56 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl dark:border-zinc-700 dark:bg-[#202222]">
+                        <div className="px-4 py-2 text-[10px] tracking-wide text-gray-500 uppercase dark:text-zinc-400">
                           {/* {t('chatInterface.searchMenuTitle')} */}
                         </div>
-                        <div className="px-2 pb-2 space-y-3 max-h-[min(calc(100vh-140px),550px)] overflow-y-auto no-scrollbar scroll-smooth">
+                        <div className="no-scrollbar max-h-[min(calc(100vh-140px),550px)] space-y-3 overflow-y-auto scroll-smooth px-2 pb-2">
                           <div className="space-y-3">
-                            <div className="px-2 py-1 text-[10px] uppercase tracking-wide text-gray-500 dark:text-zinc-400">
+                            <div className="px-2 py-1 text-[10px] tracking-wide text-gray-500 uppercase dark:text-zinc-400">
                               {t('tools.webSearch')}
                             </div>
                             <div className="flex flex-col gap-1">
@@ -1050,7 +1050,7 @@ const HomeView = () => {
                                     type="button"
                                     onClick={() => handleSelectHomeSearchBackend(option.id)}
                                     className={clsx(
-                                      'w-full px-3 py-2 text-left text-sm flex items-center justify-between transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg',
+                                      'flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800',
                                       isActive
                                         ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400'
                                         : 'text-gray-700 dark:text-gray-200',
@@ -1076,7 +1076,7 @@ const HomeView = () => {
                           </div>
                           <div className="h-px bg-gray-200 dark:bg-zinc-700/70" />
                           <div className="space-y-3">
-                            <div className="px-2 py-1 text-[10px] uppercase tracking-wide text-gray-500 dark:text-zinc-400">
+                            <div className="px-2 py-1 text-[10px] tracking-wide text-gray-500 uppercase dark:text-zinc-400">
                               {t('tools.academicSearch')}
                             </div>
                             <div className="flex flex-col gap-1">
@@ -1089,7 +1089,7 @@ const HomeView = () => {
                                     type="button"
                                     onClick={() => handleSelectHomeSearchTool(option.id)}
                                     className={clsx(
-                                      'w-full px-3 py-2 text-left text-sm flex items-center justify-between transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg',
+                                      'flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800',
                                       isActive
                                         ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400'
                                         : 'text-gray-700 dark:text-gray-200',
@@ -1117,7 +1117,7 @@ const HomeView = () => {
                           <button
                             type="button"
                             onClick={handleClearHomeSearch}
-                            className="w-full px-3 py-2 text-left text-sm text-gray-500 dark:text-gray-400 flex items-center justify-between hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors rounded-lg"
+                            className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm text-gray-500 transition-colors hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-zinc-800"
                           >
                             <span>{t('common.close')}</span>
                           </button>
@@ -1128,22 +1128,22 @@ const HomeView = () => {
                       open={isHomeSearchMenuOpen && isHomeMobile}
                       onOpenChange={setIsHomeSearchMenuOpen}
                     >
-                      <DrawerContent className="max-h-[70vh] rounded-t-3xl bg-white dark:bg-[#1E1E1E] border-t border-gray-200 dark:border-zinc-800">
-                        <div className="px-5 py-4 flex items-center justify-between shrink-0 border-b border-gray-100 dark:border-zinc-800/50">
-                          <h3 className="text-base font-bold text-gray-900 dark:text-gray-100 leading-none">
+                      <DrawerContent className="max-h-[70vh] rounded-t-3xl border-t border-gray-200 bg-white dark:border-zinc-800 dark:bg-[#1E1E1E]">
+                        <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-zinc-800/50">
+                          <h3 className="text-base leading-none font-bold text-gray-900 dark:text-gray-100">
                             {/* {t('chatInterface.searchMenuTitle')} */}
                           </h3>
                           <button
                             onClick={() => setIsHomeSearchMenuOpen(false)}
-                            className="p-2 -mr-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-full hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
+                            className="-mr-2 rounded-full p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-zinc-800 dark:hover:text-gray-200"
                           >
                             <X size={20} />
                           </button>
                         </div>
-                        <div className="overflow-y-auto min-h-0 p-3">
+                        <div className="min-h-0 overflow-y-auto p-3">
                           <div className="space-y-4">
                             <div className="space-y-3">
-                              <div className="px-2 py-1 text-[10px] uppercase tracking-wide text-gray-500 dark:text-zinc-400">
+                              <div className="px-2 py-1 text-[10px] tracking-wide text-gray-500 uppercase dark:text-zinc-400">
                                 {t('tools.webSearch')}
                               </div>
                               <div className="flex flex-col gap-1">
@@ -1155,7 +1155,7 @@ const HomeView = () => {
                                       type="button"
                                       onClick={() => handleSelectHomeSearchBackend(option.id)}
                                       className={clsx(
-                                        'w-full px-4 py-3 text-left text-sm flex items-center justify-between transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg',
+                                        'flex w-full items-center justify-between rounded-lg px-4 py-3 text-left text-sm transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800',
                                         isActive
                                           ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400'
                                           : 'text-gray-700 dark:text-gray-200',
@@ -1181,7 +1181,7 @@ const HomeView = () => {
                             </div>
                             <div className="h-px bg-gray-200 dark:bg-zinc-700/70" />
                             <div className="space-y-3">
-                              <div className="px-2 py-1 text-[10px] uppercase tracking-wide text-gray-500 dark:text-zinc-400">
+                              <div className="px-2 py-1 text-[10px] tracking-wide text-gray-500 uppercase dark:text-zinc-400">
                                 {t('tools.academicSearch')}
                               </div>
                               <div className="flex flex-col gap-1">
@@ -1194,7 +1194,7 @@ const HomeView = () => {
                                       type="button"
                                       onClick={() => handleSelectHomeSearchTool(option.id)}
                                       className={clsx(
-                                        'w-full px-4 py-3 text-left text-sm flex items-center justify-between transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg',
+                                        'flex w-full items-center justify-between rounded-lg px-4 py-3 text-left text-sm transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800',
                                         isActive
                                           ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400'
                                           : 'text-gray-700 dark:text-gray-200',
@@ -1222,7 +1222,7 @@ const HomeView = () => {
                             <button
                               type="button"
                               onClick={handleClearHomeSearch}
-                              className="w-full px-4 py-3 text-left text-sm text-gray-500 dark:text-gray-400 flex items-center justify-between hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg"
+                              className="flex w-full items-center justify-between rounded-lg px-4 py-3 text-left text-sm text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-zinc-800"
                             >
                               <span>{t('common.close')}</span>
                             </button>
@@ -1236,21 +1236,21 @@ const HomeView = () => {
                   <div className="relative" ref={homeSpaceSelectorRef}>
                     <button
                       onClick={() => setIsHomeSpaceSelectorOpen(!isHomeSpaceSelectorOpen)}
-                      className={`px-3 py-2 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium ${
+                      className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition-colors ${
                         isHomeSpaceAuto
                           ? 'text-gray-500 dark:text-gray-400'
                           : 'text-primary-500 bg-gray-100 dark:bg-zinc-800'
                       } hover:bg-gray-100 dark:hover:bg-zinc-800`}
                     >
                       <LayoutGrid size={18} />
-                      <div className="hidden md:flex items-center gap-1 text-xs font-medium text-gray-900 dark:text-white min-w-0">
+                      <div className="hidden min-w-0 items-center gap-1 text-xs font-medium text-gray-900 md:flex dark:text-white">
                         {resolvedSpaceEmoji && (
                           <EmojiDisplay emoji={resolvedSpaceEmoji} size="1.15rem" />
                         )}
                         <span className="truncate">{resolvedSpaceLabel}</span>
                         {!showOnlySpaceLabel && (
                           <>
-                            <span className="text-gray-400 dark:text-gray-500 select-none">·</span>
+                            <span className="text-gray-400 select-none dark:text-gray-500">·</span>
                             {resolvedAgentEmoji && (
                               <EmojiDisplay emoji={resolvedAgentEmoji} size="1.15rem" />
                             )}
@@ -1263,8 +1263,8 @@ const HomeView = () => {
                       <ChevronDown size={14} />
                     </button>
                     {!isHomeMobile && isHomeSpaceSelectorOpen && (
-                      <div className="absolute top-full left-0 mt-2 w-60 bg-white dark:bg-[#202222] border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl z-50 overflow-hidden">
-                        <div className="max-h-[min(calc(100vh-140px),500px)] overflow-y-auto no-scrollbar scroll-smooth">
+                      <div className="absolute top-full left-0 z-50 mt-2 w-60 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl dark:border-zinc-700 dark:bg-[#202222]">
+                        <div className="no-scrollbar max-h-[min(calc(100vh-140px),500px)] overflow-y-auto scroll-smooth">
                           {renderHomeSpaceMenuContent()}
                         </div>
                       </div>
@@ -1276,21 +1276,21 @@ const HomeView = () => {
                       open={isHomeSpaceSelectorOpen}
                       onOpenChange={setIsHomeSpaceSelectorOpen}
                     >
-                      <DrawerContent className="max-h-[85vh] rounded-t-3xl bg-white dark:bg-[#1E1E1E] border-t border-gray-200 dark:border-zinc-800">
-                        <div className="px-5 py-4 flex items-center justify-between shrink-0 border-b border-gray-100 dark:border-zinc-800/50">
+                      <DrawerContent className="max-h-[85vh] rounded-t-3xl border-t border-gray-200 bg-white dark:border-zinc-800 dark:bg-[#1E1E1E]">
+                        <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-zinc-800/50">
                           <div className="flex flex-col">
-                            <h3 className="text-base font-bold text-gray-900 dark:text-gray-100 leading-none mb-1">
+                            <h3 className="mb-1 text-base leading-none font-bold text-gray-900 dark:text-gray-100">
                               {t('homeView.spaces') + ' and ' + t('homeView.agents')}
                             </h3>
                           </div>
                           <button
                             onClick={() => setIsHomeSpaceSelectorOpen(false)}
-                            className="p-2 -mr-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-full hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
+                            className="-mr-2 rounded-full p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-zinc-800 dark:hover:text-gray-200"
                           >
                             <X size={20} />
                           </button>
                         </div>
-                        <div className="overflow-y-auto min-h-0 p-3">
+                        <div className="min-h-0 overflow-y-auto p-3">
                           {renderHomeSpaceMenuContent()}
                         </div>
                         <div className="h-6 shrink-0" />
@@ -1303,7 +1303,7 @@ const HomeView = () => {
                   <button
                     onClick={handleStartChat}
                     disabled={!homeInput.trim() && homeAttachments.length === 0}
-                    className="p-2 bg-primary-500 hover:bg-primary-600 text-white rounded-full transition-colors disabled:opacity-50  disabled:hover:bg-primary-500"
+                    className="bg-primary-500 hover:bg-primary-600 disabled:hover:bg-primary-500 rounded-full p-2 text-white transition-colors disabled:opacity-50"
                   >
                     <ArrowRight size={18} />
                   </button>
@@ -1312,7 +1312,7 @@ const HomeView = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full mb-1 px-0">
+          <div className="mb-1 grid w-full grid-cols-1 gap-4 px-0 md:grid-cols-2">
             <DeepResearchCard onClick={openDeepResearchGuide} />
             <SpaceShortcutCard
               spaces={spaces}

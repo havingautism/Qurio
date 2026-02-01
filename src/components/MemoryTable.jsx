@@ -30,7 +30,7 @@ const Badge = ({ children, className, variant = 'default' }) => {
   return (
     <span
       className={clsx(
-        'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border',
+        'inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium',
         variants[variant],
         className,
       )}
@@ -114,15 +114,15 @@ const MemoryTable = () => {
 
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center p-12 text-gray-500 gap-3">
-        <Loader2 className="w-6 h-6 animate-spin text-primary-500" />
+      <div className="flex flex-col items-center justify-center gap-3 p-12 text-gray-500">
+        <Loader2 className="text-primary-500 h-6 w-6 animate-spin" />
         <p className="text-sm">{t('common.loading')}</p>
       </div>
     )
   }
 
   return (
-    <div className="border border-gray-200 dark:border-zinc-800 rounded-lg overflow-hidden bg-white dark:bg-zinc-900/50 shadow-sm">
+    <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900/50">
       <Table>
         <TableHeader className="bg-gray-50/50 dark:bg-zinc-800/50">
           <TableRow className="hover:bg-transparent">
@@ -143,18 +143,18 @@ const MemoryTable = () => {
           {memories.map(memory => (
             <TableRow
               key={memory.id || memory.domain_key}
-              className="group hover:bg-gray-50 dark:hover:bg-zinc-800/50 transition-colors"
+              className="group transition-colors hover:bg-gray-50 dark:hover:bg-zinc-800/50"
             >
-              <TableCell className="align-top py-4">
+              <TableCell className="py-4 align-top">
                 {editingId === memory.id ? (
                   <Textarea
                     value={editForm.summary}
                     onChange={e => setEditForm(prev => ({ ...prev, summary: e.target.value }))}
-                    className="min-h-[80px] text-xs resize-y"
+                    className="min-h-[80px] resize-y text-xs"
                     placeholder="Memory summary..."
                   />
                 ) : (
-                  <div className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed whitespace-pre-wrap max-h-[120px] overflow-y-auto pr-2 custom-scrollbar">
+                  <div className="custom-scrollbar max-h-[120px] overflow-y-auto pr-2 text-sm leading-relaxed whitespace-pre-wrap text-gray-600 dark:text-gray-400">
                     {memory.latest_summary?.summary || memory.summary || (
                       <span className="text-gray-400 italic">No summary</span>
                     )}
@@ -162,11 +162,11 @@ const MemoryTable = () => {
                 )}
               </TableCell>
 
-              <TableCell className="align-top py-4">
+              <TableCell className="py-4 align-top">
                 <div className="flex items-center gap-2">
                   <Database size={14} className="text-primary-500/70 shrink-0" />
                   <span
-                    className="font-medium text-gray-900 dark:text-gray-100 truncate max-w-[110px]"
+                    className="max-w-[110px] truncate font-medium text-gray-900 dark:text-gray-100"
                     title={memory.domain_key}
                   >
                     {memory.domain_key}
@@ -174,10 +174,10 @@ const MemoryTable = () => {
                 </div>
               </TableCell>
 
-              <TableCell className="align-top py-4">
+              <TableCell className="py-4 align-top">
                 {editingId === memory.id ? (
                   <div className="flex flex-col gap-1">
-                    <span className="text-xs text-gray-500 font-medium px-1">Comma separated</span>
+                    <span className="px-1 text-xs font-medium text-gray-500">Comma separated</span>
                     <Input
                       value={editForm.aliases}
                       onChange={e => setEditForm(prev => ({ ...prev, aliases: e.target.value }))}
@@ -203,7 +203,7 @@ const MemoryTable = () => {
                 )}
               </TableCell>
 
-              <TableCell className="align-top py-4">
+              <TableCell className="py-4 align-top">
                 {editingId === memory.id ? (
                   <Input
                     value={editForm.scope}
@@ -212,7 +212,7 @@ const MemoryTable = () => {
                     placeholder="Scope"
                   />
                 ) : memory.scope ? (
-                  <Badge variant="outline" className="gap-1 max-w-full">
+                  <Badge variant="outline" className="max-w-full gap-1">
                     <Globe size={10} className="shrink-0" />
                     <span className="truncate">{memory.scope}</span>
                   </Badge>
@@ -221,8 +221,8 @@ const MemoryTable = () => {
                 )}
               </TableCell>
 
-              <TableCell className="align-top text-right py-4">
-                <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <TableCell className="py-4 text-right align-top">
+                <div className="flex items-center justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                   {editingId === memory.id ? (
                     <>
                       <Button
@@ -230,7 +230,7 @@ const MemoryTable = () => {
                         variant="ghost"
                         onClick={handleSave}
                         disabled={isSaving}
-                        className="h-8 w-8 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-full"
+                        className="h-8 w-8 rounded-full text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 dark:hover:bg-emerald-900/20"
                         title={t('common.save')}
                       >
                         {isSaving ? (
@@ -244,7 +244,7 @@ const MemoryTable = () => {
                         variant="ghost"
                         onClick={handleCancel}
                         disabled={isSaving}
-                        className="h-8 w-8 text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full"
+                        className="h-8 w-8 rounded-full text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800"
                         title={t('common.cancel')}
                       >
                         <X className="h-4 w-4" />
@@ -256,7 +256,7 @@ const MemoryTable = () => {
                         size="icon"
                         variant="ghost"
                         onClick={() => handleEdit(memory)}
-                        className="h-8 w-8 text-gray-400 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-full"
+                        className="hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 h-8 w-8 rounded-full text-gray-400"
                         title={t('common.edit')}
                       >
                         <Edit2 className="h-4 w-4" />
@@ -265,7 +265,7 @@ const MemoryTable = () => {
                         size="icon"
                         variant="ghost"
                         onClick={() => handleDelete(memory.domain_key)}
-                        className="h-8 w-8 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full"
+                        className="h-8 w-8 rounded-full text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20"
                         title={t('common.delete')}
                       >
                         <Trash2 className="h-4 w-4" />
@@ -280,11 +280,11 @@ const MemoryTable = () => {
             <TableRow>
               <TableCell colSpan={5} className="h-32 text-center text-gray-500">
                 <div className="flex flex-col items-center justify-center gap-2">
-                  <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-zinc-800 flex items-center justify-center text-gray-400">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-gray-400 dark:bg-zinc-800">
                     <Database size={20} />
                   </div>
                   <p className="font-medium text-gray-900 dark:text-gray-200">No memories yet</p>
-                  <p className="text-xs text-gray-400 max-w-xs">
+                  <p className="max-w-xs text-xs text-gray-400">
                     {t('settings.memory.table.emptyHint') ||
                       'Long-term memories will be automatically created as you chat with the agent.'}
                   </p>

@@ -39,17 +39,17 @@ const DateWidget = () => {
     <WidgetCard
       title={t('views.widgets.dateTitle')}
       action={null}
-      className="h-full min-h-[160px] relative overflow-hidden group"
+      className="group relative h-full min-h-[160px] overflow-hidden"
     >
-      <div className="flex flex-col h-full justify-between relative z-10">
+      <div className="relative z-10 flex h-full flex-col justify-between">
         <div>
-          <h2 className="text-3xl font-light text-gray-800 dark:text-white mb-1">{weekDay}</h2>
-          <p className="text-lg text-gray-500 dark:text-gray-400 font-mono">{dateStr}</p>
-          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+          <h2 className="mb-1 text-3xl font-light text-gray-800 dark:text-white">{weekDay}</h2>
+          <p className="font-mono text-lg text-gray-500 dark:text-gray-400">{dateStr}</p>
+          <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
             {t('views.widgets.week', { number: getWeekNumber(date) })}
           </p>
         </div>
-        <div className="text-4xl font-medium text-gray-800 dark:text-white mt-auto">{timeStr}</div>
+        <div className="mt-auto text-4xl font-medium text-gray-800 dark:text-white">{timeStr}</div>
       </div>
     </WidgetCard>
   )

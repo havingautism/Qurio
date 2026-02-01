@@ -47,8 +47,8 @@ export class NvidiaNimAdapter extends BaseProviderAdapter {
 
     // Thinking mode support - pass as direct parameter for NVIDIA
     // const chat_template_kwargs = thinking ? { thinking: true } : undefined
-    if(thinking){
-      modelKwargs.chat_template_kwargs={thinking: true}
+    if (thinking) {
+      modelKwargs.chat_template_kwargs = { thinking: true }
     }
 
     if (tools && tools.length > 0) modelKwargs.tools = tools

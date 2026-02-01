@@ -63,7 +63,7 @@ const CustomSelect = ({ value, onChange, options, placeholder, disabled, error }
       {/* Dropdown Menu */}
       <div
         className={clsx(
-          'absolute z-[60] mt-2 w-full overflow-hidden rounded-2xl border border-gray-100 py-1.5 shadow-2xl dark:border-white/10',
+          'absolute z-60 mt-2 w-full overflow-hidden rounded-2xl border border-gray-100 py-1.5 shadow-2xl dark:border-white/10',
           'origin-top bg-white transition-all duration-200 dark:bg-zinc-900',
           isOpen
             ? 'translate-y-0 scale-100 opacity-100'
@@ -228,7 +228,7 @@ const InteractiveForm = ({
           {/* Header */}
           <div className="mb-8">
             {formData.title && (
-              <h4 className="mb-3 bg-gradient-to-br from-gray-900 to-gray-600 bg-clip-text text-xl font-bold text-transparent md:text-2xl dark:from-white dark:to-gray-400">
+              <h4 className="mb-3 bg-linear-to-br from-gray-900 to-gray-600 bg-clip-text text-xl font-bold text-transparent md:text-2xl dark:from-white dark:to-gray-400">
                 {formData.title}
               </h4>
             )}
@@ -373,7 +373,7 @@ const InteractiveForm = ({
                 'group relative mt-4 w-full overflow-hidden rounded-2xl px-6 py-4 font-bold transition-all duration-300',
                 isSubmitted
                   ? 'cursor-not-allowed bg-gray-100 text-gray-400 dark:bg-white/5'
-                  : 'bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 text-white shadow-xl shadow-gray-900/10 hover:shadow-2xl hover:shadow-gray-900/20 active:scale-[0.98] dark:from-white dark:via-gray-200 dark:to-white dark:text-black dark:shadow-white/5 dark:hover:shadow-white/10',
+                  : 'bg-linear-to-r from-gray-900 via-gray-800 to-gray-900 text-white shadow-xl shadow-gray-900/10 hover:shadow-2xl hover:shadow-gray-900/20 active:scale-[0.98] dark:from-white dark:via-gray-200 dark:to-white dark:text-black dark:shadow-white/5 dark:hover:shadow-white/10',
               )}
             >
               {isSubmitted ? (

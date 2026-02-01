@@ -80,7 +80,7 @@ const KnowledgeBaseModal = ({ isOpen, onClose }) => {
 
   return (
     <div className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm duration-200 md:p-4">
-      <div className="relative flex h-[100dvh] w-full flex-col overflow-hidden border-gray-200 bg-white shadow-2xl md:h-[85vh] md:max-w-5xl md:flex-row md:rounded-2xl md:border dark:border-zinc-800 dark:bg-[#191a1a]">
+      <div className="relative flex h-dvh w-full flex-col overflow-hidden border-gray-200 bg-white shadow-2xl md:h-[85vh] md:max-w-5xl md:flex-row md:rounded-2xl md:border dark:border-zinc-800 dark:bg-[#191a1a]">
         {/* Close Button */}
         <button
           onClick={onClose}

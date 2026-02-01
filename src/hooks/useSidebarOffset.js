@@ -21,7 +21,7 @@ export const useSidebarOffset = isSidebarOpen => {
       if (window.innerWidth >= 1280) {
         sidebarWidth = '20rem' // xl:w-80 = 20rem
       } else if (window.innerWidth >= 1024) {
-        sidebarWidth = '28rem' // lg:w-[28rem]
+        sidebarWidth = '28rem' // lg:w-md
       } else if (window.innerWidth >= 768) {
         sidebarWidth = '24rem' // md:w-96 = 24rem
       } else {

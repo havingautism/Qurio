@@ -168,7 +168,7 @@ export const DeepResearchGuideProvider = ({
       {children}
       {isOpen &&
         createPortal(
-          <div className="fixed inset-0 z-[9999] flex items-end justify-center sm:items-center">
+          <div className="fixed inset-0 z-9999 flex items-end justify-center sm:items-center">
             <div
               className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
               onClick={closeDeepResearchGuide}

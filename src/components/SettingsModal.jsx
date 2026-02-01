@@ -1684,7 +1684,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
 
   return (
     <div className="fixed inset-0 z-100 flex items-start justify-center overflow-y-auto bg-black/50 p-0 backdrop-blur-sm md:items-center md:overflow-hidden md:p-4">
-      <div className="relative flex h-[100dvh] w-full flex-col overflow-hidden rounded-none border-0 border-gray-200 bg-white shadow-2xl md:h-[85vh] md:max-w-5xl md:flex-row md:rounded-2xl md:border dark:border-zinc-800 dark:bg-[#191a1a]">
+      <div className="relative flex h-dvh w-full flex-col overflow-hidden rounded-none border-0 border-gray-200 bg-white shadow-2xl md:h-[85vh] md:max-w-5xl md:flex-row md:rounded-2xl md:border dark:border-zinc-800 dark:bg-[#191a1a]">
         {/* Mobile Header */}
         <div className="flex h-14 shrink-0 items-center justify-between border-b border-gray-200 bg-white px-4 md:hidden dark:border-zinc-800 dark:bg-[#191a1a]">
           <h2 className="text-base font-semibold text-gray-900 dark:text-white">
@@ -2948,7 +2948,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                           }}
                         />
                         {/* Highlight effect */}
-                        <div className="absolute inset-0 bg-gradient-to-tr from-white/20 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
+                        <div className="absolute inset-0 bg-linear-to-tr from-white/20 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
                       </div>
                       <div className="flex w-full flex-col items-center">
                         <span className="w-full truncate text-center text-sm font-semibold text-gray-900 dark:text-white">
@@ -3164,7 +3164,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
         </div>
       </div>
       {isInitModalOpen && (
-        <div className="fixed inset-0 z-[130] flex items-center justify-center px-3 sm:px-6">
+        <div className="fixed inset-0 z-130 flex items-center justify-center px-3 sm:px-6">
           <div
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             onClick={() => setIsInitModalOpen(false)}

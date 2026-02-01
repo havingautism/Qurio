@@ -54,11 +54,11 @@ const DropdownMenu = ({ isOpen, onClose, items, anchorEl }) => {
 
           // Add highlight classes to the conversation element using Tailwind with !important
           conversationEl.classList.add(
-            '!bg-primary-500/10',
-            '!border',
-            '!border-primary-500/30',
-            'dark:!bg-primary-500/20',
-            'dark:!border-primary-500/40',
+            'bg-primary-500/10!',
+            'border!',
+            'border-primary-500/30!',
+            'dark:bg-primary-500/20!',
+            'dark:border-primary-500/40!',
             'transition-all',
             'duration-200',
           )
@@ -109,11 +109,11 @@ const DropdownMenu = ({ isOpen, onClose, items, anchorEl }) => {
           anchorEl.parentElement
         if (conversationEl) {
           conversationEl.classList.add(
-            '!bg-primary-500/10',
-            '!border',
-            '!border-primary-500/30',
-            'dark:!bg-primary-500/20',
-            'dark:!border-primary-500/40',
+            'bg-primary-500/10!',
+            'border!',
+            'border-primary-500/30!',
+            'dark:bg-primary-500/20!',
+            'dark:border-primary-500/40!',
             'transition-all',
             'duration-200',
           )
@@ -127,19 +127,19 @@ const DropdownMenu = ({ isOpen, onClose, items, anchorEl }) => {
     if (!isOpen) {
       // Remove all highlight classes including !important variants
       document
-        .querySelectorAll('[class*="bg-primary-500"], [class*="!bg-primary-500"]')
+        .querySelectorAll('[class*="bg-primary-500"], [class*="bg-primary-500!"]')
         .forEach(el => {
           el.classList.remove(
             'bg-primary-500/10',
-            '!bg-primary-500/10',
+            'bg-primary-500/10!',
             'border',
-            '!border',
+            'border!',
             'border-primary-500/30',
-            '!border-primary-500/30',
+            'border-primary-500/30!',
             'dark:bg-primary-500/20',
-            'dark:!bg-primary-500/20',
+            'dark:bg-primary-500/20!',
             'dark:border-primary-500/40',
-            'dark:!border-primary-500/40',
+            'dark:border-primary-500/40!',
           )
         })
     }
@@ -178,7 +178,7 @@ const DropdownMenu = ({ isOpen, onClose, items, anchorEl }) => {
       {/* Overlay to absorb clicks/touches so underlying conversation items are not triggered */}
       {/* This overlay is fixed/absolute relative to viewport/body, ensuring it covers everything */}
       <div
-        className="fixed inset-0 z-[9998]"
+        className="fixed inset-0 z-9998"
         onMouseDown={e => {
           e.stopPropagation()
           e.preventDefault()
@@ -200,7 +200,7 @@ const DropdownMenu = ({ isOpen, onClose, items, anchorEl }) => {
           right: isMobile ? position.right : 'auto',
         }}
         className={clsx(
-          'fixed z-[9999] border border-gray-200 bg-white p-1 shadow-lg dark:border-zinc-700 dark:bg-zinc-800',
+          'fixed z-9999 border border-gray-200 bg-white p-1 shadow-lg dark:border-zinc-700 dark:bg-zinc-800',
           isMobile ? 'rounded-lg' : 'min-w-[160px] rounded-lg',
         )}
       >

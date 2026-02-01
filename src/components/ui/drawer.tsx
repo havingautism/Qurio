@@ -39,7 +39,7 @@ const DrawerContent = React.forwardRef(({ className, children, ...props }, ref) 
       {...props}
     >
       {/* Handle indicator */}
-      <div className="mx-auto mt-3 mb-2 h-1.5 w-12 flex-shrink-0 rounded-full bg-gray-300 dark:bg-zinc-700" />
+      <div className="mx-auto mt-3 mb-2 h-1.5 w-12 shrink-0 rounded-full bg-gray-300 dark:bg-zinc-700" />
       {children}
       <DrawerPrimitive.Title className="sr-only">Drawer</DrawerPrimitive.Title>
       <DrawerPrimitive.Description className="sr-only">

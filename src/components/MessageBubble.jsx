@@ -604,7 +604,7 @@ const MessageBubble = ({
 
     return (
       <div className="my-4 flex w-full items-center gap-3 opacity-90">
-        <div className={clsx('h-px flex-1 bg-gradient-to-r', lineColorClass)} />
+        <div className={clsx('h-px flex-1 bg-linear-to-r', lineColorClass)} />
 
         <div
           className={clsx(
@@ -617,7 +617,7 @@ const MessageBubble = ({
           <span>{statusLabel}</span>
         </div>
 
-        <div className={clsx('h-px flex-1 bg-gradient-to-l', lineColorClass)} />
+        <div className={clsx('h-px flex-1 bg-linear-to-l', lineColorClass)} />
       </div>
     )
   }
@@ -1730,7 +1730,7 @@ const MessageBubble = ({
         {activeImageUrl &&
           createPortal(
             <div
-              className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+              className="fixed inset-0 z-10000 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
               onClick={() => setActiveImageUrl(null)}
             >
               <button
@@ -2817,7 +2817,7 @@ const CitationChip = ({ indices, sources, isMobile, onMobileClick, label }) => {
         !isMobile &&
         createPortal(
           <div
-            className="citation-dropdown fixed z-[9999] flex w-64 flex-col overflow-y-auto rounded-xl border border-gray-200 bg-white p-1 shadow-xl dark:border-zinc-700 dark:bg-zinc-900"
+            className="citation-dropdown fixed z-9999 flex w-64 flex-col overflow-y-auto rounded-xl border border-gray-200 bg-white p-1 shadow-xl dark:border-zinc-700 dark:bg-zinc-900"
             style={{
               top: position.showAbove ? 'auto' : position.top,
               bottom: position.showAbove ? window.innerHeight - position.top : 'auto',

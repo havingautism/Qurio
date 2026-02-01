@@ -915,7 +915,7 @@ const HomeView = () => {
                   <div
                     ref={homeInputHighlightRef}
                     aria-hidden="true"
-                    className="pointer-events-none absolute inset-0 overflow-hidden text-lg break-words whitespace-pre-wrap text-gray-900 dark:text-gray-100"
+                    className="pointer-events-none absolute inset-0 overflow-hidden text-lg wrap-break-word whitespace-pre-wrap text-gray-900 dark:text-gray-100"
                   >
                     {homeInputParts.map((part, index) =>
                       part.type === 'url' ? (

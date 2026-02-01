@@ -449,7 +449,7 @@ const QuestionTimelineSidebar = ({
                                 {timeLabel}
                               </div>
                             )}
-                            <div className="text-sm break-words whitespace-normal text-gray-800 dark:text-gray-200">
+                            <div className="text-sm wrap-break-word whitespace-normal text-gray-800 dark:text-gray-200">
                               {item.label}
                             </div>
                           </div>
@@ -565,7 +565,7 @@ const QuestionTimelineSidebar = ({
                         {timeLabel}
                       </div>
                     )}
-                    <div className="text-sm break-words whitespace-normal text-gray-800 dark:text-gray-200">
+                    <div className="text-sm wrap-break-word whitespace-normal text-gray-800 dark:text-gray-200">
                       {item.label}
                     </div>
                   </div>
@@ -613,7 +613,7 @@ const QuestionCard = React.memo(({ item, isActive, onClick, time }) => {
         </div>
 
         <div className="min-w-0 flex-1">
-          <p className={clsx('text-sm leading-relaxed break-words', isActive ? 'font-medium' : '')}>
+          <p className={clsx('text-sm leading-relaxed wrap-break-word', isActive ? 'font-medium' : '')}>
             {item.label}
           </p>
 

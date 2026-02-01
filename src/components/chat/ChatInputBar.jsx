@@ -985,7 +985,7 @@ const ChatInputBar = React.memo(
                   <div
                     ref={highlightRef}
                     aria-hidden="true"
-                    className="pointer-events-none absolute inset-0 overflow-hidden px-1 py-3 text-[15px] leading-[1.6] break-words whitespace-pre-wrap text-gray-900 dark:text-gray-100"
+                    className="pointer-events-none absolute inset-0 overflow-hidden px-1 py-3 text-[15px] leading-[1.6] wrap-break-word whitespace-pre-wrap text-gray-900 dark:text-gray-100"
                   >
                     {highlightedInputParts.map((part, index) =>
                       part.type === 'url' ? (
@@ -1056,7 +1056,7 @@ const ChatInputBar = React.memo(
     // === DEFAULT VARIANT ===
     return (
       <div className="group relative w-full max-w-3xl">
-        <div className="input-glow-veil from-primary-500/20 via-primary-400/20 to-primary-500/20 pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-r opacity-0 blur-2xl transition-all duration-500 group-focus-within:opacity-100 group-hover:opacity-100" />
+        <div className="input-glow-veil from-primary-500/20 via-primary-400/20 to-primary-500/20 pointer-events-none absolute inset-0 rounded-2xl bg-linear-to-r opacity-0 blur-2xl transition-all duration-500 group-focus-within:opacity-100 group-hover:opacity-100" />
         <div className="focus-within:border-primary-500/50 focus-within:ring-primary-500/10 relative rounded-2xl border border-gray-200/60 bg-white p-3.5 shadow-lg backdrop-blur-sm transition-all duration-300 focus-within:ring-4 hover:shadow-xl dark:border-zinc-700/50 dark:bg-zinc-800/90">
           {showEditing && (
             <div className="mb-3 flex items-center justify-between rounded-xl border border-gray-200/50 bg-gray-100 px-4 py-2.5 dark:border-zinc-600/50 dark:bg-zinc-700/50">
@@ -1126,7 +1126,7 @@ const ChatInputBar = React.memo(
             {inputValue && (
               <div
                 aria-hidden="true"
-                className="pointer-events-none absolute inset-0 flex items-center py-3.5 text-[15px] leading-[1.6] break-words whitespace-pre-wrap text-gray-900 dark:text-gray-100"
+                className="pointer-events-none absolute inset-0 flex items-center py-3.5 text-[15px] leading-[1.6] wrap-break-word whitespace-pre-wrap text-gray-900 dark:text-gray-100"
               >
                 {highlightedInputParts.map((part, index) =>
                   part.type === 'url' ? (

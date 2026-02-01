@@ -38,12 +38,9 @@ import { fetchRemoteSettings, saveRemoteSettings, testConnection } from '../lib/
 import { THEMES } from '../lib/themes'
 import Logo from './Logo'
 import { useAppContext } from '../App'
-import {
-  formatMemorySummariesAppendText,
-  upsertMemoryDomainSummary,
-  ensureLongTermMemoryIndex,
-} from '../lib/longTermMemoryService'
+import { upsertMemoryDomainSummary, ensureLongTermMemoryIndex } from '../lib/longTermMemoryService'
 import { getProvider } from '../lib/providers'
+import MemoryTable from './MemoryTable'
 
 const ENV_VARS = {
   supabaseUrl: getPublicEnv('PUBLIC_SUPABASE_URL'),
@@ -359,27 +356,10 @@ const DOCUMENT_MAX_CHUNKS = 60
 const DOCUMENT_TOP_K = 3
 
 const EMBEDDING_KEYWORDS = ['embed', 'bge', 'vector']
-const MEMORY_DOMAIN_MAX_ITEMS = 8
-const MEMORY_DOMAIN_SUMMARY_MAX_CHARS = 240
 
 const matchesEmbeddingKeyword = model => {
   const text = String((model?.value || model?.label) ?? '').toLowerCase()
   return EMBEDDING_KEYWORDS.some(keyword => text.includes(keyword))
-}
-
-const normalizeDomainKey = value => {
-  const raw = String(value || '')
-    .trim()
-    .toLowerCase()
-  if (!raw) return ''
-  return raw.replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')
-}
-
-const truncateDomainSummary = value => {
-  const trimmed = String(value || '').trim()
-  if (!trimmed) return ''
-  if (trimmed.length <= MEMORY_DOMAIN_SUMMARY_MAX_CHARS) return trimmed
-  return `${trimmed.slice(0, MEMORY_DOMAIN_SUMMARY_MAX_CHARS)}...`
 }
 
 const extractJsonObject = text => {
@@ -543,8 +523,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
   const [databaseProvider, setDatabaseProvider] = useState('supabase')
   const [supabaseUrl, setSupabaseUrl] = useState('')
   const [supabaseKey, setSupabaseKey] = useState('')
-  const [testing, setTesting] = useState(false)
-  const [testResult, setTestResult] = useState(null)
+
   const [backendHealthState, setBackendHealthState] = useState({
     status: 'idle',
     message: '',
@@ -720,9 +699,6 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
         }),
       })),
     [t],
-  )
-  const selectedDatabaseProviderOption = databaseProviderOptions.find(
-    option => option.value === databaseProvider,
   )
 
   // Interface language options with translated labels
@@ -1418,7 +1394,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
     if (!isSupabaseProvider) return
     setRetestingDb(true)
     const result = await testConnection(supabaseUrl, supabaseKey)
-    setTestResult(result)
+
     setInitModalResult(result)
     setRetestingDb(false)
     if (result.success) {
@@ -1490,20 +1466,6 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
         ? `${t('settings.backendHealthCheckFailure')}: ${err.message}`
         : t('settings.backendHealthCheckFailure')
       setBackendHealthState({ status: 'error', message: failureMessage })
-    }
-  }
-
-  const handleTestConnection = async () => {
-    if (!isSupabaseProvider) return
-    setTesting(true)
-    setTestResult(null)
-
-    const result = await testConnection(supabaseUrl, supabaseKey)
-    setTestResult(result)
-    setTesting(false)
-    if (!result.success) {
-      setInitModalResult(result)
-      setIsInitModalOpen(true)
     }
   }
 
@@ -2616,7 +2578,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
             )}
 
             {activeTab === 'memory' && (
-              <div className="flex flex-col gap-8 max-w-2xl">
+              <div className="flex flex-col gap-6 max-w-3xl">
                 <div className="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-lg flex gap-3 text-sm text-blue-700 dark:text-blue-300">
                   <Info size={18} className="shrink-0 mt-0.5" />
                   <div>
@@ -2625,14 +2587,14 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                   </div>
                 </div>
 
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex flex-col gap-1">
+                <div className="flex items-center justify-between p-4 border border-gray-200 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900/50">
+                  <div className="space-y-0.5">
                     <label className="text-sm font-semibold text-gray-900 dark:text-white">
                       {t('settings.enableLongTermMemory')}
                     </label>
-                    {/* <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {t('settings.enableLongTermMemoryHint')}
-                    </p> */}
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {t('settings.enableLongTermMemoryHint') || t('settings.longTermMemoryHint')}
+                    </p>
                   </div>
                   <button
                     type="button"
@@ -2655,22 +2617,41 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                   </button>
                 </div>
 
-                <div className="flex flex-col gap-2">
-                  <label className="text-sm font-medium text-gray-900 dark:text-white">
-                    {t('settings.userSelfIntro')}
-                  </label>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {t('settings.userSelfIntroHint')}
-                  </p>
-                  <textarea
-                    value={userSelfIntro}
-                    onChange={e => setUserSelfIntro(e.target.value)}
-                    placeholder={t('settings.userSelfIntroPlaceholder')}
-                    rows={5}
-                    disabled={!enableLongTermMemory}
-                    className="w-full px-4 py-2 text-sm bg-white disabled:bg-gray-50/20 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20 resize-none disabled:opacity-60 disabled:cursor-not-allowed"
-                  />
-                </div>
+                {enableLongTermMemory && (
+                  <div className="flex flex-col gap-8 animate-in fade-in slide-in-from-top-2 duration-300">
+                    <div className="flex flex-col gap-3">
+                      <div className="flex flex-col gap-1">
+                        <label className="text-sm font-medium text-gray-900 dark:text-white">
+                          {t('settings.userSelfIntro')}
+                        </label>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {t('settings.userSelfIntroHint')}
+                        </p>
+                      </div>
+                      <textarea
+                        value={userSelfIntro}
+                        onChange={e => setUserSelfIntro(e.target.value)}
+                        placeholder={t('settings.userSelfIntroPlaceholder')}
+                        rows={4}
+                        className="w-full px-4 py-3 text-sm bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all resize-none placeholder-gray-400 dark:placeholder-zinc-600"
+                      />
+                    </div>
+
+                    <div className="h-px bg-gray-100 dark:bg-zinc-800" />
+
+                    <div className="flex flex-col gap-4">
+                      <div className="flex flex-col gap-1">
+                        <h3 className="text-base font-semibold text-gray-900 dark:text-white">
+                          {t('settings.memory.title')}
+                        </h3>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {t('settings.memory.description')}
+                        </p>
+                      </div>
+                      <MemoryTable />
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

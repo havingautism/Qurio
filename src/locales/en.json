@@ -459,6 +459,24 @@
     "longTermMemory": "Long-term Memory",
     "longTermMemoryHint": "Enabling long-term memory will slow down the response time for each session.",
     "enableLongTermMemory": "Enable long-term memory",
+    "enableLongTermMemoryHint": "Store and recall key information to personalize conversations.",
+    "memory": {
+      "title": "Long-term Memory",
+      "description": "Manage your stored long-term memories. These details make the assistant more personalized.",
+      "table": {
+        "domain": "Domain / Scope",
+        "aliases": "Aliases",
+        "summary": "Memory Summary",
+        "scope": "Scope"
+      },
+      "actions": {
+        "edit": "Edit",
+        "save": "Save",
+        "cancel": "Cancel",
+        "delete": "Delete",
+        "confirmDelete": "Are you sure you want to delete this memory logic? This cannot be undone."
+      }
+    },
 
     "liteModel": "Lite",
     "liteModelHelper": "Titles, related questions, space suggestions",

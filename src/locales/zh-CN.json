@@ -443,6 +443,24 @@
     "longTermMemory": "长期记忆",
     "longTermMemoryHint": "启用长期记忆将降低每个会话的响应速度。",
     "enableLongTermMemory": "启用长期记忆",
+    "enableLongTermMemoryHint": "存储和回顾关键信息，实现个性化对话。",
+    "memory": {
+      "title": "长期记忆管理",
+      "description": "管理已存储的长期记忆。这些信息让助手更懂您。",
+      "table": {
+        "domain": "领域 / 范围",
+        "aliases": "别名",
+        "summary": "记忆摘要",
+        "scope": "作用域"
+      },
+      "actions": {
+        "edit": "编辑",
+        "save": "保存",
+        "cancel": "取消",
+        "delete": "删除",
+        "confirmDelete": "确定要删除这条长期记忆吗？此操作无法撤销。"
+      }
+    },
 
     "liteModel": "轻量",
     "liteModelHelper": "标题、相关问题、空间建议",

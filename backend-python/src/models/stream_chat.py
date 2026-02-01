@@ -106,6 +106,9 @@ class StreamChatRequest(BaseModel):
     # Stream flag (default true for streaming)
     stream: bool = True
 
+    # Internal use only: Structured Output schema (Agno v2)
+    output_schema: Any | None = Field(default=None, exclude=True)
+
 
 # ================================================================================
 # Response Event Models
@@ -154,6 +157,7 @@ class DoneEvent(BaseModel):
     """Stream completion event."""
     type: Literal["done"] = "done"
     content: str
+    output: Any | None = None
     thought: str | None = None
     sources: list[SourceEvent] | None = None
 

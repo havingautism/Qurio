@@ -142,6 +142,7 @@ async def run_agent_completion(request: StreamChatRequest) -> dict[str, Any]:
     full_text = ""
     full_thought = ""
     sources: list[dict[str, Any]] = []
+    output: Any = None
 
     async for event in service.stream_chat(request):
         event_type = event.get("type")
@@ -151,6 +152,7 @@ async def run_agent_completion(request: StreamChatRequest) -> dict[str, Any]:
             full_thought += event.get("content", "")
         elif event_type == "done":
             sources = event.get("sources") or []
+            output = event.get("output")
         elif event_type == "error":
             raise ValueError(event.get("error") or "Unknown error")
 
@@ -158,4 +160,5 @@ async def run_agent_completion(request: StreamChatRequest) -> dict[str, Any]:
         "content": full_text,
         "thought": full_thought,
         "sources": sources,
+        "output": output,
     }

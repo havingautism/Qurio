@@ -127,7 +127,7 @@ class StreamChatService:
                 stream_events=True,
                 user_id=request.user_id,
                 session_id=request.user_id,
-                output_schema=request.response_format,
+                output_schema=request.output_schema or request.response_format,
             )
 
             async for event in stream:
@@ -207,6 +207,9 @@ class StreamChatService:
                                 return
 
                     case RunEvent.run_completed.value:
+                        # For structured output, Agno provides the parsed model in event.content
+                        agn_content = getattr(event, "content", None)
+                        
                         # Clean tags from final full_content if they survived
                         cleaned_content = re.sub(r"<(think|thought)>[\s\S]*?(?:</\1>|$)", "", full_content, flags=re.IGNORECASE).strip()
                         
@@ -214,8 +217,16 @@ class StreamChatService:
                         # unless they were purely tags.
                         final_content = cleaned_content if cleaned_content or not full_content else full_content
 
+                        # If agn_content is a Pydantic model (Structured Output), use it as output
+                        output = None
+                        if agn_content and hasattr(agn_content, "model_dump"):
+                            output = agn_content
+                            # Also update content string for the event
+                            final_content = json.dumps(agn_content.model_dump())
+
                         yield DoneEvent(
                             content=final_content,
+                            output=output,
                             thought=full_thought.strip() or None,
                             sources=list(sources_map.values()) or None,
                         ).model_dump()

@@ -158,30 +158,30 @@ const TipsWidget = () => {
           <button
             type="button"
             onClick={() => setIsMenuOpen(prev => !prev)}
-            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+            className="text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-gray-200"
           >
             <MoreHorizontal size={16} />
           </button>
           {isMenuOpen && (
-            <div className="absolute right-0 top-full mt-2 w-56 max-h-[60vh] overflow-y-auto rounded-xl border border-gray-200 dark:border-zinc-700 bg-white dark:bg-[#1e1e1e] shadow-xl z-50 transition-all animate-in fade-in zoom-in-95 duration-200">
+            <div className="animate-in fade-in zoom-in-95 absolute top-full right-0 z-50 mt-2 max-h-[60vh] w-56 overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-xl transition-all duration-200 dark:border-zinc-700 dark:bg-[#1e1e1e]">
               <div className="p-1">
                 <button
                   type="button"
                   onClick={handleRefresh}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/5 rounded-lg transition-colors group"
+                  className="group flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-white/5"
                 >
                   <RefreshCw
                     size={14}
-                    className="text-gray-500 dark:text-gray-400 group-hover:text-primary-500 transition-colors"
+                    className="group-hover:text-primary-500 text-gray-500 transition-colors dark:text-gray-400"
                   />
                   {t('views.widgets.tipsRefresh')}
                 </button>
               </div>
 
-              <div className="h-px bg-gray-100 dark:bg-white/5 my-0.5 mx-1" />
+              <div className="mx-1 my-0.5 h-px bg-gray-100 dark:bg-white/5" />
 
               <div className="p-1">
-                <div className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 flex items-center gap-2 mb-0.5">
+                <div className="mb-0.5 flex items-center gap-2 px-3 py-1.5 text-xs font-semibold tracking-wider text-gray-400 uppercase dark:text-gray-500">
                   <SlidersHorizontal size={12} />
                   {t('views.widgets.tipsCategory')}
                 </div>
@@ -192,14 +192,14 @@ const TipsWidget = () => {
                       key={category.key}
                       type="button"
                       onClick={() => handleCategoryChange(category.key)}
-                      className={`w-full flex items-center justify-between px-3 py-2 text-sm rounded-lg transition-colors group ${
+                      className={`group flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors ${
                         isActive
                           ? 'bg-primary-50 dark:bg-primary-500/10 text-primary-600 dark:text-primary-400'
-                          : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/5'
+                          : 'text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-white/5'
                       }`}
                     >
                       <span className="font-medium">{category.label}</span>
-                      {isActive && <div className="w-1.5 h-1.5 rounded-full bg-primary-500" />}
+                      {isActive && <div className="bg-primary-500 h-1.5 w-1.5 rounded-full" />}
                     </button>
                   )
                 })}
@@ -210,12 +210,12 @@ const TipsWidget = () => {
       }
       className={`h-full min-h-[160px] ${isMenuOpen ? 'relative z-40' : ''}`}
     >
-      <div className="flex flex-col justify-center h-full gap-2">
+      <div className="flex h-full flex-col justify-center gap-2">
         {isLoading ? (
           <div className="flex items-center gap-1 text-lg font-medium text-gray-500 dark:text-gray-400">
-            <span className="inline-flex w-1.5 h-1.5 rounded-full bg-current animate-bounce [animation-delay:-0.2s]" />
-            <span className="inline-flex w-1.5 h-1.5 rounded-full bg-current animate-bounce [animation-delay:-0.1s]" />
-            <span className="inline-flex w-1.5 h-1.5 rounded-full bg-current animate-bounce" />
+            <span className="inline-flex h-1.5 w-1.5 animate-bounce rounded-full bg-current [animation-delay:-0.2s]" />
+            <span className="inline-flex h-1.5 w-1.5 animate-bounce rounded-full bg-current [animation-delay:-0.1s]" />
+            <span className="inline-flex h-1.5 w-1.5 animate-bounce rounded-full bg-current" />
           </div>
         ) : (
           <p className="text-lg font-medium text-gray-800 dark:text-gray-200">{tip}</p>

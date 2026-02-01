@@ -1,4 +1,5 @@
 # Custom Tool Flow Documentation
+
 # 自定义工具流程文档
 
 This document explains the complete lifecycle of user-defined HTTP tools, from creation to runtime execution.
@@ -8,6 +9,7 @@ This document explains the complete lifecycle of user-defined HTTP tools, from c
 ---
 
 ## Overview
+
 ## 概览
 
 User-defined custom tools allow users to integrate any HTTP API into the AI assistant without writing code. The system automatically:
@@ -27,9 +29,11 @@ User-defined custom tools allow users to integrate any HTTP API into the AI assi
 ---
 
 ## Part 1: Tool Creation
+
 ## 第一部分：工具创建
 
 ### User Input (ToolsModal.jsx)
+
 ### 用户输入（ToolsModal.jsx）
 
 Users fill out a form with the following fields:
@@ -37,6 +41,7 @@ Users fill out a form with the following fields:
 用户填写包含以下字段的表单：
 
 **Basic Information 基本信息:**
+
 - `name`: Tool identifier (e.g., `weather_forecast`)  
   工具标识符（例如 `weather_forecast`）
 - `description`: What the tool does (shown to AI)  
@@ -45,15 +50,16 @@ Users fill out a form with the following fields:
   HTTP 方法（GET、POST、PUT、DELETE）
 
 **API Configuration API 配置:**
+
 - `url`: Endpoint URL with path parameters  
   端点 URL，包含路径参数  
   Example 示例: `https://api.weather.com/forecast/{{city}}`
-  
 - `params`: Query parameters as JSON object  
   查询参数（JSON 对象）  
   Example 示例: `{"days": "{{duration}}", "units": "metric"}`
 
 **Security Settings 安全设置:**
+
 - `allowedDomains`: Whitelist of allowed domains  
   允许的域名白名单
 - `maxResponseSize`: Maximum response size in bytes  
@@ -62,6 +68,7 @@ Users fill out a form with the following fields:
   请求超时时间（毫秒）
 
 ### Automatic Schema Generation
+
 ### 自动生成 Schema
 
 When saving, the system extracts all `{{variable}}` patterns from both URL and params:
@@ -95,6 +102,7 @@ When saving, the system extracts all `{{variable}}` patterns from both URL and p
 **Code location 代码位置:** `src/components/ToolsModal.jsx` lines 136-164
 
 ### Data Storage
+
 ### 数据存储
 
 The complete tool configuration is saved to the `user_tools` table:
@@ -125,9 +133,11 @@ The complete tool configuration is saved to the `user_tools` table:
 ---
 
 ## Part 2: Tool Assignment to Agent
+
 ## 第二部分：为 Agent 分配工具
 
 ### Tool Loading (AgentModal.jsx)
+
 ### 工具加载（AgentModal.jsx）
 
 When AgentModal opens, it loads tools from two sources:
@@ -146,6 +156,7 @@ AgentModal 打开时，会从两个来源加载工具：
 **Code location 代码位置:** `src/components/AgentModal.jsx` lines 230-252
 
 ### Tool Categorization
+
 ### 工具分类
 
 Tools are grouped by category for display:
@@ -166,6 +177,7 @@ Tools are grouped by category for display:
 **Code location 代码位置:** `src/components/AgentModal.jsx` lines 220-228
 
 ### Saving Tool Selection
+
 ### 保存工具选择
 
 User selects tools by checking boxes. Selected tool IDs (both system and custom) are saved to the agent's configuration:
@@ -188,9 +200,11 @@ User selects tools by checking boxes. Selected tool IDs (both system and custom)
 ---
 
 ## Part 3: Runtime Execution
+
 ## 第三部分：运行时执行
 
 ### Tool Definition Preparation (streamChatService.js)
+
 ### 工具定义准备（streamChatService.js）
 
 When a chat starts, the backend prepares tool definitions for the AI model:
@@ -222,8 +236,8 @@ const userToolDefinitions = userTools.map(tool => ({
   function: {
     name: tool.name,
     description: tool.description,
-    parameters: tool.input_schema  // From Part 1 来自第一部分
-  }
+    parameters: tool.input_schema, // From Part 1 来自第一部分
+  },
 }))
 ```
 
@@ -236,14 +250,15 @@ All tools are combined into a single array:
 
 ```javascript
 const combinedTools = [
-  ...agentToolDefinitions,  // System tools 系统工具
-  ...userToolDefinitions    // Custom tools 自定义工具
+  ...agentToolDefinitions, // System tools 系统工具
+  ...userToolDefinitions, // Custom tools 自定义工具
 ]
 ```
 
 **Code location 代码位置:** `backend/src/services/streamChatService.js` lines 385-389
 
 ### AI Decision
+
 ### AI 决策
 
 The AI model sees the tool definition and decides to call it:
@@ -258,6 +273,7 @@ AI 模型看到工具定义并决定调用：
 ```
 
 ### Tool Execution Routing
+
 ### 工具执行路由
 
 When the backend receives a tool call, it determines whether it's a custom or system tool:
@@ -279,6 +295,7 @@ if (isCustomTool) {
 **Code location 代码位置:** `backend/src/services/streamChatService.js` lines 552-577
 
 ### Custom Tool Execution (executeHttpTool)
+
 ### 自定义工具执行（executeHttpTool）
 
 **Code location 代码位置:** `backend/src/services/customToolExecutor.js` lines 85-161
@@ -301,7 +318,7 @@ const finalParams = replaceTemplates(params, args)
 // After query string 查询字符串后: https://api.weather.com/forecast/Tokyo?days=3&units=metric
 
 let processedUrl = replaceTemplate(url, args)
-const finalUrl = buildUrl(processedUrl, finalParams)  // GET only
+const finalUrl = buildUrl(processedUrl, finalParams) // GET only
 ```
 
 **Step 3: Security validation 安全验证**
@@ -320,9 +337,9 @@ setTimeout(() => controller.abort(), timeout)
 
 const response = await fetch(finalUrl, {
   method,
-  headers: {'Content-Type': 'application/json', ...headers},
+  headers: { 'Content-Type': 'application/json', ...headers },
   body: method !== 'GET' ? JSON.stringify(finalParams) : undefined,
-  signal: controller.signal
+  signal: controller.signal,
 })
 ```
 
@@ -346,6 +363,7 @@ try {
 ```
 
 ### Result Flow
+
 ### 结果流程
 
 1. API response is returned to the AI model  
@@ -358,9 +376,11 @@ try {
 ---
 
 ## Key Design Decisions
+
 ## 关键设计决策
 
 ### Tool Identification
+
 ### 工具识别
 
 - **System tools 系统工具**: Identified by string constants (e.g., `Tavily_web_search`)  
@@ -371,6 +391,7 @@ try {
   两种类型一起存储在 `agent.tool_ids` 数组中
 
 ### Security Model
+
 ### 安全模型
 
 Custom tools must define:
@@ -385,6 +406,7 @@ Custom tools must define:
    防止请求挂起
 
 ### Schema Auto-Generation
+
 ### Schema 自动生成
 
 The system uses regex to extract all `{{variable}}` patterns from:
@@ -403,9 +425,11 @@ This ensures the AI knows all required parameters without manual schema definiti
 ---
 
 ## File Reference
+
 ## 文件参考
 
 ### Frontend 前端
+
 - `src/components/ToolsModal.jsx` - Tool creation UI and schema generation  
   工具创建 UI 和 Schema 生成
 - `src/components/AgentModal.jsx` - Tool assignment UI  
@@ -414,6 +438,7 @@ This ensures the AI knows all required parameters without manual schema definiti
   自定义工具的 CRUD 操作
 
 ### Backend 后端
+
 - `backend/src/services/streamChatService.js` - Tool loading and routing  
   工具加载和路由
 - `backend/src/services/customToolExecutor.js` - HTTP tool execution engine  

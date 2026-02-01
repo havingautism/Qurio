@@ -75,6 +75,7 @@
 ### Step 3: 连接 MCP 服务器获取工具列表
 
 **前端** ([ToolsModal.jsx:682-689](../src/components/ToolsModal.jsx)):
+
 ```javascript
 const loadMcpTools = async () => {
   // 调用后端 API 获取工具列表
@@ -84,6 +85,7 @@ const loadMcpTools = async () => {
 ```
 
 **后端** ([backend/src/routes/mcpTools.js:92-149](../backend/src/routes/mcpTools.js)):
+
 ```javascript
 // POST /api/mcp-tools/load
 router.post('/load', async (req, res) => {
@@ -98,6 +100,7 @@ router.post('/load', async (req, res) => {
 ```
 
 **MCP Manager** ([backend/src/services/mcpToolManager.js:146-176](../backend/src/services/mcpToolManager.js)):
+
 ```javascript
 async loadMcpServer(name, sseUrl) {
   // 1. 创建 SSE 传输连接
@@ -177,37 +180,38 @@ async loadMcpServer(name, sseUrl) {
 **文件**: [src/lib/userToolsService.js:31-55](../src/lib/userToolsService.js)
 
 ```javascript
-export const createUserTool = async (toolData) => {
+export const createUserTool = async toolData => {
   const supabase = getSupabaseClient()
 
   // 为每个选中的工具创建记录
   await supabase.from('user_tools').insert({
     user_id: userId,
-    name: tool.name,                    // 工具名称
-    description: tool.description,       // 工具描述
-    type: 'mcp',                        // 工具类型
-    config: {                           // MCP 配置
-      serverName: "12306-mcp",
-      serverUrl: "https://...",
-      toolId: "mcp_12306-mcp_get-station-code",
-      toolName: "get-station-code"
+    name: tool.name, // 工具名称
+    description: tool.description, // 工具描述
+    type: 'mcp', // 工具类型
+    config: {
+      // MCP 配置
+      serverName: '12306-mcp',
+      serverUrl: 'https://...',
+      toolId: 'mcp_12306-mcp_get-station-code',
+      toolName: 'get-station-code',
     },
-    input_schema: tool.parameters        // JSON Schema 参数定义
+    input_schema: tool.parameters, // JSON Schema 参数定义
   })
 }
 ```
 
 **数据库表结构** (`user_tools`):
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| id | UUID | 主键 |
-| user_id | UUID | 用户 ID |
-| name | string | 工具名称 |
-| description | text | 工具描述 |
-| type | string | 'mcp' 或 'http' |
-| config | jsonb | MCP 服务器配置 |
-| input_schema | jsonb | 参数 JSON Schema |
+| 字段         | 类型   | 说明             |
+| ------------ | ------ | ---------------- |
+| id           | UUID   | 主键             |
+| user_id      | UUID   | 用户 ID          |
+| name         | string | 工具名称         |
+| description  | text   | 工具描述         |
+| type         | string | 'mcp' 或 'http'  |
+| config       | jsonb  | MCP 服务器配置   |
+| input_schema | jsonb  | 参数 JSON Schema |
 
 ---
 
@@ -223,7 +227,7 @@ export const createUserTool = async (toolData) => {
 
 ```javascript
 export const streamChat = async function* (params) {
-  const { userTools } = params  // 从数据库加载的用户工具
+  const { userTools } = params // 从数据库加载的用户工具
 
   // 1. 过滤出 MCP 工具
   const mcpTools = userTools.filter(tool => tool.type === 'mcp')
@@ -248,11 +252,11 @@ export const streamChat = async function* (params) {
         mcpToolManager.mcpTools.set(tool.id, {
           id: tool.id,
           name: tool.name,
-          parameters: tool.input_schema,  // 从 input_schema 获取参数
+          parameters: tool.input_schema, // 从 input_schema 获取参数
           config: {
             mcpServer: serverName,
-            toolName: tool.config.toolName
-          }
+            toolName: tool.config.toolName,
+          },
         })
       }
     }
@@ -266,18 +270,19 @@ export const streamChat = async function* (params) {
 ```
 
 **关键修复** (line 427-443):
+
 ```javascript
 // 之前的问题：MCP 工具的参数在 input_schema，但代码读取 tool.parameters
 const userToolDefinitions = userTools.map(tool => {
   // 修复：优先使用 tool.parameters，否则回退到 input_schema
-  const parameters = tool.type === 'mcp'
-    ? (tool.parameters || tool.input_schema)
-    : tool.input_schema
+  const parameters = tool.type === 'mcp' ? tool.parameters || tool.input_schema : tool.input_schema
 
   // 调试日志
   if (tool.type === 'mcp') {
-    console.log(`[streamChat] MCP Tool "${tool.name}" parameters:`,
-      JSON.stringify(parameters, null, 2))
+    console.log(
+      `[streamChat] MCP Tool "${tool.name}" parameters:`,
+      JSON.stringify(parameters, null, 2),
+    )
   }
 
   return {
@@ -285,8 +290,8 @@ const userToolDefinitions = userTools.map(tool => {
     function: {
       name: tool.name,
       description: tool.description,
-      parameters  // 正确传递 JSON Schema 给 AI
-    }
+      parameters, // 正确传递 JSON Schema 给 AI
+    },
   }
 })
 ```
@@ -331,12 +336,12 @@ AI 分析用户意图，返回工具调用:
 {
   tool_calls: [
     {
-      id: "call_123",
+      id: 'call_123',
       function: {
-        name: "get-station-code",
-        arguments: '{"citys": "上海"}'  // AI 提供的参数
-      }
-    }
+        name: 'get-station-code',
+        arguments: '{"citys": "上海"}', // AI 提供的参数
+      },
+    },
   ]
 }
 ```
@@ -406,6 +411,7 @@ async executeMcpTool(toolId, args = {}) {
 ### Step 7: AI 生成最终回复
 
 AI 基于工具结果生成用户友好的回复:
+
 > "我已经帮您查询了上海到北京的火车信息。上海站代码是 SHH，北京站代码是 BXP..."
 
 ---
@@ -423,10 +429,8 @@ AI 基于工具结果生成用户友好的回复:
 在工具列表中，每个 MCP 服务器组右侧有一个设置图标 ⚙️
 
 ```javascript
-const handleEditServerUrl = (serverName) => {
-  const serverTools = tools.filter(t =>
-    t.type === 'mcp' && t.config?.serverName === serverName
-  )
+const handleEditServerUrl = serverName => {
+  const serverTools = tools.filter(t => t.type === 'mcp' && t.config?.serverName === serverName)
   setEditingServerUrl(serverName)
   setNewServerUrl(serverTools[0].config?.serverUrl || '')
   setIsEditingServerUrl(true)
@@ -470,9 +474,9 @@ router.post('/fetch', async (req, res) => {
       id: tool.id,
       name: tool.name,
       description: tool.description,
-      parameters: tool.parameters
+      parameters: tool.parameters,
     })),
-    total: tools.length
+    total: tools.length,
   })
 })
 ```
@@ -519,17 +523,14 @@ async fetchToolsFromServerUrl(serverName, sseUrl) {
 ```javascript
 export const syncMcpTools = async (serverName, serverUrl, newTools) => {
   // 1. 获取数据库中该服务器的现有工具
-  const { data: existingTools } = await supabase
-    .from('user_tools')
-    .select('*')
-    .eq('type', 'mcp')
+  const { data: existingTools } = await supabase.from('user_tools').select('*').eq('type', 'mcp')
 
   const serverTools = existingTools.filter(t => t.config?.serverName === serverName)
 
   // 2. 创建 Map 用于高效对比
   const existingToolMap = new Map()
   for (const tool of serverTools) {
-    existingToolMap.set(tool.name, tool)  // 用工具名称作为 key
+    existingToolMap.set(tool.name, tool) // 用工具名称作为 key
   }
 
   const newToolMap = new Map()
@@ -545,15 +546,18 @@ export const syncMcpTools = async (serverName, serverUrl, newTools) => {
 
     if (existingTool) {
       // 情况 A: 工具已存在 → 更新 URL 和配置
-      await supabase.from('user_tools').update({
-        description: newTool.description,
-        config: {
-          ...existingTool.config,
-          serverUrl: serverUrl,  // 更新为新 URL
-          toolId: newTool.id
-        },
-        input_schema: newTool.parameters
-      }).eq('id', existingTool.id)
+      await supabase
+        .from('user_tools')
+        .update({
+          description: newTool.description,
+          config: {
+            ...existingTool.config,
+            serverUrl: serverUrl, // 更新为新 URL
+            toolId: newTool.id,
+          },
+          input_schema: newTool.parameters,
+        })
+        .eq('id', existingTool.id)
 
       stats.updated++
     } else {
@@ -567,9 +571,9 @@ export const syncMcpTools = async (serverName, serverUrl, newTools) => {
           serverName: serverName,
           serverUrl: serverUrl,
           toolId: newTool.id,
-          toolName: newTool.name
+          toolName: newTool.name,
         },
-        input_schema: newTool.parameters
+        input_schema: newTool.parameters,
       })
 
       stats.added++
@@ -581,7 +585,7 @@ export const syncMcpTools = async (serverName, serverUrl, newTools) => {
   return {
     success: true,
     serverName,
-    ...stats  // { updated: 5, added: 2 }
+    ...stats, // { updated: 5, added: 2 }
   }
 }
 ```
@@ -589,6 +593,7 @@ export const syncMcpTools = async (serverName, serverUrl, newTools) => {
 ### Step 5: 显示同步结果
 
 前端显示详细统计:
+
 ```
 ✅ 同步完成！
 服务器: 12306-mcp
@@ -630,9 +635,10 @@ convertParameters(inputSchema) {
 **问题**: 数据库存储在 `input_schema`，代码读取 `tool.parameters`
 
 **解决**:
+
 ```javascript
 parameters: tool.type === 'mcp'
-  ? (tool.parameters || tool.input_schema)  // 优先 parameters，回退到 input_schema
+  ? tool.parameters || tool.input_schema // 优先 parameters，回退到 input_schema
   : tool.input_schema
 ```
 
@@ -642,9 +648,9 @@ parameters: tool.type === 'mcp'
 // mcpToolManager 单例
 class MCPToolManager {
   constructor() {
-    this.mcpTools = new Map()      // 工具定义缓存
-    this.connections = new Map()    // MCP 连接缓存
-    this.loadedServers = new Set()  // 已加载服务器
+    this.mcpTools = new Map() // 工具定义缓存
+    this.connections = new Map() // MCP 连接缓存
+    this.loadedServers = new Set() // 已加载服务器
   }
 }
 ```
@@ -652,6 +658,7 @@ class MCPToolManager {
 ### 5. 临时连接模式
 
 用于预览工具，不污染缓存:
+
 ```javascript
 try {
   tempClient = new Client(...)
@@ -666,15 +673,15 @@ try {
 
 ## 六、核心文件
 
-| 文件 | 作用 |
-|------|------|
-| [backend/src/services/mcpToolManager.js](../backend/src/services/mcpToolManager.js) | MCP 连接管理、工具转换、执行 |
-| [backend/src/routes/mcpTools.js](../backend/src/routes/mcpTools.js) | MCP 相关 API 路由 |
-| [backend/src/services/customToolExecutor.js](../backend/src/services/customToolExecutor.js) | 工具执行分发器 |
-| [backend/src/services/streamChatService.js](../backend/src/services/streamChatService.js) | 聊天服务，加载和调用工具 |
-| [src/lib/userToolsService.js](../src/lib/userToolsService.js) | 数据库操作 (CRUD + 同步) |
-| [src/lib/backendClient.js](../src/lib/backendClient.js) | 前端 API 客户端 |
-| [src/components/ToolsModal.jsx](../src/components/ToolsModal.jsx) | 工具管理界面 |
+| 文件                                                                                        | 作用                         |
+| ------------------------------------------------------------------------------------------- | ---------------------------- |
+| [backend/src/services/mcpToolManager.js](../backend/src/services/mcpToolManager.js)         | MCP 连接管理、工具转换、执行 |
+| [backend/src/routes/mcpTools.js](../backend/src/routes/mcpTools.js)                         | MCP 相关 API 路由            |
+| [backend/src/services/customToolExecutor.js](../backend/src/services/customToolExecutor.js) | 工具执行分发器               |
+| [backend/src/services/streamChatService.js](../backend/src/services/streamChatService.js)   | 聊天服务，加载和调用工具     |
+| [src/lib/userToolsService.js](../src/lib/userToolsService.js)                               | 数据库操作 (CRUD + 同步)     |
+| [src/lib/backendClient.js](../src/lib/backendClient.js)                                     | 前端 API 客户端              |
+| [src/components/ToolsModal.jsx](../src/components/ToolsModal.jsx)                           | 工具管理界面                 |
 
 ---
 

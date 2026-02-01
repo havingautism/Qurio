@@ -1,10 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { X, Globe, ExternalLink, ChevronLeft, ChevronRight } from 'lucide-react'
-import {
-  Drawer,
-  DrawerContent,
-} from '@/components/ui/drawer'
+import { Drawer, DrawerContent } from '@/components/ui/drawer'
 
 const MobileSourcesDrawer = ({ isOpen, onClose, sources = [], title }) => {
   const { t } = useTranslation()
@@ -23,32 +20,32 @@ const MobileSourcesDrawer = ({ isOpen, onClose, sources = [], title }) => {
 
   return (
     <Drawer open={isOpen} onOpenChange={onClose}>
-      <DrawerContent className="max-h-[85vh] rounded-t-3xl bg-white dark:bg-[#1E1E1E] border-t border-gray-200 dark:border-zinc-800">
+      <DrawerContent className="max-h-[85vh] rounded-t-3xl border-t border-gray-200 bg-white dark:border-zinc-800 dark:bg-[#1E1E1E]">
         {/* Header */}
-        <div className="px-5 py-4 flex items-center justify-between shrink-0 border-b border-gray-100 dark:border-zinc-800/50">
+        <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-zinc-800/50">
           <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center w-10 h-10 bg-primary-500/10 rounded-full text-primary-500">
+            <div className="bg-primary-500/10 text-primary-500 flex h-10 w-10 items-center justify-center rounded-full">
               <Globe size={20} />
             </div>
             <div className="flex flex-col">
-              <h3 className="text-base font-bold text-gray-900 dark:text-gray-100 leading-none mb-1">
+              <h3 className="mb-1 text-base leading-none font-bold text-gray-900 dark:text-gray-100">
                 {title || t('sources.title')}
               </h3>
-              <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
                 {t('sources.resultsFound', { count: sources.length })}
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 -mr-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-full hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
+            className="-mr-2 rounded-full p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-zinc-800 dark:hover:text-gray-200"
           >
             <X size={20} />
           </button>
         </div>
 
         {/* Content */}
-        <div className="overflow-y-auto min-h-0 py-2 px-3">
+        <div className="min-h-0 overflow-y-auto px-3 py-2">
           {sources.length === 0 ? (
             <div className="p-8 text-center text-gray-500 dark:text-gray-400">
               {t('sources.noSources')}
@@ -66,9 +63,9 @@ const MobileSourcesDrawer = ({ isOpen, onClose, sources = [], title }) => {
                       href={url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-zinc-800/50 transition-colors group active:bg-gray-100 dark:active:bg-zinc-800"
+                      className="group flex items-center gap-4 p-4 transition-colors hover:bg-gray-50 active:bg-gray-100 dark:hover:bg-zinc-800/50 dark:active:bg-zinc-800"
                     >
-                      <div className="shrink-0 w-6 h-6 rounded-full bg-gray-100 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 flex items-center justify-center text-[10px] font-bold text-gray-500 dark:text-gray-400">
+                      <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-gray-100 text-[10px] font-bold text-gray-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-gray-400">
                         {source.originalIndex !== undefined
                           ? source.originalIndex + 1
                           : absoluteIndex + 1}
@@ -80,20 +77,20 @@ const MobileSourcesDrawer = ({ isOpen, onClose, sources = [], title }) => {
                             `https://www.google.com/s2/favicons?domain=${getHostname(url)}&sz=128`
                           }
                           alt=""
-                          className="w-5 h-5 rounded-full opacity-70 group-hover:opacity-100 transition-opacity"
+                          className="h-5 w-5 rounded-full opacity-70 transition-opacity group-hover:opacity-100"
                         />
                       )}
-                      <div className="flex-1 min-w-0">
-                        <h4 className="text-sm font-bold text-gray-900 dark:text-gray-100 leading-tight mb-0.5 truncate">
+                      <div className="min-w-0 flex-1">
+                        <h4 className="mb-0.5 truncate text-sm leading-tight font-bold text-gray-900 dark:text-gray-100">
                           {source.title || url}
                         </h4>
-                        <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                        <div className="truncate text-xs text-gray-500 dark:text-gray-400">
                           {source.media || getHostname(url)}
                         </div>
                       </div>
                       <ExternalLink
                         size={16}
-                        className="shrink-0 text-gray-300 dark:text-zinc-600 group-hover:text-gray-500 dark:group-hover:text-gray-400 transition-colors"
+                        className="shrink-0 text-gray-300 transition-colors group-hover:text-gray-500 dark:text-zinc-600 dark:group-hover:text-gray-400"
                       />
                     </a>
                   )
@@ -104,12 +101,12 @@ const MobileSourcesDrawer = ({ isOpen, onClose, sources = [], title }) => {
 
         {/* Pagination Footer */}
         {Math.ceil(sources.length / itemsPerPage) > 1 && (
-          <div className="border-t border-gray-100 dark:border-zinc-800/50 p-4 shrink-0">
+          <div className="shrink-0 border-t border-gray-100 p-4 dark:border-zinc-800/50">
             <div className="flex items-center justify-center gap-6">
               <button
                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
-                className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent transition-colors text-gray-600 dark:text-gray-400"
+                className="rounded-full p-2 text-gray-600 transition-colors hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent dark:text-gray-400 dark:hover:bg-zinc-800"
               >
                 <ChevronLeft size={20} />
               </button>
@@ -121,7 +118,7 @@ const MobileSourcesDrawer = ({ isOpen, onClose, sources = [], title }) => {
                   setCurrentPage(p => Math.min(Math.ceil(sources.length / itemsPerPage), p + 1))
                 }
                 disabled={currentPage === Math.ceil(sources.length / itemsPerPage)}
-                className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent transition-colors text-gray-600 dark:text-gray-400"
+                className="rounded-full p-2 text-gray-600 transition-colors hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent dark:text-gray-400 dark:hover:bg-zinc-800"
               >
                 <ChevronRight size={20} />
               </button>

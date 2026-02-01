@@ -12,33 +12,33 @@ const AgentsView = () => {
   return (
     <div
       className={clsx(
-        'flex-1 h-full overflow-y-auto bg-background text-foreground transition-all duration-300',
+        'bg-background text-foreground h-full flex-1 overflow-y-auto transition-all duration-300',
         isSidebarPinned ? 'ml-0 sm:ml-72' : 'ml-0 sm:ml-16',
       )}
     >
-      <div className="w-full max-w-5xl mx-auto sm:px-6 sm:py-8 px-3 py-5">
+      <div className="mx-auto w-full max-w-5xl px-3 py-5 sm:px-6 sm:py-8">
         {/* Header */}
-        <div className="flex items-center gap-3 mb-8">
+        <div className="mb-8 flex items-center gap-3">
           <Smile size={32} className="text-primary-500" />
           <h1 className="text-3xl font-medium">{t('agentsView.title')}</h1>
         </div>
 
         {/* My Agents Section */}
         <div className="mb-12">
-          <h2 className="text-lg font-medium mb-4 text-gray-700 dark:text-gray-300">
+          <h2 className="mb-4 text-lg font-medium text-gray-700 dark:text-gray-300">
             {t('agentsView.myAgents')}
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
             {/* Create Card */}
             <div
               onClick={onCreateAgent}
-              className="group p-6 rounded-xl bg-gray-100 dark:bg-zinc-900 hover:bg-gray-200 dark:hover:bg-zinc-800 cursor-pointer transition-colors flex flex-col justify-between min-h-[160px]"
+              className="group flex min-h-[160px] cursor-pointer flex-col justify-between rounded-xl bg-gray-100 p-6 transition-colors hover:bg-gray-200 dark:bg-zinc-900 dark:hover:bg-zinc-800"
             >
-              <div className="w-10 h-10 rounded-full bg-primary-500 flex items-center justify-center text-white mb-4 group-hover:scale-110 transition-transform">
+              <div className="bg-primary-500 mb-4 flex h-10 w-10 items-center justify-center rounded-full text-white transition-transform group-hover:scale-110">
                 <Plus size={24} />
               </div>
               <div>
-                <h3 className="font-medium text-lg mb-1">{t('agentsView.createAgent')}</h3>
+                <h3 className="mb-1 text-lg font-medium">{t('agentsView.createAgent')}</h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
                   {t('agentsView.createAgentDescription')}
                 </p>
@@ -58,18 +58,18 @@ const AgentsView = () => {
                     key={agent.id}
                     onClick={() => onEditAgent(agent)}
                     className={clsx(
-                      'group p-6 rounded-xl bg-gray-100 dark:bg-zinc-900 transition-colors flex flex-col justify-between min-h-[160px]',
+                      'group flex min-h-[160px] flex-col justify-between rounded-xl bg-gray-100 p-6 transition-colors dark:bg-zinc-900',
                       'cursor-pointer hover:bg-gray-200 dark:hover:bg-zinc-800',
                     )}
                   >
-                    <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-zinc-800 flex items-center justify-center text-xl mb-4">
+                    <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-full bg-gray-200 text-xl dark:bg-zinc-800">
                       <EmojiDisplay emoji={agent.emoji} />
                     </div>
                     <div>
-                      <h3 className="font-medium text-lg mb-1 truncate">
+                      <h3 className="mb-1 truncate text-lg font-medium">
                         {getAgentDisplayName(agent, t)}
                       </h3>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2">
+                      <p className="line-clamp-2 text-sm text-gray-500 dark:text-gray-400">
                         {getAgentDisplayDescription(agent, t)}
                       </p>
                       <div className="mt-2 flex items-center gap-2 text-xs text-gray-400">

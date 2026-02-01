@@ -164,55 +164,55 @@ export OPENAI_API_KEY=<your_api_key>
 ```
 
 ```ts
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { Client } from '@modelcontextprotocol/sdk/client/index.js'
+import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 
-import { createAgent } from "langchain";
-import { ChatOpenAI } from "@langchain/openai";
-import { loadMcpTools } from "@langchain/mcp-adapters";
+import { createAgent } from 'langchain'
+import { ChatOpenAI } from '@langchain/openai'
+import { loadMcpTools } from '@langchain/mcp-adapters'
 
 // Initialize the ChatOpenAI model
-const model = new ChatOpenAI({ model: "gpt-4" });
+const model = new ChatOpenAI({ model: 'gpt-4' })
 
 // Automatically starts and connects to a MCP reference server
 const transport = new StdioClientTransport({
-  command: "npx",
-  args: ["-y", "@modelcontextprotocol/server-math"],
-});
+  command: 'npx',
+  args: ['-y', '@modelcontextprotocol/server-math'],
+})
 
 // Initialize the client
 const client = new Client({
-  name: "math-client",
-  version: "1.0.0",
-});
+  name: 'math-client',
+  version: '1.0.0',
+})
 
 try {
   // Connect to the transport
-  await client.connect(transport);
+  await client.connect(transport)
 
   // Get tools with custom configuration
-  const tools = await loadMcpTools("math", client, {
+  const tools = await loadMcpTools('math', client, {
     // Whether to throw errors if a tool fails to load (optional, default: true)
     throwOnLoadError: true,
     // Whether to prefix tool names with the server name (optional, default: false)
     prefixToolNameWithServerName: false,
     // Optional additional prefix for tool names (optional, default: "")
-    additionalToolNamePrefix: "",
+    additionalToolNamePrefix: '',
     // Use standardized content block format in tool outputs (default: false)
     useStandardContentBlocks: false,
-  });
+  })
 
   // Create and run the agent
-  const agent = createAgent({ llm: model, tools });
+  const agent = createAgent({ llm: model, tools })
   const agentResponse = await agent.invoke({
-    messages: [{ role: "user", content: "what's (3 + 5) x 12?" }],
-  });
-  console.log(agentResponse);
+    messages: [{ role: 'user', content: "what's (3 + 5) x 12?" }],
+  })
+  console.log(agentResponse)
 } catch (e) {
-  console.error(e);
+  console.error(e)
 } finally {
   // Clean up connection
-  await client.close();
+  await client.close()
 }
 ```
 
@@ -223,20 +223,20 @@ For more detailed examples, see the [examples](./examples) directory.
 You can subscribe to server notifications and tool progress events directly on the `MultiServerMCPClient` via top‑level callbacks.
 
 ```ts
-import { MultiServerMCPClient } from "@langchain/mcp-adapters";
+import { MultiServerMCPClient } from '@langchain/mcp-adapters'
 
 const client = new MultiServerMCPClient({
   mcpServers: {
     everything: {
-      transport: "stdio",
-      command: "npx",
-      args: ["-y", "@modelcontextprotocol/server-everything"],
+      transport: 'stdio',
+      command: 'npx',
+      args: ['-y', '@modelcontextprotocol/server-everything'],
     },
   },
 
   // Receive log/notification messages from the server
   onMessage: (log, source) => {
-    console.log(`[${source.server}] ${log.data}`);
+    console.log(`[${source.server}] ${log.data}`)
   },
 
   // Receive progress updates (e.g. from long‑running tool calls)
@@ -245,23 +245,22 @@ const client = new MultiServerMCPClient({
       progress.percentage ??
       (progress.progress != null && progress.total
         ? Math.round((progress.progress / progress.total) * 100)
-        : undefined);
+        : undefined)
     if (pct != null) {
-      const origin =
-        source.type === "tool" ? `${source.server}/${source.name}` : "unknown";
-      console.log(`[progress:${origin}] ${pct}%`);
+      const origin = source.type === 'tool' ? `${source.server}/${source.name}` : 'unknown'
+      console.log(`[progress:${origin}] ${pct}%`)
     }
   },
 
   // Optional: react to server-side list changes
   onToolsListChanged: (evt, source) => {
-    console.log(`[${source.server}] tools changed (${evt.tools?.length ?? 0})`);
+    console.log(`[${source.server}] tools changed (${evt.tools?.length ?? 0})`)
   },
-});
+})
 
-const tools = await client.getTools();
+const tools = await client.getTools()
 // ... invoke tools as usual ...
-await client.close();
+await client.close()
 ```
 
 Available notification callbacks you can register:
@@ -276,32 +275,32 @@ Available notification callbacks you can register:
 Use hooks to customize tool calls:
 
 ```ts
-import { MultiServerMCPClient } from "@langchain/mcp-adapters";
+import { MultiServerMCPClient } from '@langchain/mcp-adapters'
 
 const client = new MultiServerMCPClient({
   mcpServers: {
     math: {
-      transport: "stdio",
-      command: "npx",
-      args: ["-y", "@modelcontextprotocol/server-math"],
+      transport: 'stdio',
+      command: 'npx',
+      args: ['-y', '@modelcontextprotocol/server-math'],
     },
   },
 
   // Change args/headers before the tool call
   beforeToolCall: ({ serverName, name, args }) => {
     // Add/override an argument
-    const nextArgs = { ...(args as Record<string, unknown>), injected: true };
+    const nextArgs = { ...(args as Record<string, unknown>), injected: true }
     // For HTTP/SSE transports, you may also add per-call headers
     return {
       args: nextArgs,
-      headers: { "X-Request-ID": crypto.randomUUID() },
-    };
+      headers: { 'X-Request-ID': crypto.randomUUID() },
+    }
   },
 
   // Change the tool result after execution
-  afterToolCall: (res) => {
+  afterToolCall: res => {
     // Option A: return a 2‑tuple [content, artifact]
-    if (res.name === "someTool") return { result: ["modified-output", []] };
+    if (res.name === 'someTool') return { result: ['modified-output', []] }
 
     // Option B: return a LangChain ToolMessage
     // return { result: new ToolMessage({ content: "overridden", tool_call_id: "id" }) };
@@ -310,13 +309,13 @@ const client = new MultiServerMCPClient({
     // return { result: new Command(...) }
 
     // Or pass-through (no change)
-    return { result: res.result };
+    return { result: res.result }
   },
-});
+})
 
-const tools = await client.getTools();
-const t = tools.find((tool) => tool.name.includes("add"));
-const out = await t?.invoke({ a: 1, b: 2 });
+const tools = await client.getTools()
+const t = tools.find(tool => tool.name.includes('add'))
+const out = await t?.invoke({ a: 1, b: 2 })
 ```
 
 Notes:
@@ -446,26 +445,26 @@ This timeout will be used as the default timeout for all tools unless overridden
 ```typescript
 const client = new MultiServerMCPClient({
   mcpServers: {
-    "data-processor": {
-      command: "python",
-      args: ["data_server.py"],
+    'data-processor': {
+      command: 'python',
+      args: ['data_server.py'],
       defaultToolTimeout: 30000, // timeout will be 30 seconds
     },
-    "image-processor": {
-      transport: "stdio",
-      command: "node",
-      args: ["image_server.js"],
+    'image-processor': {
+      transport: 'stdio',
+      command: 'node',
+      args: ['image_server.js'],
       // timeout will be 10 seconds (set in the top-level config)
     },
   },
   defaultToolTimeout: 10000, // 10 seconds
-});
+})
 
-const tools = await client.getTools();
-const slowTool = tools.find((t) => t.name.includes("process_large_dataset"));
+const tools = await client.getTools()
+const slowTool = tools.find(t => t.name.includes('process_large_dataset'))
 
 // Will timeout after 30 seconds (defaultToolTimeout)
-const result = await slowTool.invoke({ dataset: "huge_file.csv" });
+const result = await slowTool.invoke({ dataset: 'huge_file.csv' })
 ```
 
 ### Using `withConfig`
@@ -475,39 +474,36 @@ MCP tools support timeout configuration through LangChain's standard `RunnableCo
 ```typescript
 const client = new MultiServerMCPClient({
   mcpServers: {
-    "data-processor": {
-      command: "python",
-      args: ["data_server.py"],
+    'data-processor': {
+      command: 'python',
+      args: ['data_server.py'],
     },
   },
   useStandardContentBlocks: true,
-});
+})
 
-const tools = await client.getTools();
-const slowTool = tools.find((t) => t.name.includes("process_large_dataset"));
+const tools = await client.getTools()
+const slowTool = tools.find(t => t.name.includes('process_large_dataset'))
 
 // You can use withConfig to set tool-specific timeouts before handing
 // the tool off to a LangGraph ToolNode or some other part of your
 // application
-const slowToolWithTimeout = slowTool.withConfig({ timeout: 300000 }); // 5 min timeout
+const slowToolWithTimeout = slowTool.withConfig({ timeout: 300000 }) // 5 min timeout
 
 // This invocation will respect the 5 minute timeout
-const result = await slowToolWithTimeout.invoke({ dataset: "huge_file.csv" });
+const result = await slowToolWithTimeout.invoke({ dataset: 'huge_file.csv' })
 
 // or you can invoke directly without withConfig
-const directResult = await slowTool.invoke(
-  { dataset: "huge_file.csv" },
-  { timeout: 300000 }
-);
+const directResult = await slowTool.invoke({ dataset: 'huge_file.csv' }, { timeout: 300000 })
 
 // Quick timeout for fast operations
 const quickResult = await fastTool.invoke(
-  { query: "simple_lookup" },
-  { timeout: 5000 } // 5 seconds
-);
+  { query: 'simple_lookup' },
+  { timeout: 5000 }, // 5 seconds
+)
 
 // Default timeout (60 seconds from MCP SDK) when no config provided
-const normalResult = await tool.invoke({ input: "normal_processing" });
+const normalResult = await tool.invoke({ input: 'normal_processing' })
 ```
 
 Timeouts can be configured using the following `RunnableConfig` fields:
@@ -526,31 +522,31 @@ New in v0.4.6.
 ### Basic OAuth Setup
 
 ```ts
-import type { OAuthClientProvider } from "@modelcontextprotocol/sdk/client/auth.js";
+import type { OAuthClientProvider } from '@modelcontextprotocol/sdk/client/auth.js'
 
 class MyOAuthProvider implements OAuthClientProvider {
   constructor(
     private config: {
-      redirectUrl: string;
-      clientMetadata: OAuthClientMetadata;
-    }
+      redirectUrl: string
+      clientMetadata: OAuthClientMetadata
+    },
   ) {}
 
   get redirectUrl() {
-    return this.config.redirectUrl;
+    return this.config.redirectUrl
   }
   get clientMetadata() {
-    return this.config.clientMetadata;
+    return this.config.clientMetadata
   }
 
   // Implement token storage (localStorage, database, etc.)
   tokens(): OAuthTokens | undefined {
-    const stored = localStorage.getItem("mcp_tokens");
-    return stored ? JSON.parse(stored) : undefined;
+    const stored = localStorage.getItem('mcp_tokens')
+    return stored ? JSON.parse(stored) : undefined
   }
 
   async saveTokens(tokens: OAuthTokens): Promise<void> {
-    localStorage.setItem("mcp_tokens", JSON.stringify(tokens));
+    localStorage.setItem('mcp_tokens', JSON.stringify(tokens))
   }
 
   // Implement other required methods...
@@ -559,20 +555,20 @@ class MyOAuthProvider implements OAuthClientProvider {
 
 const client = new MultiServerMCPClient({
   mcpServers: {
-    "secure-server": {
-      url: "https://secure-mcp-server.example.com/mcp",
+    'secure-server': {
+      url: 'https://secure-mcp-server.example.com/mcp',
       authProvider: new MyOAuthProvider({
-        redirectUrl: "https://myapp.com/oauth/callback",
+        redirectUrl: 'https://myapp.com/oauth/callback',
         clientMetadata: {
-          redirect_uris: ["https://myapp.com/oauth/callback"],
-          client_name: "My MCP Client",
-          scope: "mcp:read mcp:write",
+          redirect_uris: ['https://myapp.com/oauth/callback'],
+          client_name: 'My MCP Client',
+          scope: 'mcp:read mcp:write',
         },
       }),
     },
   },
   useStandardContentBlocks: true,
-});
+})
 ```
 
 ### OAuth Features
@@ -646,33 +642,33 @@ try {
   const client = new MultiServerMCPClient({
     mcpServers: {
       math: {
-        transport: "stdio",
-        command: "npx",
-        args: ["-y", "@modelcontextprotocol/server-math"],
+        transport: 'stdio',
+        command: 'npx',
+        args: ['-y', '@modelcontextprotocol/server-math'],
       },
     },
     useStandardContentBlocks: true,
-  });
+  })
 
-  const tools = await client.getTools();
-  const result = await tools[0].invoke({ expression: "1 + 2" });
+  const tools = await client.getTools()
+  const result = await tools[0].invoke({ expression: '1 + 2' })
 } catch (error) {
-  if (error.name === "MCPClientError") {
+  if (error.name === 'MCPClientError') {
     // Handle connection issues
-    console.error(`Connection error (${error.serverName}):`, error.message);
-  } else if (error.name === "ToolException") {
+    console.error(`Connection error (${error.serverName}):`, error.message)
+  } else if (error.name === 'ToolException') {
     // Handle tool execution errors
-    console.error("Tool execution failed:", error.message);
-  } else if (error.name === "ZodError") {
+    console.error('Tool execution failed:', error.message)
+  } else if (error.name === 'ZodError') {
     // Handle configuration validation errors
-    console.error("Configuration error:", error.issues);
+    console.error('Configuration error:', error.issues)
     // Zod errors contain detailed information about what went wrong
-    error.issues.forEach((issue) => {
-      console.error(`- Path: ${issue.path.join(".")}, Error: ${issue.message}`);
-    });
+    error.issues.forEach(issue => {
+      console.error(`- Path: ${issue.path.join('.')}, Error: ${issue.message}`)
+    })
   } else {
     // Handle other errors
-    console.error("Unexpected error:", error);
+    console.error('Unexpected error:', error)
   }
 }
 ```
@@ -719,26 +715,26 @@ When set to `"ignore"` or a custom handler that doesn't throw:
 ```ts
 const client = new MultiServerMCPClient({
   mcpServers: {
-    "working-server": {
-      transport: "stdio",
-      command: "npx",
-      args: ["-y", "@modelcontextprotocol/server-math"],
+    'working-server': {
+      transport: 'stdio',
+      command: 'npx',
+      args: ['-y', '@modelcontextprotocol/server-math'],
     },
-    "broken-server": {
-      transport: "http",
-      url: "http://localhost:9999/mcp", // This server doesn't exist
+    'broken-server': {
+      transport: 'http',
+      url: 'http://localhost:9999/mcp', // This server doesn't exist
     },
   },
-  onConnectionError: "ignore", // Skip failed connections
+  onConnectionError: 'ignore', // Skip failed connections
   useStandardContentBlocks: true,
-});
+})
 
 // This won't throw even though "broken-server" fails to connect
-const tools = await client.getTools(); // Only tools from "working-server"
+const tools = await client.getTools() // Only tools from "working-server"
 
 // You can check which servers are actually connected
-const workingClient = await client.getClient("working-server"); // Returns client
-const brokenClient = await client.getClient("broken-server"); // Returns undefined
+const workingClient = await client.getClient('working-server') // Returns client
+const brokenClient = await client.getClient('broken-server') // Returns undefined
 ```
 
 You can also provide a custom error handler function for more control:
@@ -746,25 +742,25 @@ You can also provide a custom error handler function for more control:
 ```ts
 const client = new MultiServerMCPClient({
   mcpServers: {
-    "critical-server": {
-      transport: "http",
-      url: "http://localhost:8000/mcp",
+    'critical-server': {
+      transport: 'http',
+      url: 'http://localhost:8000/mcp',
     },
-    "optional-server": {
-      transport: "http",
-      url: "http://localhost:8001/mcp",
+    'optional-server': {
+      transport: 'http',
+      url: 'http://localhost:8001/mcp',
     },
   },
   onConnectionError: ({ serverName, error }) => {
     // Throw for critical servers, ignore for optional ones
-    if (serverName === "critical-server") {
-      throw new Error(`Critical server ${serverName} failed: ${error}`);
+    if (serverName === 'critical-server') {
+      throw new Error(`Critical server ${serverName} failed: ${error}`)
     }
     // For optional servers, just log and continue
-    console.warn(`Optional server ${serverName} failed, continuing...`);
+    console.warn(`Optional server ${serverName} failed, continuing...`)
   },
   useStandardContentBlocks: true,
-});
+})
 ```
 
 In this example:

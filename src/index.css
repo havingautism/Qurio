@@ -1,6 +1,6 @@
 @import 'tailwindcss';
 @variant dark (&:where(.dark, .dark *));
-@source "../node_modules/streamdown/dist/*.js";
+@source '../node_modules/streamdown/dist/*.js';
 
 /* CSS variables for sidebar width */
 :root {
@@ -128,17 +128,17 @@
 
 /* Premium card effects */
 .premium-card {
-  @apply bg-white/60 dark:bg-zinc-900/60 backdrop-blur-xl border border-gray-200/50 dark:border-zinc-700/50 shadow-sm;
+  @apply border border-gray-200/50 bg-white/60 shadow-sm backdrop-blur-xl dark:border-zinc-700/50 dark:bg-zinc-900/60;
   border-radius: var(--radius-lg);
 }
 
 .premium-card-hover {
-  @apply transition-all duration-300 hover:shadow-lg hover:scale-[1.02] hover:border-primary-500/30;
+  @apply hover:border-primary-500/30 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg;
 }
 
 /* Focus ring utility */
 .focus-ring {
-  @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900;
+  @apply focus-visible:ring-primary-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900;
 }
 
 /* Smooth transitions for interactive elements */
@@ -152,7 +152,7 @@
 
 /* Gradient text */
 .gradient-text {
-  @apply bg-gradient-to-r from-primary-500 to-primary-600 bg-clip-text text-transparent;
+  @apply from-primary-500 to-primary-600 bg-gradient-to-r bg-clip-text text-transparent;
 }
 
 /* Apply transform to elements that need to move with sidebar */
@@ -329,7 +329,7 @@
 }
 
 body {
-  @apply bg-background text-foreground font-sans antialiased overflow-x-hidden;
+  @apply bg-background text-foreground overflow-x-hidden font-sans antialiased;
 }
 
 body.scroll-locked {
@@ -790,7 +790,7 @@ h6 {
 
 /* Premium Card Effects */
 .premium-card-bg {
-  @apply bg-white/40 dark:bg-zinc-900/40 backdrop-blur-md border border-gray-200/50 dark:border-zinc-700/50 shadow-xs;
+  @apply border border-gray-200/50 bg-white/40 shadow-xs backdrop-blur-md dark:border-zinc-700/50 dark:bg-zinc-900/40;
 }
 
 .premium-card-glow {

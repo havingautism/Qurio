@@ -1,4 +1,5 @@
 # Interactive Form Rendering Notes
+
 # 交互式表单渲染说明
 
 This document summarizes how interactive forms are rendered inside assistant messages
@@ -7,6 +8,7 @@ and how follow-up content is merged and displayed.
 本文档总结了交互式表单在助手消息中的渲染方式，以及后续拼接正文的合并与展示逻辑。
 
 ## Data Flow Overview
+
 ## 数据流概览
 
 - Form requests come from tool calls in `toolCallHistory` with `name === 'interactive_form'`.
@@ -20,6 +22,7 @@ and how follow-up content is merged and displayed.
 - 提交后的助手响应可能是续正文消息，会与原始助手消息进行合并展示。
 
 ## Merge Logic (MessageBubble.jsx)
+
 ## 合并逻辑（MessageBubble.jsx）
 
 The component merges a form message with its subsequent submission + continuation
@@ -56,6 +59,7 @@ Important fields added on the merged message:
 - `_isContinuationLoading`：存在提交但尚无 AI 续正文时为 true。
 
 ## Rendering Pipeline (Interleaving Text + Tools)
+
 ## 渲染管线（正文 + 工具穿插）
 
 The message content is broken into interleaved parts based on `toolCallHistory`:
@@ -73,6 +77,7 @@ The message content is broken into interleaved parts based on `toolCallHistory`:
   - 若 `interactive_form` 缺少 `textIndex`，默认插在正文末尾。
 
 ## Interactive Form Rendering
+
 ## 交互式表单渲染
 
 Inside a `tools` block:
@@ -98,6 +103,7 @@ Inside a `tools` block:
   - 解析失败且已完成则显示错误提示。
 
 ## Status Badges (Waiting + Submitted)
+
 ## 状态标记（等待中 / 已提交）
 
 There are two statuses:
@@ -125,6 +131,7 @@ appearing at the end of the form itself.
 这样可保证“用户已输入”对齐到续正文开头，而不是出现在表单末尾。
 
 ## Continuation Loading UX
+
 ## 续正文加载体验
 
 When `_isContinuationLoading` is true:
@@ -142,6 +149,7 @@ This keeps context visible while signaling that more content is coming.
 这样既保留上下文，又能提示后续内容正在加载。
 
 ## Timeline Filtering (QuestionTimelineController.jsx)
+
 ## 时间轴过滤（QuestionTimelineController.jsx）
 
 The question timeline ignores form submission messages:

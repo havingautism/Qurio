@@ -4,26 +4,31 @@
 
 ## 关键逻辑（当前 Agno 架构）
 
-1) **模型选择**
+1. **模型选择**
+
 - `provider == gemini`：使用 Agno 的 `Gemini` 模型类。
 - **除 Gemini 外全部走 OpenAI‑compatible**：统一使用 `OpenAILike`（参见 Agno OpenAI‑like 文档）。
 - 模型与 base_url 以请求参数为主，未传则用环境变量默认值。
 
-2) **消息与流式**
+2. **消息与流式**
+
 - 不做角色映射（`developer` 会原样透传）。
 - 流式输出通过 `Agent.run(stream=True, stream_events=True)` 转成 SSE JSON 事件：
   - `text / thought / tool_call / tool_result / done / error`
 
-3) **工具体系（前端可选）**
-- **本地自定义工具（local）**：`QurioLocalTools`（calculator / local_time / summarize_text / extract_text / json_repair / webpage_reader / interactive_form / Tavily_* 等）。
+3. **工具体系（前端可选）**
+
+- **本地自定义工具（local）**：`QurioLocalTools`（calculator / local*time / summarize_text / extract_text / json_repair / webpage_reader / interactive_form / Tavily*\* 等）。
 - **Agno 内置工具（agno）**：按勾选加载 Toolkit：
   - TavilyTools / DuckDuckGoTools / ArxivTools / WikipediaTools / YFinanceTools
 - **用户工具（custom）**：HTTP/MCP 工具通过 `build_user_tools_toolkit` 统一封装。
 
-4) **存储**
+4. **存储**
+
 - 当前 **不启用 Agno DB**（前端自行写入 Supabase）。
 
-5) **CORS**
+5. **CORS**
+
 - 由 `AgentOS(cors_allowed_origins=...)` 与兜底中间件同时保证浏览器可访问。
 
 ---

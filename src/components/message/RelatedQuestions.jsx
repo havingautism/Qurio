@@ -17,7 +17,7 @@ const RelatedQuestions = ({ t, questions, isLoading, onRelatedClick }) => {
         entered ? 'max-h-[420px] opacity-100' : 'max-h-0 opacity-0'
       }`}
     >
-      <div className="flex items-center gap-3 mb-3 text-gray-900 dark:text-gray-100">
+      <div className="mb-3 flex items-center gap-3 text-gray-900 dark:text-gray-100">
         <EmojiDisplay emoji="🔮" size="1.2em" className="mb-1" />
         <span className="text-sm font-semibold">{t('messageBubble.relatedQuestions')}</span>
       </div>
@@ -27,12 +27,12 @@ const RelatedQuestions = ({ t, questions, isLoading, onRelatedClick }) => {
             <div
               key={index}
               onClick={() => onRelatedClick && onRelatedClick(question)}
-              className="flex items-center rounded-2xl sm:hover:scale-102 bg-user-bubble dark:bg-zinc-800/50 justify-between py-2 px-3 hover:bg-user-bubble dark:hover:bg-zinc-800/50 cursor-pointer transition-colors group"
+              className="bg-user-bubble hover:bg-user-bubble group flex cursor-pointer items-center justify-between rounded-2xl px-3 py-2 transition-colors sm:hover:scale-102 dark:bg-zinc-800/50 dark:hover:bg-zinc-800/50"
             >
-              <span className="text-gray-700 dark:text-gray-300 font-medium text-sm md:text-balance">
+              <span className="text-sm font-medium text-gray-700 md:text-balance dark:text-gray-300">
                 {question}
               </span>
-              <div className="ml-2 sm:ml-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 text-primary-500 dark:text-primary-500">
+              <div className="text-primary-500 dark:text-primary-500 ml-2 opacity-100 sm:ml-0 sm:opacity-0 sm:group-hover:opacity-100">
                 <CornerRightDown />
               </div>
             </div>

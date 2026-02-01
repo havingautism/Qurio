@@ -861,7 +861,7 @@ function App() {
             {isShareRoute ? (
               <Outlet />
             ) : (
-              <div className="fixed inset-0 flex overflow-hidden bg-background text-foreground font-sans selection:bg-primary-500/30">
+              <div className="bg-background text-foreground selection:bg-primary-500/30 fixed inset-0 flex overflow-hidden font-sans">
                 <Sidebar
                   isOpen={isSidebarOpen}
                   onClose={() => setIsSidebarOpen(false)}
@@ -886,17 +886,17 @@ function App() {
                   activeConversationId={activeConversationId}
                 />
                 <div
-                  className={`flex-1 relative transition-all duration-300 ml-0 w-full flex flex-col overflow-hidden`}
+                  className={`relative ml-0 flex w-full flex-1 flex-col overflow-hidden transition-all duration-300`}
                 >
                   {/* Mobile Header - Hide on Chat/Conversation routes as they have their own header */}
                   {!location.pathname.includes('/conversation/') &&
                     !location.pathname.includes('/deepresearch/') &&
                     !location.pathname.includes('/new_chat') && (
-                      <div className="md:hidden h-12 shrink-0 border-b border-gray-200 dark:border-zinc-800 flex items-center justify-between px-4 bg-background z-30">
+                      <div className="bg-background z-30 flex h-12 shrink-0 items-center justify-between border-b border-gray-200 px-4 md:hidden dark:border-zinc-800">
                         <div className="flex items-center gap-3">
                           <button
                             onClick={() => setIsSidebarOpen(true)}
-                            className="p-2 -ml-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg"
+                            className="-ml-2 rounded-lg p-2 text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-zinc-800"
                           >
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
@@ -918,7 +918,7 @@ function App() {
                         </div>
                         <button
                           onClick={() => handleNavigate('home')}
-                          className="p-2 -mr-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg"
+                          className="-mr-2 rounded-lg p-2 text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-zinc-800"
                         >
                           <svg
                             xmlns="http://www.w3.org/2000/svg"
@@ -937,7 +937,7 @@ function App() {
                         </button>
                       </div>
                     )}
-                  <div className="flex-1 min-h-0 overflow-hidden">
+                  <div className="min-h-0 flex-1 overflow-hidden">
                     <Outlet />
                   </div>
                 </div>
@@ -989,7 +989,8 @@ function App() {
                 <SupabaseSetupModal
                   isOpen={isSupabaseSetupOpen}
                   isManual={
-                    loadSettings().databaseProvider === 'supabase' && Boolean(loadSettings().supabaseUrl)
+                    loadSettings().databaseProvider === 'supabase' &&
+                    Boolean(loadSettings().supabaseUrl)
                   } // If URL exists, it's a manual reconfigure
                   onConfigured={() => {
                     setIsSupabaseSetupOpen(false)

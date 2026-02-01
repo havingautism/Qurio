@@ -33,6 +33,7 @@ SSE_HEARTBEAT_MS=15000
 ```
 
 Notes:
+
 - `SSE_FLUSH_MS=0` disables buffering and flushes immediately.
 - Set `SSE_HEARTBEAT_MS=0` to disable heartbeats.
 
@@ -105,6 +106,7 @@ SSE_HEARTBEAT_MS=15000
 ```
 
 说明：
+
 - `SSE_FLUSH_MS=0` 表示不缓冲，立即输出。
 - `SSE_HEARTBEAT_MS=0` 表示关闭心跳。
 
@@ -127,11 +129,11 @@ sse.close()
 
 本次修复包含两部分，解决“连接建立后立即断开/无返回”：
 
-1) **后端 env 读取路径修复**
+1. **后端 env 读取路径修复**
    - 之前从进程工作目录读取 `.env`，导致 `backend/.env.local` 不生效。
    - 现在固定从 `backend/` 目录读取 `.env` 和 `.env.local`，确保 CORS 和 SSE 配置生效。
 
-2) **SSE 连接与缓冲处理**
+2. **SSE 连接与缓冲处理**
    - 统一发送首包注释（`:ok`），防止客户端一直等首字节。
    - 增加心跳，避免中间层或浏览器关闭空闲连接。
    - 使用可配置缓冲窗口，减少过多小包导致的卡顿或提前断开。

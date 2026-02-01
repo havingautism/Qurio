@@ -63,11 +63,11 @@ const ConversationView = () => {
 
   if (fetchError) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-4">
-        <div className="text-red-500 mb-2">Failed to load conversation</div>
+      <div className="flex flex-1 flex-col items-center justify-center p-4">
+        <div className="mb-2 text-red-500">Failed to load conversation</div>
         <button
           onClick={() => window.location.reload()}
-          className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90"
+          className="bg-primary text-primary-foreground hover:bg-primary/90 rounded px-4 py-2"
         >
           Retry
         </button>

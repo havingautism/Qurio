@@ -72,28 +72,28 @@ const ShortcutModal = ({ isOpen, onClose, shortcut, onSave, onDelete, currentPos
   }
 
   const modalContent = (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 sm:p-6 transition-all duration-300">
-      <div className="w-full sm:max-w-md bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-gray-200 dark:border-white/10 ring-1 ring-black/5 animate-in fade-in zoom-in-95 duration-200 max-h-[85dvh]">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm transition-all duration-300 sm:p-6">
+      <div className="animate-in fade-in zoom-in-95 flex max-h-[85dvh] w-full flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl ring-1 ring-black/5 duration-200 sm:max-w-md dark:border-white/10 dark:bg-[#1C1C1E]">
         {/* Header */}
-        <div className="h-14 border-b border-gray-100 dark:border-white/5 flex items-center justify-between px-5 bg-white/50 dark:bg-white/5 backdrop-blur-md">
+        <div className="flex h-14 items-center justify-between border-b border-gray-100 bg-white/50 px-5 backdrop-blur-md dark:border-white/5 dark:bg-white/5">
           <h3 className="text-base font-semibold text-gray-900 dark:text-white">
             {shortcut?.id ? t('views.widgets.editShortcut') : t('views.widgets.newShortcut')}
           </h3>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400 transition-colors"
+            className="rounded-full p-1.5 text-gray-500 transition-colors hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/10"
           >
             <X size={20} />
           </button>
         </div>
 
         {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto max-h-[70vh] p-5 space-y-6">
+        <div className="max-h-[70vh] flex-1 space-y-6 overflow-y-auto p-5">
           {/* 1. Preview Section */}
           <div className="flex flex-col items-center justify-center py-2">
-            <div className="w-20 h-20 flex items-center justify-center rounded-[20px] bg-white  shadow-lg mb-3 ring-1 ring-black/5 dark:ring-white/10">
+            <div className="mb-3 flex h-20 w-20 items-center justify-center rounded-[20px] bg-white shadow-lg ring-1 ring-black/5 dark:ring-white/10">
               {iconType === 'favicon' && (
-                <div className="w-10 h-10 flex items-center justify-center">
+                <div className="flex h-10 w-10 items-center justify-center">
                   {url ? (
                     <img
                       key={url + useFaviconFallback}
@@ -101,7 +101,7 @@ const ShortcutModal = ({ isOpen, onClose, shortcut, onSave, onDelete, currentPos
                         useFaviconFallback ? getFaviconFallbackUrl(url) : getDirectFaviconUrl(url)
                       }
                       alt=""
-                      className="w-full h-full object-contain"
+                      className="h-full w-full object-contain"
                       onError={e => {
                         if (!useFaviconFallback) {
                           setUseFaviconFallback(true)
@@ -121,17 +121,17 @@ const ShortcutModal = ({ isOpen, onClose, shortcut, onSave, onDelete, currentPos
                   <img
                     src={iconUrl}
                     alt=""
-                    className="w-10 h-10 object-contain"
+                    className="h-10 w-10 object-contain"
                     onError={e => (e.target.style.display = 'none')}
                   />
                 ) : (
                   <Image size={32} className="text-gray-400 opacity-50" />
                 ))}
             </div>
-            <p className="text-sm font-medium text-gray-900 dark:text-white max-w-[200px] truncate">
+            <p className="max-w-[200px] truncate text-sm font-medium text-gray-900 dark:text-white">
               {title || t('views.widgets.shortcutTitle')}
             </p>
-            <p className="text-xs text-gray-500 dark:text-gray-400 max-w-[200px] truncate mt-0.5">
+            <p className="mt-0.5 max-w-[200px] truncate text-xs text-gray-500 dark:text-gray-400">
               {url || 'https://example.com'}
             </p>
           </div>
@@ -139,7 +139,7 @@ const ShortcutModal = ({ isOpen, onClose, shortcut, onSave, onDelete, currentPos
           {/* 2. Basic Info */}
           <div className="space-y-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 ml-1">
+              <label className="ml-1 text-xs font-semibold tracking-wider text-gray-500 uppercase dark:text-gray-400">
                 {t('views.widgets.details')}
               </label>
               <input
@@ -147,7 +147,7 @@ const ShortcutModal = ({ isOpen, onClose, shortcut, onSave, onDelete, currentPos
                 value={title}
                 onChange={e => setTitle(e.target.value)}
                 placeholder={t('views.widgets.shortcutTitlePlaceholder')}
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-white/10 bg-white disabled:bg-gray-50/20 dark:bg-white/5 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 transition-all font-medium"
+                className="focus:ring-primary-500/50 focus:border-primary-500 w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 font-medium text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:border-white/10 dark:bg-white/5 dark:text-white"
                 autoFocus={!shortcut}
               />
               <input
@@ -155,19 +155,19 @@ const ShortcutModal = ({ isOpen, onClose, shortcut, onSave, onDelete, currentPos
                 value={url}
                 onChange={e => setUrl(e.target.value)}
                 placeholder={t('views.widgets.urlPlaceholder')}
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-white/10 bg-white disabled:bg-gray-50/20 dark:bg-white/5 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 transition-all font-medium font-mono text-sm"
+                className="focus:ring-primary-500/50 focus:border-primary-500 w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 font-mono text-sm font-medium text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:border-white/10 dark:bg-white/5 dark:text-white"
               />
             </div>
           </div>
 
           {/* 3. Icon Selector */}
           <div className="space-y-3">
-            <label className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 ml-1">
+            <label className="ml-1 text-xs font-semibold tracking-wider text-gray-500 uppercase dark:text-gray-400">
               {t('views.widgets.appearance')}
             </label>
 
             {/* Segmented Control */}
-            <div className="flex p-1 bg-gray-100 dark:bg-white/5 rounded-xl">
+            <div className="flex rounded-xl bg-gray-100 p-1 dark:bg-white/5">
               {[
                 { id: 'favicon', label: t('views.icons.favicon') },
                 { id: 'emoji', label: t('views.icons.emoji') },
@@ -177,10 +177,10 @@ const ShortcutModal = ({ isOpen, onClose, shortcut, onSave, onDelete, currentPos
                   key={type.id}
                   type="button"
                   onClick={() => setIconType(type.id)}
-                  className={`flex-1 py-1.5 text-sm font-medium rounded-lg transition-all ${
+                  className={`flex-1 rounded-lg py-1.5 text-sm font-medium transition-all ${
                     iconType === type.id
-                      ? 'bg-white dark:bg-[#2C2C2E] text-gray-900 dark:text-white shadow-sm'
-                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                      ? 'bg-white text-gray-900 shadow-sm dark:bg-[#2C2C2E] dark:text-white'
+                      : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
                   }`}
                 >
                   {type.label}
@@ -189,23 +189,23 @@ const ShortcutModal = ({ isOpen, onClose, shortcut, onSave, onDelete, currentPos
             </div>
 
             {/* Dynamic Input Area */}
-            <div className="min-h-[100px] flex justify-center">
+            <div className="flex min-h-[100px] justify-center">
               {iconType === 'custom' && (
                 <div className="w-full pt-2">
                   <div className="relative mb-2">
                     <Image
                       size={18}
-                      className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+                      className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-gray-400"
                     />
                     <input
                       type="url"
                       value={iconUrl}
                       onChange={e => setIconUrl(e.target.value)}
                       placeholder={t('views.widgets.iconUrlPlaceholder')}
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-white/10 bg-white disabled:bg-gray-50/20 dark:bg-white/5 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 transition-all text-sm"
+                      className="focus:ring-primary-500/50 focus:border-primary-500 w-full rounded-xl border border-gray-200 bg-white py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:border-white/10 dark:bg-white/5 dark:text-white"
                     />
                   </div>
-                  <p className="text-xs text-gray-500 px-1">{t('views.widgets.imageUrlHint')}</p>
+                  <p className="px-1 text-xs text-gray-500">{t('views.widgets.imageUrlHint')}</p>
                 </div>
               )}
               {iconType === 'emoji' && (
@@ -215,7 +215,7 @@ const ShortcutModal = ({ isOpen, onClose, shortcut, onSave, onDelete, currentPos
                 />
               )}
               {iconType === 'favicon' && (
-                <div className="text-center py-6 px-4 text-gray-500 dark:text-gray-400 text-sm bg-gray-50 dark:bg-white/5 rounded-xl w-full border border-dashed border-gray-200 dark:border-white/10">
+                <div className="w-full rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-6 text-center text-sm text-gray-500 dark:border-white/10 dark:bg-white/5 dark:text-gray-400">
                   {t('views.widgets.faviconHint')}
                 </div>
               )}
@@ -224,11 +224,11 @@ const ShortcutModal = ({ isOpen, onClose, shortcut, onSave, onDelete, currentPos
         </div>
 
         {/* Footer */}
-        <div className="p-5 border-t border-gray-100 dark:border-white/5 bg-gray-50/50 dark:bg-white/5 flex items-center justify-between gap-3">
+        <div className="flex items-center justify-between gap-3 border-t border-gray-100 bg-gray-50/50 p-5 dark:border-white/5 dark:bg-white/5">
           {shortcut?.id ? (
             <button
               onClick={handleDelete}
-              className="text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 p-2.5 rounded-xl transition-colors"
+              className="rounded-xl p-2.5 text-red-500 transition-colors hover:bg-red-50 dark:hover:bg-red-500/10"
               title={t('common.delete')}
             >
               <Trash2 size={20} />
@@ -240,14 +240,14 @@ const ShortcutModal = ({ isOpen, onClose, shortcut, onSave, onDelete, currentPos
           <div className="flex gap-3">
             <button
               onClick={onClose}
-              className="px-5 py-2.5 rounded-xl text-gray-600 dark:text-gray-300 font-medium hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"
+              className="rounded-xl px-5 py-2.5 font-medium text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/10"
             >
               {t('common.cancel')}
             </button>
             <button
               onClick={handleSave}
               disabled={!title.trim() || !url.trim()}
-              className="px-6 py-2.5 rounded-xl bg-primary-500 hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium shadow-lg shadow-primary-500/30 transition-all active:scale-95"
+              className="bg-primary-500 hover:bg-primary-600 shadow-primary-500/30 rounded-xl px-6 py-2.5 font-medium text-white shadow-lg transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {t('common.save')}
             </button>

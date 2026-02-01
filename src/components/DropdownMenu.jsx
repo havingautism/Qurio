@@ -200,7 +200,7 @@ const DropdownMenu = ({ isOpen, onClose, items, anchorEl }) => {
           right: isMobile ? position.right : 'auto',
         }}
         className={clsx(
-          'fixed z-[9999] bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 shadow-lg p-1',
+          'fixed z-[9999] border border-gray-200 bg-white p-1 shadow-lg dark:border-zinc-700 dark:bg-zinc-800',
           isMobile ? 'rounded-lg' : 'min-w-[160px] rounded-lg',
         )}
       >
@@ -216,11 +216,11 @@ const DropdownMenu = ({ isOpen, onClose, items, anchorEl }) => {
               }, 0)
             }}
             className={clsx(
-              'w-full text-left transition-colors flex items-center gap-2 rounded-lg',
+              'flex w-full items-center gap-2 rounded-lg text-left transition-colors',
               isMobile ? 'px-4 py-3 text-base' : 'px-4 py-2 text-sm',
               item.danger
-                ? 'text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20'
-                : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-zinc-700',
+                ? 'text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20'
+                : 'text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-zinc-700',
             )}
           >
             {item.icon && <span>{item.icon}</span>}

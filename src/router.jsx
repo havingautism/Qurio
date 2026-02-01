@@ -18,7 +18,7 @@ const DeepResearchConversationView = React.lazy(
 )
 
 const SuspensePage = ({ children }) => (
-  <React.Suspense fallback={<div className="min-h-screen bg-background text-foreground" />}>
+  <React.Suspense fallback={<div className="bg-background text-foreground min-h-screen" />}>
     {children}
   </React.Suspense>
 )
@@ -28,9 +28,9 @@ const NotFound = () => {
     getNodeEnv() === 'development' ? '/' : getPublicEnv('PUBLIC_BASE_PATH') || '/Qurio'
   ).replace(/\/$/, '')
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background text-foreground px-6 py-12">
-      <div className="w-full max-w-md text-center space-y-6 bg-white/70 dark:bg-zinc-900/80 backdrop-blur-md rounded-2xl shadow-lg border border-gray-200/80 dark:border-zinc-800 px-6 py-8">
-        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 dark:bg-zinc-800 text-gray-900 dark:text-white shadow">
+    <div className="bg-background text-foreground flex min-h-screen items-center justify-center px-6 py-12">
+      <div className="w-full max-w-md space-y-6 rounded-2xl border border-gray-200/80 bg-white/70 px-6 py-8 text-center shadow-lg backdrop-blur-md dark:border-zinc-800 dark:bg-zinc-900/80">
+        <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 text-gray-900 shadow dark:bg-zinc-800 dark:text-white">
           <AlertTriangle size={28} />
         </div>
         <div className="space-y-2">
@@ -40,17 +40,17 @@ const NotFound = () => {
             to home.
           </p>
         </div>
-        <div className="flex flex-col sm:flex-row sm:justify-center gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
           <a
             href={`${basepath}/new_chat`}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-black text-white dark:bg-white dark:text-black font-medium hover:opacity-90 transition"
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-black px-4 py-2 font-medium text-white transition hover:opacity-90 dark:bg-white dark:text-black"
           >
             <MoveLeft size={16} />
             Back to Home
           </a>
           <a
             href={`${basepath}/`}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-gray-300 dark:border-zinc-700 text-gray-700 dark:text-gray-200 font-medium hover:bg-gray-100 dark:hover:bg-zinc-800 transition"
+            className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 px-4 py-2 font-medium text-gray-700 transition hover:bg-gray-100 dark:border-zinc-700 dark:text-gray-200 dark:hover:bg-zinc-800"
           >
             Reload
           </a>

@@ -91,27 +91,27 @@ const NoteWidget = () => {
 
   return (
     <>
-      <div className="relative h-[140px] sm:h-[150px] md:h-[160px] w-full perspective-1000 group overflow-x-clip mb-2 sm:mb-0">
+      <div className="perspective-1000 group relative mb-2 h-[140px] w-full overflow-x-clip sm:mb-0 sm:h-[150px] md:h-[160px]">
         {/* Notes Stack */}
-        <div className="relative w-full h-full flex items-center justify-center mx-auto px-4 sm:px-10 md:px-6">
+        <div className="relative mx-auto flex h-full w-full items-center justify-center px-4 sm:px-10 md:px-6">
           {/* Navigation Controls - inside stack for proper spacing */}
           {notes.length > 1 && (
-            <div className="absolute top-4/5 sm:top-1/2 -translate-y-1/2 left-0 z-30 transition-opacity md:opacity-0 md:pointer-events-none md:group-hover:opacity-100 md:group-hover:pointer-events-auto pl-1">
+            <div className="absolute top-4/5 left-0 z-30 -translate-y-1/2 pl-1 transition-opacity sm:top-1/2 md:pointer-events-none md:opacity-0 md:group-hover:pointer-events-auto md:group-hover:opacity-100">
               <button
                 onClick={prevNote}
                 disabled={currentIndex === 0}
-                className="flex items-center justify-center w-8 h-14 bg-black/20 hover:bg-black/40 text-white rounded-xl disabled:opacity-0 transition-all backdrop-blur-sm"
+                className="flex h-14 w-8 items-center justify-center rounded-xl bg-black/20 text-white backdrop-blur-sm transition-all hover:bg-black/40 disabled:opacity-0"
               >
                 <ChevronLeft size={24} />
               </button>
             </div>
           )}
           {notes.length > 1 && (
-            <div className="absolute top-4/5 sm:top-1/2 -translate-y-1/2 right-0 z-30 transition-opacity md:opacity-0 md:pointer-events-none md:group-hover:opacity-100 md:group-hover:pointer-events-auto pr-1">
+            <div className="absolute top-4/5 right-0 z-30 -translate-y-1/2 pr-1 transition-opacity sm:top-1/2 md:pointer-events-none md:opacity-0 md:group-hover:pointer-events-auto md:group-hover:opacity-100">
               <button
                 onClick={nextNote}
                 disabled={currentIndex === notes.length - 1}
-                className="flex items-center justify-center w-8 h-14 bg-black/20 hover:bg-black/40 text-white rounded-xl disabled:opacity-0 transition-all backdrop-blur-sm"
+                className="flex h-14 w-8 items-center justify-center rounded-xl bg-black/20 text-white backdrop-blur-sm transition-all hover:bg-black/40 disabled:opacity-0"
               >
                 <ChevronRight size={24} />
               </button>
@@ -121,7 +121,7 @@ const NoteWidget = () => {
           {notes.length === 0 && !isLoading && (
             <div
               onClick={openNewNoteModal}
-              className="flex flex-col items-center justify-center text-gray-500 dark:text-gray-400 cursor-pointer hover:text-primary-500 transition-colors bg-user-bubble dark:bg-[#1e1e1e]/60 backdrop-blur-md border-2 border-dashed border-gray-200 dark:border-white/10 rounded-2xl w-full h-full"
+              className="hover:text-primary-500 bg-user-bubble flex h-full w-full cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-200 text-gray-500 backdrop-blur-md transition-colors dark:border-white/10 dark:bg-[#1e1e1e]/60 dark:text-gray-400"
             >
               <StickyNote size={32} className="mb-2 opacity-50" />
               <span className="text-sm font-medium">
@@ -161,18 +161,18 @@ const NoteWidget = () => {
             return (
               <div
                 key={note.id}
-                className={`absolute w-full  h-full transition-all duration-300 ease-out origin-bottom ${isActive ? 'hover:-translate-y-2' : ''}`}
+                className={`absolute h-full w-full origin-bottom transition-all duration-300 ease-out ${isActive ? 'hover:-translate-y-2' : ''}`}
                 style={style}
               >
                 {/* Action buttons on active note */}
                 {isActive && (
-                  <div className="absolute top-0 right-5 z-20 p-2 flex gap-2">
+                  <div className="absolute top-0 right-5 z-20 flex gap-2 p-2">
                     <button
                       onClick={e => {
                         e.stopPropagation()
                         openEditModal(note)
                       }}
-                      className="bg-white/80 hover:bg-white text-gray-700 p-1.5 rounded-full shadow-lg transition-transform hover:scale-105 backdrop-blur-sm"
+                      className="rounded-full bg-white/80 p-1.5 text-gray-700 shadow-lg backdrop-blur-sm transition-transform hover:scale-105 hover:bg-white"
                       title={t('common.edit', 'Edit')}
                     >
                       <Pencil size={16} />
@@ -182,22 +182,22 @@ const NoteWidget = () => {
                         e.stopPropagation()
                         openNewNoteModal(e)
                       }}
-                      className="bg-primary-500 hover:bg-primary-600 text-white p-1.5 rounded-full shadow-lg transition-transform hover:scale-105"
+                      className="bg-primary-500 hover:bg-primary-600 rounded-full p-1.5 text-white shadow-lg transition-transform hover:scale-105"
                       title={t('views.widgets.newNote', 'New Note')}
                     >
                       <Plus size={16} />
                     </button>
                   </div>
                 )}
-                <div className="mx-auto w-full ">
-                  <WidgetCard className="h-full w-full pointer-events-none select-none overflow-hidden bg-primary-50/40! dark:bg-primary-950/20! border-primary-200/50! dark:border-primary-500/20! backdrop-blur-xl!">
+                <div className="mx-auto w-full">
+                  <WidgetCard className="bg-primary-50/40! dark:bg-primary-950/20! border-primary-200/50! dark:border-primary-500/20! pointer-events-none h-full w-full overflow-hidden backdrop-blur-xl! select-none">
                     <div
-                      className={`px-6 py-2 h-full flex flex-col pointer-events-none transition-all duration-200 ${isActive ? 'opacity-100 visible' : 'opacity-0 invisible'}`}
+                      className={`pointer-events-none flex h-full flex-col px-6 py-2 transition-all duration-200 ${isActive ? 'visible opacity-100' : 'invisible opacity-0'}`}
                     >
-                      <p className="text-sm text-gray-800 dark:text-gray-200 font-medium whitespace-pre-wrap line-clamp-6 leading-relaxed font-handwriting">
+                      <p className="font-handwriting line-clamp-6 text-sm leading-relaxed font-medium whitespace-pre-wrap text-gray-800 dark:text-gray-200">
                         {note.content}
                       </p>
-                      <span className="mt-auto text-[10px] text-gray-500 dark:text-primary-500/50 pt-2 block">
+                      <span className="dark:text-primary-500/50 mt-auto block pt-2 text-[10px] text-gray-500">
                         {new Date(note.updated_at || new Date()).toLocaleDateString()}
                       </span>
                     </div>

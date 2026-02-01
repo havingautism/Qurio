@@ -799,9 +799,7 @@ const ChatInterface = ({
       // Set initial state
       if (initialToggles.search) {
         const initialBackend =
-          typeof initialToggles.searchBackend === 'string'
-            ? initialToggles.searchBackend
-            : 'auto'
+          typeof initialToggles.searchBackend === 'string' ? initialToggles.searchBackend : 'auto'
         setSearchBackend(initialBackend || 'auto')
         const initialTools = Array.isArray(initialToggles.searchTool)
           ? initialToggles.searchTool
@@ -1372,9 +1370,7 @@ const ChatInterface = ({
       const thinkingActive = togglesOverride ? togglesOverride.thinking : isThinkingActive
       const relatedActive = togglesOverride ? togglesOverride.related : isRelatedEnabled
       const searchTool = togglesOverride ? togglesOverride.searchTool : resolvedSearchToolIds
-      const searchBackendValue = togglesOverride
-        ? togglesOverride.searchBackend
-        : searchBackend
+      const searchBackendValue = togglesOverride ? togglesOverride.searchBackend : searchBackend
 
       if (!textToSend.trim() && attToSend.length === 0) return
       if (isLoading) return
@@ -1913,7 +1909,7 @@ const ChatInterface = ({
   return (
     <div
       className={clsx(
-        'flex-1 h-full bg-background text-foreground transition-all duration-300 flex flex-col sm:px-4',
+        'bg-background text-foreground flex h-full flex-1 flex-col transition-all duration-300 sm:px-4',
         isSidebarPinned ? 'md:ml-72' : 'md:ml-16',
         // Fixed left shift for large screens
         // 'xl:-translate-x-30',
@@ -1921,7 +1917,7 @@ const ChatInterface = ({
         !isXLScreen && 'sidebar-shift',
       )}
     >
-      <div className="w-full relative flex flex-col flex-1 min-h-0">
+      <div className="relative flex min-h-0 w-full flex-1 flex-col">
         {/* Title Bar */}
         <ChatHeader
           toggleSidebar={toggleSidebar}
@@ -1948,11 +1944,11 @@ const ChatInterface = ({
         {/* Messages Scroll Container */}
         <div
           ref={messagesContainerRef}
-          className="flex-1 overflow-y-auto overflow-x-hidden sm:p-2 relative no-scrollbar"
+          className="no-scrollbar relative flex-1 overflow-x-hidden overflow-y-auto sm:p-2"
         >
-          <div className="w-full px-0 sm:px-5 max-w-3xl mx-auto">
+          <div className="mx-auto w-full max-w-3xl px-0 sm:px-5">
             {showHistoryLoader && (
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+              <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
                 <FancyLoader />
               </div>
             )}
@@ -1999,14 +1995,14 @@ const ChatInterface = ({
         />
 
         {/* Input Area */}
-        <div className="w-full shrink-0 bg-transparent rounded-b-3xl pt-0 pb-[calc(0.75rem+env(safe-area-inset-bottom))] px-2 sm:px-0 flex justify-center z-50">
-          <div className="w-full max-w-3xl relative">
+        <div className="z-50 flex w-full shrink-0 justify-center rounded-b-3xl bg-transparent px-2 pt-0 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:px-0">
+          <div className="relative w-full max-w-3xl">
             {/* Scroll to bottom button - positioned relative to input area */}
 
             {showScrollButton && (
               <button
                 onClick={() => scrollToBottom('smooth')}
-                className="absolute -top-14 left-1/2 -translate-x-1/2 p-2.5 bg-white dark:bg-zinc-800 border border-gray-200/60 dark:border-zinc-700/60 rounded-full shadow-lg hover:bg-gray-50 dark:hover:bg-zinc-700 transition-all duration-300 animate-in fade-in slide-in-from-bottom-2 z-30 hover:scale-105 active:scale-95"
+                className="animate-in fade-in slide-in-from-bottom-2 absolute -top-14 left-1/2 z-30 -translate-x-1/2 rounded-full border border-gray-200/60 bg-white p-2.5 shadow-lg transition-all duration-300 hover:scale-105 hover:bg-gray-50 active:scale-95 dark:border-zinc-700/60 dark:bg-zinc-800 dark:hover:bg-zinc-700"
               >
                 <ArrowDown size={18} className="text-gray-700 dark:text-gray-300" strokeWidth={2} />
               </button>
@@ -2104,7 +2100,7 @@ const ChatInterface = ({
               selectedDocumentIds={selectedDocumentIds}
               onToggleDocument={handleToggleDocument}
             />
-            <div className="text-center text-[10px] sm:text-xs text-gray-400 dark:text-gray-500">
+            <div className="text-center text-[10px] text-gray-400 sm:text-xs dark:text-gray-500">
               {t('chatInterface.warning')}
             </div>
           </div>

@@ -28,7 +28,7 @@ const EmojiDisplay = ({ emoji, size = '1em', className = '' }) => {
     // Fallback to native text rendering immediately if no mapping found
     return (
       <span
-        className={`inline-flex items-center justify-center shrink-0 ${className}`}
+        className={`inline-flex shrink-0 items-center justify-center ${className}`}
         style={{
           width: size,
           height: size,
@@ -45,7 +45,7 @@ const EmojiDisplay = ({ emoji, size = '1em', className = '' }) => {
 
   return (
     <span
-      className={`inline-flex items-center justify-center shrink-0 ${className}`}
+      className={`inline-flex shrink-0 items-center justify-center ${className}`}
       style={{
         width: size,
         height: size,
@@ -57,7 +57,7 @@ const EmojiDisplay = ({ emoji, size = '1em', className = '' }) => {
       <img
         src={url}
         alt={emoji}
-        className="w-full h-full object-contain"
+        className="h-full w-full object-contain"
         loading="lazy"
         onError={e => {
           e.target.style.display = 'none'

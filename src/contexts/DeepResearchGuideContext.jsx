@@ -168,38 +168,38 @@ export const DeepResearchGuideProvider = ({
       {children}
       {isOpen &&
         createPortal(
-          <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center">
+          <div className="fixed inset-0 z-[9999] flex items-end justify-center sm:items-center">
             <div
               className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
               onClick={closeDeepResearchGuide}
             />
             <div
-              className="relative w-full max-w-xl bg-white dark:bg-[#1E1E1E] rounded-t-3xl sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] sm:max-h-[85vh] animate-slide-up sm:animate-none"
+              className="animate-slide-up relative flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:max-h-[85vh] sm:animate-none sm:rounded-2xl dark:bg-[#1E1E1E]"
               onClick={e => e.stopPropagation()}
             >
-              <div className="sm:hidden flex justify-center py-2 shrink-0">
-                <div className="w-10 h-1 bg-gray-300 dark:bg-zinc-700 rounded-full" />
+              <div className="flex shrink-0 justify-center py-2 sm:hidden">
+                <div className="h-1 w-10 rounded-full bg-gray-300 dark:bg-zinc-700" />
               </div>
 
-              <div className="px-5 py-4 flex items-center justify-between border-b border-gray-100 dark:border-zinc-800/60 shrink-0">
+              <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-zinc-800/60">
                 <div className="flex items-center gap-2 text-gray-900 dark:text-gray-100">
-                  <div className="p-1.5 bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 rounded-lg">
+                  <div className="bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 rounded-lg p-1.5">
                     <Microscope size={18} />
                   </div>
                   <h3 className="text-base font-bold">{t('homeView.deepResearchModalTitle')}</h3>
                 </div>
                 <button
                   onClick={closeDeepResearchGuide}
-                  className="p-2 -mr-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-full hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
+                  className="-mr-2 rounded-full p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-zinc-800 dark:hover:text-gray-200"
                 >
                   <X size={20} />
                 </button>
               </div>
 
               <div className="flex-1 overflow-y-auto px-5 py-6">
-                <div className="flex items-center gap-2 mb-8">
+                <div className="mb-8 flex items-center gap-2">
                   {[1, 2, 3].map(step => (
-                    <div key={step} className="flex-1 flex items-center gap-2">
+                    <div key={step} className="flex flex-1 items-center gap-2">
                       <div
                         className={clsx(
                           'h-1.5 flex-1 rounded-full transition-all duration-300',
@@ -214,7 +214,7 @@ export const DeepResearchGuideProvider = ({
 
                 <div className="space-y-6">
                   {deepResearchStep === 1 && (
-                    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <div className="animate-in fade-in slide-in-from-bottom-2 space-y-4 duration-300">
                       <div className="space-y-1">
                         <label className="text-sm font-bold text-gray-900 dark:text-gray-100">
                           {t('homeView.deepResearchQuestionTitle')}
@@ -228,7 +228,7 @@ export const DeepResearchGuideProvider = ({
                         onChange={event => setDeepResearchQuestion(event.target.value)}
                         placeholder={t('homeView.deepResearchQuestionPlaceholder')}
                         autoFocus
-                        className="w-full bg-gray-50 dark:bg-zinc-800/50 border border-gray-200 dark:border-zinc-700/50 rounded-2xl px-4 py-3 text-sm placeholder-gray-400 dark:placeholder-gray-500 min-h-[120px] resize-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all outline-none"
+                        className="focus:ring-primary-500/20 focus:border-primary-500 min-h-[120px] w-full resize-none rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm placeholder-gray-400 transition-all outline-none focus:ring-2 dark:border-zinc-700/50 dark:bg-zinc-800/50 dark:placeholder-gray-500"
                       />
 
                       <div className="space-y-2">
@@ -240,30 +240,30 @@ export const DeepResearchGuideProvider = ({
                             type="button"
                             onClick={() => setDeepResearchType('general')}
                             className={clsx(
-                              'flex-1 px-4 py-3 rounded-xl border-2 transition-all text-left',
+                              'flex-1 rounded-xl border-2 px-4 py-3 text-left transition-all',
                               deepResearchType === 'general'
                                 ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
-                                : 'border-gray-200 dark:border-zinc-700 hover:border-gray-300 dark:hover:border-zinc-600',
+                                : 'border-gray-200 hover:border-gray-300 dark:border-zinc-700 dark:hover:border-zinc-600',
                             )}
                           >
                             <div className="flex items-start gap-3">
                               <div
                                 className={clsx(
-                                  'w-5 h-5 rounded-full border-2 mt-0.5 flex items-center justify-center transition-all',
+                                  'mt-0.5 flex h-5 w-5 items-center justify-center rounded-full border-2 transition-all',
                                   deepResearchType === 'general'
                                     ? 'border-primary-500 bg-primary-500'
                                     : 'border-gray-300 dark:border-zinc-600',
                                 )}
                               >
                                 {deepResearchType === 'general' && (
-                                  <div className="w-2 h-2 rounded-full bg-white" />
+                                  <div className="h-2 w-2 rounded-full bg-white" />
                                 )}
                               </div>
                               <div className="flex-1">
                                 <div className="text-sm font-bold text-gray-900 dark:text-gray-100">
                                   {t('homeView.deepResearchTypeGeneral')}
                                 </div>
-                                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                                   {t('homeView.deepResearchTypeGeneralDesc')}
                                 </div>
                               </div>
@@ -274,30 +274,30 @@ export const DeepResearchGuideProvider = ({
                             type="button"
                             onClick={() => setDeepResearchType('academic')}
                             className={clsx(
-                              'flex-1 px-4 py-3 rounded-xl border-2 transition-all text-left',
+                              'flex-1 rounded-xl border-2 px-4 py-3 text-left transition-all',
                               deepResearchType === 'academic'
                                 ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
-                                : 'border-gray-200 dark:border-zinc-700 hover:border-gray-300 dark:hover:border-zinc-600',
+                                : 'border-gray-200 hover:border-gray-300 dark:border-zinc-700 dark:hover:border-zinc-600',
                             )}
                           >
                             <div className="flex items-start gap-3">
                               <div
                                 className={clsx(
-                                  'w-5 h-5 rounded-full border-2 mt-0.5 flex items-center justify-center transition-all',
+                                  'mt-0.5 flex h-5 w-5 items-center justify-center rounded-full border-2 transition-all',
                                   deepResearchType === 'academic'
                                     ? 'border-primary-500 bg-primary-500'
                                     : 'border-gray-300 dark:border-zinc-600',
                                 )}
                               >
                                 {deepResearchType === 'academic' && (
-                                  <div className="w-2 h-2 rounded-full bg-white" />
+                                  <div className="h-2 w-2 rounded-full bg-white" />
                                 )}
                               </div>
                               <div className="flex-1">
                                 <div className="text-sm font-bold text-gray-900 dark:text-gray-100">
                                   {t('homeView.deepResearchTypeAcademic')}
                                 </div>
-                                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                                   {t('homeView.deepResearchTypeAcademicDesc')}
                                 </div>
                               </div>
@@ -307,24 +307,24 @@ export const DeepResearchGuideProvider = ({
                       </div>
 
                       {/* Concurrent Execution Toggle - Available for ALL research types */}
-                      <div className="space-y-2 pt-4 border-t border-gray-100 dark:border-zinc-800">
-                        <label className="flex items-start gap-3 cursor-pointer group">
+                      <div className="space-y-2 border-t border-gray-100 pt-4 dark:border-zinc-800">
+                        <label className="group flex cursor-pointer items-start gap-3">
                           <input
                             type="checkbox"
                             checked={deepResearchConcurrent}
                             onChange={e => setDeepResearchConcurrent(e.target.checked)}
-                            className="w-4 h-4 mt-0.5 rounded border-gray-300 dark:border-zinc-600 text-primary-500 focus:ring-2 focus:ring-primary-500/20 cursor-pointer"
+                            className="text-primary-500 focus:ring-primary-500/20 mt-0.5 h-4 w-4 cursor-pointer rounded border-gray-300 focus:ring-2 dark:border-zinc-600"
                           />
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-sm font-medium text-gray-900 dark:text-gray-100 group-hover:text-primary-500 transition-colors">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="group-hover:text-primary-500 text-sm font-medium text-gray-900 transition-colors dark:text-gray-100">
                                 {t('homeView.concurrentExecution')}
                               </span>
-                              <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                              <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-xs text-amber-600 dark:text-amber-400">
                                 {t('homeView.experimental')}
                               </span>
                             </div>
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                               {t('homeView.concurrentExecutionDesc')}
                             </p>
                           </div>
@@ -334,7 +334,7 @@ export const DeepResearchGuideProvider = ({
                   )}
 
                   {deepResearchStep === 2 && (
-                    <div className="space-y-3 animate-in fade-in slide-in-from-right-4 duration-300">
+                    <div className="animate-in fade-in slide-in-from-right-4 space-y-3 duration-300">
                       <div className="flex items-center justify-between">
                         <label className="text-sm font-bold text-gray-900 dark:text-gray-100">
                           {t('homeView.deepResearchScopeTitle')}
@@ -346,10 +346,10 @@ export const DeepResearchGuideProvider = ({
                             if (!deepResearchScopeAuto) setDeepResearchScope('')
                           }}
                           className={clsx(
-                            'flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold transition-all',
+                            'flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold transition-all',
                             deepResearchScopeAuto
                               ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400'
-                              : 'bg-gray-100 dark:bg-zinc-800 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-zinc-700',
+                              : 'bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-zinc-800 dark:text-gray-400 dark:hover:bg-zinc-700',
                           )}
                         >
                           <span>{t('homeView.auto')}</span>
@@ -361,13 +361,13 @@ export const DeepResearchGuideProvider = ({
                         onChange={event => setDeepResearchScope(event.target.value)}
                         placeholder={t('homeView.deepResearchScopePlaceholder')}
                         disabled={deepResearchScopeAuto}
-                        className="w-full bg-gray-50 dark:bg-zinc-800/50 border border-gray-200 dark:border-zinc-700/50 rounded-2xl px-4 py-3 text-sm placeholder-gray-400 dark:placeholder-gray-500 min-h-[120px] resize-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="focus:ring-primary-500/20 focus:border-primary-500 min-h-[120px] w-full resize-none rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm placeholder-gray-400 transition-all outline-none focus:ring-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700/50 dark:bg-zinc-800/50 dark:placeholder-gray-500"
                       />
                     </div>
                   )}
 
                   {deepResearchStep === 3 && (
-                    <div className="space-y-3 animate-in fade-in slide-in-from-right-4 duration-300">
+                    <div className="animate-in fade-in slide-in-from-right-4 space-y-3 duration-300">
                       <div className="flex items-center justify-between">
                         <label className="text-sm font-bold text-gray-900 dark:text-gray-100">
                           {t('homeView.deepResearchOutputTitle')}
@@ -379,10 +379,10 @@ export const DeepResearchGuideProvider = ({
                             if (!deepResearchOutputAuto) setDeepResearchOutput('')
                           }}
                           className={clsx(
-                            'flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold transition-all',
+                            'flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold transition-all',
                             deepResearchOutputAuto
                               ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400'
-                              : 'bg-gray-100 dark:bg-zinc-800 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-zinc-700',
+                              : 'bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-zinc-800 dark:text-gray-400 dark:hover:bg-zinc-700',
                           )}
                         >
                           <span>{t('homeView.auto')}</span>
@@ -394,19 +394,19 @@ export const DeepResearchGuideProvider = ({
                         onChange={event => setDeepResearchOutput(event.target.value)}
                         placeholder={t('homeView.deepResearchOutputPlaceholder')}
                         disabled={deepResearchOutputAuto}
-                        className="w-full bg-gray-50 dark:bg-zinc-800/50 border border-gray-200 dark:border-zinc-700/50 rounded-2xl px-4 py-3 text-sm placeholder-gray-400 dark:placeholder-gray-500 min-h-[120px] resize-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="focus:ring-primary-500/20 focus:border-primary-500 min-h-[120px] w-full resize-none rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm placeholder-gray-400 transition-all outline-none focus:ring-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700/50 dark:bg-zinc-800/50 dark:placeholder-gray-500"
                       />
                     </div>
                   )}
                 </div>
               </div>
 
-              <div className="px-5 py-6 border-t border-gray-100 dark:border-zinc-800/60 bg-gray-50/50 dark:bg-zinc-900/30 shrink-0">
+              <div className="shrink-0 border-t border-gray-100 bg-gray-50/50 px-5 py-6 dark:border-zinc-800/60 dark:bg-zinc-900/30">
                 <div className="flex items-center justify-between gap-3">
                   <button
                     type="button"
                     onClick={closeDeepResearchGuide}
-                    className="px-5 py-2.5 text-sm font-bold text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+                    className="px-5 py-2.5 text-sm font-bold text-gray-500 transition-colors hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                   >
                     {t('common.cancel')}
                   </button>
@@ -415,7 +415,7 @@ export const DeepResearchGuideProvider = ({
                       <button
                         type="button"
                         onClick={() => setDeepResearchStep(step => Math.max(1, step - 1))}
-                        className="px-5 py-2.5 text-sm font-bold rounded-xl border border-gray-200 dark:border-zinc-700 text-gray-600 dark:text-gray-300 hover:bg-white dark:hover:bg-zinc-800 transition-all"
+                        className="rounded-xl border border-gray-200 px-5 py-2.5 text-sm font-bold text-gray-600 transition-all hover:bg-white dark:border-zinc-700 dark:text-gray-300 dark:hover:bg-zinc-800"
                       >
                         {t('homeView.deepResearchBack')}
                       </button>
@@ -425,7 +425,7 @@ export const DeepResearchGuideProvider = ({
                         type="button"
                         disabled={!deepResearchQuestion.trim()}
                         onClick={() => setDeepResearchStep(step => Math.min(3, step + 1))}
-                        className="px-6 py-2.5 text-sm font-bold rounded-xl bg-primary-500 text-white hover:bg-primary-600 shadow-lg shadow-primary-500/20 transition-all disabled:opacity-50 disabled:shadow-none"
+                        className="bg-primary-500 hover:bg-primary-600 shadow-primary-500/20 rounded-xl px-6 py-2.5 text-sm font-bold text-white shadow-lg transition-all disabled:opacity-50 disabled:shadow-none"
                       >
                         {t('homeView.deepResearchNext')}
                       </button>
@@ -434,7 +434,7 @@ export const DeepResearchGuideProvider = ({
                         type="button"
                         disabled={!deepResearchQuestion.trim()}
                         onClick={handleStartDeepResearchGuide}
-                        className="px-6 py-2.5 text-sm font-bold rounded-xl bg-primary-500 text-white hover:bg-primary-600 shadow-lg shadow-primary-500/20 transition-all disabled:opacity-50 disabled:shadow-none flex items-center gap-2"
+                        className="bg-primary-500 hover:bg-primary-600 shadow-primary-500/20 flex items-center gap-2 rounded-xl px-6 py-2.5 text-sm font-bold text-white shadow-lg transition-all disabled:opacity-50 disabled:shadow-none"
                       >
                         <Sparkles size={16} />
                         {t('homeView.deepResearchStart')}

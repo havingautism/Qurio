@@ -15,16 +15,16 @@ const SpaceShortcutCard = memo(({ spaces = [], selectedSpaceId, onSpaceSelect, o
   const { t } = useTranslation()
 
   return (
-    <div className="w-full flex justify-center">
-      <div className="relative group w-full">
+    <div className="flex w-full justify-center">
+      <div className="group relative w-full">
         {/* Glass Card - py-4 for more vertical breathing room */}
-        <div className="relative z-10 h-30 sm:h-30 rounded-3xl border border-gray-200 dark:border-zinc-700/30 backdrop-blur-md bg-white/60 dark:bg-zinc-900/60 py-3 px-3 shadow-md dark:shadow-2xl overflow-hidden transition-all duration-300">
+        <div className="relative z-10 h-30 overflow-hidden rounded-3xl border border-gray-200 bg-white/60 px-3 py-3 shadow-md backdrop-blur-md transition-all duration-300 sm:h-30 dark:border-zinc-700/30 dark:bg-zinc-900/60 dark:shadow-2xl">
           {/* Animated Particles */}
-          <div className="absolute inset-0 z-0 pointer-events-none opacity-40">
+          <div className="pointer-events-none absolute inset-0 z-0 opacity-40">
             {PARTICLES.map(p => (
               <div
                 key={p.id}
-                className="absolute w-1 h-1 dark:bg-white bg-primary-500 rounded-full animate-twinkle"
+                className="bg-primary-500 animate-twinkle absolute h-1 w-1 rounded-full dark:bg-white"
                 style={{
                   top: p.top,
                   left: p.left,
@@ -33,41 +33,43 @@ const SpaceShortcutCard = memo(({ spaces = [], selectedSpaceId, onSpaceSelect, o
                 }}
               />
             ))}
-            <div className="absolute top-[-20%] right-[-10%] w-40 h-40 bg-primary-500/10 rounded-full blur-3xl animate-pulse" />
-            <div className="absolute bottom-[-10%] left-[-10%] w-32 h-32 bg-primary-400/10 rounded-full blur-3xl animate-pulse" />
+            <div className="bg-primary-500/10 absolute top-[-20%] right-[-10%] h-40 w-40 animate-pulse rounded-full blur-3xl" />
+            <div className="bg-primary-400/10 absolute bottom-[-10%] left-[-10%] h-32 w-32 animate-pulse rounded-full blur-3xl" />
           </div>
 
-          <div className="relative z-20 h-full flex flex-col justify-between">
+          <div className="relative z-20 flex h-full flex-col justify-between">
             {/* Header - Minimal height */}
             <div className="flex items-center justify-between px-0.5">
               <div className="flex items-center gap-2">
                 <LayoutGrid size={14} className="text-primary-600 dark:text-primary-400" />
-                <h3 className="text-xs font-black tracking-tight text-gray-900 dark:text-white uppercase opacity-100 leading-none">
+                <h3 className="text-xs leading-none font-black tracking-tight text-gray-900 uppercase opacity-100 dark:text-white">
                   {t('homeView.spacesShortcut')}
                 </h3>
               </div>
               <button
                 onClick={onManageClick}
-                className="text-[10px] font-bold text-primary-500 hover:text-primary-600 transition-colors uppercase leading-none"
+                className="text-primary-500 hover:text-primary-600 text-[10px] leading-none font-bold uppercase transition-colors"
               >
                 {t('sidebar.seeAll')}
               </button>
             </div>
 
             {/* Horizontal Scroller - Compact items */}
-            <div className="flex gap-3 overflow-x-auto no-scrollbar pb-0.5 -mx-6 px-6 select-none touch-pan-x active:cursor-grabbing">
+            <div className="no-scrollbar -mx-6 flex touch-pan-x gap-3 overflow-x-auto px-6 pb-0.5 select-none active:cursor-grabbing">
               {/* Spaces List */}
               {spaces.map(space => {
                 return (
                   <button
                     key={space.id}
                     onClick={() => onSpaceSelect(space)}
-                    className={`flex-none flex flex-col items-center gap-1 p-1.5 rounded-md transition-all duration-300 min-w-[60px] group/icon ${'bg-gray-200/30 dark:bg-zinc-800/40 text-gray-600 dark:text-gray-400 hover:bg-gray-200/50 dark:hover:bg-zinc-800/60'}`}
+                    className={`group/icon flex min-w-[60px] flex-none flex-col items-center gap-1 rounded-md p-1.5 transition-all duration-300 ${'bg-gray-200/30 text-gray-600 hover:bg-gray-200/50 dark:bg-zinc-800/40 dark:text-gray-400 dark:hover:bg-zinc-800/60'}`}
                   >
-                    <div className={`w-10 h-10 flex items-center justify-center rounded-xl transition-transform duration-300 group-hover/icon:scale-110`}>
+                    <div
+                      className={`flex h-10 w-10 items-center justify-center rounded-xl transition-transform duration-300 group-hover/icon:scale-110`}
+                    >
                       <EmojiDisplay emoji={space.emoji} size="1.5rem" />
                     </div>
-                    <span className="text-[10px] font-bold truncate max-w-[52px]">
+                    <span className="max-w-[52px] truncate text-[10px] font-bold">
                       {getSpaceDisplayLabel(space, t)}
                     </span>
                   </button>

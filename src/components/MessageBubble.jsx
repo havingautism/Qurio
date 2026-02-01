@@ -105,8 +105,8 @@ const ToolEnter = ({ children, className }) => {
   return (
     <div
       className={clsx(
-        'transition-all duration-200 ease-out origin-top transform-gpu',
-        entered ? 'opacity-100 scale-100' : 'opacity-0 scale-95',
+        'origin-top transform-gpu transition-all duration-200 ease-out',
+        entered ? 'scale-100 opacity-100' : 'scale-95 opacity-0',
         className,
       )}
     >
@@ -533,12 +533,12 @@ const MessageBubble = ({
 
   const renderPlainCodeBlock = useCallback(
     (codeText, language) => (
-      <div className="relative group mb-4 border border-gray-200 dark:border-zinc-700 rounded-xl overflow-x-auto bg-user-bubble/20 dark:bg-zinc-800/40">
-        <div className="flex items-center justify-between px-4 py-2 text-[11px] font-semibold bg-user-bubble/50 dark:bg-zinc-800/50 text-gray-600 dark:text-gray-300 border-b border-gray-200 dark:border-zinc-700">
+      <div className="group bg-user-bubble/20 relative mb-4 overflow-x-auto rounded-xl border border-gray-200 dark:border-zinc-700 dark:bg-zinc-800/40">
+        <div className="bg-user-bubble/50 flex items-center justify-between border-b border-gray-200 px-4 py-2 text-[11px] font-semibold text-gray-600 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-gray-300">
           <span>{String(language || 'CODE').toUpperCase()}</span>
           <button
             onClick={() => copyToClipboard(codeText)}
-            className="px-2 py-1 rounded-md bg-gray-200 dark:bg-zinc-700 text-gray-700 dark:text-gray-200 text-[11px] opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+            className="rounded-md bg-gray-200 px-2 py-1 text-[11px] text-gray-700 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 dark:bg-zinc-700 dark:text-gray-200"
           >
             Copy
           </button>
@@ -547,7 +547,7 @@ const MessageBubble = ({
           style={isDark ? oneDark : oneLight}
           language={language || 'text'}
           PreTag="div"
-          className="code-scrollbar text-sm text-shadow-none! font-code!"
+          className="code-scrollbar font-code! text-sm text-shadow-none!"
           customStyle={{
             margin: 0,
             padding: '1rem',
@@ -603,12 +603,12 @@ const MessageBubble = ({
       : 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-800/50'
 
     return (
-      <div className="flex w-full items-center gap-3 my-4 opacity-90">
+      <div className="my-4 flex w-full items-center gap-3 opacity-90">
         <div className={clsx('h-px flex-1 bg-gradient-to-r', lineColorClass)} />
 
         <div
           className={clsx(
-            'flex items-center gap-1.5 px-3 py-1 rounded-full border shadow-sm transition-all duration-300',
+            'flex items-center gap-1.5 rounded-full border px-3 py-1 shadow-sm transition-all duration-300',
             'text-[11px] font-bold tracking-wider uppercase',
             badgeClass,
           )}
@@ -1178,12 +1178,12 @@ const MessageBubble = ({
 
       if (isBlock) {
         return (
-          <div className="relative group mb-4 border border-gray-200 dark:border-zinc-700 rounded-xl overflow-x-auto bg-user-bubble/20 dark:bg-zinc-800/40">
-            <div className="flex items-center justify-between px-4 py-2 text-[11px] font-semibold bg-user-bubble/50 dark:bg-zinc-800/50 text-gray-600 dark:text-gray-300 border-b border-gray-200 dark:border-zinc-700">
+          <div className="group bg-user-bubble/20 relative mb-4 overflow-x-auto rounded-xl border border-gray-200 dark:border-zinc-700 dark:bg-zinc-800/40">
+            <div className="bg-user-bubble/50 flex items-center justify-between border-b border-gray-200 px-4 py-2 text-[11px] font-semibold text-gray-600 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-gray-300">
               <span>{langLabel}</span>
               <button
                 onClick={() => copyToClipboard(codeText)}
-                className="px-2 py-1 rounded-md bg-gray-200 dark:bg-zinc-700 text-gray-700 dark:text-gray-200 text-[11px] opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+                className="rounded-md bg-gray-200 px-2 py-1 text-[11px] text-gray-700 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 dark:bg-zinc-700 dark:text-gray-200"
               >
                 Copy
               </button>
@@ -1192,7 +1192,7 @@ const MessageBubble = ({
               style={isDark ? oneDark : oneLight}
               language={language || 'text'}
               PreTag="div"
-              className="code-scrollbar text-sm text-shadow-none! font-code!"
+              className="code-scrollbar font-code! text-sm text-shadow-none!"
               customStyle={{
                 margin: 0,
                 padding: '1rem',
@@ -1218,7 +1218,7 @@ const MessageBubble = ({
 
       return (
         <code
-          className={`${className} bg-user-bubble dark:bg-zinc-800 px-1.5 py-0.5 rounded text-sm font-mono font-semibold text-black dark:text-white`}
+          className={`${className} bg-user-bubble rounded px-1.5 py-0.5 font-mono text-sm font-semibold text-black dark:bg-zinc-800 dark:text-white`}
           {...props}
         >
           {children}
@@ -1280,8 +1280,8 @@ const MessageBubble = ({
       h1: createHeadingComponent('h1', 'text-2xl font-bold mb-4 mt-4', false),
       h2: createHeadingComponent('h2', 'text-xl font-bold mb-3 mt-3', false),
       h3: createHeadingComponent('h3', 'text-lg font-bold mb-2 mt-2', false),
-      ul: ({ ...props }) => <ul className="list-disc pl-5 mb-4 space-y-1" {...props} />,
-      ol: ({ ...props }) => <ol className="list-decimal pl-5 mb-4 space-y-1" {...props} />,
+      ul: ({ ...props }) => <ul className="mb-4 list-disc space-y-1 pl-5" {...props} />,
+      ol: ({ ...props }) => <ol className="mb-4 list-decimal space-y-1 pl-5" {...props} />,
       li: ({ children, ...props }) => (
         <li className="mb-1" {...props}>
           {parseChildrenWithEmojis(children)}
@@ -1289,28 +1289,28 @@ const MessageBubble = ({
       ),
       blockquote: ({ children, ...props }) => (
         <blockquote
-          className="[&_p]:mb-0 border-l-4 border-gray-300 dark:border-zinc-600 pl-4 italic mb-4 text-gray-600 dark:text-gray-400"
+          className="mb-4 border-l-4 border-gray-300 pl-4 text-gray-600 italic dark:border-zinc-600 dark:text-gray-400 [&_p]:mb-0"
           {...props}
         >
           {parseChildrenWithEmojis(children)}
         </blockquote>
       ),
       table: ({ ...props }) => (
-        <div className="overflow-x-auto mb-4 w-fit max-w-full rounded-lg border border-gray-200 dark:border-zinc-700 table-scrollbar code-scrollbar">
+        <div className="table-scrollbar code-scrollbar mb-4 w-fit max-w-full overflow-x-auto rounded-lg border border-gray-200 dark:border-zinc-700">
           <table className="w-auto divide-y divide-gray-200 dark:divide-zinc-700" {...props} />
         </div>
       ),
       thead: ({ ...props }) => <thead className="bg-user-bubble dark:bg-zinc-800" {...props} />,
       tbody: ({ ...props }) => (
         <tbody
-          className="bg-user-bubble/50 dark:bg-zinc-900 divide-y divide-gray-200 dark:divide-zinc-700"
+          className="bg-user-bubble/50 divide-y divide-gray-200 dark:divide-zinc-700 dark:bg-zinc-900"
           {...props}
         />
       ),
       tr: ({ ...props }) => <tr {...props} />,
       th: ({ children, ...props }) => (
         <th
-          className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
+          className="px-4 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase dark:text-gray-400"
           {...props}
         >
           {parseChildrenWithEmojis(children)}
@@ -1318,7 +1318,7 @@ const MessageBubble = ({
       ),
       td: ({ children, ...props }) => (
         <td
-          className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap"
+          className="px-4 py-3 text-sm whitespace-nowrap text-gray-700 dark:text-gray-300"
           {...props}
         >
           {parseChildrenWithEmojis(children)}
@@ -1350,7 +1350,7 @@ const MessageBubble = ({
             {...props}
             target="_blank"
             rel="noreferrer"
-            className="text-[12px] hover:bg-primary-300/50 rounded-lg dark:hover:bg-primary-700/50 dark:bg-primary-900/50 bg-primary-200/50 mx-0.5 py-0.5 px-1 text-primary-700 dark:text-primary-300"
+            className="hover:bg-primary-300/50 dark:hover:bg-primary-700/50 dark:bg-primary-900/50 bg-primary-200/50 text-primary-700 dark:text-primary-300 mx-0.5 rounded-lg px-1 py-0.5 text-[12px]"
           >
             {parseChildrenWithEmojis(children)}
           </a>
@@ -1359,8 +1359,8 @@ const MessageBubble = ({
       hr: () => (
         <div className="relative my-6">
           <div className="h-px bg-linear-to-r from-transparent via-gray-300 to-transparent dark:via-zinc-700" />
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="w-2.5 h-2.5 rounded-full bg-gray-200 dark:bg-zinc-700 shadow-sm ring-2 ring-white dark:ring-zinc-900" />
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+            <div className="h-2.5 w-2.5 rounded-full bg-gray-200 shadow-sm ring-2 ring-white dark:bg-zinc-700 dark:ring-zinc-900" />
           </div>
         </div>
       ),
@@ -1418,22 +1418,22 @@ const MessageBubble = ({
                 // Developer Mode: Simplified view consistent with Deep Research within a card container
                 <div
                   className={clsx(
-                    'rounded-lg overflow-hidden border border-gray-200 dark:border-zinc-800',
+                    'overflow-hidden rounded-lg border border-gray-200 dark:border-zinc-800',
                     'mb-4',
                   )}
                 >
-                  <div className="w-full flex items-center justify-between p-2 bg-user-bubble/30 dark:bg-zinc-800/50 hover:bg-user-bubble dark:hover:bg-zinc-800 transition-colors">
-                    <div className="flex items-center gap-2 font-medium text-sm text-gray-700 dark:text-gray-300">
+                  <div className="bg-user-bubble/30 hover:bg-user-bubble flex w-full items-center justify-between p-2 transition-colors dark:bg-zinc-800/50 dark:hover:bg-zinc-800">
+                    <div className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                       <EmojiDisplay emoji={'🔧'} size="1.2em" /> {t('messageBubble.toolCalls')}
                     </div>
                   </div>
-                  <div className="p-3 space-y-2 bg-white/70 dark:bg-zinc-800/70">
+                  <div className="space-y-2 bg-white/70 p-3 dark:bg-zinc-800/70">
                     {regularTools.map(item => (
                       <div
                         key={item.id || `${item.name}-${item.arguments}`}
-                        className="flex items-center gap-2 text-[11px] text-gray-600 dark:text-gray-400 w-full"
+                        className="flex w-full items-center gap-2 text-[11px] text-gray-600 dark:text-gray-400"
                       >
-                        <span className="font-medium text-gray-700 dark:text-gray-300 shrink-0 flex items-center gap-1.5">
+                        <span className="flex shrink-0 items-center gap-1.5 font-medium text-gray-700 dark:text-gray-300">
                           {item.status === 'error' && (
                             <AlertTriangle size={14} className="text-red-500 dark:text-red-400" />
                           )}
@@ -1441,10 +1441,10 @@ const MessageBubble = ({
                             ? t('messageBubble.toolCallError')
                             : getToolDisplayName(item)}
                         </span>
-                        <div className="flex-1 min-w-0" />
+                        <div className="min-w-0 flex-1" />
                         {item.status !== 'done' && item.status !== 'error' && <DotLoader />}
                         {typeof item.durationMs === 'number' && (
-                          <span className="text-[10px] text-gray-500 dark:text-gray-400 shrink-0 whitespace-nowrap">
+                          <span className="shrink-0 text-[10px] whitespace-nowrap text-gray-500 dark:text-gray-400">
                             {t('messageBubble.toolDuration', {
                               duration: (item.durationMs / 1000).toFixed(2),
                             })}
@@ -1452,12 +1452,12 @@ const MessageBubble = ({
                         )}
                         <span
                           className={clsx(
-                            'px-2 py-0.5 rounded-full text-[10px] shrink-0 whitespace-nowrap',
+                            'shrink-0 rounded-full px-2 py-0.5 text-[10px] whitespace-nowrap',
                             item.status === 'error'
-                              ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
+                              ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
                               : item.status === 'done'
-                                ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
-                                : 'bg-gray-200/70 dark:bg-zinc-700/70 text-gray-600 dark:text-gray-400',
+                                ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400'
+                                : 'bg-gray-200/70 text-gray-600 dark:bg-zinc-700/70 dark:text-gray-400',
                           )}
                         >
                           {item.status === 'error'
@@ -1469,7 +1469,7 @@ const MessageBubble = ({
                         <button
                           type="button"
                           onClick={() => setActiveToolDetail(item)}
-                          className="text-[10px] text-primary-600 dark:text-primary-300 hover:underline shrink-0 whitespace-nowrap"
+                          className="text-primary-600 dark:text-primary-300 shrink-0 text-[10px] whitespace-nowrap hover:underline"
                         >
                           {t('messageBubble.toolDetails')}
                         </button>
@@ -1480,7 +1480,7 @@ const MessageBubble = ({
               ) : (
                 <div
                   className={clsx(
-                    'p-2 flex flex-col gap-2 rounded-lg border bg-white/70 dark:bg-zinc-800/50 border-gray-200 dark:border-zinc-800 ',
+                    'flex flex-col gap-2 rounded-lg border border-gray-200 bg-white/70 p-2 dark:border-zinc-800 dark:bg-zinc-800/50',
                     'mb-4',
                   )}
                 >
@@ -1504,8 +1504,8 @@ const MessageBubble = ({
                     return (
                       <ToolEnter key={item.id || `${item.name}-${item.arguments}`}>
                         <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                          <div className="flex items-center gap-1 sm:gap-2 w-full">
-                            <span className="font-medium text-gray-600 dark:text-gray-300 whitespace-nowrap shrink-0 flex items-center gap-1.5">
+                          <div className="flex w-full items-center gap-1 sm:gap-2">
+                            <span className="flex shrink-0 items-center gap-1.5 font-medium whitespace-nowrap text-gray-600 dark:text-gray-300">
                               {item.status === 'error' ? (
                                 <AlertTriangle
                                   size={14}
@@ -1523,14 +1523,14 @@ const MessageBubble = ({
                                 ? t('messageBubble.toolCallError')
                                 : getToolDisplayName(item)}
                             </span>
-                            <div className="flex items-center gap-1 sm:gap-2 flex-1 min-w-0">
+                            <div className="flex min-w-0 flex-1 items-center gap-1 sm:gap-2">
                               {Object.keys(TOOL_TRANSLATION_KEYS).includes(item.name) &&
                                 (() => {
                                   try {
                                     const args = JSON.parse(item.arguments || '{}')
                                     if (args.query) {
                                       return (
-                                        <span className="opacity-75 truncate w-full">
+                                        <span className="w-full truncate opacity-75">
                                           &quot;{args.query}&quot;
                                         </span>
                                       )
@@ -1541,7 +1541,7 @@ const MessageBubble = ({
                                 })()}
                             </div>
                             {typeof item.durationMs === 'number' && (
-                              <span className="text-[11px] text-gray-500 dark:text-gray-400 whitespace-nowrap shrink-0">
+                              <span className="shrink-0 text-[11px] whitespace-nowrap text-gray-500 dark:text-gray-400">
                                 {t('messageBubble.toolDuration', {
                                   duration: (item.durationMs / 1000).toFixed(2),
                                 })}
@@ -1549,18 +1549,18 @@ const MessageBubble = ({
                             )}
                             <span
                               className={clsx(
-                                'px-2 py-0.5 rounded-full text-[11px] ml-auto shrink-0 flex items-center justify-center min-w-[24px]',
+                                'ml-auto flex min-w-[24px] shrink-0 items-center justify-center rounded-full px-2 py-0.5 text-[11px]',
                                 item.status === 'error'
-                                  ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
+                                  ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
                                   : item.status === 'done'
-                                    ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
-                                    : 'bg-gray-200/70 dark:bg-zinc-700/70 text-gray-600 dark:text-gray-400',
+                                    ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400'
+                                    : 'bg-gray-200/70 text-gray-600 dark:bg-zinc-700/70 dark:text-gray-400',
                               )}
                             >
                               {item.status === 'error' ? (
-                                <X className="w-4 h-4" />
+                                <X className="h-4 w-4" />
                               ) : item.status === 'done' ? (
-                                <Check className="w-4 h-4" />
+                                <Check className="h-4 w-4" />
                               ) : (
                                 <DotLoader />
                               )}
@@ -1609,19 +1609,19 @@ const MessageBubble = ({
                 return (
                   <div
                     key={`form-skeleton-${formIdx}`}
-                    className="mb-4 rounded-xl space-y-4 animate-pulse"
+                    className="mb-4 animate-pulse space-y-4 rounded-xl"
                   >
-                    <div className="h-6 bg-gray-200 dark:bg-zinc-700 rounded w-1/3"></div>
-                    <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-2/3"></div>
+                    <div className="h-6 w-1/3 rounded bg-gray-200 dark:bg-zinc-700"></div>
+                    <div className="h-4 w-2/3 rounded bg-gray-200 dark:bg-zinc-700"></div>
                     <div className="space-y-2">
-                      <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-1/4"></div>
-                      <div className="h-10 bg-gray-200 dark:bg-zinc-700 rounded w-full"></div>
+                      <div className="h-4 w-1/4 rounded bg-gray-200 dark:bg-zinc-700"></div>
+                      <div className="h-10 w-full rounded bg-gray-200 dark:bg-zinc-700"></div>
                     </div>
                     <div className="space-y-2">
-                      <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-1/4"></div>
-                      <div className="h-10 bg-gray-200 dark:bg-zinc-700 rounded w-full"></div>
+                      <div className="h-4 w-1/4 rounded bg-gray-200 dark:bg-zinc-700"></div>
+                      <div className="h-10 w-full rounded bg-gray-200 dark:bg-zinc-700"></div>
                     </div>
-                    <div className="h-10 bg-gray-200 dark:bg-zinc-700 rounded w-full mt-4"></div>
+                    <div className="mt-4 h-10 w-full rounded bg-gray-200 dark:bg-zinc-700"></div>
                   </div>
                 )
               }
@@ -1630,7 +1630,7 @@ const MessageBubble = ({
               return (
                 <div
                   key={`form-error-${formIdx}`}
-                  className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-700 dark:text-red-300"
+                  className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300"
                 >
                   Error displaying form
                 </div>
@@ -1661,7 +1661,7 @@ const MessageBubble = ({
             data-answer-scope="true"
             className={clsx(
               'transition-all duration-300 ease-[cubic-bezier(0.2,0.6,0.2,1)]',
-              hasMainText ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-1',
+              hasMainText ? 'translate-y-0 opacity-100' : 'translate-y-1 opacity-0',
             )}
           >
             <Streamdown
@@ -1722,7 +1722,7 @@ const MessageBubble = ({
           containerRef.current = el
           if (typeof bubbleRef === 'function') bubbleRef(el)
         }}
-        className={clsx('w-full mt-2.5 group px-3 sm:px-0 flex flex-col gap-1')}
+        className={clsx('group mt-2.5 flex w-full flex-col gap-1 px-3 sm:px-0')}
         onMouseUp={handleMouseUp}
         onTouchEnd={handleTouchEnd}
         onContextMenu={handleContextMenu}
@@ -1730,12 +1730,12 @@ const MessageBubble = ({
         {activeImageUrl &&
           createPortal(
             <div
-              className="fixed inset-0 z-[10000] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
+              className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
               onClick={() => setActiveImageUrl(null)}
             >
               <button
                 onClick={() => setActiveImageUrl(null)}
-                className="absolute top-4 right-4 p-2 rounded-full bg-black/70 text-white hover:bg-black/80 transition-colors"
+                className="absolute top-4 right-4 rounded-full bg-black/70 p-2 text-white transition-colors hover:bg-black/80"
                 aria-label="Close image preview"
               >
                 <X size={18} />
@@ -1751,14 +1751,14 @@ const MessageBubble = ({
           )}
         {/* User Message Timestamp (Centered Above) */}
         {message.created_at && (
-          <div className="w-full flex justify-center text-xs text-gray-400 dark:text-gray-500 my-1 select-none">
+          <div className="my-1 flex w-full justify-center text-xs text-gray-400 select-none dark:text-gray-500">
             {formatMessageDate(message.created_at, t, i18n.language)}
           </div>
         )}
         {/* Message Row Wrapper */}
         <div
           className={clsx(
-            'flex items-center gap-2 w-full',
+            'flex w-full items-center gap-2',
             isDeepResearchContext ? 'justify-center' : 'justify-end',
           )}
         >
@@ -1768,8 +1768,8 @@ const MessageBubble = ({
               // For Deep Research: centered and wide
               // For Standard: right-aligned (user) or left-aligned (AI) but constrained width
               isDeepResearchContext
-                ? 'items-center w-full max-w-full'
-                : 'items-end max-w-[85%] sm:max-w-3xl',
+                ? 'w-full max-w-full items-center'
+                : 'max-w-[85%] items-end sm:max-w-3xl',
             )}
           >
             {/* Message Content */}
@@ -1780,24 +1780,24 @@ const MessageBubble = ({
               return (
                 <div
                   className={clsx(
-                    'relative px-3 py-2 rounded-3xl text-base w-fit max-w-full',
+                    'relative w-fit max-w-full rounded-3xl px-3 py-2 text-base',
                     'bg-primary-500 dark:bg-primary-900 text-white dark:text-gray-100',
                   )}
                 >
                   {quoteToRender && (
-                    <div className="mb-2 p-3 bg-white/20 dark:bg-black/20 rounded-3xl text-sm">
-                      <div className="font-medium  mb-1">{t('messageBubble.quoting')}</div>
-                      <div className="line-clamp-2 italic ">{quoteToRender.text}</div>
+                    <div className="mb-2 rounded-3xl bg-white/20 p-3 text-sm dark:bg-black/20">
+                      <div className="mb-1 font-medium">{t('messageBubble.quoting')}</div>
+                      <div className="line-clamp-2 italic">{quoteToRender.text}</div>
                     </div>
                   )}
                   {imagesToRender.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mb-2">
+                    <div className="mb-2 flex flex-wrap gap-2">
                       {imagesToRender.map((img, idx) => (
                         <img
                           key={idx}
                           src={img?.url || img?.image_url?.url}
                           alt="User uploaded"
-                          className="max-w-full h-auto rounded-lg max-h-60 object-cover cursor-zoom-in"
+                          className="h-auto max-h-60 max-w-full cursor-zoom-in rounded-lg object-cover"
                           onClick={event => {
                             event.stopPropagation()
                             setActiveImageUrl(img?.url || img?.image_url?.url)
@@ -1807,7 +1807,7 @@ const MessageBubble = ({
                     </div>
                   )}
                   <div
-                    className="message-content whitespace-pre-wrap wrap-break-word"
+                    className="message-content wrap-break-word whitespace-pre-wrap"
                     // Prevent native selection menu on mobile
                     style={{
                       WebkitTouchCallout: isMobile ? 'none' : 'default',
@@ -1822,7 +1822,7 @@ const MessageBubble = ({
                       part.type === 'url' ? (
                         <span
                           key={`url-${index}`}
-                          className="bg-white/20 text-white rounded-sm px-1 underline decoration-white/70"
+                          className="rounded-sm bg-white/20 px-1 text-white underline decoration-white/70"
                         >
                           {part.value}
                         </span>
@@ -1838,10 +1838,10 @@ const MessageBubble = ({
             {/* Action Buttons */}
             {!isDeepResearchContext && (
               <div className="flex items-center gap-2 px-1">
-                <div className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 flex gap-2 transition-opacity duration-200">
+                <div className="flex gap-2 opacity-100 transition-opacity duration-200 sm:opacity-0 sm:group-hover:opacity-100">
                   <button
                     onClick={() => onEdit && onEdit()}
-                    className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300  rounded-lg transition-colors"
+                    className="rounded-lg p-1.5 text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-gray-300"
                     title="Edit"
                   >
                     <Pencil size={14} />
@@ -1851,7 +1851,7 @@ const MessageBubble = ({
                       copyToClipboard(contentToRender)
                       setIsCopied(true)
                     }}
-                    className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300  rounded-lg transition-colors"
+                    className="rounded-lg p-1.5 text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-gray-300"
                     title={t('messageBubble.copy')}
                   >
                     {isCopied ? <Check size={14} /> : <Copy size={14} />}
@@ -1867,7 +1867,7 @@ const MessageBubble = ({
                         onConfirm: onDelete,
                       })
                     }}
-                    className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg transition-colors"
+                    className="rounded-lg p-1.5 text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-gray-300"
                     title={t('common.delete')}
                   >
                     <Trash2 size={14} />
@@ -1941,7 +1941,7 @@ const MessageBubble = ({
         containerRef.current = el
         if (typeof bubbleRef === 'function') bubbleRef(el)
       }}
-      className="w-full max-w-3xl mb-12 flex flex-col gap-4 relative px-5 sm:px-0"
+      className="relative mb-12 flex w-full max-w-3xl flex-col gap-4 px-5 sm:px-0"
       onMouseUp={handleMouseUp}
       onTouchEnd={handleTouchEnd}
       onContextMenu={handleContextMenu}
@@ -1951,10 +1951,10 @@ const MessageBubble = ({
         createPortal(
           <div
             className={clsx(
-              'fixed selection-menu shadow-lg flex items-center z-50 transform -translate-x-1/2',
+              'selection-menu fixed z-50 flex -translate-x-1/2 transform items-center shadow-lg',
               isMobile
-                ? 'bg-gray-900/98 text-white dark:bg-zinc-800/98 rounded-full py-1.5 px-3 backdrop-blur-md border border-gray-700/50'
-                : 'bg-gray-900 text-white dark:bg-zinc-700 rounded-lg p-1 -translate-y-full',
+                ? 'rounded-full border border-gray-700/50 bg-gray-900/98 px-3 py-1.5 text-white backdrop-blur-md dark:bg-zinc-800/98'
+                : '-translate-y-full rounded-lg bg-gray-900 p-1 text-white dark:bg-zinc-700',
             )}
             style={{
               left: selectionMenu.x,
@@ -1965,10 +1965,10 @@ const MessageBubble = ({
           >
             <button
               className={clsx(
-                'flex items-center gap-1.5 rounded-full transition-all text-xs font-medium',
+                'flex items-center gap-1.5 rounded-full text-xs font-medium transition-all',
                 isMobile
-                  ? 'px-3 py-1.5 active:bg-gray-700 hover:bg-gray-800'
-                  : 'px-2 py-1.5 hover:bg-gray-700 dark:hover:bg-zinc-600 whitespace-nowrap',
+                  ? 'px-3 py-1.5 hover:bg-gray-800 active:bg-gray-700'
+                  : 'px-2 py-1.5 whitespace-nowrap hover:bg-gray-700 dark:hover:bg-zinc-600',
               )}
               onClick={e => {
                 e.stopPropagation()
@@ -1983,15 +1983,15 @@ const MessageBubble = ({
             <div
               className={clsx(
                 'mx-0.5',
-                isMobile ? 'w-px h-4 bg-gray-600' : 'w-px h-3 bg-gray-700 dark:bg-zinc-600',
+                isMobile ? 'h-4 w-px bg-gray-600' : 'h-3 w-px bg-gray-700 dark:bg-zinc-600',
               )}
             />
             <button
               className={clsx(
-                'flex items-center gap-1.5 rounded-full transition-all text-xs font-medium',
+                'flex items-center gap-1.5 rounded-full text-xs font-medium transition-all',
                 isMobile
-                  ? 'px-3 py-1.5 active:bg-gray-700 hover:bg-gray-800'
-                  : 'px-2 py-1.5 hover:bg-gray-700 dark:hover:bg-zinc-600 whitespace-nowrap',
+                  ? 'px-3 py-1.5 hover:bg-gray-800 active:bg-gray-700'
+                  : 'px-2 py-1.5 whitespace-nowrap hover:bg-gray-700 dark:hover:bg-zinc-600',
               )}
               onClick={e => {
                 e.stopPropagation()
@@ -2013,14 +2013,14 @@ const MessageBubble = ({
             <div
               onClick={handleAgentClick}
               className={clsx(
-                'rounded-full transition hover:scale-105 shadow-inner flex items-center justify-center overflow-hidden w-10 h-10 bg-gray-100 dark:bg-zinc-800',
-                targetAgent && 'cursor-pointer hover:opacity-80 transition-opacity',
+                'flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-gray-100 shadow-inner transition hover:scale-105 dark:bg-zinc-800',
+                targetAgent && 'cursor-pointer transition-opacity hover:opacity-80',
               )}
             >
               <EmojiDisplay emoji={agentEmoji} size="1.5rem" />
             </div>
-            <div className="flex flex-col leading-tight grow">
-              <div className="flex items-center justify-between w-full">
+            <div className="flex grow flex-col leading-tight">
+              <div className="flex w-full items-center justify-between">
                 <div className="flex items-center gap-1.5">
                   <span className="text-sm font-semibold">{displayAgentName}</span>
                 </div>
@@ -2044,7 +2044,7 @@ const MessageBubble = ({
                     alt=""
                     width={12}
                     height={12}
-                    className={clsx('w-3 h-3 object-contain', getModelIconClassName(resolvedModel))}
+                    className={clsx('h-3 w-3 object-contain', getModelIconClassName(resolvedModel))}
                     loading="lazy"
                   />
                 )}
@@ -2057,8 +2057,8 @@ const MessageBubble = ({
             <div
               onClick={handleAgentClick}
               className={clsx(
-                'rounded-full shadow-inner flex items-center justify-center overflow-hidden',
-                targetAgent && 'cursor-pointer hover:opacity-80 transition-opacity',
+                'flex items-center justify-center overflow-hidden rounded-full shadow-inner',
+                targetAgent && 'cursor-pointer transition-opacity hover:opacity-80',
               )}
             >
               {renderProviderIcon(providerMeta.id, {
@@ -2072,8 +2072,8 @@ const MessageBubble = ({
                 </span>
               )}
             </div>
-            <div className="flex flex-col leading-tight grow">
-              <div className="flex items-center justify-between w-full">
+            <div className="flex grow flex-col leading-tight">
+              <div className="flex w-full items-center justify-between">
                 <span className="text-sm font-semibold">{providerMeta.label}</span>
               </div>
               <div className="flex items-center gap-1.5">
@@ -2084,7 +2084,7 @@ const MessageBubble = ({
                     width={14}
                     height={14}
                     className={clsx(
-                      'w-3.5 h-3.5 object-contain',
+                      'h-3.5 w-3.5 object-contain',
                       getModelIconClassName(resolvedModel),
                     )}
                     loading="lazy"
@@ -2101,18 +2101,18 @@ const MessageBubble = ({
       {isDeepResearch ? (
         <>
           {shouldShowPlan && (
-            <div className="border border-gray-200/70 dark:border-zinc-800 rounded-xl overflow-hidden">
+            <div className="overflow-hidden rounded-xl border border-gray-200/70 dark:border-zinc-800">
               <button
                 onClick={() => setIsPlanExpanded(!isPlanExpanded)}
-                className="w-full flex items-center justify-between p-2 bg-user-bubble/30 dark:bg-zinc-800/50 hover:bg-user-bubble dark:hover:bg-zinc-800 transition-colors"
+                className="bg-user-bubble/30 hover:bg-user-bubble flex w-full items-center justify-between p-2 transition-colors dark:bg-zinc-800/50 dark:hover:bg-zinc-800"
               >
-                <div className="flex items-center gap-2 font-medium text-sm text-gray-700 dark:text-gray-300">
+                <div className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                   <EmojiDisplay emoji={'🧭'} size="1.2em" />
                   <span className="text-sm">{t('messageBubble.planProcess')}</span>
                   {!shouldShowPlanStatus && <Check size="1em" />}
                   {shouldShowPlanStatus && (
                     <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                      <span className="text-left mr-4 transition-opacity duration-200 ease-out">
+                      <span className="mr-4 text-left transition-opacity duration-200 ease-out">
                         {researchStatusText}
                       </span>
                       <DotLoader />
@@ -2125,7 +2125,7 @@ const MessageBubble = ({
               </button>
 
               {isPlanExpanded && (hasPlanText || shouldShowPlanStatus) && (
-                <div className="p-4 font-stretch-semi-condensed bg-white/70 dark:bg-zinc-800/70  text-sm text-gray-600 dark:text-gray-400 leading-relaxed space-y-4 [&>div>p:last-child]:mb-0!">
+                <div className="space-y-4 bg-white/70 p-4 text-sm leading-relaxed text-gray-600 font-stretch-semi-condensed dark:bg-zinc-800/70 dark:text-gray-400 [&>div>p:last-child]:mb-0!">
                   <Streamdown
                     mermaid={mermaidOptions}
                     remarkPlugins={[remarkGfm]}
@@ -2139,18 +2139,18 @@ const MessageBubble = ({
           )}
 
           {shouldShowResearch && (
-            <div className="border border-gray-200/70 dark:border-zinc-800 rounded-xl overflow-hidden">
+            <div className="overflow-hidden rounded-xl border border-gray-200/70 dark:border-zinc-800">
               <button
                 onClick={() => setIsResearchExpanded(!isResearchExpanded)}
-                className="w-full flex items-center justify-between p-2 bg-user-bubble/30 dark:bg-zinc-800/50 hover:bg-user-bubble dark:hover:bg-zinc-800 transition-colors"
+                className="bg-user-bubble/30 hover:bg-user-bubble flex w-full items-center justify-between p-2 transition-colors dark:bg-zinc-800/50 dark:hover:bg-zinc-800"
               >
-                <div className="flex items-center gap-2 font-medium text-sm text-gray-700 dark:text-gray-300">
+                <div className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                   <EmojiDisplay emoji={'📋'} size="1.2em" />
                   <span className="text-sm">{t('messageBubble.researchProcess')}</span>
                   {!shouldShowResearchStatus && <Check size="1em" />}
                   {shouldShowResearchStatus && (
                     <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                      <span className="text-left mr-4 transition-opacity duration-200 ease-out">
+                      <span className="mr-4 text-left transition-opacity duration-200 ease-out">
                         {researchStatusText}
                       </span>
                       <DotLoader />
@@ -2163,7 +2163,7 @@ const MessageBubble = ({
               </button>
 
               {isResearchExpanded && hasResearchSteps && (
-                <div className="p-4 font-stretch-semi-condensed  text-sm text-gray-600 dark:text-gray-400 leading-relaxed space-y-3 [&>div>p:last-child]:mb-0!">
+                <div className="space-y-3 p-4 text-sm leading-relaxed text-gray-600 font-stretch-semi-condensed dark:text-gray-400 [&>div>p:last-child]:mb-0!">
                   {researchSteps.map(step => {
                     const isRunning = step.status === 'running'
                     const isPending = step.status === 'pending'
@@ -2187,7 +2187,7 @@ const MessageBubble = ({
                     return (
                       <div
                         key={`${step.step}-${step.title}`}
-                        className="flex items-start gap-3 rounded-lg border border-gray-200/60 dark:border-zinc-800/70 bg-white/70 dark:bg-zinc-800/70 p-3"
+                        className="flex items-start gap-3 rounded-lg border border-gray-200/60 bg-white/70 p-3 dark:border-zinc-800/70 dark:bg-zinc-800/70"
                       >
                         <div className="flex-1 space-y-1">
                           <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -2199,12 +2199,12 @@ const MessageBubble = ({
                             </span>
                             <span
                               className={clsx(
-                                'px-2 py-0.5 rounded-full text-[11px]',
+                                'rounded-full px-2 py-0.5 text-[11px]',
                                 isError
-                                  ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
+                                  ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
                                   : isDone
-                                    ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
-                                    : 'bg-gray-200/70 dark:bg-zinc-700/70 text-gray-600 dark:text-gray-400',
+                                    ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400'
+                                    : 'bg-gray-200/70 text-gray-600 dark:bg-zinc-700/70 dark:text-gray-400',
                               )}
                             >
                               {statusLabel}
@@ -2227,7 +2227,7 @@ const MessageBubble = ({
                           )}
                           {stepToolCalls.length > 0 && (
                             <div className="mt-2 space-y-1">
-                              <div className="h-[0.5px] my-2 w-full bg-gray-200 dark:bg-zinc-700"></div>
+                              <div className="my-2 h-[0.5px] w-full bg-gray-200 dark:bg-zinc-700"></div>
                               {/* <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400">
                                 {t('messageBubble.toolCalls')}
                               </div> */}
@@ -2237,9 +2237,9 @@ const MessageBubble = ({
                                   {stepToolCalls.map(item => (
                                     <div
                                       key={item.id || `${item.name}-${item.arguments}`}
-                                      className="flex items-center gap-2 text-[11px] text-gray-600 dark:text-gray-400 w-full"
+                                      className="flex w-full items-center gap-2 text-[11px] text-gray-600 dark:text-gray-400"
                                     >
-                                      <span className="font-medium text-gray-700 dark:text-gray-300 shrink-0 flex items-center gap-1.5">
+                                      <span className="flex shrink-0 items-center gap-1.5 font-medium text-gray-700 dark:text-gray-300">
                                         {item.status === 'error' && (
                                           <AlertTriangle
                                             size={14}
@@ -2250,12 +2250,12 @@ const MessageBubble = ({
                                           ? t('messageBubble.toolCallError')
                                           : getToolDisplayName(item)}
                                       </span>
-                                      <div className="flex-1 min-w-0" />
+                                      <div className="min-w-0 flex-1" />
                                       {item.status !== 'done' && item.status !== 'error' && (
                                         <DotLoader />
                                       )}
                                       {typeof item.durationMs === 'number' && (
-                                        <span className="text-[10px] text-gray-500 dark:text-gray-400 shrink-0 whitespace-nowrap">
+                                        <span className="shrink-0 text-[10px] whitespace-nowrap text-gray-500 dark:text-gray-400">
                                           {t('messageBubble.toolDuration', {
                                             duration: (item.durationMs / 1000).toFixed(2),
                                           })}
@@ -2263,12 +2263,12 @@ const MessageBubble = ({
                                       )}
                                       <span
                                         className={clsx(
-                                          'px-2 py-0.5 rounded-full text-[10px] shrink-0 whitespace-nowrap',
+                                          'shrink-0 rounded-full px-2 py-0.5 text-[10px] whitespace-nowrap',
                                           item.status === 'error'
-                                            ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
+                                            ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
                                             : item.status === 'done'
-                                              ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
-                                              : 'bg-gray-200/70 dark:bg-zinc-700/70 text-gray-600 dark:text-gray-400',
+                                              ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400'
+                                              : 'bg-gray-200/70 text-gray-600 dark:bg-zinc-700/70 dark:text-gray-400',
                                         )}
                                       >
                                         {item.status === 'error'
@@ -2280,7 +2280,7 @@ const MessageBubble = ({
                                       <button
                                         type="button"
                                         onClick={() => setActiveToolDetail(item)}
-                                        className="text-[10px] text-primary-600 dark:text-primary-300 hover:underline shrink-0 whitespace-nowrap"
+                                        className="text-primary-600 dark:text-primary-300 shrink-0 text-[10px] whitespace-nowrap hover:underline"
                                       >
                                         {t('messageBubble.toolDetails')}
                                       </button>
@@ -2312,8 +2312,8 @@ const MessageBubble = ({
                                         key={item.id || `${item.name}-${item.arguments}`}
                                         className="flex items-center gap-2 text-[11px] text-gray-500 dark:text-gray-400"
                                       >
-                                        <div className="grid grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-1 sm:gap-1.5 w-full">
-                                          <span className="font-medium text-gray-600 dark:text-gray-300 whitespace-nowrap flex items-center gap-1">
+                                        <div className="grid w-full grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-1 sm:gap-1.5">
+                                          <span className="flex items-center gap-1 font-medium whitespace-nowrap text-gray-600 dark:text-gray-300">
                                             {item.status === 'error' ? (
                                               <AlertTriangle
                                                 size={12}
@@ -2331,7 +2331,7 @@ const MessageBubble = ({
                                               ? t('messageBubble.toolCallError')
                                               : getToolDisplayName(item)}
                                           </span>
-                                          <div className="flex items-center min-w-0">
+                                          <div className="flex min-w-0 items-center">
                                             {Object.keys(TOOL_TRANSLATION_KEYS).includes(
                                               item.name,
                                             ) &&
@@ -2340,7 +2340,7 @@ const MessageBubble = ({
                                                   const args = JSON.parse(item.arguments || '{}')
                                                   if (args.query) {
                                                     return (
-                                                      <span className="opacity-75 truncate w-full">
+                                                      <span className="w-full truncate opacity-75">
                                                         &quot;{args.query}&quot;
                                                       </span>
                                                     )
@@ -2351,7 +2351,7 @@ const MessageBubble = ({
                                               })()}
                                           </div>
                                           {typeof item.durationMs === 'number' && (
-                                            <span className="text-[10px] text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                                            <span className="text-[10px] whitespace-nowrap text-gray-500 dark:text-gray-400">
                                               {t('messageBubble.toolDuration', {
                                                 duration: (item.durationMs / 1000).toFixed(2),
                                               })}
@@ -2359,18 +2359,18 @@ const MessageBubble = ({
                                           )}
                                           <span
                                             className={clsx(
-                                              'px-1.5 py-0.5 rounded-full text-[10px] ml-auto shrink-0 flex items-center justify-center min-w-[20px]',
+                                              'ml-auto flex min-w-[20px] shrink-0 items-center justify-center rounded-full px-1.5 py-0.5 text-[10px]',
                                               item.status === 'error'
-                                                ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
+                                                ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
                                                 : item.status === 'done'
-                                                  ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
-                                                  : 'bg-gray-200/70 dark:bg-zinc-700/70 text-gray-600 dark:text-gray-400',
+                                                  ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400'
+                                                  : 'bg-gray-200/70 text-gray-600 dark:bg-zinc-700/70 dark:text-gray-400',
                                             )}
                                           >
                                             {item.status === 'error' ? (
-                                              <X className="w-3 h-3" />
+                                              <X className="h-3 w-3" />
                                             ) : item.status === 'done' ? (
-                                              <Check className="w-3 h-3" />
+                                              <Check className="h-3 w-3" />
                                             ) : (
                                               <DotLoader />
                                             )}
@@ -2394,12 +2394,12 @@ const MessageBubble = ({
         </>
       ) : (
         shouldShowThinking && (
-          <div className="border border-gray-200/70 dark:border-zinc-800 rounded-xl overflow-hidden">
+          <div className="overflow-hidden rounded-xl border border-gray-200/70 dark:border-zinc-800">
             <button
               onClick={() => setIsThoughtExpanded(!isThoughtExpanded)}
-              className="w-full flex items-center justify-between p-2 bg-user-bubble/30 dark:bg-zinc-800/50 hover:bg-user-bubble dark:hover:bg-zinc-800 transition-colors"
+              className="bg-user-bubble/30 hover:bg-user-bubble flex w-full items-center justify-between p-2 transition-colors dark:bg-zinc-800/50 dark:hover:bg-zinc-800"
             >
-              <div className="flex items-center gap-2 font-medium text-sm text-gray-700 dark:text-gray-300">
+              <div className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                 <EmojiDisplay emoji={'🧠'} size="1.2em" />
                 {!baseThinkingStatusActive && (
                   <span className="text-sm">{t('messageBubble.thinkingProcess')}</span>
@@ -2408,7 +2408,7 @@ const MessageBubble = ({
                 {!baseThinkingStatusActive && !hasMainText && isStreaming && <DotLoader />}
                 {baseThinkingStatusActive && (
                   <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                    <span className="text-left mr-4">{thinkingStatusText}</span>
+                    <span className="mr-4 text-left">{thinkingStatusText}</span>
                     <DotLoader />
                   </div>
                 )}
@@ -2419,7 +2419,7 @@ const MessageBubble = ({
             </button>
 
             {isThoughtExpanded && (hasThoughtText || hasPlanText) && (
-              <div className="p-4 font-stretch-semi-condensed text-sm bg-white/70 dark:bg-zinc-800/70 text-gray-600 dark:text-gray-400 leading-relaxed [&>div>p:last-child]:mb-0!">
+              <div className="bg-white/70 p-4 text-sm leading-relaxed text-gray-600 font-stretch-semi-condensed dark:bg-zinc-800/70 dark:text-gray-400 [&>div>p:last-child]:mb-0!">
                 <Streamdown
                   mermaid={mermaidOptions}
                   remarkPlugins={[remarkGfm]}
@@ -2438,7 +2438,7 @@ const MessageBubble = ({
       {/* Main Content */}
       <div
         ref={mainContentRef}
-        className="message-content prose dark:prose-invert max-w-none text-gray-800 dark:text-gray-200 leading-relaxed font-sans [&_p]:overflow-x-auto [&_p]:max-w-full [&_p]:whitespace-pre-wrap [&_blockquote]:overflow-x-auto [&_blockquote]:max-w-full [&_table]:inline-table [&_table]:w-auto [&_table]:table-auto [&_pre]:overflow-x-auto [&_pre]:max-w-full"
+        className="message-content prose dark:prose-invert max-w-none font-sans leading-relaxed text-gray-800 dark:text-gray-200 [&_blockquote]:max-w-full [&_blockquote]:overflow-x-auto [&_p]:max-w-full [&_p]:overflow-x-auto [&_p]:whitespace-pre-wrap [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_table]:inline-table [&_table]:w-auto [&_table]:table-auto"
         // Prevent native selection menu on mobile
         style={{
           WebkitTouchCallout: isMobile ? 'none' : 'default',
@@ -2454,27 +2454,27 @@ const MessageBubble = ({
           {renderInitialSkeleton && (
             <div
               className={clsx(
-                'flex flex-col gap-2 animate-pulse transition-opacity duration-300 ease-[cubic-bezier(0.2,0.6,0.2,1)]',
+                'flex animate-pulse flex-col gap-2 transition-opacity duration-300 ease-[cubic-bezier(0.2,0.6,0.2,1)]',
                 showInitialSkeleton ? 'opacity-100' : 'opacity-0',
               )}
             >
-              <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-3/4"></div>
-              <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-1/2"></div>
-              <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-5/6"></div>
+              <div className="h-4 w-3/4 rounded bg-gray-200 dark:bg-zinc-700"></div>
+              <div className="h-4 w-1/2 rounded bg-gray-200 dark:bg-zinc-700"></div>
+              <div className="h-4 w-5/6 rounded bg-gray-200 dark:bg-zinc-700"></div>
             </div>
           )}
           {!isDeepResearch &&
             isStreaming &&
             hasMainText &&
             !mergedMessage._isContinuationLoading && (
-              <div className="mt-4 flex flex-col gap-2 animate-pulse">
-                <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-3/4"></div>
-                <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-1/2"></div>
-                <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-5/6"></div>
+              <div className="mt-4 flex animate-pulse flex-col gap-2">
+                <div className="h-4 w-3/4 rounded bg-gray-200 dark:bg-zinc-700"></div>
+                <div className="h-4 w-1/2 rounded bg-gray-200 dark:bg-zinc-700"></div>
+                <div className="h-4 w-5/6 rounded bg-gray-200 dark:bg-zinc-700"></div>
               </div>
             )}
           {isDeepResearch && isStreaming && !hasMainText && !hasActiveResearchStep && (
-            <div className="mt-4 flex items-center gap-2 text-gray-500 dark:text-gray-400 animate-pulse pl-1">
+            <div className="mt-4 flex animate-pulse items-center gap-2 pl-1 text-gray-500 dark:text-gray-400">
               <DotLoader />
               <span className="text-sm font-medium transition-opacity duration-200 ease-out">
                 {t('chat.deepResearchDrafting')}
@@ -2484,10 +2484,10 @@ const MessageBubble = ({
           {mergedMessage._isContinuationLoading && (
             <div className="mt-4 flex flex-col gap-3">
               <FormStatusBadge waiting={false} />
-              <div className="flex flex-col gap-2 animate-pulse">
-                <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-3/4"></div>
-                <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-1/2"></div>
-                <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-5/6"></div>
+              <div className="flex animate-pulse flex-col gap-2">
+                <div className="h-4 w-3/4 rounded bg-gray-200 dark:bg-zinc-700"></div>
+                <div className="h-4 w-1/2 rounded bg-gray-200 dark:bg-zinc-700"></div>
+                <div className="h-4 w-5/6 rounded bg-gray-200 dark:bg-zinc-700"></div>
               </div>
             </div>
           )}
@@ -2498,7 +2498,7 @@ const MessageBubble = ({
 
       {/* Related Questions */}
       {shouldShowRelated && (
-        <div className="border-t border-gray-200 dark:border-zinc-800 pt-4">
+        <div className="border-t border-gray-200 pt-4 dark:border-zinc-800">
           <RelatedQuestions
             t={t}
             questions={hasRelatedQuestions ? mergedMessage.related : []}
@@ -2600,23 +2600,23 @@ const MessageBubble = ({
 
       {activeToolDetail &&
         createPortal(
-          <div className="fixed inset-0 z-10000 flex items-start md:items-center justify-center bg-black/50 backdrop-blur-sm p-0 md:p-4 overflow-y-auto md:overflow-hidden">
-            <div className="w-full h-screen md:max-w-4xl md:h-[80vh] bg-white dark:bg-[#191a1a] rounded-none md:rounded-2xl shadow-2xl flex flex-col overflow-hidden border-0 md:border border-gray-200 dark:border-zinc-800">
-              <div className="h-14 border-b border-gray-200 dark:border-zinc-800 flex items-center justify-between px-4 sm:px-6 shrink-0 bg-white dark:bg-[#191a1a]">
-                <div className="text-base font-semibold text-gray-900 dark:text-white truncate pr-4">
+          <div className="fixed inset-0 z-10000 flex items-start justify-center overflow-y-auto bg-black/50 p-0 backdrop-blur-sm md:items-center md:overflow-hidden md:p-4">
+            <div className="flex h-screen w-full flex-col overflow-hidden rounded-none border-0 border-gray-200 bg-white shadow-2xl md:h-[80vh] md:max-w-4xl md:rounded-2xl md:border dark:border-zinc-800 dark:bg-[#191a1a]">
+              <div className="flex h-14 shrink-0 items-center justify-between border-b border-gray-200 bg-white px-4 sm:px-6 dark:border-zinc-800 dark:bg-[#191a1a]">
+                <div className="truncate pr-4 text-base font-semibold text-gray-900 dark:text-white">
                   {developerMode ? activeToolDetail?.name : getToolDisplayName(activeToolDetail)}
                 </div>
                 <button
                   type="button"
                   onClick={() => setActiveToolDetail(null)}
-                  className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-500 transition-colors"
+                  className="rounded-full p-2 text-gray-500 transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800"
                 >
                   <X size={20} />
                 </button>
               </div>
-              <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 min-h-0 bg-white dark:bg-[#191a1a]">
+              <div className="min-h-0 flex-1 space-y-6 overflow-y-auto bg-white p-4 sm:p-6 dark:bg-[#191a1a]">
                 <div>
-                  <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <div className="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                     {t('messageBubble.toolInput')}
                   </div>
                   <div>
@@ -2639,7 +2639,7 @@ const MessageBubble = ({
                   </div>
                 </div>
                 <div>
-                  <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <div className="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                     {t('messageBubble.toolOutput')}
                   </div>
                   <div>
@@ -2807,7 +2807,7 @@ const CitationChip = ({ indices, sources, isMobile, onMobileClick, label }) => {
       >
         <span
           onClick={handleClick}
-          className="text-[12px] bg-primary-200/50 dark:bg-primary-900/50 text-primary-700 dark:text-primary-300 hover:bg-primary-300/50 dark:hover:bg-primary-700/50 rounded-lg mx-0.5 py-0.5 px-1 cursor-pointer transition-colors"
+          className="bg-primary-200/50 dark:bg-primary-900/50 text-primary-700 dark:text-primary-300 hover:bg-primary-300/50 dark:hover:bg-primary-700/50 mx-0.5 cursor-pointer rounded-lg px-1 py-0.5 text-[12px] transition-colors"
         >
           {parseChildrenWithEmojis(label)}
         </span>
@@ -2817,7 +2817,7 @@ const CitationChip = ({ indices, sources, isMobile, onMobileClick, label }) => {
         !isMobile &&
         createPortal(
           <div
-            className="citation-dropdown fixed z-[9999] w-64 overflow-y-auto bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl flex flex-col p-1"
+            className="citation-dropdown fixed z-[9999] flex w-64 flex-col overflow-y-auto rounded-xl border border-gray-200 bg-white p-1 shadow-xl dark:border-zinc-700 dark:bg-zinc-900"
             style={{
               top: position.showAbove ? 'auto' : position.top,
               bottom: position.showAbove ? window.innerHeight - position.top : 'auto',
@@ -2846,16 +2846,16 @@ const CitationChip = ({ indices, sources, isMobile, onMobileClick, label }) => {
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={e => e.stopPropagation()}
-                  className="flex items-start gap-2 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors text-left"
+                  className="flex items-start gap-2 rounded-lg p-2 text-left transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800"
                 >
-                  <span className="mt-0.5 shrink-0 w-3.5 h-3.5 rounded text-[9px] font-medium bg-gray-100 dark:bg-zinc-800 text-gray-500 dark:text-gray-400 flex items-center justify-center border border-gray-200 dark:border-zinc-700">
+                  <span className="mt-0.5 flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border border-gray-200 bg-gray-100 text-[9px] font-medium text-gray-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-gray-400">
                     {idx + 1}
                   </span>
-                  <span className="flex-1 min-w-0">
-                    <span className="block text-xs font-medium text-gray-800 dark:text-gray-200 line-clamp-1">
+                  <span className="min-w-0 flex-1">
+                    <span className="line-clamp-1 block text-xs font-medium text-gray-800 dark:text-gray-200">
                       {source.title}
                     </span>
-                    <span className="block text-[10px] text-gray-400 dark:text-gray-500 truncate">
+                    <span className="block truncate text-[10px] text-gray-400 dark:text-gray-500">
                       <span className="inline-flex items-center gap-1.5">
                         {faviconUrl && (
                           <img src={faviconUrl} alt="" className="h-3 w-3 rounded-sm" />
@@ -2864,7 +2864,7 @@ const CitationChip = ({ indices, sources, isMobile, onMobileClick, label }) => {
                       </span>
                     </span>
                     {snippet && (
-                      <span className="mt-1 block text-[10px] text-gray-500 dark:text-gray-400 line-clamp-2">
+                      <span className="mt-1 line-clamp-2 block text-[10px] text-gray-500 dark:text-gray-400">
                         {snippet}
                       </span>
                     )}

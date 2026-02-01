@@ -32,13 +32,13 @@ const CustomSelect = ({ value, onChange, options, placeholder, disabled, error }
       <div
         onClick={() => !disabled && setIsOpen(!isOpen)}
         className={clsx(
-          'w-full pl-4 pr-10 py-3.5 rounded-2xl cursor-pointer transition-all duration-300 border border-gray-200 dark:border-white/10',
+          'w-full cursor-pointer rounded-2xl border border-gray-200 py-3.5 pr-10 pl-4 transition-all duration-300 dark:border-white/10',
           'flex items-center justify-between',
-          'bg-gray-50/50 dark:bg-zinc-900/50 hover:bg-white dark:hover:bg-zinc-800 backdrop-blur-md',
+          'bg-gray-50/50 backdrop-blur-md hover:bg-white dark:bg-zinc-900/50 dark:hover:bg-zinc-800',
           isOpen
-            ? 'ring-2 ring-primary-500/20 border-primary-500/50 shadow-lg shadow-primary-500/5'
-            : ' hover:border-gray-200 dark:hover:border-white/10',
-          disabled && 'opacity-60 cursor-not-allowed',
+            ? 'ring-primary-500/20 border-primary-500/50 shadow-primary-500/5 shadow-lg ring-2'
+            : 'hover:border-gray-200 dark:hover:border-white/10',
+          disabled && 'cursor-not-allowed opacity-60',
           error && 'border-red-500/50! bg-red-50/10! shadow-none',
         )}
       >
@@ -52,7 +52,7 @@ const CustomSelect = ({ value, onChange, options, placeholder, disabled, error }
         </span>
         <div
           className={clsx(
-            'absolute right-3.5 transition-transform duration-300 text-gray-400',
+            'absolute right-3.5 text-gray-400 transition-transform duration-300',
             isOpen && 'rotate-180',
           )}
         >
@@ -63,23 +63,23 @@ const CustomSelect = ({ value, onChange, options, placeholder, disabled, error }
       {/* Dropdown Menu */}
       <div
         className={clsx(
-          'absolute z-[60] w-full mt-2 py-1.5 rounded-2xl border border-gray-100 dark:border-white/10 shadow-2xl overflow-hidden',
-          'bg-white dark:bg-zinc-900  origin-top transition-all duration-200',
+          'absolute z-[60] mt-2 w-full overflow-hidden rounded-2xl border border-gray-100 py-1.5 shadow-2xl dark:border-white/10',
+          'origin-top bg-white transition-all duration-200 dark:bg-zinc-900',
           isOpen
-            ? 'opacity-100 scale-100 translate-y-0'
-            : 'opacity-0 scale-95 -translate-y-2 pointer-events-none',
+            ? 'translate-y-0 scale-100 opacity-100'
+            : 'pointer-events-none -translate-y-2 scale-95 opacity-0',
         )}
       >
-        <div className="max-h-[300px] overflow-y-auto px-1.5 scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-white/10">
+        <div className="scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-white/10 max-h-[300px] overflow-y-auto px-1.5">
           {options.map(opt => (
             <div
               key={opt}
               onClick={() => handleSelect(opt)}
               className={clsx(
-                'px-3.5 py-2.5 my-0.5 rounded-xl cursor-pointer text-sm font-medium transition-all duration-200 flex items-center justify-between group',
+                'group my-0.5 flex cursor-pointer items-center justify-between rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all duration-200',
                 value === opt
                   ? 'bg-primary-50 dark:bg-primary-500/10 text-primary-600 dark:text-primary-400'
-                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5 hover:text-gray-900 dark:hover:text-gray-200',
+                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-200',
               )}
             >
               <span>{opt}</span>
@@ -209,8 +209,8 @@ const InteractiveForm = ({
   }
 
   return (
-    <div className="mb-4 w-full max-w-2xl mx-auto relative z-30">
-      <div className="p-6 md:p-8 rounded-4xl mb-4 bg-white/80 dark:bg-black/40 backdrop-blur-xl border border-gray-200 dark:border-white/10 shadow-xl shadow-gray-200/50 dark:shadow-black/50 relative group transition-all duration-300">
+    <div className="relative z-30 mx-auto mb-4 w-full max-w-2xl">
+      <div className="group relative mb-4 rounded-4xl border border-gray-200 bg-white/80 p-6 shadow-xl shadow-gray-200/50 backdrop-blur-xl transition-all duration-300 md:p-8 dark:border-white/10 dark:bg-black/40 dark:shadow-black/50">
         {/* Decorative Background Gradients */}
         {/* <div className="absolute -top-20 -right-20 w-60 h-60 bg-primary-500/10 rounded-full blur-[80px] group-hover:bg-primary-500/15 transition-colors duration-700 pointer-events-none" />
         <div className="absolute -bottom-20 -left-20 w-60 h-60 bg-orange-500/10 rounded-full blur-[80px] group-hover:bg-orange-500/15 transition-colors duration-700 pointer-events-none" /> */}
@@ -218,7 +218,7 @@ const InteractiveForm = ({
           <button
             type="button"
             onClick={onShowDetails}
-            className="absolute top-6 right-6 z-20 text-[10px] text-primary-600 dark:text-primary-300 hover:underline font-medium"
+            className="text-primary-600 dark:text-primary-300 absolute top-6 right-6 z-20 text-[10px] font-medium hover:underline"
           >
             {t('messageBubble.toolDetails')}
           </button>
@@ -228,12 +228,12 @@ const InteractiveForm = ({
           {/* Header */}
           <div className="mb-8">
             {formData.title && (
-              <h4 className="text-xl md:text-2xl font-bold bg-gradient-to-br from-gray-900 to-gray-600 dark:from-white dark:to-gray-400 bg-clip-text text-transparent mb-3">
+              <h4 className="mb-3 bg-gradient-to-br from-gray-900 to-gray-600 bg-clip-text text-xl font-bold text-transparent md:text-2xl dark:from-white dark:to-gray-400">
                 {formData.title}
               </h4>
             )}
             {formData.description && (
-              <p className="text-sm md:text-base text-gray-500 dark:text-gray-400 leading-relaxed font-medium">
+              <p className="text-sm leading-relaxed font-medium text-gray-500 md:text-base dark:text-gray-400">
                 {formData.description}
               </p>
             )}
@@ -241,8 +241,8 @@ const InteractiveForm = ({
 
           <form onSubmit={handleSubmit} className="space-y-6">
             {validFields.length === 0 && (
-              <div className="py-8 text-center border-2 border-dashed border-gray-200 dark:border-white/5 rounded-3xl">
-                <p className="text-sm text-gray-400 font-medium">
+              <div className="rounded-3xl border-2 border-dashed border-gray-200 py-8 text-center dark:border-white/5">
+                <p className="text-sm font-medium text-gray-400">
                   {t('tools.interactiveFormStrings.invalidData')}
                 </p>
               </div>
@@ -250,10 +250,10 @@ const InteractiveForm = ({
             {validFields.map((field, idx) => (
               <div
                 key={field.name || `field-${idx}`}
-                className="space-y-2.5 animate-in slide-in-from-bottom-2 fade-in duration-500"
+                className="animate-in slide-in-from-bottom-2 fade-in space-y-2.5 duration-500"
                 style={{ animationDelay: `${idx * 50}ms` }}
               >
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-gray-400 ml-1">
+                <label className="ml-1 block text-xs font-bold tracking-wider text-gray-600 uppercase dark:text-gray-400">
                   {field.label}
                   {field.required && <span className="text-primary-500 ml-0.5">*</span>}
                 </label>
@@ -279,11 +279,11 @@ const InteractiveForm = ({
                         <label
                           key={opt}
                           className={clsx(
-                            'relative px-4 py-2.5 rounded-xl cursor-pointer transition-all duration-300 select-none overflow-hidden group/item border',
+                            'group/item relative cursor-pointer overflow-hidden rounded-xl border px-4 py-2.5 transition-all duration-300 select-none',
                             isChecked
-                              ? 'bg-primary-500 border-primary-500 text-white shadow-lg shadow-primary-500/25 scale-[1.02]'
-                              : 'bg-gray-50 dark:bg-zinc-900/40 border-transparent hover:border-gray-200 dark:hover:border-white/10 text-gray-600 dark:text-gray-400 hover:bg-white dark:hover:bg-zinc-800',
-                            isSubmitted && 'opacity-60 cursor-not-allowed pointer-events-none',
+                              ? 'bg-primary-500 border-primary-500 shadow-primary-500/25 scale-[1.02] text-white shadow-lg'
+                              : 'border-transparent bg-gray-50 text-gray-600 hover:border-gray-200 hover:bg-white dark:bg-zinc-900/40 dark:text-gray-400 dark:hover:border-white/10 dark:hover:bg-zinc-800',
+                            isSubmitted && 'pointer-events-none cursor-not-allowed opacity-60',
                           )}
                         >
                           <input
@@ -293,7 +293,7 @@ const InteractiveForm = ({
                             onChange={() => !isSubmitted && toggleCheckbox(field.name, opt)}
                             disabled={isSubmitted}
                           />
-                          <span className="text-sm font-medium relative z-10 flex items-center gap-2">
+                          <span className="relative z-10 flex items-center gap-2 text-sm font-medium">
                             {isChecked && <Check size={14} strokeWidth={3} />}
                             {opt}
                           </span>
@@ -305,7 +305,7 @@ const InteractiveForm = ({
 
                 {/* Inputs */}
                 {(field.type === 'text' || field.type === 'number') && (
-                  <div className="relative group/input">
+                  <div className="group/input relative">
                     <input
                       type={field.type}
                       value={values[field.name] || ''}
@@ -316,11 +316,11 @@ const InteractiveForm = ({
                       max={field.max}
                       step={field.step}
                       className={clsx(
-                        'w-full px-4 py-3.5 border border-gray-200 dark:border-white/10  rounded-2xl outline-none transition-all duration-300 font-medium',
-                        'bg-gray-50/50 dark:bg-zinc-900/40 border backdrop-blur-sm',
+                        'w-full rounded-2xl border border-gray-200 px-4 py-3.5 font-medium transition-all duration-300 outline-none dark:border-white/10',
+                        'border bg-gray-50/50 backdrop-blur-sm dark:bg-zinc-900/40',
                         isSubmitted
-                          ? 'opacity-60 cursor-not-allowed '
-                          : ' hover:border-gray-200 dark:hover:border-white/10 hover:bg-white dark:hover:bg-zinc-800 focus:bg-white dark:focus:bg-black focus:border-primary-500/50 focus:ring-4 focus:ring-primary-500/10 focus:shadow-lg focus:shadow-primary-500/5',
+                          ? 'cursor-not-allowed opacity-60'
+                          : 'focus:border-primary-500/50 focus:ring-primary-500/10 focus:shadow-primary-500/5 hover:border-gray-200 hover:bg-white focus:bg-white focus:shadow-lg focus:ring-4 dark:hover:border-white/10 dark:hover:bg-zinc-800 dark:focus:bg-black',
                         errors[field.name] && 'border-red-500/50! bg-red-50/10! shadow-none!',
                       )}
                     />
@@ -329,7 +329,7 @@ const InteractiveForm = ({
 
                 {/* Range Slider */}
                 {field.type === 'range' && (
-                  <div className="px-1 py-4 bg-gray-50/50 dark:bg-zinc-900/40 rounded-2xl border  border-gray-200 dark:border-white/10 hover:border-gray-200 dark:hover:border-white/10 transition-colors">
+                  <div className="rounded-2xl border border-gray-200 bg-gray-50/50 px-1 py-4 transition-colors hover:border-gray-200 dark:border-white/10 dark:bg-zinc-900/40 dark:hover:border-white/10">
                     <div className="px-4">
                       <input
                         type="range"
@@ -340,17 +340,17 @@ const InteractiveForm = ({
                         step={field.step || 1}
                         disabled={isSubmitted}
                         className={clsx(
-                          'w-full h-2 rounded-lg appearance-none cursor-pointer bg-gray-200 dark:bg-zinc-700 accent-primary-500',
-                          isSubmitted && 'opacity-60 cursor-not-allowed',
+                          'accent-primary-500 h-2 w-full cursor-pointer appearance-none rounded-lg bg-gray-200 dark:bg-zinc-700',
+                          isSubmitted && 'cursor-not-allowed opacity-60',
                         )}
                       />
                     </div>
-                    <div className="flex justify-between items-center px-4 mt-3 text-xs font-medium text-gray-400 font-mono">
+                    <div className="mt-3 flex items-center justify-between px-4 font-mono text-xs font-medium text-gray-400">
                       <span>{field.min || 0}</span>
-                      <span className="text-primary-600 dark:text-primary-400 bg-white dark:bg-white/10 px-2.5 py-1 rounded-md shadow-sm">
+                      <span className="text-primary-600 dark:text-primary-400 rounded-md bg-white px-2.5 py-1 shadow-sm dark:bg-white/10">
                         {values[field.name] || field.min || 0}
                         {field.unit && (
-                          <span className="text-[10px] ml-0.5 opacity-70">{field.unit}</span>
+                          <span className="ml-0.5 text-[10px] opacity-70">{field.unit}</span>
                         )}
                       </span>
                       <span>{field.max || 100}</span>
@@ -359,7 +359,7 @@ const InteractiveForm = ({
                 )}
 
                 {errors[field.name] && (
-                  <p className="text-xs text-red-500 ml-2 font-medium animate-in slide-in-from-left-2 fade-in">
+                  <p className="animate-in slide-in-from-left-2 fade-in ml-2 text-xs font-medium text-red-500">
                     {errors[field.name]}
                   </p>
                 )}
@@ -370,10 +370,10 @@ const InteractiveForm = ({
               type="submit"
               disabled={isSubmitted}
               className={clsx(
-                'w-full px-6 py-4 mt-4 font-bold rounded-2xl transition-all duration-300 relative overflow-hidden group',
+                'group relative mt-4 w-full overflow-hidden rounded-2xl px-6 py-4 font-bold transition-all duration-300',
                 isSubmitted
-                  ? 'bg-gray-100 dark:bg-white/5 text-gray-400 cursor-not-allowed'
-                  : 'bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 dark:from-white dark:via-gray-200 dark:to-white text-white dark:text-black shadow-xl shadow-gray-900/10 dark:shadow-white/5 hover:shadow-2xl hover:shadow-gray-900/20 dark:hover:shadow-white/10 active:scale-[0.98]',
+                  ? 'cursor-not-allowed bg-gray-100 text-gray-400 dark:bg-white/5'
+                  : 'bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 text-white shadow-xl shadow-gray-900/10 hover:shadow-2xl hover:shadow-gray-900/20 active:scale-[0.98] dark:from-white dark:via-gray-200 dark:to-white dark:text-black dark:shadow-white/5 dark:hover:shadow-white/10',
               )}
             >
               {isSubmitted ? (

@@ -201,8 +201,7 @@ export const loadSettings = (overrides = {}) => {
         ? localEnableLongTermMemory === 'true'
         : false
 
-  const resolvedDatabaseProvider =
-    overrides.databaseProvider || localDatabaseProvider || 'supabase'
+  const resolvedDatabaseProvider = overrides.databaseProvider || localDatabaseProvider || 'supabase'
   const overrideSupabaseUrl =
     overrides.supabaseUrl ||
     overrides.databaseSupabaseUrl ||

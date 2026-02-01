@@ -1,6 +1,6 @@
-"use client"
+'use client'
 
-import * as React from "react"
+import * as React from 'react'
 
 import {
   Toast,
@@ -10,7 +10,7 @@ import {
   ToastTitle,
   ToastViewport,
   toastIcons,
-} from "@/components/ui/toast"
+} from '@/components/ui/toast'
 
 export function Toaster() {
   const { toasts } = useToast()
@@ -25,9 +25,7 @@ export function Toaster() {
               {Icon}
               <div className="grid gap-1">
                 {title && <ToastTitle>{title}</ToastTitle>}
-                {description && (
-                  <ToastDescription>{description}</ToastDescription>
-                )}
+                {description && <ToastDescription>{description}</ToastDescription>}
               </div>
             </div>
             <ToastClose />
@@ -39,4 +37,4 @@ export function Toaster() {
   )
 }
 
-import { useToast } from "@/hooks/use-toast"
+import { useToast } from '@/hooks/use-toast'

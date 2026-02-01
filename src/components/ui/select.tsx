@@ -17,9 +17,9 @@ const SelectTrigger = React.forwardRef<
   <SelectPrimitive.Trigger
     ref={ref}
     className={cn(
-      'flex h-10 w-full items-center justify-between gap-2 rounded-lg border border-gray-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-3 py-2 text-sm transition-colors',
+      'flex h-10 w-full items-center justify-between gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm transition-colors dark:border-zinc-600 dark:bg-zinc-900',
       'placeholder:text-gray-400 dark:placeholder:text-gray-500',
-      'focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500',
+      'focus:ring-primary-500/20 focus:border-primary-500 focus:ring-2 focus:outline-none',
       'disabled:cursor-not-allowed disabled:opacity-50',
       className,
     )}
@@ -69,7 +69,7 @@ const SelectContent = React.forwardRef<
     <SelectPrimitive.Content
       ref={ref}
       className={cn(
-        'relative z-50 max-h-[300px] min-w-[8rem] overflow-hidden rounded-xl border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-xl',
+        'relative z-50 max-h-[300px] min-w-[8rem] overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl dark:border-zinc-700 dark:bg-zinc-900',
         'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',
         position === 'popper' &&
           'data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2',
@@ -99,7 +99,7 @@ const SelectLabel = React.forwardRef<
   <SelectPrimitive.Label
     ref={ref}
     className={cn(
-      'py-1.5 pl-8 pr-2 text-xs font-semibold text-gray-500 dark:text-gray-400',
+      'py-1.5 pr-2 pl-8 text-xs font-semibold text-gray-500 dark:text-gray-400',
       className,
     )}
     {...props}
@@ -114,7 +114,7 @@ const SelectItem = React.forwardRef<
   <SelectPrimitive.Item
     ref={ref}
     className={cn(
-      'relative flex w-full cursor-pointer items-center gap-2 rounded-lg py-2 pl-8 pr-2 text-sm outline-none transition-colors',
+      'relative flex w-full cursor-pointer items-center gap-2 rounded-lg py-2 pr-2 pl-8 text-sm transition-colors outline-none',
       'hover:bg-gray-100 dark:hover:bg-zinc-800',
       'focus:bg-gray-100 dark:focus:bg-zinc-800',
       'data-[disabled]:pointer-events-none data-[disabled]:opacity-50',

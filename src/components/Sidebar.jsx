@@ -676,8 +676,8 @@ const Sidebar = ({
       {/* Mobile Overlay */}
       <div
         className={clsx(
-          'fixed inset-0 z-40 bg-black/50 backdrop-blur-sm md:hidden transition-opacity duration-200 transform-gpu',
-          isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none',
+          'fixed inset-0 z-40 transform-gpu bg-black/50 backdrop-blur-sm transition-opacity duration-200 md:hidden',
+          isOpen ? 'opacity-100' : 'pointer-events-none opacity-0',
         )}
         style={{
           willChange: 'opacity, backdrop-filter, transform',
@@ -692,7 +692,7 @@ const Sidebar = ({
 
       <div
         className={clsx(
-          'fixed left-0 top-0 h-dvh z-90 flex transition-transform duration-300 md:translate-x-0',
+          'fixed top-0 left-0 z-90 flex h-dvh transition-transform duration-300 md:translate-x-0',
           // On mobile, control via isOpen. On desktop, always visible (handled by layout margin)
           // Actually, fixed sidebar on desktop is always visible (icon strip).
           // Mobile: hidden by default (-translate-x-full), shown if isOpen
@@ -707,10 +707,10 @@ const Sidebar = ({
         }}
       >
         {/* 1. Fixed Icon Strip */}
-        <div className="w-18 h-full bg-sidebar  flex flex-col items-center py-4 z-20 relative overflow-y-auto no-scrollbar">
+        <div className="bg-sidebar no-scrollbar relative z-20 flex h-full w-18 flex-col items-center overflow-y-auto py-4">
           {/* Logo */}
           <div className="mb-6">
-            <div className="w-full h-full flex items-center justify-center text-gray-900 dark:text-white font-bold text-xl">
+            <div className="flex h-full w-full items-center justify-center text-xl font-bold text-gray-900 dark:text-white">
               <Logo size={32} priority />
             </div>
           </div>
@@ -719,7 +719,7 @@ const Sidebar = ({
           <div className="mb-6">
             <button
               onClick={() => onNavigate('home')}
-              className="w-10 h-10 flex items-center justify-center rounded-xl bg-user-bubble dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-all duration-300 hover:scale-110 hover:bg-primary-500 hover:text-white active:scale-95 cursor-pointer"
+              className="bg-user-bubble hover:bg-primary-500 flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl text-gray-600 transition-all duration-300 hover:scale-110 hover:text-white active:scale-95 dark:bg-zinc-800 dark:text-gray-300"
               title={t('sidebar.newChat')}
             >
               <Plus size={20} />
@@ -727,7 +727,7 @@ const Sidebar = ({
           </div>
 
           {/* Nav Icons */}
-          <div className="flex flex-col gap-3 w-full px-1">
+          <div className="flex w-full flex-col gap-3 px-1">
             {navItems.map(item => (
               <button
                 key={item.id}
@@ -746,10 +746,10 @@ const Sidebar = ({
                   if (!isMobile) setHoveredTab(item.id)
                 }}
                 className={clsx(
-                  'flex flex-col items-center justify-center py-2.5 px-0 rounded-xl transition-all duration-300 cursor-pointer group relative overflow-hidden',
+                  'group relative flex cursor-pointer flex-col items-center justify-center overflow-hidden rounded-xl px-0 py-2.5 transition-all duration-300',
                   activeTab === item.id
                     ? 'text-primary-500 dark:text-primary-400'
-                    : 'text-[#13343bbf] dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200',
+                    : 'text-[#13343bbf] hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200',
                 )}
               >
                 {/* Active indicator bar - removed */}
@@ -759,16 +759,16 @@ const Sidebar = ({
                     'absolute inset-0 rounded-xl transition-opacity duration-200',
                     activeTab === item.id
                       ? 'bg-primary-500/10 dark:bg-primary-500/20'
-                      : 'opacity-0 group-hover:opacity-100 bg-gray-100 dark:bg-zinc-800/50',
+                      : 'bg-gray-100 opacity-0 group-hover:opacity-100 dark:bg-zinc-800/50',
                   )}
                 />
-                <div className="flex flex-col items-center gap-0.5 relative z-10">
-                  <div className="p-1.5 rounded-xl transition-all duration-300">
+                <div className="relative z-10 flex flex-col items-center gap-0.5">
+                  <div className="rounded-xl p-1.5 transition-all duration-300">
                     <item.icon size={20} strokeWidth={activeTab === item.id ? 2.5 : 2} />
                   </div>
                   <span
                     className={clsx(
-                      'text-[10px] font-semibold font-sans transition-all duration-300 overflow-hidden',
+                      'overflow-hidden font-sans text-[10px] font-semibold transition-all duration-300',
                       activeTab === item.id
                         ? 'max-h-[14px] opacity-100'
                         : 'max-h-0 md:max-h-[14px] md:opacity-0 md:group-hover:max-h-[14px] md:group-hover:opacity-100',
@@ -788,7 +788,7 @@ const Sidebar = ({
           <div className="flex flex-col items-center gap-2 pb-2">
             <button
               onClick={onToggleTheme}
-              className="w-10 h-10 flex items-center justify-center rounded-xl bg-user-bubble dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-all duration-300 hover:scale-105 hover:bg-gray-100 dark:hover:bg-zinc-700 active:scale-95 cursor-pointer"
+              className="bg-user-bubble flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl text-gray-600 transition-all duration-300 hover:scale-105 hover:bg-gray-100 active:scale-95 dark:bg-zinc-800 dark:text-gray-300 dark:hover:bg-zinc-700"
               title={`Current theme: ${theme}`}
             >
               {getThemeIcon()}
@@ -796,7 +796,7 @@ const Sidebar = ({
 
             <button
               onClick={onOpenTools}
-              className="w-10 h-10 flex items-center justify-center rounded-xl bg-user-bubble dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-all duration-300 hover:scale-105 hover:bg-gray-100 dark:hover:bg-zinc-700 active:scale-95 cursor-pointer"
+              className="bg-user-bubble flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl text-gray-600 transition-all duration-300 hover:scale-105 hover:bg-gray-100 active:scale-95 dark:bg-zinc-800 dark:text-gray-300 dark:hover:bg-zinc-700"
               title={t('sidebar.tools')}
             >
               <Blocks size={20} />
@@ -804,7 +804,7 @@ const Sidebar = ({
 
             <button
               onClick={onOpenSettings}
-              className="w-10 h-10 flex items-center justify-center rounded-xl bg-user-bubble dark:bg-zinc-800 text-gray-600 dark:text-gray-300 transition-all duration-300 hover:scale-105 hover:bg-gray-100 dark:hover:bg-zinc-700 active:scale-95 cursor-pointer"
+              className="bg-user-bubble flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl text-gray-600 transition-all duration-300 hover:scale-105 hover:bg-gray-100 active:scale-95 dark:bg-zinc-800 dark:text-gray-300 dark:hover:bg-zinc-700"
               title={t('sidebar.settings')}
             >
               <Settings size={20} />
@@ -815,18 +815,18 @@ const Sidebar = ({
         {/* 2. Expanded Content Panel */}
         <div
           className={clsx(
-            'h-full bg-sidebar  transition-all duration-300 ease-in-out overflow-hidden flex flex-col',
+            'bg-sidebar flex h-full flex-col overflow-hidden transition-all duration-300 ease-in-out',
             isExpanded && displayTab !== 'discover'
-              ? 'w-64 opacity-100 translate-x-0 shadow-2xl'
-              : 'w-0 opacity-0 -translate-x-4',
+              ? 'w-64 translate-x-0 opacity-100 shadow-2xl'
+              : 'w-0 -translate-x-4 opacity-0',
           )}
         >
-          <div className="p-2 min-w-[256px] flex flex-col h-full">
+          <div className="flex h-full min-w-[256px] flex-col p-2">
             {/* min-w ensures content doesn't squash during transition */}
             {/* Header based on Tab */}
-            <div className="p-2 flex items-center justify-between shrink-0 border-b border-gray-200 dark:border-zinc-800 mb-2">
+            <div className="mb-2 flex shrink-0 items-center justify-between border-b border-gray-200 p-2 dark:border-zinc-800">
               <div className="flex items-center gap-2">
-                <h2 className="font-semibold text-lg text-foreground">
+                <h2 className="text-foreground text-lg font-semibold">
                   {displayTab === 'library'
                     ? t('sidebar.library')
                     : displayTab === 'deepResearch'
@@ -845,21 +845,21 @@ const Sidebar = ({
                     so users know they can go there. */}
                 <button
                   onClick={() => onNavigate(displayTab)}
-                  className="md:hidden px-2 py-1 text-xs font-medium rounded-md bg-user-bubble dark:bg-zinc-800 hover:bg-user-bubble/10 dark:hover:bg-zinc-700 text-gray-700 dark:text-gray-200 transition-colors"
+                  className="bg-user-bubble hover:bg-user-bubble/10 rounded-md px-2 py-1 text-xs font-medium text-gray-700 transition-colors md:hidden dark:bg-zinc-800 dark:text-gray-200 dark:hover:bg-zinc-700"
                 >
                   {t('sidebar.seeAll')}
                 </button>
               </div>
               <button
                 onClick={() => setIsPinned(!isPinned)}
-                className="hidden md:block p-1.5 hover:bg-primary-50 dark:hover:bg-zinc-700 hover:text-primary-600 dark:hover:text-primary-400 rounded transition-colors"
+                className="hover:bg-primary-50 hover:text-primary-600 dark:hover:text-primary-400 hidden rounded p-1.5 transition-colors md:block dark:hover:bg-zinc-700"
                 title={isPinned ? t('sidebar.unpin') : t('sidebar.pin')}
               >
                 <Pin
                   size={16}
                   className={clsx(
                     'transition-colors',
-                    isPinned ? 'fill-current text-primary-500' : 'text-gray-500 dark:text-gray-400',
+                    isPinned ? 'text-primary-500 fill-current' : 'text-gray-500 dark:text-gray-400',
                   )}
                 />
               </button>
@@ -869,11 +869,11 @@ const Sidebar = ({
             {(displayTab === 'library' ||
               displayTab === 'bookmarks' ||
               displayTab === 'deepResearch') && (
-              <div className="flex flex-col gap-2 overflow-y-auto overscroll-contain flex-1 min-h-0 px-2">
+              <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain px-2">
                 {!isConversationsLoading &&
                   displayTab === 'library' &&
                   conversations.length === 0 && (
-                    <div className="flex flex-col items-center gap-2 text-xs text-gray-500 dark:text-gray-400 px-2 py-3">
+                    <div className="flex flex-col items-center gap-2 px-2 py-3 text-xs text-gray-500 dark:text-gray-400">
                       <Coffee size={24} className="text-black dark:text-white" />
                       <div>{t('sidebar.noConversations')}</div>
                     </div>
@@ -881,7 +881,7 @@ const Sidebar = ({
                 {!isBookmarksLoading &&
                   displayTab === 'bookmarks' &&
                   displayConversations.length === 0 && (
-                    <div className="flex flex-col items-center gap-2 text-xs text-gray-500 dark:text-gray-400 px-2 py-3">
+                    <div className="flex flex-col items-center gap-2 px-2 py-3 text-xs text-gray-500 dark:text-gray-400">
                       <Coffee size={24} className="text-black dark:text-white" />
                       <div>{t('sidebar.noBookmarks')}</div>
                     </div>
@@ -891,7 +891,7 @@ const Sidebar = ({
                 {displayTab === 'library' &&
                   groupedConversations.map(section => (
                     <div key={section.title} className="flex flex-col gap-1">
-                      <div className="text-[10px] justify-center flex uppercase tracking-wide text-gray-400 px-2 mt-1">
+                      <div className="mt-1 flex justify-center px-2 text-[10px] tracking-wide text-gray-400 uppercase">
                         {translateDateTitle(section.title)}
                       </div>
                       {section.items.map(conv => {
@@ -910,41 +910,41 @@ const Sidebar = ({
                                 onOpenConversation && onOpenConversation(conv)
                               }}
                               className={clsx(
-                                'text-sm px-1 py-2.5 md:p-2.5 rounded-xl cursor-pointer truncate transition-all duration-200 group relative overflow-hidden',
+                                'group relative cursor-pointer truncate overflow-hidden rounded-xl px-1 py-2.5 text-sm transition-all duration-200 md:p-2.5',
                                 isActive
                                   ? 'bg-primary-500/10 dark:bg-primary-500/20 text-primary-500 dark:text-primary-400'
-                                  : 'text-gray-700 dark:text-gray-300 hover:bg-primary-50 dark:hover:bg-zinc-800',
+                                  : 'hover:bg-primary-50 text-gray-700 dark:text-gray-300 dark:hover:bg-zinc-800',
                                 isExpanded &&
-                                  'bg-primary-50/70 dark:bg-primary-900/20 border-primary-200/60 dark:border-primary-800/60 ring-1 ring-primary-100/70 dark:ring-primary-800/60',
+                                  'bg-primary-50/70 dark:bg-primary-900/20 border-primary-200/60 dark:border-primary-800/60 ring-primary-100/70 dark:ring-primary-800/60 ring-1',
                               )}
                               title={conv.title}
                             >
                               {/* Hover shine effect removed */}
-                              <div className="flex items-center justify-between w-full overflow-hidden relative z-10">
-                                <div className="flex items-center gap-3 overflow-hidden flex-1 min-w-0">
-                                  <div className="w-9 h-9 rounded-lg bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center shrink-0 text-base">
+                              <div className="relative z-10 flex w-full items-center justify-between overflow-hidden">
+                                <div className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden">
+                                  <div className="bg-primary-100 dark:bg-primary-900/30 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-base">
                                     <EmojiDisplay
                                       emoji={resolveConversationEmoji(conv, space?.emoji)}
                                       size="1.3em"
                                       className="shrink-0"
                                     />
                                   </div>
-                                  <div className="flex flex-col overflow-hidden flex-1 min-w-0">
-                                    <div className="flex items-center gap-1.5 min-w-0">
-                                      <span className="truncate font-medium flex-1 min-w-0">
+                                  <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+                                    <div className="flex min-w-0 items-center gap-1.5">
+                                      <span className="min-w-0 flex-1 truncate font-medium">
                                         {conv.title}
                                       </span>
                                       {conv.is_favorited && (
                                         <Bookmark
                                           size={13}
-                                          className="text-primary-500 fill-current shrink-0"
+                                          className="text-primary-500 shrink-0 fill-current"
                                         />
                                       )}
                                       {renderConversationStatusDot(conversationStatuses[conv.id])}
                                     </div>
                                     <span
                                       className={clsx(
-                                        'text-[11px] mt-0.5',
+                                        'mt-0.5 text-[11px]',
                                         isActive
                                           ? 'text-primary-600 dark:text-primary-400'
                                           : 'text-gray-400',
@@ -964,13 +964,13 @@ const Sidebar = ({
                                       )
                                     }}
                                     className={clsx(
-                                      'p-1 rounded-lg transition-all duration-200',
+                                      'rounded-lg p-1 transition-all duration-200',
                                       isActive
                                         ? 'text-primary-600 dark:text-primary-400 bg-primary-100 dark:bg-primary-900/30'
-                                        : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-200 dark:hover:bg-zinc-700',
+                                        : 'text-gray-400 hover:bg-gray-200 hover:text-gray-600 dark:hover:bg-zinc-700 dark:hover:text-gray-300',
                                       'opacity-100',
                                       'md:opacity-0 md:group-hover:opacity-100',
-                                      'min-w-[28px] min-h-[28px] flex items-center justify-center',
+                                      'flex min-h-[28px] min-w-[28px] items-center justify-center',
                                     )}
                                   >
                                     {isExpanded ? (
@@ -983,7 +983,7 @@ const Sidebar = ({
                               </div>
                             </div>
                             {isExpanded && (
-                              <div className="grid grid-cols-2 gap-2 mt-2 px-2 pb-1">
+                              <div className="mt-2 grid grid-cols-2 gap-2 px-2 pb-1">
                                 <button
                                   onClick={e => {
                                     e.stopPropagation()
@@ -991,10 +991,10 @@ const Sidebar = ({
                                     closeActions()
                                   }}
                                   className={clsx(
-                                    'py-2 rounded-lg transition-all duration-200 flex items-center justify-center gap-1.5 font-medium border',
+                                    'flex items-center justify-center gap-1.5 rounded-lg border py-2 font-medium transition-all duration-200',
                                     conv.is_favorited
-                                      ? 'bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800/30'
-                                      : 'text-gray-500 dark:text-gray-400 hover:bg-primary-50 dark:hover:bg-zinc-700 hover:text-primary-600 dark:hover:text-primary-400 border-transparent hover:border-primary-200 dark:hover:border-primary-800/30',
+                                      ? 'border-amber-200 bg-amber-50 text-amber-600 dark:border-amber-800/30 dark:bg-amber-900/20 dark:text-amber-400'
+                                      : 'hover:bg-primary-50 hover:text-primary-600 dark:hover:text-primary-400 hover:border-primary-200 dark:hover:border-primary-800/30 border-transparent text-gray-500 dark:text-gray-400 dark:hover:bg-zinc-700',
                                   )}
                                   title={
                                     conv.is_favorited
@@ -1015,7 +1015,7 @@ const Sidebar = ({
                                     e.stopPropagation()
                                     handleDeleteConversation(conv)
                                   }}
-                                  className="py-2 rounded-lg transition-all duration-200 flex items-center justify-center gap-1.5 font-medium border border-transparent text-gray-500 dark:text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400 hover:border-red-100 dark:hover:border-red-800/30"
+                                  className="flex items-center justify-center gap-1.5 rounded-lg border border-transparent py-2 font-medium text-gray-500 transition-all duration-200 hover:border-red-100 hover:bg-red-50 hover:text-red-600 dark:text-gray-400 dark:hover:border-red-800/30 dark:hover:bg-red-900/20 dark:hover:text-red-400"
                                 >
                                   <Trash2 size={14} />
                                   <span className="text-xs">{t('sidebar.delete')}</span>
@@ -1038,45 +1038,45 @@ const Sidebar = ({
                           fetchMoreConversations()
                         }}
                         disabled={loadingMore}
-                        className="w-full py-2 text-xs font-medium text-gray-700 rounded-xl dark:text-gray-200 bg-user-bubble dark:bg-zinc-800 hover:transform hover:translate-y-[-2px] transition-colors flex items-center justify-center gap-2"
+                        className="bg-user-bubble flex w-full items-center justify-center gap-2 rounded-xl py-2 text-xs font-medium text-gray-700 transition-colors hover:translate-y-[-2px] hover:transform dark:bg-zinc-800 dark:text-gray-200"
                       >
                         {loadingMore ? <DotLoader /> : t('sidebar.loadMore')}
                       </button>
                     ) : (
-                      <div className="flex items-center gap-2 text-[10px] text-gray-400 py-2">
-                        <span className="flex-1 h-px bg-gray-200 dark:bg-zinc-800" />
+                      <div className="flex items-center gap-2 py-2 text-[10px] text-gray-400">
+                        <span className="h-px flex-1 bg-gray-200 dark:bg-zinc-800" />
                         <span className="whitespace-nowrap">{t('sidebar.noMoreThreads')}</span>
-                        <span className="flex-1 h-px bg-gray-200 dark:bg-zinc-800" />
+                        <span className="h-px flex-1 bg-gray-200 dark:bg-zinc-800" />
                       </div>
                     )}
                   </div>
                 )}
 
                 {displayTab === 'deepResearch' && (
-                  <div className="flex flex-col h-full min-h-0">
+                  <div className="flex h-full min-h-0 flex-col">
                     {/* Create New Deep Research - Fixed Header */}
-                    <div className="px-2 pb-2 shrink-0">
+                    <div className="shrink-0 px-2 pb-2">
                       <button
                         onClick={() => {
                           openDeepResearchGuide()
                           if (onClose) onClose()
                         }}
-                        className="flex items-center gap-3 bg-user-bubble/50 hover:scale-105 dark:bg-zinc-800 transition-transform p-2.5 rounded-xl hover:bg-user-bubble dark:hover:bg-user-bubble/10 text-gray-600 dark:text-gray-300 w-full text-left cursor-pointer relative"
+                        className="bg-user-bubble/50 hover:bg-user-bubble dark:hover:bg-user-bubble/10 relative flex w-full cursor-pointer items-center gap-3 rounded-xl p-2.5 text-left text-gray-600 transition-transform hover:scale-105 dark:bg-zinc-800 dark:text-gray-300"
                       >
-                        <div className="w-9 h-9 rounded-lg bg-primary-100/70 dark:bg-primary-900/30 flex items-center justify-center shrink-0 text-base text-gray-700 dark:text-gray-100">
+                        <div className="bg-primary-100/70 dark:bg-primary-900/30 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-base text-gray-700 dark:text-gray-100">
                           <Plus size={16} />
                         </div>
                         <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                           {t('sidebar.createNewDeepResearch')}
                         </span>
                       </button>
-                      <div className="h-px bg-gray-200 dark:bg-zinc-800 mt-2" />
+                      <div className="mt-2 h-px bg-gray-200 dark:bg-zinc-800" />
                     </div>
 
                     {/* Deep Research List - Scrollable Area */}
-                    <div className="flex-1 overflow-y-auto overscroll-contain no-scrollbar px-2 flex flex-col gap-2">
+                    <div className="no-scrollbar flex flex-1 flex-col gap-2 overflow-y-auto overscroll-contain px-2">
                       {!isDeepResearchLoading && deepResearchConversations.length === 0 && (
-                        <div className="flex flex-col items-center gap-2 text-xs text-gray-500 dark:text-gray-400 px-2 py-3">
+                        <div className="flex flex-col items-center gap-2 px-2 py-3 text-xs text-gray-500 dark:text-gray-400">
                           <Coffee size={24} className="text-black dark:text-white" />
                           <div>{t('sidebar.noDeepResearchConversations')}</div>
                         </div>
@@ -1084,7 +1084,7 @@ const Sidebar = ({
 
                       {groupedDeepResearchConversations.map(section => (
                         <div key={section.title} className="flex flex-col gap-1">
-                          <div className="text-[10px] justify-center flex uppercase tracking-wide text-gray-400 px-2 mt-1">
+                          <div className="mt-1 flex justify-center px-2 text-[10px] tracking-wide text-gray-400 uppercase">
                             {translateDateTitle(section.title)}
                           </div>
                           {section.items.map(conv => {
@@ -1103,33 +1103,33 @@ const Sidebar = ({
                                     onOpenConversation && onOpenConversation(conv)
                                   }}
                                   className={clsx(
-                                    'text-sm px-1 py-2.5 md:p-2.5 rounded-xl cursor-pointer truncate transition-all duration-200 group relative',
+                                    'group relative cursor-pointer truncate rounded-xl px-1 py-2.5 text-sm transition-all duration-200 md:p-2.5',
                                     isActive
                                       ? 'bg-primary-500/10 dark:bg-primary-500/20 text-primary-500 dark:text-primary-400'
-                                      : 'text-gray-700 dark:text-gray-300 hover:bg-primary-50 dark:hover:bg-zinc-800',
+                                      : 'hover:bg-primary-50 text-gray-700 dark:text-gray-300 dark:hover:bg-zinc-800',
                                     isExpanded &&
-                                      'bg-primary-50/70 dark:bg-primary-900/20 border-primary-200/60 dark:border-primary-800/60 ring-1 ring-primary-100/70 dark:ring-primary-800/60',
+                                      'bg-primary-50/70 dark:bg-primary-900/20 border-primary-200/60 dark:border-primary-800/60 ring-primary-100/70 dark:ring-primary-800/60 ring-1',
                                   )}
                                   title={conv.title}
                                 >
-                                  <div className="flex items-center justify-between w-full overflow-hidden relative z-10">
-                                    <div className="flex items-center gap-3 overflow-hidden flex-1 min-w-0">
-                                      <div className="w-9 h-9 rounded-lg bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center shrink-0 text-base">
+                                  <div className="relative z-10 flex w-full items-center justify-between overflow-hidden">
+                                    <div className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden">
+                                      <div className="bg-primary-100 dark:bg-primary-900/30 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-base">
                                         <EmojiDisplay
                                           emoji={resolveConversationEmoji(conv, space?.emoji)}
                                           size="1.4em"
                                           className="shrink-0"
                                         />
                                       </div>
-                                      <div className="flex flex-col overflow-hidden flex-1 min-w-0">
-                                        <div className="flex items-center gap-1 min-w-0">
-                                          <span className="truncate font-medium flex-1 min-w-0">
+                                      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+                                        <div className="flex min-w-0 items-center gap-1">
+                                          <span className="min-w-0 flex-1 truncate font-medium">
                                             {conv.title}
                                           </span>
                                           {conv.is_favorited && (
                                             <Bookmark
                                               size={12}
-                                              className="text-primary-500 fill-current shrink-0"
+                                              className="text-primary-500 shrink-0 fill-current"
                                             />
                                           )}
                                           {renderConversationStatusDot(
@@ -1158,13 +1158,13 @@ const Sidebar = ({
                                           )
                                         }}
                                         className={clsx(
-                                          'p-1 rounded-md hover:bg-gray-300 dark:hover:bg-zinc-700 transition-all',
+                                          'rounded-md p-1 transition-all hover:bg-gray-300 dark:hover:bg-zinc-700',
                                           isActive
                                             ? 'text-primary-600 dark:text-primary-400 bg-primary-100 dark:bg-primary-900/20'
-                                            : 'text-gray-500 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-zinc-700',
+                                            : 'text-gray-500 hover:bg-gray-300 dark:text-gray-400 dark:hover:bg-zinc-700',
                                           'opacity-100',
                                           'md:opacity-0 md:group-hover:opacity-100',
-                                          'min-w-[28px] min-h-[28px] flex items-center justify-center',
+                                          'flex min-h-[28px] min-w-[28px] items-center justify-center',
                                         )}
                                       >
                                         {isExpanded ? (
@@ -1177,7 +1177,7 @@ const Sidebar = ({
                                   </div>
                                 </div>
                                 {isExpanded && (
-                                  <div className="grid grid-cols-2 gap-2 mt-2 px-2 text-xs">
+                                  <div className="mt-2 grid grid-cols-2 gap-2 px-2 text-xs">
                                     <button
                                       onClick={e => {
                                         e.stopPropagation()
@@ -1185,10 +1185,10 @@ const Sidebar = ({
                                         closeActions()
                                       }}
                                       className={clsx(
-                                        'py-1.5 rounded-md transition-colors flex items-center justify-center gap-1.5 font-medium',
+                                        'flex items-center justify-center gap-1.5 rounded-md py-1.5 font-medium transition-colors',
                                         conv.is_favorited
-                                          ? 'bg-primary-50 text-primary-500 dark:bg-primary-600/20 dark:text-primary-500 '
-                                          : 'text-gray-500 dark:text-gray-400 hover:bg-primary-50 dark:hover:bg-zinc-700 hover:text-primary-600 dark:hover:text-primary-400',
+                                          ? 'bg-primary-50 text-primary-500 dark:bg-primary-600/20 dark:text-primary-500'
+                                          : 'hover:bg-primary-50 hover:text-primary-600 dark:hover:text-primary-400 text-gray-500 dark:text-gray-400 dark:hover:bg-zinc-700',
                                       )}
                                       title={
                                         conv.is_favorited
@@ -1209,7 +1209,7 @@ const Sidebar = ({
                                         e.stopPropagation()
                                         handleDeleteConversation(conv)
                                       }}
-                                      className="py-1.5 rounded-md transition-colors flex items-center justify-center gap-1.5 font-medium border border-transparent text-gray-500 dark:text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400 hover:border-red-100 dark:hover:border-red-800/30"
+                                      className="flex items-center justify-center gap-1.5 rounded-md border border-transparent py-1.5 font-medium text-gray-500 transition-colors hover:border-red-100 hover:bg-red-50 hover:text-red-600 dark:text-gray-400 dark:hover:border-red-800/30 dark:hover:bg-red-900/20 dark:hover:text-red-400"
                                     >
                                       <Trash2 size={13} />
                                       <span>{t('sidebar.delete')}</span>
@@ -1231,17 +1231,17 @@ const Sidebar = ({
                                 fetchDeepResearchConversations(false)
                               }}
                               disabled={deepResearchLoadingMore}
-                              className="w-full py-2 text-xs font-medium text-gray-700 dark:text-gray-200 bg-user-bubble dark:bg-zinc-800 hover:transform hover:translate-y-[-2px] rounded-xl transition-colors flex items-center justify-center gap-2"
+                              className="bg-user-bubble flex w-full items-center justify-center gap-2 rounded-xl py-2 text-xs font-medium text-gray-700 transition-colors hover:translate-y-[-2px] hover:transform dark:bg-zinc-800 dark:text-gray-200"
                             >
                               {deepResearchLoadingMore ? <DotLoader /> : t('sidebar.loadMore')}
                             </button>
                           ) : (
-                            <div className="flex items-center gap-2 text-[10px] text-gray-400 py-2">
-                              <span className="flex-1 h-px bg-gray-200 dark:bg-zinc-800" />
+                            <div className="flex items-center gap-2 py-2 text-[10px] text-gray-400">
+                              <span className="h-px flex-1 bg-gray-200 dark:bg-zinc-800" />
                               <span className="whitespace-nowrap">
                                 {t('sidebar.noMoreThreads')}
                               </span>
-                              <span className="flex-1 h-px bg-gray-200 dark:bg-zinc-800" />
+                              <span className="h-px flex-1 bg-gray-200 dark:bg-zinc-800" />
                             </div>
                           )}
                         </div>
@@ -1268,32 +1268,32 @@ const Sidebar = ({
                             onOpenConversation && onOpenConversation(conv)
                           }}
                           className={clsx(
-                            'text-sm px-1 py-2.5 md:p-2.5 rounded-xl cursor-pointer truncate transition-all duration-200 group relative',
+                            'group relative cursor-pointer truncate rounded-xl px-1 py-2.5 text-sm transition-all duration-200 md:p-2.5',
                             isActive
                               ? 'bg-primary-500/10 dark:bg-primary-500/20 text-primary-500 dark:text-primary-400'
-                              : 'text-gray-700 dark:text-gray-300 hover:bg-primary-50 dark:hover:bg-zinc-800',
+                              : 'hover:bg-primary-50 text-gray-700 dark:text-gray-300 dark:hover:bg-zinc-800',
                             isExpanded &&
-                              'bg-primary-50/70 dark:bg-primary-900/20 border border-primary-200/60 dark:border-primary-800/60 ring-1 ring-primary-100/70 dark:ring-primary-800/60',
+                              'bg-primary-50/70 dark:bg-primary-900/20 border-primary-200/60 dark:border-primary-800/60 ring-primary-100/70 dark:ring-primary-800/60 border ring-1',
                           )}
                           title={conv.title}
                         >
-                          <div className="flex items-center justify-between w-full overflow-hidden relative z-10">
-                            <div className="flex items-center gap-3 overflow-hidden flex-1 min-w-0">
-                              <div className="w-9 h-9 rounded-lg bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center shrink-0 text-base">
+                          <div className="relative z-10 flex w-full items-center justify-between overflow-hidden">
+                            <div className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden">
+                              <div className="bg-primary-100 dark:bg-primary-900/30 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-base">
                                 <EmojiDisplay
                                   emoji={resolveConversationEmoji(conv, space?.emoji)}
                                   size="1.4em"
                                   className="shrink-0"
                                 />
                               </div>
-                              <div className="flex flex-col overflow-hidden flex-1 min-w-0">
-                                <div className="flex items-center gap-1 min-w-0">
-                                  <span className="truncate font-medium flex-1 min-w-0">
+                              <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+                                <div className="flex min-w-0 items-center gap-1">
+                                  <span className="min-w-0 flex-1 truncate font-medium">
                                     {conv.title}
                                   </span>
                                   <Bookmark
                                     size={12}
-                                    className="text-primary-500 fill-current shrink-0"
+                                    className="text-primary-500 shrink-0 fill-current"
                                   />
                                   {renderConversationStatusDot(conversationStatuses[conv.id])}
                                 </div>
@@ -1317,13 +1317,13 @@ const Sidebar = ({
                                   setExpandedActionId(prev => (prev === conv.id ? null : conv.id))
                                 }}
                                 className={clsx(
-                                  'p-1 rounded-md hover:bg-gray-300 dark:hover:bg-zinc-700 transition-all',
+                                  'rounded-md p-1 transition-all hover:bg-gray-300 dark:hover:bg-zinc-700',
                                   isActive
                                     ? 'text-primary-600 dark:text-primary-400 bg-primary-100 dark:bg-primary-900/20'
-                                    : 'text-gray-500 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-zinc-700',
+                                    : 'text-gray-500 hover:bg-gray-300 dark:text-gray-400 dark:hover:bg-zinc-700',
                                   'opacity-100',
                                   'md:opacity-0 md:group-hover:opacity-100',
-                                  'min-w-[28px] min-h-[28px] flex items-center justify-center',
+                                  'flex min-h-[28px] min-w-[28px] items-center justify-center',
                                 )}
                               >
                                 {isExpanded ? (
@@ -1336,7 +1336,7 @@ const Sidebar = ({
                           </div>
                         </div>
                         {isExpanded && (
-                          <div className="grid grid-cols-2 gap-2 mt-2 px-2 text-xs">
+                          <div className="mt-2 grid grid-cols-2 gap-2 px-2 text-xs">
                             <button
                               onClick={e => {
                                 e.stopPropagation()
@@ -1344,10 +1344,10 @@ const Sidebar = ({
                                 closeActions()
                               }}
                               className={clsx(
-                                'py-1.5 rounded-md transition-colors flex items-center justify-center gap-1.5 font-medium border border-transparent',
+                                'flex items-center justify-center gap-1.5 rounded-md border border-transparent py-1.5 font-medium transition-colors',
                                 conv.is_favorited
-                                  ? 'bg-primary-50 text-primary-500 dark:bg-primary-600/20 dark:text-primary-500 '
-                                  : 'text-gray-500 dark:text-gray-400 hover:bg-primary-50 dark:hover:bg-zinc-700 hover:text-primary-600 dark:hover:text-primary-400',
+                                  ? 'bg-primary-50 text-primary-500 dark:bg-primary-600/20 dark:text-primary-500'
+                                  : 'hover:bg-primary-50 hover:text-primary-600 dark:hover:text-primary-400 text-gray-500 dark:text-gray-400 dark:hover:bg-zinc-700',
                               )}
                               title={
                                 conv.is_favorited
@@ -1368,7 +1368,7 @@ const Sidebar = ({
                                 e.stopPropagation()
                                 handleDeleteConversation(conv)
                               }}
-                              className="py-1.5 rounded-md transition-colors flex items-center justify-center gap-1.5 font-medium border border-transparent text-gray-500 dark:text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400 hover:border-red-100 dark:hover:border-red-800/30"
+                              className="flex items-center justify-center gap-1.5 rounded-md border border-transparent py-1.5 font-medium text-gray-500 transition-colors hover:border-red-100 hover:bg-red-50 hover:text-red-600 dark:text-gray-400 dark:hover:border-red-800/30 dark:hover:bg-red-900/20 dark:hover:text-red-400"
                             >
                               <Trash2 size={13} />
                               <span>{t('sidebar.delete')}</span>
@@ -1396,15 +1396,15 @@ const Sidebar = ({
                           fetchBookmarkedConversations(false)
                         }}
                         disabled={bookmarksLoadingMore}
-                        className="w-full py-2 text-xs font-medium text-gray-700 dark:text-gray-200 bg-user-bubble dark:bg-zinc-800 hover:bg-user-bubble/10 dark:hover:bg-zinc-700 rounded-xl transition-colors flex items-center justify-center gap-2"
+                        className="bg-user-bubble hover:bg-user-bubble/10 flex w-full items-center justify-center gap-2 rounded-xl py-2 text-xs font-medium text-gray-700 transition-colors dark:bg-zinc-800 dark:text-gray-200 dark:hover:bg-zinc-700"
                       >
                         {bookmarksLoadingMore ? <DotLoader /> : t('sidebar.loadMore')}
                       </button>
                     ) : (
-                      <div className="flex items-center gap-2 text-[10px] text-gray-400 py-2">
-                        <span className="flex-1 h-px bg-gray-200 dark:bg-zinc-800" />
+                      <div className="flex items-center gap-2 py-2 text-[10px] text-gray-400">
+                        <span className="h-px flex-1 bg-gray-200 dark:bg-zinc-800" />
                         <span className="whitespace-nowrap">{t('sidebar.noMoreThreads')}</span>
-                        <span className="flex-1 h-px bg-gray-200 dark:bg-zinc-800" />
+                        <span className="h-px flex-1 bg-gray-200 dark:bg-zinc-800" />
                       </div>
                     )}
                   </div>
@@ -1413,25 +1413,25 @@ const Sidebar = ({
             )}
             {/* SPACES TAB CONTENT */}
             {displayTab === 'spaces' && (
-              <div className="flex flex-col h-full min-h-0">
+              <div className="flex h-full min-h-0 flex-col">
                 {/* Create New Space - Fixed Header */}
-                <div className="px-2 pb-2 shrink-0">
+                <div className="shrink-0 px-2 pb-2">
                   <button
                     onClick={onCreateSpace}
-                    className="flex items-center gap-3 bg-user-bubble/50 hover:scale-105 dark:bg-zinc-800 transition-transform p-2.5 rounded-xl hover:bg-user-bubble dark:hover:bg-user-bubble/10 text-gray-600 dark:text-gray-300 w-full text-left cursor-pointer relative"
+                    className="bg-user-bubble/50 hover:bg-user-bubble dark:hover:bg-user-bubble/10 relative flex w-full cursor-pointer items-center gap-3 rounded-xl p-2.5 text-left text-gray-600 transition-transform hover:scale-105 dark:bg-zinc-800 dark:text-gray-300"
                   >
-                    <div className="w-9 h-9 rounded-lg bg-primary-100/70 dark:bg-primary-900/30 flex items-center justify-center shrink-0 text-base text-gray-700 dark:text-gray-100">
+                    <div className="bg-primary-100/70 dark:bg-primary-900/30 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-base text-gray-700 dark:text-gray-100">
                       <Plus size={16} />
                     </div>
                     <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                       {t('sidebar.createNewSpace')}
                     </span>
                   </button>
-                  <div className="h-px bg-gray-200 dark:bg-zinc-800 mt-2" />
+                  <div className="mt-2 h-px bg-gray-200 dark:bg-zinc-800" />
                 </div>
 
                 {/* Spaces List - Scrollable Area */}
-                <div className="flex-1 overflow-y-auto overscroll-contain no-scrollbar px-2 flex flex-col gap-2">
+                <div className="no-scrollbar flex flex-1 flex-col gap-2 overflow-y-auto overscroll-contain px-2">
                   {/* Spaces List */}
                   {spacesLoading && (
                     <div className="flex justify-center py-2">
@@ -1439,20 +1439,20 @@ const Sidebar = ({
                     </div>
                   )}
                   {!spacesLoading && spaces.length === 0 && (
-                    <div className="flex flex-col items-center gap-2 text-xs text-gray-500 dark:text-gray-400 px-2 py-3">
+                    <div className="flex flex-col items-center gap-2 px-2 py-3 text-xs text-gray-500 dark:text-gray-400">
                       <Coffee size={24} className="text-black dark:text-white" />
                       <div>{t('sidebar.noSpacesYet')}</div>
                     </div>
                   )}
                   {visibleSpaces.map(space => (
                     <React.Fragment key={space.id || space.label}>
-                      <div className="flex items-center group relative mb-0.5">
+                      <div className="group relative mb-0.5 flex items-center">
                         <button
                           onClick={e => {
                             e.stopPropagation()
                             toggleSpace(space.id)
                           }}
-                          className="p-1.5 rounded-md hover:bg-primary-50 dark:hover:bg-zinc-800/50 text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-all shrink-0 z-10"
+                          className="hover:bg-primary-50 hover:text-primary-600 dark:hover:text-primary-400 z-10 shrink-0 rounded-md p-1.5 text-gray-400 transition-all dark:hover:bg-zinc-800/50"
                         >
                           <ChevronDown
                             size={14}
@@ -1465,12 +1465,12 @@ const Sidebar = ({
 
                         <div
                           onClick={() => onNavigateToSpace(space)}
-                          className="flex-1 min-w-0 flex items-center gap-2 p-1.5 rounded-lg cursor-pointer transition-colors hover:bg-primary-50 dark:hover:bg-zinc-800 group/content"
+                          className="hover:bg-primary-50 group/content flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-lg p-1.5 transition-colors dark:hover:bg-zinc-800"
                         >
-                          <div className="w-8 h-8 rounded bg-transparent flex items-center justify-center shrink-0 text-base">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-transparent text-base">
                             <EmojiDisplay emoji={space.emoji} size="1.4em" />
                           </div>
-                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300 group-hover/content:text-primary-600 dark:group-hover/content:text-gray-200 transition-colors truncate">
+                          <span className="group-hover/content:text-primary-600 truncate text-sm font-medium text-gray-700 transition-colors dark:text-gray-300 dark:group-hover/content:text-gray-200">
                             {getSpaceDisplayLabel(space, t)}
                           </span>
                         </div>
@@ -1481,7 +1481,7 @@ const Sidebar = ({
                             e.stopPropagation()
                             onEditSpace(space)
                           }}
-                          className="p-1.5 rounded-md ml-1 opacity-0 group-hover:opacity-100 hover:bg-primary-50 dark:hover:bg-zinc-800 text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-all shrink-0"
+                          className="hover:bg-primary-50 hover:text-primary-600 dark:hover:text-primary-400 ml-1 shrink-0 rounded-md p-1.5 text-gray-400 opacity-0 transition-all group-hover:opacity-100 dark:hover:bg-zinc-800"
                         >
                           <Settings size={14} />
                         </button>
@@ -1489,7 +1489,7 @@ const Sidebar = ({
 
                       {/* Expandable Content for Space */}
                       {expandedSpaces.has(space.id) && (
-                        <div className="ml-2 sm:ml-4 mr-2 flex flex-col gap-1 border-l border-gray-200 dark:border-zinc-800 pl-2 mb-2">
+                        <div className="mr-2 mb-2 ml-2 flex flex-col gap-1 border-l border-gray-200 pl-2 sm:ml-4 dark:border-zinc-800">
                           {spaceConversations[space.id]?.loading &&
                             spaceConversations[space.id]?.items?.length === 0 && (
                               <div className="px-2">
@@ -1509,37 +1509,37 @@ const Sidebar = ({
                                   onOpenConversation && onOpenConversation(conv)
                                 }}
                                 className={clsx(
-                                  'text-sm p-2.5 rounded-xl cursor-pointer truncate transition-all duration-200 group relative',
+                                  'group relative cursor-pointer truncate rounded-xl p-2.5 text-sm transition-all duration-200',
                                   conv.id === activeConversationId
                                     ? 'bg-primary-500/10 dark:bg-primary-500/20 text-primary-500 dark:text-primary-400'
-                                    : 'text-gray-600 dark:text-gray-400 hover:bg-primary-50 dark:hover:bg-zinc-800',
+                                    : 'hover:bg-primary-50 text-gray-600 dark:text-gray-400 dark:hover:bg-zinc-800',
                                 )}
                                 title={conv.title}
                               >
-                                <div className="flex items-center justify-between w-full overflow-hidden relative z-10">
-                                  <div className="flex items-center gap-3 overflow-hidden flex-1 min-w-0">
-                                    <div className="w-9 h-9 rounded-lg bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center shrink-0 text-base">
+                                <div className="relative z-10 flex w-full items-center justify-between overflow-hidden">
+                                  <div className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden">
+                                    <div className="bg-primary-100 dark:bg-primary-900/30 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-base">
                                       <EmojiDisplay
                                         emoji={resolveConversationEmoji(conv, space?.emoji)}
                                         size="1.4em"
                                         className="shrink-0"
                                       />
                                     </div>
-                                    <div className="flex flex-col overflow-hidden flex-1 min-w-0">
-                                      <div className="flex items-center gap-1.5 min-w-0">
-                                        <span className="truncate font-medium flex-1 min-w-0">
+                                    <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+                                      <div className="flex min-w-0 items-center gap-1.5">
+                                        <span className="min-w-0 flex-1 truncate font-medium">
                                           {conv.title || t('sidebar.untitled')}
                                         </span>
                                         {conv.is_favorited && (
                                           <Bookmark
                                             size={13}
-                                            className="text-primary-500 fill-current shrink-0"
+                                            className="text-primary-500 shrink-0 fill-current"
                                           />
                                         )}
                                       </div>
                                       <span
                                         className={clsx(
-                                          'text-xs mt-0.5',
+                                          'mt-0.5 text-xs',
                                           conv.id === activeConversationId
                                             ? 'text-primary-600 dark:text-primary-400'
                                             : 'text-gray-400',
@@ -1563,7 +1563,7 @@ const Sidebar = ({
                                     fetchSpaceConversations(space.id, false)
                                   }}
                                   disabled={spaceConversations[space.id]?.loading}
-                                  className="w-full py-2 text-xs font-medium text-gray-700 dark:text-gray-200 bg-user-bubble dark:bg-zinc-800 hover:bg-user-bubble/10 dark:hover:bg-zinc-700 rounded-xl transition-colors flex items-center justify-center gap-2"
+                                  className="bg-user-bubble hover:bg-user-bubble/10 flex w-full items-center justify-center gap-2 rounded-xl py-2 text-xs font-medium text-gray-700 transition-colors dark:bg-zinc-800 dark:text-gray-200 dark:hover:bg-zinc-700"
                                 >
                                   {spaceConversations[space.id]?.loading ? (
                                     <DotLoader />
@@ -1576,7 +1576,7 @@ const Sidebar = ({
 
                           {!spaceConversations[space.id]?.loading &&
                             spaceConversations[space.id]?.items?.length === 0 && (
-                              <div className="flex flex-col items-center gap-1 text-[10px] text-gray-400 py-1 px-2">
+                              <div className="flex flex-col items-center gap-1 px-2 py-1 text-[10px] text-gray-400">
                                 <SquareStack size={18} className="text-black dark:text-white" />
                                 <div>{t('sidebar.noHistory')}</div>
                               </div>
@@ -1600,15 +1600,15 @@ const Sidebar = ({
                             }, 150)
                           }}
                           disabled={spacesLoadingMore}
-                          className="w-full py-2 text-xs font-medium text-gray-700 dark:text-gray-200 bg-user-bubble dark:bg-zinc-800 hover:bg-user-bubble/10 dark:hover:bg-zinc-700 rounded-xl transition-colors flex items-center justify-center gap-2"
+                          className="bg-user-bubble hover:bg-user-bubble/10 flex w-full items-center justify-center gap-2 rounded-xl py-2 text-xs font-medium text-gray-700 transition-colors dark:bg-zinc-800 dark:text-gray-200 dark:hover:bg-zinc-700"
                         >
                           {spacesLoadingMore ? <DotLoader /> : t('sidebar.loadMore')}
                         </button>
                       ) : (
-                        <div className="flex items-center gap-2 text-[10px] text-gray-400 py-2">
-                          <span className="flex-1 h-px bg-gray-200 dark:bg-zinc-800" />
+                        <div className="flex items-center gap-2 py-2 text-[10px] text-gray-400">
+                          <span className="h-px flex-1 bg-gray-200 dark:bg-zinc-800" />
                           <span className="whitespace-nowrap">{t('sidebar.noMoreSpaces')}</span>
-                          <span className="flex-1 h-px bg-gray-200 dark:bg-zinc-800" />
+                          <span className="h-px flex-1 bg-gray-200 dark:bg-zinc-800" />
                         </div>
                       )}
                     </div>
@@ -1618,25 +1618,25 @@ const Sidebar = ({
             )}
             {/* AGENTS TAB CONTENT */}
             {displayTab === 'agents' && (
-              <div className="flex flex-col h-full min-h-0">
+              <div className="flex h-full min-h-0 flex-col">
                 {/* Create New Agent - Fixed Header */}
-                <div className="px-2 pb-2 shrink-0">
+                <div className="shrink-0 px-2 pb-2">
                   <button
                     onClick={onCreateAgent}
-                    className="flex items-center gap-3 bg-user-bubble/50 hover:scale-105 dark:bg-zinc-800 transition-transform p-2.5 rounded-xl hover:bg-user-bubble dark:hover:bg-user-bubble/10 text-gray-600 dark:text-gray-300 w-full text-left cursor-pointer relative"
+                    className="bg-user-bubble/50 hover:bg-user-bubble dark:hover:bg-user-bubble/10 relative flex w-full cursor-pointer items-center gap-3 rounded-xl p-2.5 text-left text-gray-600 transition-transform hover:scale-105 dark:bg-zinc-800 dark:text-gray-300"
                   >
-                    <div className="w-9 h-9 rounded-lg bg-primary-100/70 dark:bg-primary-900/30 flex items-center justify-center shrink-0 text-base text-gray-700 dark:text-gray-100">
+                    <div className="bg-primary-100/70 dark:bg-primary-900/30 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-base text-gray-700 dark:text-gray-100">
                       <Plus size={16} />
                     </div>
                     <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                       {t('sidebar.createNewAgent')}
                     </span>
                   </button>
-                  <div className="h-px bg-gray-200 dark:bg-zinc-800 mt-2" />
+                  <div className="mt-2 h-px bg-gray-200 dark:bg-zinc-800" />
                 </div>
 
                 {/* Agents List - Scrollable Area */}
-                <div className="flex-1 overflow-y-auto overscroll-contain no-scrollbar px-2 flex flex-col gap-2">
+                <div className="no-scrollbar flex flex-1 flex-col gap-2 overflow-y-auto overscroll-contain px-2">
                   {/* Agents List */}
                   {agentsLoading && (
                     <div className="flex justify-center py-2">
@@ -1644,7 +1644,7 @@ const Sidebar = ({
                     </div>
                   )}
                   {!agentsLoading && agents.length === 0 && (
-                    <div className="flex flex-col items-center gap-2 text-xs text-gray-500 dark:text-gray-400 px-2 py-3">
+                    <div className="flex flex-col items-center gap-2 px-2 py-3 text-xs text-gray-500 dark:text-gray-400">
                       <Smile size={24} className="text-black dark:text-white" />
                       <div>{t('sidebar.noAgentsYet')}</div>
                     </div>
@@ -1655,18 +1655,18 @@ const Sidebar = ({
                       <div
                         key={agent.id}
                         onClick={() => onEditAgent && onEditAgent(agent)}
-                        className="flex items-center justify-between p-2.5 rounded-xl cursor-pointer transition-all duration-200 group hover:bg-primary-50 dark:hover:bg-zinc-800 relative"
+                        className="group hover:bg-primary-50 relative flex cursor-pointer items-center justify-between rounded-xl p-2.5 transition-all duration-200 dark:hover:bg-zinc-800"
                       >
-                        <div className="flex items-center gap-3 flex-1 min-w-0">
-                          <div className="w-9 h-9 rounded-lg bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center shrink-0 text-base">
+                        <div className="flex min-w-0 flex-1 items-center gap-3">
+                          <div className="bg-primary-100 dark:bg-primary-900/30 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-base">
                             <EmojiDisplay emoji={agent.emoji} size="1.4em" className="shrink-0" />
                           </div>
-                          <div className="flex flex-col min-w-0">
-                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">
+                          <div className="flex min-w-0 flex-col">
+                            <span className="truncate text-sm font-medium text-gray-700 dark:text-gray-300">
                               {getAgentDisplayName(agent, t)}
                             </span>
                             {getAgentDisplayDescription(agent, t) && (
-                              <span className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">
+                              <span className="mt-0.5 truncate text-xs text-gray-500 dark:text-gray-400">
                                 {getAgentDisplayDescription(agent, t)}
                               </span>
                             )}
@@ -1679,7 +1679,7 @@ const Sidebar = ({
                             e.stopPropagation()
                             onEditAgent && onEditAgent(agent)
                           }}
-                          className="p-2 rounded-lg ml-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:bg-gray-200 dark:hover:bg-zinc-700 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-all shrink-0"
+                          className="ml-2 shrink-0 rounded-lg p-2 text-gray-400 opacity-100 transition-all hover:bg-gray-200 hover:text-gray-600 sm:opacity-0 sm:group-hover:opacity-100 dark:hover:bg-zinc-700 dark:hover:text-gray-200"
                         >
                           <Settings size={16} />
                         </button>

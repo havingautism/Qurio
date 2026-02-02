@@ -94,7 +94,15 @@ const fetchWithTimeout = async (url, options = {}, timeoutMs = 15000) => {
  * @param {string} model - Optional model name
  * @returns {Promise<{title: string, emojis?: string[]}>}
  */
-export const generateTitleViaBackend = async (provider, message, apiKey, baseUrl, model) => {
+export const generateTitleViaBackend = async (
+  provider,
+  message,
+  apiKey,
+  baseUrl,
+  model,
+  userTimezone,
+  userLocale,
+) => {
   const response = await fetchWithTimeout(
     `${getBackendUrl()}/api/title`,
     {
@@ -108,6 +116,8 @@ export const generateTitleViaBackend = async (provider, message, apiKey, baseUrl
         apiKey,
         baseUrl,
         model,
+        userTimezone,
+        userLocale,
       }),
     },
     15000,
@@ -376,6 +386,8 @@ export const generateTitleSpaceAndAgentViaBackend = async (
   apiKey,
   baseUrl,
   model,
+  userTimezone,
+  userLocale,
 ) => {
   const response = await fetchWithTimeout(
     `${getBackendUrl()}/api/title-space-agent`,
@@ -391,6 +403,8 @@ export const generateTitleSpaceAndAgentViaBackend = async (
         apiKey,
         baseUrl,
         model,
+        userTimezone,
+        userLocale,
       }),
     },
     20000,
@@ -434,6 +448,8 @@ export const generateTitleAndSpaceViaBackend = async (
   apiKey,
   baseUrl,
   model,
+  userTimezone,
+  userLocale,
 ) => {
   const response = await fetchWithTimeout(
     `${getBackendUrl()}/api/title-and-space`,
@@ -449,6 +465,8 @@ export const generateTitleAndSpaceViaBackend = async (
         apiKey,
         baseUrl,
         model,
+        userTimezone,
+        userLocale,
       }),
     },
     15000,

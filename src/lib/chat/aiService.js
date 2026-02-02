@@ -1153,11 +1153,11 @@ export const finalizeMessage = async (
     }
   }
 
-  const isInteractiveForm =
-    result?.toolCalls?.some(tc => (tc.name || tc.function?.name) === 'interactive_form') ||
-    (currentStore.messages?.[currentStore.messages.length - 1]?.toolCallHistory || []).some(
-      tc => (tc.name || tc.function?.name) === 'interactive_form',
-    )
+  const lastToolHistory =
+    currentStore.messages?.[currentStore.messages.length - 1]?.toolCallHistory || []
+  const isInteractiveForm = lastToolHistory.some(
+    tc => (tc.name || tc.function?.name) === 'interactive_form' && tc.status !== 'done',
+  )
 
   let related = []
   if (toggles?.related && !isInteractiveForm) {

@@ -22,6 +22,8 @@ async def title(request: Request) -> JSONResponse:
     api_key = body.get("apiKey")
     base_url = body.get("baseUrl")
     model = body.get("model")
+    user_timezone = body.get("userTimezone")
+    user_locale = body.get("userLocale")
 
     if not provider or not message:
         return JSONResponse(
@@ -37,6 +39,8 @@ async def title(request: Request) -> JSONResponse:
         api_key=api_key,
         base_url=base_url,
         model=model,
+        user_timezone=user_timezone,
+        user_locale=user_locale,
     )
     return JSONResponse(
         content={

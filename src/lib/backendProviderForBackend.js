@@ -16,8 +16,27 @@ import {
   streamResearchPlanViaBackend,
 } from './backendClient.js'
 
+const getClientTimeContext = () => {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+    return { userTimezone: undefined, userLocale: undefined }
+  }
+  return {
+    userTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    userLocale: navigator.language || 'en-US',
+  }
+}
+
 const generateTitle = async (provider, firstMessage, apiKey, baseUrl, model) => {
-  const result = await generateTitleViaBackend(provider, firstMessage, apiKey, baseUrl, model)
+  const { userTimezone, userLocale } = getClientTimeContext()
+  const result = await generateTitleViaBackend(
+    provider,
+    firstMessage,
+    apiKey,
+    baseUrl,
+    model,
+    userTimezone,
+    userLocale,
+  )
   return {
     title: result?.title || 'New Conversation',
     emojis: Array.isArray(result?.emojis) ? result.emojis : [],
@@ -90,6 +109,7 @@ const generateDailyTip = async (provider, language, category, apiKey, baseUrl, m
 }
 
 const generateTitleAndSpace = async (provider, firstMessage, spaces, apiKey, baseUrl, model) => {
+  const { userTimezone, userLocale } = getClientTimeContext()
   const result = await generateTitleAndSpaceViaBackend(
     provider,
     firstMessage,
@@ -97,6 +117,8 @@ const generateTitleAndSpace = async (provider, firstMessage, spaces, apiKey, bas
     apiKey,
     baseUrl,
     model,
+    userTimezone,
+    userLocale,
   )
   const title = result?.title || 'New Conversation'
   const space = result?.space !== undefined ? result.space : null
@@ -115,6 +137,7 @@ const generateTitleSpaceAndAgent = async (
   baseUrl,
   model,
 ) => {
+  const { userTimezone, userLocale } = getClientTimeContext()
   const result = await generateTitleSpaceAndAgentViaBackend(
     provider,
     firstMessage,
@@ -122,6 +145,8 @@ const generateTitleSpaceAndAgent = async (
     apiKey,
     baseUrl,
     model,
+    userTimezone,
+    userLocale,
   )
   return {
     title: result?.title || 'New Conversation',

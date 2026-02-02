@@ -108,6 +108,16 @@ class StreamChatRequest(BaseModel):
 
     # Internal use only: Structured Output schema (Agno v2)
     output_schema: Any | None = Field(default=None, exclude=True)
+    
+    # Context and Session
+    conversation_id: str | None = Field(default=None, alias="conversationId", description="Unique identifier for the conversation")
+
+    # ========================================================================
+    # HITL (Human-in-the-Loop) Interactive Form Support
+    # ========================================================================
+    # When user submits a form, frontend sends run_id + field_values to resume
+    run_id: str | None = Field(default=None, alias="runId", description="Agent run ID for HITL resumption")
+    field_values: dict[str, Any] | None = Field(default=None, alias="fieldValues", description="User-submitted form field values")
 
 
 # ================================================================================
@@ -168,9 +178,18 @@ class ErrorEvent(BaseModel):
     error: str
 
 
+class FormRequestEvent(BaseModel):
+    """Form request event for HITL interactive forms."""
+    type: Literal["form_request"] = "form_request"
+    run_id: str = Field(..., description="Agent run ID for resumption")
+    form_id: str | None = Field(default=None, description="Form identifier from tool call")
+    title: str | None = Field(default=None, description="Form title")
+    fields: list[dict[str, Any]] = Field(..., description="Form field definitions for frontend rendering")
+
+
 # Union type for all SSE events
 StreamEvent = (
-    TextEvent | ThoughtEvent | ToolCallEvent | ToolResultEvent | DoneEvent | ErrorEvent
+    TextEvent | ThoughtEvent | ToolCallEvent | ToolResultEvent | DoneEvent | ErrorEvent | FormRequestEvent
 )
 
 

@@ -124,7 +124,7 @@ const useChatStore = create((set, get) => ({
   // ========================================
 
   /**
-   * Submits an interactive form and continues AI response in the same message
+   * Submits an interactive form using HITL (Human-in-the-Loop) continuation
    *
    * @param {Object} params - Submission parameters
    * @param {Object} params.formData - Form data with values
@@ -147,48 +147,19 @@ const useChatStore = create((set, get) => ({
     const { conversationId, messages } = get()
     if (!conversationId) return
 
-    // 1. Construct form submission message
-    const formattedValues = Object.entries(formData.values)
-      .map(([key, value]) =>
-        Array.isArray(value) ? `${key}: ${value.join(', ')}` : `${key}: ${value}`,
-      )
-      .join('\n')
-    const formContent = `[Form Submission]
-${formattedValues}
-
-[INSTRUCTION]
-Analyze the submitted data. If critical information is still missing or if the request requires further refinement, you may present another 'interactive_form'. However, if the data is sufficient, proceed with providing the final answer directly. Keep the interaction efficient.`
-
-    const hiddenUserMessage = {
-      role: 'user',
-      content: formContent,
-      conversation_id: conversationId,
-      created_at: new Date().toISOString(),
+    // Get the last AI message that contains HITL metadata
+    const lastAiMsg = messages[messages.length - 1]
+    if (!lastAiMsg || lastAiMsg.role !== 'ai' || !lastAiMsg.hitlRunId) {
+      console.error('No HITL run_id found in last AI message')
+      return
     }
 
-    // 2. Persist to DB and add to STATE to maintain context
-    // We must add it to state so the UI (MessageBubble) knows the form is submitted
-    const { data: insertedMsg } = await addMessage(hiddenUserMessage)
+    const runId = lastAiMsg.hitlRunId
 
-    // Store raw form values in state message for API swap logic (User -> Tool)
-    // CRITICAL: Ensure we use the ID from the database, otherwise this message CANNOT be deleted later
-    const stateMessage = {
-      ...hiddenUserMessage,
-      id: insertedMsg?.id,
-      formValues: formData.values,
-    }
-
-    set(state => {
-      const updated = [...state.messages, stateMessage]
-      return { messages: updated }
-    })
-
-    // Mark the form tool as done to transition the UI badge to "Submitted"
+    // 1. Mark the form tool as done to transition the UI badge to "Submitted"
     set(state => {
       const updated = [...state.messages]
-      // The AI message is before the hidden user message (which was just added)
-      // So index is length - 2
-      const lastMsgIndex = updated.length - 2
+      const lastMsgIndex = updated.length - 1
       if (
         lastMsgIndex >= 0 &&
         updated[lastMsgIndex].role === 'ai' &&
@@ -207,47 +178,25 @@ Analyze the submitted data. If critical information is still missing or if the r
       return { messages: updated }
     })
 
-    // 3. Stream Response (Append to last message)
-    // We include the hidden message in the context sent to AI
-    const lastAiMsg = messages[messages.length - 1]
+    // 2. Resume streaming with run_id and field_values
+    // We reuse the existing AI message and append to it
+    const effectiveAgent = (() => {
+      // Find the original agent that triggered the form
+      if (lastAiMsg?.agentId) {
+        const formAgent = agents?.find(a => a.id === lastAiMsg.agentId)
+        if (formAgent) return formAgent
+      }
+      return selectedAgent || agents?.find(agent => agent.isDefault)
+    })()
 
-    // Find the original agent that triggered the form to ensure continuity
-    // This prevents auto-mode from switching providers mid-interaction (e.g. GLM -> SiliconFlow)
-    let formAgent = null
-    if (lastAiMsg?.agentId) {
-      formAgent = agents?.find(a => a.id === lastAiMsg.agentId)
-    }
-    const fallbackAgent = agents?.find(agent => agent.isDefault)
-    const effectiveAgent = formAgent || selectedAgent || fallbackAgent
-
-    // No manual tool messages insertion.
-    // We rely on callAIAPI's swap logic to transform the User message into a Tool message.
-    const contextMessages = [...messages, hiddenUserMessage]
-
-    // Create AI placeholder for the response
-    const aiMessagePlaceholder = {
-      role: 'ai',
-      content: '',
-      created_at: new Date().toISOString(),
-      thinkingEnabled: !!(toggles?.thinking || toggles?.deepResearch),
-      deepResearch: !!toggles?.deepResearch,
-      researchPlan: '',
-      researchPlanLoading: !!toggles?.deepResearch,
-      agentId: effectiveAgent?.id || null,
-      agentName: effectiveAgent?.name || null,
-      agentEmoji: effectiveAgent?.emoji || '',
-      agentIsDefault: !!effectiveAgent?.isDefault,
-    }
-
-    set(state => ({
-      isLoading: true,
-      messages: [...state.messages, aiMessagePlaceholder],
-    }))
+    set({ isLoading: true })
 
     try {
+      // Call AI API with run_id and field_values
+      // The backend will use agent.continue_run() to resume
       await callAIAPI(
-        contextMessages,
-        aiMessagePlaceholder, // Pass the placeholder
+        [], // No context messages needed (continuation uses stored state)
+        null, // No placeholder (we append to existing message)
         settings,
         toggles,
         null, // callbacks
@@ -259,10 +208,13 @@ Analyze the submitted data. If critical information is still missing or if the r
         [], // emojis
         get,
         set,
-        messages.length + 1, // CORRECT INDEX: Target the new placeholder (Index N+1), not the hidden user msg (Index N)
+        messages.length - 1, // Target index: the last AI message
         '', // firstUserText
-        [], // documentSources,
-        false, // FORCE DISABLE AUTO MODE for form submission to maintain context
+        [], // documentSources
+        false, // isAgentAutoMode
+        'general', // researchType
+        runId, // HITL run_id (new parameter)
+        formData.values, // HITL field_values (new parameter)
       )
     } catch (e) {
       console.error('Form submission stream failed', e)

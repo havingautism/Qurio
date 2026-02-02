@@ -19,51 +19,38 @@ from agno.tools import Function, Toolkit, tool
 from .academic_domains import ACADEMIC_DOMAINS
 
 
-def _interactive_form_impl(id: str, title: str, fields: list[dict[str, Any]]) -> dict[str, Any]:
-    return {
-        "form_id": id,
-        "title": title,
-        "fields": fields,
-        "status": "PENDING",
-    }
-
-
-interactive_form = Function(
+@tool(
     name="interactive_form",
-    description="Display an interactive form to collect structured user input. Returns status: 'PENDING'. CRITICAL: If this tool returns status 'PENDING', you MUST stop generating text immediately. Do NOT output any explanation. IMPORTANT: Every field object in the 'fields' array MUST be fully populated with 'name', 'label', and 'type'. Do NOT return empty objects.",
-    parameters={
-        "type": "object",
-        "properties": {
-            "id": {"type": "string"},
-            "title": {"type": "string"},
-            "fields": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "required": ["name", "label", "type"],
-                    "properties": {
-                        "name": {"type": "string", "description": "Field identifier"},
-                        "label": {"type": "string", "description": "Display label for the field"},
-                        "type": {"type": "string", "enum": ["text", "number", "select", "checkbox", "range"]},
-                        "required": {"type": "boolean"},
-                        "placeholder": {"type": "string"},
-                        "options": {"type": "array", "items": {"type": "string"}},
-                        "min": {"type": "number"},
-                        "max": {"type": "number"},
-                        "step": {"type": "number"},
-                        "unit": {"type": "string"},
-                        "default": {"type": "string"},
-                    },
-                    "additionalProperties": True,
-                },
-            },
-        },
-        "required": ["id", "title", "fields"],
-        "additionalProperties": True,
-    },
-    strict=False,
-    entrypoint=_interactive_form_impl,
+    external_execution=True,
+    description=(
+        "Display an interactive form to collect structured user input. "
+        "This tool will pause execution and wait for user to submit the form. "
+        "CRITICAL: Every field object in the 'fields' array MUST be fully populated with 'name', 'label', and 'type'. "
+        "Do NOT return empty objects."
+    )
 )
+def interactive_form(id: str, title: str, fields: list[dict[str, Any]]) -> str:
+    """
+    Display an interactive form to collect user input.
+    
+    Args:
+        id: Unique identifier for the form
+        title: Form title displayed to the user
+        fields: List of form fields, each containing:
+            - name (str): Field identifier (required)
+            - label (str): Display label for the field (required)
+            - type (str): Field type - text, number, select, checkbox, range (required)
+            - required (bool): Whether field is required (optional)
+            - placeholder (str): Placeholder text (optional)
+            - options (list[str]): Options for select fields (optional)
+            - min/max/step (number): Range constraints (optional)
+            - unit (str): Unit for number fields (optional)
+    """
+    # This tool is executed externally by the frontend
+    return "Form displayed"
+
+
+
 
 
 class QurioLocalTools(Toolkit):

@@ -53,43 +53,29 @@ MEMORY_AGENT_API_KEY = os.getenv("MEMORY_AGENT_API_KEY") or os.getenv("OPENAI_AP
 
 
 
-_memory_db: PostgresDb | None = None
-_memory_db_initialized: bool = False
+_agent_db: PostgresDb | None = None
 
 
-def _get_supabase_memory_db() -> PostgresDb | None:
-    global _memory_db
-    global _memory_db_initialized
-    if _memory_db is not None:
-        return _memory_db
-    if _memory_db_initialized:
-        return None
-    _memory_db_initialized = True
-    if not PostgresDb:
-        return None
+def _get_supabase_db() -> PostgresDb | None:
+    global _agent_db
+    if _agent_db is not None:
+        return _agent_db
 
     settings = get_settings()
-    if not settings.supabase_url or not settings.supabase_password:
-        logger.warning('Supabase credentials are missing; cannot initialize AGNO memory store.')
+    if not settings.supabase_project_name or not settings.supabase_password:
         return None
 
-    parsed = urlparse(settings.supabase_url)
-    host = parsed.hostname
-    if not host:
-        logger.warning('Invalid Supabase URL provided for AGNO memory store.')
-        return None
-    db_host = host if host.startswith('db.') else f'db.{host}'
-
-    password = quote_plus(settings.supabase_password)
-    # db_url = f'postgresql://postgres:{password}@{db_host}:5432/postgres'
-    db_url = f'postgresql://postgres.{settings.supabase_project_name}:{password}@aws-1-ap-south-1.pooler.supabase.com:6543/postgres'
-    logger.info('Initializing AGNO Supabase memory store')
     try:
-        _memory_db = PostgresDb(db_url=db_url)
+        password = quote_plus(settings.supabase_password)
+        # Using the exact format from Agno documentation
+        db_url = f"postgresql://postgres:{password}@db.{settings.supabase_project_name}.supabase.co:5432/postgres"
+        
+        logger.info(f"Connecting to Supabase project: {settings.supabase_project_name}")
+        _agent_db = PostgresDb(db_url=db_url)
+        return _agent_db
     except Exception as exc:
-        logger.warning('Failed to initialize AGNO Supabase memory store: %s', exc)
-        _memory_db = None
-    return _memory_db
+        logger.error(f"Failed to connect to Supabase: {exc}")
+        return None
 
 
 def init_memory_db() -> PostgresDb | None:
@@ -144,9 +130,9 @@ def _build_memory_manager(request: Any) -> MemoryManager | None:
     api_key = getattr(request, "memory_api_key", None) or getattr(request, "api_key", None)
     base_url = getattr(request, "memory_base_url", None) or getattr(request, "base_url", None)
 
-    db = _get_supabase_memory_db()
+    db = _get_supabase_db()
     if not db:
-        logger.warning("Memory requested but Supabase memory store is unavailable.")
+        logger.warning("Memory requested but Supabase storage is unavailable.")
         return None
 
     memory_model = _build_model(provider, api_key, base_url, model)
@@ -416,6 +402,8 @@ def build_agent(request: Any = None, **kwargs: Any) -> Agent:
     if tool_choice is None and tools:
         tool_choice = "auto"
 
+    db = _get_supabase_db()
+
     return Agent(
         id=f"qurio-{request.provider}",
         name=f"Qurio {request.provider} Agent",
@@ -424,6 +412,7 @@ def build_agent(request: Any = None, **kwargs: Any) -> Agent:
         add_history_to_context=False,
         markdown=True,
         tool_choice=tool_choice,
+        db=db,
         # **memory_kwargs,
     )
 

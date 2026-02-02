@@ -30,6 +30,7 @@ dependencies = [
     "google-genai>=1.60.0",
     "sqlalchemy>=2.0.46",
     "psycopg2-binary>=2.9.11",
+    "mcp>=1.26.0",
 ]
 
 

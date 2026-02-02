@@ -21,6 +21,7 @@ from agno.utils.log import logger
 from ..models.stream_chat import (
     DoneEvent,
     ErrorEvent,
+    FormRequestEvent,  # New: HITL form request event
     SourceEvent,
     StreamChatRequest,
     TextEvent,
@@ -30,6 +31,8 @@ from ..models.stream_chat import (
 )
 from .agent_registry import get_agent_for_provider
 from .tool_registry import resolve_tool_name
+from .hitl_storage import get_hitl_storage  # New: HITL storage
+
 
 TIME_KEYWORDS_REGEX = re.compile(
     r"\u4eca\u5929|\u4eca\u5e74|\u73b0\u5728|\u672c\u5468|\u672c\u6708|\u6700\u8fd1|\u521a\u521a|"
@@ -85,6 +88,24 @@ class StreamChatService:
         self,
         request: StreamChatRequest,
     ) -> AsyncGenerator[dict[str, Any], None]:
+        """
+        Stream chat completion with HITL support.
+        
+        If request.run_id is present, this is a resumption request after form submission.
+        Otherwise, this is a normal chat request.
+        """
+        # ================================================================
+        # HITL: Check if this is a resumption request
+        # ================================================================
+        if request.run_id and request.field_values:
+            logger.info(f"Detected HITL resumption request (run_id: {request.run_id})")
+            async for event in self._continue_hitl_run(request):
+                yield event
+            return
+        
+        # ================================================================
+        # Normal chat flow
+        # ================================================================
         try:
             if not request.provider:
                 raise ValueError("Missing required field: provider")
@@ -124,124 +145,382 @@ class StreamChatService:
             stream = agent.arun(
                 input=messages,
                 stream=True,
-                stream_events=True,
                 user_id=request.user_id,
-                session_id=request.user_id,
+                session_id=request.conversation_id,
                 output_schema=request.output_schema or request.response_format,
             )
 
-            async for event in stream:
-                if not hasattr(event, "event"):
-                    continue
-
-                match event.event:
-                    case RunEvent.run_content.value:
-                        content = getattr(event, "content", None)
-                        if content:
-                            for e in process_text(str(content)):
-                                yield e
-                        reasoning = getattr(event, "reasoning_content", None)
-                        if reasoning:
-                            full_thought += str(reasoning)
-                            yield ThoughtEvent(content=str(reasoning)).model_dump()
-
-                    case RunEvent.reasoning_content_delta.value:
-                        reasoning = getattr(event, "reasoning_content", None)
-                        if reasoning:
-                            full_thought += str(reasoning)
-                            yield ThoughtEvent(content=str(reasoning)).model_dump()
-
-                    case RunEvent.tool_call_started.value:
-                        tool_event: ToolCallStartedEvent = event  # type: ignore[assignment]
-                        tool = tool_event.tool
-                        if tool:
-                            if tool.tool_call_id:
-                                tool_start_times[tool.tool_call_id] = time.time()
-                            yield ToolCallEvent(
-                                id=tool.tool_call_id,
-                                name=tool.tool_name or "",
-                                arguments=json.dumps(tool.tool_args or {}),
+            # ================================================================
+            # Stream processing with HITL support (Agno official pattern)
+            # ================================================================
+            async for run_event in stream:
+                # ============================================================
+                # HITL: Check if agent paused for user input
+                # ============================================================
+                if hasattr(run_event, 'is_paused') and run_event.is_paused:
+                    logger.info(f"Agent paused for HITL (run_id: {run_event.run_id})")
+                    
+                    # Extract requirements
+                    requirements = getattr(run_event, 'active_requirements', None) or getattr(run_event, 'requirements', None)
+                    
+                    if requirements:
+                        # Save to Supabase
+                        try:
+                            hitl_storage = get_hitl_storage()
+                            await hitl_storage.save_pending_run(
+                                run_id=run_event.run_id,
+                                requirements=requirements,
+                                conversation_id=request.conversation_id,
+                                user_id=request.user_id,
+                                agent_model=request.model,
+                            )
+                            
+                            # Extract form fields for frontend
+                            for req in requirements:
+                                # Handle external execution (e.g., interactive_form with external_execution=True)
+                                if (hasattr(req, 'needs_external_execution') and req.needs_external_execution) or \
+                                   (req.tool_execution and req.tool_execution.tool_name == "interactive_form"):
+                                    
+                                    tool_args = req.tool_execution.tool_args if req.tool_execution else {}
+                                    form_id = tool_args.get('id')
+                                    title = tool_args.get('title', 'Please provide the following information')
+                                    fields = tool_args.get('fields', [])
+                                    
+                                    # Send form_request event to frontend
+                                    yield FormRequestEvent(
+                                        run_id=run_event.run_id,
+                                        form_id=form_id,
+                                        title=title,
+                                        fields=fields
+                                    ).model_dump()
+                                
+                                # Fallback handle traditional user input (e.g., get_user_input)
+                                elif req.needs_user_input and req.user_input_schema:
+                                    # Convert from user_input_schema
+                                    form_id = None
+                                    title = "Please provide the following information"
+                                    fields = [
+                                        {
+                                            "name": field.name,
+                                            "type": self._map_field_type_to_frontend(field.field_type),
+                                            "label": field.description or field.name,
+                                            "required": True,
+                                            "value": field.value
+                                        }
+                                        for field in req.user_input_schema
+                                    ]
+                                    
+                                    # Send form_request event to frontend
+                                    yield FormRequestEvent(
+                                        run_id=run_event.run_id,
+                                        form_id=form_id,
+                                        title=title,
+                                        fields=fields
+                                    ).model_dump()
+                            
+                            # Send done event to indicate pause
+                            yield DoneEvent(
+                                content=full_content or "",
+                                thought=full_thought.strip() or None,
+                                sources=list(sources_map.values()) or None,
                             ).model_dump()
+                            
+                            logger.info(f"HITL pause successful, waiting for user submission (run_id: {run_event.run_id})")
+                            return  # Exit stream, wait for user to submit form
+                            
+                        except Exception as e:
+                            logger.error(f"Failed to save HITL state: {e}")
+                            yield ErrorEvent(error=f"Failed to pause for form: {str(e)}").model_dump()
+                            return
+                    else:
+                        logger.warning("Agent paused but no requirements found")
+                        continue
+                
+                # ============================================================
+                # Normal streaming events (use stream_events for details)
+                # ============================================================
+                # Check if this is a detailed event (from stream_events=True)
+                if hasattr(run_event, 'event'):
+                    match run_event.event:
+                        case RunEvent.run_content.value:
+                            content = getattr(run_event, "content", None)
+                            if content:
+                                for e in process_text(str(content)):
+                                    yield e
+                            reasoning = getattr(run_event, "reasoning_content", None)
+                            if reasoning:
+                                full_thought += str(reasoning)
+                                yield ThoughtEvent(content=str(reasoning)).model_dump()
 
-                    case RunEvent.tool_call_completed.value:
-                        tool_event: ToolCallCompletedEvent = event  # type: ignore[assignment]
-                        tool = tool_event.tool
-                        if tool:
-                            duration_ms = None
-                            if tool.tool_call_id and tool.tool_call_id in tool_start_times:
-                                duration_ms = int((time.time() - tool_start_times[tool.tool_call_id]) * 1000)
-                            output = self._normalize_tool_output(tool.result)
-                            if output and isinstance(output, str):
-                                # Try JSON format (double quotes)
-                                try:
-                                    parsed = json.loads(output)
-                                    output = parsed
-                                except json.JSONDecodeError:
-                                    pass
-                                # Try Python repr format (single quotes)
-                                if isinstance(output, str):
-                                    try:
-                                        parsed = ast.literal_eval(output)
-                                        if isinstance(parsed, dict):
-                                            output = parsed
-                                    except (ValueError, SyntaxError):
-                                        pass
-                            yield ToolResultEvent(
-                                id=tool.tool_call_id,
-                                name=tool.tool_name or "",
-                                status="done" if not tool.tool_call_error else "error",
-                                output=output,
-                                durationMs=duration_ms,
-                            ).model_dump()
-                            self._collect_search_sources(output, sources_map)
+                        case RunEvent.reasoning_content_delta.value:
+                            reasoning = getattr(run_event, "reasoning_content", None)
+                            if reasoning:
+                                full_thought += str(reasoning)
+                                yield ThoughtEvent(content=str(reasoning)).model_dump()
 
-                            # CRITICAL: Suspend execution if tool returns PENDING status (e.g. interactive_form)
-                            # This allows the tool pipeline to complete but prevents the model from generating further text.
-                            if isinstance(output, dict) and output.get("status") == "PENDING":
-                                logger.info(f"Tool {tool.tool_name} returned PENDING. Suspending stream.")
-                                yield DoneEvent(
-                                    content=full_content or "",
-                                    thought=full_thought.strip() or None,
-                                    sources=list(sources_map.values()) or None,
+                        case RunEvent.tool_call_started.value:
+                            tool_event: ToolCallStartedEvent = run_event  # type: ignore[assignment]
+                            tool = tool_event.tool
+                            if tool:
+                                if tool.tool_call_id:
+                                    tool_start_times[tool.tool_call_id] = time.time()
+                                yield ToolCallEvent(
+                                    id=tool.tool_call_id,
+                                    name=tool.tool_name or "",
+                                    arguments=json.dumps(tool.tool_args or {}),
                                 ).model_dump()
-                                return
 
-                    case RunEvent.run_completed.value:
-                        # For structured output, Agno provides the parsed model in event.content
-                        agn_content = getattr(event, "content", None)
-                        
-                        # Clean tags from final full_content if they survived
-                        cleaned_content = re.sub(r"<(think|thought)>[\s\S]*?(?:</\1>|$)", "", full_content, flags=re.IGNORECASE).strip()
-                        
-                        # Extra check: if cleaning made content empty, revert to full_content
-                        # unless they were purely tags.
-                        final_content = cleaned_content if cleaned_content or not full_content else full_content
+                        case RunEvent.tool_call_completed.value:
+                            tool_event: ToolCallCompletedEvent = run_event  # type: ignore[assignment]
+                            tool = tool_event.tool
+                            if tool:
+                                duration_ms = None
+                                if tool.tool_call_id and tool.tool_call_id in tool_start_times:
+                                    duration_ms = int((time.time() - tool_start_times[tool.tool_call_id]) * 1000)
+                                output = self._normalize_tool_output(tool.result)
+                                if output and isinstance(output, str):
+                                    # Try JSON format (double quotes)
+                                    try:
+                                        parsed = json.loads(output)
+                                        output = parsed
+                                    except json.JSONDecodeError:
+                                        pass
+                                    # Try Python repr format (single quotes)
+                                    if isinstance(output, str):
+                                        try:
+                                            parsed = ast.literal_eval(output)
+                                            if isinstance(parsed, dict):
+                                                output = parsed
+                                        except (ValueError, SyntaxError):
+                                            pass
+                                yield ToolResultEvent(
+                                    id=tool.tool_call_id,
+                                    name=tool.tool_name or "",
+                                    status="done" if not tool.tool_call_error else "error",
+                                    output=output,
+                                    durationMs=duration_ms,
+                                ).model_dump()
+                                self._collect_search_sources(output, sources_map)
 
-                        # If agn_content is a Pydantic model (Structured Output), use it as output
-                        output = None
-                        if agn_content and hasattr(agn_content, "model_dump"):
-                            output = agn_content
-                            # Also update content string for the event
-                            final_content = json.dumps(agn_content.model_dump())
+                        case RunEvent.run_completed.value:
+                            # For structured output, Agno provides the parsed model in event.content
+                            agn_content = getattr(run_event, "content", None)
+                            
+                            # Clean tags from final full_content if they survived
+                            cleaned_content = re.sub(r"<(think|thought)>[\s\S]*?(?:</\1>|$)", "", full_content, flags=re.IGNORECASE).strip()
+                            
+                            # Extra check: if cleaning made content empty, revert to full_content
+                            # unless they were purely tags.
+                            final_content = cleaned_content if cleaned_content or not full_content else full_content
 
-                        yield DoneEvent(
-                            content=final_content,
-                            output=output,
-                            thought=full_thought.strip() or None,
-                            sources=list(sources_map.values()) or None,
-                        ).model_dump()
-                        if request:
-                            asyncio.create_task(self._maybe_optimize_memories(agent, request))
-                        return
+                            # If agn_content is a Pydantic model (Structured Output), use it as output
+                            output = None
+                            if agn_content and hasattr(agn_content, "model_dump"):
+                                output = agn_content
+                                # Also update content string for the event
+                                final_content = json.dumps(agn_content.model_dump())
 
-                    case RunEvent.run_error.value:
-                        error_msg = getattr(event, "content", None) or "Unknown error"
-                        yield ErrorEvent(error=str(error_msg)).model_dump()
-                        return
+                            yield DoneEvent(
+                                content=final_content,
+                                output=output,
+                                thought=full_thought.strip() or None,
+                                sources=list(sources_map.values()) or None,
+                            ).model_dump()
+                            if request:
+                                asyncio.create_task(self._maybe_optimize_memories(agent, request))
+                            return
+
+                        case RunEvent.run_error.value:
+                            error_msg = getattr(run_event, "content", None) or "Unknown error"
+                            yield ErrorEvent(error=str(error_msg)).model_dump()
+                            return
+                else:
+                    # Simple event (no detailed event type), just check for content
+                    content = getattr(run_event, 'content', None)
+                    if content:
+                        for e in process_text(str(content)):
+                            yield e
 
         except Exception as exc:
             logger.error(f"Stream chat error: {exc}")
             yield ErrorEvent(error=str(exc)).model_dump()
+
+    async def _continue_hitl_run(
+        self,
+        request: StreamChatRequest,
+    ) -> AsyncGenerator[dict[str, Any], None]:
+        """
+        Continue a paused HITL run after user submits form.
+        
+        This method:
+        1. Retrieves requirements from Supabase
+        2. Fills in user-submitted field values
+        3. Continues the agent run with agent.acontinue_run()
+        4. Streams the completion
+        5. Cleans up Supabase record
+        """
+        try:
+            run_id = request.run_id
+            field_values = request.field_values or {}
+            
+            logger.info(f"Continuing HITL run {run_id} with field_values: {list(field_values.keys())}")
+            
+            # Retrieve requirements from Supabase
+            hitl_storage = get_hitl_storage()
+            requirements = await hitl_storage.get_pending_run(run_id)
+            
+            if not requirements:
+                logger.error(f"No pending run found for run_id: {run_id}")
+                yield ErrorEvent(error="Form session expired or not found").model_dump()
+                return
+            
+            # Fill in user-submitted values
+            for req in requirements:
+                # Case 1: External execution (interactive_form)
+                if (hasattr(req, 'needs_external_execution') and req.needs_external_execution) or \
+                   (req.tool_execution and req.tool_execution.tool_name == "interactive_form"):
+                    import json
+                    req.set_external_execution_result(json.dumps(field_values))
+                    logger.debug(f"Set external execution result for {req.tool_execution.tool_name}")
+                
+                # Case 2: Traditional user input (get_user_input)
+                elif req.needs_user_input and req.user_input_schema:
+                    for field in req.user_input_schema:
+                        if field.name in field_values:
+                            field.value = field_values[field.name]
+                            logger.debug(f"Filled field '{field.name}' with value: {field.value}")
+            
+            # Get agent (same provider as original request)
+            agent = get_agent_for_provider(request)
+            
+            # Continue the run (streaming)
+            logger.info(f"Calling agent.acontinue_run for run_id: {run_id}, session_id: {request.conversation_id}")
+            stream = agent.acontinue_run(
+                run_id=run_id,
+                session_id=request.conversation_id,
+                requirements=requirements,
+                stream=True,
+                stream_events=True,  # Enable detailed events (tools, thoughts, etc.)
+            )
+            
+            # Stream events (reuse same logic as main stream_chat)
+            full_content = ""
+            full_thought = ""
+            sources_map: dict[str, Any] = {}
+            tool_start_times: dict[str, float] = {}
+            tagged_handler = TaggedTextHandler()
+            
+            def process_text(text: str):
+                nonlocal full_content, full_thought
+                for type, part in tagged_handler.handle(text):
+                    if type == "text":
+                        full_content += part
+                        yield TextEvent(content=part).model_dump()
+                    else:
+                        full_thought += part
+                        yield ThoughtEvent(content=part).model_dump()
+            
+            async for run_event in stream:
+                # HITL Pause Check
+                if hasattr(run_event, 'is_paused') and run_event.is_paused:
+                    logger.warning(f"Agent paused again during continuation (run_id: {run_id})")
+                    yield ErrorEvent(error="Multiple form chaining not yet implemented").model_dump()
+                    return
+
+                # Check if this is a detailed event (from stream_events=True or implicit)
+                if hasattr(run_event, 'event'):
+                    match run_event.event:
+                        case RunEvent.run_content.value:
+                            content = getattr(run_event, "content", None)
+                            if content:
+                                for e in process_text(str(content)):
+                                    yield e
+                            reasoning = getattr(run_event, "reasoning_content", None)
+                            if reasoning:
+                                full_thought += str(reasoning)
+                                yield ThoughtEvent(content=str(reasoning)).model_dump()
+
+                        case RunEvent.reasoning_content_delta.value:
+                            reasoning = getattr(run_event, "reasoning_content", None)
+                            if reasoning:
+                                full_thought += str(reasoning)
+                                yield ThoughtEvent(content=str(reasoning)).model_dump()
+
+                        case RunEvent.tool_call_started.value:
+                            tool_event: ToolCallStartedEvent = run_event  # type: ignore[assignment]
+                            tool = tool_event.tool
+                            if tool:
+                                if tool.tool_call_id:
+                                    tool_start_times[tool.tool_call_id] = time.time()
+                                yield ToolCallEvent(
+                                    id=tool.tool_call_id,
+                                    name=tool.tool_name or "",
+                                    arguments=json.dumps(tool.tool_args or {}),
+                                ).model_dump()
+
+                        case RunEvent.tool_call_completed.value:
+                            tool_event: ToolCallCompletedEvent = run_event  # type: ignore[assignment]
+                            tool = tool_event.tool
+                            if tool:
+                                duration_ms = None
+                                if tool.tool_call_id and tool.tool_call_id in tool_start_times:
+                                    duration_ms = int((time.time() - tool_start_times[tool.tool_call_id]) * 1000)
+                                output = self._normalize_tool_output(tool.result)
+                                if output and isinstance(output, str):
+                                    try:
+                                        import ast
+                                        parsed = json.loads(output)
+                                        output = parsed
+                                    except json.JSONDecodeError:
+                                        pass
+                                    if isinstance(output, str):
+                                        try:
+                                            parsed = ast.literal_eval(output)
+                                            if isinstance(parsed, dict):
+                                                output = parsed
+                                        except (ValueError, SyntaxError):
+                                            pass
+                                yield ToolResultEvent(
+                                    id=tool.tool_call_id,
+                                    name=tool.tool_name or "",
+                                    status="done" if not tool.tool_call_error else "error",
+                                    output=output,
+                                    durationMs=duration_ms,
+                                ).model_dump()
+                                self._collect_search_sources(output, sources_map)
+
+                        case RunEvent.run_completed.value:
+                             # We handle DoneEvent outside the loop to ensure final accumulation
+                             pass
+
+                        case RunEvent.run_error.value:
+                            error_msg = getattr(run_event, "content", None) or "Unknown error"
+                            yield ErrorEvent(error=str(error_msg)).model_dump()
+                            return
+                else:
+                    # Simple event Fallback
+                    content = getattr(run_event, 'content', None)
+                    if content:
+                        for e in process_text(str(content)):
+                            yield e
+            
+            # Stream completed, send done event
+            yield DoneEvent(
+                content=full_content,
+                thought=full_thought.strip() or None,
+                sources=list(sources_map.values()) or None,
+            ).model_dump()
+            
+            # Clean up Supabase
+            await hitl_storage.delete_pending_run(run_id)
+            logger.info(f"HITL run {run_id} completed and cleaned up")
+
+        except Exception as exc:
+            import traceback
+            error_details = traceback.format_exc()
+            logger.error(f"HITL continuation error: {exc}\n{error_details}")
+            yield ErrorEvent(error=str(exc)).model_dump()
+
 
     def _apply_context_limit(
         self,
@@ -492,6 +771,39 @@ class StreamChatService:
 
     async def _maybe_optimize_memories(self, agent: Agent, request: StreamChatRequest) -> None:
         return
+    
+    def _map_field_type_to_frontend(self, field_type: Any) -> str:
+        """
+        Map Python/Agno field types to frontend form types.
+        
+        Args:
+            field_type: Python type (class or string)
+            
+        Returns:
+            Frontend form field type (text, number, checkbox, etc.)
+        """
+        # Handle cases where field_type is a class/type instead of a string
+        field_type_str = ""
+        if isinstance(field_type, type):
+            field_type_str = field_type.__name__
+        elif not isinstance(field_type, str):
+            field_type_str = str(field_type)
+        else:
+            field_type_str = field_type
+
+        type_mapping = {
+            "str": "text",
+            "int": "number",
+            "float": "number",
+            "bool": "checkbox",
+            "date": "date",
+            "time": "time",
+            "datetime": "datetime",
+            "list": "text",
+            "dict": "textarea",
+        }
+        return type_mapping.get(field_type_str.lower(), "text")
+
 
 _stream_chat_service: StreamChatService | None = None
 

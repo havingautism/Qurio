@@ -606,6 +606,9 @@ export const streamChatViaBackend = async params => {
     onFinish,
     onError,
     signal,
+    conversationId,
+    runId,
+    fieldValues,
   } = params
 
   if (!provider) {
@@ -651,6 +654,9 @@ export const streamChatViaBackend = async params => {
           userId,
           enableLongTermMemory,
           databaseProvider,
+          conversationId,
+          runId,
+          fieldValues,
         }),
         signal,
       },

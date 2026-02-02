@@ -150,189 +150,19 @@ const MessageBubble = ({
   // Extract message by index
   const message = messages[messageIndex]
 
-  // Merge content if this is a form message followed by continuation(s)
-  const mergedMessage = useMemo(() => {
-    if (!message || message.role !== 'ai') return message
+  // Simple message reference (no more merging hacks!)
+  const mergedMessage = message
 
-    const messageContent = String(message.content || '')
-    const initialToolCallHistory = message.toolCallHistory || []
-    const hasForm = initialToolCallHistory.some(tc => tc.name === 'interactive_form')
+  // Re-derive form status based on the latest tool call state
+  const toolCallHistory = Array.isArray(mergedMessage?.toolCallHistory)
+    ? mergedMessage.toolCallHistory
+    : []
+  
+  const formToolHistory = toolCallHistory.filter(item => item.name === 'interactive_form')
+  const hasInteractiveForm = formToolHistory.length > 0
 
-    if (!hasForm) return message
 
-    // Recursively merge all form submission chains
-    let currentIndex = messageIndex
-    let mergedContent = messageContent
-    let mergedThought = message.thought || ''
-    // Clone the toolCallHistory to avoid mutating the original message object!
-    // We map to new objects so we can add properties like _isSubmitted
-    let toolCallHistory = (message.toolCallHistory || []).map(tc => ({ ...tc }))
-    let sources = [...(message.sources || [])]
-    let related = [...(message.related || [])]
-    let relatedLoading = message.relatedLoading || false
-    let documentSources = [...(message.documentSources || [])]
-    let allSubmittedValues = {}
-    let hasAnySubmission = false
-    let isContinuationStreaming = false
 
-    // Keep scanning forward for [Form Submission] → AI pairs
-    while (true) {
-      const nextUserMsg = messages[currentIndex + 1]
-      const nextAiMsg = messages[currentIndex + 2]
-
-      // Check if we have a submission
-      if (
-        nextUserMsg &&
-        nextUserMsg.role === 'user' &&
-        typeof nextUserMsg.content === 'string' &&
-        nextUserMsg.content.startsWith('[Form Submission]')
-      ) {
-        hasAnySubmission = true
-
-        // Mark all current interactive_form tools as submitted BY THIS user message
-        toolCallHistory.forEach(tc => {
-          if (tc.name === 'interactive_form') {
-            tc._isSubmitted = true
-          }
-        })
-
-        // Parse submitted values from this [Form Submission]
-        const submissionContent = nextUserMsg.content
-        const lines = submissionContent.split('\n').slice(1) // Skip "[Form Submission]" line
-        lines.forEach(line => {
-          const match = line.match(/^([^:]+):\s*(.+)$/)
-          if (match) {
-            const fieldName = match[1].trim()
-            const value = match[2].trim()
-            allSubmittedValues[fieldName] = value
-          }
-        })
-
-        // If generic AI response follows, merge it
-        if (nextAiMsg && nextAiMsg.role === 'ai') {
-          const nextAiIndex = currentIndex + 2
-          const nextAiIsStreaming =
-            nextAiMsg.isStreaming || (isLoading && nextAiIndex === messages.length - 1)
-          if (nextAiIsStreaming) {
-            isContinuationStreaming = true
-          }
-          // Merge tool calls if any
-          if (nextAiMsg.toolCallHistory && nextAiMsg.toolCallHistory.length > 0) {
-            // Avoid duplicates by checking IDs
-            const existingIds = new Set(toolCallHistory.map(tc => tc.id))
-            const offset = mergedContent.length + 2 // +2 for the '\n\n' separator
-
-            const newTools = (nextAiMsg.toolCallHistory || [])
-              .filter(tc => !existingIds.has(tc.id))
-              .map(tc => ({
-                ...tc,
-                // Adjust textIndex by adding the current content length + separator
-                textIndex: (tc.textIndex || 0) + offset,
-              }))
-
-            toolCallHistory.push(...newTools)
-          }
-
-          // Merge sources if any
-          if (nextAiMsg.sources && nextAiMsg.sources.length > 0) {
-            const existingTitles = new Set(sources.map(s => s.title))
-            const newSources = nextAiMsg.sources.filter(s => !existingTitles.has(s.title))
-            sources.push(...newSources)
-          }
-
-          // Merge document sources if any
-          if (nextAiMsg.documentSources && nextAiMsg.documentSources.length > 0) {
-            const existingDocIds = new Set(documentSources.map(doc => doc.id))
-            const newDocumentSources = nextAiMsg.documentSources.filter(
-              doc => !existingDocIds.has(doc.id),
-            )
-            documentSources.push(...newDocumentSources)
-          }
-
-          // Merge related questions if any
-          if (nextAiMsg.related && nextAiMsg.related.length > 0) {
-            related = nextAiMsg.related
-          }
-          // Update relatedLoading status
-          if (nextAiMsg.relatedLoading) {
-            relatedLoading = nextAiMsg.relatedLoading
-          }
-
-          const continuationPrefixLength = mergedContent.length + 2
-          mergedContent += '\n\n' + (nextAiMsg.content || '')
-
-          // Merge thoughts if available
-          if (nextAiMsg.thought) {
-            mergedThought = (mergedThought ? mergedThought + '\n\n' : '') + nextAiMsg.thought
-          }
-
-          toolCallHistory.push({
-            id: `form-status-${currentIndex + 1}`,
-            name: 'form_submission_status',
-            textIndex: continuationPrefixLength,
-          })
-
-          currentIndex += 2
-        } else {
-          // Orphan form submission (e.g. streaming started but no placeholder yet, or error)
-          // Mark as submitted but stop merging sequence
-          break
-        }
-      } else {
-        // No more form submission pairs, stop
-        break
-      }
-    }
-
-    // Check if the chain is currently waiting for a continuation
-    let isContinuationLoading = false
-    if (isLoading && hasAnySubmission) {
-      // If we broke out of the loop because of an orphan submission or finished merging
-      // Check if we are at the end of the known chain
-      const nextUserMsg = messages[currentIndex + 1]
-      const nextAiMsg = messages[currentIndex + 2]
-
-      // Check if nextUserMsg is a form submission
-      const isFormSubmission =
-        nextUserMsg &&
-        nextUserMsg.role === 'user' &&
-        typeof nextUserMsg.content === 'string' &&
-        nextUserMsg.content.startsWith('[Form Submission]')
-
-      if (isFormSubmission) {
-        // If we have a submission but no AI message yet OR an empty AI message
-        if (
-          !nextAiMsg ||
-          (nextAiMsg &&
-            nextAiMsg.role === 'ai' &&
-            !nextAiMsg.content &&
-            (!nextAiMsg.toolCallHistory || nextAiMsg.toolCallHistory.length === 0))
-        ) {
-          isContinuationLoading = true
-        }
-      }
-    }
-
-    // If we found any submissions, return merged message
-    if (hasAnySubmission) {
-      return {
-        ...message,
-        content: mergedContent,
-        thought: mergedThought || undefined,
-        toolCallHistory: toolCallHistory,
-        sources: sources,
-        documentSources: documentSources,
-        related: related,
-        relatedLoading: relatedLoading,
-        _formSubmitted: true,
-        _formSubmittedValues: allSubmittedValues,
-        _isContinuationLoading: isContinuationLoading,
-        _isContinuationStreaming: isContinuationStreaming,
-      }
-    }
-
-    return message
-  }, [message, messages, messageIndex, isLoading])
 
   const isDeepResearch =
     !!mergedMessage?.deepResearch ||
@@ -345,9 +175,6 @@ const MessageBubble = ({
   const thoughtContent = isDeepResearch ? null : parsed.thought
   const mainContent = parsed.content
 
-  const toolCallHistory = Array.isArray(mergedMessage.toolCallHistory)
-    ? mergedMessage.toolCallHistory
-    : []
 
   const resolvedSearchBackends = useMemo(() => {
     if (Array.isArray(mergedMessage?.searchBackends) && mergedMessage.searchBackends.length > 0) {
@@ -406,18 +233,21 @@ const MessageBubble = ({
     },
     [resolveSearchBackendLabel, resolvedSearchBackends, t],
   )
-  const formToolHistory = toolCallHistory.filter(item => item.name === 'interactive_form')
-  const hasInteractiveForm = formToolHistory.length > 0
+
 
   const nextMsgForFormCheck = messages[messageIndex + 1]
+  // In the new HITL flow, an interrupted form is simply one where 
+  // the next user message isn't a submission for THIS specific run.
+  // However, since we now have runId correlation, we can keep it simple.
   const isFormInterrupted =
     nextMsgForFormCheck &&
     nextMsgForFormCheck.role === 'user' &&
-    (typeof nextMsgForFormCheck.content !== 'string' ||
-      !nextMsgForFormCheck.content.startsWith('[Form Submission]'))
+    !nextMsgForFormCheck.hitlRunId 
+
 
   const isFormWaitingForInput =
-    hasInteractiveForm && !mergedMessage._formSubmitted && !isFormInterrupted
+    hasInteractiveForm && formToolHistory.some(tc => tc.status !== 'done') && !isFormInterrupted
+
 
   const getToolCallsForStep = useCallback(
     stepNumber =>
@@ -1099,9 +929,7 @@ const MessageBubble = ({
 
   const isStreaming =
     message?.isStreaming ??
-    ((isLoading && message.role === 'ai' && messageIndex === messages.length - 1) ||
-      !!mergedMessage?._isContinuationLoading ||
-      !!mergedMessage?._isContinuationStreaming)
+    (isLoading && message.role === 'ai' && messageIndex === messages.length - 1)
   const hasMainText = (() => {
     const content = message?.content
     if (typeof content === 'string') return content.trim().length > 0
@@ -1124,7 +952,8 @@ const MessageBubble = ({
     return false
   })()
   const shouldShowInitialSkeleton =
-    !hasMainText && isStreaming && !isDeepResearch && !mergedMessage?._isContinuationLoading
+    !hasMainText && isStreaming && !isDeepResearch
+
   const skeletonFadeMs = 320
   const [renderInitialSkeleton, setRenderInitialSkeleton] = useState(shouldShowInitialSkeleton)
   const [showInitialSkeleton, setShowInitialSkeleton] = useState(shouldShowInitialSkeleton)
@@ -1577,17 +1406,14 @@ const MessageBubble = ({
             {formTools.map((item, formIdx) => {
               const formData = parseFormPayload(item.arguments) || parseFormPayload(item.output)
 
-              // Check if flow continues with something other than form submission
               const nextMsg = messages[messageIndex + 1]
-              const isInterruptedByDifferentMessage =
-                nextMsg &&
-                nextMsg.role === 'user' &&
-                (typeof nextMsg.content !== 'string' ||
-                  !nextMsg.content.startsWith('[Form Submission]'))
+              const isInterrupted =
+                nextMsg && nextMsg.role === 'user' && !nextMsg.hitlRunId
 
-              // Logic update: Form is disabled if it was submitted OR if it was interrupted
-              // Rely on mergedMessage._formSubmitted for submission state
-              const shouldDisableForm = !!item._isSubmitted || isInterruptedByDifferentMessage
+              // If the tool status is 'done', it means the form was submitted.
+              // Also disable if the user interrupted the flow with a new message.
+              const isSubmitted = item.status === 'done'
+              const shouldDisableForm = isSubmitted || isInterrupted
 
               if (formData) {
                 return (
@@ -1596,13 +1422,14 @@ const MessageBubble = ({
                     formData={formData}
                     onSubmit={handleFormSubmit}
                     messageId={message.id}
-                    isSubmitted={shouldDisableForm} // consistent naming: true means "read only" mode
-                    submittedValues={mergedMessage._formSubmittedValues || {}}
+                    isSubmitted={shouldDisableForm}
+                    submittedValues={parseFormPayload(item.output) || {}}
                     developerMode={developerMode}
                     onShowDetails={() => setActiveToolDetail(item)}
                   />
                 )
               }
+
 
               const shouldShowSkeleton = isStreaming || item.status !== 'done'
               if (shouldShowSkeleton) {
@@ -2463,16 +2290,13 @@ const MessageBubble = ({
               <div className="h-4 w-5/6 rounded bg-gray-200 dark:bg-zinc-700"></div>
             </div>
           )}
-          {!isDeepResearch &&
-            isStreaming &&
-            hasMainText &&
-            !mergedMessage._isContinuationLoading && (
-              <div className="mt-4 flex animate-pulse flex-col gap-2">
-                <div className="h-4 w-3/4 rounded bg-gray-200 dark:bg-zinc-700"></div>
-                <div className="h-4 w-1/2 rounded bg-gray-200 dark:bg-zinc-700"></div>
-                <div className="h-4 w-5/6 rounded bg-gray-200 dark:bg-zinc-700"></div>
-              </div>
-            )}
+          {!isDeepResearch && isStreaming && hasMainText && (
+            <div className="mt-4 flex animate-pulse flex-col gap-2">
+              <div className="h-4 w-3/4 rounded bg-gray-200 dark:bg-zinc-700"></div>
+              <div className="h-4 w-1/2 rounded bg-gray-200 dark:bg-zinc-700"></div>
+              <div className="h-4 w-5/6 rounded bg-gray-200 dark:bg-zinc-700"></div>
+            </div>
+          )}
           {isDeepResearch && isStreaming && !hasMainText && !hasActiveResearchStep && (
             <div className="mt-4 flex animate-pulse items-center gap-2 pl-1 text-gray-500 dark:text-gray-400">
               <DotLoader />
@@ -2481,16 +2305,7 @@ const MessageBubble = ({
               </span>
             </div>
           )}
-          {mergedMessage._isContinuationLoading && (
-            <div className="mt-4 flex flex-col gap-3">
-              <FormStatusBadge waiting={false} />
-              <div className="flex animate-pulse flex-col gap-2">
-                <div className="h-4 w-3/4 rounded bg-gray-200 dark:bg-zinc-700"></div>
-                <div className="h-4 w-1/2 rounded bg-gray-200 dark:bg-zinc-700"></div>
-                <div className="h-4 w-5/6 rounded bg-gray-200 dark:bg-zinc-700"></div>
-              </div>
-            </div>
-          )}
+
         </>
       </div>
 

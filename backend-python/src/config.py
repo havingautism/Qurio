@@ -42,6 +42,8 @@ class Settings(BaseSettings):
     supabase_project_name: str = Field(default="", alias="SUPABASE_PROJECT_NAME")
     supabase_url: str = Field(default="", alias="SUPABASE_URL")
     supabase_password: str = Field(default="", alias="SUPABASE_PASSWORD")
+    supabase_service_role_key: str = Field(default="", alias="SUPABASE_SERVICE_ROLE_KEY")
+    supabase_db_url: str = Field(default="", alias="SUPABASE_DB_URL")
 
     # Tavily API (for web search)
     tavily_api_key: str = Field(default="", alias="TAVILY_API_KEY")

@@ -505,9 +505,7 @@ const parseFormPayload = str => {
   }
 }
 
-// Extract interactive form data from message
 const getFormsFromMessage = message => {
-  // Support both naming conventions
   const toolHistory = message?.toolCallHistory || message?.tool_call_history || []
   if (!Array.isArray(toolHistory)) return []
 
@@ -519,8 +517,8 @@ const getFormsFromMessage = message => {
 
       return {
         formData,
-        isSubmitted: !!tool._isSubmitted,
-        submittedValues: message._formSubmittedValues || {},
+        isSubmitted: tool.status === 'done',
+        submittedValues: parseFormPayload(tool.output) || {},
       }
     })
     .filter(Boolean)
@@ -711,14 +709,6 @@ const ShareCanvas = ({
                   </div>
                 ))}
 
-              {/* Render subsequent AI response (the result) if exists */}
-              {message?._subsequentContent && (
-                <div className="share-doc" style={{ marginTop: 20 }}>
-                  <Streamdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-                    {normalizeMessageText(message._subsequentContent)}
-                  </Streamdown>
-                </div>
-              )}
 
               {!isUser && Array.isArray(message?.sources) && message.sources.length > 0 && (
                 <div className="share-sources">

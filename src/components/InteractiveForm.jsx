@@ -150,10 +150,16 @@ const InteractiveForm = ({
   React.useEffect(() => {
     const initialValues = {}
     validFields.forEach(field => {
-      const submittedValue = submittedValues[field.label] || submittedValues[field.name]
+      // Direct lookup in submittedValues (which is the tool output object)
+      const submittedValue = submittedValues[field.name] ?? submittedValues[field.label]
+
       if (submittedValue !== undefined) {
         if (field.type === 'checkbox') {
-          initialValues[field.name] = submittedValue.split(',').map(v => v.trim())
+          initialValues[field.name] = Array.isArray(submittedValue) 
+            ? submittedValue 
+            : typeof submittedValue === 'string' 
+              ? submittedValue.split(',').map(v => v.trim())
+              : [submittedValue]
         } else if (field.type === 'number' || field.type === 'range') {
           initialValues[field.name] = Number(submittedValue)
         } else {
@@ -171,6 +177,7 @@ const InteractiveForm = ({
     })
     setValues(initialValues)
   }, [formDataString, submittedValuesString])
+
 
   const validate = () => {
     const newErrors = {}

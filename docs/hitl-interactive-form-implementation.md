@@ -38,12 +38,14 @@
 ### 最终方案：**External Execution**
 
 **核心思路：**
+
 - 保留现有 `interactive_form` 工具定义（参数：`id`, `title`, `fields`）
 - 在工具定义时标记 `external_execution=True`，让 Agno 自动暂停 run
 - 将表单提交数据通过 `set_external_execution_result()` 传递给工具
 - 利用 `agent.acontinue_run()` 恢复执行，Agno 处理所有中间状态
 
 **优势：**
+
 - ✅ 保留现有工具定义，前端无需改动
 - ✅ Agno 官方推荐模式，框架原生支持
 - ✅ 自动保留所有中间事件（tool calls, thoughts, sources）
@@ -69,15 +71,15 @@ sequenceDiagram
     Backend->>Agno: agent.arun(stream=True, stream_events=True)
     Agno-->>Backend: content_delta: "好的，我来帮你..."
     Backend-->>Frontend: SSE: {type: "text"}
-    
+
     Agno-->>Backend: tool_call_started: interactive_form
     Backend-->>Frontend: SSE: {type: "tool_calls"}
-    
+
     Agno-->>Backend: RunPausedEvent (needs_external_execution=True)
     Backend->>Backend: 提取 requirements
     Backend->>Supabase: 保存 run_id + requirements
     Backend-->>Frontend: SSE: {type: "form_request"}
-    
+
     Frontend->>User: 渲染表单
     User->>Frontend: 填写并提交表单
     Frontend->>Backend: POST /api/stream-chat (run_id + field_values)
@@ -134,14 +136,14 @@ async for run_event in agent.arun(stream=True, stream_events=True):
     # 检测 HITL 暂停
     if hasattr(run_event, 'is_paused') and run_event.is_paused:
         requirements = getattr(run_event, 'requirements', None)
-        
+
         # 保存到 Supabase
         await hitl_storage.save_pending_run(
             run_id=run_event.run_id,
             conversation_id=request.conversation_id,
             requirements=requirements
         )
-        
+
         # 提取表单字段并通知前端
         form_fields = extract_form_fields_from_requirements(requirements)
         yield FormRequestEvent(
@@ -159,13 +161,13 @@ async for run_event in agent.arun(stream=True, stream_events=True):
 async def _continue_hitl_run(request: StreamChatRequest):
     # 从 Supabase 恢复
     requirements = await hitl_storage.get_pending_run(request.run_id)
-    
+
     # 填充外部执行结果
     for req in requirements:
         if hasattr(req, 'needs_external_execution') and req.needs_external_execution:
             # 将表单数据序列化为 JSON 字符串
             req.set_external_execution_result(json.dumps(field_values))
-    
+
     # 继续同一个 run，启用事件流
     stream = agent.acontinue_run(
         run_id=request.run_id,
@@ -174,7 +176,7 @@ async def _continue_hitl_run(request: StreamChatRequest):
         stream=True,
         stream_events=True,  # 关键：确保中间事件被emit
     )
-    
+
     # 处理恢复后的事件流（与主流程完全一致）
     async for run_event in stream:
         # ... 处理 tool_call_started, tool_call_completed, content_delta 等事件
@@ -189,17 +191,17 @@ CREATE TABLE pending_form_runs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     run_id TEXT UNIQUE NOT NULL,
     conversation_id UUID,
-    
+
     -- 序列化的 requirements 对象
     requirements_data JSONB NOT NULL,
-    
+
     -- 状态管理
     status TEXT DEFAULT 'pending',
-    
+
     -- 元数据
     created_at TIMESTAMPTZ DEFAULT NOW(),
     expires_at TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '30 minutes'),
-    
+
     -- 索引
     INDEX idx_run_id (run_id),
     INDEX idx_conversation_id (conversation_id),
@@ -229,7 +231,7 @@ def serialize_requirements(requirements: list) -> list[dict]:
 
 def deserialize_requirements(data: list[dict]) -> list:
     from agno.run.requirement import Requirement, ToolExecution
-    
+
     return [
         Requirement(
             needs_external_execution=item['needs_external_execution'],
@@ -247,7 +249,7 @@ def deserialize_requirements(data: list[dict]) -> list:
 @router.post("/stream-chat")
 async def stream_chat(request: StreamChatRequest):
     service = StreamChatService()
-    
+
     # 检测是否是 HITL 恢复请求
     if request.run_id and request.field_values:
         # 恢复模式

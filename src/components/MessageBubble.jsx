@@ -157,12 +157,9 @@ const MessageBubble = ({
   const toolCallHistory = Array.isArray(mergedMessage?.toolCallHistory)
     ? mergedMessage.toolCallHistory
     : []
-  
+
   const formToolHistory = toolCallHistory.filter(item => item.name === 'interactive_form')
   const hasInteractiveForm = formToolHistory.length > 0
-
-
-
 
   const isDeepResearch =
     !!mergedMessage?.deepResearch ||
@@ -174,7 +171,6 @@ const MessageBubble = ({
   const parsed = provider.parseMessage(mergedMessage)
   const thoughtContent = isDeepResearch ? null : parsed.thought
   const mainContent = parsed.content
-
 
   const resolvedSearchBackends = useMemo(() => {
     if (Array.isArray(mergedMessage?.searchBackends) && mergedMessage.searchBackends.length > 0) {
@@ -234,20 +230,15 @@ const MessageBubble = ({
     [resolveSearchBackendLabel, resolvedSearchBackends, t],
   )
 
-
   const nextMsgForFormCheck = messages[messageIndex + 1]
-  // In the new HITL flow, an interrupted form is simply one where 
+  // In the new HITL flow, an interrupted form is simply one where
   // the next user message isn't a submission for THIS specific run.
   // However, since we now have runId correlation, we can keep it simple.
   const isFormInterrupted =
-    nextMsgForFormCheck &&
-    nextMsgForFormCheck.role === 'user' &&
-    !nextMsgForFormCheck.hitlRunId 
-
+    nextMsgForFormCheck && nextMsgForFormCheck.role === 'user' && !nextMsgForFormCheck.hitlRunId
 
   const isFormWaitingForInput =
     hasInteractiveForm && formToolHistory.some(tc => tc.status !== 'done') && !isFormInterrupted
-
 
   const getToolCallsForStep = useCallback(
     stepNumber =>
@@ -951,8 +942,7 @@ const MessageBubble = ({
     }
     return false
   })()
-  const shouldShowInitialSkeleton =
-    !hasMainText && isStreaming && !isDeepResearch
+  const shouldShowInitialSkeleton = !hasMainText && isStreaming && !isDeepResearch
 
   const skeletonFadeMs = 320
   const [renderInitialSkeleton, setRenderInitialSkeleton] = useState(shouldShowInitialSkeleton)
@@ -1407,8 +1397,7 @@ const MessageBubble = ({
               const formData = parseFormPayload(item.arguments) || parseFormPayload(item.output)
 
               const nextMsg = messages[messageIndex + 1]
-              const isInterrupted =
-                nextMsg && nextMsg.role === 'user' && !nextMsg.hitlRunId
+              const isInterrupted = nextMsg && nextMsg.role === 'user' && !nextMsg.hitlRunId
 
               // If the tool status is 'done', it means the form was submitted.
               // Also disable if the user interrupted the flow with a new message.
@@ -1429,7 +1418,6 @@ const MessageBubble = ({
                   />
                 )
               }
-
 
               const shouldShowSkeleton = isStreaming || item.status !== 'done'
               if (shouldShowSkeleton) {
@@ -1557,7 +1545,7 @@ const MessageBubble = ({
         {activeImageUrl &&
           createPortal(
             <div
-              className="fixed inset-0 z-10000 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+              className="fixed inset-0 z-10000 flex items-center justify-center bg-black/70 p-4 md:backdrop-blur-sm"
               onClick={() => setActiveImageUrl(null)}
             >
               <button
@@ -1780,7 +1768,7 @@ const MessageBubble = ({
             className={clsx(
               'selection-menu fixed z-50 flex -translate-x-1/2 transform items-center shadow-lg',
               isMobile
-                ? 'rounded-full border border-gray-700/50 bg-gray-900/98 px-3 py-1.5 text-white backdrop-blur-md dark:bg-zinc-800/98'
+                ? 'rounded-full border border-gray-700/50 bg-gray-900/98 px-3 py-1.5 text-white md:backdrop-blur-md dark:bg-zinc-800/98'
                 : '-translate-y-full rounded-lg bg-gray-900 p-1 text-white dark:bg-zinc-700',
             )}
             style={{
@@ -2305,7 +2293,6 @@ const MessageBubble = ({
               </span>
             </div>
           )}
-
         </>
       </div>
 
@@ -2415,7 +2402,7 @@ const MessageBubble = ({
 
       {activeToolDetail &&
         createPortal(
-          <div className="fixed inset-0 z-10000 flex items-start justify-center overflow-y-auto bg-black/50 p-0 backdrop-blur-sm md:items-center md:overflow-hidden md:p-4">
+          <div className="fixed inset-0 z-10000 flex items-start justify-center overflow-y-auto bg-black/50 p-0 md:items-center md:overflow-hidden md:p-4 md:backdrop-blur-sm">
             <div className="flex h-screen w-full flex-col overflow-hidden rounded-none border-0 border-gray-200 bg-white shadow-2xl md:h-[80vh] md:max-w-4xl md:rounded-2xl md:border dark:border-zinc-800 dark:bg-[#191a1a]">
               <div className="flex h-14 shrink-0 items-center justify-between border-b border-gray-200 bg-white px-4 sm:px-6 dark:border-zinc-800 dark:bg-[#191a1a]">
                 <div className="truncate pr-4 text-base font-semibold text-gray-900 dark:text-white">

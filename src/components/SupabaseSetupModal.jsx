@@ -59,7 +59,7 @@ export default function SupabaseSetupModal({ isOpen, onConfigured, isManual = fa
   }
 
   return (
-    <div className="fixed inset-0 z-200 flex items-center justify-center bg-black/80 px-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-200 flex items-center justify-center bg-black/80 px-4 md:backdrop-blur-sm">
       <div className="animate-in zoom-in-95 w-full max-w-md space-y-8 rounded-2xl border border-gray-200 bg-white p-6 shadow-2xl duration-200 md:p-8 dark:border-zinc-800 dark:bg-[#191a1a]">
         <div className="space-y-2 text-center">
           <div className="bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl">

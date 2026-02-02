@@ -443,7 +443,7 @@ const QuestionTimelineSidebar = ({
                               : 'pointer-events-none translate-x-4 scale-95 opacity-0',
                           )}
                         >
-                          <div className="bg-user-bubble/95 w-auto max-w-[240px] min-w-[180px] rounded-2xl border border-gray-200/80 px-4 py-3 shadow-xl backdrop-blur-md dark:border-zinc-700/80 dark:bg-zinc-800/95">
+                          <div className="bg-user-bubble/95 w-auto max-w-[240px] min-w-[180px] rounded-2xl border border-gray-200/80 px-4 py-3 shadow-xl md:backdrop-blur-md dark:border-zinc-700/80 dark:bg-zinc-800/95">
                             {timeLabel && (
                               <div className="mb-0.5 text-[10px] font-semibold tracking-wider text-gray-500 uppercase dark:text-gray-400">
                                 {timeLabel}
@@ -559,7 +559,7 @@ const QuestionTimelineSidebar = ({
                     'group-hover:pointer-events-auto group-hover:translate-x-0 group-hover:opacity-100',
                   )}
                 >
-                  <div className="w-64 rounded-xl border border-gray-200/80 bg-white/90 p-3 shadow-xl backdrop-blur-sm dark:border-zinc-700/80 dark:bg-zinc-800/90">
+                  <div className="w-64 rounded-xl border border-gray-200/80 bg-white/90 p-3 shadow-xl md:backdrop-blur-sm dark:border-zinc-700/80 dark:bg-zinc-800/90">
                     {timeLabel && (
                       <div className="mb-0.5 text-[10px] font-semibold tracking-wider text-gray-500 uppercase dark:text-gray-400">
                         {timeLabel}
@@ -613,7 +613,12 @@ const QuestionCard = React.memo(({ item, isActive, onClick, time }) => {
         </div>
 
         <div className="min-w-0 flex-1">
-          <p className={clsx('text-sm leading-relaxed wrap-break-word', isActive ? 'font-medium' : '')}>
+          <p
+            className={clsx(
+              'text-sm leading-relaxed wrap-break-word',
+              isActive ? 'font-medium' : '',
+            )}
+          >
             {item.label}
           </p>
 

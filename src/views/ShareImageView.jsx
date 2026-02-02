@@ -49,7 +49,6 @@ const ShareImageView = () => {
     return targetMsg
   }, [messages, messageId, messageIndex])
 
-
   const disableExternalStyles = () => {
     const nodes = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]'))
     const toggled = []

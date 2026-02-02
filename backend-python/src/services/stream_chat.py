@@ -145,6 +145,7 @@ class StreamChatService:
             stream = agent.arun(
                 input=messages,
                 stream=True,
+                stream_events=True,
                 user_id=request.user_id,
                 session_id=request.conversation_id,
                 output_schema=request.output_schema or request.response_format,
@@ -164,19 +165,39 @@ class StreamChatService:
                     requirements = getattr(run_event, 'active_requirements', None) or getattr(run_event, 'requirements', None)
                     
                     if requirements:
+                        def _is_interactive_form(req: Any) -> bool:
+                            if getattr(req, 'needs_external_execution', False):
+                                tool_exec = getattr(req, 'tool_execution', None)
+                                tool_name = getattr(tool_exec, 'tool_name', None) if tool_exec else None
+                                return tool_name == "interactive_form"
+                            tool_exec = getattr(req, 'tool_execution', None)
+                            tool_name = getattr(tool_exec, 'tool_name', None) if tool_exec else None
+                            return tool_name == "interactive_form"
+
+                        form_requirements = [req for req in requirements if _is_interactive_form(req)]
+                        if not form_requirements:
+                            logger.info("Agent paused without interactive_form; skipping HITL form handling")
+                            yield DoneEvent(
+                                content=full_content or "",
+                                thought=full_thought.strip() or None,
+                                sources=list(sources_map.values()) or None,
+                            ).model_dump()
+                            return
+
                         # Save to Supabase
                         try:
                             hitl_storage = get_hitl_storage()
                             await hitl_storage.save_pending_run(
                                 run_id=run_event.run_id,
-                                requirements=requirements,
+                                requirements=form_requirements,
                                 conversation_id=request.conversation_id,
                                 user_id=request.user_id,
                                 agent_model=request.model,
+                                messages=messages,
                             )
                             
                             # Extract form fields for frontend
-                            for req in requirements:
+                            for req in form_requirements:
                                 # Handle external execution (e.g., interactive_form with external_execution=True)
                                 if (hasattr(req, 'needs_external_execution') and req.needs_external_execution) or \
                                    (req.tool_execution and req.tool_execution.tool_name == "interactive_form"):
@@ -234,7 +255,12 @@ class StreamChatService:
                             return
                     else:
                         logger.warning("Agent paused but no requirements found")
-                        continue
+                        yield DoneEvent(
+                            content=full_content or "",
+                            thought=full_thought.strip() or None,
+                            sources=list(sources_map.values()) or None,
+                        ).model_dump()
+                        return
                 
                 # ============================================================
                 # Normal streaming events (use stream_events for details)
@@ -367,7 +393,15 @@ class StreamChatService:
             
             # Retrieve requirements from Supabase
             hitl_storage = get_hitl_storage()
-            requirements = await hitl_storage.get_pending_run(run_id)
+            pending = await hitl_storage.get_pending_run(run_id)
+
+            requirements = None
+            saved_messages = None
+            if isinstance(pending, dict):
+                requirements = pending.get("requirements")
+                saved_messages = pending.get("messages")
+            else:
+                requirements = pending
             
             if not requirements:
                 logger.error(f"No pending run found for run_id: {run_id}")
@@ -392,24 +426,13 @@ class StreamChatService:
             
             # Get agent (same provider as original request)
             agent = get_agent_for_provider(request)
-            
-            # Continue the run (streaming)
-            logger.info(f"Calling agent.acontinue_run for run_id: {run_id}, session_id: {request.conversation_id}")
-            stream = agent.acontinue_run(
-                run_id=run_id,
-                session_id=request.conversation_id,
-                requirements=requirements,
-                stream=True,
-                stream_events=True,  # Enable detailed events (tools, thoughts, etc.)
-            )
-            
-            # Stream events (reuse same logic as main stream_chat)
+
             full_content = ""
             full_thought = ""
             sources_map: dict[str, Any] = {}
             tool_start_times: dict[str, float] = {}
             tagged_handler = TaggedTextHandler()
-            
+
             def process_text(text: str):
                 nonlocal full_content, full_thought
                 for type, part in tagged_handler.handle(text):
@@ -420,89 +443,149 @@ class StreamChatService:
                         full_thought += part
                         yield ThoughtEvent(content=part).model_dump()
             
-            async for run_event in stream:
-                # HITL Pause Check
-                if hasattr(run_event, 'is_paused') and run_event.is_paused:
-                    logger.warning(f"Agent paused again during continuation (run_id: {run_id})")
-                    yield ErrorEvent(error="Multiple form chaining not yet implemented").model_dump()
-                    return
+            async def _stream_events(stream):
+                nonlocal full_content, full_thought, sources_map, tool_start_times
+                async for run_event in stream:
+                    # HITL Pause Check
+                    if hasattr(run_event, 'is_paused') and run_event.is_paused:
+                        logger.warning(f"Agent paused again during continuation (run_id: {run_id})")
+                        yield ErrorEvent(error="Multiple form chaining not yet implemented").model_dump()
+                        return
 
-                # Check if this is a detailed event (from stream_events=True or implicit)
-                if hasattr(run_event, 'event'):
-                    match run_event.event:
-                        case RunEvent.run_content.value:
-                            content = getattr(run_event, "content", None)
-                            if content:
-                                for e in process_text(str(content)):
-                                    yield e
-                            reasoning = getattr(run_event, "reasoning_content", None)
-                            if reasoning:
-                                full_thought += str(reasoning)
-                                yield ThoughtEvent(content=str(reasoning)).model_dump()
+                    # Check if this is a detailed event (from stream_events=True or implicit)
+                    if hasattr(run_event, 'event'):
+                        match run_event.event:
+                            case RunEvent.run_content.value:
+                                content = getattr(run_event, "content", None)
+                                if content:
+                                    for e in process_text(str(content)):
+                                        yield e
+                                reasoning = getattr(run_event, "reasoning_content", None)
+                                if reasoning:
+                                    full_thought += str(reasoning)
+                                    yield ThoughtEvent(content=str(reasoning)).model_dump()
 
-                        case RunEvent.reasoning_content_delta.value:
-                            reasoning = getattr(run_event, "reasoning_content", None)
-                            if reasoning:
-                                full_thought += str(reasoning)
-                                yield ThoughtEvent(content=str(reasoning)).model_dump()
+                            case RunEvent.reasoning_content_delta.value:
+                                reasoning = getattr(run_event, "reasoning_content", None)
+                                if reasoning:
+                                    full_thought += str(reasoning)
+                                    yield ThoughtEvent(content=str(reasoning)).model_dump()
 
-                        case RunEvent.tool_call_started.value:
-                            tool_event: ToolCallStartedEvent = run_event  # type: ignore[assignment]
-                            tool = tool_event.tool
-                            if tool:
-                                if tool.tool_call_id:
-                                    tool_start_times[tool.tool_call_id] = time.time()
-                                yield ToolCallEvent(
-                                    id=tool.tool_call_id,
-                                    name=tool.tool_name or "",
-                                    arguments=json.dumps(tool.tool_args or {}),
-                                ).model_dump()
+                            case RunEvent.tool_call_started.value:
+                                tool_event: ToolCallStartedEvent = run_event  # type: ignore[assignment]
+                                tool = tool_event.tool
+                                if tool:
+                                    if tool.tool_call_id:
+                                        tool_start_times[tool.tool_call_id] = time.time()
+                                    yield ToolCallEvent(
+                                        id=tool.tool_call_id,
+                                        name=tool.tool_name or "",
+                                        arguments=json.dumps(tool.tool_args or {}),
+                                    ).model_dump()
 
-                        case RunEvent.tool_call_completed.value:
-                            tool_event: ToolCallCompletedEvent = run_event  # type: ignore[assignment]
-                            tool = tool_event.tool
-                            if tool:
-                                duration_ms = None
-                                if tool.tool_call_id and tool.tool_call_id in tool_start_times:
-                                    duration_ms = int((time.time() - tool_start_times[tool.tool_call_id]) * 1000)
-                                output = self._normalize_tool_output(tool.result)
-                                if output and isinstance(output, str):
-                                    try:
-                                        import ast
-                                        parsed = json.loads(output)
-                                        output = parsed
-                                    except json.JSONDecodeError:
-                                        pass
-                                    if isinstance(output, str):
+                            case RunEvent.tool_call_completed.value:
+                                tool_event: ToolCallCompletedEvent = run_event  # type: ignore[assignment]
+                                tool = tool_event.tool
+                                if tool:
+                                    duration_ms = None
+                                    if tool.tool_call_id and tool.tool_call_id in tool_start_times:
+                                        duration_ms = int((time.time() - tool_start_times[tool.tool_call_id]) * 1000)
+                                    output = self._normalize_tool_output(tool.result)
+                                    if output and isinstance(output, str):
                                         try:
-                                            parsed = ast.literal_eval(output)
-                                            if isinstance(parsed, dict):
-                                                output = parsed
-                                        except (ValueError, SyntaxError):
+                                            import ast
+                                            parsed = json.loads(output)
+                                            output = parsed
+                                        except json.JSONDecodeError:
                                             pass
-                                yield ToolResultEvent(
-                                    id=tool.tool_call_id,
-                                    name=tool.tool_name or "",
-                                    status="done" if not tool.tool_call_error else "error",
-                                    output=output,
-                                    durationMs=duration_ms,
-                                ).model_dump()
-                                self._collect_search_sources(output, sources_map)
+                                        if isinstance(output, str):
+                                            try:
+                                                parsed = ast.literal_eval(output)
+                                                if isinstance(parsed, dict):
+                                                    output = parsed
+                                            except (ValueError, SyntaxError):
+                                                pass
+                                    yield ToolResultEvent(
+                                        id=tool.tool_call_id,
+                                        name=tool.tool_name or "",
+                                        status="done" if not tool.tool_call_error else "error",
+                                        output=output,
+                                        durationMs=duration_ms,
+                                    ).model_dump()
+                                    self._collect_search_sources(output, sources_map)
 
-                        case RunEvent.run_completed.value:
-                             # We handle DoneEvent outside the loop to ensure final accumulation
-                             pass
+                            case RunEvent.run_completed.value:
+                                 # We handle DoneEvent outside the loop to ensure final accumulation
+                                 pass
 
-                        case RunEvent.run_error.value:
-                            error_msg = getattr(run_event, "content", None) or "Unknown error"
-                            yield ErrorEvent(error=str(error_msg)).model_dump()
-                            return
-                else:
-                    # Simple event Fallback
-                    content = getattr(run_event, 'content', None)
-                    if content:
-                        for e in process_text(str(content)):
-                            yield e
+                            case RunEvent.run_error.value:
+                                error_msg = getattr(run_event, "content", None) or "Unknown error"
+                                yield ErrorEvent(error=str(error_msg)).model_dump()
+                                return
+                    else:
+                        # Simple event Fallback
+                        content = getattr(run_event, 'content', None)
+                        if content:
+                            for e in process_text(str(content)):
+                                yield e
+
+            def _build_fallback_messages():
+                if not saved_messages:
+                    return None
+                updated_messages = list(saved_messages)
+                for req in requirements:
+                    tool_exec = getattr(req, 'tool_execution', None)
+                    tool_name = getattr(tool_exec, 'tool_name', None) if tool_exec else None
+                    if tool_name != "interactive_form":
+                        continue
+                    tool_args = getattr(tool_exec, 'tool_args', {}) if tool_exec else {}
+                    tool_call_id = getattr(req, "id", None) or tool_args.get("id") or f"form-{int(time.time() * 1000)}"
+                    updated_messages.append({
+                        "role": "assistant",
+                        "content": None,
+                        "tool_calls": [{
+                            "id": tool_call_id,
+                            "type": "function",
+                            "function": {
+                                "name": "interactive_form",
+                                "arguments": json.dumps(tool_args or {}),
+                            }
+                        }],
+                    })
+                    updated_messages.append({
+                        "role": "tool",
+                        "content": json.dumps(field_values),
+                        "tool_call_id": tool_call_id,
+                    })
+                return updated_messages
+
+            # Continue the run (streaming)
+            logger.info(f"Calling agent.acontinue_run for run_id: {run_id}, session_id: {request.conversation_id}")
+            try:
+                stream = agent.acontinue_run(
+                    run_id=run_id,
+                    session_id=request.conversation_id,
+                    requirements=requirements,
+                    stream=True,
+                    stream_events=True,  # Enable detailed events (tools, thoughts, etc.)
+                )
+                async for event in _stream_events(stream):
+                    yield event
+            except Exception as exc:
+                logger.warning(f"HITL acontinue_run failed, falling back to fresh run: {exc}")
+                fallback_messages = _build_fallback_messages()
+                if not fallback_messages:
+                    yield ErrorEvent(error="Form session cannot be resumed (missing state)").model_dump()
+                    return
+                stream = agent.arun(
+                    input=fallback_messages,
+                    stream=True,
+                    stream_events=True,
+                    user_id=request.user_id,
+                    session_id=request.conversation_id,
+                )
+                async for event in _stream_events(stream):
+                    yield event
             
             # Stream completed, send done event
             yield DoneEvent(

@@ -42,7 +42,7 @@ def _create_tool_function(tool_name: str, tool_def: dict[str, Any] | None = None
         name=tool_name,
         description=description or f"Tool: {tool_name}",
         parameters=parameters or {},
-        external_execution=True,
+        external_execution=(tool_name == "interactive_form"),
     )
 
     _tool_functions[tool_name] = agno_func

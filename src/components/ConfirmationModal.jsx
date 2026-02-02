@@ -18,7 +18,7 @@ const ConfirmationModal = ({
 
   return (
     <div
-      className="animate-in fade-in fixed inset-0 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm duration-200"
+      className="animate-in fade-in fixed inset-0 flex items-center justify-center bg-black/60 p-4 duration-200 md:backdrop-blur-sm"
       style={{ zIndex: 9999 }}
       onClick={onClose}
     >

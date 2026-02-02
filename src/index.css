@@ -9,25 +9,21 @@
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-user-bubble: var(--user-bubble);
   --font-sans:
-    var(--font-google-sans-flex), var(--font-google-sans),
-    var(--font-noto-sans-sc), system-ui, -apple-system, 'Segoe UI', Roboto,
-    'PingFang SC', 'Hiragino Sans', 'Microsoft YaHei', sans-serif;
+    var(--font-google-sans-flex), var(--font-google-sans), var(--font-noto-sans-sc), system-ui,
+    -apple-system, 'Segoe UI', Roboto, 'PingFang SC', 'Hiragino Sans', 'Microsoft YaHei', sans-serif;
 
   --font-sans-serif:
-    var(--font-google-sans-flex), var(--font-google-sans),
-    var(--font-noto-sans-sc), system-ui, -apple-system, 'Segoe UI',
-    'PingFang SC', 'Hiragino Sans', 'Microsoft YaHei', sans-serif;
+    var(--font-google-sans-flex), var(--font-google-sans), var(--font-noto-sans-sc), system-ui,
+    -apple-system, 'Segoe UI', 'PingFang SC', 'Hiragino Sans', 'Microsoft YaHei', sans-serif;
 
   /* 代码 / Prompt / Log */
   --font-mono:
-    var(--font-google-sans-mono), ui-monospace, SFMono-Regular, 'SF Mono',
-    'Cascadia Code', 'Segoe UI Mono', 'Source Code Pro', Menlo, Consolas,
-    monospace;
+    var(--font-google-sans-mono), ui-monospace, SFMono-Regular, 'SF Mono', 'Cascadia Code',
+    'Segoe UI Mono', 'Source Code Pro', Menlo, Consolas, monospace;
 
   --font-code:
-    var(--font-google-sans-code), ui-monospace, SFMono-Regular, 'SF Mono',
-    'Cascadia Code', 'Segoe UI Mono', 'Source Code Pro', Menlo, Consolas,
-    monospace;
+    var(--font-google-sans-code), ui-monospace, SFMono-Regular, 'SF Mono', 'Cascadia Code',
+    'Segoe UI Mono', 'Source Code Pro', Menlo, Consolas, monospace;
 
   /* Custom Primary Palette (formerly Brown) - Default Map to Variables */
   /* These will be overridden by the JS style injection on root */
@@ -796,7 +792,7 @@ h6 {
 
 /* Premium Card Effects */
 .premium-card-bg {
-  @apply border border-gray-200/50 bg-white/40 shadow-xs backdrop-blur-md dark:border-zinc-700/50 dark:bg-zinc-900/40;
+  @apply border border-gray-200/50 bg-white/40 shadow-xs md:backdrop-blur-md dark:border-zinc-700/50 dark:bg-zinc-900/40;
 }
 
 .premium-card-glow {

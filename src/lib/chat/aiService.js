@@ -347,7 +347,6 @@ export const callAIAPI = async (
       fieldValues: hitlFieldValues,
       conversationId: get().conversationId,
       messages: (() => {
-
         return conversationMessagesWithPlan.map(m => {
           const role = m.role === 'ai' ? 'assistant' : m.role
           const baseMessage = {
@@ -370,7 +369,6 @@ export const callAIAPI = async (
 
           return baseMessage
         })
-
       })(),
       tools: provider.getTools(toggles.search, toggles.searchTool, settings.enableLongTermMemory),
       toolIds: resolvedToolIds,
@@ -545,23 +543,23 @@ export const callAIAPI = async (
               if (lastMsgIndex < 0 || updated[lastMsgIndex].role !== 'ai')
                 return { messages: updated }
               const lastMsg = { ...updated[lastMsgIndex] }
-              
+
               // Store HITL metadata for form submission resumption
               lastMsg.hitlRunId = chunk.run_id
               lastMsg.hitlFormId = chunk.form_id
               lastMsg.hitlFormTitle = chunk.title
               lastMsg.hitlFormFields = chunk.fields
-              
+
               // Add form as a tool call to maintain UI consistency
               const history = Array.isArray(lastMsg.toolCallHistory)
                 ? [...lastMsg.toolCallHistory]
                 : []
-              
+
               // Check if form already exists (avoid duplicates)
               const existingFormIndex = history.findIndex(
-                t => t.name === 'interactive_form' && t.status !== 'done'
+                t => t.name === 'interactive_form' && t.status !== 'done',
               )
-              
+
               if (existingFormIndex === -1) {
                 const pendingThoughtLength = lastMsg.thinkingEnabled
                   ? 0
@@ -569,21 +567,21 @@ export const callAIAPI = async (
                 const pendingTextLength = (pendingText || '').length
                 const baseIndex =
                   (lastMsg.content || '').length + pendingTextLength + pendingThoughtLength
-                
+
                 history.push({
                   id: chunk.form_id || `form-${Date.now()}`,
                   name: 'interactive_form',
                   arguments: JSON.stringify({
                     id: chunk.form_id,
                     title: chunk.title,
-                    fields: chunk.fields
+                    fields: chunk.fields,
                   }),
                   status: 'calling', // Will be marked 'done' after submission
                   textIndex: baseIndex,
-                  output: { fields: chunk.fields, title: chunk.title }
+                  output: { fields: chunk.fields, title: chunk.title },
                 })
               }
-              
+
               lastMsg.toolCallHistory = history
               updated[lastMsgIndex] = lastMsg
               return { messages: updated }
@@ -1009,8 +1007,8 @@ export const finalizeMessage = async (
         ? JSON.stringify({ plan: planForPersistence, thought: baseThought })
         : baseThought
     const contentForPersistence = (() => {
-      // If we already have a message ID (HITL resumption), the store's content (latestAi.content) 
-      // is already cumulative (contains both old and new streamed text). 
+      // If we already have a message ID (HITL resumption), the store's content (latestAi.content)
+      // is already cumulative (contains both old and new streamed text).
       // We should use that instead of result.content which only contains the delta for this run.
       if (latestAi?.id) {
         return latestAi.content || ''
@@ -1035,7 +1033,7 @@ export const finalizeMessage = async (
         (() => {
           // Priority 1: Current message's tool_calls (already cumulative in store if we handled it in onChunk)
           if (latestAi?.tool_calls && latestAi.tool_calls.length > 0) return latestAi.tool_calls
-          
+
           // Priority 2: Result's toolCalls (from the stream result)
           const newToolCalls = result.toolCalls || []
 
@@ -1052,9 +1050,9 @@ export const finalizeMessage = async (
                   textIndex: tc.textIndex,
                 }))
               : []
-          
+
           return newToolCalls.length > 0 ? newToolCalls : derivedToolCalls
-        })()
+        })(),
       ),
       tool_call_history: sanitizeJson(toolCallHistoryForPersistence || []),
       research_step_history: sanitizeJson(researchStepsForPersistence || []),

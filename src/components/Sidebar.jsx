@@ -676,7 +676,7 @@ const Sidebar = ({
       {/* Mobile Overlay */}
       <div
         className={clsx(
-          'fixed inset-0 z-40 transform-gpu bg-black/50 backdrop-blur-sm transition-opacity duration-200 md:hidden',
+          'fixed inset-0 z-40 transform-gpu bg-black/50 transition-opacity duration-200 md:hidden md:backdrop-blur-sm',
           isOpen ? 'opacity-100' : 'pointer-events-none opacity-0',
         )}
         style={{

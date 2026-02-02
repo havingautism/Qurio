@@ -72,10 +72,10 @@ const ShortcutModal = ({ isOpen, onClose, shortcut, onSave, onDelete, currentPos
   }
 
   const modalContent = (
-    <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm transition-all duration-300 sm:p-6">
+    <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 p-4 transition-all duration-300 sm:p-6 md:backdrop-blur-sm">
       <div className="animate-in fade-in zoom-in-95 flex max-h-[85dvh] w-full flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl ring-1 ring-black/5 duration-200 sm:max-w-md dark:border-white/10 dark:bg-[#1C1C1E]">
         {/* Header */}
-        <div className="flex h-14 items-center justify-between border-b border-gray-100 bg-white/50 px-5 backdrop-blur-md dark:border-white/5 dark:bg-white/5">
+        <div className="flex h-14 items-center justify-between border-b border-gray-100 bg-white/50 px-5 md:backdrop-blur-md dark:border-white/5 dark:bg-white/5">
           <h3 className="text-base font-semibold text-gray-900 dark:text-white">
             {shortcut?.id ? t('views.widgets.editShortcut') : t('views.widgets.newShortcut')}
           </h3>

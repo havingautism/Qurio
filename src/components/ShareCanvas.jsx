@@ -709,7 +709,6 @@ const ShareCanvas = ({
                   </div>
                 ))}
 
-
               {!isUser && Array.isArray(message?.sources) && message.sources.length > 0 && (
                 <div className="share-sources">
                   <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Sources</div>

@@ -1,6 +1,6 @@
 const WidgetCard = ({ children, className = '', title, action }) => (
   <div
-    className={`flex flex-col rounded-2xl border border-gray-200 bg-white/60 p-5 shadow-sm backdrop-blur-md dark:border-zinc-700 dark:bg-[#1e1e1e]/60 ${className}`}
+    className={`flex flex-col rounded-2xl border border-gray-200 bg-white/60 p-5 shadow-sm dark:border-zinc-700 dark:bg-[#1e1e1e]/60 ${className}`}
   >
     {(title || action) && (
       <div className="mb-3 flex items-center justify-between">

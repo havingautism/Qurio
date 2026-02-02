@@ -190,11 +190,10 @@ export const handleEditingAndHistory = (
 
       // 2. User Messages: Stop scanning when we hit a normal user message
       if (m.role === 'user') {
-        // Since HITL forms no longer create hidden User messages, 
+        // Since HITL forms no longer create hidden User messages,
         // any User message we encounter here is a new turn.
         break
       }
-
     }
 
     // Filter out all identified messages

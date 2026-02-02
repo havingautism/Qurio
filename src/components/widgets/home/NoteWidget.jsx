@@ -100,7 +100,7 @@ const NoteWidget = () => {
               <button
                 onClick={prevNote}
                 disabled={currentIndex === 0}
-                className="flex h-14 w-8 items-center justify-center rounded-xl bg-black/20 text-white backdrop-blur-sm transition-all hover:bg-black/40 disabled:opacity-0"
+                className="flex h-14 w-8 items-center justify-center rounded-xl bg-black/20 text-white transition-all hover:bg-black/40 disabled:opacity-0 md:backdrop-blur-sm"
               >
                 <ChevronLeft size={24} />
               </button>
@@ -111,7 +111,7 @@ const NoteWidget = () => {
               <button
                 onClick={nextNote}
                 disabled={currentIndex === notes.length - 1}
-                className="flex h-14 w-8 items-center justify-center rounded-xl bg-black/20 text-white backdrop-blur-sm transition-all hover:bg-black/40 disabled:opacity-0"
+                className="flex h-14 w-8 items-center justify-center rounded-xl bg-black/20 text-white transition-all hover:bg-black/40 disabled:opacity-0 md:backdrop-blur-sm"
               >
                 <ChevronRight size={24} />
               </button>
@@ -121,7 +121,7 @@ const NoteWidget = () => {
           {notes.length === 0 && !isLoading && (
             <div
               onClick={openNewNoteModal}
-              className="hover:text-primary-500 bg-user-bubble flex h-full w-full cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-200 text-gray-500 backdrop-blur-md transition-colors dark:border-white/10 dark:bg-[#1e1e1e]/60 dark:text-gray-400"
+              className="hover:text-primary-500 bg-user-bubble flex h-full w-full cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-200 text-gray-500 transition-colors md:backdrop-blur-md dark:border-white/10 dark:bg-[#1e1e1e]/60 dark:text-gray-400"
             >
               <StickyNote size={32} className="mb-2 opacity-50" />
               <span className="text-sm font-medium">
@@ -172,7 +172,7 @@ const NoteWidget = () => {
                         e.stopPropagation()
                         openEditModal(note)
                       }}
-                      className="rounded-full bg-white/80 p-1.5 text-gray-700 shadow-lg backdrop-blur-sm transition-transform hover:scale-105 hover:bg-white"
+                      className="rounded-full bg-white/80 p-1.5 text-gray-700 shadow-lg transition-transform hover:scale-105 hover:bg-white md:backdrop-blur-sm"
                       title={t('common.edit', 'Edit')}
                     >
                       <Pencil size={16} />

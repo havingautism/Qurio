@@ -286,6 +286,56 @@ TAVILY_API_KEY=...
 
 ---
 
+## 10. HITL（交互式表单）实现要点（2026-02-02）
+
+本次修复目标：**只有当模型主动调用 `interactive_form` 时才进入 HITL**，并确保无数据库时可继续使用。
+
+### 10.1 触发条件收敛
+
+- 仅当 Agno `run_event.is_paused` 且 requirement 的 `tool_name == "interactive_form"` 才进入 HITL。
+- 非表单暂停直接结束本次流，避免“普通会话也等待用户输入”。
+
+**涉及文件**
+
+- `backend-python/src/services/stream_chat.py`
+
+### 10.2 external_execution 限制
+
+- OpenAI/OpenAI‑compatible 适配器只对 `interactive_form` 设置 `external_execution=True`。
+- 避免所有工具都触发暂停。
+
+**涉及文件**
+
+- `backend-python/src/providers/openai.py`
+
+### 10.3 流式事件启用
+
+- `agent.arun(..., stream_events=True)`，保证 `tool_call` / `tool_result` 事件返回给前端。
+
+**涉及文件**
+
+- `backend-python/src/services/stream_chat.py`
+
+### 10.4 HITL 内存存储（移除 Supabase）
+
+- HITL 暂停态只存内存，不依赖 Supabase。
+- 注意：后端重启会丢表单状态（开发模式可接受）。
+
+**涉及文件**
+
+- `backend-python/src/services/hitl_storage.py`
+
+### 10.5 HITL 续跑回退策略
+
+- 优先 `agent.acontinue_run()`；失败则用 **保存的 messages + 表单结果** 重新 `agent.arun()`。
+- 解决 `NoneType has no attribute run_id`（Agno 需要 DB 才能 continue 的问题）。
+
+**涉及文件**
+
+- `backend-python/src/services/stream_chat.py`
+
+---
+
 ## 10. 对应 Agno 文档
 
 - OpenAI‑like: https://docs.agno.com/integrations/models/openai-like

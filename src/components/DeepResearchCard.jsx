@@ -22,7 +22,7 @@ const DeepResearchCard = memo(({ onClick }) => {
     <div className="flex w-full justify-center">
       <div className="group relative w-full cursor-pointer" onClick={onClick}>
         {/* Glass Card - Subtle/Refined Style */}
-        <div className="relative z-10 h-30 overflow-hidden rounded-3xl border border-gray-200 bg-white/60 p-6 shadow-md backdrop-blur-md transition-all duration-500 group-hover:scale-[1.02] group-hover:shadow-2xl group-active:scale-[0.98] sm:h-30 dark:border-zinc-700/30 dark:bg-zinc-900/60 dark:shadow-2xl">
+        <div className="relative z-10 h-30 overflow-hidden rounded-3xl border border-gray-200 bg-white/60 p-6 shadow-md transition-all duration-500 group-hover:scale-[1.02] group-hover:shadow-2xl group-active:scale-[0.98] sm:h-30 md:backdrop-blur-md dark:border-zinc-700/30 dark:bg-zinc-900/60 dark:shadow-2xl">
           {/* Magical Twinkle Particles */}
           <div className="pointer-events-none absolute inset-0 z-0 opacity-60">
             {PARTICLES.map(p => (
@@ -44,7 +44,7 @@ const DeepResearchCard = memo(({ onClick }) => {
 
           <div className="relative z-20 flex h-full flex-col justify-between">
             <div className="flex items-center gap-3">
-              <div className="rounded-xl bg-white/20 p-2 shadow-sm backdrop-blur-sm transition-transform duration-300 group-hover:rotate-12 dark:bg-zinc-800/40">
+              <div className="rounded-xl bg-white/20 p-2 shadow-sm transition-transform duration-300 group-hover:rotate-12 md:backdrop-blur-sm dark:bg-zinc-800/40">
                 <Microscope
                   size={20}
                   className="text-primary-600 dark:text-primary-400 animate-pulse"

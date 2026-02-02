@@ -66,13 +66,14 @@ def _get_supabase_db() -> PostgresDb | None:
         return None
 
     try:
-        password = quote_plus(settings.supabase_password)
-        # Using the exact format from Agno documentation
-        db_url = f"postgresql://postgres:{password}@db.{settings.supabase_project_name}.supabase.co:5432/postgres"
+        # password = quote_plus(settings.supabase_password)
+        # # Using the exact format from Agno documentation
+        # db_url = f"postgresql://postgres:{password}@db.{settings.supabase_project_name}.supabase.co:5432/postgres"
         
-        logger.info(f"Connecting to Supabase project: {settings.supabase_project_name}")
-        _agent_db = PostgresDb(db_url=db_url)
-        return _agent_db
+        # logger.info(f"Connecting to Supabase project: {settings.supabase_project_name}")
+        # _agent_db = PostgresDb(db_url=db_url)
+        # return _agent_db
+        return None
     except Exception as exc:
         logger.error(f"Failed to connect to Supabase: {exc}")
         return None

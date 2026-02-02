@@ -248,7 +248,7 @@ const SpaceModal = ({ isOpen, onClose, editingSpace = null, onSave, onDelete }) 
     : description
 
   return (
-    <div className="fixed inset-0 z-100 flex items-start justify-center overflow-y-auto bg-black/50 p-0 backdrop-blur-sm md:items-center md:overflow-hidden md:p-4">
+    <div className="fixed inset-0 z-100 flex items-start justify-center overflow-y-auto bg-black/50 p-0 md:items-center md:overflow-hidden md:p-4 md:backdrop-blur-sm">
       <div className="flex h-dvh w-full flex-col overflow-hidden rounded-none border-0 border-gray-200 bg-[#f9f9f9] shadow-2xl md:h-[80vh] md:max-w-2xl md:rounded-2xl md:border dark:border-zinc-800 dark:bg-[#191a1a]">
         {/* Header */}
         <div className="flex h-14 shrink-0 items-center justify-between border-b border-gray-200 px-4 sm:px-6 dark:border-zinc-800">

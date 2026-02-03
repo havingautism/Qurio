@@ -171,7 +171,11 @@ const useChatStore = create((set, get) => ({
           t => t.name === 'interactive_form' && t.status !== 'done',
         )
         if (formToolIndex !== -1) {
-          tools[formToolIndex] = { ...tools[formToolIndex], status: 'done' }
+          tools[formToolIndex] = {
+            ...tools[formToolIndex],
+            status: 'done',
+            result: JSON.stringify(formData.values), // Fixed: use 'values' instead of 'field_values'
+          }
           updated[lastMsgIndex] = { ...updated[lastMsgIndex], toolCallHistory: tools }
         }
       }

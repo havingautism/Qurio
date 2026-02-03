@@ -1412,7 +1412,7 @@ const MessageBubble = ({
                     onSubmit={handleFormSubmit}
                     messageId={message.id}
                     isSubmitted={shouldDisableForm}
-                    submittedValues={parseFormPayload(item.output) || {}}
+                    submittedValues={parseFormPayload(item.result) || parseFormPayload(item.output) || {}}
                     developerMode={developerMode}
                     onShowDetails={() => setActiveToolDetail(item)}
                   />

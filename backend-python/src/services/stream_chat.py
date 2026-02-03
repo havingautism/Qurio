@@ -426,12 +426,14 @@ class StreamChatService:
             
             # Get agent (same provider as original request)
             agent = get_agent_for_provider(request)
+            logger.info(f"[HITL Continue] Agent instructions: {getattr(agent, 'instructions', None)}")
 
             full_content = ""
             full_thought = ""
             sources_map: dict[str, Any] = {}
             tool_start_times: dict[str, float] = {}
             tagged_handler = TaggedTextHandler()
+            paused_again = False  # Flag to prevent cleanup when multi-form chaining occurs
 
             def process_text(text: str):
                 nonlocal full_content, full_thought
@@ -444,12 +446,70 @@ class StreamChatService:
                         yield ThoughtEvent(content=part).model_dump()
             
             async def _stream_events(stream):
-                nonlocal full_content, full_thought, sources_map, tool_start_times
+                nonlocal full_content, full_thought, sources_map, tool_start_times, paused_again
                 async for run_event in stream:
                     # HITL Pause Check
                     if hasattr(run_event, 'is_paused') and run_event.is_paused:
-                        logger.warning(f"Agent paused again during continuation (run_id: {run_id})")
-                        yield ErrorEvent(error="Multiple form chaining not yet implemented").model_dump()
+                        logger.info(f"Agent paused again during continuation (multi-form chain, run_id: {run_id})")
+                        
+                        # Extract new requirements
+                        new_requirements = getattr(run_event, 'active_requirements', None) or getattr(run_event, 'requirements', None)
+                        
+                        if new_requirements:
+                            # Filter for interactive_form requirements
+                            def _is_interactive_form(req: Any) -> bool:
+                                if getattr(req, 'needs_external_execution', False):
+                                    tool_exec = getattr(req, 'tool_execution', None)
+                                    tool_name = getattr(tool_exec, 'tool_name', None) if tool_exec else None
+                                    return tool_name == "interactive_form"
+                                tool_exec = getattr(req, 'tool_execution', None)
+                                tool_name = getattr(tool_exec, 'tool_name', None) if tool_exec else None
+                                return tool_name == "interactive_form"
+                            
+                            form_requirements = [req for req in new_requirements if _is_interactive_form(req)]
+                            
+                            if form_requirements:
+                                # Save new form requirements (overwrites previous in memory)
+                                hitl_storage_multi = get_hitl_storage()
+                                await hitl_storage_multi.save_pending_run(
+                                    run_id=run_id,
+                                    requirements=form_requirements,
+                                    conversation_id=request.conversation_id,
+                                    user_id=request.user_id,
+                                    agent_model=request.model,
+                                    messages=saved_messages,  # Reuse saved messages
+                                )
+                                
+                                # Extract form fields and notify frontend
+                                for req in form_requirements:
+                                    if (hasattr(req, 'needs_external_execution') and req.needs_external_execution) or \
+                                       (req.tool_execution and req.tool_execution.tool_name == "interactive_form"):
+                                        tool_args = req.tool_execution.tool_args if req.tool_execution else {}
+                                        form_id = tool_args.get('id')
+                                        title = tool_args.get('title', 'Please provide additional information')
+                                        fields = tool_args.get('fields', [])
+                                        
+                                        yield FormRequestEvent(
+                                            run_id=run_id,
+                                            form_id=form_id,
+                                            title=title,
+                                            fields=fields
+                                        ).model_dump()
+                                
+                                # Send partial done event
+                                yield DoneEvent(
+                                    content=full_content or "",
+                                    thought=full_thought.strip() or None,
+                                    sources=list(sources_map.values()) or None,
+                                ).model_dump()
+                                
+                                logger.info(f"Multi-form: saved second form, waiting for user (run_id: {run_id})")
+                                paused_again = True  # Mark as paused again to skip cleanup
+                                return
+                        
+                        # If no form requirements, just continue
+                        logger.warning(f"Agent paused again but no interactive_form found (run_id: {run_id})")
+                        yield ErrorEvent(error="Agent paused unexpectedly").model_dump()
                         return
 
                     # Check if this is a detailed event (from stream_events=True or implicit)
@@ -594,9 +654,12 @@ class StreamChatService:
                 sources=list(sources_map.values()) or None,
             ).model_dump()
             
-            # Clean up Supabase
-            await hitl_storage.delete_pending_run(run_id)
-            logger.info(f"HITL run {run_id} completed and cleaned up")
+            # Clean up Supabase (skip if paused again for multi-form)
+            if not paused_again:
+                await hitl_storage.delete_pending_run(run_id)
+                logger.info(f"HITL run {run_id} completed and cleaned up")
+            else:
+                logger.info(f"HITL run {run_id} paused again (multi-form), skipping cleanup")
 
         except Exception as exc:
             import traceback

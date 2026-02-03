@@ -404,6 +404,18 @@ def build_agent(request: Any = None, **kwargs: Any) -> Agent:
         tool_choice = "auto"
 
     db = _get_supabase_db()
+    
+    # Conditional instructions: Multi-form guidance
+    enabled_names = set(_collect_enabled_tool_names(request))
+    instructions = None
+    if "interactive_form" in enabled_names:
+        instructions = (
+            "When using the interactive_form tool to collect user information: "
+            "If the user's initial responses lack critical details needed to fulfill their request, "
+            "you MUST call interactive_form again to gather the missing specific information. "
+            "Do not proceed with incomplete information. "
+            "However, limit to 2-3 forms maximum per conversation to respect user time."
+        )
 
     return Agent(
         id=f"qurio-{request.provider}",
@@ -414,6 +426,7 @@ def build_agent(request: Any = None, **kwargs: Any) -> Agent:
         markdown=True,
         tool_choice=tool_choice,
         db=db,
+        instructions=instructions,
         # **memory_kwargs,
     )
 

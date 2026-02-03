@@ -86,20 +86,6 @@ const ConversationView = () => {
     }
   }, [conversationId])
 
-  if (fetchError) {
-    return (
-      <div className="flex flex-1 flex-col items-center justify-center p-4">
-        <div className="mb-2 text-red-500">Failed to load conversation</div>
-        <button
-          onClick={() => window.location.reload()}
-          className="bg-primary text-primary-foreground hover:bg-primary/90 rounded px-4 py-2"
-        >
-          Retry
-        </button>
-      </div>
-    )
-  }
-
   useEffect(() => {
     const handleConversationChanged = async () => {
       if (!conversationId) return
@@ -184,6 +170,20 @@ const ConversationView = () => {
   ])
 
   const ChatComponent = isDeepResearchConversation ? DeepResearchChatInterface : ChatInterface
+
+  if (fetchError) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center p-4">
+        <div className="mb-2 text-red-500">Failed to load conversation</div>
+        <button
+          onClick={() => window.location.reload()}
+          className="bg-primary text-primary-foreground hover:bg-primary/90 rounded px-4 py-2"
+        >
+          Retry
+        </button>
+      </div>
+    )
+  }
 
   // Render the appropriate chat interface with the conversation data
   return (

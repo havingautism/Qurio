@@ -26,6 +26,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import useScrollLock from '../hooks/useScrollLock'
 import { extractTextFromFile, normalizeExtractedText } from '../lib/documentParser'
@@ -503,6 +504,7 @@ const validateSettingsForSave = settings => {
 
 const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
   const { t, i18n } = useTranslation()
+  const navigate = useNavigate()
   const { defaultAgent } = useAppContext()
 
   const renderEnvHint = hasEnv =>
@@ -530,6 +532,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
   const [dbAccessKey, setDbAccessKey] = useState('')
   const [supabaseUrl, setSupabaseUrl] = useState('')
   const [supabaseKey, setSupabaseKey] = useState('')
+  const initialDbConfigRef = useRef({ provider: '', providerId: '', accessKey: '' })
 
   const [backendHealthState, setBackendHealthState] = useState({
     status: 'idle',
@@ -714,7 +717,10 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
       try {
         const headers = {}
         if (dbAccessKey) headers['x-db-access-key'] = dbAccessKey
-        const response = await fetch(`${getBackendUrl()}/api/db/providers`, { headers })
+        const response = await fetch(`${getBackendUrl()}/api/db/providers`, {
+          headers,
+          cache: 'no-store',
+        })
         const payload = await response.json().catch(() => ({}))
         const providers = Array.isArray(payload.providers) ? payload.providers : []
         setDbProviders(providers)
@@ -732,6 +738,11 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
       if (settings.databaseProvider) setDatabaseProvider(settings.databaseProvider)
       if (settings.databaseProviderId) setDatabaseProviderId(settings.databaseProviderId)
       if (settings.dbAccessKey) setDbAccessKey(settings.dbAccessKey)
+      initialDbConfigRef.current = {
+        provider: settings.databaseProvider || '',
+        providerId: settings.databaseProviderId || '',
+        accessKey: settings.dbAccessKey || '',
+      }
       if (settings.supabaseUrl) setSupabaseUrl(settings.supabaseUrl)
       if (settings.supabaseKey) setSupabaseKey(settings.supabaseKey)
       if (settings.OpenAICompatibilityKey)
@@ -832,7 +843,21 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
       }
       loadProviders()
     }
-  }, [isOpen, i18n, dbAccessKey])
+  }, [isOpen, i18n, dbAccessKey, databaseProviderId])
+
+  useEffect(() => {
+    if (!isOpen) return
+    const handleDatabaseSettingsChanged = () => {
+      const settings = loadSettings()
+      setDatabaseProvider(settings.databaseProvider || '')
+      setDatabaseProviderId(settings.databaseProviderId || '')
+      setDbAccessKey(settings.dbAccessKey || '')
+    }
+    window.addEventListener('database-settings-changed', handleDatabaseSettingsChanged)
+    return () => {
+      window.removeEventListener('database-settings-changed', handleDatabaseSettingsChanged)
+    }
+  }, [isOpen])
 
   useScrollLock(isOpen)
 
@@ -1491,6 +1516,10 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
     setIsSaving(true)
     try {
       const resolvedDatabaseProvider = selectedDbProvider?.type || databaseProvider || ''
+      const dbChanged =
+        resolvedDatabaseProvider !== initialDbConfigRef.current.provider ||
+        databaseProviderId !== initialDbConfigRef.current.providerId ||
+        dbAccessKey !== initialDbConfigRef.current.accessKey
       const settingsToSave = {
         apiProvider,
         googleApiKey,
@@ -1698,6 +1727,9 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
       }
 
       onClose()
+      if (dbChanged) {
+        navigate({ to: '/new_chat' })
+      }
     } finally {
       setIsSaving(false)
     }

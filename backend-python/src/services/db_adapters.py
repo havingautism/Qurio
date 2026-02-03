@@ -5,6 +5,7 @@ Database adapters for Supabase and SQLite providers.
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 import threading
 import uuid
@@ -194,6 +195,9 @@ class SQLiteAdapter:
 
     def __post_init__(self) -> None:
         self._lock = threading.Lock()
+        if not self.config.sqlite_path:
+            raise ValueError("SQLite provider missing path")
+        os.makedirs(os.path.dirname(self.config.sqlite_path) or ".", exist_ok=True)
         self._conn = sqlite3.connect(self.config.sqlite_path, check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
         self._ensure_schema()

@@ -14,6 +14,7 @@ import TavilyIcon from '../assets/tavily-color.svg?url'
 import NvidiaIcon from '../assets/nvidia-color.svg?url'
 import MinimaxIcon from '../assets/minimax-color.svg?url'
 import SupabaseIcon from '../assets/supabase.svg?url'
+import SqliteIcon from '../assets/sqlite.svg?url'
 
 const DEFAULT_ICON_BG_CLASS = 'bg-[#f6f6f6b8] dark:bg-[#0d0d0d]'
 
@@ -48,7 +49,13 @@ export const PROVIDER_ICON_META = {
   supabase: {
     src: SupabaseIcon,
     alt: 'Supabase',
-    bgClassName: 'bg-transparent',
+    bgClassName: DEFAULT_ICON_BG_CLASS,
+    imgClassName: '',
+  },
+  sqlite: {
+    src: SqliteIcon,
+    alt: 'SQLite',
+    bgClassName: DEFAULT_ICON_BG_CLASS,
     imgClassName: '',
   },
 }

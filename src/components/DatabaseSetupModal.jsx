@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { useNavigate } from '@tanstack/react-router'
 import { Check, Database, Key, XCircle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { clsx } from 'clsx'
@@ -19,6 +20,7 @@ const getBackendUrl = () => {
 
 export default function DatabaseSetupModal({ isOpen, onClose }) {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const initialSettings = loadSettings()
   const [dbAccessKey, setDbAccessKey] = useState(initialSettings.dbAccessKey || '')
   const [providers, setProviders] = useState([])
@@ -56,7 +58,7 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
     setIsLoading(true)
     setError('')
     try {
-      const response = await fetch(`${getBackendUrl()}/api/db/providers`)
+      const response = await fetch(`${getBackendUrl()}/api/db/providers`, { cache: 'no-store' })
       const payload = await response.json().catch(() => ({}))
       if (!response.ok) {
         throw new Error(payload.detail || 'Failed to load providers')
@@ -113,6 +115,8 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
         databaseProviderId: selectedId,
         databaseProvider: resolvedType,
       })
+      window.dispatchEvent(new Event('database-settings-changed'))
+      navigate({ to: '/new_chat' })
       setTimeout(() => window.location.reload(), 50)
     } catch (err) {
       setError(err.message || 'Validation failed.')

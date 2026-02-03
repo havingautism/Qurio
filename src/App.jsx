@@ -517,7 +517,7 @@ function App() {
               console.error('Create default agent failed:', createError)
               creatingDefaultAgentRef.current = false
             }
-          } else {
+          } else if (existingDefault) {
             const patch = {}
             if (!existingDefault.description) patch.description = 'Fallback agent (non-editable).'
             if (!existingDefault.prompt && settings.systemPrompt)

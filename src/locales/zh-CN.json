@@ -15,7 +15,8 @@
     "selectAll": "全选",
     "deselectAll": "取消全选",
     "files": "文件",
-    "close": "关闭"
+    "close": "关闭",
+    "edit": "编辑"
   },
   "app": {
     "name": "Qurio",
@@ -509,7 +510,7 @@
     "initModal": {
       "title": "完成 Supabase 设置",
       "description": "我们无法验证所有必需的表。请在 Supabase 中运行一次 init.sql，然后重新测试。",
-      "connectionOk": "连接正常，但架构需要设置。",
+      "connectionOk": "连接正常",
       "connectionFailed": "连接失败。检查 URL/密钥，然后运行 init.sql。",
       "ready": "就绪",
       "missing": "缺失",
@@ -543,7 +544,8 @@
       "accessKeyPlaceholder": "输入后端访问密钥",
       "provider": "提供程序",
       "selectProvider": "选择提供程序",
-      "saveAndReload": "保存并重新加载"
+      "saveAndReload": "保存并重新加载",
+      "saving": "正在保存..."
     }
   },
   "agents": {

@@ -728,10 +728,10 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
     }
 
     if (isOpen) {
-        const settings = loadSettings()
-        if (settings.databaseProvider) setDatabaseProvider(settings.databaseProvider)
-        if (settings.databaseProviderId) setDatabaseProviderId(settings.databaseProviderId)
-        if (settings.dbAccessKey) setDbAccessKey(settings.dbAccessKey)
+      const settings = loadSettings()
+      if (settings.databaseProvider) setDatabaseProvider(settings.databaseProvider)
+      if (settings.databaseProviderId) setDatabaseProviderId(settings.databaseProviderId)
+      if (settings.dbAccessKey) setDbAccessKey(settings.dbAccessKey)
       if (settings.supabaseUrl) setSupabaseUrl(settings.supabaseUrl)
       if (settings.supabaseKey) setSupabaseKey(settings.supabaseKey)
       if (settings.OpenAICompatibilityKey)
@@ -1414,6 +1414,9 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
     const result = await testConnection()
     setInitModalResult(result)
     setRetestingDb(false)
+    if (!result?.success) {
+      setIsInitModalOpen(true)
+    }
   }
 
   const activeEmbeddingModels = embeddingGroupedModels[embeddingProvider] || []
@@ -2169,7 +2172,10 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                       <button
                         onClick={handleBackendHealthCheck}
                         disabled={backendHealthState.status === 'loading'}
-                        className="text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg px-3 py-2 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                        className={clsx(
+                          'rounded-lg border px-3 py-2 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50',
+                          'text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 border-primary-200 dark:border-primary-900/40',
+                        )}
                       >
                         {backendHealthState.status === 'loading'
                           ? t('settings.backendHealthChecking')
@@ -2212,7 +2218,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                       <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
                         {t('settings.databaseProvider')}
                       </label>
-                      <div className="flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-200">
+                      <div className="flex h-10 cursor-not-allowed items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700 opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-200">
                         {selectedDbProvider ? (
                           renderProviderIcon(selectedDbProvider.type || selectedDbProvider.id, {
                             size: 16,
@@ -2250,6 +2256,11 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                       >
                         {t('settings.testDatabaseConnection') || 'Test database connection'}
                       </button>
+                      {initModalResult && initModalResult.success && (
+                        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-900/20 dark:text-emerald-300">
+                          {t('settings.initModal.connectionOk') || 'Connection OK'}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

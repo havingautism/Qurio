@@ -24,6 +24,7 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
   const [providers, setProviders] = useState([])
   const [selectedId, setSelectedId] = useState(initialSettings.databaseProviderId || '')
   const [isLoading, setIsLoading] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState('')
   const [healthStatus, setHealthStatus] = useState('idle')
   const [healthMessage, setHealthMessage] = useState('')
@@ -74,26 +75,49 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
   }
 
   const handleSave = async () => {
+    setIsSaving(true)
+    setError('')
     if (!dbAccessKey) {
       setError('Please enter access key.')
+      setIsSaving(false)
       return
     }
     if (!selectedId) {
       setError('Please select a provider.')
+      setIsSaving(false)
       return
     }
-    if (healthStatus === 'error') {
-      setError('Backend not reachable.')
-      return
+    try {
+      // 1) Validate access key + provider by calling backend test
+      const response = await fetch(`${getBackendUrl()}/api/db/query`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-db-access-key': dbAccessKey,
+        },
+        body: JSON.stringify({ providerId: selectedId, action: 'test' }),
+      })
+      const payload = await response.json().catch(() => ({}))
+      if (!response.ok || payload.error) {
+        throw new Error(payload.detail || payload.error || 'Access key validation failed.')
+      }
+      if (!payload?.data?.success) {
+        throw new Error(payload?.data?.message || 'Database connection failed.')
+      }
+
+      // 2) Save settings only after validation passes
+      const provider = providers.find(item => item.id === selectedId)
+      const resolvedType = provider?.type || initialSettings.databaseProvider || ''
+      await saveSettings({
+        dbAccessKey,
+        databaseProviderId: selectedId,
+        databaseProvider: resolvedType,
+      })
+      setTimeout(() => window.location.reload(), 50)
+    } catch (err) {
+      setError(err.message || 'Validation failed.')
+      setIsSaving(false)
     }
-    const provider = providers.find(item => item.id === selectedId)
-    const resolvedType = provider?.type || initialSettings.databaseProvider || ''
-    await saveSettings({
-      dbAccessKey,
-      databaseProviderId: selectedId,
-      databaseProvider: resolvedType,
-    })
-    window.location.reload()
   }
 
   if (!isOpen) return null
@@ -156,7 +180,10 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
             </label>
             <div className="relative w-full">
               <Select value={selectedId} onValueChange={setSelectedId}>
-                <SelectTrigger className="h-10 w-full">
+                <SelectTrigger className="h-10 w-full pl-10">
+                  <div className="absolute top-1/2 left-3 flex -translate-y-1/2 items-center">
+                    <Database size={16} className="text-gray-400" />
+                  </div>
                   <SelectValue
                     placeholder={t('settings.databaseSetup.selectProvider') || 'Select provider'}
                   />
@@ -189,10 +216,14 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
         <div className="flex flex-col gap-3">
           <button
             onClick={handleSave}
-            disabled={!dbAccessKey || !selectedId || healthStatus === 'error'}
+            disabled={!dbAccessKey || !selectedId || isSaving}
             className="bg-primary-600 hover:bg-primary-700 shadow-primary-500/20 flex w-full items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold text-white shadow-lg transition-all disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <span>{t('settings.databaseSetup.saveAndReload') || 'Save & Reload'}</span>
+            <span>
+              {isSaving
+                ? t('settings.databaseSetup.saving') || 'Validating...'
+                : t('settings.databaseSetup.saveAndReload') || 'Save & Reload'}
+            </span>
             <Check size={16} />
           </button>
           <button

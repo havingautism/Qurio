@@ -191,6 +191,9 @@ class BackendQueryBuilder {
       }),
     })
     const payload = await response.json().catch(() => ({}))
+    if (response.status === 401 && typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('db-auth-failed'))
+    }
     if (!response.ok || payload.error) {
       return { data: payload.data || null, error: new Error(payload.error || 'Database error') }
     }
@@ -227,6 +230,9 @@ class BackendDbClient {
         }),
       })
       const payload = await response.json().catch(() => ({}))
+      if (response.status === 401 && typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('db-auth-failed'))
+      }
       if (!response.ok || payload.error) {
         return { data: payload.data || null, error: new Error(payload.error || 'Database error') }
       }
@@ -284,6 +290,9 @@ export const testConnection = async () => {
       body: JSON.stringify({ providerId, action: 'test' }),
     })
     const payload = await response.json().catch(() => ({}))
+    if (response.status === 401 && typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('db-auth-failed'))
+    }
     if (!response.ok || payload.error) {
       return {
         success: false,

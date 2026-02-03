@@ -661,30 +661,28 @@ class SupabaseAdapter:
         if values is None:
             return DbQueryResponse(error="Missing values")
         query = query.insert(values)
-        if req.columns:
-            query = query.select(req.columns)
-        if req.single and hasattr(query, "single"):
-            query = query.single()
         result = query.execute()
         error = getattr(result, "error", None)
         if error:
             return DbQueryResponse(error=str(error))
-        return DbQueryResponse(data=getattr(result, "data", None))
+        data = getattr(result, "data", None)
+        if req.single and isinstance(data, list):
+            data = data[0] if data else None
+        return DbQueryResponse(data=data)
 
     def _update(self, req: DbQueryRequest) -> DbQueryResponse:
         query = self._table(req.table)
         payload = req.payload or {}
         query = query.update(payload)
         query = self._apply_filters(query, req.filters)
-        if req.columns:
-            query = query.select(req.columns)
-        if req.single and hasattr(query, "single"):
-            query = query.single()
         result = query.execute()
         error = getattr(result, "error", None)
         if error:
             return DbQueryResponse(error=str(error))
-        return DbQueryResponse(data=getattr(result, "data", None))
+        data = getattr(result, "data", None)
+        if req.single and isinstance(data, list):
+            data = data[0] if data else None
+        return DbQueryResponse(data=data)
 
     def _delete(self, req: DbQueryRequest) -> DbQueryResponse:
         query = self._table(req.table)
@@ -702,15 +700,14 @@ class SupabaseAdapter:
         if values is None:
             return DbQueryResponse(error="Missing values")
         query = query.upsert(values, on_conflict=req.on_conflict)
-        if req.columns:
-            query = query.select(req.columns)
-        if req.single and hasattr(query, "single"):
-            query = query.single()
         result = query.execute()
         error = getattr(result, "error", None)
         if error:
             return DbQueryResponse(error=str(error))
-        return DbQueryResponse(data=getattr(result, "data", None))
+        data = getattr(result, "data", None)
+        if req.single and isinstance(data, list):
+            data = data[0] if data else None
+        return DbQueryResponse(data=data)
 
     def _rpc(self, req: DbQueryRequest) -> DbQueryResponse:
         if not req.rpc:

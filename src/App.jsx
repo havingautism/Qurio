@@ -280,6 +280,16 @@ function App() {
     }
   }, [location.pathname])
 
+  useEffect(() => {
+    const handleDbAuthFailed = () => {
+      setIsSettingsOpen(false)
+      setIsDatabaseSetupOpen(true)
+    }
+
+    window.addEventListener('db-auth-failed', handleDbAuthFailed)
+    return () => window.removeEventListener('db-auth-failed', handleDbAuthFailed)
+  }, [])
+
   const cycleTheme = () => {
     setTheme(prev => {
       if (prev === 'light') return 'dark'

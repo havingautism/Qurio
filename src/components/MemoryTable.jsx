@@ -126,14 +126,16 @@ const MemoryTable = () => {
       <Table>
         <TableHeader className="bg-gray-50/50 dark:bg-zinc-800/50">
           <TableRow className="hover:bg-transparent">
-            <TableHead className="font-semibold">{t('settings.memory.table.summary')}</TableHead>
-            <TableHead className="w-[140px] font-semibold">
+            <TableHead className="min-w-[320px] font-semibold">
+              {t('settings.memory.table.summary')}
+            </TableHead>
+            <TableHead className="w-[160px] font-semibold">
               {t('settings.memory.table.domain')}
             </TableHead>
-            <TableHead className="w-[140px] font-semibold">
+            <TableHead className="w-[160px] font-semibold">
               {t('settings.memory.table.aliases')}
             </TableHead>
-            <TableHead className="w-[100px] font-semibold">
+            <TableHead className="w-[140px] font-semibold">
               {t('settings.memory.table.scope')}
             </TableHead>
             <TableHead className="w-[80px] text-right"></TableHead>
@@ -222,7 +224,7 @@ const MemoryTable = () => {
               </TableCell>
 
               <TableCell className="py-4 text-right align-top">
-                <div className="flex items-center justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                <div className="flex items-center justify-end gap-1">
                   {editingId === memory.id ? (
                     <>
                       <Button

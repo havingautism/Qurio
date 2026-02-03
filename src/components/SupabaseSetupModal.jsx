@@ -27,12 +27,13 @@ export default function SupabaseSetupModal({ isOpen, onConfigured, isManual = fa
     setError(null)
 
     try {
-      const result = await testConnection(supabaseUrl, supabaseKey)
+      const result = await testConnection()
 
       if (result.success) {
         // Only save if FULL success (connection + tables)
         await saveSettings({
           databaseProvider: 'supabase',
+          databaseProviderId: 'supabase',
           databaseConfig: {
             supabase: {
               url: supabaseUrl,

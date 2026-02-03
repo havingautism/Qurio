@@ -59,6 +59,10 @@ class Settings(BaseSettings):
     # Context Message Limit
     context_message_limit: int = Field(default=50, alias="CONTEXT_MESSAGE_LIMIT")
 
+    # Database Providers (backend-managed)
+    database_providers_json: str = Field(default="", alias="DATABASE_PROVIDERS")
+    db_access_key: str = Field(default="", alias="DB_PROVIDER_ACCESS_KEY")
+
     # Model configuration
     @property
     def allowed_origins(self) -> list[str]:

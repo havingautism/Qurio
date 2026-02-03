@@ -8,10 +8,10 @@ const SettingsModal = React.lazy(() => import('./components/SettingsModal'))
 import ToolsModal from './components/ToolsModal'
 import Sidebar from './components/Sidebar'
 import SpaceModal from './components/SpaceModal'
+import DatabaseSetupModal from './components/DatabaseSetupModal'
 import { ToastProvider } from './contexts/ToastContext'
 import KnowledgeBaseModal from './components/KnowledgeBaseModal'
 import { createAgent, deleteAgent, listAgents, updateAgent } from './lib/agentsService'
-import SupabaseSetupModal from './components/SupabaseSetupModal'
 import { listConversations } from './lib/conversationsService'
 import {
   DEEP_RESEARCH_AGENT_DESCRIPTION,
@@ -54,6 +54,7 @@ function App() {
     return 'system'
   })
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const [isDatabaseSetupOpen, setIsDatabaseSetupOpen] = useState(false)
 
   // Space Modal State
   const [isSpaceModalOpen, setIsSpaceModalOpen] = useState(false)
@@ -71,9 +72,6 @@ function App() {
 
   // Mobile Sidebar State
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
-
-  // Supabase Setup Modal State
-  const [isSupabaseSetupOpen, setIsSupabaseSetupOpen] = useState(false)
 
   // Spaces Data
   const [spaces, setSpaces] = useState([])
@@ -255,20 +253,13 @@ function App() {
   // Sync Remote Settings to Memory on Mount
   useEffect(() => {
     const syncRemoteSettings = async () => {
-      // 1. Ensure Client is initialized (reads from LocalStorage/Env)
-      const client = initSupabase()
-
-      // Check if Supabase is configured
       const localSettings = loadSettings()
-      if (localSettings.databaseProvider && localSettings.databaseProvider !== 'supabase') {
-        return
-      }
-      if (!localSettings.supabaseUrl || !localSettings.supabaseKey) {
-        setIsSupabaseSetupOpen(true)
-        return
-      }
+      const providerId = localSettings.databaseProviderId || localSettings.databaseProvider
+      if (!providerId) return
 
-      // 2. Fetch API Keys from DB
+      // Ensure client is initialized
+      initSupabase()
+
       const { data } = await fetchRemoteSettings()
 
       // 3. Update Memory Cache if found
@@ -281,6 +272,13 @@ function App() {
 
     syncRemoteSettings()
   }, [])
+
+  useEffect(() => {
+    const settings = loadSettings()
+    if (!settings.databaseProviderId) {
+      setIsDatabaseSetupOpen(true)
+    }
+  }, [location.pathname])
 
   const cycleTheme = () => {
     setTheme(prev => {
@@ -945,12 +943,16 @@ function App() {
                   <SettingsModal
                     isOpen={isSettingsOpen}
                     onClose={() => setIsSettingsOpen(false)}
-                    onOpenSupabaseSetup={() => {
-                      setIsSettingsOpen(false) // Close settings first
-                      setTimeout(() => setIsSupabaseSetupOpen(true), 150) // Small delay for smooth transition
+                    onOpenDatabaseSetup={() => {
+                      setIsSettingsOpen(false)
+                      setTimeout(() => setIsDatabaseSetupOpen(true), 150)
                     }}
                   />
                 </React.Suspense>
+                <DatabaseSetupModal
+                  isOpen={isDatabaseSetupOpen}
+                  onClose={() => setIsDatabaseSetupOpen(false)}
+                />
                 <ToolsModal isOpen={isToolsModalOpen} onClose={() => setIsToolsModalOpen(false)} />
                 <KnowledgeBaseModal
                   isOpen={isKnowledgeBaseModalOpen}
@@ -985,18 +987,6 @@ function App() {
                   confirmText={confirmation.confirmText}
                   cancelText={confirmation.cancelText}
                   isDangerous={confirmation.isDangerous}
-                />
-                <SupabaseSetupModal
-                  isOpen={isSupabaseSetupOpen}
-                  isManual={
-                    loadSettings().databaseProvider === 'supabase' &&
-                    Boolean(loadSettings().supabaseUrl)
-                  } // If URL exists, it's a manual reconfigure
-                  onConfigured={() => {
-                    setIsSupabaseSetupOpen(false)
-                    // Trigger a re-sync or reload to fetch data
-                    window.location.reload()
-                  }}
                 />
               </div>
             )}

@@ -178,7 +178,10 @@
       "syncSuccess": "✅ Sync complete!\nServer: {{server}}\n• Updated: {{updated}} tools\n• Added: {{added}} tools\n• Total: {{total}} tools",
       "syncFailed": "❌ Sync failed: {{error}}",
       "syncInfo": "After updating URL, it will automatically:",
-      "syncSteps": ["Connect to server to fetch latest tool list", "Update existing tools"]
+      "syncSteps": [
+        "Connect to server to fetch latest tool list",
+        "Update existing tools"
+      ]
     },
     "selectTool": "Select a tool to edit",
     "selectToolHelp": "Or create a new custom tool to extend your agent's capabilities.",
@@ -477,7 +480,6 @@
         "confirmDelete": "Are you sure you want to delete this memory logic? This cannot be undone."
       }
     },
-
     "liteModel": "Lite",
     "liteModelHelper": "Titles, related questions, space suggestions",
     "defaultModel": "Default",
@@ -548,6 +550,18 @@
     "advanced": {
       "developerMode": "Developer Mode",
       "developerModeHint": "Control how detailed tool calls are displayed in the chat."
+    },
+    "configureDatabase": "Configure Database",
+    "databaseConfigDisabled": "Run backend health check first.",
+    "testDatabaseConnection": "Test database connection",
+    "databaseSetup": {
+      "title": "Database Setup",
+      "description": "Enter the access key to load database providers, then choose one to use.",
+      "accessKey": "Access Key",
+      "accessKeyPlaceholder": "Enter backend access key",
+      "provider": "Provider",
+      "selectProvider": "Select provider",
+      "saveAndReload": "Save & Reload"
     }
   },
   "agents": {

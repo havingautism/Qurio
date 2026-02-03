@@ -32,6 +32,7 @@ from ..routes import (
     deep_research,
     memory as memory_route,
     mcp_tools,
+    db as db_route,
 )
 from .agent_registry import build_agent, init_memory_db
 
@@ -79,6 +80,7 @@ def _build_base_app() -> FastAPI:
     app.include_router(deep_research.router, prefix="/api")
     app.include_router(memory_route.router, prefix="/api")
     app.include_router(mcp_tools.router, prefix="/api/mcp-tools")
+    app.include_router(db_route.router, prefix="/api")
     return app
 
 

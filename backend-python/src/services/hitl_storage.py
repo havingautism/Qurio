@@ -1,28 +1,64 @@
-﻿"""
-In-memory storage for HITL pending form runs.
+"""
+HITL pending run storage.
+
+Supports persistent DB-backed storage (Supabase/SQLite provider) with in-memory fallback.
 """
 
-import logging
-from typing import Optional, Dict, Any, List
-from datetime import datetime, timedelta
+from __future__ import annotations
 
-from .hitl_serializer import serialize_requirements, deserialize_requirements
+import logging
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, List, Optional
+from uuid import UUID
+
+from ..models.db import DbFilter, DbQueryRequest
+from .db_adapters import build_adapter
+from .db_registry import ProviderConfig, get_provider_registry
+from .hitl_serializer import deserialize_requirements, serialize_requirements
 
 logger = logging.getLogger(__name__)
 
 
-class InMemoryHITLStorage:
-    """
-    In-memory storage for HITL pending runs.
-    """
+def _utc_now() -> datetime:
+    return datetime.now(timezone.utc)
 
-    def __init__(self):
+
+def _utc_now_iso() -> str:
+    return _utc_now().replace(microsecond=0).isoformat()
+
+
+def _is_missing_pending_form_table_error(error: Any) -> bool:
+    text = str(error or "").lower()
+    return "pending_form_runs" in text and (
+        "pgrst205" in text
+        or "could not find the table" in text
+        or "not found" in text
+        or "does not exist" in text
+    )
+
+
+def _to_uuid_or_none(value: Any) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    try:
+        return str(UUID(text))
+    except Exception:
+        return None
+
+
+class InMemoryHITLStorage:
+    """In-memory storage for HITL pending runs."""
+
+    def __init__(self) -> None:
         self._store: Dict[str, Dict[str, Any]] = {}
 
     async def save_pending_run(
         self,
         run_id: str,
-        requirements: List,
+        requirements: List[Any],
         conversation_id: Optional[str] = None,
         user_id: Optional[str] = None,
         agent_model: Optional[str] = None,
@@ -30,7 +66,7 @@ class InMemoryHITLStorage:
         messages: Optional[List[Dict[str, Any]]] = None,
     ) -> Optional[Dict[str, Any]]:
         requirements_data = serialize_requirements(requirements)
-        expires_at = (datetime.utcnow() + timedelta(minutes=ttl_minutes)).isoformat()
+        expires_at = (_utc_now() + timedelta(minutes=ttl_minutes)).isoformat()
         record = {
             "run_id": run_id,
             "requirements_data": requirements_data,
@@ -40,6 +76,7 @@ class InMemoryHITLStorage:
             "user_id": user_id,
             "agent_model": agent_model,
             "messages": messages,
+            "created_at": _utc_now_iso(),
         }
         self._store[run_id] = record
         logger.info("[HITL] Stored pending run in memory: %s", run_id)
@@ -49,11 +86,6 @@ class InMemoryHITLStorage:
         record = self._store.get(run_id)
         if not record:
             logger.warning("[HITL] Pending run %s not found in memory", run_id)
-            return None
-        expires_at = record.get("expires_at")
-        if expires_at and expires_at <= datetime.utcnow().isoformat():
-            self._store.pop(run_id, None)
-            logger.warning("[HITL] Pending run %s expired in memory", run_id)
             return None
         requirements_data = record.get("requirements_data") or []
         requirements = deserialize_requirements(requirements_data)
@@ -74,33 +106,284 @@ class InMemoryHITLStorage:
         if not record:
             return False
         record["status"] = "submitted"
-        record["submitted_at"] = datetime.utcnow().isoformat()
+        record["submitted_at"] = _utc_now_iso()
         self._store[run_id] = record
         return True
 
     async def cleanup_expired_runs(self) -> int:
-        now_iso = datetime.utcnow().isoformat()
-        expired = [
-            k
-            for k, v in self._store.items()
-            if v.get("expires_at") and v["expires_at"] < now_iso
-        ]
-        for key in expired:
-            self._store.pop(key, None)
-        return len(expired)
+        # Expiration cleanup disabled by design:
+        # keep pending HITL runs until submit completes or conversation is removed.
+        return 0
 
 
-_memory_storage: Optional[InMemoryHITLStorage] = None
+class DbHITLStorage:
+    """Database-backed HITL storage via provider adapter (supabase/sqlite)."""
+
+    TABLE_NAME = "pending_form_runs"
+
+    def __init__(self, provider: ProviderConfig) -> None:
+        self.provider = provider
+        self.adapter = build_adapter(provider)
+        self._memory_fallback = InMemoryHITLStorage()
+        self._use_memory_fallback = False
+
+    async def save_pending_run(
+        self,
+        run_id: str,
+        requirements: List[Any],
+        conversation_id: Optional[str] = None,
+        user_id: Optional[str] = None,
+        agent_model: Optional[str] = None,
+        ttl_minutes: int = 30,
+        messages: Optional[List[Dict[str, Any]]] = None,
+    ) -> Optional[Dict[str, Any]]:
+        if self._use_memory_fallback:
+            return await self._memory_fallback.save_pending_run(
+                run_id=run_id,
+                requirements=requirements,
+                conversation_id=conversation_id,
+                user_id=user_id,
+                agent_model=agent_model,
+                ttl_minutes=ttl_minutes,
+                messages=messages,
+            )
+
+        requirements_data = serialize_requirements(requirements)
+        now = _utc_now()
+        expires_at = (now + timedelta(minutes=ttl_minutes)).replace(microsecond=0).isoformat()
+        normalized_conversation_id = conversation_id
+        normalized_user_id = user_id
+        if self.provider.type == "supabase":
+            # Supabase schema often defines these columns as UUID.
+            normalized_conversation_id = _to_uuid_or_none(conversation_id)
+            normalized_user_id = _to_uuid_or_none(user_id)
+        payload: Dict[str, Any] = {
+            "run_id": run_id,
+            "requirements_data": requirements_data,
+            "expires_at": expires_at,
+            "status": "pending",
+            "conversation_id": normalized_conversation_id,
+            "user_id": normalized_user_id,
+            "agent_model": agent_model,
+            "submitted_at": None,
+        }
+        if messages is not None:
+            payload["messages"] = messages
+
+        req = DbQueryRequest(
+            providerId=self.provider.id,
+            action="upsert",
+            table=self.TABLE_NAME,
+            values=payload,
+            onConflict=["run_id"],
+        )
+        result = self.adapter.execute(req)
+        if result.error:
+            if "messages" in payload:
+                payload.pop("messages", None)
+                req = DbQueryRequest(
+                    providerId=self.provider.id,
+                    action="upsert",
+                    table=self.TABLE_NAME,
+                    values=payload,
+                    onConflict=["run_id"],
+                )
+                result = self.adapter.execute(req)
+            if result.error:
+                if _is_missing_pending_form_table_error(result.error):
+                    self._use_memory_fallback = True
+                    logger.warning(
+                        "[HITL] Table pending_form_runs missing in provider=%s; switched to in-memory fallback",
+                        self.provider.id,
+                    )
+                    return await self._memory_fallback.save_pending_run(
+                        run_id=run_id,
+                        requirements=requirements,
+                        conversation_id=conversation_id,
+                        user_id=user_id,
+                        agent_model=agent_model,
+                        ttl_minutes=ttl_minutes,
+                        messages=messages,
+                    )
+                logger.error(
+                    "[HITL] Failed to persist pending run %s in provider=%s: %s",
+                    run_id,
+                    self.provider.id,
+                    result.error,
+                )
+                return None
+        logger.info("[HITL] Stored pending run in provider=%s: %s", self.provider.id, run_id)
+        return payload
+
+    async def get_pending_run(self, run_id: str) -> Optional[Dict[str, Any]]:
+        if self._use_memory_fallback:
+            return await self._memory_fallback.get_pending_run(run_id)
+
+        req = DbQueryRequest(
+            providerId=self.provider.id,
+            action="select",
+            table=self.TABLE_NAME,
+            filters=[DbFilter(op="eq", column="run_id", value=run_id)],
+            limit=1,
+            single=True,
+        )
+        result = self.adapter.execute(req)
+        if result.error:
+            if _is_missing_pending_form_table_error(result.error):
+                self._use_memory_fallback = True
+                logger.warning(
+                    "[HITL] Table pending_form_runs missing in provider=%s; switched to in-memory fallback",
+                    self.provider.id,
+                )
+                return await self._memory_fallback.get_pending_run(run_id)
+            logger.error(
+                "[HITL] Failed to load pending run %s from provider=%s: %s",
+                run_id,
+                self.provider.id,
+                result.error,
+            )
+            return None
+        record = result.data if isinstance(result.data, dict) else None
+        if not record:
+            logger.warning("[HITL] Pending run %s not found in provider=%s", run_id, self.provider.id)
+            return None
+
+        requirements_data = record.get("requirements_data") or []
+        requirements = deserialize_requirements(requirements_data)
+        return {
+            "requirements": requirements,
+            "messages": record.get("messages"),
+            "record": record,
+        }
+
+    async def delete_pending_run(self, run_id: str) -> bool:
+        if self._use_memory_fallback:
+            return await self._memory_fallback.delete_pending_run(run_id)
+
+        req = DbQueryRequest(
+            providerId=self.provider.id,
+            action="delete",
+            table=self.TABLE_NAME,
+            filters=[DbFilter(op="eq", column="run_id", value=run_id)],
+        )
+        result = self.adapter.execute(req)
+        if result.error:
+            if _is_missing_pending_form_table_error(result.error):
+                self._use_memory_fallback = True
+                logger.warning(
+                    "[HITL] Table pending_form_runs missing in provider=%s; switched to in-memory fallback",
+                    self.provider.id,
+                )
+                return await self._memory_fallback.delete_pending_run(run_id)
+            logger.error(
+                "[HITL] Failed to delete pending run %s in provider=%s: %s",
+                run_id,
+                self.provider.id,
+                result.error,
+            )
+            return False
+        return True
+
+    async def mark_as_submitted(self, run_id: str) -> bool:
+        if self._use_memory_fallback:
+            return await self._memory_fallback.mark_as_submitted(run_id)
+
+        req = DbQueryRequest(
+            providerId=self.provider.id,
+            action="update",
+            table=self.TABLE_NAME,
+            payload={"status": "submitted", "submitted_at": _utc_now_iso()},
+            filters=[DbFilter(op="eq", column="run_id", value=run_id)],
+        )
+        result = self.adapter.execute(req)
+        if result.error:
+            if _is_missing_pending_form_table_error(result.error):
+                self._use_memory_fallback = True
+                logger.warning(
+                    "[HITL] Table pending_form_runs missing in provider=%s; switched to in-memory fallback",
+                    self.provider.id,
+                )
+                return await self._memory_fallback.mark_as_submitted(run_id)
+            logger.error(
+                "[HITL] Failed to mark submitted run %s in provider=%s: %s",
+                run_id,
+                self.provider.id,
+                result.error,
+            )
+            return False
+        return True
+
+    async def cleanup_expired_runs(self) -> int:
+        if self._use_memory_fallback:
+            return await self._memory_fallback.cleanup_expired_runs()
+        # Expiration cleanup disabled by design:
+        # keep pending HITL runs until submit completes or conversation is removed.
+        return 0
 
 
-def get_hitl_storage() -> InMemoryHITLStorage:
+_memory_storage: InMemoryHITLStorage | None = None
+_provider_storages: dict[str, DbHITLStorage] = {}
+
+
+def _resolve_provider(provider_id_or_type: str | None) -> ProviderConfig | None:
+    registry = get_provider_registry()
+    providers = registry.list()
+    if not providers:
+        return None
+
+    if provider_id_or_type:
+        raw = str(provider_id_or_type).strip()
+        if raw:
+            by_id = registry.get(raw)
+            if by_id:
+                return by_id
+            normalized = raw.lower().replace("_", " ").strip()
+            if normalized in {"supabase", "sqlite", "sqlite local", "sqlite-local"}:
+                target = "supabase" if normalized == "supabase" else "sqlite"
+                for provider in providers:
+                    if provider.type == target:
+                        return provider
+    for provider in providers:
+        if provider.type == "supabase":
+            return provider
+    for provider in providers:
+        if provider.type == "sqlite":
+            return provider
+    return None
+
+
+def get_hitl_storage(provider_id_or_type: str | None = None) -> DbHITLStorage | InMemoryHITLStorage:
     """
-    Get the global HITL storage instance (singleton pattern).
+    Return HITL storage based on provider.
 
-    Returns:
-        InMemoryHITLStorage instance
+    Priority:
+    1) Explicit provider id
+    2) Provider type alias ("supabase"/"sqlite"/"sqlite local")
+    3) First available configured provider (supabase > sqlite)
+    4) In-memory fallback
     """
     global _memory_storage
-    if _memory_storage is None:
-        _memory_storage = InMemoryHITLStorage()
-    return _memory_storage
+
+    provider = _resolve_provider(provider_id_or_type)
+    if provider is None:
+        if _memory_storage is None:
+            _memory_storage = InMemoryHITLStorage()
+            logger.warning("[HITL] No DB provider configured; using in-memory storage")
+        return _memory_storage
+
+    storage = _provider_storages.get(provider.id)
+    if storage is None:
+        try:
+            storage = DbHITLStorage(provider)
+            _provider_storages[provider.id] = storage
+            logger.info("[HITL] Using provider-backed storage: %s (%s)", provider.id, provider.type)
+        except Exception as exc:
+            logger.error(
+                "[HITL] Failed to initialize provider storage (%s): %s; fallback to memory",
+                provider.id,
+                exc,
+            )
+            if _memory_storage is None:
+                _memory_storage = InMemoryHITLStorage()
+            return _memory_storage
+    return storage

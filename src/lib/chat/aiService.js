@@ -571,15 +571,37 @@ export const callAIAPI = async (
                 history.push({
                   id: chunk.form_id || `form-${Date.now()}`,
                   name: 'interactive_form',
+                  runId: chunk.run_id,
                   arguments: JSON.stringify({
+                    run_id: chunk.run_id,
                     id: chunk.form_id,
                     title: chunk.title,
                     fields: chunk.fields,
                   }),
                   status: 'calling', // Will be marked 'done' after submission
                   textIndex: baseIndex,
-                  output: { fields: chunk.fields, title: chunk.title },
+                  output: { run_id: chunk.run_id, id: chunk.form_id, fields: chunk.fields, title: chunk.title },
                 })
+              } else {
+                // Ensure run_id is retained for persisted history (page refresh recovery)
+                const existing = history[existingFormIndex]
+                history[existingFormIndex] = {
+                  ...existing,
+                  runId: chunk.run_id,
+                  arguments: JSON.stringify({
+                    run_id: chunk.run_id,
+                    id: chunk.form_id,
+                    title: chunk.title,
+                    fields: chunk.fields,
+                  }),
+                  output: {
+                    ...(existing?.output && typeof existing.output === 'object' ? existing.output : {}),
+                    run_id: chunk.run_id,
+                    id: chunk.form_id,
+                    title: chunk.title,
+                    fields: chunk.fields,
+                  },
+                }
               }
 
               lastMsg.toolCallHistory = history

@@ -243,5 +243,27 @@ SCHEMA_STATEMENTS: list[str] = [
       updated_at TEXT NOT NULL
     );
     """,
+    """
+    CREATE TABLE IF NOT EXISTS pending_form_runs (
+      id TEXT PRIMARY KEY,
+      run_id TEXT NOT NULL UNIQUE,
+      conversation_id TEXT,
+      requirements_data TEXT NOT NULL DEFAULT '[]',
+      user_id TEXT,
+      agent_model TEXT,
+      status TEXT NOT NULL DEFAULT 'pending',
+      submitted_at TEXT,
+      expires_at TEXT NOT NULL,
+      messages TEXT,
+      created_at TEXT NOT NULL
+    );
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_pending_form_runs_run_id
+      ON pending_form_runs(run_id);
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_pending_form_runs_expires_at
+      ON pending_form_runs(expires_at);
+    """,
 ]
-

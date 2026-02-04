@@ -43,6 +43,7 @@ JSON_COLUMNS: dict[str, set[str]] = {
     "document_chunks": {"title_path", "loc", "embedding"},
     "memory_domains": {"aliases"},
     "user_tools": {"config", "input_schema"},
+    "pending_form_runs": {"requirements_data", "messages"},
 }
 
 TABLES_WITH_ID = {
@@ -60,6 +61,7 @@ TABLES_WITH_ID = {
     "memory_domains",
     "memory_summaries",
     "user_tools",
+    "pending_form_runs",
 }
 
 TABLES_WITH_UPDATED_AT = {
@@ -94,6 +96,7 @@ TABLES_WITH_CREATED_AT = {
     "memory_domains",
     "memory_summaries",
     "user_tools",
+    "pending_form_runs",
 }
 
 
@@ -187,6 +190,31 @@ def _build_where_clause(filters: list[DbFilter] | None) -> tuple[str, list[Any]]
     if not clauses:
         return "", []
     return "WHERE " + " AND ".join(clauses), params
+
+
+def _extract_filter_values(filters: list[DbFilter] | None, column: str) -> list[str]:
+    if not filters:
+        return []
+    values: list[str] = []
+
+    def walk(f: DbFilter) -> None:
+        if f.op == "or" and f.filters:
+            for inner in f.filters:
+                walk(inner)
+            return
+        if f.column != column:
+            return
+        if f.op == "eq" and f.value is not None:
+            values.append(str(f.value))
+            return
+        if f.op == "in" and f.values:
+            for item in f.values:
+                if item is not None:
+                    values.append(str(item))
+
+    for filt in filters:
+        walk(filt)
+    return list(dict.fromkeys(values))
 
 
 @dataclass
@@ -373,9 +401,29 @@ class SQLiteAdapter:
         table = req.table
         if not table:
             return DbQueryResponse(error="Missing table")
+        pending_cleanup_all = False
+        pending_cleanup_conversation_ids: list[str] = []
+        if table == "conversations":
+            if req.filters:
+                pending_cleanup_conversation_ids = _extract_filter_values(req.filters, "id")
+            else:
+                pending_cleanup_all = True
+        elif table == "conversation_messages":
+            pending_cleanup_conversation_ids = _extract_filter_values(req.filters, "conversation_id")
+
         where_clause, params = _build_where_clause(req.filters)
         sql = f"DELETE FROM {table} {where_clause}"
         self._execute(sql, params)
+
+        # Keep pending HITL runs in sync with conversation lifecycle.
+        if pending_cleanup_all:
+            self._execute("DELETE FROM pending_form_runs", [])
+        elif pending_cleanup_conversation_ids:
+            placeholders = ", ".join(["?"] * len(pending_cleanup_conversation_ids))
+            self._execute(
+                f"DELETE FROM pending_form_runs WHERE conversation_id IN ({placeholders})",
+                pending_cleanup_conversation_ids,
+            )
         return DbQueryResponse(data=None)
 
     def _upsert(self, req: DbQueryRequest) -> DbQueryResponse:
@@ -689,6 +737,16 @@ class SupabaseAdapter:
         return DbQueryResponse(data=data)
 
     def _delete(self, req: DbQueryRequest) -> DbQueryResponse:
+        pending_cleanup_all = False
+        pending_cleanup_conversation_ids: list[str] = []
+        if req.table == "conversations":
+            if req.filters:
+                pending_cleanup_conversation_ids = _extract_filter_values(req.filters, "id")
+            else:
+                pending_cleanup_all = True
+        elif req.table == "conversation_messages":
+            pending_cleanup_conversation_ids = _extract_filter_values(req.filters, "conversation_id")
+
         query = self._table(req.table)
         query = query.delete()
         query = self._apply_filters(query, req.filters)
@@ -696,6 +754,14 @@ class SupabaseAdapter:
         error = getattr(result, "error", None)
         if error:
             return DbQueryResponse(error=str(error))
+
+        # Keep pending HITL runs in sync with conversation lifecycle.
+        if pending_cleanup_all:
+            self._table("pending_form_runs").delete().execute()
+        elif pending_cleanup_conversation_ids:
+            self._table("pending_form_runs").delete().in_(
+                "conversation_id", pending_cleanup_conversation_ids
+            ).execute()
         return DbQueryResponse(data=getattr(result, "data", None))
 
     def _upsert(self, req: DbQueryRequest) -> DbQueryResponse:

@@ -208,8 +208,8 @@ class StreamChatService:
 
                         # Save to Supabase
                         try:
-                            hitl_storage = get_hitl_storage()
-                            await hitl_storage.save_pending_run(
+                            hitl_storage = get_hitl_storage(request.database_provider)
+                            saved = await hitl_storage.save_pending_run(
                                 run_id=run_event.run_id,
                                 requirements=form_requirements,
                                 conversation_id=request.conversation_id,
@@ -217,6 +217,8 @@ class StreamChatService:
                                 agent_model=request.model,
                                 messages=messages,
                             )
+                            if not saved:
+                                raise RuntimeError("Failed to persist HITL pending run")
                             
                             # Extract form fields for frontend
                             for req in form_requirements:
@@ -414,7 +416,7 @@ class StreamChatService:
             logger.info(f"Continuing HITL run {run_id} with field_values: {list(field_values.keys())}")
             
             # Retrieve requirements from Supabase
-            hitl_storage = get_hitl_storage()
+            hitl_storage = get_hitl_storage(request.database_provider)
             pending = await hitl_storage.get_pending_run(run_id)
 
             requirements = None
@@ -492,8 +494,8 @@ class StreamChatService:
                             
                             if form_requirements:
                                 # Save new form requirements (overwrites previous in memory)
-                                hitl_storage_multi = get_hitl_storage()
-                                await hitl_storage_multi.save_pending_run(
+                                hitl_storage_multi = get_hitl_storage(request.database_provider)
+                                saved = await hitl_storage_multi.save_pending_run(
                                     run_id=run_id,
                                     requirements=form_requirements,
                                     conversation_id=request.conversation_id,
@@ -501,6 +503,8 @@ class StreamChatService:
                                     agent_model=request.model,
                                     messages=saved_messages,  # Reuse saved messages
                                 )
+                                if not saved:
+                                    raise RuntimeError("Failed to persist chained HITL pending run")
                                 
                                 # Extract form fields and notify frontend
                                 for req in form_requirements:

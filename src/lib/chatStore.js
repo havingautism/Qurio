@@ -147,14 +147,49 @@ const useChatStore = create((set, get) => ({
     const { conversationId, messages } = get()
     if (!conversationId) return
 
+    const extractRunIdFromToolHistory = msg => {
+      if (!Array.isArray(msg?.toolCallHistory)) return null
+      for (let i = msg.toolCallHistory.length - 1; i >= 0; i--) {
+        const tool = msg.toolCallHistory[i]
+        if (tool?.name !== 'interactive_form') continue
+        if (tool?.status === 'done') continue
+        if (tool?.runId) return tool.runId
+        try {
+          const args =
+            typeof tool.arguments === 'string' ? JSON.parse(tool.arguments || '{}') : tool.arguments
+          if (args?.run_id || args?.runId) return args.run_id || args.runId
+        } catch {}
+        const output = tool?.output
+        if (output && typeof output === 'object' && (output.run_id || output.runId)) {
+          return output.run_id || output.runId
+        }
+      }
+      return null
+    }
+
     // Get the last AI message that contains HITL metadata
     const lastAiMsg = messages[messages.length - 1]
-    if (!lastAiMsg || lastAiMsg.role !== 'ai' || !lastAiMsg.hitlRunId) {
+    if (!lastAiMsg || lastAiMsg.role !== 'ai') {
       console.error('No HITL run_id found in last AI message')
       return
     }
 
-    const runId = lastAiMsg.hitlRunId
+    const runId = lastAiMsg.hitlRunId || extractRunIdFromToolHistory(lastAiMsg)
+    if (!runId) {
+      set(state => {
+        const updated = [...state.messages]
+        const lastMsgIndex = updated.length - 1
+        if (lastMsgIndex >= 0 && updated[lastMsgIndex].role === 'ai') {
+          updated[lastMsgIndex] = {
+            ...updated[lastMsgIndex],
+            isError: true,
+            content: `${updated[lastMsgIndex].content || ''}\n\n**Error:** Form session expired. Please ask again to regenerate the form.`,
+          }
+        }
+        return { messages: updated, isLoading: false }
+      })
+      return
+    }
 
     // 1. Mark the form tool as done to transition the UI badge to "Submitted"
     set(state => {

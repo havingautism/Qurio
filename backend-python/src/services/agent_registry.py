@@ -492,15 +492,15 @@ def build_agent(request: Any = None, **kwargs: Any) -> Agent:
         name=f"Qurio {request.provider} Agent",
         model=model,
         tools=tools or None,
-        add_history_to_context=True,  # Enable history loading
-        num_history_runs=2,  # Load last 2 conversation turns (Lowered for testing)
-        enable_session_summaries=bool(db),  # Enable if DB available
-        add_session_summary_to_context=bool(db),  # Auto-inject summary
-        session_summary_manager=session_summary_manager,
+        # add_history_to_context=True,  # Enable history loading
+        # num_history_runs=2,  # Load last 2 conversation turns (Lowered for testing)
+        # enable_session_summaries=bool(db),  # Enable if DB available
+        # add_session_summary_to_context=bool(db),  # Auto-inject summary
+        # session_summary_manager=session_summary_manager,
         markdown=True,
         tool_choice=tool_choice,
-        db=db,
-        instructions=instructions,
+        # db=db,
+        # instructions=instructions,
         # **memory_kwargs,
     )
 

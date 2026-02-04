@@ -76,6 +76,7 @@ class BackendQueryBuilder {
     this.rangeValue = null
     this.count = null
     this.singleValue = false
+    this.maybeSingleValue = false
     this.values = null
     this.payload = null
     this.onConflict = null
@@ -161,6 +162,14 @@ class BackendQueryBuilder {
 
   single() {
     this.singleValue = true
+    this.maybeSingleValue = false
+    return this
+  }
+
+  // Compatibility with supabase-js v2 API usage in service modules.
+  maybeSingle() {
+    this.singleValue = true
+    this.maybeSingleValue = true
     return this
   }
 
@@ -185,9 +194,14 @@ class BackendQueryBuilder {
         range: this.rangeValue,
         count: this.count,
         single: this.singleValue,
+        maybeSingle: this.maybeSingleValue,
         values: this.values,
         payload: this.payload,
-        onConflict: this.onConflict,
+        onConflict: Array.isArray(this.onConflict)
+          ? this.onConflict
+          : this.onConflict
+            ? [String(this.onConflict)]
+            : null,
       }),
     })
     const payload = await response.json().catch(() => ({}))
@@ -195,6 +209,20 @@ class BackendQueryBuilder {
       window.dispatchEvent(new Event('db-auth-failed'))
     }
     if (!response.ok || payload.error) {
+      const normalizedError =
+        typeof payload.error === 'string'
+          ? payload.error
+          : payload.error
+            ? JSON.stringify(payload.error)
+            : ''
+      if (
+        this.maybeSingleValue &&
+        (normalizedError.includes('PGRST116') ||
+          normalizedError.includes('Cannot coerce the result to a single JSON object') ||
+          normalizedError.includes('The result contains 0 rows'))
+      ) {
+        return { data: null, error: null, count: payload.count }
+      }
       return { data: payload.data || null, error: new Error(payload.error || 'Database error') }
     }
     return { data: payload.data ?? null, error: null, count: payload.count }

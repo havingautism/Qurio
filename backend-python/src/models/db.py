@@ -60,9 +60,10 @@ class DbQueryRequest(BaseModel):
     range: DbRange | None = None
     count: Literal["exact"] | None = None
     single: bool | None = None
+    maybe_single: bool | None = Field(default=None, alias="maybeSingle")
     values: list[dict[str, Any]] | dict[str, Any] | None = None
     payload: dict[str, Any] | None = None
-    on_conflict: list[str] | None = Field(default=None, alias="onConflict")
+    on_conflict: list[str] | str | None = Field(default=None, alias="onConflict")
     rpc: DbRpc | None = None
 
 
@@ -70,4 +71,3 @@ class DbQueryResponse(BaseModel):
     data: Any | None = None
     error: str | None = None
     count: int | None = None
-

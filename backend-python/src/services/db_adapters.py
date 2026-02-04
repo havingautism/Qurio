@@ -302,7 +302,7 @@ class SQLiteAdapter:
             count_sql = f"SELECT COUNT(*) as count FROM {table} {where_clause}"
             count_row = self._fetchone(count_sql, params)
             count = int(count_row["count"]) if count_row else 0
-        if req.single:
+        if req.single or req.maybe_single:
             data = data[0] if data else None
         return DbQueryResponse(data=data, count=count)
 
@@ -343,7 +343,8 @@ class SQLiteAdapter:
                         )
             self._conn.commit()
 
-        if req.columns or req.single:
+        single_mode = bool(req.single or req.maybe_single)
+        if req.columns or single_mode:
             ids = [row.get("id") for row in prepared if row.get("id")]
             data = None
             if ids:
@@ -354,12 +355,12 @@ class SQLiteAdapter:
                     table=table,
                     columns=req.columns,
                     filters=filters,
-                    single=req.single,
+                    single=single_mode,
                 )
                 return self._select(select_req)
-            data = prepared[0] if req.single else prepared
+            data = prepared[0] if single_mode else prepared
             return DbQueryResponse(data=data)
-        return DbQueryResponse(data=prepared[0] if req.single else prepared)
+        return DbQueryResponse(data=prepared[0] if single_mode else prepared)
 
     def _update(self, req: DbQueryRequest) -> DbQueryResponse:
         table = req.table
@@ -385,14 +386,14 @@ class SQLiteAdapter:
                     [now, conv_id],
                 )
 
-        if req.columns or req.single:
+        if req.columns or req.single or req.maybe_single:
             select_req = DbQueryRequest(
                 providerId=req.provider_id,
                 action="select",
                 table=table,
                 columns=req.columns,
                 filters=req.filters,
-                single=req.single,
+                single=bool(req.single or req.maybe_single),
             )
             return self._select(select_req)
         return DbQueryResponse(data=None)
@@ -448,7 +449,12 @@ class SQLiteAdapter:
 
         columns = sorted({key for row in prepared for key in row.keys()})
         placeholders = ", ".join(["?"] * len(columns))
-        on_conflict = req.on_conflict or ["id"]
+        on_conflict_raw = req.on_conflict or ["id"]
+        on_conflict = (
+            [str(item).strip() for item in on_conflict_raw if str(item).strip()]
+            if isinstance(on_conflict_raw, list)
+            else [part.strip() for part in str(on_conflict_raw).split(",") if part.strip()]
+        )
         update_cols = [col for col in columns if col not in on_conflict]
         update_clause = ", ".join([f"{col}=excluded.{col}" for col in update_cols])
         sql = (
@@ -462,7 +468,8 @@ class SQLiteAdapter:
                 cursor.execute(sql, params)
             self._conn.commit()
 
-        if req.columns or req.single:
+        single_mode = bool(req.single or req.maybe_single)
+        if req.columns or single_mode:
             ids = [row.get("id") for row in prepared if row.get("id")]
             filters = [DbFilter(op="in", column="id", values=ids)] if ids else None
             select_req = DbQueryRequest(
@@ -471,10 +478,10 @@ class SQLiteAdapter:
                 table=table,
                 columns=req.columns,
                 filters=filters,
-                single=req.single,
+                single=single_mode,
             )
             return self._select(select_req)
-        return DbQueryResponse(data=prepared[0] if req.single else prepared)
+        return DbQueryResponse(data=prepared[0] if single_mode else prepared)
 
     def _rpc(self, req: DbQueryRequest) -> DbQueryResponse:
         if not req.rpc:
@@ -697,12 +704,27 @@ class SupabaseAdapter:
             query = query.range(req.range.from_, req.range.to)
         elif req.limit:
             query = query.limit(req.limit)
-        if req.single and hasattr(query, "single"):
+        if req.maybe_single:
+            if hasattr(query, "maybe_single"):
+                query = query.maybe_single()
+            elif hasattr(query, "maybeSingle"):
+                query = query.maybeSingle()
+            elif hasattr(query, "single"):
+                query = query.single()
+        elif req.single and hasattr(query, "single"):
             query = query.single()
         result = query.execute()
         data = getattr(result, "data", None)
         count = getattr(result, "count", None)
         error = getattr(result, "error", None)
+        if error and req.maybe_single:
+            error_text = str(error)
+            if (
+                "PGRST116" in error_text
+                or "Cannot coerce the result to a single JSON object" in error_text
+                or "The result contains 0 rows" in error_text
+            ):
+                return DbQueryResponse(data=None, count=count)
         if error:
             return DbQueryResponse(error=str(error))
         return DbQueryResponse(data=data, count=count)
@@ -718,7 +740,7 @@ class SupabaseAdapter:
         if error:
             return DbQueryResponse(error=str(error))
         data = getattr(result, "data", None)
-        if req.single and isinstance(data, list):
+        if (req.single or req.maybe_single) and isinstance(data, list):
             data = data[0] if data else None
         return DbQueryResponse(data=data)
 
@@ -732,7 +754,7 @@ class SupabaseAdapter:
         if error:
             return DbQueryResponse(error=str(error))
         data = getattr(result, "data", None)
-        if req.single and isinstance(data, list):
+        if (req.single or req.maybe_single) and isinstance(data, list):
             data = data[0] if data else None
         return DbQueryResponse(data=data)
 
@@ -769,13 +791,16 @@ class SupabaseAdapter:
         values = req.values if req.values is not None else req.payload
         if values is None:
             return DbQueryResponse(error="Missing values")
-        query = query.upsert(values, on_conflict=req.on_conflict)
+        on_conflict = req.on_conflict
+        if isinstance(on_conflict, list):
+            on_conflict = ",".join([str(item).strip() for item in on_conflict if str(item).strip()])
+        query = query.upsert(values, on_conflict=on_conflict)
         result = query.execute()
         error = getattr(result, "error", None)
         if error:
             return DbQueryResponse(error=str(error))
         data = getattr(result, "data", None)
-        if req.single and isinstance(data, list):
+        if (req.single or req.maybe_single) and isinstance(data, list):
             data = data[0] if data else None
         return DbQueryResponse(data=data)
 

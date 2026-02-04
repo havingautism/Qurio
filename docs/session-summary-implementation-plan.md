@@ -47,3 +47,28 @@ MEMORY_LITE_BASE_URL=https://open.bigmodel.cn/api/paas/v4
 1. 发起多轮对话（超过 `num_history_runs` 设置的轮数）。
 2. 询问 AI：“我第一轮问了什么？”。
 3. 如果 AI 能准确回答，且数据库 `agno_sessions` 表中的 `session_data` 字段有更新 summary，即验证成功。
+
+## 🔮 未来优化方向 (Future Optimizations)
+
+### 1. 摘要质量调优 (Prompt Engineering)
+当前的摘要逻辑追求“短小精悍”。若需要保存更多对话细节（如代码片段、具体数值），可以通过 `session_summary_prompt` 定制指令：
+```python
+# 示例：要求更详尽的摘要
+session_summary_manager = SessionSummaryManager(
+    model=summary_model,
+    session_summary_prompt="""
+    Analyze the conversation and generate a DETAILED summary.
+    - Preserve key technical decisions and code snippets concepts.
+    - Track user preferences specifically.
+    - Maintain a timeline of key events.
+    """
+)
+```
+
+### 2. 前端动态控制 (Frontend Integration)
+*   **上下文长度**：开放 `context_message_limit` 设置，允许用户在前端滑动调整（对应后端 `num_history_runs`）。
+*   **摘要模型选择**：允许用户在前端设置中切换不同的摘要模型（如 GLM-4-Flash vs GPT-4o-mini），以平衡成本与质量。
+
+### 3. 混合检索增强 (Hybrid Search)
+*   未来可以将生成的 Summary 进行向量化 (Embeddings)。
+*   在超长对话中，除了注入最新的 Summary，还可以检索历史 Summary，实现跨越数千轮对话的记忆召回。

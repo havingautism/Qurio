@@ -452,7 +452,8 @@
         "domain": "领域 / 范围",
         "aliases": "别名",
         "summary": "记忆摘要",
-        "scope": "作用域"
+        "scope": "作用域",
+        "emptyHint": "没有长期记忆。"
       },
       "actions": {
         "edit": "编辑",

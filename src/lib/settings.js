@@ -130,8 +130,35 @@ export const buildResponseStylePromptFromAgent = agent => {
 // In-memory cache for sensitive settings (API keys) fetched from Supabase
 let memorySettings = {}
 
+const MEMORY_SETTINGS_KEYS = [
+  'OpenAICompatibilityKey',
+  'OpenAICompatibilityUrl',
+  'SiliconFlowKey',
+  'GlmKey',
+  'ModelScopeKey',
+  'KimiKey',
+  'googleApiKey',
+  'tavilyApiKey',
+  'NvidiaKey',
+  'MinimaxKey',
+  'searchProvider',
+  'backendUrl',
+  'embeddingProvider',
+  'embeddingModel',
+  'embeddingModelSource',
+  'enableLongTermMemory',
+  'userSelfIntro',
+]
+
 export const updateMemorySettings = settings => {
-  Object.assign(memorySettings, settings)
+  const source = settings && typeof settings === 'object' ? settings : {}
+  MEMORY_SETTINGS_KEYS.forEach(key => {
+    if (Object.prototype.hasOwnProperty.call(source, key)) {
+      memorySettings[key] = source[key]
+    } else {
+      delete memorySettings[key]
+    }
+  })
 }
 
 export const loadSettings = (overrides = {}) => {
@@ -171,7 +198,6 @@ export const loadSettings = (overrides = {}) => {
   const localEmbeddingProvider = localStorage.getItem('embeddingProvider')
   const localEmbeddingModel = localStorage.getItem('embeddingModel')
   const localEmbeddingModelSource = localStorage.getItem('embeddingModelSource')
-  const localUserSelfIntro = localStorage.getItem('userSelfIntro')
   const localDeveloperMode = localStorage.getItem('developerMode')
   const localDbAccessKey = localStorage.getItem('dbAccessKey')
 
@@ -275,7 +301,7 @@ export const loadSettings = (overrides = {}) => {
     embeddingProvider: localEmbeddingProvider || overrides.embeddingProvider || '',
     embeddingModel: localEmbeddingModel || overrides.embeddingModel || '',
     embeddingModelSource: localEmbeddingModelSource || overrides.embeddingModelSource || 'list',
-    userSelfIntro: localUserSelfIntro || overrides.userSelfIntro || '',
+    userSelfIntro: overrides.userSelfIntro || '',
     developerMode:
       localDeveloperMode !== null
         ? localDeveloperMode === 'true'
@@ -324,6 +350,9 @@ export const loadSettings = (overrides = {}) => {
   if (!mergedSettings.NvidiaKey) mergedSettings.NvidiaKey = ''
   if (!mergedSettings.MinimaxKey)
     mergedSettings.MinimaxKey = getPublicEnv('PUBLIC_MINIMAX_API_KEY') || ''
+  if (typeof mergedSettings.enableLongTermMemory === 'string') {
+    mergedSettings.enableLongTermMemory = mergedSettings.enableLongTermMemory === 'true'
+  }
 
   return {
     ...mergedSettings,
@@ -445,9 +474,7 @@ export const saveSettings = async settings => {
   if (settings.embeddingModelSource !== undefined) {
     localStorage.setItem('embeddingModelSource', settings.embeddingModelSource)
   }
-  if (settings.userSelfIntro !== undefined) {
-    localStorage.setItem('userSelfIntro', settings.userSelfIntro)
-  }
+  localStorage.removeItem('userSelfIntro')
   if (settings.developerMode !== undefined) {
     localStorage.setItem('developerMode', String(!!settings.developerMode))
   }

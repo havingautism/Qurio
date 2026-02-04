@@ -523,6 +523,12 @@ export const saveRemoteSettings = async settings => {
   const supabase = getSupabaseClient()
   if (!supabase) return { error: new Error('Supabase not configured') }
 
+  const normalizeSettingValue = value => {
+    if (value === undefined || value === null) return ''
+    if (typeof value === 'boolean') return value ? 'true' : 'false'
+    return String(value)
+  }
+
   // Prepare upsert payload
   // Only save keys that we want to persist remotely (API keys, etc.)
   const KEYS_TO_SYNC = [
@@ -551,12 +557,13 @@ export const saveRemoteSettings = async settings => {
 
   const updates = KEYS_TO_SYNC.filter(key => settings[key] !== undefined).map(key => ({
     key,
-    value: settings[key] || '',
+    value: normalizeSettingValue(settings[key]),
     updated_at: new Date().toISOString(),
   }))
 
   if (updates.length > 0) {
-    const { error } = await supabase.from('user_settings').upsert(updates)
+    // user_settings primary key is "key" (no "id"), so SQLite adapter needs explicit conflict column.
+    const { error } = await supabase.from('user_settings').upsert(updates, { onConflict: 'key' })
     return { error }
   }
 

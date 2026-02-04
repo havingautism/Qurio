@@ -468,7 +468,8 @@
         "domain": "Domain / Scope",
         "aliases": "Aliases",
         "summary": "Memory Summary",
-        "scope": "Scope"
+        "scope": "Scope",
+        "emptyHint": "No memories yet"
       },
       "actions": {
         "edit": "Edit",

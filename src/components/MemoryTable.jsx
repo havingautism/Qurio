@@ -285,7 +285,7 @@ const MemoryTable = () => {
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-gray-400 dark:bg-zinc-800">
                     <Database size={20} />
                   </div>
-                  <p className="font-medium text-gray-900 dark:text-gray-200">No memories yet</p>
+                  {/* <p className="font-medium text-gray-900 dark:text-gray-200">No memories yet</p> */}
                   <p className="max-w-xs text-xs text-gray-400">
                     {t('settings.memory.table.emptyHint') ||
                       'Long-term memories will be automatically created as you chat with the agent.'}

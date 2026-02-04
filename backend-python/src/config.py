@@ -63,6 +63,13 @@ class Settings(BaseSettings):
     database_providers_json: str = Field(default="", alias="DATABASE_PROVIDERS")
     db_access_key: str = Field(default="", alias="DB_PROVIDER_ACCESS_KEY")
 
+    # Session Summary / Memory Lite Model Configuration
+    memory_lite_provider: str = Field(default="openai", alias="MEMORY_LITE_PROVIDER")
+    memory_lite_model: str = Field(default="gpt-4o-mini", alias="MEMORY_LITE_MODEL")
+    memory_agent_api_key: str = Field(default="", alias="MEMORY_AGENT_API_KEY")
+    memory_lite_base_url: str | None = Field(default=None, alias="MEMORY_LITE_BASE_URL")
+
+
     # Model configuration
     @property
     def allowed_origins(self) -> list[str]:

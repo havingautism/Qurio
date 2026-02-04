@@ -14,6 +14,7 @@ from agno.db.postgres import PostgresDb
 from agno.memory import MemoryManager
 from agno.models.google import Gemini
 from agno.models.openai import OpenAILike
+from agno.session.summary import SessionSummaryManager
 from agno.utils.log import logger
 
 from ..config import get_settings
@@ -45,18 +46,25 @@ DEFAULT_BASE_URLS: Dict[str, str] = {
     "minimax": os.getenv("MINIMAX_BASE_URL", "https://api.minimax.io/v1"),
 }
 
-MEMORY_LITE_PROVIDER = os.getenv("MEMORY_LITE_PROVIDER", "openai")
-MEMORY_LITE_MODEL = os.getenv("MEMORY_LITE_MODEL", "lite-gpt")
-MEMORY_LITE_BASE_URL = os.getenv("MEMORY_LITE_BASE_URL", DEFAULT_BASE_URLS.get(MEMORY_LITE_PROVIDER, DEFAULT_BASE_URLS["openai"]))
-MEMORY_AGENT_API_KEY = os.getenv("MEMORY_AGENT_API_KEY") or os.getenv("OPENAI_API_KEY")
+# These will be initialized within functions using get_settings() to ensure .env is loaded
+# MEMORY_LITE_PROVIDER = ...
+# MEMORY_LITE_MODEL = ...
+# MEMORY_LITE_BASE_URL = ...
+# MEMORY_AGENT_API_KEY = ...
 
 
-
-
+# Global database instance to avoid multiple table definitions in SQLAlchemy
 _agent_db: PostgresDb | None = None
 
 
 def _get_supabase_db() -> PostgresDb | None:
+    """
+    Get or create the PostgresDb instance as a singleton.
+    
+    IMPORTANT: We MUST NOT clear _agent_db if it fails later, because Agno's 
+    PostgresDb might have already registered the 'ai.agno_sessions' table 
+    in a global MetaData. Re-creating the object would cause a 'Table already defined' error.
+    """
     global _agent_db
     if _agent_db is not None:
         return _agent_db
@@ -66,17 +74,25 @@ def _get_supabase_db() -> PostgresDb | None:
         return None
 
     try:
-        # password = quote_plus(settings.supabase_password)
-        # # Using the exact format from Agno documentation
-        # db_url = f"postgresql://postgres:{password}@db.{settings.supabase_project_name}.supabase.co:5432/postgres"
+        password = quote_plus(settings.supabase_password)
+        # Using Supabase Pooler for better connection stability
+        # Format: postgresql://postgres.{project_name}:{password}@aws-1-ap-south-1.pooler.supabase.com:6543/postgres
+        db_url = f"postgresql://postgres.{settings.supabase_project_name}:{password}@aws-1-ap-south-1.pooler.supabase.com:6543/postgres"
         
-        # logger.info(f"Connecting to Supabase project: {settings.supabase_project_name}")
-        # _agent_db = PostgresDb(db_url=db_url)
-        # return _agent_db
-        return None
+        logger.info(f"Connecting to Supabase via Pooler: {settings.supabase_project_name}")
+        _agent_db = PostgresDb(
+            db_url=db_url,
+            session_table="agno_sessions",
+        )
+        return _agent_db
     except Exception as exc:
         logger.error(f"Failed to connect to Supabase: {exc}")
+        # Note: We don't set _agent_db = None here if the failure happened 
+        # AFTER the Table definition part of __init__. 
+        # But for the first attempt, it's safer to just return None.
         return None
+
+
 
 
 def init_memory_db() -> PostgresDb | None:
@@ -373,6 +389,47 @@ def _build_agno_toolkits(request: Any, include_agno: list[str]) -> list[Any]:
     return toolkits
 
 
+def get_summary_model(request: Any) -> Any | None:
+    """
+    Get the lite model for session summary generation from environment variables.
+    
+    This is a simplified implementation that uses global configuration.
+    Future enhancement: Support per-agent lite_model from database.
+    
+    Returns:
+        Agno model instance for summary generation, or None if unavailable
+    """
+    settings = get_settings()
+    try:
+        lite_provider = settings.memory_lite_provider
+        lite_model = settings.memory_lite_model
+        lite_api_key = settings.memory_agent_api_key
+        lite_base_url = settings.memory_lite_base_url
+        
+        if not lite_model or not lite_api_key:
+            logger.warning("MEMORY_LITE_MODEL or MEMORY_AGENT_API_KEY not configured in .env")
+            return None
+            
+        logger.info(f"Using global lite model for session summary: {lite_provider}/{lite_model}")
+        
+        # If no base_url provided, use the default for the provider
+        resolved_base = lite_base_url or DEFAULT_BASE_URLS.get(lite_provider) or DEFAULT_BASE_URLS["openai"]
+        
+        summary_model = _build_model(lite_provider, lite_api_key, resolved_base, lite_model)
+        
+        # Disable native structured outputs for summary model to ensure robust parsing with non-OpenAI providers (like GLM)
+        # This only affects this specific summary_model instance.
+        if hasattr(summary_model, "supports_native_structured_outputs"):
+            summary_model.supports_native_structured_outputs = False
+            
+        return summary_model
+
+    except Exception as exc:
+        logger.warning(f"Failed to build lite_model for session summary: {exc}")
+        return None
+
+
+
 def build_agent(request: Any = None, **kwargs: Any) -> Agent:
     # Backward-compatible shim for legacy build_agent(provider=..., api_key=...) calls.
     if request is None or kwargs:
@@ -403,9 +460,7 @@ def build_agent(request: Any = None, **kwargs: Any) -> Agent:
     if tool_choice is None and tools:
         tool_choice = "auto"
 
-    db = _get_supabase_db()
-    
-    # Conditional instructions: Multi-form guidance
+    # 1. Conditional instructions: Multi-form guidance
     enabled_names = set(_collect_enabled_tool_names(request))
     instructions = None
     if "interactive_form" in enabled_names:
@@ -417,18 +472,38 @@ def build_agent(request: Any = None, **kwargs: Any) -> Agent:
             "However, limit to 2-3 forms maximum per conversation to respect user time."
         )
 
+    # 2. Only use database if we have a valid conversation_id. 
+    # This prevents auxiliary tasks (titles, questions) from creating random sessions.
+    settings = get_settings()
+    use_db = bool(settings.supabase_password and request and getattr(request, "conversation_id", None))
+    db = _get_supabase_db() if use_db else None
+    
+    # 3. Configure Session Summary (Only if DB available)
+    session_summary_manager = None
+    if db:
+        summary_model = get_summary_model(request)
+        if summary_model:
+            session_summary_manager = SessionSummaryManager(model=summary_model)
+            logger.info(f"Session summary enabled for session: {request.conversation_id}")
+
+
     return Agent(
         id=f"qurio-{request.provider}",
         name=f"Qurio {request.provider} Agent",
         model=model,
         tools=tools or None,
-        add_history_to_context=False,
+        add_history_to_context=True,  # Enable history loading
+        num_history_runs=2,  # Load last 2 conversation turns (Lowered for testing)
+        enable_session_summaries=bool(db),  # Enable if DB available
+        add_session_summary_to_context=bool(db),  # Auto-inject summary
+        session_summary_manager=session_summary_manager,
         markdown=True,
         tool_choice=tool_choice,
         db=db,
         instructions=instructions,
         # **memory_kwargs,
     )
+
 
 
 def build_memory_agent(

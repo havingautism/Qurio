@@ -130,11 +130,10 @@ class StreamChatService:
                         full_thought += part
                         yield ThoughtEvent(content=part).model_dump()
 
-            messages = self._apply_context_limit(
-                request.messages,
-                request.context_message_limit,
-            )
+            # Context management now handled by Agno's num_history_runs parameter
+            messages = request.messages
             pre_events: list[dict[str, Any]] = []
+
             messages = self._inject_local_time_context(messages, request, pre_events)
             enabled_tool_names = self._collect_enabled_tool_names(request)
             messages = self._inject_tool_guidance(messages, enabled_tool_names)
@@ -142,8 +141,31 @@ class StreamChatService:
             for event in pre_events:
                 yield event
 
+            logger.info(f"DEBUG: Processing chat for session_id: {request.conversation_id}")
+
+
+            # If agent has a database/storage, Agno will load history automatically.
+            # To avoid duplicates, we only pass the LATEST message if DB is active.
+            # Otherwise (no DB), we pass the full context for manual management.
+            # Correct logic: Preserve System Messages (Time, Tools) + LATEST User Message
+            # This prevents history duplication while keeping instructions intact.
+            agent_input = messages
+            if agent.db and len(messages) > 0:
+                system_msgs = [m for m in messages if m.get("role") == "system"]
+                # We assume the last message is the new user input.
+                # If the last message is system (unlikely in chat), we just take it.
+                last_msg = messages[-1]
+                
+                # Avoid adding the last msg if it's already in system_msgs to prevent dupes
+                if last_msg in system_msgs:
+                    agent_input = system_msgs
+                else:
+                    agent_input = system_msgs + [last_msg]
+                
+                logger.debug(f"Database active: constructing input with {len(system_msgs)} system msgs + last message.")
+
             stream = agent.arun(
-                input=messages,
+                input=agent_input,
                 stream=True,
                 stream_events=True,
                 user_id=request.user_id,
@@ -668,17 +690,7 @@ class StreamChatService:
             yield ErrorEvent(error=str(exc)).model_dump()
 
 
-    def _apply_context_limit(
-        self,
-        messages: list[dict[str, Any]],
-        limit: int | None,
-    ) -> list[dict[str, Any]]:
-        if not limit or limit <= 0 or len(messages) <= limit:
-            return messages
-        system_messages = [m for m in messages if m.get("role") == "system"]
-        non_system = [m for m in messages if m.get("role") != "system"]
-        recent = non_system[-limit:]
-        return system_messages + recent
+
 
     def _collect_enabled_tool_names(self, request: StreamChatRequest) -> set[str]:
         names: list[str] = []

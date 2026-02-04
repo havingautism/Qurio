@@ -112,6 +112,9 @@ class StreamChatRequest(BaseModel):
     # Context and Session
     conversation_id: str | None = Field(default=None, alias="conversationId", description="Unique identifier for the conversation")
 
+    model_config = {"populate_by_name": True}
+
+
     # ========================================================================
     # HITL (Human-in-the-Loop) Interactive Form Support
     # ========================================================================

@@ -10,10 +10,11 @@ from typing import Any, Dict, List
 from urllib.parse import quote_plus, urlparse
 
 from agno.agent import Agent
-from agno.db.postgres import PostgresDb
-from agno.memory import MemoryManager
+# from agno.db.postgres import PostgresDb
+# from agno.memory import MemoryManager
 from agno.models.google import Gemini
 from agno.models.openai import OpenAILike
+# from agno.session.summary import SessionSummaryManager
 from agno.utils.log import logger
 
 from ..config import get_settings
@@ -45,83 +46,17 @@ DEFAULT_BASE_URLS: Dict[str, str] = {
     "minimax": os.getenv("MINIMAX_BASE_URL", "https://api.minimax.io/v1"),
 }
 
-MEMORY_LITE_PROVIDER = os.getenv("MEMORY_LITE_PROVIDER", "openai")
-MEMORY_LITE_MODEL = os.getenv("MEMORY_LITE_MODEL", "lite-gpt")
-MEMORY_LITE_BASE_URL = os.getenv("MEMORY_LITE_BASE_URL", DEFAULT_BASE_URLS.get(MEMORY_LITE_PROVIDER, DEFAULT_BASE_URLS["openai"]))
-MEMORY_AGENT_API_KEY = os.getenv("MEMORY_AGENT_API_KEY") or os.getenv("OPENAI_API_KEY")
+# These will be initialized within functions using get_settings() to ensure .env is loaded
+# MEMORY_LITE_PROVIDER = ...
+# MEMORY_LITE_MODEL = ...
+# MEMORY_LITE_BASE_URL = ...
+# MEMORY_AGENT_API_KEY = ...
 
 
+# Global database instance to avoid multiple table definitions in SQLAlchemy
+# Global database instance to avoid multiple table definitions in SQLAlchemy
+# _agent_db was removed as we use DbAdapter pattern.
 
-
-_memory_db: PostgresDb | None = None
-_memory_db_initialized: bool = False
-
-
-def _get_supabase_memory_db() -> PostgresDb | None:
-    global _memory_db
-    global _memory_db_initialized
-    if _memory_db is not None:
-        return _memory_db
-    if _memory_db_initialized:
-        return None
-    _memory_db_initialized = True
-    if not PostgresDb:
-        return None
-
-    settings = get_settings()
-    if not settings.supabase_url or not settings.supabase_password:
-        logger.warning('Supabase credentials are missing; cannot initialize AGNO memory store.')
-        return None
-
-    parsed = urlparse(settings.supabase_url)
-    host = parsed.hostname
-    if not host:
-        logger.warning('Invalid Supabase URL provided for AGNO memory store.')
-        return None
-    db_host = host if host.startswith('db.') else f'db.{host}'
-
-    password = quote_plus(settings.supabase_password)
-    # db_url = f'postgresql://postgres:{password}@{db_host}:5432/postgres'
-    db_url = f'postgresql://postgres.{settings.supabase_project_name}:{password}@aws-1-ap-south-1.pooler.supabase.com:6543/postgres'
-    logger.info('Initializing AGNO Supabase memory store')
-    try:
-        _memory_db = PostgresDb(db_url=db_url)
-    except Exception as exc:
-        logger.warning('Failed to initialize AGNO Supabase memory store: %s', exc)
-        _memory_db = None
-    return _memory_db
-
-
-def init_memory_db() -> PostgresDb | None:
-    """Eagerly initialize the memory DB once on startup."""
-    # if os.getenv("ENABLE_LONG_TERM_MEMORY", "0") != "1":
-    #     return None
-    # return _get_supabase_memory_db()
-    return None
-
-
-def _build_memory_kwargs(request: Any) -> dict[str, Any]:
-    # if not getattr(request, 'enable_long_term_memory', False):
-    #     return {}
-    # provider = (getattr(request, 'database_provider', None) or 'supabase').lower()
-    # if provider != 'supabase':
-    #     logger.warning('Memory requested for unsupported provider "%s"', provider)
-    #     return {}
-    # db = _get_supabase_memory_db()
-    # logger.info('AGNO Supabase memory store is available')
-    # if not db:
-    #     logger.warning('Memory requested but Supabase memory store is unavailable.')
-    #     return {}
-    # memory_manager = _build_memory_manager(request)
-    # if not memory_manager:
-    #     return {}
-    # return {
-    #     'db': db,
-    #     'memory_manager': memory_manager,
-    #     # 'enable_agentic_memory': True,
-    #     'update_memory_on_run': True,
-    # }
-    return {}
 
 
 def _build_model(provider: str, api_key: str | None, base_url: str | None, model: str | None):
@@ -134,23 +69,6 @@ def _build_model(provider: str, api_key: str | None, base_url: str | None, model
 
     return OpenAILike(id=model_id, api_key=api_key, base_url=resolved_base)
 
-
-def _build_memory_manager(request: Any) -> MemoryManager | None:
-    if not getattr(request, "enable_long_term_memory", False):
-        return None
-
-    provider = getattr(request, "memory_provider", None) or getattr(request, "provider", None) or "openai"
-    model = getattr(request, "memory_model", None) or getattr(request, "model", None)
-    api_key = getattr(request, "memory_api_key", None) or getattr(request, "api_key", None)
-    base_url = getattr(request, "memory_base_url", None) or getattr(request, "base_url", None)
-
-    db = _get_supabase_memory_db()
-    if not db:
-        logger.warning("Memory requested but Supabase memory store is unavailable.")
-        return None
-
-    memory_model = _build_model(provider, api_key, base_url, model)
-    return MemoryManager(model=memory_model, db=db)
 
 
 def _merge_model_dict_attr(model: Any, attr: str, payload: dict[str, Any]) -> None:
@@ -386,6 +304,47 @@ def _build_agno_toolkits(request: Any, include_agno: list[str]) -> list[Any]:
     return toolkits
 
 
+def get_summary_model(request: Any) -> Any | None:
+    """
+    Get the lite model for session summary generation from environment variables.
+    
+    This is a simplified implementation that uses global configuration.
+    Future enhancement: Support per-agent lite_model from database.
+    
+    Returns:
+        Agno model instance for summary generation, or None if unavailable
+    """
+    settings = get_settings()
+    try:
+        lite_provider = settings.memory_lite_provider
+        lite_model = settings.memory_lite_model
+        lite_api_key = settings.memory_agent_api_key
+        lite_base_url = settings.memory_lite_base_url
+        
+        if not lite_model or not lite_api_key:
+            logger.warning("MEMORY_LITE_MODEL or MEMORY_AGENT_API_KEY not configured in .env")
+            return None
+            
+        logger.info(f"Using global lite model for session summary: {lite_provider}/{lite_model}")
+        
+        # If no base_url provided, use the default for the provider
+        resolved_base = lite_base_url or DEFAULT_BASE_URLS.get(lite_provider) or DEFAULT_BASE_URLS["openai"]
+        
+        summary_model = _build_model(lite_provider, lite_api_key, resolved_base, lite_model)
+        
+        # Disable native structured outputs for summary model to ensure robust parsing with non-OpenAI providers (like GLM)
+        # This only affects this specific summary_model instance.
+        if hasattr(summary_model, "supports_native_structured_outputs"):
+            summary_model.supports_native_structured_outputs = False
+            
+        return summary_model
+
+    except Exception as exc:
+        logger.warning(f"Failed to build lite_model for session summary: {exc}")
+        return None
+
+
+
 def build_agent(request: Any = None, **kwargs: Any) -> Agent:
     # Backward-compatible shim for legacy build_agent(provider=..., api_key=...) calls.
     if request is None or kwargs:
@@ -416,16 +375,32 @@ def build_agent(request: Any = None, **kwargs: Any) -> Agent:
     if tool_choice is None and tools:
         tool_choice = "auto"
 
+    # 1. Conditional instructions: Multi-form guidance
+    enabled_names = set(_collect_enabled_tool_names(request))
+    instructions = None
+    if "interactive_form" in enabled_names:
+        instructions = (
+            "When using the interactive_form tool to collect user information: "
+            "If the user's initial responses lack critical details needed to fulfill their request, "
+            "you MUST call interactive_form again to gather the missing specific information. "
+            "Do not proceed with incomplete information. "
+            "However, limit to 2-3 forms maximum per conversation to respect user time."
+        )
+
+    # 2. Agent Construction (Stateless / Manual Context)
+    # We do NOT inject 'db' or 'memory' here. 
+    # Session context (history + summary) is injected manually in stream_chat.py
+    
     return Agent(
         id=f"qurio-{request.provider}",
         name=f"Qurio {request.provider} Agent",
         model=model,
         tools=tools or None,
-        add_history_to_context=False,
         markdown=True,
         tool_choice=tool_choice,
-        # **memory_kwargs,
+        instructions=instructions,
     )
+
 
 
 def build_memory_agent(

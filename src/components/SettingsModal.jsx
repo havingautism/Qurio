@@ -26,6 +26,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import useScrollLock from '../hooks/useScrollLock'
 import { extractTextFromFile, normalizeExtractedText } from '../lib/documentParser'
@@ -54,6 +55,11 @@ const ENV_VARS = {
   kimiKey: getPublicEnv('PUBLIC_KIMI_API_KEY'),
   tavilyApiKey: getPublicEnv('PUBLIC_TAVILY_API_KEY'),
   backendUrl: getPublicEnv('PUBLIC_BACKEND_URL'),
+}
+
+const getBackendUrl = () => {
+  const settings = loadSettings()
+  return settings.backendUrl || 'http://localhost:3001'
 }
 
 // Minimal copy of supabase/init.sql for quick remediation in-app
@@ -347,7 +353,6 @@ const PROVIDER_KEYS = [
   'kimi',
 ]
 const TOOLS_API_PROVIDER_KEYS = ['tavily']
-const DATABASE_PROVIDER_KEYS = ['supabase']
 
 const INTERFACE_LANGUAGE_KEYS = ['en', 'zh-CN']
 const DOCUMENT_CHUNK_SIZE = 1200
@@ -497,8 +502,9 @@ const validateSettingsForSave = settings => {
   return true
 }
 
-const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
+const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
   const { t, i18n } = useTranslation()
+  const navigate = useNavigate()
   const { defaultAgent } = useAppContext()
 
   const renderEnvHint = hasEnv =>
@@ -520,9 +526,13 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
   const [searchProvider, setSearchProvider] = useState('tavily')
   const [tavilyApiKey, setTavilyApiKey] = useState('')
   const [backendUrl, setBackendUrl] = useState(ENV_VARS.backendUrl || '')
-  const [databaseProvider, setDatabaseProvider] = useState('supabase')
+  const [databaseProvider, setDatabaseProvider] = useState('')
+  const [databaseProviderId, setDatabaseProviderId] = useState('')
+  const [dbProviders, setDbProviders] = useState([])
+  const [dbAccessKey, setDbAccessKey] = useState('')
   const [supabaseUrl, setSupabaseUrl] = useState('')
   const [supabaseKey, setSupabaseKey] = useState('')
+  const initialDbConfigRef = useRef({ provider: '', providerId: '', accessKey: '' })
 
   const [backendHealthState, setBackendHealthState] = useState({
     status: 'idle',
@@ -685,22 +695,6 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
     [t],
   )
 
-  const databaseProviderOptions = useMemo(
-    () =>
-      DATABASE_PROVIDER_KEYS.map(key => ({
-        key,
-        value: key,
-        label: t(`settings.databaseProviders.${key}`),
-        icon: renderProviderIcon(key, {
-          size: 18,
-          compact: true,
-          wrapperClassName: 'bg-transparent p-0 shadow-none',
-          imgClassName: 'w-4 h-4',
-        }),
-      })),
-    [t],
-  )
-
   // Interface language options with translated labels
   const interfaceLanguageOptions = useMemo(
     () =>
@@ -719,9 +713,36 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
   // TODO: useEffect to load settings from Supabase/LocalStorage on mount
   // Load settings when modal opens
   useEffect(() => {
+    const loadProviders = async () => {
+      try {
+        const headers = {}
+        if (dbAccessKey) headers['x-db-access-key'] = dbAccessKey
+        const response = await fetch(`${getBackendUrl()}/api/db/providers`, {
+          headers,
+          cache: 'no-store',
+        })
+        const payload = await response.json().catch(() => ({}))
+        const providers = Array.isArray(payload.providers) ? payload.providers : []
+        setDbProviders(providers)
+        if (!databaseProviderId && providers.length > 0) {
+          setDatabaseProviderId(providers[0].id)
+          setDatabaseProvider(providers[0].type || '')
+        }
+      } catch (error) {
+        setDbProviders([])
+      }
+    }
+
     if (isOpen) {
       const settings = loadSettings()
       if (settings.databaseProvider) setDatabaseProvider(settings.databaseProvider)
+      if (settings.databaseProviderId) setDatabaseProviderId(settings.databaseProviderId)
+      if (settings.dbAccessKey) setDbAccessKey(settings.dbAccessKey)
+      initialDbConfigRef.current = {
+        provider: settings.databaseProvider || '',
+        providerId: settings.databaseProviderId || '',
+        accessKey: settings.dbAccessKey || '',
+      }
       if (settings.supabaseUrl) setSupabaseUrl(settings.supabaseUrl)
       if (settings.supabaseKey) setSupabaseKey(settings.supabaseKey)
       if (settings.OpenAICompatibilityKey)
@@ -789,11 +810,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
       setInterfaceLanguage(i18n.language)
 
       // Fetch Remote (Async Update)
-      if (
-        settings.databaseProvider === 'supabase' &&
-        settings.supabaseUrl &&
-        settings.supabaseKey
-      ) {
+      if (settings.databaseProviderId || settings.databaseProvider) {
         fetchRemoteSettings().then(({ data }) => {
           if (data) {
             if (data.OpenAICompatibilityKey) setOpenAICompatibilityKey(data.OpenAICompatibilityKey)
@@ -824,8 +841,23 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
           }
         })
       }
+      loadProviders()
     }
-  }, [isOpen, i18n])
+  }, [isOpen, i18n, dbAccessKey, databaseProviderId])
+
+  useEffect(() => {
+    if (!isOpen) return
+    const handleDatabaseSettingsChanged = () => {
+      const settings = loadSettings()
+      setDatabaseProvider(settings.databaseProvider || '')
+      setDatabaseProviderId(settings.databaseProviderId || '')
+      setDbAccessKey(settings.dbAccessKey || '')
+    }
+    window.addEventListener('database-settings-changed', handleDatabaseSettingsChanged)
+    return () => {
+      window.removeEventListener('database-settings-changed', handleDatabaseSettingsChanged)
+    }
+  }, [isOpen])
 
   useScrollLock(isOpen)
 
@@ -1393,12 +1425,22 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
   const handleRetestAfterInit = async () => {
     if (!isSupabaseProvider) return
     setRetestingDb(true)
-    const result = await testConnection(supabaseUrl, supabaseKey)
+    const result = await testConnection()
 
     setInitModalResult(result)
     setRetestingDb(false)
     if (result.success) {
       setIsInitModalOpen(false)
+    }
+  }
+
+  const handleTestConnection = async () => {
+    setRetestingDb(true)
+    const result = await testConnection()
+    setInitModalResult(result)
+    setRetestingDb(false)
+    if (!result?.success) {
+      setIsInitModalOpen(true)
     }
   }
 
@@ -1435,7 +1477,8 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
     embeddingModel &&
     documentSearchState.status !== 'loading',
   )
-  const isSupabaseProvider = databaseProvider === 'supabase'
+  const selectedDbProvider = dbProviders.find(provider => provider.id === databaseProviderId)
+  const isSupabaseProvider = selectedDbProvider?.type === 'supabase'
 
   if (!isOpen) return null
 
@@ -1472,6 +1515,11 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
   const handleSave = async () => {
     setIsSaving(true)
     try {
+      const resolvedDatabaseProvider = selectedDbProvider?.type || databaseProvider || ''
+      const dbChanged =
+        resolvedDatabaseProvider !== initialDbConfigRef.current.provider ||
+        databaseProviderId !== initialDbConfigRef.current.providerId ||
+        dbAccessKey !== initialDbConfigRef.current.accessKey
       const settingsToSave = {
         apiProvider,
         googleApiKey,
@@ -1489,7 +1537,9 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
         ModelScopeKey,
         KimiKey,
         // Providers
-        databaseProvider,
+        databaseProvider: resolvedDatabaseProvider,
+        databaseProviderId,
+        dbAccessKey,
         supabaseUrl,
         supabaseKey,
         // UI
@@ -1634,7 +1684,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
       }
 
       // Prevent accidental overwrite of remote keys with empty local keys
-      if (isSupabaseProvider && supabaseUrl && supabaseKey) {
+      if (databaseProviderId) {
         try {
           const { data: remoteData } = await fetchRemoteSettings()
           if (remoteData) {
@@ -1672,18 +1722,21 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
       }
 
       // Save Remote (if connected)
-      if (isSupabaseProvider && supabaseUrl && supabaseKey) {
+      if (databaseProviderId) {
         await saveRemoteSettings(settingsToSave)
       }
 
       onClose()
+      if (dbChanged) {
+        navigate({ to: '/new_chat' })
+      }
     } finally {
       setIsSaving(false)
     }
   }
 
   return (
-    <div className="fixed inset-0 z-100 flex items-start justify-center overflow-y-auto bg-black/50 p-0 backdrop-blur-sm md:items-center md:overflow-hidden md:p-4">
+    <div className="fixed inset-0 z-100 flex items-start justify-center overflow-y-auto bg-black/50 p-0 md:items-center md:overflow-hidden md:p-4 md:backdrop-blur-sm">
       <div className="relative flex h-dvh w-full flex-col overflow-hidden rounded-none border-0 border-gray-200 bg-white shadow-2xl md:h-[85vh] md:max-w-5xl md:flex-row md:rounded-2xl md:border dark:border-zinc-800 dark:bg-[#191a1a]">
         {/* Mobile Header */}
         <div className="flex h-14 shrink-0 items-center justify-between border-b border-gray-200 bg-white px-4 md:hidden dark:border-zinc-800 dark:bg-[#191a1a]">
@@ -2151,7 +2204,10 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                       <button
                         onClick={handleBackendHealthCheck}
                         disabled={backendHealthState.status === 'loading'}
-                        className="text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg px-3 py-2 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                        className={clsx(
+                          'rounded-lg border px-3 py-2 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50',
+                          'text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 border-primary-200 dark:border-primary-900/40',
+                        )}
                       >
                         {backendHealthState.status === 'loading'
                           ? t('settings.backendHealthChecking')
@@ -2194,87 +2250,49 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
                       <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
                         {t('settings.databaseProvider')}
                       </label>
-                      <div className="relative w-full">
-                        <Select value={databaseProvider} onValueChange={setDatabaseProvider}>
-                          <SelectTrigger className="h-10 w-full">
-                            <div className="flex items-center gap-3">
-                              <Database size={16} className="text-gray-400" />
-                              <SelectValue placeholder={t('settings.databaseProvider')} />
-                            </div>
-                          </SelectTrigger>
-                          <SelectContent>
-                            {databaseProviderOptions.map(option => (
-                              <SelectItem key={option.key} value={option.value}>
-                                <div className="flex items-center gap-3">
-                                  {option.icon}
-                                  <span>{option.label}</span>
-                                </div>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                      <div className="flex h-10 cursor-not-allowed items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700 opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-200">
+                        {selectedDbProvider ? (
+                          renderProviderIcon(selectedDbProvider.type || selectedDbProvider.id, {
+                            size: 16,
+                            alt: selectedDbProvider.label || selectedDbProvider.id,
+                          })
+                        ) : (
+                          <Database size={16} className="text-gray-400" />
+                        )}
+                        <span>
+                          {selectedDbProvider?.label ||
+                            databaseProviderId ||
+                            t('settings.databaseProvider')}
+                        </span>
                       </div>
                     </div>
 
-                    {databaseProvider === 'supabase' && (
-                      <>
-                        <div className="flex flex-col gap-2">
-                          <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                            {t('settings.supabaseUrl')}
-                          </label>
-                          <div className="relative">
-                            <div className="absolute top-1/2 left-3 -translate-y-1/2 text-gray-400">
-                              <Link size={16} />
-                            </div>
-                            <input
-                              type="text"
-                              value={supabaseUrl}
-                              onChange={e => setSupabaseUrl(e.target.value)}
-                              placeholder="https://your-project.supabase.co"
-                              disabled={true} // Locked - use Reconfigure button
-                              className={clsx(
-                                'w-full cursor-not-allowed rounded-lg border border-gray-200 bg-gray-50/50 py-2.5 pr-4 pl-10 text-sm text-gray-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900/50 dark:text-gray-400',
-                              )}
-                            />
-                          </div>
-                          {renderEnvHint(Boolean(ENV_VARS.supabaseUrl))}
-                        </div>
-
-                        <div className="flex flex-col gap-2">
-                          <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                            {t('settings.supabaseKey')}
-                          </label>
-                          <div className="relative">
-                            <div className="absolute top-1/2 left-3 -translate-y-1/2 text-gray-400">
-                              <Key size={16} />
-                            </div>
-                            <input
-                              type="password"
-                              value={supabaseKey}
-                              onChange={e => setSupabaseKey(e.target.value)}
-                              placeholder="••••••••••••••••••••••••••••••••"
-                              disabled={true} // Locked - use Reconfigure button
-                              className={clsx(
-                                'w-full cursor-not-allowed rounded-lg border border-gray-200 bg-gray-50/50 py-2.5 pr-4 pl-10 text-sm text-gray-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900/50 dark:text-gray-400',
-                              )}
-                            />
-                          </div>
-                          {renderEnvHint(Boolean(ENV_VARS.supabaseKey))}
-                        </div>
-                      </>
-                    )}
+                    <div className="flex flex-col gap-2">
+                      <button
+                        onClick={onOpenDatabaseSetup}
+                        className={clsx(
+                          'self-start rounded-lg border px-4 py-2 text-xs font-medium transition-colors',
+                          'text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 border-primary-200 dark:border-primary-900/40',
+                        )}
+                      >
+                        {t('settings.configureDatabase') || 'Configure Database'}
+                      </button>
+                    </div>
                   </div>
 
-                  {databaseProvider === 'supabase' && (
+                  {databaseProviderId && (
                     <div className="flex flex-col gap-3">
                       <button
-                        onClick={onOpenSupabaseSetup}
+                        onClick={handleTestConnection}
                         className="text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 border-primary-200 dark:border-primary-900/40 self-start rounded-lg border px-4 py-2 text-xs font-medium transition-colors"
                       >
-                        {t('settings.reconfigureSupabase') || 'Reconfigure Connection'}
+                        {t('settings.testDatabaseConnection') || 'Test database connection'}
                       </button>
-
-                      {/* Explicit Test removed as reconfiguration handles it */}
+                      {initModalResult && initModalResult.success && (
+                        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-900/20 dark:text-emerald-300">
+                          {t('settings.initModal.connectionOk') || 'Connection OK'}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -3166,7 +3184,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenSupabaseSetup }) => {
       {isInitModalOpen && (
         <div className="fixed inset-0 z-130 flex items-center justify-center px-3 sm:px-6">
           <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            className="absolute inset-0 bg-black/60 md:backdrop-blur-sm"
             onClick={() => setIsInitModalOpen(false)}
           />
           <div className="relative w-full max-w-3xl space-y-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-2xl sm:p-6 dark:border-zinc-800 dark:bg-[#111]">

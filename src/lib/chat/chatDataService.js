@@ -188,35 +188,11 @@ export const handleEditingAndHistory = (
         continue
       }
 
-      // 2. User Messages: Only remove if they are Form Submissions
+      // 2. User Messages: Stop scanning when we hit a normal user message
       if (m.role === 'user') {
-        let contentToCheck = ''
-        if (typeof m.content === 'string') {
-          contentToCheck = m.content
-        } else if (typeof m.content === 'object' && m.content !== null) {
-          contentToCheck = JSON.stringify(m.content)
-        }
-
-        // Robust check: unwrap potential double-encoding if it starts with quote
-        if (contentToCheck.startsWith('"')) {
-          try {
-            const parsed = JSON.parse(contentToCheck)
-            if (typeof parsed === 'string') contentToCheck = parsed
-          } catch (e) {
-            // ignore
-          }
-        }
-
-        const isFormSubmission =
-          (contentToCheck && contentToCheck.includes('[Form Submission]')) || m.formValues
-
-        if (isFormSubmission) {
-          idsToRemove.add(m.id)
-          continue
-        } else {
-          // Found a normal user message -> Stop scanning/deleting
-          break
-        }
+        // Since HITL forms no longer create hidden User messages,
+        // any User message we encounter here is a new turn.
+        break
       }
     }
 

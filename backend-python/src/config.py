@@ -42,6 +42,8 @@ class Settings(BaseSettings):
     supabase_project_name: str = Field(default="", alias="SUPABASE_PROJECT_NAME")
     supabase_url: str = Field(default="", alias="SUPABASE_URL")
     supabase_password: str = Field(default="", alias="SUPABASE_PASSWORD")
+    supabase_service_role_key: str = Field(default="", alias="SUPABASE_SERVICE_ROLE_KEY")
+    supabase_db_url: str = Field(default="", alias="SUPABASE_DB_URL")
 
     # Tavily API (for web search)
     tavily_api_key: str = Field(default="", alias="TAVILY_API_KEY")
@@ -56,6 +58,17 @@ class Settings(BaseSettings):
 
     # Context Message Limit
     context_message_limit: int = Field(default=50, alias="CONTEXT_MESSAGE_LIMIT")
+
+    # Database Providers (backend-managed)
+    database_providers_json: str = Field(default="", alias="DATABASE_PROVIDERS")
+    db_access_key: str = Field(default="", alias="DB_PROVIDER_ACCESS_KEY")
+
+    # Session Summary / Memory Lite Model Configuration
+    memory_lite_provider: str = Field(default="openai", alias="MEMORY_LITE_PROVIDER")
+    memory_lite_model: str = Field(default="gpt-4o-mini", alias="MEMORY_LITE_MODEL")
+    memory_agent_api_key: str = Field(default="", alias="MEMORY_AGENT_API_KEY")
+    memory_lite_base_url: str | None = Field(default=None, alias="MEMORY_LITE_BASE_URL")
+
 
     # Model configuration
     @property

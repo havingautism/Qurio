@@ -15,82 +15,325 @@
  * modeled here. Credentials are read from settings (env/localStorage).
  */
 
-import { createClient } from '@supabase/supabase-js'
 import { loadSettings } from './settings'
 export { loadSettings, saveSettings } from './settings'
 
-let supabaseClient = null
+const DEFAULT_USER_ID = 'default-user'
 
-/**
- * Initialize Supabase client from explicit args or stored settings.
- */
-export const initSupabase = (supabaseUrl, supabaseKey) => {
-  const settings = loadSettings({ supabaseUrl, supabaseKey })
-  if (settings.databaseProvider && settings.databaseProvider !== 'supabase') return null
-  if (!settings.supabaseUrl || !settings.supabaseKey) return null
+let backendDbClient = null
 
-  supabaseClient = createClient(settings.supabaseUrl, settings.supabaseKey)
-  return supabaseClient
+const getBackendUrl = () => {
+  const settings = loadSettings()
+  return settings.backendUrl || 'http://localhost:3001'
+}
+
+const getDbAccessKey = () => {
+  const settings = loadSettings()
+  return settings.dbAccessKey || ''
+}
+const resolveProviderId = (overrides = {}) => {
+  const settings = loadSettings(overrides)
+  return settings.databaseProviderId || settings.databaseProvider || ''
+}
+
+const parseOrFilter = raw => {
+  if (!raw || typeof raw !== 'string') return []
+  const parts = raw.split(',').map(part => part.trim()).filter(Boolean)
+  const filters = []
+  parts.forEach(part => {
+    if (part.endsWith('.is.null')) {
+      const column = part.replace('.is.null', '')
+      filters.push({ op: 'is_null', column })
+      return
+    }
+    const notInMatch = part.match(/^(.+)\.not\.in\.\((.+)\)$/)
+    if (notInMatch) {
+      const column = notInMatch[1]
+      const values = notInMatch[2]
+        .split(',')
+        .map(v => v.replace(/^"+|"+$/g, '').trim())
+        .filter(Boolean)
+      filters.push({ op: 'not_in', column, values })
+      return
+    }
+    const eqMatch = part.match(/^(.+)\.eq\.(.+)$/)
+    if (eqMatch) {
+      filters.push({ op: 'eq', column: eqMatch[1], value: eqMatch[2] })
+    }
+  })
+  return filters
+}
+
+class BackendQueryBuilder {
+  constructor(providerId, table, action = 'select') {
+    this.providerId = providerId
+    this.table = table
+    this.action = action
+    this.columns = null
+    this.filters = []
+    this.orderBy = []
+    this.limitValue = null
+    this.rangeValue = null
+    this.count = null
+    this.singleValue = false
+    this.maybeSingleValue = false
+    this.values = null
+    this.payload = null
+    this.onConflict = null
+  }
+
+  select(columns = '*', options = {}) {
+    this.columns = columns
+    if (options?.count) this.count = options.count
+    return this
+  }
+
+  insert(values) {
+    this.action = 'insert'
+    this.values = values
+    return this
+  }
+
+  update(payload) {
+    this.action = 'update'
+    this.payload = payload
+    return this
+  }
+
+  delete() {
+    this.action = 'delete'
+    return this
+  }
+
+  upsert(values, options = {}) {
+    this.action = 'upsert'
+    this.values = values
+    this.onConflict = options.onConflict || null
+    return this
+  }
+
+  eq(column, value) {
+    this.filters.push({ op: 'eq', column, value })
+    return this
+  }
+
+  gt(column, value) {
+    this.filters.push({ op: 'gt', column, value })
+    return this
+  }
+
+  lt(column, value) {
+    this.filters.push({ op: 'lt', column, value })
+    return this
+  }
+
+  ilike(column, value) {
+    this.filters.push({ op: 'ilike', column, value: String(value || '').replace(/%/g, '') })
+    return this
+  }
+
+  in(column, values) {
+    this.filters.push({ op: 'in', column, values: values || [] })
+    return this
+  }
+
+  or(raw) {
+    const parsed = parseOrFilter(raw)
+    if (parsed.length > 0) {
+      this.filters.push({ op: 'or', filters: parsed })
+    }
+    return this
+  }
+
+  order(column, options = {}) {
+    this.orderBy.push({ column, ascending: options.ascending !== false })
+    return this
+  }
+
+  limit(value) {
+    this.limitValue = value
+    return this
+  }
+
+  range(from, to) {
+    this.rangeValue = { from, to }
+    return this
+  }
+
+  single() {
+    this.singleValue = true
+    this.maybeSingleValue = false
+    return this
+  }
+
+  // Compatibility with supabase-js v2 API usage in service modules.
+  maybeSingle() {
+    this.singleValue = true
+    this.maybeSingleValue = true
+    return this
+  }
+
+  async execute() {
+    if (!this.providerId) {
+      return { data: null, error: new Error('Database provider not configured') }
+    }
+    const response = await fetch(`${getBackendUrl()}/api/db/query`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(getDbAccessKey() ? { 'x-db-access-key': getDbAccessKey() } : {}),
+      },
+      body: JSON.stringify({
+        providerId: this.providerId,
+        action: this.action,
+        table: this.table,
+        columns: this.columns,
+        filters: this.filters.length ? this.filters : null,
+        order: this.orderBy.length ? this.orderBy : null,
+        limit: this.limitValue,
+        range: this.rangeValue,
+        count: this.count,
+        single: this.singleValue,
+        maybeSingle: this.maybeSingleValue,
+        values: this.values,
+        payload: this.payload,
+        onConflict: Array.isArray(this.onConflict)
+          ? this.onConflict
+          : this.onConflict
+            ? [String(this.onConflict)]
+            : null,
+      }),
+    })
+    const payload = await response.json().catch(() => ({}))
+    if (response.status === 401 && typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('db-auth-failed'))
+    }
+    if (!response.ok || payload.error) {
+      const normalizedError =
+        typeof payload.error === 'string'
+          ? payload.error
+          : payload.error
+            ? JSON.stringify(payload.error)
+            : ''
+      if (
+        this.maybeSingleValue &&
+        (normalizedError.includes('PGRST116') ||
+          normalizedError.includes('Cannot coerce the result to a single JSON object') ||
+          normalizedError.includes('The result contains 0 rows'))
+      ) {
+        return { data: null, error: null, count: payload.count }
+      }
+      return { data: payload.data || null, error: new Error(payload.error || 'Database error') }
+    }
+    return { data: payload.data ?? null, error: null, count: payload.count }
+  }
+
+  then(resolve, reject) {
+    return this.execute().then(resolve, reject)
+  }
+}
+
+class BackendDbClient {
+  constructor(providerId) {
+    this.providerId = providerId
+  }
+
+  from(table) {
+    return new BackendQueryBuilder(this.providerId, table)
+  }
+
+  rpc(name, params = {}) {
+    const builder = new BackendQueryBuilder(this.providerId, null, 'rpc')
+    builder.execute = async () => {
+      const response = await fetch(`${getBackendUrl()}/api/db/query`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(getDbAccessKey() ? { 'x-db-access-key': getDbAccessKey() } : {}),
+        },
+        body: JSON.stringify({
+          providerId: this.providerId,
+          action: 'rpc',
+          rpc: { name, params },
+        }),
+      })
+      const payload = await response.json().catch(() => ({}))
+      if (response.status === 401 && typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('db-auth-failed'))
+      }
+      if (!response.ok || payload.error) {
+        return { data: payload.data || null, error: new Error(payload.error || 'Database error') }
+      }
+      return { data: payload.data ?? null, error: null }
+    }
+    return builder
+  }
+
+  get auth() {
+    return {
+      getSession: async () => ({ data: { session: { user: { id: DEFAULT_USER_ID } } } }),
+    }
+  }
 }
 
 /**
- * Get a cached client; initialize from settings if needed.
+ * Initialize backend DB client (providerId from settings).
+ */
+export const initSupabase = overrides => {
+  const providerId = resolveProviderId(overrides)
+  if (!providerId) return null
+  backendDbClient = new BackendDbClient(providerId)
+  return backendDbClient
+}
+
+/**
+ * Get cached backend DB client.
  */
 export const getSupabaseClient = () => {
-  if (supabaseClient) return supabaseClient
-  const settings = loadSettings()
-  if (settings.databaseProvider && settings.databaseProvider !== 'supabase') return null
-  if (!settings.supabaseUrl || !settings.supabaseKey) return null
-  supabaseClient = createClient(settings.supabaseUrl, settings.supabaseKey)
-  return supabaseClient
+  if (backendDbClient) return backendDbClient
+  return initSupabase()
 }
 
 /**
  * Quick connectivity/table existence check.
  */
-export const testConnection = async (supabaseUrl, supabaseKey) => {
+export const testConnection = async () => {
   try {
-    const supabase = initSupabase(supabaseUrl, supabaseKey)
-    if (!supabase) {
+    const providerId = resolveProviderId()
+    if (!providerId) {
       return {
         success: false,
         connection: false,
-        message: 'Unable to initialize Supabase client. Check credentials.',
+        message: 'Database provider not configured.',
         tables: {},
       }
     }
 
-    // Define select field for each table (space_agents has no 'id' column)
-    const tableFields = {
-      spaces: 'id',
-      agents: 'id',
-      space_agents: 'space_id',
-      conversations: 'id',
-      conversation_messages: 'id',
-      space_documents: 'id',
-      conversation_documents: 'conversation_id',
+    const response = await fetch(`${getBackendUrl()}/api/db/query`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(getDbAccessKey() ? { 'x-db-access-key': getDbAccessKey() } : {}),
+      },
+      body: JSON.stringify({ providerId, action: 'test' }),
+    })
+    const payload = await response.json().catch(() => ({}))
+    if (response.status === 401 && typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('db-auth-failed'))
     }
-
-    const tables = Object.keys(tableFields)
-    const results = {}
-    for (const table of tables) {
-      const field = tableFields[table]
-      const { error } = await supabase.from(table).select(field).limit(1)
-      results[table] = !error
+    if (!response.ok || payload.error) {
+      return {
+        success: false,
+        connection: false,
+        message: payload.error || 'Database test failed.',
+        tables: {},
+      }
     }
-
-    const allTablesExist = Object.values(results).every(Boolean)
-    const missing = Object.entries(results)
-      .filter(([, ok]) => !ok)
-      .map(([name]) => name)
-
-    return {
-      success: allTablesExist,
+    return payload.data || {
+      success: true,
       connection: true,
-      tables: results,
-      message: allTablesExist
-        ? 'Connection successful; required tables are present.'
-        : `Connection OK, but missing tables: ${missing.join(', ')}. Run supabase/init.sql.`,
+      message: 'Connection successful.',
+      tables: {},
     }
   } catch (error) {
     return {
@@ -280,6 +523,12 @@ export const saveRemoteSettings = async settings => {
   const supabase = getSupabaseClient()
   if (!supabase) return { error: new Error('Supabase not configured') }
 
+  const normalizeSettingValue = value => {
+    if (value === undefined || value === null) return ''
+    if (typeof value === 'boolean') return value ? 'true' : 'false'
+    return String(value)
+  }
+
   // Prepare upsert payload
   // Only save keys that we want to persist remotely (API keys, etc.)
   const KEYS_TO_SYNC = [
@@ -308,12 +557,13 @@ export const saveRemoteSettings = async settings => {
 
   const updates = KEYS_TO_SYNC.filter(key => settings[key] !== undefined).map(key => ({
     key,
-    value: settings[key] || '',
+    value: normalizeSettingValue(settings[key]),
     updated_at: new Date().toISOString(),
   }))
 
   if (updates.length > 0) {
-    const { error } = await supabase.from('user_settings').upsert(updates)
+    // user_settings primary key is "key" (no "id"), so SQLite adapter needs explicit conflict column.
+    const { error } = await supabase.from('user_settings').upsert(updates, { onConflict: 'key' })
     return { error }
   }
 

@@ -94,7 +94,15 @@ const fetchWithTimeout = async (url, options = {}, timeoutMs = 15000) => {
  * @param {string} model - Optional model name
  * @returns {Promise<{title: string, emojis?: string[]}>}
  */
-export const generateTitleViaBackend = async (provider, message, apiKey, baseUrl, model) => {
+export const generateTitleViaBackend = async (
+  provider,
+  message,
+  apiKey,
+  baseUrl,
+  model,
+  userTimezone,
+  userLocale,
+) => {
   const response = await fetchWithTimeout(
     `${getBackendUrl()}/api/title`,
     {
@@ -108,6 +116,8 @@ export const generateTitleViaBackend = async (provider, message, apiKey, baseUrl
         apiKey,
         baseUrl,
         model,
+        userTimezone,
+        userLocale,
       }),
     },
     15000,
@@ -376,6 +386,8 @@ export const generateTitleSpaceAndAgentViaBackend = async (
   apiKey,
   baseUrl,
   model,
+  userTimezone,
+  userLocale,
 ) => {
   const response = await fetchWithTimeout(
     `${getBackendUrl()}/api/title-space-agent`,
@@ -391,6 +403,8 @@ export const generateTitleSpaceAndAgentViaBackend = async (
         apiKey,
         baseUrl,
         model,
+        userTimezone,
+        userLocale,
       }),
     },
     20000,
@@ -434,6 +448,8 @@ export const generateTitleAndSpaceViaBackend = async (
   apiKey,
   baseUrl,
   model,
+  userTimezone,
+  userLocale,
 ) => {
   const response = await fetchWithTimeout(
     `${getBackendUrl()}/api/title-and-space`,
@@ -449,6 +465,8 @@ export const generateTitleAndSpaceViaBackend = async (
         apiKey,
         baseUrl,
         model,
+        userTimezone,
+        userLocale,
       }),
     },
     15000,
@@ -606,6 +624,9 @@ export const streamChatViaBackend = async params => {
     onFinish,
     onError,
     signal,
+    conversationId,
+    runId,
+    fieldValues,
   } = params
 
   if (!provider) {
@@ -651,6 +672,9 @@ export const streamChatViaBackend = async params => {
           userId,
           enableLongTermMemory,
           databaseProvider,
+          conversationId,
+          runId,
+          fieldValues,
         }),
         signal,
       },
@@ -665,6 +689,7 @@ export const streamChatViaBackend = async params => {
     const reader = response.body.getReader()
     const decoder = new TextDecoder()
     let buffer = ''
+    let sawDone = false
 
     console.log('[streamChatViaBackend] Starting to read stream...')
 
@@ -673,6 +698,15 @@ export const streamChatViaBackend = async params => {
 
       if (done) {
         console.log('[streamChatViaBackend] Stream done')
+        if (!sawDone) {
+          onFinish?.({
+            content: undefined,
+            thought: undefined,
+            sources: undefined,
+            groundingSupports: undefined,
+            toolCalls: undefined,
+          })
+        }
         break
       }
 
@@ -698,6 +732,7 @@ export const streamChatViaBackend = async params => {
           }
 
           if (chunk.type === 'done') {
+            sawDone = true
             onFinish?.({
               content: chunk.content,
               thought: chunk.thought,

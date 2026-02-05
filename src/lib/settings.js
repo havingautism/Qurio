@@ -130,8 +130,35 @@ export const buildResponseStylePromptFromAgent = agent => {
 // In-memory cache for sensitive settings (API keys) fetched from Supabase
 let memorySettings = {}
 
+const MEMORY_SETTINGS_KEYS = [
+  'OpenAICompatibilityKey',
+  'OpenAICompatibilityUrl',
+  'SiliconFlowKey',
+  'GlmKey',
+  'ModelScopeKey',
+  'KimiKey',
+  'googleApiKey',
+  'tavilyApiKey',
+  'NvidiaKey',
+  'MinimaxKey',
+  'searchProvider',
+  'backendUrl',
+  'embeddingProvider',
+  'embeddingModel',
+  'embeddingModelSource',
+  'enableLongTermMemory',
+  'userSelfIntro',
+]
+
 export const updateMemorySettings = settings => {
-  Object.assign(memorySettings, settings)
+  const source = settings && typeof settings === 'object' ? settings : {}
+  MEMORY_SETTINGS_KEYS.forEach(key => {
+    if (Object.prototype.hasOwnProperty.call(source, key)) {
+      memorySettings[key] = source[key]
+    } else {
+      delete memorySettings[key]
+    }
+  })
 }
 
 export const loadSettings = (overrides = {}) => {
@@ -139,6 +166,8 @@ export const loadSettings = (overrides = {}) => {
   const envSupabaseUrl = getPublicEnv('PUBLIC_SUPABASE_URL')
   const envSupabaseKey = getPublicEnv('PUBLIC_SUPABASE_KEY')
   const envBackendUrl = getPublicEnv('PUBLIC_BACKEND_URL')
+  const envDbProviderId = getPublicEnv('PUBLIC_DB_PROVIDER_ID')
+  const envDbAccessKey = getPublicEnv('PUBLIC_DB_ACCESS_KEY')
 
   // OpenAI Env Vars
   const envOpenAIKey = getPublicEnv('PUBLIC_OPENAI_API_KEY')
@@ -147,6 +176,7 @@ export const loadSettings = (overrides = {}) => {
 
   // LocalStorage - Only load non-sensitive or essential connection configs
   const localDatabaseProvider = localStorage.getItem('databaseProvider')
+  const localDatabaseProviderId = localStorage.getItem('databaseProviderId')
   const localDatabaseSupabaseUrl = localStorage.getItem('databaseSupabaseUrl')
   const localDatabaseSupabaseKey = localStorage.getItem('databaseSupabaseKey')
   const localSupabaseUrl = localStorage.getItem('supabaseUrl')
@@ -168,8 +198,8 @@ export const loadSettings = (overrides = {}) => {
   const localEmbeddingProvider = localStorage.getItem('embeddingProvider')
   const localEmbeddingModel = localStorage.getItem('embeddingModel')
   const localEmbeddingModelSource = localStorage.getItem('embeddingModelSource')
-  const localUserSelfIntro = localStorage.getItem('userSelfIntro')
   const localDeveloperMode = localStorage.getItem('developerMode')
+  const localDbAccessKey = localStorage.getItem('dbAccessKey')
 
   // Style settings
   const localStyleBaseTone = localStorage.getItem('styleBaseTone')
@@ -201,7 +231,13 @@ export const loadSettings = (overrides = {}) => {
         ? localEnableLongTermMemory === 'true'
         : false
 
-  const resolvedDatabaseProvider = overrides.databaseProvider || localDatabaseProvider || 'supabase'
+  const resolvedDatabaseProvider = overrides.databaseProvider || localDatabaseProvider || ''
+  const resolvedDatabaseProviderId =
+    overrides.databaseProviderId ||
+    localDatabaseProviderId ||
+    envDbProviderId ||
+    resolvedDatabaseProvider ||
+    ''
   const overrideSupabaseUrl =
     overrides.supabaseUrl ||
     overrides.databaseSupabaseUrl ||
@@ -220,6 +256,7 @@ export const loadSettings = (overrides = {}) => {
   const settings = {
     // Database (local/env to connect)
     databaseProvider: resolvedDatabaseProvider,
+    databaseProviderId: resolvedDatabaseProviderId,
     databaseConfig: {
       supabase: {
         url: resolvedSupabaseUrl,
@@ -264,7 +301,7 @@ export const loadSettings = (overrides = {}) => {
     embeddingProvider: localEmbeddingProvider || overrides.embeddingProvider || '',
     embeddingModel: localEmbeddingModel || overrides.embeddingModel || '',
     embeddingModelSource: localEmbeddingModelSource || overrides.embeddingModelSource || 'list',
-    userSelfIntro: localUserSelfIntro || overrides.userSelfIntro || '',
+    userSelfIntro: overrides.userSelfIntro || '',
     developerMode:
       localDeveloperMode !== null
         ? localDeveloperMode === 'true'
@@ -283,6 +320,7 @@ export const loadSettings = (overrides = {}) => {
       localStyleCustomInstruction ||
       overrides.customInstruction ||
       DEFAULT_STYLE_SETTINGS.customInstruction,
+    dbAccessKey: localDbAccessKey || overrides.dbAccessKey || envDbAccessKey || '',
 
     ...overrides,
   }
@@ -312,6 +350,9 @@ export const loadSettings = (overrides = {}) => {
   if (!mergedSettings.NvidiaKey) mergedSettings.NvidiaKey = ''
   if (!mergedSettings.MinimaxKey)
     mergedSettings.MinimaxKey = getPublicEnv('PUBLIC_MINIMAX_API_KEY') || ''
+  if (typeof mergedSettings.enableLongTermMemory === 'string') {
+    mergedSettings.enableLongTermMemory = mergedSettings.enableLongTermMemory === 'true'
+  }
 
   return {
     ...mergedSettings,
@@ -331,6 +372,9 @@ export const saveSettings = async settings => {
   // Persist Non-Sensitive to LocalStorage
   if (settings.databaseProvider !== undefined) {
     localStorage.setItem('databaseProvider', settings.databaseProvider)
+  }
+  if (settings.databaseProviderId !== undefined) {
+    localStorage.setItem('databaseProviderId', settings.databaseProviderId)
   }
 
   const supabaseConfig = settings?.databaseConfig?.supabase || {}
@@ -430,11 +474,12 @@ export const saveSettings = async settings => {
   if (settings.embeddingModelSource !== undefined) {
     localStorage.setItem('embeddingModelSource', settings.embeddingModelSource)
   }
-  if (settings.userSelfIntro !== undefined) {
-    localStorage.setItem('userSelfIntro', settings.userSelfIntro)
-  }
+  localStorage.removeItem('userSelfIntro')
   if (settings.developerMode !== undefined) {
     localStorage.setItem('developerMode', String(!!settings.developerMode))
+  }
+  if (settings.dbAccessKey !== undefined) {
+    localStorage.setItem('dbAccessKey', settings.dbAccessKey)
   }
 
   window.dispatchEvent(new Event('settings-changed'))

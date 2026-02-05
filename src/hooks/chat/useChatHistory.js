@@ -58,6 +58,48 @@ const mapMessageFromApi = (m, effectiveDefaultModel, activeConversation) => {
     } catch {}
   }
 
+  const restoreHitlMetaFromToolHistory = toolHistory => {
+    if (!Array.isArray(toolHistory)) {
+      return {
+        hitlRunId: undefined,
+        hitlFormId: undefined,
+        hitlFormTitle: undefined,
+        hitlFormFields: undefined,
+      }
+    }
+
+    for (let i = toolHistory.length - 1; i >= 0; i--) {
+      const tool = toolHistory[i]
+      if (tool?.name !== 'interactive_form' || tool?.status === 'done') continue
+
+      let parsedArgs = null
+      if (tool?.arguments && typeof tool.arguments === 'string') {
+        try {
+          parsedArgs = JSON.parse(tool.arguments)
+        } catch {}
+      } else if (tool?.arguments && typeof tool.arguments === 'object') {
+        parsedArgs = tool.arguments
+      }
+      const output = tool?.output && typeof tool.output === 'object' ? tool.output : null
+
+      return {
+        hitlRunId: tool.runId || parsedArgs?.run_id || parsedArgs?.runId || output?.run_id || output?.runId,
+        hitlFormId: parsedArgs?.id || output?.id || tool.id,
+        hitlFormTitle: parsedArgs?.title || output?.title,
+        hitlFormFields: parsedArgs?.fields || output?.fields,
+      }
+    }
+
+    return {
+      hitlRunId: undefined,
+      hitlFormId: undefined,
+      hitlFormTitle: undefined,
+      hitlFormFields: undefined,
+    }
+  }
+
+  const hitlMeta = restoreHitlMetaFromToolHistory(m.tool_call_history)
+
   return {
     id: m.id,
     created_at: m.created_at,
@@ -69,6 +111,10 @@ const mapMessageFromApi = (m, effectiveDefaultModel, activeConversation) => {
     related: m.related_questions || undefined,
     tool_calls: m.tool_calls || undefined,
     toolCallHistory: m.tool_call_history || undefined,
+    hitlRunId: hitlMeta.hitlRunId,
+    hitlFormId: hitlMeta.hitlFormId,
+    hitlFormTitle: hitlMeta.hitlFormTitle,
+    hitlFormFields: hitlMeta.hitlFormFields,
     researchSteps: m.research_step_history || undefined,
     sources: m.sources || undefined,
     groundingSupports: m.grounding_supports || undefined,

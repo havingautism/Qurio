@@ -15,7 +15,8 @@
     "uploadImage": "Upload Image",
     "selectAll": "Select All",
     "deselectAll": "Deselect All",
-    "files": "Files"
+    "files": "Files",
+    "edit": "Edit"
   },
   "app": {
     "name": "Qurio",
@@ -467,7 +468,8 @@
         "domain": "Domain / Scope",
         "aliases": "Aliases",
         "summary": "Memory Summary",
-        "scope": "Scope"
+        "scope": "Scope",
+        "emptyHint": "No memories yet"
       },
       "actions": {
         "edit": "Edit",
@@ -477,7 +479,6 @@
         "confirmDelete": "Are you sure you want to delete this memory logic? This cannot be undone."
       }
     },
-
     "liteModel": "Lite",
     "liteModelHelper": "Titles, related questions, space suggestions",
     "defaultModel": "Default",
@@ -548,6 +549,19 @@
     "advanced": {
       "developerMode": "Developer Mode",
       "developerModeHint": "Control how detailed tool calls are displayed in the chat."
+    },
+    "configureDatabase": "Configure Database",
+    "databaseConfigDisabled": "Run backend health check first.",
+    "testDatabaseConnection": "Test database connection",
+    "databaseSetup": {
+      "title": "Database Setup",
+      "description": "Enter the access key to load database providers, then choose one to use.",
+      "accessKey": "Access Key",
+      "accessKeyPlaceholder": "Enter backend access key",
+      "provider": "Provider",
+      "selectProvider": "Select provider",
+      "saveAndReload": "Save & Reload",
+      "saving": "Validating..."
     }
   },
   "agents": {

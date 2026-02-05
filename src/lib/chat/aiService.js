@@ -95,9 +95,12 @@ export const callAIAPI = async (
   documentSources = [],
   isAgentAutoMode = false,
   researchType = 'general',
+  hitlRunId = null,
+  hitlFieldValues = null,
 ) => {
   let streamedThought = ''
   let pendingText = ''
+
   let pendingThought = ''
   let rafId = null
 
@@ -229,23 +232,42 @@ export const callAIAPI = async (
         ? [...planMessage, ...conversationMessages]
         : conversationMessages
 
-    // If no placeholder provided (e.g. form submission continuation), create one
+    // If no placeholder provided (e.g. form submission continuation), determine if we need a new one
     if (!aiMessagePlaceholder) {
-      set(state => {
-        const newMessage = {
-          role: 'ai',
-          content: '',
-          created_at: new Date().toISOString(),
-          thinkingEnabled: thinkingActive,
-          deepResearch: !!toggles?.deepResearch,
-          provider: modelConfig.provider,
-          model: modelConfig.model,
-          agentId: selectedAgent?.id || null,
-          agentName: selectedAgent?.name || null,
-          agentEmoji: selectedAgent?.emoji || '',
-        }
-        return { messages: [...state.messages, newMessage] }
-      })
+      // ONLY create a new placeholder if we are NOT in a HITL continuation flow
+      if (!hitlRunId) {
+        set(state => {
+          const newMessage = {
+            role: 'ai',
+            content: '',
+            created_at: new Date().toISOString(),
+            thinkingEnabled: thinkingActive,
+            deepResearch: !!toggles?.deepResearch,
+            provider: modelConfig.provider,
+            model: modelConfig.model,
+            agentId: selectedAgent?.id || null,
+            agentName: selectedAgent?.name || null,
+            agentEmoji: selectedAgent?.emoji || '',
+          }
+          return { messages: [...state.messages, newMessage] }
+        })
+      } else {
+        // In HITL continuation, we expect the existing last message to be the one that triggered the form.
+        // We ensure it has the correct model/thinking metadata for the continuation.
+        set(state => {
+          const updated = [...state.messages]
+          const lastMsgIndex = updated.length - 1
+          if (lastMsgIndex >= 0 && updated[lastMsgIndex].role === 'ai') {
+            const lastMsg = { ...updated[lastMsgIndex] }
+            lastMsg.provider = modelConfig.provider
+            lastMsg.model = modelConfig.model
+            lastMsg.thinkingEnabled = thinkingActive
+            lastMsg.deepResearch = !!toggles?.deepResearch
+            updated[lastMsgIndex] = lastMsg
+          }
+          return { messages: updated }
+        })
+      }
     } else {
       // Tag the placeholder with provider/model and thinking flag so UI can show it while streaming
       set(state => {
@@ -321,90 +343,31 @@ export const callAIAPI = async (
       searchBackend,
       userTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       userLocale: navigator.language || 'en-US',
+      runId: hitlRunId,
+      fieldValues: hitlFieldValues,
+      conversationId: get().conversationId,
       messages: (() => {
-        return conversationMessagesWithPlan.flatMap((m, i, arr) => {
-          if (m.role === 'ai') {
-            let formCallId = null
-
-            const normalizedToolCalls = m.tool_calls?.map(tc => {
-              if ((tc.function?.name || tc.name) === 'interactive_form') {
-                formCallId = tc.id
-              }
-              return {
-                id: tc.id,
-                type: tc.type || 'function',
-                function: {
-                  name: tc.function?.name || tc.name,
-                  arguments:
-                    typeof tc.function?.arguments === 'object'
-                      ? JSON.stringify(tc.function.arguments)
-                      : tc.function?.arguments ||
-                        (typeof tc.arguments === 'object'
-                          ? JSON.stringify(tc.arguments)
-                          : tc.arguments),
-                },
-              }
-            })
-
-            const baseMessage = {
-              role: 'assistant',
-              content: m.content,
-              ...(normalizedToolCalls && { tool_calls: normalizedToolCalls }),
-              ...(m.tool_call_id && { tool_call_id: m.tool_call_id }),
-              ...(m.name && { name: m.name }),
-            }
-
-            const restoredToolMessages = []
-            if (Array.isArray(m.toolCallHistory)) {
-              m.toolCallHistory.forEach(tc => {
-                const toolName = tc.name || tc.function?.name
-                // ONLY restore tool results for interactive_form.
-                // Normal tools (search, etc.) are already summarized in the assistant response
-                // and sending their raw output often causes ID-mismatch errors on cross-agent switches.
-                if (
-                  toolName === 'interactive_form' &&
-                  tc.status === 'done' &&
-                  tc.output !== undefined
-                ) {
-                  restoredToolMessages.push({
-                    role: 'tool',
-                    tool_call_id: tc.id,
-                    content: typeof tc.output === 'string' ? tc.output : JSON.stringify(tc.output),
-                    name: tc.name,
-                  })
-                }
-              })
-            }
-
-            const nextMsg = arr[i + 1]
-            const nextIsSubmission =
-              nextMsg &&
-              nextMsg.role === 'user' &&
-              (nextMsg.formValues ||
-                (typeof nextMsg.content === 'string' &&
-                  nextMsg.content.startsWith('[Form Submission]')))
-
-            // If a submission follows, we MUST add a placeholder assistant message
-            // to close the tool cycle before the user's next message.
-            if (
-              nextIsSubmission &&
-              restoredToolMessages.some(tc => tc.name === 'interactive_form')
-            ) {
-              return [baseMessage, ...restoredToolMessages, { role: 'assistant', content: ' ' }]
-            }
-
-            return [baseMessage, ...restoredToolMessages]
+        return conversationMessagesWithPlan.map(m => {
+          const role = m.role === 'ai' ? 'assistant' : m.role
+          const baseMessage = {
+            role,
+            content: m.content,
+            ...(m.tool_calls && { tool_calls: m.tool_calls }),
+            ...(m.tool_call_id && { tool_call_id: m.tool_call_id }),
+            ...(m.name && { name: m.name }),
           }
 
-          return [
-            {
-              role: m.role === 'ai' ? 'assistant' : m.role,
-              content: m.content,
-              ...(m.tool_calls && { tool_calls: m.tool_calls }),
-              ...(m.tool_call_id && { tool_call_id: m.tool_call_id }),
-              ...(m.name && { name: m.name }),
-            },
-          ]
+          // If it's an AI message, we also send toolCallHistory to help the agent
+          // maintain state across turns if it's not using Agno-native HITL.
+          // However, for Agno HITL, the session_id/run_id on the backend handles this.
+          if (role === 'assistant' && Array.isArray(m.toolCallHistory)) {
+            // Include normalized tool calls if they aren't already in baseMessage
+            if (!baseMessage.tool_calls && m.tool_calls) {
+              baseMessage.tool_calls = m.tool_calls
+            }
+          }
+
+          return baseMessage
         })
       })(),
       tools: provider.getTools(toggles.search, toggles.searchTool, settings.enableLongTermMemory),
@@ -566,6 +529,81 @@ export const callAIAPI = async (
                   total: typeof chunk.total === 'number' ? chunk.total : undefined,
                 })
               }
+              lastMsg.toolCallHistory = history
+              updated[lastMsgIndex] = lastMsg
+              return { messages: updated }
+            })
+            return
+          }
+          // Handle HITL form request event
+          if (chunk.type === 'form_request') {
+            set(state => {
+              const updated = [...state.messages]
+              const lastMsgIndex = updated.length - 1
+              if (lastMsgIndex < 0 || updated[lastMsgIndex].role !== 'ai')
+                return { messages: updated }
+              const lastMsg = { ...updated[lastMsgIndex] }
+
+              // Store HITL metadata for form submission resumption
+              lastMsg.hitlRunId = chunk.run_id
+              lastMsg.hitlFormId = chunk.form_id
+              lastMsg.hitlFormTitle = chunk.title
+              lastMsg.hitlFormFields = chunk.fields
+
+              // Add form as a tool call to maintain UI consistency
+              const history = Array.isArray(lastMsg.toolCallHistory)
+                ? [...lastMsg.toolCallHistory]
+                : []
+
+              // Check if form already exists (avoid duplicates)
+              const existingFormIndex = history.findIndex(
+                t => t.name === 'interactive_form' && t.status !== 'done',
+              )
+
+              if (existingFormIndex === -1) {
+                const pendingThoughtLength = lastMsg.thinkingEnabled
+                  ? 0
+                  : (pendingThought || '').length
+                const pendingTextLength = (pendingText || '').length
+                const baseIndex =
+                  (lastMsg.content || '').length + pendingTextLength + pendingThoughtLength
+
+                history.push({
+                  id: chunk.form_id || `form-${Date.now()}`,
+                  name: 'interactive_form',
+                  runId: chunk.run_id,
+                  arguments: JSON.stringify({
+                    run_id: chunk.run_id,
+                    id: chunk.form_id,
+                    title: chunk.title,
+                    fields: chunk.fields,
+                  }),
+                  status: 'calling', // Will be marked 'done' after submission
+                  textIndex: baseIndex,
+                  output: { run_id: chunk.run_id, id: chunk.form_id, fields: chunk.fields, title: chunk.title },
+                })
+              } else {
+                // Ensure run_id is retained for persisted history (page refresh recovery)
+                const existing = history[existingFormIndex]
+                history[existingFormIndex] = {
+                  ...existing,
+                  runId: chunk.run_id,
+                  arguments: JSON.stringify({
+                    run_id: chunk.run_id,
+                    id: chunk.form_id,
+                    title: chunk.title,
+                    fields: chunk.fields,
+                  }),
+                  output: {
+                    ...(existing?.output && typeof existing.output === 'object' ? existing.output : {}),
+                    run_id: chunk.run_id,
+                    id: chunk.form_id,
+                    title: chunk.title,
+                    fields: chunk.fields,
+                  },
+                }
+              }
+
               lastMsg.toolCallHistory = history
               updated[lastMsgIndex] = lastMsg
               return { messages: updated }
@@ -990,10 +1028,17 @@ export const finalizeMessage = async (
       toggles?.deepResearch && planForPersistence
         ? JSON.stringify({ plan: planForPersistence, thought: baseThought })
         : baseThought
-    const contentForPersistence =
-      typeof result.content !== 'undefined'
-        ? result.content
-        : (currentStore.messages?.[currentStore.messages.length - 1]?.content ?? '')
+    const contentForPersistence = (() => {
+      // If we already have a message ID (HITL resumption), the store's content (latestAi.content)
+      // is already cumulative (contains both old and new streamed text).
+      // We should use that instead of result.content which only contains the delta for this run.
+      if (latestAi?.id) {
+        return latestAi.content || ''
+      }
+      return typeof result.content !== 'undefined'
+        ? normalizeContent(result.content)
+        : (latestAi?.content ?? '')
+    })()
 
     const aiPayload = {
       conversation_id: currentStore.conversationId,
@@ -1007,19 +1052,29 @@ export const finalizeMessage = async (
       content: sanitizeJson(contentForPersistence),
       thinking_process: thoughtForPersistence,
       tool_calls: sanitizeJson(
-        (latestAi?.tool_calls && latestAi.tool_calls.length > 0 ? latestAi.tool_calls : null) ||
-          result.toolCalls ||
-          (toolCallHistoryForPersistence && toolCallHistoryForPersistence.length > 0
-            ? toolCallHistoryForPersistence.map(tc => ({
-                id: tc.id,
-                type: 'function',
-                function: {
-                  name: tc.name,
-                  arguments: tc.arguments,
-                },
-                textIndex: tc.textIndex,
-              }))
-            : null),
+        (() => {
+          // Priority 1: Current message's tool_calls (already cumulative in store if we handled it in onChunk)
+          if (latestAi?.tool_calls && latestAi.tool_calls.length > 0) return latestAi.tool_calls
+
+          // Priority 2: Result's toolCalls (from the stream result)
+          const newToolCalls = result.toolCalls || []
+
+          // Priority 3: Derived from toolCallHistory
+          const derivedToolCalls =
+            toolCallHistoryForPersistence && toolCallHistoryForPersistence.length > 0
+              ? toolCallHistoryForPersistence.map(tc => ({
+                  id: tc.id,
+                  type: 'function',
+                  function: {
+                    name: tc.name,
+                    arguments: tc.arguments,
+                  },
+                  textIndex: tc.textIndex,
+                }))
+              : []
+
+          return newToolCalls.length > 0 ? newToolCalls : derivedToolCalls
+        })(),
       ),
       tool_call_history: sanitizeJson(toolCallHistoryForPersistence || []),
       research_step_history: sanitizeJson(researchStepsForPersistence || []),
@@ -1035,25 +1090,37 @@ export const finalizeMessage = async (
     }
 
     let insertedAi = null
-    const { data: insertedAiRow, error: insertAiError } = await addMessage(aiPayload)
-    if (insertAiError) {
-      const { data: retryAiRow } = await addMessage({
-        conversation_id: aiPayload.conversation_id,
-        role: aiPayload.role,
-        provider: aiPayload.provider,
-        model: aiPayload.model,
-        agent_id: aiPayload.agent_id,
-        agent_name: aiPayload.agent_name,
-        agent_emoji: aiPayload.agent_emoji,
-        agent_is_default: aiPayload.agent_is_default,
-        content: aiPayload.content,
-        thinking_process: aiPayload.thinking_process,
-        document_sources: aiPayload.document_sources,
-        created_at: aiPayload.created_at,
-      })
-      insertedAi = retryAiRow || null
+    // If the message already has an ID (HITL resumption), update it instead of adding new
+    if (latestAi?.id) {
+      const { data: updatedAiRow, error: updateAiError } = await updateMessageById(
+        latestAi.id,
+        aiPayload,
+      )
+      insertedAi = updatedAiRow || null
+      if (updateAiError) {
+        console.error('Failed to update HITL AI message:', updateAiError)
+      }
     } else {
-      insertedAi = insertedAiRow || null
+      const { data: insertedAiRow, error: insertAiError } = await addMessage(aiPayload)
+      if (insertAiError) {
+        const { data: retryAiRow } = await addMessage({
+          conversation_id: aiPayload.conversation_id,
+          role: aiPayload.role,
+          provider: aiPayload.provider,
+          model: aiPayload.model,
+          agent_id: aiPayload.agent_id,
+          agent_name: aiPayload.agent_name,
+          agent_emoji: aiPayload.agent_emoji,
+          agent_is_default: aiPayload.agent_is_default,
+          content: aiPayload.content,
+          thinking_process: aiPayload.thinking_process,
+          document_sources: aiPayload.document_sources,
+          created_at: aiPayload.created_at,
+        })
+        insertedAi = retryAiRow || null
+      } else {
+        insertedAi = insertedAiRow || null
+      }
     }
 
     insertedAiId = insertedAi?.id || null
@@ -1108,11 +1175,11 @@ export const finalizeMessage = async (
     }
   }
 
-  const isInteractiveForm =
-    result?.toolCalls?.some(tc => (tc.name || tc.function?.name) === 'interactive_form') ||
-    (currentStore.messages?.[currentStore.messages.length - 1]?.toolCallHistory || []).some(
-      tc => (tc.name || tc.function?.name) === 'interactive_form',
-    )
+  const lastToolHistory =
+    currentStore.messages?.[currentStore.messages.length - 1]?.toolCallHistory || []
+  const isInteractiveForm = lastToolHistory.some(
+    tc => (tc.name || tc.function?.name) === 'interactive_form' && tc.status !== 'done',
+  )
 
   let related = []
   if (toggles?.related && !isInteractiveForm) {

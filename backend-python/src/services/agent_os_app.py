@@ -32,8 +32,9 @@ from ..routes import (
     deep_research,
     memory as memory_route,
     mcp_tools,
+    db as db_route,
 )
-from .agent_registry import build_agent, init_memory_db
+from .agent_registry import build_agent
 
 _agent_os: AgentOS | None = None
 
@@ -79,6 +80,7 @@ def _build_base_app() -> FastAPI:
     app.include_router(deep_research.router, prefix="/api")
     app.include_router(memory_route.router, prefix="/api")
     app.include_router(mcp_tools.router, prefix="/api/mcp-tools")
+    app.include_router(db_route.router, prefix="/api")
     return app
 
 
@@ -88,7 +90,7 @@ def get_agent_os() -> AgentOS:
         return _agent_os
 
     base_app = _build_base_app()
-    init_memory_db()
+    # init_memory_db() # Removed legacy DB init
     default_request = SimpleNamespace(
         provider="openai",
         api_key=os.getenv("OPENAI_API_KEY"),

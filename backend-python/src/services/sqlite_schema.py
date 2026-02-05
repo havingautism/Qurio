@@ -62,6 +62,7 @@ SCHEMA_STATEMENTS: list[str] = [
       is_search_enabled INTEGER NOT NULL DEFAULT 0,
       is_thinking_enabled INTEGER NOT NULL DEFAULT 0,
       is_favorited INTEGER NOT NULL DEFAULT 0,
+      session_summary TEXT DEFAULT NULL,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );

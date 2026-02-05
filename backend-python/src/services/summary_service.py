@@ -9,7 +9,8 @@ from ..services.agent_registry import get_summary_model
 async def update_session_summary(
     conversation_id: str,
     old_summary: Optional[Dict[str, Any]],
-    new_messages: List[Dict[str, Any]]
+    new_messages: List[Dict[str, Any]],
+    database_provider: str | None = None,
 ) -> None:
     """
     Async background task to update session summary.
@@ -45,7 +46,7 @@ async def update_session_summary(
         from ..models.db import DbFilter, DbQueryRequest
         from .db_service import get_db_adapter
         
-        adapter = get_db_adapter()
+        adapter = get_db_adapter(database_provider)
         if adapter:
             try:
                 latest_req = DbQueryRequest(
@@ -142,7 +143,7 @@ Time: {datetime.now().isoformat()}
         from ..models.db import DbFilter, DbQueryRequest
         from .db_service import get_db_adapter
         
-        adapter = get_db_adapter() # Use default or configured provider
+        adapter = get_db_adapter(database_provider) # Use request-selected provider when available
         if adapter:
             # We update the JSONB session_summary column
             logger.debug(f"Updating summary using adapter {adapter.config.type} for {conversation_id}")

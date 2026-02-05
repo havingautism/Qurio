@@ -155,7 +155,7 @@ class StreamChatService:
                     from ..models.db import DbFilter, DbQueryRequest
                     from .db_service import get_db_adapter
                     
-                    adapter = get_db_adapter()
+                    adapter = get_db_adapter(request.database_provider)
                     if adapter:
                         req = DbQueryRequest(
                             providerId=adapter.config.id,
@@ -462,7 +462,8 @@ class StreamChatService:
                                 asyncio.create_task(update_session_summary(
                                     conversation_id=request.conversation_id,
                                     old_summary=old_summary_json,
-                                    new_messages=new_lines
+                                    new_messages=new_lines,
+                                    database_provider=request.database_provider,
                                 ))
 
                             return

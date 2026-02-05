@@ -199,7 +199,7 @@ export const upsertMemoryDomainSummary = async ({
     // 1. Ensure domain exists
     const { data: existing, error: existingError } = await supabase
       .from(MEMORY_DOMAIN_TABLE)
-      .select('*, memory_summaries(summary)')
+      .select('*')
       .eq('domain_key', trimmedKey)
       .maybeSingle()
 
@@ -225,9 +225,19 @@ export const upsertMemoryDomainSummary = async ({
 
       let finalSummary = trimmedSummary
       if (append) {
-        const oldSummary = Array.isArray(existing.memory_summaries)
-          ? existing.memory_summaries[0]?.summary
-          : existing.memory_summaries?.summary || ''
+        let oldSummary = ''
+        const { data: existingSummary, error: existingSummaryError } = await supabase
+          .from(MEMORY_SUMMARY_TABLE)
+          .select('summary')
+          .eq('domain_id', existing.id)
+          .order('updated_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        if (existingSummaryError) {
+          console.error('Failed to load memory summary:', existingSummaryError)
+        } else {
+          oldSummary = existingSummary?.summary || ''
+        }
         if (oldSummary) {
           finalSummary = truncateSummary(`${oldSummary}\n${trimmedSummary}`)
         }

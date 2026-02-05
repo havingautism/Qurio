@@ -10,11 +10,11 @@ from typing import Any, Dict, List
 from urllib.parse import quote_plus, urlparse
 
 from agno.agent import Agent
-from agno.db.postgres import PostgresDb
-from agno.memory import MemoryManager
+# from agno.db.postgres import PostgresDb
+# from agno.memory import MemoryManager
 from agno.models.google import Gemini
 from agno.models.openai import OpenAILike
-from agno.session.summary import SessionSummaryManager
+# from agno.session.summary import SessionSummaryManager
 from agno.utils.log import logger
 
 from ..config import get_settings
@@ -54,77 +54,9 @@ DEFAULT_BASE_URLS: Dict[str, str] = {
 
 
 # Global database instance to avoid multiple table definitions in SQLAlchemy
-_agent_db: PostgresDb | None = None
+# Global database instance to avoid multiple table definitions in SQLAlchemy
+# _agent_db was removed as we use DbAdapter pattern.
 
-
-def _get_supabase_db() -> PostgresDb | None:
-    """
-    Get or create the PostgresDb instance as a singleton.
-    
-    IMPORTANT: We MUST NOT clear _agent_db if it fails later, because Agno's 
-    PostgresDb might have already registered the 'ai.agno_sessions' table 
-    in a global MetaData. Re-creating the object would cause a 'Table already defined' error.
-    """
-    global _agent_db
-    if _agent_db is not None:
-        return _agent_db
-
-    settings = get_settings()
-    if not settings.supabase_project_name or not settings.supabase_password:
-        return None
-
-    try:
-        password = quote_plus(settings.supabase_password)
-        # Using Supabase Pooler for better connection stability
-        # Format: postgresql://postgres.{project_name}:{password}@aws-1-ap-south-1.pooler.supabase.com:6543/postgres
-        db_url = f"postgresql://postgres.{settings.supabase_project_name}:{password}@aws-1-ap-south-1.pooler.supabase.com:6543/postgres"
-        
-        logger.info(f"Connecting to Supabase via Pooler: {settings.supabase_project_name}")
-        _agent_db = PostgresDb(
-            db_url=db_url,
-            session_table="agno_sessions",
-        )
-        return _agent_db
-    except Exception as exc:
-        logger.error(f"Failed to connect to Supabase: {exc}")
-        # Note: We don't set _agent_db = None here if the failure happened 
-        # AFTER the Table definition part of __init__. 
-        # But for the first attempt, it's safer to just return None.
-        return None
-
-
-
-
-def init_memory_db() -> PostgresDb | None:
-    """Eagerly initialize the memory DB once on startup."""
-    # if os.getenv("ENABLE_LONG_TERM_MEMORY", "0") != "1":
-    #     return None
-    # return _get_supabase_memory_db()
-    return None
-
-
-def _build_memory_kwargs(request: Any) -> dict[str, Any]:
-    # if not getattr(request, 'enable_long_term_memory', False):
-    #     return {}
-    # provider = (getattr(request, 'database_provider', None) or 'supabase').lower()
-    # if provider != 'supabase':
-    #     logger.warning('Memory requested for unsupported provider "%s"', provider)
-    #     return {}
-    # db = _get_supabase_memory_db()
-    # logger.info('AGNO Supabase memory store is available')
-    # if not db:
-    #     logger.warning('Memory requested but Supabase memory store is unavailable.')
-    #     return {}
-    # memory_manager = _build_memory_manager(request)
-    # if not memory_manager:
-    #     return {}
-    # return {
-    #     'db': db,
-    #     'memory_manager': memory_manager,
-    #     # 'enable_agentic_memory': True,
-    #     'update_memory_on_run': True,
-    # }
-    return {}
 
 
 def _build_model(provider: str, api_key: str | None, base_url: str | None, model: str | None):
@@ -137,23 +69,6 @@ def _build_model(provider: str, api_key: str | None, base_url: str | None, model
 
     return OpenAILike(id=model_id, api_key=api_key, base_url=resolved_base)
 
-
-def _build_memory_manager(request: Any) -> MemoryManager | None:
-    if not getattr(request, "enable_long_term_memory", False):
-        return None
-
-    provider = getattr(request, "memory_provider", None) or getattr(request, "provider", None) or "openai"
-    model = getattr(request, "memory_model", None) or getattr(request, "model", None)
-    api_key = getattr(request, "memory_api_key", None) or getattr(request, "api_key", None)
-    base_url = getattr(request, "memory_base_url", None) or getattr(request, "base_url", None)
-
-    db = _get_supabase_db()
-    if not db:
-        logger.warning("Memory requested but Supabase storage is unavailable.")
-        return None
-
-    memory_model = _build_model(provider, api_key, base_url, model)
-    return MemoryManager(model=memory_model, db=db)
 
 
 def _merge_model_dict_attr(model: Any, attr: str, payload: dict[str, Any]) -> None:
@@ -472,36 +387,18 @@ def build_agent(request: Any = None, **kwargs: Any) -> Agent:
             "However, limit to 2-3 forms maximum per conversation to respect user time."
         )
 
-    # 2. Only use database if we have a valid conversation_id. 
-    # This prevents auxiliary tasks (titles, questions) from creating random sessions.
-    settings = get_settings()
-    use_db = bool(settings.supabase_password and request and getattr(request, "conversation_id", None))
-    db = _get_supabase_db() if use_db else None
+    # 2. Agent Construction (Stateless / Manual Context)
+    # We do NOT inject 'db' or 'memory' here. 
+    # Session context (history + summary) is injected manually in stream_chat.py
     
-    # 3. Configure Session Summary (Only if DB available)
-    session_summary_manager = None
-    if db:
-        summary_model = get_summary_model(request)
-        if summary_model:
-            session_summary_manager = SessionSummaryManager(model=summary_model)
-            logger.info(f"Session summary enabled for session: {request.conversation_id}")
-
-
     return Agent(
         id=f"qurio-{request.provider}",
         name=f"Qurio {request.provider} Agent",
         model=model,
         tools=tools or None,
-        # add_history_to_context=True,  # Enable history loading
-        # num_history_runs=2,  # Load last 2 conversation turns (Lowered for testing)
-        # enable_session_summaries=bool(db),  # Enable if DB available
-        # add_session_summary_to_context=bool(db),  # Auto-inject summary
-        # session_summary_manager=session_summary_manager,
         markdown=True,
         tool_choice=tool_choice,
-        # db=db,
-        # instructions=instructions,
-        # **memory_kwargs,
+        instructions=instructions,
     )
 
 

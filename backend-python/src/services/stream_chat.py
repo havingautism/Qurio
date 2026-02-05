@@ -31,7 +31,9 @@ from ..models.stream_chat import (
 )
 from .agent_registry import get_agent_for_provider
 from .tool_registry import resolve_tool_name
-from .hitl_storage import get_hitl_storage  # New: HITL storage
+from .hitl_storage import get_hitl_storage
+from .summary_service import update_session_summary
+from sqlalchemy import text
 
 
 TIME_KEYWORDS_REGEX = re.compile(
@@ -141,28 +143,92 @@ class StreamChatService:
             for event in pre_events:
                 yield event
 
-            logger.info(f"DEBUG: Processing chat for session_id: {request.conversation_id}")
+            # ================================================================
+            # MANUAL CONTEXT MANAGEMENT (Rolling Summary + Fixed Window)
+            # ================================================================
+            
+            # 1. Fetch Session Summary from DB
+            session_summary_text = None
+            old_summary_json = None
+            if request.conversation_id:
+                try:
+                    from ..models.db import DbFilter, DbQueryRequest
+                    from .db_service import get_db_adapter
+                    
+                    adapter = get_db_adapter()
+                    if adapter:
+                        req = DbQueryRequest(
+                            providerId=adapter.config.id,
+                            action="select",
+                            table="conversations",
+                            columns=["session_summary"],
+                            filters=[DbFilter(op="eq", column="id", value=request.conversation_id)],
+                            single=True
+                        )
+                        
+                        result = adapter.execute(req)
+                        
+                        if result.data and isinstance(result.data, dict):
+                            row = result.data
+                            raw_summary = row.get("session_summary")
+                            
+                            if raw_summary:
+                                # Parsing handled by adapter often, but double check
+                                if isinstance(raw_summary, str):
+                                    try:
+                                        old_summary_json = json.loads(raw_summary)
+                                    except:
+                                        pass
+                                elif isinstance(raw_summary, dict):
+                                    old_summary_json = raw_summary
+                                
+                                if old_summary_json:
+                                    session_summary_text = old_summary_json.get("summary")
+                except Exception as e:
+                    logger.warning(f"Failed to fetch session summary: {e}")
+                    logger.error(f"Failed to fetch session summary: {e}")
 
-
-            # If agent has a database/storage, Agno will load history automatically.
-            # To avoid duplicates, we only pass the LATEST message if DB is active.
-            # Otherwise (no DB), we pass the full context for manual management.
-            # Correct logic: Preserve System Messages (Time, Tools) + LATEST User Message
-            # This prevents history duplication while keeping instructions intact.
-            agent_input = messages
-            if agent.db and len(messages) > 0:
-                system_msgs = [m for m in messages if m.get("role") == "system"]
-                # We assume the last message is the new user input.
-                # If the last message is system (unlikely in chat), we just take it.
-                last_msg = messages[-1]
+            # 2. Slice History (Num History Runs)
+            # Strategy: Keep all System messages + Last N User Runs (User + AI + Tools)
+            # Current Setting: N=4 (2 full turns approx)
+            NUM_HISTORY_RUNS = 2
+            
+            # Separate System and Non-System
+            system_messages = [m for m in messages if m.get("role") == "system"]
+            chat_messages = [m for m in messages if m.get("role") != "system"]
+            
+            # Find the indices of User messages to determine run boundaries
+            user_indices = [i for i, m in enumerate(chat_messages) if m.get("role") == "user"]
+            
+            if len(user_indices) > NUM_HISTORY_RUNS:
+                cutoff_index = user_indices[-NUM_HISTORY_RUNS]
+                recent_history = chat_messages[cutoff_index:]
+            else:
+                recent_history = chat_messages
                 
-                # Avoid adding the last msg if it's already in system_msgs to prevent dupes
-                if last_msg in system_msgs:
-                    agent_input = system_msgs
+            # 3. Inject Summary into System Prompt
+            if session_summary_text:
+                summary_prompt = (
+                    "\n\n<session_memory>\n"
+                    "Here is a summary of the conversation so far. Use this to understand long-term context, "
+                    "but prioritize the details in the recent messages below.\n"
+                    f"{session_summary_text}\n"
+                    "</session_memory>"
+                )
+                # Inject into the LAST system message, or create a new one if none exist
+                if system_messages:
+                    last_sys = system_messages[-1]
+                    # Avoid appending if already present (defensive)
+                    if "<session_memory>" not in str(last_sys.get("content", "")):
+                        new_content = str(last_sys.get("content", "")) + summary_prompt
+                        # Update the dict (need to be careful not to mutate original request list in place if reused, but here it's fine)
+                        last_sys["content"] = new_content
                 else:
-                    agent_input = system_msgs + [last_msg]
-                
-                logger.debug(f"Database active: constructing input with {len(system_msgs)} system msgs + last message.")
+                    system_messages.append({"role": "system", "content": summary_prompt})
+            
+            # Final Agent Input
+            agent_input = system_messages + recent_history
+            logger.info(f"Context Window: {len(system_messages)} System + {len(recent_history)} Chat Messages")
 
             stream = agent.arun(
                 input=agent_input,
@@ -172,9 +238,9 @@ class StreamChatService:
                 session_id=request.conversation_id,
                 output_schema=request.output_schema or request.response_format,
             )
-
+            
             # ================================================================
-            # Stream processing with HITL support (Agno official pattern)
+            # Stream processing with HITL support 
             # ================================================================
             async for run_event in stream:
                 # ============================================================
@@ -377,7 +443,28 @@ class StreamChatService:
                                 sources=list(sources_map.values()) or None,
                             ).model_dump()
                             if request:
-                                asyncio.create_task(self._maybe_optimize_memories(agent, request))
+                                    asyncio.create_task(self._maybe_optimize_memories(agent, request))
+                            
+                            # 4. Trigger Async Session Summary Update
+                            # Only if conversation_id exists (Main Chat Flow)
+                            if request.conversation_id:
+                                # Prepare new lines: Last User Message + AI Response
+                                new_lines = []
+                                # Find last user message
+                                last_user = next((m for m in reversed(messages) if m.get("role") == "user"), None)
+                                if last_user:
+                                    new_lines.append(last_user)
+                                
+                                # AI Response
+                                new_lines.append({"role": "assistant", "content": final_content})
+                                
+                                logger.info(f"Triggering async summary update for {request.conversation_id} with {len(new_lines)} messages")
+                                asyncio.create_task(update_session_summary(
+                                    conversation_id=request.conversation_id,
+                                    old_summary=old_summary_json,
+                                    new_messages=new_lines
+                                ))
+
                             return
 
                         case RunEvent.run_error.value:
@@ -385,7 +472,7 @@ class StreamChatService:
                             yield ErrorEvent(error=str(error_msg)).model_dump()
                             return
                 else:
-                    # Simple event (no detailed event type), just check for content
+                    # Simple event Fallback (no detailed event type), just check for content
                     content = getattr(run_event, 'content', None)
                     if content:
                         for e in process_text(str(content)):

@@ -34,7 +34,7 @@ from ..routes import (
     mcp_tools,
     db as db_route,
 )
-from .agent_registry import build_agent, init_memory_db
+from .agent_registry import build_agent
 
 _agent_os: AgentOS | None = None
 
@@ -90,7 +90,7 @@ def get_agent_os() -> AgentOS:
         return _agent_os
 
     base_app = _build_base_app()
-    init_memory_db()
+    # init_memory_db() # Removed legacy DB init
     default_request = SimpleNamespace(
         provider="openai",
         api_key=os.getenv("OPENAI_API_KEY"),

@@ -1731,8 +1731,23 @@ const MessageBubble = ({
   const shouldShowPlanStatus = isDeepResearch && researchPlanLoading
   const shouldShowResearchStatus = isDeepResearch && hasActiveResearchStep
 
-  const hasRelatedQuestions =
-    Array.isArray(mergedMessage.related) && mergedMessage.related.length > 0
+  const resolvedRelatedQuestions = (() => {
+    const direct = mergedMessage.related
+    if (Array.isArray(direct)) return direct
+    if (Array.isArray(mergedMessage.relatedQuestions)) return mergedMessage.relatedQuestions
+    if (Array.isArray(mergedMessage.related_questions)) return mergedMessage.related_questions
+    if (typeof direct === 'string') {
+      try {
+        const parsed = JSON.parse(direct)
+        if (Array.isArray(parsed)) return parsed
+        if (Array.isArray(parsed?.questions)) return parsed.questions
+        if (Array.isArray(parsed?.relatedQuestions)) return parsed.relatedQuestions
+        if (Array.isArray(parsed?.related_questions)) return parsed.related_questions
+      } catch {}
+    }
+    return []
+  })()
+  const hasRelatedQuestions = resolvedRelatedQuestions.length > 0
   const isRelatedLoading = !!mergedMessage.relatedLoading
   const shouldShowRelated = !isDeepResearch && (hasRelatedQuestions || isRelatedLoading)
 
@@ -2303,7 +2318,7 @@ const MessageBubble = ({
         <div className="border-t border-gray-200 pt-4 dark:border-zinc-800">
           <RelatedQuestions
             t={t}
-            questions={hasRelatedQuestions ? mergedMessage.related : []}
+            questions={hasRelatedQuestions ? resolvedRelatedQuestions : []}
             isLoading={isRelatedLoading}
             onRelatedClick={onRelatedClick}
           />

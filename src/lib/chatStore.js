@@ -17,6 +17,7 @@ import {
   preselectTitleForDeepResearch,
 } from './chat/conversationSetup'
 import { callAIAPI, finalizeMessage, generateDeepResearchPlan } from './chat/aiService'
+import { getModelConfigForAgent } from './chat/modelConfig'
 import {
   ensureConversationExists,
   persistUserMessage,
@@ -881,6 +882,15 @@ const useChatStore = create((set, get) => ({
       settings,
     )
 
+    // Resolve Session Summary Model (Lite Model)
+    const fallbackAgent = agents.find(a => a.isDefault)
+    const summaryModelConfig = getModelConfigForAgent(
+      resolvedAgent,
+      settings,
+      'sessionContentSummary',
+      fallbackAgent,
+    )
+
     // Step 9: Call API & Stream
     await callAIAPI(
       conversationMessages,
@@ -901,6 +911,9 @@ const useChatStore = create((set, get) => ({
       resolvedDocumentSources,
       isAgentAutoMode,
       researchType,
+      null, // hitlRunId
+      null, // hitlFieldValues
+      summaryModelConfig, // New arg
     )
   },
 

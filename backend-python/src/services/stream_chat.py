@@ -464,6 +464,14 @@ class StreamChatService:
                                     old_summary=old_summary_json,
                                     new_messages=new_lines,
                                     database_provider=request.database_provider,
+                                    memory_provider=request.memory_provider,
+                                    memory_model=request.memory_model,
+                                    memory_api_key=request.memory_api_key,
+                                    memory_base_url=request.memory_base_url,
+                                    summary_provider=request.summary_provider,
+                                    summary_model=request.summary_model,
+                                    summary_api_key=request.summary_api_key,
+                                    summary_base_url=request.summary_base_url,
                                 ))
 
                             return

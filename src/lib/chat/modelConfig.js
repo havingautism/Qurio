@@ -34,7 +34,8 @@ export const getModelConfigForAgent = (
       task === 'generateRelatedQuestions' ||
       task === 'generateResearchPlan' ||
       task === 'generateDocumentQuery' ||
-      task === 'generateMemoryQuery'
+      task === 'generateMemoryQuery' ||
+      task === 'sessionContentSummary'
 
     const model = isLiteTask ? liteModel || defaultModel : defaultModel || liteModel
     const provider = isLiteTask

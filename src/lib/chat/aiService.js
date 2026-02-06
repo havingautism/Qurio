@@ -97,6 +97,7 @@ export const callAIAPI = async (
   researchType = 'general',
   hitlRunId = null,
   hitlFieldValues = null,
+  summaryModelConfig = null,
 ) => {
   let streamedThought = ''
   let pendingText = ''
@@ -311,6 +312,10 @@ export const callAIAPI = async (
         : []
     const searchBackend = searchBackends[0] || null
 
+    // Use Session Summary Model Config passed from chatStore
+    const summaryProvider = getProvider(summaryModelConfig?.provider)
+    const summaryCreds = summaryProvider?.getCredentials(settings) || {}
+
     // Fetch and filter user tools based on selected agent
     let activeUserTools = []
     try {
@@ -341,6 +346,19 @@ export const callAIAPI = async (
       searchProvider,
       tavilyApiKey,
       searchBackend,
+      // Pass session summary model config (resolved internaly)
+      summaryProvider: summaryModelConfig?.provider,
+      summaryModel: summaryModelConfig?.model,
+      summaryApiKey: summaryCreds?.apiKey,
+      summaryBaseUrl: summaryCreds?.baseUrl,
+
+      // RESTORED: Pass memory model config for long term memory tasks (using main model or specific config)
+      // This ensures Long Term Memory continues to work as it did before.
+      memoryProvider: resolvedMemoryProvider,
+      memoryModel: resolvedMemoryModel,
+      memoryApiKey: memoryApiKey,
+      memoryBaseUrl: memoryBaseUrl,
+
       userTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       userLocale: navigator.language || 'en-US',
       runId: hitlRunId,
@@ -372,10 +390,6 @@ export const callAIAPI = async (
       })(),
       tools: provider.getTools(toggles.search, toggles.searchTool, settings.enableLongTermMemory),
       toolIds: resolvedToolIds,
-      memoryProvider: resolvedMemoryProvider,
-      memoryModel: resolvedMemoryModel,
-      memoryApiKey,
-      memoryBaseUrl,
       enableLongTermMemory: Boolean(settings.enableLongTermMemory),
       databaseProvider: settings.databaseProvider || 'supabase',
       thinking: provider.getThinking(thinkingActive, modelConfig.model),
@@ -580,7 +594,12 @@ export const callAIAPI = async (
                   }),
                   status: 'calling', // Will be marked 'done' after submission
                   textIndex: baseIndex,
-                  output: { run_id: chunk.run_id, id: chunk.form_id, fields: chunk.fields, title: chunk.title },
+                  output: {
+                    run_id: chunk.run_id,
+                    id: chunk.form_id,
+                    fields: chunk.fields,
+                    title: chunk.title,
+                  },
                 })
               } else {
                 // Ensure run_id is retained for persisted history (page refresh recovery)
@@ -595,7 +614,9 @@ export const callAIAPI = async (
                     fields: chunk.fields,
                   }),
                   output: {
-                    ...(existing?.output && typeof existing.output === 'object' ? existing.output : {}),
+                    ...(existing?.output && typeof existing.output === 'object'
+                      ? existing.output
+                      : {}),
                     run_id: chunk.run_id,
                     id: chunk.form_id,
                     title: chunk.title,

@@ -102,6 +102,12 @@ class StreamChatRequest(BaseModel):
     memory_model: str | None = Field(default=None, alias="memoryModel")
     memory_base_url: str | None = Field(default=None, alias="memoryBaseUrl")
     memory_api_key: str | None = Field(default=None, alias="memoryApiKey")
+    
+    # Session Summary Configuration (Separate from Memory)
+    summary_provider: str | None = Field(default=None, alias="summaryProvider")
+    summary_model: str | None = Field(default=None, alias="summaryModel")
+    summary_base_url: str | None = Field(default=None, alias="summaryBaseUrl")
+    summary_api_key: str | None = Field(default=None, alias="summaryApiKey")
 
     # Stream flag (default true for streaming)
     stream: bool = True

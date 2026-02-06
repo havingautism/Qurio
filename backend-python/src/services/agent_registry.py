@@ -316,16 +316,19 @@ def get_summary_model(request: Any) -> Any | None:
     """
     settings = get_settings()
     try:
-        lite_provider = settings.memory_lite_provider
-        lite_model = settings.memory_lite_model
-        lite_api_key = settings.memory_agent_api_key
-        lite_base_url = settings.memory_lite_base_url
+        # Priority: Request params > Global Settings
+        # Priority: Request params (summary_*) > Global Settings (summary_*)
+        lite_provider = getattr(request, "summary_provider", None) or settings.summary_lite_provider
+        lite_model = getattr(request, "summary_model", None) or settings.summary_lite_model
+        lite_api_key = getattr(request, "summary_api_key", None) or settings.summary_agent_api_key
+        lite_base_url = getattr(request, "summary_base_url", None) or settings.summary_lite_base_url
         
         if not lite_model or not lite_api_key:
-            logger.warning("MEMORY_LITE_MODEL or MEMORY_AGENT_API_KEY not configured in .env")
+            logger.warning("Lite Model not configured (checked request summary_* params and SUMMARY_LITE_MODEL env var)")
             return None
             
-        logger.info(f"Using global lite model for session summary: {lite_provider}/{lite_model}")
+        source = "Request-Specific" if getattr(request, "summary_model", None) else "Global-Default"
+        logger.info(f"[{source}] Selected Lite Model for Session Summary: {lite_provider}/{lite_model}")
         
         # If no base_url provided, use the default for the provider
         resolved_base = lite_base_url or DEFAULT_BASE_URLS.get(lite_provider) or DEFAULT_BASE_URLS["openai"]
@@ -410,9 +413,10 @@ def build_memory_agent(
     base_url: str | None = None,
     api_key: str | None = None,
 ) -> Agent:
-    resolved_provider = provider or MEMORY_LITE_PROVIDER
-    resolved_model = model or MEMORY_LITE_MODEL
-    resolved_api_key = api_key or MEMORY_AGENT_API_KEY or os.getenv("OPENAI_API_KEY")
+    settings = get_settings()
+    resolved_provider = provider or settings.memory_lite_provider
+    resolved_model = model or settings.memory_lite_model
+    resolved_api_key = api_key or settings.memory_agent_api_key or os.getenv("OPENAI_API_KEY")
     resolved_base_url = (
         base_url
         or DEFAULT_BASE_URLS.get(resolved_provider)

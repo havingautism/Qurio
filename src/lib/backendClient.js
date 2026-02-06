@@ -419,6 +419,55 @@ export const generateTitleSpaceAndAgentViaBackend = async (
 }
 
 /**
+ * Select space and agent only (without title/emoji generation)
+ * @param {string} provider - AI provider name
+ * @param {string} message - User's first message
+ * @param {Array} spacesWithAgents - Array of { label, description, agents: [{name, description?}] }
+ * @param {string} apiKey - API key for the provider
+ * @param {string} baseUrl - Optional custom base URL
+ * @param {string} model - Optional model name
+ * @returns {Promise<{spaceLabel: string|null, agentName: string|null}>}
+ */
+export const generateSpaceAndAgentViaBackend = async (
+  provider,
+  message,
+  spacesWithAgents,
+  apiKey,
+  baseUrl,
+  model,
+  userTimezone,
+  userLocale,
+) => {
+  const response = await fetchWithTimeout(
+    `${getBackendUrl()}/api/space-agent`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        provider,
+        message,
+        spacesWithAgents,
+        apiKey,
+        baseUrl,
+        model,
+        userTimezone,
+        userLocale,
+      }),
+    },
+    15000,
+  )
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: 'Unknown error' }))
+    throw new Error(getBackendErrorMessage(error, response.status))
+  }
+
+  return response.json()
+}
+
+/**
  * Health check for backend
  * @returns {Promise<boolean>} - True if backend is running
  */
@@ -627,6 +676,15 @@ export const streamChatViaBackend = async params => {
     conversationId,
     runId,
     fieldValues,
+    summaryProvider,
+    summaryModel,
+    summaryApiKey,
+    summaryBaseUrl,
+    memoryProvider,
+    memoryModel,
+    memoryApiKey,
+    memoryBaseUrl,
+    memoryDomainsPrefetch,
   } = params
 
   if (!provider) {
@@ -675,6 +733,15 @@ export const streamChatViaBackend = async params => {
           conversationId,
           runId,
           fieldValues,
+          summaryProvider,
+          summaryModel,
+          summaryApiKey,
+          summaryBaseUrl,
+          memoryProvider,
+          memoryModel,
+          memoryApiKey,
+          memoryBaseUrl,
+          memoryDomainsPrefetch,
         }),
         signal,
       },

@@ -138,7 +138,7 @@ class StreamChatService:
 
             messages = self._inject_local_time_context(messages, request, pre_events)
             enabled_tool_names = self._collect_enabled_tool_names(request)
-            messages = self._inject_tool_guidance(messages, enabled_tool_names)
+            messages = self._inject_tool_guidance(messages, enabled_tool_names, request)
 
             for event in pre_events:
                 yield event
@@ -153,7 +153,7 @@ class StreamChatService:
             if request.conversation_id:
                 try:
                     from ..models.db import DbFilter, DbQueryRequest
-                    from .db_service import get_db_adapter
+                    from .db_service import execute_db_async, get_db_adapter
                     
                     adapter = get_db_adapter(request.database_provider)
                     if adapter:
@@ -163,10 +163,10 @@ class StreamChatService:
                             table="conversations",
                             columns=["session_summary"],
                             filters=[DbFilter(op="eq", column="id", value=request.conversation_id)],
-                            single=True
+                            maybeSingle=True,
                         )
                         
-                        result = adapter.execute(req)
+                        result = await execute_db_async(adapter, req)
                         
                         if result.data and isinstance(result.data, dict):
                             row = result.data
@@ -464,6 +464,14 @@ class StreamChatService:
                                     old_summary=old_summary_json,
                                     new_messages=new_lines,
                                     database_provider=request.database_provider,
+                                    memory_provider=request.memory_provider,
+                                    memory_model=request.memory_model,
+                                    memory_api_key=request.memory_api_key,
+                                    memory_base_url=request.memory_base_url,
+                                    summary_provider=request.summary_provider,
+                                    summary_model=request.summary_model,
+                                    summary_api_key=request.summary_api_key,
+                                    summary_base_url=request.summary_base_url,
                                 ))
 
                             return
@@ -811,62 +819,38 @@ class StreamChatService:
         if not messages:
             return messages
 
-        last_user_index = -1
-        last_user_message = None
-        for idx in range(len(messages) - 1, -1, -1):
-            if messages[idx].get("role") == "user":
-                last_user_index = idx
-                last_user_message = messages[idx]
-                break
-        if last_user_message is None:
-            return messages
-
-        content = last_user_message.get("content", "")
-        if isinstance(content, list):
-            content = " ".join(
-                [str(part.get("text") or part.get("content") or part) for part in content if part]
-            )
-        if not isinstance(content, str):
-            content = str(content)
-
-        if not TIME_KEYWORDS_REGEX.search(content or ""):
-            return messages
-
-        tool_ids = {resolve_tool_name(str(tool_id)) for tool_id in request.tool_ids or []}
-        if "local_time" not in tool_ids:
-            return messages
-
         timezone = request.user_timezone or "UTC"
         locale = request.user_locale or "en-US"
-        time_args = {"timezone": timezone, "locale": locale}
         time_result = self._compute_local_time(timezone, locale)
-
-        tool_call_id = f"local-time-{int(time.time() * 1000)}"
-        pre_events.append(
-            ToolCallEvent(
-                id=tool_call_id,
-                name="local_time",
-                arguments=json.dumps(time_args),
-                textIndex=0,
-            ).model_dump()
-        )
-        pre_events.append(
-            ToolResultEvent(
-                id=tool_call_id,
-                name="local_time",
-                status="done",
-                output=time_result,
-            ).model_dump()
-        )
-
         injected = (
-            "\n\n[SYSTEM INJECTED CONTEXT]\n"
-            f"Current Local Time: {time_result.get('formatted')} ({time_result.get('timezone')})"
+            "\n\n<today_local_time>\n"
+            f"##today local time：{time_result.get('formatted')} ({time_result.get('timezone')})\n"
+            f"locale: {time_result.get('locale')}\n"
+            f"iso: {time_result.get('iso')}\n"
+            "</today_local_time>"
         )
-        updated_message = dict(last_user_message)
-        updated_message["content"] = f"{content}{injected}"
-        messages[last_user_index] = updated_message
-        return messages
+
+        updated = list(messages)
+        system_index = next((i for i, m in enumerate(updated) if m.get("role") == "system"), -1)
+        if system_index != -1:
+            current_content = str(updated[system_index].get("content", ""))
+            if "<today_local_time>" in current_content and "</today_local_time>" in current_content:
+                current_content = re.sub(
+                    r"<today_local_time>[\s\S]*?</today_local_time>",
+                    injected.strip(),
+                    current_content,
+                    count=1,
+                    flags=re.IGNORECASE,
+                )
+                updated[system_index] = {**updated[system_index], "content": current_content}
+            else:
+                updated[system_index] = {
+                    **updated[system_index],
+                    "content": f"{current_content}{injected}",
+                }
+        else:
+            updated.insert(0, {"role": "system", "content": injected.strip()})
+        return updated
 
     def _compute_local_time(self, timezone: str, locale: str) -> dict[str, Any]:
         try:
@@ -885,6 +869,7 @@ class StreamChatService:
         self,
         messages: list[dict[str, Any]],
         enabled_tools: set[str],
+        request: Any | None = None,
     ) -> list[dict[str, Any]]:
         if not enabled_tools:
             return messages
@@ -943,6 +928,66 @@ class StreamChatService:
                 "citations."
             )
             updated = self._append_system_message(updated, citation_prompt, system_index)
+
+        if "local_time" in enabled_tools:
+            local_time_guidance = (
+                "\n\n[TIME CONTEXT GUIDANCE]\n"
+                "Current local time context is already injected in system prompt.\n"
+                "Do not call local_time again unless the user explicitly asks to refresh/recheck time."
+            )
+            updated = self._append_system_message(updated, local_time_guidance, system_index)
+
+        if "memory_update" in enabled_tools:
+            memory_guidance = (
+                "\n\n[MEMORY UPDATE GUIDANCE]\n"
+                "When calling 'memory_update', prioritize existing memory domains first.\n"
+                "Optionally call 'memory_retrieve' first to inspect existing domain summaries.\n"
+                "1) Reuse an existing domain_key if semantically similar.\n"
+                "2) Create a new domain_key only for clearly new topics.\n"
+                "3) Prefer operation='upsert' for corrections/overwrites; use 'add' for appending details; "
+                "use 'delete' to remove outdated domains.\n"
+                "4) Always provide a non-empty summary for operation='add' and operation='upsert'."
+            )
+            updated = self._append_system_message(updated, memory_guidance, system_index)
+
+        if "memory_retrieve" in enabled_tools:
+            prefetched_domains = []
+            raw_prefetched = getattr(request, "memory_domains_prefetch", None) if request else None
+            if isinstance(raw_prefetched, list):
+                for row in raw_prefetched[:80]:
+                    if not isinstance(row, dict):
+                        continue
+                    domain_key = str(row.get("domain_key") or "").strip()
+                    if not domain_key:
+                        continue
+                    aliases = row.get("aliases")
+                    if not isinstance(aliases, list):
+                        aliases = []
+                    cleaned_aliases = [str(item).strip() for item in aliases if str(item).strip()]
+                    prefetched_domains.append(
+                        {
+                            "domain_key": domain_key,
+                            "aliases": cleaned_aliases,
+                        }
+                    )
+
+            available_domains_text = ""
+            if prefetched_domains:
+                available_domains_text = (
+                    "\nAvailable existing domains (prefer these keys first): "
+                    f"{json.dumps(prefetched_domains, ensure_ascii=False)}"
+                )
+
+            memory_retrieve_guidance = (
+                "\n\n[MEMORY RETRIEVE GUIDANCE]\n"
+                "Use 'memory_retrieve' only when memory context is needed for the current answer.\n"
+                "Use TWO steps:\n"
+                "1) Call memory_retrieve(action='list', include_summary=false) to inspect candidate domains.\n"
+                "2) Select domain_keys and call memory_retrieve(action='fetch', include_summary=true, domain_keys=[...]).\n"
+                "Do not fetch all summaries directly without selecting domains first."
+                f"{available_domains_text}"
+            )
+            updated = self._append_system_message(updated, memory_retrieve_guidance, system_index)
 
         return updated
 

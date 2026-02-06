@@ -18,6 +18,8 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 from ..config import get_settings
 from ..routes import (
@@ -26,6 +28,7 @@ from ..routes import (
     title as title_route,
     title_and_space,
     title_space_agent,
+    space_agent,
     agent_for_auto,
     related_questions,
     research_plan,
@@ -74,6 +77,7 @@ def _build_base_app() -> FastAPI:
     app.include_router(title_route.router, prefix="/api")
     app.include_router(title_and_space.router, prefix="/api")
     app.include_router(title_space_agent.router, prefix="/api")
+    app.include_router(space_agent.router, prefix="/api")
     app.include_router(agent_for_auto.router, prefix="/api")
     app.include_router(related_questions.router, prefix="/api")
     app.include_router(research_plan.router, prefix="/api")

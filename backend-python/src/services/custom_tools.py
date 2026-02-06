@@ -54,8 +54,16 @@ def interactive_form(id: str, title: str, fields: list[dict[str, Any]]) -> str:
 
 
 class QurioLocalTools(Toolkit):
-    def __init__(self, tavily_api_key: str | None = None, include_tools: list[str] | None = None) -> None:
+    def __init__(
+        self,
+        tavily_api_key: str | None = None,
+        include_tools: list[str] | None = None,
+        prefetched_memory_domains: list[dict[str, Any]] | None = None,
+    ) -> None:
         self._tavily_api_key = tavily_api_key
+        self._prefetched_memory_domains = (
+            prefetched_memory_domains if isinstance(prefetched_memory_domains, list) else []
+        )
         tools = [
             self.calculator,
             self.local_time,
@@ -67,6 +75,7 @@ class QurioLocalTools(Toolkit):
             self.webpage_reader,
             self.tavily_web_search,
             self.tavily_academic_search,
+            self.memory_retrieve,
             self.memory_update,
         ]
         super().__init__(name="QurioLocalTools", tools=tools, include_tools=include_tools)
@@ -196,15 +205,409 @@ class QurioLocalTools(Toolkit):
         parts = re.split(r"[.!?\u3002\uff01\uff1f]+", text or "")
         return [s.strip() for s in parts if s.strip()]
 
+    def _normalize_aliases(self, aliases: Any) -> list[str]:
+        if isinstance(aliases, list):
+            return [str(item).strip() for item in aliases if str(item).strip()]
+        if isinstance(aliases, str):
+            stripped = aliases.strip()
+            if not stripped:
+                return []
+            if stripped.startswith("["):
+                try:
+                    parsed = json.loads(stripped)
+                    if isinstance(parsed, list):
+                        return [str(item).strip() for item in parsed if str(item).strip()]
+                except Exception:
+                    return []
+            return [stripped]
+        return []
+
+    def _normalize_prefetched_domains(self) -> list[dict[str, Any]]:
+        normalized: list[dict[str, Any]] = []
+        for row in self._prefetched_memory_domains or []:
+            if not isinstance(row, dict):
+                continue
+            domain_key = str(row.get("domain_key") or "").strip()
+            if not domain_key:
+                continue
+            latest_summary = row.get("latest_summary")
+            if not isinstance(latest_summary, dict):
+                latest_summary = None
+            normalized.append(
+                {
+                    "id": row.get("id"),
+                    "domain_key": domain_key,
+                    "aliases": self._normalize_aliases(row.get("aliases")),
+                    "scope": str(row.get("scope") or "").strip(),
+                    "updated_at": row.get("updated_at"),
+                    "latest_summary": latest_summary,
+                }
+            )
+        return normalized
+
+    def _load_domain_summaries(
+        self,
+        domain_ids: list[Any],
+        database_provider: str | None = None,
+    ) -> dict[str, dict[str, Any]]:
+        if not domain_ids:
+            return {}
+        try:
+            from ..models.db import DbFilter, DbOrder, DbQueryRequest
+            from .db_service import get_db_adapter
+
+            adapter = get_db_adapter(database_provider)
+            if not adapter:
+                return {}
+
+            req = DbQueryRequest(
+                providerId=adapter.config.id,
+                action="select",
+                table="memory_summaries",
+                columns=["id", "domain_id", "summary", "updated_at"],
+                filters=[DbFilter(op="in", column="domain_id", values=domain_ids)],
+                order=[DbOrder(column="updated_at", ascending=False)],
+                limit=max(1, len(domain_ids) * 3),
+            )
+            res = adapter.execute(req)
+            rows = res.data if isinstance(res.data, list) else []
+
+            by_domain: dict[str, dict[str, Any]] = {}
+            for row in rows:
+                if not isinstance(row, dict):
+                    continue
+                domain_id = row.get("domain_id")
+                if domain_id is None:
+                    continue
+                key = str(domain_id)
+                if key in by_domain:
+                    continue
+                by_domain[key] = row
+            return by_domain
+        except Exception:
+            return {}
+
+    def _load_all_memory_domains(
+        self,
+        user_id: str | None = None,
+        database_provider: str | None = None,
+    ) -> list[dict[str, Any]]:
+        try:
+            from ..models.db import DbFilter, DbOrder, DbQueryRequest
+            from .db_service import get_db_adapter
+
+            adapter = get_db_adapter(database_provider)
+            if not adapter:
+                return []
+
+            filters: list[DbFilter] = []
+            if user_id:
+                filters.append(DbFilter(op="eq", column="user_id", value=user_id))
+
+            req = DbQueryRequest(
+                providerId=adapter.config.id,
+                action="select",
+                table="memory_domains",
+                columns=["id", "domain_key", "aliases", "scope", "updated_at"],
+                filters=filters or None,
+                order=[DbOrder(column="updated_at", ascending=False)],
+                limit=200,
+            )
+            res = adapter.execute(req)
+            rows = res.data if isinstance(res.data, list) else []
+            normalized: list[dict[str, Any]] = []
+            for row in rows:
+                if not isinstance(row, dict):
+                    continue
+                domain_key = str(row.get("domain_key") or "").strip()
+                if not domain_key:
+                    continue
+                normalized.append(
+                    {
+                        "id": row.get("id"),
+                        "domain_key": domain_key,
+                        "aliases": self._normalize_aliases(row.get("aliases")),
+                        "scope": str(row.get("scope") or "").strip(),
+                        "updated_at": row.get("updated_at"),
+                        "latest_summary": None,
+                    }
+                )
+            return normalized
+        except Exception:
+            return []
+
+    @tool(
+        name="memory_retrieve",
+        description=(
+            "Two-step memory retrieval: list domains first, then fetch summaries for selected domain_keys."
+        ),
+    )
+    def memory_retrieve(
+        self,
+        action: str = "list",
+        query: str = "",
+        domain_keys: Any = None,
+        include_summary: bool = False,
+        limit: int = 8,
+        user_id: str | None = None,
+        database_provider: str | None = None,
+    ) -> str:
+        try:
+            normalized_limit = max(1, min(int(limit or 8), 20))
+        except Exception:
+            normalized_limit = 8
+
+        resolved_keys: list[str] = []
+        if isinstance(domain_keys, list):
+            resolved_keys = [str(item).strip() for item in domain_keys if str(item).strip()]
+        elif isinstance(domain_keys, dict):
+            resolved_keys = [
+                str(key).strip()
+                for key, value in domain_keys.items()
+                if str(key).strip() and bool(value)
+            ]
+        elif isinstance(domain_keys, str):
+            raw = domain_keys.strip()
+            if raw:
+                if raw.startswith("["):
+                    try:
+                        parsed = json.loads(raw)
+                        if isinstance(parsed, list):
+                            resolved_keys = [
+                                str(item).strip() for item in parsed if str(item).strip()
+                            ]
+                    except Exception:
+                        resolved_keys = []
+                elif "," in raw:
+                    resolved_keys = [part.strip() for part in raw.split(",") if part.strip()]
+                else:
+                    resolved_keys = [raw]
+
+        action_raw = str(action or "").strip().lower()
+        action_alias = {
+            "list": "list",
+            "domains": "list",
+            "list_domains": "list",
+            "select": "list",
+            "fetch": "fetch",
+            "summary": "fetch",
+            "summaries": "fetch",
+            "fetch_summary": "fetch",
+            "fetch_summaries": "fetch",
+        }
+        resolved_action = action_alias.get(action_raw, "fetch" if include_summary else "list")
+
+        domains = self._normalize_prefetched_domains()
+        source = "prefetch"
+        if not domains:
+            domains = self._load_all_memory_domains(
+                user_id=user_id,
+                database_provider=database_provider,
+            )
+            source = "database"
+
+        query_lower = str(query or "").strip().lower()
+        key_set = {k.lower() for k in resolved_keys}
+
+        def _score(item: dict[str, Any]) -> int:
+            domain_key = str(item.get("domain_key") or "").lower()
+            aliases = [str(alias).lower() for alias in item.get("aliases") or []]
+            scope = str(item.get("scope") or "").lower()
+            text = f"{domain_key} {' '.join(aliases)} {scope}".strip()
+            if key_set:
+                return 100 if domain_key in key_set else 0
+            if not query_lower:
+                return 1
+            score = 0
+            if query_lower in text:
+                score += 10
+            for token in re.split(r"[\s,;|]+", query_lower):
+                token = token.strip()
+                if len(token) < 2:
+                    continue
+                if token in text:
+                    score += 1
+            return score
+
+        ranked = []
+        for item in domains:
+            score = _score(item)
+            if score <= 0:
+                continue
+            ranked.append((score, item))
+        ranked.sort(key=lambda pair: pair[0], reverse=True)
+
+        selected = [item for _, item in ranked[:normalized_limit]]
+        if not selected and resolved_action == "list" and not query_lower and not key_set:
+            selected = domains[:normalized_limit]
+
+        if resolved_action == "fetch" and not selected and not key_set and not query_lower:
+            return json.dumps(
+                {
+                    "status": "invalid_request",
+                    "error": "For action='fetch', provide domain_keys (preferred) or query.",
+                    "instruction": (
+                        "Step 1: call memory_retrieve(action='list', include_summary=false). "
+                        "Step 2: pick domain_keys and call memory_retrieve(action='fetch', domain_keys=[...], include_summary=true)."
+                    ),
+                },
+                ensure_ascii=False,
+            )
+
+        effective_include_summary = bool(include_summary and resolved_action == "fetch")
+        summary_map: dict[str, dict[str, Any]] = {}
+        if effective_include_summary:
+            missing_ids: list[Any] = []
+            for domain in selected:
+                latest = domain.get("latest_summary")
+                summary_text = (latest or {}).get("summary") if isinstance(latest, dict) else None
+                if not str(summary_text or "").strip() and domain.get("id") is not None:
+                    missing_ids.append(domain.get("id"))
+            summary_map = self._load_domain_summaries(
+                domain_ids=missing_ids,
+                database_provider=database_provider,
+            )
+
+        result_domains: list[dict[str, Any]] = []
+        for domain in selected:
+            latest = domain.get("latest_summary") if isinstance(domain.get("latest_summary"), dict) else {}
+            row: dict[str, Any] = {
+                "id": domain.get("id"),
+                "domain_key": domain.get("domain_key"),
+                "aliases": domain.get("aliases") or [],
+                "scope": domain.get("scope") or "",
+                "updated_at": domain.get("updated_at"),
+            }
+            if effective_include_summary:
+                summary_row = summary_map.get(str(domain.get("id")))
+                row["summary"] = latest.get("summary") or (summary_row or {}).get("summary")
+            result_domains.append(row)
+
+        payload = {
+            "status": "ok",
+            "action": resolved_action,
+            "source": source,
+            "query": query,
+            "matched_count": len(result_domains),
+            "domains": result_domains,
+        }
+        return json.dumps(payload, ensure_ascii=False)
+
+    def _load_existing_memory_summary(
+        self,
+        domain_key: str,
+        user_id: str | None = None,
+        database_provider: str | None = None,
+    ) -> dict[str, Any] | None:
+        try:
+            from ..models.db import DbFilter, DbQueryRequest
+            from .db_service import get_db_adapter
+
+            adapter = get_db_adapter(database_provider)
+            if not adapter:
+                return None
+
+            filters = [DbFilter(op="eq", column="domain_key", value=domain_key)]
+            if user_id:
+                filters.append(DbFilter(op="eq", column="user_id", value=user_id))
+
+            domain_req = DbQueryRequest(
+                providerId=adapter.config.id,
+                action="select",
+                table="memory_domains",
+                columns=["id", "domain_key", "aliases", "scope", "user_id"],
+                filters=filters,
+                maybe_single=True,
+            )
+            domain_res = adapter.execute(domain_req)
+            if domain_res.error or not domain_res.data or not isinstance(domain_res.data, dict):
+                return None
+
+            domain_id = domain_res.data.get("id")
+            if not domain_id:
+                return None
+
+            summary_req = DbQueryRequest(
+                providerId=adapter.config.id,
+                action="select",
+                table="memory_summaries",
+                columns=["id", "domain_id", "summary", "updated_at"],
+                filters=[DbFilter(op="eq", column="domain_id", value=domain_id)],
+                maybe_single=True,
+            )
+            summary_res = adapter.execute(summary_req)
+            summary_row = summary_res.data if isinstance(summary_res.data, dict) else None
+
+            return {
+                "domain_id": domain_id,
+                "domain_key": domain_res.data.get("domain_key"),
+                "user_id": domain_res.data.get("user_id"),
+                "aliases": domain_res.data.get("aliases"),
+                "scope": domain_res.data.get("scope"),
+                "summary_id": (summary_row or {}).get("id"),
+                "summary": (summary_row or {}).get("summary"),
+                "updated_at": (summary_row or {}).get("updated_at"),
+            }
+        except Exception:
+            return None
+
     @tool(
         name="memory_update",
-        description="Updates or adds a specific domain of long-term memory about the user.",
+        description=(
+            "Manage long-term memory for a specific domain. "
+            "Prefer reusing an existing domain_key whenever possible. "
+            "Use operation='add' to append/create, operation='upsert' to update/overwrite, "
+            "and operation='delete' to remove a memory domain."
+        ),
     )
-    def memory_update(self, domain_key: str, summary: str, aliases: Any = None, scope: str = "") -> str:
+    def memory_update(
+        self,
+        domain_key: str,
+        summary: str | None = None,
+        aliases: Any = None,
+        scope: str = "",
+        operation: str = "upsert",
+        user_id: str | None = None,
+        database_provider: str | None = None,
+    ) -> str:
         """
         No-op implementation for backend. The real save happens on the frontend asynchronously.
         Resilience: Handles models that pass aliases as stringified JSON arrays instead of proper lists.
         """
+        if not str(domain_key or "").strip():
+            return json.dumps(
+                {
+                    "status": "invalid_request",
+                    "error": "domain_key is required",
+                },
+                ensure_ascii=False,
+            )
+
+        operation_raw = str(operation or "upsert").strip().lower()
+        operation_aliases = {
+            "create": "add",
+            "insert": "add",
+            "add": "add",
+            "update": "upsert",
+            "modify": "upsert",
+            "edit": "upsert",
+            "upsert": "upsert",
+            "overwrite": "upsert",
+            "replace": "upsert",
+            "delete": "delete",
+            "remove": "delete",
+            "del": "delete",
+        }
+        resolved_operation = operation_aliases.get(operation_raw)
+        if not resolved_operation:
+            return json.dumps(
+                {
+                    "status": "invalid_request",
+                    "error": "operation must be one of: add, upsert, delete",
+                },
+                ensure_ascii=False,
+            )
+
         # Actual validation/parsing of aliases is handled here to satisfy Pydantic
         actual_aliases = []
         if isinstance(aliases, list):
@@ -216,15 +619,79 @@ class QurioLocalTools(Toolkit):
             ]
         elif isinstance(aliases, str) and aliases.strip().startswith("["):
             try:
-                import json
-
                 parsed = json.loads(aliases)
                 if isinstance(parsed, list):
                     actual_aliases = parsed
             except:
                 pass
 
-        return f"Memory domain '{domain_key}' updated successfully."
+        existing_memory = self._load_existing_memory_summary(
+            domain_key=domain_key,
+            user_id=user_id,
+            database_provider=database_provider,
+        )
+
+        if resolved_operation == "upsert" and not str(summary or "").strip():
+            payload = {
+                "status": "needs_summary",
+                "operation": "upsert",
+                "domain_key": domain_key,
+                "existing_memory": existing_memory,
+                "instruction": (
+                    "Read existing_memory.summary if present, then call memory_update again "
+                    "with operation='upsert' and a full replacement summary."
+                ),
+            }
+            return json.dumps(payload, ensure_ascii=False)
+
+        if resolved_operation == "add" and not str(summary or "").strip():
+            return json.dumps(
+                {
+                    "status": "invalid_request",
+                    "operation": "add",
+                    "domain_key": domain_key,
+                    "error": "summary is required when operation is add",
+                    "instruction": "Retry memory_update with a non-empty summary.",
+                },
+                ensure_ascii=False,
+            )
+
+        # Frontend reads tool args and applies async DB write.
+        if resolved_operation == "delete":
+            payload = {
+                "status": "accepted",
+                "operation": "delete",
+                "domain_key": domain_key,
+                "existing_memory": existing_memory,
+                "message": f"Memory delete accepted for domain '{domain_key}'.",
+            }
+            return json.dumps(payload, ensure_ascii=False)
+        if resolved_operation == "add":
+            payload = {
+                "status": "accepted",
+                "operation": "add",
+                "domain_key": domain_key,
+                "user_id": user_id,
+                "aliases": actual_aliases,
+                "scope": scope,
+                "summary": summary,
+                "existing_memory": existing_memory,
+                "message": f"Memory add accepted for domain '{domain_key}'.",
+            }
+            return json.dumps(payload, ensure_ascii=False)
+
+        payload = {
+            "status": "accepted",
+            "operation": "upsert",
+            "domain_key": domain_key,
+            "user_id": user_id,
+            "aliases": actual_aliases,
+            "scope": scope,
+            "summary": summary,
+            "existing_memory": existing_memory,
+            "message": f"Memory upsert accepted for domain '{domain_key}'.",
+        }
+        return json.dumps(payload, ensure_ascii=False)
 
     def _resolve_tavily_api_key(self) -> str:
         if self._tavily_api_key:

@@ -6,7 +6,7 @@ import {
   notifyConversationsChanged,
   updateMessageById,
 } from '../conversationsService'
-import { upsertMemoryDomainSummary, getMemoryDomains } from '../longTermMemoryService'
+import { upsertMemoryDomainSummary, getMemoryDomains, deleteMemoryDomain } from '../longTermMemoryService'
 import { getModelConfigForAgent, resolveProviderConfigWithCredentials } from './modelConfig'
 import { getLanguageInstruction, applyLanguageInstructionToText } from './prompts'
 import { buildSpaceAgentOptions, resolveAgentForSpace } from './conversationSetup'
@@ -97,6 +97,9 @@ export const callAIAPI = async (
   researchType = 'general',
   hitlRunId = null,
   hitlFieldValues = null,
+  summaryModelConfig = null,
+  memoryDomainsPrefetch = [],
+  deferTitleGeneration = false,
 ) => {
   let streamedThought = ''
   let pendingText = ''
@@ -311,6 +314,10 @@ export const callAIAPI = async (
         : []
     const searchBackend = searchBackends[0] || null
 
+    // Use Session Summary Model Config passed from chatStore
+    const summaryProvider = getProvider(summaryModelConfig?.provider)
+    const summaryCreds = summaryProvider?.getCredentials(settings) || {}
+
     // Fetch and filter user tools based on selected agent
     let activeUserTools = []
     try {
@@ -341,6 +348,20 @@ export const callAIAPI = async (
       searchProvider,
       tavilyApiKey,
       searchBackend,
+      // Pass session summary model config (resolved internaly)
+      summaryProvider: summaryModelConfig?.provider,
+      summaryModel: summaryModelConfig?.model,
+      summaryApiKey: summaryCreds?.apiKey,
+      summaryBaseUrl: summaryCreds?.baseUrl,
+
+      // RESTORED: Pass memory model config for long term memory tasks (using main model or specific config)
+      // This ensures Long Term Memory continues to work as it did before.
+      memoryProvider: resolvedMemoryProvider,
+      memoryModel: resolvedMemoryModel,
+      memoryApiKey: memoryApiKey,
+      memoryBaseUrl: memoryBaseUrl,
+      memoryDomainsPrefetch: Array.isArray(memoryDomainsPrefetch) ? memoryDomainsPrefetch : [],
+
       userTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       userLocale: navigator.language || 'en-US',
       runId: hitlRunId,
@@ -372,10 +393,6 @@ export const callAIAPI = async (
       })(),
       tools: provider.getTools(toggles.search, toggles.searchTool, settings.enableLongTermMemory),
       toolIds: resolvedToolIds,
-      memoryProvider: resolvedMemoryProvider,
-      memoryModel: resolvedMemoryModel,
-      memoryApiKey,
-      memoryBaseUrl,
       enableLongTermMemory: Boolean(settings.enableLongTermMemory),
       databaseProvider: settings.databaseProvider || 'supabase',
       thinking: provider.getThinking(thinkingActive, modelConfig.model),
@@ -580,7 +597,12 @@ export const callAIAPI = async (
                   }),
                   status: 'calling', // Will be marked 'done' after submission
                   textIndex: baseIndex,
-                  output: { run_id: chunk.run_id, id: chunk.form_id, fields: chunk.fields, title: chunk.title },
+                  output: {
+                    run_id: chunk.run_id,
+                    id: chunk.form_id,
+                    fields: chunk.fields,
+                    title: chunk.title,
+                  },
                 })
               } else {
                 // Ensure run_id is retained for persisted history (page refresh recovery)
@@ -595,7 +617,9 @@ export const callAIAPI = async (
                     fields: chunk.fields,
                   }),
                   output: {
-                    ...(existing?.output && typeof existing.output === 'object' ? existing.output : {}),
+                    ...(existing?.output && typeof existing.output === 'object'
+                      ? existing.output
+                      : {}),
                     run_id: chunk.run_id,
                     id: chunk.form_id,
                     title: chunk.title,
@@ -634,10 +658,10 @@ export const callAIAPI = async (
           { ...result, thought: result.thought ?? streamedThought },
           currentStore,
           settings,
-          callbacks,
-          spaces,
-          set,
-          historyLengthBeforeSend === 0,
+        callbacks,
+        spaces,
+        set,
+        historyLengthBeforeSend === 0,
           firstUserText,
           spaceInfo,
           preselectedTitle,
@@ -645,9 +669,10 @@ export const callAIAPI = async (
           toggles,
           documentSources,
           selectedAgent,
-          agents,
-          isAgentAutoMode,
-        )
+        agents,
+        isAgentAutoMode,
+        deferTitleGeneration,
+      )
       },
       onError: err => {
         const { abortController } = get()
@@ -729,6 +754,7 @@ export const finalizeMessage = async (
   selectedAgent = null,
   agents = [],
   isAgentAutoMode = false,
+  deferTitleGeneration = false,
 ) => {
   const fallbackAgent = agents?.find(agent => agent.isDefault)
   const safeAgent = selectedAgent || fallbackAgent
@@ -786,26 +812,40 @@ export const finalizeMessage = async (
             const toolName = tc.name || tc.function?.name
             if (toolName === 'memory_update') {
               try {
-                const args =
-                  typeof tc.arguments === 'string' ? JSON.parse(tc.arguments) : tc.arguments
-                if (args?.domain_key && args?.summary) {
-                  upsertMemoryDomainSummary({
-                    domainKey: args.domain_key,
-                    summary: args.summary,
-                    aliases: args.aliases || [],
-                    scope: args.scope || '',
-                    append: true,
+                const rawArgs =
+                  typeof tc.arguments !== 'undefined' ? tc.arguments : tc.function?.arguments
+                const args = typeof rawArgs === 'string' ? JSON.parse(rawArgs) : rawArgs
+                const operation = String(args?.operation || 'upsert').toLowerCase()
+                const domainKey = args?.domain_key
+                if (!domainKey) return
+
+                if (operation === 'delete') {
+                  deleteMemoryDomain(domainKey).catch(err => {
+                    console.error(`[Memory] Background delete failed: ${domainKey}`, err)
                   })
-                    .then(() => {
-                      getMemoryDomains()
-                    })
-                    .catch(err => {
-                      console.error(
-                        `[Memory] Background auto-update failed: ${args.domain_key}`,
-                        err,
-                      )
-                    })
+                  return
                 }
+
+                if (!args?.summary) return
+
+                upsertMemoryDomainSummary({
+                  domainKey,
+                  summary: args.summary,
+                  aliases: args.aliases || [],
+                  scope: args.scope || '',
+                  // add = append; upsert = overwrite
+                  append: operation === 'add',
+                })
+                  .then(result => {
+                    if (!result?.updated) {
+                      console.error(`[Memory] Background auto-update rejected: ${domainKey}`, result)
+                      return
+                    }
+                    getMemoryDomains()
+                  })
+                  .catch(err => {
+                    console.error(`[Memory] Background auto-update failed: ${domainKey}`, err)
+                  })
               } catch (e) {
                 console.error('[Memory] Failed to parse memory_update arguments:', e)
               }
@@ -855,7 +895,7 @@ export const finalizeMessage = async (
       new Promise((_, reject) => setTimeout(() => reject(new Error(`${label} timed out`)), ms)),
     ])
 
-  if (isFirstTurn) {
+  if (isFirstTurn && !deferTitleGeneration) {
     try {
       const hasResolvedTitle =
         typeof resolvedTitle === 'string' &&
@@ -1181,63 +1221,8 @@ export const finalizeMessage = async (
     tc => (tc.name || tc.function?.name) === 'interactive_form' && tc.status !== 'done',
   )
 
-  let related = []
   if (toggles?.related && !isInteractiveForm) {
-    set(state => {
-      const updated = [...state.messages]
-      let targetIndex = -1
-      if (insertedAiId) {
-        targetIndex = updated.findIndex(m => m.id === insertedAiId)
-      }
-      if (targetIndex === -1) {
-        for (let i = updated.length - 1; i >= 0; i--) {
-          if (updated[i].role === 'ai') {
-            targetIndex = i
-            break
-          }
-        }
-      }
-
-      if (targetIndex >= 0) {
-        updated[targetIndex] = {
-          ...updated[targetIndex],
-          relatedLoading: true,
-        }
-      }
-      return { messages: updated }
-    })
-
-    try {
-      const sanitizedMessages = currentStore.messages.map(m => ({
-        role: m.role === 'ai' ? 'assistant' : m.role,
-        content: normalizeContent(m.content),
-      }))
-      const languageInstruction = getLanguageInstruction(safeAgent, settings)
-      const relatedMessages = sanitizedMessages.slice(-2)
-      if (languageInstruction) {
-        relatedMessages.unshift({ role: 'system', content: languageInstruction })
-      }
-
-      const { modelConfig, provider, credentials } = resolveProviderConfigWithCredentials(
-        safeAgent,
-        settings,
-        'generateRelatedQuestions',
-        fallbackAgent,
-      )
-
-      related = await withTimeout(
-        provider.generateRelatedQuestions(
-          relatedMessages,
-          credentials.apiKey,
-          credentials.baseUrl,
-          modelConfig.model,
-        ),
-        20000,
-        'Related questions',
-      )
-    } catch (error) {
-      console.error('[chatStore] Failed to generate related questions:', error)
-    } finally {
+    ;(async () => {
       set(state => {
         const updated = [...state.messages]
         let targetIndex = -1
@@ -1252,55 +1237,112 @@ export const finalizeMessage = async (
             }
           }
         }
+
         if (targetIndex >= 0) {
           updated[targetIndex] = {
             ...updated[targetIndex],
-            relatedLoading: false,
+            relatedLoading: true,
           }
         }
         return { messages: updated }
       })
-    }
-  }
 
-  if (related && related.length > 0) {
-    set(state => {
-      const updated = [...state.messages]
-      let targetIndex = -1
-      if (insertedAiId) {
-        targetIndex = updated.findIndex(m => m.id === insertedAiId)
-      }
-      if (targetIndex === -1) {
-        for (let i = updated.length - 1; i >= 0; i--) {
-          if (updated[i].role === 'ai') {
-            targetIndex = i
-            break
+      let related = []
+      try {
+        const sanitizedMessages = currentStore.messages.map(m => ({
+          role: m.role === 'ai' ? 'assistant' : m.role,
+          content: normalizeContent(m.content),
+        }))
+        const languageInstruction = getLanguageInstruction(safeAgent, settings)
+        const relatedMessages = sanitizedMessages.slice(-2)
+        if (languageInstruction) {
+          relatedMessages.unshift({ role: 'system', content: languageInstruction })
+        }
+
+        const { modelConfig, provider, credentials } = resolveProviderConfigWithCredentials(
+          safeAgent,
+          settings,
+          'generateRelatedQuestions',
+          fallbackAgent,
+        )
+
+        related = await withTimeout(
+          provider.generateRelatedQuestions(
+            relatedMessages,
+            credentials.apiKey,
+            credentials.baseUrl,
+            modelConfig.model,
+          ),
+          20000,
+          'Related questions',
+        )
+      } catch (error) {
+        console.error('[chatStore] Failed to generate related questions:', error)
+      } finally {
+        set(state => {
+          const updated = [...state.messages]
+          let targetIndex = -1
+          if (insertedAiId) {
+            targetIndex = updated.findIndex(m => m.id === insertedAiId)
           }
-        }
+          if (targetIndex === -1) {
+            for (let i = updated.length - 1; i >= 0; i--) {
+              if (updated[i].role === 'ai') {
+                targetIndex = i
+                break
+              }
+            }
+          }
+          if (targetIndex >= 0) {
+            updated[targetIndex] = {
+              ...updated[targetIndex],
+              relatedLoading: false,
+            }
+          }
+          return { messages: updated }
+        })
       }
 
-      if (targetIndex >= 0) {
-        const lastMsg = { ...updated[targetIndex] }
-        lastMsg.related = related
-        if (result.sources && result.sources.length > 0) {
-          lastMsg.sources = result.sources
-        }
-        if (result.groundingSupports && result.groundingSupports.length > 0) {
-          lastMsg.groundingSupports = result.groundingSupports
-        }
-        updated[targetIndex] = lastMsg
-      }
-      return { messages: updated }
-    })
-  }
+      if (related && related.length > 0) {
+        set(state => {
+          const updated = [...state.messages]
+          let targetIndex = -1
+          if (insertedAiId) {
+            targetIndex = updated.findIndex(m => m.id === insertedAiId)
+          }
+          if (targetIndex === -1) {
+            for (let i = updated.length - 1; i >= 0; i--) {
+              if (updated[i].role === 'ai') {
+                targetIndex = i
+                break
+              }
+            }
+          }
 
-  if (insertedAiId && related && related.length > 0) {
-    try {
-      await updateMessageById(insertedAiId, {
-        related_questions: related,
-      })
-    } catch (error) {
-      console.error('Failed to persist related questions:', error)
-    }
+          if (targetIndex >= 0) {
+            const lastMsg = { ...updated[targetIndex] }
+            lastMsg.related = related
+            if (result.sources && result.sources.length > 0) {
+              lastMsg.sources = result.sources
+            }
+            if (result.groundingSupports && result.groundingSupports.length > 0) {
+              lastMsg.groundingSupports = result.groundingSupports
+            }
+            updated[targetIndex] = lastMsg
+          }
+          return { messages: updated }
+        })
+      }
+
+      if (insertedAiId && related && related.length > 0) {
+        try {
+          await updateMessageById(insertedAiId, {
+            related_questions: related,
+          })
+        } catch (error) {
+          console.error('Failed to persist related questions:', error)
+        }
+      }
+    })()
   }
 }

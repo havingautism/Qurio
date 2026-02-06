@@ -11,6 +11,15 @@ async def update_session_summary(
     old_summary: Optional[Dict[str, Any]],
     new_messages: List[Dict[str, Any]],
     database_provider: str | None = None,
+    memory_provider: str | None = None,
+    memory_model: str | None = None,
+    memory_api_key: str | None = None,
+    memory_base_url: str | None = None,
+    # New separate summary config
+    summary_provider: str | None = None,
+    summary_model: str | None = None,
+    summary_api_key: str | None = None,
+    summary_base_url: str | None = None,
 ) -> None:
     """
     Async background task to update session summary.
@@ -19,6 +28,11 @@ async def update_session_summary(
         conversation_id: The conversation UUID
         old_summary: The current session summary JSON (or None)
         new_messages: List of recent messages to incorporate (User + AI)
+        database_provider: The database provider ID
+        memory_provider: Optional provider override
+        memory_model: Optional model override
+        memory_api_key: Optional API key override
+        memory_base_url: Optional base URL override
     """
     try:
         # 1. Validation
@@ -34,7 +48,16 @@ async def update_session_summary(
         # We need a dummy request object to reuse get_summary_model logic or just use global settings
         # Creating a simple namespace to mock 'request' for get_summary_model
         from types import SimpleNamespace
-        dummy_request = SimpleNamespace() 
+        dummy_request = SimpleNamespace(
+            memory_provider=memory_provider,
+            memory_model=memory_model,
+            memory_api_key=memory_api_key,
+            memory_base_url=memory_base_url,
+            summary_provider=summary_provider,
+            summary_model=summary_model,
+            summary_api_key=summary_api_key,
+            summary_base_url=summary_base_url,
+        ) 
         summary_model = get_summary_model(dummy_request)
         
         if not summary_model:
@@ -44,7 +67,7 @@ async def update_session_summary(
         # 2a. Re-fetch Latest Summary from DB to avoid race conditions
         # The old_summary passed from stream_chat might be stale if requests were fast.
         from ..models.db import DbFilter, DbQueryRequest
-        from .db_service import get_db_adapter
+        from .db_service import execute_db_async, get_db_adapter
         
         adapter = get_db_adapter(database_provider)
         if adapter:
@@ -55,9 +78,9 @@ async def update_session_summary(
                     table="conversations",
                     columns=["session_summary"],
                     filters=[DbFilter(op="eq", column="id", value=conversation_id)],
-                    single=True
+                    maybeSingle=True,
                 )
-                latest_res = adapter.execute(latest_req)
+                latest_res = await execute_db_async(adapter, latest_req)
                 if latest_res.data and isinstance(latest_res.data, dict):
                     row = latest_res.data
                     raw_summary = row.get("session_summary")
@@ -121,12 +144,33 @@ Time: {datetime.now().isoformat()}
         
         # 5. Parse Response
         # Try to parse strict JSON, if failed, wrap the text
+        # Define error keywords to check against
+        error_keywords = ["balance", "quota", "insufficient", "unauthorized", "rate limit", "error", "401", "429", "500"]
+
         try:
             # Clean potential markdown code blocks
             clean_text = new_summary_text.replace("```json", "").replace("```", "").strip()
             summary_data = json.loads(clean_text)
+            
+            # Validate JSON structure
+            if not isinstance(summary_data, dict) or "summary" not in summary_data:
+                logger.warning(f"Invalid summary JSON structure from model: {summary_data}")
+                # If parsed but invalid structure, treat as failed logic... (omitted detailed comment for brevity)
+            else:
+                # VALIDATE CONTENT: Check if the summary text itself is an error message
+                summary_content = str(summary_data.get("summary", "")).lower()
+                if any(kw in summary_content for kw in error_keywords) and len(summary_content) < 100:
+                    logger.error(f"Summary content looks like a provider error: {summary_data['summary']}")
+                    return # Stop here to avoid overwriting with error text
+
         except json.JSONDecodeError:
-            # Fallback if model didn't output JSON
+            # Check for API error keywords in the raw text
+            lower_text = new_summary_text.lower()
+            if any(kw in lower_text for kw in error_keywords) and len(new_summary_text) < 100:
+                logger.error(f"Summary generation failed with API error message: {new_summary_text}")
+                return # CRITICAL: Stop here. Do not overwrite DB with error message.
+
+            # Fallback if model didn't output JSON but text looks like a valid summary (not an error)
             summary_data = {
                 "summary": new_summary_text,
                 "topics": [],
@@ -156,7 +200,7 @@ Time: {datetime.now().isoformat()}
                 filters=[DbFilter(op="eq", column="id", value=conversation_id)],
             )
             
-            result = adapter.execute(req)
+            result = await execute_db_async(adapter, req)
             
             if result.error:
                  logger.error(f"Failed to update session summary DB: {result.error}")

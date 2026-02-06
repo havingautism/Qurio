@@ -193,24 +193,81 @@ AGENT_TOOLS: list[dict[str, Any]] = [
         },
     },
     {
+        "id": "memory_retrieve",
+        "name": "memory_retrieve",
+        "category": "memory",
+        "description": (
+            "Two-step long-term memory retrieval. "
+            "Step 1: action='list' returns domain_key/aliases/scope only (no summary). "
+            "Step 2: action='fetch' with selected domain_keys returns summaries."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["list", "fetch"],
+                    "description": "Retrieval stage: list domains first, then fetch summaries by selected domain_keys.",
+                },
+                "query": {
+                    "type": "string",
+                    "description": "Optional query for domain filtering in list stage.",
+                },
+                "domain_keys": {
+                    "description": "Selected domain keys for fetch stage. Supports string array or object map {key:true}.",
+                },
+                "include_summary": {
+                    "type": "boolean",
+                    "description": "Set true with action='fetch' to return summaries. Default false.",
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Maximum number of domains to return (default 8, max 20).",
+                },
+                "user_id": {
+                    "type": "string",
+                    "description": "Optional user id for DB fallback retrieval.",
+                },
+                "database_provider": {
+                    "type": "string",
+                    "description": "Optional DB provider id/type for fallback retrieval.",
+                },
+            },
+        },
+    },
+    {
         "id": "memory_update",
         "name": "memory_update",
         "category": "memory",
         "description": (
-            "Updates or adds a specific domain of long-term memory about the user. "
-            "Use this when the user shares personal background, preferences, or important context that should be remembered across sessions."
+            "Manage long-term memory for a user domain. "
+            "Prefer reusing an existing domain_key whenever possible. "
+            "Use operation='add' to append/create, operation='upsert' to update/overwrite, "
+            "and operation='delete' to remove a memory domain."
         ),
         "parameters": {
             "type": "object",
-            "required": ["domain_key", "summary"],
+            "required": ["domain_key", "operation"],
             "properties": {
+                "operation": {
+                    "type": "string",
+                    "enum": ["add", "upsert", "delete"],
+                    "description": "Memory operation type: add, upsert (overwrite update), or delete.",
+                },
                 "domain_key": {
                     "type": "string",
-                    "description": 'A unique ID for the memory domain (e.g. "music", "career", "personal_intro").',
+                    "description": (
+                        'Memory domain key (e.g. "music", "career", "personal_intro"). '
+                        "Prefer existing keys for semantically similar updates; create a new key only for clearly new topics."
+                    ),
                 },
                 "summary": {
                     "type": "string",
-                    "description": "A concise summary of the information to be remembered.",
+                    "description": (
+                        "Summary content. Required for operation=add. "
+                        "For operation=upsert, you may omit summary in the first call to fetch existing memory, "
+                        "then call again with the full replacement summary."
+                    ),
                 },
                 "aliases": {
                     "type": "array",
@@ -220,6 +277,14 @@ AGENT_TOOLS: list[dict[str, Any]] = [
                 "scope": {
                     "type": "string",
                     "description": "Optional description of what this domain covers.",
+                },
+                "user_id": {
+                    "type": "string",
+                    "description": "User ID used to locate memory rows for read/update/delete.",
+                },
+                "database_provider": {
+                    "type": "string",
+                    "description": "Optional DB provider id/type for memory lookup, e.g. supabase-main or sqlite-local.",
                 },
             },
         },

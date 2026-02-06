@@ -63,7 +63,13 @@ class Settings(BaseSettings):
     database_providers_json: str = Field(default="", alias="DATABASE_PROVIDERS")
     db_access_key: str = Field(default="", alias="DB_PROVIDER_ACCESS_KEY")
 
-    # Session Summary / Memory Lite Model Configuration
+    # Session Summary Configuration
+    summary_lite_provider: str = Field(default="openai", alias="SUMMARY_LITE_PROVIDER")
+    summary_lite_model: str = Field(default="gpt-4o-mini", alias="SUMMARY_LITE_MODEL")
+    summary_agent_api_key: str = Field(default="", alias="SUMMARY_AGENT_API_KEY")
+    summary_lite_base_url: str | None = Field(default=None, alias="SUMMARY_LITE_BASE_URL")
+
+    # Memory Lite Model Configuration (Legacy / Long Term Memory)
     memory_lite_provider: str = Field(default="openai", alias="MEMORY_LITE_PROVIDER")
     memory_lite_model: str = Field(default="gpt-4o-mini", alias="MEMORY_LITE_MODEL")
     memory_agent_api_key: str = Field(default="", alias="MEMORY_AGENT_API_KEY")

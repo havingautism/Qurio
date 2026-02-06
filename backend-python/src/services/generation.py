@@ -6,20 +6,11 @@ from __future__ import annotations
 
 from typing import Any
 from datetime import datetime
-import re
 from zoneinfo import ZoneInfo
 
 from ..models.stream_chat import StreamChatRequest
 from ..models.generation import TitleResponse, TitleSpaceResponse, TitleSpaceAgentResponse, RelatedQuestionsResponse, DailyTipResponse
 from .llm_utils import run_agent_completion, safe_json_parse
-
-
-TIME_KEYWORDS_REGEX = re.compile(
-    r"\u4eca\u5929|\u4eca\u5e74|\u73b0\u5728|\u672c\u5468|\u672c\u6708|\u6700\u8fd1|\u521a\u521a|"
-    r"\u660e\u5929|\u6628\u5929|\u4e0a\u5468|\u4e0a\u4e2a\u6708|\u53bb\u5e74|"
-    r"today|current|now|this week|this month|recently|tomorrow|yesterday|last week|last month|last year",
-    re.IGNORECASE,
-)
 
 def _build_time_context(user_timezone: str | None, user_locale: str | None) -> str:
     timezone = user_timezone or "UTC"
@@ -31,7 +22,13 @@ def _build_time_context(user_timezone: str | None, user_locale: str | None) -> s
         timezone = "UTC"
         now = datetime.utcnow()
     formatted = now.strftime("%Y-%m-%d %H:%M:%S")
-    return f"\n\n[LOCAL TIME]\nCurrent Local Time: {formatted} ({timezone})\nLocale: {locale}"
+    return (
+        "\n\n<today_local_time>\n"
+        f"##today local time：{formatted} ({timezone})\n"
+        f"locale: {locale}\n"
+        f"iso: {now.isoformat()}\n"
+        "</today_local_time>"
+    )
 
 
 def _append_time_context(
@@ -40,8 +37,6 @@ def _append_time_context(
     user_locale: str | None,
     reference_text: str | None = None,
 ) -> list[dict[str, Any]]:
-    if not reference_text or not TIME_KEYWORDS_REGEX.search(reference_text):
-        return messages
     time_context = _build_time_context(user_timezone, user_locale)
     if not messages:
         return [{"role": "system", "content": time_context.strip()}]
@@ -79,6 +74,8 @@ async def generate_daily_tip(
     context_message_limit: int | None = None,
     search_provider: str | None = None,
     tavily_api_key: str | None = None,
+    user_timezone: str | None = None,
+    user_locale: str | None = None,
 ) -> str:
     language_block = f"\n\n## Language\nReply in {language}." if language else ""
     category_block = f"\n\n## Category\n{category}" if category else ""
@@ -95,6 +92,7 @@ async def generate_daily_tip(
         },
         {"role": "user", "content": "Daily tip."},
     ]
+    messages = _append_time_context(messages, user_timezone, user_locale, "daily tip")
 
     request = StreamChatRequest(
         provider=provider,
@@ -559,6 +557,122 @@ async def generate_title_space_and_agent(
     }
 
 
+async def generate_space_and_agent(
+    *,
+    provider: str,
+    first_message: str,
+    spaces_with_agents: list[dict[str, Any]],
+    api_key: str,
+    base_url: str | None = None,
+    model: str | None = None,
+    tools: list[dict[str, Any]] | None = None,
+    tool_ids: list[str] | None = None,
+    user_tools: list[dict[str, Any]] | None = None,
+    tool_choice: Any = None,
+    response_format: dict[str, Any] | None = None,
+    thinking: dict[str, Any] | bool | None = None,
+    temperature: float | None = None,
+    top_k: int | None = None,
+    top_p: float | None = None,
+    frequency_penalty: float | None = None,
+    presence_penalty: float | None = None,
+    context_message_limit: int | None = None,
+    search_provider: str | None = None,
+    tavily_api_key: str | None = None,
+    user_timezone: str | None = None,
+    user_locale: str | None = None,
+) -> dict[str, Any]:
+    space_lines: list[str] = []
+    for space in spaces_with_agents or []:
+        agent_entries = []
+        for agent in space.get("agents") or []:
+            if isinstance(agent, str):
+                agent_entries.append({"name": agent})
+            else:
+                agent_entries.append(
+                    {"name": agent.get("name", ""), "description": agent.get("description", "")}
+                )
+        agent_tokens = []
+        for agent in agent_entries:
+            name = " ".join(_sanitize_option_text(agent.get("name")))
+            description = " ".join(_sanitize_option_text(agent.get("description")))
+            if name and description:
+                agent_tokens.append(f"{name} - {description}")
+            elif name:
+                agent_tokens.append(name)
+        space_label = " ".join(_sanitize_option_text(space.get("label")))
+        space_description = " ".join(_sanitize_option_text(space.get("description")))
+        space_token = f"{space_label} - {space_description}" if space_description else space_label
+        space_lines.append(f"{space_token}:{{{','.join(agent_tokens)}}}")
+
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                "You are a helpful assistant.\n"
+                "## Task\n"
+                "1. Select the most appropriate space from the list below and return its spaceLabel.\n"
+                "2. If the chosen space has agents, select the best matching agent by agentName. Otherwise return null.\n\n"
+                "## Output\n"
+                'Return the result as JSON with keys "spaceLabel" and "agentName".'
+            ),
+        },
+        {
+            "role": "user",
+            "content": f"{first_message}\n\nSpaces and agents:\n" + "\n".join(space_lines),
+        },
+    ]
+    messages = _append_time_context(messages, user_timezone, user_locale, first_message)
+    response_format = {"type": "json_object"} if provider != "gemini" else None
+    request = StreamChatRequest(
+        provider=provider,
+        apiKey=api_key,
+        baseUrl=base_url,
+        model=model,
+        messages=messages,
+        tools=tools or [],
+        toolChoice=tool_choice,
+        toolIds=tool_ids or [],
+        userTools=user_tools or [],
+        responseFormat=response_format,
+        thinking=thinking,
+        temperature=temperature,
+        top_k=top_k,
+        top_p=top_p,
+        frequency_penalty=frequency_penalty,
+        presence_penalty=presence_penalty,
+        contextMessageLimit=context_message_limit,
+        searchProvider=search_provider,
+        tavilyApiKey=tavily_api_key,
+        stream=True,
+    )
+    result = await run_agent_completion(request)
+    content = result.get("content", "").strip()
+
+    output_obj = result.get("output")
+    space_label = None
+    agent_name = None
+    if isinstance(output_obj, dict):
+        space_label = output_obj.get("space_label") or output_obj.get("spaceLabel")
+        agent_name = output_obj.get("agent_name") or output_obj.get("agentName")
+
+    if not space_label:
+        parsed = safe_json_parse(content) or {}
+        if isinstance(parsed, dict):
+            space_label = parsed.get("spaceLabel") or parsed.get("space_label")
+            agent_name = agent_name or parsed.get("agentName") or parsed.get("agent_name")
+
+    if space_label and " - " in str(space_label):
+        space_label = str(space_label).split(" - ")[0].strip()
+    if agent_name and " - " in str(agent_name):
+        agent_name = str(agent_name).split(" - ")[0].strip()
+
+    return {
+        "spaceLabel": space_label,
+        "agentName": agent_name,
+    }
+
+
 async def generate_agent_for_auto(
     *,
     provider: str,
@@ -581,6 +695,8 @@ async def generate_agent_for_auto(
     context_message_limit: int | None = None,
     search_provider: str | None = None,
     tavily_api_key: str | None = None,
+    user_timezone: str | None = None,
+    user_locale: str | None = None,
 ) -> str | None:
     agent_entries = []
     for agent in (current_space or {}).get("agents") or []:
@@ -616,6 +732,7 @@ async def generate_agent_for_auto(
             "content": f"{user_message}\n\nAvailable agents in {space_label}:\n" + "\n".join(agent_tokens),
         },
     ]
+    messages = _append_time_context(messages, user_timezone, user_locale, user_message)
     response_format = {"type": "json_object"} if provider != "gemini" else None
     request = StreamChatRequest(
         provider=provider,
@@ -676,6 +793,8 @@ async def generate_related_questions(
     context_message_limit: int | None = None,
     search_provider: str | None = None,
     tavily_api_key: str | None = None,
+    user_timezone: str | None = None,
+    user_locale: str | None = None,
 ) -> list[str]:
     prompt_messages = [
         *(messages or []),
@@ -688,6 +807,7 @@ async def generate_related_questions(
             ),
         },
     ]
+    prompt_messages = _append_time_context(prompt_messages, user_timezone, user_locale, "related questions")
     response_format = {"type": "json_object"} if provider != "gemini" else None
     request = StreamChatRequest(
         provider=provider,

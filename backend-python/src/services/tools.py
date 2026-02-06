@@ -75,6 +75,8 @@ async def execute_local_tool(
             return await _execute_json_repair(args)
         case "interactive_form":
             return await _execute_interactive_form(args)
+        case "memory_update":
+            return await _execute_memory_update(args)
         case "webpage_reader":
             return await _execute_webpage_reader(args)
         case "Tavily_academic_search":
@@ -147,6 +149,72 @@ async def _execute_interactive_form(args: dict[str, Any]) -> dict[str, Any]:
         "title": args.get("title"),
         "fields": args.get("fields", []),
         "status": "pending_user_input",
+    }
+
+
+async def _execute_memory_update(args: dict[str, Any]) -> dict[str, Any]:
+    domain_key = str(args.get("domain_key") or "").strip()
+    summary = args.get("summary")
+    operation_raw = str(args.get("operation") or "upsert").strip().lower()
+    user_id = str(args.get("user_id") or "").strip() or None
+    database_provider = str(args.get("database_provider") or "").strip() or None
+
+    if not domain_key:
+        return {
+            "status": "invalid_request",
+            "error": "domain_key is required",
+        }
+
+    operation_aliases = {
+        "create": "add",
+        "insert": "add",
+        "add": "add",
+        "update": "upsert",
+        "modify": "upsert",
+        "edit": "upsert",
+        "upsert": "upsert",
+        "overwrite": "upsert",
+        "replace": "upsert",
+        "delete": "delete",
+        "remove": "delete",
+        "del": "delete",
+    }
+    operation = operation_aliases.get(operation_raw)
+    if not operation:
+        return {
+            "status": "invalid_request",
+            "error": "operation must be one of: add, upsert, delete",
+        }
+
+    if operation == "add" and not str(summary or "").strip():
+        return {
+            "status": "invalid_request",
+            "operation": "add",
+            "domain_key": domain_key,
+            "error": "summary is required when operation is add",
+            "instruction": "Retry memory_update with a non-empty summary.",
+        }
+
+    if operation == "upsert" and not str(summary or "").strip():
+        return {
+            "status": "needs_summary",
+            "operation": "upsert",
+            "domain_key": domain_key,
+            "user_id": user_id,
+            "database_provider": database_provider,
+            "instruction": (
+                "Call memory_update again with operation='upsert' and full replacement summary "
+                "after retrieving existing memory."
+            ),
+        }
+
+    return {
+        "status": "accepted",
+        "operation": operation,
+        "domain_key": domain_key,
+        "user_id": user_id,
+        "database_provider": database_provider,
+        "message": f"Memory {operation} accepted for domain '{domain_key}'.",
     }
 
 

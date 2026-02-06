@@ -23,6 +23,8 @@ async def daily_tip(request: Request) -> JSONResponse:
     model = body.get("model")
     language = body.get("language")
     category = body.get("category")
+    user_timezone = body.get("userTimezone")
+    user_locale = body.get("userLocale")
 
     if not provider:
         return JSONResponse(status_code=400, content={"error": "Missing required field: provider"})
@@ -39,6 +41,7 @@ async def daily_tip(request: Request) -> JSONResponse:
         api_key=api_key,
         base_url=base_url,
         model=model,
+        user_timezone=user_timezone,
+        user_locale=user_locale,
     )
     return JSONResponse(content={"tip": tip})
-

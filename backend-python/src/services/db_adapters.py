@@ -26,7 +26,7 @@ def _utc_now_iso() -> str:
 
 JSON_COLUMNS: dict[str, set[str]] = {
     "agents": {"tool_ids"},
-    "conversations": {"title_emojis"},
+    "conversations": {"title_emojis", "session_summary"},
     "conversation_messages": {
         "content",
         "tool_calls",
@@ -226,9 +226,26 @@ class SQLiteAdapter:
         if not self.config.sqlite_path:
             raise ValueError("SQLite provider missing path")
         os.makedirs(os.path.dirname(self.config.sqlite_path) or ".", exist_ok=True)
-        self._conn = sqlite3.connect(self.config.sqlite_path, check_same_thread=False)
+        self._conn = sqlite3.connect(
+            self.config.sqlite_path,
+            check_same_thread=False,
+            timeout=5.0,
+        )
         self._conn.row_factory = sqlite3.Row
+        self._configure_connection()
         self._ensure_schema()
+
+    def _configure_connection(self) -> None:
+        """
+        Tune SQLite for mixed read/write concurrency.
+        """
+        with self._lock:
+            cursor = self._conn.cursor()
+            cursor.execute("PRAGMA journal_mode=WAL;")
+            cursor.execute("PRAGMA synchronous=NORMAL;")
+            cursor.execute("PRAGMA busy_timeout=5000;")
+            cursor.execute("PRAGMA temp_store=MEMORY;")
+            self._conn.commit()
 
     def _ensure_schema(self) -> None:
         with self._lock:
@@ -692,6 +709,8 @@ class SupabaseAdapter:
     def _select(self, req: DbQueryRequest) -> DbQueryResponse:
         query = self._table(req.table)
         columns = req.columns or "*"
+        if isinstance(columns, list):
+            columns = ",".join([str(col).strip() for col in columns if str(col).strip()]) or "*"
         if req.count:
             query = query.select(columns, count=req.count)
         else:
@@ -709,14 +728,29 @@ class SupabaseAdapter:
                 query = query.maybe_single()
             elif hasattr(query, "maybeSingle"):
                 query = query.maybeSingle()
-            elif hasattr(query, "single"):
-                query = query.single()
+            else:
+                # Keep best-effort maybe-single semantics without forcing object coercion.
+                if not req.limit:
+                    query = query.limit(1)
         elif req.single and hasattr(query, "single"):
             query = query.single()
-        result = query.execute()
+        try:
+            result = query.execute()
+        except Exception as exc:
+            if req.maybe_single:
+                error_text = str(exc)
+                if (
+                    "PGRST116" in error_text
+                    or "Cannot coerce the result to a single JSON object" in error_text
+                    or "The result contains 0 rows" in error_text
+                ):
+                    return DbQueryResponse(data=None, count=None)
+            raise
         data = getattr(result, "data", None)
         count = getattr(result, "count", None)
         error = getattr(result, "error", None)
+        if req.maybe_single and isinstance(data, list):
+            data = data[0] if data else None
         if error and req.maybe_single:
             error_text = str(error)
             if (

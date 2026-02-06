@@ -196,123 +196,128 @@ export const upsertMemoryDomainSummary = async ({
   }
 
   try {
-    // 1. Ensure domain exists
-    const { data: existing, error: existingError } = await supabase
+    // 1. Upsert domain in one round-trip
+    const domainPayload = {
+      domain_key: trimmedKey,
+      updated_at: updatedAt,
+    }
+    if (resolvedAliases.length > 0) domainPayload.aliases = resolvedAliases
+    if (resolvedScope) domainPayload.scope = resolvedScope
+
+    const { data: upsertedDomain, error: domainError } = await supabase
       .from(MEMORY_DOMAIN_TABLE)
-      .select('*')
-      .eq('domain_key', trimmedKey)
+      .upsert([domainPayload], { onConflict: 'domain_key' })
+      .select('id,domain_key,aliases,scope,updated_at')
       .maybeSingle()
 
-    if (existingError) {
-      console.error('Failed to load memory domain:', existingError)
-    }
-
-    if (existing?.id) {
-      const { data: updatedDomain, error: updateError } = await supabase
+    let resolvedDomain = upsertedDomain
+    if (domainError || !resolvedDomain?.id) {
+      if (domainError) {
+        console.warn('Domain upsert failed, fallback to select+update/insert:', domainError)
+      }
+      const { data: existing, error: existingError } = await supabase
         .from(MEMORY_DOMAIN_TABLE)
-        .update({
-          aliases: resolvedAliases.length > 0 ? resolvedAliases : existing.aliases,
-          scope: resolvedScope || existing.scope,
-          updated_at: updatedAt,
-        })
-        .eq('id', existing.id)
-        .select()
+        .select('*')
+        .eq('domain_key', trimmedKey)
         .maybeSingle()
-
-      if (updateError) {
-        console.error('Failed to update memory domain:', updateError)
+      if (existingError) {
+        return {
+          updated: false,
+          error: `Failed to load memory domain: ${existingError.message || 'unknown error'}`,
+        }
       }
-
-      let finalSummary = trimmedSummary
-      if (append) {
-        let oldSummary = ''
-        const { data: existingSummary, error: existingSummaryError } = await supabase
-          .from(MEMORY_SUMMARY_TABLE)
-          .select('summary')
-          .eq('domain_id', existing.id)
-          .order('updated_at', { ascending: false })
-          .limit(1)
+      if (existing?.id) {
+        const { data: updatedDomain, error: updateError } = await supabase
+          .from(MEMORY_DOMAIN_TABLE)
+          .update({
+            aliases: resolvedAliases.length > 0 ? resolvedAliases : existing.aliases,
+            scope: resolvedScope || existing.scope,
+            updated_at: updatedAt,
+          })
+          .eq('id', existing.id)
+          .select()
           .maybeSingle()
-        if (existingSummaryError) {
-          console.error('Failed to load memory summary:', existingSummaryError)
-        } else {
-          oldSummary = existingSummary?.summary || ''
+        if (updateError) {
+          return {
+            updated: false,
+            error: `Failed to update memory domain: ${updateError.message || 'unknown error'}`,
+          }
         }
-        if (oldSummary) {
-          finalSummary = truncateSummary(`${oldSummary}\n${trimmedSummary}`)
-        }
-      }
-
-      const { data: summaryRecord, error: summaryError } = await supabase
-        .from(MEMORY_SUMMARY_TABLE)
-        .upsert(
-          [
+        resolvedDomain = updatedDomain || existing
+      } else {
+        const { data: insertedDomain, error: insertError } = await supabase
+          .from(MEMORY_DOMAIN_TABLE)
+          .insert([
             {
-              domain_id: existing.id,
-              summary: finalSummary,
-              evidence: resolvedEvidence || null,
+              domain_key: trimmedKey,
+              aliases: resolvedAliases,
+              scope: resolvedScope,
               updated_at: updatedAt,
             },
-          ],
-          { onConflict: 'domain_id' },
-        )
-        .select()
-        .maybeSingle()
-
-      if (summaryError) {
-        console.error('Failed to insert memory summary:', summaryError)
+          ])
+          .select()
+          .maybeSingle()
+        if (insertError || !insertedDomain?.id) {
+          return {
+            updated: false,
+            error: `Failed to insert memory domain: ${(insertError && insertError.message) || 'unknown error'}`,
+          }
+        }
+        resolvedDomain = insertedDomain
       }
-
-      memoryCache = { domains: [], fetchedAt: 0 }
-      console.log(`[Memory] Upserted domain: ${trimmedKey}`)
-      await getMemoryDomains()
-      return { updated: true, domain: updatedDomain || existing, summary: summaryRecord }
     }
 
-    const { data: insertedDomain, error: insertError } = await supabase
-      .from(MEMORY_DOMAIN_TABLE)
-      .insert([
-        {
-          domain_key: trimmedKey,
-          aliases: resolvedAliases,
-          scope: resolvedScope,
-          updated_at: updatedAt,
-        },
-      ])
+    const domainId = resolvedDomain?.id
+    if (!domainId) return { updated: false, error: 'Failed to resolve memory domain id' }
+
+    let finalSummary = trimmedSummary
+    if (append) {
+      let oldSummary = ''
+      const { data: existingSummary, error: existingSummaryError } = await supabase
+        .from(MEMORY_SUMMARY_TABLE)
+        .select('summary')
+        .eq('domain_id', domainId)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      if (existingSummaryError) {
+        console.error('Failed to load memory summary:', existingSummaryError)
+      } else {
+        oldSummary = existingSummary?.summary || ''
+      }
+      if (oldSummary) {
+        finalSummary = truncateSummary(`${oldSummary}\n${trimmedSummary}`)
+      }
+    }
+
+    const { data: summaryRecord, error: summaryError } = await supabase
+      .from(MEMORY_SUMMARY_TABLE)
+      .upsert(
+        [
+          {
+            domain_id: domainId,
+            summary: finalSummary,
+            evidence: resolvedEvidence || null,
+            updated_at: updatedAt,
+          },
+        ],
+        { onConflict: 'domain_id' },
+      )
       .select()
       .maybeSingle()
 
-    if (insertError) {
-      console.error('Failed to insert memory domain:', insertError)
-    }
-
-    if (insertedDomain?.id) {
-      const { data: summaryRecord, error: summaryError } = await supabase
-        .from(MEMORY_SUMMARY_TABLE)
-        .upsert(
-          [
-            {
-              domain_id: insertedDomain.id,
-              summary: trimmedSummary,
-              evidence: resolvedEvidence || null,
-              updated_at: updatedAt,
-            },
-          ],
-          { onConflict: 'domain_id' },
-        )
-        .select()
-        .maybeSingle()
-
-      if (summaryError) {
-        console.error('Failed to insert memory summary:', summaryError)
+    if (summaryError) {
+      console.error('Failed to insert memory summary:', summaryError)
+      return {
+        updated: false,
+        error: `Failed to upsert memory summary: ${summaryError.message || 'unknown error'}`,
       }
-
-      memoryCache = { domains: [], fetchedAt: 0 }
-      console.log(`[Memory] Upserted domain: ${trimmedKey}`)
-      await getMemoryDomains()
-      return { updated: true, domain: insertedDomain, summary: summaryRecord }
     }
-    return { updated: false, error: 'Failed' }
+
+    memoryCache = { domains: [], fetchedAt: 0 }
+    console.log(`[Memory] Upserted domain: ${trimmedKey}`)
+    await getMemoryDomains()
+    return { updated: true, domain: resolvedDomain, summary: summaryRecord }
   } catch (err) {
     console.error('Unexpected error in upsertMemoryDomainSummary:', err)
     return { updated: false, error: err.message }

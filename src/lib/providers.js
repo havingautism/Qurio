@@ -80,7 +80,43 @@ const defaultParseMessage = input => {
 export const TOOL_DISPLAY_NAMES = {
   Tavily_web_search: 'Web Search',
   Tavily_academic_search: 'Academic Search',
+  memory_retrieve: 'Memory Retrieve',
   memory_update: 'Long-term Memory',
+}
+
+const MEMORY_RETRIEVE_TOOL = {
+  type: 'function',
+  function: {
+    name: 'memory_retrieve',
+    description:
+      'Two-step memory retrieval: action=list to get candidate domains (no summary), then action=fetch with selected domain_keys to get summaries.',
+    parameters: {
+      type: 'object',
+      properties: {
+        action: {
+          type: 'string',
+          enum: ['list', 'fetch'],
+          description: 'list: return only domain metadata; fetch: return summaries for selected domain_keys.',
+        },
+        query: {
+          type: 'string',
+          description: 'Optional query to help filter candidate domains in list stage.',
+        },
+        domain_keys: {
+          description:
+            'Selected domain keys for fetch stage. Supports array (["a","b"]) or object map ({"a":true}).',
+        },
+        include_summary: {
+          type: 'boolean',
+          description: 'Set true in fetch stage to include summary text.',
+        },
+        limit: {
+          type: 'integer',
+          description: 'Maximum domains to return (default 8, max 20).',
+        },
+      },
+    },
+  },
 }
 
 const MEMORY_UPDATE_TOOL = {
@@ -88,18 +124,24 @@ const MEMORY_UPDATE_TOOL = {
   function: {
     name: 'memory_update',
     description:
-      'Updates or adds a specific domain of long-term memory about the user. Use this when the user shares personal background, preferences, or important context that should be remembered across sessions.',
+      'Manage long-term memory for a specific domain. Prefer reusing an existing domain_key whenever possible. Use operation=add to append, operation=upsert to overwrite update, and operation=delete to remove memory.',
     parameters: {
       type: 'object',
       properties: {
+        operation: {
+          type: 'string',
+          enum: ['add', 'upsert', 'delete'],
+          description: 'Memory operation type.',
+        },
         domain_key: {
           type: 'string',
           description:
-            'A unique ID for the memory domain (e.g. "music", "career", "personal_intro"). Use existing IDs if they match.',
+            'Memory domain key. Prefer selecting from existing domain keys when semantically similar; create a new one only for a clearly new topic.',
         },
         summary: {
           type: 'string',
-          description: 'A concise summary of the information to be remembered.',
+          description:
+            'A concise summary of the information to be remembered. REQUIRED for operation=add and operation=upsert. For upsert, if domain does not exist, a new memory will be created.',
         },
         aliases: {
           type: 'array',
@@ -112,7 +154,7 @@ const MEMORY_UPDATE_TOOL = {
           description: 'Optional description of what this domain covers.',
         },
       },
-      required: ['domain_key', 'summary'],
+      required: ['domain_key', 'operation'],
     },
   },
 }
@@ -127,6 +169,7 @@ const resolveSearchTools = (isSearchActive, searchTool) => {
 const resolveTools = (isSearchActive, searchTool, enableMemory) => {
   const tools = resolveSearchTools(isSearchActive, searchTool) || []
   if (enableMemory) {
+    tools.push(MEMORY_RETRIEVE_TOOL)
     tools.push(MEMORY_UPDATE_TOOL)
   }
   return tools.length > 0 ? tools : undefined

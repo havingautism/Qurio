@@ -16,6 +16,7 @@ import { fetchDocumentChunkContext } from './documentRetrievalService'
 import { formatDocumentAppendText } from './documentContextUtils'
 import {
   formatMemorySummariesAppendText,
+  deleteMemoryDomain,
   getMemoryDomains,
   upsertMemoryDomainSummary,
 } from './longTermMemoryService'
@@ -224,17 +225,27 @@ const buildMemoryDomainDecisionPrompt = ({ question, historyForSend, domains }) 
     .join('\n')
     .slice(0, QUERY_CONTEXT_MAX_CHARS)
 
-  const domainIndex = formatMemoryDomainIndex(domains)
+  const domainObjects = (domains || [])
+    .slice(0, 80)
+    .map(domain => ({
+      domain_key: String(domain?.domain_key || '').trim(),
+      aliases: Array.isArray(domain?.aliases)
+        ? domain.aliases.map(item => String(item || '').trim()).filter(Boolean)
+        : [],
+      scope: typeof domain?.scope === 'string' ? domain.scope.trim() : '',
+    }))
+    .filter(item => item.domain_key)
+  const domainJson = JSON.stringify(domainObjects, null, 2)
 
   return [
     `Role: You are a semantic tag matcher.`,
-    `Task: Analyze the User Question and determine if it relates to any of the available Memory IDs based on their Tags and Scope.`,
+    `Task: Analyze the User Question and determine if it relates to any available memory domains based on domain_key, aliases, and scope.`,
     `Reflect: Does the user's input imply a need to retrieve context about these specific topics?`,
     `Return JSON only: {"need_memory": boolean, "hit_domains": string[]}`,
-    `- need_memory: true if ANY tag matches semantically.`,
-    `- hit_domains: list of matched IDs (exact string match from list).`,
+    `- need_memory: true if ANY domain is semantically relevant.`,
+    `- hit_domains: list of matched domain_key values (exact string match from provided domains).`,
     '',
-    `Available Memory IDs & Tags:\n${domainIndex}`,
+    `Available Domains (JSON Array):\n${domainJson}`,
     '',
     `User Question:\n${question}`,
     recentHistory ? `Recent Conversation:\n${recentHistory}` : '',
@@ -1956,34 +1967,53 @@ const finalizeMessage = async (
             const toolName = tc.name || tc.function?.name
             if (toolName === 'memory_update') {
               try {
-                const args =
-                  typeof tc.arguments === 'string' ? JSON.parse(tc.arguments) : tc.arguments
-                if (args?.domain_key && args?.summary) {
-                  console.log(`[Memory] Background auto-update triggered for: ${args.domain_key}`, {
-                    domain: args.domain_key,
-                    summary: args.summary,
-                  })
-                  // Fire and forget
-                  upsertMemoryDomainSummary({
-                    domainKey: args.domain_key,
-                    summary: args.summary,
-                    aliases: args.aliases || [],
-                    scope: args.scope || '',
-                    append: true,
-                  })
-                    .then(() => {
-                      console.log(`[Memory] Background auto-update successful: ${args.domain_key}`)
-                      getMemoryDomains() // Refresh cache
-                    })
-                    .catch(err => {
-                      console.error(
-                        `[Memory] Background auto-update failed: ${args.domain_key}`,
-                        err,
-                      )
-                    })
-                } else {
-                  console.warn('[Memory] Skipping auto-update: Missing domain_key or summary', args)
+                const rawArgs =
+                  typeof tc.arguments !== 'undefined' ? tc.arguments : tc.function?.arguments
+                const args = typeof rawArgs === 'string' ? JSON.parse(rawArgs) : rawArgs
+                const operation = String(args?.operation || 'upsert').toLowerCase()
+                const domainKey = args?.domain_key
+                if (!domainKey) {
+                  console.warn('[Memory] Skipping auto-update: Missing domain_key', args)
+                  return
                 }
+
+                if (operation === 'delete') {
+                  deleteMemoryDomain(domainKey).catch(err => {
+                    console.error(`[Memory] Background delete failed: ${domainKey}`, err)
+                  })
+                  return
+                }
+
+                if (!args?.summary) {
+                  console.warn('[Memory] Skipping auto-update: Missing summary', args)
+                  return
+                }
+
+                console.log(`[Memory] Background auto-update triggered for: ${domainKey}`, {
+                  domain: domainKey,
+                  summary: args.summary,
+                  operation,
+                })
+                // Fire and forget
+                upsertMemoryDomainSummary({
+                  domainKey,
+                  summary: args.summary,
+                  aliases: args.aliases || [],
+                  scope: args.scope || '',
+                  // add = append; upsert = overwrite
+                  append: operation === 'add',
+                })
+                  .then(result => {
+                    if (!result?.updated) {
+                      console.error(`[Memory] Background auto-update rejected: ${domainKey}`, result)
+                      return
+                    }
+                    console.log(`[Memory] Background auto-update successful: ${domainKey}`)
+                    getMemoryDomains() // Refresh cache
+                  })
+                  .catch(err => {
+                    console.error(`[Memory] Background auto-update failed: ${domainKey}`, err)
+                  })
               } catch (e) {
                 console.error('[Memory] Failed to parse memory_update arguments:', e)
               }
@@ -3247,7 +3277,10 @@ Analyze the submitted data. If critical information is still missing or if the r
           name: 'memory_check',
           arguments: JSON.stringify({
             query: text,
-            available_tags: allDomains.flatMap(d => [d.domain_key, ...(d.aliases || [])]),
+            domains: allDomains.map(d => ({
+              domain_key: d.domain_key,
+              aliases: Array.isArray(d.aliases) ? d.aliases : [],
+            })),
           }),
           status: 'calling',
           durationMs: null,

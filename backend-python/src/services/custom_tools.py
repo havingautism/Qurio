@@ -500,16 +500,15 @@ class QurioLocalTools(Toolkit):
         database_provider: str | None = None,
     ) -> dict[str, Any] | None:
         try:
-            from ..models.db import DbFilter, DbQueryRequest
+            from ..models.db import DbFilter, DbOrder, DbQueryRequest
             from .db_service import get_db_adapter
 
             adapter = get_db_adapter(database_provider)
             if not adapter:
                 return None
 
+            # Single-user deployment: lookup only by domain_key and take latest row.
             filters = [DbFilter(op="eq", column="domain_key", value=domain_key)]
-            if user_id:
-                filters.append(DbFilter(op="eq", column="user_id", value=user_id))
 
             domain_req = DbQueryRequest(
                 providerId=adapter.config.id,
@@ -517,13 +516,15 @@ class QurioLocalTools(Toolkit):
                 table="memory_domains",
                 columns=["id", "domain_key", "aliases", "scope", "user_id"],
                 filters=filters,
-                maybe_single=True,
+                order=[DbOrder(column="updated_at", ascending=False)],
+                limit=1,
             )
             domain_res = adapter.execute(domain_req)
-            if domain_res.error or not domain_res.data or not isinstance(domain_res.data, dict):
+            domain_row = domain_res.data[0] if isinstance(domain_res.data, list) and domain_res.data else None
+            if domain_res.error or not domain_row or not isinstance(domain_row, dict):
                 return None
 
-            domain_id = domain_res.data.get("id")
+            domain_id = domain_row.get("id")
             if not domain_id:
                 return None
 
@@ -533,17 +534,22 @@ class QurioLocalTools(Toolkit):
                 table="memory_summaries",
                 columns=["id", "domain_id", "summary", "updated_at"],
                 filters=[DbFilter(op="eq", column="domain_id", value=domain_id)],
-                maybe_single=True,
+                order=[DbOrder(column="updated_at", ascending=False)],
+                limit=1,
             )
             summary_res = adapter.execute(summary_req)
-            summary_row = summary_res.data if isinstance(summary_res.data, dict) else None
+            summary_row = (
+                summary_res.data[0]
+                if isinstance(summary_res.data, list) and summary_res.data
+                else None
+            )
 
             return {
                 "domain_id": domain_id,
-                "domain_key": domain_res.data.get("domain_key"),
-                "user_id": domain_res.data.get("user_id"),
-                "aliases": domain_res.data.get("aliases"),
-                "scope": domain_res.data.get("scope"),
+                "domain_key": domain_row.get("domain_key"),
+                "user_id": domain_row.get("user_id"),
+                "aliases": domain_row.get("aliases"),
+                "scope": domain_row.get("scope"),
                 "summary_id": (summary_row or {}).get("id"),
                 "summary": (summary_row or {}).get("summary"),
                 "updated_at": (summary_row or {}).get("updated_at"),

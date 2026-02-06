@@ -49,15 +49,41 @@ MEMORY_OPTIMIZE_INTERVAL_SECONDS = 60 * 60 * 12
 class TaggedTextHandler:
     def __init__(self):
         self.in_thought_block = False
+        self._buffer = ""
 
-    def handle(self, text: str):
-        remaining = text
+    def _split_for_partial_tag(self, text: str, candidates: list[str]) -> tuple[str, str]:
+        if not text:
+            return "", ""
+        lower = text.lower()
+        max_keep = 0
+        max_candidate_len = max(len(c) for c in candidates)
+        scan_len = min(len(text), max_candidate_len - 1)
+        for keep_len in range(scan_len, 0, -1):
+            suffix = lower[-keep_len:]
+            if any(candidate.startswith(suffix) for candidate in candidates):
+                max_keep = keep_len
+                break
+        if max_keep <= 0:
+            return text, ""
+        return text[:-max_keep], text[-max_keep:]
+
+    def handle(self, text: str, final: bool = False):
+        remaining = f"{self._buffer}{text or ''}"
+        self._buffer = ""
+        open_tags = ["<think>", "<thought>"]
+        close_tags = ["</think>", "</thought>"]
         while remaining:
             if not self.in_thought_block:
                 # Use regex to find start of thought block
                 match = re.search(r"<(think|thought)>", remaining, re.IGNORECASE)
                 if not match:
-                    yield "text", remaining
+                    if final:
+                        yield "text", remaining
+                    else:
+                        emit_text, keep = self._split_for_partial_tag(remaining, open_tags)
+                        if emit_text:
+                            yield "text", emit_text
+                        self._buffer = keep
                     return
                 
                 start_index = match.start()
@@ -70,7 +96,15 @@ class TaggedTextHandler:
                 # Use regex to find end of thought block
                 match = re.search(r"</(think|thought)>", remaining, re.IGNORECASE)
                 if not match:
-                    yield "thought", remaining
+                    if final:
+                        # If model forgets closing tag, do not swallow remaining user-facing content.
+                        yield "text", remaining
+                        self.in_thought_block = False
+                    else:
+                        emit_thought, keep = self._split_for_partial_tag(remaining, close_tags)
+                        if emit_thought:
+                            yield "thought", emit_thought
+                        self._buffer = keep
                     return
                 
                 end_index = match.start()
@@ -421,6 +455,15 @@ class StreamChatService:
                         case RunEvent.run_completed.value:
                             # For structured output, Agno provides the parsed model in event.content
                             agn_content = getattr(run_event, "content", None)
+
+                            # Flush parser buffer to avoid losing tail text when tags are split across chunks.
+                            for kind, part in tagged_handler.handle("", final=True):
+                                if kind == "text":
+                                    full_content += part
+                                    yield TextEvent(content=part).model_dump()
+                                else:
+                                    full_thought += part
+                                    yield ThoughtEvent(content=part).model_dump()
                             
                             # Clean tags from final full_content if they survived
                             cleaned_content = re.sub(r"<(think|thought)>[\s\S]*?(?:</\1>|$)", "", full_content, flags=re.IGNORECASE).strip()
@@ -770,6 +813,14 @@ class StreamChatService:
                     yield event
             
             # Stream completed, send done event
+            for kind, part in tagged_handler.handle("", final=True):
+                if kind == "text":
+                    full_content += part
+                    yield TextEvent(content=part).model_dump()
+                else:
+                    full_thought += part
+                    yield ThoughtEvent(content=part).model_dump()
+
             yield DoneEvent(
                 content=full_content,
                 thought=full_thought.strip() or None,

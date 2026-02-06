@@ -756,6 +756,30 @@ export const finalizeMessage = async (
   isAgentAutoMode = false,
   deferTitleGeneration = false,
 ) => {
+  const normalizeRelatedQuestions = payload => {
+    if (Array.isArray(payload)) return payload.filter(item => typeof item === 'string' && item.trim())
+    if (payload && typeof payload === 'object') {
+      if (Array.isArray(payload.questions)) {
+        return payload.questions.filter(item => typeof item === 'string' && item.trim())
+      }
+      if (Array.isArray(payload.relatedQuestions)) {
+        return payload.relatedQuestions.filter(item => typeof item === 'string' && item.trim())
+      }
+      if (Array.isArray(payload.related_questions)) {
+        return payload.related_questions.filter(item => typeof item === 'string' && item.trim())
+      }
+      return []
+    }
+    if (typeof payload === 'string') {
+      try {
+        const parsed = JSON.parse(payload)
+        return normalizeRelatedQuestions(parsed)
+      } catch {
+        return []
+      }
+    }
+    return []
+  }
   const fallbackAgent = agents?.find(agent => agent.isDefault)
   const safeAgent = selectedAgent || fallbackAgent
 
@@ -1266,7 +1290,7 @@ export const finalizeMessage = async (
           fallbackAgent,
         )
 
-        related = await withTimeout(
+        const rawRelated = await withTimeout(
           provider.generateRelatedQuestions(
             relatedMessages,
             credentials.apiKey,
@@ -1276,6 +1300,7 @@ export const finalizeMessage = async (
           20000,
           'Related questions',
         )
+        related = normalizeRelatedQuestions(rawRelated)
       } catch (error) {
         console.error('[chatStore] Failed to generate related questions:', error)
       } finally {
@@ -1322,6 +1347,7 @@ export const finalizeMessage = async (
           if (targetIndex >= 0) {
             const lastMsg = { ...updated[targetIndex] }
             lastMsg.related = related
+            lastMsg.related_questions = related
             if (result.sources && result.sources.length > 0) {
               lastMsg.sources = result.sources
             }

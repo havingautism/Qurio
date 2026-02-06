@@ -196,15 +196,121 @@ class QurioLocalTools(Toolkit):
         parts = re.split(r"[.!?\u3002\uff01\uff1f]+", text or "")
         return [s.strip() for s in parts if s.strip()]
 
+    def _load_existing_memory_summary(
+        self,
+        domain_key: str,
+        user_id: str | None = None,
+        database_provider: str | None = None,
+    ) -> dict[str, Any] | None:
+        try:
+            from ..models.db import DbFilter, DbQueryRequest
+            from .db_service import get_db_adapter
+
+            adapter = get_db_adapter(database_provider)
+            if not adapter:
+                return None
+
+            filters = [DbFilter(op="eq", column="domain_key", value=domain_key)]
+            if user_id:
+                filters.append(DbFilter(op="eq", column="user_id", value=user_id))
+
+            domain_req = DbQueryRequest(
+                providerId=adapter.config.id,
+                action="select",
+                table="memory_domains",
+                columns=["id", "domain_key", "aliases", "scope", "user_id"],
+                filters=filters,
+                maybe_single=True,
+            )
+            domain_res = adapter.execute(domain_req)
+            if domain_res.error or not domain_res.data or not isinstance(domain_res.data, dict):
+                return None
+
+            domain_id = domain_res.data.get("id")
+            if not domain_id:
+                return None
+
+            summary_req = DbQueryRequest(
+                providerId=adapter.config.id,
+                action="select",
+                table="memory_summaries",
+                columns=["id", "domain_id", "summary", "updated_at"],
+                filters=[DbFilter(op="eq", column="domain_id", value=domain_id)],
+                maybe_single=True,
+            )
+            summary_res = adapter.execute(summary_req)
+            summary_row = summary_res.data if isinstance(summary_res.data, dict) else None
+
+            return {
+                "domain_id": domain_id,
+                "domain_key": domain_res.data.get("domain_key"),
+                "user_id": domain_res.data.get("user_id"),
+                "aliases": domain_res.data.get("aliases"),
+                "scope": domain_res.data.get("scope"),
+                "summary_id": (summary_row or {}).get("id"),
+                "summary": (summary_row or {}).get("summary"),
+                "updated_at": (summary_row or {}).get("updated_at"),
+            }
+        except Exception:
+            return None
+
     @tool(
         name="memory_update",
-        description="Updates or adds a specific domain of long-term memory about the user.",
+        description=(
+            "Manage long-term memory for a specific domain. "
+            "Prefer reusing an existing domain_key whenever possible. "
+            "Use operation='add' to append/create, operation='upsert' to update/overwrite, "
+            "and operation='delete' to remove a memory domain."
+        ),
     )
-    def memory_update(self, domain_key: str, summary: str, aliases: Any = None, scope: str = "") -> str:
+    def memory_update(
+        self,
+        domain_key: str,
+        summary: str | None = None,
+        aliases: Any = None,
+        scope: str = "",
+        operation: str = "upsert",
+        user_id: str | None = None,
+        database_provider: str | None = None,
+    ) -> str:
         """
         No-op implementation for backend. The real save happens on the frontend asynchronously.
         Resilience: Handles models that pass aliases as stringified JSON arrays instead of proper lists.
         """
+        if not str(domain_key or "").strip():
+            return json.dumps(
+                {
+                    "status": "invalid_request",
+                    "error": "domain_key is required",
+                },
+                ensure_ascii=False,
+            )
+
+        operation_raw = str(operation or "upsert").strip().lower()
+        operation_aliases = {
+            "create": "add",
+            "insert": "add",
+            "add": "add",
+            "update": "upsert",
+            "modify": "upsert",
+            "edit": "upsert",
+            "upsert": "upsert",
+            "overwrite": "upsert",
+            "replace": "upsert",
+            "delete": "delete",
+            "remove": "delete",
+            "del": "delete",
+        }
+        resolved_operation = operation_aliases.get(operation_raw)
+        if not resolved_operation:
+            return json.dumps(
+                {
+                    "status": "invalid_request",
+                    "error": "operation must be one of: add, upsert, delete",
+                },
+                ensure_ascii=False,
+            )
+
         # Actual validation/parsing of aliases is handled here to satisfy Pydantic
         actual_aliases = []
         if isinstance(aliases, list):
@@ -216,15 +322,79 @@ class QurioLocalTools(Toolkit):
             ]
         elif isinstance(aliases, str) and aliases.strip().startswith("["):
             try:
-                import json
-
                 parsed = json.loads(aliases)
                 if isinstance(parsed, list):
                     actual_aliases = parsed
             except:
                 pass
 
-        return f"Memory domain '{domain_key}' updated successfully."
+        existing_memory = self._load_existing_memory_summary(
+            domain_key=domain_key,
+            user_id=user_id,
+            database_provider=database_provider,
+        )
+
+        if resolved_operation == "upsert" and not str(summary or "").strip():
+            payload = {
+                "status": "needs_summary",
+                "operation": "upsert",
+                "domain_key": domain_key,
+                "existing_memory": existing_memory,
+                "instruction": (
+                    "Read existing_memory.summary if present, then call memory_update again "
+                    "with operation='upsert' and a full replacement summary."
+                ),
+            }
+            return json.dumps(payload, ensure_ascii=False)
+
+        if resolved_operation == "add" and not str(summary or "").strip():
+            return json.dumps(
+                {
+                    "status": "invalid_request",
+                    "operation": "add",
+                    "domain_key": domain_key,
+                    "error": "summary is required when operation is add",
+                    "instruction": "Retry memory_update with a non-empty summary.",
+                },
+                ensure_ascii=False,
+            )
+
+        # Frontend reads tool args and applies async DB write.
+        if resolved_operation == "delete":
+            payload = {
+                "status": "accepted",
+                "operation": "delete",
+                "domain_key": domain_key,
+                "existing_memory": existing_memory,
+                "message": f"Memory delete accepted for domain '{domain_key}'.",
+            }
+            return json.dumps(payload, ensure_ascii=False)
+        if resolved_operation == "add":
+            payload = {
+                "status": "accepted",
+                "operation": "add",
+                "domain_key": domain_key,
+                "user_id": user_id,
+                "aliases": actual_aliases,
+                "scope": scope,
+                "summary": summary,
+                "existing_memory": existing_memory,
+                "message": f"Memory add accepted for domain '{domain_key}'.",
+            }
+            return json.dumps(payload, ensure_ascii=False)
+
+        payload = {
+            "status": "accepted",
+            "operation": "upsert",
+            "domain_key": domain_key,
+            "user_id": user_id,
+            "aliases": actual_aliases,
+            "scope": scope,
+            "summary": summary,
+            "existing_memory": existing_memory,
+            "message": f"Memory upsert accepted for domain '{domain_key}'.",
+        }
+        return json.dumps(payload, ensure_ascii=False)
 
     def _resolve_tavily_api_key(self) -> str:
         if self._tavily_api_key:

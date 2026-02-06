@@ -791,7 +791,10 @@ const useChatStore = create((set, get) => ({
           name: 'memory_check',
           arguments: JSON.stringify({
             query: text,
-            available_tags: allDomains.flatMap(d => [d.domain_key, ...(d.aliases || [])]),
+            domains: allDomains.map(d => ({
+              domain_key: d.domain_key,
+              aliases: Array.isArray(d.aliases) ? d.aliases : [],
+            })),
           }),
           status: 'calling',
           durationMs: null,

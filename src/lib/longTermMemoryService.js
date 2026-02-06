@@ -261,6 +261,10 @@ export const upsertMemoryDomainSummary = async ({
 
       if (summaryError) {
         console.error('Failed to insert memory summary:', summaryError)
+        return {
+          updated: false,
+          error: `Failed to upsert memory summary: ${summaryError.message || 'unknown error'}`,
+        }
       }
 
       memoryCache = { domains: [], fetchedAt: 0 }
@@ -305,6 +309,16 @@ export const upsertMemoryDomainSummary = async ({
 
       if (summaryError) {
         console.error('Failed to insert memory summary:', summaryError)
+        // Prevent orphan memory domain rows with "No summary" in UI
+        try {
+          await supabase.from(MEMORY_DOMAIN_TABLE).delete().eq('id', insertedDomain.id)
+        } catch (cleanupErr) {
+          console.error('Failed to rollback orphan memory domain:', cleanupErr)
+        }
+        return {
+          updated: false,
+          error: `Failed to upsert memory summary: ${summaryError.message || 'unknown error'}`,
+        }
       }
 
       memoryCache = { domains: [], fetchedAt: 0 }

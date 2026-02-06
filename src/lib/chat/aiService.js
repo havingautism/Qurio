@@ -6,7 +6,7 @@ import {
   notifyConversationsChanged,
   updateMessageById,
 } from '../conversationsService'
-import { upsertMemoryDomainSummary, getMemoryDomains } from '../longTermMemoryService'
+import { upsertMemoryDomainSummary, getMemoryDomains, deleteMemoryDomain } from '../longTermMemoryService'
 import { getModelConfigForAgent, resolveProviderConfigWithCredentials } from './modelConfig'
 import { getLanguageInstruction, applyLanguageInstructionToText } from './prompts'
 import { buildSpaceAgentOptions, resolveAgentForSpace } from './conversationSetup'
@@ -807,26 +807,40 @@ export const finalizeMessage = async (
             const toolName = tc.name || tc.function?.name
             if (toolName === 'memory_update') {
               try {
-                const args =
-                  typeof tc.arguments === 'string' ? JSON.parse(tc.arguments) : tc.arguments
-                if (args?.domain_key && args?.summary) {
-                  upsertMemoryDomainSummary({
-                    domainKey: args.domain_key,
-                    summary: args.summary,
-                    aliases: args.aliases || [],
-                    scope: args.scope || '',
-                    append: true,
+                const rawArgs =
+                  typeof tc.arguments !== 'undefined' ? tc.arguments : tc.function?.arguments
+                const args = typeof rawArgs === 'string' ? JSON.parse(rawArgs) : rawArgs
+                const operation = String(args?.operation || 'upsert').toLowerCase()
+                const domainKey = args?.domain_key
+                if (!domainKey) return
+
+                if (operation === 'delete') {
+                  deleteMemoryDomain(domainKey).catch(err => {
+                    console.error(`[Memory] Background delete failed: ${domainKey}`, err)
                   })
-                    .then(() => {
-                      getMemoryDomains()
-                    })
-                    .catch(err => {
-                      console.error(
-                        `[Memory] Background auto-update failed: ${args.domain_key}`,
-                        err,
-                      )
-                    })
+                  return
                 }
+
+                if (!args?.summary) return
+
+                upsertMemoryDomainSummary({
+                  domainKey,
+                  summary: args.summary,
+                  aliases: args.aliases || [],
+                  scope: args.scope || '',
+                  // add = append; upsert = overwrite
+                  append: operation === 'add',
+                })
+                  .then(result => {
+                    if (!result?.updated) {
+                      console.error(`[Memory] Background auto-update rejected: ${domainKey}`, result)
+                      return
+                    }
+                    getMemoryDomains()
+                  })
+                  .catch(err => {
+                    console.error(`[Memory] Background auto-update failed: ${domainKey}`, err)
+                  })
               } catch (e) {
                 console.error('[Memory] Failed to parse memory_update arguments:', e)
               }

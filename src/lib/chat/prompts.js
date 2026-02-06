@@ -1,6 +1,5 @@
 import { QUERY_CONTEXT_MAX_CHARS, QUERY_HISTORY_MAX_MESSAGES } from './constants'
 import { extractPlainText, mapInterfaceLanguageToAnswerLanguage } from './utils'
-import { formatMemoryDomainIndex } from './formatters'
 import { buildResponseStylePromptFromAgent } from '../settings'
 
 export const buildDocumentQueryPrompt = ({ question, historyForSend, documents }) => {
@@ -47,17 +46,27 @@ export const buildMemoryDomainDecisionPrompt = ({ question, historyForSend, doma
     .join('\n')
     .slice(0, QUERY_CONTEXT_MAX_CHARS)
 
-  const domainIndex = formatMemoryDomainIndex(domains)
+  const domainObjects = (domains || [])
+    .slice(0, 80)
+    .map(domain => ({
+      domain_key: String(domain?.domain_key || '').trim(),
+      aliases: Array.isArray(domain?.aliases)
+        ? domain.aliases.map(item => String(item || '').trim()).filter(Boolean)
+        : [],
+      scope: typeof domain?.scope === 'string' ? domain.scope.trim() : '',
+    }))
+    .filter(item => item.domain_key)
+  const domainJson = JSON.stringify(domainObjects, null, 2)
 
   return [
     `Role: You are a semantic tag matcher.`,
-    `Task: Analyze the User Question and determine if it relates to any of the available Memory IDs based on their Tags and Scope.`,
+    `Task: Analyze the User Question and determine if it relates to any available memory domains based on domain_key, aliases, and scope.`,
     `Reflect: Does the user's input imply a need to retrieve context about these specific topics?`,
     `Return JSON only: {"need_memory": boolean, "hit_domains": string[]}`,
-    `- need_memory: true if ANY tag matches semantically.`,
-    `- hit_domains: list of matched IDs (exact string match from list).`,
+    `- need_memory: true if ANY domain is semantically relevant.`,
+    `- hit_domains: list of matched domain_key values (exact string match from provided domains).`,
     '',
-    `Available Memory IDs & Tags:\n${domainIndex}`,
+    `Available Domains (JSON Array):\n${domainJson}`,
     '',
     `User Question:\n${question}`,
     recentHistory ? `Recent Conversation:\n${recentHistory}` : '',

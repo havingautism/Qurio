@@ -78,7 +78,7 @@ async def update_session_summary(
                     table="conversations",
                     columns=["session_summary"],
                     filters=[DbFilter(op="eq", column="id", value=conversation_id)],
-                    single=True
+                    maybeSingle=True,
                 )
                 latest_res = adapter.execute(latest_req)
                 if latest_res.data and isinstance(latest_res.data, dict):

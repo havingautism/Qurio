@@ -34,7 +34,7 @@ const ConfirmationModal = ({
             onClick={onClose}
             className="rounded-xl px-5 py-2.5 text-sm font-semibold text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-zinc-800"
           >
-            {cancelText || t('confirmation.cancel')}
+            {t('confirmation.cancel')}
           </button>
           <button
             onClick={onConfirm}
@@ -45,7 +45,7 @@ const ConfirmationModal = ({
                 : 'bg-primary-500 hover:bg-primary-600 text-white',
             )}
           >
-            {confirmText || t('confirmation.confirm')}
+            {t('confirmation.confirm')}
           </button>
         </div>
       </div>

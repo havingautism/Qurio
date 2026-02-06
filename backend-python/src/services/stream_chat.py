@@ -163,7 +163,7 @@ class StreamChatService:
                             table="conversations",
                             columns=["session_summary"],
                             filters=[DbFilter(op="eq", column="id", value=request.conversation_id)],
-                            single=True
+                            maybeSingle=True,
                         )
                         
                         result = adapter.execute(req)
@@ -951,6 +951,18 @@ class StreamChatService:
                 "citations."
             )
             updated = self._append_system_message(updated, citation_prompt, system_index)
+
+        if "memory_update" in enabled_tools:
+            memory_guidance = (
+                "\n\n[MEMORY UPDATE GUIDANCE]\n"
+                "When calling 'memory_update', prioritize existing memory domains first.\n"
+                "1) Reuse an existing domain_key if semantically similar.\n"
+                "2) Create a new domain_key only for clearly new topics.\n"
+                "3) Prefer operation='upsert' for corrections/overwrites; use 'add' for appending details; "
+                "use 'delete' to remove outdated domains.\n"
+                "4) Always provide a non-empty summary for operation='add' and operation='upsert'."
+            )
+            updated = self._append_system_message(updated, memory_guidance, system_index)
 
         return updated
 

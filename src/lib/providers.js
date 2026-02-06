@@ -88,18 +88,24 @@ const MEMORY_UPDATE_TOOL = {
   function: {
     name: 'memory_update',
     description:
-      'Updates or adds a specific domain of long-term memory about the user. Use this when the user shares personal background, preferences, or important context that should be remembered across sessions.',
+      'Manage long-term memory for a specific domain. Prefer reusing an existing domain_key whenever possible. Use operation=add to append, operation=upsert to overwrite update, and operation=delete to remove memory.',
     parameters: {
       type: 'object',
       properties: {
+        operation: {
+          type: 'string',
+          enum: ['add', 'upsert', 'delete'],
+          description: 'Memory operation type.',
+        },
         domain_key: {
           type: 'string',
           description:
-            'A unique ID for the memory domain (e.g. "music", "career", "personal_intro"). Use existing IDs if they match.',
+            'Memory domain key. Prefer selecting from existing domain keys when semantically similar; create a new one only for a clearly new topic.',
         },
         summary: {
           type: 'string',
-          description: 'A concise summary of the information to be remembered.',
+          description:
+            'A concise summary of the information to be remembered. REQUIRED for operation=add and operation=upsert. For upsert, if domain does not exist, a new memory will be created.',
         },
         aliases: {
           type: 'array',
@@ -112,7 +118,7 @@ const MEMORY_UPDATE_TOOL = {
           description: 'Optional description of what this domain covers.',
         },
       },
-      required: ['domain_key', 'summary'],
+      required: ['domain_key', 'operation'],
     },
   },
 }

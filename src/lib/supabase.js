@@ -215,6 +215,12 @@ class BackendQueryBuilder {
           : payload.error
             ? JSON.stringify(payload.error)
             : ''
+      const normalizedDetail =
+        typeof payload.detail === 'string'
+          ? payload.detail
+          : payload.detail
+            ? JSON.stringify(payload.detail)
+            : ''
       if (
         this.maybeSingleValue &&
         (normalizedError.includes('PGRST116') ||
@@ -223,7 +229,11 @@ class BackendQueryBuilder {
       ) {
         return { data: null, error: null, count: payload.count }
       }
-      return { data: payload.data || null, error: new Error(payload.error || 'Database error') }
+      const errMsg =
+        normalizedError ||
+        normalizedDetail ||
+        (response.ok ? 'Database error' : `HTTP ${response.status}: Database error`)
+      return { data: payload.data || null, error: new Error(errMsg) }
     }
     return { data: payload.data ?? null, error: null, count: payload.count }
   }

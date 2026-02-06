@@ -17,7 +17,7 @@ import {
   preselectTitleForDeepResearch,
 } from './chat/conversationSetup'
 import { callAIAPI, finalizeMessage, generateDeepResearchPlan } from './chat/aiService'
-import { getModelConfigForAgent } from './chat/modelConfig'
+import { getModelConfigForAgent, resolveProviderConfigWithCredentials } from './chat/modelConfig'
 import {
   ensureConversationExists,
   persistUserMessage,
@@ -32,7 +32,6 @@ import {
   getMemoryDomains,
   upsertMemoryDomainSummary,
 } from './longTermMemoryService'
-import { getModelConfigForAgent, resolveProviderConfigWithCredentials } from './chat/modelConfig'
 
 // Import constants
 import { DOCUMENT_RETRIEVAL_CHUNK_LIMIT, DOCUMENT_RETRIEVAL_TOP_CHUNKS } from './chat/constants'

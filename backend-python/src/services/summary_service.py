@@ -67,7 +67,7 @@ async def update_session_summary(
         # 2a. Re-fetch Latest Summary from DB to avoid race conditions
         # The old_summary passed from stream_chat might be stale if requests were fast.
         from ..models.db import DbFilter, DbQueryRequest
-        from .db_service import get_db_adapter
+        from .db_service import execute_db_async, get_db_adapter
         
         adapter = get_db_adapter(database_provider)
         if adapter:
@@ -80,7 +80,7 @@ async def update_session_summary(
                     filters=[DbFilter(op="eq", column="id", value=conversation_id)],
                     maybeSingle=True,
                 )
-                latest_res = adapter.execute(latest_req)
+                latest_res = await execute_db_async(adapter, latest_req)
                 if latest_res.data and isinstance(latest_res.data, dict):
                     row = latest_res.data
                     raw_summary = row.get("session_summary")
@@ -200,7 +200,7 @@ Time: {datetime.now().isoformat()}
                 filters=[DbFilter(op="eq", column="id", value=conversation_id)],
             )
             
-            result = adapter.execute(req)
+            result = await execute_db_async(adapter, req)
             
             if result.error:
                  logger.error(f"Failed to update session summary DB: {result.error}")

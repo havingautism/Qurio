@@ -5,6 +5,7 @@ Database proxy routes (provider-aware).
 from __future__ import annotations
 
 import logging
+import threading
 
 from fastapi import APIRouter, Header, HTTPException
 
@@ -17,6 +18,7 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 _adapters = {}
+_adapters_lock = threading.Lock()
 
 
 def _get_adapter(provider_id: str):
@@ -24,9 +26,10 @@ def _get_adapter(provider_id: str):
     provider = registry.get(provider_id)
     if not provider:
         raise HTTPException(status_code=400, detail="Unknown providerId")
-    if provider_id not in _adapters:
-        _adapters[provider_id] = build_adapter(provider)
-    return _adapters[provider_id]
+    with _adapters_lock:
+        if provider_id not in _adapters:
+            _adapters[provider_id] = build_adapter(provider)
+        return _adapters[provider_id]
 
 
 @router.get("/db/providers")

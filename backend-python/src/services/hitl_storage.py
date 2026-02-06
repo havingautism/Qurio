@@ -13,6 +13,7 @@ from uuid import UUID
 
 from ..models.db import DbFilter, DbQueryRequest
 from .db_adapters import build_adapter
+from .db_service import execute_db_async
 from .db_registry import ProviderConfig, get_provider_registry
 from .hitl_serializer import deserialize_requirements, serialize_requirements
 
@@ -177,7 +178,7 @@ class DbHITLStorage:
             values=payload,
             onConflict=["run_id"],
         )
-        result = self.adapter.execute(req)
+        result = await execute_db_async(self.adapter, req)
         if result.error:
             if "messages" in payload:
                 payload.pop("messages", None)
@@ -188,7 +189,7 @@ class DbHITLStorage:
                     values=payload,
                     onConflict=["run_id"],
                 )
-                result = self.adapter.execute(req)
+                result = await execute_db_async(self.adapter, req)
             if result.error:
                 if _is_missing_pending_form_table_error(result.error):
                     self._use_memory_fallback = True
@@ -227,7 +228,7 @@ class DbHITLStorage:
             limit=1,
             single=True,
         )
-        result = self.adapter.execute(req)
+        result = await execute_db_async(self.adapter, req)
         if result.error:
             if _is_missing_pending_form_table_error(result.error):
                 self._use_memory_fallback = True
@@ -266,7 +267,7 @@ class DbHITLStorage:
             table=self.TABLE_NAME,
             filters=[DbFilter(op="eq", column="run_id", value=run_id)],
         )
-        result = self.adapter.execute(req)
+        result = await execute_db_async(self.adapter, req)
         if result.error:
             if _is_missing_pending_form_table_error(result.error):
                 self._use_memory_fallback = True
@@ -295,7 +296,7 @@ class DbHITLStorage:
             payload={"status": "submitted", "submitted_at": _utc_now_iso()},
             filters=[DbFilter(op="eq", column="run_id", value=run_id)],
         )
-        result = self.adapter.execute(req)
+        result = await execute_db_async(self.adapter, req)
         if result.error:
             if _is_missing_pending_form_table_error(result.error):
                 self._use_memory_fallback = True

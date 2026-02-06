@@ -6,20 +6,11 @@ from __future__ import annotations
 
 from typing import Any
 from datetime import datetime
-import re
 from zoneinfo import ZoneInfo
 
 from ..models.stream_chat import StreamChatRequest
 from ..models.generation import TitleResponse, TitleSpaceResponse, TitleSpaceAgentResponse, RelatedQuestionsResponse, DailyTipResponse
 from .llm_utils import run_agent_completion, safe_json_parse
-
-
-TIME_KEYWORDS_REGEX = re.compile(
-    r"\u4eca\u5929|\u4eca\u5e74|\u73b0\u5728|\u672c\u5468|\u672c\u6708|\u6700\u8fd1|\u521a\u521a|"
-    r"\u660e\u5929|\u6628\u5929|\u4e0a\u5468|\u4e0a\u4e2a\u6708|\u53bb\u5e74|"
-    r"today|current|now|this week|this month|recently|tomorrow|yesterday|last week|last month|last year",
-    re.IGNORECASE,
-)
 
 def _build_time_context(user_timezone: str | None, user_locale: str | None) -> str:
     timezone = user_timezone or "UTC"
@@ -31,7 +22,13 @@ def _build_time_context(user_timezone: str | None, user_locale: str | None) -> s
         timezone = "UTC"
         now = datetime.utcnow()
     formatted = now.strftime("%Y-%m-%d %H:%M:%S")
-    return f"\n\n[LOCAL TIME]\nCurrent Local Time: {formatted} ({timezone})\nLocale: {locale}"
+    return (
+        "\n\n<today_local_time>\n"
+        f"##today local time：{formatted} ({timezone})\n"
+        f"locale: {locale}\n"
+        f"iso: {now.isoformat()}\n"
+        "</today_local_time>"
+    )
 
 
 def _append_time_context(
@@ -40,8 +37,6 @@ def _append_time_context(
     user_locale: str | None,
     reference_text: str | None = None,
 ) -> list[dict[str, Any]]:
-    if not reference_text or not TIME_KEYWORDS_REGEX.search(reference_text):
-        return messages
     time_context = _build_time_context(user_timezone, user_locale)
     if not messages:
         return [{"role": "system", "content": time_context.strip()}]
@@ -79,6 +74,8 @@ async def generate_daily_tip(
     context_message_limit: int | None = None,
     search_provider: str | None = None,
     tavily_api_key: str | None = None,
+    user_timezone: str | None = None,
+    user_locale: str | None = None,
 ) -> str:
     language_block = f"\n\n## Language\nReply in {language}." if language else ""
     category_block = f"\n\n## Category\n{category}" if category else ""
@@ -95,6 +92,7 @@ async def generate_daily_tip(
         },
         {"role": "user", "content": "Daily tip."},
     ]
+    messages = _append_time_context(messages, user_timezone, user_locale, "daily tip")
 
     request = StreamChatRequest(
         provider=provider,
@@ -581,6 +579,8 @@ async def generate_agent_for_auto(
     context_message_limit: int | None = None,
     search_provider: str | None = None,
     tavily_api_key: str | None = None,
+    user_timezone: str | None = None,
+    user_locale: str | None = None,
 ) -> str | None:
     agent_entries = []
     for agent in (current_space or {}).get("agents") or []:
@@ -616,6 +616,7 @@ async def generate_agent_for_auto(
             "content": f"{user_message}\n\nAvailable agents in {space_label}:\n" + "\n".join(agent_tokens),
         },
     ]
+    messages = _append_time_context(messages, user_timezone, user_locale, user_message)
     response_format = {"type": "json_object"} if provider != "gemini" else None
     request = StreamChatRequest(
         provider=provider,
@@ -676,6 +677,8 @@ async def generate_related_questions(
     context_message_limit: int | None = None,
     search_provider: str | None = None,
     tavily_api_key: str | None = None,
+    user_timezone: str | None = None,
+    user_locale: str | None = None,
 ) -> list[str]:
     prompt_messages = [
         *(messages or []),
@@ -688,6 +691,7 @@ async def generate_related_questions(
             ),
         },
     ]
+    prompt_messages = _append_time_context(prompt_messages, user_timezone, user_locale, "related questions")
     response_format = {"type": "json_object"} if provider != "gemini" else None
     request = StreamChatRequest(
         provider=provider,

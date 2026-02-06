@@ -218,6 +218,10 @@ SCHEMA_STATEMENTS: list[str] = [
       ON memory_domains(user_id, domain_key);
     """,
     """
+    CREATE INDEX IF NOT EXISTS idx_memory_domains_updated_at
+      ON memory_domains(updated_at DESC);
+    """,
+    """
     CREATE TABLE IF NOT EXISTS memory_summaries (
       id TEXT PRIMARY KEY,
       domain_id TEXT NOT NULL,
@@ -230,6 +234,10 @@ SCHEMA_STATEMENTS: list[str] = [
     """
     CREATE UNIQUE INDEX IF NOT EXISTS idx_memory_summaries_domain_id_unique
       ON memory_summaries(domain_id);
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_memory_summaries_updated_at
+      ON memory_summaries(updated_at DESC);
     """,
     """
     CREATE TABLE IF NOT EXISTS user_tools (

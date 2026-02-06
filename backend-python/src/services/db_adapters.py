@@ -226,9 +226,26 @@ class SQLiteAdapter:
         if not self.config.sqlite_path:
             raise ValueError("SQLite provider missing path")
         os.makedirs(os.path.dirname(self.config.sqlite_path) or ".", exist_ok=True)
-        self._conn = sqlite3.connect(self.config.sqlite_path, check_same_thread=False)
+        self._conn = sqlite3.connect(
+            self.config.sqlite_path,
+            check_same_thread=False,
+            timeout=5.0,
+        )
         self._conn.row_factory = sqlite3.Row
+        self._configure_connection()
         self._ensure_schema()
+
+    def _configure_connection(self) -> None:
+        """
+        Tune SQLite for mixed read/write concurrency.
+        """
+        with self._lock:
+            cursor = self._conn.cursor()
+            cursor.execute("PRAGMA journal_mode=WAL;")
+            cursor.execute("PRAGMA synchronous=NORMAL;")
+            cursor.execute("PRAGMA busy_timeout=5000;")
+            cursor.execute("PRAGMA temp_store=MEMORY;")
+            self._conn.commit()
 
     def _ensure_schema(self) -> None:
         with self._lock:

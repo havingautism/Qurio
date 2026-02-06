@@ -153,7 +153,7 @@ class StreamChatService:
             if request.conversation_id:
                 try:
                     from ..models.db import DbFilter, DbQueryRequest
-                    from .db_service import get_db_adapter
+                    from .db_service import execute_db_async, get_db_adapter
                     
                     adapter = get_db_adapter(request.database_provider)
                     if adapter:
@@ -166,7 +166,7 @@ class StreamChatService:
                             maybeSingle=True,
                         )
                         
-                        result = adapter.execute(req)
+                        result = await execute_db_async(adapter, req)
                         
                         if result.data and isinstance(result.data, dict):
                             row = result.data
@@ -819,62 +819,38 @@ class StreamChatService:
         if not messages:
             return messages
 
-        last_user_index = -1
-        last_user_message = None
-        for idx in range(len(messages) - 1, -1, -1):
-            if messages[idx].get("role") == "user":
-                last_user_index = idx
-                last_user_message = messages[idx]
-                break
-        if last_user_message is None:
-            return messages
-
-        content = last_user_message.get("content", "")
-        if isinstance(content, list):
-            content = " ".join(
-                [str(part.get("text") or part.get("content") or part) for part in content if part]
-            )
-        if not isinstance(content, str):
-            content = str(content)
-
-        if not TIME_KEYWORDS_REGEX.search(content or ""):
-            return messages
-
-        tool_ids = {resolve_tool_name(str(tool_id)) for tool_id in request.tool_ids or []}
-        if "local_time" not in tool_ids:
-            return messages
-
         timezone = request.user_timezone or "UTC"
         locale = request.user_locale or "en-US"
-        time_args = {"timezone": timezone, "locale": locale}
         time_result = self._compute_local_time(timezone, locale)
-
-        tool_call_id = f"local-time-{int(time.time() * 1000)}"
-        pre_events.append(
-            ToolCallEvent(
-                id=tool_call_id,
-                name="local_time",
-                arguments=json.dumps(time_args),
-                textIndex=0,
-            ).model_dump()
-        )
-        pre_events.append(
-            ToolResultEvent(
-                id=tool_call_id,
-                name="local_time",
-                status="done",
-                output=time_result,
-            ).model_dump()
-        )
-
         injected = (
-            "\n\n[SYSTEM INJECTED CONTEXT]\n"
-            f"Current Local Time: {time_result.get('formatted')} ({time_result.get('timezone')})"
+            "\n\n<today_local_time>\n"
+            f"##today local time：{time_result.get('formatted')} ({time_result.get('timezone')})\n"
+            f"locale: {time_result.get('locale')}\n"
+            f"iso: {time_result.get('iso')}\n"
+            "</today_local_time>"
         )
-        updated_message = dict(last_user_message)
-        updated_message["content"] = f"{content}{injected}"
-        messages[last_user_index] = updated_message
-        return messages
+
+        updated = list(messages)
+        system_index = next((i for i, m in enumerate(updated) if m.get("role") == "system"), -1)
+        if system_index != -1:
+            current_content = str(updated[system_index].get("content", ""))
+            if "<today_local_time>" in current_content and "</today_local_time>" in current_content:
+                current_content = re.sub(
+                    r"<today_local_time>[\s\S]*?</today_local_time>",
+                    injected.strip(),
+                    current_content,
+                    count=1,
+                    flags=re.IGNORECASE,
+                )
+                updated[system_index] = {**updated[system_index], "content": current_content}
+            else:
+                updated[system_index] = {
+                    **updated[system_index],
+                    "content": f"{current_content}{injected}",
+                }
+        else:
+            updated.insert(0, {"role": "system", "content": injected.strip()})
+        return updated
 
     def _compute_local_time(self, timezone: str, locale: str) -> dict[str, Any]:
         try:
@@ -951,6 +927,14 @@ class StreamChatService:
                 "citations."
             )
             updated = self._append_system_message(updated, citation_prompt, system_index)
+
+        if "local_time" in enabled_tools:
+            local_time_guidance = (
+                "\n\n[TIME CONTEXT GUIDANCE]\n"
+                "Current local time context is already injected in system prompt.\n"
+                "Do not call local_time again unless the user explicitly asks to refresh/recheck time."
+            )
+            updated = self._append_system_message(updated, local_time_guidance, system_index)
 
         if "memory_update" in enabled_tools:
             memory_guidance = (

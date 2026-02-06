@@ -5,8 +5,10 @@ Unifies access to Supabase and SQLite providers.
 
 from __future__ import annotations
 
+import asyncio
 import logging
-from typing import Optional, Union
+import threading
+from typing import Any, Optional, Union
 
 from .db_adapters import SQLiteAdapter, SupabaseAdapter, build_adapter
 from .db_registry import ProviderConfig, get_provider_registry
@@ -16,6 +18,7 @@ logger = logging.getLogger(__name__)
 DbAdapter = Union[SQLiteAdapter, SupabaseAdapter]
 
 _adapter_cache: dict[str, DbAdapter] = {}
+_adapter_cache_lock = threading.Lock()
 
 
 def _resolve_provider(provider_id_or_type: str | None) -> ProviderConfig | None:
@@ -61,14 +64,22 @@ def get_db_adapter(provider_id_or_type: str | None = None) -> Optional[DbAdapter
              logger.warning("[DB] No database provider found for: %s", provider_id_or_type)
         return None
     
-    if provider.id in _adapter_cache:
-        return _adapter_cache[provider.id]
-        
-    try:
-        adapter = build_adapter(provider)
-        _adapter_cache[provider.id] = adapter
-        logger.info("[DB] Built adapter for provider: %s (%s)", provider.id, provider.type)
-        return adapter
-    except Exception as e:
-        logger.error("[DB] Failed to build adapter for %s: %s", provider.id, e)
-        return None
+    with _adapter_cache_lock:
+        if provider.id in _adapter_cache:
+            return _adapter_cache[provider.id]
+
+        try:
+            adapter = build_adapter(provider)
+            _adapter_cache[provider.id] = adapter
+            logger.info("[DB] Built adapter for provider: %s (%s)", provider.id, provider.type)
+            return adapter
+        except Exception as e:
+            logger.error("[DB] Failed to build adapter for %s: %s", provider.id, e)
+            return None
+
+
+async def execute_db_async(adapter: DbAdapter, request: Any) -> Any:
+    """
+    Execute a synchronous adapter query in a worker thread to avoid blocking the event loop.
+    """
+    return await asyncio.to_thread(adapter.execute, request)

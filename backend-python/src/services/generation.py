@@ -557,6 +557,122 @@ async def generate_title_space_and_agent(
     }
 
 
+async def generate_space_and_agent(
+    *,
+    provider: str,
+    first_message: str,
+    spaces_with_agents: list[dict[str, Any]],
+    api_key: str,
+    base_url: str | None = None,
+    model: str | None = None,
+    tools: list[dict[str, Any]] | None = None,
+    tool_ids: list[str] | None = None,
+    user_tools: list[dict[str, Any]] | None = None,
+    tool_choice: Any = None,
+    response_format: dict[str, Any] | None = None,
+    thinking: dict[str, Any] | bool | None = None,
+    temperature: float | None = None,
+    top_k: int | None = None,
+    top_p: float | None = None,
+    frequency_penalty: float | None = None,
+    presence_penalty: float | None = None,
+    context_message_limit: int | None = None,
+    search_provider: str | None = None,
+    tavily_api_key: str | None = None,
+    user_timezone: str | None = None,
+    user_locale: str | None = None,
+) -> dict[str, Any]:
+    space_lines: list[str] = []
+    for space in spaces_with_agents or []:
+        agent_entries = []
+        for agent in space.get("agents") or []:
+            if isinstance(agent, str):
+                agent_entries.append({"name": agent})
+            else:
+                agent_entries.append(
+                    {"name": agent.get("name", ""), "description": agent.get("description", "")}
+                )
+        agent_tokens = []
+        for agent in agent_entries:
+            name = " ".join(_sanitize_option_text(agent.get("name")))
+            description = " ".join(_sanitize_option_text(agent.get("description")))
+            if name and description:
+                agent_tokens.append(f"{name} - {description}")
+            elif name:
+                agent_tokens.append(name)
+        space_label = " ".join(_sanitize_option_text(space.get("label")))
+        space_description = " ".join(_sanitize_option_text(space.get("description")))
+        space_token = f"{space_label} - {space_description}" if space_description else space_label
+        space_lines.append(f"{space_token}:{{{','.join(agent_tokens)}}}")
+
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                "You are a helpful assistant.\n"
+                "## Task\n"
+                "1. Select the most appropriate space from the list below and return its spaceLabel.\n"
+                "2. If the chosen space has agents, select the best matching agent by agentName. Otherwise return null.\n\n"
+                "## Output\n"
+                'Return the result as JSON with keys "spaceLabel" and "agentName".'
+            ),
+        },
+        {
+            "role": "user",
+            "content": f"{first_message}\n\nSpaces and agents:\n" + "\n".join(space_lines),
+        },
+    ]
+    messages = _append_time_context(messages, user_timezone, user_locale, first_message)
+    response_format = {"type": "json_object"} if provider != "gemini" else None
+    request = StreamChatRequest(
+        provider=provider,
+        apiKey=api_key,
+        baseUrl=base_url,
+        model=model,
+        messages=messages,
+        tools=tools or [],
+        toolChoice=tool_choice,
+        toolIds=tool_ids or [],
+        userTools=user_tools or [],
+        responseFormat=response_format,
+        thinking=thinking,
+        temperature=temperature,
+        top_k=top_k,
+        top_p=top_p,
+        frequency_penalty=frequency_penalty,
+        presence_penalty=presence_penalty,
+        contextMessageLimit=context_message_limit,
+        searchProvider=search_provider,
+        tavilyApiKey=tavily_api_key,
+        stream=True,
+    )
+    result = await run_agent_completion(request)
+    content = result.get("content", "").strip()
+
+    output_obj = result.get("output")
+    space_label = None
+    agent_name = None
+    if isinstance(output_obj, dict):
+        space_label = output_obj.get("space_label") or output_obj.get("spaceLabel")
+        agent_name = output_obj.get("agent_name") or output_obj.get("agentName")
+
+    if not space_label:
+        parsed = safe_json_parse(content) or {}
+        if isinstance(parsed, dict):
+            space_label = parsed.get("spaceLabel") or parsed.get("space_label")
+            agent_name = agent_name or parsed.get("agentName") or parsed.get("agent_name")
+
+    if space_label and " - " in str(space_label):
+        space_label = str(space_label).split(" - ")[0].strip()
+    if agent_name and " - " in str(agent_name):
+        agent_name = str(agent_name).split(" - ")[0].strip()
+
+    return {
+        "spaceLabel": space_label,
+        "agentName": agent_name,
+    }
+
+
 async def generate_agent_for_auto(
     *,
     provider: str,

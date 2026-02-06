@@ -207,7 +207,13 @@ def _build_tools(request: Any) -> list[Any]:
     tools: List[Any] = []
 
     if include_local:
-        tools.append(QurioLocalTools(tavily_api_key=request.tavily_api_key, include_tools=include_local))
+        tools.append(
+            QurioLocalTools(
+                tavily_api_key=request.tavily_api_key,
+                include_tools=include_local,
+                prefetched_memory_domains=getattr(request, "memory_domains_prefetch", None),
+            )
+        )
 
     agno_tool_names = {tool["name"] for tool in AGNO_TOOLS}
     include_agno = sorted([name for name in enabled_names if name in agno_tool_names])

@@ -12,7 +12,7 @@ import {
   buildSpaceAgentOptions,
   resolveAgentForSpace,
   resolveFallbackAgent,
-  preselectTitleSpaceAndAgentForAuto,
+  preselectSpaceAndAgentForAuto,
   preselectTitleForManual,
   preselectTitleForDeepResearch,
 } from './chat/conversationSetup'
@@ -24,14 +24,10 @@ import {
   appendAIPlaceholder,
   handleEditingAndHistory,
 } from './chat/chatDataService'
-import { selectDocumentQuery, selectMemoryDomains } from './chat/contextService'
+import { selectDocumentQuery } from './chat/contextService'
 import { fetchDocumentChunkContext } from './documentRetrievalService'
 import { formatDocumentAppendText } from './documentContextUtils'
-import {
-  formatMemorySummariesAppendText,
-  getMemoryDomains,
-  upsertMemoryDomainSummary,
-} from './longTermMemoryService'
+import { getMemoryDomains, upsertMemoryDomainSummary } from './longTermMemoryService'
 
 // Import constants
 import { DOCUMENT_RETRIEVAL_CHUNK_LIMIT, DOCUMENT_RETRIEVAL_TOP_CHUNKS } from './chat/constants'
@@ -404,87 +400,74 @@ const useChatStore = create((set, get) => ({
     // In auto mode, always preselect agent (including first turn)
     const shouldPreselectAgent = isAgentAutoMode && text.trim() && !isDeepResearchMode
     const shouldPreselectDeepResearchTitle = isFirstTurn && isDeepResearchMode && text.trim()
+    const shouldGenerateTitleAsync =
+      isFirstTurn &&
+      (shouldPreselectSpaceTitle || shouldPreselectTitleForManual || shouldPreselectDeepResearchTitle)
 
-    // Preselect space & title with loading indicator (only on first turn)
-    if (
-      shouldPreselectSpaceTitle ||
-      shouldPreselectTitleForManual ||
-      shouldPreselectDeepResearchTitle
-    ) {
+    if (shouldGenerateTitleAsync) {
+      ;(async () => {
+        try {
+          let titleResult = null
+          if (shouldPreselectDeepResearchTitle) {
+            titleResult = await preselectTitleForDeepResearch(text, settings, selectedAgent, agents)
+          } else {
+            titleResult = await preselectTitleForManual(text, settings, selectedAgent, agents)
+          }
+          const title = titleResult?.title
+          if (!title) return
+
+          // Conversation may have switched while async title generation was running.
+          if (get().conversationId !== convId) return
+
+          const emojis = Array.isArray(titleResult?.emojis) ? titleResult.emojis : []
+          set({ conversationTitle: title, conversationTitleEmojis: emojis })
+          try {
+            await updateConversation(convId, {
+              title,
+              title_emojis: emojis,
+            })
+            notifyConversationsChanged()
+          } catch (error) {
+            console.error('Async title update failed:', error)
+          }
+        } catch (error) {
+          console.error('Async title preselection failed:', error)
+        }
+      })()
+    }
+
+    // Preselect space/agent only (title runs asynchronously and does not block streaming).
+    if (shouldPreselectSpaceTitle) {
       set({ isMetaLoading: true })
       try {
-        if (shouldPreselectDeepResearchTitle) {
-          const { title, emojis } = await preselectTitleForDeepResearch(
-            text,
-            settings,
-            selectedAgent,
-            agents,
-          )
-          if (title) {
-            preselectedTitle = title
-            preselectedEmojis = emojis || []
-            set({ conversationTitle: title, conversationTitleEmojis: emojis || [] })
-          }
-        } else if (shouldPreselectSpaceTitle) {
-          const selectableSpaces = toggles?.deepResearch
-            ? spaces
-            : (spaces || []).filter(
-                space =>
-                  !(
-                    space?.isDeepResearchSystem ||
-                    space?.isDeepResearch ||
-                    space?.is_deep_research
-                  ),
-              )
-          const { title, space, agent, emojis } = await preselectTitleSpaceAndAgentForAuto(
-            text,
-            settings,
-            selectableSpaces,
-            agents,
-            selectedAgent,
-          )
-          if (space) {
-            resolvedSpaceInfo = { ...spaceInfo, selectedSpace: space }
-            callbacks?.onSpaceResolved?.(space)
-          }
-          if (agent) {
-            resolvedAgent = agent
-            callbacks?.onAgentResolved?.(agent)
-          }
-          if (title) {
-            preselectedTitle = title
-            preselectedEmojis = emojis || []
-            set({ conversationTitle: title, conversationTitleEmojis: emojis || [] })
-          }
+        const selectableSpaces = toggles?.deepResearch
+          ? spaces
+          : (spaces || []).filter(
+              space =>
+                !(space?.isDeepResearchSystem || space?.isDeepResearch || space?.is_deep_research),
+            )
+        const { space, agent } = await preselectSpaceAndAgentForAuto(
+          text,
+          settings,
+          selectableSpaces,
+          agents,
+          selectedAgent,
+        )
+        if (space) {
+          resolvedSpaceInfo = { ...spaceInfo, selectedSpace: space }
+          callbacks?.onSpaceResolved?.(space)
+        }
+        if (agent) {
+          resolvedAgent = agent
+          callbacks?.onAgentResolved?.(agent)
+        }
 
-          // Fallback: use space default agent, then global default agent
-          if (!resolvedAgent) {
-            const fallbackAgent = await resolveFallbackAgent(space, agents)
-            if (fallbackAgent) {
-              resolvedAgent = fallbackAgent
-              callbacks?.onAgentResolved?.(fallbackAgent)
-            }
-          }
-        } else if (shouldPreselectTitleForManual) {
-          const { title, emojis } = await preselectTitleForManual(
-            text,
-            settings,
-            selectedAgent,
-            agents,
-          )
-          if (title) {
-            preselectedTitle = title
-            preselectedEmojis = emojis || []
-            set({ conversationTitle: title, conversationTitleEmojis: emojis || [] })
-          }
-
-          // For manual space selection, fallback to space default agent, then global default
-          if (!resolvedAgent) {
-            const fallbackAgent = await resolveFallbackAgent(spaceInfo?.selectedSpace, agents)
-            if (fallbackAgent) {
-              resolvedAgent = fallbackAgent
-              callbacks?.onAgentResolved?.(fallbackAgent)
-            }
+        // Fallback: use space default agent, then global default agent
+        if (!resolvedAgent) {
+          const fallbackAgent = await resolveFallbackAgent(space, agents)
+          if (fallbackAgent) {
+            resolvedAgent = fallbackAgent
+            callbacks?.onAgentResolved?.(fallbackAgent)
           }
         }
       } catch (error) {
@@ -762,113 +745,26 @@ const useChatStore = create((set, get) => ({
     }
 
     // ========================================
-    // MEMORY RETRIEVAL (Lite Model)
+    // MEMORY DOMAINS PREFETCH
     // ========================================
-    let memoryContextAppend = ''
+    let memoryDomainsPrefetch = []
     if (settings.enableLongTermMemory) {
-      const toolCallId = `memory-check-${Date.now()}`
-      const toolStart = Date.now()
-
-      let allDomains = []
       try {
-        allDomains = await getMemoryDomains()
+        const allDomains = await getMemoryDomains()
+        memoryDomainsPrefetch = (Array.isArray(allDomains) ? allDomains : []).map(domain => ({
+          id: domain?.id || null,
+          domain_key: domain?.domain_key || '',
+          aliases: Array.isArray(domain?.aliases) ? domain.aliases : [],
+          scope: domain?.scope || '',
+          updated_at: domain?.updated_at || null,
+          latest_summary: domain?.latest_summary || null,
+        }))
       } catch (e) {
-        console.error('Failed to get domains:', e)
+        console.error('Failed to prefetch memory domains:', e)
       }
-
-      // 1. Initial "Calling" State
-      set(state => {
-        const updated = [...state.messages]
-        const lastMsgIndex = updated.length - 1
-        if (lastMsgIndex < 0 || updated[lastMsgIndex].role !== 'ai') {
-          return { messages: updated }
-        }
-        const lastMsg = { ...updated[lastMsgIndex] }
-        const history = Array.isArray(lastMsg.toolCallHistory) ? [...lastMsg.toolCallHistory] : []
-        history.push({
-          id: toolCallId,
-          name: 'memory_check',
-          arguments: JSON.stringify({
-            query: text,
-            domains: allDomains.map(d => ({
-              domain_key: d.domain_key,
-              aliases: Array.isArray(d.aliases) ? d.aliases : [],
-            })),
-          }),
-          status: 'calling',
-          durationMs: null,
-          textIndex: 0,
-        })
-        lastMsg.toolCallHistory = history
-        updated[lastMsgIndex] = lastMsg
-        return { messages: updated }
-      })
-
-      let hitDomainKeys = []
-      let memStatus = 'done'
-      let memError = null
-
-      try {
-        // Only proceed if we have memorable domains
-        if (allDomains.length > 0) {
-          const memResult = await selectMemoryDomains({
-            question: text,
-            historyForSend,
-            domains: allDomains,
-            settings,
-            selectedAgent: resolvedAgent,
-            agents,
-          })
-
-          if (memResult?.needMemory && Array.isArray(memResult.hitDomains)) {
-            const relevantDomains = allDomains.filter(d =>
-              memResult.hitDomains.includes(d.domain_key),
-            )
-
-            if (relevantDomains.length > 0) {
-              hitDomainKeys = relevantDomains.map(d => d.domain_key)
-              memoryContextAppend = formatMemorySummariesAppendText(relevantDomains)
-            }
-          }
-        }
-      } catch (err) {
-        console.error('Memory check failed:', err)
-        memStatus = 'error'
-        memError = err?.message || 'Memory check failed'
-      }
-
-      // 2. Final "Done" State
-      set(state => {
-        const updated = [...state.messages]
-        const lastMsgIndex = updated.length - 1
-        if (lastMsgIndex < 0 || updated[lastMsgIndex].role !== 'ai') {
-          return { messages: updated }
-        }
-        const lastMsg = { ...updated[lastMsgIndex] }
-        const history = Array.isArray(lastMsg.toolCallHistory) ? [...lastMsg.toolCallHistory] : []
-        const targetIndex = history.findIndex(item => item.id === toolCallId)
-
-        if (targetIndex >= 0) {
-          history[targetIndex] = {
-            ...history[targetIndex],
-            status: memStatus,
-            error: memError,
-            output: {
-              domains: hitDomainKeys,
-              found: hitDomainKeys.length > 0,
-            },
-            durationMs: Date.now() - toolStart,
-          }
-        }
-        lastMsg.toolCallHistory = history
-        updated[lastMsgIndex] = lastMsg
-        return { messages: updated }
-      })
     }
 
-    const combinedContextAppend = [resolvedDocumentContextAppend, memoryContextAppend]
-      .filter(Boolean)
-      .join('\n\n')
+    const combinedContextAppend = [resolvedDocumentContextAppend].filter(Boolean).join('\n\n')
 
     const { payloadContent } = buildUserMessage(
       text,
@@ -916,6 +812,8 @@ const useChatStore = create((set, get) => ({
       null, // hitlRunId
       null, // hitlFieldValues
       summaryModelConfig, // New arg
+      memoryDomainsPrefetch,
+      shouldGenerateTitleAsync,
     )
   },
 

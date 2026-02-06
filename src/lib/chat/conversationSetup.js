@@ -141,6 +141,75 @@ export const preselectTitleSpaceAndAgentForAuto = async (
 }
 
 /**
+ * Preselects only space and agent for auto mode.
+ * Title/emojis are intentionally excluded so main chat streaming can start earlier.
+ */
+export const preselectSpaceAndAgentForAuto = async (
+  firstMessage,
+  settings,
+  spaces,
+  agents,
+  selectedAgent = null,
+) => {
+  const fallbackAgent = agents?.find(agent => agent.isDefault)
+  const agentForPreselection = selectedAgent || fallbackAgent
+  const { modelConfig, provider, credentials } = resolveProviderConfigWithCredentials(
+    agentForPreselection,
+    settings,
+    'generateTitleAndSpace',
+    fallbackAgent,
+  )
+  const languageInstruction = getLanguageInstruction(agentForPreselection, settings)
+  const promptText = applyLanguageInstructionToText(firstMessage, languageInstruction)
+  const spaceAgents = await buildSpaceAgentOptions(spaces, agents)
+
+  if (spaceAgents.length && provider.generateSpaceAndAgent) {
+    const { spaceLabel, agentName } = await provider.generateSpaceAndAgent(
+      promptText,
+      spaceAgents,
+      credentials.apiKey,
+      credentials.baseUrl,
+      modelConfig.model,
+    )
+    const normalizedSpaceLabel =
+      typeof spaceLabel === 'string' ? spaceLabel.split(' - ')[0].trim() : spaceLabel
+    const selectedSpace = (spaces || []).find(s => s.label === normalizedSpaceLabel) || null
+    const agentCandidate =
+      selectedSpace && agentName
+        ? resolveAgentForSpace(agentName, selectedSpace, spaceAgents, agents)
+        : null
+    return { space: selectedSpace, agent: agentCandidate }
+  }
+
+  if (spaceAgents.length && provider.generateTitleSpaceAndAgent) {
+    const { spaceLabel, agentName } = await provider.generateTitleSpaceAndAgent(
+      promptText,
+      spaceAgents,
+      credentials.apiKey,
+      credentials.baseUrl,
+      modelConfig.model,
+    )
+    const normalizedSpaceLabel =
+      typeof spaceLabel === 'string' ? spaceLabel.split(' - ')[0].trim() : spaceLabel
+    const selectedSpace = (spaces || []).find(s => s.label === normalizedSpaceLabel) || null
+    const agentCandidate =
+      selectedSpace && agentName
+        ? resolveAgentForSpace(agentName, selectedSpace, spaceAgents, agents)
+        : null
+    return { space: selectedSpace, agent: agentCandidate }
+  }
+
+  const { space } = await provider.generateTitleAndSpace(
+    promptText,
+    spaces || [],
+    credentials.apiKey,
+    credentials.baseUrl,
+    modelConfig.model,
+  )
+  return { space: space || null, agent: null }
+}
+
+/**
  * Preselects a title for manual space before the first request.
  * @param {string} firstMessage - Raw user text
  * @param {Object} settings - User settings and API configuration

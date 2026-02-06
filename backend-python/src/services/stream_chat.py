@@ -138,7 +138,7 @@ class StreamChatService:
 
             messages = self._inject_local_time_context(messages, request, pre_events)
             enabled_tool_names = self._collect_enabled_tool_names(request)
-            messages = self._inject_tool_guidance(messages, enabled_tool_names)
+            messages = self._inject_tool_guidance(messages, enabled_tool_names, request)
 
             for event in pre_events:
                 yield event
@@ -869,6 +869,7 @@ class StreamChatService:
         self,
         messages: list[dict[str, Any]],
         enabled_tools: set[str],
+        request: Any | None = None,
     ) -> list[dict[str, Any]]:
         if not enabled_tools:
             return messages
@@ -940,6 +941,7 @@ class StreamChatService:
             memory_guidance = (
                 "\n\n[MEMORY UPDATE GUIDANCE]\n"
                 "When calling 'memory_update', prioritize existing memory domains first.\n"
+                "Optionally call 'memory_retrieve' first to inspect existing domain summaries.\n"
                 "1) Reuse an existing domain_key if semantically similar.\n"
                 "2) Create a new domain_key only for clearly new topics.\n"
                 "3) Prefer operation='upsert' for corrections/overwrites; use 'add' for appending details; "
@@ -947,6 +949,45 @@ class StreamChatService:
                 "4) Always provide a non-empty summary for operation='add' and operation='upsert'."
             )
             updated = self._append_system_message(updated, memory_guidance, system_index)
+
+        if "memory_retrieve" in enabled_tools:
+            prefetched_domains = []
+            raw_prefetched = getattr(request, "memory_domains_prefetch", None) if request else None
+            if isinstance(raw_prefetched, list):
+                for row in raw_prefetched[:80]:
+                    if not isinstance(row, dict):
+                        continue
+                    domain_key = str(row.get("domain_key") or "").strip()
+                    if not domain_key:
+                        continue
+                    aliases = row.get("aliases")
+                    if not isinstance(aliases, list):
+                        aliases = []
+                    cleaned_aliases = [str(item).strip() for item in aliases if str(item).strip()]
+                    prefetched_domains.append(
+                        {
+                            "domain_key": domain_key,
+                            "aliases": cleaned_aliases,
+                        }
+                    )
+
+            available_domains_text = ""
+            if prefetched_domains:
+                available_domains_text = (
+                    "\nAvailable existing domains (prefer these keys first): "
+                    f"{json.dumps(prefetched_domains, ensure_ascii=False)}"
+                )
+
+            memory_retrieve_guidance = (
+                "\n\n[MEMORY RETRIEVE GUIDANCE]\n"
+                "Use 'memory_retrieve' only when memory context is needed for the current answer.\n"
+                "Use TWO steps:\n"
+                "1) Call memory_retrieve(action='list', include_summary=false) to inspect candidate domains.\n"
+                "2) Select domain_keys and call memory_retrieve(action='fetch', include_summary=true, domain_keys=[...]).\n"
+                "Do not fetch all summaries directly without selecting domains first."
+                f"{available_domains_text}"
+            )
+            updated = self._append_system_message(updated, memory_retrieve_guidance, system_index)
 
         return updated
 

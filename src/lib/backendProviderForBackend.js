@@ -8,6 +8,7 @@ import {
   generateDailyTipViaBackend,
   generateRelatedQuestionsViaBackend,
   generateResearchPlanViaBackend,
+  generateSpaceAndAgentViaBackend,
   generateTitleAndSpaceViaBackend,
   generateTitleSpaceAndAgentViaBackend,
   generateTitleViaBackend,
@@ -156,6 +157,31 @@ const generateTitleSpaceAndAgent = async (
   }
 }
 
+const generateSpaceAndAgent = async (
+  provider,
+  firstMessage,
+  spacesWithAgents,
+  apiKey,
+  baseUrl,
+  model,
+) => {
+  const { userTimezone, userLocale } = getClientTimeContext()
+  const result = await generateSpaceAndAgentViaBackend(
+    provider,
+    firstMessage,
+    spacesWithAgents,
+    apiKey,
+    baseUrl,
+    model,
+    userTimezone,
+    userLocale,
+  )
+  return {
+    spaceLabel: result?.spaceLabel || null,
+    agentName: result?.agentName || null,
+  }
+}
+
 const generateAgentForAuto = async (
   provider,
   userMessage,
@@ -203,6 +229,8 @@ export const createBackendProvider = provider => ({
     generateTitleAndSpace(provider, firstMessage, spaces, apiKey, baseUrl, model),
   generateTitleSpaceAndAgent: (firstMessage, spacesWithAgents, apiKey, baseUrl, model) =>
     generateTitleSpaceAndAgent(provider, firstMessage, spacesWithAgents, apiKey, baseUrl, model),
+  generateSpaceAndAgent: (firstMessage, spacesWithAgents, apiKey, baseUrl, model) =>
+    generateSpaceAndAgent(provider, firstMessage, spacesWithAgents, apiKey, baseUrl, model),
   generateAgentForAuto: (userMessage, currentSpace, apiKey, baseUrl, model) =>
     generateAgentForAuto(provider, userMessage, currentSpace, apiKey, baseUrl, model),
   generateRelatedQuestions: (messages, apiKey, baseUrl, model) =>

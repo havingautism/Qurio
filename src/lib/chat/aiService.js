@@ -98,6 +98,8 @@ export const callAIAPI = async (
   hitlRunId = null,
   hitlFieldValues = null,
   summaryModelConfig = null,
+  memoryDomainsPrefetch = [],
+  deferTitleGeneration = false,
 ) => {
   let streamedThought = ''
   let pendingText = ''
@@ -358,6 +360,7 @@ export const callAIAPI = async (
       memoryModel: resolvedMemoryModel,
       memoryApiKey: memoryApiKey,
       memoryBaseUrl: memoryBaseUrl,
+      memoryDomainsPrefetch: Array.isArray(memoryDomainsPrefetch) ? memoryDomainsPrefetch : [],
 
       userTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       userLocale: navigator.language || 'en-US',
@@ -655,10 +658,10 @@ export const callAIAPI = async (
           { ...result, thought: result.thought ?? streamedThought },
           currentStore,
           settings,
-          callbacks,
-          spaces,
-          set,
-          historyLengthBeforeSend === 0,
+        callbacks,
+        spaces,
+        set,
+        historyLengthBeforeSend === 0,
           firstUserText,
           spaceInfo,
           preselectedTitle,
@@ -666,9 +669,10 @@ export const callAIAPI = async (
           toggles,
           documentSources,
           selectedAgent,
-          agents,
-          isAgentAutoMode,
-        )
+        agents,
+        isAgentAutoMode,
+        deferTitleGeneration,
+      )
       },
       onError: err => {
         const { abortController } = get()
@@ -750,6 +754,7 @@ export const finalizeMessage = async (
   selectedAgent = null,
   agents = [],
   isAgentAutoMode = false,
+  deferTitleGeneration = false,
 ) => {
   const fallbackAgent = agents?.find(agent => agent.isDefault)
   const safeAgent = selectedAgent || fallbackAgent
@@ -890,7 +895,7 @@ export const finalizeMessage = async (
       new Promise((_, reject) => setTimeout(() => reject(new Error(`${label} timed out`)), ms)),
     ])
 
-  if (isFirstTurn) {
+  if (isFirstTurn && !deferTitleGeneration) {
     try {
       const hasResolvedTitle =
         typeof resolvedTitle === 'string' &&
@@ -1216,63 +1221,8 @@ export const finalizeMessage = async (
     tc => (tc.name || tc.function?.name) === 'interactive_form' && tc.status !== 'done',
   )
 
-  let related = []
   if (toggles?.related && !isInteractiveForm) {
-    set(state => {
-      const updated = [...state.messages]
-      let targetIndex = -1
-      if (insertedAiId) {
-        targetIndex = updated.findIndex(m => m.id === insertedAiId)
-      }
-      if (targetIndex === -1) {
-        for (let i = updated.length - 1; i >= 0; i--) {
-          if (updated[i].role === 'ai') {
-            targetIndex = i
-            break
-          }
-        }
-      }
-
-      if (targetIndex >= 0) {
-        updated[targetIndex] = {
-          ...updated[targetIndex],
-          relatedLoading: true,
-        }
-      }
-      return { messages: updated }
-    })
-
-    try {
-      const sanitizedMessages = currentStore.messages.map(m => ({
-        role: m.role === 'ai' ? 'assistant' : m.role,
-        content: normalizeContent(m.content),
-      }))
-      const languageInstruction = getLanguageInstruction(safeAgent, settings)
-      const relatedMessages = sanitizedMessages.slice(-2)
-      if (languageInstruction) {
-        relatedMessages.unshift({ role: 'system', content: languageInstruction })
-      }
-
-      const { modelConfig, provider, credentials } = resolveProviderConfigWithCredentials(
-        safeAgent,
-        settings,
-        'generateRelatedQuestions',
-        fallbackAgent,
-      )
-
-      related = await withTimeout(
-        provider.generateRelatedQuestions(
-          relatedMessages,
-          credentials.apiKey,
-          credentials.baseUrl,
-          modelConfig.model,
-        ),
-        20000,
-        'Related questions',
-      )
-    } catch (error) {
-      console.error('[chatStore] Failed to generate related questions:', error)
-    } finally {
+    ;(async () => {
       set(state => {
         const updated = [...state.messages]
         let targetIndex = -1
@@ -1287,55 +1237,112 @@ export const finalizeMessage = async (
             }
           }
         }
+
         if (targetIndex >= 0) {
           updated[targetIndex] = {
             ...updated[targetIndex],
-            relatedLoading: false,
+            relatedLoading: true,
           }
         }
         return { messages: updated }
       })
-    }
-  }
 
-  if (related && related.length > 0) {
-    set(state => {
-      const updated = [...state.messages]
-      let targetIndex = -1
-      if (insertedAiId) {
-        targetIndex = updated.findIndex(m => m.id === insertedAiId)
-      }
-      if (targetIndex === -1) {
-        for (let i = updated.length - 1; i >= 0; i--) {
-          if (updated[i].role === 'ai') {
-            targetIndex = i
-            break
+      let related = []
+      try {
+        const sanitizedMessages = currentStore.messages.map(m => ({
+          role: m.role === 'ai' ? 'assistant' : m.role,
+          content: normalizeContent(m.content),
+        }))
+        const languageInstruction = getLanguageInstruction(safeAgent, settings)
+        const relatedMessages = sanitizedMessages.slice(-2)
+        if (languageInstruction) {
+          relatedMessages.unshift({ role: 'system', content: languageInstruction })
+        }
+
+        const { modelConfig, provider, credentials } = resolveProviderConfigWithCredentials(
+          safeAgent,
+          settings,
+          'generateRelatedQuestions',
+          fallbackAgent,
+        )
+
+        related = await withTimeout(
+          provider.generateRelatedQuestions(
+            relatedMessages,
+            credentials.apiKey,
+            credentials.baseUrl,
+            modelConfig.model,
+          ),
+          20000,
+          'Related questions',
+        )
+      } catch (error) {
+        console.error('[chatStore] Failed to generate related questions:', error)
+      } finally {
+        set(state => {
+          const updated = [...state.messages]
+          let targetIndex = -1
+          if (insertedAiId) {
+            targetIndex = updated.findIndex(m => m.id === insertedAiId)
           }
-        }
+          if (targetIndex === -1) {
+            for (let i = updated.length - 1; i >= 0; i--) {
+              if (updated[i].role === 'ai') {
+                targetIndex = i
+                break
+              }
+            }
+          }
+          if (targetIndex >= 0) {
+            updated[targetIndex] = {
+              ...updated[targetIndex],
+              relatedLoading: false,
+            }
+          }
+          return { messages: updated }
+        })
       }
 
-      if (targetIndex >= 0) {
-        const lastMsg = { ...updated[targetIndex] }
-        lastMsg.related = related
-        if (result.sources && result.sources.length > 0) {
-          lastMsg.sources = result.sources
-        }
-        if (result.groundingSupports && result.groundingSupports.length > 0) {
-          lastMsg.groundingSupports = result.groundingSupports
-        }
-        updated[targetIndex] = lastMsg
-      }
-      return { messages: updated }
-    })
-  }
+      if (related && related.length > 0) {
+        set(state => {
+          const updated = [...state.messages]
+          let targetIndex = -1
+          if (insertedAiId) {
+            targetIndex = updated.findIndex(m => m.id === insertedAiId)
+          }
+          if (targetIndex === -1) {
+            for (let i = updated.length - 1; i >= 0; i--) {
+              if (updated[i].role === 'ai') {
+                targetIndex = i
+                break
+              }
+            }
+          }
 
-  if (insertedAiId && related && related.length > 0) {
-    try {
-      await updateMessageById(insertedAiId, {
-        related_questions: related,
-      })
-    } catch (error) {
-      console.error('Failed to persist related questions:', error)
-    }
+          if (targetIndex >= 0) {
+            const lastMsg = { ...updated[targetIndex] }
+            lastMsg.related = related
+            if (result.sources && result.sources.length > 0) {
+              lastMsg.sources = result.sources
+            }
+            if (result.groundingSupports && result.groundingSupports.length > 0) {
+              lastMsg.groundingSupports = result.groundingSupports
+            }
+            updated[targetIndex] = lastMsg
+          }
+          return { messages: updated }
+        })
+      }
+
+      if (insertedAiId && related && related.length > 0) {
+        try {
+          await updateMessageById(insertedAiId, {
+            related_questions: related,
+          })
+        } catch (error) {
+          console.error('Failed to persist related questions:', error)
+        }
+      }
+    })()
   }
 }

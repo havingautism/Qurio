@@ -1027,7 +1027,8 @@ class StreamChatService:
                 "2) Create a new domain_key only for clearly new topics.\n"
                 "3) Prefer operation='upsert' for corrections/overwrites; use 'add' for appending details; "
                 "use 'delete' to remove outdated domains.\n"
-                "4) Always provide a non-empty summary for operation='add' and operation='upsert'."
+                "4) Always provide a non-empty summary for operation='add' and operation='upsert'.\n"
+                "5) If upserting an existing domain, rewrite summary from old memory and set based_on_existing=true."
             )
             updated = self._append_system_message(updated, memory_guidance, system_index)
 

@@ -335,6 +335,8 @@ export const callAIAPI = async (
     const resolvedMemoryModel = modelConfig.model
     const memoryApiKey = credentials.apiKey
     const memoryBaseUrl = credentials.baseUrl
+    const selectedDatabaseProvider =
+      settings.databaseProviderId || settings.databaseProvider || 'supabase'
 
     const params = {
       ...credentials,
@@ -394,7 +396,7 @@ export const callAIAPI = async (
       tools: provider.getTools(toggles.search, toggles.searchTool, settings.enableLongTermMemory),
       toolIds: resolvedToolIds,
       enableLongTermMemory: Boolean(settings.enableLongTermMemory),
-      databaseProvider: settings.databaseProvider || 'supabase',
+      databaseProvider: selectedDatabaseProvider,
       thinking: provider.getThinking(thinkingActive, modelConfig.model),
       signal: controller.signal,
       onChunk: chunk => {
@@ -840,17 +842,76 @@ export const finalizeMessage = async (
                   typeof tc.arguments !== 'undefined' ? tc.arguments : tc.function?.arguments
                 const args = typeof rawArgs === 'string' ? JSON.parse(rawArgs) : rawArgs
                 const operation = String(args?.operation || 'upsert').toLowerCase()
-                const domainKey = args?.domain_key
+                const domainKeyRaw = args?.domain_key
+                const domainKey = String(domainKeyRaw || '').trim().toLowerCase()
+                const memoryProvider = String(
+                  args?.database_provider ||
+                    args?.databaseProvider ||
+                    settings.databaseProviderId ||
+                    settings.databaseProvider ||
+                    '',
+                ).trim()
                 if (!domainKey) return
 
                 if (operation === 'delete') {
-                  deleteMemoryDomain(domainKey).catch(err => {
+                  deleteMemoryDomain(domainKey, { databaseProvider: memoryProvider }).catch(err => {
                     console.error(`[Memory] Background delete failed: ${domainKey}`, err)
                   })
                   return
                 }
 
                 if (!args?.summary) return
+
+                if (operation === 'upsert') {
+                  ;(async () => {
+                    try {
+                      const domains =
+                        (await getMemoryDomains({ databaseProvider: memoryProvider })) || []
+                      const existingDomain = domains.find(
+                        domain =>
+                          String(domain?.domain_key || '')
+                            .trim()
+                            .toLowerCase() === domainKey,
+                      )
+                      const existingSummary = String(
+                        existingDomain?.latest_summary?.summary || existingDomain?.summary || '',
+                      ).trim()
+                      const basedOnExisting = args?.based_on_existing === true
+
+                      if (existingSummary && !basedOnExisting) {
+                        console.warn(
+                          `[Memory] Skipping unsafe upsert without based_on_existing=true for existing domain: ${domainKey}`,
+                        )
+                        return
+                      }
+
+                      upsertMemoryDomainSummary({
+                        domainKey,
+                        summary: args.summary,
+                        aliases: args.aliases || [],
+                        scope: args.scope || '',
+                        append: false,
+                        databaseProvider: memoryProvider,
+                      })
+                        .then(result => {
+                          if (!result?.updated) {
+                            console.error(
+                              `[Memory] Background auto-update rejected: ${domainKey}`,
+                              result,
+                            )
+                            return
+                          }
+                          getMemoryDomains({ databaseProvider: memoryProvider })
+                        })
+                        .catch(err => {
+                          console.error(`[Memory] Background auto-update failed: ${domainKey}`, err)
+                        })
+                    } catch (err) {
+                      console.error(`[Memory] Failed to validate upsert safety: ${domainKey}`, err)
+                    }
+                  })()
+                  return
+                }
 
                 upsertMemoryDomainSummary({
                   domainKey,
@@ -859,13 +920,14 @@ export const finalizeMessage = async (
                   scope: args.scope || '',
                   // add = append; upsert = overwrite
                   append: operation === 'add',
+                  databaseProvider: memoryProvider,
                 })
                   .then(result => {
                     if (!result?.updated) {
                       console.error(`[Memory] Background auto-update rejected: ${domainKey}`, result)
                       return
                     }
-                    getMemoryDomains()
+                    getMemoryDomains({ databaseProvider: memoryProvider })
                   })
                   .catch(err => {
                     console.error(`[Memory] Background auto-update failed: ${domainKey}`, err)

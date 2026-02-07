@@ -300,8 +300,17 @@ export const initSupabase = overrides => {
  * Get cached backend DB client.
  */
 export const getSupabaseClient = () => {
-  if (backendDbClient) return backendDbClient
+  const providerId = resolveProviderId()
+  if (!providerId) return null
+  if (backendDbClient && backendDbClient.providerId === providerId) return backendDbClient
   return initSupabase()
+}
+
+export const getSupabaseClientForProvider = providerId => {
+  const trimmed = String(providerId || '').trim()
+  if (!trimmed) return getSupabaseClient()
+  if (backendDbClient && backendDbClient.providerId === trimmed) return backendDbClient
+  return new BackendDbClient(trimmed)
 }
 
 /**

@@ -74,9 +74,11 @@ const FALLBACK_MODEL_OPTIONS = {
   ],
   nvidia: [
     { value: 'moonshotai/kimi-k2.5', label: 'kimi-k2.5' },
-    { value: 'deepseek-ai/deepseek-v3.2', label: 'deepseek-v3.2' },
     { value: 'moonshotai/kimi-k2-thinking', label: 'kimi-k2-thinking' },
+    { value: 'minimaxai/minimax-m2.1', label: 'minimax-m2.1' },
     { value: 'minimaxai/minimax-m2', label: 'minimax-m2' },
+    { value: 'stepfun-ai/step-3.5-flash', label: 'step-3.5-flash' },
+    { value: 'deepseek-ai/deepseek-v3.2', label: 'deepseek-v3.2' },
     { value: 'deepseek-ai/deepseek-v3.1-terminus', label: 'deepseek-v3.1-terminus' },
     { value: 'moonshotai/kimi-k2-instruct-0905', label: 'kimi-k2-instruct-0905' },
     { value: 'moonshotai/kimi-k2-instruct', label: 'kimi-k2-instruct' },

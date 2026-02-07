@@ -402,7 +402,9 @@ const useChatStore = create((set, get) => ({
     const shouldPreselectDeepResearchTitle = isFirstTurn && isDeepResearchMode && text.trim()
     const shouldGenerateTitleAsync =
       isFirstTurn &&
-      (shouldPreselectSpaceTitle || shouldPreselectTitleForManual || shouldPreselectDeepResearchTitle)
+      (shouldPreselectSpaceTitle ||
+        shouldPreselectTitleForManual ||
+        shouldPreselectDeepResearchTitle)
 
     if (shouldGenerateTitleAsync) {
       ;(async () => {
@@ -750,7 +752,9 @@ const useChatStore = create((set, get) => ({
     let memoryDomainsPrefetch = []
     if (settings.enableLongTermMemory) {
       try {
-        const allDomains = await getMemoryDomains()
+        const selectedDatabaseProvider =
+          settings.databaseProviderId || settings.databaseProvider || ''
+        const allDomains = await getMemoryDomains({ databaseProvider: selectedDatabaseProvider })
         memoryDomainsPrefetch = (Array.isArray(allDomains) ? allDomains : []).map(domain => ({
           id: domain?.id || null,
           domain_key: domain?.domain_key || '',

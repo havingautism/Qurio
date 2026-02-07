@@ -122,34 +122,6 @@ const SpacesView = () => {
             ))}
           </div>
         </div>
-
-        {/* Examples Section */}
-        <div>
-          <h2 className="mb-4 text-lg font-medium text-gray-700 dark:text-gray-300">
-            {t('views.spacesView.examples')}
-          </h2>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {exampleSpaces.map(ex => (
-              <div
-                key={ex.id}
-                className="group flex min-h-[160px] cursor-pointer flex-col justify-between rounded-xl bg-gray-100 p-6 transition-colors hover:bg-gray-200 dark:bg-zinc-900 dark:hover:bg-zinc-800"
-              >
-                <div
-                  className={clsx(
-                    'mb-4 flex h-10 w-10 items-center justify-center rounded-full',
-                    ex.bgColor,
-                    ex.color,
-                  )}
-                >
-                  <ex.icon size={20} />
-                </div>
-                <div>
-                  <h3 className="mb-1 text-lg font-medium">{ex.label}</h3>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
       </div>
     </div>
   )

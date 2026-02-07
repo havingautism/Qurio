@@ -1,4 +1,4 @@
-import { getSupabaseClient } from './supabase'
+import { getSupabaseClient, getSupabaseClientForProvider } from './supabase'
 
 const MEMORY_STORAGE_KEY = 'longTermMemoryDomainsV1'
 const MEMORY_DOMAIN_TABLE = 'memory_domains'
@@ -65,13 +65,13 @@ const updateLocalCache = domains => {
   saveLocalMemoryState(domains || [])
 }
 
-export const getMemoryDomains = async () => {
+export const getMemoryDomains = async ({ databaseProvider } = {}) => {
   const now = Date.now()
   if (memoryCache.domains && now - memoryCache.fetchedAt < CACHE_TTL_MS) {
     return memoryCache.domains
   }
 
-  const supabase = getSupabaseClient()
+  const supabase = resolveMemoryDbClient(databaseProvider)
   if (!supabase) {
     const local = loadLocalMemoryState()
     memoryCache = { domains: local, fetchedAt: now }
@@ -122,6 +122,12 @@ export const getMemoryDomains = async () => {
   return enriched
 }
 
+const resolveMemoryDbClient = databaseProvider => {
+  const provider = normalizeText(databaseProvider)
+  if (!provider) return getSupabaseClient()
+  return getSupabaseClientForProvider(provider)
+}
+
 const deleteMemoryDomainLocal = domainKey => {
   const trimmedKey = normalizeText(domainKey)
   if (!trimmedKey) return
@@ -131,11 +137,11 @@ const deleteMemoryDomainLocal = domainKey => {
   updateLocalCache(nextDomains)
 }
 
-export const deleteMemoryDomain = async domainKey => {
+export const deleteMemoryDomain = async (domainKey, { databaseProvider } = {}) => {
   const trimmedKey = normalizeText(domainKey)
   if (!trimmedKey) return { cleared: false }
 
-  const supabase = getSupabaseClient()
+  const supabase = resolveMemoryDbClient(databaseProvider)
   if (supabase) {
     const { error } = await supabase.from(MEMORY_DOMAIN_TABLE).delete().eq('domain_key', trimmedKey)
     if (error) {
@@ -154,6 +160,7 @@ export const upsertMemoryDomainSummary = async ({
   scope = '',
   evidence = '',
   append = false,
+  databaseProvider = '',
 }) => {
   const trimmedKey = normalizeText(domainKey).toLowerCase()
   const trimmedSummary = truncateSummary(summary)
@@ -166,7 +173,7 @@ export const upsertMemoryDomainSummary = async ({
     return { updated: false, error: 'Domain key and summary are required' }
   }
 
-  const supabase = getSupabaseClient()
+  const supabase = resolveMemoryDbClient(databaseProvider)
   if (!supabase) {
     // Local storage fallback logic
     const domains = loadLocalMemoryState()
@@ -316,7 +323,7 @@ export const upsertMemoryDomainSummary = async ({
 
     memoryCache = { domains: [], fetchedAt: 0 }
     console.log(`[Memory] Upserted domain: ${trimmedKey}`)
-    await getMemoryDomains()
+    await getMemoryDomains({ databaseProvider })
     return { updated: true, domain: resolvedDomain, summary: summaryRecord }
   } catch (err) {
     console.error('Unexpected error in upsertMemoryDomainSummary:', err)

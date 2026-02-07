@@ -15,6 +15,7 @@ import NvidiaIcon from '../assets/nvidia-color.svg?url'
 import MinimaxIcon from '../assets/minimax-color.svg?url'
 import SupabaseIcon from '../assets/supabase.svg?url'
 import SqliteIcon from '../assets/sqlite.svg?url'
+import StepFunIcon from '../assets/stepfun.svg?url'
 
 const DEFAULT_ICON_BG_CLASS = 'bg-[#f6f6f6b8] dark:bg-[#0d0d0d]'
 
@@ -114,6 +115,7 @@ export const getModelIcon = modelId => {
   if (lowerId.includes('glm') || lowerId.includes('zhipu')) return ChatGLMIcon
   if (lowerId.includes('minimax')) return MinimaxIcon
   if (lowerId.includes('gpt') || lowerId.includes('o3-mini')) return OpenAIIcon
+  if (lowerId.includes('stepfun')) return StepFunIcon
   // Fallback based on known prefixes if needed, or default to a generic icon
   return null
 }

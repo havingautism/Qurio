@@ -91,7 +91,6 @@ export const callAIAPI = async (
   get,
   set,
   historyLengthBeforeSend,
-  isEditingExisting = false,
   firstUserText,
   documentSources = [],
   isAgentAutoMode = false,
@@ -345,8 +344,7 @@ export const callAIAPI = async (
       top_p: agentTopP ?? undefined,
       frequency_penalty: agentFrequencyPenalty ?? undefined,
       presence_penalty: agentPresencePenalty ?? undefined,
-      contextTurns: settings.contextTurns ?? settings.contextMessageLimit,
-      contextMessageLimit: settings.contextTurns ?? settings.contextMessageLimit,
+      contextTurns: settings.contextTurns,
       searchProvider,
       tavilyApiKey,
       searchBackend,
@@ -369,7 +367,6 @@ export const callAIAPI = async (
       runId: hitlRunId,
       fieldValues: hitlFieldValues,
       conversationId: get().conversationId,
-      isEditingExisting: !!isEditingExisting,
       messages: (() => {
         return conversationMessagesWithPlan.map(m => {
           const role = m.role === 'ai' ? 'assistant' : m.role

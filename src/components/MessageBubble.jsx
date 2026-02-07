@@ -1654,13 +1654,15 @@ const MessageBubble = ({
             {!isDeepResearchContext && (
               <div className="flex items-center gap-2 px-1">
                 <div className="flex gap-2 opacity-100 transition-opacity duration-200 sm:opacity-0 sm:group-hover:opacity-100">
-                  <button
-                    onClick={() => onEdit && onEdit()}
-                    className="rounded-lg p-1.5 text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-gray-300"
-                    title="Edit"
-                  >
-                    <Pencil size={14} />
-                  </button>
+                  {onEdit && (
+                    <button
+                      onClick={() => onEdit()}
+                      className="rounded-lg p-1.5 text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-gray-300"
+                      title="Edit"
+                    >
+                      <Pencil size={14} />
+                    </button>
+                  )}
                   <button
                     onClick={() => {
                       copyToClipboard(contentToRender)
@@ -2340,15 +2342,18 @@ const MessageBubble = ({
           handleMobileSourceClick(mergedMessage.sources, t('sources.allSources'))
         }
         onShare={() => setIsShareModalOpen(true)}
-        onRegenerate={() => {
-          if (!onRegenerateAnswer) return
-          showConfirmation({
-            title: t('confirmation.regenerateTitle'),
-            message: t('confirmation.regenerateMessage'),
-            confirmText: t('message.regenerate'),
-            onConfirm: onRegenerateAnswer,
-          })
-        }}
+        onRegenerate={
+          onRegenerateAnswer
+            ? () => {
+                showConfirmation({
+                  title: t('confirmation.regenerateTitle'),
+                  message: t('confirmation.regenerateMessage'),
+                  confirmText: t('message.regenerate'),
+                  onConfirm: onRegenerateAnswer,
+                })
+              }
+            : undefined
+        }
         onCopy={() => {
           const renderedText = mainContentRef.current?.innerText?.trim() || ''
           const fallbackText = mainContent || ''

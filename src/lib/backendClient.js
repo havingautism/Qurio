@@ -237,7 +237,7 @@ export const generateResearchPlanViaBackend = async (
  * @param {number} params.top_p - Optional top_p
  * @param {number} params.frequency_penalty - Optional frequency penalty
  * @param {number} params.presence_penalty - Optional presence penalty
- * @param {number} params.contextMessageLimit - Optional context message limit
+ * @param {number} params.contextTurns - Optional context turn limit
  * @param {Array} params.toolIds - Optional tool ids to enable
  * @param {Function} params.onChunk - Callback for each chunk (chunk) => void
  * @param {Function} params.onFinish - Callback when stream completes (result) => void
@@ -259,7 +259,7 @@ export const streamResearchPlanViaBackend = async params => {
     top_p,
     frequency_penalty,
     presence_penalty,
-    contextMessageLimit,
+    contextTurns,
     toolIds,
     onChunk,
     onFinish,
@@ -299,7 +299,7 @@ export const streamResearchPlanViaBackend = async params => {
           top_p,
           frequency_penalty,
           presence_penalty,
-          contextMessageLimit,
+          contextTurns,
           contextMessageLimit,
           toolIds,
           researchType, // Pass researchType to backend
@@ -635,7 +635,7 @@ export const generateRelatedQuestionsViaBackend = async (
  * @param {number} params.top_p - Optional top_p
  * @param {number} params.frequency_penalty - Optional frequency penalty
  * @param {number} params.presence_penalty - Optional presence penalty
- * @param {number} params.contextMessageLimit - Optional context message limit
+ * @param {number} params.contextTurns - Optional context turn limit
  * @param {string} params.searchProvider - Optional search provider
  * @param {string} params.tavilyApiKey - Optional Tavily API key
  * @param {string} params.searchBackend - Optional web search backend
@@ -662,7 +662,7 @@ export const streamChatViaBackend = async params => {
     top_p,
     frequency_penalty,
     presence_penalty,
-    contextMessageLimit,
+    contextTurns,
     searchProvider,
     tavilyApiKey,
     searchBackend,
@@ -722,7 +722,7 @@ export const streamChatViaBackend = async params => {
           top_p,
           frequency_penalty,
           presence_penalty,
-          contextMessageLimit,
+          contextTurns,
           searchProvider,
           tavilyApiKey,
           searchBackend,

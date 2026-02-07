@@ -26,30 +26,44 @@ const MessageList = ({
     })),
   )
 
+  const isHiddenFormSubmission = msg =>
+    msg?.role === 'user' &&
+    typeof msg?.content === 'string' &&
+    msg.content.startsWith('[Form Submission]')
+
+  const isHiddenAiContinuation = index => {
+    if (index <= 0) return false
+    const current = messages[index]
+    const prev = messages[index - 1]
+    return current?.role === 'ai' && isHiddenFormSubmission(prev)
+  }
+
+  const latestEditableUserIndex = (() => {
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      const msg = messages[i]
+      if (msg?.role === 'user' && !isHiddenFormSubmission(msg)) return i
+    }
+    return -1
+  })()
+
+  const latestRegeneratableAiIndex = (() => {
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      const msg = messages[i]
+      if (msg?.role === 'ai' && !isHiddenAiContinuation(i)) return i
+    }
+    return -1
+  })()
+
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-col pb-5 sm:pb-16">
       {messages
         .map((msg, originalIndex) => ({ msg, originalIndex })) // Preserve original index
         .filter(({ msg, originalIndex }) => {
           // Hide form submission user messages (they're for AI context only)
-          if (msg.role === 'user' && typeof msg.content === 'string') {
-            if (msg.content.startsWith('[Form Submission]')) {
-              return false
-            }
-          }
+          if (isHiddenFormSubmission(msg)) return false
 
           // Hide AI continuation messages (they follow form submission and will be merged)
-          if (msg.role === 'ai' && originalIndex > 0) {
-            const prevMsg = messages[originalIndex - 1]
-            if (
-              prevMsg &&
-              prevMsg.role === 'user' &&
-              typeof prevMsg.content === 'string' &&
-              prevMsg.content.startsWith('[Form Submission]')
-            ) {
-              return false // This AI message is a continuation, skip it
-            }
-          }
+          if (isHiddenAiContinuation(originalIndex)) return false
 
           return true
         })
@@ -64,11 +78,23 @@ const MessageList = ({
             apiProvider={apiProvider}
             defaultModel={defaultModel}
             onRelatedClick={q => onRelatedClick(q)}
-            onEdit={() => onEdit && onEdit(originalIndex)}
+            onEdit={
+              originalIndex === latestEditableUserIndex
+                ? () => onEdit && onEdit(originalIndex)
+                : undefined
+            }
             onDelete={() => onDelete && onDelete(originalIndex)}
             onQuote={onQuote}
-            onRegenerateAnswer={() => onRegenerateAnswer && onRegenerateAnswer(originalIndex)}
-            onUserRegenerate={() => onUserRegenerate && onUserRegenerate(originalIndex)}
+            onRegenerateAnswer={
+              originalIndex === latestRegeneratableAiIndex
+                ? () => onRegenerateAnswer && onRegenerateAnswer(originalIndex)
+                : undefined
+            }
+            onUserRegenerate={
+              originalIndex === latestEditableUserIndex
+                ? () => onUserRegenerate && onUserRegenerate(originalIndex)
+                : undefined
+            }
             onFormSubmit={onFormSubmit}
           />
         ))}

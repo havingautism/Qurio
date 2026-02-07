@@ -224,12 +224,8 @@ class StreamChatService:
 
             # 2. Slice History (Turn-Based Window)
             # Strategy: Keep all System messages + Last N User turns (User + AI + Tools)
-            # N comes from frontend context setting: contextTurns (legacy: contextMessageLimit).
-            raw_turn_limit = (
-                request.context_turn_limit
-                if isinstance(request.context_turn_limit, int) and request.context_turn_limit > 0
-                else request.context_message_limit
-            )
+            # N comes from frontend context setting: contextTurns.
+            raw_turn_limit = request.context_turn_limit
             turn_limit = (
                 max(1, min(50, int(raw_turn_limit)))
                 if isinstance(raw_turn_limit, int) and raw_turn_limit > 0
@@ -250,16 +246,16 @@ class StreamChatService:
             else:
                 recent_history = chat_messages
 
-            # For single-turn requests (common during first-turn regenerate/edit),
+            # For single-turn requests (common during first-turn regenerate),
             # using persisted summary can re-introduce stale assistant text.
             # In this case, use fresh request messages only and rebuild summary from this turn.
             is_single_user_turn = user_turn_count <= 1
-            should_rebuild_summary = bool(request.is_editing_existing or is_single_user_turn)
-            # Inject summary only when history exceeds turn window and request is not rebuild/edit.
+            should_rebuild_summary = bool(is_single_user_turn)
+            # Inject summary only when history exceeds turn window and request is not rebuild flow.
             should_inject_summary = bool(session_summary_text) and (user_turn_count > turn_limit) and (not should_rebuild_summary)
             if not should_inject_summary and session_summary_text:
                 logger.info(
-                    "Skipping session summary injection (within turn window or regenerate/edit context)."
+                    "Skipping session summary injection (within turn window or single-turn rebuild context)."
                 )
                 session_summary_text = None
                 old_summary_json = None

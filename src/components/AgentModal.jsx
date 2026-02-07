@@ -154,6 +154,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
   useScrollLock(isOpen)
   const isDeepResearchAgent = Boolean(editingAgent?.isDeepResearchSystem)
   const isGeneralLocked = Boolean(editingAgent?.isDefault || isDeepResearchAgent)
+  const isEmojiLocked = Boolean(isDeepResearchAgent)
 
   const [activeTab, setActiveTab] = useState('general')
 
@@ -1312,10 +1313,10 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                       <button
                         ref={buttonRef}
                         onClick={() => {
-                          if (isGeneralLocked) return
+                          if (isEmojiLocked) return
                           setShowEmojiPicker(!showEmojiPicker)
                         }}
-                        disabled={isGeneralLocked}
+                        disabled={isEmojiLocked}
                         className="flex h-12 w-12 items-center justify-center rounded-xl border border-gray-200 bg-white text-2xl transition-colors hover:bg-gray-200 disabled:cursor-not-allowed disabled:bg-gray-50/20 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-700"
                       >
                         <EmojiDisplay emoji={emoji} />

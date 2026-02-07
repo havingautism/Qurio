@@ -818,6 +818,7 @@ const useChatStore = create((set, get) => ({
       summaryModelConfig, // New arg
       memoryDomainsPrefetch,
       shouldGenerateTitleAsync,
+      hasEditingInfo,
     )
   },
 

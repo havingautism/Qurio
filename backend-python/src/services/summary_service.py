@@ -99,7 +99,16 @@ async def update_session_summary(
                 logger.warning(f"Failed to re-fetch latest summary, using passed old_summary: {db_exc}")
 
         # 3. Prepare Prompt
-        current_summary_text = old_summary.get("summary", "") if old_summary else "No summary yet."
+        if rebuild_from_scratch:
+            current_summary_text = "None (Starting Fresh Rebuild)"
+            task_instruction = """Summarize the conversation history from the provided lines into a fresh narrative summary.
+- **CRITICAL: Discard any previous context not present in the new lines.**
+- Create a concise narrative summary of the complete conversation history."""
+        else:
+            current_summary_text = old_summary.get("summary", "") if old_summary else "No summary yet."
+            task_instruction = """Integrate the new lines into the existing summary.
+- **CRITICAL: You MUST PRESERVE all important details from the 'Current Summary'. Do NOT discard existing topics.**
+- Merge new information naturally."""
         
         # Extract text content from new messages
         conversation_text = ""
@@ -118,20 +127,18 @@ New Conversation Lines:
 {conversation_text}
 
 Task:
-Integrate the new lines into the existing summary.
-- **CRITICAL: You MUST PRESERVE all important details from the 'Current Summary'. Do NOT discard existing topics.**
-- Merge new information naturally.
+{task_instruction}
 - Keep the summary concise but comprehensive (under 500 words).
 - **Maintain a concise list of high-level topics (max 5 total). avoid granular details as topics.**
 - Output valid JSON format matching the schema below exactly.
 
 Expected JSON Structure:
 {{
-    "summary": "The consolidated narrative summary of the conversation history...",
-    "topics": ["topic1", "topic2", "topic3"],
+    "summary": "The narrative summary...",
+    "topics": ["topic1", "topic2"],
     "last_active_date": "YYYY-MM-DD"
 }}
-
+        
 Time: {datetime.now().isoformat()}
 """
 

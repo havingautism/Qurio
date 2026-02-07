@@ -6,7 +6,11 @@ import {
   notifyConversationsChanged,
   updateMessageById,
 } from '../conversationsService'
-import { upsertMemoryDomainSummary, getMemoryDomains, deleteMemoryDomain } from '../longTermMemoryService'
+import {
+  upsertMemoryDomainSummary,
+  getMemoryDomains,
+  deleteMemoryDomain,
+} from '../longTermMemoryService'
 import { getModelConfigForAgent, resolveProviderConfigWithCredentials } from './modelConfig'
 import { getLanguageInstruction, applyLanguageInstructionToText } from './prompts'
 import { buildSpaceAgentOptions, resolveAgentForSpace } from './conversationSetup'
@@ -100,6 +104,7 @@ export const callAIAPI = async (
   summaryModelConfig = null,
   memoryDomainsPrefetch = [],
   deferTitleGeneration = false,
+  isEditing = false,
 ) => {
   let streamedThought = ''
   let pendingText = ''
@@ -368,6 +373,7 @@ export const callAIAPI = async (
       userLocale: navigator.language || 'en-US',
       runId: hitlRunId,
       fieldValues: hitlFieldValues,
+      isEditing: !!isEditing,
       conversationId: get().conversationId,
       messages: (() => {
         return conversationMessagesWithPlan.map(m => {
@@ -660,10 +666,10 @@ export const callAIAPI = async (
           { ...result, thought: result.thought ?? streamedThought },
           currentStore,
           settings,
-        callbacks,
-        spaces,
-        set,
-        historyLengthBeforeSend === 0,
+          callbacks,
+          spaces,
+          set,
+          historyLengthBeforeSend === 0,
           firstUserText,
           spaceInfo,
           preselectedTitle,
@@ -671,10 +677,10 @@ export const callAIAPI = async (
           toggles,
           documentSources,
           selectedAgent,
-        agents,
-        isAgentAutoMode,
-        deferTitleGeneration,
-      )
+          agents,
+          isAgentAutoMode,
+          deferTitleGeneration,
+        )
       },
       onError: err => {
         const { abortController } = get()
@@ -759,7 +765,8 @@ export const finalizeMessage = async (
   deferTitleGeneration = false,
 ) => {
   const normalizeRelatedQuestions = payload => {
-    if (Array.isArray(payload)) return payload.filter(item => typeof item === 'string' && item.trim())
+    if (Array.isArray(payload))
+      return payload.filter(item => typeof item === 'string' && item.trim())
     if (payload && typeof payload === 'object') {
       if (Array.isArray(payload.questions)) {
         return payload.questions.filter(item => typeof item === 'string' && item.trim())
@@ -924,7 +931,10 @@ export const finalizeMessage = async (
                 })
                   .then(result => {
                     if (!result?.updated) {
-                      console.error(`[Memory] Background auto-update rejected: ${domainKey}`, result)
+                      console.error(
+                        `[Memory] Background auto-update rejected: ${domainKey}`,
+                        result,
+                      )
                       return
                     }
                     getMemoryDomains({ databaseProvider: memoryProvider })

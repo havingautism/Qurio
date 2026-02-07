@@ -73,6 +73,7 @@ const FALLBACK_MODEL_OPTIONS = {
     { value: 'glm-4-flash', label: 'GLM-4 Flash' },
   ],
   nvidia: [
+    { value: 'moonshotai/kimi-k2.5', label: 'kimi-k2.5' },
     { value: 'deepseek-ai/deepseek-v3.2', label: 'deepseek-v3.2' },
     { value: 'moonshotai/kimi-k2-thinking', label: 'kimi-k2-thinking' },
     { value: 'minimaxai/minimax-m2', label: 'minimax-m2' },

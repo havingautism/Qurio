@@ -113,6 +113,7 @@ class StreamChatRequest(BaseModel):
     summary_model: str | None = Field(default=None, alias="summaryModel")
     summary_base_url: str | None = Field(default=None, alias="summaryBaseUrl")
     summary_api_key: str | None = Field(default=None, alias="summaryApiKey")
+    is_editing: bool = Field(default=False, alias="isEditing", description="Forced summary rebuild flag (for edits/regenerates)")
 
     # Stream flag (default true for streaming)
     stream: bool = True

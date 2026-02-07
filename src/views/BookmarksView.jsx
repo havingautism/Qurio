@@ -224,7 +224,7 @@ const BookmarksView = () => {
         {/* Thread List */}
         <div className="relative space-y-4">
           {loading ? (
-            <div className="bg-background/40 absolute inset-0 flex items-center justify-center rounded-2xl md:backdrop-blur-md">
+            <div className="bg-background/40 absolute inset-0 flex items-center justify-center rounded-2xl backdrop-blur-md">
               <FancyLoader />
             </div>
           ) : filteredConversations.length === 0 ? (

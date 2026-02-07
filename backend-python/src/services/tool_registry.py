@@ -243,7 +243,9 @@ AGENT_TOOLS: list[dict[str, Any]] = [
             "Manage long-term memory for a user domain. "
             "Prefer reusing an existing domain_key whenever possible. "
             "Use operation='add' to append/create, operation='upsert' to update/overwrite, "
-            "and operation='delete' to remove a memory domain."
+            "and operation='delete' to remove a memory domain. "
+            "For operation='upsert' on an existing domain, set based_on_existing=true "
+            "after reading existing memory."
         ),
         "parameters": {
             "type": "object",
@@ -267,6 +269,13 @@ AGENT_TOOLS: list[dict[str, Any]] = [
                         "Summary content. Required for operation=add. "
                         "For operation=upsert, you may omit summary in the first call to fetch existing memory, "
                         "then call again with the full replacement summary."
+                    ),
+                },
+                "based_on_existing": {
+                    "type": "boolean",
+                    "description": (
+                        "Set true when operation=upsert for an existing domain, indicating the new summary "
+                        "was rewritten from existing memory."
                     ),
                 },
                 "aliases": {

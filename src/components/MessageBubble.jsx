@@ -1412,7 +1412,9 @@ const MessageBubble = ({
                     onSubmit={handleFormSubmit}
                     messageId={message.id}
                     isSubmitted={shouldDisableForm}
-                    submittedValues={parseFormPayload(item.result) || parseFormPayload(item.output) || {}}
+                    submittedValues={
+                      parseFormPayload(item.result) || parseFormPayload(item.output) || {}
+                    }
                     developerMode={developerMode}
                     onShowDetails={() => setActiveToolDetail(item)}
                   />
@@ -1545,7 +1547,7 @@ const MessageBubble = ({
         {activeImageUrl &&
           createPortal(
             <div
-              className="fixed inset-0 z-10000 flex items-center justify-center bg-black/70 p-4 md:backdrop-blur-sm"
+              className="fixed inset-0 z-10000 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
               onClick={() => setActiveImageUrl(null)}
             >
               <button
@@ -1785,7 +1787,7 @@ const MessageBubble = ({
             className={clsx(
               'selection-menu fixed z-50 flex -translate-x-1/2 transform items-center shadow-lg',
               isMobile
-                ? 'rounded-full border border-gray-700/50 bg-gray-900/98 px-3 py-1.5 text-white md:backdrop-blur-md dark:bg-zinc-800/98'
+                ? 'rounded-full border border-gray-700/50 bg-gray-900/98 px-3 py-1.5 text-white backdrop-blur-md dark:bg-zinc-800/98'
                 : '-translate-y-full rounded-lg bg-gray-900 p-1 text-white dark:bg-zinc-700',
             )}
             style={{
@@ -2422,7 +2424,7 @@ const MessageBubble = ({
 
       {activeToolDetail &&
         createPortal(
-          <div className="fixed inset-0 z-10000 flex items-start justify-center overflow-y-auto bg-black/50 p-0 md:items-center md:overflow-hidden md:p-4 md:backdrop-blur-sm">
+          <div className="fixed inset-0 z-10000 flex items-start justify-center overflow-y-auto bg-black/50 p-0 backdrop-blur-sm md:items-center md:overflow-hidden md:p-4">
             <div className="flex h-screen w-full flex-col overflow-hidden rounded-none border-0 border-gray-200 bg-white shadow-2xl md:h-[80vh] md:max-w-4xl md:rounded-2xl md:border dark:border-zinc-800 dark:bg-[#191a1a]">
               <div className="flex h-14 shrink-0 items-center justify-between border-b border-gray-200 bg-white px-4 sm:px-6 dark:border-zinc-800 dark:bg-[#191a1a]">
                 <div className="truncate pr-4 text-base font-semibold text-gray-900 dark:text-white">

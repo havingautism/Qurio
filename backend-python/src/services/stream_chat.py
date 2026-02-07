@@ -250,7 +250,8 @@ class StreamChatService:
             # using persisted summary can re-introduce stale assistant text.
             # In this case, use fresh request messages only and rebuild summary from this turn.
             is_single_user_turn = user_turn_count <= 1
-            should_rebuild_summary = bool(is_single_user_turn)
+            # Force rebuild if it's the first turn OR if the user is editing/regenerating
+            should_rebuild_summary = bool(is_single_user_turn or request.is_editing)
             # Inject summary only when history exceeds turn window and request is not rebuild flow.
             should_inject_summary = bool(session_summary_text) and (user_turn_count > turn_limit) and (not should_rebuild_summary)
             if not should_inject_summary and session_summary_text:
@@ -530,7 +531,7 @@ class StreamChatService:
                                         new_lines.append(last_user)
                                     new_lines.append({"role": "assistant", "content": final_content})
                                 
-                                logger.info(f"Triggering async summary update for {request.conversation_id} with {len(new_lines)} messages")
+                                logger.info(f"Triggering async summary update for {request.conversation_id} with {len(new_lines)} messages (rebuild: {should_rebuild_summary}, is_editing: {request.is_editing})")
                                 asyncio.create_task(update_session_summary(
                                     conversation_id=request.conversation_id,
                                     old_summary=old_summary_json,
@@ -1027,7 +1028,8 @@ class StreamChatService:
                 "2) Create a new domain_key only for clearly new topics.\n"
                 "3) Prefer operation='upsert' for corrections/overwrites; use 'add' for appending details; "
                 "use 'delete' to remove outdated domains.\n"
-                "4) Always provide a non-empty summary for operation='add' and operation='upsert'."
+                "4) Always provide a non-empty summary for operation='add' and operation='upsert'.\n"
+                "5) If upserting an existing domain, rewrite summary from old memory and set based_on_existing=true."
             )
             updated = self._append_system_message(updated, memory_guidance, system_index)
 

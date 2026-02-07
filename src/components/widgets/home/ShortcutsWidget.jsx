@@ -572,7 +572,7 @@ const ShortcutsWidget = () => {
                               {/* Delete button relative to icon */}
                               {isEditMode && !isBeingDragged && (
                                 <button
-                                  className="absolute -top-2 -right-2 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-gray-500/80 text-white shadow-md transition-transform hover:scale-110 hover:bg-red-500 md:backdrop-blur-sm"
+                                  className="absolute -top-2 -right-2 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-gray-500/80 text-white shadow-md backdrop-blur-sm transition-transform hover:scale-110 hover:bg-red-500"
                                   onPointerDown={e => e.stopPropagation()}
                                   onClick={e => {
                                     e.stopPropagation()

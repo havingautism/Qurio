@@ -685,6 +685,7 @@ export const streamChatViaBackend = async params => {
     memoryApiKey,
     memoryBaseUrl,
     memoryDomainsPrefetch,
+    isEditing,
   } = params
 
   if (!provider) {
@@ -742,6 +743,7 @@ export const streamChatViaBackend = async params => {
           memoryApiKey,
           memoryBaseUrl,
           memoryDomainsPrefetch,
+          isEditing,
         }),
         signal,
       },

@@ -563,13 +563,16 @@ class QurioLocalTools(Toolkit):
             "Manage long-term memory for a specific domain. "
             "Prefer reusing an existing domain_key whenever possible. "
             "Use operation='add' to append/create, operation='upsert' to update/overwrite, "
-            "and operation='delete' to remove a memory domain."
+            "and operation='delete' to remove a memory domain. "
+            "For operation='upsert' on an existing domain, set based_on_existing=true "
+            "after reviewing existing_memory."
         ),
     )
     def memory_update(
         self,
         domain_key: str,
         summary: str | None = None,
+        based_on_existing: bool = False,
         aliases: Any = None,
         scope: str = "",
         operation: str = "upsert",
@@ -645,7 +648,25 @@ class QurioLocalTools(Toolkit):
                 "existing_memory": existing_memory,
                 "instruction": (
                     "Read existing_memory.summary if present, then call memory_update again "
-                    "with operation='upsert' and a full replacement summary."
+                    "with operation='upsert', based_on_existing=true, and a full replacement summary."
+                ),
+            }
+            return json.dumps(payload, ensure_ascii=False)
+
+        if (
+            resolved_operation == "upsert"
+            and existing_memory
+            and str(existing_memory.get("summary") or "").strip()
+            and based_on_existing is not True
+        ):
+            payload = {
+                "status": "needs_reference_existing",
+                "operation": "upsert",
+                "domain_key": domain_key,
+                "existing_memory": existing_memory,
+                "instruction": (
+                    "This domain already has memory. Re-read existing_memory.summary, then call "
+                    "memory_update again with based_on_existing=true and the rewritten full summary."
                 ),
             }
             return json.dumps(payload, ensure_ascii=False)
@@ -691,6 +712,7 @@ class QurioLocalTools(Toolkit):
             "operation": "upsert",
             "domain_key": domain_key,
             "user_id": user_id,
+            "based_on_existing": based_on_existing,
             "aliases": actual_aliases,
             "scope": scope,
             "summary": summary,

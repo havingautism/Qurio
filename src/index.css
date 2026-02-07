@@ -793,7 +793,7 @@ h6 {
 
 /* Premium Card Effects */
 .premium-card-bg {
-  @apply border border-gray-200/50 bg-white/40 shadow-xs md:backdrop-blur-md dark:border-zinc-700/50 dark:bg-zinc-900/40;
+  @apply border border-gray-200/50 bg-white/40 shadow-xs backdrop-blur-md dark:border-zinc-700/50 dark:bg-zinc-900/40;
 }
 
 .premium-card-glow {

@@ -124,7 +124,7 @@ const MEMORY_UPDATE_TOOL = {
   function: {
     name: 'memory_update',
     description:
-      'Manage long-term memory for a specific domain. Prefer reusing an existing domain_key whenever possible. Use operation=add to append, operation=upsert to overwrite update, and operation=delete to remove memory.',
+      'Manage long-term memory for a specific domain. Prefer reusing an existing domain_key whenever possible. Use operation=add to append, operation=upsert to overwrite update, and operation=delete to remove memory. For upsert on an existing domain, set based_on_existing=true after reading old memory.',
     parameters: {
       type: 'object',
       properties: {
@@ -142,6 +142,11 @@ const MEMORY_UPDATE_TOOL = {
           type: 'string',
           description:
             'A concise summary of the information to be remembered. REQUIRED for operation=add and operation=upsert. For upsert, if domain does not exist, a new memory will be created.',
+        },
+        based_on_existing: {
+          type: 'boolean',
+          description:
+            'Set true when operation=upsert on an existing domain, meaning you have reviewed existing memory and rewrote the summary accordingly.',
         },
         aliases: {
           type: 'array',

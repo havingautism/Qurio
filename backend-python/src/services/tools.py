@@ -155,6 +155,7 @@ async def _execute_interactive_form(args: dict[str, Any]) -> dict[str, Any]:
 async def _execute_memory_update(args: dict[str, Any]) -> dict[str, Any]:
     domain_key = str(args.get("domain_key") or "").strip()
     summary = args.get("summary")
+    based_on_existing = args.get("based_on_existing")
     operation_raw = str(args.get("operation") or "upsert").strip().lower()
     user_id = str(args.get("user_id") or "").strip() or None
     database_provider = str(args.get("database_provider") or "").strip() or None
@@ -203,7 +204,7 @@ async def _execute_memory_update(args: dict[str, Any]) -> dict[str, Any]:
             "user_id": user_id,
             "database_provider": database_provider,
             "instruction": (
-                "Call memory_update again with operation='upsert' and full replacement summary "
+                "Call memory_update again with operation='upsert', based_on_existing=true, and full replacement summary "
                 "after retrieving existing memory."
             ),
         }
@@ -212,6 +213,7 @@ async def _execute_memory_update(args: dict[str, Any]) -> dict[str, Any]:
         "status": "accepted",
         "operation": operation,
         "domain_key": domain_key,
+        "based_on_existing": based_on_existing,
         "user_id": user_id,
         "database_provider": database_provider,
         "message": f"Memory {operation} accepted for domain '{domain_key}'.",

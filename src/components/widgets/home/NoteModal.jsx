@@ -37,7 +37,7 @@ const NoteModal = ({ isOpen, onClose, note, onSave, onDelete }) => {
   }
 
   const modalContent = (
-    <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/50 p-4 md:backdrop-blur-sm">
+    <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
       <div className="flex w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl transition-all dark:border-zinc-800 dark:bg-[#191a1a]">
         {/* Header */}
         <div className="flex h-14 shrink-0 items-center justify-between border-b border-gray-200 bg-white px-6 dark:border-zinc-800 dark:bg-[#191a1a]">

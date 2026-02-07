@@ -603,11 +603,11 @@ const ToolsModal = ({ isOpen, onClose }) => {
   const showForm = isCreating || editingTool || isEditingServerUrl
 
   return (
-    <div className="animate-in fade-in fixed inset-0 z-100 flex items-center justify-center bg-black/60 duration-200 md:p-4 md:backdrop-blur-sm">
+    <div className="animate-in fade-in fixed inset-0 z-100 flex items-center justify-center bg-black/60 backdrop-blur-sm duration-200 md:p-4">
       <div className="relative flex h-dvh w-full flex-col overflow-hidden border-gray-200 bg-white shadow-2xl md:h-[85vh] md:max-w-5xl md:flex-row md:rounded-2xl md:border dark:border-zinc-800 dark:bg-[#191a1a]">
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 z-30 rounded-full bg-gray-100/50 p-2 text-gray-500 transition-colors hover:bg-gray-200 md:backdrop-blur-sm dark:bg-zinc-800/50 dark:hover:bg-zinc-700"
+          className="absolute top-4 right-4 z-30 rounded-full bg-gray-100/50 p-2 text-gray-500 backdrop-blur-sm transition-colors hover:bg-gray-200 dark:bg-zinc-800/50 dark:hover:bg-zinc-700"
         >
           <X size={20} />
         </button>
@@ -784,7 +784,7 @@ const ToolsModal = ({ isOpen, onClose }) => {
             !showForm && 'hidden md:flex',
           )}
         >
-          <div className="z-10 flex h-16 shrink-0 items-center justify-between border-b border-gray-200 bg-white/50 px-4 sm:px-8 md:backdrop-blur-sm dark:border-zinc-800 dark:bg-[#191a1a]/50">
+          <div className="z-10 flex h-16 shrink-0 items-center justify-between border-b border-gray-200 bg-white/50 px-4 backdrop-blur-sm sm:px-8 dark:border-zinc-800 dark:bg-[#191a1a]/50">
             <div className="flex items-center gap-3">
               {showForm && (
                 <button

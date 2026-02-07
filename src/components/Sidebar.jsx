@@ -676,15 +676,9 @@ const Sidebar = ({
       {/* Mobile Overlay */}
       <div
         className={clsx(
-          'fixed inset-0 z-40 transform-gpu bg-black/50 transition-opacity duration-200 md:hidden md:backdrop-blur-sm',
+          'fixed inset-0 z-40 bg-black/50 backdrop-blur-sm transition-opacity duration-200 md:hidden',
           isOpen ? 'opacity-100' : 'pointer-events-none opacity-0',
         )}
-        style={{
-          willChange: 'opacity, backdrop-filter, transform',
-          backfaceVisibility: 'hidden',
-          WebkitBackfaceVisibility: 'hidden',
-          transform: 'translateZ(0)',
-        }}
         onClick={isOpen ? onClose : undefined}
         // onWheel={e => e.preventDefault()}
         // onTouchMove={e => e.preventDefault()}

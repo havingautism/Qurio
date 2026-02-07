@@ -34,7 +34,7 @@ const CustomSelect = ({ value, onChange, options, placeholder, disabled, error }
         className={clsx(
           'w-full cursor-pointer rounded-2xl border border-gray-200 py-3.5 pr-10 pl-4 transition-all duration-300 dark:border-white/10',
           'flex items-center justify-between',
-          'bg-gray-50/50 hover:bg-white md:backdrop-blur-md dark:bg-zinc-900/50 dark:hover:bg-zinc-800',
+          'bg-gray-50/50 backdrop-blur-md hover:bg-white dark:bg-zinc-900/50 dark:hover:bg-zinc-800',
           isOpen
             ? 'ring-primary-500/20 border-primary-500/50 shadow-primary-500/5 shadow-lg ring-2'
             : 'hover:border-gray-200 dark:hover:border-white/10',
@@ -323,7 +323,7 @@ const InteractiveForm = ({
                       step={field.step}
                       className={clsx(
                         'w-full rounded-2xl border border-gray-200 px-4 py-3.5 font-medium transition-all duration-300 outline-none dark:border-white/10',
-                        'border bg-gray-50/50 md:backdrop-blur-sm dark:bg-zinc-900/40',
+                        'border bg-gray-50/50 backdrop-blur-sm dark:bg-zinc-900/40',
                         isSubmitted
                           ? 'cursor-not-allowed opacity-60'
                           : 'focus:border-primary-500/50 focus:ring-primary-500/10 focus:shadow-primary-500/5 hover:border-gray-200 hover:bg-white focus:bg-white focus:shadow-lg focus:ring-4 dark:hover:border-white/10 dark:hover:bg-zinc-800 dark:focus:bg-black',

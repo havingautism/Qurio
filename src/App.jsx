@@ -860,7 +860,7 @@ function App() {
               onCreateAgent: handleCreateAgent,
               onEditAgent: handleEditAgent,
               isSidebarPinned,
-              toggleSidebar: () => setIsSidebarOpen(prev => !prev),
+              toggleSidebar: () => setIsSidebarOpen(true),
               conversationStatuses,
               setConversationStatus,
               showConfirmation,

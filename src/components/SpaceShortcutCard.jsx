@@ -18,7 +18,7 @@ const SpaceShortcutCard = memo(({ spaces = [], selectedSpaceId, onSpaceSelect, o
     <div className="flex w-full justify-center">
       <div className="group relative w-full">
         {/* Glass Card - py-4 for more vertical breathing room */}
-        <div className="relative z-10 h-30 overflow-hidden rounded-3xl border border-gray-200 bg-white/60 px-3 py-3 shadow-md transition-all duration-300 sm:h-30 md:backdrop-blur-md dark:border-zinc-700/30 dark:bg-zinc-900/60 dark:shadow-2xl">
+        <div className="relative z-10 h-30 overflow-hidden rounded-3xl border border-gray-200 bg-white/60 px-3 py-3 shadow-md backdrop-blur-md transition-all duration-300 sm:h-30 dark:border-zinc-700/30 dark:bg-zinc-900/60 dark:shadow-2xl">
           {/* Animated Particles */}
           <div className="pointer-events-none absolute inset-0 z-0 opacity-40">
             {PARTICLES.map(p => (

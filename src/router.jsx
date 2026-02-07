@@ -29,7 +29,7 @@ const NotFound = () => {
   ).replace(/\/$/, '')
   return (
     <div className="bg-background text-foreground flex min-h-screen items-center justify-center px-6 py-12">
-      <div className="w-full max-w-md space-y-6 rounded-2xl border border-gray-200/80 bg-white/70 px-6 py-8 text-center shadow-lg md:backdrop-blur-md dark:border-zinc-800 dark:bg-zinc-900/80">
+      <div className="w-full max-w-md space-y-6 rounded-2xl border border-gray-200/80 bg-white/70 px-6 py-8 text-center shadow-lg backdrop-blur-md dark:border-zinc-800 dark:bg-zinc-900/80">
         <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 text-gray-900 shadow dark:bg-zinc-800 dark:text-white">
           <AlertTriangle size={28} />
         </div>

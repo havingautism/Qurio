@@ -649,7 +649,7 @@ const SpaceView = () => {
           {/* Topics List */}
           <div className="relative flex flex-col gap-4">
             {loading && (
-              <div className="bg-background/40 absolute inset-0 flex items-center justify-center rounded-2xl md:backdrop-blur-md">
+              <div className="bg-background/40 absolute inset-0 flex items-center justify-center rounded-2xl backdrop-blur-md">
                 <FancyLoader />
               </div>
             )}

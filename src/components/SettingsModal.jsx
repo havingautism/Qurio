@@ -502,6 +502,38 @@ const validateSettingsForSave = settings => {
   return true
 }
 
+const getEnvManagedSettingKeys = () => {
+  const keys = []
+  if (ENV_VARS.googleApiKey) {
+    keys.push('googleApiKey', 'GoogleApiKey')
+  }
+  if (ENV_VARS.openAIKey) {
+    keys.push('OpenAICompatibilityKey')
+  }
+  if (ENV_VARS.openAIBaseUrl) {
+    keys.push('OpenAICompatibilityUrl')
+  }
+  if (ENV_VARS.siliconFlowKey) {
+    keys.push('SiliconFlowKey')
+  }
+  if (ENV_VARS.glmKey) {
+    keys.push('GlmKey')
+  }
+  if (ENV_VARS.modelscopeKey) {
+    keys.push('ModelScopeKey')
+  }
+  if (ENV_VARS.kimiKey) {
+    keys.push('KimiKey')
+  }
+  if (ENV_VARS.tavilyApiKey) {
+    keys.push('tavilyApiKey')
+  }
+  if (ENV_VARS.backendUrl) {
+    keys.push('backendUrl')
+  }
+  return keys
+}
+
 const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
@@ -546,7 +578,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
   const interfaceLanguageDropdownRef = useRef(null)
   const [isEmbeddingProviderDropdownOpen, setIsEmbeddingProviderDropdownOpen] = useState(false)
   const embeddingProviderDropdownRef = useRef(null)
-  const [contextTurns, setContextTurns] = useState(12)
+  const [contextTurns, setContextTurns] = useState(6)
   const [themeColor, setThemeColor] = useState('violet')
   const [fontSize, setFontSize] = useState('medium')
   const [isSaving, setIsSaving] = useState(false)
@@ -683,6 +715,29 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
         label: t(`settings.providers.${key}`),
       })),
     [t],
+  )
+
+  const providerConfiguredMap = useMemo(
+    () => ({
+      gemini: Boolean((googleApiKey || '').trim() || ENV_VARS.googleApiKey),
+      openai_compatibility: Boolean((OpenAICompatibilityKey || '').trim() || ENV_VARS.openAIKey),
+      siliconflow: Boolean((SiliconFlowKey || '').trim() || ENV_VARS.siliconFlowKey),
+      nvidia: Boolean((NvidiaKey || '').trim()),
+      minimax: Boolean((MinimaxKey || '').trim()),
+      glm: Boolean((GlmKey || '').trim() || ENV_VARS.glmKey),
+      modelscope: Boolean((ModelScopeKey || '').trim() || ENV_VARS.modelscopeKey),
+      kimi: Boolean((KimiKey || '').trim() || ENV_VARS.kimiKey),
+    }),
+    [
+      googleApiKey,
+      OpenAICompatibilityKey,
+      SiliconFlowKey,
+      NvidiaKey,
+      MinimaxKey,
+      GlmKey,
+      ModelScopeKey,
+      KimiKey,
+    ],
   )
 
   const toolsApiProviderOptions = useMemo(
@@ -1565,6 +1620,13 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
         embeddingCustomModel,
       }
 
+      // If a field is managed by environment variables, keep it runtime-readonly:
+      // do not persist it to local/remote settings.
+      const envManagedKeys = getEnvManagedSettingKeys()
+      envManagedKeys.forEach(key => {
+        delete settingsToSave[key]
+      })
+
       const didPassValidation = validateSettingsForSave(settingsToSave)
       if (!didPassValidation) {
         // Validation failed (toast/alert would handle it inside validate or UI)
@@ -1711,6 +1773,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
             ]
 
             SYNC_KEYS.forEach(key => {
+              if (envManagedKeys.includes(key)) return
               const val = settingsToSave[key]
               // Only overwrite if local is empty/null/undefined (preserve false/0)
               if ((val === '' || val === null || val === undefined) && remoteData[key]) {
@@ -1880,6 +1943,14 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                         </div>
                         <SelectValue>
                           <div className="flex items-center gap-3">
+                            <span
+                              className={clsx(
+                                'h-2.5 w-2.5 rounded-full',
+                                providerConfiguredMap[apiProvider]
+                                  ? 'bg-emerald-500'
+                                  : 'bg-gray-400 dark:bg-zinc-600',
+                              )}
+                            />
                             {renderProviderIcon(apiProvider, {
                               size: 16,
                               alt: t(`settings.providers.${apiProvider}`),
@@ -1892,6 +1963,14 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                         {providerOptions.map(option => (
                           <SelectItem key={option.key} value={option.value}>
                             <div className="flex items-center gap-3">
+                              <span
+                                className={clsx(
+                                  'h-2.5 w-2.5 rounded-full',
+                                  providerConfiguredMap[option.value]
+                                    ? 'bg-emerald-500'
+                                    : 'bg-gray-400 dark:bg-zinc-600',
+                                )}
+                              />
                               {renderProviderIcon(option.value, { size: 16, alt: option.label })}
                               <span>{option.label}</span>
                             </div>

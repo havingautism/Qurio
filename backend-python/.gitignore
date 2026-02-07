@@ -157,3 +157,5 @@ cython_debug/
 *.db
 *.sqlite
 test_*.py
+
+backend-python/src/data/*

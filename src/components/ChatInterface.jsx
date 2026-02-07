@@ -1300,6 +1300,40 @@ const ChatInterface = ({
     return ''
   }, [])
 
+  const isHiddenFormSubmissionMessage = useCallback(
+    msg =>
+      msg?.role === 'user' &&
+      typeof msg?.content === 'string' &&
+      msg.content.startsWith('[Form Submission]'),
+    [],
+  )
+
+  const isHiddenAiContinuationMessage = useCallback(
+    index => {
+      if (index <= 0) return false
+      const current = messages[index]
+      const prev = messages[index - 1]
+      return current?.role === 'ai' && isHiddenFormSubmissionMessage(prev)
+    },
+    [isHiddenFormSubmissionMessage, messages],
+  )
+
+  const latestEditableUserIndex = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      const msg = messages[i]
+      if (msg?.role === 'user' && !isHiddenFormSubmissionMessage(msg)) return i
+    }
+    return -1
+  }, [isHiddenFormSubmissionMessage, messages])
+
+  const latestRegeneratableAiIndex = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      const msg = messages[i]
+      if (msg?.role === 'ai' && !isHiddenAiContinuationMessage(i)) return i
+    }
+    return -1
+  }, [isHiddenAiContinuationMessage, messages])
+
   // Scroll to bottom helper
   const scrollToBottom = useCallback((behavior = 'smooth') => {
     if (messagesContainerRef.current) {
@@ -1334,6 +1368,7 @@ const ChatInterface = ({
 
   const handleEdit = useCallback(
     index => {
+      if (index !== latestEditableUserIndex) return
       const msg = messages[index]
       if (!msg) return
 
@@ -1354,7 +1389,7 @@ const ChatInterface = ({
       const hasPartner = nextMsg && nextMsg.role === 'ai'
       setEditingPartnerId(hasPartner ? nextMsg.id || null : null)
     },
-    [messages],
+    [latestEditableUserIndex, messages],
   )
 
   const handleSendMessage = useCallback(
@@ -1612,6 +1647,7 @@ const ChatInterface = ({
   const handleRegenerateAnswer = useCallback(
     async aiIndex => {
       if (isLoading) return
+      if (aiIndex !== latestRegeneratableAiIndex) return
       const aiMsg = messages[aiIndex]
       if (!aiMsg || aiMsg.role !== 'ai') return
 
@@ -1673,6 +1709,7 @@ const ChatInterface = ({
       extractUserQuestion,
       handleSendMessage,
       isLoading,
+      latestRegeneratableAiIndex,
       messages,
       setMessages,
       isSearchActive,
@@ -1686,6 +1723,7 @@ const ChatInterface = ({
   const handleRegenerateQuestion = useCallback(
     async userIndex => {
       if (isLoading) return
+      if (userIndex !== latestEditableUserIndex) return
 
       const userMsg = messages[userIndex]
       if (!userMsg || userMsg.role !== 'user') return
@@ -1738,6 +1776,7 @@ const ChatInterface = ({
       extractUserQuestion,
       handleSendMessage,
       isLoading,
+      latestEditableUserIndex,
       messages,
       setMessages,
       isSearchActive,

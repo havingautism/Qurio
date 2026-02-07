@@ -40,7 +40,7 @@ async def stream_chat(request: Request) -> Response:
         "top_p": 0.9 (optional),
         "frequency_penalty": 0 (optional),
         "presence_penalty": 0 (optional),
-        "contextMessageLimit": 10 (optional),
+        "contextTurns": 6 (optional),
         "toolIds": ["calculator", "local_time"] (optional),
         "searchProvider": "tavily" (optional),
         "tavilyApiKey": "Tavily API key" (optional),

@@ -344,7 +344,7 @@ export const callAIAPI = async (
       top_p: agentTopP ?? undefined,
       frequency_penalty: agentFrequencyPenalty ?? undefined,
       presence_penalty: agentPresencePenalty ?? undefined,
-      contextMessageLimit: settings.contextMessageLimit,
+      contextTurns: settings.contextTurns,
       searchProvider,
       tavilyApiKey,
       searchBackend,

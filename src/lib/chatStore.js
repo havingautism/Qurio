@@ -340,8 +340,8 @@ const useChatStore = create((set, get) => ({
       historyOverride,
     )
     set({ messages: newMessages })
-    const isEditingExisting = editingInfo?.index !== undefined && editingInfo?.index !== null
-    const historyLengthBeforeSend = isEditingExisting ? editingInfo.index : messages.length
+    const hasEditingInfo = editingInfo?.index !== undefined && editingInfo?.index !== null
+    const historyLengthBeforeSend = hasEditingInfo ? editingInfo.index : messages.length
 
     // Step 4: Ensure conversation exists early to sync ID
     let convInfo
@@ -383,7 +383,7 @@ const useChatStore = create((set, get) => ({
     let resolvedAgent = isAgentAutoMode ? null : selectedAgent
     let preselectedTitle = null
     let preselectedEmojis = []
-    const isFirstTurn = historyLengthBeforeSend === 0 && !isEditingExisting
+    const isFirstTurn = historyLengthBeforeSend === 0 && !hasEditingInfo
     const isDeepResearchMode = !!toggles?.deepResearch
     // Only preselect space/title on first turn, never reload in existing conversations
     const shouldPreselectSpaceTitle =

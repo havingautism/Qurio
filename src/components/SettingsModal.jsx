@@ -496,10 +496,42 @@ const resolveLiteModelConfig = (agent, settings) => {
 }
 
 const validateSettingsForSave = settings => {
-  const contextLimit = Number(settings.contextMessageLimit)
+  const contextLimit = Number(settings.contextTurns ?? settings.contextMessageLimit)
   if (!Number.isFinite(contextLimit) || contextLimit < 1 || contextLimit > 50) return false
 
   return true
+}
+
+const getEnvManagedSettingKeys = () => {
+  const keys = []
+  if (ENV_VARS.googleApiKey) {
+    keys.push('googleApiKey', 'GoogleApiKey')
+  }
+  if (ENV_VARS.openAIKey) {
+    keys.push('OpenAICompatibilityKey')
+  }
+  if (ENV_VARS.openAIBaseUrl) {
+    keys.push('OpenAICompatibilityUrl')
+  }
+  if (ENV_VARS.siliconFlowKey) {
+    keys.push('SiliconFlowKey')
+  }
+  if (ENV_VARS.glmKey) {
+    keys.push('GlmKey')
+  }
+  if (ENV_VARS.modelscopeKey) {
+    keys.push('ModelScopeKey')
+  }
+  if (ENV_VARS.kimiKey) {
+    keys.push('KimiKey')
+  }
+  if (ENV_VARS.tavilyApiKey) {
+    keys.push('tavilyApiKey')
+  }
+  if (ENV_VARS.backendUrl) {
+    keys.push('backendUrl')
+  }
+  return keys
 }
 
 const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
@@ -546,7 +578,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
   const interfaceLanguageDropdownRef = useRef(null)
   const [isEmbeddingProviderDropdownOpen, setIsEmbeddingProviderDropdownOpen] = useState(false)
   const embeddingProviderDropdownRef = useRef(null)
-  const [contextMessageLimit, setContextMessageLimit] = useState(12)
+  const [contextTurns, setContextTurns] = useState(6)
   const [themeColor, setThemeColor] = useState('violet')
   const [fontSize, setFontSize] = useState('medium')
   const [isSaving, setIsSaving] = useState(false)
@@ -685,6 +717,29 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
     [t],
   )
 
+  const providerConfiguredMap = useMemo(
+    () => ({
+      gemini: Boolean((googleApiKey || '').trim() || ENV_VARS.googleApiKey),
+      openai_compatibility: Boolean((OpenAICompatibilityKey || '').trim() || ENV_VARS.openAIKey),
+      siliconflow: Boolean((SiliconFlowKey || '').trim() || ENV_VARS.siliconFlowKey),
+      nvidia: Boolean((NvidiaKey || '').trim()),
+      minimax: Boolean((MinimaxKey || '').trim()),
+      glm: Boolean((GlmKey || '').trim() || ENV_VARS.glmKey),
+      modelscope: Boolean((ModelScopeKey || '').trim() || ENV_VARS.modelscopeKey),
+      kimi: Boolean((KimiKey || '').trim() || ENV_VARS.kimiKey),
+    }),
+    [
+      googleApiKey,
+      OpenAICompatibilityKey,
+      SiliconFlowKey,
+      NvidiaKey,
+      MinimaxKey,
+      GlmKey,
+      ModelScopeKey,
+      KimiKey,
+    ],
+  )
+
   const toolsApiProviderOptions = useMemo(
     () =>
       TOOLS_API_PROVIDER_KEYS.map(key => ({
@@ -760,7 +815,9 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
       if (settings.searchProvider) setSearchProvider(settings.searchProvider)
       if (settings.tavilyApiKey) setTavilyApiKey(settings.tavilyApiKey)
       if (settings.backendUrl && !ENV_VARS.backendUrl) setBackendUrl(settings.backendUrl)
-      if (settings.contextMessageLimit) setContextMessageLimit(Number(settings.contextMessageLimit))
+      if (settings.contextTurns || settings.contextMessageLimit) {
+        setContextTurns(Number(settings.contextTurns || settings.contextMessageLimit))
+      }
       if (settings.themeColor) setThemeColor(settings.themeColor)
       if (settings.fontSize) setFontSize(settings.fontSize)
       if (typeof settings.enableRelatedQuestions === 'boolean')
@@ -1551,7 +1608,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
         developerMode,
         // Chat
         enableRelatedQuestions,
-        contextMessageLimit,
+        contextTurns,
         // Memory
         enableLongTermMemory,
 
@@ -1562,6 +1619,13 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
         embeddingModelSource,
         embeddingCustomModel,
       }
+
+      // If a field is managed by environment variables, keep it runtime-readonly:
+      // do not persist it to local/remote settings.
+      const envManagedKeys = getEnvManagedSettingKeys()
+      envManagedKeys.forEach(key => {
+        delete settingsToSave[key]
+      })
 
       const didPassValidation = validateSettingsForSave(settingsToSave)
       if (!didPassValidation) {
@@ -1709,6 +1773,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
             ]
 
             SYNC_KEYS.forEach(key => {
+              if (envManagedKeys.includes(key)) return
               const val = settingsToSave[key]
               // Only overwrite if local is empty/null/undefined (preserve false/0)
               if ((val === '' || val === null || val === undefined) && remoteData[key]) {
@@ -1878,6 +1943,14 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                         </div>
                         <SelectValue>
                           <div className="flex items-center gap-3">
+                            <span
+                              className={clsx(
+                                'h-2.5 w-2.5 rounded-full',
+                                providerConfiguredMap[apiProvider]
+                                  ? 'bg-emerald-500'
+                                  : 'bg-gray-400 dark:bg-zinc-600',
+                              )}
+                            />
                             {renderProviderIcon(apiProvider, {
                               size: 16,
                               alt: t(`settings.providers.${apiProvider}`),
@@ -1890,6 +1963,14 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                         {providerOptions.map(option => (
                           <SelectItem key={option.key} value={option.value}>
                             <div className="flex items-center gap-3">
+                              <span
+                                className={clsx(
+                                  'h-2.5 w-2.5 rounded-full',
+                                  providerConfiguredMap[option.value]
+                                    ? 'bg-emerald-500'
+                                    : 'bg-gray-400 dark:bg-zinc-600',
+                                )}
+                              />
                               {renderProviderIcon(option.value, { size: 16, alt: option.label })}
                               <span>{option.label}</span>
                             </div>
@@ -3062,9 +3143,9 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                     type="number"
                     min={1}
                     max={50}
-                    value={contextMessageLimit}
+                    value={contextTurns}
                     onChange={e =>
-                      setContextMessageLimit(Math.min(50, Math.max(1, Number(e.target.value) || 1)))
+                      setContextTurns(Math.min(50, Math.max(1, Number(e.target.value) || 1)))
                     }
                     className="focus:ring-primary-500/20 focus:border-primary-500 mt-1 w-32 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100 dark:placeholder-zinc-600"
                   />

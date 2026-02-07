@@ -22,8 +22,8 @@
     'Segoe UI Mono', 'Source Code Pro', Menlo, Consolas, monospace;
 
   --font-code:
-    var(--font-google-sans-code), ui-monospace, SFMono-Regular, 'SF Mono', 'Cascadia Code',
-    'Segoe UI Mono', 'Source Code Pro', Menlo, Consolas, monospace;
+    var(--font-maple-mono-cn), var(--font-google-sans-code), ui-monospace, SFMono-Regular,
+    'SF Mono', 'Cascadia Code', 'Segoe UI Mono', 'Source Code Pro', Menlo, Consolas, monospace;
 
   /* Custom Primary Palette (formerly Brown) - Default Map to Variables */
   /* These will be overridden by the JS style injection on root */
@@ -309,6 +309,7 @@
   --font-google-sans: 'Google Sans';
   --font-google-sans-mono: 'Google Sans Mono';
   --font-google-sans-code: 'Google Sans Code';
+  --font-maple-mono-cn: 'Maple Mono CN';
   --font-noto-sans-sc: 'Noto Sans SC';
 
   /* Glow defaults (Fox Rust) - Lighter for light mode */
@@ -367,14 +368,14 @@ h6 {
 
 .prose code,
 .message-content code {
-  font-family: var(--font-google-sans-code);
+  font-family: var(--font-code);
 }
 
 .prose pre,
 .message-content pre,
 .prose pre code,
 .message-content pre code {
-  font-family: var(--font-google-sans-code);
+  font-family: var(--font-code);
   line-height: 1.65 !important;
 }
 

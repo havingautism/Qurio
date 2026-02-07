@@ -222,10 +222,19 @@ class StreamChatService:
                     logger.warning(f"Failed to fetch session summary: {e}")
                     logger.error(f"Failed to fetch session summary: {e}")
 
-            # 2. Slice History (Num History Runs)
-            # Strategy: Keep all System messages + Last N User Runs (User + AI + Tools)
-            # Current Setting: N=4 (2 full turns approx)
-            NUM_HISTORY_RUNS = 2
+            # 2. Slice History (Turn-Based Window)
+            # Strategy: Keep all System messages + Last N User turns (User + AI + Tools)
+            # N comes from frontend context setting: contextTurns (legacy: contextMessageLimit).
+            raw_turn_limit = (
+                request.context_turn_limit
+                if isinstance(request.context_turn_limit, int) and request.context_turn_limit > 0
+                else request.context_message_limit
+            )
+            turn_limit = (
+                max(1, min(50, int(raw_turn_limit)))
+                if isinstance(raw_turn_limit, int) and raw_turn_limit > 0
+                else 2
+            )
             
             # Separate System and Non-System
             system_messages = [m for m in messages if m.get("role") == "system"]
@@ -234,11 +243,26 @@ class StreamChatService:
             # Find the indices of User messages to determine run boundaries
             user_indices = [i for i, m in enumerate(chat_messages) if m.get("role") == "user"]
             
-            if len(user_indices) > NUM_HISTORY_RUNS:
-                cutoff_index = user_indices[-NUM_HISTORY_RUNS]
+            user_turn_count = len(user_indices)
+            if user_turn_count > turn_limit:
+                cutoff_index = user_indices[-turn_limit]
                 recent_history = chat_messages[cutoff_index:]
             else:
                 recent_history = chat_messages
+
+            # For single-turn requests (common during first-turn regenerate/edit),
+            # using persisted summary can re-introduce stale assistant text.
+            # In this case, use fresh request messages only and rebuild summary from this turn.
+            is_single_user_turn = user_turn_count <= 1
+            should_rebuild_summary = bool(request.is_editing_existing or is_single_user_turn)
+            # Inject summary only when history exceeds turn window and request is not rebuild/edit.
+            should_inject_summary = bool(session_summary_text) and (user_turn_count > turn_limit) and (not should_rebuild_summary)
+            if not should_inject_summary and session_summary_text:
+                logger.info(
+                    "Skipping session summary injection (within turn window or regenerate/edit context)."
+                )
+                session_summary_text = None
+                old_summary_json = None
                 
             # 3. Inject Summary into System Prompt
             if session_summary_text:
@@ -262,7 +286,10 @@ class StreamChatService:
             
             # Final Agent Input
             agent_input = system_messages + recent_history
-            logger.info(f"Context Window: {len(system_messages)} System + {len(recent_history)} Chat Messages")
+            logger.info(
+                f"Context Window: turn_limit={turn_limit}, user_turns={user_turn_count}, "
+                f"{len(system_messages)} System + {len(recent_history)} Chat Messages"
+            )
 
             stream = agent.arun(
                 input=agent_input,
@@ -491,15 +518,21 @@ class StreamChatService:
                             # 4. Trigger Async Session Summary Update
                             # Only if conversation_id exists (Main Chat Flow)
                             if request.conversation_id:
-                                # Prepare new lines: Last User Message + AI Response
-                                new_lines = []
-                                # Find last user message
-                                last_user = next((m for m in reversed(messages) if m.get("role") == "user"), None)
-                                if last_user:
-                                    new_lines.append(last_user)
-                                
-                                # AI Response
-                                new_lines.append({"role": "assistant", "content": final_content})
+                                # Prepare summary lines:
+                                # - Normal flow: incremental update with last user + new assistant
+                                # - Regenerate/Edit (or single-turn rebuild): rebuild from current request context + new assistant
+                                if should_rebuild_summary:
+                                    new_lines = [
+                                        m for m in messages
+                                        if m.get("role") in ("user", "assistant")
+                                    ]
+                                    new_lines.append({"role": "assistant", "content": final_content})
+                                else:
+                                    new_lines = []
+                                    last_user = next((m for m in reversed(messages) if m.get("role") == "user"), None)
+                                    if last_user:
+                                        new_lines.append(last_user)
+                                    new_lines.append({"role": "assistant", "content": final_content})
                                 
                                 logger.info(f"Triggering async summary update for {request.conversation_id} with {len(new_lines)} messages")
                                 asyncio.create_task(update_session_summary(
@@ -515,6 +548,7 @@ class StreamChatService:
                                     summary_model=request.summary_model,
                                     summary_api_key=request.summary_api_key,
                                     summary_base_url=request.summary_base_url,
+                                    rebuild_from_scratch=should_rebuild_summary,
                                 ))
 
                             return

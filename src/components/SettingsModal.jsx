@@ -496,7 +496,7 @@ const resolveLiteModelConfig = (agent, settings) => {
 }
 
 const validateSettingsForSave = settings => {
-  const contextLimit = Number(settings.contextMessageLimit)
+  const contextLimit = Number(settings.contextTurns ?? settings.contextMessageLimit)
   if (!Number.isFinite(contextLimit) || contextLimit < 1 || contextLimit > 50) return false
 
   return true
@@ -546,7 +546,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
   const interfaceLanguageDropdownRef = useRef(null)
   const [isEmbeddingProviderDropdownOpen, setIsEmbeddingProviderDropdownOpen] = useState(false)
   const embeddingProviderDropdownRef = useRef(null)
-  const [contextMessageLimit, setContextMessageLimit] = useState(12)
+  const [contextTurns, setContextTurns] = useState(12)
   const [themeColor, setThemeColor] = useState('violet')
   const [fontSize, setFontSize] = useState('medium')
   const [isSaving, setIsSaving] = useState(false)
@@ -760,7 +760,9 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
       if (settings.searchProvider) setSearchProvider(settings.searchProvider)
       if (settings.tavilyApiKey) setTavilyApiKey(settings.tavilyApiKey)
       if (settings.backendUrl && !ENV_VARS.backendUrl) setBackendUrl(settings.backendUrl)
-      if (settings.contextMessageLimit) setContextMessageLimit(Number(settings.contextMessageLimit))
+      if (settings.contextTurns || settings.contextMessageLimit) {
+        setContextTurns(Number(settings.contextTurns || settings.contextMessageLimit))
+      }
       if (settings.themeColor) setThemeColor(settings.themeColor)
       if (settings.fontSize) setFontSize(settings.fontSize)
       if (typeof settings.enableRelatedQuestions === 'boolean')
@@ -1551,7 +1553,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
         developerMode,
         // Chat
         enableRelatedQuestions,
-        contextMessageLimit,
+        contextTurns,
         // Memory
         enableLongTermMemory,
 
@@ -3062,9 +3064,9 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                     type="number"
                     min={1}
                     max={50}
-                    value={contextMessageLimit}
+                    value={contextTurns}
                     onChange={e =>
-                      setContextMessageLimit(Math.min(50, Math.max(1, Number(e.target.value) || 1)))
+                      setContextTurns(Math.min(50, Math.max(1, Number(e.target.value) || 1)))
                     }
                     className="focus:ring-primary-500/20 focus:border-primary-500 mt-1 w-32 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100 dark:placeholder-zinc-600"
                   />

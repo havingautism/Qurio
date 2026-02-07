@@ -244,6 +244,7 @@ const useChatStore = create((set, get) => ({
         get,
         set,
         messages.length - 1, // Target index: the last AI message
+        false, // isEditingExisting
         '', // firstUserText
         [], // documentSources
         false, // isAgentAutoMode
@@ -805,6 +806,7 @@ const useChatStore = create((set, get) => ({
       get,
       set,
       historyLengthBeforeSend,
+      isEditingExisting,
       text,
       resolvedDocumentSources,
       isAgentAutoMode,

@@ -85,6 +85,9 @@ class StreamChatRequest(BaseModel):
     presence_penalty: float | None = None
 
     # Context limit
+    # New semantics: turn-based limit (1 turn = user + assistant exchange).
+    # Keep legacy contextMessageLimit for backward compatibility.
+    context_turn_limit: int | None = Field(default=None, alias="contextTurns")
     context_message_limit: int | None = Field(default=None, alias="contextMessageLimit")
 
     # Search configuration
@@ -121,6 +124,11 @@ class StreamChatRequest(BaseModel):
     
     # Context and Session
     conversation_id: str | None = Field(default=None, alias="conversationId", description="Unique identifier for the conversation")
+    is_editing_existing: bool = Field(
+        default=False,
+        alias="isEditingExisting",
+        description="Whether this request is a regenerate/edit resend of an existing turn.",
+    )
 
     model_config = {"populate_by_name": True}
 

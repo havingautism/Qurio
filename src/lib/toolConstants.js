@@ -27,6 +27,7 @@ export const TOOL_TRANSLATION_KEYS = {
   get_company_news: 'tools.companyNews',
   get_technical_indicators: 'tools.technicalIndicators',
   get_historical_stock_prices: 'tools.historicalPrices',
+  memory_retrieve: 'tools.memoryRetrieve',
   memory_update: 'tools.memoryUpdate',
 }
 
@@ -60,6 +61,7 @@ export const TOOL_ICONS = {
   get_company_news: 'Search',
   get_technical_indicators: 'LineChart',
   get_historical_stock_prices: 'LineChart',
+  memory_retrieve: 'Brain',
   memory_update: 'BrainCircuit',
 }
 
@@ -93,5 +95,6 @@ export const TOOL_INFO_KEYS = {
   get_company_news: 'tools.companyNewsInfo',
   get_technical_indicators: 'tools.technicalIndicatorsInfo',
   get_historical_stock_prices: 'tools.historicalPricesInfo',
+  memory_retrieve: 'tools.memoryRetrieveInfo',
   memory_update: 'tools.memoryUpdateInfo',
 }

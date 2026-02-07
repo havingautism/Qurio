@@ -186,6 +186,7 @@ export const loadSettings = (overrides = {}) => {
 
   // Model configuration
   const localSystemPrompt = localStorage.getItem('systemPrompt')
+  const localContextTurns = localStorage.getItem('contextTurns')
   const localContextMessageLimit = localStorage.getItem('contextMessageLimit')
   const localThemeColor = localStorage.getItem('themeColor')
   const localEnableRelatedQuestions = localStorage.getItem('enableRelatedQuestions')
@@ -210,10 +211,19 @@ export const loadSettings = (overrides = {}) => {
   const localStyleEmojis = localStorage.getItem('styleEmojis')
   const localStyleCustomInstruction = localStorage.getItem('styleCustomInstruction')
 
+  const parsedContextTurns = parseInt(localContextTurns, 10)
   const parsedContextLimit = parseInt(localContextMessageLimit, 10)
-  const resolvedContextLimit = Number.isFinite(parsedContextLimit)
-    ? parsedContextLimit
-    : overrides.contextMessageLimit || 12
+  const overrideContextTurns = parseInt(
+    String(overrides.contextTurns ?? overrides.contextMessageLimit ?? ''),
+    10,
+  )
+  const resolvedContextLimit = Number.isFinite(parsedContextTurns)
+    ? parsedContextTurns
+    : Number.isFinite(parsedContextLimit)
+      ? parsedContextLimit
+      : Number.isFinite(overrideContextTurns)
+        ? overrideContextTurns
+        : 12
   const resolvedRelatedQuestionsPreference =
     typeof overrides.enableRelatedQuestions === 'boolean'
       ? overrides.enableRelatedQuestions
@@ -284,7 +294,7 @@ export const loadSettings = (overrides = {}) => {
 
     // Chat behavior
     systemPrompt: localSystemPrompt || overrides.systemPrompt || '',
-    contextMessageLimit: resolvedContextLimit,
+    contextTurns: resolvedContextLimit,
     themeColor: localThemeColor || overrides.themeColor || 'violet',
     enableRelatedQuestions: resolvedRelatedQuestionsPreference,
     interfaceLanguage: localInterfaceLanguage || overrides.interfaceLanguage || 'en',
@@ -411,8 +421,16 @@ export const saveSettings = async settings => {
   if (settings.systemPrompt !== undefined) {
     localStorage.setItem('systemPrompt', settings.systemPrompt)
   }
-  if (settings.contextMessageLimit !== undefined) {
-    localStorage.setItem('contextMessageLimit', String(settings.contextMessageLimit))
+  const resolvedContextTurns =
+    settings.contextTurns !== undefined
+      ? settings.contextTurns
+      : settings.contextMessageLimit !== undefined
+        ? settings.contextMessageLimit
+        : undefined
+  if (resolvedContextTurns !== undefined) {
+    localStorage.setItem('contextTurns', String(resolvedContextTurns))
+    // Migration cleanup: old key replaced by contextTurns.
+    localStorage.removeItem('contextMessageLimit')
   }
   if (settings.themeColor !== undefined) {
     localStorage.setItem('themeColor', settings.themeColor)

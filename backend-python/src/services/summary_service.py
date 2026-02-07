@@ -20,6 +20,7 @@ async def update_session_summary(
     summary_model: str | None = None,
     summary_api_key: str | None = None,
     summary_base_url: str | None = None,
+    rebuild_from_scratch: bool = False,
 ) -> None:
     """
     Async background task to update session summary.
@@ -70,7 +71,9 @@ async def update_session_summary(
         from .db_service import execute_db_async, get_db_adapter
         
         adapter = get_db_adapter(database_provider)
-        if adapter:
+        if rebuild_from_scratch:
+            old_summary = None
+        elif adapter:
             try:
                 latest_req = DbQueryRequest(
                     providerId=adapter.config.id,

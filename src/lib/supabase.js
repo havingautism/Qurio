@@ -526,6 +526,14 @@ export const fetchRemoteSettings = async () => {
     return acc
   }, {})
 
+  // Backward compatibility: legacy key fallback.
+  if (
+    (settings.contextTurns === undefined || settings.contextTurns === null || settings.contextTurns === '') &&
+    settings.contextMessageLimit !== undefined
+  ) {
+    settings.contextTurns = settings.contextMessageLimit
+  }
+
   return { data: settings, error: null }
 }
 
@@ -558,6 +566,7 @@ export const saveRemoteSettings = async settings => {
     'embeddingModel',
     'embeddingModelSource',
     'enableLongTermMemory',
+    'contextTurns',
     'userSelfIntro',
     // We do NOT sync Supabase credentials to the DB itself usually, but user might want to?
     // Syncing supabase credentials to the database that requires them to be accessed is paradoxical if you don't have them.
@@ -574,7 +583,13 @@ export const saveRemoteSettings = async settings => {
   if (updates.length > 0) {
     // user_settings primary key is "key" (no "id"), so SQLite adapter needs explicit conflict column.
     const { error } = await supabase.from('user_settings').upsert(updates, { onConflict: 'key' })
-    return { error }
+    if (error) return { error }
+
+    // Migration cleanup: remove legacy key after successful upsert.
+    if (settings.contextTurns !== undefined || settings.contextMessageLimit !== undefined) {
+      await supabase.from('user_settings').delete().eq('key', 'contextMessageLimit')
+    }
+    return { error: null }
   }
 
   return { error: null }

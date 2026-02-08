@@ -86,6 +86,55 @@ const fetchWithTimeout = async (url, options = {}, timeoutMs = 15000) => {
 }
 
 /**
+ * Fetch wrapper for streaming APIs.
+ * Applies timeout only to connection establishment, not to total stream duration.
+ * @param {string} url
+ * @param {Object} options
+ * @param {number} connectTimeoutMs
+ * @returns {Promise<Response>}
+ */
+const fetchStreamWithConnectTimeout = async (url, options = {}, connectTimeoutMs = 30000) => {
+  const { signal, ...fetchOptions } = options
+  const controller = new AbortController()
+  let timeoutTriggered = false
+  const timeoutId = setTimeout(() => {
+    timeoutTriggered = true
+    controller.abort()
+  }, connectTimeoutMs)
+
+  const onAbort = () => {
+    clearTimeout(timeoutId)
+    controller.abort()
+  }
+  if (signal) {
+    signal.addEventListener('abort', onAbort, { once: true })
+  }
+
+  try {
+    const response = await fetch(url, {
+      ...fetchOptions,
+      signal: controller.signal,
+    })
+    return response
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      if (signal?.aborted) {
+        throw error
+      }
+      if (timeoutTriggered) {
+        throw new Error(`Stream connection timed out after ${connectTimeoutMs}ms`)
+      }
+    }
+    throw error
+  } finally {
+    clearTimeout(timeoutId)
+    if (signal) {
+      signal.removeEventListener('abort', onAbort)
+    }
+  }
+}
+
+/**
  * Generate a title for a conversation based on the first user message
  * @param {string} provider - AI provider name
  * @param {string} message - User's first message
@@ -700,7 +749,7 @@ export const streamChatViaBackend = async params => {
 
   try {
     const userId = await getCurrentUserId()
-    const response = await fetchWithTimeout(
+    const response = await fetchStreamWithConnectTimeout(
       `${getBackendUrl()}/api/stream-chat`,
       {
         method: 'POST',
@@ -872,7 +921,7 @@ export const streamDeepResearchViaBackend = async params => {
   }
 
   try {
-    const response = await fetchWithTimeout(
+    const response = await fetchStreamWithConnectTimeout(
       `${getBackendUrl()}/api/stream-deep-research`,
       {
         method: 'POST',

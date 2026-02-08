@@ -36,7 +36,7 @@ class Settings(BaseSettings):
 
     # SSE Configuration
     sse_flush_ms: int = Field(default=50, alias="SSE_FLUSH_MS")
-    sse_heartbeat_ms: int = Field(default=15000, alias="SSE_HEARTBEAT_MS")
+    sse_heartbeat_ms: int = Field(default=10000, alias="SSE_HEARTBEAT_MS")
 
     # Supabase Configuration
     supabase_project_name: str = Field(default="", alias="SUPABASE_PROJECT_NAME")

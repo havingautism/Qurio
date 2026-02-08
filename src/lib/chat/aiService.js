@@ -16,33 +16,26 @@ import { getLanguageInstruction, applyLanguageInstructionToText } from './prompt
 import { buildSpaceAgentOptions, resolveAgentForSpace } from './conversationSetup'
 import { sanitizeJson } from './utils'
 
-const INTERNAL_TOOL_TRACE_MARKERS = [
-  '<|tool_calls_section_begin|>',
-  '<|tool_call_begin|>',
-  '<|tool_call_end|>',
-  '<|tool_calls_section_end|>',
-]
+const THOUGHT_BLOCK_BREAK_MARKER = '<|thought_block_break|>'
 
-const sanitizeInternalThoughtTrace = value => {
+const sanitizeInternalToolTraceChunk = value => {
   if (typeof value !== 'string') return ''
   let cleaned = value
 
-  let cutIndex = -1
-  for (const marker of INTERNAL_TOOL_TRACE_MARKERS) {
-    const idx = cleaned.indexOf(marker)
-    if (idx >= 0 && (cutIndex === -1 || idx < cutIndex)) {
-      cutIndex = idx
-    }
-  }
+  cleaned = cleaned.replace(/<\/?(?:think|thought)>/gi, '')
+
+  let cutIndex = cleaned.indexOf('<|tool_')
   if (cutIndex >= 0) {
     cleaned = cleaned.slice(0, cutIndex)
   }
 
-  cleaned = cleaned.replace(
-    /(?:^|\n)\s*functions\.\s*[\r\n]+\s*[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?::\d+)?[^\n]*/gi,
-    '',
-  )
+  cleaned = cleaned.replace(/(?:^|\n)\s*functions\.[^\n]*/gi, '')
+  return cleaned
+}
 
+const sanitizeInternalThoughtTrace = value => {
+  if (typeof value !== 'string') return ''
+  const cleaned = sanitizeInternalToolTraceChunk(value)
   return cleaned.trim()
 }
 
@@ -138,8 +131,10 @@ export const callAIAPI = async (
 ) => {
   let streamedThought = ''
   let pendingText = ''
-
-  let pendingThought = ''
+  let pendingThoughtEntries = []
+  let thoughtBlockCounter = 0
+  let streamEventOrder = 0
+  let hasNonThoughtEvent = true
   let rafId = null
 
   // Create AbortController for this request
@@ -154,7 +149,7 @@ export const callAIAPI = async (
   }
 
   const flushPending = () => {
-    if (!pendingText && !pendingThought) {
+    if (!pendingText && pendingThoughtEntries.length === 0) {
       rafId = null
       return
     }
@@ -169,9 +164,32 @@ export const callAIAPI = async (
         lastMsg.content += pendingText
       }
 
-      if (pendingThought) {
-        streamedThought += pendingThought
-        lastMsg.thought = (lastMsg.thought || '') + pendingThought
+      if (pendingThoughtEntries.length > 0) {
+        const thoughtHistory = Array.isArray(lastMsg.thoughtHistory) ? [...lastMsg.thoughtHistory] : []
+        for (const entry of pendingThoughtEntries) {
+          if (!entry?.content) continue
+          const lastEntry = thoughtHistory[thoughtHistory.length - 1]
+          if (
+            lastEntry &&
+            lastEntry.blockId === entry.blockId &&
+            lastEntry.textIndex === entry.textIndex
+          ) {
+            lastEntry.content = `${lastEntry.content || ''}${entry.content}`
+          } else {
+            thoughtHistory.push({
+              blockId: entry.blockId,
+              textIndex: entry.textIndex,
+              content: entry.content,
+              streamOrder: entry.streamOrder,
+            })
+          }
+        }
+        lastMsg.thoughtHistory = thoughtHistory
+        streamedThought = thoughtHistory
+          .map(item => String(item?.content || ''))
+          .filter(Boolean)
+          .join('\n\n')
+        lastMsg.thought = streamedThought || undefined
       }
 
       updated[lastMsgIndex] = lastMsg
@@ -179,7 +197,7 @@ export const callAIAPI = async (
     })
 
     pendingText = ''
-    pendingThought = ''
+    pendingThoughtEntries = []
     rafId = null
   }
 
@@ -438,6 +456,7 @@ export const callAIAPI = async (
       onChunk: chunk => {
         if (typeof chunk === 'object' && chunk !== null) {
           if (chunk.type === 'research_step') {
+            hasNonThoughtEvent = true
             set(state => {
               const updated = [...state.messages]
               const lastMsgIndex = updated.length - 1
@@ -467,6 +486,7 @@ export const callAIAPI = async (
             return
           }
           if (chunk.type === 'tool_call') {
+            hasNonThoughtEvent = true
             set(state => {
               const updated = [...state.messages]
               const lastMsgIndex = updated.length - 1
@@ -510,12 +530,8 @@ export const callAIAPI = async (
                   return chunk.arguments
                 }
               })()
-              const pendingThoughtLength = lastMsg.thinkingEnabled
-                ? 0
-                : (pendingThought || '').length
               const pendingTextLength = (pendingText || '').length
-              const baseIndex =
-                (lastMsg.content || '').length + pendingTextLength + pendingThoughtLength
+              const baseIndex = (lastMsg.content || '').length + pendingTextLength
               history.push({
                 id: chunk.id || `${chunk.name || 'tool'}-${Date.now()}`,
                 name: toolName,
@@ -525,6 +541,7 @@ export const callAIAPI = async (
                 step: typeof chunk.step === 'number' ? chunk.step : undefined,
                 total: typeof chunk.total === 'number' ? chunk.total : undefined,
                 textIndex: typeof chunk.textIndex === 'number' ? chunk.textIndex : baseIndex,
+                streamOrder: ++streamEventOrder,
               })
               lastMsg.toolCallHistory = history
               updated[lastMsgIndex] = lastMsg
@@ -533,6 +550,7 @@ export const callAIAPI = async (
             return
           }
           if (chunk.type === 'tool_result') {
+            hasNonThoughtEvent = true
             set(state => {
               const updated = [...state.messages]
               const lastMsgIndex = updated.length - 1
@@ -592,6 +610,7 @@ export const callAIAPI = async (
           }
           // Handle HITL form request event
           if (chunk.type === 'form_request') {
+            hasNonThoughtEvent = true
             set(state => {
               const updated = [...state.messages]
               const lastMsgIndex = updated.length - 1
@@ -616,12 +635,8 @@ export const callAIAPI = async (
               )
 
               if (existingFormIndex === -1) {
-                const pendingThoughtLength = lastMsg.thinkingEnabled
-                  ? 0
-                  : (pendingThought || '').length
                 const pendingTextLength = (pendingText || '').length
-                const baseIndex =
-                  (lastMsg.content || '').length + pendingTextLength + pendingThoughtLength
+                const baseIndex = (lastMsg.content || '').length + pendingTextLength
 
                 history.push({
                   id: chunk.form_id || `form-${Date.now()}`,
@@ -635,6 +650,7 @@ export const callAIAPI = async (
                   }),
                   status: 'calling', // Will be marked 'done' after submission
                   textIndex: baseIndex,
+                  streamOrder: ++streamEventOrder,
                   output: {
                     run_id: chunk.run_id,
                     id: chunk.form_id,
@@ -673,12 +689,48 @@ export const callAIAPI = async (
             return
           }
           if (chunk.type === 'thought') {
-            pendingThought += chunk.content
+            const rawThought = sanitizeInternalToolTraceChunk(String(chunk.content || ''))
+            if (!rawThought) {
+              queueFlush()
+              return
+            }
+            const currentMessages = get().messages || []
+            const lastStreamMsg = currentMessages[currentMessages.length - 1] || {}
+            const fallbackIndex = (lastStreamMsg.content || '').length + (pendingText || '').length
+            const thoughtIndex =
+              typeof chunk.textIndex === 'number'
+                ? Math.max(0, chunk.textIndex)
+                : Math.max(0, fallbackIndex)
+            const thoughtParts = rawThought.split(THOUGHT_BLOCK_BREAK_MARKER)
+
+            thoughtParts.forEach((part, partIndex) => {
+              if (!part) return
+              if (partIndex > 0) {
+                hasNonThoughtEvent = true
+              }
+              if (hasNonThoughtEvent) {
+                thoughtBlockCounter += 1
+              }
+              hasNonThoughtEvent = false
+              pendingThoughtEntries.push({
+                blockId: thoughtBlockCounter,
+                textIndex: thoughtIndex,
+                content: part,
+                streamOrder: ++streamEventOrder,
+              })
+            })
           } else if (chunk.type === 'text') {
-            pendingText += chunk.content
+            const cleanText = sanitizeInternalToolTraceChunk(String(chunk.content || ''))
+            if (cleanText) {
+              pendingText += cleanText
+            }
+            hasNonThoughtEvent = true
+          } else {
+            hasNonThoughtEvent = true
           }
         } else {
           pendingText += chunk
+          hasNonThoughtEvent = true
         }
 
         queueFlush()
@@ -859,7 +911,9 @@ export const finalizeMessage = async (
 
       if (typeof result?.content !== 'undefined') {
         const hasFormInExisting = validToolCallHistory.some(tc => tc.name === 'interactive_form')
-        if (!hasFormInExisting) {
+        const hasStreamedContent = typeof lastMsg.content === 'string' && lastMsg.content.length > 0
+        // Keep streamed content as source-of-truth to preserve tool/thought textIndex alignment.
+        if (!hasFormInExisting && !hasStreamedContent) {
           lastMsg.content = normalizeContent(result.content)
         }
       }
@@ -1192,16 +1246,23 @@ export const finalizeMessage = async (
     const researchStepsForPersistence = (() => {
       return Array.isArray(latestAi?.researchSteps) ? latestAi.researchSteps : null
     })()
+    const thoughtHistoryForPersistence = (() => {
+      return Array.isArray(latestAi?.thoughtHistory) ? latestAi.thoughtHistory : null
+    })()
     const thoughtForPersistence =
-      toggles?.deepResearch && planForPersistence
-        ? JSON.stringify({ plan: planForPersistence, thought: baseThought })
-        : baseThought
+      (() => {
+        const payload = {}
+        if (planForPersistence) payload.plan = planForPersistence
+        if (baseThought) payload.thought = baseThought
+        if (thoughtHistoryForPersistence && thoughtHistoryForPersistence.length > 0) {
+          payload.thoughtHistory = thoughtHistoryForPersistence
+        }
+        return Object.keys(payload).length > 0 ? JSON.stringify(payload) : baseThought
+      })()
     const contentForPersistence = (() => {
-      // If we already have a message ID (HITL resumption), the store's content (latestAi.content)
-      // is already cumulative (contains both old and new streamed text).
-      // We should use that instead of result.content which only contains the delta for this run.
-      if (latestAi?.id) {
-        return latestAi.content || ''
+      // Always prefer streamed store content to keep thought/tool positions stable after completion.
+      if (typeof latestAi?.content === 'string' && latestAi.content.length > 0) {
+        return latestAi.content
       }
       return typeof result.content !== 'undefined'
         ? normalizeContent(result.content)

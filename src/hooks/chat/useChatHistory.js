@@ -48,12 +48,25 @@ const mapMessageFromApi = (m, effectiveDefaultModel, activeConversation) => {
   const rawThought = m.thinking_process ?? m.thought ?? thoughtFromContent ?? undefined
   let thought = rawThought
   let researchPlan = null
+  let thoughtHistory = undefined
   if (typeof rawThought === 'string') {
     try {
       const parsedThought = JSON.parse(rawThought)
       if (parsedThought && typeof parsedThought === 'object') {
         if (typeof parsedThought.thought === 'string') thought = parsedThought.thought
         if (typeof parsedThought.plan === 'string') researchPlan = parsedThought.plan
+        const rawThoughtHistory = parsedThought.thoughtHistory || parsedThought.thought_history
+        if (Array.isArray(rawThoughtHistory)) {
+          thoughtHistory = rawThoughtHistory
+            .map((item, index) => ({
+              id: item?.id || `${item?.blockId ?? 'block'}-${index}`,
+              blockId: item?.blockId ?? index,
+              textIndex: Number.isFinite(item?.textIndex) ? Number(item.textIndex) : 0,
+              content: String(item?.content || ''),
+              streamOrder: Number.isFinite(item?.streamOrder) ? Number(item.streamOrder) : index,
+            }))
+            .filter(item => item.content.trim())
+        }
       }
     } catch {}
   }
@@ -112,6 +125,7 @@ const mapMessageFromApi = (m, effectiveDefaultModel, activeConversation) => {
     related: m.related_questions || undefined,
     tool_calls: m.tool_calls || undefined,
     toolCallHistory: m.tool_call_history || undefined,
+    thoughtHistory,
     hitlRunId: hitlMeta.hitlRunId,
     hitlFormId: hitlMeta.hitlFormId,
     hitlFormTitle: hitlMeta.hitlFormTitle,

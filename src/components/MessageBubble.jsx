@@ -93,6 +93,7 @@ const PROVIDER_META = {
     fallback: 'N',
   },
 }
+const THOUGHT_BLOCK_BREAK_MARKER = '<|thought_block_break|>'
 
 const isExplicitSchemeUrl = value => /^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(value)
 
@@ -201,6 +202,43 @@ const MessageBubble = ({
   const parsed = provider.parseMessage(mergedMessage)
   const thoughtContent = isDeepResearch ? null : parsed.thought
   const mainContent = parsed.content
+  const positionedThoughtBlocks = useMemo(() => {
+    if (isDeepResearch) return []
+
+    const fromHistory = Array.isArray(mergedMessage?.thoughtHistory)
+      ? mergedMessage.thoughtHistory
+          .map((item, index) => ({
+            id: item?.id || `${item?.blockId ?? 'block'}-${index}`,
+            blockId: item?.blockId ?? index,
+            textIndex: Number.isFinite(item?.textIndex) ? Number(item.textIndex) : 0,
+            content: String(item?.content || '').trim(),
+            streamOrder: Number.isFinite(item?.streamOrder) ? Number(item.streamOrder) : index,
+          }))
+          .filter(item => item.content)
+          .sort((a, b) =>
+            a.textIndex === b.textIndex ? a.streamOrder - b.streamOrder : a.textIndex - b.textIndex,
+          )
+      : []
+
+    if (fromHistory.length > 0) return fromHistory
+    if (!thoughtContent) return []
+
+    return String(thoughtContent)
+      .split(THOUGHT_BLOCK_BREAK_MARKER)
+      .map(part => part.trim())
+      .filter(Boolean)
+      .map((content, index) => ({
+        id: `legacy-thought-${index}`,
+        blockId: `legacy-${index}`,
+        textIndex: 0,
+        content,
+        streamOrder: index,
+      }))
+  }, [isDeepResearch, mergedMessage?.thoughtHistory, thoughtContent])
+  const thoughtExportContent = useMemo(
+    () => positionedThoughtBlocks.map(item => item.content).filter(Boolean).join('\n\n'),
+    [positionedThoughtBlocks],
+  )
 
   const resolvedSearchBackends = useMemo(() => {
     if (Array.isArray(mergedMessage?.searchBackends) && mergedMessage.searchBackends.length > 0) {
@@ -500,48 +538,60 @@ const MessageBubble = ({
   }
 
   const interleavedContent = useMemo(() => {
-    if (isDeepResearch || !toolCallHistory.length) {
-      return [{ type: 'text', content: mainContent || '' }]
+    const rawContent = mainContent || ''
+    const parts = []
+    const events = []
+
+    if (!isDeepResearch) {
+      toolCallHistory.forEach((tool, index) => {
+        const rawIndex =
+          tool.textIndex ?? (tool.name === 'interactive_form' ? rawContent.length : 0)
+        const normalizedIndex = normalizeToolIndex(rawContent, rawIndex, tool.name)
+        events.push({
+          type: 'tools',
+          index: Math.max(0, Math.min(normalizedIndex, rawContent.length)),
+          order: Number.isFinite(tool?.streamOrder) ? Number(tool.streamOrder) : 100000 + index,
+          key: `tool-${tool.id || index}`,
+          tool,
+        })
+      })
+
+      positionedThoughtBlocks.forEach((block, index) => {
+        events.push({
+          type: 'thought',
+          index: Math.max(0, Math.min(Number(block.textIndex) || 0, rawContent.length)),
+          order: Number.isFinite(block.streamOrder) ? Number(block.streamOrder) : index,
+          key: `thought-${block.id || index}`,
+          thought: block.content,
+        })
+      })
     }
 
-    const parts = []
+    if (events.length === 0) {
+      return [{ type: 'text', content: rawContent }]
+    }
+
+    events.sort((a, b) => (a.index === b.index ? a.order - b.order : a.index - b.index))
+
     let lastIndex = 0
-    const rawContent = mainContent || ''
-
-    // Group tools by index
-    const toolsByIndex = {}
-    toolCallHistory.forEach(tool => {
-      // Use textIndex if available
-      // If missing: default interactive_form to end, others to start
-      const rawIndex = tool.textIndex ?? (tool.name === 'interactive_form' ? rawContent.length : 0)
-      const idx = normalizeToolIndex(rawContent, rawIndex, tool.name)
-      if (!toolsByIndex[idx]) toolsByIndex[idx] = []
-      toolsByIndex[idx].push(tool)
-    })
-
-    // Get all unique indices
-    const indices = Object.keys(toolsByIndex)
-      .map(Number)
-      .sort((a, b) => a - b)
-
-    indices.forEach(index => {
-      const safeIndex = Math.min(index, rawContent.length)
+    for (const event of events) {
+      const safeIndex = Math.min(Math.max(0, event.index), rawContent.length)
       if (safeIndex > lastIndex) {
-        parts.push({
-          type: 'text',
-          content: rawContent.substring(lastIndex, safeIndex),
-        })
+        parts.push({ type: 'text', content: rawContent.substring(lastIndex, safeIndex) })
+        lastIndex = safeIndex
       }
-      parts.push({ type: 'tools', items: toolsByIndex[index] })
-      lastIndex = Math.max(lastIndex, safeIndex)
-    })
+      if (event.type === 'tools') {
+        parts.push({ type: 'tools', key: event.key, items: [event.tool] })
+      } else if (event.type === 'thought') {
+        parts.push({ type: 'thought', key: event.key, content: event.thought })
+      }
+    }
 
     if (lastIndex < rawContent.length) {
       parts.push({ type: 'text', content: rawContent.substring(lastIndex) })
     }
-
     return parts
-  }, [mainContent, toolCallHistory, isDeepResearch])
+  }, [mainContent, toolCallHistory, positionedThoughtBlocks, isDeepResearch])
 
   // Effect to handle copy success timeout with proper cleanup
   useEffect(() => {
@@ -792,23 +842,14 @@ const MessageBubble = ({
     }
   }, [isDownloadMenuOpen])
 
-  const [isThoughtExpanded, setIsThoughtExpanded] = useState(false)
   const [isResearchExpanded, setIsResearchExpanded] = useState(false)
   const [isPlanExpanded, setIsPlanExpanded] = useState(false)
-  const [thinkingStatusIndex, setThinkingStatusIndex] = useState(0)
 
   const { showConfirmation } = useAppContext()
   const isUser = message.role === 'user'
 
   const planContent = typeof message?.researchPlan === 'string' ? message.researchPlan.trim() : ''
 
-  // Dynamic thinking status messages using translations
-  const THINKING_STATUS_MESSAGES = [
-    t('chat.thinking'),
-    t('chat.analyzing'),
-    t('chat.workingThroughIt'),
-    t('chat.checkingDetails'),
-  ]
   const DEEP_RESEARCH_STATUS_MESSAGES = [
     t('chat.deepResearchPlanning'),
     t('chat.deepResearchSynthesizing'),
@@ -925,7 +966,7 @@ const MessageBubble = ({
   const { handleDownloadPdf, handleDownloadWord } = useMessageExport({
     message,
     planMarkdown,
-    thoughtContent,
+    thoughtContent: thoughtExportContent,
     mainContentRef,
     researchExportRef,
     thoughtExportRef,
@@ -987,23 +1028,7 @@ const MessageBubble = ({
     const timer = setTimeout(() => setRenderInitialSkeleton(false), skeletonFadeMs)
     return () => clearTimeout(timer)
   }, [shouldShowInitialSkeleton, skeletonFadeMs])
-  const baseThinkingStatusActive =
-    message.role === 'ai' && message.thinkingEnabled !== false && isStreaming && !hasMainText
   const researchStatusText = DEEP_RESEARCH_STATUS_MESSAGES[0]
-  const thinkingStatusText =
-    THINKING_STATUS_MESSAGES[thinkingStatusIndex] || THINKING_STATUS_MESSAGES[0]
-  const statusMessageCount = Math.max(
-    DEEP_RESEARCH_STATUS_MESSAGES.length,
-    THINKING_STATUS_MESSAGES.length,
-  )
-  useEffect(() => {
-    if (!baseThinkingStatusActive) return undefined
-    setThinkingStatusIndex(0)
-    const intervalId = setInterval(() => {
-      setThinkingStatusIndex(prev => (prev + 1) % statusMessageCount)
-    }, 1800)
-    return () => clearInterval(intervalId)
-  }, [baseThinkingStatusActive, statusMessageCount])
 
   const CodeBlock = useCallback(
     ({ inline, className, children, ...props }) => {
@@ -1257,6 +1282,33 @@ const MessageBubble = ({
     let statusBeforeTextInserted = false
 
     return interleavedContent.map((part, idx) => {
+      if (part.type === 'thought') {
+        return (
+          <details
+            key={part.key || `thought-inline-${idx}`}
+            className="group mb-4 overflow-hidden rounded-xl border border-gray-200/70 dark:border-zinc-800"
+            open={isStreaming && idx === interleavedContent.length - 1}
+          >
+            <summary className="bg-user-bubble/30 hover:bg-user-bubble flex cursor-pointer items-center justify-between p-2 transition-colors dark:bg-zinc-800/50 dark:hover:bg-zinc-800">
+              <div className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                <EmojiDisplay emoji={'🧠'} size="1.2em" />
+                <span className="text-sm">{t('messageBubble.thinkingProcess')}</span>
+              </div>
+              <ChevronDown size={16} className="transition-transform group-open:rotate-180" />
+            </summary>
+            <div className="bg-white/70 p-4 text-sm leading-relaxed text-gray-600 font-stretch-semi-condensed dark:bg-zinc-800/70 dark:text-gray-400 [&>div>p:last-child]:mb-0!">
+              <Streamdown
+                mermaid={mermaidOptions}
+                remarkPlugins={[remarkGfm]}
+                components={markdownComponents}
+              >
+                {part.content}
+              </Streamdown>
+            </div>
+          </details>
+        )
+      }
+
       if (part.type === 'tools') {
         // Separate utility tools from interactive forms
         const statusMarkers = part.items.filter(item => item.name === 'form_submission_status')
@@ -1758,7 +1810,6 @@ const MessageBubble = ({
       ? t('deepResearch.agentName')
       : agentName
 
-  const hasThoughtText = !!(thoughtContent && String(thoughtContent).trim())
   const hasPlanText = !!planMarkdown
   const researchPlanLoading = Boolean(message?.researchPlanLoading)
   const researchSteps = Array.isArray(message.researchSteps) ? message.researchSteps : []
@@ -1768,9 +1819,6 @@ const MessageBubble = ({
   )
   const shouldShowPlan = isDeepResearch && (hasPlanText || researchPlanLoading)
   const shouldShowResearch = isDeepResearch && hasResearchSteps
-  const shouldShowThinking =
-    !isDeepResearch &&
-    ((message.thinkingEnabled !== false && isStreaming) || hasThoughtText || hasPlanText)
   const shouldShowPlanStatus = isDeepResearch && researchPlanLoading
   const shouldShowResearchStatus = isDeepResearch && hasActiveResearchStep
 
@@ -2265,46 +2313,7 @@ const MessageBubble = ({
             </div>
           )}
         </>
-      ) : (
-        shouldShowThinking && (
-          <div className="overflow-hidden rounded-xl border border-gray-200/70 dark:border-zinc-800">
-            <button
-              onClick={() => setIsThoughtExpanded(!isThoughtExpanded)}
-              className="bg-user-bubble/30 hover:bg-user-bubble flex w-full items-center justify-between p-2 transition-colors dark:bg-zinc-800/50 dark:hover:bg-zinc-800"
-            >
-              <div className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                <EmojiDisplay emoji={'🧠'} size="1.2em" />
-                {!baseThinkingStatusActive && (
-                  <span className="text-sm">{t('messageBubble.thinkingProcess')}</span>
-                )}
-                {!baseThinkingStatusActive && (hasMainText || !isStreaming) && <Check size="1em" />}
-                {!baseThinkingStatusActive && !hasMainText && isStreaming && <DotLoader />}
-                {baseThinkingStatusActive && (
-                  <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                    <span className="mr-4 text-left">{thinkingStatusText}</span>
-                    <DotLoader />
-                  </div>
-                )}
-              </div>
-              <div className="flex items-center gap-3">
-                {isThoughtExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-              </div>
-            </button>
-
-            {isThoughtExpanded && (hasThoughtText || hasPlanText) && (
-              <div className="bg-white/70 p-4 text-sm leading-relaxed text-gray-600 font-stretch-semi-condensed dark:bg-zinc-800/70 dark:text-gray-400 [&>div>p:last-child]:mb-0!">
-                <Streamdown
-                  mermaid={mermaidOptions}
-                  remarkPlugins={[remarkGfm]}
-                  components={markdownComponents}
-                >
-                  {[planMarkdown, thoughtContent].filter(Boolean).join('\n\n')}
-                </Streamdown>
-              </div>
-            )}
-          </div>
-        )
-      )}
+      ) : null}
 
       {/* Sources Section - REMOVED (Moved to toolbar) */}
 
@@ -2449,7 +2458,7 @@ const MessageBubble = ({
         </div>
         <div ref={thoughtExportRef}>
           <Streamdown mermaid={mermaidOptions} remarkPlugins={[remarkGfm]}>
-            {thoughtContent}
+            {thoughtExportContent}
           </Streamdown>
         </div>
       </div>

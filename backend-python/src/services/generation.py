@@ -762,13 +762,47 @@ async def generate_agent_for_auto(
 
 
 def _normalize_related_questions(parsed: Any) -> list[str]:
+    def _sanitize_related_question_text(value: Any) -> str:
+        if not isinstance(value, str):
+            return ""
+        cleaned = " ".join(value.split()).strip()
+        if not cleaned:
+            return ""
+        lowered = cleaned.lower()
+        if (
+            "<|tool_" in lowered
+            or "tool_calls_section" in lowered
+            or "tool_call_begin" in lowered
+            or "tool_call_end" in lowered
+            or "endgroup" in lowered
+        ):
+            return ""
+        if cleaned in {"{", "}", "[", "]"}:
+            return ""
+        if len(cleaned) > 240:
+            return ""
+        return cleaned
+
+    def _normalize_list(items: list[Any]) -> list[str]:
+        out: list[str] = []
+        seen: set[str] = set()
+        for item in items or []:
+            normalized = _sanitize_related_question_text(item)
+            if not normalized or normalized in seen:
+                continue
+            seen.add(normalized)
+            out.append(normalized)
+            if len(out) >= 3:
+                break
+        return out
+
     if isinstance(parsed, list):
-        return [q for q in parsed if isinstance(q, str) and q.strip()]
+        return _normalize_list(parsed)
     if isinstance(parsed, dict):
         if isinstance(parsed.get("questions"), list):
-            return [q for q in parsed["questions"] if isinstance(q, str) and q.strip()]
+            return _normalize_list(parsed["questions"])
         if isinstance(parsed.get("related_questions"), list):
-            return [q for q in parsed["related_questions"] if isinstance(q, str) and q.strip()]
+            return _normalize_list(parsed["related_questions"])
     return []
 
 

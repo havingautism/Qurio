@@ -1,16 +1,25 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { listMessages } from '../../lib/conversationsService'
 
+const parseJsonIfString = raw => {
+  if (typeof raw !== 'string') return raw
+  const trimmed = raw.trim()
+  if (!trimmed) return raw
+  try {
+    return JSON.parse(trimmed)
+  } catch {
+    return raw
+  }
+}
+
+const asArrayField = raw => {
+  const parsed = parseJsonIfString(raw)
+  return Array.isArray(parsed) ? parsed : undefined
+}
+
 const normalizeStreamBlocks = raw => {
   if (!raw) return []
-  let parsed = raw
-  if (typeof parsed === 'string') {
-    try {
-      parsed = JSON.parse(parsed)
-    } catch {
-      return []
-    }
-  }
+  const parsed = parseJsonIfString(raw)
   if (!Array.isArray(parsed)) return []
   return parsed
     .map((item, index) => ({
@@ -52,7 +61,13 @@ const splitThoughtFromContent = rawContent => {
 
 // Internal helper function
 const mapMessageFromApi = (m, effectiveDefaultModel, activeConversation) => {
-  const streamBlocks = normalizeStreamBlocks(m.stream_blocks)
+  const streamBlocks = normalizeStreamBlocks(m.stream_blocks ?? m.streamBlocks)
+  const toolCallHistory = asArrayField(m.tool_call_history ?? m.toolCallHistory)
+  const researchStepHistory = asArrayField(m.research_step_history ?? m.researchStepHistory)
+  const relatedQuestions = asArrayField(m.related_questions ?? m.relatedQuestions)
+  const sources = asArrayField(m.sources)
+  const groundingSupports = asArrayField(m.grounding_supports ?? m.groundingSupports)
+  const documentSources = asArrayField(m.document_sources ?? m.documentSources)
   const { content: cleanedContent, thought: thoughtFromContent } = splitThoughtFromContent(
     m.content,
   )
@@ -123,7 +138,9 @@ const mapMessageFromApi = (m, effectiveDefaultModel, activeConversation) => {
     }
   }
 
-  const hitlMeta = restoreHitlMetaFromToolHistory(m.tool_call_history)
+  const hitlMeta = restoreHitlMetaFromToolHistory(toolCallHistory)
+
+  const hasResearchSteps = Array.isArray(researchStepHistory) && researchStepHistory.length > 0
 
   return {
     id: m.id,
@@ -132,18 +149,18 @@ const mapMessageFromApi = (m, effectiveDefaultModel, activeConversation) => {
     content: cleanedContent,
     thought,
     researchPlan: researchPlan || '',
-    deepResearch: !!researchPlan,
-    related: m.related_questions || undefined,
+    deepResearch: !!researchPlan || hasResearchSteps,
+    related: relatedQuestions,
     tool_calls: m.tool_calls || undefined,
-    toolCallHistory: m.tool_call_history || undefined,
+    toolCallHistory,
     thoughtHistory,
     hitlRunId: hitlMeta.hitlRunId,
     hitlFormId: hitlMeta.hitlFormId,
     hitlFormTitle: hitlMeta.hitlFormTitle,
     hitlFormFields: hitlMeta.hitlFormFields,
-    researchSteps: m.research_step_history || undefined,
-    sources: m.sources || undefined,
-    groundingSupports: m.grounding_supports || undefined,
+    researchSteps: researchStepHistory,
+    sources,
+    groundingSupports,
     streamBlocks,
     provider: m.provider || activeConversation?.api_provider,
     model: m.model || effectiveDefaultModel,
@@ -151,7 +168,7 @@ const mapMessageFromApi = (m, effectiveDefaultModel, activeConversation) => {
     agentName: m.agent_name ?? m.agentName ?? null,
     agentEmoji: m.agent_emoji ?? m.agentEmoji ?? '',
     agentIsDefault: m.agent_is_default ?? m.agentIsDefault ?? false,
-    documentSources: m.document_sources || undefined,
+    documentSources,
     thinkingEnabled:
       m.is_thinking_enabled ??
       m.generated_with_thinking ??

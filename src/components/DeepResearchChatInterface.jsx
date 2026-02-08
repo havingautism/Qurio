@@ -327,24 +327,37 @@ const DeepResearchChatInterface = ({
 
   // Handle deep research agent (space is handled by useSpaceManagement hook)
   useEffect(() => {
+    const deepResearchAgentId = deepResearchAgent?.id
     if (isDeepResearchConversation) {
       // Enter deep research mode
-      if (deepResearchAgent?.id && deepResearchAgent.id !== selectedAgentId) {
-        setSelectedAgentId(deepResearchAgent.id)
-        setPendingAgentId(deepResearchAgent.id)
+      if (
+        deepResearchAgentId &&
+        String(deepResearchAgentId) !== String(selectedAgentId ?? '')
+      ) {
+        setSelectedAgentId(deepResearchAgentId)
+      }
+      if (pendingAgentId) {
+        setPendingAgentId(null)
+      }
+      if (isAgentAutoMode) {
         setIsAgentAutoMode(false)
       }
       if (!isDeepResearchActive) {
         setIsDeepResearchActive(true)
         setIsThinkingActive(false)
       }
-    } else {
+    } else if (isDeepResearchActive) {
       // Exit deep research mode - reset to normal
-      if (isDeepResearchActive) {
-        setIsDeepResearchActive(false)
-      }
+      setIsDeepResearchActive(false)
     }
-  }, [isDeepResearchConversation, deepResearchAgent, selectedAgentId, isDeepResearchActive])
+  }, [
+    isDeepResearchConversation,
+    deepResearchAgent?.id,
+    selectedAgentId,
+    pendingAgentId,
+    isAgentAutoMode,
+    isDeepResearchActive,
+  ])
 
   // reloadSpaceAgents is now provided by useAgentManagement hook
 
@@ -595,6 +608,15 @@ const DeepResearchChatInterface = ({
   }, [isSearchActive, selectedSearchTools])
 
   // Load existing conversation messages when switching conversations
+  const activeConversationId = activeConversation?.id || null
+  const activeConversationAgentSelectionMode =
+    activeConversation?.agent_selection_mode ?? activeConversation?.agentSelectionMode ?? 'auto'
+  const activeConversationLastAgentId =
+    activeConversation?.last_agent_id ?? activeConversation?.lastAgentId ?? null
+  const conversationSpaceId = conversationSpace?.id || null
+  const hasSelectedSpace = Boolean(selectedSpace)
+  const initialAttachmentsLength = initialAttachments.length
+
   useEffect(() => {
     const loadHistory = async () => {
       if (!activeConversation?.id) {
@@ -631,7 +653,7 @@ const DeepResearchChatInterface = ({
         setConversationTitle('')
         setConversationTitleEmojis([])
         setMessages([])
-        const shouldPreserveAutoSpace = !isManualSpaceSelection && selectedSpace
+        const shouldPreserveAutoSpace = !isManualSpaceSelection && hasSelectedSpace
         if (!shouldPreserveAutoSpace) {
           setSelectedSpace(null)
           setIsManualSpaceSelection(false)
@@ -687,15 +709,12 @@ const DeepResearchChatInterface = ({
         }
         // Space is synced by unified logic above
         const shouldSyncAgent =
+          !isDeepResearchConversation &&
           manualAgentSelectionRef.current.conversationId !== activeConversation.id
         if (shouldSyncAgent) {
-          const agentSelectionMode =
-            activeConversation?.agent_selection_mode ??
-            activeConversation?.agentSelectionMode ??
-            'auto'
+          const agentSelectionMode = activeConversationAgentSelectionMode
           setIsAgentAutoMode(agentSelectionMode !== 'manual')
-          const resolvedAgentId =
-            activeConversation?.last_agent_id ?? activeConversation?.lastAgentId ?? null
+          const resolvedAgentId = activeConversationLastAgentId
           if (resolvedAgentId) {
             setSelectedAgentId(resolvedAgentId)
             setPendingAgentId(resolvedAgentId)
@@ -801,8 +820,7 @@ const DeepResearchChatInterface = ({
         lastLoadedConversationIdRef.current = activeConversation.id
       }
       // Space is synced by unified logic above
-      const conversationLastAgentId =
-        activeConversation?.last_agent_id ?? activeConversation?.lastAgentId ?? null
+      const conversationLastAgentId = activeConversationLastAgentId
       const { data: mapped, error } = await loadConversationMessages(activeConversation.id)
       if (!error && mapped) {
         if (messages.length > 0 && (isProcessingInitial.current || hasInitialized.current)) {
@@ -812,12 +830,10 @@ const DeepResearchChatInterface = ({
         setMessages(mapped)
         // Restore agent selection mode from conversation unless user just picked manually
         const shouldSyncAgent =
+          !isDeepResearchConversation &&
           manualAgentSelectionRef.current.conversationId !== activeConversation.id
         if (shouldSyncAgent) {
-          const agentSelectionMode =
-            activeConversation?.agent_selection_mode ??
-            activeConversation?.agentSelectionMode ??
-            'auto'
+          const agentSelectionMode = activeConversationAgentSelectionMode
           setIsAgentAutoMode(agentSelectionMode !== 'manual')
           const resolvedAgentId = conversationLastAgentId || null
           if (resolvedAgentId) {
@@ -838,16 +854,19 @@ const DeepResearchChatInterface = ({
     }
     loadHistory()
   }, [
-    activeConversation,
-    conversationSpace,
-    settings,
-    effectiveDefaultModel,
+    activeConversationId,
+    activeConversationAgentSelectionMode,
+    activeConversationLastAgentId,
+    conversationSpaceId,
     conversationTitle,
     messages.length,
-    selectedSpace,
+    hasSelectedSpace,
     isManualSpaceSelection,
-    appAgents,
     defaultAgent?.id,
+    conversationId,
+    initialMessage,
+    initialAttachmentsLength,
+    isDeepResearchConversation,
   ])
 
   useEffect(() => {
@@ -927,16 +946,12 @@ const DeepResearchChatInterface = ({
   }, [displaySpace?.id, reloadSpaceAgents])
 
   useEffect(() => {
-    if (!isDeepResearchConversation || !deepResearchAgent?.id) return
-    if (selectedAgentId !== deepResearchAgent.id) {
-      setSelectedAgentId(deepResearchAgent.id)
+    if (isDeepResearchConversation) {
+      if (pendingAgentId) {
+        setPendingAgentId(null)
+      }
+      return
     }
-    if (pendingAgentId) {
-      setPendingAgentId(null)
-    }
-  }, [isDeepResearchConversation, deepResearchAgent?.id, selectedAgentId, pendingAgentId])
-
-  useEffect(() => {
     if (!displaySpace?.id) {
       // When no space is selected, handle pending agent and set to default if needed
       if (pendingAgentId) {
@@ -992,6 +1007,7 @@ const DeepResearchChatInterface = ({
     pendingAgentId,
     defaultAgent?.id,
     isManualSpaceSelection,
+    isDeepResearchConversation,
     activeConversation?.id,
   ])
 

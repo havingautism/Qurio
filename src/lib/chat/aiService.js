@@ -1348,7 +1348,10 @@ export const finalizeMessage = async (
       thoughtHistory: thoughtHistoryForPersistence || [],
       toolCallHistory: toolCallHistoryForPersistence || [],
     })
-    const shouldPersistStreamBlocks = databaseProviderKey.includes('sqlite')
+    const shouldPersistStreamBlocks =
+      databaseProviderKey.includes('sqlite') ||
+      databaseProviderKey.includes('supabase') ||
+      databaseProviderKey.includes('postgres')
     const streamBlocksForPersistence = shouldPersistStreamBlocks
       ? streamBlocksForRuntime
       : null

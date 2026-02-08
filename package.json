@@ -10,7 +10,14 @@
     "dev:full": "concurrently \"bun run dev\" \"bun run dev:backend\"",
     "build": "rsbuild build",
     "start": "rsbuild preview",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "lint:backend": "eslint backend/src --ext .js",
+    "lint:py": "cd backend-python && uv run ruff check src",
+    "format": "prettier . --write",
+    "format:check": "prettier . --check",
+    "format:backend": "prettier \"backend/src/**/*.js\" --write",
+    "format:py": "cd backend-python && uv run ruff format src"
   },
   "dependencies": {
     "@emoji-mart/data": "^1.2.1",

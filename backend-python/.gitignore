@@ -158,4 +158,4 @@ cython_debug/
 *.sqlite
 test_*.py
 
-backend-python/src/data/*
+src/data/*

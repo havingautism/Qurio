@@ -83,7 +83,8 @@ const mapMessageFromApi = (m, effectiveDefaultModel, activeConversation) => {
       const output = tool?.output && typeof tool.output === 'object' ? tool.output : null
 
       return {
-        hitlRunId: tool.runId || parsedArgs?.run_id || parsedArgs?.runId || output?.run_id || output?.runId,
+        hitlRunId:
+          tool.runId || parsedArgs?.run_id || parsedArgs?.runId || output?.run_id || output?.runId,
         hitlFormId: parsedArgs?.id || output?.id || tool.id,
         hitlFormTitle: parsedArgs?.title || output?.title,
         hitlFormFields: parsedArgs?.fields || output?.fields,

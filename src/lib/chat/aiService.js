@@ -16,6 +16,36 @@ import { getLanguageInstruction, applyLanguageInstructionToText } from './prompt
 import { buildSpaceAgentOptions, resolveAgentForSpace } from './conversationSetup'
 import { sanitizeJson } from './utils'
 
+const INTERNAL_TOOL_TRACE_MARKERS = [
+  '<|tool_calls_section_begin|>',
+  '<|tool_call_begin|>',
+  '<|tool_call_end|>',
+  '<|tool_calls_section_end|>',
+]
+
+const sanitizeInternalThoughtTrace = value => {
+  if (typeof value !== 'string') return ''
+  let cleaned = value
+
+  let cutIndex = -1
+  for (const marker of INTERNAL_TOOL_TRACE_MARKERS) {
+    const idx = cleaned.indexOf(marker)
+    if (idx >= 0 && (cutIndex === -1 || idx < cutIndex)) {
+      cutIndex = idx
+    }
+  }
+  if (cutIndex >= 0) {
+    cleaned = cleaned.slice(0, cutIndex)
+  }
+
+  cleaned = cleaned.replace(
+    /(?:^|\n)\s*functions\.\s*[\r\n]+\s*[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?::\d+)?[^\n]*/gi,
+    '',
+  )
+
+  return cleaned.trim()
+}
+
 /**
  * Generates a deep research plan using a lite model
  */
@@ -792,7 +822,7 @@ export const finalizeMessage = async (
   const fallbackAgent = agents?.find(agent => agent.isDefault)
   const safeAgent = selectedAgent || fallbackAgent
 
-  const normalizedThought = typeof result?.thought === 'string' ? result.thought.trim() : ''
+  const normalizedThought = sanitizeInternalThoughtTrace(result?.thought)
   const normalizeContent = content => {
     if (typeof content === 'string') return content
     if (Array.isArray(content)) {
@@ -850,7 +880,9 @@ export const finalizeMessage = async (
                 const args = typeof rawArgs === 'string' ? JSON.parse(rawArgs) : rawArgs
                 const operation = String(args?.operation || 'upsert').toLowerCase()
                 const domainKeyRaw = args?.domain_key
-                const domainKey = String(domainKeyRaw || '').trim().toLowerCase()
+                const domainKey = String(domainKeyRaw || '')
+                  .trim()
+                  .toLowerCase()
                 const memoryProvider = String(
                   args?.database_provider ||
                     args?.databaseProvider ||

@@ -229,6 +229,7 @@ const Sidebar = ({
   const closeActions = () => setExpandedActionId(null)
 
   const displayTab = hoveredTab || activeTab
+  const isMobileLibraryView = isMobile && displayTab === 'library'
 
   useEffect(() => {
     if (typeof window === 'undefined' || !window.matchMedia) return undefined
@@ -686,7 +687,8 @@ const Sidebar = ({
 
       <div
         className={clsx(
-          'fixed top-0 left-0 z-90 flex h-dvh transition-transform duration-300 md:translate-x-0',
+          'fixed top-0 left-0 z-90 flex h-dvh transition-transform md:translate-x-0',
+          isMobileLibraryView ? 'duration-0' : 'duration-300',
           // On mobile, control via isOpen. On desktop, always visible (handled by layout margin)
           // Actually, fixed sidebar on desktop is always visible (icon strip).
           // Mobile: hidden by default (-translate-x-full), shown if isOpen
@@ -809,7 +811,8 @@ const Sidebar = ({
         {/* 2. Expanded Content Panel */}
         <div
           className={clsx(
-            'bg-sidebar flex h-full flex-col overflow-hidden transition-all duration-300 ease-in-out',
+            'bg-sidebar flex h-full flex-col overflow-hidden ease-in-out',
+            isMobileLibraryView ? 'transition-none' : 'transition-all duration-300',
             isExpanded && displayTab !== 'discover'
               ? 'w-64 translate-x-0 opacity-100 shadow-2xl'
               : 'w-0 -translate-x-4 opacity-0',
@@ -904,7 +907,10 @@ const Sidebar = ({
                                 onOpenConversation && onOpenConversation(conv)
                               }}
                               className={clsx(
-                                'group relative cursor-pointer truncate overflow-hidden rounded-xl px-1 py-2.5 text-sm transition-all duration-200 md:p-2.5',
+                                'group relative cursor-pointer truncate overflow-hidden rounded-xl px-1 py-2.5 text-sm md:p-2.5',
+                                isMobileLibraryView
+                                  ? 'transition-none'
+                                  : 'transition-all duration-200',
                                 isActive
                                   ? 'bg-primary-500/10 dark:bg-primary-500/20 text-primary-500 dark:text-primary-400'
                                   : 'hover:bg-primary-50 text-gray-700 dark:text-gray-300 dark:hover:bg-zinc-800',

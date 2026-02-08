@@ -39,6 +39,79 @@ const sanitizeInternalThoughtTrace = value => {
   return cleaned.trim()
 }
 
+const buildStreamBlocks = ({ content = '', thoughtHistory = [], toolCallHistory = [] } = {}) => {
+  const rawContent = typeof content === 'string' ? content : String(content || '')
+  const events = []
+
+  const normalizedThoughts = Array.isArray(thoughtHistory)
+    ? thoughtHistory
+        .map((item, index) => ({
+          type: 'reasoning',
+          textIndex: Number.isFinite(item?.textIndex) ? Number(item.textIndex) : 0,
+          order: Number.isFinite(item?.streamOrder) ? Number(item.streamOrder) : index,
+          content: String(item?.content || ''),
+        }))
+        .filter(item => item.content.trim())
+    : []
+
+  const normalizedTools = Array.isArray(toolCallHistory)
+    ? toolCallHistory
+        .map((item, index) => ({
+          type: 'tool',
+          textIndex: Number.isFinite(item?.textIndex) ? Number(item.textIndex) : 0,
+          order: Number.isFinite(item?.streamOrder) ? Number(item.streamOrder) : 100000 + index,
+          tool_call_id: item?.id || `tool-${index}`,
+          name: item?.name || '',
+          status: item?.status || null,
+          arguments: item?.arguments ?? null,
+          output: item?.output ?? null,
+          duration_ms: Number.isFinite(item?.durationMs) ? Number(item.durationMs) : null,
+        }))
+        .filter(item => item.tool_call_id)
+    : []
+
+  events.push(...normalizedThoughts, ...normalizedTools)
+  events.sort((a, b) => (a.textIndex === b.textIndex ? a.order - b.order : a.textIndex - b.textIndex))
+
+  const blocks = []
+  let seq = 1
+  let lastIndex = 0
+  for (const event of events) {
+    const safeIndex = Math.max(0, Math.min(event.textIndex, rawContent.length))
+    if (safeIndex > lastIndex) {
+      const textChunk = rawContent.slice(lastIndex, safeIndex)
+      if (textChunk) {
+        blocks.push({ seq: seq++, type: 'text', content: textChunk })
+      }
+      lastIndex = safeIndex
+    }
+    if (event.type === 'reasoning') {
+      blocks.push({ seq: seq++, type: 'reasoning', content: event.content })
+    } else {
+      blocks.push({
+        seq: seq++,
+        type: 'tool',
+        tool_call_id: event.tool_call_id,
+        name: event.name,
+        status: event.status,
+        arguments: event.arguments,
+        output: event.output,
+        duration_ms: event.duration_ms,
+      })
+    }
+  }
+
+  if (lastIndex < rawContent.length) {
+    const tail = rawContent.slice(lastIndex)
+    if (tail) blocks.push({ seq: seq++, type: 'text', content: tail })
+  }
+
+  if (blocks.length === 0 && rawContent) {
+    blocks.push({ seq: 1, type: 'text', content: rawContent })
+  }
+  return blocks
+}
+
 /**
  * Generates a deep research plan using a lite model
  */
@@ -1268,6 +1341,17 @@ export const finalizeMessage = async (
         ? normalizeContent(result.content)
         : (latestAi?.content ?? '')
     })()
+    const databaseProviderKey = String(
+      settings?.databaseProviderId || settings?.databaseProvider || '',
+    ).toLowerCase()
+    const shouldPersistStreamBlocks = databaseProviderKey.includes('sqlite')
+    const streamBlocksForPersistence = shouldPersistStreamBlocks
+      ? buildStreamBlocks({
+          content: contentForPersistence,
+          thoughtHistory: thoughtHistoryForPersistence || [],
+          toolCallHistory: toolCallHistoryForPersistence || [],
+        })
+      : null
 
     const aiPayload = {
       conversation_id: currentStore.conversationId,
@@ -1315,6 +1399,10 @@ export const finalizeMessage = async (
       ),
       document_sources: sanitizeJson(documentSources || null),
       grounding_supports: sanitizeJson(result.groundingSupports || null),
+      ...(shouldPersistStreamBlocks && {
+        stream_blocks: sanitizeJson(streamBlocksForPersistence || []),
+        stream_schema_version: 1,
+      }),
       created_at: new Date().toISOString(),
     }
 

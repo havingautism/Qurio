@@ -1,21 +1,39 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { listMessages } from '../../lib/conversationsService'
 
+const normalizeStreamBlocks = raw => {
+  if (!raw) return []
+  let parsed = raw
+  if (typeof parsed === 'string') {
+    try {
+      parsed = JSON.parse(parsed)
+    } catch {
+      return []
+    }
+  }
+  if (!Array.isArray(parsed)) return []
+  return parsed
+    .map((item, index) => ({
+      seq: Number.isFinite(item?.seq) ? Number(item.seq) : index + 1,
+      type: String(item?.type || '').toLowerCase(),
+      content: typeof item?.content === 'string' ? item.content : '',
+      tool_call_id: item?.tool_call_id || item?.toolCallId || null,
+      name: item?.name || null,
+      status: item?.status || null,
+      arguments: item?.arguments ?? null,
+      output: item?.output ?? null,
+      duration_ms: Number.isFinite(item?.duration_ms) ? Number(item.duration_ms) : null,
+    }))
+    .filter(item => item.type)
+    .sort((a, b) => a.seq - b.seq)
+}
+
 // Internal helper function
 const splitThoughtFromContent = rawContent => {
   if (rawContent && typeof rawContent === 'object' && !Array.isArray(rawContent)) {
     const contentValue = typeof rawContent.content !== 'undefined' ? rawContent.content : rawContent
     const thoughtValue =
       rawContent.thought ?? rawContent.thinking_process ?? rawContent.thinkingProcess ?? null
-
-    if (typeof contentValue === 'string') {
-      const thoughtMatch = /<thought>([\s\S]*?)(?:<\/thought>|$)/.exec(contentValue)
-      if (thoughtMatch) {
-        const cleaned = contentValue.replace(/<thought>[\s\S]*?(?:<\/thought>|$)/, '').trim()
-        const combinedThought = thoughtValue || thoughtMatch[1]?.trim() || null
-        return { content: cleaned, thought: combinedThought }
-      }
-    }
 
     if (
       Object.prototype.hasOwnProperty.call(rawContent, 'thought') ||
@@ -29,19 +47,12 @@ const splitThoughtFromContent = rawContent => {
     }
   }
 
-  if (typeof rawContent !== 'string') return { content: rawContent, thought: null }
-
-  const thoughtMatch = /<thought>([\s\S]*?)(?:<\/thought>|$)/.exec(rawContent)
-  if (!thoughtMatch) return { content: rawContent, thought: null }
-
-  const cleaned = rawContent.replace(/<thought>[\s\S]*?(?:<\/thought>|$)/, '').trim()
-  const thought = thoughtMatch[1]?.trim() || null
-
-  return { content, thought }
+  return { content: rawContent, thought: null }
 }
 
 // Internal helper function
 const mapMessageFromApi = (m, effectiveDefaultModel, activeConversation) => {
+  const streamBlocks = normalizeStreamBlocks(m.stream_blocks)
   const { content: cleanedContent, thought: thoughtFromContent } = splitThoughtFromContent(
     m.content,
   )
@@ -133,6 +144,7 @@ const mapMessageFromApi = (m, effectiveDefaultModel, activeConversation) => {
     researchSteps: m.research_step_history || undefined,
     sources: m.sources || undefined,
     groundingSupports: m.grounding_supports || undefined,
+    streamBlocks,
     provider: m.provider || activeConversation?.api_provider,
     model: m.model || effectiveDefaultModel,
     agentId: m.agent_id ?? m.agentId ?? null,

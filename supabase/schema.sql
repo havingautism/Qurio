@@ -32,6 +32,8 @@ CREATE TABLE IF NOT EXISTS public.messages (
   content TEXT NOT NULL,
   thinking_process TEXT,
   sources JSONB,
+  stream_blocks JSONB NOT NULL DEFAULT '[]'::jsonb,
+  stream_schema_version SMALLINT NOT NULL DEFAULT 1,
   suggested_replies JSONB,
   generated_with_thinking BOOLEAN DEFAULT FALSE,
   generated_with_search BOOLEAN DEFAULT FALSE,
@@ -46,6 +48,7 @@ CREATE INDEX IF NOT EXISTS idx_spaces_client ON public.spaces(client_id);
 CREATE INDEX IF NOT EXISTS idx_chat_sessions_client ON public.chat_sessions(client_id);
 CREATE INDEX IF NOT EXISTS idx_chat_sessions_space ON public.chat_sessions(space_id);
 CREATE INDEX IF NOT EXISTS idx_messages_session ON public.messages(session_id);
+CREATE INDEX IF NOT EXISTS idx_messages_stream_blocks_gin ON public.messages USING GIN (stream_blocks);
 
 -- ============================================================================
 -- ROW LEVEL SECURITY (RLS)

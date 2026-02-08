@@ -16,7 +16,7 @@ import { createSearchToolDefinition, DEFAULT_SEARCH_TOOL_ID } from './searchTool
  * Each provider implements a standard interface for credentials and capabilities.
  */
 /**
- * Default message parser (handles <thought> tags)
+ * Default message parser (structured thought fields only)
  */
 const extractText = value => {
   if (typeof value === 'string') return value
@@ -59,19 +59,6 @@ const defaultParseMessage = input => {
     rawContent = extractText(input.content || '')
   } else {
     rawContent = typeof input === 'string' ? input : extractText(input?.content ?? input)
-  }
-
-  // Support both <thought> and <think> tags
-  const thoughtMatch = /<(thought|think)>([\s\S]*?)(?:<\/\1>|$)/i.exec(rawContent)
-  if (thoughtMatch) {
-    const extractedThought = thoughtMatch[2]
-    // Clean content of the first found tag block
-    const cleanedContent = rawContent.replace(/<(thought|think)>[\s\S]*?(?:<\/\1>|$)/i, '').trim()
-
-    return {
-      thought: thought ? `${thought}\n\n${extractedThought}`.trim() : extractedThought,
-      content: cleanedContent,
-    }
   }
 
   return { content: rawContent, thought }

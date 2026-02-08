@@ -239,6 +239,23 @@ const MessageBubble = ({
     () => positionedThoughtBlocks.map(item => item.content).filter(Boolean).join('\n\n'),
     [positionedThoughtBlocks],
   )
+  const normalizedStreamBlocks = useMemo(() => {
+    if (!Array.isArray(mergedMessage?.streamBlocks)) return []
+    return mergedMessage.streamBlocks
+      .map((item, index) => ({
+        seq: Number.isFinite(item?.seq) ? Number(item.seq) : index + 1,
+        type: String(item?.type || '').toLowerCase(),
+        content: typeof item?.content === 'string' ? item.content : '',
+        toolCallId: item?.tool_call_id || item?.toolCallId || null,
+        name: item?.name || null,
+        status: item?.status || null,
+        arguments: item?.arguments ?? null,
+        output: item?.output ?? null,
+        durationMs: Number.isFinite(item?.duration_ms) ? Number(item.duration_ms) : null,
+      }))
+      .filter(item => item.type)
+      .sort((a, b) => a.seq - b.seq)
+  }, [mergedMessage?.streamBlocks])
 
   const resolvedSearchBackends = useMemo(() => {
     if (Array.isArray(mergedMessage?.searchBackends) && mergedMessage.searchBackends.length > 0) {
@@ -540,6 +557,50 @@ const MessageBubble = ({
   const interleavedContent = useMemo(() => {
     const rawContent = mainContent || ''
     const parts = []
+
+    if (!isDeepResearch && normalizedStreamBlocks.length > 0) {
+      for (const block of normalizedStreamBlocks) {
+        if (block.type === 'text') {
+          if (block.content) parts.push({ type: 'text', content: block.content })
+          continue
+        }
+        if (block.type === 'reasoning' || block.type === 'thought') {
+          if (block.content) {
+            parts.push({
+              type: 'thought',
+              key: `stream-thought-${block.seq}`,
+              content: block.content,
+            })
+          }
+          continue
+        }
+        if (block.type === 'tool' || block.type === 'tool_call' || block.type === 'tool_result') {
+          const matchedTool =
+            toolCallHistory.find(item => item?.id && item.id === block.toolCallId) || null
+          const toolItem =
+            matchedTool ||
+            (block.toolCallId
+              ? {
+                  id: block.toolCallId,
+                  name: block.name || 'tool',
+                  status: block.status || 'done',
+                  arguments: block.arguments,
+                  output: block.output,
+                  durationMs: block.durationMs,
+                }
+              : null)
+          if (toolItem) {
+            parts.push({
+              type: 'tools',
+              key: `stream-tool-${block.toolCallId || block.seq}`,
+              items: [toolItem],
+            })
+          }
+        }
+      }
+      return parts.length > 0 ? parts : [{ type: 'text', content: rawContent }]
+    }
+
     const events = []
 
     if (!isDeepResearch) {
@@ -591,7 +652,13 @@ const MessageBubble = ({
       parts.push({ type: 'text', content: rawContent.substring(lastIndex) })
     }
     return parts
-  }, [mainContent, toolCallHistory, positionedThoughtBlocks, isDeepResearch])
+  }, [
+    mainContent,
+    toolCallHistory,
+    positionedThoughtBlocks,
+    isDeepResearch,
+    normalizedStreamBlocks,
+  ])
 
   // Effect to handle copy success timeout with proper cleanup
   useEffect(() => {

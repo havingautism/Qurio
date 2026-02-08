@@ -195,14 +195,21 @@ CREATE TABLE IF NOT EXISTS public.conversation_messages (
   agent_is_default BOOLEAN NOT NULL DEFAULT FALSE,
   thinking_process TEXT,
   tool_calls JSONB,
+  tool_call_history JSONB NOT NULL DEFAULT '[]'::jsonb,
+  research_step_history JSONB NOT NULL DEFAULT '[]'::jsonb,
   related_questions JSONB,
   sources JSONB,
+  document_sources JSONB DEFAULT '[]'::jsonb,
   grounding_supports JSONB,
+  stream_blocks JSONB NOT NULL DEFAULT '[]'::jsonb,
+  stream_schema_version SMALLINT NOT NULL DEFAULT 1,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_messages_conversation_created_at
   ON public.conversation_messages(conversation_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_messages_stream_blocks_gin
+  ON public.conversation_messages USING GIN (stream_blocks);
 
 CREATE TRIGGER trg_messages_touch_conversation
 AFTER INSERT OR UPDATE ON public.conversation_messages

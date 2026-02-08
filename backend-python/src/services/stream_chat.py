@@ -71,74 +71,6 @@ def _preview(text: Any, limit: int = 140) -> str:
     raw = str(text or "").replace("\n", "\\n")
     return raw[:limit] + ("..." if len(raw) > limit else "")
 
-class TaggedTextHandler:
-    def __init__(self):
-        self.in_thought_block = False
-        self._buffer = ""
-
-    def _split_for_partial_tag(self, text: str, candidates: list[str]) -> tuple[str, str]:
-        if not text:
-            return "", ""
-        lower = text.lower()
-        max_keep = 0
-        max_candidate_len = max(len(c) for c in candidates)
-        scan_len = min(len(text), max_candidate_len - 1)
-        for keep_len in range(scan_len, 0, -1):
-            suffix = lower[-keep_len:]
-            if any(candidate.startswith(suffix) for candidate in candidates):
-                max_keep = keep_len
-                break
-        if max_keep <= 0:
-            return text, ""
-        return text[:-max_keep], text[-max_keep:]
-
-    def handle(self, text: str, final: bool = False):
-        remaining = f"{self._buffer}{text or ''}"
-        self._buffer = ""
-        open_tags = ["<think>", "<thought>"]
-        close_tags = ["</think>", "</thought>"]
-        while remaining:
-            if not self.in_thought_block:
-                # Use regex to find start of thought block
-                match = re.search(r"<(think|thought)>", remaining, re.IGNORECASE)
-                if not match:
-                    if final:
-                        yield "text", remaining
-                    else:
-                        emit_text, keep = self._split_for_partial_tag(remaining, open_tags)
-                        if emit_text:
-                            yield "text", emit_text
-                        self._buffer = keep
-                    return
-                
-                start_index = match.start()
-                if start_index > 0:
-                    yield "text", remaining[:start_index]
-                
-                remaining = remaining[match.end():]
-                self.in_thought_block = True
-            else:
-                # Use regex to find end of thought block
-                match = re.search(r"</(think|thought)>", remaining, re.IGNORECASE)
-                if not match:
-                    if final:
-                        # If model forgets closing tag, do not swallow remaining user-facing content.
-                        yield "text", remaining
-                        self.in_thought_block = False
-                    else:
-                        emit_thought, keep = self._split_for_partial_tag(remaining, close_tags)
-                        if emit_thought:
-                            yield "thought", emit_thought
-                        self._buffer = keep
-                    return
-                
-                end_index = match.start()
-                if end_index > 0:
-                    yield "thought", remaining[:end_index]
-                
-                remaining = remaining[match.end():]
-                self.in_thought_block = False
-
 class StreamChatService:
     """Stream chat service implemented using Agno Agent streaming events."""
 
@@ -182,8 +114,6 @@ class StreamChatService:
             in_reasoning_phase = False
             reasoning_closed_for_current_cycle = False
             stream_trace = _is_stream_trace_enabled()
-            
-            tagged_handler = TaggedTextHandler()
 
             def trace_stream(stage: str, **kwargs: Any) -> None:
                 if not stream_trace:
@@ -210,37 +140,15 @@ class StreamChatService:
                 trace_stream("emit_reasoning", reasoning_preview=_preview(text))
                 yield ThoughtEvent(content=text).model_dump()
 
-            def process_text(text: str, parse_tags: bool = True):
+            def process_text(text: str):
                 nonlocal full_content, in_reasoning_phase, should_break_next_thought, reasoning_closed_for_current_cycle
-                if not parse_tags:
-                    clean_text = _strip_internal_tool_trace(text)
-                    if clean_text:
-                        in_reasoning_phase = False
-                        should_break_next_thought = True
-                        reasoning_closed_for_current_cycle = True
-                        full_content += clean_text
-                        yield TextEvent(content=clean_text).model_dump()
-                    return
-
-                for type, part in tagged_handler.handle(text):
-                    if type == "text":
-                        clean_part = _strip_internal_tool_trace(part)
-                        if clean_part:
-                            in_reasoning_phase = False
-                            should_break_next_thought = True
-                            reasoning_closed_for_current_cycle = True
-                            full_content += clean_part
-                            yield TextEvent(content=clean_part).model_dump()
-                    else:
-                        if reasoning_closed_for_current_cycle:
-                            # If reasoning already ended in this cycle, treat stray tag-based thought as content.
-                            clean_part = _strip_internal_tool_trace(part)
-                            if clean_part:
-                                full_content += clean_part
-                                yield TextEvent(content=clean_part).model_dump()
-                            continue
-                        for event in emit_thought_part(part):
-                            yield event
+                clean_text = _strip_internal_tool_trace(text)
+                if clean_text:
+                    in_reasoning_phase = False
+                    should_break_next_thought = True
+                    reasoning_closed_for_current_cycle = True
+                    full_content += clean_text
+                    yield TextEvent(content=clean_text).model_dump()
 
             def _extract_text_chunk(run_event: Any) -> str:
                 """Prefer model text deltas from both normalized and provider raw payloads."""
@@ -572,7 +480,7 @@ class StreamChatService:
                                     yield event
 
                             if content_chunk:
-                                for e in process_text(content_chunk, parse_tags=False):
+                                for e in process_text(content_chunk):
                                     yield e
                                 trace_stream(
                                     "emit_content",
@@ -602,7 +510,7 @@ class StreamChatService:
                                     yield event
 
                             if content_chunk:
-                                for e in process_text(content_chunk, parse_tags=False):
+                                for e in process_text(content_chunk):
                                     yield e
                                 trace_stream(
                                     "emit_content",
@@ -674,22 +582,7 @@ class StreamChatService:
                         case RunEvent.run_completed.value:
                             # For structured output, Agno provides the parsed model in event.content
                             agn_content = getattr(run_event, "content", None)
-
-                            # Flush parser buffer to avoid losing tail text when tags are split across chunks.
-                            for kind, part in tagged_handler.handle("", final=True):
-                                if kind == "text":
-                                    full_content += part
-                                    yield TextEvent(content=part).model_dump()
-                                else:
-                                    full_thought += part
-                                    yield ThoughtEvent(content=part).model_dump()
-                            
-                            # Clean tags from final full_content if they survived
-                            cleaned_content = re.sub(r"<(think|thought)>[\s\S]*?(?:</\1>|$)", "", full_content, flags=re.IGNORECASE).strip()
-                            
-                            # Extra check: if cleaning made content empty, revert to full_content
-                            # unless they were purely tags.
-                            final_content = cleaned_content if cleaned_content or not full_content else full_content
+                            final_content = full_content
 
                             # If agn_content is a Pydantic model (Structured Output), use it as output
                             output = None
@@ -753,7 +646,7 @@ class StreamChatService:
                     # Simple event Fallback (no detailed event type), just check for content
                     content = getattr(run_event, 'content', None)
                     if content:
-                        for e in process_text(str(content), parse_tags=True):
+                        for e in process_text(str(content)):
                             yield e
 
         except Exception as exc:
@@ -864,7 +757,6 @@ class StreamChatService:
             in_reasoning_phase = False
             reasoning_closed_for_current_cycle = False
             stream_trace = _is_stream_trace_enabled()
-            tagged_handler = TaggedTextHandler()
             paused_again = False  # Flag to prevent cleanup when multi-form chaining occurs
 
             def trace_stream(stage: str, **kwargs: Any) -> None:
@@ -891,36 +783,15 @@ class StreamChatService:
                 trace_stream("emit_reasoning", reasoning_preview=_preview(text))
                 yield ThoughtEvent(content=text).model_dump()
 
-            def process_text(text: str, parse_tags: bool = True):
+            def process_text(text: str):
                 nonlocal full_content, in_reasoning_phase, should_break_next_thought, reasoning_closed_for_current_cycle
-                if not parse_tags:
-                    clean_text = _strip_internal_tool_trace(text)
-                    if clean_text:
-                        in_reasoning_phase = False
-                        should_break_next_thought = True
-                        reasoning_closed_for_current_cycle = True
-                        full_content += clean_text
-                        yield TextEvent(content=clean_text).model_dump()
-                    return
-
-                for type, part in tagged_handler.handle(text):
-                    if type == "text":
-                        clean_part = _strip_internal_tool_trace(part)
-                        if clean_part:
-                            in_reasoning_phase = False
-                            should_break_next_thought = True
-                            reasoning_closed_for_current_cycle = True
-                            full_content += clean_part
-                            yield TextEvent(content=clean_part).model_dump()
-                    else:
-                        if reasoning_closed_for_current_cycle:
-                            clean_part = _strip_internal_tool_trace(part)
-                            if clean_part:
-                                full_content += clean_part
-                                yield TextEvent(content=clean_part).model_dump()
-                            continue
-                        for event in emit_thought_part(part):
-                            yield event
+                clean_text = _strip_internal_tool_trace(text)
+                if clean_text:
+                    in_reasoning_phase = False
+                    should_break_next_thought = True
+                    reasoning_closed_for_current_cycle = True
+                    full_content += clean_text
+                    yield TextEvent(content=clean_text).model_dump()
 
             def _extract_text_chunk(run_event: Any) -> str:
                 content = getattr(run_event, "content", None)
@@ -1073,7 +944,7 @@ class StreamChatService:
                                         yield event
 
                                 if content_chunk:
-                                    for e in process_text(content_chunk, parse_tags=False):
+                                    for e in process_text(content_chunk):
                                         yield e
                                     trace_stream(
                                         "emit_content",
@@ -1103,7 +974,7 @@ class StreamChatService:
                                         yield event
 
                                 if content_chunk:
-                                    for e in process_text(content_chunk, parse_tags=False):
+                                    for e in process_text(content_chunk):
                                         yield e
                                     trace_stream(
                                         "emit_content",
@@ -1183,7 +1054,7 @@ class StreamChatService:
                         # Simple event Fallback
                         content = getattr(run_event, 'content', None)
                         if content:
-                            for e in process_text(str(content), parse_tags=True):
+                            for e in process_text(str(content)):
                                 yield e
 
             def _build_fallback_messages():
@@ -1245,14 +1116,6 @@ class StreamChatService:
                     yield event
             
             # Stream completed, send done event
-            for kind, part in tagged_handler.handle("", final=True):
-                if kind == "text":
-                    full_content += part
-                    yield TextEvent(content=part).model_dump()
-                else:
-                    full_thought += part
-                    yield ThoughtEvent(content=part).model_dump()
-
             yield DoneEvent(
                 content=full_content,
                 thought=full_thought.strip() or None,

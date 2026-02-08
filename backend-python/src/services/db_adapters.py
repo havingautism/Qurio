@@ -36,6 +36,7 @@ JSON_COLUMNS: dict[str, set[str]] = {
         "sources",
         "document_sources",
         "grounding_supports",
+        "stream_blocks",
     },
     "conversation_events": {"payload"},
     "attachments": {"data"},
@@ -252,6 +253,19 @@ class SQLiteAdapter:
             cursor = self._conn.cursor()
             for stmt in SCHEMA_STATEMENTS:
                 cursor.executescript(stmt)
+            # Lightweight forward migrations for existing local DBs.
+            cursor.execute("PRAGMA table_info(conversation_messages)")
+            columns = {str(row[1]) for row in cursor.fetchall()}
+            if "stream_blocks" not in columns:
+                cursor.execute(
+                    "ALTER TABLE conversation_messages "
+                    "ADD COLUMN stream_blocks TEXT NOT NULL DEFAULT '[]'"
+                )
+            if "stream_schema_version" not in columns:
+                cursor.execute(
+                    "ALTER TABLE conversation_messages "
+                    "ADD COLUMN stream_schema_version INTEGER NOT NULL DEFAULT 1"
+                )
             self._conn.commit()
 
     def _execute(self, sql: str, params: list[Any] | tuple[Any, ...] = ()) -> sqlite3.Cursor:

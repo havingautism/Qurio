@@ -72,6 +72,15 @@ text / thought / tool_call / tool_result / done / error
 
 - `backend-python/src/services/stream_chat.py`
 
+### 4.1 落库存储（顺序渲染）
+
+`conversation_messages` 新增两个字段用于“按出现位置渲染”：
+
+- `stream_blocks`
+- `stream_schema_version`
+
+其中 `stream_blocks` 是有序块数组（`text/reasoning/tool`）。前端优先使用它渲染；为空时回退旧字段（`thinking_process`、`tool_call_history`）。
+
 ---
 
 ## 5. 工具体系（分层、分组）

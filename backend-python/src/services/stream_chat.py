@@ -47,19 +47,106 @@ TIME_KEYWORDS_REGEX = re.compile(
 MEMORY_OPTIMIZE_THRESHOLD = 50
 MEMORY_OPTIMIZE_INTERVAL_SECONDS = 60 * 60 * 12
 THOUGHT_BLOCK_BREAK_MARKER = "<|thought_block_break|>"
+THINK_TAG_REGEX = re.compile(r"</?(?:think|thought)>", re.IGNORECASE)
+PROTOCOL_TAG_REGEX = re.compile(r"<\|([a-zA-Z0-9_]+)\|>")
+TOOL_TRACE_BEGIN_TAGS = {
+    "tool_calls_section_begin",
+    "tool_call_begin",
+    "tool_call_argument_begin",
+}
+TOOL_TRACE_END_TAGS = {
+    "tool_call_argument_end",
+    "tool_call_end",
+    "tool_calls_section_end",
+}
 
 
 def _strip_internal_tool_trace(text: str) -> str:
-    """Remove internal tool-call protocol traces accidentally emitted by some models."""
+    """Remove explicit protocol marker tokens without truncating normal text."""
     if not text:
         return ""
     cleaned = str(text)
     cleaned = re.sub(r"</?(?:think|thought)>", "", cleaned, flags=re.IGNORECASE)
-    marker_idx = cleaned.find("<|tool_")
-    if marker_idx >= 0:
-        cleaned = cleaned[:marker_idx]
-    cleaned = re.sub(r"(?:^|\n)\s*functions\.[^\n]*", "", cleaned, flags=re.IGNORECASE)
+    # Keep this conservative: only strip marker tokens themselves.
+    cleaned = re.sub(r"<\|tool_call_[^|]*\|>", "", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"<\|tool_calls_section_[^|]*\|>", "", cleaned, flags=re.IGNORECASE)
     return cleaned
+
+
+def _split_content_by_think_tags(text: str, in_think: bool) -> tuple[list[tuple[str, str]], bool]:
+    """Split a content chunk into ordered thought/text segments by <think>/<thought> tags."""
+    if not text:
+        return [], in_think
+    segments: list[tuple[str, str]] = []
+    cursor = 0
+    current_in_think = in_think
+    for match in THINK_TAG_REGEX.finditer(text):
+        start, end = match.span()
+        if start > cursor:
+            piece = text[cursor:start]
+            if piece:
+                segments.append(("thought" if current_in_think else "text", piece))
+        tag = match.group(0).lower()
+        current_in_think = not tag.startswith("</")
+        cursor = end
+    if cursor < len(text):
+        piece = text[cursor:]
+        if piece:
+            segments.append(("thought" if current_in_think else "text", piece))
+    return segments, current_in_think
+
+
+def _strip_inline_tool_protocol(
+    text: str,
+    tool_trace_depth: int,
+    protocol_tail: str,
+) -> tuple[str, int, str, bool]:
+    """
+    Strip inline tool-protocol payloads from content chunks safely across chunk boundaries.
+
+    Returns:
+      cleaned_text, next_tool_trace_depth, next_protocol_tail, had_protocol_tokens
+    """
+    combined = f"{protocol_tail}{text or ''}"
+    if not combined:
+        return "", tool_trace_depth, "", False
+
+    # Keep trailing incomplete protocol marker for next chunk.
+    tail = ""
+    tail_start = combined.rfind("<|")
+    if tail_start != -1 and combined.find("|>", tail_start) == -1:
+        tail = combined[tail_start:]
+        combined = combined[:tail_start]
+
+    if not combined:
+        return "", tool_trace_depth, tail, bool(tail)
+
+    parts: list[str] = []
+    cursor = 0
+    depth = max(0, int(tool_trace_depth))
+    had_protocol = False
+
+    for match in PROTOCOL_TAG_REGEX.finditer(combined):
+        start, end = match.span()
+        tag = match.group(1).lower()
+        had_protocol = True
+        if depth == 0 and start > cursor:
+            parts.append(combined[cursor:start])
+
+        if tag in TOOL_TRACE_BEGIN_TAGS:
+            depth += 1
+        elif tag in TOOL_TRACE_END_TAGS:
+            if depth > 0:
+                depth -= 1
+        # Other protocol markers are stripped as marker-only tokens.
+
+        cursor = end
+
+    if cursor < len(combined) and depth == 0:
+        parts.append(combined[cursor:])
+
+    cleaned = "".join(parts)
+    return cleaned, depth, tail, had_protocol
 
 
 def _is_stream_trace_enabled() -> bool:
@@ -113,6 +200,9 @@ class StreamChatService:
             should_break_next_thought = False
             in_reasoning_phase = False
             reasoning_closed_for_current_cycle = False
+            in_content_think_block = False
+            inline_tool_trace_depth = 0
+            inline_protocol_tail = ""
             stream_trace = _is_stream_trace_enabled()
 
             def trace_stream(stage: str, **kwargs: Any) -> None:
@@ -124,10 +214,7 @@ class StreamChatService:
             def emit_thought_part(part: str):
                 nonlocal full_thought, should_break_next_thought, in_reasoning_phase, reasoning_closed_for_current_cycle
                 text = _strip_internal_tool_trace(str(part or ""))
-                if not text:
-                    return
-                if reasoning_closed_for_current_cycle:
-                    trace_stream("drop_reasoning_after_content", reasoning_preview=_preview(text))
+                if not text or not text.strip():
                     return
 
                 if should_break_next_thought and not in_reasoning_phase and full_thought.strip():
@@ -144,19 +231,30 @@ class StreamChatService:
                 nonlocal full_content, in_reasoning_phase, should_break_next_thought, reasoning_closed_for_current_cycle
                 clean_text = _strip_internal_tool_trace(text)
                 if clean_text:
-                    in_reasoning_phase = False
-                    should_break_next_thought = True
-                    reasoning_closed_for_current_cycle = True
+                    has_visible_text = bool(clean_text.strip())
+                    if has_visible_text:
+                        in_reasoning_phase = False
+                        should_break_next_thought = True
+                        reasoning_closed_for_current_cycle = True
                     full_content += clean_text
                     yield TextEvent(content=clean_text).model_dump()
 
             def _extract_text_chunk(run_event: Any) -> str:
-                """Prefer model text deltas from both normalized and provider raw payloads."""
+                """Extract assistant text only from explicit content fields."""
                 content = getattr(run_event, "content", None)
                 if isinstance(content, str) and content:
                     return content
-                if content and not isinstance(content, str):
-                    return str(content)
+                if isinstance(content, list):
+                    parts: list[str] = []
+                    for item in content:
+                        if isinstance(item, dict):
+                            text_part = item.get("text")
+                            if isinstance(text_part, str) and text_part:
+                                parts.append(text_part)
+                        elif isinstance(item, str) and item:
+                            parts.append(item)
+                    if parts:
+                        return "".join(parts)
 
                 provider_data = getattr(run_event, "model_provider_data", None)
                 if isinstance(provider_data, dict):
@@ -180,21 +278,29 @@ class StreamChatService:
             def _extract_reasoning_chunk(run_event: Any) -> str:
                 reasoning = getattr(run_event, "reasoning_content", None)
                 if isinstance(reasoning, str) and reasoning:
+                    trace_stream("reasoning_source", source="run_event.reasoning_content")
                     return reasoning
-                if reasoning and not isinstance(reasoning, str):
-                    return str(reasoning)
+                if isinstance(reasoning, list):
+                    parts: list[str] = []
+                    for item in reasoning:
+                        if isinstance(item, dict):
+                            text_part = item.get("text") or item.get("content")
+                            if text_part:
+                                parts.append(str(text_part))
+                        elif isinstance(item, str) and item:
+                            parts.append(item)
+                    if parts:
+                        trace_stream("reasoning_source", source="run_event.reasoning_content[]")
+                        return "".join(parts)
 
                 provider_data = getattr(run_event, "model_provider_data", None)
                 if isinstance(provider_data, dict):
                     choices = provider_data.get("choices") or []
                     if choices and isinstance(choices[0], dict):
                         delta = choices[0].get("delta") or {}
-                        raw_reasoning = (
-                            delta.get("reasoning_content")
-                            or delta.get("reasoning")
-                            or delta.get("reasoning_details")
-                        )
+                        raw_reasoning = delta.get("reasoning_content")
                         if isinstance(raw_reasoning, str) and raw_reasoning:
+                            trace_stream("reasoning_source", source="provider_data.delta.reasoning_content")
                             return raw_reasoning
                         if isinstance(raw_reasoning, list):
                             parts: list[str] = []
@@ -204,6 +310,7 @@ class StreamChatService:
                                     if text_part:
                                         parts.append(str(text_part))
                             if parts:
+                                trace_stream("reasoning_source", source="provider_data.delta.reasoning_content[]")
                                 return "".join(parts)
                 return ""
 
@@ -458,25 +565,53 @@ class StreamChatService:
                 if hasattr(run_event, 'event'):
                     match run_event.event:
                         case RunEvent.run_content.value:
-                            content_chunk = _extract_text_chunk(run_event)
-                            has_content_chunk = bool(content_chunk)
+                            raw_content_chunk = _extract_text_chunk(run_event)
+                            raw_content_chunk, inline_tool_trace_depth, inline_protocol_tail, had_protocol = _strip_inline_tool_protocol(
+                                raw_content_chunk,
+                                inline_tool_trace_depth,
+                                inline_protocol_tail,
+                            )
+                            if had_protocol:
+                                trace_stream(
+                                    "strip_tool_protocol",
+                                    depth=inline_tool_trace_depth,
+                                    tail_len=len(inline_protocol_tail),
+                                    cleaned_preview=_preview(raw_content_chunk),
+                                )
                             reasoning = _extract_reasoning_chunk(run_event)
+                            content_segments, in_content_think_block = _split_content_by_think_tags(
+                                raw_content_chunk,
+                                in_content_think_block,
+                            )
+                            content_chunk = "".join(
+                                seg_text for seg_type, seg_text in content_segments if seg_type == "text"
+                            )
+                            inline_thought_chunk = "".join(
+                                seg_text for seg_type, seg_text in content_segments if seg_type == "thought"
+                            )
+                            has_content_chunk = bool(content_chunk)
+                            has_inline_thought = bool(inline_thought_chunk)
                             trace_stream(
                                 "run_content",
                                 has_content=has_content_chunk,
-                                has_reasoning=bool(reasoning),
+                                has_reasoning=bool(reasoning) or has_inline_thought,
                                 reasoning_closed=reasoning_closed_for_current_cycle,
                                 content_preview=_preview(content_chunk),
-                                reasoning_preview=_preview(reasoning),
+                                reasoning_preview=_preview((reasoning or "") + (inline_thought_chunk or "")),
                             )
 
-                            if reasoning and not has_content_chunk:
-                                if reasoning_closed_for_current_cycle:
-                                    # New reasoning cycle after content phase ended.
-                                    reasoning_closed_for_current_cycle = False
-                                    in_reasoning_phase = False
-                                    should_break_next_thought = True
+                            has_any_thought = bool(reasoning) or has_inline_thought
+                            if has_any_thought and reasoning_closed_for_current_cycle:
+                                # Re-open reasoning phase (e.g. after tool call or interleaved model output).
+                                reasoning_closed_for_current_cycle = False
+                                in_reasoning_phase = False
+                                should_break_next_thought = True
+
+                            if reasoning:
                                 for event in emit_thought_part(str(reasoning)):
+                                    yield event
+                            if has_inline_thought:
+                                for event in emit_thought_part(str(inline_thought_chunk)):
                                     yield event
 
                             if content_chunk:
@@ -489,24 +624,52 @@ class StreamChatService:
                                 )
 
                         case RunEvent.reasoning_content_delta.value:
-                            content_chunk = _extract_text_chunk(run_event)
-                            has_content_chunk = bool(content_chunk)
+                            raw_content_chunk = _extract_text_chunk(run_event)
+                            raw_content_chunk, inline_tool_trace_depth, inline_protocol_tail, had_protocol = _strip_inline_tool_protocol(
+                                raw_content_chunk,
+                                inline_tool_trace_depth,
+                                inline_protocol_tail,
+                            )
+                            if had_protocol:
+                                trace_stream(
+                                    "strip_tool_protocol",
+                                    depth=inline_tool_trace_depth,
+                                    tail_len=len(inline_protocol_tail),
+                                    cleaned_preview=_preview(raw_content_chunk),
+                                )
                             reasoning = _extract_reasoning_chunk(run_event)
+                            content_segments, in_content_think_block = _split_content_by_think_tags(
+                                raw_content_chunk,
+                                in_content_think_block,
+                            )
+                            content_chunk = "".join(
+                                seg_text for seg_type, seg_text in content_segments if seg_type == "text"
+                            )
+                            inline_thought_chunk = "".join(
+                                seg_text for seg_type, seg_text in content_segments if seg_type == "thought"
+                            )
+                            has_content_chunk = bool(content_chunk)
+                            has_inline_thought = bool(inline_thought_chunk)
                             trace_stream(
                                 "reasoning_delta",
                                 has_content=has_content_chunk,
-                                has_reasoning=bool(reasoning),
+                                has_reasoning=bool(reasoning) or has_inline_thought,
                                 reasoning_closed=reasoning_closed_for_current_cycle,
                                 content_preview=_preview(content_chunk),
-                                reasoning_preview=_preview(reasoning),
+                                reasoning_preview=_preview((reasoning or "") + (inline_thought_chunk or "")),
                             )
 
-                            if reasoning and not has_content_chunk:
-                                if reasoning_closed_for_current_cycle:
-                                    reasoning_closed_for_current_cycle = False
-                                    in_reasoning_phase = False
-                                    should_break_next_thought = True
+                            has_any_thought = bool(reasoning) or has_inline_thought
+                            if has_any_thought and reasoning_closed_for_current_cycle:
+                                reasoning_closed_for_current_cycle = False
+                                in_reasoning_phase = False
+                                should_break_next_thought = True
+
+                            if reasoning:
                                 for event in emit_thought_part(str(reasoning)):
+                                    yield event
+                            if has_inline_thought:
+                                for event in emit_thought_part(str(inline_thought_chunk)):
                                     yield event
 
                             if content_chunk:
@@ -525,6 +688,9 @@ class StreamChatService:
                                 in_reasoning_phase = False
                                 should_break_next_thought = True
                                 reasoning_closed_for_current_cycle = False
+                                in_content_think_block = False
+                                inline_tool_trace_depth = 0
+                                inline_protocol_tail = ""
                                 if tool.tool_call_id:
                                     tool_start_times[tool.tool_call_id] = time.time()
                                 trace_stream(
@@ -545,6 +711,9 @@ class StreamChatService:
                                 in_reasoning_phase = False
                                 should_break_next_thought = True
                                 reasoning_closed_for_current_cycle = False
+                                in_content_think_block = False
+                                inline_tool_trace_depth = 0
+                                inline_protocol_tail = ""
                                 duration_ms = None
                                 if tool.tool_call_id and tool.tool_call_id in tool_start_times:
                                     duration_ms = int((time.time() - tool_start_times[tool.tool_call_id]) * 1000)
@@ -584,12 +753,16 @@ class StreamChatService:
                             agn_content = getattr(run_event, "content", None)
                             final_content = full_content
 
-                            # If agn_content is a Pydantic model (Structured Output), use it as output
+                            # Preserve structured output whether it is a Pydantic model or plain dict/list.
                             output = None
                             if agn_content and hasattr(agn_content, "model_dump"):
                                 output = agn_content
-                                # Also update content string for the event
                                 final_content = json.dumps(agn_content.model_dump())
+                            elif isinstance(agn_content, (dict, list)):
+                                output = agn_content
+                                final_content = json.dumps(agn_content, ensure_ascii=False)
+                            elif isinstance(agn_content, str) and agn_content.strip() and not final_content:
+                                final_content = agn_content
 
                             yield DoneEvent(
                                 content=final_content,
@@ -756,6 +929,9 @@ class StreamChatService:
             should_break_next_thought = False
             in_reasoning_phase = False
             reasoning_closed_for_current_cycle = False
+            in_content_think_block = False
+            inline_tool_trace_depth = 0
+            inline_protocol_tail = ""
             stream_trace = _is_stream_trace_enabled()
             paused_again = False  # Flag to prevent cleanup when multi-form chaining occurs
 
@@ -768,10 +944,7 @@ class StreamChatService:
             def emit_thought_part(part: str):
                 nonlocal full_thought, should_break_next_thought, in_reasoning_phase, reasoning_closed_for_current_cycle
                 text = _strip_internal_tool_trace(str(part or ""))
-                if not text:
-                    return
-                if reasoning_closed_for_current_cycle:
-                    trace_stream("drop_reasoning_after_content", reasoning_preview=_preview(text))
+                if not text or not text.strip():
                     return
                 if should_break_next_thought and not in_reasoning_phase and full_thought.strip():
                     separator = f"\n\n{THOUGHT_BLOCK_BREAK_MARKER}\n\n"
@@ -787,9 +960,11 @@ class StreamChatService:
                 nonlocal full_content, in_reasoning_phase, should_break_next_thought, reasoning_closed_for_current_cycle
                 clean_text = _strip_internal_tool_trace(text)
                 if clean_text:
-                    in_reasoning_phase = False
-                    should_break_next_thought = True
-                    reasoning_closed_for_current_cycle = True
+                    has_visible_text = bool(clean_text.strip())
+                    if has_visible_text:
+                        in_reasoning_phase = False
+                        should_break_next_thought = True
+                        reasoning_closed_for_current_cycle = True
                     full_content += clean_text
                     yield TextEvent(content=clean_text).model_dump()
 
@@ -797,8 +972,17 @@ class StreamChatService:
                 content = getattr(run_event, "content", None)
                 if isinstance(content, str) and content:
                     return content
-                if content and not isinstance(content, str):
-                    return str(content)
+                if isinstance(content, list):
+                    parts: list[str] = []
+                    for item in content:
+                        if isinstance(item, dict):
+                            text_part = item.get("text")
+                            if isinstance(text_part, str) and text_part:
+                                parts.append(text_part)
+                        elif isinstance(item, str) and item:
+                            parts.append(item)
+                    if parts:
+                        return "".join(parts)
 
                 provider_data = getattr(run_event, "model_provider_data", None)
                 if isinstance(provider_data, dict):
@@ -822,21 +1006,29 @@ class StreamChatService:
             def _extract_reasoning_chunk(run_event: Any) -> str:
                 reasoning = getattr(run_event, "reasoning_content", None)
                 if isinstance(reasoning, str) and reasoning:
+                    trace_stream("reasoning_source", source="run_event.reasoning_content")
                     return reasoning
-                if reasoning and not isinstance(reasoning, str):
-                    return str(reasoning)
+                if isinstance(reasoning, list):
+                    parts: list[str] = []
+                    for item in reasoning:
+                        if isinstance(item, dict):
+                            text_part = item.get("text") or item.get("content")
+                            if text_part:
+                                parts.append(str(text_part))
+                        elif isinstance(item, str) and item:
+                            parts.append(item)
+                    if parts:
+                        trace_stream("reasoning_source", source="run_event.reasoning_content[]")
+                        return "".join(parts)
 
                 provider_data = getattr(run_event, "model_provider_data", None)
                 if isinstance(provider_data, dict):
                     choices = provider_data.get("choices") or []
                     if choices and isinstance(choices[0], dict):
                         delta = choices[0].get("delta") or {}
-                        raw_reasoning = (
-                            delta.get("reasoning_content")
-                            or delta.get("reasoning")
-                            or delta.get("reasoning_details")
-                        )
+                        raw_reasoning = delta.get("reasoning_content")
                         if isinstance(raw_reasoning, str) and raw_reasoning:
+                            trace_stream("reasoning_source", source="provider_data.delta.reasoning_content")
                             return raw_reasoning
                         if isinstance(raw_reasoning, list):
                             parts: list[str] = []
@@ -846,12 +1038,14 @@ class StreamChatService:
                                     if text_part:
                                         parts.append(str(text_part))
                             if parts:
+                                trace_stream("reasoning_source", source="provider_data.delta.reasoning_content[]")
                                 return "".join(parts)
                 return ""
             
             async def _stream_events(stream):
                 nonlocal full_content, full_thought, sources_map, tool_start_times, paused_again
                 nonlocal in_reasoning_phase, should_break_next_thought, reasoning_closed_for_current_cycle
+                nonlocal in_content_think_block, inline_tool_trace_depth, inline_protocol_tail
                 async for run_event in stream:
                     # HITL Pause Check
                     if hasattr(run_event, 'is_paused') and run_event.is_paused:
@@ -923,24 +1117,52 @@ class StreamChatService:
                     if hasattr(run_event, 'event'):
                         match run_event.event:
                             case RunEvent.run_content.value:
-                                content_chunk = _extract_text_chunk(run_event)
-                                has_content_chunk = bool(content_chunk)
+                                raw_content_chunk = _extract_text_chunk(run_event)
+                                raw_content_chunk, inline_tool_trace_depth, inline_protocol_tail, had_protocol = _strip_inline_tool_protocol(
+                                    raw_content_chunk,
+                                    inline_tool_trace_depth,
+                                    inline_protocol_tail,
+                                )
+                                if had_protocol:
+                                    trace_stream(
+                                        "strip_tool_protocol",
+                                        depth=inline_tool_trace_depth,
+                                        tail_len=len(inline_protocol_tail),
+                                        cleaned_preview=_preview(raw_content_chunk),
+                                    )
                                 reasoning = _extract_reasoning_chunk(run_event)
+                                content_segments, in_content_think_block = _split_content_by_think_tags(
+                                    raw_content_chunk,
+                                    in_content_think_block,
+                                )
+                                content_chunk = "".join(
+                                    seg_text for seg_type, seg_text in content_segments if seg_type == "text"
+                                )
+                                inline_thought_chunk = "".join(
+                                    seg_text for seg_type, seg_text in content_segments if seg_type == "thought"
+                                )
+                                has_content_chunk = bool(content_chunk)
+                                has_inline_thought = bool(inline_thought_chunk)
                                 trace_stream(
                                     "run_content",
                                     has_content=has_content_chunk,
-                                    has_reasoning=bool(reasoning),
+                                    has_reasoning=bool(reasoning) or has_inline_thought,
                                     reasoning_closed=reasoning_closed_for_current_cycle,
                                     content_preview=_preview(content_chunk),
-                                    reasoning_preview=_preview(reasoning),
+                                    reasoning_preview=_preview((reasoning or "") + (inline_thought_chunk or "")),
                                 )
 
-                                if reasoning and not has_content_chunk:
-                                    if reasoning_closed_for_current_cycle:
-                                        reasoning_closed_for_current_cycle = False
-                                        in_reasoning_phase = False
-                                        should_break_next_thought = True
+                                has_any_thought = bool(reasoning) or has_inline_thought
+                                if has_any_thought and reasoning_closed_for_current_cycle:
+                                    reasoning_closed_for_current_cycle = False
+                                    in_reasoning_phase = False
+                                    should_break_next_thought = True
+
+                                if reasoning:
                                     for event in emit_thought_part(str(reasoning)):
+                                        yield event
+                                if has_inline_thought:
+                                    for event in emit_thought_part(str(inline_thought_chunk)):
                                         yield event
 
                                 if content_chunk:
@@ -953,24 +1175,52 @@ class StreamChatService:
                                     )
 
                             case RunEvent.reasoning_content_delta.value:
-                                content_chunk = _extract_text_chunk(run_event)
-                                has_content_chunk = bool(content_chunk)
+                                raw_content_chunk = _extract_text_chunk(run_event)
+                                raw_content_chunk, inline_tool_trace_depth, inline_protocol_tail, had_protocol = _strip_inline_tool_protocol(
+                                    raw_content_chunk,
+                                    inline_tool_trace_depth,
+                                    inline_protocol_tail,
+                                )
+                                if had_protocol:
+                                    trace_stream(
+                                        "strip_tool_protocol",
+                                        depth=inline_tool_trace_depth,
+                                        tail_len=len(inline_protocol_tail),
+                                        cleaned_preview=_preview(raw_content_chunk),
+                                    )
                                 reasoning = _extract_reasoning_chunk(run_event)
+                                content_segments, in_content_think_block = _split_content_by_think_tags(
+                                    raw_content_chunk,
+                                    in_content_think_block,
+                                )
+                                content_chunk = "".join(
+                                    seg_text for seg_type, seg_text in content_segments if seg_type == "text"
+                                )
+                                inline_thought_chunk = "".join(
+                                    seg_text for seg_type, seg_text in content_segments if seg_type == "thought"
+                                )
+                                has_content_chunk = bool(content_chunk)
+                                has_inline_thought = bool(inline_thought_chunk)
                                 trace_stream(
                                     "reasoning_delta",
                                     has_content=has_content_chunk,
-                                    has_reasoning=bool(reasoning),
+                                    has_reasoning=bool(reasoning) or has_inline_thought,
                                     reasoning_closed=reasoning_closed_for_current_cycle,
                                     content_preview=_preview(content_chunk),
-                                    reasoning_preview=_preview(reasoning),
+                                    reasoning_preview=_preview((reasoning or "") + (inline_thought_chunk or "")),
                                 )
 
-                                if reasoning and not has_content_chunk:
-                                    if reasoning_closed_for_current_cycle:
-                                        reasoning_closed_for_current_cycle = False
-                                        in_reasoning_phase = False
-                                        should_break_next_thought = True
+                                has_any_thought = bool(reasoning) or has_inline_thought
+                                if has_any_thought and reasoning_closed_for_current_cycle:
+                                    reasoning_closed_for_current_cycle = False
+                                    in_reasoning_phase = False
+                                    should_break_next_thought = True
+
+                                if reasoning:
                                     for event in emit_thought_part(str(reasoning)):
+                                        yield event
+                                if has_inline_thought:
+                                    for event in emit_thought_part(str(inline_thought_chunk)):
                                         yield event
 
                                 if content_chunk:
@@ -989,6 +1239,9 @@ class StreamChatService:
                                     in_reasoning_phase = False
                                     should_break_next_thought = True
                                     reasoning_closed_for_current_cycle = False
+                                    in_content_think_block = False
+                                    inline_tool_trace_depth = 0
+                                    inline_protocol_tail = ""
                                     if tool.tool_call_id:
                                         tool_start_times[tool.tool_call_id] = time.time()
                                     trace_stream(
@@ -1009,6 +1262,9 @@ class StreamChatService:
                                     in_reasoning_phase = False
                                     should_break_next_thought = True
                                     reasoning_closed_for_current_cycle = False
+                                    in_content_think_block = False
+                                    inline_tool_trace_depth = 0
+                                    inline_protocol_tail = ""
                                     duration_ms = None
                                     if tool.tool_call_id and tool.tool_call_id in tool_start_times:
                                         duration_ms = int((time.time() - tool_start_times[tool.tool_call_id]) * 1000)

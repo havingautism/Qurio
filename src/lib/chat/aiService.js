@@ -23,13 +23,9 @@ const sanitizeInternalToolTraceChunk = value => {
   let cleaned = value
 
   cleaned = cleaned.replace(/<\/?(?:think|thought)>/gi, '')
-
-  let cutIndex = cleaned.indexOf('<|tool_')
-  if (cutIndex >= 0) {
-    cleaned = cleaned.slice(0, cutIndex)
-  }
-
-  cleaned = cleaned.replace(/(?:^|\n)\s*functions\.[^\n]*/gi, '')
+  // Conservative cleanup: strip marker tokens only, avoid truncating normal text.
+  cleaned = cleaned.replace(/<\|tool_call_[^|]*\|>/gi, '')
+  cleaned = cleaned.replace(/<\|tool_calls_section_[^|]*\|>/gi, '')
   return cleaned
 }
 
@@ -559,6 +555,7 @@ export const callAIAPI = async (
             return
           }
           if (chunk.type === 'tool_call') {
+            flushPending()
             hasNonThoughtEvent = true
             set(state => {
               const updated = [...state.messages]
@@ -623,6 +620,7 @@ export const callAIAPI = async (
             return
           }
           if (chunk.type === 'tool_result') {
+            flushPending()
             hasNonThoughtEvent = true
             set(state => {
               const updated = [...state.messages]
@@ -683,6 +681,7 @@ export const callAIAPI = async (
           }
           // Handle HITL form request event
           if (chunk.type === 'form_request') {
+            flushPending()
             hasNonThoughtEvent = true
             set(state => {
               const updated = [...state.messages]
@@ -777,7 +776,7 @@ export const callAIAPI = async (
             const thoughtParts = rawThought.split(THOUGHT_BLOCK_BREAK_MARKER)
 
             thoughtParts.forEach((part, partIndex) => {
-              if (!part) return
+              if (!part || !part.trim()) return
               if (partIndex > 0) {
                 hasNonThoughtEvent = true
               }
@@ -1344,14 +1343,31 @@ export const finalizeMessage = async (
     const databaseProviderKey = String(
       settings?.databaseProviderId || settings?.databaseProvider || '',
     ).toLowerCase()
+    const streamBlocksForRuntime = buildStreamBlocks({
+      content: contentForPersistence,
+      thoughtHistory: thoughtHistoryForPersistence || [],
+      toolCallHistory: toolCallHistoryForPersistence || [],
+    })
     const shouldPersistStreamBlocks = databaseProviderKey.includes('sqlite')
     const streamBlocksForPersistence = shouldPersistStreamBlocks
-      ? buildStreamBlocks({
-          content: contentForPersistence,
-          thoughtHistory: thoughtHistoryForPersistence || [],
-          toolCallHistory: toolCallHistoryForPersistence || [],
-        })
+      ? streamBlocksForRuntime
       : null
+
+    // Keep runtime rendering order consistent with persisted stream_blocks,
+    // so UI doesn't jump between two ordering strategies before page refresh.
+    set(state => {
+      const updated = [...state.messages]
+      for (let i = updated.length - 1; i >= 0; i -= 1) {
+        if (updated[i].role !== 'ai') continue
+        updated[i] = {
+          ...updated[i],
+          streamBlocks: streamBlocksForRuntime,
+          streamSchemaVersion: 1,
+        }
+        break
+      }
+      return { messages: updated }
+    })
 
     const aiPayload = {
       conversation_id: currentStore.conversationId,

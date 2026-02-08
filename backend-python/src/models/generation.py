@@ -62,6 +62,29 @@ class RelatedQuestionsResponse(BaseModel):
     questions: list[str] = Field(..., description="A list of exactly 3 relevant follow-up questions.")
 
 
+class SpaceAgentResponse(BaseModel):
+    """Response model for space and agent selection."""
+    space_label: str | None = Field(
+        default=None,
+        alias="spaceLabel",
+        description="The label of the selected space, or null if none fit.",
+    )
+    agent_name: str | None = Field(
+        default=None,
+        alias="agentName",
+        description="The name of the selected agent, or null if none fit.",
+    )
+
+
+class AgentNameResponse(BaseModel):
+    """Response model for auto agent selection."""
+    agent_name: str | None = Field(
+        default=None,
+        alias="agentName",
+        description="The name of the selected agent, or null if none fit.",
+    )
+
+
 class DailyTipResponse(BaseModel):
     """Response model for daily tip generation."""
     tip: str = Field(..., description="A short, practical tip for today (1-2 sentences).")

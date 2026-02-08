@@ -396,7 +396,9 @@ h6 {
 .message-content li {
   margin-bottom: 0.4em !important;
 }
-
+.message-content br {
+  display: none !important;
+}
 /* Blockquotes for citations */
 .message-content blockquote {
   border-left: 3px solid var(--color-primary-500) !important;
@@ -404,6 +406,15 @@ h6 {
   margin: 1em 0 !important;
   font-style: italic !important;
   /* color: var(--color-primary-700) !important; */
+}
+
+.message-content summary {
+  font-size: calc(var(--message-font-size) - 2px) !important;
+}
+
+.message-content details > :not(summary),
+.message-content details > :not(summary) * {
+  font-size: calc(var(--message-font-size) - 2px) !important;
 }
 
 /* .dark .message-content blockquote {

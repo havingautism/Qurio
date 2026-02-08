@@ -11,6 +11,8 @@
     "on": "On",
     "off": "Off",
     "commit": "Commit",
+    "yes": "Yes",
+    "no": "No",
     "commited": "Commited",
     "uploadImage": "Upload Image",
     "selectAll": "Select All",
@@ -832,7 +834,9 @@
     "apiError": "API error. Please check your settings."
   },
   "messageBubble": {
-    "thinkingProcess": "Thinking Process",
+    "deepThinking": "Deep thought",
+    "thinking": "Thinking...",
+    "thinkingDuration": "(took {{duration}}s)",
     "planProcess": "Plan Process",
     "researchProcess": "Research Process",
     "answer": "Answer",
@@ -861,7 +865,7 @@
     "quoting": "Quoting:",
     "edit": "Edit",
     "copy": "Copy",
-    "thinking": "Thinking",
+
     "analyzing": "Analyzing",
     "workingThroughIt": "Working through it",
     "checkingDetails": "Checking details",

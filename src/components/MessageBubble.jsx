@@ -213,6 +213,7 @@ const MessageBubble = ({
             textIndex: Number.isFinite(item?.textIndex) ? Number(item.textIndex) : 0,
             content: String(item?.content || '').trim(),
             streamOrder: Number.isFinite(item?.streamOrder) ? Number(item.streamOrder) : index,
+            durationMs: Number.isFinite(item?.durationMs) ? Number(item.durationMs) : null,
           }))
           .filter(item => item.content)
           .sort((a, b) =>
@@ -236,7 +237,11 @@ const MessageBubble = ({
       }))
   }, [isDeepResearch, mergedMessage?.thoughtHistory, thoughtContent])
   const thoughtExportContent = useMemo(
-    () => positionedThoughtBlocks.map(item => item.content).filter(Boolean).join('\n\n'),
+    () =>
+      positionedThoughtBlocks
+        .map(item => item.content)
+        .filter(Boolean)
+        .join('\n\n'),
     [positionedThoughtBlocks],
   )
   const normalizedStreamBlocks = useMemo(() => {
@@ -557,8 +562,13 @@ const MessageBubble = ({
   const interleavedContent = useMemo(() => {
     const rawContent = mainContent || ''
     const parts = []
+    const canUsePersistedStreamBlocks =
+      !isDeepResearch &&
+      normalizedStreamBlocks.length > 0 &&
+      toolCallHistory.length === 0 &&
+      positionedThoughtBlocks.length === 0
 
-    if (!isDeepResearch && normalizedStreamBlocks.length > 0) {
+    if (canUsePersistedStreamBlocks) {
       for (const block of normalizedStreamBlocks) {
         if (block.type === 'text') {
           if (block.content) parts.push({ type: 'text', content: block.content })
@@ -570,6 +580,7 @@ const MessageBubble = ({
               type: 'thought',
               key: `stream-thought-${block.seq}`,
               content: block.content,
+              durationMs: block.durationMs,
             })
           }
           continue
@@ -624,6 +635,7 @@ const MessageBubble = ({
           order: Number.isFinite(block.streamOrder) ? Number(block.streamOrder) : index,
           key: `thought-${block.id || index}`,
           thought: block.content,
+          durationMs: block.durationMs,
         })
       })
     }
@@ -644,7 +656,12 @@ const MessageBubble = ({
       if (event.type === 'tools') {
         parts.push({ type: 'tools', key: event.key, items: [event.tool] })
       } else if (event.type === 'thought') {
-        parts.push({ type: 'thought', key: event.key, content: event.thought })
+        parts.push({
+          type: 'thought',
+          key: event.key,
+          content: event.thought,
+          durationMs: event.durationMs,
+        })
       }
     }
 
@@ -1350,20 +1367,38 @@ const MessageBubble = ({
 
     return interleavedContent.map((part, idx) => {
       if (part.type === 'thought') {
+        const isLast = idx === interleavedContent.length - 1
+        const isOpen = isStreaming && isLast
+        const isThinking = isStreaming && isLast
+
         return (
-          <details
-            key={part.key || `thought-inline-${idx}`}
-            className="group mb-4 overflow-hidden rounded-xl border border-gray-200/70 dark:border-zinc-800"
-            open={isStreaming && idx === interleavedContent.length - 1}
-          >
-            <summary className="bg-user-bubble/30 hover:bg-user-bubble flex cursor-pointer items-center justify-between p-2 transition-colors dark:bg-zinc-800/50 dark:hover:bg-zinc-800">
-              <div className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                <EmojiDisplay emoji={'🧠'} size="1.2em" />
-                <span className="text-sm">{t('messageBubble.thinkingProcess')}</span>
-              </div>
-              <ChevronDown size={16} className="transition-transform group-open:rotate-180" />
+          <details key={part.key || `thought-inline-${idx}`} className="group mb-4" open={isOpen}>
+            <summary className="flex cursor-pointer items-center gap-2 text-gray-500 select-none hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
+              <Brain
+                size={14}
+                className={clsx(
+                  'transition-colors',
+                  isThinking
+                    ? 'text-primary-500 animate-pulse'
+                    : 'text-gray-400 dark:text-gray-500',
+                )}
+              />
+              <span className="font-medium">
+                {isThinking ? t('messageBubble.thinking') : t('messageBubble.deepThinking')}
+              </span>
+              {!isThinking && typeof part.durationMs === 'number' && part.durationMs > 0 && (
+                <span className="text-gray-400 dark:text-gray-500">
+                  {t('messageBubble.thinkingDuration', {
+                    duration: (part.durationMs / 1000).toFixed(0),
+                  })}
+                </span>
+              )}
+              <ChevronDown
+                size={14}
+                className="opacity-50 transition-transform group-open:rotate-180"
+              />
             </summary>
-            <div className="bg-white/70 p-4 text-sm leading-relaxed text-gray-600 font-stretch-semi-condensed dark:bg-zinc-800/70 dark:text-gray-400 [&>div>p:last-child]:mb-0!">
+            <div className="mt-2 border-l-2 border-gray-200 pl-4 text-xs leading-relaxed text-gray-500 dark:border-zinc-700 dark:text-gray-400">
               <Streamdown
                 mermaid={mermaidOptions}
                 remarkPlugins={[remarkGfm]}
@@ -1901,7 +1936,9 @@ const MessageBubble = ({
         if (Array.isArray(parsed?.questions)) return parsed.questions
         if (Array.isArray(parsed?.relatedQuestions)) return parsed.relatedQuestions
         if (Array.isArray(parsed?.related_questions)) return parsed.related_questions
-      } catch {}
+      } catch {
+        // ignore
+      }
     }
     return []
   })()

@@ -10,6 +10,8 @@
     "on": "是",
     "off": "否",
     "commit": "提交",
+    "yes": "是",
+    "no": "否",
     "commited": "已提交",
     "uploadImage": "上传图片",
     "selectAll": "全选",
@@ -824,7 +826,9 @@
     "apiError": "API 错误，请检查您的设置。"
   },
   "messageBubble": {
-    "thinkingProcess": "思考过程",
+    "deepThinking": "已深度思考",
+    "thinking": "深度思考中...",
+    "thinkingDuration": "(用时{{duration}}秒)",
     "planProcess": "规划过程",
     "researchProcess": "研究过程",
     "answer": "回答",
@@ -853,7 +857,7 @@
     "quoting": "引用：",
     "edit": "编辑",
     "copy": "复制",
-    "thinking": "思考中",
+
     "analyzing": "分析中",
     "workingThroughIt": "正在推理",
     "checkingDetails": "正在检查细节",

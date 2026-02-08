@@ -150,16 +150,33 @@ const InteractiveForm = ({
   React.useEffect(() => {
     const initialValues = {}
     validFields.forEach(field => {
+      const hasCheckboxOptions =
+        field.type === 'checkbox' && Array.isArray(field.options) && field.options.length > 0
       // Direct lookup in submittedValues (which is the tool output object)
       const submittedValue = submittedValues[field.name] ?? submittedValues[field.label]
 
       if (submittedValue !== undefined) {
         if (field.type === 'checkbox') {
-          initialValues[field.name] = Array.isArray(submittedValue)
-            ? submittedValue
-            : typeof submittedValue === 'string'
-              ? submittedValue.split(',').map(v => v.trim())
-              : [submittedValue]
+          if (hasCheckboxOptions) {
+            initialValues[field.name] = Array.isArray(submittedValue)
+              ? submittedValue
+              : typeof submittedValue === 'string'
+                ? submittedValue
+                    .split(',')
+                    .map(v => v.trim())
+                    .filter(Boolean)
+                : [submittedValue]
+          } else {
+            if (typeof submittedValue === 'boolean') {
+              initialValues[field.name] = submittedValue
+            } else if (typeof submittedValue === 'string') {
+              initialValues[field.name] = ['true', '1', 'yes', 'on'].includes(
+                submittedValue.trim().toLowerCase(),
+              )
+            } else {
+              initialValues[field.name] = Boolean(submittedValue)
+            }
+          }
         } else if (field.type === 'number' || field.type === 'range') {
           initialValues[field.name] = Number(submittedValue)
         } else {
@@ -167,7 +184,7 @@ const InteractiveForm = ({
         }
       } else {
         if (field.type === 'checkbox') {
-          initialValues[field.name] = []
+          initialValues[field.name] = hasCheckboxOptions ? [] : false
         } else if (field.type === 'range' && field.default !== undefined) {
           initialValues[field.name] = field.default
         } else {
@@ -183,7 +200,15 @@ const InteractiveForm = ({
     validFields.forEach(field => {
       if (field.required) {
         const value = values[field.name]
-        if (!value || (Array.isArray(value) && value.length === 0)) {
+        if (field.type === 'checkbox') {
+          const hasCheckboxOptions = Array.isArray(field.options) && field.options.length > 0
+          const isValid = hasCheckboxOptions
+            ? Array.isArray(value) && value.length > 0
+            : value === true
+          if (!isValid) {
+            newErrors[field.name] = t('tools.interactiveFormStrings.requiredError')
+          }
+        } else if (!value || (Array.isArray(value) && value.length === 0)) {
           newErrors[field.name] = t('tools.interactiveFormStrings.requiredError')
         }
       }
@@ -205,6 +230,11 @@ const InteractiveForm = ({
   }
 
   const toggleCheckbox = (name, option) => {
+    if (typeof option === 'undefined') {
+      setValues(prev => ({ ...prev, [name]: !prev[name] }))
+      if (errors[name]) setErrors(prev => ({ ...prev, [name]: undefined }))
+      return
+    }
     setValues(prev => {
       const current = prev[name] || []
       const newValue = current.includes(option)
@@ -212,6 +242,7 @@ const InteractiveForm = ({
         : [...current, option]
       return { ...prev, [name]: newValue }
     })
+    if (errors[name]) setErrors(prev => ({ ...prev, [name]: undefined }))
   }
 
   return (
@@ -277,37 +308,79 @@ const InteractiveForm = ({
                 )}
 
                 {/* Checkbox Group */}
-                {field.type === 'checkbox' && (
-                  <div className="flex flex-wrap gap-2.5">
-                    {field.options?.map(opt => {
-                      const isChecked = (values[field.name] || []).includes(opt)
+                {field.type === 'checkbox' &&
+                  (() => {
+                    const hasCheckboxOptions =
+                      Array.isArray(field.options) && field.options.length > 0
+                    if (hasCheckboxOptions) {
                       return (
-                        <label
-                          key={opt}
+                        <div className="flex flex-wrap gap-2.5">
+                          {field.options?.map(opt => {
+                            const isChecked = (values[field.name] || []).includes(opt)
+                            return (
+                              <label
+                                key={opt}
+                                className={clsx(
+                                  'group/item relative cursor-pointer overflow-hidden rounded-xl border px-4 py-2.5 transition-all duration-300 select-none',
+                                  isChecked
+                                    ? 'bg-primary-500 border-primary-500 shadow-primary-500/25 scale-[1.02] text-white shadow-lg'
+                                    : 'border-transparent bg-gray-50 text-gray-600 hover:border-gray-200 hover:bg-white dark:bg-zinc-900/40 dark:text-gray-400 dark:hover:border-white/10 dark:hover:bg-zinc-800',
+                                  isSubmitted &&
+                                    'pointer-events-none cursor-not-allowed opacity-60',
+                                )}
+                              >
+                                <input
+                                  type="checkbox"
+                                  className="hidden"
+                                  checked={isChecked}
+                                  onChange={() => !isSubmitted && toggleCheckbox(field.name, opt)}
+                                  disabled={isSubmitted}
+                                />
+                                <span className="relative z-10 flex items-center gap-2 text-sm font-medium">
+                                  {isChecked && <Check size={14} strokeWidth={3} />}
+                                  {opt}
+                                </span>
+                              </label>
+                            )
+                          })}
+                        </div>
+                      )
+                    }
+
+                    // const isChecked = values[field.name] === true
+                    return (
+                      <div className="mt-1 flex w-full rounded-xl bg-gray-100 p-1.5 dark:bg-zinc-800/50">
+                        <button
+                          type="button"
+                          onClick={() => !isSubmitted && updateValue(field.name, true)}
+                          disabled={isSubmitted}
                           className={clsx(
-                            'group/item relative cursor-pointer overflow-hidden rounded-xl border px-4 py-2.5 transition-all duration-300 select-none',
-                            isChecked
-                              ? 'bg-primary-500 border-primary-500 shadow-primary-500/25 scale-[1.02] text-white shadow-lg'
-                              : 'border-transparent bg-gray-50 text-gray-600 hover:border-gray-200 hover:bg-white dark:bg-zinc-900/40 dark:text-gray-400 dark:hover:border-white/10 dark:hover:bg-zinc-800',
-                            isSubmitted && 'pointer-events-none cursor-not-allowed opacity-60',
+                            'flex-1 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-300',
+                            values[field.name] === true
+                              ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-600 dark:text-white'
+                              : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200',
+                            isSubmitted && 'cursor-not-allowed opacity-60',
                           )}
                         >
-                          <input
-                            type="checkbox"
-                            className="hidden"
-                            checked={isChecked}
-                            onChange={() => !isSubmitted && toggleCheckbox(field.name, opt)}
-                            disabled={isSubmitted}
-                          />
-                          <span className="relative z-10 flex items-center gap-2 text-sm font-medium">
-                            {isChecked && <Check size={14} strokeWidth={3} />}
-                            {opt}
-                          </span>
-                        </label>
-                      )
-                    })}
-                  </div>
-                )}
+                          {t('common.yes')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => !isSubmitted && updateValue(field.name, false)}
+                          disabled={isSubmitted}
+                          className={clsx(
+                            'flex-1 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-300',
+                            values[field.name] === false
+                              ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-600 dark:text-white'
+                              : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200',
+                            isSubmitted && 'cursor-not-allowed opacity-60',
+                          )}
+                        >
+                          {t('common.no')}
+                        </button>
+                      </div>
+                    )
+                  })()}
 
                 {/* Inputs */}
                 {(field.type === 'text' || field.type === 'number') && (

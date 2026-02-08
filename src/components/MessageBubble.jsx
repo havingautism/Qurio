@@ -94,6 +94,36 @@ const PROVIDER_META = {
   },
 }
 
+const isExplicitSchemeUrl = value => /^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(value)
+
+const sanitizeMarkdownUrl = (value, { allowDataImage = false } = {}) => {
+  if (typeof value !== 'string') return null
+  const href = value.trim()
+  if (!href) return null
+
+  if (href.startsWith('citation:')) return href
+  if (!isExplicitSchemeUrl(href)) return null
+
+  try {
+    const parsed = new URL(href)
+    const protocol = parsed.protocol.toLowerCase()
+    if (
+      protocol === 'http:' ||
+      protocol === 'https:' ||
+      protocol === 'mailto:' ||
+      protocol === 'tel:'
+    ) {
+      return href
+    }
+    if (allowDataImage && protocol === 'data:' && href.startsWith('data:image/')) {
+      return href
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
 const ToolEnter = ({ children, className }) => {
   const [entered, setEntered] = useState(false)
 
@@ -1145,8 +1175,9 @@ const MessageBubble = ({
       ),
 
       a: ({ href, children, ...props }) => {
-        if (href?.startsWith('citation:')) {
-          const indices = href
+        const safeHref = sanitizeMarkdownUrl(href)
+        if (safeHref?.startsWith('citation:')) {
+          const indices = safeHref
             .replace('citation:', '')
             .split(',')
             .map(Number)
@@ -1163,9 +1194,12 @@ const MessageBubble = ({
             />
           )
         }
+        if (!safeHref) {
+          return <span {...props}>{parseChildrenWithEmojis(children)}</span>
+        }
         return (
           <a
-            href={href}
+            href={safeHref}
             {...props}
             target="_blank"
             rel="noreferrer"
@@ -1174,6 +1208,11 @@ const MessageBubble = ({
             {parseChildrenWithEmojis(children)}
           </a>
         )
+      },
+      img: ({ src, alt, ...props }) => {
+        const safeSrc = sanitizeMarkdownUrl(src, { allowDataImage: true })
+        if (!safeSrc) return null
+        return <img src={safeSrc} alt={typeof alt === 'string' ? alt : ''} {...props} />
       },
       hr: () => (
         <div className="relative my-6">

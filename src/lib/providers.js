@@ -96,7 +96,8 @@ const MEMORY_RETRIEVE_TOOL = {
         action: {
           type: 'string',
           enum: ['list', 'fetch'],
-          description: 'list: return only domain metadata; fetch: return summaries for selected domain_keys.',
+          description:
+            'list: return only domain metadata; fetch: return summaries for selected domain_keys.',
         },
         query: {
           type: 'string',

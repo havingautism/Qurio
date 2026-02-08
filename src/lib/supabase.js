@@ -38,7 +38,10 @@ const resolveProviderId = (overrides = {}) => {
 
 const parseOrFilter = raw => {
   if (!raw || typeof raw !== 'string') return []
-  const parts = raw.split(',').map(part => part.trim()).filter(Boolean)
+  const parts = raw
+    .split(',')
+    .map(part => part.trim())
+    .filter(Boolean)
   const filters = []
   parts.forEach(part => {
     if (part.endsWith('.is.null')) {
@@ -348,12 +351,14 @@ export const testConnection = async () => {
         tables: {},
       }
     }
-    return payload.data || {
-      success: true,
-      connection: true,
-      message: 'Connection successful.',
-      tables: {},
-    }
+    return (
+      payload.data || {
+        success: true,
+        connection: true,
+        message: 'Connection successful.',
+        tables: {},
+      }
+    )
   } catch (error) {
     return {
       success: false,
@@ -537,7 +542,9 @@ export const fetchRemoteSettings = async () => {
 
   // Backward compatibility: legacy key fallback.
   if (
-    (settings.contextTurns === undefined || settings.contextTurns === null || settings.contextTurns === '') &&
+    (settings.contextTurns === undefined ||
+      settings.contextTurns === null ||
+      settings.contextTurns === '') &&
     settings.contextMessageLimit !== undefined
   ) {
     settings.contextTurns = settings.contextMessageLimit

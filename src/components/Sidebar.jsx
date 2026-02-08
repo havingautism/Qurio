@@ -688,7 +688,7 @@ const Sidebar = ({
       <div
         className={clsx(
           'fixed top-0 left-0 z-90 flex h-dvh transition-transform md:translate-x-0',
-          isMobileFastSidebar ? 'duration-160 ease-out' : 'duration-300',
+          isMobileFastSidebar ? 'duration-0' : 'duration-300',
           // On mobile, control via isOpen. On desktop, always visible (handled by layout margin)
           // Actually, fixed sidebar on desktop is always visible (icon strip).
           // Mobile: hidden by default (-translate-x-full), shown if isOpen
@@ -813,14 +813,23 @@ const Sidebar = ({
           className={clsx(
             'bg-sidebar flex h-full flex-col overflow-hidden',
             isMobileFastSidebar
-              ? 'transition-[width,transform,opacity] duration-160 ease-out'
+              ? 'transition-none'
               : 'transition-all duration-300 ease-in-out',
             isExpanded && displayTab !== 'discover'
               ? 'w-64 translate-x-0 opacity-100 shadow-2xl'
               : 'w-0 -translate-x-4 opacity-0',
           )}
         >
-          <div className="flex h-full min-w-[256px] flex-col p-2">
+          <div
+            className={clsx(
+              'flex h-full min-w-[256px] flex-col p-2',
+              isMobileFastSidebar
+                ? isOpen
+                  ? 'opacity-100 transition-opacity duration-120 ease-out'
+                  : 'opacity-0 transition-none'
+                : '',
+            )}
+          >
             {/* min-w ensures content doesn't squash during transition */}
             {/* Header based on Tab */}
             <div className="mb-2 flex shrink-0 items-center justify-between border-b border-gray-200 p-2 dark:border-zinc-800">

@@ -1,5 +1,11 @@
 node_modules
+backend/node_modules
 dist
 build
 .idea
 .vscode
+venv
+backend-python/.venv
+backend-python/data
+backend-python/src/data
+backend/_tmp_mcp_adapters

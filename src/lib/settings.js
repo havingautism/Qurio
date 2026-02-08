@@ -199,6 +199,12 @@ export const loadSettings = (overrides = {}) => {
   const localEmbeddingProvider = localStorage.getItem('embeddingProvider')
   const localEmbeddingModel = localStorage.getItem('embeddingModel')
   const localEmbeddingModelSource = localStorage.getItem('embeddingModelSource')
+  const localDefaultModel = localStorage.getItem('defaultModel')
+  const localLiteModel = localStorage.getItem('liteModel')
+  const localDefaultModelProvider = localStorage.getItem('defaultModelProvider')
+  const localLiteModelProvider = localStorage.getItem('liteModelProvider')
+  const localDefaultModelSource = localStorage.getItem('defaultModelSource')
+  const localLiteModelSource = localStorage.getItem('liteModelSource')
   const localDeveloperMode = localStorage.getItem('developerMode')
   const localDbAccessKey = localStorage.getItem('dbAccessKey')
 
@@ -283,8 +289,12 @@ export const loadSettings = (overrides = {}) => {
     // No, user wants to Stop storing in LS.
 
     // Model configuration
-    liteModel: overrides.liteModel || '',
-    defaultModel: overrides.defaultModel || '',
+    liteModel: overrides.liteModel || localLiteModel || '',
+    defaultModel: overrides.defaultModel || localDefaultModel || '',
+    liteModelProvider: overrides.liteModelProvider || localLiteModelProvider || '',
+    defaultModelProvider: overrides.defaultModelProvider || localDefaultModelProvider || '',
+    liteModelSource: overrides.liteModelSource || localLiteModelSource || 'list',
+    defaultModelSource: overrides.defaultModelSource || localDefaultModelSource || 'list',
 
     // Backend API
     backendUrl: envBackendUrl || localBackendUrl || overrides.backendUrl || 'http://localhost:3001',
@@ -491,6 +501,24 @@ export const saveSettings = async settings => {
   }
   if (settings.embeddingModelSource !== undefined) {
     localStorage.setItem('embeddingModelSource', settings.embeddingModelSource)
+  }
+  if (settings.defaultModel !== undefined) {
+    localStorage.setItem('defaultModel', settings.defaultModel)
+  }
+  if (settings.liteModel !== undefined) {
+    localStorage.setItem('liteModel', settings.liteModel)
+  }
+  if (settings.defaultModelProvider !== undefined) {
+    localStorage.setItem('defaultModelProvider', settings.defaultModelProvider)
+  }
+  if (settings.liteModelProvider !== undefined) {
+    localStorage.setItem('liteModelProvider', settings.liteModelProvider)
+  }
+  if (settings.defaultModelSource !== undefined) {
+    localStorage.setItem('defaultModelSource', settings.defaultModelSource)
+  }
+  if (settings.liteModelSource !== undefined) {
+    localStorage.setItem('liteModelSource', settings.liteModelSource)
   }
   localStorage.removeItem('userSelfIntro')
   if (settings.developerMode !== undefined) {

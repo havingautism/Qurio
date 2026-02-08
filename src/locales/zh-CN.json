@@ -381,6 +381,9 @@
     "modelConfiguration": "模型配置",
     "modelConfigurationHint": "为不同任务选择不同的模型，或输入自定义模型 ID。",
     "modelConfigurationHint2": "为所选提供商标识符配置特定的模型 ID。",
+    "globalChatModels": "全局对话模型",
+    "globalChatModelsHint": "设置所有智能体的全局默认对话模型。单个智能体的设置将覆盖此全局配置。",
+    "applyToAllAgents": "应用到所有现有智能体",
     "embeddingConfiguration": "向量模型配置",
     "embeddingConfigurationHint": "选择用于长期记忆的向量模型。",
     "embeddingProvider": "向量提供商",
@@ -443,6 +446,12 @@
     "embeddingRefreshModels": "刷新模型",
     "modelSourceList": "列表",
     "modelSourceCustom": "自定义",
+    "models": {
+      "pleaseSelectGlobalFirst": "请先选择全局默认模型与轻量模型。",
+      "confirmApplyToAll": "确定要将全局模型配置应用到所有现有智能体吗？此操作将覆盖所有智能体的现有模型设置。",
+      "applyToAllSuccess": "成功更新所有智能体的模型配置。",
+      "applyToAllError": "应用到所有智能体失败。"
+    },
     "longTermMemory": "长期记忆",
     "longTermMemoryHint": "启用长期记忆将降低每个会话的响应速度。",
     "enableLongTermMemory": "启用长期记忆",

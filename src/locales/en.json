@@ -397,6 +397,9 @@
     "modelConfiguration": "Model Configuration",
     "modelConfigurationHint": "Choose different models for different tasks, or enter a custom model ID.",
     "modelConfigurationHint2": "Configure the specific model ID for your selected provider.",
+    "globalChatModels": "Global Chat Models",
+    "globalChatModelsHint": "Set global default chat models for all agents. Individual agent settings will override this configuration.",
+    "applyToAllAgents": "Apply to All Existing Agents",
     "embeddingConfiguration": "Embedding Configuration",
     "embeddingConfigurationHint": "Choose the embedding model used for long-term memory.",
     "embeddingProvider": "Embedding Provider",
@@ -459,6 +462,12 @@
     "embeddingRefreshModels": "Refresh models",
     "modelSourceList": "List",
     "modelSourceCustom": "Custom",
+    "models": {
+      "pleaseSelectGlobalFirst": "Please select global default and lite models first.",
+      "confirmApplyToAll": "Are you sure you want to apply the global model configuration to all existing agents? This will overwrite their current model settings.",
+      "applyToAllSuccess": "Successfully updated model configuration for all agents.",
+      "applyToAllError": "Failed to apply to all agents."
+    },
     "longTermMemory": "Long-term Memory",
     "longTermMemoryHint": "Enabling long-term memory will slow down the response time for each session.",
     "enableLongTermMemory": "Enable long-term memory",

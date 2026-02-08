@@ -1140,7 +1140,7 @@ const DeepResearchChatInterface = ({
       const thinkingActive = togglesOverride ? togglesOverride.thinking : isThinkingActive
       const deepResearchActive = togglesOverride
         ? togglesOverride.deepResearch
-        : isDeepResearchActive
+        : isDeepResearchConversation || isDeepResearchActive
       const concurrentResearchActive = togglesOverride
         ? togglesOverride.concurrentResearch
         : isConcurrentResearchActive

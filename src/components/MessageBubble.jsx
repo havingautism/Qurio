@@ -198,6 +198,8 @@ const MessageBubble = ({
 
   const isDeepResearch =
     !!mergedMessage?.deepResearch ||
+    !!mergedMessage?.researchPlan ||
+    (Array.isArray(mergedMessage?.researchSteps) && mergedMessage.researchSteps.length > 0) ||
     mergedMessage?.agent_name === 'Deep Research Agent' ||
     mergedMessage?.agentName === 'Deep Research Agent'
 

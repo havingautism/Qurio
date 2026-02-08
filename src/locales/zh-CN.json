@@ -18,7 +18,8 @@
     "deselectAll": "取消全选",
     "files": "文件",
     "close": "关闭",
-    "edit": "编辑"
+    "edit": "编辑",
+    "stop": "停止"
   },
   "app": {
     "name": "Qurio",

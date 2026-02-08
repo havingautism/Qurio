@@ -18,7 +18,8 @@
     "selectAll": "Select All",
     "deselectAll": "Deselect All",
     "files": "Files",
-    "edit": "Edit"
+    "edit": "Edit",
+    "stop": "Stop"
   },
   "app": {
     "name": "Qurio",

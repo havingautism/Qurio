@@ -443,7 +443,7 @@ const QuestionTimelineSidebar = ({
                               : 'pointer-events-none translate-x-4 scale-95 opacity-0',
                           )}
                         >
-                          <div className="bg-user-bubble/95 w-auto max-w-[240px] min-w-[180px] rounded-2xl border border-gray-200/80 px-4 py-3 shadow-xl backdrop-blur-md dark:border-zinc-700/80 dark:bg-zinc-800/95">
+                          <div className="bg-user-bubble/20 w-auto max-w-[240px] min-w-[180px] rounded-2xl border border-gray-200/80 px-4 py-3 shadow-xl backdrop-blur-md dark:border-zinc-700/80 dark:bg-zinc-800/95">
                             {timeLabel && (
                               <div className="mb-0.5 text-[10px] font-semibold tracking-wider text-gray-500 uppercase dark:text-gray-400">
                                 {timeLabel}

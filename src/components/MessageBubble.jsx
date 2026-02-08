@@ -1152,7 +1152,7 @@ const MessageBubble = ({
       thead: ({ ...props }) => <thead className="bg-user-bubble dark:bg-zinc-800" {...props} />,
       tbody: ({ ...props }) => (
         <tbody
-          className="bg-user-bubble/50 divide-y divide-gray-200 dark:divide-zinc-700 dark:bg-zinc-900"
+          className="bg-user-bubble/20 divide-y divide-gray-200 dark:divide-zinc-700 dark:bg-zinc-900"
           {...props}
         />
       ),

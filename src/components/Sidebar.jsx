@@ -244,6 +244,16 @@ const Sidebar = ({
     return () => mediaQuery.removeListener(update)
   }, [])
   const isExpanded = isOpen || isPinned || isHovered
+  const shouldShowExpandedPanel = isExpanded && displayTab !== 'discover'
+  const shouldShowPanelShadow = shouldShowExpandedPanel && (!isMobile || isOpen)
+
+  // On touch devices, ensure collapsed sidebar never keeps hover-expanded state.
+  useEffect(() => {
+    if (isMobile && !isOpen) {
+      setIsHovered(false)
+      setHoveredTab(null)
+    }
+  }, [isMobile, isOpen])
 
   // Persist pin state to localStorage and notify parent
   useEffect(() => {
@@ -815,9 +825,8 @@ const Sidebar = ({
             isMobileFastSidebar
               ? 'transition-none'
               : 'transition-all duration-300 ease-in-out',
-            isExpanded && displayTab !== 'discover'
-              ? 'w-64 translate-x-0 opacity-100 shadow-2xl'
-              : 'w-0 -translate-x-4 opacity-0',
+            shouldShowExpandedPanel ? 'w-64 translate-x-0 opacity-100' : 'w-0 -translate-x-4 opacity-0',
+            shouldShowPanelShadow ? 'shadow-2xl' : '',
           )}
         >
           <div

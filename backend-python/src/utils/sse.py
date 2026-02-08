@@ -16,13 +16,13 @@ from sse_starlette.sse import EventSourceResponse
 class SseConfig:
     """SSE configuration."""
     flush_ms: int = field(default_factory=lambda: int(os.getenv("SSE_FLUSH_MS", "50")))
-    heartbeat_ms: int = field(default_factory=lambda: int(os.getenv("SSE_HEARTBEAT_MS", "15000")))
+    heartbeat_ms: int = field(default_factory=lambda: int(os.getenv("SSE_HEARTBEAT_MS", "10000")))
 
     def __post_init__(self):
         if self.flush_ms < 0:
             self.flush_ms = 50
         if self.heartbeat_ms < 0:
-            self.heartbeat_ms = 15000
+            self.heartbeat_ms = 10000
 
 
 def get_sse_config() -> SseConfig:

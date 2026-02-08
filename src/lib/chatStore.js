@@ -226,6 +226,14 @@ const useChatStore = create((set, get) => ({
 
     set({ isLoading: true })
 
+    const fallbackAgent = agents?.find(agent => agent.isDefault)
+    const summaryModelConfig = getModelConfigForAgent(
+      effectiveAgent,
+      settings,
+      'sessionContentSummary',
+      fallbackAgent,
+    )
+
     try {
       // Call AI API with run_id and field_values
       // The backend will use agent.continue_run() to resume
@@ -248,6 +256,7 @@ const useChatStore = create((set, get) => ({
         [], // documentSources
         false, // isAgentAutoMode
         'general', // researchType
+        summaryModelConfig, // Pass session summary config for HITL
         runId, // HITL run_id (new parameter)
         formData.values, // HITL field_values (new parameter)
       )
@@ -813,9 +822,9 @@ const useChatStore = create((set, get) => ({
       resolvedDocumentSources,
       isAgentAutoMode,
       researchType,
+      summaryModelConfig, // New arg
       null, // hitlRunId
       null, // hitlFieldValues
-      summaryModelConfig, // New arg
       memoryDomainsPrefetch,
       shouldGenerateTitleAsync,
       hasEditingInfo,

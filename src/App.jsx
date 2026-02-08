@@ -455,109 +455,116 @@ function App() {
   const creatingDefaultAgentRef = useRef(false)
   const cleaningDuplicatesRef = useRef(false)
 
-  // Load agents from Supabase on mount
-  useEffect(() => {
-    const load = async () => {
-      setAgentsLoading(true)
-      try {
-        initSupabase()
-        const { data, error } = await listAgents()
-        if (!error && data) {
-          const settings = loadSettings()
-          let nextAgents = data.map(agent => ({
-            ...agent,
-            isDeepResearchSystem: isDeepResearchAgent(agent),
-            isDeepResearch: isDeepResearchAgent(agent),
-          }))
-          const defaultAgents = data.filter(agent => agent.isDefault)
-          if (defaultAgents.length > 1) {
-            const keepDefault = defaultAgents[0]
-            const demoteDefaults = defaultAgents.slice(1)
-            await Promise.all(
-              demoteDefaults.map(agent => updateAgent(agent.id, { isDefault: false })),
-            )
-            nextAgents = data.map(agent =>
-              agent.id === keepDefault.id
-                ? keepDefault
-                : agent.isDefault
-                  ? { ...agent, isDefault: false }
-                  : agent,
-            )
-          }
-          const existingDefault = nextAgents.find(agent => agent.isDefault)
-          if (!existingDefault && !creatingDefaultAgentRef.current) {
-            creatingDefaultAgentRef.current = true
-            const { data: createdDefault, error: createError } = await createAgent({
-              name: 'Default Agent',
-              description: 'Fallback agent (non-editable).',
-              prompt: settings.systemPrompt || '',
-              emoji: '',
-              isDefault: true,
-              provider: 'gemini',
-              defaultModelProvider: 'gemini',
-              liteModelProvider: 'gemini',
-              liteModel: '',
-              defaultModel: '',
-              responseLanguage: settings.llmAnswerLanguage || '',
-              baseTone: settings.baseTone || '',
-              traits: settings.traits || '',
-              warmth: settings.warmth || '',
-              enthusiasm: settings.enthusiasm || '',
-              headings: settings.headings || '',
-              emojis: settings.emojis || '',
-              customInstruction: settings.customInstruction || '',
-              temperature: null,
-              topP: null,
-              frequencyPenalty: null,
-              presencePenalty: null,
-            })
-            if (!createError && createdDefault) {
-              nextAgents = [...data, createdDefault]
-            } else {
-              console.error('Create default agent failed:', createError)
-              creatingDefaultAgentRef.current = false
-            }
-          } else if (existingDefault) {
-            const patch = {}
-            if (!existingDefault.description) patch.description = 'Fallback agent (non-editable).'
-            if (!existingDefault.prompt && settings.systemPrompt)
-              patch.prompt = settings.systemPrompt
-            if (!existingDefault.responseLanguage && settings.llmAnswerLanguage)
-              patch.responseLanguage = settings.llmAnswerLanguage
-            if (!existingDefault.baseTone && settings.baseTone) patch.baseTone = settings.baseTone
-            if (!existingDefault.traits && settings.traits) patch.traits = settings.traits
-            if (!existingDefault.warmth && settings.warmth) patch.warmth = settings.warmth
-            if (!existingDefault.enthusiasm && settings.enthusiasm)
-              patch.enthusiasm = settings.enthusiasm
-            if (!existingDefault.headings && settings.headings) patch.headings = settings.headings
-            if (!existingDefault.emojis && settings.emojis) patch.emojis = settings.emojis
-            if (!existingDefault.customInstruction && settings.customInstruction)
-              patch.customInstruction = settings.customInstruction
-            if (Object.keys(patch).length > 0) {
-              const { data: updatedDefault, error: updateError } = await updateAgent(
-                existingDefault.id,
-                patch,
-              )
-              if (!updateError && updatedDefault) {
-                nextAgents = data.map(agent =>
-                  agent.id === updatedDefault.id ? updatedDefault : agent,
-                )
-              } else {
-                console.error('Update default agent failed:', updateError)
-              }
-            }
-          }
-          setAgents(nextAgents)
-        } else {
-          console.error('Failed to fetch agents:', error)
+  // Load agents from Supabase
+  const loadAgents = async () => {
+    setAgentsLoading(true)
+    try {
+      initSupabase()
+      const { data, error } = await listAgents()
+      if (!error && data) {
+        const settings = loadSettings()
+        let nextAgents = data.map(agent => ({
+          ...agent,
+          isDeepResearchSystem: isDeepResearchAgent(agent),
+          isDeepResearch: isDeepResearchAgent(agent),
+        }))
+        const defaultAgents = data.filter(agent => agent.isDefault)
+        if (defaultAgents.length > 1) {
+          const keepDefault = defaultAgents[0]
+          const demoteDefaults = defaultAgents.slice(1)
+          await Promise.all(
+            demoteDefaults.map(agent => updateAgent(agent.id, { isDefault: false })),
+          )
+          nextAgents = data.map(agent =>
+            agent.id === keepDefault.id
+              ? keepDefault
+              : agent.isDefault
+                ? { ...agent, isDefault: false }
+                : agent,
+          )
         }
-      } catch (err) {
-        console.error('Unexpected error fetching agents:', err)
-      } finally {
-        setAgentsLoading(false)
+        const existingDefault = nextAgents.find(agent => agent.isDefault)
+        if (!existingDefault && !creatingDefaultAgentRef.current) {
+          creatingDefaultAgentRef.current = true
+          const { data: createdDefault, error: createError } = await createAgent({
+            name: 'Default Agent',
+            description: 'Fallback agent (non-editable).',
+            prompt: settings.systemPrompt || '',
+            emoji: '',
+            isDefault: true,
+            provider: 'gemini',
+            defaultModelProvider: 'gemini',
+            liteModelProvider: 'gemini',
+            liteModel: '',
+            defaultModel: '',
+            responseLanguage: settings.llmAnswerLanguage || '',
+            baseTone: settings.baseTone || '',
+            traits: settings.traits || '',
+            warmth: settings.warmth || '',
+            enthusiasm: settings.enthusiasm || '',
+            headings: settings.headings || '',
+            emojis: settings.emojis || '',
+            customInstruction: settings.customInstruction || '',
+            temperature: null,
+            topP: null,
+            frequencyPenalty: null,
+            presencePenalty: null,
+          })
+          if (!createError && createdDefault) {
+            nextAgents = [...data, createdDefault]
+          } else {
+            console.error('Create default agent failed:', createError)
+            creatingDefaultAgentRef.current = false
+          }
+        } else if (existingDefault) {
+          const patch = {}
+          if (!existingDefault.description) patch.description = 'Fallback agent (non-editable).'
+          if (!existingDefault.prompt && settings.systemPrompt) patch.prompt = settings.systemPrompt
+          if (!existingDefault.responseLanguage && settings.llmAnswerLanguage)
+            patch.responseLanguage = settings.llmAnswerLanguage
+          if (!existingDefault.baseTone && settings.baseTone) patch.baseTone = settings.baseTone
+          if (!existingDefault.traits && settings.traits) patch.traits = settings.traits
+          if (!existingDefault.warmth && settings.warmth) patch.warmth = settings.warmth
+          if (!existingDefault.enthusiasm && settings.enthusiasm)
+            patch.enthusiasm = settings.enthusiasm
+          if (!existingDefault.headings && settings.headings) patch.headings = settings.headings
+          if (!existingDefault.emojis && settings.emojis) patch.emojis = settings.emojis
+          if (!existingDefault.customInstruction && settings.customInstruction)
+            patch.customInstruction = settings.customInstruction
+          if (Object.keys(patch).length > 0) {
+            const { data: updatedDefault, error: updateError } = await updateAgent(
+              existingDefault.id,
+              patch,
+            )
+            if (!updateError && updatedDefault) {
+              nextAgents = data.map(agent =>
+                agent.id === updatedDefault.id ? updatedDefault : agent,
+              )
+            } else {
+              console.error('Update default agent failed:', updateError)
+            }
+          }
+        }
+        setAgents(nextAgents)
+      } else {
+        console.error('Failed to fetch agents:', error)
       }
+    } catch (err) {
+      console.error('Unexpected error fetching agents:', err)
+    } finally {
+      setAgentsLoading(false)
     }
-    load()
+  }
+
+  // Load agents on mount and listen for changes
+  useEffect(() => {
+    loadAgents()
+
+    const handleAgentsChanged = () => loadAgents()
+    window.addEventListener('agents-changed', handleAgentsChanged)
+    return () => {
+      window.removeEventListener('agents-changed', handleAgentsChanged)
+    }
   }, [])
 
   const ensuringDeepResearchRef = useRef(false)

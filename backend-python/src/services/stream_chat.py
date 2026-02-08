@@ -780,6 +780,45 @@ class StreamChatService:
             
             logger.info(f"Continuing HITL run {run_id} with field_values: {list(field_values.keys())}")
             
+            # 1. Fetch Session Summary from DB
+            session_summary_text = None
+            old_summary_json = None
+            if request.conversation_id:
+                try:
+                    from ..models.db import DbFilter, DbQueryRequest
+                    from .db_service import execute_db_async, get_db_adapter
+                    
+                    adapter = get_db_adapter(request.database_provider)
+                    if adapter:
+                        req = DbQueryRequest(
+                            providerId=adapter.config.id,
+                            action="select",
+                            table="conversations",
+                            columns=["session_summary"],
+                            filters=[DbFilter(op="eq", column="id", value=request.conversation_id)],
+                            maybeSingle=True,
+                        )
+                        
+                        result = await execute_db_async(adapter, req)
+                        
+                        if result.data and isinstance(result.data, dict):
+                            row = result.data
+                            raw_summary = row.get("session_summary")
+                            
+                            if raw_summary:
+                                if isinstance(raw_summary, str):
+                                    try:
+                                        old_summary_json = json.loads(raw_summary)
+                                    except:
+                                        pass
+                                elif isinstance(raw_summary, dict):
+                                    old_summary_json = raw_summary
+                                
+                                if old_summary_json:
+                                    session_summary_text = old_summary_json.get("summary")
+                except Exception as e:
+                    logger.warning(f"Failed to fetch session summary in HITL flow: {e}")
+            
             # Retrieve requirements from Supabase
             hitl_storage = get_hitl_storage(request.database_provider)
             pending = await hitl_storage.get_pending_run(run_id)
@@ -1226,6 +1265,34 @@ class StreamChatService:
                 logger.info(f"HITL run {run_id} completed and cleaned up")
             else:
                 logger.info(f"HITL run {run_id} paused again (multi-form), skipping cleanup")
+
+            # 6. Trigger Async Session Summary Update
+            if request.conversation_id and not paused_again:
+                # For HITL resumption, we treat the form submission as the "user" part of the turn
+                # and the new assistant message as the completion.
+                summary_messages = []
+                
+                # Use a combined message for the form submission to provide context to the summarizer
+                form_submission_text = f"[Form Submitted] Values: {json.dumps(field_values)}"
+                summary_messages.append({"role": "user", "content": form_submission_text})
+                summary_messages.append({"role": "assistant", "content": full_content})
+                
+                logger.info(f"Triggering async summary update for {request.conversation_id} (Resumed HITL flow)")
+                asyncio.create_task(update_session_summary(
+                    conversation_id=request.conversation_id,
+                    old_summary=old_summary_json,
+                    new_messages=summary_messages,
+                    database_provider=request.database_provider,
+                    memory_provider=request.memory_provider,
+                    memory_model=request.memory_model,
+                    memory_api_key=request.memory_api_key,
+                    memory_base_url=request.memory_base_url,
+                    summary_provider=request.summary_provider,
+                    summary_model=request.summary_model,
+                    summary_api_key=request.summary_api_key,
+                    summary_base_url=request.summary_base_url,
+                    rebuild_from_scratch=False, # HITL resumption is usually incremental
+                ))
 
         except Exception as exc:
             import traceback

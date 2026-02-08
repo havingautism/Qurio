@@ -35,7 +35,8 @@ export const getModelConfigForAgent = (
       task === 'generateResearchPlan' ||
       task === 'generateDocumentQuery' ||
       task === 'generateMemoryQuery' ||
-      task === 'sessionContentSummary'
+      task === 'sessionContentSummary' ||
+      task === 'lite'
 
     const model = isLiteTask ? liteModel || defaultModel : defaultModel || liteModel
     const provider = isLiteTask
@@ -51,6 +52,32 @@ export const getModelConfigForAgent = (
 
   const fallback = resolveFromAgent(fallbackAgent)
   if (fallback) return fallback
+
+  // Global settings fallback
+  const isLiteTask =
+    task === 'generateTitle' ||
+    task === 'generateTitleAndSpace' ||
+    task === 'generateRelatedQuestions' ||
+    task === 'generateResearchPlan' ||
+    task === 'generateDocumentQuery' ||
+    task === 'generateMemoryQuery' ||
+    task === 'sessionContentSummary' ||
+    task === 'lite'
+
+  const globalModel = isLiteTask
+    ? settings?.liteModel || settings?.defaultModel
+    : settings?.defaultModel
+
+  const globalProvider = isLiteTask
+    ? settings?.liteModelProvider || settings?.defaultModelProvider || settings?.apiProvider
+    : settings?.defaultModelProvider || settings?.apiProvider
+
+  if (globalModel) {
+    return {
+      provider: globalProvider || fallbackAgent?.provider || '',
+      model: globalModel,
+    }
+  }
 
   return {
     provider: fallbackAgent?.provider || '',

@@ -432,9 +432,13 @@ h6 {
   /* margin-bottom: 0.85em !important; */
 }
 
-/* .message-content p:last-child {
-  margin-bottom: 1em !important;
-} */
+.message-content p:first-child:last-child {
+  margin-bottom: 0px !important;
+}
+
+.message-content p:last-child {
+  margin-bottom: 0px !important;
+}
 
 /* Custom Scrollbar for Tables - Horizontal always visible */
 .table-scrollbar::-webkit-scrollbar {

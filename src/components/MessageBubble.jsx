@@ -184,6 +184,10 @@ const MessageBubble = ({
   // Simple message reference (no more merging hacks!)
   const mergedMessage = message
 
+  const isStreamingMessage =
+    mergedMessage?.isStreaming ??
+    (isLoading && mergedMessage?.role === 'ai' && messageIndex === messages.length - 1)
+
   // Re-derive form status based on the latest tool call state
   const toolCallHistory = Array.isArray(mergedMessage?.toolCallHistory)
     ? mergedMessage.toolCallHistory
@@ -562,11 +566,9 @@ const MessageBubble = ({
   const interleavedContent = useMemo(() => {
     const rawContent = mainContent || ''
     const parts = []
-    const canUsePersistedStreamBlocks =
-      !isDeepResearch &&
-      normalizedStreamBlocks.length > 0 &&
-      toolCallHistory.length === 0 &&
-      positionedThoughtBlocks.length === 0
+    const hasLiveRuntimeOrdering =
+      isStreamingMessage && (toolCallHistory.length > 0 || positionedThoughtBlocks.length > 0)
+    const canUsePersistedStreamBlocks = normalizedStreamBlocks.length > 0 && !hasLiveRuntimeOrdering
 
     if (canUsePersistedStreamBlocks) {
       for (const block of normalizedStreamBlocks) {
@@ -575,7 +577,7 @@ const MessageBubble = ({
           continue
         }
         if (block.type === 'reasoning' || block.type === 'thought') {
-          if (block.content) {
+          if (!isDeepResearch && block.content) {
             parts.push({
               type: 'thought',
               key: `stream-thought-${block.seq}`,
@@ -674,6 +676,7 @@ const MessageBubble = ({
     toolCallHistory,
     positionedThoughtBlocks,
     isDeepResearch,
+    isStreamingMessage,
     normalizedStreamBlocks,
   ])
 
@@ -1073,9 +1076,7 @@ const MessageBubble = ({
     [mergedMessage.sources, t],
   )
 
-  const isStreaming =
-    message?.isStreaming ??
-    (isLoading && message.role === 'ai' && messageIndex === messages.length - 1)
+  const isStreaming = isStreamingMessage
   const hasMainText = (() => {
     const content = message?.content
     if (typeof content === 'string') return content.trim().length > 0
@@ -1235,9 +1236,9 @@ const MessageBubble = ({
           {parseChildrenWithEmojis(children)}
         </p>
       ),
-      h1: createHeadingComponent('h1', 'text-2xl font-bold mb-4 mt-4', false),
-      h2: createHeadingComponent('h2', 'text-xl font-bold mb-3 mt-3', false),
-      h3: createHeadingComponent('h3', 'text-lg font-bold mb-2 mt-2', false),
+      h1: createHeadingComponent('h1', 'text-2xl font-bold mb-4', false),
+      h2: createHeadingComponent('h2', 'text-xl font-bold mb-4', false),
+      h3: createHeadingComponent('h3', 'text-lg font-bold mb-4', false),
       ul: ({ ...props }) => <ul className="mb-4 list-disc space-y-1 pl-5" {...props} />,
       ol: ({ ...props }) => <ol className="mb-4 list-decimal space-y-1 pl-5" {...props} />,
       li: ({ children, ...props }) => (
@@ -1324,7 +1325,7 @@ const MessageBubble = ({
         return <img src={safeSrc} alt={typeof alt === 'string' ? alt : ''} {...props} />
       },
       hr: () => (
-        <div className="relative my-6">
+        <div className="relative my-4">
           <div className="h-px bg-linear-to-r from-transparent via-gray-300 to-transparent dark:via-zinc-700" />
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
             <div className="h-2.5 w-2.5 rounded-full bg-gray-200 shadow-sm ring-2 ring-white dark:bg-zinc-700 dark:ring-zinc-900" />
@@ -1356,8 +1357,8 @@ const MessageBubble = ({
     return {
       ...markdownComponents,
       h1: createLocalHeading('h1', 'text-2xl font-bold mb-4 mt-4'),
-      h2: createLocalHeading('h2', 'text-xl font-bold mb-3 mt-3'),
-      h3: createLocalHeading('h3', 'text-lg font-bold mb-2 mt-2'),
+      h2: createLocalHeading('h2', 'text-xl font-bold mb-4'),
+      h3: createLocalHeading('h3', 'text-lg font-bold mb-4'),
     }
   }, [markdownComponents, messageIndex, parseChildrenWithEmojis])
 

@@ -1,6 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { listSpaceAgents } from '../../lib/spacesService'
 
+const sameStringArray = (a, b) => {
+  if (a === b) return true
+  if (!Array.isArray(a) || !Array.isArray(b)) return false
+  if (a.length !== b.length) return false
+  for (let i = 0; i < a.length; i += 1) {
+    if (String(a[i]) !== String(b[i])) return false
+  }
+  return true
+}
+
 /**
  * useAgentManagement Hook
  * Manages agent selection, space agents loading, and agent switching logic
@@ -59,7 +69,6 @@ const useAgentManagement = ({
   const [spaceAgentIds, setSpaceAgentIds] = useState([])
   const [spacePrimaryAgentId, setSpacePrimaryAgentId] = useState(null)
   const [isAgentsLoading, setIsAgentsLoading] = useState(false)
-  const [agentLoadingDots, setAgentLoadingDots] = useState('')
   const [selectedAgentId, setSelectedAgentId] = useState(null)
   const [isAgentAutoMode, setIsAgentAutoMode] = useState(() => {
     if (isPlaceholderConversation) return initialIsAgentAutoMode
@@ -83,38 +92,35 @@ const useAgentManagement = ({
   // Function to reload space agents
   const reloadSpaceAgents = useCallback(async () => {
     if (!displaySpace?.id) {
-      setSpaceAgentIds([])
-      setSpacePrimaryAgentId(null)
-      setIsAgentsLoading(false)
+      setSpaceAgentIds(prev => (prev.length === 0 ? prev : []))
+      setSpacePrimaryAgentId(prev => (prev === null ? prev : null))
+      setIsAgentsLoading(prev => (prev ? false : prev))
       return
     }
 
     setIsAgentsLoading(true)
-    setAgentLoadingDots('')
-    const dotsInterval = setInterval(() => {
-      setAgentLoadingDots(prev => (prev.length >= 3 ? '' : prev + '.'))
-    }, 500)
 
     try {
       const { data, error } = await listSpaceAgents(displaySpace.id)
-      clearInterval(dotsInterval)
-      setAgentLoadingDots('')
 
       if (!error && data) {
         const ids = data.map(a => String(a.agent_id))
         const primary = data.find(a => a.is_primary)
-        setSpaceAgentIds(ids)
-        setSpacePrimaryAgentId(primary?.agent_id || null)
+        setSpaceAgentIds(prev => (sameStringArray(prev, ids) ? prev : ids))
+        setSpacePrimaryAgentId(prev => {
+          const nextPrimary = primary?.agent_id || null
+          return prev === nextPrimary ? prev : nextPrimary
+        })
       } else {
-        setSpaceAgentIds([])
-        setSpacePrimaryAgentId(null)
+        setSpaceAgentIds(prev => (prev.length === 0 ? prev : []))
+        setSpacePrimaryAgentId(prev => (prev === null ? prev : null))
       }
     } catch (err) {
       console.error('Failed to load space agents:', err)
-      setSpaceAgentIds([])
-      setSpacePrimaryAgentId(null)
+      setSpaceAgentIds(prev => (prev.length === 0 ? prev : []))
+      setSpacePrimaryAgentId(prev => (prev === null ? prev : null))
     } finally {
-      setIsAgentsLoading(false)
+      setIsAgentsLoading(prev => (prev ? false : prev))
     }
   }, [displaySpace?.id])
 
@@ -140,18 +146,7 @@ const useAgentManagement = ({
 
   // Agent resolving animation: animates dots when agents are loading, pending, or preselecting
   const isAgentResolving = isAgentsLoading || pendingAgentId !== null || isAgentPreselecting
-  useEffect(() => {
-    if (!isAgentResolving) {
-      setAgentLoadingDots('')
-      return
-    }
-    let step = 0
-    const interval = setInterval(() => {
-      step = (step + 1) % 4
-      setAgentLoadingDots('.'.repeat(step))
-    }, 450)
-    return () => clearInterval(interval)
-  }, [isAgentResolving])
+  const agentLoadingDots = ''
 
   // Computed agents loading label with animated dots
   const agentsLoadingLabel = useMemo(() => {

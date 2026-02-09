@@ -176,63 +176,13 @@ const toLangChainMessages = messages => {
 //   }))
 
 /**
- * Creates a handler function for parsing tagged text blocks (think/thought tags).
- * Separates regular text from thought content based on XML-like tags.
- * @param {Object} params - Object containing emitText and emitThought callbacks
- * @param {Function} params.emitText - Callback for regular text content
- * @param {Function} params.emitThought - Callback for thought content
- * @returns {Function} - Handler function that processes tagged text
- */
-const handleTaggedTextFactory = ({ emitText, emitThought }) => {
-  let inThoughtBlock = false
-  return text => {
-    let remaining = text
-    while (remaining) {
-      if (!inThoughtBlock) {
-        const matchIndex = remaining.search(/<think>|<thought>/i)
-        if (matchIndex === -1) {
-          emitText(remaining)
-          return
-        }
-        emitText(remaining.slice(0, matchIndex))
-        remaining = remaining.slice(matchIndex)
-        const openMatch = remaining.match(/^<(think|thought)>/i)
-        if (openMatch) {
-          remaining = remaining.slice(openMatch[0].length)
-          inThoughtBlock = true
-        } else {
-          emitText(remaining)
-          return
-        }
-      } else {
-        const matchIndex = remaining.search(/<\/think>|<\/thought>/i)
-        if (matchIndex === -1) {
-          emitThought(remaining)
-          return
-        }
-        emitThought(remaining.slice(0, matchIndex))
-        remaining = remaining.slice(matchIndex)
-        const closeMatch = remaining.match(/^<\/(think|thought)>/i)
-        if (closeMatch) {
-          remaining = remaining.slice(closeMatch[0].length)
-          inThoughtBlock = false
-        } else {
-          emitThought(remaining)
-          return
-        }
-      }
-    }
-  }
-}
-
-/**
  * Parses Gemini response parts, extracting text and thought content.
  * Handles parts marked with the 'thought' property separately.
  * @param {Array} parts - Array of Gemini response parts
- * @param {Object} handlers - Object containing emitText, emitThought, and handleTaggedText callbacks
+ * @param {Object} handlers - Object containing emitText and emitThought callbacks
  * @returns {boolean} - True if any text was processed, false otherwise
  */
-const parseGeminiParts = (parts, { emitText, emitThought, handleTaggedText }) => {
+const parseGeminiParts = (parts, { emitText, emitThought }) => {
   if (!Array.isArray(parts)) return false
   let sawAny = false
   for (const part of parts) {
@@ -242,7 +192,7 @@ const parseGeminiParts = (parts, { emitText, emitThought, handleTaggedText }) =>
     if (part?.thought) {
       emitThought(text)
     } else {
-      handleTaggedText(text)
+      emitText(text)
     }
   }
   return sawAny
@@ -962,8 +912,6 @@ const streamOpenAICompatRaw = async ({
     onChunk?.({ type: 'thought', content: text })
   }
 
-  const handleTaggedText = handleTaggedTextFactory({ emitText, emitThought })
-
   try {
     while (true) {
       const { done, value } = await reader.read()
@@ -1003,7 +951,7 @@ const streamOpenAICompatRaw = async ({
             emitThought(String(reasoningContent))
           }
           if (delta?.content) {
-            handleTaggedText(delta.content)
+            emitText(delta.content)
           }
           if (delta?.tool_calls) {
             updateToolCallsMap(toolCallsMap, delta.tool_calls)
@@ -1182,8 +1130,6 @@ const streamWithLangChain = async ({
     onChunk?.({ type: 'thought', content: text })
   }
 
-  const handleTaggedText = handleTaggedTextFactory({ emitText, emitThought })
-
   try {
     if (provider === 'gemini') {
       const payload = buildGeminiPayload({
@@ -1213,7 +1159,7 @@ const streamWithLangChain = async ({
           if (part?.thought) {
             emitThought(text)
           } else {
-            handleTaggedText(text)
+            emitText(text)
           }
         }
       }
@@ -1262,7 +1208,6 @@ const streamWithLangChain = async ({
         const parsed = parseGeminiParts(contentValue, {
           emitText,
           emitThought,
-          handleTaggedText,
         })
         if (parsed) continue
       }
@@ -1270,7 +1215,7 @@ const streamWithLangChain = async ({
       const chunkText = normalizeTextContent(contentValue)
 
       if (chunkText) {
-        handleTaggedText(chunkText)
+        emitText(chunkText)
       }
 
       const toolCalls = messageChunk?.additional_kwargs?.tool_calls

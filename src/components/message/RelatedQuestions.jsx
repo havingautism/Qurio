@@ -17,7 +17,7 @@ const RelatedQuestions = ({ t, questions, isLoading, onRelatedClick }) => {
         entered ? 'max-h-[420px] opacity-100' : 'max-h-0 opacity-0'
       }`}
     >
-      <div className="mb-3 flex items-center gap-3 text-gray-900 dark:text-gray-100">
+      <div className="mb-4 flex items-center gap-3 text-gray-900 dark:text-gray-100">
         <EmojiDisplay emoji="🔮" size="1.2em" className="mb-1" />
         <span className="text-sm font-semibold">{t('messageBubble.relatedQuestions')}</span>
       </div>

@@ -17,6 +17,7 @@ import {
   Terminal,
   X,
   Database,
+  ChevronDown,
 } from 'lucide-react'
 import {
   Select,
@@ -42,6 +43,7 @@ import { useAppContext } from '../App'
 import { upsertMemoryDomainSummary, ensureLongTermMemoryIndex } from '../lib/longTermMemoryService'
 import { getProvider } from '../lib/providers'
 import MemoryTable from './MemoryTable'
+import { useToast } from '../contexts/ToastContext'
 
 const ENV_VARS = {
   supabaseUrl: getPublicEnv('PUBLIC_SUPABASE_URL'),
@@ -193,14 +195,21 @@ CREATE TABLE IF NOT EXISTS public.conversation_messages (
   agent_is_default BOOLEAN NOT NULL DEFAULT FALSE,
   thinking_process TEXT,
   tool_calls JSONB,
+  tool_call_history JSONB NOT NULL DEFAULT '[]'::jsonb,
+  research_step_history JSONB NOT NULL DEFAULT '[]'::jsonb,
   related_questions JSONB,
   sources JSONB,
+  document_sources JSONB DEFAULT '[]'::jsonb,
   grounding_supports JSONB,
+  stream_blocks JSONB NOT NULL DEFAULT '[]'::jsonb,
+  stream_schema_version SMALLINT NOT NULL DEFAULT 1,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_messages_conversation_created_at
   ON public.conversation_messages(conversation_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_messages_stream_blocks_gin
+  ON public.conversation_messages USING GIN (stream_blocks);
 
 CREATE TRIGGER trg_messages_touch_conversation
 AFTER INSERT OR UPDATE ON public.conversation_messages
@@ -537,7 +546,8 @@ const getEnvManagedSettingKeys = () => {
 const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
-  const { defaultAgent } = useAppContext()
+  const { defaultAgent, showConfirmation } = useAppContext()
+  const toast = useToast()
 
   const renderEnvHint = hasEnv =>
     hasEnv ? (
@@ -586,9 +596,21 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
   const [interfaceLanguage, setInterfaceLanguage] = useState('en')
   const [followInterfaceLanguage, setFollowInterfaceLanguage] = useState(false)
   const [enableLongTermMemory, setEnableLongTermMemory] = useState(false)
+  const [defaultModel, setDefaultModel] = useState('')
+  const [liteModel, setLiteModel] = useState('')
+  const [defaultModelProvider, setDefaultModelProvider] = useState('')
+  const [liteModelProvider, setLiteModelProvider] = useState('')
+  const [defaultModelSource, setDefaultModelSource] = useState('list')
+  const [liteModelSource, setLiteModelSource] = useState('list')
+  const [defaultCustomModel, setDefaultCustomModel] = useState('')
+  const [liteCustomModel, setLiteCustomModel] = useState('')
+  const [defaultTestAction, setDefaultTestAction] = useState({ status: 'idle', message: '' })
+  const [liteTestAction, setLiteTestAction] = useState({ status: 'idle', message: '' })
 
   const [embeddingProvider, setEmbeddingProvider] = useState('')
   const [embeddingModel, setEmbeddingModel] = useState('')
+  const [chatGroupedModels, setChatGroupedModels] = useState({})
+  const [isChatModelsLoading, setIsChatModelsLoading] = useState(false)
   const [embeddingModelSource, setEmbeddingModelSource] = useState('list')
   const [embeddingCustomModel, setEmbeddingCustomModel] = useState('')
   const [embeddingGroupedModels, setEmbeddingGroupedModels] = useState({})
@@ -826,6 +848,15 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
         setFollowInterfaceLanguage(settings.followInterfaceLanguage)
       if (typeof settings.enableLongTermMemory === 'boolean')
         setEnableLongTermMemory(settings.enableLongTermMemory)
+      if (settings.defaultModel) setDefaultModel(settings.defaultModel)
+      if (settings.liteModel) setLiteModel(settings.liteModel)
+      if (settings.defaultModelProvider) setDefaultModelProvider(settings.defaultModelProvider)
+      if (settings.liteModelProvider) setLiteModelProvider(settings.liteModelProvider)
+      if (settings.defaultModelSource) setDefaultModelSource(settings.defaultModelSource)
+      if (settings.liteModelSource) setLiteModelSource(settings.liteModelSource)
+      if (settings.defaultModelSource === 'custom')
+        setDefaultCustomModel(settings.defaultModel || '')
+      if (settings.liteModelSource === 'custom') setLiteCustomModel(settings.liteModel || '')
 
       if (settings.embeddingProvider) setEmbeddingProvider(settings.embeddingProvider)
       if (settings.embeddingModelSource)
@@ -1427,11 +1458,495 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
     setEmbeddingModelsLoading(false)
   }
 
+  const findProviderForModel = modelId => {
+    if (!modelId) return ''
+    for (const [pKey, models] of Object.entries(chatGroupedModels)) {
+      if (models.some(m => m.value === modelId)) return pKey
+    }
+    return ''
+  }
+
+  const getModelLabel = modelId => {
+    if (!modelId) return t('agents.model.notSelected')
+    const match = Object.values(chatGroupedModels)
+      .flat()
+      .find(m => m.value === modelId)
+    if (match) return match.label
+    return t('agents.model.notFound')
+  }
+
+  const resolveProvider = (modelId, fallback, modelSource, explicitProvider) => {
+    if (!modelId) return fallback || ''
+    if (explicitProvider) return explicitProvider
+    if (modelSource && modelSource !== 'list') return fallback || ''
+    const derived = findProviderForModel(modelId)
+    return derived || fallback || ''
+  }
+
+  const parseJsonFromText = text => {
+    if (!text || typeof text !== 'string') return null
+    const trimmed = text.trim()
+    const cleaned = trimmed
+      .replace(/^```(?:json)?/i, '')
+      .replace(/```$/i, '')
+      .trim()
+    const normalizePythonishJson = input => {
+      return input
+        .replace(/\bTrue\b/g, 'true')
+        .replace(/\bFalse\b/g, 'false')
+        .replace(/\bNone\b/g, 'null')
+        .replace(/'([^'\\]*(?:\\.[^'\\]*)*)'/g, (_, value) => `"${value.replace(/"/g, '\\"')}"`)
+    }
+    try {
+      return JSON.parse(cleaned)
+    } catch {
+      const match = cleaned.match(/\{[\s\S]*\}|\[[\s\S]*\]/)
+      if (!match) return null
+      const raw = match[0]
+      try {
+        return JSON.parse(raw)
+      } catch {
+        try {
+          return JSON.parse(normalizePythonishJson(raw))
+        } catch {
+          return null
+        }
+      }
+    }
+  }
+
+  const runModelTest = async ({ modelId, providerKey, structured }) => {
+    if (!modelId) {
+      throw new Error(t('agents.model.testMissingModel'))
+    }
+    const providerAdapter = getProvider(providerKey)
+    const settings = loadSettings()
+    const credentials = providerAdapter?.getCredentials?.(settings) || {}
+    const apiKey = credentials.apiKey
+    if (!apiKey) {
+      throw new Error(t('agents.model.testMissingKey'))
+    }
+    const responseFormat =
+      structured && providerKey !== 'gemini' ? { type: 'json_object' } : undefined
+    const prompt = structured
+      ? 'Return a JSON object with keys "ok" and "echo". Set ok to true.'
+      : 'Reply with "pong".'
+
+    return new Promise((resolve, reject) => {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => {
+        controller.abort()
+        reject(new Error(t('agents.model.testTimeout')))
+      }, 20000)
+
+      providerAdapter
+        .streamChatCompletion({
+          apiKey,
+          baseUrl: credentials.baseUrl,
+          model: modelId,
+          messages: [{ role: 'user', content: prompt }],
+          responseFormat,
+          stream: false,
+          temperature: 0,
+          onFinish: result => {
+            clearTimeout(timeoutId)
+            resolve(result?.content || '')
+          },
+          onError: err => {
+            clearTimeout(timeoutId)
+            reject(err)
+          },
+          signal: controller.signal,
+        })
+        .catch(err => {
+          clearTimeout(timeoutId)
+          reject(err)
+        })
+    })
+  }
+
+  const handleDefaultModelTest = async () => {
+    const modelToTest = defaultModelSource === 'list' ? defaultModel : defaultCustomModel
+    const resolvedProvider = resolveProvider(
+      modelToTest,
+      defaultModelProvider || apiProvider,
+      defaultModelSource,
+      defaultModelProvider,
+    )
+    setDefaultTestAction({ status: 'loading', message: t('agents.model.testing') })
+    try {
+      await runModelTest({
+        modelId: modelToTest,
+        providerKey: resolvedProvider,
+        structured: false,
+      })
+      setDefaultTestAction({ status: 'success', message: t('agents.model.testConnectivityOk') })
+    } catch (err) {
+      setDefaultTestAction({
+        status: 'error',
+        message: t('agents.model.testFailed', { message: err?.message || 'Unknown error' }),
+      })
+    }
+  }
+
+  const handleLiteModelTest = async () => {
+    const modelToTest = liteModelSource === 'list' ? liteModel : liteCustomModel
+    const resolvedProvider = resolveProvider(
+      modelToTest,
+      liteModelProvider || apiProvider,
+      liteModelSource,
+      liteModelProvider,
+    )
+    setLiteTestAction({ status: 'loading', message: t('agents.model.testing') })
+    try {
+      await runModelTest({
+        modelId: modelToTest,
+        providerKey: resolvedProvider,
+        structured: false,
+      })
+      const structuredText = await runModelTest({
+        modelId: modelToTest,
+        providerKey: resolvedProvider,
+        structured: true,
+      })
+      const parsed = parseJsonFromText(structuredText)
+      if (!parsed) {
+        throw new Error(t('agents.model.testInvalidJson'))
+      }
+      setLiteTestAction({
+        status: 'success',
+        message: `${t('agents.model.testConnectivityOk')} • ${t('agents.model.testStructuredOk')}`,
+      })
+    } catch (err) {
+      setLiteTestAction({
+        status: 'error',
+        message: t('agents.model.testFailed', { message: err?.message || 'Unknown error' }),
+      })
+    }
+  }
+
+  const renderModelPicker = ({
+    label,
+    hint,
+    value,
+    onChange,
+    activeProvider,
+    onProviderChange,
+    customValue,
+    onCustomValueChange,
+    modelSource,
+    onModelSourceChange,
+    allowEmpty = false,
+    hideProviderSelector = false,
+    testAction,
+  }) => {
+    const providers = PROVIDER_KEYS
+    const activeModels = chatGroupedModels[activeProvider] || []
+    const selectedLabel = getModelLabel(value)
+    const showList = modelSource === 'list'
+    const displayLabel = showList ? selectedLabel : customValue || value || t('agents.model.custom')
+
+    return (
+      <div className="space-y-3">
+        <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
+          <div className="flex w-full flex-col gap-2 sm:w-auto">
+            <div className="flex w-full flex-wrap items-center gap-3">
+              <label className="shrink-0 text-sm font-medium text-gray-700 dark:text-gray-300">
+                {label}
+              </label>
+
+              <div className="flex rounded-lg border border-gray-200 bg-gray-100 p-0.5 dark:border-zinc-700 dark:bg-zinc-800">
+                <button
+                  type="button"
+                  onClick={() => {
+                    onModelSourceChange('list')
+                    const existsInList = activeModels.some(m => m.value === value)
+                    if (!existsInList) onChange('')
+                  }}
+                  className={clsx(
+                    'rounded-md px-3 py-1 text-xs font-medium transition-all',
+                    modelSource === 'list'
+                      ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-gray-100'
+                      : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300',
+                  )}
+                >
+                  {t('agents.model.sourceList')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onModelSourceChange('custom')
+                    const nextValue = value || customValue || ''
+                    onCustomValueChange(nextValue)
+                    onChange(nextValue)
+                  }}
+                  className={clsx(
+                    'rounded-md px-3 py-1 text-xs font-medium transition-all',
+                    modelSource === 'custom'
+                      ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-gray-100'
+                      : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300',
+                  )}
+                >
+                  {t('agents.model.sourceCustom')}
+                </button>
+              </div>
+
+              {testAction && (
+                <button
+                  type="button"
+                  onClick={testAction.onClick}
+                  disabled={testAction.status === 'loading'}
+                  className="bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400 border-primary-200 dark:border-primary-800 hover:bg-primary-100 dark:hover:bg-primary-900/40 ml-auto flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-60 sm:ml-0"
+                >
+                  {testAction.status === 'loading' && (
+                    <RefreshCw size={12} className="animate-spin" />
+                  )}
+                  {testAction.status === 'loading' ? t('agents.model.testing') : testAction.label}
+                </button>
+              )}
+            </div>
+
+            {hint && <p className="max-w-2xl text-xs text-gray-500 dark:text-gray-400">{hint}</p>}
+            {testAction?.message && (
+              <p
+                className={clsx(
+                  'flex items-center gap-1.5 text-xs',
+                  testAction.status === 'error'
+                    ? 'text-red-500'
+                    : testAction.status === 'success'
+                      ? 'text-emerald-500'
+                      : 'text-gray-500 dark:text-gray-400',
+                )}
+              >
+                {testAction.status === 'success' && <Check size={12} />}
+                {testAction.status === 'error' && <X size={12} />}
+                {testAction.message}
+              </p>
+            )}
+          </div>
+          <span className="mt-1 w-full truncate text-left text-xs text-gray-500 sm:mt-0 sm:w-auto sm:text-right dark:text-gray-400">
+            {displayLabel}
+          </span>
+        </div>
+        <div className="rounded-lg border border-gray-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900">
+          <div className="flex flex-col gap-3">
+            {!hideProviderSelector && (
+              <div className="relative flex flex-col gap-2">
+                <span className="text-xs font-semibold tracking-wide text-gray-400 uppercase">
+                  {t('agents.model.providers')}
+                </span>
+                <Select
+                  value={activeProvider}
+                  onValueChange={val => {
+                    onProviderChange(val)
+                    if (modelSource === 'list' && val !== activeProvider) {
+                      onChange('')
+                    }
+                  }}
+                >
+                  <SelectTrigger className="h-10 w-full">
+                    <SelectValue>
+                      <div className="flex items-center gap-3">
+                        {renderProviderIcon(activeProvider, {
+                          size: 16,
+                          alt: t(`settings.providers.${activeProvider}`),
+                        })}
+                        <span>{t(`settings.providers.${activeProvider}`)}</span>
+                      </div>
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {providers.map(key => (
+                      <SelectItem key={key} value={key}>
+                        <div className="flex items-center gap-3">
+                          {renderProviderIcon(key, {
+                            size: 16,
+                            alt: t(`settings.providers.${key}`),
+                          })}
+                          <span>{t(`settings.providers.${key}`)}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <div className="flex flex-col gap-2">
+              <span className="text-xs font-semibold tracking-wide text-gray-400 uppercase">
+                {t('agents.model.models')}
+              </span>
+              {showList ? (
+                <Select
+                  value={value || (allowEmpty ? '__none__' : undefined)}
+                  onValueChange={val => onChange(val === '__none__' ? '' : val)}
+                  disabled={!activeModels.length && !allowEmpty}
+                >
+                  <SelectTrigger className="h-10 w-full">
+                    <SelectValue placeholder={t('agents.model.notSelected')}>
+                      <div className="flex items-center gap-2 truncate">
+                        {getModelIcon(value) && (
+                          <img
+                            src={getModelIcon(value)}
+                            alt=""
+                            className={clsx('h-4 w-4 shrink-0', getModelIconClassName(value))}
+                          />
+                        )}
+                        <span className="truncate">
+                          {value === ''
+                            ? t('agents.model.none')
+                            : activeModels.find(m => m.value === value)?.label ||
+                              value ||
+                              t('agents.model.notSelected')}
+                        </span>
+                      </div>
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allowEmpty && (
+                      <SelectItem value="__none__">
+                        <span className="text-gray-500">{t('agents.model.none')}</span>
+                      </SelectItem>
+                    )}
+                    {activeModels.length > 0 ? (
+                      activeModels.map(model => (
+                        <SelectItem key={model.value} value={model.value}>
+                          <div className="flex items-center gap-2 truncate">
+                            {getModelIcon(model.value) && (
+                              <img
+                                src={getModelIcon(model.value)}
+                                alt=""
+                                className={clsx('h-4 w-4', getModelIconClassName(model.value))}
+                              />
+                            )}
+                            <span className="truncate">{model.label}</span>
+                          </div>
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <div className="px-2 py-2 text-center text-sm text-gray-500 dark:text-gray-400">
+                        {t('agents.model.noModels')}
+                      </div>
+                    )}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <input
+                  value={customValue}
+                  onChange={e => {
+                    const nextVal = e.target.value
+                    onCustomValueChange(nextVal)
+                    onChange(nextVal)
+                  }}
+                  placeholder={t('agents.model.customPlaceholder')}
+                  className="focus:ring-primary-500 focus:border-primary-500 block h-10 w-full rounded-md border-gray-200 px-3 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+                />
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  const loadChatModels = async () => {
+    setIsChatModelsLoading(true)
+    const keys = {
+      gemini: googleApiKey || ENV_VARS.googleApiKey,
+      openai_compatibility: OpenAICompatibilityKey || ENV_VARS.openAIKey,
+      openai_compatibility_url: OpenAICompatibilityUrl || ENV_VARS.openAIBaseUrl,
+      siliconflow: SiliconFlowKey || ENV_VARS.siliconFlowKey,
+      nvidia: NvidiaKey,
+      minimax: MinimaxKey,
+      glm: GlmKey || ENV_VARS.glmKey,
+      modelscope: ModelScopeKey || ENV_VARS.modelscopeKey,
+      kimi: KimiKey || ENV_VARS.kimiKey,
+    }
+
+    const grouped = {}
+    const promises = PROVIDER_KEYS.map(async key => {
+      let credentials = {}
+      if (key === 'gemini') credentials = { apiKey: keys.gemini }
+      else if (key === 'siliconflow')
+        credentials = { apiKey: keys.siliconflow, baseUrl: SILICONFLOW_BASE_URL }
+      else if (key === 'nvidia')
+        credentials = { apiKey: keys.nvidia, baseUrl: 'https://integrate.api.nvidia.com/v1' }
+      else if (key === 'glm') credentials = { apiKey: keys.glm }
+      else if (key === 'modelscope') credentials = { apiKey: keys.modelscope }
+      else if (key === 'kimi') credentials = { apiKey: keys.kimi }
+      else if (key === 'openai_compatibility')
+        credentials = { apiKey: keys.openai_compatibility, baseUrl: keys.openai_compatibility_url }
+
+      if (!credentials.apiKey) return null
+
+      try {
+        const models = await getModelsForProvider(key, credentials)
+        return { key, models: Array.isArray(models) ? models : [] }
+      } catch (err) {
+        console.error(`Failed to fetch chat models for ${key}`, err)
+        return null
+      }
+    })
+
+    const results = (await Promise.all(promises)).filter(Boolean)
+    results.forEach(({ key, models }) => {
+      if (models.length > 0) {
+        grouped[key] = models
+      }
+    })
+
+    setChatGroupedModels(grouped)
+    setIsChatModelsLoading(false)
+  }
+
+  const handleApplyToAllAgents = async () => {
+    if (!defaultModel && !liteModel) {
+      toast.info(t('settings.models.pleaseSelectGlobalFirst'))
+      return
+    }
+
+    showConfirmation({
+      title: t('settings.models.modelConfiguration'),
+      message: t('settings.models.confirmApplyToAll'),
+      confirmText: t('confirmation.confirm'),
+      cancelText: t('confirmation.cancel'),
+      isDangerous: true,
+      onConfirm: async () => {
+        setIsSaving(true)
+        try {
+          const { listAgents, updateAgent } = await import('../lib/agentsService')
+          const { data: currentAgents } = await listAgents()
+
+          const promises = (currentAgents || []).map(agent =>
+            updateAgent(agent.id, {
+              provider: defaultModelProvider || apiProvider,
+              defaultModelProvider: defaultModelProvider || apiProvider,
+              liteModelProvider: liteModelProvider || apiProvider,
+              defaultModel: defaultModelSource === 'list' ? defaultModel : defaultCustomModel,
+              liteModel: liteModelSource === 'list' ? liteModel : liteCustomModel,
+              defaultModelSource,
+              liteModelSource,
+            }),
+          )
+
+          await Promise.all(promises)
+          window.dispatchEvent(new Event('agents-changed'))
+          toast.success(t('settings.models.applyToAllSuccess'))
+        } catch (err) {
+          console.error('Failed to apply global models to all agents:', err)
+          toast.error(t('settings.models.applyToAllError'))
+        } finally {
+          setIsSaving(false)
+        }
+      },
+    })
+  }
+
   useEffect(() => {
     if (isOpen && activeTab === 'model') {
       loadEmbeddingModels()
+      loadChatModels()
     }
-  }, [activeTab, isOpen])
+  }, [isOpen, activeTab])
 
   useEffect(() => {
     if (embeddingModelSource !== 'list') return
@@ -1617,6 +2132,13 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
         embeddingProvider,
         embeddingModel,
         embeddingModelSource,
+        defaultModel: defaultModelSource === 'list' ? defaultModel : defaultCustomModel,
+        liteModel: liteModelSource === 'list' ? liteModel : liteCustomModel,
+        defaultModelProvider,
+        liteModelProvider,
+        defaultModelSource,
+        liteModelSource,
+        developerMode,
         embeddingCustomModel,
       }
 
@@ -2466,7 +2988,88 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
             )}
 
             {activeTab === 'model' && (
-              <div className="flex max-w-2xl flex-col gap-8">
+              <div className="flex flex-col gap-8">
+                {/* Global Dialogue Models Section */}
+                <div className="space-y-6">
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-start justify-between">
+                      <div className="flex flex-col gap-1">
+                        <label className="text-sm font-medium text-gray-900 dark:text-white">
+                          {t('settings.globalChatModels')}
+                        </label>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {t('settings.globalChatModelsHint')}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={loadChatModels}
+                        className="text-primary-600 hover:text-primary-700 dark:text-primary-400 flex items-center gap-1 text-xs font-medium"
+                      >
+                        <RefreshCw
+                          size={14}
+                          className={clsx(isChatModelsLoading && 'animate-spin')}
+                        />
+                        {t('agents.model.refresh')}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-8">
+                    {renderModelPicker({
+                      label: t('settings.defaultModel'),
+                      hint: t('settings.defaultModelHelper'),
+                      value: defaultModel,
+                      onChange: setDefaultModel,
+                      activeProvider: defaultModelProvider || apiProvider,
+                      onProviderChange: setDefaultModelProvider,
+                      customValue: defaultCustomModel,
+                      onCustomValueChange: setDefaultCustomModel,
+                      modelSource: defaultModelSource,
+                      onModelSourceChange: setDefaultModelSource,
+                      testAction: {
+                        label: t('agents.model.testDefault'),
+                        onClick: handleDefaultModelTest,
+                        status: defaultTestAction.status,
+                        message: defaultTestAction.message,
+                      },
+                    })}
+
+                    {renderModelPicker({
+                      label: t('settings.liteModel'),
+                      hint: t('settings.liteModelHelper'),
+                      value: liteModel,
+                      onChange: setLiteModel,
+                      activeProvider: liteModelProvider || apiProvider,
+                      onProviderChange: setLiteModelProvider,
+                      customValue: liteCustomModel,
+                      onCustomValueChange: setLiteCustomModel,
+                      modelSource: liteModelSource,
+                      onModelSourceChange: setLiteModelSource,
+                      testAction: {
+                        label: t('agents.model.testLite'),
+                        onClick: handleLiteModelTest,
+                        status: liteTestAction.status,
+                        message: liteTestAction.message,
+                      },
+                    })}
+                  </div>
+
+                  <div className="pt-2">
+                    <button
+                      type="button"
+                      onClick={handleApplyToAllAgents}
+                      disabled={isSaving || (!defaultModel && !liteModel)}
+                      className="inline-flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                    >
+                      {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Box size={14} />}
+                      {t('settings.applyToAllAgents')}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="h-px bg-gray-100 dark:bg-zinc-800" />
+
                 <div className="flex gap-3 rounded-lg bg-blue-50 p-4 text-sm text-blue-700 dark:bg-blue-900/10 dark:text-blue-300">
                   <Info size={18} className="mt-0.5 shrink-0" />
                   <div>

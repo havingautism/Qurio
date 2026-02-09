@@ -915,11 +915,17 @@ async def stream_deep_research(params: dict[str, Any]) -> AsyncGenerator[dict[st
     # Stream report generation and collect report content
     report_content = ""
     async for event in service.stream_chat(report_request):
-        if event.get("type") == "text":
+        event_type = event.get("type")
+        if event_type == "text":
             content = event.get("content", "")
             report_content += content
             yield {"type": "text", "content": content}
-        elif event.get("type") == "error":
+        elif event_type == "done":
+            # Fallback: some providers may emit the final answer only in done.content.
+            done_content = event.get("content", "")
+            if done_content and not report_content:
+                report_content = done_content
+        elif event_type == "error":
             raise RuntimeError(event.get("error") or "Report generation failed")
 
     # Send done event with the actual report content (not workflow output)

@@ -348,8 +348,6 @@ export const streamResearchPlanViaBackend = async params => {
           top_p,
           frequency_penalty,
           presence_penalty,
-          contextTurns,
-          contextMessageLimit,
           toolIds,
           researchType, // Pass researchType to backend
         }),
@@ -811,10 +809,54 @@ export const streamChatViaBackend = async params => {
 
     console.log('[streamChatViaBackend] Starting to read stream...')
 
+    const processBuffer = (forceFlush = false) => {
+      const lines = buffer.split('\n')
+      buffer = lines.pop() || ''
+      if (forceFlush && buffer.trim()) {
+        lines.push(buffer)
+        buffer = ''
+      }
+
+      for (const line of lines) {
+        if (!line.trim() || !line.startsWith('data: ')) continue
+
+        const data = line.slice(6)
+        if (!data.trim()) continue
+
+        try {
+          const chunk = JSON.parse(data)
+
+          if (chunk.type === 'error') {
+            onError?.(new Error(chunk.error || 'Stream error'))
+            return 'stop'
+          }
+
+          if (chunk.type === 'done') {
+            sawDone = true
+            onFinish?.({
+              content: chunk.content,
+              thought: chunk.thought,
+              sources: chunk.sources,
+              groundingSupports: chunk.groundingSupports,
+              toolCalls: chunk.toolCalls,
+            })
+            return 'stop'
+          }
+
+          onChunk?.(chunk)
+        } catch (e) {
+          console.error('Failed to parse SSE chunk:', data, e)
+        }
+      }
+      return 'continue'
+    }
+
     while (true) {
       const { done, value } = await reader.read()
 
       if (done) {
+        const status = processBuffer(true)
+        if (status === 'stop') return
         console.log('[streamChatViaBackend] Stream done')
         if (!sawDone) {
           onFinish?.({
@@ -831,43 +873,8 @@ export const streamChatViaBackend = async params => {
       buffer += decoder.decode(value, { stream: true })
       console.log('[streamChatViaBackend] Received data:', buffer.slice(0, 200))
 
-      // Process complete SSE messages
-      const lines = buffer.split('\n')
-      buffer = lines.pop() || '' // Keep incomplete line in buffer
-
-      for (const line of lines) {
-        if (!line.trim() || !line.startsWith('data: ')) continue
-
-        const data = line.slice(6) // Remove 'data: ' prefix
-        if (!data.trim()) continue
-
-        try {
-          const chunk = JSON.parse(data)
-
-          if (chunk.type === 'error') {
-            onError?.(new Error(chunk.error || 'Stream error'))
-            return
-          }
-
-          if (chunk.type === 'done') {
-            sawDone = true
-            onFinish?.({
-              content: chunk.content,
-              thought: chunk.thought,
-              sources: chunk.sources,
-              groundingSupports: chunk.groundingSupports,
-              toolCalls: chunk.toolCalls,
-            })
-            return
-          }
-
-          // Regular chunk (text, thought, etc.)
-          // console.log('[streamChatViaBackend] Calling onChunk with:', chunk)
-          onChunk?.(chunk)
-        } catch (e) {
-          console.error('Failed to parse SSE chunk:', data, e)
-        }
-      }
+      const status = processBuffer(false)
+      if (status === 'stop') return
     }
   } catch (error) {
     if (error.name === 'AbortError') return
@@ -906,9 +913,6 @@ export const streamDeepResearchViaBackend = async params => {
     onError,
     signal,
   } = params
-
-  // Debug: Log concurrentExecution before sending to backend
-  console.log('[BackendClient] Sending concurrentExecution:', concurrentExecution)
 
   if (!provider) {
     throw new Error('Missing required field: provider')

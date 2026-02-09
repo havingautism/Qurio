@@ -608,15 +608,6 @@ class OpenAIAdapter(BaseProviderAdapter):
             if reasoning:
                 return str(reasoning)
 
-        # Method 5: Check for think tags or thought tags in content
-        if hasattr(event, "content") and isinstance(event.content, str):
-            import re
-            think_pattern = r"<think>(.*?)</think>"
-            thought_pattern = r"<thought>(.*?)</thought>"
-            match = re.search(think_pattern, event.content, re.DOTALL) or re.search(thought_pattern, event.content, re.DOTALL)
-            if match:
-                return match.group(1).strip()
-
         return None
 
     def _extract_tool_calls_from_event(self, event: Any) -> list[dict[str, Any]] | None:

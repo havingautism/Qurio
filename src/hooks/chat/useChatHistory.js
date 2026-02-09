@@ -1,21 +1,48 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { listMessages } from '../../lib/conversationsService'
 
+const parseJsonIfString = raw => {
+  if (typeof raw !== 'string') return raw
+  const trimmed = raw.trim()
+  if (!trimmed) return raw
+  try {
+    return JSON.parse(trimmed)
+  } catch {
+    return raw
+  }
+}
+
+const asArrayField = raw => {
+  const parsed = parseJsonIfString(raw)
+  return Array.isArray(parsed) ? parsed : undefined
+}
+
+const normalizeStreamBlocks = raw => {
+  if (!raw) return []
+  const parsed = parseJsonIfString(raw)
+  if (!Array.isArray(parsed)) return []
+  return parsed
+    .map((item, index) => ({
+      seq: Number.isFinite(item?.seq) ? Number(item.seq) : index + 1,
+      type: String(item?.type || '').toLowerCase(),
+      content: typeof item?.content === 'string' ? item.content : '',
+      tool_call_id: item?.tool_call_id || item?.toolCallId || null,
+      name: item?.name || null,
+      status: item?.status || null,
+      arguments: item?.arguments ?? null,
+      output: item?.output ?? null,
+      duration_ms: Number.isFinite(item?.duration_ms) ? Number(item.duration_ms) : null,
+    }))
+    .filter(item => item.type)
+    .sort((a, b) => a.seq - b.seq)
+}
+
 // Internal helper function
 const splitThoughtFromContent = rawContent => {
   if (rawContent && typeof rawContent === 'object' && !Array.isArray(rawContent)) {
     const contentValue = typeof rawContent.content !== 'undefined' ? rawContent.content : rawContent
     const thoughtValue =
       rawContent.thought ?? rawContent.thinking_process ?? rawContent.thinkingProcess ?? null
-
-    if (typeof contentValue === 'string') {
-      const thoughtMatch = /<thought>([\s\S]*?)(?:<\/thought>|$)/.exec(contentValue)
-      if (thoughtMatch) {
-        const cleaned = contentValue.replace(/<thought>[\s\S]*?(?:<\/thought>|$)/, '').trim()
-        const combinedThought = thoughtValue || thoughtMatch[1]?.trim() || null
-        return { content: cleaned, thought: combinedThought }
-      }
-    }
 
     if (
       Object.prototype.hasOwnProperty.call(rawContent, 'thought') ||
@@ -29,31 +56,43 @@ const splitThoughtFromContent = rawContent => {
     }
   }
 
-  if (typeof rawContent !== 'string') return { content: rawContent, thought: null }
-
-  const thoughtMatch = /<thought>([\s\S]*?)(?:<\/thought>|$)/.exec(rawContent)
-  if (!thoughtMatch) return { content: rawContent, thought: null }
-
-  const cleaned = rawContent.replace(/<thought>[\s\S]*?(?:<\/thought>|$)/, '').trim()
-  const thought = thoughtMatch[1]?.trim() || null
-
-  return { content, thought }
+  return { content: rawContent, thought: null }
 }
 
 // Internal helper function
 const mapMessageFromApi = (m, effectiveDefaultModel, activeConversation) => {
+  const streamBlocks = normalizeStreamBlocks(m.stream_blocks ?? m.streamBlocks)
+  const toolCallHistory = asArrayField(m.tool_call_history ?? m.toolCallHistory)
+  const researchStepHistory = asArrayField(m.research_step_history ?? m.researchStepHistory)
+  const relatedQuestions = asArrayField(m.related_questions ?? m.relatedQuestions)
+  const sources = asArrayField(m.sources)
+  const groundingSupports = asArrayField(m.grounding_supports ?? m.groundingSupports)
+  const documentSources = asArrayField(m.document_sources ?? m.documentSources)
   const { content: cleanedContent, thought: thoughtFromContent } = splitThoughtFromContent(
     m.content,
   )
   const rawThought = m.thinking_process ?? m.thought ?? thoughtFromContent ?? undefined
   let thought = rawThought
   let researchPlan = null
+  let thoughtHistory = undefined
   if (typeof rawThought === 'string') {
     try {
       const parsedThought = JSON.parse(rawThought)
       if (parsedThought && typeof parsedThought === 'object') {
         if (typeof parsedThought.thought === 'string') thought = parsedThought.thought
         if (typeof parsedThought.plan === 'string') researchPlan = parsedThought.plan
+        const rawThoughtHistory = parsedThought.thoughtHistory || parsedThought.thought_history
+        if (Array.isArray(rawThoughtHistory)) {
+          thoughtHistory = rawThoughtHistory
+            .map((item, index) => ({
+              id: item?.id || `${item?.blockId ?? 'block'}-${index}`,
+              blockId: item?.blockId ?? index,
+              textIndex: Number.isFinite(item?.textIndex) ? Number(item.textIndex) : 0,
+              content: String(item?.content || ''),
+              streamOrder: Number.isFinite(item?.streamOrder) ? Number(item.streamOrder) : index,
+            }))
+            .filter(item => item.content.trim())
+        }
       }
     } catch {}
   }
@@ -99,7 +138,9 @@ const mapMessageFromApi = (m, effectiveDefaultModel, activeConversation) => {
     }
   }
 
-  const hitlMeta = restoreHitlMetaFromToolHistory(m.tool_call_history)
+  const hitlMeta = restoreHitlMetaFromToolHistory(toolCallHistory)
+
+  const hasResearchSteps = Array.isArray(researchStepHistory) && researchStepHistory.length > 0
 
   return {
     id: m.id,
@@ -108,24 +149,26 @@ const mapMessageFromApi = (m, effectiveDefaultModel, activeConversation) => {
     content: cleanedContent,
     thought,
     researchPlan: researchPlan || '',
-    deepResearch: !!researchPlan,
-    related: m.related_questions || undefined,
+    deepResearch: !!researchPlan || hasResearchSteps,
+    related: relatedQuestions,
     tool_calls: m.tool_calls || undefined,
-    toolCallHistory: m.tool_call_history || undefined,
+    toolCallHistory,
+    thoughtHistory,
     hitlRunId: hitlMeta.hitlRunId,
     hitlFormId: hitlMeta.hitlFormId,
     hitlFormTitle: hitlMeta.hitlFormTitle,
     hitlFormFields: hitlMeta.hitlFormFields,
-    researchSteps: m.research_step_history || undefined,
-    sources: m.sources || undefined,
-    groundingSupports: m.grounding_supports || undefined,
+    researchSteps: researchStepHistory,
+    sources,
+    groundingSupports,
+    streamBlocks,
     provider: m.provider || activeConversation?.api_provider,
     model: m.model || effectiveDefaultModel,
     agentId: m.agent_id ?? m.agentId ?? null,
     agentName: m.agent_name ?? m.agentName ?? null,
     agentEmoji: m.agent_emoji ?? m.agentEmoji ?? '',
     agentIsDefault: m.agent_is_default ?? m.agentIsDefault ?? false,
-    documentSources: m.document_sources || undefined,
+    documentSources,
     thinkingEnabled:
       m.is_thinking_enabled ??
       m.generated_with_thinking ??

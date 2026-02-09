@@ -9,8 +9,31 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from ..models.stream_chat import StreamChatRequest
-from ..models.generation import TitleResponse, TitleSpaceResponse, TitleSpaceAgentResponse, RelatedQuestionsResponse, DailyTipResponse
+from ..models.generation import (
+    AgentNameResponse,
+    DailyTipResponse,
+    RelatedQuestionsResponse,
+    SpaceAgentResponse,
+    TitleResponse,
+    TitleSpaceAgentResponse,
+    TitleSpaceResponse,
+)
 from .llm_utils import run_agent_completion, safe_json_parse
+
+
+def _get_output_value(output_obj: Any, *keys: str) -> Any:
+    if not output_obj:
+        return None
+    if isinstance(output_obj, dict):
+        for key in keys:
+            if key in output_obj:
+                return output_obj.get(key)
+        return None
+    for key in keys:
+        if hasattr(output_obj, key):
+            return getattr(output_obj, key)
+    return None
+
 
 def _build_time_context(user_timezone: str | None, user_locale: str | None) -> str:
     timezone = user_timezone or "UTC"
@@ -24,7 +47,7 @@ def _build_time_context(user_timezone: str | None, user_locale: str | None) -> s
     formatted = now.strftime("%Y-%m-%d %H:%M:%S")
     return (
         "\n\n<today_local_time>\n"
-        f"##today local time：{formatted} ({timezone})\n"
+        f"##today local time: {formatted} ({timezone})\n"
         f"locale: {locale}\n"
         f"iso: {now.isoformat()}\n"
         "</today_local_time>"
@@ -119,21 +142,23 @@ async def generate_daily_tip(
     )
     result = await run_agent_completion(request)
     content = result.get("content", "").strip()
+    thought = result.get("thought", "").strip()
     output_obj = result.get("output")
     
     tip = None
     if output_obj:
-        if isinstance(output_obj, dict):
-            tip = output_obj.get("tip")
-        elif hasattr(output_obj, "tip"):
-            tip = getattr(output_obj, "tip", None)
+        tip = _get_output_value(output_obj, "tip")
             
     if not tip:
         parsed = safe_json_parse(content)
         if isinstance(parsed, dict):
             tip = parsed.get("tip")
-        else:
-            tip = content # Fallback for plain text
+    if not tip and thought:
+        parsed = safe_json_parse(thought)
+        if isinstance(parsed, dict):
+            tip = parsed.get("tip")
+    if not tip:
+        tip = content # Fallback for plain text
 
     # Cleanup if model included "tip='...'"
     if tip and isinstance(tip, str) and tip.startswith("tip="):
@@ -211,33 +236,39 @@ async def generate_title(
     )
     result = await run_agent_completion(request)
     content = result.get("content", "").strip()
+    thought = result.get("thought", "").strip()
     
     # Try structured output first
     output_obj = result.get("output")
     title = None
     emojis = []
     
-    if output_obj and isinstance(output_obj, TitleResponse):
-        title = output_obj.title
-        emojis = output_obj.emojis
-    else:
+    if output_obj:
+        title = _get_output_value(output_obj, "title")
+        emojis = _get_output_value(output_obj, "emojis") or []
+    if not title:
         # Fallback to manual parsing
         parsed = safe_json_parse(content) or {}
         if isinstance(parsed, dict):
             title = parsed.get("title")
             emojis = parsed.get("emojis")
+    if not title and thought:
+        parsed = safe_json_parse(thought) or {}
+        if isinstance(parsed, dict):
+            title = parsed.get("title")
+            emojis = emojis or parsed.get("emojis")
+
+    # Robust cleanup for models like GLM
+    if (not title or title.strip().startswith("title=")) and content:
+        import re
+        m_title = re.search(r"title=['\"](.*?)['\"]", content, flags=re.DOTALL)
+        if m_title:
+            title = m_title.group(1)
         
-        # Robust cleanup for models like GLM
-        if (not title or title.strip().startswith("title=")) and content:
-            import re
-            m_title = re.search(r"title=['\"](.*?)['\"]", content, flags=re.DOTALL)
-            if m_title:
-                title = m_title.group(1)
-            
-            if not emojis:
-                m_emojis = re.search(r"emojis=\[[\"']?(.*?)[\"']?\]", content)
-                if m_emojis:
-                    emojis = [m_emojis.group(1)]
+        if not emojis:
+            m_emojis = re.search(r"emojis=\[[\"']?(.*?)[\"']?\]", content)
+            if m_emojis:
+                emojis = [m_emojis.group(1)]
 
     # Final normalization
     title = title or content or "New Conversation"
@@ -327,18 +358,19 @@ async def generate_title_and_space(
 
     # If it's a dict or model, extract directly
     if output_obj:
-        if isinstance(output_obj, dict):
-            title = output_obj.get("title")
-            space_label = output_obj.get("space_label") or output_obj.get("spaceLabel")
-            emojis = output_obj.get("emojis")
-        elif hasattr(output_obj, "title"):
-            title = getattr(output_obj, "title", None)
-            space_label = getattr(output_obj, "space_label", None)
-            emojis = getattr(output_obj, "emojis", [])
+        title = _get_output_value(output_obj, "title")
+        space_label = _get_output_value(output_obj, "space_label", "spaceLabel")
+        emojis = _get_output_value(output_obj, "emojis") or []
     
     # If above failed, fallback to manual parsing of content
     if not title:
         parsed = safe_json_parse(content) or {}
+        if isinstance(parsed, dict):
+            title = parsed.get("title")
+            space_label = space_label or parsed.get("spaceLabel") or parsed.get("space_label")
+            emojis = emojis or parsed.get("emojis")
+    if not title and thought:
+        parsed = safe_json_parse(thought) or {}
         if isinstance(parsed, dict):
             title = parsed.get("title")
             space_label = space_label or parsed.get("spaceLabel") or parsed.get("space_label")
@@ -484,6 +516,7 @@ async def generate_title_space_and_agent(
     )
     result = await run_agent_completion(request)
     content = result.get("content", "").strip()
+    thought = result.get("thought", "").strip()
     
     # Try structured output first
     output_obj = result.get("output")
@@ -494,20 +527,21 @@ async def generate_title_space_and_agent(
 
     # If it's a dict or model, extract directly
     if output_obj:
-        if isinstance(output_obj, dict):
-            title = output_obj.get("title")
-            space_label = output_obj.get("space_label") or output_obj.get("spaceLabel")
-            agent_name = output_obj.get("agent_name") or output_obj.get("agentName")
-            emojis = output_obj.get("emojis")
-        elif hasattr(output_obj, "title"):
-            title = getattr(output_obj, "title", None)
-            space_label = getattr(output_obj, "space_label", None)
-            agent_name = getattr(output_obj, "agent_name", None)
-            emojis = getattr(output_obj, "emojis", [])
+        title = _get_output_value(output_obj, "title")
+        space_label = _get_output_value(output_obj, "space_label", "spaceLabel")
+        agent_name = _get_output_value(output_obj, "agent_name", "agentName")
+        emojis = _get_output_value(output_obj, "emojis") or []
     
     # Fallback to manual parsing of content
     if not title:
         parsed = safe_json_parse(content) or {}
+        if isinstance(parsed, dict):
+            title = parsed.get("title")
+            space_label = space_label or parsed.get("spaceLabel") or parsed.get("space_label")
+            agent_name = agent_name or parsed.get("agentName") or parsed.get("agent_name")
+            emojis = emojis or parsed.get("emojis")
+    if not title and thought:
+        parsed = safe_json_parse(thought) or {}
         if isinstance(parsed, dict):
             title = parsed.get("title")
             space_label = space_label or parsed.get("spaceLabel") or parsed.get("space_label")
@@ -645,19 +679,27 @@ async def generate_space_and_agent(
         searchProvider=search_provider,
         tavilyApiKey=tavily_api_key,
         stream=True,
+        output_schema=SpaceAgentResponse,
     )
     result = await run_agent_completion(request)
     content = result.get("content", "").strip()
+    thought = result.get("thought", "").strip()
+    thought = result.get("thought", "").strip()
 
     output_obj = result.get("output")
     space_label = None
     agent_name = None
-    if isinstance(output_obj, dict):
-        space_label = output_obj.get("space_label") or output_obj.get("spaceLabel")
-        agent_name = output_obj.get("agent_name") or output_obj.get("agentName")
+    if output_obj:
+        space_label = _get_output_value(output_obj, "space_label", "spaceLabel")
+        agent_name = _get_output_value(output_obj, "agent_name", "agentName")
 
     if not space_label:
         parsed = safe_json_parse(content) or {}
+        if isinstance(parsed, dict):
+            space_label = parsed.get("spaceLabel") or parsed.get("space_label")
+            agent_name = agent_name or parsed.get("agentName") or parsed.get("agent_name")
+    if not space_label and thought:
+        parsed = safe_json_parse(thought) or {}
         if isinstance(parsed, dict):
             space_label = parsed.get("spaceLabel") or parsed.get("space_label")
             agent_name = agent_name or parsed.get("agentName") or parsed.get("agent_name")
@@ -755,20 +797,67 @@ async def generate_agent_for_auto(
         searchProvider=search_provider,
         tavilyApiKey=tavily_api_key,
         stream=True,
+        output_schema=AgentNameResponse,
     )
     result = await run_agent_completion(request)
+    output_obj = result.get("output")
+    if output_obj:
+        selected_agent = _get_output_value(output_obj, "agentName", "agent_name")
+        if selected_agent:
+            return selected_agent
+
     parsed = safe_json_parse(result.get("content", "")) or {}
-    return parsed.get("agentName") or None
+    if isinstance(parsed, dict):
+        return parsed.get("agentName") or parsed.get("agent_name") or None
+
+    thought_parsed = safe_json_parse(result.get("thought", "")) or {}
+    if isinstance(thought_parsed, dict):
+        return thought_parsed.get("agentName") or thought_parsed.get("agent_name") or None
+    return None
 
 
 def _normalize_related_questions(parsed: Any) -> list[str]:
+    def _sanitize_related_question_text(value: Any) -> str:
+        if not isinstance(value, str):
+            return ""
+        cleaned = " ".join(value.split()).strip()
+        if not cleaned:
+            return ""
+        lowered = cleaned.lower()
+        if (
+            "<|tool_" in lowered
+            or "tool_calls_section" in lowered
+            or "tool_call_begin" in lowered
+            or "tool_call_end" in lowered
+            or "endgroup" in lowered
+        ):
+            return ""
+        if cleaned in {"{", "}", "[", "]"}:
+            return ""
+        if len(cleaned) > 240:
+            return ""
+        return cleaned
+
+    def _normalize_list(items: list[Any]) -> list[str]:
+        out: list[str] = []
+        seen: set[str] = set()
+        for item in items or []:
+            normalized = _sanitize_related_question_text(item)
+            if not normalized or normalized in seen:
+                continue
+            seen.add(normalized)
+            out.append(normalized)
+            if len(out) >= 3:
+                break
+        return out
+
     if isinstance(parsed, list):
-        return [q for q in parsed if isinstance(q, str) and q.strip()]
+        return _normalize_list(parsed)
     if isinstance(parsed, dict):
         if isinstance(parsed.get("questions"), list):
-            return [q for q in parsed["questions"] if isinstance(q, str) and q.strip()]
+            return _normalize_list(parsed["questions"])
         if isinstance(parsed.get("related_questions"), list):
-            return [q for q in parsed["related_questions"] if isinstance(q, str) and q.strip()]
+            return _normalize_list(parsed["related_questions"])
     return []
 
 
@@ -801,7 +890,6 @@ async def generate_related_questions(
         {
             "role": "user",
             "content": (
-                f"{first_message if 'first_message' in locals() else ''}\n\n" # Fallback if first_message isn't available
                 "Based on our conversation, suggest 3 short, relevant follow-up questions I might ask. "
                 "Return the result as JSON with a 'questions' key containing the array of strings."
             ),
@@ -834,14 +922,12 @@ async def generate_related_questions(
     )
     result = await run_agent_completion(request)
     content = result.get("content", "").strip()
+    thought = result.get("thought", "").strip()
     output_obj = result.get("output")
     
     questions = []
     if output_obj:
-        if isinstance(output_obj, dict):
-            questions = output_obj.get("questions") or []
-        elif hasattr(output_obj, "questions"):
-            questions = getattr(output_obj, "questions", [])
+        questions = _get_output_value(output_obj, "questions") or []
     
     if not questions:
         parsed = safe_json_parse(content)
@@ -850,6 +936,12 @@ async def generate_related_questions(
             questions = parsed
         else:
             questions = _normalize_related_questions(parsed)
+    if not questions and thought:
+        thought_parsed = safe_json_parse(thought)
+        if isinstance(thought_parsed, list):
+            questions = thought_parsed
+        else:
+            questions = _normalize_related_questions(thought_parsed)
     
     # Robust cleanup for weird formats
     if not questions and content:
@@ -873,3 +965,4 @@ async def generate_related_questions(
                     questions = [q.strip().strip('*').strip('"').strip("'") for q in numbered_matches_simple]
 
     return _normalize_related_questions(questions)
+

@@ -146,11 +146,15 @@ CREATE TABLE IF NOT EXISTS public.conversation_messages (
   sources JSONB,
   document_sources JSONB DEFAULT '[]'::jsonb,
   grounding_supports JSONB,
+  stream_blocks JSONB NOT NULL DEFAULT '[]'::jsonb,
+  stream_schema_version SMALLINT NOT NULL DEFAULT 1,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_messages_conversation_created_at
   ON public.conversation_messages(conversation_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_messages_stream_blocks_gin
+  ON public.conversation_messages USING GIN (stream_blocks);
 
 CREATE TRIGGER trg_messages_touch_conversation
 AFTER INSERT OR UPDATE ON public.conversation_messages

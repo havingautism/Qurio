@@ -93,6 +93,7 @@ const PROVIDER_META = {
     fallback: 'N',
   },
 }
+const THOUGHT_BLOCK_BREAK_MARKER = '<|thought_block_break|>'
 
 const isExplicitSchemeUrl = value => /^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(value)
 
@@ -183,6 +184,10 @@ const MessageBubble = ({
   // Simple message reference (no more merging hacks!)
   const mergedMessage = message
 
+  const isStreamingMessage =
+    mergedMessage?.isStreaming ??
+    (isLoading && mergedMessage?.role === 'ai' && messageIndex === messages.length - 1)
+
   // Re-derive form status based on the latest tool call state
   const toolCallHistory = Array.isArray(mergedMessage?.toolCallHistory)
     ? mergedMessage.toolCallHistory
@@ -193,6 +198,8 @@ const MessageBubble = ({
 
   const isDeepResearch =
     !!mergedMessage?.deepResearch ||
+    !!mergedMessage?.researchPlan ||
+    (Array.isArray(mergedMessage?.researchSteps) && mergedMessage.researchSteps.length > 0) ||
     mergedMessage?.agent_name === 'Deep Research Agent' ||
     mergedMessage?.agentName === 'Deep Research Agent'
 
@@ -201,6 +208,65 @@ const MessageBubble = ({
   const parsed = provider.parseMessage(mergedMessage)
   const thoughtContent = isDeepResearch ? null : parsed.thought
   const mainContent = parsed.content
+  const positionedThoughtBlocks = useMemo(() => {
+    if (isDeepResearch) return []
+
+    const fromHistory = Array.isArray(mergedMessage?.thoughtHistory)
+      ? mergedMessage.thoughtHistory
+          .map((item, index) => ({
+            id: item?.id || `${item?.blockId ?? 'block'}-${index}`,
+            blockId: item?.blockId ?? index,
+            textIndex: Number.isFinite(item?.textIndex) ? Number(item.textIndex) : 0,
+            content: String(item?.content || '').trim(),
+            streamOrder: Number.isFinite(item?.streamOrder) ? Number(item.streamOrder) : index,
+            durationMs: Number.isFinite(item?.durationMs) ? Number(item.durationMs) : null,
+          }))
+          .filter(item => item.content)
+          .sort((a, b) =>
+            a.textIndex === b.textIndex ? a.streamOrder - b.streamOrder : a.textIndex - b.textIndex,
+          )
+      : []
+
+    if (fromHistory.length > 0) return fromHistory
+    if (!thoughtContent) return []
+
+    return String(thoughtContent)
+      .split(THOUGHT_BLOCK_BREAK_MARKER)
+      .map(part => part.trim())
+      .filter(Boolean)
+      .map((content, index) => ({
+        id: `legacy-thought-${index}`,
+        blockId: `legacy-${index}`,
+        textIndex: 0,
+        content,
+        streamOrder: index,
+      }))
+  }, [isDeepResearch, mergedMessage?.thoughtHistory, thoughtContent])
+  const thoughtExportContent = useMemo(
+    () =>
+      positionedThoughtBlocks
+        .map(item => item.content)
+        .filter(Boolean)
+        .join('\n\n'),
+    [positionedThoughtBlocks],
+  )
+  const normalizedStreamBlocks = useMemo(() => {
+    if (!Array.isArray(mergedMessage?.streamBlocks)) return []
+    return mergedMessage.streamBlocks
+      .map((item, index) => ({
+        seq: Number.isFinite(item?.seq) ? Number(item.seq) : index + 1,
+        type: String(item?.type || '').toLowerCase(),
+        content: typeof item?.content === 'string' ? item.content : '',
+        toolCallId: item?.tool_call_id || item?.toolCallId || null,
+        name: item?.name || null,
+        status: item?.status || null,
+        arguments: item?.arguments ?? null,
+        output: item?.output ?? null,
+        durationMs: Number.isFinite(item?.duration_ms) ? Number(item.duration_ms) : null,
+      }))
+      .filter(item => item.type)
+      .sort((a, b) => a.seq - b.seq)
+  }, [mergedMessage?.streamBlocks])
 
   const resolvedSearchBackends = useMemo(() => {
     if (Array.isArray(mergedMessage?.searchBackends) && mergedMessage.searchBackends.length > 0) {
@@ -500,48 +566,121 @@ const MessageBubble = ({
   }
 
   const interleavedContent = useMemo(() => {
-    if (isDeepResearch || !toolCallHistory.length) {
-      return [{ type: 'text', content: mainContent || '' }]
+    const rawContent = mainContent || ''
+    const parts = []
+    const hasLiveRuntimeOrdering =
+      isStreamingMessage && (toolCallHistory.length > 0 || positionedThoughtBlocks.length > 0)
+    const canUsePersistedStreamBlocks = normalizedStreamBlocks.length > 0 && !hasLiveRuntimeOrdering
+
+    if (canUsePersistedStreamBlocks) {
+      for (const block of normalizedStreamBlocks) {
+        if (block.type === 'text') {
+          if (block.content) parts.push({ type: 'text', content: block.content })
+          continue
+        }
+        if (block.type === 'reasoning' || block.type === 'thought') {
+          if (!isDeepResearch && block.content) {
+            parts.push({
+              type: 'thought',
+              key: `stream-thought-${block.seq}`,
+              content: block.content,
+              durationMs: block.durationMs,
+            })
+          }
+          continue
+        }
+        if (block.type === 'tool' || block.type === 'tool_call' || block.type === 'tool_result') {
+          const matchedTool =
+            toolCallHistory.find(item => item?.id && item.id === block.toolCallId) || null
+          const toolItem =
+            matchedTool ||
+            (block.toolCallId
+              ? {
+                  id: block.toolCallId,
+                  name: block.name || 'tool',
+                  status: block.status || 'done',
+                  arguments: block.arguments,
+                  output: block.output,
+                  durationMs: block.durationMs,
+                }
+              : null)
+          if (toolItem) {
+            parts.push({
+              type: 'tools',
+              key: `stream-tool-${block.toolCallId || block.seq}`,
+              items: [toolItem],
+            })
+          }
+        }
+      }
+      return parts.length > 0 ? parts : [{ type: 'text', content: rawContent }]
     }
 
-    const parts = []
+    const events = []
+
+    if (!isDeepResearch) {
+      toolCallHistory.forEach((tool, index) => {
+        const rawIndex =
+          tool.textIndex ?? (tool.name === 'interactive_form' ? rawContent.length : 0)
+        const normalizedIndex = normalizeToolIndex(rawContent, rawIndex, tool.name)
+        events.push({
+          type: 'tools',
+          index: Math.max(0, Math.min(normalizedIndex, rawContent.length)),
+          order: Number.isFinite(tool?.streamOrder) ? Number(tool.streamOrder) : 100000 + index,
+          key: `tool-${tool.id || index}`,
+          tool,
+        })
+      })
+
+      positionedThoughtBlocks.forEach((block, index) => {
+        events.push({
+          type: 'thought',
+          index: Math.max(0, Math.min(Number(block.textIndex) || 0, rawContent.length)),
+          order: Number.isFinite(block.streamOrder) ? Number(block.streamOrder) : index,
+          key: `thought-${block.id || index}`,
+          thought: block.content,
+          durationMs: block.durationMs,
+        })
+      })
+    }
+
+    if (events.length === 0) {
+      return [{ type: 'text', content: rawContent }]
+    }
+
+    events.sort((a, b) => (a.index === b.index ? a.order - b.order : a.index - b.index))
+
     let lastIndex = 0
-    const rawContent = mainContent || ''
-
-    // Group tools by index
-    const toolsByIndex = {}
-    toolCallHistory.forEach(tool => {
-      // Use textIndex if available
-      // If missing: default interactive_form to end, others to start
-      const rawIndex = tool.textIndex ?? (tool.name === 'interactive_form' ? rawContent.length : 0)
-      const idx = normalizeToolIndex(rawContent, rawIndex, tool.name)
-      if (!toolsByIndex[idx]) toolsByIndex[idx] = []
-      toolsByIndex[idx].push(tool)
-    })
-
-    // Get all unique indices
-    const indices = Object.keys(toolsByIndex)
-      .map(Number)
-      .sort((a, b) => a - b)
-
-    indices.forEach(index => {
-      const safeIndex = Math.min(index, rawContent.length)
+    for (const event of events) {
+      const safeIndex = Math.min(Math.max(0, event.index), rawContent.length)
       if (safeIndex > lastIndex) {
+        parts.push({ type: 'text', content: rawContent.substring(lastIndex, safeIndex) })
+        lastIndex = safeIndex
+      }
+      if (event.type === 'tools') {
+        parts.push({ type: 'tools', key: event.key, items: [event.tool] })
+      } else if (event.type === 'thought') {
         parts.push({
-          type: 'text',
-          content: rawContent.substring(lastIndex, safeIndex),
+          type: 'thought',
+          key: event.key,
+          content: event.thought,
+          durationMs: event.durationMs,
         })
       }
-      parts.push({ type: 'tools', items: toolsByIndex[index] })
-      lastIndex = Math.max(lastIndex, safeIndex)
-    })
+    }
 
     if (lastIndex < rawContent.length) {
       parts.push({ type: 'text', content: rawContent.substring(lastIndex) })
     }
-
     return parts
-  }, [mainContent, toolCallHistory, isDeepResearch])
+  }, [
+    mainContent,
+    toolCallHistory,
+    positionedThoughtBlocks,
+    isDeepResearch,
+    isStreamingMessage,
+    normalizedStreamBlocks,
+  ])
 
   // Effect to handle copy success timeout with proper cleanup
   useEffect(() => {
@@ -792,23 +931,14 @@ const MessageBubble = ({
     }
   }, [isDownloadMenuOpen])
 
-  const [isThoughtExpanded, setIsThoughtExpanded] = useState(false)
   const [isResearchExpanded, setIsResearchExpanded] = useState(false)
   const [isPlanExpanded, setIsPlanExpanded] = useState(false)
-  const [thinkingStatusIndex, setThinkingStatusIndex] = useState(0)
 
   const { showConfirmation } = useAppContext()
   const isUser = message.role === 'user'
 
   const planContent = typeof message?.researchPlan === 'string' ? message.researchPlan.trim() : ''
 
-  // Dynamic thinking status messages using translations
-  const THINKING_STATUS_MESSAGES = [
-    t('chat.thinking'),
-    t('chat.analyzing'),
-    t('chat.workingThroughIt'),
-    t('chat.checkingDetails'),
-  ]
   const DEEP_RESEARCH_STATUS_MESSAGES = [
     t('chat.deepResearchPlanning'),
     t('chat.deepResearchSynthesizing'),
@@ -925,7 +1055,7 @@ const MessageBubble = ({
   const { handleDownloadPdf, handleDownloadWord } = useMessageExport({
     message,
     planMarkdown,
-    thoughtContent,
+    thoughtContent: thoughtExportContent,
     mainContentRef,
     researchExportRef,
     thoughtExportRef,
@@ -948,9 +1078,7 @@ const MessageBubble = ({
     [mergedMessage.sources, t],
   )
 
-  const isStreaming =
-    message?.isStreaming ??
-    (isLoading && message.role === 'ai' && messageIndex === messages.length - 1)
+  const isStreaming = isStreamingMessage
   const hasMainText = (() => {
     const content = message?.content
     if (typeof content === 'string') return content.trim().length > 0
@@ -987,23 +1115,7 @@ const MessageBubble = ({
     const timer = setTimeout(() => setRenderInitialSkeleton(false), skeletonFadeMs)
     return () => clearTimeout(timer)
   }, [shouldShowInitialSkeleton, skeletonFadeMs])
-  const baseThinkingStatusActive =
-    message.role === 'ai' && message.thinkingEnabled !== false && isStreaming && !hasMainText
   const researchStatusText = DEEP_RESEARCH_STATUS_MESSAGES[0]
-  const thinkingStatusText =
-    THINKING_STATUS_MESSAGES[thinkingStatusIndex] || THINKING_STATUS_MESSAGES[0]
-  const statusMessageCount = Math.max(
-    DEEP_RESEARCH_STATUS_MESSAGES.length,
-    THINKING_STATUS_MESSAGES.length,
-  )
-  useEffect(() => {
-    if (!baseThinkingStatusActive) return undefined
-    setThinkingStatusIndex(0)
-    const intervalId = setInterval(() => {
-      setThinkingStatusIndex(prev => (prev + 1) % statusMessageCount)
-    }, 1800)
-    return () => clearInterval(intervalId)
-  }, [baseThinkingStatusActive, statusMessageCount])
 
   const CodeBlock = useCallback(
     ({ inline, className, children, ...props }) => {
@@ -1126,9 +1238,9 @@ const MessageBubble = ({
           {parseChildrenWithEmojis(children)}
         </p>
       ),
-      h1: createHeadingComponent('h1', 'text-2xl font-bold mb-4 mt-4', false),
-      h2: createHeadingComponent('h2', 'text-xl font-bold mb-3 mt-3', false),
-      h3: createHeadingComponent('h3', 'text-lg font-bold mb-2 mt-2', false),
+      h1: createHeadingComponent('h1', 'text-2xl font-bold mb-4', false),
+      h2: createHeadingComponent('h2', 'text-xl font-bold mb-4', false),
+      h3: createHeadingComponent('h3', 'text-lg font-bold mb-4', false),
       ul: ({ ...props }) => <ul className="mb-4 list-disc space-y-1 pl-5" {...props} />,
       ol: ({ ...props }) => <ol className="mb-4 list-decimal space-y-1 pl-5" {...props} />,
       li: ({ children, ...props }) => (
@@ -1215,7 +1327,7 @@ const MessageBubble = ({
         return <img src={safeSrc} alt={typeof alt === 'string' ? alt : ''} {...props} />
       },
       hr: () => (
-        <div className="relative my-6">
+        <div className="relative my-4">
           <div className="h-px bg-linear-to-r from-transparent via-gray-300 to-transparent dark:via-zinc-700" />
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
             <div className="h-2.5 w-2.5 rounded-full bg-gray-200 shadow-sm ring-2 ring-white dark:bg-zinc-700 dark:ring-zinc-900" />
@@ -1247,8 +1359,8 @@ const MessageBubble = ({
     return {
       ...markdownComponents,
       h1: createLocalHeading('h1', 'text-2xl font-bold mb-4 mt-4'),
-      h2: createLocalHeading('h2', 'text-xl font-bold mb-3 mt-3'),
-      h3: createLocalHeading('h3', 'text-lg font-bold mb-2 mt-2'),
+      h2: createLocalHeading('h2', 'text-xl font-bold mb-4'),
+      h3: createLocalHeading('h3', 'text-lg font-bold mb-4'),
     }
   }, [markdownComponents, messageIndex, parseChildrenWithEmojis])
 
@@ -1257,6 +1369,51 @@ const MessageBubble = ({
     let statusBeforeTextInserted = false
 
     return interleavedContent.map((part, idx) => {
+      if (part.type === 'thought') {
+        const isLast = idx === interleavedContent.length - 1
+        const isOpen = isStreaming && isLast
+        const isThinking = isStreaming && isLast
+
+        return (
+          <details key={part.key || `thought-inline-${idx}`} className="group mb-4" open={isOpen}>
+            <summary className="flex cursor-pointer items-center gap-2 text-gray-500 select-none hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
+              <Brain
+                size={14}
+                className={clsx(
+                  'transition-colors',
+                  isThinking
+                    ? 'text-primary-500 animate-pulse'
+                    : 'text-gray-400 dark:text-gray-500',
+                )}
+              />
+              <span className="font-medium">
+                {isThinking ? t('messageBubble.thinking') : t('messageBubble.deepThinking')}
+              </span>
+              {!isThinking && typeof part.durationMs === 'number' && part.durationMs > 0 && (
+                <span className="text-gray-400 dark:text-gray-500">
+                  {t('messageBubble.thinkingDuration', {
+                    duration: (part.durationMs / 1000).toFixed(0),
+                  })}
+                </span>
+              )}
+              <ChevronDown
+                size={14}
+                className="opacity-50 transition-transform group-open:rotate-180"
+              />
+            </summary>
+            <div className="mt-2 border-l-2 border-gray-200 pl-4 text-xs leading-relaxed text-gray-500 dark:border-zinc-700 dark:text-gray-400">
+              <Streamdown
+                mermaid={mermaidOptions}
+                remarkPlugins={[remarkGfm]}
+                components={markdownComponents}
+              >
+                {part.content}
+              </Streamdown>
+            </div>
+          </details>
+        )
+      }
+
       if (part.type === 'tools') {
         // Separate utility tools from interactive forms
         const statusMarkers = part.items.filter(item => item.name === 'form_submission_status')
@@ -1758,7 +1915,6 @@ const MessageBubble = ({
       ? t('deepResearch.agentName')
       : agentName
 
-  const hasThoughtText = !!(thoughtContent && String(thoughtContent).trim())
   const hasPlanText = !!planMarkdown
   const researchPlanLoading = Boolean(message?.researchPlanLoading)
   const researchSteps = Array.isArray(message.researchSteps) ? message.researchSteps : []
@@ -1768,9 +1924,6 @@ const MessageBubble = ({
   )
   const shouldShowPlan = isDeepResearch && (hasPlanText || researchPlanLoading)
   const shouldShowResearch = isDeepResearch && hasResearchSteps
-  const shouldShowThinking =
-    !isDeepResearch &&
-    ((message.thinkingEnabled !== false && isStreaming) || hasThoughtText || hasPlanText)
   const shouldShowPlanStatus = isDeepResearch && researchPlanLoading
   const shouldShowResearchStatus = isDeepResearch && hasActiveResearchStep
 
@@ -1786,7 +1939,9 @@ const MessageBubble = ({
         if (Array.isArray(parsed?.questions)) return parsed.questions
         if (Array.isArray(parsed?.relatedQuestions)) return parsed.relatedQuestions
         if (Array.isArray(parsed?.related_questions)) return parsed.related_questions
-      } catch {}
+      } catch {
+        // ignore
+      }
     }
     return []
   })()
@@ -2265,46 +2420,7 @@ const MessageBubble = ({
             </div>
           )}
         </>
-      ) : (
-        shouldShowThinking && (
-          <div className="overflow-hidden rounded-xl border border-gray-200/70 dark:border-zinc-800">
-            <button
-              onClick={() => setIsThoughtExpanded(!isThoughtExpanded)}
-              className="bg-user-bubble/30 hover:bg-user-bubble flex w-full items-center justify-between p-2 transition-colors dark:bg-zinc-800/50 dark:hover:bg-zinc-800"
-            >
-              <div className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                <EmojiDisplay emoji={'🧠'} size="1.2em" />
-                {!baseThinkingStatusActive && (
-                  <span className="text-sm">{t('messageBubble.thinkingProcess')}</span>
-                )}
-                {!baseThinkingStatusActive && (hasMainText || !isStreaming) && <Check size="1em" />}
-                {!baseThinkingStatusActive && !hasMainText && isStreaming && <DotLoader />}
-                {baseThinkingStatusActive && (
-                  <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                    <span className="mr-4 text-left">{thinkingStatusText}</span>
-                    <DotLoader />
-                  </div>
-                )}
-              </div>
-              <div className="flex items-center gap-3">
-                {isThoughtExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-              </div>
-            </button>
-
-            {isThoughtExpanded && (hasThoughtText || hasPlanText) && (
-              <div className="bg-white/70 p-4 text-sm leading-relaxed text-gray-600 font-stretch-semi-condensed dark:bg-zinc-800/70 dark:text-gray-400 [&>div>p:last-child]:mb-0!">
-                <Streamdown
-                  mermaid={mermaidOptions}
-                  remarkPlugins={[remarkGfm]}
-                  components={markdownComponents}
-                >
-                  {[planMarkdown, thoughtContent].filter(Boolean).join('\n\n')}
-                </Streamdown>
-              </div>
-            )}
-          </div>
-        )
-      )}
+      ) : null}
 
       {/* Sources Section - REMOVED (Moved to toolbar) */}
 
@@ -2449,7 +2565,7 @@ const MessageBubble = ({
         </div>
         <div ref={thoughtExportRef}>
           <Streamdown mermaid={mermaidOptions} remarkPlugins={[remarkGfm]}>
-            {thoughtContent}
+            {thoughtExportContent}
           </Streamdown>
         </div>
       </div>

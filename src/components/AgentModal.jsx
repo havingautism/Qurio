@@ -186,6 +186,8 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
   const [modelsError, setModelsError] = useState('')
   const [defaultTestState, setDefaultTestState] = useState({ status: 'idle', message: '' })
   const [liteTestState, setLiteTestState] = useState({ status: 'idle', message: '' })
+  const [globalDefaultModel, setGlobalDefaultModel] = useState('')
+  const [globalLiteModel, setGlobalLiteModel] = useState('')
 
   // Dynamic Models State
   // Structure: { [provider]: [ { value, label } ] }
@@ -384,6 +386,8 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
     if (isOpen) {
       const settings = loadSettings()
       setFollowInterfaceLanguage(Boolean(settings.followInterfaceLanguage))
+      setGlobalDefaultModel(settings.defaultModel || '')
+      setGlobalLiteModel(settings.liteModel || '')
       if (editingAgent) {
         const resolvedTopP = editingAgent.topP ?? editingAgent.top_p ?? null
         const hasAdvancedOverrides =
@@ -1104,7 +1108,13 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                         )}
                         <span className="truncate">
                           {value === ''
-                            ? t('agents.model.none')
+                            ? label === t('agents.model.defaultModel')
+                              ? globalDefaultModel
+                                ? `${t('agents.model.none')} (${t('settings.defaultModel')}: ${globalDefaultModel})`
+                                : t('agents.model.none')
+                              : globalLiteModel
+                                ? `${t('agents.model.none')} (${t('settings.liteModel')}: ${globalLiteModel})`
+                                : t('agents.model.none')
                             : activeModels.find(m => m.value === value)?.label ||
                               value ||
                               t('agents.model.notSelected')}

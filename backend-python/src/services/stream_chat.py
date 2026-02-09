@@ -1387,16 +1387,36 @@ class StreamChatService:
 
             # 6. Trigger Async Session Summary Update
             if request.conversation_id and not paused_again:
-                # For HITL resumption, we treat the form submission as the "user" part of the turn
-                # and the new assistant message as the completion.
+                # For HITL resumption, extract the last turn's context from saved_messages
+                # (matching normal flow: only last user + assistant, not full history)
                 summary_messages = []
                 
-                # Use a combined message for the form submission to provide context to the summarizer
+                # Extract only the last user-assistant turn from saved_messages
+                if saved_messages:
+                    last_user_idx = -1
+                    for i in range(len(saved_messages) - 1, -1, -1):
+                        if saved_messages[i].get("role") == "user":
+                            last_user_idx = i
+                            break
+                    
+                    if last_user_idx >= 0:
+                        # Include from last user message to end of saved_messages
+                        # This captures: user question -> assistant form(s) -> any intermediate interactions
+                        for msg in saved_messages[last_user_idx:]:
+                            role = msg.get("role")
+                            content = msg.get("content")
+                            # Only include user/assistant messages with content for summary
+                            if role in ("user", "assistant") and content:
+                                summary_messages.append({"role": role, "content": content})
+                
+                # Add the form submission as user input (provides structured data context)
                 form_submission_text = f"[Form Submitted] Values: {json.dumps(field_values)}"
                 summary_messages.append({"role": "user", "content": form_submission_text})
+                
+                # Add the new assistant response (based on form data)
                 summary_messages.append({"role": "assistant", "content": full_content})
                 
-                logger.info(f"Triggering async summary update for {request.conversation_id} (Resumed HITL flow)")
+                logger.info(f"Triggering async summary update for {request.conversation_id} (Resumed HITL flow, {len(summary_messages)} messages)")
                 asyncio.create_task(update_session_summary(
                     conversation_id=request.conversation_id,
                     old_summary=old_summary_json,

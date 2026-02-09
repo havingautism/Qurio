@@ -348,8 +348,6 @@ export const streamResearchPlanViaBackend = async params => {
           top_p,
           frequency_penalty,
           presence_penalty,
-          contextTurns,
-          contextMessageLimit,
           toolIds,
           researchType, // Pass researchType to backend
         }),
@@ -915,9 +913,6 @@ export const streamDeepResearchViaBackend = async params => {
     onError,
     signal,
   } = params
-
-  // Debug: Log concurrentExecution before sending to backend
-  console.log('[BackendClient] Sending concurrentExecution:', concurrentExecution)
 
   if (!provider) {
     throw new Error('Missing required field: provider')

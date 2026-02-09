@@ -67,7 +67,9 @@ const buildStreamBlocks = ({ content = '', thoughtHistory = [], toolCallHistory 
     : []
 
   events.push(...normalizedThoughts, ...normalizedTools)
-  events.sort((a, b) => (a.textIndex === b.textIndex ? a.order - b.order : a.textIndex - b.textIndex))
+  events.sort((a, b) =>
+    a.textIndex === b.textIndex ? a.order - b.order : a.textIndex - b.textIndex,
+  )
 
   const blocks = []
   let seq = 1
@@ -121,52 +123,85 @@ export const generateDeepResearchPlan = async (
   researchType = 'general',
 ) => {
   const agentForPlan = selectedAgent || fallbackAgent
+
   const modelConfig = getModelConfigForAgent(
     agentForPlan,
     settings,
     'generateResearchPlan',
     fallbackAgent,
   )
+
   const provider = getProvider(modelConfig.provider)
-  if (!provider?.generateResearchPlan || !modelConfig.model) return ''
+  if (!provider) {
+    console.error('[generateDeepResearchPlan] Provider not found for:', modelConfig.provider)
+    return ''
+  }
+
+  if (!provider.generateResearchPlan && !provider.streamResearchPlan) {
+    console.error(
+      '[generateDeepResearchPlan] Provider does not support research plan generation:',
+      provider.id,
+    )
+    return ''
+  }
+
+  if (!modelConfig.model) {
+    console.error('[generateDeepResearchPlan] Model not configured for research plan generation')
+    return ''
+  }
+
   const credentials = provider.getCredentials(settings)
+
   if (provider.streamResearchPlan) {
     let streamContent = ''
-    await provider.streamResearchPlan(
+    try {
+      await provider.streamResearchPlan(
+        userMessage,
+        credentials.apiKey,
+        credentials.baseUrl,
+        modelConfig.model,
+        {
+          onChunk: (delta, full) => {
+            if (full) {
+              streamContent = full
+            } else if (delta) {
+              streamContent += delta
+            }
+            callbacks.onChunk?.(streamContent)
+          },
+          onFinish: finalContent => {
+            if (finalContent) streamContent = finalContent
+            callbacks.onFinish?.(streamContent)
+          },
+          onError: err => {
+            console.error('[generateDeepResearchPlan] Stream error:', err)
+            callbacks.onError?.(err)
+          },
+          researchType,
+        },
+      )
+    } catch (e) {
+      console.error('[generateDeepResearchPlan] Stream error caught:', e)
+      throw e
+    }
+    return streamContent
+  }
+
+  try {
+    const content = await provider.generateResearchPlan(
       userMessage,
       credentials.apiKey,
       credentials.baseUrl,
       modelConfig.model,
-      {
-        onChunk: (delta, full) => {
-          if (full) {
-            streamContent = full
-          } else if (delta) {
-            streamContent += delta
-          }
-          callbacks.onChunk?.(streamContent)
-        },
-        onFinish: finalContent => {
-          if (finalContent) streamContent = finalContent
-          callbacks.onFinish?.(streamContent)
-        },
-        onError: callbacks.onError,
-        researchType,
-      },
+      researchType,
     )
-    return streamContent
+    callbacks.onChunk?.(content)
+    callbacks.onFinish?.(content)
+    return content
+  } catch (e) {
+    console.error('[generateDeepResearchPlan] Non-stream error caught:', e)
+    throw e
   }
-
-  const content = await provider.generateResearchPlan(
-    userMessage,
-    credentials.apiKey,
-    credentials.baseUrl,
-    modelConfig.model,
-    researchType,
-  )
-  callbacks.onChunk?.(content)
-  callbacks.onFinish?.(content)
-  return content
 }
 
 /**
@@ -234,7 +269,9 @@ export const callAIAPI = async (
       }
 
       if (pendingThoughtEntries.length > 0) {
-        const thoughtHistory = Array.isArray(lastMsg.thoughtHistory) ? [...lastMsg.thoughtHistory] : []
+        const thoughtHistory = Array.isArray(lastMsg.thoughtHistory)
+          ? [...lastMsg.thoughtHistory]
+          : []
         for (const entry of pendingThoughtEntries) {
           if (!entry?.content) continue
           const lastEntry = thoughtHistory[thoughtHistory.length - 1]
@@ -1310,7 +1347,8 @@ export const finalizeMessage = async (
 
     const baseThought = normalizedThought || fallbackThoughtFromState || null
     const planForPersistence = (() => {
-      return typeof latestAi?.researchPlan === 'string' ? latestAi.researchPlan : null
+      const plan = typeof latestAi?.researchPlan === 'string' ? latestAi.researchPlan : null
+      return plan
     })()
     const toolCallHistoryForPersistence = (() => {
       return Array.isArray(latestAi?.toolCallHistory) ? latestAi.toolCallHistory : null
@@ -1321,16 +1359,16 @@ export const finalizeMessage = async (
     const thoughtHistoryForPersistence = (() => {
       return Array.isArray(latestAi?.thoughtHistory) ? latestAi.thoughtHistory : null
     })()
-    const thoughtForPersistence =
-      (() => {
-        const payload = {}
-        if (planForPersistence) payload.plan = planForPersistence
-        if (baseThought) payload.thought = baseThought
-        if (thoughtHistoryForPersistence && thoughtHistoryForPersistence.length > 0) {
-          payload.thoughtHistory = thoughtHistoryForPersistence
-        }
-        return Object.keys(payload).length > 0 ? JSON.stringify(payload) : baseThought
-      })()
+    const thoughtForPersistence = (() => {
+      const payload = {}
+      if (planForPersistence) payload.plan = planForPersistence
+      if (baseThought) payload.thought = baseThought
+      if (thoughtHistoryForPersistence && thoughtHistoryForPersistence.length > 0) {
+        payload.thoughtHistory = thoughtHistoryForPersistence
+      }
+      const result = Object.keys(payload).length > 0 ? JSON.stringify(payload) : baseThought
+      return result
+    })()
     const contentForPersistence = (() => {
       // Always prefer streamed store content to keep thought/tool positions stable after completion.
       if (typeof latestAi?.content === 'string' && latestAi.content.length > 0) {
@@ -1352,9 +1390,7 @@ export const finalizeMessage = async (
       databaseProviderKey.includes('sqlite') ||
       databaseProviderKey.includes('supabase') ||
       databaseProviderKey.includes('postgres')
-    const streamBlocksForPersistence = shouldPersistStreamBlocks
-      ? streamBlocksForRuntime
-      : null
+    const streamBlocksForPersistence = shouldPersistStreamBlocks ? streamBlocksForRuntime : null
 
     // Keep runtime rendering order consistent with persisted stream_blocks,
     // so UI doesn't jump between two ordering strategies before page refresh.

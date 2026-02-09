@@ -27,6 +27,7 @@ import { loadSettings, updateMemorySettings } from './lib/settings'
 import {
   createSpace,
   deleteSpace,
+  listSpaceAgents,
   listSpaces,
   updateSpace,
   updateSpaceAgents,
@@ -582,10 +583,6 @@ function App() {
       const existingAgent = candidateAgents[0] || null
       const existingSpace = candidateSpaces[0] || null
 
-      if (existingAgent && existingSpace) {
-        return
-      }
-
       ensuringDeepResearchRef.current = true
       try {
         let deepAgent = existingAgent
@@ -718,7 +715,26 @@ function App() {
         }
 
         if (deepSpace?.id && deepAgent?.id) {
-          await updateSpaceAgents(deepSpace.id, [deepAgent.id], deepAgent.id)
+          let shouldRebindSpaceAgent = true
+          const { data: currentSpaceAgents, error: spaceAgentsError } = await listSpaceAgents(
+            deepSpace.id,
+          )
+          if (spaceAgentsError) {
+            console.error('Load deep research space agents failed:', spaceAgentsError)
+          } else {
+            const currentAgentIds = (currentSpaceAgents || [])
+              .map(item => String(item?.agent_id || ''))
+              .filter(Boolean)
+            const primaryAgentId =
+              currentSpaceAgents?.find(item => item?.is_primary)?.agent_id || null
+            shouldRebindSpaceAgent =
+              currentAgentIds.length !== 1 ||
+              currentAgentIds[0] !== String(deepAgent.id) ||
+              String(primaryAgentId || '') !== String(deepAgent.id)
+          }
+          if (shouldRebindSpaceAgent) {
+            await updateSpaceAgents(deepSpace.id, [deepAgent.id], deepAgent.id)
+          }
         }
       } finally {
         ensuringDeepResearchRef.current = false
@@ -756,6 +772,33 @@ function App() {
             setAgents(prev =>
               prev.map(agent =>
                 agent.id === keepDefault.id ? { ...agent, isDefault: true } : agent,
+              ),
+            )
+          }
+        }
+
+        const deepResearchAgents = agents.filter(agent => isDeepResearchAgent(agent))
+        if (deepResearchAgents.length > 1) {
+          const sortedDeepAgents = [...deepResearchAgents].sort((a, b) => {
+            const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0
+            const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0
+            return aTime - bTime
+          })
+          const [keepDeepResearch, ...removeDeepResearch] = sortedDeepAgents
+          for (const agent of removeDeepResearch) {
+            const { error } = await deleteAgent(agent.id)
+            if (!error) {
+              setAgents(prev => prev.filter(item => item.id !== agent.id))
+            } else {
+              console.error('Failed to delete duplicate deep research agent:', error)
+            }
+          }
+          if (keepDeepResearch) {
+            setAgents(prev =>
+              prev.map(agent =>
+                agent.id === keepDeepResearch.id
+                  ? { ...agent, isDeepResearch: true, isDeepResearchSystem: true }
+                  : agent,
               ),
             )
           }

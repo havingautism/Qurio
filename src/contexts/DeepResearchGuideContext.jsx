@@ -23,7 +23,7 @@ export const DeepResearchGuideProvider = ({
   deepResearchAgent,
   defaultAgent,
 }) => {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const navigate = useNavigate()
   const [isOpen, setIsOpen] = useState(false)
   const [deepResearchStep, setDeepResearchStep] = useState(1)
@@ -34,6 +34,13 @@ export const DeepResearchGuideProvider = ({
   const [deepResearchOutputAuto, setDeepResearchOutputAuto] = useState(true)
   const [deepResearchType, setDeepResearchType] = useState('general')
   const [deepResearchConcurrent, setDeepResearchConcurrent] = useState(false)
+  const getDefaultResponseLanguage = useCallback(() => {
+    const normalized = String(i18n.language || '').toLowerCase()
+    return normalized.startsWith('zh') ? 'zh-CN' : 'en'
+  }, [i18n.language])
+  const [deepResearchResponseLanguage, setDeepResearchResponseLanguage] = useState(() =>
+    getDefaultResponseLanguage(),
+  )
 
   const resetDeepResearchForm = useCallback(() => {
     setDeepResearchStep(1)
@@ -44,7 +51,8 @@ export const DeepResearchGuideProvider = ({
     setDeepResearchOutputAuto(true)
     setDeepResearchType('general')
     setDeepResearchConcurrent(false)
-  }, [])
+    setDeepResearchResponseLanguage(getDefaultResponseLanguage())
+  }, [getDefaultResponseLanguage])
 
   const openDeepResearchGuide = useCallback(() => {
     resetDeepResearchForm()
@@ -62,16 +70,25 @@ export const DeepResearchGuideProvider = ({
       deepResearchScopeAuto || !deepResearchScope.trim() ? autoLabel : deepResearchScope.trim()
     const outputValue =
       deepResearchOutputAuto || !deepResearchOutput.trim() ? autoLabel : deepResearchOutput.trim()
+    const responseLanguageLabel =
+      deepResearchResponseLanguage === 'zh-CN'
+        ? t('homeView.deepResearchResponseLanguageChinese')
+        : t('homeView.deepResearchResponseLanguageEnglish')
+    const responseLanguageInstruction =
+      deepResearchResponseLanguage === 'zh-CN' ? '请使用中文回复。' : 'Please respond in English.'
 
     return [
       `${t('homeView.deepResearchQuestionLabel')}: ${deepResearchQuestion.trim()}`,
       `${t('homeView.deepResearchScopeLabel')}: ${scopeValue}`,
       `${t('homeView.deepResearchOutputLabel')}: ${outputValue}`,
+      `${t('homeView.deepResearchResponseLanguageLabel')}: ${responseLanguageLabel}`,
+      responseLanguageInstruction,
     ].join('\n')
   }, [
     deepResearchOutput,
     deepResearchOutputAuto,
     deepResearchQuestion,
+    deepResearchResponseLanguage,
     deepResearchScope,
     deepResearchScopeAuto,
     t,
@@ -117,6 +134,7 @@ export const DeepResearchGuideProvider = ({
         initialAgentSelection: deepResearchAgent,
         initialIsAgentAutoMode: false,
         researchType: deepResearchType,
+        responseLanguage: deepResearchResponseLanguage,
       }
 
       navigate({
@@ -135,6 +153,7 @@ export const DeepResearchGuideProvider = ({
     deepResearchAgent,
     deepResearchConcurrent,
     deepResearchQuestion,
+    deepResearchResponseLanguage,
     deepResearchSpace,
     deepResearchType,
     defaultAgent,
@@ -299,6 +318,75 @@ export const DeepResearchGuideProvider = ({
                                 </div>
                                 <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                                   {t('homeView.deepResearchTypeAcademicDesc')}
+                                </div>
+                              </div>
+                            </div>
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                          {t('homeView.deepResearchResponseLanguageTitle')}
+                        </label>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setDeepResearchResponseLanguage('zh-CN')}
+                            className={clsx(
+                              'flex-1 rounded-xl border-2 px-4 py-3 text-left transition-all',
+                              deepResearchResponseLanguage === 'zh-CN'
+                                ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
+                                : 'border-gray-200 hover:border-gray-300 dark:border-zinc-700 dark:hover:border-zinc-600',
+                            )}
+                          >
+                            <div className="flex items-start gap-3">
+                              <div
+                                className={clsx(
+                                  'mt-0.5 flex h-5 w-5 items-center justify-center rounded-full border-2 transition-all',
+                                  deepResearchResponseLanguage === 'zh-CN'
+                                    ? 'border-primary-500 bg-primary-500'
+                                    : 'border-gray-300 dark:border-zinc-600',
+                                )}
+                              >
+                                {deepResearchResponseLanguage === 'zh-CN' && (
+                                  <div className="h-2 w-2 rounded-full bg-white" />
+                                )}
+                              </div>
+                              <div className="flex-1">
+                                <div className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                                  {t('homeView.deepResearchResponseLanguageChinese')}
+                                </div>
+                              </div>
+                            </div>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setDeepResearchResponseLanguage('en')}
+                            className={clsx(
+                              'flex-1 rounded-xl border-2 px-4 py-3 text-left transition-all',
+                              deepResearchResponseLanguage === 'en'
+                                ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
+                                : 'border-gray-200 hover:border-gray-300 dark:border-zinc-700 dark:hover:border-zinc-600',
+                            )}
+                          >
+                            <div className="flex items-start gap-3">
+                              <div
+                                className={clsx(
+                                  'mt-0.5 flex h-5 w-5 items-center justify-center rounded-full border-2 transition-all',
+                                  deepResearchResponseLanguage === 'en'
+                                    ? 'border-primary-500 bg-primary-500'
+                                    : 'border-gray-300 dark:border-zinc-600',
+                                )}
+                              >
+                                {deepResearchResponseLanguage === 'en' && (
+                                  <div className="h-2 w-2 rounded-full bg-white" />
+                                )}
+                              </div>
+                              <div className="flex-1">
+                                <div className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                                  {t('homeView.deepResearchResponseLanguageEnglish')}
                                 </div>
                               </div>
                             </div>

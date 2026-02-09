@@ -127,6 +127,7 @@ const DeepResearchConversationView = () => {
   const initialAttachments = initialChatState?.initialAttachments || []
   const initialToggles = initialChatState?.initialToggles || {}
   const researchType = initialChatState?.researchType || 'general' // Extract researchType
+  const responseLanguage = initialChatState?.responseLanguage || null
 
   return (
     <DeepResearchChatInterface
@@ -141,6 +142,7 @@ const DeepResearchConversationView = () => {
       initialAgentSelection={initialAgentSelection}
       initialIsAgentAutoMode={initialIsAgentAutoMode}
       researchType={researchType} // Pass researchType to DeepResearchChatInterface
+      responseLanguage={responseLanguage}
     />
   )
 }

@@ -38,6 +38,7 @@ const DeepResearchChatInterface = ({
   onTitleAndSpaceGenerated,
   isSidebarPinned = false,
   researchType = 'general', // Add researchType prop
+  responseLanguage = null,
 }) => {
   // Mobile detection
   const isMobile = (() => {
@@ -81,6 +82,12 @@ const DeepResearchChatInterface = ({
     if (!instruction) return text
     const baseText = typeof text === 'string' ? text.trim() : ''
     return baseText ? `${baseText}\n\n${instruction}` : instruction
+  }
+
+  const getDeepResearchResponseLanguageInstruction = language => {
+    if (language === 'zh-CN') return '请使用中文回复。'
+    if (language === 'en') return 'Please respond in English.'
+    return ''
   }
 
   // Lock body scroll when component mounts (defensive measure for iOS keyboard interactions)
@@ -330,10 +337,7 @@ const DeepResearchChatInterface = ({
     const deepResearchAgentId = deepResearchAgent?.id
     if (isDeepResearchConversation) {
       // Enter deep research mode
-      if (
-        deepResearchAgentId &&
-        String(deepResearchAgentId) !== String(selectedAgentId ?? '')
-      ) {
+      if (deepResearchAgentId && String(deepResearchAgentId) !== String(selectedAgentId ?? '')) {
         setSelectedAgentId(deepResearchAgentId)
       }
       if (pendingAgentId) {
@@ -572,7 +576,15 @@ const DeepResearchChatInterface = ({
 
       // Trigger send immediately
       try {
-        await handleSendMessage(initialMessage, initialAttachments, initialToggles)
+        const initialLanguageInstruction =
+          initialToggles?.deepResearch && responseLanguage
+            ? getDeepResearchResponseLanguageInstruction(responseLanguage)
+            : ''
+        const initialMessageWithLanguage = applyLanguageInstructionToText(
+          initialMessage,
+          initialLanguageInstruction,
+        )
+        await handleSendMessage(initialMessageWithLanguage, initialAttachments, initialToggles)
         if (initialSendKey) {
           sessionStorage.setItem(initialSendKey, '1')
         }
@@ -593,6 +605,7 @@ const DeepResearchChatInterface = ({
     selectedAgent,
     messages.length,
     isLoadingHistory,
+    responseLanguage,
   ])
 
   useEffect(() => {

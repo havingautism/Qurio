@@ -621,7 +621,10 @@
       "testMissingKey": "该 Provider 缺少 API Key。",
       "testTimeout": "测试超时。",
       "testInvalidJson": "结构化输出不是有效的 JSON。",
-      "testFailed": "测试失败：{{message}}"
+      "testFailed": "测试失败：{{message}}",
+      "syncGlobal": "同步全局设置",
+      "syncGlobalHint": "将全局对话模型配置应用到此智能体。",
+      "applyGlobalSettings": "应用全局设置"
     },
     "advanced": {
       "title": "高级设定",
@@ -793,6 +796,10 @@
     "agentsLoading": "加载智能体中...",
     "spacesShortcut": "我的空间",
     "spacesShortcutHint": "管理并访问知识库",
+    "sequentialExecution": "串行执行研究步骤",
+    "sequentialExecutionDesc": "按顺序执行步骤以获得更优的连贯性，但速度较慢。",
+    "concurrencyLimit": "并发研究线程数",
+    "concurrencyLimitHint": "设置同时执行的研究步骤数量。针对高限制 API 账号可调高以加速。",
     "concurrentExecution": "并发执行研究步骤",
     "experimental": "实验性",
     "concurrentExecutionDesc": "同时执行所有研究步骤以提升速度，但可能影响步骤间的逻辑连贯性"

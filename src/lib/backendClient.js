@@ -905,9 +905,10 @@ export const streamDeepResearchViaBackend = async params => {
     plan,
     question,
     researchType, // 'general' or 'academic'
-    concurrentExecution, // Enable concurrent step execution (experimental)
+    sequentialExecution, // Enable sequential step execution
     searchProvider,
     tavilyApiKey,
+    concurrencyLimit, // Pass concurrencyLimit
     onChunk,
     onFinish,
     onError,
@@ -950,7 +951,8 @@ export const streamDeepResearchViaBackend = async params => {
           plan,
           question,
           researchType, // Pass researchType to backend
-          concurrentExecution, // Pass concurrentExecution to backend
+          sequentialResearch: sequentialExecution, // Pass sequentialResearch to backend
+          concurrencyLimit: concurrencyLimit, // Pass concurrencyLimit to backend
           searchProvider,
           tavilyApiKey,
         }),

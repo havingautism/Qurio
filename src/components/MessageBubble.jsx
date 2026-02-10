@@ -580,30 +580,17 @@ const MessageBubble = ({
     )
   }
 
-  // Normalize tool index to paragraph boundaries instead of word boundaries
-  // Tools will be displayed after paragraphs (after newlines) for better readability
+  // Normalize tool index - formerly searched for newlines, but this caused clumping
+  // Now we trust the backend's relative positioning to ensure accurate interleaving.
   const normalizeToolIndex = (content, index, toolName) => {
     if (!content) return 0
-    const clamped = Math.max(0, Math.min(index, content.length))
+    const clamped = Math.max(0, index)
 
     // Interactive forms should use the exact index where they were generated
-    // to allow natural placement (e.g. "Please fill this form: [Form] and then...")
     if (toolName === 'interactive_form') return clamped
 
-    if (clamped === 0 || clamped === content.length) return clamped
-
-    // Search forward for the next newline (paragraph boundary)
-    // Tools will be placed after the current paragraph ends
-    const maxSearch = 500 // Search up to 500 characters ahead
-    for (let i = clamped; i < content.length && i < clamped + maxSearch; i += 1) {
-      if (content[i] === '\n') {
-        // Found a paragraph boundary, place tool after the newline
-        return i + 1
-      }
-    }
-
-    // If no newline found, place tool at the end of content
-    return content.length
+    // Return exact clamped index to prevent "Adhesive Clumping" at paragraph boundaries
+    return clamped
   }
 
   const interleavedContent = useMemo(() => {
@@ -666,7 +653,7 @@ const MessageBubble = ({
         const normalizedIndex = normalizeToolIndex(rawContent, rawIndex, tool.name)
         events.push({
           type: 'tools',
-          index: Math.max(0, Math.min(normalizedIndex, rawContent.length)),
+          index: Math.max(0, normalizedIndex),
           order: Number.isFinite(tool?.streamOrder) ? Number(tool.streamOrder) : 100000 + index,
           key: `tool-${tool.id || index}`,
           tool,
@@ -674,9 +661,11 @@ const MessageBubble = ({
       })
 
       positionedThoughtBlocks.forEach((block, index) => {
+        const rawIndex = Number(block.textIndex) || 0
+        const normalizedIndex = normalizeToolIndex(rawContent, rawIndex, 'thought')
         events.push({
           type: 'thought',
-          index: Math.max(0, Math.min(Number(block.textIndex) || 0, rawContent.length)),
+          index: Math.max(0, normalizedIndex),
           order: Number.isFinite(block.streamOrder) ? Number(block.streamOrder) : index,
           key: `thought-${block.id || index}`,
           thought: block.content,
@@ -693,10 +682,14 @@ const MessageBubble = ({
 
     let lastIndex = 0
     for (const event of events) {
-      const safeIndex = Math.min(Math.max(0, event.index), rawContent.length)
-      if (safeIndex > lastIndex) {
-        parts.push({ type: 'text', content: rawContent.substring(lastIndex, safeIndex) })
-        lastIndex = safeIndex
+      // CRITICAL: Cap the safeIndex at rawContent.length to prevent "future" indices
+      // from swallowing text that hasn't officially arrived at that position yet.
+      const safeIndex = Number.isFinite(event.index) ? event.index : 0
+      const displayIndex = Math.min(safeIndex, rawContent.length)
+
+      if (displayIndex > lastIndex) {
+        parts.push({ type: 'text', content: rawContent.substring(lastIndex, displayIndex) })
+        lastIndex = displayIndex
       }
       if (event.type === 'tools') {
         parts.push({ type: 'tools', key: event.key, items: [event.tool] })

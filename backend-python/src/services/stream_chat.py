@@ -210,7 +210,7 @@ class StreamChatService:
                 logger.info(f"[STREAM_TRACE][main] {stage} | {payload}")
 
             def emit_thought_part(part: str):
-                nonlocal full_thought, should_break_next_thought, in_reasoning_phase, reasoning_closed_for_current_cycle
+                nonlocal full_thought, full_content, should_break_next_thought, in_reasoning_phase, reasoning_closed_for_current_cycle
                 text = _strip_internal_tool_trace(str(part or ""))
                 if not text or not text.strip():
                     return
@@ -218,12 +218,14 @@ class StreamChatService:
                 if should_break_next_thought and not in_reasoning_phase and full_thought.strip():
                     separator = f"\n\n{THOUGHT_BLOCK_BREAK_MARKER}\n\n"
                     full_thought += separator
-                    yield ThoughtEvent(content=separator).model_dump()
+                    current_text_index = len(full_content)
+                    yield ThoughtEvent(content=separator, text_index=current_text_index).model_dump(by_alias=True)
                 should_break_next_thought = False
                 in_reasoning_phase = True
                 full_thought += text
                 trace_stream("emit_reasoning", reasoning_preview=_preview(text))
-                yield ThoughtEvent(content=text).model_dump()
+                current_text_index = len(full_content)
+                yield ThoughtEvent(content=text, text_index=current_text_index).model_dump(by_alias=True, exclude_none=False)
 
             def process_text(text: str):
                 nonlocal full_content, in_reasoning_phase, should_break_next_thought, reasoning_closed_for_current_cycle
@@ -429,10 +431,6 @@ class StreamChatService:
 
             # Final Agent Input
             agent_input = system_messages + recent_history
-            logger.info(
-                f"Context Window: turn_limit={turn_limit}, user_turns={user_turn_count}, "
-                f"{len(system_messages)} System + {len(recent_history)} Chat Messages"
-            )
 
             stream = agent.arun(
                 input=agent_input,
@@ -696,11 +694,13 @@ class StreamChatService:
                                     tool_name=tool.tool_name or "",
                                     tool_call_id=tool.tool_call_id,
                                 )
+                                current_text_index = len(full_content)
                                 yield ToolCallEvent(
                                     id=tool.tool_call_id,
                                     name=tool.tool_name or "",
                                     arguments=json.dumps(tool.tool_args or {}),
-                                ).model_dump()
+                                    text_index=current_text_index,
+                                ).model_dump(by_alias=True, exclude_none=False)
 
                         case RunEvent.tool_call_completed.value:
                             tool_event: ToolCallCompletedEvent = run_event  # type: ignore[assignment]
@@ -940,19 +940,21 @@ class StreamChatService:
                 logger.info(f"[STREAM_TRACE][hitl] {stage} | {payload}")
 
             def emit_thought_part(part: str):
-                nonlocal full_thought, should_break_next_thought, in_reasoning_phase, reasoning_closed_for_current_cycle
+                nonlocal full_thought, full_content, should_break_next_thought, in_reasoning_phase, reasoning_closed_for_current_cycle
                 text = _strip_internal_tool_trace(str(part or ""))
                 if not text or not text.strip():
                     return
                 if should_break_next_thought and not in_reasoning_phase and full_thought.strip():
                     separator = f"\n\n{THOUGHT_BLOCK_BREAK_MARKER}\n\n"
                     full_thought += separator
-                    yield ThoughtEvent(content=separator).model_dump()
+                    current_text_index = len(full_content)
+                    yield ThoughtEvent(content=separator, text_index=current_text_index).model_dump(by_alias=True)
                 should_break_next_thought = False
                 in_reasoning_phase = True
                 full_thought += text
                 trace_stream("emit_reasoning", reasoning_preview=_preview(text))
-                yield ThoughtEvent(content=text).model_dump()
+                current_text_index = len(full_content)
+                yield ThoughtEvent(content=text, text_index=current_text_index).model_dump(by_alias=True)
 
             def process_text(text: str):
                 nonlocal full_content, in_reasoning_phase, should_break_next_thought, reasoning_closed_for_current_cycle
@@ -1247,11 +1249,13 @@ class StreamChatService:
                                         tool_name=tool.tool_name or "",
                                         tool_call_id=tool.tool_call_id,
                                     )
+                                    current_text_index = len(full_content)
                                     yield ToolCallEvent(
                                         id=tool.tool_call_id,
                                         name=tool.tool_name or "",
                                         arguments=json.dumps(tool.tool_args or {}),
-                                    ).model_dump()
+                                        text_index=current_text_index,
+                                    ).model_dump(by_alias=True)
 
                             case RunEvent.tool_call_completed.value:
                                 tool_event: ToolCallCompletedEvent = run_event  # type: ignore[assignment]

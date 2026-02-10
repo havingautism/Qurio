@@ -149,7 +149,8 @@ const DeepResearchChatInterface = ({
   const [selectedSearchTools, setSelectedSearchTools] = useState([])
   const [isThinkingActive, setIsThinkingActive] = useState(false)
   const [isDeepResearchActive, setIsDeepResearchActive] = useState(false)
-  const [isConcurrentResearchActive, setIsConcurrentResearchActive] = useState(false) // Concurrent research (experimental)
+  const [isSequentialResearchActive, setIsSequentialResearchActive] = useState(false) // Sequential research
+  const [concurrencyLimit, setConcurrencyLimit] = useState(3)
 
   const isPlaceholderConversation = Boolean(activeConversation?._isPlaceholder)
 
@@ -556,9 +557,11 @@ const DeepResearchChatInterface = ({
       if (initialToggles.deepResearch) {
         setIsDeepResearchActive(true)
         setIsThinkingActive(false)
-        // Set concurrent research if specified
-        if (initialToggles.concurrentResearch) {
-          setIsConcurrentResearchActive(true)
+        if (initialToggles.concurrentResearch !== undefined) {
+          setIsSequentialResearchActive(!initialToggles.concurrentResearch)
+        }
+        if (initialToggles.concurrencyLimit) {
+          setConcurrencyLimit(initialToggles.concurrencyLimit)
         }
       } else if (initialToggles.thinking) {
         setIsThinkingActive(true)
@@ -1154,14 +1157,19 @@ const DeepResearchChatInterface = ({
       const deepResearchActive = togglesOverride
         ? togglesOverride.deepResearch
         : isDeepResearchConversation || isDeepResearchActive
-      const concurrentResearchActive = togglesOverride
-        ? togglesOverride.concurrentResearch
-        : isConcurrentResearchActive
+      const sequentialActive = togglesOverride
+        ? togglesOverride.concurrentResearch !== undefined
+          ? !togglesOverride.concurrentResearch
+          : isSequentialResearchActive
+        : isSequentialResearchActive
       const relatedActive = deepResearchActive
         ? false
         : togglesOverride
           ? togglesOverride.related
           : isRelatedEnabled
+      const resolvedConcurrencyLimit = togglesOverride
+        ? togglesOverride.concurrencyLimit
+        : concurrencyLimit
       const resolvedThinkingActive = deepResearchActive ? false : thinkingActive
 
       const isEditing = Boolean(editingInfoOverride || editingIndex !== null)
@@ -1220,7 +1228,8 @@ const DeepResearchChatInterface = ({
           searchTool,
           thinking: resolvedThinkingActive,
           deepResearch: deepResearchActive,
-          concurrentResearch: deepResearchActive ? concurrentResearchActive : false, // Only apply when deepResearch is active
+          sequentialResearch: deepResearchActive ? sequentialActive : false, // Only apply when deepResearch is active
+          concurrencyLimit: deepResearchActive ? resolvedConcurrencyLimit : 3,
           related: relatedActive,
         },
         settings,

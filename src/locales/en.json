@@ -636,7 +636,10 @@
       "testMissingKey": "Missing API key for this provider.",
       "testTimeout": "Test timed out.",
       "testInvalidJson": "Structured output is not valid JSON.",
-      "testFailed": "Test failed: {{message}}"
+      "testFailed": "Test failed: {{message}}",
+      "syncGlobal": "Sync Global Settings",
+      "syncGlobalHint": "Apply the global chat model configuration to this agent.",
+      "applyGlobalSettings": "Apply Global Settings"
     },
     "advanced": {
       "title": "Advanced",
@@ -802,6 +805,10 @@
     "agentsLoading": "Loading agents...",
     "spacesShortcut": "My Spaces",
     "spacesShortcutHint": "Manage collections",
+    "sequentialExecution": "Sequential Research Steps",
+    "sequentialExecutionDesc": "Execute steps in order for better coherence, but slower.",
+    "concurrencyLimit": "Research Concurrency Limit",
+    "concurrencyLimitHint": "Simultaneous research steps.",
     "concurrentExecution": "Concurrent Research Steps",
     "experimental": "Experimental",
     "concurrentExecutionDesc": "Run all steps simultaneously for faster execution, but may affect logical coherence."

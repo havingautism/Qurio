@@ -795,6 +795,8 @@
     "agentsLoading": "加载智能体中...",
     "spacesShortcut": "我的空间",
     "spacesShortcutHint": "管理并访问知识库",
+    "sequentialExecution": "串行执行研究步骤",
+    "sequentialExecutionDesc": "按顺序执行步骤以获得更优的连贯性，但速度较慢。",
     "concurrentExecution": "并发执行研究步骤",
     "experimental": "实验性",
     "concurrentExecutionDesc": "同时执行所有研究步骤以提升速度，但可能影响步骤间的逻辑连贯性"

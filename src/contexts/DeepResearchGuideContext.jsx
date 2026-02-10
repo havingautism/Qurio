@@ -33,7 +33,7 @@ export const DeepResearchGuideProvider = ({
   const [deepResearchOutput, setDeepResearchOutput] = useState('')
   const [deepResearchOutputAuto, setDeepResearchOutputAuto] = useState(true)
   const [deepResearchType, setDeepResearchType] = useState('general')
-  const [deepResearchConcurrent, setDeepResearchConcurrent] = useState(false)
+  const [deepResearchSequential, setDeepResearchSequential] = useState(false)
   const getDefaultResponseLanguage = useCallback(() => {
     const normalized = String(i18n.language || '').toLowerCase()
     return normalized.startsWith('zh') ? 'zh-CN' : 'en'
@@ -50,7 +50,7 @@ export const DeepResearchGuideProvider = ({
     setDeepResearchOutput('')
     setDeepResearchOutputAuto(true)
     setDeepResearchType('general')
-    setDeepResearchConcurrent(false)
+    setDeepResearchSequential(false)
     setDeepResearchResponseLanguage(getDefaultResponseLanguage())
   }, [getDefaultResponseLanguage])
 
@@ -124,7 +124,7 @@ export const DeepResearchGuideProvider = ({
           search: true,
           thinking: false,
           deepResearch: true,
-          concurrentResearch: deepResearchConcurrent,
+          concurrentResearch: !deepResearchSequential,
           related: false,
         },
         initialSpaceSelection: {
@@ -151,7 +151,7 @@ export const DeepResearchGuideProvider = ({
     buildDeepResearchPrompt,
     closeDeepResearchGuide,
     deepResearchAgent,
-    deepResearchConcurrent,
+    deepResearchSequential,
     deepResearchQuestion,
     deepResearchResponseLanguage,
     deepResearchSpace,
@@ -399,21 +399,18 @@ export const DeepResearchGuideProvider = ({
                         <label className="group flex cursor-pointer items-start gap-3">
                           <input
                             type="checkbox"
-                            checked={deepResearchConcurrent}
-                            onChange={e => setDeepResearchConcurrent(e.target.checked)}
+                            checked={deepResearchSequential}
+                            onChange={e => setDeepResearchSequential(e.target.checked)}
                             className="text-primary-500 focus:ring-primary-500/20 mt-0.5 h-4 w-4 cursor-pointer rounded border-gray-300 focus:ring-2 dark:border-zinc-600"
                           />
                           <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-2">
                               <span className="group-hover:text-primary-500 text-sm font-medium text-gray-900 transition-colors dark:text-gray-100">
-                                {t('homeView.concurrentExecution')}
-                              </span>
-                              <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-xs text-amber-600 dark:text-amber-400">
-                                {t('homeView.experimental')}
+                                {t('homeView.sequentialExecution')}
                               </span>
                             </div>
                             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                              {t('homeView.concurrentExecutionDesc')}
+                              {t('homeView.sequentialExecutionDesc')}
                             </p>
                           </div>
                         </label>

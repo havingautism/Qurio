@@ -804,6 +804,8 @@
     "agentsLoading": "Loading agents...",
     "spacesShortcut": "My Spaces",
     "spacesShortcutHint": "Manage collections",
+    "sequentialExecution": "Sequential Research Steps",
+    "sequentialExecutionDesc": "Execute steps in order for better coherence, but slower.",
     "concurrentExecution": "Concurrent Research Steps",
     "experimental": "Experimental",
     "concurrentExecutionDesc": "Run all steps simultaneously for faster execution, but may affect logical coherence."

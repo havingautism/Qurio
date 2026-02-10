@@ -1427,57 +1427,13 @@ const MessageBubble = ({
     }
   }, [markdownComponents, messageIndex, parseChildrenWithEmojis])
 
-  const firstNonFormToolPartIndex = useMemo(
-    () =>
-      interleavedContent.findIndex(
-        part =>
-          part.type === 'tools' &&
-          Array.isArray(part.items) &&
-          part.items.some(
-            item => item.name !== 'interactive_form' && item.name !== 'form_submission_status',
-          ),
-      ),
-    [interleavedContent],
-  )
-  const firstInteractiveFormPartIndex = useMemo(
-    () =>
-      interleavedContent.findIndex(
-        part =>
-          part.type === 'tools' &&
-          Array.isArray(part.items) &&
-          part.items.some(item => item?.name === 'interactive_form'),
-      ),
-    [interleavedContent],
-  )
-  const { workflowParts, workflowTextSourceIndexes } = useMemo(() => {
+  const workflowParts = useMemo(() => {
     const baseWorkflowParts = interleavedContent.filter(
       part => part.type === 'thought' || part.type === 'tools',
     )
-    const workflowTextIndexes = new Set()
-    const preToolTextParts = []
-    const shouldInjectPreToolText =
-      firstNonFormToolPartIndex > 0 &&
-      (firstInteractiveFormPartIndex === -1 ||
-        firstInteractiveFormPartIndex > firstNonFormToolPartIndex)
-
-    if (shouldInjectPreToolText) {
-      for (let index = 0; index < firstNonFormToolPartIndex; index += 1) {
-        const part = interleavedContent[index]
-        if (part?.type !== 'text' || !String(part.content || '').trim()) continue
-        preToolTextParts.push({
-          type: 'workflow_text',
-          key: `workflow-pretool-text-${index}`,
-          content: part.content,
-        })
-        workflowTextIndexes.add(index)
-      }
-    }
-
-    const mergedParts =
-      preToolTextParts.length > 0 ? [...preToolTextParts, ...baseWorkflowParts] : baseWorkflowParts
 
     // Interactive forms should be rendered outside of the workflow fold.
-    const filteredParts = mergedParts
+    return baseWorkflowParts
       .map(part => {
         if (part.type !== 'tools' || !Array.isArray(part.items)) return part
         const filteredItems = part.items.filter(item => item.name !== 'interactive_form')
@@ -1485,16 +1441,11 @@ const MessageBubble = ({
         return { ...part, items: filteredItems }
       })
       .filter(Boolean)
-    return {
-      workflowParts: filteredParts,
-      workflowTextSourceIndexes: workflowTextIndexes,
-    }
-  }, [firstInteractiveFormPartIndex, firstNonFormToolPartIndex, interleavedContent])
+  }, [interleavedContent])
   const contentPartsOutsideWorkflow = useMemo(
     () =>
       interleavedContent.flatMap((part, idx) => {
         if (part.type === 'text') {
-          if (workflowTextSourceIndexes.has(idx)) return []
           return [{ type: 'text', key: `text-${idx}`, content: part.content }]
         }
         if (part.type !== 'tools' || !Array.isArray(part.items)) return []
@@ -1502,7 +1453,7 @@ const MessageBubble = ({
         if (formItems.length === 0) return []
         return [{ type: 'interactive_form', key: part.key || `interactive-form-${idx}`, items: formItems }]
       }),
-    [interleavedContent, workflowTextSourceIndexes],
+    [interleavedContent],
   )
   const hasWorkflow = workflowParts.length > 0
   const hasFormSubmissionStatus = useMemo(

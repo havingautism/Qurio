@@ -1592,7 +1592,7 @@ const DeepResearchChatInterface = ({
     <div
       className={clsx(
         'bg-background text-foreground flex h-full flex-1 flex-col transition-all duration-300 sm:px-4',
-        isSidebarPinned ? 'md:ml-72' : 'md:ml-16',
+        isSidebarPinned ? 'md:ml-78' : 'md:ml-16',
         // Fixed left shift for large screens
         // 'xl:-translate-x-30',
         // Dynamic movement follows sidebar state for small screens

@@ -1956,7 +1956,7 @@ const ChatInterface = ({
     <div
       className={clsx(
         'bg-background text-foreground flex h-full flex-1 flex-col transition-all duration-300 sm:px-4',
-        isSidebarPinned ? 'md:ml-72' : 'md:ml-16',
+        isSidebarPinned ? 'md:ml-78' : 'md:ml-16',
         // Fixed left shift for large screens
         // 'xl:-translate-x-30',
         // Dynamic movement follows sidebar state for small screens
@@ -1992,7 +1992,7 @@ const ChatInterface = ({
           ref={messagesContainerRef}
           className="no-scrollbar relative flex-1 overflow-x-hidden overflow-y-auto sm:p-2"
         >
-          <div className="mx-auto w-full max-w-3xl px-0 sm:px-5">
+          <div className="mx-auto w-full max-w-3xl px-0 pt-16 sm:px-5 sm:pt-24">
             {showHistoryLoader && (
               <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
                 <FancyLoader />

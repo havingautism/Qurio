@@ -749,7 +749,7 @@ const Sidebar = ({
       {/* Mobile Overlay */}
       <div
         className={clsx(
-          'fixed inset-0 z-40 bg-black/50 backdrop-blur-sm transition-opacity duration-200 md:hidden',
+          'fixed inset-0 z-40 bg-black/50 backdrop-blur-md transition-opacity duration-200 md:hidden',
           isOpen ? 'opacity-100' : 'pointer-events-none opacity-0',
         )}
         onClick={isOpen ? onClose : undefined}
@@ -802,13 +802,13 @@ const Sidebar = ({
                 onClick={() => {
                   setActiveTab(item.id)
                   // On mobile (isOpen), only switch tab, don't navigate full page
-                    if (!isOpen) {
-                      if (item.id === 'library') onNavigate('library')
-                      else if (item.id === 'deepResearch') onNavigate('deepResearch')
-                      else if (item.id === 'expert') onNavigate('expert')
-                      else if (item.id === 'spaces') onNavigate('spaces')
-                      else if (item.id === 'bookmarks') onNavigate('bookmarks')
-                      else if (item.id === 'agents') onNavigate('agents')
+                  if (!isOpen) {
+                    if (item.id === 'library') onNavigate('library')
+                    else if (item.id === 'deepResearch') onNavigate('deepResearch')
+                    else if (item.id === 'expert') onNavigate('expert')
+                    else if (item.id === 'spaces') onNavigate('spaces')
+                    else if (item.id === 'bookmarks') onNavigate('bookmarks')
+                    else if (item.id === 'agents') onNavigate('agents')
                   }
                 }}
                 onMouseEnter={() => {
@@ -885,10 +885,10 @@ const Sidebar = ({
         <div
           className={clsx(
             'bg-sidebar flex h-full flex-col overflow-hidden',
-            isMobileFastSidebar
-              ? 'transition-none'
-              : 'transition-all duration-300 ease-in-out',
-            shouldShowExpandedPanel ? 'w-64 translate-x-0 opacity-100' : 'w-0 -translate-x-4 opacity-0',
+            isMobileFastSidebar ? 'transition-none' : 'transition-all duration-300 ease-in-out',
+            shouldShowExpandedPanel
+              ? 'w-64 translate-x-0 opacity-100'
+              : 'w-0 -translate-x-4 opacity-0',
             shouldShowPanelShadow ? 'shadow-2xl' : '',
           )}
         >
@@ -913,13 +913,13 @@ const Sidebar = ({
                       ? t('sidebar.deepResearch')
                       : displayTab === 'expert'
                         ? t('sidebar.expert')
-                      : displayTab === 'bookmarks'
-                        ? t('sidebar.bookmarks')
-                        : displayTab === 'spaces'
-                          ? t('sidebar.spaces')
-                          : displayTab === 'agents'
-                            ? t('sidebar.agents')
-                            : ''}
+                        : displayTab === 'bookmarks'
+                          ? t('sidebar.bookmarks')
+                          : displayTab === 'spaces'
+                            ? t('sidebar.spaces')
+                            : displayTab === 'agents'
+                              ? t('sidebar.agents')
+                              : ''}
                 </h2>
                 {/* View Full Page Button (Mobile Only, or always if useful)
                     The user requested this specifically for the extension area.

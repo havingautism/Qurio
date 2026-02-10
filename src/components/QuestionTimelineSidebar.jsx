@@ -372,14 +372,14 @@ const QuestionTimelineSidebar = ({
             ? 'absolute top-0 left-full z-30 ml-16 h-full w-75 border-none bg-transparent shadow-none'
             : [
                 'fixed top-0 right-0 h-dvh w-75', // Fixed width for mobile sidebar instead of variable
-                'bg-background z-50',
+                'bg-background text-foreground z-50',
                 isOpen ? 'translate-x-0' : 'translate-x-full',
               ],
           className,
         )}
       >
         {/* Header */}
-        <div className="flex shrink-0 items-center justify-between px-4 py-3 xl:hidden">
+        <div className="flex shrink-0 items-center justify-end px-4 py-4 xl:hidden">
           <div className="flex items-center gap-2 text-gray-900 dark:text-white">
             {/* <MessageSquare size={18} />
             <h2 className="text-base font-semibold">Question History</h2> */}
@@ -389,10 +389,10 @@ const QuestionTimelineSidebar = ({
             {/* Close button - only show on screens where sidebar can be toggled (xl and below) */}
             <button
               onClick={handleToggle}
-              className="rounded-lg p-1.5 transition-colors hover:bg-gray-100 xl:hidden dark:hover:bg-zinc-800"
+              className="inline-flex h-12 w-12 items-center justify-center rounded-full border border-gray-200/50 bg-white/90 p-0 leading-none text-gray-600 shadow-sm backdrop-blur-xl transition-all hover:bg-white hover:shadow-md xl:hidden dark:border-zinc-800/50 dark:bg-zinc-900/90 dark:text-gray-300 dark:hover:bg-zinc-900"
               title="Close timeline"
             >
-              <PanelRightClose size={18} className="text-gray-500 dark:text-gray-400" />
+              <PanelRightClose size={21} className="block" />
             </button>
           </div>
         </div>

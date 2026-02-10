@@ -2269,7 +2269,8 @@ const MessageBubble = ({
     <details
       className={clsx(
         'group rounded-xl border border-gray-200 bg-white/70 dark:border-zinc-800 dark:bg-zinc-900/40',
-        !isExpertMessage && 'mb-4',
+        !isExpertMessage && 'mt-0 mb-4',
+        isExpertMessage && 'mt-4',
       )}
       open={isWorkflowExpanded}
       onToggle={event => setIsWorkflowExpanded(event.currentTarget.open)}

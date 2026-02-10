@@ -18,9 +18,19 @@ import { sanitizeJson } from './utils'
 
 const THOUGHT_BLOCK_BREAK_MARKER = '<|thought_block_break|>'
 
+const sanitizeModelOutputText = value => {
+  if (typeof value !== 'string') return ''
+  // Remove replacement/BOM artifacts caused by broken upstream decoding.
+  return value
+    .replace(/\uFFFD+/g, '')
+    .replace(/\uFEFF/g, '')
+    .replace(/ï¿½+/g, '')
+    .replace(/ï»¿/g, '')
+}
+
 const sanitizeInternalToolTraceChunk = value => {
   if (typeof value !== 'string') return ''
-  let cleaned = value
+  let cleaned = sanitizeModelOutputText(value)
 
   cleaned = cleaned.replace(/<\/?(?:think|thought)>/gi, '')
   // Conservative cleanup: strip marker tokens only, avoid truncating normal text.
@@ -33,6 +43,20 @@ const sanitizeInternalThoughtTrace = value => {
   if (typeof value !== 'string') return ''
   const cleaned = sanitizeInternalToolTraceChunk(value)
   return cleaned.trim()
+}
+
+const clampToUnicodeBoundary = (text, index) => {
+  if (typeof text !== 'string' || text.length === 0) return 0
+  let safeIndex = Math.max(0, Math.min(Number.isFinite(index) ? Number(index) : 0, text.length))
+  if (safeIndex <= 0 || safeIndex >= text.length) return safeIndex
+  const currentCode = text.charCodeAt(safeIndex)
+  const prevCode = text.charCodeAt(safeIndex - 1)
+  const isLowSurrogate = currentCode >= 0xdc00 && currentCode <= 0xdfff
+  const prevIsHighSurrogate = prevCode >= 0xd800 && prevCode <= 0xdbff
+  if (isLowSurrogate && prevIsHighSurrogate) {
+    safeIndex -= 1
+  }
+  return safeIndex
 }
 
 const buildStreamBlocks = ({ content = '', thoughtHistory = [], toolCallHistory = [] } = {}) => {
@@ -75,7 +99,8 @@ const buildStreamBlocks = ({ content = '', thoughtHistory = [], toolCallHistory 
   let seq = 1
   let lastIndex = 0
   for (const event of events) {
-    const safeIndex = Math.max(0, Math.min(event.textIndex, rawContent.length))
+    const boundedEventIndex = Math.max(0, Math.min(event.textIndex, rawContent.length))
+    const safeIndex = clampToUnicodeBoundary(rawContent, boundedEventIndex)
     if (safeIndex > lastIndex) {
       const textChunk = rawContent.slice(lastIndex, safeIndex)
       if (textChunk) {
@@ -238,8 +263,58 @@ export const callAIAPI = async (
   let pendingThoughtEntries = []
   let thoughtBlockCounter = 0
   let streamEventOrder = 0
+  let researchStepEventOrder = 0
   let hasNonThoughtEvent = true
   let rafId = null
+  let streamTextIndexOffset = 0
+  let maxObservedEventTextIndex = 0
+  const toolStartedAtById = new Map()
+  const toolStartedAtQueuesByName = new Map()
+
+  const markToolStarted = (id, name, startedAt) => {
+    if (id) toolStartedAtById.set(id, startedAt)
+    if (!name) return
+    const queue = toolStartedAtQueuesByName.get(name) || []
+    queue.push(startedAt)
+    toolStartedAtQueuesByName.set(name, queue)
+  }
+
+  const consumeToolStartedAt = (id, name) => {
+    if (id && toolStartedAtById.has(id)) {
+      const startedAt = toolStartedAtById.get(id)
+      toolStartedAtById.delete(id)
+      return startedAt
+    }
+    if (!name) return null
+    const queue = toolStartedAtQueuesByName.get(name)
+    if (!queue || queue.length === 0) return null
+    const startedAt = queue.shift()
+    if (queue.length === 0) {
+      toolStartedAtQueuesByName.delete(name)
+    } else {
+      toolStartedAtQueuesByName.set(name, queue)
+    }
+    return startedAt ?? null
+  }
+
+  const resolveToolDurationMs = ({ incomingDurationMs, startedAtMs, existingDurationMs }) => {
+    const backendDuration = Number.isFinite(incomingDurationMs) ? Number(incomingDurationMs) : null
+    const localElapsed =
+      Number.isFinite(startedAtMs) && startedAtMs > 0 ? Math.max(0, Date.now() - startedAtMs) : null
+
+    if (backendDuration == null) {
+      if (localElapsed != null) return localElapsed
+      return Number.isFinite(existingDurationMs) ? Number(existingDurationMs) : null
+    }
+
+    // Some providers return cumulative run duration on tool_result.
+    // If backend duration is clearly larger than local per-tool elapsed, prefer local elapsed.
+    if (localElapsed != null && backendDuration > localElapsed + 1500) {
+      return localElapsed
+    }
+
+    return backendDuration
+  }
 
   // Create AbortController for this request
   const controller = new AbortController()
@@ -310,6 +385,69 @@ export const callAIAPI = async (
   const queueFlush = () => {
     if (rafId !== null) return
     rafId = schedule(flushPending)
+  }
+
+  const getCurrentStreamEndIndex = () => {
+    const currentMessages = get().messages || []
+    const lastStreamMsg = currentMessages[currentMessages.length - 1] || {}
+    return Math.max(0, String(lastStreamMsg.content || '').length + (pendingText || '').length)
+  }
+
+  const normalizeStreamTextIndex = (rawIndex, fallbackIndex) => {
+    const safeFallback = Math.max(
+      0,
+      Number.isFinite(fallbackIndex) ? Number(fallbackIndex) : getCurrentStreamEndIndex(),
+    )
+    if (!Number.isFinite(rawIndex)) {
+      maxObservedEventTextIndex = Math.max(maxObservedEventTextIndex, safeFallback)
+      return safeFallback
+    }
+
+    const safeRaw = Math.max(0, Number(rawIndex))
+    const currentEnd = getCurrentStreamEndIndex()
+    const highWater = Math.max(maxObservedEventTextIndex, currentEnd)
+    let absolute = safeRaw + streamTextIndexOffset
+
+    // HITL resume may restart textIndex from 0; if index jumps backwards, re-anchor to current tail.
+    if (absolute + 8 < highWater && safeRaw < highWater) {
+      streamTextIndexOffset = highWater
+      absolute = safeRaw + streamTextIndexOffset
+    }
+
+    // Keep ordering monotonic to avoid mid-message insertions during streaming.
+    if (absolute < highWater) {
+      absolute = highWater
+    }
+
+    maxObservedEventTextIndex = Math.max(maxObservedEventTextIndex, absolute)
+    return absolute
+  }
+
+  const normalizeResearchStepNumber = value => {
+    const num = Number(value)
+    return Number.isFinite(num) ? num : null
+  }
+
+  const buildResearchStepKey = value => {
+    const numericStep = normalizeResearchStepNumber(value)
+    if (numericStep !== null) return `step:${numericStep}`
+    if (typeof value === 'string' && value.trim()) return `step:${value.trim()}`
+    return ''
+  }
+
+  const sortResearchSteps = steps => {
+    const safeSteps = Array.isArray(steps) ? [...steps] : []
+    safeSteps.sort((a, b) => {
+      const aNum = normalizeResearchStepNumber(a?.step)
+      const bNum = normalizeResearchStepNumber(b?.step)
+      if (aNum !== null && bNum !== null) return aNum - bNum
+      if (aNum !== null) return -1
+      if (bNum !== null) return 1
+      const aOrder = Number.isFinite(a?.streamOrder) ? Number(a.streamOrder) : Number.MAX_SAFE_INTEGER
+      const bOrder = Number.isFinite(b?.streamOrder) ? Number(b.streamOrder) : Number.MAX_SAFE_INTEGER
+      return aOrder - bOrder
+    })
+    return safeSteps
   }
   try {
     // Get model configuration: Agent priority, global fallback
@@ -571,21 +709,36 @@ export const callAIAPI = async (
               }
               const lastMsg = { ...updated[lastMsgIndex] }
               const steps = Array.isArray(lastMsg.researchSteps) ? [...lastMsg.researchSteps] : []
-              const targetIndex = steps.findIndex(item => item.step === chunk.step)
+              const stepKey = buildResearchStepKey(chunk.step)
+              const targetIndex = steps.findIndex(item => {
+                if (stepKey && item?.stepKey) return item.stepKey === stepKey
+                if (stepKey) {
+                  const itemKey = buildResearchStepKey(item?.step)
+                  if (itemKey) return itemKey === stepKey
+                }
+                return false
+              })
+              const normalizedStep = normalizeResearchStepNumber(chunk.step)
               const stepEntry = {
-                step: chunk.step,
+                step: normalizedStep ?? chunk.step,
+                stepKey: stepKey || undefined,
                 total: chunk.total,
                 title: chunk.title || '',
                 status: chunk.status || 'running',
                 durationMs: typeof chunk.duration_ms === 'number' ? chunk.duration_ms : undefined,
                 error: chunk.error || null,
+                streamOrder: ++researchStepEventOrder,
               }
               if (targetIndex >= 0) {
-                steps[targetIndex] = { ...steps[targetIndex], ...stepEntry }
+                steps[targetIndex] = {
+                  ...steps[targetIndex],
+                  ...stepEntry,
+                  streamOrder: steps[targetIndex]?.streamOrder ?? stepEntry.streamOrder,
+                }
               } else {
                 steps.push(stepEntry)
               }
-              lastMsg.researchSteps = steps
+              lastMsg.researchSteps = sortResearchSteps(steps)
               updated[lastMsgIndex] = lastMsg
               return { messages: updated }
             })
@@ -639,15 +792,19 @@ export const callAIAPI = async (
               })()
               const pendingTextLength = (pendingText || '').length
               const baseIndex = (lastMsg.content || '').length + pendingTextLength
+              const resolvedTextIndex = normalizeStreamTextIndex(chunk.textIndex, baseIndex)
+              const toolId = chunk.id || `${chunk.name || 'tool'}-${Date.now()}`
+              const startedAt = Date.now()
+              markToolStarted(toolId, toolName, startedAt)
               history.push({
-                id: chunk.id || `${chunk.name || 'tool'}-${Date.now()}`,
+                id: toolId,
                 name: toolName,
                 arguments: injectedArguments,
                 status: 'calling',
                 durationMs: null,
                 step: typeof chunk.step === 'number' ? chunk.step : undefined,
                 total: typeof chunk.total === 'number' ? chunk.total : undefined,
-                textIndex: typeof chunk.textIndex === 'number' ? chunk.textIndex : baseIndex,
+                textIndex: resolvedTextIndex,
                 streamOrder: ++streamEventOrder,
               })
               lastMsg.toolCallHistory = history
@@ -672,6 +829,10 @@ export const callAIAPI = async (
                 chunk.id ? item.id === chunk.id : item.name === chunk.name,
               )
               if (targetIndex >= 0) {
+                const startedAt = consumeToolStartedAt(
+                  history[targetIndex]?.id,
+                  history[targetIndex]?.name,
+                )
                 history[targetIndex] = {
                   ...history[targetIndex],
                   status: chunk.status || 'done',
@@ -680,10 +841,11 @@ export const callAIAPI = async (
                     typeof chunk.output !== 'undefined'
                       ? chunk.output
                       : history[targetIndex].output,
-                  durationMs:
-                    typeof chunk.duration_ms === 'number'
-                      ? chunk.duration_ms
-                      : history[targetIndex].durationMs,
+                  durationMs: resolveToolDurationMs({
+                    incomingDurationMs: chunk.duration_ms,
+                    startedAtMs: startedAt,
+                    existingDurationMs: history[targetIndex].durationMs,
+                  }),
                   step: typeof chunk.step === 'number' ? chunk.step : history[targetIndex].step,
                   total: typeof chunk.total === 'number' ? chunk.total : history[targetIndex].total,
                 }
@@ -705,7 +867,15 @@ export const callAIAPI = async (
                   status: chunk.status || 'done',
                   error: chunk.error || null,
                   output: typeof chunk.output !== 'undefined' ? chunk.output : null,
-                  durationMs: typeof chunk.duration_ms === 'number' ? chunk.duration_ms : null,
+                  durationMs: resolveToolDurationMs({
+                    incomingDurationMs: chunk.duration_ms,
+                    startedAtMs: consumeToolStartedAt(chunk.id, chunk.name),
+                    existingDurationMs: null,
+                  }),
+                  textIndex: normalizeStreamTextIndex(
+                    chunk.textIndex,
+                    (lastMsg.content || '').length + (pendingText || '').length,
+                  ),
                   step: typeof chunk.step === 'number' ? chunk.step : undefined,
                   total: typeof chunk.total === 'number' ? chunk.total : undefined,
                 })
@@ -746,6 +916,7 @@ export const callAIAPI = async (
               if (existingFormIndex === -1) {
                 const pendingTextLength = (pendingText || '').length
                 const baseIndex = (lastMsg.content || '').length + pendingTextLength
+                const formTextIndex = normalizeStreamTextIndex(undefined, baseIndex)
 
                 history.push({
                   id: chunk.form_id || `form-${Date.now()}`,
@@ -758,7 +929,7 @@ export const callAIAPI = async (
                     fields: chunk.fields,
                   }),
                   status: 'calling', // Will be marked 'done' after submission
-                  textIndex: baseIndex,
+                  textIndex: formTextIndex,
                   streamOrder: ++streamEventOrder,
                   output: {
                     run_id: chunk.run_id,
@@ -806,10 +977,7 @@ export const callAIAPI = async (
             const currentMessages = get().messages || []
             const lastStreamMsg = currentMessages[currentMessages.length - 1] || {}
             const fallbackIndex = (lastStreamMsg.content || '').length + (pendingText || '').length
-            const thoughtIndex =
-              typeof chunk.textIndex === 'number'
-                ? Math.max(0, chunk.textIndex)
-                : Math.max(0, fallbackIndex)
+            const thoughtIndex = normalizeStreamTextIndex(chunk.textIndex, fallbackIndex)
             const thoughtParts = rawThought.split(THOUGHT_BLOCK_BREAK_MARKER)
 
             thoughtParts.forEach((part, partIndex) => {
@@ -838,7 +1006,10 @@ export const callAIAPI = async (
             hasNonThoughtEvent = true
           }
         } else {
-          pendingText += chunk
+          const cleanChunkText = sanitizeInternalToolTraceChunk(String(chunk || ''))
+          if (cleanChunkText) {
+            pendingText += cleanChunkText
+          }
           hasNonThoughtEvent = true
         }
 
@@ -921,7 +1092,8 @@ export const callAIAPI = async (
         plan: planContent,
         question: firstUserText || lastMessage?.content || '',
         researchType,
-        concurrentExecution: toggles?.concurrentResearch || false,
+        sequentialExecution: toggles?.sequentialResearch || false,
+        concurrencyLimit: toggles?.concurrencyLimit || 3,
       })
     } else {
       await provider.streamChatCompletion(params)
@@ -985,21 +1157,25 @@ export const finalizeMessage = async (
 
   const normalizedThought = sanitizeInternalThoughtTrace(result?.thought)
   const normalizeContent = content => {
-    if (typeof content === 'string') return content
+    if (typeof content === 'string') return sanitizeModelOutputText(content)
     if (Array.isArray(content)) {
-      return content
+      return sanitizeModelOutputText(
+        content
         .map(part => {
           if (typeof part === 'string') return part
           if (part?.type === 'text' && part.text) return part.text
           if (part?.text) return part.text
           return ''
         })
-        .join('')
+          .join(''),
+      )
     }
     if (content && typeof content === 'object' && Array.isArray(content.parts)) {
-      return content.parts.map(p => (typeof p === 'string' ? p : p?.text || '')).join('')
+      return sanitizeModelOutputText(
+        content.parts.map(p => (typeof p === 'string' ? p : p?.text || '')).join(''),
+      )
     }
-    return content ? String(content) : ''
+    return content ? sanitizeModelOutputText(String(content)) : ''
   }
 
   const modelConfig = getModelConfigForAgent(
@@ -1372,11 +1548,11 @@ export const finalizeMessage = async (
     const contentForPersistence = (() => {
       // Always prefer streamed store content to keep thought/tool positions stable after completion.
       if (typeof latestAi?.content === 'string' && latestAi.content.length > 0) {
-        return latestAi.content
+        return sanitizeModelOutputText(latestAi.content)
       }
       return typeof result.content !== 'undefined'
         ? normalizeContent(result.content)
-        : (latestAi?.content ?? '')
+        : sanitizeModelOutputText(latestAi?.content ?? '')
     })()
     const databaseProviderKey = String(
       settings?.databaseProviderId || settings?.databaseProvider || '',

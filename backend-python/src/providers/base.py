@@ -4,8 +4,9 @@ Defines the interface for all provider adapters.
 """
 
 from abc import ABC, abstractmethod
+from collections.abc import AsyncGenerator
 from dataclasses import dataclass
-from typing import Any, AsyncGenerator, Literal
+from typing import Any, Literal
 
 
 @dataclass

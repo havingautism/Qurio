@@ -8,8 +8,8 @@ from typing import Any
 from agno.models.openai.like import OpenAILike
 from agno.run.agent import RunContentEvent
 
-from .openai import OpenAIAdapter
 from .base import ProviderConfig
+from .openai import OpenAIAdapter
 
 
 class SiliconFlowAdapter(OpenAIAdapter):

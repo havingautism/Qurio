@@ -675,7 +675,7 @@ export const streamDeepResearch = async function* (params) {
     plan,
     question,
     researchType = 'general', // 'general' or 'academic'
-    concurrentExecution = false, // NEW: enable concurrent step execution (experimental)
+    sequentialResearch = false, // If true, execute steps one by one
     searchProvider,
     tavilyApiKey,
     signal,
@@ -751,7 +751,7 @@ export const streamDeepResearch = async function* (params) {
   })
 
   // Execute research steps (sequential or concurrent mode)
-  if (concurrentExecution) {
+  if (!sequentialResearch) {
     // CONCURRENT MODE: Execute all steps in parallel using Promise.all
     console.log('[DeepResearch] Running steps concurrently (experimental)')
 

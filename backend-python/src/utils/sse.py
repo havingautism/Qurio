@@ -5,10 +5,10 @@ Provides buffering, heartbeats, and consistent headers for streaming responses.
 
 import asyncio
 import os
+from collections.abc import AsyncGenerator, Callable
 from dataclasses import dataclass, field
-from typing import Any, AsyncGenerator, Callable, Optional
+from typing import Any
 
-from starlette.responses import Response
 from sse_starlette.sse import EventSourceResponse
 
 
@@ -43,11 +43,11 @@ class SseStream:
             await sse.close()
     """
 
-    def __init__(self, config: Optional[SseConfig] = None):
+    def __init__(self, config: SseConfig | None = None):
         self.config = config or get_sse_config()
         self._buffer: list[str] = []
-        self._flush_task: Optional[asyncio.Task] = None
-        self._heartbeat_task: Optional[asyncio.Task] = None
+        self._flush_task: asyncio.Task | None = None
+        self._heartbeat_task: asyncio.Task | None = None
         self._queue: asyncio.Queue = asyncio.Queue()
         self._closed = False
 
@@ -121,7 +121,7 @@ class SseStream:
                 try:
                     data = await asyncio.wait_for(self._queue.get(), timeout=0.1)
                     yield data
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     continue
         finally:
             await self.close()
@@ -129,7 +129,7 @@ class SseStream:
 
 async def create_sse_stream(
     generator: Callable[[], AsyncGenerator[dict[str, Any], None]],
-    config: Optional[SseConfig] = None,
+    config: SseConfig | None = None,
 ) -> AsyncGenerator[str, None]:
     """
     Create an SSE stream from a generator that yields event dictionaries.
@@ -154,7 +154,7 @@ async def create_sse_stream(
 
 def create_sse_response(
     generator: Callable[[], AsyncGenerator[dict[str, Any], None]],
-    config: Optional[SseConfig] = None,
+    config: SseConfig | None = None,
 ) -> EventSourceResponse:
     """
     Create a FastAPI EventSourceResponse from a generator.

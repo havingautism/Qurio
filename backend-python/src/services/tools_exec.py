@@ -5,8 +5,8 @@ def is_local_tool_name(tool_name: str) -> bool:
     return any(t["id"] == resolved for t in CUSTOM_TOOLS)
 
 async def execute_tool_by_name(
-    tool_name: str, 
-    args: dict[str, Any], 
+    tool_name: str,
+    args: dict[str, Any],
     tool_config: dict[str, Any] = None
 ) -> dict[str, Any]:
     """Execute a tool by name, handling local dispatch."""

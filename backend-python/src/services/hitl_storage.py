@@ -7,21 +7,21 @@ Supports persistent DB-backed storage (Supabase/SQLite provider) with in-memory 
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime, timedelta
+from typing import Any
 from uuid import UUID
 
 from ..models.db import DbFilter, DbQueryRequest
 from .db_adapters import build_adapter
-from .db_service import execute_db_async
 from .db_registry import ProviderConfig, get_provider_registry
+from .db_service import execute_db_async
 from .hitl_serializer import deserialize_requirements, serialize_requirements
 
 logger = logging.getLogger(__name__)
 
 
 def _utc_now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _utc_now_iso() -> str:
@@ -54,18 +54,18 @@ class InMemoryHITLStorage:
     """In-memory storage for HITL pending runs."""
 
     def __init__(self) -> None:
-        self._store: Dict[str, Dict[str, Any]] = {}
+        self._store: dict[str, dict[str, Any]] = {}
 
     async def save_pending_run(
         self,
         run_id: str,
-        requirements: List[Any],
-        conversation_id: Optional[str] = None,
-        user_id: Optional[str] = None,
-        agent_model: Optional[str] = None,
+        requirements: list[Any],
+        conversation_id: str | None = None,
+        user_id: str | None = None,
+        agent_model: str | None = None,
         ttl_minutes: int = 30,
-        messages: Optional[List[Dict[str, Any]]] = None,
-    ) -> Optional[Dict[str, Any]]:
+        messages: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any] | None:
         requirements_data = serialize_requirements(requirements)
         expires_at = (_utc_now() + timedelta(minutes=ttl_minutes)).isoformat()
         record = {
@@ -83,7 +83,7 @@ class InMemoryHITLStorage:
         logger.info("[HITL] Stored pending run in memory: %s", run_id)
         return record
 
-    async def get_pending_run(self, run_id: str) -> Optional[Dict[str, Any]]:
+    async def get_pending_run(self, run_id: str) -> dict[str, Any] | None:
         record = self._store.get(run_id)
         if not record:
             logger.warning("[HITL] Pending run %s not found in memory", run_id)
@@ -131,13 +131,13 @@ class DbHITLStorage:
     async def save_pending_run(
         self,
         run_id: str,
-        requirements: List[Any],
-        conversation_id: Optional[str] = None,
-        user_id: Optional[str] = None,
-        agent_model: Optional[str] = None,
+        requirements: list[Any],
+        conversation_id: str | None = None,
+        user_id: str | None = None,
+        agent_model: str | None = None,
         ttl_minutes: int = 30,
-        messages: Optional[List[Dict[str, Any]]] = None,
-    ) -> Optional[Dict[str, Any]]:
+        messages: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any] | None:
         if self._use_memory_fallback:
             return await self._memory_fallback.save_pending_run(
                 run_id=run_id,
@@ -158,7 +158,7 @@ class DbHITLStorage:
             # Supabase schema often defines these columns as UUID.
             normalized_conversation_id = _to_uuid_or_none(conversation_id)
             normalized_user_id = _to_uuid_or_none(user_id)
-        payload: Dict[str, Any] = {
+        payload: dict[str, Any] = {
             "run_id": run_id,
             "requirements_data": requirements_data,
             "expires_at": expires_at,
@@ -216,7 +216,7 @@ class DbHITLStorage:
         logger.info("[HITL] Stored pending run in provider=%s: %s", self.provider.id, run_id)
         return payload
 
-    async def get_pending_run(self, run_id: str) -> Optional[Dict[str, Any]]:
+    async def get_pending_run(self, run_id: str) -> dict[str, Any] | None:
         if self._use_memory_fallback:
             return await self._memory_fallback.get_pending_run(run_id)
 

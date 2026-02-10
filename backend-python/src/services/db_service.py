@@ -8,7 +8,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import threading
-from typing import Any, Optional, Union
+from typing import Any, Union
 
 from .db_adapters import SQLiteAdapter, SupabaseAdapter, build_adapter
 from .db_registry import ProviderConfig, get_provider_registry
@@ -42,7 +42,7 @@ def _resolve_provider(provider_id_or_type: str | None) -> ProviderConfig | None:
                 for provider in providers:
                     if provider.type == target:
                         return provider
-    
+
     # Defaults: Supabase > SQLite
     for provider in providers:
         if provider.type == "supabase":
@@ -53,7 +53,7 @@ def _resolve_provider(provider_id_or_type: str | None) -> ProviderConfig | None:
     return None
 
 
-def get_db_adapter(provider_id_or_type: str | None = None) -> Optional[DbAdapter]:
+def get_db_adapter(provider_id_or_type: str | None = None) -> DbAdapter | None:
     """
     Get a database adapter for the specified provider (or default).
     """
@@ -63,7 +63,7 @@ def get_db_adapter(provider_id_or_type: str | None = None) -> Optional[DbAdapter
         if provider_id_or_type or not get_provider_registry().list():
              logger.warning("[DB] No database provider found for: %s", provider_id_or_type)
         return None
-    
+
     with _adapter_cache_lock:
         if provider.id in _adapter_cache:
             return _adapter_cache[provider.id]

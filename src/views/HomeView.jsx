@@ -22,6 +22,7 @@ import { Drawer, DrawerContent } from '@/components/ui/drawer'
 import { useTranslation } from 'react-i18next'
 import { useAppContext } from '../App'
 import DeepResearchCard from '../components/DeepResearchCard'
+import ExpertModeCard from '../components/ExpertModeCard'
 import SpaceShortcutCard from '../components/SpaceShortcutCard'
 import EmojiDisplay from '../components/EmojiDisplay'
 import Logo from '../components/Logo'
@@ -40,12 +41,14 @@ import {
 } from '../lib/searchTools'
 import useChatStore from '../lib/chatStore'
 import { createConversation } from '../lib/conversationsService'
+import { addConversationEvent } from '../lib/conversationsService'
 import { providerSupportsSearch, resolveThinkingToggleRule } from '../lib/providers'
 import { loadSettings } from '../lib/settings'
 import { getSpaceDisplayLabel } from '../lib/spaceDisplay'
 import { listSpaceAgents } from '../lib/spacesService'
 import { listSpaceDocuments, setConversationDocuments } from '../lib/documentsService'
 import { useDeepResearchGuide } from '../contexts/DeepResearchGuideContext'
+import ExpertGuideModal from '../components/ExpertGuideModal'
 import { splitTextWithUrls } from '../lib/urlHighlight'
 import { listToolsViaBackend } from '../lib/backendClient'
 
@@ -73,6 +76,8 @@ const HomeView = () => {
   const [homeSearchTools, setHomeSearchTools] = useState([])
   const [isHomeSearchMenuOpen, setIsHomeSearchMenuOpen] = useState(false)
   const [isHomeThinkingActive, setIsHomeThinkingActive] = useState(false)
+  const [isExpertGuideOpen, setIsExpertGuideOpen] = useState(false)
+  const [isCreatingExpertConversation, setIsCreatingExpertConversation] = useState(false)
   const [homeAttachments, setHomeAttachments] = useState([])
   const [homeSelectedSpace, setHomeSelectedSpace] = useState(null)
   const homeSpaceSelectorRef = useRef(null)
@@ -96,7 +101,9 @@ const HomeView = () => {
   const homeTextareaRef = useRef(null)
   const homeInputHighlightRef = useRef(null)
 
-  useScrollLock((isHomeSpaceSelectorOpen && isHomeMobile) || isDeepResearchGuideOpen)
+  useScrollLock(
+    (isHomeSpaceSelectorOpen && isHomeMobile) || isDeepResearchGuideOpen || isExpertGuideOpen,
+  )
 
   // Reset conversation state when entering Home/New Chat view
   useEffect(() => {
@@ -543,6 +550,7 @@ const HomeView = () => {
           searchBackend: homeSearchBackend || null,
           thinking: resolvedThinkingActive,
           deepResearch: false,
+          expertMode: false,
           related: Boolean(settings.enableRelatedQuestions),
         },
         initialSpaceSelection: {
@@ -576,6 +584,55 @@ const HomeView = () => {
       setHomeSpaceDocuments([])
     } catch (err) {
       console.error('Failed to start chat:', err)
+    }
+  }
+
+  const handleStartExpertConversation = async ({ question, space }) => {
+    if (!question?.trim() || !space?.id || isCreatingExpertConversation) return
+    setIsCreatingExpertConversation(true)
+    try {
+      const { data: conversation, error } = await createConversation({
+        space_id: space.id,
+        title: 'New Expert Conversation',
+        api_provider: defaultAgent?.provider || '',
+      })
+      if (error || !conversation) {
+        console.error('Failed to create expert conversation:', error)
+        return
+      }
+
+      await addConversationEvent(conversation.id, 'expert_mode_start', {
+        source: 'expert_entry',
+        question: question.trim(),
+        space_id: space.id,
+      })
+
+      navigate({
+        to: '/expert/$conversationId',
+        params: { conversationId: conversation.id },
+        state: {
+          initialMessage: question.trim(),
+          initialToggles: {
+            search: false,
+            searchTool: [],
+            searchBackend: null,
+            thinking: false,
+            deepResearch: false,
+            expertMode: true,
+            related: Boolean(settings.enableRelatedQuestions),
+          },
+          initialSpaceSelection: {
+            mode: 'manual',
+            space,
+          },
+          initialIsAgentAutoMode: true,
+        },
+      })
+      setIsExpertGuideOpen(false)
+    } catch (err) {
+      console.error('Failed to start expert conversation:', err)
+    } finally {
+      setIsCreatingExpertConversation(false)
     }
   }
 
@@ -1312,8 +1369,9 @@ const HomeView = () => {
             </div>
           </div>
 
-          <div className="mb-1 grid w-full grid-cols-1 gap-4 px-0 md:grid-cols-2">
+          <div className="mb-1 grid w-full grid-cols-1 gap-4 px-0 md:grid-cols-3">
             <DeepResearchCard onClick={openDeepResearchGuide} />
+            <ExpertModeCard onClick={() => setIsExpertGuideOpen(true)} />
             <SpaceShortcutCard
               spaces={spaces}
               selectedSpaceId={homeSelectedSpace?.id}
@@ -1330,6 +1388,14 @@ const HomeView = () => {
           </div>
         </div>
       </div>
+
+      <ExpertGuideModal
+        isOpen={isExpertGuideOpen}
+        onClose={() => setIsExpertGuideOpen(false)}
+        spaces={spaces}
+        loading={isCreatingExpertConversation}
+        onStart={handleStartExpertConversation}
+      />
     </div>
   )
 }

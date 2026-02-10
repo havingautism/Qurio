@@ -350,6 +350,120 @@ export const listConversationsBySpace = async (spaceId, options = {}) => {
   }
 }
 
+export const listExpertConversations = async (options = {}) => {
+  const cacheKey = getCacheKey('listExpertConversations', options)
+  const cached = getCached(cacheKey)
+  if (cached) return cached
+  if (inFlight.has(cacheKey)) return inFlight.get(cacheKey)
+
+  const { limit = 10, cursor = null, page = null, search = null } = options
+  const supabase = getSupabaseClient()
+  if (!supabase)
+    return {
+      data: [],
+      error: new Error('Supabase not configured'),
+      nextCursor: null,
+      hasMore: false,
+      count: 0,
+    }
+
+  let eventsQuery = supabase
+    .from('conversation_events')
+    .select('conversation_id,created_at', { count: 'exact' })
+    .eq('event_type', 'expert_mode_start')
+    .order('created_at', { ascending: false })
+
+  if (page !== null) {
+    const from = (page - 1) * limit
+    const to = from + limit - 1
+    eventsQuery = eventsQuery.range(from, to)
+  } else {
+    eventsQuery = eventsQuery.limit(limit)
+    if (cursor) {
+      eventsQuery = eventsQuery.lt('created_at', cursor)
+    }
+  }
+
+  const request = (async () => {
+    const { data: eventRows, error: eventsError, count } = await eventsQuery
+    if (eventsError) {
+      return {
+        data: [],
+        error: eventsError,
+        nextCursor: null,
+        hasMore: false,
+        count: 0,
+      }
+    }
+
+    const rows = Array.isArray(eventRows) ? eventRows : []
+    const uniqueConversationIds = []
+    const seen = new Set()
+    rows.forEach(row => {
+      const id = row?.conversation_id ? String(row.conversation_id) : ''
+      if (!id || seen.has(id)) return
+      seen.add(id)
+      uniqueConversationIds.push(id)
+    })
+
+    if (uniqueConversationIds.length === 0) {
+      return {
+        data: [],
+        error: null,
+        nextCursor: null,
+        hasMore: false,
+        count: count || 0,
+      }
+    }
+
+    let convQuery = supabase
+      .from(table)
+      .select('id,title,title_emojis,created_at,updated_at,space_id,api_provider,is_favorited,last_agent_id')
+      .in('id', uniqueConversationIds)
+
+    if (search && search.trim()) {
+      convQuery = convQuery.ilike('title', `%${search.trim()}%`)
+    }
+
+    const { data: conversations, error: convError } = await convQuery
+    if (convError) {
+      return {
+        data: [],
+        error: convError,
+        nextCursor: null,
+        hasMore: false,
+        count: count || 0,
+      }
+    }
+
+    const conversationById = new Map((conversations || []).map(item => [String(item.id), item]))
+    const orderedConversations = uniqueConversationIds
+      .map(id => conversationById.get(id))
+      .filter(Boolean)
+
+    const hasMore = rows.length === limit
+    const nextCursor =
+      hasMore && rows.length > 0 ? rows[rows.length - 1]?.created_at || null : null
+
+    const result = {
+      data: orderedConversations,
+      error: null,
+      nextCursor,
+      hasMore,
+      count: count || 0,
+    }
+    setCached(cacheKey, result)
+    return result
+  })()
+
+  inFlight.set(cacheKey, request)
+  try {
+    return await request
+  } finally {
+    inFlight.delete(cacheKey)
+  }
+}
+
 export const listMessages = async conversationId => {
   const supabase = getSupabaseClient()
   if (!supabase) return { data: [], error: new Error('Supabase not configured') }

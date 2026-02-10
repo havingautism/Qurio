@@ -4,14 +4,16 @@ Agent for auto mode API routes.
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
 from ..providers import is_provider_supported
 from ..services.generation import generate_agent_for_auto
 
-
 router = APIRouter(tags=["agent-for-auto"])
+logger = logging.getLogger(__name__)
 
 
 @router.post("/agent-for-auto")
@@ -34,15 +36,21 @@ async def agent_for_auto(request: Request) -> JSONResponse:
     if not is_provider_supported(provider):
         return JSONResponse(status_code=400, content={"error": f"Unsupported provider: {provider}"})
 
-    agent_name = await generate_agent_for_auto(
-        provider=provider,
-        user_message=message,
-        current_space=current_space,
-        api_key=api_key,
-        base_url=base_url,
-        model=model,
-        user_timezone=user_timezone,
-        user_locale=user_locale,
-    )
-    return JSONResponse(content={"agentName": agent_name})
+    # Auto agent preselection is best-effort and must not break user chat flow.
+    # On provider auth/config errors, gracefully return null and let frontend fallback.
+    try:
+        agent_name = await generate_agent_for_auto(
+            provider=provider,
+            user_message=message,
+            current_space=current_space,
+            api_key=api_key,
+            base_url=base_url,
+            model=model,
+            user_timezone=user_timezone,
+            user_locale=user_locale,
+        )
+        return JSONResponse(content={"agentName": agent_name})
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("agent-for-auto failed, fallback to null agent: %s", exc)
+        return JSONResponse(content={"agentName": None})
 

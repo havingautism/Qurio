@@ -3,12 +3,11 @@ Stream chat API routes.
 FastAPI endpoints for streaming chat completion.
 """
 
-import json
-from typing import AsyncGenerator
 import asyncio
+import json
+from collections.abc import AsyncGenerator
 
 from fastapi import APIRouter, Request, Response
-from fastapi.responses import StreamingResponse
 from sse_starlette.sse import EventSourceResponse
 
 from ..models.stream_chat import StreamChatRequest

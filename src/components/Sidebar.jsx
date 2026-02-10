@@ -1,6 +1,7 @@
 import clsx from 'clsx'
 import {
   Blocks,
+  BrainCircuit,
   Bookmark,
   ChevronDown,
   ChevronUp,
@@ -28,6 +29,7 @@ import {
   listBookmarkedConversations,
   listConversations,
   listConversationsBySpace,
+  listExpertConversations,
   notifyConversationsChanged,
   toggleFavorite,
 } from '../lib/conversationsService'
@@ -47,6 +49,7 @@ const Sidebar = ({
   onOpenTools,
   onNavigate,
   onNavigateToSpace,
+  onOpenExpertGuide,
   onCreateSpace,
   onEditSpace,
   onOpenConversation,
@@ -100,6 +103,13 @@ const Sidebar = ({
   const [deepResearchHasMore, setDeepResearchHasMore] = useState(true)
   const [isDeepResearchLoading, setIsDeepResearchLoading] = useState(false)
   const [deepResearchLoadingMore, setDeepResearchLoadingMore] = useState(false)
+
+  // Expert conversations
+  const [expertConversations, setExpertConversations] = useState([])
+  const [expertNextCursor, setExpertNextCursor] = useState(null)
+  const [expertHasMore, setExpertHasMore] = useState(true)
+  const [isExpertLoading, setIsExpertLoading] = useState(false)
+  const [expertLoadingMore, setExpertLoadingMore] = useState(false)
 
   // Spaces interaction state
   const [expandedSpaces, setExpandedSpaces] = useState(new Set())
@@ -382,6 +392,43 @@ const Sidebar = ({
     }
   }
 
+  const fetchExpertConversations = async (isInitial = true) => {
+    try {
+      if (isInitial) {
+        setIsExpertLoading(true)
+      } else {
+        setExpertLoadingMore(true)
+      }
+
+      const {
+        data,
+        error,
+        nextCursor: newCursor,
+        hasMore: moreAvailable,
+      } = await listExpertConversations({
+        limit: SIDEBAR_FETCH_LIMIT,
+        cursor: isInitial ? null : expertNextCursor,
+      })
+
+      if (!error && data) {
+        if (isInitial) {
+          setExpertConversations(data)
+        } else {
+          setExpertConversations(prev => [...prev, ...data])
+        }
+        setExpertNextCursor(newCursor)
+        setExpertHasMore(moreAvailable)
+      } else {
+        console.error('Failed to load expert conversations:', error)
+      }
+    } catch (err) {
+      console.error('Error loading expert conversations:', err)
+    } finally {
+      setIsExpertLoading(false)
+      setExpertLoadingMore(false)
+    }
+  }
+
   useEffect(() => {
     const filtered = (appConversations || []).filter(
       conv => !deepResearchSpaceIds.includes(String(conv.space_id)),
@@ -395,10 +442,12 @@ const Sidebar = ({
   useEffect(() => {
     fetchBookmarkedConversations(true)
     fetchDeepResearchConversations(true)
+    fetchExpertConversations(true)
 
     const handleConversationsChanged = () => {
       fetchBookmarkedConversations(true)
       fetchDeepResearchConversations(true)
+      fetchExpertConversations(true)
     }
     window.addEventListener('conversations-changed', handleConversationsChanged)
     return () => window.removeEventListener('conversations-changed', handleConversationsChanged)
@@ -422,7 +471,7 @@ const Sidebar = ({
   const NAV_ITEM_KEYS = [
     { id: 'library', icon: Library },
     { id: 'deepResearch', icon: Microscope },
-
+    { id: 'expert', icon: BrainCircuit },
     { id: 'spaces', icon: LayoutGrid },
     { id: 'agents', icon: Smile },
     { id: 'bookmarks', icon: Bookmark },
@@ -498,6 +547,9 @@ const Sidebar = ({
           notifyConversationsChanged()
           if (activeTab === 'deepResearch' && deepResearchSpaceId) {
             fetchDeepResearchConversations(true)
+          }
+          if (activeTab === 'expert') {
+            fetchExpertConversations(true)
           }
           if (activeTab === 'bookmarks' || conversation.is_favorited) {
             fetchBookmarkedConversations(true)
@@ -665,6 +717,16 @@ const Sidebar = ({
     }))
   }, [deepResearchConversations])
 
+  const groupedExpertConversations = useMemo(() => {
+    const groups = groupConversationsByDate(expertConversations)
+    return groups.map(section => ({
+      ...section,
+      items: section.items.slice(0, MAX_CONVERSATIONS_PER_SECTION),
+      hasMore: section.items.length > MAX_CONVERSATIONS_PER_SECTION,
+      totalCount: section.items.length,
+    }))
+  }, [expertConversations])
+
   // Spaces list pagination inside sidebar
   const visibleSpaces = useMemo(() => {
     if (displayTab !== 'spaces') return []
@@ -687,7 +749,7 @@ const Sidebar = ({
       {/* Mobile Overlay */}
       <div
         className={clsx(
-          'fixed inset-0 z-40 bg-black/50 backdrop-blur-sm transition-opacity duration-200 md:hidden',
+          'fixed inset-0 z-40 bg-black/50 backdrop-blur-md transition-opacity duration-200 md:hidden',
           isOpen ? 'opacity-100' : 'pointer-events-none opacity-0',
         )}
         onClick={isOpen ? onClose : undefined}
@@ -743,6 +805,7 @@ const Sidebar = ({
                   if (!isOpen) {
                     if (item.id === 'library') onNavigate('library')
                     else if (item.id === 'deepResearch') onNavigate('deepResearch')
+                    else if (item.id === 'expert') onNavigate('expert')
                     else if (item.id === 'spaces') onNavigate('spaces')
                     else if (item.id === 'bookmarks') onNavigate('bookmarks')
                     else if (item.id === 'agents') onNavigate('agents')
@@ -822,10 +885,10 @@ const Sidebar = ({
         <div
           className={clsx(
             'bg-sidebar flex h-full flex-col overflow-hidden',
-            isMobileFastSidebar
-              ? 'transition-none'
-              : 'transition-all duration-300 ease-in-out',
-            shouldShowExpandedPanel ? 'w-64 translate-x-0 opacity-100' : 'w-0 -translate-x-4 opacity-0',
+            isMobileFastSidebar ? 'transition-none' : 'transition-all duration-300 ease-in-out',
+            shouldShowExpandedPanel
+              ? 'w-64 translate-x-0 opacity-100'
+              : 'w-0 -translate-x-4 opacity-0',
             shouldShowPanelShadow ? 'shadow-2xl' : '',
           )}
         >
@@ -848,13 +911,15 @@ const Sidebar = ({
                     ? t('sidebar.library')
                     : displayTab === 'deepResearch'
                       ? t('sidebar.deepResearch')
-                      : displayTab === 'bookmarks'
-                        ? t('sidebar.bookmarks')
-                        : displayTab === 'spaces'
-                          ? t('sidebar.spaces')
-                          : displayTab === 'agents'
-                            ? t('sidebar.agents')
-                            : ''}
+                      : displayTab === 'expert'
+                        ? t('sidebar.expert')
+                        : displayTab === 'bookmarks'
+                          ? t('sidebar.bookmarks')
+                          : displayTab === 'spaces'
+                            ? t('sidebar.spaces')
+                            : displayTab === 'agents'
+                              ? t('sidebar.agents')
+                              : ''}
                 </h2>
                 {/* View Full Page Button (Mobile Only, or always if useful)
                     The user requested this specifically for the extension area.
@@ -885,6 +950,7 @@ const Sidebar = ({
             {/* CONVERSATION LIST (Library & Bookmarks) */}
             {(displayTab === 'library' ||
               displayTab === 'bookmarks' ||
+              displayTab === 'expert' ||
               displayTab === 'deepResearch') && (
               <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain px-2">
                 {!isConversationsLoading &&
@@ -1254,6 +1320,203 @@ const Sidebar = ({
                               className="bg-user-bubble flex w-full items-center justify-center gap-2 rounded-xl py-2 text-xs font-medium text-gray-700 transition-colors hover:translate-y-[-2px] hover:transform dark:bg-zinc-800 dark:text-gray-200"
                             >
                               {deepResearchLoadingMore ? <DotLoader /> : t('sidebar.loadMore')}
+                            </button>
+                          ) : (
+                            <div className="flex items-center gap-2 py-2 text-[10px] text-gray-400">
+                              <span className="h-px flex-1 bg-gray-200 dark:bg-zinc-800" />
+                              <span className="whitespace-nowrap">
+                                {t('sidebar.noMoreThreads')}
+                              </span>
+                              <span className="h-px flex-1 bg-gray-200 dark:bg-zinc-800" />
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {displayTab === 'expert' && (
+                  <div className="flex h-full min-h-0 flex-col">
+                    <div className="shrink-0 px-2 pb-2">
+                      <button
+                        onClick={() => {
+                          if (onOpenExpertGuide) onOpenExpertGuide()
+                          else onNavigate('expert')
+                          if (onClose) onClose()
+                        }}
+                        className="bg-user-bubble/50 hover:bg-user-bubble dark:hover:bg-user-bubble/10 relative flex w-full cursor-pointer items-center gap-3 rounded-xl p-2.5 text-left text-gray-600 transition-transform hover:scale-105 dark:bg-zinc-800 dark:text-gray-300"
+                      >
+                        <div className="bg-primary-100/70 dark:bg-primary-900/30 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-base text-gray-700 dark:text-gray-100">
+                          <Plus size={16} />
+                        </div>
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                          {t('sidebar.createNewExpert')}
+                        </span>
+                      </button>
+                      <div className="mt-2 h-px bg-gray-200 dark:bg-zinc-800" />
+                    </div>
+
+                    <div className="no-scrollbar flex flex-1 flex-col gap-2 overflow-y-auto overscroll-contain px-2">
+                      {!isExpertLoading && expertConversations.length === 0 && (
+                        <div className="flex flex-col items-center gap-2 px-2 py-3 text-xs text-gray-500 dark:text-gray-400">
+                          <Coffee size={24} className="text-black dark:text-white" />
+                          <div>{t('sidebar.noExpertConversations')}</div>
+                        </div>
+                      )}
+
+                      {groupedExpertConversations.map(section => (
+                        <div key={section.title} className="flex flex-col gap-1">
+                          <div className="mt-1 flex justify-center px-2 text-[10px] tracking-wide text-gray-400 uppercase">
+                            {translateDateTitle(section.title)}
+                          </div>
+                          {section.items.map(conv => {
+                            const isActive = conv.id === activeConversationId
+                            const isExpanded = expandedActionId === conv.id
+                            const space = getConversationSpace(conv)
+                            return (
+                              <div key={conv.id} className="flex flex-col">
+                                <div
+                                  data-conversation-id={conv.id}
+                                  onClick={() => {
+                                    if (expandedActionId) {
+                                      closeActions()
+                                      return
+                                    }
+                                    onOpenConversation && onOpenConversation(conv, 'expert')
+                                  }}
+                                  className={clsx(
+                                    'group relative cursor-pointer truncate rounded-xl px-1 py-2.5 text-sm transition-all duration-200 md:p-2.5',
+                                    isActive
+                                      ? 'bg-primary-500/10 dark:bg-primary-500/20 text-primary-500 dark:text-primary-400'
+                                      : 'hover:bg-primary-50 text-gray-700 dark:text-gray-300 dark:hover:bg-zinc-800',
+                                    isExpanded &&
+                                      'bg-primary-50/70 dark:bg-primary-900/20 border-primary-200/60 dark:border-primary-800/60 ring-primary-100/70 dark:ring-primary-800/60 ring-1',
+                                  )}
+                                  title={conv.title}
+                                >
+                                  <div className="relative z-10 flex w-full items-center justify-between overflow-hidden">
+                                    <div className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden">
+                                      <div className="bg-primary-100 dark:bg-primary-900/30 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-base">
+                                        <EmojiDisplay
+                                          emoji={resolveConversationEmoji(conv, space?.emoji)}
+                                          size="1.4em"
+                                          className="shrink-0"
+                                        />
+                                      </div>
+                                      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+                                        <div className="flex min-w-0 items-center gap-1">
+                                          <span className="min-w-0 flex-1 truncate font-medium">
+                                            {conv.title}
+                                          </span>
+                                          {conv.is_favorited && (
+                                            <Bookmark
+                                              size={12}
+                                              className="text-primary-500 shrink-0 fill-current"
+                                            />
+                                          )}
+                                          {renderConversationStatusDot(
+                                            conversationStatuses[conv.id],
+                                          )}
+                                        </div>
+                                        <span
+                                          className={clsx(
+                                            'text-xs',
+                                            isActive
+                                              ? 'text-primary-600 dark:text-primary-400'
+                                              : 'text-gray-400',
+                                          )}
+                                        >
+                                          {formatDateTime(conv.updated_at || conv.created_at)}
+                                        </span>
+                                      </div>
+                                    </div>
+
+                                    <div className="relative ml-1 shrink-0">
+                                      <button
+                                        onClick={e => {
+                                          e.stopPropagation()
+                                          setExpandedActionId(prev =>
+                                            prev === conv.id ? null : conv.id,
+                                          )
+                                        }}
+                                        className={clsx(
+                                          'rounded-md p-1 transition-all hover:bg-gray-300 dark:hover:bg-zinc-700',
+                                          isActive
+                                            ? 'text-primary-600 dark:text-primary-400 bg-primary-100 dark:bg-primary-900/20'
+                                            : 'text-gray-500 hover:bg-gray-300 dark:text-gray-400 dark:hover:bg-zinc-700',
+                                          'opacity-100',
+                                          'md:opacity-0 md:group-hover:opacity-100',
+                                          'flex min-h-[28px] min-w-[28px] items-center justify-center',
+                                        )}
+                                      >
+                                        {isExpanded ? (
+                                          <ChevronUp size={16} strokeWidth={2.5} />
+                                        ) : (
+                                          <ChevronDown size={16} strokeWidth={2.5} />
+                                        )}
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                                {isExpanded && (
+                                  <div className="mt-2 grid grid-cols-2 gap-2 px-2 text-xs">
+                                    <button
+                                      onClick={e => {
+                                        e.stopPropagation()
+                                        handleToggleFavorite(conv)
+                                        closeActions()
+                                      }}
+                                      className={clsx(
+                                        'flex items-center justify-center gap-1.5 rounded-md py-1.5 font-medium transition-colors',
+                                        conv.is_favorited
+                                          ? 'bg-primary-50 text-primary-500 dark:bg-primary-600/20 dark:text-primary-500'
+                                          : 'hover:bg-primary-50 hover:text-primary-600 dark:hover:text-primary-400 text-gray-500 dark:text-gray-400 dark:hover:bg-zinc-700',
+                                      )}
+                                      title={
+                                        conv.is_favorited
+                                          ? t('sidebar.removeBookmark')
+                                          : t('sidebar.addBookmark')
+                                      }
+                                    >
+                                      <Bookmark
+                                        size={13}
+                                        className={conv.is_favorited ? 'fill-current' : ''}
+                                      />
+                                      <span className="truncate">
+                                        {conv.is_favorited ? t('sidebar.added') : t('sidebar.add')}
+                                      </span>
+                                    </button>
+                                    <button
+                                      onClick={e => {
+                                        e.stopPropagation()
+                                        handleDeleteConversation(conv)
+                                      }}
+                                      className="flex items-center justify-center gap-1.5 rounded-md border border-transparent py-1.5 font-medium text-gray-500 transition-colors hover:border-red-100 hover:bg-red-50 hover:text-red-600 dark:text-gray-400 dark:hover:border-red-800/30 dark:hover:bg-red-900/20 dark:hover:text-red-400"
+                                    >
+                                      <Trash2 size={13} />
+                                      <span>{t('sidebar.delete')}</span>
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      ))}
+
+                      {expertConversations.length > 0 && (
+                        <div className="px-2 py-2">
+                          {expertHasMore ? (
+                            <button
+                              onClick={e => {
+                                e.stopPropagation()
+                                fetchExpertConversations(false)
+                              }}
+                              disabled={expertLoadingMore}
+                              className="bg-user-bubble flex w-full items-center justify-center gap-2 rounded-xl py-2 text-xs font-medium text-gray-700 transition-colors hover:translate-y-[-2px] hover:transform dark:bg-zinc-800 dark:text-gray-200"
+                            >
+                              {expertLoadingMore ? <DotLoader /> : t('sidebar.loadMore')}
                             </button>
                           ) : (
                             <div className="flex items-center gap-2 py-2 text-[10px] text-gray-400">

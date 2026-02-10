@@ -8,14 +8,15 @@ agent-based approach using ReasoningTools for transparent, structured planning.
 from __future__ import annotations
 
 import json
+from collections.abc import AsyncGenerator
 from types import SimpleNamespace
-from typing import Any, AsyncGenerator
+from typing import Any
 
 from agno.agent import Agent
 from agno.tools.reasoning import ReasoningTools
 
-from ..prompts import GENERAL_PLANNER_PROMPT, ACADEMIC_PLANNER_PROMPT
-from .agent_registry import _build_model, _apply_model_settings
+from ..prompts import ACADEMIC_PLANNER_PROMPT, GENERAL_PLANNER_PROMPT
+from .agent_registry import _apply_model_settings, _build_model
 
 
 async def generate_research_plan(

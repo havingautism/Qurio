@@ -7,7 +7,6 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-
 # ================================================================================
 # Request Models
 # ================================================================================
@@ -92,6 +91,8 @@ class StreamChatRequest(BaseModel):
     search_provider: Literal["tavily"] | None = Field(default=None, alias="searchProvider")
     tavily_api_key: str | None = Field(default=None, alias="tavilyApiKey")
     search_backend: str | None = Field(default=None, alias="searchBackend")
+    concurrency_limit: int | None = Field(default=None, alias="concurrencyLimit")
+    sequential_research: bool = Field(default=False, alias="sequentialResearch")
 
     # User context
     user_id: str | None = Field(default=None, alias="userId")
@@ -107,7 +108,7 @@ class StreamChatRequest(BaseModel):
         default=None,
         alias="memoryDomainsPrefetch",
     )
-    
+
     # Session Summary Configuration (Separate from Memory)
     summary_provider: str | None = Field(default=None, alias="summaryProvider")
     summary_model: str | None = Field(default=None, alias="summaryModel")
@@ -120,7 +121,7 @@ class StreamChatRequest(BaseModel):
 
     # Internal use only: Structured Output schema (Agno v2)
     output_schema: Any | None = Field(default=None, exclude=True)
-    
+
     # Context and Session
     conversation_id: str | None = Field(default=None, alias="conversationId", description="Unique identifier for the conversation")
     model_config = {"populate_by_name": True}
@@ -146,12 +147,17 @@ class TextEvent(BaseModel):
 
 class ThoughtEvent(BaseModel):
     """Thought/reasoning content event."""
+    model_config = {"populate_by_name": True}
+    
     type: Literal["thought"] = "thought"
     content: str
+    text_index: int | None = Field(default=None, alias="textIndex")
 
 
 class ToolCallEvent(BaseModel):
     """Tool call event."""
+    model_config = {"populate_by_name": True}
+    
     type: Literal["tool_call"] = Field(default="tool_call", alias="type")
     id: str | None = None
     name: str

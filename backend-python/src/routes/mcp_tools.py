@@ -9,7 +9,6 @@ from fastapi.responses import JSONResponse
 
 from ..services.mcp_tools import mcp_tool_manager
 
-
 router = APIRouter(tags=["mcp-tools"])
 
 

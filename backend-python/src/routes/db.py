@@ -9,8 +9,8 @@ import threading
 
 from fastapi import APIRouter, Header, HTTPException
 
-from ..models.db import DbQueryRequest, DbQueryResponse
 from ..config import get_settings
+from ..models.db import DbQueryRequest, DbQueryResponse
 from ..services.db_adapters import build_adapter
 from ..services.db_registry import get_provider_registry
 

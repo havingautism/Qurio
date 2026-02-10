@@ -6,7 +6,6 @@ from __future__ import annotations
 
 from typing import Any
 
-
 TOOL_ALIASES: dict[str, str] = {}
 
 GLOBAL_TOOLS: list[dict[str, Any]] = [

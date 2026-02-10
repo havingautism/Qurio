@@ -1,15 +1,18 @@
-from datetime import datetime
 import json
 import uuid
-from typing import Optional, Dict, Any, List
+from datetime import datetime
+from typing import Any
+
 from agno.agent import Agent
 from agno.utils.log import logger
+
 from ..services.agent_registry import get_summary_model
+
 
 async def update_session_summary(
     conversation_id: str,
-    old_summary: Optional[Dict[str, Any]],
-    new_messages: List[Dict[str, Any]],
+    old_summary: dict[str, Any] | None,
+    new_messages: list[dict[str, Any]],
     database_provider: str | None = None,
     memory_provider: str | None = None,
     memory_model: str | None = None,
@@ -41,10 +44,10 @@ async def update_session_summary(
         if not conversation_id or not new_messages:
             logger.warning("Missing conversation_id or new_messages for summary update")
             return
-            
+
         # Only process if we have user input and AI response
         # Should contain at least one user message and one assistant message from the latest turn
-        
+
         # 2. Get Lite Model
         # We need a dummy request object to reuse get_summary_model logic or just use global settings
         # Creating a simple namespace to mock 'request' for get_summary_model
@@ -58,9 +61,9 @@ async def update_session_summary(
             summary_model=summary_model,
             summary_api_key=summary_api_key,
             summary_base_url=summary_base_url,
-        ) 
+        )
         summary_model = get_summary_model(dummy_request)
-        
+
         if not summary_model:
             logger.warning(f"Skipping session summary update for {conversation_id}: No summary model configured")
             return
@@ -69,7 +72,7 @@ async def update_session_summary(
         # The old_summary passed from stream_chat might be stale if requests were fast.
         from ..models.db import DbFilter, DbQueryRequest
         from .db_service import execute_db_async, get_db_adapter
-        
+
         adapter = get_db_adapter(database_provider)
         if rebuild_from_scratch:
             old_summary = None
@@ -109,7 +112,7 @@ async def update_session_summary(
             task_instruction = """Integrate the new lines into the existing summary.
 - **CRITICAL: You MUST PRESERVE all important details from the 'Current Summary'. Do NOT discard existing topics.**
 - Merge new information naturally."""
-        
+
         # Extract text content from new messages
         conversation_text = ""
         for msg in new_messages:
@@ -117,7 +120,7 @@ async def update_session_summary(
             content = msg.get("content", "")
             if content:
                 conversation_text += f"{role.upper()}: {content}\n"
-        
+
         prompt = f"""
 You are an expert conversation summarizer.
 Current Summary:
@@ -148,10 +151,10 @@ Time: {datetime.now().isoformat()}
             description="You are a session summarizer.",
             instructions="Output JSON only.",
         )
-        
+
         response = await agent.arun(prompt)
         new_summary_text = response.content
-        
+
         # 5. Parse Response
         # Try to parse strict JSON, if failed, wrap the text
         # Define error keywords to check against
@@ -161,7 +164,7 @@ Time: {datetime.now().isoformat()}
             # Clean potential markdown code blocks
             clean_text = new_summary_text.replace("```json", "").replace("```", "").strip()
             summary_data = json.loads(clean_text)
-            
+
             # Validate JSON structure
             if not isinstance(summary_data, dict) or "summary" not in summary_data:
                 logger.warning(f"Invalid summary JSON structure from model: {summary_data}")
@@ -190,18 +193,18 @@ Time: {datetime.now().isoformat()}
         # Ensure last_run_id is set (or updated)
         if "last_run_id" not in summary_data:
             summary_data["last_run_id"] = str(uuid.uuid4())
-            
+
         summary_data["updated_at"] = datetime.now().isoformat()
 
         # 6. Update Database
         from ..models.db import DbFilter, DbQueryRequest
         from .db_service import get_db_adapter
-        
+
         adapter = get_db_adapter(database_provider) # Use request-selected provider when available
         if adapter:
             # We update the JSONB session_summary column
             logger.debug(f"Updating summary using adapter {adapter.config.type} for {conversation_id}")
-            
+
             req = DbQueryRequest(
                 providerId=adapter.config.id,
                 action="update",
@@ -209,15 +212,15 @@ Time: {datetime.now().isoformat()}
                 payload={"session_summary": summary_data},
                 filters=[DbFilter(op="eq", column="id", value=conversation_id)],
             )
-            
+
             result = await execute_db_async(adapter, req)
-            
+
             if result.error:
                  logger.error(f"Failed to update session summary DB: {result.error}")
             else:
                  logger.info(f"Updated session summary for {conversation_id}")
         else:
              logger.warning("No DB adapter available for summary update")
-            
+
     except Exception as e:
         logger.error(f"Failed to update session summary: {e}")

@@ -208,7 +208,9 @@
     "unpin": "Unpin sidebar",
     "noConversations": "No conversations yet.",
     "deepResearch": "Research",
+    "expert": "Expert",
     "noDeepResearchConversations": "No deep research conversations yet.",
+    "noExpertConversations": "No expert conversations yet.",
     "noBookmarks": "No bookmarked conversations.",
     "today": "Today",
     "yesterday": "Yesterday",
@@ -223,6 +225,7 @@
     "noHistory": "No history",
     "createNewAgent": "Create New Agent",
     "createNewDeepResearch": "New Deep Research",
+    "createNewExpert": "New Expert Conversation",
     "noAgentsYet": "No agents yet.",
     "delete": "Delete",
     "add": "Add",
@@ -636,7 +639,10 @@
       "testMissingKey": "Missing API key for this provider.",
       "testTimeout": "Test timed out.",
       "testInvalidJson": "Structured output is not valid JSON.",
-      "testFailed": "Test failed: {{message}}"
+      "testFailed": "Test failed: {{message}}",
+      "syncGlobal": "Sync Global Settings",
+      "syncGlobalHint": "Apply the global chat model configuration to this agent.",
+      "applyGlobalSettings": "Apply Global Settings"
     },
     "advanced": {
       "title": "Advanced",
@@ -758,6 +764,7 @@
   "homeView": {
     "askAnything": "Ask anything...",
     "think": "Think",
+    "expertMode": "Expert Mode",
     "deepResearch": "Deep research",
     "deepResearchEntry": "Deep research",
     "deepResearchEntryHint": "Guided research form",
@@ -785,6 +792,14 @@
     "deepResearchResponseLanguageLabel": "Response language",
     "deepResearchResponseLanguageChinese": "Chinese",
     "deepResearchResponseLanguageEnglish": "English",
+    "expertEntry": "Expert Mode",
+    "expertEntryHint": "Multi-agent planning workflow",
+    "expertModalTitle": "Start Expert Conversation",
+    "expertQuestionTitle": "Your question",
+    "expertQuestionPlaceholder": "Describe the problem you want experts to solve",
+    "expertSpaceTitle": "Select a space",
+    "expertNoSpace": "No available spaces. Create one first.",
+    "expertStart": "Start",
     "search": "Search",
     "spaces": "Spaces",
     "spacesAuto": "Spaces: Auto",
@@ -801,6 +816,10 @@
     "agentsLoading": "Loading agents...",
     "spacesShortcut": "My Spaces",
     "spacesShortcutHint": "Manage collections",
+    "sequentialExecution": "Sequential Research Steps",
+    "sequentialExecutionDesc": "Execute steps in order for better coherence, but slower.",
+    "concurrencyLimit": "Research Concurrency Limit",
+    "concurrencyLimitHint": "Simultaneous research steps.",
     "concurrentExecution": "Concurrent Research Steps",
     "experimental": "Experimental",
     "concurrentExecutionDesc": "Run all steps simultaneously for faster execution, but may affect logical coherence."
@@ -839,6 +858,9 @@
     "apiError": "API error. Please check your settings."
   },
   "messageBubble": {
+    "workflow": "Workflow",
+    "expertPlan": "Expert Plan",
+    "workflowToolCalling": "{{tool}} calling",
     "deepThinking": "Deep thought",
     "thinking": "Thinking...",
     "thinkingDuration": "(took {{duration}}s)",
@@ -966,6 +988,14 @@
       "title": "Research",
       "searchPlaceholder": "Search your deep research sessions...",
       "noThreadsFound": "No deep research sessions found matching your search.",
+      "conversationDeleted": "Conversation deleted successfully",
+      "failedToDelete": "Failed to delete conversation"
+    },
+    "expertView": {
+      "title": "Expert",
+      "createNew": "New Expert Conversation",
+      "searchPlaceholder": "Search your expert conversations...",
+      "empty": "No expert conversations yet.",
       "conversationDeleted": "Conversation deleted successfully",
       "failedToDelete": "Failed to delete conversation"
     },

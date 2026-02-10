@@ -4,9 +4,9 @@ Deep research streaming API routes.
 
 from __future__ import annotations
 
-import json
-from typing import AsyncGenerator
 import asyncio
+import json
+from collections.abc import AsyncGenerator
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
@@ -15,7 +15,6 @@ from starlette.responses import Response
 
 from ..providers import is_provider_supported
 from ..services.deep_research import stream_deep_research
-
 
 router = APIRouter(tags=["deep-research"])
 

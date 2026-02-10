@@ -4,9 +4,9 @@ Research plan API routes.
 
 from __future__ import annotations
 
-import json
-from typing import AsyncGenerator
 import asyncio
+import json
+from collections.abc import AsyncGenerator
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
@@ -19,7 +19,6 @@ from ..services.research_plan import (
     stream_generate_academic_research_plan,
     stream_generate_research_plan,
 )
-
 
 router = APIRouter(tags=["research-plan"])
 

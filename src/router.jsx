@@ -6,11 +6,13 @@ import { getNodeEnv, getPublicEnv } from './lib/publicEnv'
 
 const HomeView = React.lazy(() => import('./views/HomeView'))
 const ConversationView = React.lazy(() => import('./views/ConversationView'))
+const ExpertConversationView = React.lazy(() => import('./views/ExpertConversationView'))
 const SpacesView = React.lazy(() => import('./views/SpacesView'))
 const AgentsView = React.lazy(() => import('./views/AgentsView'))
 const SpaceView = React.lazy(() => import('./views/SpaceView'))
 const LibraryView = React.lazy(() => import('./views/LibraryView'))
 const DeepResearchView = React.lazy(() => import('./views/DeepResearchView'))
+const ExpertView = React.lazy(() => import('./views/ExpertView'))
 const BookmarksView = React.lazy(() => import('./views/BookmarksView'))
 const ShareImageView = React.lazy(() => import('./views/ShareImageView'))
 const DeepResearchConversationView = React.lazy(
@@ -91,6 +93,16 @@ export const conversationRoute = createRoute({
   ),
 })
 
+export const expertConversationRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: 'expert/$conversationId',
+  component: () => (
+    <SuspensePage>
+      <ExpertConversationView />
+    </SuspensePage>
+  ),
+})
+
 export const deepResearchConversationRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: 'deepresearch/$conversationId',
@@ -151,6 +163,16 @@ export const deepResearchRoute = createRoute({
   ),
 })
 
+export const expertRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: 'expert',
+  component: () => (
+    <SuspensePage>
+      <ExpertView />
+    </SuspensePage>
+  ),
+})
+
 export const bookmarksRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: 'bookmarks',
@@ -175,12 +197,14 @@ export const routeTree = rootRoute.addChildren([
   homeRoute,
   newChatRoute,
   conversationRoute,
+  expertConversationRoute,
   deepResearchConversationRoute,
   spacesRoute,
   agentsRoute,
   spaceRoute,
   libraryRoute,
   deepResearchRoute,
+  expertRoute,
   bookmarksRoute,
   shareImageRoute,
 ])

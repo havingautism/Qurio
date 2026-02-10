@@ -15,7 +15,7 @@ from typing import Any
 
 from agno.utils.log import logger
 
-from ..models.db import DbFilter, DbOrder, DbQueryRequest, DbQueryResponse
+from ..models.db import DbFilter, DbQueryRequest, DbQueryResponse
 from .db_registry import ProviderConfig
 from .sqlite_schema import SCHEMA_STATEMENTS
 

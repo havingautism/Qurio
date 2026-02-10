@@ -16,7 +16,7 @@ from agno.tools.function import Function
 
 try:
     from agno.tools.mcp import MCPTools
-    from agno.tools.mcp.params import StreamableHTTPClientParams, SSEClientParams
+    from agno.tools.mcp.params import SSEClientParams, StreamableHTTPClientParams
 except Exception:  # pragma: no cover - optional dependency
     MCPTools = None
     StreamableHTTPClientParams = None

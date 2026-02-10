@@ -33,7 +33,7 @@ class DbFilter(BaseModel):
     column: str | None = None
     value: Any | None = None
     values: list[Any] | None = None
-    filters: list["DbFilter"] | None = None
+    filters: list[DbFilter] | None = None
 
 
 class DbRpc(BaseModel):

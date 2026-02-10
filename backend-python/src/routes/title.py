@@ -10,7 +10,6 @@ from fastapi.responses import JSONResponse
 from ..providers import is_provider_supported
 from ..services.generation import generate_title
 
-
 router = APIRouter(tags=["title"])
 
 

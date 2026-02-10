@@ -10,12 +10,12 @@ import json
 import os
 import re
 import time
+from collections.abc import AsyncGenerator
 from datetime import datetime
-from typing import Any, AsyncGenerator
+from typing import Any
 from zoneinfo import ZoneInfo
 
 from agno.agent import Agent, RunEvent
-from agno.memory.strategies.types import MemoryOptimizationStrategyType
 from agno.run.agent import ToolCallCompletedEvent, ToolCallStartedEvent
 from agno.utils.log import logger
 
@@ -31,11 +31,9 @@ from ..models.stream_chat import (
     ToolResultEvent,
 )
 from .agent_registry import get_agent_for_provider
-from .tool_registry import resolve_tool_name
 from .hitl_storage import get_hitl_storage
 from .summary_service import update_session_summary
-from sqlalchemy import text
-
+from .tool_registry import resolve_tool_name
 
 TIME_KEYWORDS_REGEX = re.compile(
     r"\u4eca\u5929|\u4eca\u5e74|\u73b0\u5728|\u672c\u5468|\u672c\u6708|\u6700\u8fd1|\u521a\u521a|"
@@ -182,7 +180,7 @@ class StreamChatService:
             async for event in self._continue_hitl_run(request):
                 yield event
             return
-        
+
         # ================================================================
         # Normal chat flow
         # ================================================================
@@ -212,7 +210,7 @@ class StreamChatService:
                 logger.info(f"[STREAM_TRACE][main] {stage} | {payload}")
 
             def emit_thought_part(part: str):
-                nonlocal full_thought, should_break_next_thought, in_reasoning_phase, reasoning_closed_for_current_cycle
+                nonlocal full_thought, full_content, should_break_next_thought, in_reasoning_phase, reasoning_closed_for_current_cycle
                 text = _strip_internal_tool_trace(str(part or ""))
                 if not text or not text.strip():
                     return
@@ -220,12 +218,14 @@ class StreamChatService:
                 if should_break_next_thought and not in_reasoning_phase and full_thought.strip():
                     separator = f"\n\n{THOUGHT_BLOCK_BREAK_MARKER}\n\n"
                     full_thought += separator
-                    yield ThoughtEvent(content=separator).model_dump()
+                    current_text_index = len(full_content)
+                    yield ThoughtEvent(content=separator, text_index=current_text_index).model_dump(by_alias=True)
                 should_break_next_thought = False
                 in_reasoning_phase = True
                 full_thought += text
                 trace_stream("emit_reasoning", reasoning_preview=_preview(text))
-                yield ThoughtEvent(content=text).model_dump()
+                current_text_index = len(full_content)
+                yield ThoughtEvent(content=text, text_index=current_text_index).model_dump(by_alias=True, exclude_none=False)
 
             def process_text(text: str):
                 nonlocal full_content, in_reasoning_phase, should_break_next_thought, reasoning_closed_for_current_cycle
@@ -328,7 +328,7 @@ class StreamChatService:
             # ================================================================
             # MANUAL CONTEXT MANAGEMENT (Rolling Summary + Fixed Window)
             # ================================================================
-            
+
             # 1. Fetch Session Summary from DB
             session_summary_text = None
             old_summary_json = None
@@ -336,7 +336,7 @@ class StreamChatService:
                 try:
                     from ..models.db import DbFilter, DbQueryRequest
                     from .db_service import execute_db_async, get_db_adapter
-                    
+
                     adapter = get_db_adapter(request.database_provider)
                     if adapter:
                         req = DbQueryRequest(
@@ -347,13 +347,13 @@ class StreamChatService:
                             filters=[DbFilter(op="eq", column="id", value=request.conversation_id)],
                             maybeSingle=True,
                         )
-                        
+
                         result = await execute_db_async(adapter, req)
-                        
+
                         if result.data and isinstance(result.data, dict):
                             row = result.data
                             raw_summary = row.get("session_summary")
-                            
+
                             if raw_summary:
                                 # Parsing handled by adapter often, but double check
                                 if isinstance(raw_summary, str):
@@ -363,7 +363,7 @@ class StreamChatService:
                                         pass
                                 elif isinstance(raw_summary, dict):
                                     old_summary_json = raw_summary
-                                
+
                                 if old_summary_json:
                                     session_summary_text = old_summary_json.get("summary")
                 except Exception as e:
@@ -379,14 +379,14 @@ class StreamChatService:
                 if isinstance(raw_turn_limit, int) and raw_turn_limit > 0
                 else 2
             )
-            
+
             # Separate System and Non-System
             system_messages = [m for m in messages if m.get("role") == "system"]
             chat_messages = [m for m in messages if m.get("role") != "system"]
-            
+
             # Find the indices of User messages to determine run boundaries
             user_indices = [i for i, m in enumerate(chat_messages) if m.get("role") == "user"]
-            
+
             user_turn_count = len(user_indices)
             if user_turn_count > turn_limit:
                 cutoff_index = user_indices[-turn_limit]
@@ -408,7 +408,7 @@ class StreamChatService:
                 )
                 session_summary_text = None
                 old_summary_json = None
-                
+
             # 3. Inject Summary into System Prompt
             if session_summary_text:
                 summary_prompt = (
@@ -428,13 +428,9 @@ class StreamChatService:
                         last_sys["content"] = new_content
                 else:
                     system_messages.append({"role": "system", "content": summary_prompt})
-            
+
             # Final Agent Input
             agent_input = system_messages + recent_history
-            logger.info(
-                f"Context Window: turn_limit={turn_limit}, user_turns={user_turn_count}, "
-                f"{len(system_messages)} System + {len(recent_history)} Chat Messages"
-            )
 
             stream = agent.arun(
                 input=agent_input,
@@ -444,9 +440,9 @@ class StreamChatService:
                 session_id=request.conversation_id,
                 output_schema=request.output_schema or request.response_format,
             )
-            
+
             # ================================================================
-            # Stream processing with HITL support 
+            # Stream processing with HITL support
             # ================================================================
             async for run_event in stream:
                 # ============================================================
@@ -454,10 +450,10 @@ class StreamChatService:
                 # ============================================================
                 if hasattr(run_event, 'is_paused') and run_event.is_paused:
                     logger.info(f"Agent paused for HITL (run_id: {run_event.run_id})")
-                    
+
                     # Extract requirements
                     requirements = getattr(run_event, 'active_requirements', None) or getattr(run_event, 'requirements', None)
-                    
+
                     if requirements:
                         def _is_interactive_form(req: Any) -> bool:
                             if getattr(req, 'needs_external_execution', False):
@@ -491,18 +487,18 @@ class StreamChatService:
                             )
                             if not saved:
                                 raise RuntimeError("Failed to persist HITL pending run")
-                            
+
                             # Extract form fields for frontend
                             for req in form_requirements:
                                 # Handle external execution (e.g., interactive_form with external_execution=True)
                                 if (hasattr(req, 'needs_external_execution') and req.needs_external_execution) or \
                                    (req.tool_execution and req.tool_execution.tool_name == "interactive_form"):
-                                    
+
                                     tool_args = req.tool_execution.tool_args if req.tool_execution else {}
                                     form_id = tool_args.get('id')
                                     title = tool_args.get('title', 'Please provide the following information')
                                     fields = tool_args.get('fields', [])
-                                    
+
                                     # Send form_request event to frontend
                                     yield FormRequestEvent(
                                         run_id=run_event.run_id,
@@ -510,7 +506,7 @@ class StreamChatService:
                                         title=title,
                                         fields=fields
                                     ).model_dump()
-                                
+
                                 # Fallback handle traditional user input (e.g., get_user_input)
                                 elif req.needs_user_input and req.user_input_schema:
                                     # Convert from user_input_schema
@@ -526,7 +522,7 @@ class StreamChatService:
                                         }
                                         for field in req.user_input_schema
                                     ]
-                                    
+
                                     # Send form_request event to frontend
                                     yield FormRequestEvent(
                                         run_id=run_event.run_id,
@@ -534,17 +530,17 @@ class StreamChatService:
                                         title=title,
                                         fields=fields
                                     ).model_dump()
-                            
+
                             # Send done event to indicate pause
                             yield DoneEvent(
                                 content=full_content or "",
                                 thought=full_thought.strip() or None,
                                 sources=list(sources_map.values()) or None,
                             ).model_dump()
-                            
+
                             logger.info(f"HITL pause successful, waiting for user submission (run_id: {run_event.run_id})")
                             return  # Exit stream, wait for user to submit form
-                            
+
                         except Exception as e:
                             logger.error(f"Failed to save HITL state: {e}")
                             yield ErrorEvent(error=f"Failed to pause for form: {str(e)}").model_dump()
@@ -557,7 +553,7 @@ class StreamChatService:
                             sources=list(sources_map.values()) or None,
                         ).model_dump()
                         return
-                
+
                 # ============================================================
                 # Normal streaming events (use stream_events for details)
                 # ============================================================
@@ -698,11 +694,13 @@ class StreamChatService:
                                     tool_name=tool.tool_name or "",
                                     tool_call_id=tool.tool_call_id,
                                 )
+                                current_text_index = len(full_content)
                                 yield ToolCallEvent(
                                     id=tool.tool_call_id,
                                     name=tool.tool_name or "",
                                     arguments=json.dumps(tool.tool_args or {}),
-                                ).model_dump()
+                                    text_index=current_text_index,
+                                ).model_dump(by_alias=True, exclude_none=False)
 
                         case RunEvent.tool_call_completed.value:
                             tool_event: ToolCallCompletedEvent = run_event  # type: ignore[assignment]
@@ -772,7 +770,7 @@ class StreamChatService:
                             ).model_dump()
                             if request:
                                     asyncio.create_task(self._maybe_optimize_memories(agent, request))
-                            
+
                             # 4. Trigger Async Session Summary Update
                             # Only if conversation_id exists (Main Chat Flow)
                             if request.conversation_id:
@@ -791,7 +789,7 @@ class StreamChatService:
                                     if last_user:
                                         new_lines.append(last_user)
                                     new_lines.append({"role": "assistant", "content": final_content})
-                                
+
                                 logger.info(f"Triggering async summary update for {request.conversation_id} with {len(new_lines)} messages (rebuild: {should_rebuild_summary}, is_editing: {request.is_editing})")
                                 asyncio.create_task(update_session_summary(
                                     conversation_id=request.conversation_id,
@@ -843,9 +841,9 @@ class StreamChatService:
         try:
             run_id = request.run_id
             field_values = request.field_values or {}
-            
+
             logger.info(f"Continuing HITL run {run_id} with field_values: {list(field_values.keys())}")
-            
+
             # 1. Fetch Session Summary from DB
             session_summary_text = None
             old_summary_json = None
@@ -853,7 +851,7 @@ class StreamChatService:
                 try:
                     from ..models.db import DbFilter, DbQueryRequest
                     from .db_service import execute_db_async, get_db_adapter
-                    
+
                     adapter = get_db_adapter(request.database_provider)
                     if adapter:
                         req = DbQueryRequest(
@@ -864,13 +862,13 @@ class StreamChatService:
                             filters=[DbFilter(op="eq", column="id", value=request.conversation_id)],
                             maybeSingle=True,
                         )
-                        
+
                         result = await execute_db_async(adapter, req)
-                        
+
                         if result.data and isinstance(result.data, dict):
                             row = result.data
                             raw_summary = row.get("session_summary")
-                            
+
                             if raw_summary:
                                 if isinstance(raw_summary, str):
                                     try:
@@ -879,12 +877,12 @@ class StreamChatService:
                                         pass
                                 elif isinstance(raw_summary, dict):
                                     old_summary_json = raw_summary
-                                
+
                                 if old_summary_json:
                                     session_summary_text = old_summary_json.get("summary")
                 except Exception as e:
                     logger.warning(f"Failed to fetch session summary in HITL flow: {e}")
-            
+
             # Retrieve requirements from Supabase
             hitl_storage = get_hitl_storage(request.database_provider)
             pending = await hitl_storage.get_pending_run(run_id)
@@ -896,12 +894,12 @@ class StreamChatService:
                 saved_messages = pending.get("messages")
             else:
                 requirements = pending
-            
+
             if not requirements:
                 logger.error(f"No pending run found for run_id: {run_id}")
                 yield ErrorEvent(error="Form session expired or not found").model_dump()
                 return
-            
+
             # Fill in user-submitted values
             for req in requirements:
                 # Case 1: External execution (interactive_form)
@@ -910,14 +908,14 @@ class StreamChatService:
                     import json
                     req.set_external_execution_result(json.dumps(field_values))
                     logger.debug(f"Set external execution result for {req.tool_execution.tool_name}")
-                
+
                 # Case 2: Traditional user input (get_user_input)
                 elif req.needs_user_input and req.user_input_schema:
                     for field in req.user_input_schema:
                         if field.name in field_values:
                             field.value = field_values[field.name]
                             logger.debug(f"Filled field '{field.name}' with value: {field.value}")
-            
+
             # Get agent (same provider as original request)
             agent = get_agent_for_provider(request)
             logger.info(f"[HITL Continue] Agent instructions: {getattr(agent, 'instructions', None)}")
@@ -942,19 +940,21 @@ class StreamChatService:
                 logger.info(f"[STREAM_TRACE][hitl] {stage} | {payload}")
 
             def emit_thought_part(part: str):
-                nonlocal full_thought, should_break_next_thought, in_reasoning_phase, reasoning_closed_for_current_cycle
+                nonlocal full_thought, full_content, should_break_next_thought, in_reasoning_phase, reasoning_closed_for_current_cycle
                 text = _strip_internal_tool_trace(str(part or ""))
                 if not text or not text.strip():
                     return
                 if should_break_next_thought and not in_reasoning_phase and full_thought.strip():
                     separator = f"\n\n{THOUGHT_BLOCK_BREAK_MARKER}\n\n"
                     full_thought += separator
-                    yield ThoughtEvent(content=separator).model_dump()
+                    current_text_index = len(full_content)
+                    yield ThoughtEvent(content=separator, text_index=current_text_index).model_dump(by_alias=True)
                 should_break_next_thought = False
                 in_reasoning_phase = True
                 full_thought += text
                 trace_stream("emit_reasoning", reasoning_preview=_preview(text))
-                yield ThoughtEvent(content=text).model_dump()
+                current_text_index = len(full_content)
+                yield ThoughtEvent(content=text, text_index=current_text_index).model_dump(by_alias=True)
 
             def process_text(text: str):
                 nonlocal full_content, in_reasoning_phase, should_break_next_thought, reasoning_closed_for_current_cycle
@@ -1041,7 +1041,7 @@ class StreamChatService:
                                 trace_stream("reasoning_source", source="provider_data.delta.reasoning_content[]")
                                 return "".join(parts)
                 return ""
-            
+
             async def _stream_events(stream):
                 nonlocal full_content, full_thought, sources_map, tool_start_times, paused_again
                 nonlocal in_reasoning_phase, should_break_next_thought, reasoning_closed_for_current_cycle
@@ -1050,10 +1050,10 @@ class StreamChatService:
                     # HITL Pause Check
                     if hasattr(run_event, 'is_paused') and run_event.is_paused:
                         logger.info(f"Agent paused again during continuation (multi-form chain, run_id: {run_id})")
-                        
+
                         # Extract new requirements
                         new_requirements = getattr(run_event, 'active_requirements', None) or getattr(run_event, 'requirements', None)
-                        
+
                         if new_requirements:
                             # Filter for interactive_form requirements
                             def _is_interactive_form(req: Any) -> bool:
@@ -1064,9 +1064,9 @@ class StreamChatService:
                                 tool_exec = getattr(req, 'tool_execution', None)
                                 tool_name = getattr(tool_exec, 'tool_name', None) if tool_exec else None
                                 return tool_name == "interactive_form"
-                            
+
                             form_requirements = [req for req in new_requirements if _is_interactive_form(req)]
-                            
+
                             if form_requirements:
                                 # Save new form requirements (overwrites previous in memory)
                                 hitl_storage_multi = get_hitl_storage(request.database_provider)
@@ -1080,7 +1080,7 @@ class StreamChatService:
                                 )
                                 if not saved:
                                     raise RuntimeError("Failed to persist chained HITL pending run")
-                                
+
                                 # Extract form fields and notify frontend
                                 for req in form_requirements:
                                     if (hasattr(req, 'needs_external_execution') and req.needs_external_execution) or \
@@ -1089,25 +1089,25 @@ class StreamChatService:
                                         form_id = tool_args.get('id')
                                         title = tool_args.get('title', 'Please provide additional information')
                                         fields = tool_args.get('fields', [])
-                                        
+
                                         yield FormRequestEvent(
                                             run_id=run_id,
                                             form_id=form_id,
                                             title=title,
                                             fields=fields
                                         ).model_dump()
-                                
+
                                 # Send partial done event
                                 yield DoneEvent(
                                     content=full_content or "",
                                     thought=full_thought.strip() or None,
                                     sources=list(sources_map.values()) or None,
                                 ).model_dump()
-                                
+
                                 logger.info(f"Multi-form: saved second form, waiting for user (run_id: {run_id})")
                                 paused_again = True  # Mark as paused again to skip cleanup
                                 return
-                        
+
                         # If no form requirements, just continue
                         logger.warning(f"Agent paused again but no interactive_form found (run_id: {run_id})")
                         yield ErrorEvent(error="Agent paused unexpectedly").model_dump()
@@ -1249,11 +1249,13 @@ class StreamChatService:
                                         tool_name=tool.tool_name or "",
                                         tool_call_id=tool.tool_call_id,
                                     )
+                                    current_text_index = len(full_content)
                                     yield ToolCallEvent(
                                         id=tool.tool_call_id,
                                         name=tool.tool_name or "",
                                         arguments=json.dumps(tool.tool_args or {}),
-                                    ).model_dump()
+                                        text_index=current_text_index,
+                                    ).model_dump(by_alias=True)
 
                             case RunEvent.tool_call_completed.value:
                                 tool_event: ToolCallCompletedEvent = run_event  # type: ignore[assignment]
@@ -1370,14 +1372,14 @@ class StreamChatService:
                 )
                 async for event in _stream_events(stream):
                     yield event
-            
+
             # Stream completed, send done event
             yield DoneEvent(
                 content=full_content,
                 thought=full_thought.strip() or None,
                 sources=list(sources_map.values()) or None,
             ).model_dump()
-            
+
             # Clean up Supabase (skip if paused again for multi-form)
             if not paused_again:
                 await hitl_storage.delete_pending_run(run_id)
@@ -1390,7 +1392,7 @@ class StreamChatService:
                 # For HITL resumption, extract the last turn's context from saved_messages
                 # (matching normal flow: only last user + assistant, not full history)
                 summary_messages = []
-                
+
                 # Extract only the last user-assistant turn from saved_messages
                 if saved_messages:
                     last_user_idx = -1
@@ -1398,7 +1400,7 @@ class StreamChatService:
                         if saved_messages[i].get("role") == "user":
                             last_user_idx = i
                             break
-                    
+
                     if last_user_idx >= 0:
                         # Include from last user message to end of saved_messages
                         # This captures: user question -> assistant form(s) -> any intermediate interactions
@@ -1408,14 +1410,14 @@ class StreamChatService:
                             # Only include user/assistant messages with content for summary
                             if role in ("user", "assistant") and content:
                                 summary_messages.append({"role": role, "content": content})
-                
+
                 # Add the form submission as user input (provides structured data context)
                 form_submission_text = f"[Form Submitted] Values: {json.dumps(field_values)}"
                 summary_messages.append({"role": "user", "content": form_submission_text})
-                
+
                 # Add the new assistant response (based on form data)
                 summary_messages.append({"role": "assistant", "content": full_content})
-                
+
                 logger.info(f"Triggering async summary update for {request.conversation_id} (Resumed HITL flow, {len(summary_messages)} messages)")
                 asyncio.create_task(update_session_summary(
                     conversation_id=request.conversation_id,
@@ -1717,7 +1719,7 @@ class StreamChatService:
 
     async def _maybe_optimize_memories(self, agent: Agent, request: StreamChatRequest) -> None:
         return
-    
+
     def _map_field_type_to_frontend(self, field_type: Any) -> str:
         """
         Map Python/Agno field types to frontend form types.

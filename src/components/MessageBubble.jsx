@@ -95,6 +95,29 @@ const PROVIDER_META = {
 }
 const THOUGHT_BLOCK_BREAK_MARKER = '<|thought_block_break|>'
 
+const sanitizeDisplayText = value => {
+  if (typeof value !== 'string') return ''
+  return value
+    .replace(/\uFFFD+/g, '')
+    .replace(/\uFEFF/g, '')
+    .replace(/ï¿½+/g, '')
+    .replace(/ï»¿/g, '')
+}
+
+const clampToUnicodeBoundary = (text, index) => {
+  if (typeof text !== 'string' || text.length === 0) return 0
+  let safeIndex = Math.max(0, Math.min(Number.isFinite(index) ? Number(index) : 0, text.length))
+  if (safeIndex <= 0 || safeIndex >= text.length) return safeIndex
+  const currentCode = text.charCodeAt(safeIndex)
+  const prevCode = text.charCodeAt(safeIndex - 1)
+  const isLowSurrogate = currentCode >= 0xdc00 && currentCode <= 0xdfff
+  const prevIsHighSurrogate = prevCode >= 0xd800 && prevCode <= 0xdbff
+  if (isLowSurrogate && prevIsHighSurrogate) {
+    safeIndex -= 1
+  }
+  return safeIndex
+}
+
 const isExplicitSchemeUrl = value => /^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(value)
 
 const sanitizeMarkdownUrl = (value, { allowDataImage = false } = {}) => {
@@ -207,7 +230,48 @@ const MessageBubble = ({
   const provider = getProvider(providerId)
   const parsed = provider.parseMessage(mergedMessage)
   const thoughtContent = isDeepResearch ? null : parsed.thought
-  const mainContent = parsed.content
+  const expertResponses = useMemo(() => {
+    if (!Array.isArray(mergedMessage?.expertResponses)) return []
+    return mergedMessage.expertResponses
+      .map(item => ({
+        agentId: String(item?.agentId || ''),
+        agentName: String(item?.agentName || ''),
+        agentEmoji: String(item?.agentEmoji || ''),
+        task: String(item?.task || ''),
+        content: String(item?.content || ''),
+        status: String(item?.status || 'pending'),
+        provider: item?.provider || null,
+        model: item?.model || null,
+      }))
+      .filter(item => item.agentId)
+  }, [mergedMessage?.expertResponses])
+  const isExpertMessage = Boolean(mergedMessage?.expertMode) && expertResponses.length > 0
+  const [activeExpertAgentId, setActiveExpertAgentId] = useState(
+    String(mergedMessage?.expertActiveAgentId || expertResponses[0]?.agentId || ''),
+  )
+  useEffect(() => {
+    const hasCurrent = expertResponses.some(item => item.agentId === activeExpertAgentId)
+    if (hasCurrent) return
+
+    const preferred = String(mergedMessage?.expertActiveAgentId || '')
+    const hasPreferred = preferred && expertResponses.some(item => item.agentId === preferred)
+    if (hasPreferred) {
+      setActiveExpertAgentId(preferred)
+      return
+    }
+
+    setActiveExpertAgentId(String(expertResponses[0]?.agentId || ''))
+  }, [mergedMessage?.id, mergedMessage?.expertActiveAgentId, expertResponses, activeExpertAgentId])
+  const activeExpertIndex = Math.max(
+    0,
+    expertResponses.findIndex(item => item.agentId === activeExpertAgentId),
+  )
+  const activeExpertResponse = expertResponses[activeExpertIndex] || expertResponses[0] || null
+  const mainContent = isExpertMessage ? activeExpertResponse?.content || '' : parsed.content
+  const displayProviderId = isExpertMessage
+    ? activeExpertResponse?.provider || providerId
+    : providerId
+  const displayModel = isExpertMessage ? activeExpertResponse?.model || null : null
   const positionedThoughtBlocks = useMemo(() => {
     if (isDeepResearch) return []
 
@@ -242,13 +306,77 @@ const MessageBubble = ({
         streamOrder: index,
       }))
   }, [isDeepResearch, mergedMessage?.thoughtHistory, thoughtContent])
+
+  const formatThoughtContentForDisplay = useCallback(
+    value => {
+      const raw = sanitizeDisplayText(String(value || '')).trim()
+      if (!raw) return ''
+
+      const decodeJsonString = input => {
+        if (typeof input !== 'string') return ''
+        try {
+          return JSON.parse(`"${input.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`)
+        } catch {
+          return input
+        }
+      }
+
+      const toStructuredMarkdown = parsed => {
+        if (!parsed || typeof parsed !== 'object') return ''
+        const lines = []
+        if (parsed.expertPlan) {
+          lines.push(String(parsed.expertPlan))
+        }
+        const responses = Array.isArray(parsed.expertResponses) ? parsed.expertResponses : []
+        if (responses.length > 0) {
+          lines.push(`\n**专家任务分解**`)
+          responses.forEach((item, idx) => {
+            const name = String(item?.agentName || item?.agent || `专家${idx + 1}`)
+            const emoji = String(item?.agentEmoji || '').trim()
+            const task = String(item?.task || '').trim()
+            if (task) {
+              lines.push(`- ${emoji ? `${emoji} ` : ''}${name}: ${task}`)
+            }
+          })
+        }
+        if (lines.length > 0) return lines.join('\n')
+        return ''
+      }
+
+      try {
+        const parsed = JSON.parse(raw)
+        const markdown = toStructuredMarkdown(parsed)
+        if (markdown) return markdown
+      } catch {
+        // Streaming partial JSON: extract key fields progressively for readability.
+        const planMatch = raw.match(/"expertPlan"\s*:\s*"((?:\\.|[^"\\])*)"/)
+        const taskMatches = [...raw.matchAll(/"task"\s*:\s*"((?:\\.|[^"\\])*)"/g)]
+        const extracted = []
+        if (planMatch?.[1]) {
+          extracted.push(decodeJsonString(planMatch[1]))
+        }
+        if (taskMatches.length > 0) {
+          extracted.push(`\n**专家任务分解**`)
+          taskMatches.slice(0, 4).forEach((match, idx) => {
+            const task = decodeJsonString(match?.[1] || '')
+            if (task) extracted.push(`- 专家${idx + 1}: ${task}`)
+          })
+        }
+        if (extracted.length > 0) return extracted.join('\n')
+      }
+
+      return raw
+    },
+    [t],
+  )
+
   const thoughtExportContent = useMemo(
     () =>
       positionedThoughtBlocks
-        .map(item => item.content)
+        .map(item => formatThoughtContentForDisplay(item.content))
         .filter(Boolean)
         .join('\n\n'),
-    [positionedThoughtBlocks],
+    [formatThoughtContentForDisplay, positionedThoughtBlocks],
   )
   const normalizedStreamBlocks = useMemo(() => {
     if (!Array.isArray(mergedMessage?.streamBlocks)) return []
@@ -539,30 +667,17 @@ const MessageBubble = ({
     )
   }
 
-  // Normalize tool index to paragraph boundaries instead of word boundaries
-  // Tools will be displayed after paragraphs (after newlines) for better readability
+  // Normalize tool index - formerly searched for newlines, but this caused clumping
+  // Now we trust the backend's relative positioning to ensure accurate interleaving.
   const normalizeToolIndex = (content, index, toolName) => {
     if (!content) return 0
-    const clamped = Math.max(0, Math.min(index, content.length))
+    const clamped = Math.max(0, index)
 
     // Interactive forms should use the exact index where they were generated
-    // to allow natural placement (e.g. "Please fill this form: [Form] and then...")
     if (toolName === 'interactive_form') return clamped
 
-    if (clamped === 0 || clamped === content.length) return clamped
-
-    // Search forward for the next newline (paragraph boundary)
-    // Tools will be placed after the current paragraph ends
-    const maxSearch = 500 // Search up to 500 characters ahead
-    for (let i = clamped; i < content.length && i < clamped + maxSearch; i += 1) {
-      if (content[i] === '\n') {
-        // Found a paragraph boundary, place tool after the newline
-        return i + 1
-      }
-    }
-
-    // If no newline found, place tool at the end of content
-    return content.length
+    // Return exact clamped index to prevent "Adhesive Clumping" at paragraph boundaries
+    return clamped
   }
 
   const interleavedContent = useMemo(() => {
@@ -625,7 +740,7 @@ const MessageBubble = ({
         const normalizedIndex = normalizeToolIndex(rawContent, rawIndex, tool.name)
         events.push({
           type: 'tools',
-          index: Math.max(0, Math.min(normalizedIndex, rawContent.length)),
+          index: Math.max(0, normalizedIndex),
           order: Number.isFinite(tool?.streamOrder) ? Number(tool.streamOrder) : 100000 + index,
           key: `tool-${tool.id || index}`,
           tool,
@@ -633,9 +748,11 @@ const MessageBubble = ({
       })
 
       positionedThoughtBlocks.forEach((block, index) => {
+        const rawIndex = Number(block.textIndex) || 0
+        const normalizedIndex = normalizeToolIndex(rawContent, rawIndex, 'thought')
         events.push({
           type: 'thought',
-          index: Math.max(0, Math.min(Number(block.textIndex) || 0, rawContent.length)),
+          index: Math.max(0, normalizedIndex),
           order: Number.isFinite(block.streamOrder) ? Number(block.streamOrder) : index,
           key: `thought-${block.id || index}`,
           thought: block.content,
@@ -652,10 +769,15 @@ const MessageBubble = ({
 
     let lastIndex = 0
     for (const event of events) {
-      const safeIndex = Math.min(Math.max(0, event.index), rawContent.length)
-      if (safeIndex > lastIndex) {
-        parts.push({ type: 'text', content: rawContent.substring(lastIndex, safeIndex) })
-        lastIndex = safeIndex
+      // CRITICAL: Cap the safeIndex at rawContent.length to prevent "future" indices
+      // from swallowing text that hasn't officially arrived at that position yet.
+      const safeIndex = Number.isFinite(event.index) ? event.index : 0
+      const boundedIndex = Math.min(safeIndex, rawContent.length)
+      const displayIndex = clampToUnicodeBoundary(rawContent, boundedIndex)
+
+      if (displayIndex > lastIndex) {
+        parts.push({ type: 'text', content: rawContent.substring(lastIndex, displayIndex) })
+        lastIndex = displayIndex
       }
       if (event.type === 'tools') {
         parts.push({ type: 'tools', key: event.key, items: [event.tool] })
@@ -933,6 +1055,11 @@ const MessageBubble = ({
 
   const [isResearchExpanded, setIsResearchExpanded] = useState(false)
   const [isPlanExpanded, setIsPlanExpanded] = useState(false)
+  const [isWorkflowExpanded, setIsWorkflowExpanded] = useState(false)
+
+  useEffect(() => {
+    setIsWorkflowExpanded(false)
+  }, [message?.id])
 
   const { showConfirmation } = useAppContext()
   const isUser = message.role === 'user'
@@ -1179,7 +1306,7 @@ const MessageBubble = ({
 
       return (
         <code
-          className={`${className} bg-user-bubble rounded px-1.5 py-0.5 font-mono text-sm font-semibold text-black dark:bg-zinc-800 dark:text-white`}
+          className={`${className} bg-user-bubble rounded-md px-1.5 py-0.5 font-mono text-sm text-black dark:bg-zinc-800 dark:text-white`}
           {...props}
         >
           {children}
@@ -1364,19 +1491,88 @@ const MessageBubble = ({
     }
   }, [markdownComponents, messageIndex, parseChildrenWithEmojis])
 
-  const renderedInterleavedContent = (() => {
-    let shouldRenderStatusBeforeText = false
-    let statusBeforeTextInserted = false
+  const workflowParts = useMemo(() => {
+    const baseWorkflowParts = interleavedContent.filter(
+      part => part.type === 'thought' || part.type === 'tools',
+    )
 
-    return interleavedContent.map((part, idx) => {
-      if (part.type === 'thought') {
-        const isLast = idx === interleavedContent.length - 1
-        const isOpen = isStreaming && isLast
-        const isThinking = isStreaming && isLast
+    // Interactive forms should be rendered outside of the workflow fold.
+    return baseWorkflowParts
+      .map(part => {
+        if (part.type !== 'tools' || !Array.isArray(part.items)) return part
+        const filteredItems = part.items.filter(item => item.name !== 'interactive_form')
+        if (filteredItems.length === 0) return null
+        return { ...part, items: filteredItems }
+      })
+      .filter(Boolean)
+  }, [interleavedContent])
+  const contentPartsOutsideWorkflow = useMemo(
+    () =>
+      interleavedContent.flatMap((part, idx) => {
+        if (part.type === 'text') {
+          return [{ type: 'text', key: `text-${idx}`, content: part.content }]
+        }
+        if (part.type !== 'tools' || !Array.isArray(part.items)) return []
+        const formItems = part.items.filter(item => item?.name === 'interactive_form')
+        if (formItems.length === 0) return []
+        return [
+          {
+            type: 'interactive_form',
+            key: part.key || `interactive-form-${idx}`,
+            items: formItems,
+          },
+        ]
+      }),
+    [interleavedContent],
+  )
+  const hasWorkflow = !isDeepResearch && workflowParts.length > 0
+  const hasFormSubmissionStatus = useMemo(
+    () =>
+      workflowParts.some(
+        part =>
+          part.type === 'tools' &&
+          Array.isArray(part.items) &&
+          part.items.some(item => item.name === 'form_submission_status'),
+      ),
+    [workflowParts],
+  )
+  const renderedWorkflowContent = workflowParts.map((part, idx) => {
+    if (part.type === 'workflow_text') {
+      const workflowTextWithSupports = applyGroundingSupports(
+        part.content,
+        mergedMessage.groundingSupports,
+        mergedMessage.sources,
+      )
+      const workflowTextWithCitations = formatContentWithSources(
+        workflowTextWithSupports,
+        mergedMessage.sources,
+      )
+      const sanitizedWorkflowText = sanitizeDisplayText(workflowTextWithCitations)
+      return (
+        <div
+          key={part.key || `workflow-text-${idx}`}
+          className="mb-4 border-l-2 border-gray-200 pl-4 text-sm leading-relaxed text-gray-600 dark:border-zinc-700 dark:text-gray-300"
+        >
+          <Streamdown
+            mermaid={mermaidOptions}
+            remarkPlugins={[remarkGfm]}
+            components={markdownComponents}
+          >
+            {sanitizedWorkflowText}
+          </Streamdown>
+        </div>
+      )
+    }
 
-        return (
-          <details key={part.key || `thought-inline-${idx}`} className="group mb-4" open={isOpen}>
-            <summary className="flex cursor-pointer items-center gap-2 text-gray-500 select-none hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
+    if (part.type === 'thought') {
+      const isLast = idx === workflowParts.length - 1
+      const isThinking = isStreaming && isLast && !hasMainText
+      const showThoughtHeading = !(isExpertMessage && !isThinking)
+
+      return (
+        <div key={part.key || `thought-inline-${idx}`} className="mb-4">
+          {showThoughtHeading && (
+            <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
               <Brain
                 size={14}
                 className={clsx(
@@ -1387,7 +1583,11 @@ const MessageBubble = ({
                 )}
               />
               <span className="font-medium">
-                {isThinking ? t('messageBubble.thinking') : t('messageBubble.deepThinking')}
+                {isThinking
+                  ? t('messageBubble.thinking')
+                  : isExpertMessage
+                    ? t('messageBubble.expertPlan')
+                    : t('messageBubble.deepThinking')}
               </span>
               {!isThinking && typeof part.durationMs === 'number' && part.durationMs > 0 && (
                 <span className="text-gray-400 dark:text-gray-500">
@@ -1396,263 +1596,254 @@ const MessageBubble = ({
                   })}
                 </span>
               )}
-              <ChevronDown
-                size={14}
-                className="opacity-50 transition-transform group-open:rotate-180"
-              />
-            </summary>
-            <div className="mt-2 border-l-2 border-gray-200 pl-4 text-xs leading-relaxed text-gray-500 dark:border-zinc-700 dark:text-gray-400">
-              <Streamdown
-                mermaid={mermaidOptions}
-                remarkPlugins={[remarkGfm]}
-                components={markdownComponents}
-              >
-                {part.content}
-              </Streamdown>
             </div>
-          </details>
-        )
-      }
-
-      if (part.type === 'tools') {
-        // Separate utility tools from interactive forms
-        const statusMarkers = part.items.filter(item => item.name === 'form_submission_status')
-        const formTools = part.items.filter(item => item.name === 'interactive_form')
-        const regularTools = part.items.filter(
-          item => item.name !== 'interactive_form' && item.name !== 'form_submission_status',
-        )
-        if (statusMarkers.length > 0) {
-          shouldRenderStatusBeforeText = true
-        }
-
-        return (
-          <div key={`tools-container-${idx}`} className="relative z-30 flex flex-col gap-4">
-            {/* Render regular tools */}
-            {regularTools.length > 0 &&
-              (developerMode ? (
-                // Developer Mode: Simplified view consistent with Deep Research within a card container
-                <div
-                  className={clsx(
-                    'overflow-hidden rounded-lg border border-gray-200 dark:border-zinc-800',
-                    'mb-4',
-                  )}
-                >
-                  <div className="bg-user-bubble/30 hover:bg-user-bubble flex w-full items-center justify-between p-2 transition-colors dark:bg-zinc-800/50 dark:hover:bg-zinc-800">
-                    <div className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                      <EmojiDisplay emoji={'🔧'} size="1.2em" /> {t('messageBubble.toolCalls')}
-                    </div>
-                  </div>
-                  <div className="space-y-2 bg-white/70 p-3 dark:bg-zinc-800/70">
-                    {regularTools.map(item => (
-                      <div
-                        key={item.id || `${item.name}-${item.arguments}`}
-                        className="flex w-full items-center gap-2 text-[11px] text-gray-600 dark:text-gray-400"
-                      >
-                        <span className="flex shrink-0 items-center gap-1.5 font-medium text-gray-700 dark:text-gray-300">
-                          {item.status === 'error' && (
-                            <AlertTriangle size={14} className="text-red-500 dark:text-red-400" />
-                          )}
-                          {item.status === 'error'
-                            ? t('messageBubble.toolCallError')
-                            : getToolDisplayName(item)}
-                        </span>
-                        <div className="min-w-0 flex-1" />
-                        {item.status !== 'done' && item.status !== 'error' && <DotLoader />}
-                        {typeof item.durationMs === 'number' && (
-                          <span className="shrink-0 text-[10px] whitespace-nowrap text-gray-500 dark:text-gray-400">
-                            {t('messageBubble.toolDuration', {
-                              duration: (item.durationMs / 1000).toFixed(2),
-                            })}
-                          </span>
-                        )}
-                        <span
-                          className={clsx(
-                            'shrink-0 rounded-full px-2 py-0.5 text-[10px] whitespace-nowrap',
-                            item.status === 'error'
-                              ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
-                              : item.status === 'done'
-                                ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400'
-                                : 'bg-gray-200/70 text-gray-600 dark:bg-zinc-700/70 dark:text-gray-400',
-                          )}
-                        >
-                          {item.status === 'error'
-                            ? t('messageBubble.toolStatusError')
-                            : item.status === 'done'
-                              ? t('messageBubble.toolStatusDone')
-                              : t('messageBubble.toolStatusCalling')}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setActiveToolDetail(item)}
-                          className="text-primary-600 dark:text-primary-300 shrink-0 text-[10px] whitespace-nowrap hover:underline"
-                        >
-                          {t('messageBubble.toolDetails')}
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <div
-                  className={clsx(
-                    'flex flex-col gap-2 rounded-lg border border-gray-200 bg-white/70 p-2 dark:border-zinc-800 dark:bg-zinc-800/50',
-                    'mb-4',
-                  )}
-                >
-                  {regularTools.map(item => {
-                    const iconName = TOOL_ICONS[item.name]
-                    const IconComponent = iconName
-                      ? {
-                          Search,
-                          GraduationCap,
-                          Calculator,
-                          Clock,
-                          FileText,
-                          ScanText,
-                          Wrench,
-                          FormInput,
-                          Globe,
-                          Brain,
-                          BrainCircuit,
-                        }[iconName]
-                      : null
-                    return (
-                      <ToolEnter key={item.id || `${item.name}-${item.arguments}`}>
-                        <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                          <div className="flex w-full items-center gap-1 sm:gap-2">
-                            <span className="flex shrink-0 items-center gap-1.5 font-medium whitespace-nowrap text-gray-600 dark:text-gray-300">
-                              {item.status === 'error' ? (
-                                <AlertTriangle
-                                  size={14}
-                                  className="text-red-500 dark:text-red-400"
-                                />
-                              ) : (
-                                IconComponent && (
-                                  <IconComponent
-                                    size={14}
-                                    className="text-gray-500 dark:text-gray-400"
-                                  />
-                                )
-                              )}
-                              {item.status === 'error'
-                                ? t('messageBubble.toolCallError')
-                                : getToolDisplayName(item)}
-                            </span>
-                            <div className="flex min-w-0 flex-1 items-center gap-1 sm:gap-2">
-                              {Object.keys(TOOL_TRANSLATION_KEYS).includes(item.name) &&
-                                (() => {
-                                  try {
-                                    const args = JSON.parse(item.arguments || '{}')
-                                    if (args.query) {
-                                      return (
-                                        <span className="w-full truncate opacity-75">
-                                          &quot;{args.query}&quot;
-                                        </span>
-                                      )
-                                    }
-                                  } catch {
-                                    return null
-                                  }
-                                })()}
-                            </div>
-                            {typeof item.durationMs === 'number' && (
-                              <span className="shrink-0 text-[11px] whitespace-nowrap text-gray-500 dark:text-gray-400">
-                                {t('messageBubble.toolDuration', {
-                                  duration: (item.durationMs / 1000).toFixed(2),
-                                })}
-                              </span>
-                            )}
-                            <span
-                              className={clsx(
-                                'ml-auto flex min-w-[24px] shrink-0 items-center justify-center rounded-full px-2 py-0.5 text-[11px]',
-                                item.status === 'error'
-                                  ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
-                                  : item.status === 'done'
-                                    ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400'
-                                    : 'bg-gray-200/70 text-gray-600 dark:bg-zinc-700/70 dark:text-gray-400',
-                              )}
-                            >
-                              {item.status === 'error' ? (
-                                <X className="h-4 w-4" />
-                              ) : item.status === 'done' ? (
-                                <Check className="h-4 w-4" />
-                              ) : (
-                                <DotLoader />
-                              )}
-                            </span>
-                          </div>
-                        </div>
-                      </ToolEnter>
-                    )
-                  })}
-                </div>
-              ))}
-
-            {/* Render Interactive Forms */}
-            {formTools.map((item, formIdx) => {
-              const formData = parseFormPayload(item.arguments) || parseFormPayload(item.output)
-
-              const nextMsg = messages[messageIndex + 1]
-              const isInterrupted = nextMsg && nextMsg.role === 'user' && !nextMsg.hitlRunId
-
-              // If the tool status is 'done', it means the form was submitted.
-              // Also disable if the user interrupted the flow with a new message.
-              const isSubmitted = item.status === 'done'
-              const shouldDisableForm = isSubmitted || isInterrupted
-
-              if (formData) {
-                return (
-                  <InteractiveForm
-                    key={`form-${formIdx}`}
-                    formData={formData}
-                    onSubmit={handleFormSubmit}
-                    messageId={message.id}
-                    isSubmitted={shouldDisableForm}
-                    submittedValues={
-                      parseFormPayload(item.result) || parseFormPayload(item.output) || {}
-                    }
-                    developerMode={developerMode}
-                    onShowDetails={() => setActiveToolDetail(item)}
-                  />
-                )
-              }
-
-              const shouldShowSkeleton = isStreaming || item.status !== 'done'
-              if (shouldShowSkeleton) {
-                return (
-                  <div
-                    key={`form-skeleton-${formIdx}`}
-                    className="mb-4 animate-pulse space-y-4 rounded-xl"
-                  >
-                    <div className="h-6 w-1/3 rounded bg-gray-200 dark:bg-zinc-700"></div>
-                    <div className="h-4 w-2/3 rounded bg-gray-200 dark:bg-zinc-700"></div>
-                    <div className="space-y-2">
-                      <div className="h-4 w-1/4 rounded bg-gray-200 dark:bg-zinc-700"></div>
-                      <div className="h-10 w-full rounded bg-gray-200 dark:bg-zinc-700"></div>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="h-4 w-1/4 rounded bg-gray-200 dark:bg-zinc-700"></div>
-                      <div className="h-10 w-full rounded bg-gray-200 dark:bg-zinc-700"></div>
-                    </div>
-                    <div className="mt-4 h-10 w-full rounded bg-gray-200 dark:bg-zinc-700"></div>
-                  </div>
-                )
-              }
-
-              console.error('Failed to parse interactive form arguments:', item)
-              return (
-                <div
-                  key={`form-error-${formIdx}`}
-                  className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300"
-                >
-                  Error displaying form
-                </div>
-              )
-            })}
+          )}
+          <div className="mt-2 border-l-2 border-gray-200 pl-4 text-xs leading-relaxed text-gray-500 dark:border-zinc-700 dark:text-gray-400">
+            <Streamdown
+              mermaid={mermaidOptions}
+              remarkPlugins={[remarkGfm]}
+              components={markdownComponents}
+            >
+              {formatThoughtContentForDisplay(part.content)}
+            </Streamdown>
           </div>
-        )
-      }
+        </div>
+      )
+    }
 
+    if (part.type === 'tools') {
+      // Interactive forms are rendered outside workflow fold.
+      const regularTools = part.items.filter(
+        item => item.name !== 'interactive_form' && item.name !== 'form_submission_status',
+      )
+
+      return (
+        <div key={`tools-container-${idx}`} className="relative z-30 flex flex-col gap-4">
+          {/* Render regular tools */}
+          {regularTools.length > 0 &&
+            (developerMode ? (
+              // Developer Mode: Simplified view consistent with Deep Research within a card container
+              <div
+                className={clsx(
+                  'overflow-hidden rounded-lg border border-gray-200 dark:border-zinc-800',
+                  'mb-4',
+                )}
+              >
+                <div className="bg-user-bubble/30 hover:bg-user-bubble flex w-full items-center justify-between p-2 transition-colors dark:bg-zinc-800/50 dark:hover:bg-zinc-800">
+                  <div className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                    <EmojiDisplay emoji={'🔧'} size="1.2em" /> {t('messageBubble.toolCalls')}
+                  </div>
+                </div>
+                <div className="space-y-2 bg-white/70 p-3 dark:bg-zinc-800/70">
+                  {regularTools.map(item => (
+                    <div
+                      key={item.id || `${item.name}-${item.arguments}`}
+                      className="flex w-full items-center gap-2 text-[11px] text-gray-600 dark:text-gray-400"
+                    >
+                      <span className="flex shrink-0 items-center gap-1.5 font-medium text-gray-700 dark:text-gray-300">
+                        {item.status === 'error' && (
+                          <AlertTriangle size={14} className="text-red-500 dark:text-red-400" />
+                        )}
+                        {item.status === 'error'
+                          ? t('messageBubble.toolCallError')
+                          : getToolDisplayName(item)}
+                      </span>
+                      <div className="min-w-0 flex-1" />
+                      {item.status !== 'done' && item.status !== 'error' && <DotLoader />}
+                      {typeof item.durationMs === 'number' && (
+                        <span className="shrink-0 text-[10px] whitespace-nowrap text-gray-500 dark:text-gray-400">
+                          {t('messageBubble.toolDuration', {
+                            duration: (item.durationMs / 1000).toFixed(2),
+                          })}
+                        </span>
+                      )}
+                      <span
+                        className={clsx(
+                          'shrink-0 rounded-full px-2 py-0.5 text-[10px] whitespace-nowrap',
+                          item.status === 'error'
+                            ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
+                            : item.status === 'done'
+                              ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400'
+                              : 'bg-gray-200/70 text-gray-600 dark:bg-zinc-700/70 dark:text-gray-400',
+                        )}
+                      >
+                        {item.status === 'error'
+                          ? t('messageBubble.toolStatusError')
+                          : item.status === 'done'
+                            ? t('messageBubble.toolStatusDone')
+                            : t('messageBubble.toolStatusCalling')}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setActiveToolDetail(item)}
+                        className="text-primary-600 dark:text-primary-300 shrink-0 text-[10px] whitespace-nowrap hover:underline"
+                      >
+                        {t('messageBubble.toolDetails')}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div
+                className={clsx(
+                  'flex flex-col gap-2 rounded-lg border border-gray-200 bg-white/70 p-2 dark:border-zinc-800 dark:bg-zinc-800/50',
+                  'mb-4',
+                )}
+              >
+                {regularTools.map(item => {
+                  const iconName = TOOL_ICONS[item.name]
+                  const IconComponent = iconName
+                    ? {
+                        Search,
+                        GraduationCap,
+                        Calculator,
+                        Clock,
+                        FileText,
+                        ScanText,
+                        Wrench,
+                        FormInput,
+                        Globe,
+                        Brain,
+                        BrainCircuit,
+                      }[iconName]
+                    : null
+                  return (
+                    <ToolEnter key={item.id || `${item.name}-${item.arguments}`}>
+                      <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                        <div className="flex w-full items-center gap-1 sm:gap-2">
+                          <span className="flex shrink-0 items-center gap-1.5 font-medium whitespace-nowrap text-gray-600 dark:text-gray-300">
+                            {item.status === 'error' ? (
+                              <AlertTriangle size={14} className="text-red-500 dark:text-red-400" />
+                            ) : (
+                              IconComponent && (
+                                <IconComponent
+                                  size={14}
+                                  className="text-gray-500 dark:text-gray-400"
+                                />
+                              )
+                            )}
+                            {item.status === 'error'
+                              ? t('messageBubble.toolCallError')
+                              : getToolDisplayName(item)}
+                          </span>
+                          <div className="flex min-w-0 flex-1 items-center gap-1 sm:gap-2">
+                            {Object.keys(TOOL_TRANSLATION_KEYS).includes(item.name) &&
+                              (() => {
+                                try {
+                                  const args = JSON.parse(item.arguments || '{}')
+                                  if (args.query) {
+                                    return (
+                                      <span className="w-full truncate opacity-75">
+                                        &quot;{args.query}&quot;
+                                      </span>
+                                    )
+                                  }
+                                } catch {
+                                  return null
+                                }
+                              })()}
+                          </div>
+                          {typeof item.durationMs === 'number' && (
+                            <span className="shrink-0 text-[11px] whitespace-nowrap text-gray-500 dark:text-gray-400">
+                              {t('messageBubble.toolDuration', {
+                                duration: (item.durationMs / 1000).toFixed(2),
+                              })}
+                            </span>
+                          )}
+                          <span
+                            className={clsx(
+                              'ml-auto flex min-w-[24px] shrink-0 items-center justify-center rounded-full px-2 py-0.5 text-[11px]',
+                              item.status === 'error'
+                                ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
+                                : item.status === 'done'
+                                  ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400'
+                                  : 'bg-gray-200/70 text-gray-600 dark:bg-zinc-700/70 dark:text-gray-400',
+                            )}
+                          >
+                            {item.status === 'error' ? (
+                              <X className="h-4 w-4" />
+                            ) : item.status === 'done' ? (
+                              <Check className="h-4 w-4" />
+                            ) : (
+                              <DotLoader />
+                            )}
+                          </span>
+                        </div>
+                      </div>
+                    </ToolEnter>
+                  )
+                })}
+              </div>
+            ))}
+        </div>
+      )
+    }
+
+    return null
+  })
+
+  const renderInteractiveFormItem = (item, formKey) => {
+    const formData = parseFormPayload(item.arguments) || parseFormPayload(item.output)
+
+    const nextMsg = messages[messageIndex + 1]
+    const isInterrupted = nextMsg && nextMsg.role === 'user' && !nextMsg.hitlRunId
+
+    // If the tool status is 'done', it means the form was submitted.
+    // Also disable if the user interrupted the flow with a new message.
+    const isSubmitted = item.status === 'done'
+    const shouldDisableForm = isSubmitted || isInterrupted
+
+    if (formData) {
+      return (
+        <InteractiveForm
+          key={formKey}
+          formData={formData}
+          onSubmit={handleFormSubmit}
+          messageId={message.id}
+          isSubmitted={shouldDisableForm}
+          submittedValues={parseFormPayload(item.result) || parseFormPayload(item.output) || {}}
+          developerMode={developerMode}
+          onShowDetails={() => setActiveToolDetail(item)}
+        />
+      )
+    }
+
+    const shouldShowSkeleton = isStreaming || item.status !== 'done'
+    if (shouldShowSkeleton) {
+      return (
+        <div key={`form-skeleton-${formKey}`} className="mb-4 animate-pulse space-y-4 rounded-xl">
+          <div className="h-6 w-1/3 rounded bg-gray-200 dark:bg-zinc-700"></div>
+          <div className="h-4 w-2/3 rounded bg-gray-200 dark:bg-zinc-700"></div>
+          <div className="space-y-2">
+            <div className="h-4 w-1/4 rounded bg-gray-200 dark:bg-zinc-700"></div>
+            <div className="h-10 w-full rounded bg-gray-200 dark:bg-zinc-700"></div>
+          </div>
+          <div className="space-y-2">
+            <div className="h-4 w-1/4 rounded bg-gray-200 dark:bg-zinc-700"></div>
+            <div className="h-10 w-full rounded bg-gray-200 dark:bg-zinc-700"></div>
+          </div>
+          <div className="mt-4 h-10 w-full rounded bg-gray-200 dark:bg-zinc-700"></div>
+        </div>
+      )
+    }
+
+    console.error('Failed to parse interactive form arguments:', item)
+    return (
+      <div
+        key={`form-error-${formKey}`}
+        className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300"
+      >
+        Error displaying form
+      </div>
+    )
+  }
+
+  const firstTextPartDisplayIndex = contentPartsOutsideWorkflow.findIndex(
+    part => part.type === 'text',
+  )
+  const renderedMainContent = contentPartsOutsideWorkflow.map((part, idx) => {
+    if (part.type === 'text') {
       const contentWithSupports = applyGroundingSupports(
         part.content,
         mergedMessage.groundingSupports,
@@ -1662,18 +1853,15 @@ const MessageBubble = ({
         contentWithSupports,
         mergedMessage.sources,
       )
-      const showStatusBeforeText = shouldRenderStatusBeforeText && !statusBeforeTextInserted
-      if (showStatusBeforeText) {
-        statusBeforeTextInserted = true
-        shouldRenderStatusBeforeText = false
-      }
+      const sanitizedMainText = sanitizeDisplayText(contentWithCitations)
+      const showStatusBeforeText = hasFormSubmissionStatus && idx === firstTextPartDisplayIndex
       return (
-        <React.Fragment key={`text-${idx}`}>
+        <React.Fragment key={part.key || `text-outside-${idx}`}>
           {showStatusBeforeText && <FormStatusBadge waiting={false} />}
           <div
             data-answer-scope="true"
             className={clsx(
-              'transition-all duration-300 ease-[cubic-bezier(0.2,0.6,0.2,1)]',
+              'mb-4 transition-all duration-300 ease-[cubic-bezier(0.2,0.6,0.2,1)]',
               hasMainText ? 'translate-y-0 opacity-100' : 'translate-y-1 opacity-0',
             )}
           >
@@ -1683,13 +1871,74 @@ const MessageBubble = ({
               components={markdownComponentsWithAnchors}
               isAnimating={isStreaming}
             >
-              {contentWithCitations}
+              {sanitizedMainText}
             </Streamdown>
           </div>
         </React.Fragment>
       )
-    })
-  })()
+    }
+
+    if (part.type === 'interactive_form') {
+      return (
+        <React.Fragment key={part.key || `interactive-form-outside-${idx}`}>
+          {part.items.map((item, formIdx) =>
+            renderInteractiveFormItem(item, `form-inline-${part.key || idx}-${item.id || formIdx}`),
+          )}
+        </React.Fragment>
+      )
+    }
+
+    return null
+  })
+
+  const workflowHeaderLabel = useMemo(() => {
+    if (isExpertMessage) {
+      return t('messageBubble.expertPlan')
+    }
+    if (!isStreaming || workflowParts.length === 0) {
+      return t('messageBubble.workflow')
+    }
+
+    for (let i = workflowParts.length - 1; i >= 0; i -= 1) {
+      const part = workflowParts[i]
+
+      if (part.type === 'tools' && Array.isArray(part.items)) {
+        const activeTool = [...part.items]
+          .reverse()
+          .find(
+            item =>
+              item &&
+              item.name !== 'form_submission_status' &&
+              item.status !== 'done' &&
+              item.status !== 'error',
+          )
+        if (activeTool) {
+          const toolName = developerMode ? activeTool.name : getToolDisplayName(activeTool)
+          return t('messageBubble.workflowToolCalling', {
+            tool: toolName,
+            defaultValue: `${toolName} ${t('messageBubble.toolStatusCalling')}`,
+          })
+        }
+      }
+
+      if (part.type === 'thought' && i === workflowParts.length - 1) {
+        if (!hasMainText) {
+          return t('messageBubble.thinking')
+        }
+        return t('messageBubble.deepThinking')
+      }
+    }
+
+    return t('messageBubble.workflow')
+  }, [
+    developerMode,
+    getToolDisplayName,
+    hasMainText,
+    isExpertMessage,
+    isStreaming,
+    t,
+    workflowParts,
+  ])
 
   const targetAgentId = message.agentId || message.agent_id
   const targetAgent = useMemo(() => {
@@ -1896,28 +2145,96 @@ const MessageBubble = ({
     )
   }
 
-  const providerMeta = PROVIDER_META[providerId] || {
-    label: providerId || 'AI',
-    id: providerId,
+  const providerMeta = PROVIDER_META[displayProviderId] || {
+    label: displayProviderId || 'AI',
+    id: displayProviderId,
     fallback: 'AI',
   }
-  const resolvedModel = message.model || defaultModel || 'default model'
-  const agentName = message.agentName ?? message.agent_name ?? null
-  const agentEmoji = message.agentEmoji ?? message.agent_emoji ?? ''
-  const agentIsDefault = message.agentIsDefault ?? message.agent_is_default ?? false
+
+  // Dynamic Agent Info Logic
+  const expertAgentName = isExpertMessage ? activeExpertResponse?.agentName : null
+  const expertAgentEmoji = isExpertMessage ? activeExpertResponse?.agentEmoji : null
+
+  const resolvedModel = displayModel || message.model || defaultModel || 'default model'
+  const agentName = expertAgentName || message.agentName || message.agent_name || null
+  const agentEmoji = expertAgentEmoji || message.agentEmoji || message.agent_emoji || ''
+  const agentIsDefault =
+    !isExpertMessage && (message.agentIsDefault ?? message.agent_is_default ?? false)
   const agentIsDeepResearch =
     message.agent_name == 'Deep Research Agent' || message.agentName == 'Deep Research Agent'
       ? true
       : false
+
   const displayAgentName = agentIsDefault
     ? t('agents.defaults.name')
     : agentIsDeepResearch
       ? t('deepResearch.agentName')
       : agentName
 
+  const renderExpertTabs = () => {
+    if (!isExpertMessage) return null
+    return (
+      <div className="code-scrollbar mb-4 flex w-fit max-w-full gap-1 overflow-x-auto rounded-lg bg-gray-100 p-1 dark:bg-zinc-800/50">
+        {expertResponses.map(item => {
+          const isActive = item.agentId === activeExpertResponse?.agentId
+          return (
+            <button
+              type="button"
+              key={item.agentId}
+              onClick={e => {
+                e.preventDefault()
+                e.stopPropagation()
+                setActiveExpertAgentId(item.agentId)
+              }}
+              className={clsx(
+                'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-all duration-200',
+                isActive
+                  ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-gray-100'
+                  : 'text-gray-500 hover:bg-gray-200/50 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-zinc-700/50 dark:hover:text-gray-300',
+              )}
+            >
+              <EmojiDisplay emoji={item.agentEmoji} size="1.1em" />
+              <span>{item.agentName || item.agentId}</span>
+              {/* Status Dot */}
+              {item.status !== 'done' && (
+                <span
+                  className={clsx(
+                    'h-1.5 w-1.5 rounded-full',
+                    item.status === 'error' ? 'bg-red-500' : 'animate-pulse bg-amber-500',
+                  )}
+                />
+              )}
+            </button>
+          )
+        })}
+      </div>
+    )
+  }
+
   const hasPlanText = !!planMarkdown
   const researchPlanLoading = Boolean(message?.researchPlanLoading)
-  const researchSteps = Array.isArray(message.researchSteps) ? message.researchSteps : []
+  const researchSteps = useMemo(() => {
+    const steps = Array.isArray(message.researchSteps) ? [...message.researchSteps] : []
+    const toNum = value => {
+      const num = Number(value)
+      return Number.isFinite(num) ? num : null
+    }
+    steps.sort((a, b) => {
+      const aNum = toNum(a?.step)
+      const bNum = toNum(b?.step)
+      if (aNum !== null && bNum !== null) return aNum - bNum
+      if (aNum !== null) return -1
+      if (bNum !== null) return 1
+      const aOrder = Number.isFinite(a?.streamOrder)
+        ? Number(a.streamOrder)
+        : Number.MAX_SAFE_INTEGER
+      const bOrder = Number.isFinite(b?.streamOrder)
+        ? Number(b.streamOrder)
+        : Number.MAX_SAFE_INTEGER
+      return aOrder - bOrder
+    })
+    return steps
+  }, [message.researchSteps])
   const hasResearchSteps = researchSteps.length > 0
   const hasActiveResearchStep = researchSteps.some(
     step => step.status === 'running' || step.status === 'pending',
@@ -1948,6 +2265,29 @@ const MessageBubble = ({
   const hasRelatedQuestions = resolvedRelatedQuestions.length > 0
   const isRelatedLoading = !!mergedMessage.relatedLoading
   const shouldShowRelated = !isDeepResearch && (hasRelatedQuestions || isRelatedLoading)
+  const workflowPanel = hasWorkflow ? (
+    <details
+      className={clsx(
+        'group rounded-xl border border-gray-200 bg-white/70 dark:border-zinc-800 dark:bg-zinc-900/40',
+        !isExpertMessage && 'mt-0 mb-4',
+        isExpertMessage && 'mt-4',
+      )}
+      open={isWorkflowExpanded}
+      onToggle={event => setIsWorkflowExpanded(event.currentTarget.open)}
+    >
+      <summary className="flex cursor-pointer items-center justify-between gap-3 px-3 py-2 text-gray-600 select-none hover:text-gray-800 dark:text-gray-300 dark:hover:text-gray-100">
+        <div className="flex items-center gap-2">
+          <BrainCircuit size={15} className="text-gray-500 dark:text-gray-400" />
+          <span className="text-sm font-medium">{workflowHeaderLabel}</span>
+          <span className="rounded-full bg-gray-200/80 px-2 py-0.5 text-[11px] text-gray-600 dark:bg-zinc-700/70 dark:text-gray-300">
+            {workflowParts.length}
+          </span>
+        </div>
+        <ChevronDown size={15} className="opacity-60 transition-transform group-open:rotate-180" />
+      </summary>
+      <div className="px-3 pt-1 pb-3">{renderedWorkflowContent}</div>
+    </details>
+  ) : null
 
   // Debug logging for related questions
   // if (mergedMessage._formSubmitted) {
@@ -2034,95 +2374,107 @@ const MessageBubble = ({
           </div>,
           document.body,
         )}
-      {/* Provider/Model Header */}
-      <div className="flex items-center gap-3 text-gray-900 dark:text-gray-100">
-        {agentName ? (
-          <>
-            <div
-              onClick={handleAgentClick}
-              className={clsx(
-                'flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-gray-100 shadow-inner transition hover:scale-105 dark:bg-zinc-800',
-                targetAgent && 'cursor-pointer transition-opacity hover:opacity-80',
-              )}
-            >
-              <EmojiDisplay emoji={agentEmoji} size="1.5rem" />
-            </div>
-            <div className="flex grow flex-col leading-tight">
-              <div className="flex w-full items-center justify-between">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-sm font-semibold">{displayAgentName}</span>
+
+      {isExpertMessage && workflowPanel}
+
+      {/* Provider/Model Header Container */}
+      <div className="flex flex-col gap-1">
+        {/* Expert Tabs (Moved Top) */}
+        {renderExpertTabs()}
+
+        {/* Avatar and Info Row */}
+        <div className="flex items-center gap-3 text-gray-900 dark:text-gray-100">
+          {agentName ? (
+            <>
+              <div
+                onClick={handleAgentClick}
+                className={clsx(
+                  'flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-gray-100 shadow-inner transition hover:scale-105 dark:bg-zinc-800',
+                  targetAgent && 'cursor-pointer transition-opacity hover:opacity-80',
+                )}
+              >
+                <EmojiDisplay emoji={agentEmoji} size="1.5rem" />
+              </div>
+              <div className="flex grow flex-col leading-tight">
+                <div className="flex w-full items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-sm font-semibold">{displayAgentName}</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+                  {renderProviderIcon(providerMeta.id, {
+                    size: 12,
+                    alt: providerMeta.label,
+                    compact: true,
+                    wrapperClassName: 'w-3 h-3',
+                    imgClassName: 'w-full h-full object-contain',
+                  }) || (
+                    <span className="text-[10px] font-semibold">
+                      {providerMeta.fallback?.slice(0, 2).toUpperCase()}
+                    </span>
+                  )}
+                  <span className="truncate">{providerMeta.label}</span>
+                  {getModelIcon(resolvedModel) && (
+                    <img
+                      src={getModelIcon(resolvedModel)}
+                      alt=""
+                      width={12}
+                      height={12}
+                      className={clsx(
+                        'h-3 w-3 object-contain',
+                        getModelIconClassName(resolvedModel),
+                      )}
+                      loading="lazy"
+                    />
+                  )}
+                  <span className="truncate">{resolvedModel}</span>
                 </div>
               </div>
-              <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+            </>
+          ) : (
+            <>
+              <div
+                onClick={handleAgentClick}
+                className={clsx(
+                  'flex items-center justify-center overflow-hidden rounded-full shadow-inner',
+                  targetAgent && 'cursor-pointer transition-opacity hover:opacity-80',
+                )}
+              >
                 {renderProviderIcon(providerMeta.id, {
-                  size: 12,
+                  size: 30,
                   alt: providerMeta.label,
-                  compact: true,
-                  wrapperClassName: 'w-3 h-3',
+                  wrapperClassName: 'p-0 w-10 h-10',
                   imgClassName: 'w-full h-full object-contain',
                 }) || (
-                  <span className="text-[10px] font-semibold">
+                  <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
                     {providerMeta.fallback?.slice(0, 2).toUpperCase()}
                   </span>
                 )}
-                <span className="truncate">{providerMeta.label}</span>
-                {getModelIcon(resolvedModel) && (
-                  <img
-                    src={getModelIcon(resolvedModel)}
-                    alt=""
-                    width={12}
-                    height={12}
-                    className={clsx('h-3 w-3 object-contain', getModelIconClassName(resolvedModel))}
-                    loading="lazy"
-                  />
-                )}
-                <span className="truncate">{resolvedModel}</span>
               </div>
-            </div>
-          </>
-        ) : (
-          <>
-            <div
-              onClick={handleAgentClick}
-              className={clsx(
-                'flex items-center justify-center overflow-hidden rounded-full shadow-inner',
-                targetAgent && 'cursor-pointer transition-opacity hover:opacity-80',
-              )}
-            >
-              {renderProviderIcon(providerMeta.id, {
-                size: 30,
-                alt: providerMeta.label,
-                wrapperClassName: 'p-0 w-10 h-10',
-                imgClassName: 'w-full h-full object-contain',
-              }) || (
-                <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
-                  {providerMeta.fallback?.slice(0, 2).toUpperCase()}
-                </span>
-              )}
-            </div>
-            <div className="flex grow flex-col leading-tight">
-              <div className="flex w-full items-center justify-between">
-                <span className="text-sm font-semibold">{providerMeta.label}</span>
+              <div className="flex grow flex-col leading-tight">
+                <div className="flex w-full items-center justify-between">
+                  <span className="text-sm font-semibold">{providerMeta.label}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  {getModelIcon(resolvedModel) && (
+                    <img
+                      src={getModelIcon(resolvedModel)}
+                      alt=""
+                      width={14}
+                      height={14}
+                      className={clsx(
+                        'h-3.5 w-3.5 object-contain',
+                        getModelIconClassName(resolvedModel),
+                      )}
+                      loading="lazy"
+                    />
+                  )}
+                  <span className="text-xs text-gray-500 dark:text-gray-400">{resolvedModel}</span>
+                </div>
               </div>
-              <div className="flex items-center gap-1.5">
-                {getModelIcon(resolvedModel) && (
-                  <img
-                    src={getModelIcon(resolvedModel)}
-                    alt=""
-                    width={14}
-                    height={14}
-                    className={clsx(
-                      'h-3.5 w-3.5 object-contain',
-                      getModelIconClassName(resolvedModel),
-                    )}
-                    loading="lazy"
-                  />
-                )}
-                <span className="text-xs text-gray-500 dark:text-gray-400">{resolvedModel}</span>
-              </div>
-            </div>
-          </>
-        )}
+            </>
+          )}
+        </div>
       </div>
 
       {/* Thinking Process Section */}
@@ -2214,7 +2566,12 @@ const MessageBubble = ({
                           : t('messageBubble.researchStepStatusPending') || 'Wait'
                     return (
                       <div
-                        key={`${step.step}-${step.title}`}
+                        key={
+                          step.stepKey ||
+                          (Number.isFinite(Number(step.step))
+                            ? `research-step-${Number(step.step)}`
+                            : `research-step-${step.streamOrder ?? step.title ?? 'unknown'}`)
+                        }
                         className="flex items-start gap-3 rounded-lg border border-gray-200/60 bg-white/70 p-3 dark:border-zinc-800/70 dark:bg-zinc-800/70"
                       >
                         <div className="flex-1 space-y-1">
@@ -2439,7 +2796,13 @@ const MessageBubble = ({
         }}
       >
         <>
-          {renderedInterleavedContent}
+          {isExpertMessage && activeExpertResponse?.task && (
+            <div className="mb-3 rounded-lg border border-dashed border-gray-300 px-3 py-2 text-sm text-gray-600 dark:border-zinc-600 dark:text-gray-300">
+              {activeExpertResponse.task}
+            </div>
+          )}
+          {!isExpertMessage && workflowPanel}
+          {renderedMainContent}
           {renderInitialSkeleton && (
             <div
               className={clsx(

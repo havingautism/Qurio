@@ -7,9 +7,8 @@ from __future__ import annotations
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
-from ..services.generation import generate_daily_tip
 from ..providers import is_provider_supported
-
+from ..services.generation import generate_daily_tip
 
 router = APIRouter(tags=["daily-tip"])
 

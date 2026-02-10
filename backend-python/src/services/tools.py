@@ -14,12 +14,24 @@ import httpx
 
 from .academic_domains import ACADEMIC_DOMAINS
 from .tool_registry import (
-    ALL_TOOLS as REGISTRY_ALL_TOOLS,
     AGENT_TOOLS as REGISTRY_AGENT_TOOLS,
+)
+from .tool_registry import (
+    ALL_TOOLS as REGISTRY_ALL_TOOLS,
+)
+from .tool_registry import (
     GLOBAL_TOOLS as REGISTRY_GLOBAL_TOOLS,
+)
+from .tool_registry import (
     LOCAL_TOOLS as REGISTRY_LOCAL_TOOLS,
+)
+from .tool_registry import (
     get_tool_definitions_by_ids as list_tool_definitions_by_ids,
+)
+from .tool_registry import (
     list_tools as list_tool_registry,
+)
+from .tool_registry import (
     resolve_tool_name,
 )
 

@@ -33,7 +33,8 @@ export const DeepResearchGuideProvider = ({
   const [deepResearchOutput, setDeepResearchOutput] = useState('')
   const [deepResearchOutputAuto, setDeepResearchOutputAuto] = useState(true)
   const [deepResearchType, setDeepResearchType] = useState('general')
-  const [deepResearchConcurrent, setDeepResearchConcurrent] = useState(false)
+  const [deepResearchSequential, setDeepResearchSequential] = useState(false)
+  const [deepResearchConcurrency, setDeepResearchConcurrency] = useState(3)
   const getDefaultResponseLanguage = useCallback(() => {
     const normalized = String(i18n.language || '').toLowerCase()
     return normalized.startsWith('zh') ? 'zh-CN' : 'en'
@@ -50,7 +51,8 @@ export const DeepResearchGuideProvider = ({
     setDeepResearchOutput('')
     setDeepResearchOutputAuto(true)
     setDeepResearchType('general')
-    setDeepResearchConcurrent(false)
+    setDeepResearchSequential(false)
+    setDeepResearchConcurrency(3)
     setDeepResearchResponseLanguage(getDefaultResponseLanguage())
   }, [getDefaultResponseLanguage])
 
@@ -124,7 +126,8 @@ export const DeepResearchGuideProvider = ({
           search: true,
           thinking: false,
           deepResearch: true,
-          concurrentResearch: deepResearchConcurrent,
+          sequentialResearch: deepResearchSequential,
+          concurrencyLimit: deepResearchConcurrency,
           related: false,
         },
         initialSpaceSelection: {
@@ -151,7 +154,7 @@ export const DeepResearchGuideProvider = ({
     buildDeepResearchPrompt,
     closeDeepResearchGuide,
     deepResearchAgent,
-    deepResearchConcurrent,
+    deepResearchSequential,
     deepResearchQuestion,
     deepResearchResponseLanguage,
     deepResearchSpace,
@@ -395,28 +398,56 @@ export const DeepResearchGuideProvider = ({
                       </div>
 
                       {/* Concurrent Execution Toggle - Available for ALL research types */}
-                      <div className="space-y-2 border-t border-gray-100 pt-4 dark:border-zinc-800">
+                      <div className="space-y-4 border-t border-gray-100 pt-4 dark:border-zinc-800">
                         <label className="group flex cursor-pointer items-start gap-3">
                           <input
                             type="checkbox"
-                            checked={deepResearchConcurrent}
-                            onChange={e => setDeepResearchConcurrent(e.target.checked)}
+                            checked={deepResearchSequential}
+                            onChange={e => setDeepResearchSequential(e.target.checked)}
                             className="text-primary-500 focus:ring-primary-500/20 mt-0.5 h-4 w-4 cursor-pointer rounded border-gray-300 focus:ring-2 dark:border-zinc-600"
                           />
                           <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-2">
                               <span className="group-hover:text-primary-500 text-sm font-medium text-gray-900 transition-colors dark:text-gray-100">
-                                {t('homeView.concurrentExecution')}
-                              </span>
-                              <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-xs text-amber-600 dark:text-amber-400">
-                                {t('homeView.experimental')}
+                                {t('homeView.sequentialExecution')}
                               </span>
                             </div>
                             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                              {t('homeView.concurrentExecutionDesc')}
+                              {t('homeView.sequentialExecutionDesc')}
                             </p>
                           </div>
                         </label>
+
+                        {/* Concurrency Limit Input - Only shown if NOT sequential */}
+                        {!deepResearchSequential && (
+                          <div className="animate-in fade-in slide-in-from-top-1 ml-7">
+                            <div className="flex items-center justify-between gap-4">
+                              <div className="min-w-0 flex-1">
+                                <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                                  {t('homeView.concurrencyLimit')}
+                                </div>
+                                <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                                  {t('homeView.concurrencyLimitHint')}
+                                </p>
+                              </div>
+                              <div className="flex shrink-0 items-center gap-2">
+                                <input
+                                  type="number"
+                                  min="1"
+                                  max="50"
+                                  value={deepResearchConcurrency}
+                                  onChange={e => {
+                                    const val = parseInt(e.target.value)
+                                    if (!isNaN(val)) {
+                                      setDeepResearchConcurrency(Math.min(50, Math.max(1, val)))
+                                    }
+                                  }}
+                                  className="focus:border-primary-500 focus:ring-primary-500/20 w-16 rounded-lg border border-gray-200 bg-white px-2 py-1 text-center text-sm font-bold text-gray-900 focus:ring-2 dark:border-zinc-700 dark:bg-zinc-800 dark:text-gray-100"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}

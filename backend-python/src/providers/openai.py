@@ -5,17 +5,16 @@ Handles OpenAI and OpenAI-compatible providers with external tool execution.
 
 import json
 import os
-from typing import Any, AsyncGenerator
+from collections.abc import AsyncGenerator
+from typing import Any
 
 from agno.agent import Agent
 from agno.models.openai import OpenAIChat
 from agno.models.openai.like import OpenAILike
-from agno.run.agent import RunEvent, RunContentEvent, RunCompletedEvent, RunErrorEvent
-from agno.tools import tool
+from agno.run.agent import RunContentEvent, RunEvent
 from agno.tools.function import Function
 
 from .base import BaseProviderAdapter, ExecutionContext, ProviderConfig, StreamChunk
-
 
 # Tool registry for external execution - maps tool names to their definitions
 _tool_registry: dict[str, dict[str, Any]] = {}
@@ -297,7 +296,7 @@ class OpenAIAdapter(BaseProviderAdapter):
         """
         if os.environ.get("DEBUG_AGNO") == "1":
             import sys
-            print(f"[DEBUG] _handle_paused_run called", file=sys.stderr)
+            print("[DEBUG] _handle_paused_run called", file=sys.stderr)
 
         # Get tool execution info from the first requirement
         requirements = getattr(paused_event, "requirements", [])
@@ -669,4 +668,3 @@ class OpenAIAdapter(BaseProviderAdapter):
 
 
 # Import json for tool args serialization
-import json

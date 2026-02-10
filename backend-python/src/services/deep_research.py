@@ -238,7 +238,8 @@ def build_research_workflow(
     presence_penalty: float | None,
     tavily_api_key: str | None,
     research_type: str,
-    concurrent_execution: bool = False,
+    sequential_research: bool = False,
+    concurrency_limit: int | None = None,
 ) -> Workflow:
     """
     Build a Workflow from a research plan.
@@ -247,12 +248,12 @@ def build_research_workflow(
     Agent events (including tool calls) will automatically propagate to the Workflow.
 
     Args:
-        concurrent_execution: If True, steps that don't require search can run in parallel.
+        sequential_research: If True, steps run one by one.
     """
     steps = plan_meta.get("plan") or []
     workflow_steps: list = []
 
-    if concurrent_execution and len(steps) > 1:
+    if not sequential_research and len(steps) > 1:
         # Parallel execution
         parallel_steps = []
         for step_data in steps:
@@ -286,8 +287,8 @@ def build_research_workflow(
                 )
             )
 
-        # Wrap steps in Parallel constructs, batched by 3
-        batch_size = 3
+        # Wrap steps in Parallel constructs, batched by concurrency_limit
+        batch_size = concurrency_limit or 3
         for i in range(0, len(parallel_steps), batch_size):
             batch = parallel_steps[i : i + batch_size]
             workflow_steps.append(
@@ -778,7 +779,8 @@ async def stream_deep_research(params: dict[str, Any]) -> AsyncGenerator[dict[st
     research_type = params.get("researchType") or params.get("research_type") or "general"
     search_provider = params.get("search_provider") or params.get("searchProvider")
     tavily_api_key = params.get("tavily_api_key") or params.get("tavilyApiKey")
-    concurrent_execution = params.get("concurrentExecution") or params.get("concurrent_execution") or False
+    sequential_research = params.get("sequentialResearch") or params.get("sequential_research") or False
+    concurrency_limit = params.get("concurrencyLimit") or params.get("concurrency_limit")
 
     service = get_stream_chat_service()
 
@@ -830,7 +832,8 @@ async def stream_deep_research(params: dict[str, Any]) -> AsyncGenerator[dict[st
         presence_penalty=presence_penalty,
         tavily_api_key=tavily_api_key,
         research_type=research_type,
-        concurrent_execution=concurrent_execution,
+        sequential_research=sequential_research,
+        concurrency_limit=concurrency_limit,
     )
 
     # Execute workflow and collect findings
@@ -843,7 +846,7 @@ async def stream_deep_research(params: dict[str, Any]) -> AsyncGenerator[dict[st
         question=question,
         sources_map=sources_map,
         total_steps=total_steps,
-        steps_meta=plan_meta.get("plan", []) if concurrent_execution else None,
+        steps_meta=plan_meta.get("plan", []) if not sequential_research else None,
     ):
         event_type = event.get("type")
 

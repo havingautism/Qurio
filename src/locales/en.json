@@ -806,6 +806,8 @@
     "spacesShortcutHint": "Manage collections",
     "sequentialExecution": "Sequential Research Steps",
     "sequentialExecutionDesc": "Execute steps in order for better coherence, but slower.",
+    "concurrencyLimit": "Research Concurrency Limit",
+    "concurrencyLimitHint": "Simultaneous research steps.",
     "concurrentExecution": "Concurrent Research Steps",
     "experimental": "Experimental",
     "concurrentExecutionDesc": "Run all steps simultaneously for faster execution, but may affect logical coherence."

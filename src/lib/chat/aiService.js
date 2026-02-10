@@ -921,7 +921,8 @@ export const callAIAPI = async (
         plan: planContent,
         question: firstUserText || lastMessage?.content || '',
         researchType,
-        concurrentExecution: toggles?.concurrentResearch || false,
+        sequentialExecution: toggles?.sequentialResearch || false,
+        concurrencyLimit: toggles?.concurrencyLimit || 3,
       })
     } else {
       await provider.streamChatCompletion(params)

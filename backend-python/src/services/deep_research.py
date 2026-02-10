@@ -787,8 +787,37 @@ async def stream_deep_research(params: dict[str, Any]) -> AsyncGenerator[dict[st
         else messages
     )
 
-    search_tool_id = "Tavily_academic_search" if research_type == "academic" else "Tavily_web_search"
-    combined_tool_ids = list({*tool_ids, search_tool_id})
+    # Select search tools based on research type
+    if research_type == "academic":
+        # For academic research, ONLY provide academic search tools
+        # - Tavily academic search (journals, conferences, institutional sites)
+        # - Arxiv (preprints and papers)
+        # - Wikipedia (encyclopedic knowledge)
+        search_tool_ids = [
+            "Tavily_academic_search",
+            "search_arxiv_and_return_articles",
+            "search_wikipedia",
+        ]
+    else:
+        # For general deep research, provide ALL search tools
+        # - web_search: DuckDuckGo/Google/Bing/Brave/Yandex/Yahoo
+        # - search_news: News from multiple sources
+        # - Tavily_web_search: Tavily general search
+        # - Tavily_academic_search: Academic sources
+        # - search_arxiv_and_return_articles: Arxiv papers
+        # - search_wikipedia: Wikipedia
+        search_tool_ids = [
+            "web_search",
+            "search_news",
+            "Tavily_web_search",
+            "Tavily_academic_search",
+            "search_arxiv_and_return_articles",
+            "search_wikipedia",
+        ]
+    
+    combined_tool_ids = list({*tool_ids, *search_tool_ids})
+
+
 
     plan_content = plan
     if not plan_content or not str(plan_content).strip():

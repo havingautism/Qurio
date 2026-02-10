@@ -136,7 +136,19 @@ GENERAL_STEP_AGENT_PROMPT = """## Instructions
 - Return a clear, structured output matching the deliverable format
 
 ### Evidence & Sources
-- Use Tavily_web_search for gathering current information
+**Available search tools** (choose based on topic):
+- **web_search**: General web search (DuckDuckGo/Google/Bing/Brave/Yandex/Yahoo)
+- **search_news**: News from multiple sources
+- **Tavily_web_search**: Tavily general search
+- **Tavily_academic_search**: Academic sources (journals, conferences)
+- **search_arxiv_and_return_articles**: Arxiv papers (CS, Physics, Math, etc.)
+- **search_wikipedia**: Wikipedia encyclopedic knowledge
+
+**Usage strategy**:
+- Use web_search or Tavily_web_search for general current information
+- Use search_news for recent news and events
+- Use academic tools (Arxiv, Tavily_academic_search) for scholarly content
+- Use search_wikipedia for background knowledge and definitions
 - Cite sources as [1], [2], [3] based on the sources list
 - Note uncertainty when evidence is incomplete or conflicting
 
@@ -177,11 +189,22 @@ ACADEMIC_STEP_AGENT_PROMPT = """## CRITICAL ACADEMIC REQUIREMENTS:
 - Avoid colloquialisms and informal expressions
 
 ### 5. Tool Usage
-- Use Tavily_academic_search for literature gathering
+**Available academic search tools**:
+- **search_arxiv_and_return_articles**: Arxiv papers (CS, Physics, Math, etc.) - **Use this first**
+- **Tavily_academic_search**: Academic sources (journals, conferences, institutional sites)
+- **search_wikipedia**: Wikipedia for background knowledge and definitions
+
+**Usage priority**:
+- Primary: search_arxiv_and_return_articles for topics with arXiv coverage
+- Secondary: Tavily_academic_search for broader academic sources
+- Supplementary: search_wikipedia for background context
 - Cite sources as [index] based on the sources list order
+- For arXiv papers, include paper ID and publication year when available
 
 ## Instructions:
-- Use Tavily_academic_search or Tavily_web_search tools as needed to gather peer-reviewed evidence
+- **Prioritize arXiv**: Use search_arxiv_and_return_articles first for topics with arXiv coverage
+- **Supplement with Tavily**: Use Tavily_academic_search for interdisciplinary topics or broader academic sources
+- **Use Wikipedia**: Use search_wikipedia for background context and definitions when needed
 - When citing sources, use [1], [2], etc. based on the known sources list
 - Return a scholarly, well-structured output suitable for inclusion in an academic report
 - Maintain objectivity and acknowledge uncertainty where appropriate

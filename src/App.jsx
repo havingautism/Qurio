@@ -321,6 +321,9 @@ function App() {
         case 'deepResearch':
           navigate({ to: '/deepresearch' })
           break
+        case 'expert':
+          navigate({ to: '/expert' })
+          break
         case 'chat':
           navigate({ to: '/new_chat' })
           break
@@ -342,6 +345,19 @@ function App() {
       } else {
         navigate({ to: '/spaces' })
       }
+    }
+    confirmNavigationIfStreaming(proceed)
+  }
+
+  const handleOpenExpertGuide = () => {
+    const proceed = () => {
+      setIsSidebarOpen(false)
+      navigate({
+        to: '/expert',
+        state: {
+          openGuideAt: Date.now(),
+        },
+      })
     }
     confirmNavigationIfStreaming(proceed)
   }
@@ -407,17 +423,20 @@ function App() {
     setEditingAgent(null)
   }
 
-  const handleOpenConversation = conversation => {
+  const handleOpenConversation = (conversation, source = 'default') => {
     const proceed = () => {
       setIsSidebarOpen(false)
       if (conversation?.id) {
         const deepResearchId = spaces.find(space => space.isDeepResearchSystem)?.id || null
         const isDeepResearchConversation =
           deepResearchId && String(conversation.space_id) === String(deepResearchId)
+        const isExpertConversation = source === 'expert'
         navigate({
-          to: isDeepResearchConversation
-            ? '/deepresearch/$conversationId'
-            : '/conversation/$conversationId',
+          to: isExpertConversation
+            ? '/expert/$conversationId'
+            : isDeepResearchConversation
+              ? '/deepresearch/$conversationId'
+              : '/conversation/$conversationId',
           params: { conversationId: String(conversation.id) },
         })
       } else {
@@ -927,6 +946,7 @@ function App() {
                   onOpenTools={() => setIsToolsModalOpen(true)}
                   onOpenKnowledgeBase={() => setIsKnowledgeBaseModalOpen(true)}
                   onNavigate={handleNavigate}
+                  onOpenExpertGuide={handleOpenExpertGuide}
                   onNavigateToSpace={handleNavigateToSpace}
                   onCreateSpace={handleCreateSpace}
                   onEditSpace={handleEditSpace}

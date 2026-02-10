@@ -306,13 +306,77 @@ const MessageBubble = ({
         streamOrder: index,
       }))
   }, [isDeepResearch, mergedMessage?.thoughtHistory, thoughtContent])
+
+  const formatThoughtContentForDisplay = useCallback(
+    value => {
+      const raw = sanitizeDisplayText(String(value || '')).trim()
+      if (!raw) return ''
+
+      const decodeJsonString = input => {
+        if (typeof input !== 'string') return ''
+        try {
+          return JSON.parse(`"${input.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`)
+        } catch {
+          return input
+        }
+      }
+
+      const toStructuredMarkdown = parsed => {
+        if (!parsed || typeof parsed !== 'object') return ''
+        const lines = []
+        if (parsed.expertPlan) {
+          lines.push(String(parsed.expertPlan))
+        }
+        const responses = Array.isArray(parsed.expertResponses) ? parsed.expertResponses : []
+        if (responses.length > 0) {
+          lines.push(`\n**专家任务分解**`)
+          responses.forEach((item, idx) => {
+            const name = String(item?.agentName || item?.agent || `专家${idx + 1}`)
+            const emoji = String(item?.agentEmoji || '').trim()
+            const task = String(item?.task || '').trim()
+            if (task) {
+              lines.push(`- ${emoji ? `${emoji} ` : ''}${name}: ${task}`)
+            }
+          })
+        }
+        if (lines.length > 0) return lines.join('\n')
+        return ''
+      }
+
+      try {
+        const parsed = JSON.parse(raw)
+        const markdown = toStructuredMarkdown(parsed)
+        if (markdown) return markdown
+      } catch {
+        // Streaming partial JSON: extract key fields progressively for readability.
+        const planMatch = raw.match(/"expertPlan"\s*:\s*"((?:\\.|[^"\\])*)"/)
+        const taskMatches = [...raw.matchAll(/"task"\s*:\s*"((?:\\.|[^"\\])*)"/g)]
+        const extracted = []
+        if (planMatch?.[1]) {
+          extracted.push(decodeJsonString(planMatch[1]))
+        }
+        if (taskMatches.length > 0) {
+          extracted.push(`\n**专家任务分解**`)
+          taskMatches.slice(0, 4).forEach((match, idx) => {
+            const task = decodeJsonString(match?.[1] || '')
+            if (task) extracted.push(`- 专家${idx + 1}: ${task}`)
+          })
+        }
+        if (extracted.length > 0) return extracted.join('\n')
+      }
+
+      return raw
+    },
+    [t],
+  )
+
   const thoughtExportContent = useMemo(
     () =>
       positionedThoughtBlocks
-        .map(item => item.content)
+        .map(item => formatThoughtContentForDisplay(item.content))
         .filter(Boolean)
         .join('\n\n'),
-    [positionedThoughtBlocks],
+    [formatThoughtContentForDisplay, positionedThoughtBlocks],
   )
   const normalizedStreamBlocks = useMemo(() => {
     if (!Array.isArray(mergedMessage?.streamBlocks)) return []
@@ -1242,7 +1306,7 @@ const MessageBubble = ({
 
       return (
         <code
-          className={`${className} bg-user-bubble rounded px-1.5 py-0.5 font-mono text-sm font-semibold text-black dark:bg-zinc-800 dark:text-white`}
+          className={`${className} bg-user-bubble rounded-md px-1.5 py-0.5 font-mono text-sm text-black dark:bg-zinc-800 dark:text-white`}
           {...props}
         >
           {children}
@@ -1451,11 +1515,17 @@ const MessageBubble = ({
         if (part.type !== 'tools' || !Array.isArray(part.items)) return []
         const formItems = part.items.filter(item => item?.name === 'interactive_form')
         if (formItems.length === 0) return []
-        return [{ type: 'interactive_form', key: part.key || `interactive-form-${idx}`, items: formItems }]
+        return [
+          {
+            type: 'interactive_form',
+            key: part.key || `interactive-form-${idx}`,
+            items: formItems,
+          },
+        ]
       }),
     [interleavedContent],
   )
-  const hasWorkflow = workflowParts.length > 0
+  const hasWorkflow = !isDeepResearch && workflowParts.length > 0
   const hasFormSubmissionStatus = useMemo(
     () =>
       workflowParts.some(
@@ -1497,35 +1567,44 @@ const MessageBubble = ({
     if (part.type === 'thought') {
       const isLast = idx === workflowParts.length - 1
       const isThinking = isStreaming && isLast && !hasMainText
+      const showThoughtHeading = !(isExpertMessage && !isThinking)
 
       return (
         <div key={part.key || `thought-inline-${idx}`} className="mb-4">
-          <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
-            <Brain
-              size={14}
-              className={clsx(
-                'transition-colors',
-                isThinking ? 'text-primary-500 animate-pulse' : 'text-gray-400 dark:text-gray-500',
-              )}
-            />
-            <span className="font-medium">
-              {isThinking ? t('messageBubble.thinking') : t('messageBubble.deepThinking')}
-            </span>
-            {!isThinking && typeof part.durationMs === 'number' && part.durationMs > 0 && (
-              <span className="text-gray-400 dark:text-gray-500">
-                {t('messageBubble.thinkingDuration', {
-                  duration: (part.durationMs / 1000).toFixed(0),
-                })}
+          {showThoughtHeading && (
+            <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
+              <Brain
+                size={14}
+                className={clsx(
+                  'transition-colors',
+                  isThinking
+                    ? 'text-primary-500 animate-pulse'
+                    : 'text-gray-400 dark:text-gray-500',
+                )}
+              />
+              <span className="font-medium">
+                {isThinking
+                  ? t('messageBubble.thinking')
+                  : isExpertMessage
+                    ? t('messageBubble.expertPlan')
+                    : t('messageBubble.deepThinking')}
               </span>
-            )}
-          </div>
+              {!isThinking && typeof part.durationMs === 'number' && part.durationMs > 0 && (
+                <span className="text-gray-400 dark:text-gray-500">
+                  {t('messageBubble.thinkingDuration', {
+                    duration: (part.durationMs / 1000).toFixed(0),
+                  })}
+                </span>
+              )}
+            </div>
+          )}
           <div className="mt-2 border-l-2 border-gray-200 pl-4 text-xs leading-relaxed text-gray-500 dark:border-zinc-700 dark:text-gray-400">
             <Streamdown
               mermaid={mermaidOptions}
               remarkPlugins={[remarkGfm]}
               components={markdownComponents}
             >
-              {sanitizeDisplayText(part.content)}
+              {formatThoughtContentForDisplay(part.content)}
             </Streamdown>
           </div>
         </div>
@@ -1813,6 +1892,9 @@ const MessageBubble = ({
   })
 
   const workflowHeaderLabel = useMemo(() => {
+    if (isExpertMessage) {
+      return t('messageBubble.expertPlan')
+    }
     if (!isStreaming || workflowParts.length === 0) {
       return t('messageBubble.workflow')
     }
@@ -1848,7 +1930,15 @@ const MessageBubble = ({
     }
 
     return t('messageBubble.workflow')
-  }, [developerMode, getToolDisplayName, hasMainText, isStreaming, t, workflowParts])
+  }, [
+    developerMode,
+    getToolDisplayName,
+    hasMainText,
+    isExpertMessage,
+    isStreaming,
+    t,
+    workflowParts,
+  ])
 
   const targetAgentId = message.agentId || message.agent_id
   const targetAgent = useMemo(() => {
@@ -2084,7 +2174,7 @@ const MessageBubble = ({
   const renderExpertTabs = () => {
     if (!isExpertMessage) return null
     return (
-      <div className="code-scrollbar mb-2 flex w-fit max-w-full gap-1 overflow-x-auto rounded-lg bg-gray-100 p-1 dark:bg-zinc-800/50">
+      <div className="code-scrollbar mb-4 flex w-fit max-w-full gap-1 overflow-x-auto rounded-lg bg-gray-100 p-1 dark:bg-zinc-800/50">
         {expertResponses.map(item => {
           const isActive = item.agentId === activeExpertResponse?.agentId
           return (
@@ -2123,7 +2213,28 @@ const MessageBubble = ({
 
   const hasPlanText = !!planMarkdown
   const researchPlanLoading = Boolean(message?.researchPlanLoading)
-  const researchSteps = Array.isArray(message.researchSteps) ? message.researchSteps : []
+  const researchSteps = useMemo(() => {
+    const steps = Array.isArray(message.researchSteps) ? [...message.researchSteps] : []
+    const toNum = value => {
+      const num = Number(value)
+      return Number.isFinite(num) ? num : null
+    }
+    steps.sort((a, b) => {
+      const aNum = toNum(a?.step)
+      const bNum = toNum(b?.step)
+      if (aNum !== null && bNum !== null) return aNum - bNum
+      if (aNum !== null) return -1
+      if (bNum !== null) return 1
+      const aOrder = Number.isFinite(a?.streamOrder)
+        ? Number(a.streamOrder)
+        : Number.MAX_SAFE_INTEGER
+      const bOrder = Number.isFinite(b?.streamOrder)
+        ? Number(b.streamOrder)
+        : Number.MAX_SAFE_INTEGER
+      return aOrder - bOrder
+    })
+    return steps
+  }, [message.researchSteps])
   const hasResearchSteps = researchSteps.length > 0
   const hasActiveResearchStep = researchSteps.some(
     step => step.status === 'running' || step.status === 'pending',
@@ -2154,6 +2265,28 @@ const MessageBubble = ({
   const hasRelatedQuestions = resolvedRelatedQuestions.length > 0
   const isRelatedLoading = !!mergedMessage.relatedLoading
   const shouldShowRelated = !isDeepResearch && (hasRelatedQuestions || isRelatedLoading)
+  const workflowPanel = hasWorkflow ? (
+    <details
+      className={clsx(
+        'group rounded-xl border border-gray-200 bg-white/70 dark:border-zinc-800 dark:bg-zinc-900/40',
+        !isExpertMessage && 'mb-4',
+      )}
+      open={isWorkflowExpanded}
+      onToggle={event => setIsWorkflowExpanded(event.currentTarget.open)}
+    >
+      <summary className="flex cursor-pointer items-center justify-between gap-3 px-3 py-2 text-gray-600 select-none hover:text-gray-800 dark:text-gray-300 dark:hover:text-gray-100">
+        <div className="flex items-center gap-2">
+          <BrainCircuit size={15} className="text-gray-500 dark:text-gray-400" />
+          <span className="text-sm font-medium">{workflowHeaderLabel}</span>
+          <span className="rounded-full bg-gray-200/80 px-2 py-0.5 text-[11px] text-gray-600 dark:bg-zinc-700/70 dark:text-gray-300">
+            {workflowParts.length}
+          </span>
+        </div>
+        <ChevronDown size={15} className="opacity-60 transition-transform group-open:rotate-180" />
+      </summary>
+      <div className="px-3 pt-1 pb-3">{renderedWorkflowContent}</div>
+    </details>
+  ) : null
 
   // Debug logging for related questions
   // if (mergedMessage._formSubmitted) {
@@ -2240,6 +2373,8 @@ const MessageBubble = ({
           </div>,
           document.body,
         )}
+
+      {isExpertMessage && workflowPanel}
 
       {/* Provider/Model Header Container */}
       <div className="flex flex-col gap-1">
@@ -2430,7 +2565,12 @@ const MessageBubble = ({
                           : t('messageBubble.researchStepStatusPending') || 'Wait'
                     return (
                       <div
-                        key={`${step.step}-${step.title}`}
+                        key={
+                          step.stepKey ||
+                          (Number.isFinite(Number(step.step))
+                            ? `research-step-${Number(step.step)}`
+                            : `research-step-${step.streamOrder ?? step.title ?? 'unknown'}`)
+                        }
                         className="flex items-start gap-3 rounded-lg border border-gray-200/60 bg-white/70 p-3 dark:border-zinc-800/70 dark:bg-zinc-800/70"
                       >
                         <div className="flex-1 space-y-1">
@@ -2656,32 +2796,11 @@ const MessageBubble = ({
       >
         <>
           {isExpertMessage && activeExpertResponse?.task && (
-            <div className="mb-3 rounded-lg border border-dashed border-gray-300 px-3 py-2 text-xs text-gray-600 dark:border-zinc-600 dark:text-gray-300">
+            <div className="mb-3 rounded-lg border border-dashed border-gray-300 px-3 py-2 text-sm text-gray-600 dark:border-zinc-600 dark:text-gray-300">
               {activeExpertResponse.task}
             </div>
           )}
-          {hasWorkflow && (
-            <details
-              className="group mb-4 rounded-xl border border-gray-200 bg-white/70 dark:border-zinc-800 dark:bg-zinc-900/40"
-              open={isWorkflowExpanded}
-              onToggle={event => setIsWorkflowExpanded(event.currentTarget.open)}
-            >
-              <summary className="flex cursor-pointer items-center justify-between gap-3 px-3 py-2 text-gray-600 select-none hover:text-gray-800 dark:text-gray-300 dark:hover:text-gray-100">
-                <div className="flex items-center gap-2">
-                  <BrainCircuit size={15} className="text-gray-500 dark:text-gray-400" />
-                  <span className="text-sm font-medium">{workflowHeaderLabel}</span>
-                  <span className="rounded-full bg-gray-200/80 px-2 py-0.5 text-[11px] text-gray-600 dark:bg-zinc-700/70 dark:text-gray-300">
-                    {workflowParts.length}
-                  </span>
-                </div>
-                <ChevronDown
-                  size={15}
-                  className="opacity-60 transition-transform group-open:rotate-180"
-                />
-              </summary>
-              <div className="px-3 pt-1 pb-3">{renderedWorkflowContent}</div>
-            </details>
-          )}
+          {!isExpertMessage && workflowPanel}
           {renderedMainContent}
           {renderInitialSkeleton && (
             <div

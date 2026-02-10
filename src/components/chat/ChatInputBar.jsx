@@ -2,7 +2,6 @@
 import ArrowRight from 'lucide-react/dist/esm/icons/arrow-right'
 import ArrowUp from 'lucide-react/dist/esm/icons/arrow-up'
 import Brain from 'lucide-react/dist/esm/icons/brain'
-import BrainCircuit from 'lucide-react/dist/esm/icons/brain-circuit'
 import Check from 'lucide-react/dist/esm/icons/check'
 import ChevronDown from 'lucide-react/dist/esm/icons/chevron-down'
 import FileText from 'lucide-react/dist/esm/icons/file-text'
@@ -106,8 +105,6 @@ const CapsuleSettingsMenu = React.memo(
     isThinkingLocked,
     isThinkingActive,
     onToggleThinking,
-    isExpertMode,
-    onToggleExpertMode,
     isSearchActive,
     onToggleSearch,
     searchBackend,
@@ -230,31 +227,6 @@ const CapsuleSettingsMenu = React.memo(
                   className={clsx(
                     'absolute top-0.5 h-3 w-3 rounded-full bg-white shadow-sm transition-all',
                     isThinkingActive ? 'left-4.5' : 'left-0.5',
-                  )}
-                />
-              </div>
-            </button>
-            <button
-              onClick={onToggleExpertMode}
-              className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-sm transition-colors hover:bg-gray-100 dark:hover:bg-zinc-700/50"
-            >
-              <div className="flex items-center gap-2.5 text-gray-700 dark:text-gray-200">
-                <BrainCircuit
-                  size={16}
-                  className={isExpertMode ? 'text-primary-500' : 'text-gray-400'}
-                />
-                <span>{t('homeView.expertMode')}</span>
-              </div>
-              <div
-                className={clsx(
-                  'relative h-4 w-8 rounded-full transition-colors',
-                  isExpertMode ? 'bg-primary-500' : 'bg-gray-200 dark:bg-zinc-600',
-                )}
-              >
-                <div
-                  className={clsx(
-                    'absolute top-0.5 h-3 w-3 rounded-full bg-white shadow-sm transition-all',
-                    isExpertMode ? 'left-4.5' : 'left-0.5',
                   )}
                 />
               </div>
@@ -714,8 +686,6 @@ const ChatInputBar = React.memo(
           isThinkingLocked={isThinkingLocked}
           isThinkingActive={isThinkingActive}
           onToggleThinking={onToggleThinking}
-          isExpertMode={isExpertMode}
-          onToggleExpertMode={onToggleExpertMode}
           isSearchActive={isSearchActive}
           onToggleSearch={onToggleSearch}
           searchBackend={searchBackend}
@@ -741,8 +711,6 @@ const ChatInputBar = React.memo(
         isThinkingLocked,
         isThinkingActive,
         onToggleThinking,
-        isExpertMode,
-        onToggleExpertMode,
         isSearchActive,
         onToggleSearch,
         searchBackend,
@@ -1260,22 +1228,9 @@ const ChatInputBar = React.memo(
                 <span className="hidden md:inline">{t('homeView.think')}</span>
               </button>
               <div className="relative">
-              <button
-                onClick={onToggleExpertMode}
-                className={clsx(
-                  'flex items-center gap-2 rounded-xl p-2.5 text-sm font-medium transition-all duration-200',
-                  isExpertMode
-                    ? 'text-primary-500 bg-primary-50 dark:bg-primary-900/20'
-                    : 'text-gray-500 dark:text-gray-400',
-                  'hover:bg-gray-100 dark:hover:bg-zinc-700',
-                )}
-              >
-                <BrainCircuit size={18} strokeWidth={2} />
-                <span className="hidden md:inline">{t('homeView.expertMode')}</span>
-              </button>
-              <button
-                disabled={!apiProvider || !providerSupportsSearch(apiProvider)}
-                onClick={onToggleSearch}
+                <button
+                  disabled={!apiProvider || !providerSupportsSearch(apiProvider)}
+                  onClick={onToggleSearch}
                   className={clsx(
                     'flex items-center gap-2 rounded-xl p-2.5 text-sm font-medium transition-all duration-200 hover:bg-gray-100 dark:hover:bg-zinc-700',
                     isSearchActive

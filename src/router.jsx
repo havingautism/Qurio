@@ -12,6 +12,7 @@ const AgentsView = React.lazy(() => import('./views/AgentsView'))
 const SpaceView = React.lazy(() => import('./views/SpaceView'))
 const LibraryView = React.lazy(() => import('./views/LibraryView'))
 const DeepResearchView = React.lazy(() => import('./views/DeepResearchView'))
+const ExpertView = React.lazy(() => import('./views/ExpertView'))
 const BookmarksView = React.lazy(() => import('./views/BookmarksView'))
 const ShareImageView = React.lazy(() => import('./views/ShareImageView'))
 const DeepResearchConversationView = React.lazy(
@@ -162,6 +163,16 @@ export const deepResearchRoute = createRoute({
   ),
 })
 
+export const expertRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: 'expert',
+  component: () => (
+    <SuspensePage>
+      <ExpertView />
+    </SuspensePage>
+  ),
+})
+
 export const bookmarksRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: 'bookmarks',
@@ -193,6 +204,7 @@ export const routeTree = rootRoute.addChildren([
   spaceRoute,
   libraryRoute,
   deepResearchRoute,
+  expertRoute,
   bookmarksRoute,
   shareImageRoute,
 ])

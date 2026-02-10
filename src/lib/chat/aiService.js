@@ -263,6 +263,7 @@ export const callAIAPI = async (
   let pendingThoughtEntries = []
   let thoughtBlockCounter = 0
   let streamEventOrder = 0
+  let researchStepEventOrder = 0
   let hasNonThoughtEvent = true
   let rafId = null
   let streamTextIndexOffset = 0
@@ -420,6 +421,33 @@ export const callAIAPI = async (
 
     maxObservedEventTextIndex = Math.max(maxObservedEventTextIndex, absolute)
     return absolute
+  }
+
+  const normalizeResearchStepNumber = value => {
+    const num = Number(value)
+    return Number.isFinite(num) ? num : null
+  }
+
+  const buildResearchStepKey = value => {
+    const numericStep = normalizeResearchStepNumber(value)
+    if (numericStep !== null) return `step:${numericStep}`
+    if (typeof value === 'string' && value.trim()) return `step:${value.trim()}`
+    return ''
+  }
+
+  const sortResearchSteps = steps => {
+    const safeSteps = Array.isArray(steps) ? [...steps] : []
+    safeSteps.sort((a, b) => {
+      const aNum = normalizeResearchStepNumber(a?.step)
+      const bNum = normalizeResearchStepNumber(b?.step)
+      if (aNum !== null && bNum !== null) return aNum - bNum
+      if (aNum !== null) return -1
+      if (bNum !== null) return 1
+      const aOrder = Number.isFinite(a?.streamOrder) ? Number(a.streamOrder) : Number.MAX_SAFE_INTEGER
+      const bOrder = Number.isFinite(b?.streamOrder) ? Number(b.streamOrder) : Number.MAX_SAFE_INTEGER
+      return aOrder - bOrder
+    })
+    return safeSteps
   }
   try {
     // Get model configuration: Agent priority, global fallback
@@ -681,21 +709,36 @@ export const callAIAPI = async (
               }
               const lastMsg = { ...updated[lastMsgIndex] }
               const steps = Array.isArray(lastMsg.researchSteps) ? [...lastMsg.researchSteps] : []
-              const targetIndex = steps.findIndex(item => item.step === chunk.step)
+              const stepKey = buildResearchStepKey(chunk.step)
+              const targetIndex = steps.findIndex(item => {
+                if (stepKey && item?.stepKey) return item.stepKey === stepKey
+                if (stepKey) {
+                  const itemKey = buildResearchStepKey(item?.step)
+                  if (itemKey) return itemKey === stepKey
+                }
+                return false
+              })
+              const normalizedStep = normalizeResearchStepNumber(chunk.step)
               const stepEntry = {
-                step: chunk.step,
+                step: normalizedStep ?? chunk.step,
+                stepKey: stepKey || undefined,
                 total: chunk.total,
                 title: chunk.title || '',
                 status: chunk.status || 'running',
                 durationMs: typeof chunk.duration_ms === 'number' ? chunk.duration_ms : undefined,
                 error: chunk.error || null,
+                streamOrder: ++researchStepEventOrder,
               }
               if (targetIndex >= 0) {
-                steps[targetIndex] = { ...steps[targetIndex], ...stepEntry }
+                steps[targetIndex] = {
+                  ...steps[targetIndex],
+                  ...stepEntry,
+                  streamOrder: steps[targetIndex]?.streamOrder ?? stepEntry.streamOrder,
+                }
               } else {
                 steps.push(stepEntry)
               }
-              lastMsg.researchSteps = steps
+              lastMsg.researchSteps = sortResearchSteps(steps)
               updated[lastMsgIndex] = lastMsg
               return { messages: updated }
             })

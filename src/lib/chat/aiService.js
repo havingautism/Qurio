@@ -18,18 +18,20 @@ import { sanitizeJson } from './utils'
 
 const THOUGHT_BLOCK_BREAK_MARKER = '<|thought_block_break|>'
 
+const sanitizeModelOutputText = value => {
+  if (typeof value !== 'string') return ''
+  // Remove replacement/BOM artifacts caused by broken upstream decoding.
+  return value.replace(/\uFFFD+/g, '').replace(/\uFEFF/g, '')
+}
+
 const sanitizeInternalToolTraceChunk = value => {
   if (typeof value !== 'string') return ''
-  let cleaned = value
+  let cleaned = sanitizeModelOutputText(value)
 
   cleaned = cleaned.replace(/<\/?(?:think|thought)>/gi, '')
   // Conservative cleanup: strip marker tokens only, avoid truncating normal text.
   cleaned = cleaned.replace(/<\|tool_call_[^|]*\|>/gi, '')
   cleaned = cleaned.replace(/<\|tool_calls_section_[^|]*\|>/gi, '')
-  // Drop replacement chars produced by broken upstream byte decoding.
-  cleaned = cleaned.replace(/\uFFFD+/g, '')
-  // Remove BOMs that may leak into streamed chunks.
-  cleaned = cleaned.replace(/\uFEFF/g, '')
   return cleaned
 }
 
@@ -1052,21 +1054,25 @@ export const finalizeMessage = async (
 
   const normalizedThought = sanitizeInternalThoughtTrace(result?.thought)
   const normalizeContent = content => {
-    if (typeof content === 'string') return content
+    if (typeof content === 'string') return sanitizeModelOutputText(content)
     if (Array.isArray(content)) {
-      return content
+      return sanitizeModelOutputText(
+        content
         .map(part => {
           if (typeof part === 'string') return part
           if (part?.type === 'text' && part.text) return part.text
           if (part?.text) return part.text
           return ''
         })
-        .join('')
+          .join(''),
+      )
     }
     if (content && typeof content === 'object' && Array.isArray(content.parts)) {
-      return content.parts.map(p => (typeof p === 'string' ? p : p?.text || '')).join('')
+      return sanitizeModelOutputText(
+        content.parts.map(p => (typeof p === 'string' ? p : p?.text || '')).join(''),
+      )
     }
-    return content ? String(content) : ''
+    return content ? sanitizeModelOutputText(String(content)) : ''
   }
 
   const modelConfig = getModelConfigForAgent(
@@ -1439,11 +1445,11 @@ export const finalizeMessage = async (
     const contentForPersistence = (() => {
       // Always prefer streamed store content to keep thought/tool positions stable after completion.
       if (typeof latestAi?.content === 'string' && latestAi.content.length > 0) {
-        return latestAi.content
+        return sanitizeModelOutputText(latestAi.content)
       }
       return typeof result.content !== 'undefined'
         ? normalizeContent(result.content)
-        : (latestAi?.content ?? '')
+        : sanitizeModelOutputText(latestAi?.content ?? '')
     })()
     const databaseProviderKey = String(
       settings?.databaseProviderId || settings?.databaseProvider || '',

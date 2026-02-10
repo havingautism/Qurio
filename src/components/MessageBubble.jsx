@@ -1404,7 +1404,15 @@ const MessageBubble = ({
   }, [markdownComponents, messageIndex, parseChildrenWithEmojis])
 
   const firstToolPartIndex = useMemo(
-    () => interleavedContent.findIndex(part => part.type === 'tools'),
+    () =>
+      interleavedContent.findIndex(
+        part =>
+          part.type === 'tools' &&
+          Array.isArray(part.items) &&
+          part.items.some(
+            item => item.name !== 'interactive_form' && item.name !== 'form_submission_status',
+          ),
+      ),
     [interleavedContent],
   )
   const workflowParts = useMemo(() => {
@@ -1423,9 +1431,18 @@ const MessageBubble = ({
         content: part.content,
       }))
 
-    return preToolTextParts.length > 0
-      ? [...preToolTextParts, ...baseWorkflowParts]
-      : baseWorkflowParts
+    const mergedParts =
+      preToolTextParts.length > 0 ? [...preToolTextParts, ...baseWorkflowParts] : baseWorkflowParts
+
+    // Interactive forms should be rendered outside of the workflow fold.
+    return mergedParts
+      .map(part => {
+        if (part.type !== 'tools' || !Array.isArray(part.items)) return part
+        const filteredItems = part.items.filter(item => item.name !== 'interactive_form')
+        if (filteredItems.length === 0) return null
+        return { ...part, items: filteredItems }
+      })
+      .filter(Boolean)
   }, [firstToolPartIndex, interleavedContent])
   const textParts = useMemo(
     () =>
@@ -1446,6 +1463,14 @@ const MessageBubble = ({
           part.items.some(item => item.name === 'form_submission_status'),
       ),
     [workflowParts],
+  )
+  const interactiveFormTools = useMemo(
+    () =>
+      interleavedContent
+        .filter(part => part.type === 'tools' && Array.isArray(part.items))
+        .flatMap(part => part.items)
+        .filter(item => item?.name === 'interactive_form'),
+    [interleavedContent],
   )
 
   const renderedWorkflowContent = workflowParts.map((part, idx) => {
@@ -1514,8 +1539,7 @@ const MessageBubble = ({
     }
 
     if (part.type === 'tools') {
-      // Separate utility tools from interactive forms
-      const formTools = part.items.filter(item => item.name === 'interactive_form')
+      // Interactive forms are rendered outside workflow fold.
       const regularTools = part.items.filter(
         item => item.name !== 'interactive_form' && item.name !== 'form_submission_status',
       )
@@ -1679,68 +1703,6 @@ const MessageBubble = ({
                 })}
               </div>
             ))}
-
-          {/* Render Interactive Forms */}
-          {formTools.map((item, formIdx) => {
-            const formData = parseFormPayload(item.arguments) || parseFormPayload(item.output)
-
-            const nextMsg = messages[messageIndex + 1]
-            const isInterrupted = nextMsg && nextMsg.role === 'user' && !nextMsg.hitlRunId
-
-            // If the tool status is 'done', it means the form was submitted.
-            // Also disable if the user interrupted the flow with a new message.
-            const isSubmitted = item.status === 'done'
-            const shouldDisableForm = isSubmitted || isInterrupted
-
-            if (formData) {
-              return (
-                <InteractiveForm
-                  key={`form-${formIdx}`}
-                  formData={formData}
-                  onSubmit={handleFormSubmit}
-                  messageId={message.id}
-                  isSubmitted={shouldDisableForm}
-                  submittedValues={
-                    parseFormPayload(item.result) || parseFormPayload(item.output) || {}
-                  }
-                  developerMode={developerMode}
-                  onShowDetails={() => setActiveToolDetail(item)}
-                />
-              )
-            }
-
-            const shouldShowSkeleton = isStreaming || item.status !== 'done'
-            if (shouldShowSkeleton) {
-              return (
-                <div
-                  key={`form-skeleton-${formIdx}`}
-                  className="mb-4 animate-pulse space-y-4 rounded-xl"
-                >
-                  <div className="h-6 w-1/3 rounded bg-gray-200 dark:bg-zinc-700"></div>
-                  <div className="h-4 w-2/3 rounded bg-gray-200 dark:bg-zinc-700"></div>
-                  <div className="space-y-2">
-                    <div className="h-4 w-1/4 rounded bg-gray-200 dark:bg-zinc-700"></div>
-                    <div className="h-10 w-full rounded bg-gray-200 dark:bg-zinc-700"></div>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="h-4 w-1/4 rounded bg-gray-200 dark:bg-zinc-700"></div>
-                    <div className="h-10 w-full rounded bg-gray-200 dark:bg-zinc-700"></div>
-                  </div>
-                  <div className="mt-4 h-10 w-full rounded bg-gray-200 dark:bg-zinc-700"></div>
-                </div>
-              )
-            }
-
-            console.error('Failed to parse interactive form arguments:', item)
-            return (
-              <div
-                key={`form-error-${formIdx}`}
-                className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300"
-              >
-                Error displaying form
-              </div>
-            )
-          })}
         </div>
       )
     }
@@ -1779,6 +1741,64 @@ const MessageBubble = ({
           </Streamdown>
         </div>
       </React.Fragment>
+    )
+  })
+  const renderedInteractiveForms = interactiveFormTools.map((item, formIdx) => {
+    const formData = parseFormPayload(item.arguments) || parseFormPayload(item.output)
+
+    const nextMsg = messages[messageIndex + 1]
+    const isInterrupted = nextMsg && nextMsg.role === 'user' && !nextMsg.hitlRunId
+
+    // If the tool status is 'done', it means the form was submitted.
+    // Also disable if the user interrupted the flow with a new message.
+    const isSubmitted = item.status === 'done'
+    const shouldDisableForm = isSubmitted || isInterrupted
+
+    if (formData) {
+      return (
+        <InteractiveForm
+          key={`form-outside-${item.id || formIdx}`}
+          formData={formData}
+          onSubmit={handleFormSubmit}
+          messageId={message.id}
+          isSubmitted={shouldDisableForm}
+          submittedValues={parseFormPayload(item.result) || parseFormPayload(item.output) || {}}
+          developerMode={developerMode}
+          onShowDetails={() => setActiveToolDetail(item)}
+        />
+      )
+    }
+
+    const shouldShowSkeleton = isStreaming || item.status !== 'done'
+    if (shouldShowSkeleton) {
+      return (
+        <div
+          key={`form-skeleton-outside-${formIdx}`}
+          className="mb-4 animate-pulse space-y-4 rounded-xl"
+        >
+          <div className="h-6 w-1/3 rounded bg-gray-200 dark:bg-zinc-700"></div>
+          <div className="h-4 w-2/3 rounded bg-gray-200 dark:bg-zinc-700"></div>
+          <div className="space-y-2">
+            <div className="h-4 w-1/4 rounded bg-gray-200 dark:bg-zinc-700"></div>
+            <div className="h-10 w-full rounded bg-gray-200 dark:bg-zinc-700"></div>
+          </div>
+          <div className="space-y-2">
+            <div className="h-4 w-1/4 rounded bg-gray-200 dark:bg-zinc-700"></div>
+            <div className="h-10 w-full rounded bg-gray-200 dark:bg-zinc-700"></div>
+          </div>
+          <div className="mt-4 h-10 w-full rounded bg-gray-200 dark:bg-zinc-700"></div>
+        </div>
+      )
+    }
+
+    console.error('Failed to parse interactive form arguments:', item)
+    return (
+      <div
+        key={`form-error-outside-${formIdx}`}
+        className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300"
+      >
+        Error displaying form
+      </div>
     )
   })
 
@@ -2653,6 +2673,7 @@ const MessageBubble = ({
             </details>
           )}
           {renderedTextContent}
+          {renderedInteractiveForms}
           {renderInitialSkeleton && (
             <div
               className={clsx(

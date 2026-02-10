@@ -21,7 +21,11 @@ const THOUGHT_BLOCK_BREAK_MARKER = '<|thought_block_break|>'
 const sanitizeModelOutputText = value => {
   if (typeof value !== 'string') return ''
   // Remove replacement/BOM artifacts caused by broken upstream decoding.
-  return value.replace(/\uFFFD+/g, '').replace(/\uFEFF/g, '')
+  return value
+    .replace(/\uFFFD+/g, '')
+    .replace(/\uFEFF/g, '')
+    .replace(/ï¿½+/g, '')
+    .replace(/ï»¿/g, '')
 }
 
 const sanitizeInternalToolTraceChunk = value => {
@@ -39,6 +43,20 @@ const sanitizeInternalThoughtTrace = value => {
   if (typeof value !== 'string') return ''
   const cleaned = sanitizeInternalToolTraceChunk(value)
   return cleaned.trim()
+}
+
+const clampToUnicodeBoundary = (text, index) => {
+  if (typeof text !== 'string' || text.length === 0) return 0
+  let safeIndex = Math.max(0, Math.min(Number.isFinite(index) ? Number(index) : 0, text.length))
+  if (safeIndex <= 0 || safeIndex >= text.length) return safeIndex
+  const currentCode = text.charCodeAt(safeIndex)
+  const prevCode = text.charCodeAt(safeIndex - 1)
+  const isLowSurrogate = currentCode >= 0xdc00 && currentCode <= 0xdfff
+  const prevIsHighSurrogate = prevCode >= 0xd800 && prevCode <= 0xdbff
+  if (isLowSurrogate && prevIsHighSurrogate) {
+    safeIndex -= 1
+  }
+  return safeIndex
 }
 
 const buildStreamBlocks = ({ content = '', thoughtHistory = [], toolCallHistory = [] } = {}) => {
@@ -81,7 +99,8 @@ const buildStreamBlocks = ({ content = '', thoughtHistory = [], toolCallHistory 
   let seq = 1
   let lastIndex = 0
   for (const event of events) {
-    const safeIndex = Math.max(0, Math.min(event.textIndex, rawContent.length))
+    const boundedEventIndex = Math.max(0, Math.min(event.textIndex, rawContent.length))
+    const safeIndex = clampToUnicodeBoundary(rawContent, boundedEventIndex)
     if (safeIndex > lastIndex) {
       const textChunk = rawContent.slice(lastIndex, safeIndex)
       if (textChunk) {
@@ -246,6 +265,8 @@ export const callAIAPI = async (
   let streamEventOrder = 0
   let hasNonThoughtEvent = true
   let rafId = null
+  let streamTextIndexOffset = 0
+  let maxObservedEventTextIndex = 0
   const toolStartedAtById = new Map()
   const toolStartedAtQueuesByName = new Map()
 
@@ -363,6 +384,42 @@ export const callAIAPI = async (
   const queueFlush = () => {
     if (rafId !== null) return
     rafId = schedule(flushPending)
+  }
+
+  const getCurrentStreamEndIndex = () => {
+    const currentMessages = get().messages || []
+    const lastStreamMsg = currentMessages[currentMessages.length - 1] || {}
+    return Math.max(0, String(lastStreamMsg.content || '').length + (pendingText || '').length)
+  }
+
+  const normalizeStreamTextIndex = (rawIndex, fallbackIndex) => {
+    const safeFallback = Math.max(
+      0,
+      Number.isFinite(fallbackIndex) ? Number(fallbackIndex) : getCurrentStreamEndIndex(),
+    )
+    if (!Number.isFinite(rawIndex)) {
+      maxObservedEventTextIndex = Math.max(maxObservedEventTextIndex, safeFallback)
+      return safeFallback
+    }
+
+    const safeRaw = Math.max(0, Number(rawIndex))
+    const currentEnd = getCurrentStreamEndIndex()
+    const highWater = Math.max(maxObservedEventTextIndex, currentEnd)
+    let absolute = safeRaw + streamTextIndexOffset
+
+    // HITL resume may restart textIndex from 0; if index jumps backwards, re-anchor to current tail.
+    if (absolute + 8 < highWater && safeRaw < highWater) {
+      streamTextIndexOffset = highWater
+      absolute = safeRaw + streamTextIndexOffset
+    }
+
+    // Keep ordering monotonic to avoid mid-message insertions during streaming.
+    if (absolute < highWater) {
+      absolute = highWater
+    }
+
+    maxObservedEventTextIndex = Math.max(maxObservedEventTextIndex, absolute)
+    return absolute
   }
   try {
     // Get model configuration: Agent priority, global fallback
@@ -692,6 +749,7 @@ export const callAIAPI = async (
               })()
               const pendingTextLength = (pendingText || '').length
               const baseIndex = (lastMsg.content || '').length + pendingTextLength
+              const resolvedTextIndex = normalizeStreamTextIndex(chunk.textIndex, baseIndex)
               const toolId = chunk.id || `${chunk.name || 'tool'}-${Date.now()}`
               const startedAt = Date.now()
               markToolStarted(toolId, toolName, startedAt)
@@ -703,7 +761,7 @@ export const callAIAPI = async (
                 durationMs: null,
                 step: typeof chunk.step === 'number' ? chunk.step : undefined,
                 total: typeof chunk.total === 'number' ? chunk.total : undefined,
-                textIndex: typeof chunk.textIndex === 'number' ? chunk.textIndex : baseIndex,
+                textIndex: resolvedTextIndex,
                 streamOrder: ++streamEventOrder,
               })
               lastMsg.toolCallHistory = history
@@ -771,6 +829,10 @@ export const callAIAPI = async (
                     startedAtMs: consumeToolStartedAt(chunk.id, chunk.name),
                     existingDurationMs: null,
                   }),
+                  textIndex: normalizeStreamTextIndex(
+                    chunk.textIndex,
+                    (lastMsg.content || '').length + (pendingText || '').length,
+                  ),
                   step: typeof chunk.step === 'number' ? chunk.step : undefined,
                   total: typeof chunk.total === 'number' ? chunk.total : undefined,
                 })
@@ -811,6 +873,7 @@ export const callAIAPI = async (
               if (existingFormIndex === -1) {
                 const pendingTextLength = (pendingText || '').length
                 const baseIndex = (lastMsg.content || '').length + pendingTextLength
+                const formTextIndex = normalizeStreamTextIndex(undefined, baseIndex)
 
                 history.push({
                   id: chunk.form_id || `form-${Date.now()}`,
@@ -823,7 +886,7 @@ export const callAIAPI = async (
                     fields: chunk.fields,
                   }),
                   status: 'calling', // Will be marked 'done' after submission
-                  textIndex: baseIndex,
+                  textIndex: formTextIndex,
                   streamOrder: ++streamEventOrder,
                   output: {
                     run_id: chunk.run_id,
@@ -871,10 +934,7 @@ export const callAIAPI = async (
             const currentMessages = get().messages || []
             const lastStreamMsg = currentMessages[currentMessages.length - 1] || {}
             const fallbackIndex = (lastStreamMsg.content || '').length + (pendingText || '').length
-            const thoughtIndex =
-              typeof chunk.textIndex === 'number'
-                ? Math.max(0, chunk.textIndex)
-                : Math.max(0, fallbackIndex)
+            const thoughtIndex = normalizeStreamTextIndex(chunk.textIndex, fallbackIndex)
             const thoughtParts = rawThought.split(THOUGHT_BLOCK_BREAK_MARKER)
 
             thoughtParts.forEach((part, partIndex) => {

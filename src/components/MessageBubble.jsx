@@ -95,6 +95,29 @@ const PROVIDER_META = {
 }
 const THOUGHT_BLOCK_BREAK_MARKER = '<|thought_block_break|>'
 
+const sanitizeDisplayText = value => {
+  if (typeof value !== 'string') return ''
+  return value
+    .replace(/\uFFFD+/g, '')
+    .replace(/\uFEFF/g, '')
+    .replace(/ï¿½+/g, '')
+    .replace(/ï»¿/g, '')
+}
+
+const clampToUnicodeBoundary = (text, index) => {
+  if (typeof text !== 'string' || text.length === 0) return 0
+  let safeIndex = Math.max(0, Math.min(Number.isFinite(index) ? Number(index) : 0, text.length))
+  if (safeIndex <= 0 || safeIndex >= text.length) return safeIndex
+  const currentCode = text.charCodeAt(safeIndex)
+  const prevCode = text.charCodeAt(safeIndex - 1)
+  const isLowSurrogate = currentCode >= 0xdc00 && currentCode <= 0xdfff
+  const prevIsHighSurrogate = prevCode >= 0xd800 && prevCode <= 0xdbff
+  if (isLowSurrogate && prevIsHighSurrogate) {
+    safeIndex -= 1
+  }
+  return safeIndex
+}
+
 const isExplicitSchemeUrl = value => /^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(value)
 
 const sanitizeMarkdownUrl = (value, { allowDataImage = false } = {}) => {
@@ -685,7 +708,8 @@ const MessageBubble = ({
       // CRITICAL: Cap the safeIndex at rawContent.length to prevent "future" indices
       // from swallowing text that hasn't officially arrived at that position yet.
       const safeIndex = Number.isFinite(event.index) ? event.index : 0
-      const displayIndex = Math.min(safeIndex, rawContent.length)
+      const boundedIndex = Math.min(safeIndex, rawContent.length)
+      const displayIndex = clampToUnicodeBoundary(rawContent, boundedIndex)
 
       if (displayIndex > lastIndex) {
         parts.push({ type: 'text', content: rawContent.substring(lastIndex, displayIndex) })
@@ -1403,7 +1427,7 @@ const MessageBubble = ({
     }
   }, [markdownComponents, messageIndex, parseChildrenWithEmojis])
 
-  const firstToolPartIndex = useMemo(
+  const firstNonFormToolPartIndex = useMemo(
     () =>
       interleavedContent.findIndex(
         part =>
@@ -1415,27 +1439,45 @@ const MessageBubble = ({
       ),
     [interleavedContent],
   )
-  const workflowParts = useMemo(() => {
+  const firstInteractiveFormPartIndex = useMemo(
+    () =>
+      interleavedContent.findIndex(
+        part =>
+          part.type === 'tools' &&
+          Array.isArray(part.items) &&
+          part.items.some(item => item?.name === 'interactive_form'),
+      ),
+    [interleavedContent],
+  )
+  const { workflowParts, workflowTextSourceIndexes } = useMemo(() => {
     const baseWorkflowParts = interleavedContent.filter(
       part => part.type === 'thought' || part.type === 'tools',
     )
+    const workflowTextIndexes = new Set()
+    const preToolTextParts = []
+    const shouldInjectPreToolText =
+      firstNonFormToolPartIndex > 0 &&
+      (firstInteractiveFormPartIndex === -1 ||
+        firstInteractiveFormPartIndex > firstNonFormToolPartIndex)
 
-    if (firstToolPartIndex <= 0) return baseWorkflowParts
-
-    const preToolTextParts = interleavedContent
-      .slice(0, firstToolPartIndex)
-      .filter(part => part.type === 'text' && String(part.content || '').trim())
-      .map((part, idx) => ({
-        type: 'workflow_text',
-        key: `workflow-pretool-text-${idx}`,
-        content: part.content,
-      }))
+    if (shouldInjectPreToolText) {
+      for (let index = 0; index < firstNonFormToolPartIndex; index += 1) {
+        const part = interleavedContent[index]
+        if (part?.type !== 'text' || !String(part.content || '').trim()) continue
+        preToolTextParts.push({
+          type: 'workflow_text',
+          key: `workflow-pretool-text-${index}`,
+          content: part.content,
+        })
+        workflowTextIndexes.add(index)
+      }
+    }
 
     const mergedParts =
       preToolTextParts.length > 0 ? [...preToolTextParts, ...baseWorkflowParts] : baseWorkflowParts
 
     // Interactive forms should be rendered outside of the workflow fold.
-    return mergedParts
+    const filteredParts = mergedParts
       .map(part => {
         if (part.type !== 'tools' || !Array.isArray(part.items)) return part
         const filteredItems = part.items.filter(item => item.name !== 'interactive_form')
@@ -1443,15 +1485,24 @@ const MessageBubble = ({
         return { ...part, items: filteredItems }
       })
       .filter(Boolean)
-  }, [firstToolPartIndex, interleavedContent])
-  const textParts = useMemo(
+    return {
+      workflowParts: filteredParts,
+      workflowTextSourceIndexes: workflowTextIndexes,
+    }
+  }, [firstInteractiveFormPartIndex, firstNonFormToolPartIndex, interleavedContent])
+  const contentPartsOutsideWorkflow = useMemo(
     () =>
-      interleavedContent.filter((part, idx) => {
-        if (part.type !== 'text') return false
-        if (firstToolPartIndex <= 0) return true
-        return idx >= firstToolPartIndex
+      interleavedContent.flatMap((part, idx) => {
+        if (part.type === 'text') {
+          if (workflowTextSourceIndexes.has(idx)) return []
+          return [{ type: 'text', key: `text-${idx}`, content: part.content }]
+        }
+        if (part.type !== 'tools' || !Array.isArray(part.items)) return []
+        const formItems = part.items.filter(item => item?.name === 'interactive_form')
+        if (formItems.length === 0) return []
+        return [{ type: 'interactive_form', key: part.key || `interactive-form-${idx}`, items: formItems }]
       }),
-    [firstToolPartIndex, interleavedContent],
+    [interleavedContent, workflowTextSourceIndexes],
   )
   const hasWorkflow = workflowParts.length > 0
   const hasFormSubmissionStatus = useMemo(
@@ -1464,15 +1515,6 @@ const MessageBubble = ({
       ),
     [workflowParts],
   )
-  const interactiveFormTools = useMemo(
-    () =>
-      interleavedContent
-        .filter(part => part.type === 'tools' && Array.isArray(part.items))
-        .flatMap(part => part.items)
-        .filter(item => item?.name === 'interactive_form'),
-    [interleavedContent],
-  )
-
   const renderedWorkflowContent = workflowParts.map((part, idx) => {
     if (part.type === 'workflow_text') {
       const workflowTextWithSupports = applyGroundingSupports(
@@ -1484,6 +1526,7 @@ const MessageBubble = ({
         workflowTextWithSupports,
         mergedMessage.sources,
       )
+      const sanitizedWorkflowText = sanitizeDisplayText(workflowTextWithCitations)
       return (
         <div
           key={part.key || `workflow-text-${idx}`}
@@ -1494,7 +1537,7 @@ const MessageBubble = ({
             remarkPlugins={[remarkGfm]}
             components={markdownComponents}
           >
-            {workflowTextWithCitations}
+            {sanitizedWorkflowText}
           </Streamdown>
         </div>
       )
@@ -1531,7 +1574,7 @@ const MessageBubble = ({
               remarkPlugins={[remarkGfm]}
               components={markdownComponents}
             >
-              {part.content}
+              {sanitizeDisplayText(part.content)}
             </Streamdown>
           </div>
         </div>
@@ -1710,40 +1753,7 @@ const MessageBubble = ({
     return null
   })
 
-  const renderedTextContent = textParts.map((part, idx) => {
-    const contentWithSupports = applyGroundingSupports(
-      part.content,
-      mergedMessage.groundingSupports,
-      mergedMessage.sources,
-    )
-    const contentWithCitations = formatContentWithSources(
-      contentWithSupports,
-      mergedMessage.sources,
-    )
-    const showStatusBeforeText = hasFormSubmissionStatus && idx === 0
-    return (
-      <React.Fragment key={`text-${idx}`}>
-        {showStatusBeforeText && <FormStatusBadge waiting={false} />}
-        <div
-          data-answer-scope="true"
-          className={clsx(
-            'mb-4 transition-all duration-300 ease-[cubic-bezier(0.2,0.6,0.2,1)]',
-            hasMainText ? 'translate-y-0 opacity-100' : 'translate-y-1 opacity-0',
-          )}
-        >
-          <Streamdown
-            mermaid={mermaidOptions}
-            remarkPlugins={[remarkGfm]}
-            components={markdownComponentsWithAnchors}
-            isAnimating={isStreaming}
-          >
-            {contentWithCitations}
-          </Streamdown>
-        </div>
-      </React.Fragment>
-    )
-  })
-  const renderedInteractiveForms = interactiveFormTools.map((item, formIdx) => {
+  const renderInteractiveFormItem = (item, formKey) => {
     const formData = parseFormPayload(item.arguments) || parseFormPayload(item.output)
 
     const nextMsg = messages[messageIndex + 1]
@@ -1757,7 +1767,7 @@ const MessageBubble = ({
     if (formData) {
       return (
         <InteractiveForm
-          key={`form-outside-${item.id || formIdx}`}
+          key={formKey}
           formData={formData}
           onSubmit={handleFormSubmit}
           messageId={message.id}
@@ -1772,10 +1782,7 @@ const MessageBubble = ({
     const shouldShowSkeleton = isStreaming || item.status !== 'done'
     if (shouldShowSkeleton) {
       return (
-        <div
-          key={`form-skeleton-outside-${formIdx}`}
-          className="mb-4 animate-pulse space-y-4 rounded-xl"
-        >
+        <div key={`form-skeleton-${formKey}`} className="mb-4 animate-pulse space-y-4 rounded-xl">
           <div className="h-6 w-1/3 rounded bg-gray-200 dark:bg-zinc-700"></div>
           <div className="h-4 w-2/3 rounded bg-gray-200 dark:bg-zinc-700"></div>
           <div className="space-y-2">
@@ -1794,12 +1801,64 @@ const MessageBubble = ({
     console.error('Failed to parse interactive form arguments:', item)
     return (
       <div
-        key={`form-error-outside-${formIdx}`}
+        key={`form-error-${formKey}`}
         className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300"
       >
         Error displaying form
       </div>
     )
+  }
+
+  const firstTextPartDisplayIndex = contentPartsOutsideWorkflow.findIndex(
+    part => part.type === 'text',
+  )
+  const renderedMainContent = contentPartsOutsideWorkflow.map((part, idx) => {
+    if (part.type === 'text') {
+      const contentWithSupports = applyGroundingSupports(
+        part.content,
+        mergedMessage.groundingSupports,
+        mergedMessage.sources,
+      )
+      const contentWithCitations = formatContentWithSources(
+        contentWithSupports,
+        mergedMessage.sources,
+      )
+      const sanitizedMainText = sanitizeDisplayText(contentWithCitations)
+      const showStatusBeforeText = hasFormSubmissionStatus && idx === firstTextPartDisplayIndex
+      return (
+        <React.Fragment key={part.key || `text-outside-${idx}`}>
+          {showStatusBeforeText && <FormStatusBadge waiting={false} />}
+          <div
+            data-answer-scope="true"
+            className={clsx(
+              'mb-4 transition-all duration-300 ease-[cubic-bezier(0.2,0.6,0.2,1)]',
+              hasMainText ? 'translate-y-0 opacity-100' : 'translate-y-1 opacity-0',
+            )}
+          >
+            <Streamdown
+              mermaid={mermaidOptions}
+              remarkPlugins={[remarkGfm]}
+              components={markdownComponentsWithAnchors}
+              isAnimating={isStreaming}
+            >
+              {sanitizedMainText}
+            </Streamdown>
+          </div>
+        </React.Fragment>
+      )
+    }
+
+    if (part.type === 'interactive_form') {
+      return (
+        <React.Fragment key={part.key || `interactive-form-outside-${idx}`}>
+          {part.items.map((item, formIdx) =>
+            renderInteractiveFormItem(item, `form-inline-${part.key || idx}-${item.id || formIdx}`),
+          )}
+        </React.Fragment>
+      )
+    }
+
+    return null
   })
 
   const workflowHeaderLabel = useMemo(() => {
@@ -2672,8 +2731,7 @@ const MessageBubble = ({
               <div className="px-3 pt-1 pb-3">{renderedWorkflowContent}</div>
             </details>
           )}
-          {renderedTextContent}
-          {renderedInteractiveForms}
+          {renderedMainContent}
           {renderInitialSkeleton && (
             <div
               className={clsx(

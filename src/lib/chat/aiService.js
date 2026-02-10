@@ -26,6 +26,10 @@ const sanitizeInternalToolTraceChunk = value => {
   // Conservative cleanup: strip marker tokens only, avoid truncating normal text.
   cleaned = cleaned.replace(/<\|tool_call_[^|]*\|>/gi, '')
   cleaned = cleaned.replace(/<\|tool_calls_section_[^|]*\|>/gi, '')
+  // Drop replacement chars produced by broken upstream byte decoding.
+  cleaned = cleaned.replace(/\uFFFD+/g, '')
+  // Remove BOMs that may leak into streamed chunks.
+  cleaned = cleaned.replace(/\uFEFF/g, '')
   return cleaned
 }
 
@@ -240,6 +244,53 @@ export const callAIAPI = async (
   let streamEventOrder = 0
   let hasNonThoughtEvent = true
   let rafId = null
+  const toolStartedAtById = new Map()
+  const toolStartedAtQueuesByName = new Map()
+
+  const markToolStarted = (id, name, startedAt) => {
+    if (id) toolStartedAtById.set(id, startedAt)
+    if (!name) return
+    const queue = toolStartedAtQueuesByName.get(name) || []
+    queue.push(startedAt)
+    toolStartedAtQueuesByName.set(name, queue)
+  }
+
+  const consumeToolStartedAt = (id, name) => {
+    if (id && toolStartedAtById.has(id)) {
+      const startedAt = toolStartedAtById.get(id)
+      toolStartedAtById.delete(id)
+      return startedAt
+    }
+    if (!name) return null
+    const queue = toolStartedAtQueuesByName.get(name)
+    if (!queue || queue.length === 0) return null
+    const startedAt = queue.shift()
+    if (queue.length === 0) {
+      toolStartedAtQueuesByName.delete(name)
+    } else {
+      toolStartedAtQueuesByName.set(name, queue)
+    }
+    return startedAt ?? null
+  }
+
+  const resolveToolDurationMs = ({ incomingDurationMs, startedAtMs, existingDurationMs }) => {
+    const backendDuration = Number.isFinite(incomingDurationMs) ? Number(incomingDurationMs) : null
+    const localElapsed =
+      Number.isFinite(startedAtMs) && startedAtMs > 0 ? Math.max(0, Date.now() - startedAtMs) : null
+
+    if (backendDuration == null) {
+      if (localElapsed != null) return localElapsed
+      return Number.isFinite(existingDurationMs) ? Number(existingDurationMs) : null
+    }
+
+    // Some providers return cumulative run duration on tool_result.
+    // If backend duration is clearly larger than local per-tool elapsed, prefer local elapsed.
+    if (localElapsed != null && backendDuration > localElapsed + 1500) {
+      return localElapsed
+    }
+
+    return backendDuration
+  }
 
   // Create AbortController for this request
   const controller = new AbortController()
@@ -639,8 +690,11 @@ export const callAIAPI = async (
               })()
               const pendingTextLength = (pendingText || '').length
               const baseIndex = (lastMsg.content || '').length + pendingTextLength
+              const toolId = chunk.id || `${chunk.name || 'tool'}-${Date.now()}`
+              const startedAt = Date.now()
+              markToolStarted(toolId, toolName, startedAt)
               history.push({
-                id: chunk.id || `${chunk.name || 'tool'}-${Date.now()}`,
+                id: toolId,
                 name: toolName,
                 arguments: injectedArguments,
                 status: 'calling',
@@ -672,6 +726,10 @@ export const callAIAPI = async (
                 chunk.id ? item.id === chunk.id : item.name === chunk.name,
               )
               if (targetIndex >= 0) {
+                const startedAt = consumeToolStartedAt(
+                  history[targetIndex]?.id,
+                  history[targetIndex]?.name,
+                )
                 history[targetIndex] = {
                   ...history[targetIndex],
                   status: chunk.status || 'done',
@@ -680,10 +738,11 @@ export const callAIAPI = async (
                     typeof chunk.output !== 'undefined'
                       ? chunk.output
                       : history[targetIndex].output,
-                  durationMs:
-                    typeof chunk.duration_ms === 'number'
-                      ? chunk.duration_ms
-                      : history[targetIndex].durationMs,
+                  durationMs: resolveToolDurationMs({
+                    incomingDurationMs: chunk.duration_ms,
+                    startedAtMs: startedAt,
+                    existingDurationMs: history[targetIndex].durationMs,
+                  }),
                   step: typeof chunk.step === 'number' ? chunk.step : history[targetIndex].step,
                   total: typeof chunk.total === 'number' ? chunk.total : history[targetIndex].total,
                 }
@@ -705,7 +764,11 @@ export const callAIAPI = async (
                   status: chunk.status || 'done',
                   error: chunk.error || null,
                   output: typeof chunk.output !== 'undefined' ? chunk.output : null,
-                  durationMs: typeof chunk.duration_ms === 'number' ? chunk.duration_ms : null,
+                  durationMs: resolveToolDurationMs({
+                    incomingDurationMs: chunk.duration_ms,
+                    startedAtMs: consumeToolStartedAt(chunk.id, chunk.name),
+                    existingDurationMs: null,
+                  }),
                   step: typeof chunk.step === 'number' ? chunk.step : undefined,
                   total: typeof chunk.total === 'number' ? chunk.total : undefined,
                 })
@@ -838,7 +901,10 @@ export const callAIAPI = async (
             hasNonThoughtEvent = true
           }
         } else {
-          pendingText += chunk
+          const cleanChunkText = sanitizeInternalToolTraceChunk(String(chunk || ''))
+          if (cleanChunkText) {
+            pendingText += cleanChunkText
+          }
           hasNonThoughtEvent = true
         }
 

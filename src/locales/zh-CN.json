@@ -839,6 +839,8 @@
     "apiError": "API 错误，请检查您的设置。"
   },
   "messageBubble": {
+    "workflow": "工作流",
+    "workflowToolCalling": "{{tool}} 调用中",
     "deepThinking": "已深度思考",
     "thinking": "深度思考中...",
     "thinkingDuration": "(用时{{duration}}秒)",

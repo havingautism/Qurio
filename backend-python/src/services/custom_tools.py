@@ -72,7 +72,6 @@ class QurioLocalTools(Toolkit):
             self.json_repair,
             interactive_form,
             self.webpage_reader,
-            self.webpage_reader,
             self.tavily_web_search,
             self.tavily_academic_search,
             self.memory_retrieve,
@@ -131,13 +130,31 @@ class QurioLocalTools(Toolkit):
 
     @tool(name="webpage_reader", description="Read and scrape webpages.")
     async def webpage_reader(self, url: str) -> dict[str, Any]:
-        normalized = re.sub(r"^https?://r\.jina\.ai/", "", url.strip())
+        normalized = re.sub(r"^https?://r\.jina\.ai/", "", (url or "").strip())
+        if not normalized:
+            return {"error": "Missing required field: url"}
+
         request_url = f"https://r.jina.ai/{normalized}"
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.get(request_url, headers={"Accept": "text/plain"})
-            response.raise_for_status()
-            content = response.text
-        return {"url": normalized, "content": content, "source": "jina.ai"}
+        try:
+            timeout = httpx.Timeout(connect=8.0, read=18.0, write=8.0, pool=8.0)
+            async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+                response = await client.get(request_url, headers={"Accept": "text/plain"})
+                response.raise_for_status()
+                content = response.text
+            return {"url": normalized, "content": content, "source": "jina.ai"}
+        except httpx.ReadTimeout:
+            return {
+                "url": normalized,
+                "error": "Webpage read timed out",
+                "source": "jina.ai",
+                "timed_out": True,
+            }
+        except httpx.HTTPError as exc:
+            return {
+                "url": normalized,
+                "error": f"Webpage read failed: {exc}",
+                "source": "jina.ai",
+            }
 
     @tool(name="Tavily_web_search", description="Search the web for current information using Tavily API.")
     async def tavily_web_search(self, query: str, max_results: int = 5) -> dict[str, Any]:

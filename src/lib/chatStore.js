@@ -564,7 +564,7 @@ const useChatStore = create((set, get) => ({
           const languageInstruction = getLanguageInstruction(agentForPreselection, settings)
           const promptText = applyLanguageInstructionToText(text, languageInstruction)
 
-          if (provider.generateAgentForAuto) {
+          if (provider.generateAgentForAuto && credentials?.apiKey) {
             const { agentName } = await provider.generateAgentForAuto(
               promptText,
               spaceWithAgents,
@@ -592,6 +592,10 @@ const useChatStore = create((set, get) => ({
                 }
               }
             }
+          } else if (provider.generateAgentForAuto && !credentials?.apiKey) {
+            console.warn(
+              `[AgentAuto] Skip auto agent preselection for provider "${modelConfig.provider}" because API key is missing.`,
+            )
           }
         }
 

@@ -847,6 +847,8 @@
     "apiError": "API error. Please check your settings."
   },
   "messageBubble": {
+    "workflow": "Workflow",
+    "workflowToolCalling": "{{tool}} calling",
     "deepThinking": "Deep thought",
     "thinking": "Thinking...",
     "thinkingDuration": "(took {{duration}}s)",

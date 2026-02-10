@@ -5,7 +5,6 @@ Loads configuration from environment variables and .env files.
 
 import os
 from pathlib import Path
-from typing import Literal
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -107,7 +106,7 @@ def get_settings() -> Settings:
         # Search paths for env files (priority order)
         src_dir = Path(__file__).parent
         backend_dir = src_dir.parent
-        
+
         candidates = [
             src_dir / ".env.local",
             backend_dir / ".env.local",

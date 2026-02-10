@@ -4,11 +4,10 @@ Simple generation services (title, daily tip, related questions, agent selection
 
 from __future__ import annotations
 
-from typing import Any
 from datetime import datetime
+from typing import Any
 from zoneinfo import ZoneInfo
 
-from ..models.stream_chat import StreamChatRequest
 from ..models.generation import (
     AgentNameResponse,
     DailyTipResponse,
@@ -18,6 +17,7 @@ from ..models.generation import (
     TitleSpaceAgentResponse,
     TitleSpaceResponse,
 )
+from ..models.stream_chat import StreamChatRequest
 from .llm_utils import run_agent_completion, safe_json_parse
 
 
@@ -144,11 +144,11 @@ async def generate_daily_tip(
     content = result.get("content", "").strip()
     thought = result.get("thought", "").strip()
     output_obj = result.get("output")
-    
+
     tip = None
     if output_obj:
         tip = _get_output_value(output_obj, "tip")
-            
+
     if not tip:
         parsed = safe_json_parse(content)
         if isinstance(parsed, dict):
@@ -237,12 +237,12 @@ async def generate_title(
     result = await run_agent_completion(request)
     content = result.get("content", "").strip()
     thought = result.get("thought", "").strip()
-    
+
     # Try structured output first
     output_obj = result.get("output")
     title = None
     emojis = []
-    
+
     if output_obj:
         title = _get_output_value(output_obj, "title")
         emojis = _get_output_value(output_obj, "emojis") or []
@@ -264,7 +264,7 @@ async def generate_title(
         m_title = re.search(r"title=['\"](.*?)['\"]", content, flags=re.DOTALL)
         if m_title:
             title = m_title.group(1)
-        
+
         if not emojis:
             m_emojis = re.search(r"emojis=\[[\"']?(.*?)[\"']?\]", content)
             if m_emojis:
@@ -348,7 +348,7 @@ async def generate_title_and_space(
     )
     result = await run_agent_completion(request)
     content = result.get("content", "").strip()
-    
+
     # Try structured output first
     output_obj = result.get("output")
 
@@ -361,7 +361,7 @@ async def generate_title_and_space(
         title = _get_output_value(output_obj, "title")
         space_label = _get_output_value(output_obj, "space_label", "spaceLabel")
         emojis = _get_output_value(output_obj, "emojis") or []
-    
+
     # If above failed, fallback to manual parsing of content
     if not title:
         parsed = safe_json_parse(content) or {}
@@ -375,19 +375,19 @@ async def generate_title_and_space(
             title = parsed.get("title")
             space_label = space_label or parsed.get("spaceLabel") or parsed.get("space_label")
             emojis = emojis or parsed.get("emojis")
-        
+
     # Robust cleanup for models like GLM (even if parsing failed partially)
     if (not title or (isinstance(title, str) and title.strip().startswith("title="))) and content:
         import re
         m_title = re.search(r"title=['\"](.*?)['\"]", content, flags=re.DOTALL)
         if m_title:
             title = m_title.group(1)
-        
+
         if not emojis:
             m_emojis = re.search(r"emojis=\[[\"']?(.*?)[\"']?\]", content)
             if m_emojis:
                 emojis = [m_emojis.group(1)]
-        
+
         if not space_label:
             m_space = re.search(r"space_?label=['\"](.*?)['\"]", content, re.IGNORECASE) or re.search(r"space=['\"](.*?)['\"]", content, re.IGNORECASE)
             if m_space:
@@ -395,14 +395,14 @@ async def generate_title_and_space(
 
     # Normalize values
     title = str(title or content or "New Conversation")
-    
+
     # IMPROVED matching: Case-insensitive and trimmed
     search_label = str(space_label or "").strip().lower()
     selected_space = next(
-        (s for s in spaces if s.get("label", "").strip().lower() == search_label), 
+        (s for s in spaces if s.get("label", "").strip().lower() == search_label),
         None
     )
-    
+
     if not isinstance(emojis, list):
         emojis = []
     emojis = [str(item).strip().strip("'").strip('"') for item in emojis if str(item).strip()][:1]
@@ -517,7 +517,7 @@ async def generate_title_space_and_agent(
     result = await run_agent_completion(request)
     content = result.get("content", "").strip()
     thought = result.get("thought", "").strip()
-    
+
     # Try structured output first
     output_obj = result.get("output")
     title = None
@@ -531,7 +531,7 @@ async def generate_title_space_and_agent(
         space_label = _get_output_value(output_obj, "space_label", "spaceLabel")
         agent_name = _get_output_value(output_obj, "agent_name", "agentName")
         emojis = _get_output_value(output_obj, "emojis") or []
-    
+
     # Fallback to manual parsing of content
     if not title:
         parsed = safe_json_parse(content) or {}
@@ -547,24 +547,24 @@ async def generate_title_space_and_agent(
             space_label = space_label or parsed.get("spaceLabel") or parsed.get("space_label")
             agent_name = agent_name or parsed.get("agentName") or parsed.get("agent_name")
             emojis = emojis or parsed.get("emojis")
-        
+
     # Robust cleanup for models like GLM
     if (not title or (isinstance(title, str) and title.strip().startswith("title="))) and content:
         import re
         m_title = re.search(r"title=['\"](.*?)['\"]", content, flags=re.DOTALL)
         if m_title:
             title = m_title.group(1)
-        
+
         if not emojis:
             m_emojis = re.search(r"emojis=\[[\"']?(.*?)[\"']?\]", content)
             if m_emojis:
                 emojis = [m_emojis.group(1)]
-        
+
         if not space_label:
             m_space = re.search(r"space_?label=['\"](.*?)['\"]", content, re.IGNORECASE) or re.search(r"space=['\"](.*?)['\"]", content, re.IGNORECASE)
             if m_space:
                 space_label = m_space.group(1)
-        
+
         if not agent_name:
             m_agent = re.search(r"agent_?name=['\"](.*?)['\"]", content, re.IGNORECASE) or re.search(r"agent=['\"](.*?)['\"]", content, re.IGNORECASE)
             if m_agent:
@@ -572,7 +572,7 @@ async def generate_title_space_and_agent(
 
     # Normalize values
     title = str(title or content or "New Conversation")
-    
+
     # Strip descriptions if model included them (e.g. "Coding - Help" -> "Coding")
     if space_label and " - " in space_label:
         space_label = space_label.split(" - ")[0].strip()
@@ -924,11 +924,11 @@ async def generate_related_questions(
     content = result.get("content", "").strip()
     thought = result.get("thought", "").strip()
     output_obj = result.get("output")
-    
+
     questions = []
     if output_obj:
         questions = _get_output_value(output_obj, "questions") or []
-    
+
     if not questions:
         parsed = safe_json_parse(content)
         # If model returned a list directly, use it
@@ -942,7 +942,7 @@ async def generate_related_questions(
             questions = thought_parsed
         else:
             questions = _normalize_related_questions(thought_parsed)
-    
+
     # Robust cleanup for weird formats
     if not questions and content:
         import re
@@ -951,7 +951,7 @@ async def generate_related_questions(
         if match:
             raw_list = match.group(1)
             questions = [q.strip().strip("'").strip('"') for q in re.findall(r"['\"](.*?)['\"]", raw_list)]
-        
+
         # New Fallback: Try to find numbered lists like 1. "Question" or 1. **Question**
         if not questions:
             # Matches strings starting with number, dot, maybe whitespace, maybe quotes/stars, then text, then closing quotes/stars

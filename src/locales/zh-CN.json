@@ -749,6 +749,7 @@
   "homeView": {
     "askAnything": "问任何问题...",
     "think": "思考",
+    "expertMode": "专家模式",
     "deepResearch": "深入研究",
     "deepResearchEntry": "深入研究",
     "deepResearchEntryHint": "问卷式引导",

@@ -14,7 +14,7 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 import httpx
-from agno.tools import Function, Toolkit, tool
+from agno.tools import Toolkit, tool
 
 from .academic_domains import ACADEMIC_DOMAINS
 

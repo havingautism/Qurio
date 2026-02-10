@@ -207,7 +207,48 @@ const MessageBubble = ({
   const provider = getProvider(providerId)
   const parsed = provider.parseMessage(mergedMessage)
   const thoughtContent = isDeepResearch ? null : parsed.thought
-  const mainContent = parsed.content
+  const expertResponses = useMemo(() => {
+    if (!Array.isArray(mergedMessage?.expertResponses)) return []
+    return mergedMessage.expertResponses
+      .map(item => ({
+        agentId: String(item?.agentId || ''),
+        agentName: String(item?.agentName || ''),
+        agentEmoji: String(item?.agentEmoji || ''),
+        task: String(item?.task || ''),
+        content: String(item?.content || ''),
+        status: String(item?.status || 'pending'),
+        provider: item?.provider || null,
+        model: item?.model || null,
+      }))
+      .filter(item => item.agentId)
+  }, [mergedMessage?.expertResponses])
+  const isExpertMessage = Boolean(mergedMessage?.expertMode) && expertResponses.length > 0
+  const [activeExpertAgentId, setActiveExpertAgentId] = useState(
+    String(mergedMessage?.expertActiveAgentId || expertResponses[0]?.agentId || ''),
+  )
+  useEffect(() => {
+    const hasCurrent = expertResponses.some(item => item.agentId === activeExpertAgentId)
+    if (hasCurrent) return
+
+    const preferred = String(mergedMessage?.expertActiveAgentId || '')
+    const hasPreferred = preferred && expertResponses.some(item => item.agentId === preferred)
+    if (hasPreferred) {
+      setActiveExpertAgentId(preferred)
+      return
+    }
+
+    setActiveExpertAgentId(String(expertResponses[0]?.agentId || ''))
+  }, [mergedMessage?.id, mergedMessage?.expertActiveAgentId, expertResponses, activeExpertAgentId])
+  const activeExpertIndex = Math.max(
+    0,
+    expertResponses.findIndex(item => item.agentId === activeExpertAgentId),
+  )
+  const activeExpertResponse = expertResponses[activeExpertIndex] || expertResponses[0] || null
+  const mainContent = isExpertMessage ? activeExpertResponse?.content || '' : parsed.content
+  const displayProviderId = isExpertMessage
+    ? activeExpertResponse?.provider || providerId
+    : providerId
+  const displayModel = isExpertMessage ? activeExpertResponse?.model || null : null
   const positionedThoughtBlocks = useMemo(() => {
     if (isDeepResearch) return []
 
@@ -1673,7 +1714,7 @@ const MessageBubble = ({
           <div
             data-answer-scope="true"
             className={clsx(
-              'transition-all duration-300 ease-[cubic-bezier(0.2,0.6,0.2,1)]',
+              'mb-4 transition-all duration-300 ease-[cubic-bezier(0.2,0.6,0.2,1)]',
               hasMainText ? 'translate-y-0 opacity-100' : 'translate-y-1 opacity-0',
             )}
           >
@@ -1896,12 +1937,12 @@ const MessageBubble = ({
     )
   }
 
-  const providerMeta = PROVIDER_META[providerId] || {
-    label: providerId || 'AI',
-    id: providerId,
+  const providerMeta = PROVIDER_META[displayProviderId] || {
+    label: displayProviderId || 'AI',
+    id: displayProviderId,
     fallback: 'AI',
   }
-  const resolvedModel = message.model || defaultModel || 'default model'
+  const resolvedModel = displayModel || message.model || defaultModel || 'default model'
   const agentName = message.agentName ?? message.agent_name ?? null
   const agentEmoji = message.agentEmoji ?? message.agent_emoji ?? ''
   const agentIsDefault = message.agentIsDefault ?? message.agent_is_default ?? false
@@ -1914,6 +1955,43 @@ const MessageBubble = ({
     : agentIsDeepResearch
       ? t('deepResearch.agentName')
       : agentName
+
+  const renderExpertTabs = () => {
+    if (!isExpertMessage) return null
+    return (
+      <div className="code-scrollbar mt-1.5 flex gap-1.5 overflow-x-auto pb-0.5">
+        {expertResponses.map(item => {
+          const isActive = item.agentId === activeExpertResponse?.agentId
+          return (
+            <button
+              type="button"
+              key={item.agentId}
+              onClick={() => setActiveExpertAgentId(item.agentId)}
+              className={clsx(
+                'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] whitespace-nowrap transition-colors',
+                isActive
+                  ? 'border-primary-500 bg-primary-50 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300'
+                  : 'border-gray-200 text-gray-600 hover:bg-gray-100 dark:border-zinc-700 dark:text-gray-300 dark:hover:bg-zinc-700',
+              )}
+            >
+              <EmojiDisplay emoji={item.agentEmoji} size="0.95em" />
+              <span>{item.agentName || item.agentId}</span>
+              <span
+                className={clsx(
+                  'inline-block h-1.5 w-1.5 rounded-full',
+                  item.status === 'done'
+                    ? 'bg-emerald-500'
+                    : item.status === 'error'
+                      ? 'bg-red-500'
+                      : 'bg-amber-500',
+                )}
+              />
+            </button>
+          )
+        })}
+      </div>
+    )
+  }
 
   const hasPlanText = !!planMarkdown
   const researchPlanLoading = Boolean(message?.researchPlanLoading)
@@ -2078,6 +2156,7 @@ const MessageBubble = ({
                 )}
                 <span className="truncate">{resolvedModel}</span>
               </div>
+              {renderExpertTabs()}
             </div>
           </>
         ) : (
@@ -2120,6 +2199,7 @@ const MessageBubble = ({
                 )}
                 <span className="text-xs text-gray-500 dark:text-gray-400">{resolvedModel}</span>
               </div>
+              {renderExpertTabs()}
             </div>
           </>
         )}
@@ -2439,6 +2519,11 @@ const MessageBubble = ({
         }}
       >
         <>
+          {isExpertMessage && activeExpertResponse?.task && (
+            <div className="mb-3 rounded-lg border border-dashed border-gray-300 px-3 py-2 text-xs text-gray-600 dark:border-zinc-600 dark:text-gray-300">
+              {activeExpertResponse.task}
+            </div>
+          )}
           {renderedInterleavedContent}
           {renderInitialSkeleton && (
             <div

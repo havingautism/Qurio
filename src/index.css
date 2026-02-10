@@ -429,7 +429,6 @@ h6 {
 .message-content p {
   font-size: var(--message-font-size) !important;
   line-height: 1.75 !important;
-  /* margin-bottom: 0.85em !important; */
 }
 
 /* .message-content p:first-child:last-child {

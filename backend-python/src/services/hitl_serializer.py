@@ -5,13 +5,13 @@ This module handles serialization and deserialization of Agno HITL requirements
 to enable storing run state in Supabase between HTTP requests.
 """
 
-from typing import List, Dict, Any, Optional
 import logging
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
-def serialize_requirements(requirements: List) -> List[Dict[str, Any]]:
+def serialize_requirements(requirements: list) -> list[dict[str, Any]]:
     """
     Serialize Agno RunRequirement objects to JSON-compatible format.
     """
@@ -26,17 +26,17 @@ def serialize_requirements(requirements: List) -> List[Dict[str, Any]]:
                 "needs_user_input": getattr(req, "needs_user_input", False),
                 "needs_confirmation": getattr(req, "needs_confirmation", False),
             })
-    
+
     logger.debug(f"Serialized {len(serialized)} requirements")
     return serialized
 
 
-def deserialize_requirements(requirements_data: List[Dict[str, Any]]) -> List:
+def deserialize_requirements(requirements_data: list[dict[str, Any]]) -> list:
     """
     Deserialize JSON requirements back to Agno RunRequirement objects.
     """
     from agno.run.requirement import RunRequirement
-    
+
     requirements = []
     for req_data in requirements_data:
         try:
@@ -46,19 +46,19 @@ def deserialize_requirements(requirements_data: List[Dict[str, Any]]) -> List:
                 logger.warning(f"Unexpected requirement data type: {type(req_data)}")
         except Exception as e:
             logger.error(f"Failed to deserialize requirement: {e}")
-            
+
     logger.debug(f"Deserialized {len(requirements)} requirements")
     return requirements
 
 
-def extract_form_fields_for_frontend(tool_args: Dict[str, Any]) -> List[Dict[str, Any]]:
+def extract_form_fields_for_frontend(tool_args: dict[str, Any]) -> list[dict[str, Any]]:
     """
     Extract form fields from interactive_form tool arguments for frontend rendering.
     
     This maintains the original format expected by the frontend InteractiveForm component.
     """
     fields = tool_args.get("fields", [])
-    
+
     return [
         {
             "name": field.get("name"),

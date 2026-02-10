@@ -10,7 +10,6 @@ from fastapi.responses import JSONResponse
 from ..providers import is_provider_supported
 from ..services.generation import generate_title_space_and_agent
 
-
 router = APIRouter(tags=["title-space-agent"])
 
 

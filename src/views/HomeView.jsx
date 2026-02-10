@@ -4,6 +4,7 @@ import clsx from 'clsx'
 import gsap from 'gsap'
 import ArrowRight from 'lucide-react/dist/esm/icons/arrow-right'
 import Brain from 'lucide-react/dist/esm/icons/brain'
+import BrainCircuit from 'lucide-react/dist/esm/icons/brain-circuit'
 import Check from 'lucide-react/dist/esm/icons/check'
 import ChevronDown from 'lucide-react/dist/esm/icons/chevron-down'
 import File from 'lucide-react/dist/esm/icons/file'
@@ -73,6 +74,7 @@ const HomeView = () => {
   const [homeSearchTools, setHomeSearchTools] = useState([])
   const [isHomeSearchMenuOpen, setIsHomeSearchMenuOpen] = useState(false)
   const [isHomeThinkingActive, setIsHomeThinkingActive] = useState(false)
+  const [isHomeExpertMode, setIsHomeExpertMode] = useState(false)
   const [homeAttachments, setHomeAttachments] = useState([])
   const [homeSelectedSpace, setHomeSelectedSpace] = useState(null)
   const homeSpaceSelectorRef = useRef(null)
@@ -543,6 +545,7 @@ const HomeView = () => {
           searchBackend: homeSearchBackend || null,
           thinking: resolvedThinkingActive,
           deepResearch: false,
+          expertMode: isHomeExpertMode,
           related: Boolean(settings.enableRelatedQuestions),
         },
         initialSpaceSelection: {
@@ -555,7 +558,7 @@ const HomeView = () => {
 
       // Navigate to the conversation route with state
       navigate({
-        to: '/conversation/$conversationId',
+        to: isHomeExpertMode ? '/expert/$conversationId' : '/conversation/$conversationId',
         params: { conversationId: conversation.id },
         state: chatState,
       })
@@ -567,6 +570,7 @@ const HomeView = () => {
       setHomeSearchTools([])
       setHomeSearchBackend(null)
       setIsHomeThinkingActive(false)
+      setIsHomeExpertMode(false)
       setHomeSelectedSpace(null)
       setHomeSpaceSelectionType('auto')
       setHomeSelectedAgentId(null)
@@ -1010,6 +1014,17 @@ const HomeView = () => {
                   >
                     <Brain size={18} />
                     <span className="hidden md:inline">{t('homeView.think')}</span>
+                  </button>
+                  <button
+                    onClick={() => setIsHomeExpertMode(prev => !prev)}
+                    className={`flex items-center gap-2 rounded-lg p-2 text-xs font-medium transition-colors ${
+                      isHomeExpertMode
+                        ? 'text-primary-500 bg-gray-100 dark:bg-zinc-800'
+                        : 'text-gray-500 dark:text-gray-400'
+                    } hover:bg-gray-100 dark:hover:bg-zinc-800`}
+                  >
+                    <BrainCircuit size={18} />
+                    <span className="hidden md:inline">{t('homeView.expertMode')}</span>
                   </button>
                   <div className="relative" ref={homeSearchMenuRef}>
                     <button

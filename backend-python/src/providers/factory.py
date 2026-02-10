@@ -3,7 +3,6 @@ Provider adapter factory.
 Creates the appropriate adapter based on provider name.
 """
 
-from typing import Literal
 
 from .base import BaseProviderAdapter
 from .openai import OpenAIAdapter

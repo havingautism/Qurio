@@ -237,6 +237,7 @@ const ChatInterface = ({
   // New state for toggles and attachments
   const [isSearchActive, setIsSearchActive] = useState(false)
   const [isThinkingActive, setIsThinkingActive] = useState(false)
+  const [isExpertMode, setIsExpertMode] = useState(false)
   const [searchBackend, setSearchBackend] = useState(null)
   const [selectedSearchTools, setSelectedSearchTools] = useState([])
   const [isSearchMenuOpen, setIsSearchMenuOpen] = useState(false)
@@ -811,6 +812,7 @@ const ChatInterface = ({
         setSelectedSearchTools(initialAcademic.map(id => String(id)))
       }
       if (initialToggles.thinking) setIsThinkingActive(true)
+      if (initialToggles.expertMode) setIsExpertMode(true)
 
       // CRITICAL: Sync conversationId to store IMMEDIATELY before sending
       // This ensures sendMessage uses the correct conversation ID
@@ -1404,6 +1406,7 @@ const ChatInterface = ({
       const searchActive = togglesOverride ? togglesOverride.search : isSearchActive
       const thinkingActive = togglesOverride ? togglesOverride.thinking : isThinkingActive
       const relatedActive = togglesOverride ? togglesOverride.related : isRelatedEnabled
+      const expertModeActive = togglesOverride ? togglesOverride.expertMode : isExpertMode
       const searchTool = togglesOverride ? togglesOverride.searchTool : resolvedSearchToolIds
       const searchBackendValue = togglesOverride ? togglesOverride.searchBackend : searchBackend
 
@@ -1485,6 +1488,7 @@ const ChatInterface = ({
           searchTool,
           searchBackend: searchBackendValue || null,
           thinking: thinkingActive,
+          expertMode: expertModeActive,
           related: relatedActive,
         },
         settings,
@@ -1533,6 +1537,7 @@ const ChatInterface = ({
       isSearchActive,
       isThinkingActive,
       isRelatedEnabled,
+      isExpertMode,
       isLoading,
       editingIndex,
       editingTargetId,
@@ -1581,6 +1586,7 @@ const ChatInterface = ({
           searchTool: resolvedSearchToolIds,
           searchBackend,
           thinking: isThinkingActive,
+          expertMode: isExpertMode,
           related: isRelatedEnabled,
         },
         selectedAgent: agentForSend,
@@ -1594,6 +1600,7 @@ const ChatInterface = ({
       resolvedSearchToolIds,
       searchBackend,
       isThinkingActive,
+      isExpertMode,
       isRelatedEnabled,
       submitInteractiveForm,
       settings,
@@ -2113,6 +2120,8 @@ const ChatInterface = ({
               onSearchClear={handleClearSearchSelection}
               onSearchMenuClose={handleSearchMenuClose}
               onToggleThinking={() => setIsThinkingActive(prev => !prev)}
+              isExpertMode={isExpertMode}
+              onToggleExpertMode={() => setIsExpertMode(prev => !prev)}
               quotedText={quotedText}
               onQuoteClear={() => {
                 setQuotedText(null)

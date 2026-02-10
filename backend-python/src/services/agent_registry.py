@@ -6,14 +6,15 @@ from __future__ import annotations
 
 import os
 from types import SimpleNamespace
-from typing import Any, Dict, List
-from urllib.parse import quote_plus, urlparse
+from typing import Any
 
 from agno.agent import Agent
+
 # from agno.db.postgres import PostgresDb
 # from agno.memory import MemoryManager
 from agno.models.google import Gemini
 from agno.models.openai import OpenAILike
+
 # from agno.session.summary import SessionSummaryManager
 from agno.utils.log import logger
 
@@ -22,8 +23,7 @@ from .custom_tools import QurioLocalTools
 from .tool_registry import AGNO_TOOLS, LOCAL_TOOLS, resolve_tool_name
 from .user_tools import build_user_tools_toolkit
 
-
-DEFAULT_MODELS: Dict[str, str] = {
+DEFAULT_MODELS: dict[str, str] = {
     "openai": os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
     "openai_compatibility": os.getenv("OPENAI_COMPAT_MODEL", "gpt-4o-mini"),
     "siliconflow": os.getenv("SILICONFLOW_MODEL", "Qwen/Qwen2.5-7B-Instruct"),
@@ -35,7 +35,7 @@ DEFAULT_MODELS: Dict[str, str] = {
     "minimax": os.getenv("MINIMAX_MODEL", "minimax-m2"),
 }
 
-DEFAULT_BASE_URLS: Dict[str, str] = {
+DEFAULT_BASE_URLS: dict[str, str] = {
     "openai": os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"),
     "openai_compatibility": os.getenv("OPENAI_COMPAT_BASE_URL", "https://api.openai.com/v1"),
     "siliconflow": os.getenv("SILICONFLOW_BASE_URL", "https://api.siliconflow.cn/v1"),
@@ -204,7 +204,7 @@ def _build_tools(request: Any) -> list[Any]:
 
     local_tool_names = {tool["name"] for tool in LOCAL_TOOLS}
     include_local = sorted([name for name in enabled_names if name in local_tool_names])
-    tools: List[Any] = []
+    tools: list[Any] = []
 
     if include_local:
         tools.append(
@@ -328,24 +328,24 @@ def get_summary_model(request: Any) -> Any | None:
         lite_model = getattr(request, "summary_model", None) or settings.summary_lite_model
         lite_api_key = getattr(request, "summary_api_key", None) or settings.summary_agent_api_key
         lite_base_url = getattr(request, "summary_base_url", None) or settings.summary_lite_base_url
-        
+
         if not lite_model or not lite_api_key:
             logger.warning("Lite Model not configured (checked request summary_* params and SUMMARY_LITE_MODEL env var)")
             return None
-            
+
         source = "Request-Specific" if getattr(request, "summary_model", None) else "Global-Default"
         logger.info(f"[{source}] Selected Lite Model for Session Summary: {lite_provider}/{lite_model}")
-        
+
         # If no base_url provided, use the default for the provider
         resolved_base = lite_base_url or DEFAULT_BASE_URLS.get(lite_provider) or DEFAULT_BASE_URLS["openai"]
-        
+
         summary_model = _build_model(lite_provider, lite_api_key, resolved_base, lite_model)
-        
+
         # Disable native structured outputs for summary model to ensure robust parsing with non-OpenAI providers (like GLM)
         # This only affects this specific summary_model instance.
         if hasattr(summary_model, "supports_native_structured_outputs"):
             summary_model.supports_native_structured_outputs = False
-            
+
         return summary_model
 
     except Exception as exc:
@@ -397,9 +397,9 @@ def build_agent(request: Any = None, **kwargs: Any) -> Agent:
         )
 
     # 2. Agent Construction (Stateless / Manual Context)
-    # We do NOT inject 'db' or 'memory' here. 
+    # We do NOT inject 'db' or 'memory' here.
     # Session context (history + summary) is injected manually in stream_chat.py
-    
+
     return Agent(
         id=f"qurio-{request.provider}",
         name=f"Qurio {request.provider} Agent",

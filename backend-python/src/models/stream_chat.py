@@ -7,7 +7,6 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-
 # ================================================================================
 # Request Models
 # ================================================================================
@@ -107,7 +106,7 @@ class StreamChatRequest(BaseModel):
         default=None,
         alias="memoryDomainsPrefetch",
     )
-    
+
     # Session Summary Configuration (Separate from Memory)
     summary_provider: str | None = Field(default=None, alias="summaryProvider")
     summary_model: str | None = Field(default=None, alias="summaryModel")
@@ -120,7 +119,7 @@ class StreamChatRequest(BaseModel):
 
     # Internal use only: Structured Output schema (Agno v2)
     output_schema: Any | None = Field(default=None, exclude=True)
-    
+
     # Context and Session
     conversation_id: str | None = Field(default=None, alias="conversationId", description="Unique identifier for the conversation")
     model_config = {"populate_by_name": True}

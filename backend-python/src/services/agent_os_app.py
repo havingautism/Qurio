@@ -7,11 +7,11 @@ from __future__ import annotations
 import logging
 import os
 from types import SimpleNamespace
-from fastapi import FastAPI
-from fastapi.responses import JSONResponse
-from fastapi.middleware.cors import CORSMiddleware
 
 from agno.os import AgentOS
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 # Configure logging to see debug messages
 logging.basicConfig(
@@ -23,19 +23,29 @@ logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 from ..config import get_settings
 from ..routes import (
-    stream_chat as stream_chat_route,
-    daily_tip as daily_tip_route,
-    title as title_route,
-    title_and_space,
-    title_space_agent,
-    space_agent,
     agent_for_auto,
+    deep_research,
+    mcp_tools,
     related_questions,
     research_plan,
-    deep_research,
-    memory as memory_route,
-    mcp_tools,
+    space_agent,
+    title_and_space,
+    title_space_agent,
+)
+from ..routes import (
+    daily_tip as daily_tip_route,
+)
+from ..routes import (
     db as db_route,
+)
+from ..routes import (
+    memory as memory_route,
+)
+from ..routes import (
+    stream_chat as stream_chat_route,
+)
+from ..routes import (
+    title as title_route,
 )
 from .agent_registry import build_agent
 

@@ -13,7 +13,6 @@ from agno.utils.log import logger
 
 from ..config import get_settings
 
-
 ProviderType = Literal["supabase", "sqlite"]
 
 

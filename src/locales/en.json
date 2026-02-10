@@ -758,6 +758,7 @@
   "homeView": {
     "askAnything": "Ask anything...",
     "think": "Think",
+    "expertMode": "Expert Mode",
     "deepResearch": "Deep research",
     "deepResearchEntry": "Deep research",
     "deepResearchEntryHint": "Guided research form",

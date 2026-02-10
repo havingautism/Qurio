@@ -9,28 +9,26 @@ from __future__ import annotations
 
 import ast
 import json
-from types import SimpleNamespace
-from typing import Any, AsyncGenerator
-from types import SimpleNamespace
-from typing import Any, AsyncGenerator
 import uuid
-from agno.utils.log import logger
+from collections.abc import AsyncGenerator
+from types import SimpleNamespace
+from typing import Any
 
 from agno.agent import Agent
+from agno.utils.log import logger
 from agno.workflow import Workflow
 from agno.workflow.parallel import Parallel
-from agno.workflow.step import Step, StepInput, StepOutput
+from agno.workflow.step import Step
 
 from ..models.stream_chat import StreamChatRequest
 from ..prompts import (
-    GENERAL_FINAL_REPORT_PROMPT,
     ACADEMIC_FINAL_REPORT_PROMPT,
-    GENERAL_STEP_AGENT_PROMPT,
     ACADEMIC_STEP_AGENT_PROMPT,
+    GENERAL_FINAL_REPORT_PROMPT,
+    GENERAL_STEP_AGENT_PROMPT,
 )
 from ..services.stream_chat import get_stream_chat_service
-from .agent_registry import build_agent, _build_model, _apply_model_settings
-from .custom_tools import QurioLocalTools
+from .agent_registry import build_agent
 from .llm_utils import safe_json_parse
 from .research_plan import generate_academic_research_plan, generate_research_plan
 
@@ -363,9 +361,8 @@ async def stream_research_workflow(
         total_steps: Total number of research steps (required for proper step display)
         steps_meta: Optional list of plan steps to emit initial pending events
     """
-    import ast
-    import time
     import re
+    import time
 
     # Emit pending events for all steps if metadata is provided
     if steps_meta:
@@ -383,10 +380,10 @@ async def stream_research_workflow(
     # Track tool calls for timing
     # Map internal unique_id -> start_time
     active_tool_calls = {}
-    
+
     # Registry of active steps: step_name -> { number, title, start_time, content }
     active_steps_info = {}
-    
+
     # Scoped Tool ID Mapping: step_name -> { original_id: unique_id }
     step_tool_mappings = {}
 
@@ -413,7 +410,7 @@ async def stream_research_workflow(
             # Agno SDK uses step_name field (not name or description)
             step_name = getattr(event, "step_name", "")
             step_number = getattr(event, "step_index", None)
-            
+
             # Extract real step number from name (e.g. "Step 5: Analysis...")
             # This handles batched parallel execution where step_index resets for each batch
             name_match = re.match(r"^Step\s+(\d+):", step_name)
@@ -427,7 +424,7 @@ async def stream_research_workflow(
                 if isinstance(step_number, tuple):
                     step_number = step_number[1]
                 display_number = (step_number + 1) if step_number is not None else 1
-            
+
             # Map step_number to display_number for logging consistency
             step_number = display_number - 1 # approximate 0-based index
 
@@ -440,13 +437,13 @@ async def stream_research_workflow(
                 "start_time": time.time(),
                 "content": [] # Buffer for this step's thinking content
             }
-            
+
             # Update current context default (for sequential fallback)
             current_step_context = {
                 "number": display_number,
                 "title": step_name
             }
-            
+
             # Use data from active_steps if available, else fallback
             step_display_num = active_steps_info.get(step_name, {}).get("number", 1)
 
@@ -464,7 +461,7 @@ async def stream_research_workflow(
             # Agno SDK uses step_name field (not name or description)
             step_name = getattr(event, "step_name", "")
             step_number = getattr(event, "step_index", None)
-            
+
             # Extract real step number from name (e.g. "Step 5: Analysis...")
             name_match = re.match(r"^Step\s+(\d+):", step_name)
             if name_match:
@@ -473,9 +470,9 @@ async def stream_research_workflow(
                 if isinstance(step_number, tuple):
                     step_number = step_number[1]
                 display_number = (step_number + 1) if step_number is not None else 1
-                
+
             logger.info(f"DEBUG_EVENT: StepCompleted name={step_name} number={display_number}")
-            
+
             # Retrieve step info
             step_info = active_steps_info.get(step_name, {})
             step_num = step_info.get("number", current_step_context["number"] or 1)
@@ -526,8 +523,8 @@ async def stream_research_workflow(
             # Cleanup step context
             if step_name in active_steps_info:
                 del active_steps_info[step_name]
-            
-            # Global cleanup is minimized, we rely on scoped clear. 
+
+            # Global cleanup is minimized, we rely on scoped clear.
             # active_tool_calls.clear()  <-- Removing this global nuke to support parallel
             # tool_id_mapping.clear()    <-- Removing this global nuke to support parallel
         # Handle Agent run events
@@ -567,23 +564,23 @@ async def stream_research_workflow(
                 tool_id = getattr(event, "tool_call_id", getattr(event, "id", None))
                 tool_name = getattr(event, "tool_name", getattr(event, "name", "unknown"))
                 tool_args = getattr(event, "tool_args", getattr(event, "arguments", {}))
-            
+
             # Generate a unique ID to ensure frontend uniqueness and parallel safety
             # Kimi/Agno might reuse IDs like 'Tavily:0' across steps
             original_id = tool_id
             unique_id = f"{tool_name}_{uuid.uuid4().hex[:8]}"
-            
+
             # Identify which step this tool call belongs to
             # 1. Try to get step_name from event directly
             event_step_name = getattr(event, "step_name", None)
             target_step_name = None
-            
+
             if event_step_name and event_step_name in active_steps_info:
                 target_step_name = event_step_name
             elif len(active_steps_info) > 0:
                 # 2. Fallback: Assumption - if not specified, it belongs to the most recently started active step
                 target_step_name = list(active_steps_info.keys())[-1]
-            
+
             # Store mapping in the correct scope
             step_num_for_report = current_step_context["number"] or 1
             if target_step_name:
@@ -642,12 +639,12 @@ async def stream_research_workflow(
                 tool_name = getattr(event, "tool_name", getattr(event, "name", "unknown"))
                 result = getattr(event, "result", {})
                 tool_error = getattr(event, "error", getattr(event, "tool_call_error", None))
-            
+
             # Resolve to unique ID with Scoped Lookup
             original_id = tool_id
             unique_id = None
             found_step_name = None
-            
+
             # 1. Try direct lookup if step name known
             event_step_name = getattr(event, "step_name", None)
             if event_step_name and event_step_name in step_tool_mappings:
@@ -663,7 +660,7 @@ async def stream_research_workflow(
                          unique_id = uid
                          found_step_name = s_name
                          break
-            
+
             # Fallback if mapping lost
             if not unique_id:
                 unique_id = original_id or f"fallback_{uuid.uuid4().hex[:8]}"
@@ -675,7 +672,7 @@ async def stream_research_workflow(
             if unique_id and unique_id in active_tool_calls:
                 duration_ms = int((time.time() - active_tool_calls[unique_id]) * 1000)
                 del active_tool_calls[unique_id]
-            
+
             # Specific cleanup from mapping
             if found_step_name and found_step_name in step_tool_mappings:
                  map_key = original_id if original_id else "unknown_id"
@@ -684,7 +681,7 @@ async def stream_research_workflow(
                  # Safest for Kimi is to delete to prevent stale lookups, assuming 1 call = 1 event pair.
                  if map_key in step_tool_mappings[found_step_name]:
                      del step_tool_mappings[found_step_name][map_key]
-            
+
             # Determine correct step number
             step_num_for_report = active_steps_info.get(found_step_name, {}).get("number", current_step_context["number"] or 1)
 

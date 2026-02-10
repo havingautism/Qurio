@@ -75,12 +75,29 @@ const mapMessageFromApi = (m, effectiveDefaultModel, activeConversation) => {
   let thought = rawThought
   let researchPlan = null
   let thoughtHistory = undefined
+  let expertMode = false
+  let expertPlan = ''
+  let expertResponses = undefined
+  let expertActiveAgentId = null
   if (typeof rawThought === 'string') {
     try {
       const parsedThought = JSON.parse(rawThought)
       if (parsedThought && typeof parsedThought === 'object') {
         if (typeof parsedThought.thought === 'string') thought = parsedThought.thought
         if (typeof parsedThought.plan === 'string') researchPlan = parsedThought.plan
+        if (parsedThought.expertMode === true) expertMode = true
+        if (typeof parsedThought.expertPlan === 'string') expertPlan = parsedThought.expertPlan
+        if (typeof parsedThought.expertActiveAgentId === 'string') {
+          expertActiveAgentId = parsedThought.expertActiveAgentId
+        }
+        if (Array.isArray(parsedThought.expertResponses)) {
+          expertResponses = parsedThought.expertResponses
+            .map(item => ({
+              ...item,
+              task: typeof item?.task === 'string' ? item.task : '',
+            }))
+            .filter(item => item)
+        }
         const rawThoughtHistory = parsedThought.thoughtHistory || parsedThought.thought_history
         if (Array.isArray(rawThoughtHistory)) {
           thoughtHistory = rawThoughtHistory
@@ -154,6 +171,10 @@ const mapMessageFromApi = (m, effectiveDefaultModel, activeConversation) => {
     tool_calls: m.tool_calls || undefined,
     toolCallHistory,
     thoughtHistory,
+    expertMode,
+    expertPlan,
+    expertResponses,
+    expertActiveAgentId,
     hitlRunId: hitlMeta.hitlRunId,
     hitlFormId: hitlMeta.hitlFormId,
     hitlFormTitle: hitlMeta.hitlFormTitle,

@@ -6,6 +6,7 @@ import { getNodeEnv, getPublicEnv } from './lib/publicEnv'
 
 const HomeView = React.lazy(() => import('./views/HomeView'))
 const ConversationView = React.lazy(() => import('./views/ConversationView'))
+const ExpertConversationView = React.lazy(() => import('./views/ExpertConversationView'))
 const SpacesView = React.lazy(() => import('./views/SpacesView'))
 const AgentsView = React.lazy(() => import('./views/AgentsView'))
 const SpaceView = React.lazy(() => import('./views/SpaceView'))
@@ -87,6 +88,16 @@ export const conversationRoute = createRoute({
   component: () => (
     <SuspensePage>
       <ConversationView />
+    </SuspensePage>
+  ),
+})
+
+export const expertConversationRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: 'expert/$conversationId',
+  component: () => (
+    <SuspensePage>
+      <ExpertConversationView />
     </SuspensePage>
   ),
 })
@@ -175,6 +186,7 @@ export const routeTree = rootRoute.addChildren([
   homeRoute,
   newChatRoute,
   conversationRoute,
+  expertConversationRoute,
   deepResearchConversationRoute,
   spacesRoute,
   agentsRoute,

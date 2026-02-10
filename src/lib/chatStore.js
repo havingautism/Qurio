@@ -28,6 +28,7 @@ import { selectDocumentQuery } from './chat/contextService'
 import { fetchDocumentChunkContext } from './documentRetrievalService'
 import { formatDocumentAppendText } from './documentContextUtils'
 import { getMemoryDomains, upsertMemoryDomainSummary } from './longTermMemoryService'
+import { listSpaceAgents } from './spacesService'
 
 // Import constants
 import { DOCUMENT_RETRIEVAL_CHUNK_LIMIT, DOCUMENT_RETRIEVAL_TOP_CHUNKS } from './chat/constants'
@@ -38,6 +39,49 @@ import {
   getLanguageInstruction,
   applyLanguageInstructionToText,
 } from './chat/prompts'
+
+const parseJsonObjectFromText = raw => {
+  if (!raw || typeof raw !== 'string') return null
+  const trimmed = raw.trim()
+  if (!trimmed) return null
+  try {
+    const parsed = JSON.parse(trimmed)
+    return parsed && typeof parsed === 'object' ? parsed : null
+  } catch {}
+
+  const fencedMatch = trimmed.match(/```json\s*([\s\S]*?)```/i)
+  if (fencedMatch?.[1]) {
+    try {
+      const parsed = JSON.parse(fencedMatch[1].trim())
+      return parsed && typeof parsed === 'object' ? parsed : null
+    } catch {}
+  }
+  return null
+}
+
+const buildExpertPlanPrompt = ({ question, agents }) => {
+  const lines = (agents || []).map(agent => {
+    const description = String(agent?.description || '').trim()
+    return `- id: ${agent.id}, name: ${agent.name}${description ? `, desc: ${description}` : ''}`
+  })
+  return [
+    'You are an orchestrator for multi-agent expert execution.',
+    'Split the user request into DIFFERENT sub-questions, one per agent.',
+    'Each agent must receive a distinct sub-question (no duplicates, no same wording).',
+    'Return STRICT JSON only with this schema:',
+    '{"plan":"string","tasks":[{"agentId":"string","subQuestion":"string"}]}',
+    'Rules:',
+    '- tasks must include ALL provided agent ids exactly once',
+    '- each subQuestion should be concise, actionable, and unique',
+    '- do not write generic tasks like "answer from your perspective"',
+    '',
+    'Available agents:',
+    ...lines,
+    '',
+    'User question:',
+    question,
+  ].join('\n')
+}
 
 // ================================================================================
 // CHAT STORE HELPER FUNCTIONS
@@ -609,6 +653,370 @@ const useChatStore = create((set, get) => ({
     if (convId) {
       // Pass idsToDelete to persist function to ensure DB consistency
       await persistUserMessage(convId, editingInfo, userMessage.content, set, idsToDelete)
+    }
+
+    const isExpertMode = Boolean(resolvedToggles?.expertMode)
+    const selectedSpaceId = resolvedSpaceInfo?.selectedSpace?.id
+    if (isExpertMode && selectedSpaceId) {
+      try {
+        const { data: spaceAgentRows } = await listSpaceAgents(selectedSpaceId)
+        const spaceAgentIds = (spaceAgentRows || []).map(item => String(item.agent_id))
+        const expertAgents = (agents || []).filter(agent => spaceAgentIds.includes(String(agent.id)))
+
+        if (expertAgents.length >= 2) {
+          const expertMessageLocalId = `expert-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+          appendAIPlaceholder(resolvedAgent, resolvedToggles, [], set)
+          set(state => {
+            const updated = [...state.messages]
+            const lastMsgIndex = updated.length - 1
+            if (lastMsgIndex >= 0 && updated[lastMsgIndex].role === 'ai') {
+              updated[lastMsgIndex] = {
+                ...updated[lastMsgIndex],
+                localId: expertMessageLocalId,
+                expertMode: true,
+                expertPlanLoading: true,
+                expertPlan: '',
+                expertResponses: expertAgents.map(agent => ({
+                  agentId: agent.id,
+                  agentName: agent.name || '',
+                  agentEmoji: agent.emoji || '',
+                  task: '',
+                  provider: null,
+                  model: null,
+                  status: 'pending',
+                  content: '',
+                  error: null,
+                })),
+                expertActiveAgentId: String(expertAgents[0]?.id || ''),
+              }
+            }
+            return { messages: updated }
+          })
+
+          const updateExpertMessage = updater => {
+            set(state => {
+              const updated = [...state.messages]
+              const targetIndex = updated.findIndex(
+                msg => msg.role === 'ai' && msg.localId === expertMessageLocalId,
+              )
+              if (targetIndex < 0) return { messages: updated }
+              const current = { ...updated[targetIndex] }
+              updated[targetIndex] = updater(current)
+              return { messages: updated }
+            })
+          }
+
+          let expertPlan = ''
+          let plannedTasks = []
+          try {
+            const fallbackAgent = agents?.find(agent => agent.isDefault)
+            const planModelConfig = getModelConfigForAgent(
+              resolvedAgent,
+              settings,
+              'lite',
+              fallbackAgent,
+            )
+            const planProvider = getProvider(planModelConfig.provider)
+            const planCredentials = planProvider.getCredentials(settings)
+            if (planProvider.generateResearchPlan && planModelConfig.model) {
+              const prompt = buildExpertPlanPrompt({
+                question: text.trim(),
+                agents: expertAgents.map(agent => ({
+                  id: String(agent.id),
+                  name: String(agent.name || ''),
+                  description: String(agent.description || ''),
+                })),
+              })
+              const rawPlan = await planProvider.generateResearchPlan(
+                prompt,
+                planCredentials.apiKey,
+                planCredentials.baseUrl,
+                planModelConfig.model,
+                'general',
+              )
+              const parsed = parseJsonObjectFromText(rawPlan)
+              if (parsed && typeof parsed === 'object') {
+                expertPlan = typeof parsed.plan === 'string' ? parsed.plan : ''
+                if (Array.isArray(parsed.tasks)) {
+                  plannedTasks = parsed.tasks
+                    .map(item => ({
+                      agentId: String(item?.agentId || ''),
+                      task: String(item?.subQuestion || item?.task || '').trim(),
+                    }))
+                    .filter(item => item.agentId && item.task)
+                }
+              } else {
+                expertPlan = typeof rawPlan === 'string' ? rawPlan : ''
+              }
+            }
+          } catch (error) {
+            console.error('Expert plan generation failed:', error)
+          }
+
+          if (plannedTasks.length === 0) {
+            plannedTasks = expertAgents.map(agent => ({
+              agentId: String(agent.id),
+              task: `Focus only on the ${agent.name || 'assigned'} sub-problem and propose concrete steps.`,
+            }))
+          }
+
+          const assignedSet = new Set(plannedTasks.map(item => String(item.agentId)))
+          for (const agent of expertAgents) {
+            const key = String(agent.id)
+            if (assignedSet.has(key)) continue
+            plannedTasks.push({
+              agentId: key,
+              task: `Only address the ${agent.name || 'assigned'} part of the overall request with actionable output.`,
+            })
+          }
+          if (!expertPlan) {
+            expertPlan = plannedTasks
+              .map(task => {
+                const agent = expertAgents.find(item => String(item.id) === String(task.agentId))
+                return `${agent?.name || task.agentId}: ${task.task}`
+              })
+              .join('\n')
+          }
+
+          updateExpertMessage(current => ({
+            ...current,
+            expertPlanLoading: false,
+            expertPlan,
+            expertResponses: (current.expertResponses || []).map(item => ({
+              ...item,
+              task:
+                plannedTasks.find(task => String(task.agentId) === String(item.agentId))?.task || '',
+              status: plannedTasks.some(task => String(task.agentId) === String(item.agentId))
+                ? 'running'
+                : 'pending',
+            })),
+          }))
+
+          const combinedContextAppend = [documentContextAppend].filter(Boolean).join('\n\n')
+          const { payloadContent } = buildUserMessage(
+            text,
+            attachments,
+            quoteContext,
+            combinedContextAppend,
+          )
+          const userMessageForSend = { ...userMessage, content: payloadContent }
+          const fallbackAgent = agents.find(agent => agent.isDefault)
+          const searchToolForExpert = resolvedToggles?.search ? resolvedToggles?.searchTool : []
+
+          const controller = new AbortController()
+          set({ abortController: controller })
+
+          const runAgentTask = async agent => {
+            const assignedTask = plannedTasks.find(
+              item => String(item.agentId) === String(agent.id),
+            )?.task
+            const modelConfig = getModelConfigForAgent(
+              agent,
+              settings,
+              'streamChatCompletion',
+              fallbackAgent,
+            )
+            const provider = getProvider(modelConfig.provider)
+            const credentials = provider.getCredentials(settings)
+            const languageInstruction = getLanguageInstruction(agent, settings)
+            const taskPrompt = assignedTask
+              ? `You are assigned this sub-question only:\n${assignedTask}\n\nConstraints:\n- Answer only this sub-question.\n- Do not cover other agents' topics.\n- Return practical, implementation-ready guidance.`
+              : text
+            const promptText = applyLanguageInstructionToText(taskPrompt, languageInstruction)
+            const taskUserMessage = { ...userMessageForSend, content: promptText }
+            const taskMessages = buildConversationMessages(historyForSend, taskUserMessage, agent, settings)
+
+            updateExpertMessage(current => ({
+              ...current,
+              expertResponses: (current.expertResponses || []).map(item =>
+                String(item.agentId) === String(agent.id)
+                  ? {
+                      ...item,
+                      provider: modelConfig.provider,
+                      model: modelConfig.model,
+                      status: 'running',
+                    }
+                  : item,
+              ),
+            }))
+
+            return new Promise(resolve => {
+              provider
+                .streamChatCompletion({
+                  ...credentials,
+                  model: modelConfig.model,
+                  messages: taskMessages.map(message => ({
+                    role: message.role === 'ai' ? 'assistant' : message.role,
+                    content: message.content,
+                  })),
+                  tools: provider.getTools(
+                    Boolean(resolvedToggles?.search),
+                    searchToolForExpert,
+                    false,
+                  ),
+                  thinking: provider.getThinking(Boolean(resolvedToggles?.thinking), modelConfig.model),
+                  signal: controller.signal,
+                  onChunk: chunk => {
+                    let chunkText = ''
+                    if (typeof chunk === 'string') {
+                      chunkText = chunk
+                    } else if (chunk && typeof chunk === 'object') {
+                      if (chunk.type === 'text' && typeof chunk.content === 'string') {
+                        chunkText = chunk.content
+                      } else if (typeof chunk.content === 'string') {
+                        chunkText = chunk.content
+                      } else if (typeof chunk.text === 'string') {
+                        chunkText = chunk.text
+                      } else if (typeof chunk.delta === 'string') {
+                        chunkText = chunk.delta
+                      } else if (typeof chunk.delta?.content === 'string') {
+                        chunkText = chunk.delta.content
+                      } else if (typeof chunk.message?.content === 'string') {
+                        chunkText = chunk.message.content
+                      } else if (typeof chunk.choices?.[0]?.delta?.content === 'string') {
+                        chunkText = chunk.choices[0].delta.content
+                      }
+                    }
+                    if (!chunkText) return
+                    updateExpertMessage(current => ({
+                      ...current,
+                      expertResponses: (current.expertResponses || []).map(item =>
+                        String(item.agentId) === String(agent.id)
+                          ? { ...item, content: `${item.content || ''}${chunkText}` }
+                          : item,
+                      ),
+                    }))
+                  },
+                  onFinish: result => {
+                    const finalText =
+                      typeof result?.content === 'string' ? result.content : undefined
+                    updateExpertMessage(current => ({
+                      ...current,
+                      expertResponses: (current.expertResponses || []).map(item =>
+                        String(item.agentId) === String(agent.id)
+                          ? {
+                              ...item,
+                              status: 'done',
+                              content: finalText ?? item.content ?? '',
+                            }
+                          : item,
+                      ),
+                    }))
+                    resolve()
+                  },
+                  onError: error => {
+                    updateExpertMessage(current => ({
+                      ...current,
+                      expertResponses: (current.expertResponses || []).map(item =>
+                        String(item.agentId) === String(agent.id)
+                          ? {
+                              ...item,
+                              status: 'error',
+                              error: error?.message || 'Failed',
+                            }
+                          : item,
+                      ),
+                    }))
+                    resolve()
+                  },
+                })
+                .catch(error => {
+                  updateExpertMessage(current => ({
+                    ...current,
+                    expertResponses: (current.expertResponses || []).map(item =>
+                      String(item.agentId) === String(agent.id)
+                        ? {
+                            ...item,
+                            status: 'error',
+                            error: error?.message || 'Failed',
+                          }
+                        : item,
+                    ),
+                  }))
+                  resolve()
+                })
+            })
+          }
+
+          await Promise.all(expertAgents.map(runAgentTask))
+
+          const finalMessage = (get().messages || []).find(
+            msg => msg.role === 'ai' && msg.localId === expertMessageLocalId,
+          )
+          const finalResponses = Array.isArray(finalMessage?.expertResponses)
+            ? finalMessage.expertResponses
+            : []
+          const preferredResponse =
+            finalResponses.find(item => item.status === 'done' && item.content?.trim()) ||
+            finalResponses.find(item => item.content?.trim()) ||
+            null
+          const fallbackText = preferredResponse?.content || 'All expert agents failed to respond.'
+          const activeAgentId = String(
+            preferredResponse?.agentId || finalResponses[0]?.agentId || expertAgents[0]?.id || '',
+          )
+
+          updateExpertMessage(current => ({
+            ...current,
+            content: fallbackText,
+            expertPlanLoading: false,
+            expertActiveAgentId: activeAgentId,
+          }))
+
+          const expertThinkingPayload = JSON.stringify({
+            expertMode: true,
+            expertPlan,
+            expertResponses: finalResponses,
+            expertActiveAgentId: activeAgentId,
+          })
+          const aiPayload = {
+            conversation_id: convId,
+            role: 'assistant',
+            provider: resolvedAgent?.provider || fallbackAgent?.provider || '',
+            model:
+              resolvedAgent?.defaultModel ||
+              resolvedAgent?.default_model ||
+              fallbackAgent?.defaultModel ||
+              '',
+            agent_id: resolvedAgent?.id || null,
+            agent_name: resolvedAgent?.name || null,
+            agent_emoji: resolvedAgent?.emoji || '',
+            agent_is_default: !!resolvedAgent?.isDefault,
+            content: sanitizeJson(fallbackText),
+            thinking_process: expertThinkingPayload,
+            tool_call_history: sanitizeJson([]),
+            document_sources: sanitizeJson(null),
+            created_at: new Date().toISOString(),
+          }
+          const { data: insertedAi } = await addMessage(aiPayload)
+
+          if (insertedAi?.id) {
+            updateExpertMessage(current => ({
+              ...current,
+              id: insertedAi.id,
+              created_at: insertedAi.created_at,
+            }))
+          }
+
+          if (convId) {
+            try {
+              await updateConversation(convId, {
+                space_id: resolvedSpaceInfo?.selectedSpace?.id || null,
+                api_provider: resolvedAgent?.provider || fallbackAgent?.provider || '',
+                last_agent_id: resolvedAgent?.id || null,
+                agent_selection_mode: isAgentAutoMode ? 'auto' : 'manual',
+              })
+              notifyConversationsChanged()
+            } catch (error) {
+              console.error('Failed to update conversation after expert mode:', error)
+            }
+          }
+
+          set({ abortController: null, isLoading: false })
+          return
+        }
+      } catch (error) {
+        console.error('Expert mode execution failed, fallback to normal mode:', error)
+      }
     }
 
     const baseDocumentSources = Array.isArray(documentSources) ? documentSources : []

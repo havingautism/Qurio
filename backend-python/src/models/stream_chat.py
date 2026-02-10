@@ -146,12 +146,17 @@ class TextEvent(BaseModel):
 
 class ThoughtEvent(BaseModel):
     """Thought/reasoning content event."""
+    model_config = {"populate_by_name": True}
+    
     type: Literal["thought"] = "thought"
     content: str
+    text_index: int | None = Field(default=None, alias="textIndex")
 
 
 class ToolCallEvent(BaseModel):
     """Tool call event."""
+    model_config = {"populate_by_name": True}
+    
     type: Literal["tool_call"] = Field(default="tool_call", alias="type")
     id: str | None = None
     name: str

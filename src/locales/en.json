@@ -636,7 +636,10 @@
       "testMissingKey": "Missing API key for this provider.",
       "testTimeout": "Test timed out.",
       "testInvalidJson": "Structured output is not valid JSON.",
-      "testFailed": "Test failed: {{message}}"
+      "testFailed": "Test failed: {{message}}",
+      "syncGlobal": "Sync Global Settings",
+      "syncGlobalHint": "Apply the global chat model configuration to this agent.",
+      "applyGlobalSettings": "Apply Global Settings"
     },
     "advanced": {
       "title": "Advanced",

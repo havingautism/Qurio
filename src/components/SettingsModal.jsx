@@ -42,6 +42,7 @@ import Logo from './Logo'
 import { useAppContext } from '../App'
 import { upsertMemoryDomainSummary, ensureLongTermMemoryIndex } from '../lib/longTermMemoryService'
 import { getProvider } from '../lib/providers'
+import { FALLBACK_MODEL_OPTIONS, PROVIDER_KEYS } from '../lib/modelConstants'
 import MemoryTable from './MemoryTable'
 import { useToast } from '../contexts/ToastContext'
 
@@ -350,17 +351,6 @@ FOR EACH ROW EXECUTE PROCEDURE public.set_updated_at();
 -- CREATE POLICY "Allow all actions for authenticated users" ON public.user_settings FOR ALL USING (auth.role() = 'authenticated');
 `
 
-// Constant keys for logic - labels will be translated with useMemo
-const PROVIDER_KEYS = [
-  'gemini',
-  'openai_compatibility',
-  'siliconflow',
-  'nvidia',
-  'minimax',
-  'glm',
-  'modelscope',
-  'kimi',
-]
 const TOOLS_API_PROVIDER_KEYS = ['tavily']
 
 const INTERFACE_LANGUAGE_KEYS = ['en', 'zh-CN']
@@ -1898,49 +1888,6 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
     setIsChatModelsLoading(false)
   }
 
-  const handleApplyToAllAgents = async () => {
-    if (!defaultModel && !liteModel) {
-      toast.info(t('settings.models.pleaseSelectGlobalFirst'))
-      return
-    }
-
-    showConfirmation({
-      title: t('settings.models.modelConfiguration'),
-      message: t('settings.models.confirmApplyToAll'),
-      confirmText: t('confirmation.confirm'),
-      cancelText: t('confirmation.cancel'),
-      isDangerous: true,
-      onConfirm: async () => {
-        setIsSaving(true)
-        try {
-          const { listAgents, updateAgent } = await import('../lib/agentsService')
-          const { data: currentAgents } = await listAgents()
-
-          const promises = (currentAgents || []).map(agent =>
-            updateAgent(agent.id, {
-              provider: defaultModelProvider || apiProvider,
-              defaultModelProvider: defaultModelProvider || apiProvider,
-              liteModelProvider: liteModelProvider || apiProvider,
-              defaultModel: defaultModelSource === 'list' ? defaultModel : defaultCustomModel,
-              liteModel: liteModelSource === 'list' ? liteModel : liteCustomModel,
-              defaultModelSource,
-              liteModelSource,
-            }),
-          )
-
-          await Promise.all(promises)
-          window.dispatchEvent(new Event('agents-changed'))
-          toast.success(t('settings.models.applyToAllSuccess'))
-        } catch (err) {
-          console.error('Failed to apply global models to all agents:', err)
-          toast.error(t('settings.models.applyToAllError'))
-        } finally {
-          setIsSaving(false)
-        }
-      },
-    })
-  }
-
   useEffect(() => {
     if (isOpen && activeTab === 'model') {
       loadEmbeddingModels()
@@ -3053,18 +3000,6 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                         message: liteTestAction.message,
                       },
                     })}
-                  </div>
-
-                  <div className="pt-2">
-                    <button
-                      type="button"
-                      onClick={handleApplyToAllAgents}
-                      disabled={isSaving || (!defaultModel && !liteModel)}
-                      className="inline-flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
-                    >
-                      {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Box size={14} />}
-                      {t('settings.applyToAllAgents')}
-                    </button>
                   </div>
                 </div>
 

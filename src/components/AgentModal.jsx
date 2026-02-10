@@ -46,63 +46,12 @@ import {
 import { SILICONFLOW_BASE_URL } from '../lib/providerConstants'
 import { getModelIcon, getModelIconClassName, renderProviderIcon } from '../lib/modelIcons'
 import { getProvider } from '../lib/providers'
+import { FALLBACK_MODEL_OPTIONS, PROVIDER_KEYS } from '../lib/modelConstants'
 import { getPublicEnv } from '../lib/publicEnv'
 import { listToolsViaBackend } from '../lib/backendClient'
 import { getUserTools } from '../lib/userToolsService'
 import { TOOL_TRANSLATION_KEYS, TOOL_ICONS, TOOL_INFO_KEYS } from '../lib/toolConstants'
 import { isQuickSearchTool } from '../lib/searchTools'
-
-// Logic reused from SettingsModal
-const FALLBACK_MODEL_OPTIONS = {
-  gemini: [
-    { value: 'gemini-2.0-flash-exp', label: 'Gemini 2.0 Flash Exp' },
-    { value: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro' },
-    { value: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash' },
-    { value: 'gemini-1.5-flash-8b', label: 'Gemini 1.5 Flash 8B' },
-  ],
-  openai_compatibility: [
-    { value: 'gpt-4o', label: 'gpt-4o' },
-    { value: 'gpt-4o-mini', label: 'gpt-4o-mini' },
-  ],
-  siliconflow: [
-    { value: 'deepseek-ai/DeepSeek-V2.5', label: 'DeepSeek V2.5' },
-    { value: 'deepseek-ai/DeepSeek-Coder-V2', label: 'DeepSeek Coder V2' },
-  ],
-  glm: [
-    { value: 'glm-4', label: 'GLM-4' },
-    { value: 'glm-4-flash', label: 'GLM-4 Flash' },
-  ],
-  nvidia: [
-    { value: 'moonshotai/kimi-k2.5', label: 'kimi-k2.5' },
-    { value: 'moonshotai/kimi-k2-thinking', label: 'kimi-k2-thinking' },
-    { value: 'minimaxai/minimax-m2.1', label: 'minimax-m2.1' },
-    { value: 'minimaxai/minimax-m2', label: 'minimax-m2' },
-    { value: 'stepfun-ai/step-3.5-flash', label: 'step-3.5-flash' },
-    { value: 'deepseek-ai/deepseek-v3.2', label: 'deepseek-v3.2' },
-    { value: 'deepseek-ai/deepseek-v3.1-terminus', label: 'deepseek-v3.1-terminus' },
-    { value: 'moonshotai/kimi-k2-instruct-0905', label: 'kimi-k2-instruct-0905' },
-    { value: 'moonshotai/kimi-k2-instruct', label: 'kimi-k2-instruct' },
-    { value: 'qwen/qwen3-next-80b-a3b-instruct', label: 'qwen3-next-80b-a3b-instruct' },
-  ],
-  minimax: [{ value: 'MiniMax-M2.1', label: 'MiniMax M2.1' }],
-  modelscope: [],
-  kimi: [
-    { value: 'moonshot-v1-8k', label: 'Moonshot V1 8K' },
-    { value: 'moonshot-v1-32k', label: 'Moonshot V1 32K' },
-  ],
-  __fallback__: [],
-}
-
-const PROVIDER_KEYS = [
-  'gemini',
-  'openai_compatibility',
-  'siliconflow',
-  'nvidia',
-  'minimax',
-  'glm',
-  'modelscope',
-  'kimi',
-]
 
 // Personalization Constants
 const LLM_ANSWER_LANGUAGE_KEYS = [
@@ -591,6 +540,37 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
       setError(err.message || t('agents.errors.saveFailed'))
     } finally {
       setIsSaving(false)
+    }
+  }
+
+  const handleApplyGlobalModels = () => {
+    const settings = loadSettings()
+    if (!settings.defaultModel && !settings.liteModel) {
+      // Maybe some fallback toast here?
+      return
+    }
+
+    if (settings.defaultModel) {
+      setDefaultModel(settings.defaultModel)
+      setDefaultModelProvider(settings.defaultModelProvider || '')
+      setDefaultModelSource(settings.defaultModelSource || 'list')
+      if (settings.defaultModelSource === 'custom') {
+        setDefaultCustomModel(settings.defaultModel)
+      }
+    }
+
+    if (settings.liteModel) {
+      setLiteModel(settings.liteModel)
+      setLiteModelProvider(settings.liteModelProvider || '')
+      setLiteModelSource(settings.liteModelSource || 'list')
+      if (settings.liteModelSource === 'custom') {
+        setLiteCustomModel(settings.liteModel)
+      }
+    }
+
+    // Also update current provider if we have a default model provider
+    if (settings.defaultModelProvider) {
+      setProvider(settings.defaultModelProvider)
     }
   }
 
@@ -1422,6 +1402,25 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                       >
                         <RefreshCw size={14} />
                         {t('agents.model.refresh')}
+                      </button>
+                    </div>
+
+                    <div className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50/50 p-3 dark:border-zinc-800 dark:bg-zinc-800/50">
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-sm font-medium text-gray-900 dark:text-white">
+                          {t('agents.model.syncGlobal')}
+                        </span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          {t('agents.model.syncGlobalHint')}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleApplyGlobalModels}
+                        className="flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                      >
+                        <Settings size={14} className="text-gray-400" />
+                        {t('agents.model.applyGlobalSettings')}
                       </button>
                     </div>
 

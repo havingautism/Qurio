@@ -621,7 +621,10 @@
       "testMissingKey": "该 Provider 缺少 API Key。",
       "testTimeout": "测试超时。",
       "testInvalidJson": "结构化输出不是有效的 JSON。",
-      "testFailed": "测试失败：{{message}}"
+      "testFailed": "测试失败：{{message}}",
+      "syncGlobal": "同步全局设置",
+      "syncGlobalHint": "将全局对话模型配置应用到此智能体。",
+      "applyGlobalSettings": "应用全局设置"
     },
     "advanced": {
       "title": "高级设定",

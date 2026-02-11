@@ -19,6 +19,7 @@ import DotLoader from '../DotLoader'
  * @param {function} props.setIsSelectorOpen - Set space selector open state
  * @param {object} props.selectorRef - Ref for space selector dropdown
  * @param {boolean} props.isDeepResearchConversation - Whether this is a deep research conversation
+ * @param {boolean} props.isSpaceSelectionLocked - Whether space selection is locked
  * @param {function} props.onSelectSpace - Callback when space is selected
  * @param {function} props.onClearSpaceSelection - Callback when space selection is cleared
  * @param {string} props.conversationTitle - Current conversation title
@@ -47,6 +48,7 @@ const ChatHeader = ({
   setIsSelectorOpen,
   selectorRef,
   isDeepResearchConversation,
+  isSpaceSelectionLocked = false,
   onSelectSpace,
   onClearSpaceSelection,
   conversationTitle,
@@ -60,6 +62,7 @@ const ChatHeader = ({
   onToggleTimeline,
 }) => {
   const { t } = useTranslation()
+  const isSelectorLocked = isDeepResearchConversation || isSpaceSelectionLocked
   const [isTitleBubbleOpen, setIsTitleBubbleOpen] = useState(false)
   const titleBubbleRef = useRef(null)
   // const [emojiTick, setEmojiTick] = useState(0)
@@ -135,13 +138,13 @@ const ChatHeader = ({
               <button
                 onMouseDown={e => {
                   e.stopPropagation()
-                  if (isDeepResearchConversation) return
+                  if (isSelectorLocked) return
                   setIsSelectorOpen(prev => !prev)
                 }}
                 className={`flex h-12 items-center gap-2 rounded-full border border-gray-200/50 py-2 pr-3 pl-3 text-sm font-medium shadow-sm backdrop-blur-xl transition-all dark:border-zinc-800/50 ${
-                  isDeepResearchConversation
+                  isSelectorLocked
                     ? 'cursor-not-allowed bg-gray-100/80 text-gray-500 dark:bg-zinc-800/80 dark:text-gray-400'
-                    : 'bg-white/90 text-gray-700 hover:bg-white hover:shadow-md dark:bg-zinc-900/90 dark:text-gray-200 dark:hover:bg-zinc-900'
+                    : 'bg-white/90 text-gray-700 hover:scale-105 hover:bg-white hover:shadow-md active:scale-95 dark:bg-zinc-900/90 dark:text-gray-200 dark:hover:bg-zinc-900'
                 }`}
               >
                 {isMetaLoading ? (
@@ -160,11 +163,11 @@ const ChatHeader = ({
                 ) : (
                   <span className="text-xs text-gray-500">None</span>
                 )}
-                <ChevronDown size={14} className="ml-0.5 text-gray-400" />
+                {!isSelectorLocked && <ChevronDown size={14} className="ml-0.5 text-gray-400" />}
               </button>
 
               {/* Dropdown */}
-              {isSelectorOpen && (
+              {!isSelectorLocked && isSelectorOpen && (
                 <div
                   className="absolute top-full left-0 z-50 mt-2 w-64 overflow-hidden rounded-2xl border border-gray-200/50 bg-white/95 shadow-xl backdrop-blur-xl dark:border-zinc-700/50 dark:bg-[#18181b]/95"
                   onMouseDown={e => e.stopPropagation()}
@@ -209,7 +212,7 @@ const ChatHeader = ({
             {/* Title - Floating Pill Style */}
             <div
               ref={titleBubbleRef}
-              className="group relative z-10 flex h-12 min-w-0 items-center gap-1 rounded-full border border-gray-200/50 bg-white/90 py-1.5 pr-2 pl-4 shadow-sm backdrop-blur-xl transition-all hover:bg-white hover:shadow-md dark:border-zinc-800/50 dark:bg-zinc-900/90 dark:hover:bg-zinc-900"
+              className="group relative z-10 flex h-12 min-w-0 items-center gap-1 rounded-full border border-gray-200/50 bg-white/90 py-1.5 pr-2 pl-4 shadow-sm backdrop-blur-xl transition-all hover:scale-105 hover:bg-white hover:shadow-md active:scale-95 dark:border-zinc-800/50 dark:bg-zinc-900/90 dark:hover:bg-zinc-900"
             >
               <h1 className="flex min-w-0 items-center gap-2 truncate font-medium text-gray-800 dark:text-gray-100">
                 {isTitleLoading || isMetaLoading ? (
@@ -229,9 +232,7 @@ const ChatHeader = ({
                     {activeEmoji && (
                       <EmojiDisplay emoji={activeEmoji} size="1.2rem" className="mb-0.5" />
                     )}
-                    <span className="truncate text-base sm:text-lg">
-                      {resolvedTitle}
-                    </span>
+                    <span className="truncate text-base sm:text-lg">{resolvedTitle}</span>
                   </button>
                 )}
                 {isRegeneratingTitle && (
@@ -243,7 +244,7 @@ const ChatHeader = ({
               <button
                 onClick={onRegenerateTitle}
                 disabled={isRegeneratingTitle || messages.length === 0}
-                className="shrink-0 rounded-full p-1.5 text-gray-400 opacity-100 transition-all hover:bg-gray-100 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-zinc-800 dark:hover:text-gray-300"
+                className="shrink-0 rounded-full p-1.5 text-gray-400 opacity-100 transition-all hover:scale-110 hover:bg-gray-100 hover:text-gray-600 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 dark:text-gray-500 dark:hover:bg-zinc-800 dark:hover:text-gray-300"
                 title={t('chatInterface.regenerateTitle')}
               >
                 <Sparkles size={14} />
@@ -270,7 +271,7 @@ const ChatHeader = ({
           {!isTimelineSidebarOpen && (
             <button
               onClick={onToggleTimeline}
-              className="relative z-10 inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-gray-200/50 bg-white/90 p-0 leading-none text-gray-600 shadow-sm backdrop-blur-xl transition-all hover:bg-white hover:shadow-md xl:hidden dark:border-zinc-800/50 dark:bg-zinc-900/90 dark:text-gray-300 dark:hover:bg-zinc-900"
+              className="relative z-10 inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-gray-200/50 bg-white/90 p-0 leading-none text-gray-600 shadow-sm backdrop-blur-xl transition-all hover:scale-110 hover:bg-white hover:shadow-md active:scale-95 xl:hidden dark:border-zinc-800/50 dark:bg-zinc-900/90 dark:text-gray-300 dark:hover:bg-zinc-900"
               title={t('chatInterface.openTimeline')}
             >
               <PanelRightOpen size={21} className="block" />

@@ -104,6 +104,7 @@ const ChatInterface = ({
   initialIsAgentAutoMode = true,
   onTitleAndSpaceGenerated,
   isSidebarPinned = false,
+  isSpaceSelectionLocked = false,
 }) => {
   const normalizeTitleEmojis = value => {
     if (Array.isArray(value)) {
@@ -1505,6 +1506,7 @@ const ChatInterface = ({
         callbacks: {
           onTitleAndSpaceGenerated,
           onSpaceResolved: space => {
+            if (isSpaceSelectionLocked) return
             setSelectedSpace(space)
             setIsManualSpaceSelection(false)
           },
@@ -1551,6 +1553,7 @@ const ChatInterface = ({
       defaultAgent,
       isManualSpaceSelection,
       onTitleAndSpaceGenerated,
+      isSpaceSelectionLocked,
       spaces,
       quoteContext,
       resolvedSearchToolIds,
@@ -1976,6 +1979,7 @@ const ChatInterface = ({
           setIsSelectorOpen={setIsSelectorOpen}
           selectorRef={selectorRef}
           isDeepResearchConversation={false}
+          isSpaceSelectionLocked={isSpaceSelectionLocked}
           onSelectSpace={handleSelectSpace}
           onClearSpaceSelection={handleClearSpaceSelection}
           conversationTitle={conversationTitle}

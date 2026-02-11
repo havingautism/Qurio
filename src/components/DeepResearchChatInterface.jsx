@@ -37,6 +37,7 @@ const DeepResearchChatInterface = ({
   initialIsAgentAutoMode = true,
   onTitleAndSpaceGenerated,
   isSidebarPinned = false,
+  isSpaceSelectionLocked = false,
   researchType = 'general', // Add researchType prop
   responseLanguage = null,
 }) => {
@@ -185,6 +186,7 @@ const DeepResearchChatInterface = ({
     deepResearchSpace,
     conversationId,
   })
+  const shouldLockSpaceSelection = isSpaceSelectionLocked || isDeepResearchConversation
 
   // Agent management hook
   const {
@@ -1241,6 +1243,7 @@ const DeepResearchChatInterface = ({
         callbacks: {
           onTitleAndSpaceGenerated,
           onSpaceResolved: space => {
+            if (shouldLockSpaceSelection) return
             // Assuming `isMobile` and `toggleSidebar` are defined elsewhere if needed
             // Original logic: setSelectedSpace(space); setIsManualSpaceSelection(false);
             // If the user intended to replace with mobile-specific logic, it should be handled.
@@ -1282,6 +1285,7 @@ const DeepResearchChatInterface = ({
       defaultAgent,
       isManualSpaceSelection,
       onTitleAndSpaceGenerated,
+      shouldLockSpaceSelection,
       spaces,
       quoteContext,
       appAgents,
@@ -1612,6 +1616,7 @@ const DeepResearchChatInterface = ({
           setIsSelectorOpen={setIsSelectorOpen}
           selectorRef={selectorRef}
           isDeepResearchConversation={isDeepResearchConversation}
+          isSpaceSelectionLocked={shouldLockSpaceSelection}
           onSelectSpace={handleSelectSpace}
           onClearSpaceSelection={handleClearSpaceSelection}
           conversationTitle={conversationTitle}

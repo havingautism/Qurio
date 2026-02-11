@@ -320,7 +320,7 @@
 
 .dark {
   /* Dynamic background variables injected by src/lib/themes.js */
-  --background: #141414;
+  --background: #0d0d0d;
   --foreground: #e5e7eb;
   /* stone-950 */
   --sidebar: #141414;

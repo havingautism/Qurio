@@ -1633,7 +1633,7 @@ const DeepResearchChatInterface = ({
           ref={messagesContainerRef}
           className="no-scrollbar relative flex-1 overflow-x-hidden overflow-y-auto sm:p-2"
         >
-          <div className="mx-auto w-full max-w-3xl px-0 sm:px-5">
+          <div className="mx-auto w-full max-w-3xl px-0 pt-16 sm:px-5 sm:pt-0">
             {showHistoryLoader && (
               <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
                 <FancyLoader />

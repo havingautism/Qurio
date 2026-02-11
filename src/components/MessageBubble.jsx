@@ -1583,7 +1583,7 @@ const MessageBubble = ({
       return (
         <div
           key={part.key || `workflow-text-${idx}`}
-          className="mb-3 rounded-xl border border-gray-200/80 bg-gray-50/70 px-3.5 py-3 text-sm leading-relaxed text-gray-700 dark:border-zinc-700/70 dark:bg-zinc-800/45 dark:text-gray-300"
+          className="mb-3 rounded-xl border border-primary-200/45 bg-primary-50/30 px-3.5 py-3 text-sm leading-relaxed text-gray-700 dark:border-primary-700/25 dark:bg-primary-900/12 dark:text-gray-300"
         >
           <Streamdown
             mermaid={mermaidOptions}
@@ -1604,14 +1604,14 @@ const MessageBubble = ({
       return (
         <div key={part.key || `thought-inline-${idx}`} className="mb-3">
           {showThoughtHeading && (
-            <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
+            <div className="flex items-center gap-2 text-gray-600 dark:text-gray-300">
               <Brain
                 size={14}
                 className={clsx(
                   'transition-colors',
                   isThinking
                     ? 'text-primary-500 animate-pulse'
-                    : 'text-gray-400 dark:text-gray-500',
+                    : 'text-primary-400/80 dark:text-primary-300/70',
                 )}
               />
               <span className="font-medium">
@@ -1657,10 +1657,10 @@ const MessageBubble = ({
               // Developer Mode: Simplified view consistent with Deep Research within a card container
               <div
                 className={clsx(
-                  'mb-4 overflow-hidden rounded-xl border border-gray-200/80 bg-white/70 dark:border-zinc-700/80 dark:bg-zinc-900/45',
+                  'mb-4 overflow-hidden rounded-xl border border-primary-200/40 bg-primary-50/25 dark:border-primary-700/25 dark:bg-primary-900/12',
                 )}
               >
-                <div className="flex w-full items-center justify-between border-b border-gray-200/70 bg-gray-100/70 px-3 py-2 transition-colors hover:bg-gray-100/90 dark:border-zinc-700/70 dark:bg-zinc-800/55 dark:hover:bg-zinc-800/75">
+                <div className="flex w-full items-center justify-between border-b border-primary-200/45 bg-primary-100/35 px-3 py-2 transition-colors hover:bg-primary-100/45 dark:border-primary-700/25 dark:bg-primary-900/18 dark:hover:bg-primary-900/26">
                   <div className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                     <EmojiDisplay emoji={'🔧'} size="1.2em" /> {t('messageBubble.toolCalls')}
                   </div>
@@ -1669,7 +1669,7 @@ const MessageBubble = ({
                   {regularTools.map(item => (
                     <div
                       key={item.id || `${item.name}-${item.arguments}`}
-                      className="flex w-full items-center gap-2 rounded-lg border border-gray-200/80 bg-white/70 px-2.5 py-2 text-[11px] text-gray-600 dark:border-zinc-700/70 dark:bg-zinc-800/45 dark:text-gray-400"
+                      className="flex w-full items-center gap-2 rounded-lg border border-primary-200/35 bg-white/70 px-2.5 py-2 text-[11px] text-gray-600 dark:border-primary-700/20 dark:bg-zinc-800/45 dark:text-gray-400"
                     >
                       <span className="flex shrink-0 items-center gap-1.5 font-medium text-gray-700 dark:text-gray-300">
                         {item.status === 'error' && (
@@ -1736,7 +1736,7 @@ const MessageBubble = ({
                     : null
                   return (
                     <ToolEnter key={item.id || `${item.name}-${item.arguments}`}>
-                      <div className="rounded-lg border border-gray-200/80 bg-gray-50/60 px-2.5 py-2 dark:border-zinc-700/70 dark:bg-zinc-800/40">
+                      <div className="rounded-lg border border-primary-200/35 bg-white/65 px-2.5 py-2 dark:border-primary-700/20 dark:bg-zinc-800/40">
                         <div className="flex w-full items-center gap-1 text-xs text-gray-500 sm:gap-2 dark:text-gray-400">
                           <span className="flex shrink-0 items-center gap-1.5 font-medium whitespace-nowrap text-gray-600 dark:text-gray-300">
                             {item.status === 'error' ? (
@@ -2390,24 +2390,51 @@ const MessageBubble = ({
   const workflowPanel = hasWorkflow ? (
     <details
       className={clsx(
-        'group overflow-hidden rounded-2xl bg-white/90 shadow-sm backdrop-blur-xl dark:bg-zinc-900',
+        'group overflow-hidden rounded-2xl shadow-sm backdrop-blur-xl',
+        isExpertMessage
+          ? 'border-[#d8d0ef]/70 bg-gradient-to-br from-[#efeaf9]/75 via-[#e6def6]/65 to-[#dad5f0]/60 dark:border-[#5a4a8f]/45 dark:from-[#2b1f57]/35 dark:via-[#2d3566]/28 dark:to-[#253e62]/28'
+          : 'border-[#d1d9ef]/75 bg-gradient-to-br from-[#eaf0fb]/78 via-[#e1e8f8]/68 to-[#d7e0f2]/62 dark:border-[#43507a]/50 dark:from-[#253659]/35 dark:via-[#283a63]/28 dark:to-[#22324f]/28',
         !isExpertMessage && 'mt-0 mb-4',
         isExpertMessage && 'mt-4',
       )}
       open={isWorkflowExpanded}
       onToggle={event => setIsWorkflowExpanded(event.currentTarget.open)}
     >
-      <summary className="flex cursor-pointer items-center justify-between gap-3 px-3.5 py-2.5 text-gray-600 select-none hover:bg-gray-100/20 hover:text-gray-800 dark:text-gray-300 dark:hover:bg-zinc-800/35 dark:hover:text-gray-100">
+      <summary
+        className={clsx(
+          'flex cursor-pointer items-center justify-between gap-3 px-3.5 py-2.5 text-gray-600 select-none hover:text-gray-800 dark:text-gray-300 dark:hover:text-gray-100',
+          isExpertMessage
+            ? 'hover:bg-[#d8cfee]/35 dark:hover:bg-[#4a3b74]/25'
+            : 'hover:bg-[#d6e2f5]/35 dark:hover:bg-[#334c76]/25',
+        )}
+      >
         <div className="flex items-center gap-2">
+          <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/45 text-[11px] shadow-sm dark:bg-white/10">
+            {isExpertMessage ? '🧠' : '🧭'}
+          </span>
           <BrainCircuit size={15} className="text-primary-500/85 dark:text-primary-300/80" />
           <span className="text-sm font-semibold tracking-tight">{workflowHeaderLabel}</span>
-          <span className="rounded-full border border-gray-200/90 bg-gray-100/80 px-2 py-0.5 text-[11px] text-gray-600 dark:border-zinc-700/70 dark:bg-zinc-800/70 dark:text-gray-300">
+          <span
+            className={clsx(
+              'rounded-full px-2 py-0.5 text-[11px] text-gray-600 dark:text-gray-300',
+              isExpertMessage
+                ? 'border border-[#c8bce9]/70 bg-[#ece5f8]/70 dark:border-[#655294]/45 dark:bg-[#3a2e5f]/35'
+                : 'border border-[#bfd0ed]/70 bg-[#e2eaf8]/75 dark:border-[#47608d]/45 dark:bg-[#2d456c]/35',
+            )}
+          >
             {workflowParts.length}
           </span>
         </div>
         <ChevronDown size={15} className="opacity-60 transition-transform group-open:rotate-180" />
       </summary>
-      <div className="border-t border-gray-200/70 bg-white/55 px-3.5 pt-2.5 pb-3 dark:border-zinc-700/70 dark:bg-zinc-900/30">
+      <div
+        className={clsx(
+          'px-3.5 pt-2.5 pb-3',
+          isExpertMessage
+            ? 'border-t border-[#d7cdee]/60 bg-white/35 dark:border-[#5a4a8f]/35 dark:bg-black/12'
+            : 'border-t border-[#c9d8f1]/60 bg-white/40 dark:border-[#43507a]/35 dark:bg-black/12',
+        )}
+      >
         {renderedWorkflowContent}
       </div>
     </details>
@@ -2605,10 +2632,10 @@ const MessageBubble = ({
       {isDeepResearch ? (
         <>
           {shouldShowPlan && (
-            <div className="overflow-hidden rounded-xl border border-gray-200/70 dark:border-zinc-800">
+            <div className="overflow-hidden rounded-xl border border-[#c9d5ee]/70 bg-gradient-to-br from-[#eaf0fb]/80 via-[#e1e8f8]/68 to-[#d7e0f2]/62 shadow-sm backdrop-blur-xl dark:border-[#43507a]/45 dark:from-[#253659]/35 dark:via-[#283a63]/28 dark:to-[#22324f]/28">
               <button
                 onClick={() => setIsPlanExpanded(!isPlanExpanded)}
-                className="bg-user-bubble/30 hover:bg-user-bubble flex w-full items-center justify-between p-2 transition-colors dark:bg-zinc-800/50 dark:hover:bg-zinc-800"
+                className="flex w-full items-center justify-between bg-[#dbe6f7]/45 p-2 transition-colors hover:bg-[#d4e0f4]/55 dark:bg-[#2d456c]/28 dark:hover:bg-[#35507d]/35"
               >
                 <div className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                   <EmojiDisplay emoji={'🧭'} size="1.2em" />
@@ -2629,7 +2656,7 @@ const MessageBubble = ({
               </button>
 
               {isPlanExpanded && (hasPlanText || shouldShowPlanStatus) && (
-                <div className="space-y-4 bg-white/70 p-4 text-sm leading-relaxed text-gray-600 font-stretch-semi-condensed dark:bg-zinc-800/70 dark:text-gray-400 [&>div>p:last-child]:mb-0!">
+                <div className="space-y-4 bg-white/58 p-4 text-sm leading-relaxed text-gray-600 font-stretch-semi-condensed dark:bg-zinc-900/42 dark:text-gray-400 [&>div>p:last-child]:mb-0!">
                   <Streamdown
                     mermaid={mermaidOptions}
                     remarkPlugins={[remarkGfm]}
@@ -2643,10 +2670,10 @@ const MessageBubble = ({
           )}
 
           {shouldShowResearch && (
-            <div className="overflow-hidden rounded-xl border border-gray-200/70 dark:border-zinc-800">
+            <div className="overflow-hidden rounded-xl border border-[#d8d0ef]/70 bg-gradient-to-br from-[#efeaf9]/78 via-[#e6def6]/68 to-[#dad5f0]/62 shadow-sm backdrop-blur-xl dark:border-[#5a4a8f]/45 dark:from-[#2b1f57]/35 dark:via-[#2d3566]/28 dark:to-[#253e62]/28">
               <button
                 onClick={() => setIsResearchExpanded(!isResearchExpanded)}
-                className="bg-user-bubble/30 hover:bg-user-bubble flex w-full items-center justify-between p-2 transition-colors dark:bg-zinc-800/50 dark:hover:bg-zinc-800"
+                className="flex w-full items-center justify-between bg-[#e5ddf6]/48 p-2 transition-colors hover:bg-[#ddd4f3]/58 dark:bg-[#3a2e5f]/28 dark:hover:bg-[#433469]/35"
               >
                 <div className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                   <EmojiDisplay emoji={'📋'} size="1.2em" />
@@ -2667,7 +2694,7 @@ const MessageBubble = ({
               </button>
 
               {isResearchExpanded && hasResearchSteps && (
-                <div className="space-y-3 p-4 text-sm leading-relaxed text-gray-600 font-stretch-semi-condensed dark:text-gray-400 [&>div>p:last-child]:mb-0!">
+                <div className="space-y-3 bg-white/54 p-4 text-sm leading-relaxed text-gray-600 font-stretch-semi-condensed dark:bg-zinc-900/36 dark:text-gray-400 [&>div>p:last-child]:mb-0!">
                   {researchSteps.map(step => {
                     const isRunning = step.status === 'running'
                     const isPending = step.status === 'pending'
@@ -2696,7 +2723,7 @@ const MessageBubble = ({
                             ? `research-step-${Number(step.step)}`
                             : `research-step-${step.streamOrder ?? step.title ?? 'unknown'}`)
                         }
-                        className="flex items-start gap-3 rounded-lg border border-gray-200/60 bg-white/70 p-3 dark:border-zinc-800/70 dark:bg-zinc-800/70"
+                        className="flex items-start gap-3 rounded-lg border border-primary-200/38 bg-white/72 p-3 dark:border-primary-700/22 dark:bg-zinc-800/62"
                       >
                         <div className="flex-1 space-y-1">
                           <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -2921,7 +2948,7 @@ const MessageBubble = ({
       >
         <>
           {isExpertMessage && activeExpertResponse?.task && (
-            <div className="border-primary-200/60 bg-primary-50/35 dark:border-primary-700/40 dark:bg-primary-900/15 mb-4 rounded-xl border px-3.5 py-2.5 text-sm leading-relaxed text-gray-700 dark:text-gray-200">
+            <div className="border-primary-200/50 bg-primary-50/26 dark:border-primary-700/30 dark:bg-primary-900/12 mb-4 rounded-xl border px-3.5 py-2.5 text-sm leading-relaxed text-gray-700 dark:text-gray-200">
               <div className="flex items-start gap-2.5">
                 <span className="bg-primary-500 mt-2 h-1.5 w-1.5 shrink-0 rounded-full" />
                 <span>{activeExpertResponse.task}</span>

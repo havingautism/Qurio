@@ -75,7 +75,7 @@ const DeepResearchGoalCard = ({ content }) => {
   }, [content, t])
 
   return (
-    <div className="mb-4 w-full max-w-7xl cursor-text rounded-2xl border border-gray-200/50 bg-white/80 p-4 backdrop-blur-md transition-all duration-300 select-text sm:mb-8 sm:p-6 dark:border-zinc-700/50 dark:bg-[#18181b]/60">
+    <div className="mb-4 w-full max-w-7xl cursor-text rounded-2xl border border-gray-200/50 bg-white/80 p-4 shadow-sm backdrop-blur-xl transition-all duration-300 select-text sm:mb-8 sm:p-6 dark:border-zinc-700/50 dark:bg-[#18181b]/60">
       <div className="flex flex-col gap-4 sm:gap-6">
         <div>
           <div className="mb-2 flex items-center gap-2 text-xs font-bold tracking-widest text-blue-600 uppercase dark:text-blue-400">
@@ -90,7 +90,7 @@ const DeepResearchGoalCard = ({ content }) => {
         </div>
 
         <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
-          <div className="rounded-xl border border-gray-100 bg-gray-50/50 p-3 transition-colors hover:bg-gray-50 sm:p-4 dark:border-zinc-700/30 dark:bg-zinc-800/40 dark:hover:bg-zinc-800/50">
+          <div className="rounded-xl border border-gray-100 bg-gray-50/50 p-3 shadow-sm backdrop-blur-xl transition-colors hover:bg-gray-50 sm:p-4 dark:border-zinc-700/30 dark:bg-zinc-800/40 dark:hover:bg-zinc-800/50">
             <div className="mb-2 flex items-center gap-2 text-[10px] font-bold tracking-wider text-gray-400 uppercase dark:text-gray-500">
               <div className="h-1 w-1 rounded-full bg-indigo-500"></div>
               {t('messageBubble.researchScopeLabel')}
@@ -99,7 +99,7 @@ const DeepResearchGoalCard = ({ content }) => {
               Auto
             </div>
           </div>
-          <div className="rounded-xl border border-gray-100 bg-gray-50/50 p-3 transition-colors hover:bg-gray-50 sm:p-4 dark:border-zinc-700/30 dark:bg-zinc-800/40 dark:hover:bg-zinc-800/50">
+          <div className="rounded-xl border border-gray-100 bg-gray-50/50 p-3 shadow-sm backdrop-blur-xl transition-colors hover:bg-gray-50 sm:p-4 dark:border-zinc-700/30 dark:bg-zinc-800/40 dark:hover:bg-zinc-800/50">
             <div className="mb-2 flex items-center gap-2 text-[10px] font-bold tracking-wider text-gray-400 uppercase dark:text-gray-500">
               <div className="h-1 w-1 rounded-full bg-emerald-500"></div>
               {t('messageBubble.researchRequirementsLabel')}

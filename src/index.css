@@ -279,18 +279,18 @@
 }
 
 :root {
-  /* Default Theme (Fox Rust) Initial Values */
-  --color-primary-50: #fcf9f7;
-  --color-primary-100: #f6ece8;
-  --color-primary-200: #edd4cc;
-  --color-primary-300: #e0b4a6;
-  --color-primary-400: #d0907c;
-  --color-primary-500: #bf6e4e;
-  --color-primary-600: #a65234;
-  --color-primary-700: #8a4028;
-  --color-primary-800: #703322;
-  --color-primary-900: #592b1e;
-  --color-primary-950: #33160f;
+  /* Default Theme (Royal Violet) Initial Values */
+  --color-primary-50: #f5f3ff;
+  --color-primary-100: #ede9fe;
+  --color-primary-200: #ddd6fe;
+  --color-primary-300: #c4b5fd;
+  --color-primary-400: #a78bfa;
+  --color-primary-500: #8b5cf6;
+  --color-primary-600: #7c3aed;
+  --color-primary-700: #6d28d9;
+  --color-primary-800: #5b21b6;
+  --color-primary-900: #4c1d95;
+  --color-primary-950: #2e1065;
 
   /* Dynamic background variables injected by src/lib/themes.js */
   --background: #fbfbfb;
@@ -303,7 +303,7 @@
   --border: #e7e5e4;
   /* stone-200 - lighter border */
 
-  --user-bubble: #f7f2f1;
+  --user-bubble: #f5f3ff;
 
   --font-google-sans-flex: 'Google Sans Flex';
   --font-google-sans: 'Google Sans';
@@ -312,10 +312,10 @@
   --font-maple-mono-cn: 'Maple Mono CN';
   --font-noto-sans-sc: 'Noto Sans SC';
 
-  /* Glow defaults (Fox Rust) - Lighter for light mode */
-  --theme-glow-1: rgba(245, 220, 210, 0.5);
-  --theme-glow-2: rgba(235, 190, 170, 0.4);
-  --theme-glow-3: rgba(210, 144, 124, 0.35);
+  /* Glow defaults (Royal Violet) - Lighter for light mode */
+  --theme-glow-1: rgba(190, 170, 255, 0.5);
+  --theme-glow-2: rgba(160, 120, 255, 0.4);
+  --theme-glow-3: rgba(139, 92, 246, 0.35);
 }
 
 .dark {

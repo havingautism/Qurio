@@ -772,8 +772,8 @@ class StreamChatService:
                                     asyncio.create_task(self._maybe_optimize_memories(agent, request))
 
                             # 4. Trigger Async Session Summary Update
-                            # Only if conversation_id exists (Main Chat Flow)
-                            if request.conversation_id:
+                            # Only if conversation_id exists (Main Chat Flow) AND summary is enabled
+                            if request.conversation_id and request.enable_session_summary:
                                 # Prepare summary lines:
                                 # - Normal flow: incremental update with last user + new assistant
                                 # - Regenerate/Edit (or single-turn rebuild): rebuild from current request context + new assistant

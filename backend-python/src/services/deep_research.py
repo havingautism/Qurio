@@ -701,8 +701,14 @@ async def stream_research_workflow(
 
             # Extract sources from result (search tools return "results" with "url" field)
             # Also support "sources" format if provided by other tools
-            results_list = result_dict.get("results") if result_dict else None
-            sources_list = result_dict.get("sources") if result_dict else None
+            # Perfect solution: Support both dict (with nested results) and direct list output
+            results_list = None
+            if isinstance(result_dict, dict):
+                results_list = result_dict.get("results")
+            elif isinstance(result_dict, list):
+                results_list = result_dict
+
+            sources_list = result_dict.get("sources") if isinstance(result_dict, dict) else None
 
             if results_list and isinstance(results_list, list):
                 for source in results_list:
@@ -720,7 +726,7 @@ async def stream_research_workflow(
 
             # Ensure result is properly formatted as JSON string for output field
             output_value = None
-            if result and not tool_error:
+            if result:
                 # Handle case where result is already a string
                 if isinstance(result, str):
                     try:
@@ -938,6 +944,7 @@ async def stream_deep_research(params: dict[str, Any]) -> AsyncGenerator[dict[st
         contextMessageLimit=context_message_limit,
         searchProvider=search_provider,
         tavilyApiKey=tavily_api_key,
+        enableSessionSummary=False,
         stream=True,
     )
 

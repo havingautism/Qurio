@@ -1555,7 +1555,7 @@ const MessageBubble = ({
       return (
         <div
           key={part.key || `workflow-text-${idx}`}
-          className="mb-4 border-l-2 border-gray-200 pl-4 text-sm leading-relaxed text-gray-600 dark:border-zinc-700 dark:text-gray-300"
+          className="mb-3 rounded-xl border border-gray-200/80 bg-gray-50/70 px-3.5 py-3 text-sm leading-relaxed text-gray-700 dark:border-zinc-700/70 dark:bg-zinc-800/45 dark:text-gray-300"
         >
           <Streamdown
             mermaid={mermaidOptions}
@@ -1574,7 +1574,7 @@ const MessageBubble = ({
       const showThoughtHeading = !(isExpertMessage && !isThinking)
 
       return (
-        <div key={part.key || `thought-inline-${idx}`} className="mb-4">
+        <div key={part.key || `thought-inline-${idx}`} className="mb-3">
           {showThoughtHeading && (
             <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
               <Brain
@@ -1602,7 +1602,7 @@ const MessageBubble = ({
               )}
             </div>
           )}
-          <div className="mt-2 border-l-2 border-gray-200 pl-4 text-xs leading-relaxed text-gray-500 dark:border-zinc-700 dark:text-gray-400">
+          <div className="mt-2 rounded-xl border border-gray-200/80 bg-gray-50/65 px-3.5 py-3 text-xs leading-relaxed text-gray-600 dark:border-zinc-700/70 dark:bg-zinc-800/40 dark:text-gray-400">
             <Streamdown
               mermaid={mermaidOptions}
               remarkPlugins={[remarkGfm]}
@@ -1629,20 +1629,19 @@ const MessageBubble = ({
               // Developer Mode: Simplified view consistent with Deep Research within a card container
               <div
                 className={clsx(
-                  'overflow-hidden rounded-lg border border-gray-200 dark:border-zinc-800',
-                  'mb-4',
+                  'mb-4 overflow-hidden rounded-xl border border-gray-200/80 bg-white/70 dark:border-zinc-700/80 dark:bg-zinc-900/45',
                 )}
               >
-                <div className="bg-user-bubble/30 hover:bg-user-bubble flex w-full items-center justify-between p-2 transition-colors dark:bg-zinc-800/50 dark:hover:bg-zinc-800">
+                <div className="flex w-full items-center justify-between border-b border-gray-200/70 bg-gray-100/70 px-3 py-2 transition-colors hover:bg-gray-100/90 dark:border-zinc-700/70 dark:bg-zinc-800/55 dark:hover:bg-zinc-800/75">
                   <div className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                     <EmojiDisplay emoji={'🔧'} size="1.2em" /> {t('messageBubble.toolCalls')}
                   </div>
                 </div>
-                <div className="space-y-2 bg-white/70 p-3 dark:bg-zinc-800/70">
+                <div className="space-y-2 p-3">
                   {regularTools.map(item => (
                     <div
                       key={item.id || `${item.name}-${item.arguments}`}
-                      className="flex w-full items-center gap-2 text-[11px] text-gray-600 dark:text-gray-400"
+                      className="flex w-full items-center gap-2 rounded-lg border border-gray-200/80 bg-white/70 px-2.5 py-2 text-[11px] text-gray-600 dark:border-zinc-700/70 dark:bg-zinc-800/45 dark:text-gray-400"
                     >
                       <span className="flex shrink-0 items-center gap-1.5 font-medium text-gray-700 dark:text-gray-300">
                         {item.status === 'error' && (
@@ -1689,12 +1688,7 @@ const MessageBubble = ({
                 </div>
               </div>
             ) : (
-              <div
-                className={clsx(
-                  'flex flex-col gap-2 rounded-lg border border-gray-200 bg-white/70 p-2 dark:border-zinc-800 dark:bg-zinc-800/50',
-                  'mb-4',
-                )}
-              >
+              <div className="mb-4">
                 {regularTools.map(item => {
                   const iconName = TOOL_ICONS[item.name]
                   const IconComponent = iconName
@@ -1714,8 +1708,8 @@ const MessageBubble = ({
                     : null
                   return (
                     <ToolEnter key={item.id || `${item.name}-${item.arguments}`}>
-                      <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                        <div className="flex w-full items-center gap-1 sm:gap-2">
+                      <div className="rounded-lg border border-gray-200/80 bg-gray-50/60 px-2.5 py-2 dark:border-zinc-700/70 dark:bg-zinc-800/40">
+                        <div className="flex w-full items-center gap-1 text-xs text-gray-500 sm:gap-2 dark:text-gray-400">
                           <span className="flex shrink-0 items-center gap-1.5 font-medium whitespace-nowrap text-gray-600 dark:text-gray-300">
                             {item.status === 'error' ? (
                               <AlertTriangle size={14} className="text-red-500 dark:text-red-400" />
@@ -1757,7 +1751,7 @@ const MessageBubble = ({
                           )}
                           <span
                             className={clsx(
-                              'ml-auto flex min-w-[24px] shrink-0 items-center justify-center rounded-full px-2 py-0.5 text-[11px]',
+                              'ml-auto flex min-w-[24px] shrink-0 items-center justify-center rounded-full px-2 py-1 text-[11px]',
                               item.status === 'error'
                                 ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
                                 : item.status === 'done'
@@ -2178,7 +2172,7 @@ const MessageBubble = ({
   const renderExpertTabs = () => {
     if (!isExpertMessage) return null
     return (
-      <div className="code-scrollbar mb-4 flex w-fit max-w-full gap-1 overflow-x-auto rounded-lg bg-gray-100 p-1 dark:bg-zinc-800/50">
+      <div className="code-scrollbar mb-4 flex w-fit max-w-full gap-1.5 overflow-x-auto rounded-xl border border-gray-200/70 bg-gray-100/85 p-1.5 dark:border-zinc-700/60 dark:bg-zinc-800/55">
         {expertResponses.map(item => {
           const isActive = item.agentId === activeExpertResponse?.agentId
           return (
@@ -2191,19 +2185,19 @@ const MessageBubble = ({
                 setActiveExpertAgentId(item.agentId)
               }}
               className={clsx(
-                'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-all duration-200',
+                'flex min-h-10 items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold whitespace-nowrap transition-all duration-200',
                 isActive
-                  ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-gray-100'
-                  : 'text-gray-500 hover:bg-gray-200/50 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-zinc-700/50 dark:hover:text-gray-300',
+                  ? 'bg-white text-gray-900 shadow-sm ring-1 ring-black/5 dark:bg-zinc-700 dark:text-gray-100 dark:ring-white/10'
+                  : 'text-gray-500 hover:bg-gray-200/70 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-zinc-700/60 dark:hover:text-gray-300',
               )}
             >
-              <EmojiDisplay emoji={item.agentEmoji} size="1.1em" />
+              <EmojiDisplay emoji={item.agentEmoji} size="1.2em" />
               <span>{item.agentName || item.agentId}</span>
               {/* Status Dot */}
               {item.status !== 'done' && (
                 <span
                   className={clsx(
-                    'h-1.5 w-1.5 rounded-full',
+                    'h-2 w-2 rounded-full',
                     item.status === 'error' ? 'bg-red-500' : 'animate-pulse bg-amber-500',
                   )}
                 />
@@ -2272,24 +2266,26 @@ const MessageBubble = ({
   const workflowPanel = hasWorkflow ? (
     <details
       className={clsx(
-        'group rounded-xl border border-gray-200 bg-white/70 dark:border-zinc-800 dark:bg-zinc-900/40',
+        'group overflow-hidden rounded-2xl bg-white/90 shadow-sm backdrop-blur-[1px] dark:bg-zinc-900',
         !isExpertMessage && 'mt-0 mb-4',
         isExpertMessage && 'mt-4',
       )}
       open={isWorkflowExpanded}
       onToggle={event => setIsWorkflowExpanded(event.currentTarget.open)}
     >
-      <summary className="flex cursor-pointer items-center justify-between gap-3 px-3 py-2 text-gray-600 select-none hover:text-gray-800 dark:text-gray-300 dark:hover:text-gray-100">
+      <summary className="flex cursor-pointer items-center justify-between gap-3 px-3.5 py-2.5 text-gray-600 select-none hover:bg-gray-100/20 hover:text-gray-800 dark:text-gray-300 dark:hover:bg-zinc-800/35 dark:hover:text-gray-100">
         <div className="flex items-center gap-2">
-          <BrainCircuit size={15} className="text-gray-500 dark:text-gray-400" />
-          <span className="text-sm font-medium">{workflowHeaderLabel}</span>
-          <span className="rounded-full bg-gray-200/80 px-2 py-0.5 text-[11px] text-gray-600 dark:bg-zinc-700/70 dark:text-gray-300">
+          <BrainCircuit size={15} className="text-primary-500/85 dark:text-primary-300/80" />
+          <span className="text-sm font-semibold tracking-tight">{workflowHeaderLabel}</span>
+          <span className="rounded-full border border-gray-200/90 bg-gray-100/80 px-2 py-0.5 text-[11px] text-gray-600 dark:border-zinc-700/70 dark:bg-zinc-800/70 dark:text-gray-300">
             {workflowParts.length}
           </span>
         </div>
         <ChevronDown size={15} className="opacity-60 transition-transform group-open:rotate-180" />
       </summary>
-      <div className="px-3 pt-1 pb-3">{renderedWorkflowContent}</div>
+      <div className="border-t border-gray-200/70 bg-white/55 px-3.5 pt-2.5 pb-3 dark:border-zinc-700/70 dark:bg-zinc-900/30">
+        {renderedWorkflowContent}
+      </div>
     </details>
   ) : null
 
@@ -2801,8 +2797,11 @@ const MessageBubble = ({
       >
         <>
           {isExpertMessage && activeExpertResponse?.task && (
-            <div className="mb-3 rounded-lg border border-dashed border-gray-300 px-3 py-2 text-sm text-gray-600 dark:border-zinc-600 dark:text-gray-300">
-              {activeExpertResponse.task}
+            <div className="border-primary-200/60 bg-primary-50/35 dark:border-primary-700/40 dark:bg-primary-900/15 mb-4 rounded-xl border px-3.5 py-2.5 text-sm leading-relaxed text-gray-700 dark:text-gray-200">
+              <div className="flex items-start gap-2.5">
+                <span className="bg-primary-500 mt-2 h-1.5 w-1.5 shrink-0 rounded-full" />
+                <span>{activeExpertResponse.task}</span>
+              </div>
             </div>
           )}
           {!isExpertMessage && workflowPanel}

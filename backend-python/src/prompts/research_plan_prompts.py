@@ -195,6 +195,7 @@ Return ONLY valid JSON (no markdown, no commentary):
 CRITICAL RULES:
 - DO NOT search or fetch any data - you only PLAN
 - DO NOT execute tools - you only use think() and analyze()
+- When using analyze(), DO NOT pass an "action" argument. Put your analysis in the "thought" argument.
 - Output valid JSON only - no markdown formatting
 """
 

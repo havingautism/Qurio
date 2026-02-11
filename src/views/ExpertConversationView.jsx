@@ -125,6 +125,7 @@ const ExpertConversationView = () => {
       activeConversation={conversation}
       conversationId={conversationId}
       isSidebarPinned={isSidebarPinned}
+      isSpaceSelectionLocked={true}
       initialMessage={initialMessage}
       initialAttachments={initialAttachments}
       initialDocumentIds={initialDocumentIds}
@@ -137,4 +138,3 @@ const ExpertConversationView = () => {
 }
 
 export default ExpertConversationView
-

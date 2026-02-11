@@ -104,6 +104,7 @@ const ChatInterface = ({
   initialIsAgentAutoMode = true,
   onTitleAndSpaceGenerated,
   isSidebarPinned = false,
+  isSpaceSelectionLocked = false,
 }) => {
   const normalizeTitleEmojis = value => {
     if (Array.isArray(value)) {
@@ -1492,7 +1493,7 @@ const ChatInterface = ({
           related: relatedActive,
         },
         settings,
-        spaceInfo: { selectedSpace, isManualSpaceSelection },
+        spaceInfo: { selectedSpace: displaySpace || selectedSpace, isManualSpaceSelection },
         selectedAgent: agentForSend,
         isAgentAutoMode,
         agents: appAgents,
@@ -1505,6 +1506,7 @@ const ChatInterface = ({
         callbacks: {
           onTitleAndSpaceGenerated,
           onSpaceResolved: space => {
+            if (isSpaceSelectionLocked) return
             setSelectedSpace(space)
             setIsManualSpaceSelection(false)
           },
@@ -1551,6 +1553,7 @@ const ChatInterface = ({
       defaultAgent,
       isManualSpaceSelection,
       onTitleAndSpaceGenerated,
+      isSpaceSelectionLocked,
       spaces,
       quoteContext,
       resolvedSearchToolIds,
@@ -1976,6 +1979,7 @@ const ChatInterface = ({
           setIsSelectorOpen={setIsSelectorOpen}
           selectorRef={selectorRef}
           isDeepResearchConversation={false}
+          isSpaceSelectionLocked={isSpaceSelectionLocked}
           onSelectSpace={handleSelectSpace}
           onClearSpaceSelection={handleClearSpaceSelection}
           conversationTitle={conversationTitle}
@@ -1992,7 +1996,7 @@ const ChatInterface = ({
           ref={messagesContainerRef}
           className="no-scrollbar relative flex-1 overflow-x-hidden overflow-y-auto sm:p-2"
         >
-          <div className="mx-auto w-full max-w-3xl px-0 pt-16 sm:px-5 sm:pt-24">
+          <div className="mx-auto w-full max-w-3xl px-0 pt-16 sm:px-5 sm:pt-0">
             {showHistoryLoader && (
               <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
                 <FancyLoader />

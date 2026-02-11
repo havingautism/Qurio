@@ -200,6 +200,7 @@ const MessageBubble = ({
   const { developerMode } = useSettings()
   const { agents = [], onEditAgent } = useAppContext()
   const { t, i18n } = useTranslation()
+  const isMobile = useIsMobile()
 
   // Extract message by index
   const message = messages[messageIndex]
@@ -245,10 +246,13 @@ const MessageBubble = ({
       }))
       .filter(item => item.agentId)
   }, [mergedMessage?.expertResponses])
+
   const isExpertMessage = Boolean(mergedMessage?.expertMode) && expertResponses.length > 0
   const [activeExpertAgentId, setActiveExpertAgentId] = useState(
     String(mergedMessage?.expertActiveAgentId || expertResponses[0]?.agentId || ''),
   )
+  const [isExpertAgentSelectorOpen, setIsExpertAgentSelectorOpen] = useState(false)
+  const expertAgentSelectorRef = useRef(null)
   useEffect(() => {
     const hasCurrent = expertResponses.some(item => item.agentId === activeExpertAgentId)
     if (hasCurrent) return
@@ -262,6 +266,34 @@ const MessageBubble = ({
 
     setActiveExpertAgentId(String(expertResponses[0]?.agentId || ''))
   }, [mergedMessage?.id, mergedMessage?.expertActiveAgentId, expertResponses, activeExpertAgentId])
+  useEffect(() => {
+    if (!isExpertAgentSelectorOpen) return undefined
+
+    const handleOutside = event => {
+      if (!expertAgentSelectorRef.current?.contains(event.target)) {
+        setIsExpertAgentSelectorOpen(false)
+      }
+    }
+    const handleEsc = event => {
+      if (event.key === 'Escape') {
+        setIsExpertAgentSelectorOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleOutside)
+    document.addEventListener('touchstart', handleOutside, { passive: true })
+    document.addEventListener('keydown', handleEsc)
+    return () => {
+      document.removeEventListener('mousedown', handleOutside)
+      document.removeEventListener('touchstart', handleOutside)
+      document.removeEventListener('keydown', handleEsc)
+    }
+  }, [isExpertAgentSelectorOpen])
+  useEffect(() => {
+    if (!isMobile && isExpertAgentSelectorOpen) {
+      setIsExpertAgentSelectorOpen(false)
+    }
+  }, [isMobile, isExpertAgentSelectorOpen])
   const activeExpertIndex = Math.max(
     0,
     expertResponses.findIndex(item => item.agentId === activeExpertAgentId),
@@ -844,9 +876,6 @@ const MessageBubble = ({
   const [isDownloadMenuOpen, setIsDownloadMenuOpen] = useState(false)
   const downloadMenuRef = useRef(null)
 
-  // Detect mobile view
-  const isMobile = useIsMobile()
-
   // Calculate optimal menu position to avoid viewport edges and selection
   const calculateMenuPosition = selectionRect => {
     const viewportWidth = window.innerWidth
@@ -1207,6 +1236,9 @@ const MessageBubble = ({
 
   const isStreaming = isStreamingMessage
   const hasMainText = (() => {
+    if (isExpertMessage) {
+      return typeof mainContent === 'string' && mainContent.trim().length > 0
+    }
     const content = message?.content
     if (typeof content === 'string') return content.trim().length > 0
     if (Array.isArray(content)) {
@@ -1551,7 +1583,7 @@ const MessageBubble = ({
       return (
         <div
           key={part.key || `workflow-text-${idx}`}
-          className="mb-4 border-l-2 border-gray-200 pl-4 text-sm leading-relaxed text-gray-600 dark:border-zinc-700 dark:text-gray-300"
+          className="mb-3 rounded-xl border border-primary-200/45 bg-primary-50/30 px-3.5 py-3 text-sm leading-relaxed text-gray-700 dark:border-primary-700/25 dark:bg-primary-900/12 dark:text-gray-300"
         >
           <Streamdown
             mermaid={mermaidOptions}
@@ -1570,16 +1602,16 @@ const MessageBubble = ({
       const showThoughtHeading = !(isExpertMessage && !isThinking)
 
       return (
-        <div key={part.key || `thought-inline-${idx}`} className="mb-4">
+        <div key={part.key || `thought-inline-${idx}`} className="mb-3">
           {showThoughtHeading && (
-            <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
+            <div className="flex items-center gap-2 text-gray-600 dark:text-gray-300">
               <Brain
                 size={14}
                 className={clsx(
                   'transition-colors',
                   isThinking
                     ? 'text-primary-500 animate-pulse'
-                    : 'text-gray-400 dark:text-gray-500',
+                    : 'text-primary-400/80 dark:text-primary-300/70',
                 )}
               />
               <span className="font-medium">
@@ -1598,7 +1630,7 @@ const MessageBubble = ({
               )}
             </div>
           )}
-          <div className="mt-2 border-l-2 border-gray-200 pl-4 text-xs leading-relaxed text-gray-500 dark:border-zinc-700 dark:text-gray-400">
+          <div className="mt-2 text-sm">
             <Streamdown
               mermaid={mermaidOptions}
               remarkPlugins={[remarkGfm]}
@@ -1625,20 +1657,19 @@ const MessageBubble = ({
               // Developer Mode: Simplified view consistent with Deep Research within a card container
               <div
                 className={clsx(
-                  'overflow-hidden rounded-lg border border-gray-200 dark:border-zinc-800',
-                  'mb-4',
+                  'mb-4 overflow-hidden rounded-xl border border-primary-200/40 bg-primary-50/25 dark:border-primary-700/25 dark:bg-primary-900/12',
                 )}
               >
-                <div className="bg-user-bubble/30 hover:bg-user-bubble flex w-full items-center justify-between p-2 transition-colors dark:bg-zinc-800/50 dark:hover:bg-zinc-800">
+                <div className="flex w-full items-center justify-between border-b border-primary-200/45 bg-primary-100/35 px-3 py-2 transition-colors hover:bg-primary-100/45 dark:border-primary-700/25 dark:bg-primary-900/18 dark:hover:bg-primary-900/26">
                   <div className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                     <EmojiDisplay emoji={'🔧'} size="1.2em" /> {t('messageBubble.toolCalls')}
                   </div>
                 </div>
-                <div className="space-y-2 bg-white/70 p-3 dark:bg-zinc-800/70">
+                <div className="space-y-2 p-3">
                   {regularTools.map(item => (
                     <div
                       key={item.id || `${item.name}-${item.arguments}`}
-                      className="flex w-full items-center gap-2 text-[11px] text-gray-600 dark:text-gray-400"
+                      className="flex w-full items-center gap-2 rounded-lg border border-primary-200/35 bg-white/70 px-2.5 py-2 text-[11px] text-gray-600 dark:border-primary-700/20 dark:bg-zinc-800/45 dark:text-gray-400"
                     >
                       <span className="flex shrink-0 items-center gap-1.5 font-medium text-gray-700 dark:text-gray-300">
                         {item.status === 'error' && (
@@ -1685,12 +1716,7 @@ const MessageBubble = ({
                 </div>
               </div>
             ) : (
-              <div
-                className={clsx(
-                  'flex flex-col gap-2 rounded-lg border border-gray-200 bg-white/70 p-2 dark:border-zinc-800 dark:bg-zinc-800/50',
-                  'mb-4',
-                )}
-              >
+              <div className="mb-4">
                 {regularTools.map(item => {
                   const iconName = TOOL_ICONS[item.name]
                   const IconComponent = iconName
@@ -1710,8 +1736,8 @@ const MessageBubble = ({
                     : null
                   return (
                     <ToolEnter key={item.id || `${item.name}-${item.arguments}`}>
-                      <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                        <div className="flex w-full items-center gap-1 sm:gap-2">
+                      <div className="rounded-lg border border-primary-200/35 bg-white/65 px-2.5 py-2 dark:border-primary-700/20 dark:bg-zinc-800/40">
+                        <div className="flex w-full items-center gap-1 text-xs text-gray-500 sm:gap-2 dark:text-gray-400">
                           <span className="flex shrink-0 items-center gap-1.5 font-medium whitespace-nowrap text-gray-600 dark:text-gray-300">
                             {item.status === 'error' ? (
                               <AlertTriangle size={14} className="text-red-500 dark:text-red-400" />
@@ -1745,7 +1771,7 @@ const MessageBubble = ({
                               })()}
                           </div>
                           {typeof item.durationMs === 'number' && (
-                            <span className="shrink-0 text-[11px] whitespace-nowrap text-gray-500 dark:text-gray-400">
+                            <span className="shrink-0 text-[11px]! whitespace-nowrap text-gray-500 dark:text-gray-400">
                               {t('messageBubble.toolDuration', {
                                 duration: (item.durationMs / 1000).toFixed(2),
                               })}
@@ -1753,7 +1779,7 @@ const MessageBubble = ({
                           )}
                           <span
                             className={clsx(
-                              'ml-auto flex min-w-[24px] shrink-0 items-center justify-center rounded-full px-2 py-0.5 text-[11px]',
+                              'ml-auto flex min-w-[24px] shrink-0 items-center justify-center rounded-full px-2 py-1 text-[11px]',
                               item.status === 'error'
                                 ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
                                 : item.status === 'done'
@@ -2099,15 +2125,18 @@ const MessageBubble = ({
 
             {/* Action Buttons */}
             {!isDeepResearchContext && (
-              <div className="flex items-center gap-2 px-1">
-                <div className="flex gap-2 opacity-100 transition-opacity duration-200 sm:opacity-0 sm:group-hover:opacity-100">
+              <div className="flex items-center gap-1 px-1">
+                <div className="flex items-center gap-1">
                   {onEdit && (
                     <button
                       onClick={() => onEdit()}
-                      className="rounded-lg p-1.5 text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-gray-300"
-                      title="Edit"
+                      className="group/icon flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-gray-500 transition-all duration-200 hover:bg-gray-100 hover:text-gray-700 dark:text-white dark:hover:bg-zinc-800 dark:hover:text-gray-200"
+                      title={t('messageBubble.edit')}
                     >
                       <Pencil size={14} />
+                      <span className="hidden max-w-0 overflow-hidden text-xs font-medium whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover/icon:max-w-[50px] group-hover/icon:opacity-100 sm:block">
+                        {t('messageBubble.edit')}
+                      </span>
                     </button>
                   )}
                   <button
@@ -2115,10 +2144,24 @@ const MessageBubble = ({
                       copyToClipboard(contentToRender)
                       setIsCopied(true)
                     }}
-                    className="rounded-lg p-1.5 text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-gray-300"
+                    className="group/icon flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-gray-500 transition-all duration-200 hover:bg-gray-100 hover:text-gray-700 dark:text-white dark:hover:bg-zinc-800 dark:hover:text-gray-200"
                     title={t('messageBubble.copy')}
                   >
-                    {isCopied ? <Check size={14} /> : <Copy size={14} />}
+                    {isCopied ? (
+                      <>
+                        <Check size={14} className="text-emerald-500" />
+                        <span className="hidden max-w-0 overflow-hidden text-xs font-medium whitespace-nowrap text-emerald-500 opacity-0 transition-all duration-300 ease-in-out group-hover/icon:max-w-[60px] group-hover/icon:opacity-100 sm:block">
+                          {t('message.copied')}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy size={14} />
+                        <span className="hidden max-w-0 overflow-hidden text-xs font-medium whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover/icon:max-w-[50px] group-hover/icon:opacity-100 sm:block">
+                          {t('message.copy')}
+                        </span>
+                      </>
+                    )}
                   </button>
                   <button
                     onClick={() => {
@@ -2131,10 +2174,13 @@ const MessageBubble = ({
                         onConfirm: onDelete,
                       })
                     }}
-                    className="rounded-lg p-1.5 text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-gray-300"
+                    className="group/icon flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-gray-500 transition-all duration-200 hover:bg-red-50 hover:text-red-600 dark:text-white dark:hover:bg-red-900/20 dark:hover:text-red-400"
                     title={t('common.delete')}
                   >
                     <Trash2 size={14} />
+                    <span className="hidden max-w-0 overflow-hidden text-xs font-medium whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover/icon:max-w-[60px] group-hover/icon:opacity-100 sm:block">
+                      {t('common.delete')}
+                    </span>
                   </button>
                 </div>
               </div>
@@ -2173,8 +2219,84 @@ const MessageBubble = ({
 
   const renderExpertTabs = () => {
     if (!isExpertMessage) return null
+
+    if (isMobile) {
+      return (
+        <div className="relative mb-4 w-full" ref={expertAgentSelectorRef}>
+          <button
+            type="button"
+            onMouseDown={e => {
+              e.preventDefault()
+              e.stopPropagation()
+              setIsExpertAgentSelectorOpen(prev => !prev)
+            }}
+            className="flex h-12 w-full items-center justify-between gap-2 rounded-full bg-white/90 py-2 pr-3 pl-3 text-sm font-medium text-gray-700 shadow-sm backdrop-blur-xl transition-all dark:bg-zinc-900/90 dark:text-gray-200"
+          >
+            <span className="flex min-w-0 items-center gap-2.5">
+              <EmojiDisplay emoji={activeExpertResponse?.agentEmoji} size="1.15rem" />
+              <span className="truncate text-left text-sm font-semibold">
+                {activeExpertResponse?.agentName || activeExpertResponse?.agentId}
+              </span>
+            </span>
+            <ChevronDown
+              size={15}
+              className={clsx(
+                'shrink-0 text-gray-400 transition-transform duration-200',
+                isExpertAgentSelectorOpen && 'rotate-180',
+              )}
+            />
+          </button>
+
+          {isExpertAgentSelectorOpen && (
+            <div
+              className="absolute top-full left-0 z-50 mt-2 w-full overflow-hidden rounded-2xl border border-gray-200/60 bg-white/95 p-1.5 shadow-xl backdrop-blur-xl dark:border-zinc-700/60 dark:bg-zinc-900/95"
+              onMouseDown={e => e.stopPropagation()}
+            >
+              {expertResponses.map(item => {
+                const isActive = item.agentId === activeExpertResponse?.agentId
+                return (
+                  <button
+                    type="button"
+                    key={item.agentId}
+                    onClick={e => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      setActiveExpertAgentId(item.agentId)
+                      setIsExpertAgentSelectorOpen(false)
+                    }}
+                    className={clsx(
+                      'flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2.5 text-left transition-colors',
+                      isActive
+                        ? 'bg-primary-50 dark:bg-primary-900/20 text-gray-900 dark:text-gray-100'
+                        : 'text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-zinc-800/80',
+                    )}
+                  >
+                    <span className="flex min-w-0 items-center gap-2.5">
+                      <EmojiDisplay emoji={item.agentEmoji} size="1.15rem" />
+                      <span className="text-sm font-medium">{item.agentName || item.agentId}</span>
+                    </span>
+                    <span className="flex shrink-0 items-center gap-1.5">
+                      {item.status !== 'done' && (
+                        <span
+                          className={clsx(
+                            'h-2 w-2 rounded-full',
+                            item.status === 'error' ? 'bg-red-500' : 'animate-pulse bg-amber-500',
+                          )}
+                        />
+                      )}
+                      {isActive && <Check size={14} className="text-primary-500" />}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )
+    }
+
     return (
-      <div className="code-scrollbar mb-4 flex w-fit max-w-full gap-1 overflow-x-auto rounded-lg bg-gray-100 p-1 dark:bg-zinc-800/50">
+      <div className="md:code-scrollbar mb-4 flex w-full flex-wrap gap-1 rounded-xl border border-gray-200/70 bg-gray-100/85 p-1 md:w-fit md:max-w-full md:flex-nowrap md:gap-1.5 md:overflow-x-auto md:p-1.5 dark:border-zinc-700/60 dark:bg-zinc-800/55">
         {expertResponses.map(item => {
           const isActive = item.agentId === activeExpertResponse?.agentId
           return (
@@ -2187,19 +2309,19 @@ const MessageBubble = ({
                 setActiveExpertAgentId(item.agentId)
               }}
               className={clsx(
-                'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-all duration-200',
+                'flex min-w-0 flex-1 basis-[calc(50%-0.125rem)] items-center justify-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-all duration-200 sm:basis-auto sm:justify-start sm:gap-2 sm:px-3 sm:py-1.5 sm:text-sm md:min-h-10 md:flex-none md:px-4 md:py-2 md:text-sm',
                 isActive
-                  ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-gray-100'
-                  : 'text-gray-500 hover:bg-gray-200/50 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-zinc-700/50 dark:hover:text-gray-300',
+                  ? 'bg-white text-gray-900 shadow-sm ring-1 ring-black/5 dark:bg-zinc-700 dark:text-gray-100 dark:ring-white/10'
+                  : 'text-gray-500 hover:bg-gray-200/70 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-zinc-700/60 dark:hover:text-gray-300',
               )}
             >
-              <EmojiDisplay emoji={item.agentEmoji} size="1.1em" />
-              <span>{item.agentName || item.agentId}</span>
+              <EmojiDisplay emoji={item.agentEmoji} size="1.05em" />
+              <span className="min-w-0 truncate">{item.agentName || item.agentId}</span>
               {/* Status Dot */}
               {item.status !== 'done' && (
                 <span
                   className={clsx(
-                    'h-1.5 w-1.5 rounded-full',
+                    'hidden h-1.5 w-1.5 rounded-full sm:inline-block sm:h-2 sm:w-2',
                     item.status === 'error' ? 'bg-red-500' : 'animate-pulse bg-amber-500',
                   )}
                 />
@@ -2268,24 +2390,53 @@ const MessageBubble = ({
   const workflowPanel = hasWorkflow ? (
     <details
       className={clsx(
-        'group rounded-xl border border-gray-200 bg-white/70 dark:border-zinc-800 dark:bg-zinc-900/40',
+        'group overflow-hidden rounded-2xl shadow-sm backdrop-blur-xl',
+        isExpertMessage
+          ? 'border-[#d8d0ef]/70 bg-gradient-to-br from-[#efeaf9]/75 via-[#e6def6]/65 to-[#dad5f0]/60 dark:border-[#5a4a8f]/45 dark:from-[#2b1f57]/35 dark:via-[#2d3566]/28 dark:to-[#253e62]/28'
+          : 'border-[#d1d9ef]/75 bg-gradient-to-br from-[#eaf0fb]/78 via-[#e1e8f8]/68 to-[#d7e0f2]/62 dark:border-[#43507a]/50 dark:from-[#253659]/35 dark:via-[#283a63]/28 dark:to-[#22324f]/28',
         !isExpertMessage && 'mt-0 mb-4',
         isExpertMessage && 'mt-4',
       )}
       open={isWorkflowExpanded}
       onToggle={event => setIsWorkflowExpanded(event.currentTarget.open)}
     >
-      <summary className="flex cursor-pointer items-center justify-between gap-3 px-3 py-2 text-gray-600 select-none hover:text-gray-800 dark:text-gray-300 dark:hover:text-gray-100">
+      <summary
+        className={clsx(
+          'flex cursor-pointer items-center justify-between gap-3 px-3.5 py-2.5 text-gray-600 select-none hover:text-gray-800 dark:text-gray-300 dark:hover:text-gray-100',
+          isExpertMessage
+            ? 'hover:bg-[#d8cfee]/35 dark:hover:bg-[#4a3b74]/25'
+            : 'hover:bg-[#d6e2f5]/35 dark:hover:bg-[#334c76]/25',
+        )}
+      >
         <div className="flex items-center gap-2">
-          <BrainCircuit size={15} className="text-gray-500 dark:text-gray-400" />
-          <span className="text-sm font-medium">{workflowHeaderLabel}</span>
-          <span className="rounded-full bg-gray-200/80 px-2 py-0.5 text-[11px] text-gray-600 dark:bg-zinc-700/70 dark:text-gray-300">
+          <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/45 text-[11px] shadow-sm dark:bg-white/10">
+            {isExpertMessage ? '🧠' : '🧭'}
+          </span>
+          <BrainCircuit size={15} className="text-primary-500/85 dark:text-primary-300/80" />
+          <span className="text-sm font-semibold tracking-tight">{workflowHeaderLabel}</span>
+          <span
+            className={clsx(
+              'rounded-full px-2 py-0.5 text-[11px] text-gray-600 dark:text-gray-300',
+              isExpertMessage
+                ? 'border border-[#c8bce9]/70 bg-[#ece5f8]/70 dark:border-[#655294]/45 dark:bg-[#3a2e5f]/35'
+                : 'border border-[#bfd0ed]/70 bg-[#e2eaf8]/75 dark:border-[#47608d]/45 dark:bg-[#2d456c]/35',
+            )}
+          >
             {workflowParts.length}
           </span>
         </div>
         <ChevronDown size={15} className="opacity-60 transition-transform group-open:rotate-180" />
       </summary>
-      <div className="px-3 pt-1 pb-3">{renderedWorkflowContent}</div>
+      <div
+        className={clsx(
+          'px-3.5 pt-2.5 pb-3',
+          isExpertMessage
+            ? 'border-t border-[#d7cdee]/60 bg-white/35 dark:border-[#5a4a8f]/35 dark:bg-black/12'
+            : 'border-t border-[#c9d8f1]/60 bg-white/40 dark:border-[#43507a]/35 dark:bg-black/12',
+        )}
+      >
+        {renderedWorkflowContent}
+      </div>
     </details>
   ) : null
 
@@ -2481,10 +2632,10 @@ const MessageBubble = ({
       {isDeepResearch ? (
         <>
           {shouldShowPlan && (
-            <div className="overflow-hidden rounded-xl border border-gray-200/70 dark:border-zinc-800">
+            <div className="overflow-hidden rounded-xl border border-[#c9d5ee]/70 bg-gradient-to-br from-[#eaf0fb]/80 via-[#e1e8f8]/68 to-[#d7e0f2]/62 shadow-sm backdrop-blur-xl dark:border-[#43507a]/45 dark:from-[#253659]/35 dark:via-[#283a63]/28 dark:to-[#22324f]/28">
               <button
                 onClick={() => setIsPlanExpanded(!isPlanExpanded)}
-                className="bg-user-bubble/30 hover:bg-user-bubble flex w-full items-center justify-between p-2 transition-colors dark:bg-zinc-800/50 dark:hover:bg-zinc-800"
+                className="flex w-full items-center justify-between bg-[#dbe6f7]/45 p-2 transition-colors hover:bg-[#d4e0f4]/55 dark:bg-[#2d456c]/28 dark:hover:bg-[#35507d]/35"
               >
                 <div className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                   <EmojiDisplay emoji={'🧭'} size="1.2em" />
@@ -2505,7 +2656,7 @@ const MessageBubble = ({
               </button>
 
               {isPlanExpanded && (hasPlanText || shouldShowPlanStatus) && (
-                <div className="space-y-4 bg-white/70 p-4 text-sm leading-relaxed text-gray-600 font-stretch-semi-condensed dark:bg-zinc-800/70 dark:text-gray-400 [&>div>p:last-child]:mb-0!">
+                <div className="space-y-4 bg-white/58 p-4 text-sm leading-relaxed text-gray-600 font-stretch-semi-condensed dark:bg-zinc-900/42 dark:text-gray-400 [&>div>p:last-child]:mb-0!">
                   <Streamdown
                     mermaid={mermaidOptions}
                     remarkPlugins={[remarkGfm]}
@@ -2519,10 +2670,10 @@ const MessageBubble = ({
           )}
 
           {shouldShowResearch && (
-            <div className="overflow-hidden rounded-xl border border-gray-200/70 dark:border-zinc-800">
+            <div className="overflow-hidden rounded-xl border border-[#d8d0ef]/70 bg-gradient-to-br from-[#efeaf9]/78 via-[#e6def6]/68 to-[#dad5f0]/62 shadow-sm backdrop-blur-xl dark:border-[#5a4a8f]/45 dark:from-[#2b1f57]/35 dark:via-[#2d3566]/28 dark:to-[#253e62]/28">
               <button
                 onClick={() => setIsResearchExpanded(!isResearchExpanded)}
-                className="bg-user-bubble/30 hover:bg-user-bubble flex w-full items-center justify-between p-2 transition-colors dark:bg-zinc-800/50 dark:hover:bg-zinc-800"
+                className="flex w-full items-center justify-between bg-[#e5ddf6]/48 p-2 transition-colors hover:bg-[#ddd4f3]/58 dark:bg-[#3a2e5f]/28 dark:hover:bg-[#433469]/35"
               >
                 <div className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                   <EmojiDisplay emoji={'📋'} size="1.2em" />
@@ -2543,7 +2694,7 @@ const MessageBubble = ({
               </button>
 
               {isResearchExpanded && hasResearchSteps && (
-                <div className="space-y-3 p-4 text-sm leading-relaxed text-gray-600 font-stretch-semi-condensed dark:text-gray-400 [&>div>p:last-child]:mb-0!">
+                <div className="space-y-3 bg-white/54 p-4 text-sm leading-relaxed text-gray-600 font-stretch-semi-condensed dark:bg-zinc-900/36 dark:text-gray-400 [&>div>p:last-child]:mb-0!">
                   {researchSteps.map(step => {
                     const isRunning = step.status === 'running'
                     const isPending = step.status === 'pending'
@@ -2572,7 +2723,7 @@ const MessageBubble = ({
                             ? `research-step-${Number(step.step)}`
                             : `research-step-${step.streamOrder ?? step.title ?? 'unknown'}`)
                         }
-                        className="flex items-start gap-3 rounded-lg border border-gray-200/60 bg-white/70 p-3 dark:border-zinc-800/70 dark:bg-zinc-800/70"
+                        className="flex items-start gap-3 rounded-lg border border-primary-200/38 bg-white/72 p-3 dark:border-primary-700/22 dark:bg-zinc-800/62"
                       >
                         <div className="flex-1 space-y-1">
                           <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -2797,8 +2948,11 @@ const MessageBubble = ({
       >
         <>
           {isExpertMessage && activeExpertResponse?.task && (
-            <div className="mb-3 rounded-lg border border-dashed border-gray-300 px-3 py-2 text-sm text-gray-600 dark:border-zinc-600 dark:text-gray-300">
-              {activeExpertResponse.task}
+            <div className="border-primary-200/50 bg-primary-50/26 dark:border-primary-700/30 dark:bg-primary-900/12 mb-4 rounded-xl border px-3.5 py-2.5 text-sm leading-relaxed text-gray-700 dark:text-gray-200">
+              <div className="flex items-start gap-2.5">
+                <span className="bg-primary-500 mt-2 h-1.5 w-1.5 shrink-0 rounded-full" />
+                <span>{activeExpertResponse.task}</span>
+              </div>
             </div>
           )}
           {!isExpertMessage && workflowPanel}

@@ -830,7 +830,11 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
       if (settings.contextTurns || settings.contextMessageLimit) {
         setContextTurns(Number(settings.contextTurns || settings.contextMessageLimit))
       }
-      if (settings.themeColor) setThemeColor(settings.themeColor)
+      if (settings.themeColor && THEMES[settings.themeColor]) {
+        setThemeColor(settings.themeColor)
+      } else {
+        setThemeColor('violet')
+      }
       if (settings.fontSize) setFontSize(settings.fontSize)
       if (typeof settings.enableRelatedQuestions === 'boolean')
         setEnableRelatedQuestions(settings.enableRelatedQuestions)

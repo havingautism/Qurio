@@ -1214,7 +1214,7 @@ const Sidebar = ({
                                           </span>
                                           {conv.is_favorited && (
                                             <Bookmark
-                                              size={12}
+                                              size={13}
                                               className="text-primary-500 shrink-0 fill-current"
                                             />
                                           )}
@@ -1224,7 +1224,7 @@ const Sidebar = ({
                                         </div>
                                         <span
                                           className={clsx(
-                                            'text-xs',
+                                            'mt-0.5 text-[11px]',
                                             isActive
                                               ? 'text-primary-600 dark:text-primary-400'
                                               : 'text-gray-400',
@@ -1411,7 +1411,7 @@ const Sidebar = ({
                                           </span>
                                           {conv.is_favorited && (
                                             <Bookmark
-                                              size={12}
+                                              size={13}
                                               className="text-primary-500 shrink-0 fill-current"
                                             />
                                           )}
@@ -1421,7 +1421,7 @@ const Sidebar = ({
                                         </div>
                                         <span
                                           className={clsx(
-                                            'text-xs',
+                                            'mt-0.5 text-[11px]',
                                             isActive
                                               ? 'text-primary-600 dark:text-primary-400'
                                               : 'text-gray-400',
@@ -1575,14 +1575,14 @@ const Sidebar = ({
                                     {conv.title}
                                   </span>
                                   <Bookmark
-                                    size={12}
+                                    size={13}
                                     className="text-primary-500 shrink-0 fill-current"
                                   />
                                   {renderConversationStatusDot(conversationStatuses[conv.id])}
                                 </div>
                                 <span
                                   className={clsx(
-                                    'text-xs',
+                                    'mt-0.5 text-[11px]',
                                     isActive
                                       ? 'text-primary-600 dark:text-primary-400'
                                       : 'text-gray-400',
@@ -1822,7 +1822,7 @@ const Sidebar = ({
                                       </div>
                                       <span
                                         className={clsx(
-                                          'mt-0.5 text-xs',
+                                          'mt-0.5 text-[11px]',
                                           conv.id === activeConversationId
                                             ? 'text-primary-600 dark:text-primary-400'
                                             : 'text-gray-400',

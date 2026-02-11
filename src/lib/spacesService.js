@@ -114,6 +114,13 @@ export const listSpaceAgents = async spaceId => {
       .order('sort_order', { ascending: true })
 
     const result = { data: data || [], error }
+
+    if (error) {
+      console.error('[Debug] listSpaceAgents Supabase error:', error)
+    } else {
+      console.log('[Debug] listSpaceAgents success, count:', data?.length)
+    }
+
     if (!error) {
       setSpaceAgentsCache(spaceId, result)
     }

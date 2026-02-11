@@ -443,8 +443,12 @@ export const callAIAPI = async (
       if (aNum !== null && bNum !== null) return aNum - bNum
       if (aNum !== null) return -1
       if (bNum !== null) return 1
-      const aOrder = Number.isFinite(a?.streamOrder) ? Number(a.streamOrder) : Number.MAX_SAFE_INTEGER
-      const bOrder = Number.isFinite(b?.streamOrder) ? Number(b.streamOrder) : Number.MAX_SAFE_INTEGER
+      const aOrder = Number.isFinite(a?.streamOrder)
+        ? Number(a.streamOrder)
+        : Number.MAX_SAFE_INTEGER
+      const bOrder = Number.isFinite(b?.streamOrder)
+        ? Number(b.streamOrder)
+        : Number.MAX_SAFE_INTEGER
       return aOrder - bOrder
     })
     return safeSteps
@@ -652,6 +656,7 @@ export const callAIAPI = async (
       summaryModel: summaryModelConfig?.model,
       summaryApiKey: summaryCreds?.apiKey,
       summaryBaseUrl: summaryCreds?.baseUrl,
+      enableSessionSummary: toggles.deepResearch ? false : true,
 
       // RESTORED: Pass memory model config for long term memory tasks (using main model or specific config)
       // This ensures Long Term Memory continues to work as it did before.
@@ -691,9 +696,13 @@ export const callAIAPI = async (
           return baseMessage
         })
       })(),
-      tools: provider.getTools(toggles.search, toggles.searchTool, settings.enableLongTermMemory),
+      tools: provider.getTools(
+        toggles.search,
+        toggles.searchTool,
+        toggles.deepResearch ? false : settings.enableLongTermMemory,
+      ),
       toolIds: resolvedToolIds,
-      enableLongTermMemory: Boolean(settings.enableLongTermMemory),
+      enableLongTermMemory: toggles.deepResearch ? false : Boolean(settings.enableLongTermMemory),
       databaseProvider: selectedDatabaseProvider,
       thinking: provider.getThinking(thinkingActive, modelConfig.model),
       signal: controller.signal,
@@ -1161,12 +1170,12 @@ export const finalizeMessage = async (
     if (Array.isArray(content)) {
       return sanitizeModelOutputText(
         content
-        .map(part => {
-          if (typeof part === 'string') return part
-          if (part?.type === 'text' && part.text) return part.text
-          if (part?.text) return part.text
-          return ''
-        })
+          .map(part => {
+            if (typeof part === 'string') return part
+            if (part?.type === 'text' && part.text) return part.text
+            if (part?.text) return part.text
+            return ''
+          })
           .join(''),
       )
     }
@@ -1693,14 +1702,15 @@ export const finalizeMessage = async (
   if (currentStore.conversationId) {
     try {
       if (isFirstTurn) {
-        await updateConversation(currentStore.conversationId, {
+        const updatePayload = {
           title: resolvedTitle,
           title_emojis: resolvedTitleEmojis,
-          space_id: resolvedSpace ? resolvedSpace.id : null,
+          space_id: resolvedSpace ? resolvedSpace.id : undefined,
           api_provider: resolvedAgent?.provider || safeAgent?.provider || '',
-          last_agent_id: safeAgent?.id || null,
+          last_agent_id: safeAgent?.id || undefined,
           agent_selection_mode: isAgentAutoMode ? 'auto' : 'manual',
-        })
+        }
+        await updateConversation(currentStore.conversationId, updatePayload)
         notifyConversationsChanged()
         window.dispatchEvent(
           new CustomEvent('conversation-space-updated', {

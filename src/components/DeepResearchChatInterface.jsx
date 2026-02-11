@@ -37,6 +37,7 @@ const DeepResearchChatInterface = ({
   initialIsAgentAutoMode = true,
   onTitleAndSpaceGenerated,
   isSidebarPinned = false,
+  isSpaceSelectionLocked = false,
   researchType = 'general', // Add researchType prop
   responseLanguage = null,
 }) => {
@@ -185,6 +186,7 @@ const DeepResearchChatInterface = ({
     deepResearchSpace,
     conversationId,
   })
+  const shouldLockSpaceSelection = isSpaceSelectionLocked || isDeepResearchConversation
 
   // Agent management hook
   const {
@@ -1233,7 +1235,7 @@ const DeepResearchChatInterface = ({
           related: relatedActive,
         },
         settings,
-        spaceInfo: { selectedSpace, isManualSpaceSelection },
+        spaceInfo: { selectedSpace: displaySpace || selectedSpace, isManualSpaceSelection },
         selectedAgent: agentForSend,
         isAgentAutoMode: agentAutoModeForSend,
         agents: appAgents,
@@ -1241,6 +1243,7 @@ const DeepResearchChatInterface = ({
         callbacks: {
           onTitleAndSpaceGenerated,
           onSpaceResolved: space => {
+            if (shouldLockSpaceSelection) return
             // Assuming `isMobile` and `toggleSidebar` are defined elsewhere if needed
             // Original logic: setSelectedSpace(space); setIsManualSpaceSelection(false);
             // If the user intended to replace with mobile-specific logic, it should be handled.
@@ -1282,6 +1285,7 @@ const DeepResearchChatInterface = ({
       defaultAgent,
       isManualSpaceSelection,
       onTitleAndSpaceGenerated,
+      shouldLockSpaceSelection,
       spaces,
       quoteContext,
       appAgents,
@@ -1612,6 +1616,7 @@ const DeepResearchChatInterface = ({
           setIsSelectorOpen={setIsSelectorOpen}
           selectorRef={selectorRef}
           isDeepResearchConversation={isDeepResearchConversation}
+          isSpaceSelectionLocked={shouldLockSpaceSelection}
           onSelectSpace={handleSelectSpace}
           onClearSpaceSelection={handleClearSpaceSelection}
           conversationTitle={conversationTitle}
@@ -1628,7 +1633,7 @@ const DeepResearchChatInterface = ({
           ref={messagesContainerRef}
           className="no-scrollbar relative flex-1 overflow-x-hidden overflow-y-auto sm:p-2"
         >
-          <div className="mx-auto w-full max-w-3xl px-0 sm:px-5">
+          <div className="mx-auto w-full max-w-3xl px-0 pt-16 sm:px-5 sm:pt-0">
             {showHistoryLoader && (
               <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
                 <FancyLoader />

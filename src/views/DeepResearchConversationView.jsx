@@ -135,6 +135,7 @@ const DeepResearchConversationView = () => {
       activeConversation={conversation}
       conversationId={conversationId}
       isSidebarPinned={isSidebarPinned}
+      isSpaceSelectionLocked={true}
       initialMessage={initialMessage}
       initialAttachments={initialAttachments}
       initialToggles={initialToggles}

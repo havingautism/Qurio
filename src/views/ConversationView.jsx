@@ -192,6 +192,7 @@ const ConversationView = () => {
       activeConversation={conversation}
       conversationId={conversationId}
       isSidebarPinned={isSidebarPinned}
+      isSpaceSelectionLocked={isDeepResearchConversation}
       initialMessage={initialMessage}
       initialAttachments={initialAttachments}
       initialDocumentIds={initialDocumentIds}

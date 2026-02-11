@@ -200,6 +200,7 @@ const MessageBubble = ({
   const { developerMode } = useSettings()
   const { agents = [], onEditAgent } = useAppContext()
   const { t, i18n } = useTranslation()
+  const isMobile = useIsMobile()
 
   // Extract message by index
   const message = messages[messageIndex]
@@ -250,6 +251,8 @@ const MessageBubble = ({
   const [activeExpertAgentId, setActiveExpertAgentId] = useState(
     String(mergedMessage?.expertActiveAgentId || expertResponses[0]?.agentId || ''),
   )
+  const [isExpertAgentSelectorOpen, setIsExpertAgentSelectorOpen] = useState(false)
+  const expertAgentSelectorRef = useRef(null)
   useEffect(() => {
     const hasCurrent = expertResponses.some(item => item.agentId === activeExpertAgentId)
     if (hasCurrent) return
@@ -263,6 +266,34 @@ const MessageBubble = ({
 
     setActiveExpertAgentId(String(expertResponses[0]?.agentId || ''))
   }, [mergedMessage?.id, mergedMessage?.expertActiveAgentId, expertResponses, activeExpertAgentId])
+  useEffect(() => {
+    if (!isExpertAgentSelectorOpen) return undefined
+
+    const handleOutside = event => {
+      if (!expertAgentSelectorRef.current?.contains(event.target)) {
+        setIsExpertAgentSelectorOpen(false)
+      }
+    }
+    const handleEsc = event => {
+      if (event.key === 'Escape') {
+        setIsExpertAgentSelectorOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleOutside)
+    document.addEventListener('touchstart', handleOutside, { passive: true })
+    document.addEventListener('keydown', handleEsc)
+    return () => {
+      document.removeEventListener('mousedown', handleOutside)
+      document.removeEventListener('touchstart', handleOutside)
+      document.removeEventListener('keydown', handleEsc)
+    }
+  }, [isExpertAgentSelectorOpen])
+  useEffect(() => {
+    if (!isMobile && isExpertAgentSelectorOpen) {
+      setIsExpertAgentSelectorOpen(false)
+    }
+  }, [isMobile, isExpertAgentSelectorOpen])
   const activeExpertIndex = Math.max(
     0,
     expertResponses.findIndex(item => item.agentId === activeExpertAgentId),
@@ -844,9 +875,6 @@ const MessageBubble = ({
   const [isShareModalOpen, setIsShareModalOpen] = useState(false)
   const [isDownloadMenuOpen, setIsDownloadMenuOpen] = useState(false)
   const downloadMenuRef = useRef(null)
-
-  // Detect mobile view
-  const isMobile = useIsMobile()
 
   // Calculate optimal menu position to avoid viewport edges and selection
   const calculateMenuPosition = selectionRect => {
@@ -1602,7 +1630,7 @@ const MessageBubble = ({
               )}
             </div>
           )}
-          <div className="mt-2 rounded-xl border border-gray-200/80 bg-gray-50/65 px-3.5 py-3 text-xs leading-relaxed text-gray-600 dark:border-zinc-700/70 dark:bg-zinc-800/40 dark:text-gray-400">
+          <div className="mt-2 text-sm">
             <Streamdown
               mermaid={mermaidOptions}
               remarkPlugins={[remarkGfm]}
@@ -1743,7 +1771,7 @@ const MessageBubble = ({
                               })()}
                           </div>
                           {typeof item.durationMs === 'number' && (
-                            <span className="shrink-0 text-[11px] whitespace-nowrap text-gray-500 dark:text-gray-400">
+                            <span className="shrink-0 text-[11px]! whitespace-nowrap text-gray-500 dark:text-gray-400">
                               {t('messageBubble.toolDuration', {
                                 duration: (item.durationMs / 1000).toFixed(2),
                               })}
@@ -2097,15 +2125,18 @@ const MessageBubble = ({
 
             {/* Action Buttons */}
             {!isDeepResearchContext && (
-              <div className="flex items-center gap-2 px-1">
-                <div className="flex gap-2 opacity-100 transition-opacity duration-200 sm:opacity-0 sm:group-hover:opacity-100">
+              <div className="flex items-center gap-1 px-1">
+                <div className="flex items-center gap-1">
                   {onEdit && (
                     <button
                       onClick={() => onEdit()}
-                      className="rounded-lg p-1.5 text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-gray-300"
-                      title="Edit"
+                      className="group/icon flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-gray-500 transition-all duration-200 hover:bg-gray-100 hover:text-gray-700 dark:text-white dark:hover:bg-zinc-800 dark:hover:text-gray-200"
+                      title={t('messageBubble.edit')}
                     >
                       <Pencil size={14} />
+                      <span className="hidden max-w-0 overflow-hidden text-xs font-medium whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover/icon:max-w-[50px] group-hover/icon:opacity-100 sm:block">
+                        {t('messageBubble.edit')}
+                      </span>
                     </button>
                   )}
                   <button
@@ -2113,10 +2144,24 @@ const MessageBubble = ({
                       copyToClipboard(contentToRender)
                       setIsCopied(true)
                     }}
-                    className="rounded-lg p-1.5 text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-gray-300"
+                    className="group/icon flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-gray-500 transition-all duration-200 hover:bg-gray-100 hover:text-gray-700 dark:text-white dark:hover:bg-zinc-800 dark:hover:text-gray-200"
                     title={t('messageBubble.copy')}
                   >
-                    {isCopied ? <Check size={14} /> : <Copy size={14} />}
+                    {isCopied ? (
+                      <>
+                        <Check size={14} className="text-emerald-500" />
+                        <span className="hidden max-w-0 overflow-hidden text-xs font-medium whitespace-nowrap text-emerald-500 opacity-0 transition-all duration-300 ease-in-out group-hover/icon:max-w-[60px] group-hover/icon:opacity-100 sm:block">
+                          {t('message.copied')}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy size={14} />
+                        <span className="hidden max-w-0 overflow-hidden text-xs font-medium whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover/icon:max-w-[50px] group-hover/icon:opacity-100 sm:block">
+                          {t('message.copy')}
+                        </span>
+                      </>
+                    )}
                   </button>
                   <button
                     onClick={() => {
@@ -2129,10 +2174,13 @@ const MessageBubble = ({
                         onConfirm: onDelete,
                       })
                     }}
-                    className="rounded-lg p-1.5 text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-gray-300"
+                    className="group/icon flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-gray-500 transition-all duration-200 hover:bg-red-50 hover:text-red-600 dark:text-white dark:hover:bg-red-900/20 dark:hover:text-red-400"
                     title={t('common.delete')}
                   >
                     <Trash2 size={14} />
+                    <span className="hidden max-w-0 overflow-hidden text-xs font-medium whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover/icon:max-w-[60px] group-hover/icon:opacity-100 sm:block">
+                      {t('common.delete')}
+                    </span>
                   </button>
                 </div>
               </div>
@@ -2171,8 +2219,84 @@ const MessageBubble = ({
 
   const renderExpertTabs = () => {
     if (!isExpertMessage) return null
+
+    if (isMobile) {
+      return (
+        <div className="relative mb-4 w-full" ref={expertAgentSelectorRef}>
+          <button
+            type="button"
+            onMouseDown={e => {
+              e.preventDefault()
+              e.stopPropagation()
+              setIsExpertAgentSelectorOpen(prev => !prev)
+            }}
+            className="flex h-12 w-full items-center justify-between gap-2 rounded-full bg-white/90 py-2 pr-3 pl-3 text-sm font-medium text-gray-700 shadow-sm backdrop-blur-xl transition-all dark:bg-zinc-900/90 dark:text-gray-200"
+          >
+            <span className="flex min-w-0 items-center gap-2.5">
+              <EmojiDisplay emoji={activeExpertResponse?.agentEmoji} size="1.15rem" />
+              <span className="truncate text-left text-sm font-semibold">
+                {activeExpertResponse?.agentName || activeExpertResponse?.agentId}
+              </span>
+            </span>
+            <ChevronDown
+              size={15}
+              className={clsx(
+                'shrink-0 text-gray-400 transition-transform duration-200',
+                isExpertAgentSelectorOpen && 'rotate-180',
+              )}
+            />
+          </button>
+
+          {isExpertAgentSelectorOpen && (
+            <div
+              className="absolute top-full left-0 z-50 mt-2 w-full overflow-hidden rounded-2xl border border-gray-200/60 bg-white/95 p-1.5 shadow-xl backdrop-blur-xl dark:border-zinc-700/60 dark:bg-zinc-900/95"
+              onMouseDown={e => e.stopPropagation()}
+            >
+              {expertResponses.map(item => {
+                const isActive = item.agentId === activeExpertResponse?.agentId
+                return (
+                  <button
+                    type="button"
+                    key={item.agentId}
+                    onClick={e => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      setActiveExpertAgentId(item.agentId)
+                      setIsExpertAgentSelectorOpen(false)
+                    }}
+                    className={clsx(
+                      'flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2.5 text-left transition-colors',
+                      isActive
+                        ? 'bg-primary-50 dark:bg-primary-900/20 text-gray-900 dark:text-gray-100'
+                        : 'text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-zinc-800/80',
+                    )}
+                  >
+                    <span className="flex min-w-0 items-center gap-2.5">
+                      <EmojiDisplay emoji={item.agentEmoji} size="1.15rem" />
+                      <span className="text-sm font-medium">{item.agentName || item.agentId}</span>
+                    </span>
+                    <span className="flex shrink-0 items-center gap-1.5">
+                      {item.status !== 'done' && (
+                        <span
+                          className={clsx(
+                            'h-2 w-2 rounded-full',
+                            item.status === 'error' ? 'bg-red-500' : 'animate-pulse bg-amber-500',
+                          )}
+                        />
+                      )}
+                      {isActive && <Check size={14} className="text-primary-500" />}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )
+    }
+
     return (
-      <div className="code-scrollbar mb-4 flex w-fit max-w-full gap-1.5 overflow-x-auto rounded-xl border border-gray-200/70 bg-gray-100/85 p-1.5 dark:border-zinc-700/60 dark:bg-zinc-800/55">
+      <div className="md:code-scrollbar mb-4 flex w-full flex-wrap gap-1 rounded-xl border border-gray-200/70 bg-gray-100/85 p-1 md:w-fit md:max-w-full md:flex-nowrap md:gap-1.5 md:overflow-x-auto md:p-1.5 dark:border-zinc-700/60 dark:bg-zinc-800/55">
         {expertResponses.map(item => {
           const isActive = item.agentId === activeExpertResponse?.agentId
           return (
@@ -2185,19 +2309,19 @@ const MessageBubble = ({
                 setActiveExpertAgentId(item.agentId)
               }}
               className={clsx(
-                'flex min-h-10 items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold whitespace-nowrap transition-all duration-200',
+                'flex min-w-0 flex-1 basis-[calc(50%-0.125rem)] items-center justify-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-all duration-200 sm:basis-auto sm:justify-start sm:gap-2 sm:px-3 sm:py-1.5 sm:text-sm md:min-h-10 md:flex-none md:px-4 md:py-2 md:text-sm',
                 isActive
                   ? 'bg-white text-gray-900 shadow-sm ring-1 ring-black/5 dark:bg-zinc-700 dark:text-gray-100 dark:ring-white/10'
                   : 'text-gray-500 hover:bg-gray-200/70 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-zinc-700/60 dark:hover:text-gray-300',
               )}
             >
-              <EmojiDisplay emoji={item.agentEmoji} size="1.2em" />
-              <span>{item.agentName || item.agentId}</span>
+              <EmojiDisplay emoji={item.agentEmoji} size="1.05em" />
+              <span className="min-w-0 truncate">{item.agentName || item.agentId}</span>
               {/* Status Dot */}
               {item.status !== 'done' && (
                 <span
                   className={clsx(
-                    'h-2 w-2 rounded-full',
+                    'hidden h-1.5 w-1.5 rounded-full sm:inline-block sm:h-2 sm:w-2',
                     item.status === 'error' ? 'bg-red-500' : 'animate-pulse bg-amber-500',
                   )}
                 />
@@ -2266,7 +2390,7 @@ const MessageBubble = ({
   const workflowPanel = hasWorkflow ? (
     <details
       className={clsx(
-        'group overflow-hidden rounded-2xl bg-white/90 shadow-sm backdrop-blur-[1px] dark:bg-zinc-900',
+        'group overflow-hidden rounded-2xl bg-white/90 shadow-sm backdrop-blur-xl dark:bg-zinc-900',
         !isExpertMessage && 'mt-0 mb-4',
         isExpertMessage && 'mt-4',
       )}

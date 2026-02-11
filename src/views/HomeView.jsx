@@ -888,25 +888,26 @@ const HomeView = () => {
         />
       </div>
 
-      {/* Mobile Header for Home View */}
-      <div className="bg-background z-30 flex h-12 w-full shrink-0 items-center justify-between border-b border-gray-200 px-4 md:hidden dark:border-zinc-800">
-        <div className="flex items-center gap-3">
+      {/* Mobile Header for Home View: keep only sidebar button, matching chat header style */}
+      <div className="pointer-events-none absolute top-0 right-0 left-0 z-30 flex w-full shrink-0 items-center p-4 md:hidden">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 top-0 h-21 bg-gradient-to-b from-white/68 via-white/28 to-transparent [mask-image:linear-gradient(to_bottom,black_58%,transparent)] opacity-100 backdrop-blur-xl dark:from-zinc-950/68 dark:via-zinc-950/28"
+        />
+        <div className="pointer-events-auto flex w-full items-center">
           <button
             onClick={toggleSidebar}
-            className="-ml-2 rounded-lg p-2 text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-zinc-800"
+            className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-gray-200/50 bg-white/90 p-0 leading-none text-gray-600 shadow-sm backdrop-blur-xl transition-all hover:bg-white hover:shadow-md dark:border-zinc-800/50 dark:bg-zinc-900/90 dark:text-gray-300 dark:hover:bg-zinc-900"
           >
-            <Menu size={20} />
+            <Menu size={21} className="block" />
           </button>
-          <span className="font-semibold text-gray-900 dark:text-white">{t('app.name')}</span>
         </div>
-        {/* Space for right button if needed, or just spacer */}
-        <div className="w-8" />
       </div>
 
       <div
         ref={homeContainerRef}
         className={clsx(
-          'flex h-full flex-1 flex-col items-center overflow-y-auto p-4 transition-all duration-300',
+          'flex h-full flex-1 flex-col items-center overflow-y-auto p-4 pt-16 transition-all duration-300 md:pt-4',
           isSidebarPinned ? 'md:ml-72' : 'md:ml-16',
         )}
       >

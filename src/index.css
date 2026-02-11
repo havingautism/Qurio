@@ -293,7 +293,7 @@
   --color-primary-950: #2e1065;
 
   /* Dynamic background variables injected by src/lib/themes.js */
-  --background: #fbfbfb;
+  --background: #f7f7f7;
   --foreground: #44403c;
   /* gray-800 -> stone-800 - lighter for softer light mode text */
   --sidebar: #fbfbfb;

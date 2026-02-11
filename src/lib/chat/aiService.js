@@ -1702,14 +1702,15 @@ export const finalizeMessage = async (
   if (currentStore.conversationId) {
     try {
       if (isFirstTurn) {
-        await updateConversation(currentStore.conversationId, {
+        const updatePayload = {
           title: resolvedTitle,
           title_emojis: resolvedTitleEmojis,
-          space_id: resolvedSpace ? resolvedSpace.id : null,
+          space_id: resolvedSpace ? resolvedSpace.id : undefined,
           api_provider: resolvedAgent?.provider || safeAgent?.provider || '',
-          last_agent_id: safeAgent?.id || null,
+          last_agent_id: safeAgent?.id || undefined,
           agent_selection_mode: isAgentAutoMode ? 'auto' : 'manual',
-        })
+        }
+        await updateConversation(currentStore.conversationId, updatePayload)
         notifyConversationsChanged()
         window.dispatchEvent(
           new CustomEvent('conversation-space-updated', {

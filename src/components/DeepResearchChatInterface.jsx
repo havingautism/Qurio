@@ -1233,7 +1233,7 @@ const DeepResearchChatInterface = ({
           related: relatedActive,
         },
         settings,
-        spaceInfo: { selectedSpace, isManualSpaceSelection },
+        spaceInfo: { selectedSpace: displaySpace || selectedSpace, isManualSpaceSelection },
         selectedAgent: agentForSend,
         isAgentAutoMode: agentAutoModeForSend,
         agents: appAgents,

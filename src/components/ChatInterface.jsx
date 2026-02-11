@@ -1492,7 +1492,7 @@ const ChatInterface = ({
           related: relatedActive,
         },
         settings,
-        spaceInfo: { selectedSpace, isManualSpaceSelection },
+        spaceInfo: { selectedSpace: displaySpace || selectedSpace, isManualSpaceSelection },
         selectedAgent: agentForSend,
         isAgentAutoMode,
         agents: appAgents,

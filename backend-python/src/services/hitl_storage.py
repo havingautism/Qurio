@@ -32,7 +32,9 @@ def _is_missing_pending_form_table_error(error: Any) -> bool:
     text = str(error or "").lower()
     return "pending_form_runs" in text and (
         "pgrst205" in text
+        or "pgrst204" in text
         or "could not find the table" in text
+        or "could not find the" in text
         or "not found" in text
         or "does not exist" in text
     )
@@ -180,7 +182,20 @@ class DbHITLStorage:
         )
         result = await execute_db_async(self.adapter, req)
         if result.error:
-            if "messages" in payload:
+            # 1. First retry: older schema might not have 'agent_model'
+            if "agent_model" in payload and _is_missing_pending_form_table_error(result.error):
+                payload.pop("agent_model", None)
+                req = DbQueryRequest(
+                    providerId=self.provider.id,
+                    action="upsert",
+                    table=self.TABLE_NAME,
+                    values=payload,
+                    onConflict=["run_id"],
+                )
+                result = await execute_db_async(self.adapter, req)
+
+            # 2. Second retry: older schema might not have 'messages' (unlikely but safe)
+            if result.error and "messages" in payload:
                 payload.pop("messages", None)
                 req = DbQueryRequest(
                     providerId=self.provider.id,
@@ -190,12 +205,15 @@ class DbHITLStorage:
                     onConflict=["run_id"],
                 )
                 result = await execute_db_async(self.adapter, req)
+
             if result.error:
-                if _is_missing_pending_form_table_error(result.error):
+                error_text = str(result.error or "").lower()
+                if _is_missing_pending_form_table_error(result.error) or "42p10" in error_text:
                     self._use_memory_fallback = True
                     logger.warning(
-                        "[HITL] Table pending_form_runs missing in provider=%s; switched to in-memory fallback",
+                        "[HITL] Table pending_form_runs missing/incompatible in provider=%s (error=%s); switched to in-memory fallback",
                         self.provider.id,
+                        error_text,
                     )
                     return await self._memory_fallback.save_pending_run(
                         run_id=run_id,

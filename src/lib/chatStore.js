@@ -661,13 +661,34 @@ const useChatStore = create((set, get) => ({
 
     const isExpertMode = Boolean(resolvedToggles?.expertMode)
     const selectedSpaceId = resolvedSpaceInfo?.selectedSpace?.id
+
+    console.log('[Debug] Expert Mode Check:', {
+      isExpertMode,
+      selectedSpaceId,
+      hasSpace: !!selectedSpaceId,
+    })
+
     if (isExpertMode && selectedSpaceId) {
       try {
-        const { data: spaceAgentRows } = await listSpaceAgents(selectedSpaceId)
+        console.log('[Debug] Listing space agents for space:', selectedSpaceId)
+        const { data: spaceAgentRows, error: spaceAgentsError } =
+          await listSpaceAgents(selectedSpaceId)
+
+        if (spaceAgentsError) {
+          console.error('[Debug] Failed to list space agents:', spaceAgentsError)
+        } else {
+          console.log('[Debug] Found space agents:', spaceAgentRows?.length)
+        }
+
         const spaceAgentIds = (spaceAgentRows || []).map(item => String(item.agent_id))
-        const expertAgents = (agents || []).filter(agent => spaceAgentIds.includes(String(agent.id)))
+        const expertAgents = (agents || []).filter(agent =>
+          spaceAgentIds.includes(String(agent.id)),
+        )
+
+        console.log('[Debug] Expert Agents count:', expertAgents.length)
 
         if (expertAgents.length >= 2) {
+          console.log('[Debug] Starting Expert Mode execution...')
           const expertMessageLocalId = `expert-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
           appendAIPlaceholder(resolvedAgent, resolvedToggles, [], set)
           set(state => {
@@ -789,7 +810,8 @@ const useChatStore = create((set, get) => ({
             expertResponses: (current.expertResponses || []).map(item => ({
               ...item,
               task:
-                plannedTasks.find(task => String(task.agentId) === String(item.agentId))?.task || '',
+                plannedTasks.find(task => String(task.agentId) === String(item.agentId))?.task ||
+                '',
               status: plannedTasks.some(task => String(task.agentId) === String(item.agentId))
                 ? 'running'
                 : 'pending',
@@ -828,7 +850,12 @@ const useChatStore = create((set, get) => ({
               : text
             const promptText = applyLanguageInstructionToText(taskPrompt, languageInstruction)
             const taskUserMessage = { ...userMessageForSend, content: promptText }
-            const taskMessages = buildConversationMessages(historyForSend, taskUserMessage, agent, settings)
+            const taskMessages = buildConversationMessages(
+              historyForSend,
+              taskUserMessage,
+              agent,
+              settings,
+            )
 
             updateExpertMessage(current => ({
               ...current,
@@ -858,7 +885,10 @@ const useChatStore = create((set, get) => ({
                     searchToolForExpert,
                     false,
                   ),
-                  thinking: provider.getThinking(Boolean(resolvedToggles?.thinking), modelConfig.model),
+                  thinking: provider.getThinking(
+                    Boolean(resolvedToggles?.thinking),
+                    modelConfig.model,
+                  ),
                   signal: controller.signal,
                   onChunk: chunk => {
                     let chunkText = ''

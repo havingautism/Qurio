@@ -245,6 +245,7 @@ const MessageBubble = ({
       }))
       .filter(item => item.agentId)
   }, [mergedMessage?.expertResponses])
+
   const isExpertMessage = Boolean(mergedMessage?.expertMode) && expertResponses.length > 0
   const [activeExpertAgentId, setActiveExpertAgentId] = useState(
     String(mergedMessage?.expertActiveAgentId || expertResponses[0]?.agentId || ''),
@@ -1207,6 +1208,9 @@ const MessageBubble = ({
 
   const isStreaming = isStreamingMessage
   const hasMainText = (() => {
+    if (isExpertMessage) {
+      return typeof mainContent === 'string' && mainContent.trim().length > 0
+    }
     const content = message?.content
     if (typeof content === 'string') return content.trim().length > 0
     if (Array.isArray(content)) {

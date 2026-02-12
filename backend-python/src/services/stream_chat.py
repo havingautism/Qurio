@@ -156,6 +156,58 @@ def _preview(text: Any, limit: int = 140) -> str:
     raw = str(text or "").replace("\n", "\\n")
     return raw[:limit] + ("..." if len(raw) > limit else "")
 
+
+def _normalize_interactive_form_fields(raw_fields: Any) -> list[dict[str, Any]]:
+    """
+    Normalize interactive_form fields to a strict list[dict].
+
+    Some providers/tool runtimes return fields as a JSON string; this helper
+    parses and sanitizes that shape so FormRequestEvent validation won't fail.
+    """
+    parsed = raw_fields
+
+    if isinstance(parsed, str):
+        text = parsed.strip()
+        if not text:
+            return []
+        try:
+            parsed = json.loads(text)
+        except Exception:
+            try:
+                parsed = ast.literal_eval(text)
+            except Exception:
+                logger.warning("interactive_form fields is invalid string, fallback to empty list")
+                return []
+
+    if isinstance(parsed, dict):
+        maybe_fields = parsed.get("fields")
+        if isinstance(maybe_fields, list):
+            parsed = maybe_fields
+        else:
+            return []
+
+    if not isinstance(parsed, list):
+        return []
+
+    normalized: list[dict[str, Any]] = []
+    for item in parsed:
+        if isinstance(item, dict):
+            normalized.append(item)
+        else:
+            logger.warning("interactive_form field item is not dict, skipped: %s", type(item).__name__)
+    return normalized
+
+
+def _extract_interactive_form_payload(req: Any, default_title: str) -> tuple[str | None, str, list[dict[str, Any]]]:
+    """Extract interactive form payload from requirement in a validation-safe way."""
+    tool_args = req.tool_execution.tool_args if getattr(req, "tool_execution", None) else {}
+    if not isinstance(tool_args, dict):
+        tool_args = {}
+    form_id = tool_args.get("id")
+    title = str(tool_args.get("title") or default_title)
+    fields = _normalize_interactive_form_fields(tool_args.get("fields", []))
+    return form_id, title, fields
+
 class StreamChatService:
     """Stream chat service implemented using Agno Agent streaming events."""
 
@@ -493,11 +545,10 @@ class StreamChatService:
                                 # Handle external execution (e.g., interactive_form with external_execution=True)
                                 if (hasattr(req, 'needs_external_execution') and req.needs_external_execution) or \
                                    (req.tool_execution and req.tool_execution.tool_name == "interactive_form"):
-
-                                    tool_args = req.tool_execution.tool_args if req.tool_execution else {}
-                                    form_id = tool_args.get('id')
-                                    title = tool_args.get('title', 'Please provide the following information')
-                                    fields = tool_args.get('fields', [])
+                                    form_id, title, fields = _extract_interactive_form_payload(
+                                        req,
+                                        default_title="Please provide the following information",
+                                    )
 
                                     # Send form_request event to frontend
                                     yield FormRequestEvent(
@@ -1085,10 +1136,10 @@ class StreamChatService:
                                 for req in form_requirements:
                                     if (hasattr(req, 'needs_external_execution') and req.needs_external_execution) or \
                                        (req.tool_execution and req.tool_execution.tool_name == "interactive_form"):
-                                        tool_args = req.tool_execution.tool_args if req.tool_execution else {}
-                                        form_id = tool_args.get('id')
-                                        title = tool_args.get('title', 'Please provide additional information')
-                                        fields = tool_args.get('fields', [])
+                                        form_id, title, fields = _extract_interactive_form_payload(
+                                            req,
+                                            default_title="Please provide additional information",
+                                        )
 
                                         yield FormRequestEvent(
                                             run_id=run_id,

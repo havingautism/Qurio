@@ -501,10 +501,15 @@ const useChatStore = create((set, get) => ({
               space =>
                 !(space?.isDeepResearchSystem || space?.isDeepResearch || space?.is_deep_research),
             )
+
+        // Optimization: If space is already selected (e.g. from Sidebar/Expert Mode),
+        // only pass that space to avoid scanning all 9 spaces.
+        const spacesToScan = spaceInfo?.selectedSpace ? [spaceInfo.selectedSpace] : selectableSpaces
+
         const { space, agent } = await preselectSpaceAndAgentForAuto(
           text,
           settings,
-          selectableSpaces,
+          spacesToScan,
           agents,
           selectedAgent,
         )

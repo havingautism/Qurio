@@ -15,7 +15,7 @@ resolution-markers = [
 
 [[package]]
 name = "agno"
-version = "2.4.8"
+version = "2.5.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "docstring-parser" },
@@ -32,9 +32,9 @@ dependencies = [
     { name = "typer" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/c6/f6/6123acb1a62976a26b55e09b2bd033efa5c75d0f711ce508bf5c82376cdf/agno-2.4.8.tar.gz", hash = "sha256:ed46a29fa1ad6a5e6d22305843bf9e3eed3f0ac902d7b313ae2bd2ec0e8bcda5", size = 1543282, upload-time = "2026-02-03T13:30:18.228Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/f3/e6/b8a1d411277a9a51598c3c8bbde02be7d58fade75784175df9ef01a89c9c/agno-2.5.0.tar.gz", hash = "sha256:f416dda4b94333608b1e407fad3db89b6d1503b4d59e247f068d6c7a54084b41", size = 1645550, upload-time = "2026-02-12T14:19:54.486Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/11/f5/38d3c8143b8f431f314f3ee316a547ee0bd9f62567bf54926f6b9d182d32/agno-2.4.8-py3-none-any.whl", hash = "sha256:a72bc48c2d6f0a24623fd59fbf292d7da676b5f7e66d3f0d182757ee26a6789b", size = 1855145, upload-time = "2026-02-03T13:30:15.574Z" },
+    { url = "https://files.pythonhosted.org/packages/9a/bf/370ef52973e2b0363d6048c49056e52fd68d667241ffe96dbd4e37c25103/agno-2.5.0-py3-none-any.whl", hash = "sha256:6fb9212d5855fd27e8e26c85c8c297395c9f6cedce9dfaa7dc1c8d6329768d8c", size = 1979316, upload-time = "2026-02-12T14:19:51.556Z" },
 ]
 
 [[package]]
@@ -486,6 +486,20 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/b2/9d/c3b43da9515bd270df0f80548d9944e389870713cc1fe2b8fb35fe2bcefd/docstring_parser-0.17.0.tar.gz", hash = "sha256:583de4a309722b3315439bb31d64ba3eebada841f2e2cee23b99df001434c912", size = 27442, upload-time = "2025-07-21T07:35:01.868Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/55/e2/2537ebcff11c1ee1ff17d8d0b6f4db75873e3b0fb32c2d4a2ee31ecb310a/docstring_parser-0.17.0-py3-none-any.whl", hash = "sha256:cf2569abd23dce8099b300f9b4fa8191e9582dda731fd533daf54c4551658708", size = 36896, upload-time = "2025-07-21T07:35:00.684Z" },
+]
+
+[[package]]
+name = "duckduckgo-search"
+version = "8.1.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "click" },
+    { name = "lxml" },
+    { name = "primp" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/10/ef/07791a05751e6cc9de1dd49fb12730259ee109b18e6d097e25e6c32d5617/duckduckgo_search-8.1.1.tar.gz", hash = "sha256:9da91c9eb26a17e016ea1da26235d40404b46b0565ea86d75a9f78cc9441f935", size = 22868, upload-time = "2025-07-06T15:30:59.73Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/db/72/c027b3b488b1010cf71670032fcf7e681d44b81829d484bb04e31a949a8d/duckduckgo_search-8.1.1-py3-none-any.whl", hash = "sha256:f48adbb06626ee05918f7e0cef3a45639e9939805c4fc179e68c48a12f1b5062", size = 18932, upload-time = "2025-07-06T15:30:58.339Z" },
 ]
 
 [[package]]
@@ -2440,6 +2454,7 @@ dependencies = [
     { name = "arxiv" },
     { name = "beautifulsoup4" },
     { name = "ddgs" },
+    { name = "duckduckgo-search" },
     { name = "fastapi" },
     { name = "google-genai" },
     { name = "google-generativeai" },
@@ -2471,11 +2486,12 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "agno", specifier = ">=2.4.8" },
+    { name = "agno", specifier = ">=2.5.0" },
     { name = "aiofiles", specifier = ">=25.1.0" },
     { name = "arxiv", specifier = ">=2.4.0" },
     { name = "beautifulsoup4", specifier = ">=4.14.3" },
     { name = "ddgs", specifier = ">=9.10.0" },
+    { name = "duckduckgo-search", specifier = ">=8.1.1" },
     { name = "fastapi", specifier = ">=0.128.0" },
     { name = "google-genai", specifier = ">=1.60.0" },
     { name = "google-generativeai", specifier = ">=0.8.6" },

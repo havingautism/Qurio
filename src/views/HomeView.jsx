@@ -51,6 +51,90 @@ import { useDeepResearchGuide } from '../contexts/DeepResearchGuideContext'
 import ExpertGuideModal from '../components/ExpertGuideModal'
 import { splitTextWithUrls } from '../lib/urlHighlight'
 import { listToolsViaBackend } from '../lib/backendClient'
+import {
+  loadTogglePreferences,
+  persistSearchBackendPreference,
+  persistSearchEnabledPreference,
+  persistSearchToolsPreference,
+  persistThinkingPreference,
+} from '../lib/togglePreferences'
+import ColorBendsBackground from '../components/ui/ColorBendsBackground'
+import { THEMES } from '../lib/themes'
+
+const hexToRgb = hex => {
+  const cleaned = String(hex || '').trim().replace('#', '')
+  if (cleaned.length !== 6) return null
+  const r = Number.parseInt(cleaned.slice(0, 2), 16)
+  const g = Number.parseInt(cleaned.slice(2, 4), 16)
+  const b = Number.parseInt(cleaned.slice(4, 6), 16)
+  if ([r, g, b].some(v => Number.isNaN(v))) return null
+  return { r, g, b }
+}
+
+const mixHex = (base, accent, weight = 0.3) => {
+  const a = hexToRgb(base)
+  const b = hexToRgb(accent)
+  if (!a || !b) return base || accent
+  const w = Math.max(0, Math.min(1, weight))
+  const r = Math.round(a.r * (1 - w) + b.r * w)
+  const g = Math.round(a.g * (1 - w) + b.g * w)
+  const bVal = Math.round(a.b * (1 - w) + b.b * w)
+  return `#${[r, g, bVal]
+    .map(v => v.toString(16).padStart(2, '0'))
+    .join('')}`
+}
+
+const rgbToHsl = ({ r, g, b }) => {
+  const rn = r / 255
+  const gn = g / 255
+  const bn = b / 255
+  const max = Math.max(rn, gn, bn)
+  const min = Math.min(rn, gn, bn)
+  const l = (max + min) / 2
+  const d = max - min
+  if (d === 0) return { h: 0, s: 0, l }
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
+  let h = 0
+  if (max === rn) h = (gn - bn) / d + (gn < bn ? 6 : 0)
+  else if (max === gn) h = (bn - rn) / d + 2
+  else h = (rn - gn) / d + 4
+  return { h: h * 60, s, l }
+}
+
+const hslToHex = ({ h, s, l }) => {
+  const hue = ((h % 360) + 360) % 360
+  if (s === 0) {
+    const v = Math.round(l * 255)
+    return `#${[v, v, v].map(n => n.toString(16).padStart(2, '0')).join('')}`
+  }
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s
+  const p = 2 * l - q
+  const hk = hue / 360
+  const hueToRgb = t => {
+    let tt = t
+    if (tt < 0) tt += 1
+    if (tt > 1) tt -= 1
+    if (tt < 1 / 6) return p + (q - p) * 6 * tt
+    if (tt < 1 / 2) return q
+    if (tt < 2 / 3) return p + (q - p) * (2 / 3 - tt) * 6
+    return p
+  }
+  const r = Math.round(hueToRgb(hk + 1 / 3) * 255)
+  const g = Math.round(hueToRgb(hk) * 255)
+  const b = Math.round(hueToRgb(hk - 1 / 3) * 255)
+  return `#${[r, g, b].map(n => n.toString(16).padStart(2, '0')).join('')}`
+}
+
+const shiftHexHue = (hex, deltaDeg, satBoost = 0, lightBoost = 0) => {
+  const rgb = hexToRgb(hex)
+  if (!rgb) return hex
+  const hsl = rgbToHsl(rgb)
+  return hslToHex({
+    h: hsl.h + deltaDeg,
+    s: Math.max(0, Math.min(1, hsl.s + satBoost)),
+    l: Math.max(0, Math.min(1, hsl.l + lightBoost)),
+  })
+}
 
 const HomeView = () => {
   const { t } = useTranslation()
@@ -65,17 +149,49 @@ const HomeView = () => {
   } = useAppContext()
   const { isOpen: isDeepResearchGuideOpen, openDeepResearchGuide } = useDeepResearchGuide()
 
+  const getInitialTogglePreferences = () => {
+    try {
+      return loadTogglePreferences()
+    } catch {
+      return {
+        searchEnabled: null,
+        thinkingEnabled: null,
+        searchBackend: null,
+        searchTools: [],
+      }
+    }
+  }
+
   const [settings, setSettings] = useState(loadSettings())
+  const [isDarkMode, setIsDarkMode] = useState(() =>
+    typeof document !== 'undefined' ? document.documentElement.classList.contains('dark') : false,
+  )
   const fileInputRef = useRef(null)
 
   // Homepage Input State
   const [homeInput, setHomeInput] = useState('')
   const homeInputParts = useMemo(() => splitTextWithUrls(homeInput), [homeInput])
-  const [isHomeSearchActive, setIsHomeSearchActive] = useState(false)
-  const [homeSearchBackend, setHomeSearchBackend] = useState(null)
-  const [homeSearchTools, setHomeSearchTools] = useState([])
+  const [isHomeSearchActive, setIsHomeSearchActive] = useState(() => {
+    const prefs = getInitialTogglePreferences()
+    return Boolean(
+      prefs.searchEnabled || prefs.searchBackend || (prefs.searchTools || []).length > 0,
+    )
+  })
+  const [homeSearchBackend, setHomeSearchBackend] = useState(() => {
+    const prefs = getInitialTogglePreferences()
+    if (prefs.searchBackend) return prefs.searchBackend
+    if (prefs.searchEnabled) return 'auto'
+    return null
+  })
+  const [homeSearchTools, setHomeSearchTools] = useState(() => {
+    const prefs = getInitialTogglePreferences()
+    return Array.isArray(prefs.searchTools) ? prefs.searchTools : []
+  })
   const [isHomeSearchMenuOpen, setIsHomeSearchMenuOpen] = useState(false)
-  const [isHomeThinkingActive, setIsHomeThinkingActive] = useState(false)
+  const [isHomeThinkingActive, setIsHomeThinkingActive] = useState(() => {
+    const prefs = getInitialTogglePreferences()
+    return Boolean(prefs.thinkingEnabled)
+  })
   const [isExpertGuideOpen, setIsExpertGuideOpen] = useState(false)
   const [isCreatingExpertConversation, setIsCreatingExpertConversation] = useState(false)
   const [homeAttachments, setHomeAttachments] = useState([])
@@ -186,6 +302,22 @@ const HomeView = () => {
     setIsHomeSearchActive(Boolean(homeSearchBackend) || homeSearchTools.length > 0)
   }, [homeSearchBackend, homeSearchTools])
 
+  useEffect(() => {
+    persistThinkingPreference(isHomeThinkingActive)
+  }, [isHomeThinkingActive])
+
+  useEffect(() => {
+    persistSearchEnabledPreference(isHomeSearchActive)
+  }, [isHomeSearchActive])
+
+  useEffect(() => {
+    persistSearchBackendPreference(homeSearchBackend)
+  }, [homeSearchBackend])
+
+  useEffect(() => {
+    persistSearchToolsPreference(homeSearchTools)
+  }, [homeSearchTools])
+
   const refreshHomeSearchTools = async tavilyEnabledOverride => {
     try {
       const tools = await listToolsViaBackend()
@@ -225,6 +357,17 @@ const HomeView = () => {
     }
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  useEffect(() => {
+    const root = document.documentElement
+    const update = () => {
+      setIsDarkMode(root.classList.contains('dark'))
+    }
+    update()
+    const observer = new MutationObserver(update)
+    observer.observe(root, { attributes: true, attributeFilter: ['class'] })
+    return () => observer.disconnect()
   }, [])
 
   useEffect(() => {
@@ -571,10 +714,6 @@ const HomeView = () => {
       // Reset home input
       setHomeInput('')
       setHomeAttachments([])
-      setIsHomeSearchActive(false)
-      setHomeSearchTools([])
-      setHomeSearchBackend(null)
-      setIsHomeThinkingActive(false)
       setHomeSelectedSpace(null)
       setHomeSpaceSelectionType('auto')
       setHomeSelectedAgentId(null)
@@ -692,7 +831,37 @@ const HomeView = () => {
   const homeResolvedModel = homeModelConfig?.model || ''
   const homeThinkingRule = resolveThinkingToggleRule('', homeResolvedModel)
   const isHomeThinkingLocked = homeThinkingRule.isLocked
+  const activeTheme = THEMES[settings.themeColor] || THEMES['violet']
+  const homeWaveColors = useMemo(
+    () => {
+      const p400 = activeTheme.colors['--color-primary-400']
+      const p500 = activeTheme.colors['--color-primary-500']
+      const p600 = activeTheme.colors['--color-primary-600']
+      const p700 = activeTheme.colors['--color-primary-700'] || p600
 
+      const base = isDarkMode ? p600 || p500 : p500 || p400
+      const triadA = shiftHexHue(base, -38, isDarkMode ? 0.08 : 0.05, isDarkMode ? 0.06 : 0.1)
+      const triadB = shiftHexHue(base, 0, isDarkMode ? 0.06 : 0.03, isDarkMode ? 0.02 : 0.08)
+      const triadC = shiftHexHue(base, 42, isDarkMode ? 0.1 : 0.06, isDarkMode ? 0.04 : 0.1)
+
+      const neonViolet = mixHex(triadA, '#8a5cff', isDarkMode ? 0.52 : 0.34)
+      const neonRose = mixHex(triadB, '#ff5c7a', isDarkMode ? 0.46 : 0.3)
+      const neonAqua = mixHex(triadC, '#00ffd1', isDarkMode ? 0.42 : 0.26)
+
+      return isDarkMode
+        ? [
+            mixHex(mixHex(neonViolet, p700, 0.2), '#0b1020', 0.28),
+            mixHex(mixHex(neonRose, p600, 0.2), '#0b1020', 0.32),
+            mixHex(mixHex(neonAqua, p600, 0.18), '#0b1020', 0.3),
+          ]
+        : [
+            mixHex(neonViolet, '#ffffff', 0.18),
+            mixHex(neonRose, '#ffffff', 0.14),
+            mixHex(neonAqua, '#ffffff', 0.12),
+          ]
+    },
+    [activeTheme, isDarkMode],
+  )
   useEffect(() => {
     if (!isHomeThinkingLocked) return
     setIsHomeThinkingActive(homeThinkingRule.isThinkingActive)
@@ -851,39 +1020,48 @@ const HomeView = () => {
   )
 
   return (
-    <div className="bg-background text-foreground relative flex h-full flex-1 flex-col overflow-hidden transition-colors duration-300">
-      {/* Elegant Ambient Background Glow - Layered for Depth */}
-      <div className="pointer-events-none absolute inset-0 z-0 select-none">
-        {/* Deep ambient base layer - lighter for light mode */}
+    <div className="bg-background text-foreground relative isolate flex h-full flex-1 flex-col overflow-hidden transition-colors duration-300">
+      {/* Aurora Background Effect */}
+      <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden select-none">
+        <ColorBendsBackground
+          className="h-full"
+          colors={homeWaveColors}
+          speed={0.2}
+          rotation={0}
+          autoRotate={0}
+          scale={1}
+          frequency={1}
+          warpStrength={1}
+          mouseInfluence={0.75}
+          parallax={0.5}
+          noise={0.08}
+          blur={isDarkMode ? 5.2 : 3.2}
+          transparent
+        />
         <div
-          className="absolute inset-0 opacity-20 dark:opacity-40"
+          aria-hidden="true"
+          className={clsx(
+            'absolute inset-0',
+            isDarkMode
+              ? 'bg-[linear-gradient(180deg,rgba(3,6,14,0.52)_0%,rgba(3,6,14,0.32)_35%,rgba(3,6,14,0.18)_100%)]'
+              : 'bg-[linear-gradient(180deg,rgba(255,255,255,0.58)_0%,rgba(255,255,255,0.44)_40%,rgba(255,255,255,0.3)_100%)]',
+          )}
+        />
+        <div
+          aria-hidden="true"
+          className="absolute inset-x-0 top-0 h-[350px]"
           style={{
-            background:
-              'radial-gradient(ellipse 120% 100% at 20% 0%, var(--color-primary-300) 0%, transparent 50%), radial-gradient(ellipse 100% 80% at 80% 100%, var(--color-primary-400) 0%, transparent 50%)',
+            background: isDarkMode
+              ? 'radial-gradient(47% 58% at 50% 34%, rgba(6,9,18,0.84) 0%, rgba(6,9,18,0.66) 38%, rgba(6,9,18,0.22) 68%, rgba(6,9,18,0) 100%)'
+              : 'radial-gradient(47% 58% at 50% 34%, rgba(255,255,255,0.92) 0%, rgba(255,255,255,0.78) 38%, rgba(255,255,255,0.34) 70%, rgba(255,255,255,0) 100%)',
           }}
         />
-        {/* Mid-tone accent layer - softer and larger */}
         <div
-          className="absolute inset-0 opacity-15 blur-3xl dark:opacity-35"
+          aria-hidden="true"
+          className="absolute inset-x-0 top-0 h-[360px] md:hidden dark:hidden"
           style={{
             background:
-              'radial-gradient(circle at 30% 20%, var(--color-primary-200) 0%, transparent 35%), radial-gradient(circle at 70% 60%, var(--color-primary-300) 0%, transparent 40%)',
-          }}
-        />
-        {/* Highlight layer - subtle warm accents */}
-        <div
-          className="absolute inset-0 opacity-10 blur-2xl dark:opacity-25"
-          style={{
-            background:
-              'radial-gradient(circle at 15% 35%, rgba(168, 85, 247, 0.2) 0%, transparent 30%), radial-gradient(circle at 85% 15%, rgba(59, 130, 246, 0.15) 0%, transparent 35%)',
-          }}
-        />
-        {/* Edge vignette for depth */}
-        <div
-          className="absolute inset-0 opacity-8 dark:opacity-20"
-          style={{
-            background:
-              'radial-gradient(ellipse 80% 120% at 50% 100%, var(--color-primary-500) 0%, transparent 60%)',
+              'radial-gradient(52% 62% at 50% 30%, rgba(255,255,255,0.98) 0%, rgba(255,255,255,0.9) 42%, rgba(255,255,255,0.48) 74%, rgba(255,255,255,0) 100%)',
           }}
         />
       </div>
@@ -914,7 +1092,17 @@ const HomeView = () => {
         {/* Main Container */}
         <div className="flex w-full max-w-3xl flex-col items-center gap-4 sm:mt-12 sm:gap-8">
           <div className="mb-2 block rounded-3xl p-4 sm:hidden">
-            <Logo size={128} className="text-gray-900 dark:text-white" priority />
+            <div className="relative flex items-center justify-center">
+              <div
+                aria-hidden="true"
+                className="absolute inset-0 rounded-[28px] bg-white/78 blur-2xl dark:hidden"
+              />
+              <div
+                aria-hidden="true"
+                className="absolute inset-0 rounded-[28px] bg-white/62 [mask-image:radial-gradient(circle_at_center,black_52%,transparent_100%)] dark:hidden"
+              />
+              <Logo size={128} className="relative z-10 text-gray-900 dark:text-white" priority />
+            </div>
           </div>
           {/* Title */}
           <h1 className="home-title mt-0 mb-4 text-center font-serif! text-3xl font-medium text-gray-700 sm:mb-8 md:text-5xl dark:text-white">

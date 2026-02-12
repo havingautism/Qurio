@@ -34,6 +34,13 @@ import {
   setSearchToolRegistry,
   TAVILY_TOOL_IDS,
 } from '../lib/searchTools'
+import {
+  loadTogglePreferences,
+  persistSearchBackendPreference,
+  persistSearchEnabledPreference,
+  persistSearchToolsPreference,
+  persistThinkingPreference,
+} from '../lib/togglePreferences'
 import { listToolsViaBackend } from '../lib/backendClient'
 
 const DOCUMENT_CONTEXT_MAX_TOTAL = 12000
@@ -83,6 +90,16 @@ const buildDocumentSources = documents => {
 const buildEmbeddingModelKey = ({ model }) => {
   const normalizedModel = typeof model === 'string' ? model.trim() : ''
   return normalizedModel || null
+}
+
+const getInitialThinkingPreference = () => {
+  if (typeof window === 'undefined') return false
+  try {
+    const { thinkingEnabled } = loadTogglePreferences()
+    return Boolean(thinkingEnabled)
+  } catch {
+    return false
+  }
 }
 
 const getRelevanceLabel = similarity => {
@@ -237,11 +254,12 @@ const ChatInterface = ({
 
   // New state for toggles and attachments
   const [isSearchActive, setIsSearchActive] = useState(false)
-  const [isThinkingActive, setIsThinkingActive] = useState(false)
+  const [isThinkingActive, setIsThinkingActive] = useState(getInitialThinkingPreference)
   const [isExpertMode, setIsExpertMode] = useState(false)
   const [searchBackend, setSearchBackend] = useState(null)
   const [selectedSearchTools, setSelectedSearchTools] = useState([])
   const [isSearchMenuOpen, setIsSearchMenuOpen] = useState(false)
+  const togglePrefsHydratedRef = useRef(false)
 
   const handleSelectSearchTool = useCallback(toolId => {
     if (!toolId) {
@@ -728,6 +746,52 @@ const ChatInterface = ({
     setIsThinkingActive(thinkingRule.isThinkingActive)
   }, [isThinkingLocked, thinkingRule.isThinkingActive])
 
+  useEffect(() => {
+    try {
+      const {
+        searchEnabled: storedSearchEnabled,
+        thinkingEnabled: storedThinkingEnabled,
+        searchBackend: storedSearchBackend,
+        searchTools: parsedSearchTools,
+      } = loadTogglePreferences()
+
+      if (!isThinkingLocked && typeof storedThinkingEnabled === 'boolean') {
+        setIsThinkingActive(storedThinkingEnabled)
+      }
+
+      const hasStoredSearchSelection = Boolean(storedSearchBackend) || parsedSearchTools.length > 0
+      if (storedSearchEnabled || hasStoredSearchSelection) {
+        setSearchBackend(storedSearchBackend || 'auto')
+        setSelectedSearchTools(parsedSearchTools)
+      }
+    } catch (error) {
+      console.error('Failed to load toggle preferences from localStorage:', error)
+    } finally {
+      togglePrefsHydratedRef.current = true
+    }
+  }, [isThinkingLocked])
+
+  useEffect(() => {
+    if (!togglePrefsHydratedRef.current) return
+    if (isThinkingLocked) return
+    persistThinkingPreference(isThinkingActive)
+  }, [isThinkingActive, isThinkingLocked])
+
+  useEffect(() => {
+    if (!togglePrefsHydratedRef.current) return
+    persistSearchEnabledPreference(isSearchActive)
+  }, [isSearchActive])
+
+  useEffect(() => {
+    if (!togglePrefsHydratedRef.current) return
+    persistSearchBackendPreference(searchBackend)
+  }, [searchBackend])
+
+  useEffect(() => {
+    if (!togglePrefsHydratedRef.current) return
+    persistSearchToolsPreference(selectedSearchTools)
+  }, [selectedSearchTools])
+
   // Effect to handle initial message from homepage
   const hasInitialized = useRef(false)
   const isProcessingInitial = useRef(false)
@@ -760,6 +824,16 @@ const ChatInterface = ({
         isProcessingInitial.current ||
         (!initialMessage && initialAttachments.length === 0)
       ) {
+        return
+      }
+
+      // Sync Check: If initialSpaceSelection is provided, wait for displaySpace to match
+      // This prevents sending explicit null for selectedSpace when it should be set
+      if (
+        initialSpaceSelection?.space &&
+        (!displaySpace || displaySpace.id !== initialSpaceSelection.space.id)
+      ) {
+        // Space state not yet synced, wait for next render cycle
         return
       }
 
@@ -1548,6 +1622,7 @@ const ChatInterface = ({
       sendMessage,
       settings,
       selectedSpace,
+      displaySpace,
       effectiveAgent,
       isAgentAutoMode,
       defaultAgent,
@@ -1996,7 +2071,7 @@ const ChatInterface = ({
           ref={messagesContainerRef}
           className="no-scrollbar relative flex-1 overflow-x-hidden overflow-y-auto sm:p-2"
         >
-          <div className="mx-auto w-full max-w-3xl px-0 pt-16 sm:px-5 sm:pt-0">
+          <div className="mx-auto mt-16 w-full max-w-3xl px-0 sm:px-5">
             {showHistoryLoader && (
               <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
                 <FancyLoader />

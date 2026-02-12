@@ -36,6 +36,7 @@ import useIsMobile from '../hooks/useIsMobile'
 import { parseChildrenWithEmojis } from '../lib/emojiParser'
 import { getModelIcon, getModelIconClassName, renderProviderIcon } from '../lib/modelIcons'
 import { getProvider } from '../lib/providers'
+import { SEARCH_BACKEND_OPTIONS } from '../lib/searchTools'
 import { TOOL_TRANSLATION_KEYS, TOOL_ICONS } from '../lib/toolConstants'
 import { splitTextWithUrls } from '../lib/urlHighlight'
 import DesktopSourcesSection from './DesktopSourcesSection'
@@ -465,30 +466,78 @@ const MessageBubble = ({
     return []
   }, [mergedMessage?.searchBackend, mergedMessage?.searchBackends, toolCallHistory])
 
-  const resolveSearchBackendLabel = useCallback(
-    backend => {
-      if (!backend) return ''
-      return t(`searchBackends.${backend}`, { defaultValue: backend })
-    },
-    [t],
-  )
-
   const getToolDisplayName = useCallback(
     tool => {
       if (!tool) return ''
       const baseName = TOOL_TRANSLATION_KEYS[tool.name]
         ? t(TOOL_TRANSLATION_KEYS[tool.name])
         : tool.name
-      if (tool.name === 'web_search' || tool.name === 'search_news') {
-        const backendLabels = resolvedSearchBackends.map(resolveSearchBackendLabel).filter(Boolean)
-        if (backendLabels.length > 0) {
-          return `${baseName} · ${backendLabels.join(' / ')}`
-        }
-        return baseName
-      }
       return baseName
     },
-    [resolveSearchBackendLabel, resolvedSearchBackends, t],
+    [t],
+  )
+  const getSearchBackendForTool = useCallback(
+    tool => {
+      if (!tool || (tool.name !== 'web_search' && tool.name !== 'search_news')) return null
+      const args = tool.arguments
+      if (args && typeof args === 'object') {
+        if (typeof args.backend === 'string' && args.backend) return args.backend
+        if (Array.isArray(args.backends) && args.backends.length > 0)
+          return String(args.backends[0])
+      }
+      if (typeof args === 'string') {
+        try {
+          const parsed = JSON.parse(args)
+          if (parsed && typeof parsed === 'object') {
+            if (typeof parsed.backend === 'string' && parsed.backend) return parsed.backend
+            if (Array.isArray(parsed.backends) && parsed.backends.length > 0) {
+              return String(parsed.backends[0])
+            }
+          }
+        } catch {
+          // ignore parse failure
+        }
+      }
+      if (resolvedSearchBackends.length > 0) return resolvedSearchBackends[0]
+      return null
+    },
+    [resolvedSearchBackends],
+  )
+  const renderSearchBackendVisual = useCallback(backend => {
+    if (!backend) return null
+    if (backend === 'auto') return <span className="text-xs leading-none">✨</span>
+    const option = SEARCH_BACKEND_OPTIONS.find(item => item.id === backend)
+    if (option?.iconUrl) {
+      return <img src={option.iconUrl} alt="" className="h-3.5 w-3.5 rounded-sm object-contain" />
+    }
+    return <Globe size={12} className="text-gray-400" />
+  }, [])
+  const renderToolQueryPreview = useCallback(
+    (tool, queryClassName = 'w-full truncate opacity-75') => {
+      if (!tool || !Object.keys(TOOL_TRANSLATION_KEYS).includes(tool.name)) return null
+      try {
+        const args =
+          typeof tool.arguments === 'string'
+            ? JSON.parse(tool.arguments || '{}')
+            : tool.arguments || {}
+        if (!args?.query) return null
+        const backend = getSearchBackendForTool(tool)
+        const backendVisual = renderSearchBackendVisual(backend)
+        return (
+          <span className="flex min-w-0 items-center gap-1.5">
+            {backendVisual && (
+              <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-gray-100/90 dark:bg-zinc-700/80">
+                {backendVisual}
+              </span>
+            )}
+            <span className={queryClassName}>&quot;{args.query}&quot;</span>
+          </span>
+        )
+      } catch {
+        return null
+      }
+    },
+    [getSearchBackendForTool, renderSearchBackendVisual],
   )
 
   const nextMsgForFormCheck = messages[messageIndex + 1]
@@ -1148,6 +1197,15 @@ const MessageBubble = ({
   const isUser = message.role === 'user'
 
   const planContent = typeof message?.researchPlan === 'string' ? message.researchPlan.trim() : ''
+  const parsedResearchPlan = useMemo(() => {
+    if (!planContent) return null
+    try {
+      const parsed = JSON.parse(planContent)
+      return parsed && typeof parsed === 'object' ? parsed : null
+    } catch {
+      return null
+    }
+  }, [planContent])
 
   const DEEP_RESEARCH_STATUS_MESSAGES = [
     t('chat.deepResearchPlanning'),
@@ -1261,6 +1319,10 @@ const MessageBubble = ({
       return `${t('messageBubble.researchPlan')}\n\n${trimmed}`
     }
   }, [planContent, t])
+  const planStepsForCards = useMemo(() => {
+    if (!parsedResearchPlan || !Array.isArray(parsedResearchPlan.plan)) return []
+    return parsedResearchPlan.plan.filter(step => step && typeof step === 'object')
+  }, [parsedResearchPlan])
 
   const { handleDownloadPdf, handleDownloadWord } = useMessageExport({
     message,
@@ -1577,21 +1639,14 @@ const MessageBubble = ({
     }
   }, [markdownComponents, messageIndex, parseChildrenWithEmojis])
 
-  const workflowParts = useMemo(() => {
-    const baseWorkflowParts = interleavedContent.filter(
-      part => part.type === 'thought' || part.type === 'tools',
-    )
-
-    // Interactive forms should be rendered outside of the workflow fold.
-    return baseWorkflowParts
-      .map(part => {
-        if (part.type !== 'tools' || !Array.isArray(part.items)) return part
-        const filteredItems = part.items.filter(item => item.name !== 'interactive_form')
-        if (filteredItems.length === 0) return null
-        return { ...part, items: filteredItems }
-      })
-      .filter(Boolean)
-  }, [interleavedContent])
+  const workflowParts = useMemo(
+    () => interleavedContent.filter(part => part.type === 'thought'),
+    [interleavedContent],
+  )
+  const workflowThoughtParts = useMemo(
+    () => workflowParts.map((part, index) => ({ ...part, round: index + 1 })),
+    [workflowParts],
+  )
   const contentPartsOutsideWorkflow = useMemo(
     () =>
       interleavedContent.flatMap((part, idx) => {
@@ -1600,29 +1655,145 @@ const MessageBubble = ({
         }
         if (part.type !== 'tools' || !Array.isArray(part.items)) return []
         const formItems = part.items.filter(item => item?.name === 'interactive_form')
-        if (formItems.length === 0) return []
-        return [
-          {
+        const regularTools = part.items.filter(item => item?.name !== 'interactive_form')
+        const nextParts = []
+        if (regularTools.length > 0) {
+          nextParts.push({
+            type: 'tools',
+            key: part.key || `tools-${idx}`,
+            items: regularTools,
+          })
+        }
+        if (formItems.length > 0) {
+          nextParts.push({
             type: 'interactive_form',
-            key: part.key || `interactive-form-${idx}`,
+            key: `${part.key || `interactive-form-${idx}`}-form`,
             items: formItems,
-          },
-        ]
+          })
+        }
+        return nextParts
       }),
     [interleavedContent],
   )
   const hasWorkflow = !isDeepResearch && workflowParts.length > 0
   const hasFormSubmissionStatus = useMemo(
-    () =>
-      workflowParts.some(
-        part =>
-          part.type === 'tools' &&
-          Array.isArray(part.items) &&
-          part.items.some(item => item.name === 'form_submission_status'),
-      ),
-    [workflowParts],
+    () => toolCallHistory.some(item => item?.name === 'form_submission_status'),
+    [toolCallHistory],
   )
-  const renderedWorkflowContent = workflowParts.map((part, idx) => {
+  const renderToolItems = useCallback(
+    (items, idx) => {
+      const regularTools = (Array.isArray(items) ? items : []).filter(
+        item => item.name !== 'interactive_form' && item.name !== 'form_submission_status',
+      )
+      if (regularTools.length === 0) return null
+
+      return (
+        <div key={`tools-container-${idx}`} className="relative z-30 flex flex-col gap-4">
+          <div className="mb-4">
+            {regularTools.map(item => {
+              const iconName = TOOL_ICONS[item.name]
+              const IconComponent = iconName
+                ? {
+                    Search,
+                    GraduationCap,
+                    Calculator,
+                    Clock,
+                    FileText,
+                    ScanText,
+                    Wrench,
+                    FormInput,
+                    Globe,
+                    Brain,
+                    BrainCircuit,
+                  }[iconName]
+                : null
+              return (
+                <ToolEnter key={item.id || `${item.name}-${item.arguments}`}>
+                  <div className="border-primary-200/35 dark:border-primary-700/20 rounded-lg border bg-white/65 px-2.5 py-2 dark:bg-zinc-800/40">
+                    <div className="flex w-full items-center gap-1 text-xs text-gray-500 sm:gap-2 dark:text-gray-400">
+                      <span className="flex shrink-0 items-center gap-1.5 font-medium whitespace-nowrap text-gray-600 dark:text-gray-300">
+                        {item.status === 'error' ? (
+                          <AlertTriangle size={14} className="text-red-500 dark:text-red-400" />
+                        ) : (
+                          IconComponent && (
+                            <IconComponent size={14} className="text-gray-500 dark:text-gray-400" />
+                          )
+                        )}
+                        {item.status === 'error'
+                          ? t('messageBubble.toolCallError')
+                          : getToolDisplayName(item)}
+                      </span>
+                      <div className="flex min-w-0 flex-1 items-center gap-1 sm:gap-2">
+                        {renderToolQueryPreview(item)}
+                      </div>
+                      {typeof item.durationMs === 'number' && (
+                        <span className="shrink-0 text-[11px]! whitespace-nowrap text-gray-500 dark:text-gray-400">
+                          {t('messageBubble.toolDuration', {
+                            duration: (item.durationMs / 1000).toFixed(2),
+                          })}
+                        </span>
+                      )}
+                      <span
+                        className={clsx(
+                          'ml-auto flex min-w-[24px] shrink-0 items-center justify-center rounded-full px-2 py-1 text-[11px]',
+                          item.status === 'error'
+                            ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
+                            : item.status === 'done'
+                              ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400'
+                              : 'bg-gray-200/70 text-gray-600 dark:bg-zinc-700/70 dark:text-gray-400',
+                        )}
+                      >
+                        {item.status === 'error' ? (
+                          <X className="h-4 w-4" />
+                        ) : item.status === 'done' ? (
+                          <Check className="h-4 w-4" />
+                        ) : (
+                          <DotLoader />
+                        )}
+                      </span>
+                      {developerMode && (
+                        <button
+                          type="button"
+                          onClick={() => setActiveToolDetail(item)}
+                          className="text-primary-600 dark:text-primary-300 shrink-0 text-[10px] whitespace-nowrap hover:underline"
+                        >
+                          {t('messageBubble.toolDetails')}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </ToolEnter>
+              )
+            })}
+          </div>
+        </div>
+      )
+    },
+    [developerMode, getToolDisplayName, renderToolQueryPreview, t],
+  )
+  const toZhRound = useCallback(num => {
+    const digits = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九']
+    const n = Number(num)
+    if (!Number.isFinite(n) || n <= 0) return String(num)
+    if (n < 10) return digits[n]
+    if (n === 10) return '十'
+    if (n < 20) return `十${digits[n % 10]}`
+    if (n < 100) {
+      const tens = Math.floor(n / 10)
+      const ones = n % 10
+      return ones === 0 ? `${digits[tens]}十` : `${digits[tens]}十${digits[ones]}`
+    }
+    return String(n)
+  }, [])
+  const formatRoundLabel = useCallback(
+    round => {
+      const locale = String(i18n.resolvedLanguage || i18n.language || '').toLowerCase()
+      if (locale.startsWith('zh')) return `第${toZhRound(round)}轮`
+      return `Round ${round}`
+    },
+    [i18n.language, i18n.resolvedLanguage, toZhRound],
+  )
+  const renderedWorkflowContent = workflowThoughtParts.map((part, idx) => {
     if (part.type === 'workflow_text') {
       const workflowTextWithSupports = applyGroundingSupports(
         part.content,
@@ -1651,40 +1822,21 @@ const MessageBubble = ({
     }
 
     if (part.type === 'thought') {
-      const isLast = idx === workflowParts.length - 1
+      const isLast = idx === workflowThoughtParts.length - 1
       const isThinking = isStreaming && isLast && !hasMainText
-      const showThoughtHeading = !(isExpertMessage && !isThinking)
+      const hasMultipleRounds = workflowThoughtParts.length > 1
 
       return (
         <div key={part.key || `thought-inline-${idx}`} className="mb-3">
-          {showThoughtHeading && (
-            <div className="flex items-center gap-2 text-gray-600 dark:text-gray-300">
-              <Brain
-                size={14}
-                className={clsx(
-                  'transition-colors',
-                  isThinking
-                    ? 'text-primary-500 animate-pulse'
-                    : 'text-primary-400/80 dark:text-primary-300/70',
-                )}
-              />
-              <span className="font-medium">
-                {isThinking
-                  ? t('messageBubble.thinking')
-                  : isExpertMessage
-                    ? t('messageBubble.expertPlan')
-                    : t('messageBubble.deepThinking')}
+          <div className="mb-1 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+            {hasMultipleRounds && (
+              <span className="font-medium text-gray-600 dark:text-gray-300">
+                {formatRoundLabel(idx + 1)}
               </span>
-              {!isThinking && typeof part.durationMs === 'number' && part.durationMs > 0 && (
-                <span className="text-gray-400 dark:text-gray-500">
-                  {t('messageBubble.thinkingDuration', {
-                    duration: (part.durationMs / 1000).toFixed(0),
-                  })}
-                </span>
-              )}
-            </div>
-          )}
-          <div className="mt-2 text-sm">
+            )}
+            {isThinking && <DotLoader />}
+          </div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">
             <Streamdown
               mermaid={mermaidOptions}
               remarkPlugins={[remarkGfm]}
@@ -1693,169 +1845,6 @@ const MessageBubble = ({
               {formatThoughtContentForDisplay(part.content)}
             </Streamdown>
           </div>
-        </div>
-      )
-    }
-
-    if (part.type === 'tools') {
-      // Interactive forms are rendered outside workflow fold.
-      const regularTools = part.items.filter(
-        item => item.name !== 'interactive_form' && item.name !== 'form_submission_status',
-      )
-
-      return (
-        <div key={`tools-container-${idx}`} className="relative z-30 flex flex-col gap-4">
-          {/* Render regular tools */}
-          {regularTools.length > 0 &&
-            (developerMode ? (
-              // Developer Mode: Simplified view consistent with Deep Research within a card container
-              <div
-                className={clsx(
-                  'border-primary-200/40 bg-primary-50/25 dark:border-primary-700/25 dark:bg-primary-900/12 mb-4 overflow-hidden rounded-xl border',
-                )}
-              >
-                <div className="border-primary-200/45 bg-primary-100/35 hover:bg-primary-100/45 dark:border-primary-700/25 dark:bg-primary-900/18 dark:hover:bg-primary-900/26 flex w-full items-center justify-between border-b px-3 py-2 transition-colors">
-                  <div className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                    <EmojiDisplay emoji={'🔧'} size="1.2em" /> {t('messageBubble.toolCalls')}
-                  </div>
-                </div>
-                <div className="space-y-2 p-3">
-                  {regularTools.map(item => (
-                    <div
-                      key={item.id || `${item.name}-${item.arguments}`}
-                      className="border-primary-200/35 dark:border-primary-700/20 flex w-full items-center gap-2 rounded-lg border bg-white/70 px-2.5 py-2 text-[11px] text-gray-600 dark:bg-zinc-800/45 dark:text-gray-400"
-                    >
-                      <span className="flex shrink-0 items-center gap-1.5 font-medium text-gray-700 dark:text-gray-300">
-                        {item.status === 'error' && (
-                          <AlertTriangle size={14} className="text-red-500 dark:text-red-400" />
-                        )}
-                        {item.status === 'error'
-                          ? t('messageBubble.toolCallError')
-                          : getToolDisplayName(item)}
-                      </span>
-                      <div className="min-w-0 flex-1" />
-                      {item.status !== 'done' && item.status !== 'error' && <DotLoader />}
-                      {typeof item.durationMs === 'number' && (
-                        <span className="shrink-0 text-[10px] whitespace-nowrap text-gray-500 dark:text-gray-400">
-                          {t('messageBubble.toolDuration', {
-                            duration: (item.durationMs / 1000).toFixed(2),
-                          })}
-                        </span>
-                      )}
-                      <span
-                        className={clsx(
-                          'shrink-0 rounded-full px-2 py-0.5 text-[10px] whitespace-nowrap',
-                          item.status === 'error'
-                            ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
-                            : item.status === 'done'
-                              ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400'
-                              : 'bg-gray-200/70 text-gray-600 dark:bg-zinc-700/70 dark:text-gray-400',
-                        )}
-                      >
-                        {item.status === 'error'
-                          ? t('messageBubble.toolStatusError')
-                          : item.status === 'done'
-                            ? t('messageBubble.toolStatusDone')
-                            : t('messageBubble.toolStatusCalling')}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setActiveToolDetail(item)}
-                        className="text-primary-600 dark:text-primary-300 shrink-0 text-[10px] whitespace-nowrap hover:underline"
-                      >
-                        {t('messageBubble.toolDetails')}
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div className="mb-4">
-                {regularTools.map(item => {
-                  const iconName = TOOL_ICONS[item.name]
-                  const IconComponent = iconName
-                    ? {
-                        Search,
-                        GraduationCap,
-                        Calculator,
-                        Clock,
-                        FileText,
-                        ScanText,
-                        Wrench,
-                        FormInput,
-                        Globe,
-                        Brain,
-                        BrainCircuit,
-                      }[iconName]
-                    : null
-                  return (
-                    <ToolEnter key={item.id || `${item.name}-${item.arguments}`}>
-                      <div className="border-primary-200/35 dark:border-primary-700/20 rounded-lg border bg-white/65 px-2.5 py-2 dark:bg-zinc-800/40">
-                        <div className="flex w-full items-center gap-1 text-xs text-gray-500 sm:gap-2 dark:text-gray-400">
-                          <span className="flex shrink-0 items-center gap-1.5 font-medium whitespace-nowrap text-gray-600 dark:text-gray-300">
-                            {item.status === 'error' ? (
-                              <AlertTriangle size={14} className="text-red-500 dark:text-red-400" />
-                            ) : (
-                              IconComponent && (
-                                <IconComponent
-                                  size={14}
-                                  className="text-gray-500 dark:text-gray-400"
-                                />
-                              )
-                            )}
-                            {item.status === 'error'
-                              ? t('messageBubble.toolCallError')
-                              : getToolDisplayName(item)}
-                          </span>
-                          <div className="flex min-w-0 flex-1 items-center gap-1 sm:gap-2">
-                            {Object.keys(TOOL_TRANSLATION_KEYS).includes(item.name) &&
-                              (() => {
-                                try {
-                                  const args = JSON.parse(item.arguments || '{}')
-                                  if (args.query) {
-                                    return (
-                                      <span className="w-full truncate opacity-75">
-                                        &quot;{args.query}&quot;
-                                      </span>
-                                    )
-                                  }
-                                } catch {
-                                  return null
-                                }
-                              })()}
-                          </div>
-                          {typeof item.durationMs === 'number' && (
-                            <span className="shrink-0 text-[11px]! whitespace-nowrap text-gray-500 dark:text-gray-400">
-                              {t('messageBubble.toolDuration', {
-                                duration: (item.durationMs / 1000).toFixed(2),
-                              })}
-                            </span>
-                          )}
-                          <span
-                            className={clsx(
-                              'ml-auto flex min-w-[24px] shrink-0 items-center justify-center rounded-full px-2 py-1 text-[11px]',
-                              item.status === 'error'
-                                ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
-                                : item.status === 'done'
-                                  ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400'
-                                  : 'bg-gray-200/70 text-gray-600 dark:bg-zinc-700/70 dark:text-gray-400',
-                            )}
-                          >
-                            {item.status === 'error' ? (
-                              <X className="h-4 w-4" />
-                            ) : item.status === 'done' ? (
-                              <Check className="h-4 w-4" />
-                            ) : (
-                              <DotLoader />
-                            )}
-                          </span>
-                        </div>
-                      </div>
-                    </ToolEnter>
-                  )
-                })}
-              </div>
-            ))}
         </div>
       )
     }
@@ -1958,6 +1947,11 @@ const MessageBubble = ({
       )
     }
 
+    if (part.type === 'tools') {
+      if (isDeepResearch) return null
+      return renderToolItems(part.items, part.key || idx)
+    }
+
     if (part.type === 'interactive_form') {
       return (
         <React.Fragment key={part.key || `interactive-form-outside-${idx}`}>
@@ -1975,50 +1969,20 @@ const MessageBubble = ({
     if (isExpertMessage) {
       return t('messageBubble.expertPlan')
     }
-    if (!isStreaming || workflowParts.length === 0) {
-      return t('messageBubble.workflow')
+    if (!isStreaming || workflowThoughtParts.length === 0 || hasMainText) {
+      return t('messageBubble.deepThinking')
     }
-
-    for (let i = workflowParts.length - 1; i >= 0; i -= 1) {
-      const part = workflowParts[i]
-
-      if (part.type === 'tools' && Array.isArray(part.items)) {
-        const activeTool = [...part.items]
-          .reverse()
-          .find(
-            item =>
-              item &&
-              item.name !== 'form_submission_status' &&
-              item.status !== 'done' &&
-              item.status !== 'error',
-          )
-        if (activeTool) {
-          const toolName = developerMode ? activeTool.name : getToolDisplayName(activeTool)
-          return t('messageBubble.workflowToolCalling', {
-            tool: toolName,
-            defaultValue: `${toolName} ${t('messageBubble.toolStatusCalling')}`,
-          })
-        }
-      }
-
-      if (part.type === 'thought' && i === workflowParts.length - 1) {
-        if (!hasMainText) {
-          return t('messageBubble.thinking')
-        }
-        return t('messageBubble.deepThinking')
-      }
-    }
-
-    return t('messageBubble.workflow')
-  }, [
-    developerMode,
-    getToolDisplayName,
-    hasMainText,
-    isExpertMessage,
-    isStreaming,
-    t,
-    workflowParts,
-  ])
+    return t('messageBubble.thinking')
+  }, [hasMainText, isExpertMessage, isStreaming, t, workflowThoughtParts])
+  const workflowDurationMs = useMemo(
+    () =>
+      workflowThoughtParts.reduce(
+        (acc, part) =>
+          acc + (typeof part.durationMs === 'number' && part.durationMs > 0 ? part.durationMs : 0),
+        0,
+      ),
+    [workflowThoughtParts],
+  )
 
   const targetAgentId = message.agentId || message.agent_id
   const targetAgent = useMemo(() => {
@@ -2443,52 +2407,37 @@ const MessageBubble = ({
   const shouldShowRelated = !isDeepResearch && (hasRelatedQuestions || isRelatedLoading)
   const workflowPanel = hasWorkflow ? (
     <details
-      className={clsx(
-        'group overflow-hidden rounded-2xl shadow-sm backdrop-blur-xl',
-        isExpertMessage
-          ? 'border-[#d8d0ef]/70 bg-gradient-to-br from-[#efeaf9]/75 via-[#e6def6]/65 to-[#dad5f0]/60 dark:border-[#5a4a8f]/45 dark:from-[#2b1f57]/35 dark:via-[#2d3566]/28 dark:to-[#253e62]/28'
-          : 'border-[#d1d9ef]/75 bg-gradient-to-br from-[#eaf0fb]/78 via-[#e1e8f8]/68 to-[#d7e0f2]/62 dark:border-[#43507a]/50 dark:from-[#253659]/35 dark:via-[#283a63]/28 dark:to-[#22324f]/28',
-        !isExpertMessage && 'mt-0 mb-4',
-        isExpertMessage && 'mt-4',
-      )}
+      className={clsx('group', !isExpertMessage && 'mt-0 mb-4', isExpertMessage && 'mt-4 mb-4')}
       open={isWorkflowExpanded}
       onToggle={event => setIsWorkflowExpanded(event.currentTarget.open)}
     >
       <summary
         className={clsx(
-          'flex cursor-pointer items-center justify-between gap-3 px-3.5 py-2.5 text-gray-600 select-none hover:text-gray-800 dark:text-gray-300 dark:hover:text-gray-100',
-          isExpertMessage
-            ? 'hover:bg-[#d8cfee]/35 dark:hover:bg-[#4a3b74]/25'
-            : 'hover:bg-[#d6e2f5]/35 dark:hover:bg-[#334c76]/25',
+          'flex cursor-pointer list-none items-center justify-between gap-3 py-1 text-gray-600 select-none hover:text-gray-800 dark:text-gray-300 dark:hover:text-gray-100',
         )}
       >
         <div className="flex items-center gap-2">
-          <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/45 text-[11px] shadow-sm dark:bg-white/10">
-            {isExpertMessage ? '🧠' : '🧭'}
-          </span>
-          <BrainCircuit size={15} className="text-primary-500/85 dark:text-primary-300/80" />
-          <span className="text-sm font-semibold tracking-tight">{workflowHeaderLabel}</span>
+          <BrainCircuit size={15} className="text-primary-500/80 dark:text-primary-300/75" />
+          <span className="text-sm font-medium tracking-tight">{workflowHeaderLabel}</span>
+          {!isStreaming && workflowDurationMs > 0 && (
+            <span className="text-sm text-gray-500 dark:text-gray-400">
+              {t('messageBubble.thinkingDuration', {
+                duration: (workflowDurationMs / 1000).toFixed(0),
+              })}
+            </span>
+          )}
           <span
             className={clsx(
               'rounded-full px-2 py-0.5 text-[11px] text-gray-600 dark:text-gray-300',
-              isExpertMessage
-                ? 'border border-[#c8bce9]/70 bg-[#ece5f8]/70 dark:border-[#655294]/45 dark:bg-[#3a2e5f]/35'
-                : 'border border-[#bfd0ed]/70 bg-[#e2eaf8]/75 dark:border-[#47608d]/45 dark:bg-[#2d456c]/35',
+              'bg-gray-100/80 dark:bg-zinc-800/80',
             )}
           >
-            {workflowParts.length}
+            {workflowThoughtParts.length}
           </span>
         </div>
         <ChevronDown size={15} className="opacity-60 transition-transform group-open:rotate-180" />
       </summary>
-      <div
-        className={clsx(
-          'px-3.5 pt-2.5 pb-3',
-          isExpertMessage
-            ? 'border-t border-[#d7cdee]/60 bg-white/35 dark:border-[#5a4a8f]/35 dark:bg-black/12'
-            : 'border-t border-[#c9d8f1]/60 bg-white/40 dark:border-[#43507a]/35 dark:bg-black/12',
-        )}
-      >
+      <div className={clsx('mt-1 border-l border-gray-300/80 pl-4 dark:border-zinc-700/80')}>
         {renderedWorkflowContent}
       </div>
     </details>
@@ -2514,7 +2463,7 @@ const MessageBubble = ({
         containerRef.current = el
         if (typeof bubbleRef === 'function') bubbleRef(el)
       }}
-      className="relative mb-12 flex w-full max-w-3xl flex-col gap-4 px-5 sm:px-0"
+      className="relative mb-12 flex w-full max-w-3xl flex-col gap-0 px-5 sm:px-0"
       onMouseUp={handleMouseUp}
       onTouchEnd={handleTouchEnd}
       onContextMenu={handleContextMenu}
@@ -2583,7 +2532,7 @@ const MessageBubble = ({
       {isExpertMessage && workflowPanel}
 
       {/* Provider/Model Header Container */}
-      <div className="flex flex-col gap-1">
+      <div className="mb-4 flex flex-col gap-1">
         {/* Expert Tabs (Moved Top) */}
         {renderExpertTabs()}
 
@@ -2594,7 +2543,7 @@ const MessageBubble = ({
               <div
                 onClick={handleAgentClick}
                 className={clsx(
-                  'flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-gray-100 shadow-inner transition hover:scale-105 dark:bg-zinc-800',
+                  'flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-gray-300 bg-white shadow-inner transition hover:scale-105 dark:border-gray-600 dark:bg-zinc-800',
                   targetAgent && 'cursor-pointer transition-opacity hover:opacity-80',
                 )}
               >
@@ -2686,13 +2635,16 @@ const MessageBubble = ({
       {isDeepResearch ? (
         <>
           {shouldShowPlan && (
-            <div className="overflow-hidden rounded-xl border border-[#c9d5ee]/70 bg-gradient-to-br from-[#eaf0fb]/80 via-[#e1e8f8]/68 to-[#d7e0f2]/62 shadow-sm backdrop-blur-xl dark:border-[#43507a]/45 dark:from-[#253659]/35 dark:via-[#283a63]/28 dark:to-[#22324f]/28">
+            <div className="mb-4">
               <button
                 onClick={() => setIsPlanExpanded(!isPlanExpanded)}
-                className="flex w-full items-center justify-between bg-[#dbe6f7]/45 p-2 transition-colors hover:bg-[#d4e0f4]/55 dark:bg-[#2d456c]/28 dark:hover:bg-[#35507d]/35"
+                className="flex w-full items-center justify-between py-1 text-gray-600 transition-colors hover:text-gray-800 dark:text-gray-300 dark:hover:text-gray-100"
               >
                 <div className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                  <EmojiDisplay emoji={'🧭'} size="1.2em" />
+                  <BrainCircuit
+                    size={15}
+                    className="text-primary-500/80 dark:text-primary-300/75"
+                  />
                   <span className="text-sm">{t('messageBubble.planProcess')}</span>
                   {!shouldShowPlanStatus && <Check size="1em" />}
                   {shouldShowPlanStatus && (
@@ -2710,27 +2662,126 @@ const MessageBubble = ({
               </button>
 
               {isPlanExpanded && (hasPlanText || shouldShowPlanStatus) && (
-                <div className="space-y-4 bg-white/58 p-4 text-sm leading-relaxed text-gray-600 font-stretch-semi-condensed dark:bg-zinc-900/42 dark:text-gray-400 [&>div>p:last-child]:mb-0!">
-                  <Streamdown
-                    mermaid={mermaidOptions}
-                    remarkPlugins={[remarkGfm]}
-                    components={markdownComponents}
-                  >
-                    {planMarkdown}
-                  </Streamdown>
+                <div className="mt-1 border-l border-gray-300/80 pl-4 text-sm leading-relaxed text-gray-600 font-stretch-semi-condensed dark:border-zinc-700/80 dark:text-gray-400">
+                  {planStepsForCards.length > 0 ? (
+                    <div className="space-y-4">
+                      <div className="border-primary-200/38 dark:border-primary-700/22 rounded-lg border bg-white/72 p-3 dark:bg-zinc-800/62">
+                        <div className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                          {parsedResearchPlan?.research_type
+                            ? `${t('messageBubble.researchType')}: ${
+                                parsedResearchPlan.research_type === 'academic'
+                                  ? t('messageBubble.researchTypeAcademic')
+                                  : t('messageBubble.researchTypeGeneral')
+                              }`
+                            : t('messageBubble.researchPlan')}
+                        </div>
+                        {parsedResearchPlan?.goal && (
+                          <div className="mt-2 text-sm text-gray-700 dark:text-gray-300">
+                            {parsedResearchPlan.goal}
+                          </div>
+                        )}
+                        {(parsedResearchPlan?.complexity || parsedResearchPlan?.question_type) && (
+                          <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-gray-500 dark:text-gray-400">
+                            {parsedResearchPlan?.complexity && (
+                              <span className="rounded-full bg-gray-100 px-2 py-0.5 dark:bg-zinc-700/70">
+                                {t('messageBubble.researchComplexity')}:{' '}
+                                {parsedResearchPlan.complexity}
+                              </span>
+                            )}
+                            {parsedResearchPlan?.question_type && (
+                              <span className="rounded-full bg-gray-100 px-2 py-0.5 dark:bg-zinc-700/70">
+                                {t('messageBubble.researchQuestionType')}:{' '}
+                                {parsedResearchPlan.question_type}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      {planStepsForCards.map((step, stepIdx) => {
+                        const criteria = Array.isArray(step.acceptance_criteria)
+                          ? step.acceptance_criteria.filter(Boolean)
+                          : []
+                        return (
+                          <div
+                            key={`plan-step-card-${step.step || stepIdx}`}
+                            className="border-primary-200/38 dark:border-primary-700/22 rounded-lg border bg-white/72 p-3 dark:bg-zinc-800/62"
+                          >
+                            <div className="flex flex-wrap items-center gap-2 text-xs">
+                              <span className="font-semibold text-gray-700 dark:text-gray-200">
+                                {t('messageBubble.researchStepLabel', {
+                                  step: step.step || stepIdx + 1,
+                                  total: planStepsForCards.length,
+                                })}
+                              </span>
+                            </div>
+                            <div className="mt-1 text-sm text-gray-700 dark:text-gray-300">
+                              {step.action || '-'}
+                            </div>
+                            <div className="mt-2 space-y-1 text-[12px] text-gray-600 dark:text-gray-400">
+                              {step.thought && (
+                                <div>
+                                  {t('messageBubble.researchThought')}: {step.thought}
+                                </div>
+                              )}
+                              {step.expected_output && (
+                                <div>
+                                  {t('messageBubble.researchExpected')}: {step.expected_output}
+                                </div>
+                              )}
+                              {step.deliverable_format && (
+                                <div>
+                                  {t('messageBubble.researchDeliverableFormat')}:{' '}
+                                  {step.deliverable_format}
+                                </div>
+                              )}
+                              {step.depth && (
+                                <div>
+                                  {t('messageBubble.researchDepth')}: {step.depth}
+                                </div>
+                              )}
+                              {typeof step.requires_search === 'boolean' && (
+                                <div>
+                                  {t('messageBubble.researchRequiresSearch')}:{' '}
+                                  {step.requires_search ? '✅' : '❌'}
+                                </div>
+                              )}
+                              {criteria.map((item, idx) => (
+                                <div key={`plan-criteria-${stepIdx}-${idx}`}>
+                                  {t('messageBubble.researchAcceptanceCriteria')}: {item}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  ) : (
+                    <div className="[&>div>p:last-child]:mb-0!">
+                      <Streamdown
+                        mermaid={mermaidOptions}
+                        remarkPlugins={[remarkGfm]}
+                        components={markdownComponents}
+                      >
+                        {planMarkdown}
+                      </Streamdown>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
           )}
 
           {shouldShowResearch && (
-            <div className="overflow-hidden rounded-xl border border-[#d8d0ef]/70 bg-gradient-to-br from-[#efeaf9]/78 via-[#e6def6]/68 to-[#dad5f0]/62 shadow-sm backdrop-blur-xl dark:border-[#5a4a8f]/45 dark:from-[#2b1f57]/35 dark:via-[#2d3566]/28 dark:to-[#253e62]/28">
+            <div className="mb-4">
               <button
                 onClick={() => setIsResearchExpanded(!isResearchExpanded)}
-                className="flex w-full items-center justify-between bg-[#e5ddf6]/48 p-2 transition-colors hover:bg-[#ddd4f3]/58 dark:bg-[#3a2e5f]/28 dark:hover:bg-[#433469]/35"
+                className="flex w-full items-center justify-between py-1 text-gray-600 transition-colors hover:text-gray-800 dark:text-gray-300 dark:hover:text-gray-100"
               >
                 <div className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                  <EmojiDisplay emoji={'📋'} size="1.2em" />
+                  <BrainCircuit
+                    size={15}
+                    className="text-primary-500/80 dark:text-primary-300/75"
+                  />
                   <span className="text-sm">{t('messageBubble.researchProcess')}</span>
                   {!shouldShowResearchStatus && <Check size="1em" />}
                   {shouldShowResearchStatus && (
@@ -2748,7 +2799,7 @@ const MessageBubble = ({
               </button>
 
               {isResearchExpanded && hasResearchSteps && (
-                <div className="space-y-3 bg-white/54 p-4 text-sm leading-relaxed text-gray-600 font-stretch-semi-condensed dark:bg-zinc-900/36 dark:text-gray-400 [&>div>p:last-child]:mb-0!">
+                <div className="mt-1 border-l border-gray-300/80 pl-4 text-sm leading-relaxed text-gray-600 font-stretch-semi-condensed dark:border-zinc-700/80 dark:text-gray-400 [&>div>p:last-child]:mb-0!">
                   {researchSteps.map(step => {
                     const isRunning = step.status === 'running'
                     const isPending = step.status === 'pending'
@@ -2768,7 +2819,7 @@ const MessageBubble = ({
                         ? t('messageBubble.researchStepStatusDone')
                         : isRunning
                           ? t('messageBubble.researchStepStatusRunning')
-                          : t('messageBubble.researchStepStatusPending') || 'Wait'
+                          : t('messageBubble.researchStepStatusPending')
                     return (
                       <div
                         key={
@@ -2777,7 +2828,7 @@ const MessageBubble = ({
                             ? `research-step-${Number(step.step)}`
                             : `research-step-${step.streamOrder ?? step.title ?? 'unknown'}`)
                         }
-                        className="border-primary-200/38 dark:border-primary-700/22 flex items-start gap-3 rounded-lg border bg-white/72 p-3 dark:bg-zinc-800/62"
+                        className="border-primary-200/38 dark:border-primary-700/22 mb-4 flex items-start gap-3 rounded-lg border bg-white/72 p-3 dark:bg-zinc-800/62"
                       >
                         <div className="flex-1 space-y-1">
                           <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -2821,156 +2872,92 @@ const MessageBubble = ({
                               {/* <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400">
                                 {t('messageBubble.toolCalls')}
                               </div> */}
-                              {developerMode ? (
-                                // Developer Mode: Detailed view
-                                <div className="space-y-1">
-                                  {stepToolCalls.map(item => (
+                              <div className="space-y-1 overflow-hidden">
+                                {stepToolCalls.map(item => {
+                                  const iconName = TOOL_ICONS[item.name]
+                                  const IconComponent = iconName
+                                    ? {
+                                        Search,
+                                        GraduationCap,
+                                        Calculator,
+                                        Clock,
+                                        FileText,
+                                        ScanText,
+                                        Wrench,
+                                        FormInput,
+                                        Globe,
+                                        Brain,
+                                        BrainCircuit,
+                                      }[iconName]
+                                    : null
+                                  return (
                                     <div
                                       key={item.id || `${item.name}-${item.arguments}`}
-                                      className="flex w-full items-center gap-2 text-[11px] text-gray-600 dark:text-gray-400"
+                                      className="flex items-center gap-2 text-[11px] text-gray-500 dark:text-gray-400"
                                     >
-                                      <span className="flex shrink-0 items-center gap-1.5 font-medium text-gray-700 dark:text-gray-300">
-                                        {item.status === 'error' && (
-                                          <AlertTriangle
-                                            size={14}
-                                            className="text-red-500 dark:text-red-400"
-                                          />
-                                        )}
-                                        {item.status === 'error'
-                                          ? t('messageBubble.toolCallError')
-                                          : getToolDisplayName(item)}
-                                      </span>
-                                      <div className="min-w-0 flex-1" />
-                                      {item.status !== 'done' && item.status !== 'error' && (
-                                        <DotLoader />
-                                      )}
-                                      {typeof item.durationMs === 'number' && (
-                                        <span className="shrink-0 text-[10px] whitespace-nowrap text-gray-500 dark:text-gray-400">
-                                          {t('messageBubble.toolDuration', {
-                                            duration: (item.durationMs / 1000).toFixed(2),
-                                          })}
-                                        </span>
-                                      )}
-                                      <span
-                                        className={clsx(
-                                          'shrink-0 rounded-full px-2 py-0.5 text-[10px] whitespace-nowrap',
-                                          item.status === 'error'
-                                            ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
-                                            : item.status === 'done'
-                                              ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400'
-                                              : 'bg-gray-200/70 text-gray-600 dark:bg-zinc-700/70 dark:text-gray-400',
-                                        )}
-                                      >
-                                        {item.status === 'error'
-                                          ? t('messageBubble.toolStatusError')
-                                          : item.status === 'done'
-                                            ? t('messageBubble.toolStatusDone')
-                                            : t('messageBubble.toolStatusCalling')}
-                                      </span>
-                                      <button
-                                        type="button"
-                                        onClick={() => setActiveToolDetail(item)}
-                                        className="text-primary-600 dark:text-primary-300 shrink-0 text-[10px] whitespace-nowrap hover:underline"
-                                      >
-                                        {t('messageBubble.toolDetails')}
-                                      </button>
-                                    </div>
-                                  ))}
-                                </div>
-                              ) : (
-                                // Standard Mode: Simplified view with icons
-                                <div className="space-y-1 overflow-hidden">
-                                  {stepToolCalls.map(item => {
-                                    const iconName = TOOL_ICONS[item.name]
-                                    const IconComponent = iconName
-                                      ? {
-                                          Search,
-                                          GraduationCap,
-                                          Calculator,
-                                          Clock,
-                                          FileText,
-                                          ScanText,
-                                          Wrench,
-                                          FormInput,
-                                          Globe,
-                                          Brain,
-                                          BrainCircuit,
-                                        }[iconName]
-                                      : null
-                                    return (
-                                      <div
-                                        key={item.id || `${item.name}-${item.arguments}`}
-                                        className="flex items-center gap-2 text-[11px] text-gray-500 dark:text-gray-400"
-                                      >
-                                        <div className="grid w-full grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-1 sm:gap-1.5">
-                                          <span className="flex items-center gap-1 font-medium whitespace-nowrap text-gray-600 dark:text-gray-300">
-                                            {item.status === 'error' ? (
-                                              <AlertTriangle
+                                      <div className="grid w-full grid-cols-[auto_minmax(0,1fr)_auto_auto_auto] items-center gap-1 sm:gap-1.5">
+                                        <span className="flex items-center gap-1 font-medium whitespace-nowrap text-gray-600 dark:text-gray-300">
+                                          {item.status === 'error' ? (
+                                            <AlertTriangle
+                                              size={12}
+                                              className="text-red-500 dark:text-red-400"
+                                            />
+                                          ) : (
+                                            IconComponent && (
+                                              <IconComponent
                                                 size={12}
-                                                className="text-red-500 dark:text-red-400"
+                                                className="text-gray-500 dark:text-gray-400"
                                               />
-                                            ) : (
-                                              IconComponent && (
-                                                <IconComponent
-                                                  size={12}
-                                                  className="text-gray-500 dark:text-gray-400"
-                                                />
-                                              )
-                                            )}
-                                            {item.status === 'error'
-                                              ? t('messageBubble.toolCallError')
-                                              : getToolDisplayName(item)}
-                                          </span>
-                                          <div className="flex min-w-0 items-center">
-                                            {Object.keys(TOOL_TRANSLATION_KEYS).includes(
-                                              item.name,
-                                            ) &&
-                                              (() => {
-                                                try {
-                                                  const args = JSON.parse(item.arguments || '{}')
-                                                  if (args.query) {
-                                                    return (
-                                                      <span className="w-full truncate opacity-75">
-                                                        &quot;{args.query}&quot;
-                                                      </span>
-                                                    )
-                                                  }
-                                                } catch {
-                                                  return null
-                                                }
-                                              })()}
-                                          </div>
-                                          {typeof item.durationMs === 'number' && (
-                                            <span className="text-[10px] whitespace-nowrap text-gray-500 dark:text-gray-400">
-                                              {t('messageBubble.toolDuration', {
-                                                duration: (item.durationMs / 1000).toFixed(2),
-                                              })}
-                                            </span>
+                                            )
                                           )}
-                                          <span
-                                            className={clsx(
-                                              'ml-auto flex min-w-[20px] shrink-0 items-center justify-center rounded-full px-1.5 py-0.5 text-[10px]',
-                                              item.status === 'error'
-                                                ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
-                                                : item.status === 'done'
-                                                  ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400'
-                                                  : 'bg-gray-200/70 text-gray-600 dark:bg-zinc-700/70 dark:text-gray-400',
-                                            )}
-                                          >
-                                            {item.status === 'error' ? (
-                                              <X className="h-3 w-3" />
-                                            ) : item.status === 'done' ? (
-                                              <Check className="h-3 w-3" />
-                                            ) : (
-                                              <DotLoader />
-                                            )}
-                                          </span>
+                                          {item.status === 'error'
+                                            ? t('messageBubble.toolCallError')
+                                            : getToolDisplayName(item)}
+                                        </span>
+                                        <div className="flex min-w-0 items-center">
+                                          {renderToolQueryPreview(item)}
                                         </div>
+                                        {typeof item.durationMs === 'number' && (
+                                          <span className="text-[10px] whitespace-nowrap text-gray-500 dark:text-gray-400">
+                                            {t('messageBubble.toolDuration', {
+                                              duration: (item.durationMs / 1000).toFixed(2),
+                                            })}
+                                          </span>
+                                        )}
+                                        <span
+                                          className={clsx(
+                                            'ml-auto flex min-w-[20px] shrink-0 items-center justify-center rounded-full px-1.5 py-0.5 text-[10px]',
+                                            item.status === 'error'
+                                              ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
+                                              : item.status === 'done'
+                                                ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400'
+                                                : 'bg-gray-200/70 text-gray-600 dark:bg-zinc-700/70 dark:text-gray-400',
+                                          )}
+                                        >
+                                          {item.status === 'error' ? (
+                                            <X className="h-3 w-3" />
+                                          ) : item.status === 'done' ? (
+                                            <Check className="h-3 w-3" />
+                                          ) : (
+                                            <DotLoader />
+                                          )}
+                                        </span>
+                                        {developerMode ? (
+                                          <button
+                                            type="button"
+                                            onClick={() => setActiveToolDetail(item)}
+                                            className="text-primary-600 dark:text-primary-300 justify-self-end text-[10px] whitespace-nowrap hover:underline"
+                                          >
+                                            {t('messageBubble.toolDetails')}
+                                          </button>
+                                        ) : (
+                                          <span aria-hidden="true" />
+                                        )}
                                       </div>
-                                    )
-                                  })}
-                                </div>
-                              )}
+                                    </div>
+                                  )
+                                })}
+                              </div>
                             </div>
                           )}
                         </div>

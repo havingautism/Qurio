@@ -24,7 +24,22 @@ import { useSidebarOffset } from '../hooks/useSidebarOffset'
 import { loadSettings } from '../lib/settings'
 import { DEFAULT_SEARCH_TOOL_ID } from '../lib/searchTools'
 import { deleteMessageById } from '../lib/supabase'
+import {
+  loadTogglePreferences,
+  persistSearchEnabledPreference,
+  persistThinkingPreference,
+} from '../lib/togglePreferences'
 import ChatHeader from './chat/ChatHeader'
+
+const getInitialThinkingPreference = () => {
+  if (typeof window === 'undefined') return false
+  try {
+    const { thinkingEnabled } = loadTogglePreferences()
+    return Boolean(thinkingEnabled)
+  } catch {
+    return false
+  }
+}
 
 const DeepResearchChatInterface = ({
   spaces = [],
@@ -148,10 +163,11 @@ const DeepResearchChatInterface = ({
   // New state for toggles and attachments
   const [isSearchActive, setIsSearchActive] = useState(false)
   const [selectedSearchTools, setSelectedSearchTools] = useState([])
-  const [isThinkingActive, setIsThinkingActive] = useState(false)
+  const [isThinkingActive, setIsThinkingActive] = useState(getInitialThinkingPreference)
   const [isDeepResearchActive, setIsDeepResearchActive] = useState(false)
   const [isSequentialResearchActive, setIsSequentialResearchActive] = useState(false) // Sequential research
   const [concurrencyLimit, setConcurrencyLimit] = useState(3)
+  const togglePrefsHydratedRef = useRef(false)
 
   const isPlaceholderConversation = Boolean(activeConversation?._isPlaceholder)
 
@@ -491,6 +507,35 @@ const DeepResearchChatInterface = ({
     if (!isThinkingLocked) return
     setIsThinkingActive(thinkingRule.isThinkingActive)
   }, [isThinkingLocked, thinkingRule.isThinkingActive])
+
+  useEffect(() => {
+    try {
+      const { searchEnabled: storedSearchEnabled, thinkingEnabled: storedThinkingEnabled } =
+        loadTogglePreferences()
+
+      if (storedSearchEnabled) {
+        setIsSearchActive(true)
+      }
+      if (!isThinkingLocked && typeof storedThinkingEnabled === 'boolean') {
+        setIsThinkingActive(storedThinkingEnabled)
+      }
+    } catch (error) {
+      console.error('Failed to load toggle preferences from localStorage:', error)
+    } finally {
+      togglePrefsHydratedRef.current = true
+    }
+  }, [isThinkingLocked])
+
+  useEffect(() => {
+    if (!togglePrefsHydratedRef.current) return
+    if (isThinkingLocked) return
+    persistThinkingPreference(isThinkingActive)
+  }, [isThinkingActive, isThinkingLocked])
+
+  useEffect(() => {
+    if (!togglePrefsHydratedRef.current) return
+    persistSearchEnabledPreference(isSearchActive)
+  }, [isSearchActive])
 
   // Effect to handle initial message from homepage
   const hasInitialized = useRef(false)
@@ -1633,7 +1678,7 @@ const DeepResearchChatInterface = ({
           ref={messagesContainerRef}
           className="no-scrollbar relative flex-1 overflow-x-hidden overflow-y-auto sm:p-2"
         >
-          <div className="mx-auto w-full max-w-3xl px-0 pt-16 sm:px-5 sm:pt-0">
+          <div className="mx-auto mt-16 w-full max-w-3xl px-0 sm:px-5">
             {showHistoryLoader && (
               <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
                 <FancyLoader />

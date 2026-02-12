@@ -861,7 +861,7 @@
     "workflow": "Workflow",
     "expertPlan": "Expert Plan",
     "workflowToolCalling": "{{tool}} calling",
-    "deepThinking": "Deep thought",
+    "deepThinking": "Thinking Content",
     "thinking": "Thinking...",
     "thinkingDuration": "(took {{duration}}s)",
     "planProcess": "Plan Process",

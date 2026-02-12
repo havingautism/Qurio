@@ -119,12 +119,6 @@ const CapsuleSettingsMenu = React.memo(
     onSearchClear,
     searchMenuRef,
   }) => {
-    const backendLabel = React.useMemo(() => {
-      if (!searchBackend) return null
-      const option = (searchBackendOptions || []).find(item => item.id === searchBackend)
-      return option ? t(option.labelKey) : searchBackend
-    }, [searchBackend, searchBackendOptions, t])
-
     const activeSearchLabel = React.useMemo(() => {
       if (!isSearchActive) return t('homeView.search')
       const academicCount = selectedSearchTools?.length || 0
@@ -133,13 +127,26 @@ const CapsuleSettingsMenu = React.memo(
         return `${t('homeView.search')} (${activeCount})`
       }
       if (searchBackend) {
-        return `${t('tools.webSearch')} · ${backendLabel || searchBackend}`
+        const option = (searchBackendOptions || []).find(item => item.id === searchBackend)
+        return (
+          <span className="inline-flex items-center gap-1.5">
+            <span>{t('tools.webSearch')}</span>
+            <span className="text-gray-400">·</span>
+            {searchBackend === 'auto' ? (
+              <span className="text-sm leading-none">✨</span>
+            ) : option?.iconUrl ? (
+              <img src={option.iconUrl} alt="" className="h-4 w-4 rounded-sm" />
+            ) : (
+              <Globe size={14} className="text-gray-400" />
+            )}
+          </span>
+        )
       }
       if (academicCount > 0) {
         return `${t('tools.academicSearch')} (${academicCount})`
       }
       return t('homeView.search')
-    }, [isSearchActive, selectedSearchTools, searchBackend, backendLabel, t])
+    }, [isSearchActive, selectedSearchTools, searchBackend, searchBackendOptions, t])
     return (
       <div className="space-y-3">
         {/* Models List */}
@@ -244,7 +251,7 @@ const CapsuleSettingsMenu = React.memo(
                     size={16}
                     className={isSearchActive ? 'text-primary-500' : 'text-gray-400'}
                   />
-                  <span>{activeSearchLabel}</span>
+                  <span className="inline-flex items-center">{activeSearchLabel}</span>
                 </div>
                 <ChevronDown
                   size={14}
@@ -463,8 +470,19 @@ const ChatInputBar = React.memo(
       if (activeCount > 1) return `${t('homeView.search')} (${activeCount})`
       if (searchBackend) {
         const option = (searchBackendOptions || []).find(item => item.id === searchBackend)
-        const label = option ? t(option.labelKey) : searchBackend
-        return `${t('tools.webSearch')} · ${label}`
+        return (
+          <span className="inline-flex items-center gap-1.5">
+            <span>{t('tools.webSearch')}</span>
+            <span className="text-gray-400">·</span>
+            {searchBackend === 'auto' ? (
+              <span className="text-sm leading-none">✨</span>
+            ) : option?.iconUrl ? (
+              <img src={option.iconUrl} alt="" className="h-4 w-4 rounded-sm" />
+            ) : (
+              <Globe size={14} className="text-gray-400" />
+            )}
+          </span>
+        )
       }
       if (academicCount > 0) return `${t('tools.academicSearch')} (${academicCount})`
       return t('homeView.search')
@@ -1239,7 +1257,7 @@ const ChatInputBar = React.memo(
                   )}
                 >
                   <Globe size={18} strokeWidth={2} />
-                  <span className="hidden md:inline">{resolvedSearchLabel}</span>
+                  <span className="hidden md:inline-flex md:items-center">{resolvedSearchLabel}</span>
                 </button>
                 {isSearchMenuOpen && (
                   <div

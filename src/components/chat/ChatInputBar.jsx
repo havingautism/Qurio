@@ -290,7 +290,7 @@ const CapsuleSettingsMenu = React.memo(
                               {option.iconUrl ? (
                                 <img src={option.iconUrl} alt="" className="h-4 w-4 rounded-sm" />
                               ) : (
-                                <EmojiDisplay emoji={'✨'} size="15" />
+                                <EmojiDisplay emoji={'✨'} size="1.1rem" />
                               )}
                               {t(option.labelKey)}
                             </span>
@@ -324,7 +324,7 @@ const CapsuleSettingsMenu = React.memo(
                               {option.iconUrl ? (
                                 <img src={option.iconUrl} alt="" className="h-4 w-4 rounded-sm" />
                               ) : (
-                                <EmojiDisplay emoji={'✨'} size="15" />
+                                <EmojiDisplay emoji={'✨'} size="1.1rem" />
                               )}
                               {t(option.labelKey)}
                             </span>

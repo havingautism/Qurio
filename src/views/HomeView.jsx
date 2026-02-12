@@ -62,7 +62,9 @@ import ColorBendsBackground from '../components/ui/ColorBendsBackground'
 import { THEMES } from '../lib/themes'
 
 const hexToRgb = hex => {
-  const cleaned = String(hex || '').trim().replace('#', '')
+  const cleaned = String(hex || '')
+    .trim()
+    .replace('#', '')
   if (cleaned.length !== 6) return null
   const r = Number.parseInt(cleaned.slice(0, 2), 16)
   const g = Number.parseInt(cleaned.slice(2, 4), 16)
@@ -79,9 +81,7 @@ const mixHex = (base, accent, weight = 0.3) => {
   const r = Math.round(a.r * (1 - w) + b.r * w)
   const g = Math.round(a.g * (1 - w) + b.g * w)
   const bVal = Math.round(a.b * (1 - w) + b.b * w)
-  return `#${[r, g, bVal]
-    .map(v => v.toString(16).padStart(2, '0'))
-    .join('')}`
+  return `#${[r, g, bVal].map(v => v.toString(16).padStart(2, '0')).join('')}`
 }
 
 const rgbToHsl = ({ r, g, b }) => {
@@ -832,36 +832,33 @@ const HomeView = () => {
   const homeThinkingRule = resolveThinkingToggleRule('', homeResolvedModel)
   const isHomeThinkingLocked = homeThinkingRule.isLocked
   const activeTheme = THEMES[settings.themeColor] || THEMES['violet']
-  const homeWaveColors = useMemo(
-    () => {
-      const p400 = activeTheme.colors['--color-primary-400']
-      const p500 = activeTheme.colors['--color-primary-500']
-      const p600 = activeTheme.colors['--color-primary-600']
-      const p700 = activeTheme.colors['--color-primary-700'] || p600
+  const homeWaveColors = useMemo(() => {
+    const p400 = activeTheme.colors['--color-primary-400']
+    const p500 = activeTheme.colors['--color-primary-500']
+    const p600 = activeTheme.colors['--color-primary-600']
+    const p700 = activeTheme.colors['--color-primary-700'] || p600
 
-      const base = isDarkMode ? p600 || p500 : p500 || p400
-      const triadA = shiftHexHue(base, -38, isDarkMode ? 0.08 : 0.05, isDarkMode ? 0.06 : 0.1)
-      const triadB = shiftHexHue(base, 0, isDarkMode ? 0.06 : 0.03, isDarkMode ? 0.02 : 0.08)
-      const triadC = shiftHexHue(base, 42, isDarkMode ? 0.1 : 0.06, isDarkMode ? 0.04 : 0.1)
+    const base = isDarkMode ? p600 || p500 : p500 || p400
+    const triadA = shiftHexHue(base, -38, isDarkMode ? 0.08 : 0.05, isDarkMode ? 0.06 : 0.1)
+    const triadB = shiftHexHue(base, 0, isDarkMode ? 0.06 : 0.03, isDarkMode ? 0.02 : 0.08)
+    const triadC = shiftHexHue(base, 42, isDarkMode ? 0.1 : 0.06, isDarkMode ? 0.04 : 0.1)
 
-      const neonViolet = mixHex(triadA, '#8a5cff', isDarkMode ? 0.52 : 0.34)
-      const neonRose = mixHex(triadB, '#ff5c7a', isDarkMode ? 0.46 : 0.3)
-      const neonAqua = mixHex(triadC, '#00ffd1', isDarkMode ? 0.42 : 0.26)
+    const neonViolet = mixHex(triadA, '#8a5cff', isDarkMode ? 0.52 : 0.34)
+    const neonRose = mixHex(triadB, '#ff5c7a', isDarkMode ? 0.46 : 0.3)
+    const neonAqua = mixHex(triadC, '#00ffd1', isDarkMode ? 0.42 : 0.26)
 
-      return isDarkMode
-        ? [
-            mixHex(mixHex(neonViolet, p700, 0.2), '#0b1020', 0.28),
-            mixHex(mixHex(neonRose, p600, 0.2), '#0b1020', 0.32),
-            mixHex(mixHex(neonAqua, p600, 0.18), '#0b1020', 0.3),
-          ]
-        : [
-            mixHex(neonViolet, '#ffffff', 0.18),
-            mixHex(neonRose, '#ffffff', 0.14),
-            mixHex(neonAqua, '#ffffff', 0.12),
-          ]
-    },
-    [activeTheme, isDarkMode],
-  )
+    return isDarkMode
+      ? [
+          mixHex(mixHex(neonViolet, p700, 0.2), '#0b1020', 0.28),
+          mixHex(mixHex(neonRose, p600, 0.2), '#0b1020', 0.32),
+          mixHex(mixHex(neonAqua, p600, 0.18), '#0b1020', 0.3),
+        ]
+      : [
+          mixHex(neonViolet, '#ffffff', 0.18),
+          mixHex(neonRose, '#ffffff', 0.14),
+          mixHex(neonAqua, '#ffffff', 0.12),
+        ]
+  }, [activeTheme, isDarkMode])
   useEffect(() => {
     if (!isHomeThinkingLocked) return
     setIsHomeThinkingActive(homeThinkingRule.isThinkingActive)
@@ -1415,7 +1412,7 @@ const HomeView = () => {
                                             className="h-4 w-4 rounded-sm"
                                           />
                                         ) : (
-                                          <Globe size={14} className="text-gray-400" />
+                                          <EmojiDisplay emoji={'✨'} size="1.1rem" />
                                         )}
                                         {t(option.labelKey)}
                                       </span>
@@ -1454,7 +1451,7 @@ const HomeView = () => {
                                             className="h-4 w-4 rounded-sm"
                                           />
                                         ) : (
-                                          <Globe size={14} className="text-gray-400" />
+                                          <EmojiDisplay emoji={'✨'} size="1.1rem" />
                                         )}
                                         {t(option.labelKey)}
                                       </span>

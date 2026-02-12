@@ -970,6 +970,7 @@ function App() {
                   {/* Mobile Header - Hide on Chat/Conversation routes as they have their own header */}
                   {!location.pathname.includes('/conversation/') &&
                     !location.pathname.includes('/deepresearch/') &&
+                    !location.pathname.includes('/expert/') &&
                     !location.pathname.includes('/new_chat') && (
                       <div className="bg-background z-30 flex h-12 shrink-0 items-center justify-between border-b border-gray-200 px-4 md:hidden dark:border-zinc-800">
                         <div className="flex items-center gap-3">

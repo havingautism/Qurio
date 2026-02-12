@@ -119,7 +119,7 @@ function App() {
 
   // Extract conversation ID from URL
   const activeConversationId = React.useMemo(() => {
-    const match = location.pathname.match(/\/(conversation|deepresearch)\/(.+)/)
+    const match = location.pathname.match(/\/(conversation|deepresearch|expert)\/(.+)/)
     return match ? match[2] : null
   }, [location])
 
@@ -591,6 +591,7 @@ function App() {
 
   useEffect(() => {
     const ensureDeepResearchAssets = async () => {
+      // Prevent concurrent execution or redundant runs if already successful (optional)
       if (ensuringDeepResearchRef.current) return
       if (spacesLoading || agentsLoading) return
       if (!spaces.length && !agents.length) return

@@ -381,16 +381,21 @@ const MessageBubble = ({
         if (markdown) return markdown
       } catch {
         // Streaming partial JSON: extract key fields progressively for readability.
-        const planMatch = raw.match(/"expertPlan"\s*:\s*"((?:\\.|[^"\\])*)"/)
-        const taskMatches = [...raw.matchAll(/"task"\s*:\s*"((?:\\.|[^"\\])*)"/g)]
+        // Regex modified to capture values even if the closing quote hasn't arrived ensuring streaming support.
+        const planMatch = raw.match(/"expertPlan"\s*:\s*"((?:\\.|[^"\\])*)(?:"|$)/)
+        // For tasks, we use a global regex to capture all occurrences
+        const taskMatches = [...raw.matchAll(/"task"\s*:\s*"((?:\\.|[^"\\])*)(?:"|$)/g)]
+
         const extracted = []
         if (planMatch?.[1]) {
           extracted.push(decodeJsonString(planMatch[1]))
         }
         if (taskMatches.length > 0) {
           extracted.push(`\n**专家任务分解**`)
-          taskMatches.slice(0, 4).forEach((match, idx) => {
+          taskMatches.forEach((match, idx) => {
             const task = decodeJsonString(match?.[1] || '')
+            // Optional: Try to capture the agent name if available near this task
+            // This is a best-effort heuristic for streaming
             if (task) extracted.push(`- 专家${idx + 1}: ${task}`)
           })
         }
@@ -720,6 +725,33 @@ const MessageBubble = ({
     const canUsePersistedStreamBlocks = normalizedStreamBlocks.length > 0 && !hasLiveRuntimeOrdering
 
     if (canUsePersistedStreamBlocks) {
+      // Virtual Injection: If expertPlan exists in message props but not in stream, inject it first
+      if (mergedMessage?.expertPlan) {
+        // Construct the JSON structure that normalizeThoughtContent expects
+        const planJson = JSON.stringify({
+          expertPlan: mergedMessage.expertPlan,
+          expertResponses: mergedMessage.expertResponses,
+        }) // No formatting needed, just raw JSON string
+
+        // Check for duplicates (robust check: scan all blocks for expertPlan content)
+        const isDuplicate = normalizedStreamBlocks.some(
+          block =>
+            (block.type === 'reasoning' || block.type === 'thought') &&
+            block.content &&
+            block.content.includes(mergedMessage.expertPlan),
+        )
+
+        if (!isDuplicate) {
+          parts.push({
+            type: 'thought',
+            key: 'virtual-expert-plan',
+            content: planJson,
+            durationMs: 0,
+            isVirtual: true,
+          })
+        }
+      }
+
       for (const block of normalizedStreamBlocks) {
         if (block.type === 'text') {
           if (block.content) parts.push({ type: 'text', content: block.content })
@@ -791,6 +823,28 @@ const MessageBubble = ({
           durationMs: block.durationMs,
         })
       })
+
+      // Virtual Injection for Live Runtime: Inject expertPlan if not already present
+      if (mergedMessage?.expertPlan) {
+        const planJson = JSON.stringify({
+          expertPlan: mergedMessage.expertPlan,
+          expertResponses: mergedMessage.expertResponses,
+        })
+        const isDuplicate = positionedThoughtBlocks.some(block =>
+          block.content.includes(mergedMessage.expertPlan),
+        )
+
+        if (!isDuplicate) {
+          events.push({
+            type: 'thought',
+            index: 0,
+            order: -1, // Force to top
+            key: 'virtual-expert-plan-event',
+            thought: planJson,
+            durationMs: 0,
+          })
+        }
+      }
     }
 
     if (events.length === 0) {
@@ -1583,7 +1637,7 @@ const MessageBubble = ({
       return (
         <div
           key={part.key || `workflow-text-${idx}`}
-          className="mb-3 rounded-xl border border-primary-200/45 bg-primary-50/30 px-3.5 py-3 text-sm leading-relaxed text-gray-700 dark:border-primary-700/25 dark:bg-primary-900/12 dark:text-gray-300"
+          className="border-primary-200/45 bg-primary-50/30 dark:border-primary-700/25 dark:bg-primary-900/12 mb-3 rounded-xl border px-3.5 py-3 text-sm leading-relaxed text-gray-700 dark:text-gray-300"
         >
           <Streamdown
             mermaid={mermaidOptions}
@@ -1657,10 +1711,10 @@ const MessageBubble = ({
               // Developer Mode: Simplified view consistent with Deep Research within a card container
               <div
                 className={clsx(
-                  'mb-4 overflow-hidden rounded-xl border border-primary-200/40 bg-primary-50/25 dark:border-primary-700/25 dark:bg-primary-900/12',
+                  'border-primary-200/40 bg-primary-50/25 dark:border-primary-700/25 dark:bg-primary-900/12 mb-4 overflow-hidden rounded-xl border',
                 )}
               >
-                <div className="flex w-full items-center justify-between border-b border-primary-200/45 bg-primary-100/35 px-3 py-2 transition-colors hover:bg-primary-100/45 dark:border-primary-700/25 dark:bg-primary-900/18 dark:hover:bg-primary-900/26">
+                <div className="border-primary-200/45 bg-primary-100/35 hover:bg-primary-100/45 dark:border-primary-700/25 dark:bg-primary-900/18 dark:hover:bg-primary-900/26 flex w-full items-center justify-between border-b px-3 py-2 transition-colors">
                   <div className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                     <EmojiDisplay emoji={'🔧'} size="1.2em" /> {t('messageBubble.toolCalls')}
                   </div>
@@ -1669,7 +1723,7 @@ const MessageBubble = ({
                   {regularTools.map(item => (
                     <div
                       key={item.id || `${item.name}-${item.arguments}`}
-                      className="flex w-full items-center gap-2 rounded-lg border border-primary-200/35 bg-white/70 px-2.5 py-2 text-[11px] text-gray-600 dark:border-primary-700/20 dark:bg-zinc-800/45 dark:text-gray-400"
+                      className="border-primary-200/35 dark:border-primary-700/20 flex w-full items-center gap-2 rounded-lg border bg-white/70 px-2.5 py-2 text-[11px] text-gray-600 dark:bg-zinc-800/45 dark:text-gray-400"
                     >
                       <span className="flex shrink-0 items-center gap-1.5 font-medium text-gray-700 dark:text-gray-300">
                         {item.status === 'error' && (
@@ -1736,7 +1790,7 @@ const MessageBubble = ({
                     : null
                   return (
                     <ToolEnter key={item.id || `${item.name}-${item.arguments}`}>
-                      <div className="rounded-lg border border-primary-200/35 bg-white/65 px-2.5 py-2 dark:border-primary-700/20 dark:bg-zinc-800/40">
+                      <div className="border-primary-200/35 dark:border-primary-700/20 rounded-lg border bg-white/65 px-2.5 py-2 dark:bg-zinc-800/40">
                         <div className="flex w-full items-center gap-1 text-xs text-gray-500 sm:gap-2 dark:text-gray-400">
                           <span className="flex shrink-0 items-center gap-1.5 font-medium whitespace-nowrap text-gray-600 dark:text-gray-300">
                             {item.status === 'error' ? (
@@ -2723,7 +2777,7 @@ const MessageBubble = ({
                             ? `research-step-${Number(step.step)}`
                             : `research-step-${step.streamOrder ?? step.title ?? 'unknown'}`)
                         }
-                        className="flex items-start gap-3 rounded-lg border border-primary-200/38 bg-white/72 p-3 dark:border-primary-700/22 dark:bg-zinc-800/62"
+                        className="border-primary-200/38 dark:border-primary-700/22 flex items-start gap-3 rounded-lg border bg-white/72 p-3 dark:bg-zinc-800/62"
                       >
                         <div className="flex-1 space-y-1">
                           <div className="flex flex-wrap items-center gap-2 text-xs">

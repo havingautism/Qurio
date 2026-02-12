@@ -763,6 +763,16 @@ const ChatInterface = ({
         return
       }
 
+      // Sync Check: If initialSpaceSelection is provided, wait for displaySpace to match
+      // This prevents sending explicit null for selectedSpace when it should be set
+      if (
+        initialSpaceSelection?.space &&
+        (!displaySpace || displaySpace.id !== initialSpaceSelection.space.id)
+      ) {
+        // Space state not yet synced, wait for next render cycle
+        return
+      }
+
       // IMPORTANT: Use the prop conversationId from URL/activeConversation, not the store's conversationId
       // The store's conversationId might be stale or null
       const conversationIdToSend = activeConversation?.id || conversationId || null
@@ -1548,6 +1558,7 @@ const ChatInterface = ({
       sendMessage,
       settings,
       selectedSpace,
+      displaySpace,
       effectiveAgent,
       isAgentAutoMode,
       defaultAgent,
@@ -1996,7 +2007,7 @@ const ChatInterface = ({
           ref={messagesContainerRef}
           className="no-scrollbar relative flex-1 overflow-x-hidden overflow-y-auto sm:p-2"
         >
-          <div className="mx-auto w-full max-w-3xl px-0 pt-16 sm:px-5 sm:pt-0">
+          <div className="mx-auto w-full max-w-3xl px-0 pt-12 sm:px-5">
             {showHistoryLoader && (
               <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
                 <FancyLoader />

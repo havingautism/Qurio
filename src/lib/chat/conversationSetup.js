@@ -9,6 +9,14 @@ import { listSpaceAgents } from '../spacesService'
 export const buildSpaceAgentOptions = async (spaces, agents) => {
   if (!Array.isArray(spaces) || spaces.length === 0) return []
   const agentMap = new Map((agents || []).map(agent => [String(agent.id), agent]))
+
+  // Log to track how many spaces we are processing
+  if (spaces.length > 1) {
+    console.warn(
+      `[Debug] buildSpaceAgentOptions processing ${spaces.length} spaces. This might be slow.`,
+    )
+  }
+
   const results = await Promise.all(
     spaces.map(async space => {
       if (!space?.id) return null

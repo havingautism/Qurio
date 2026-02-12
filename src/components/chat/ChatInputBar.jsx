@@ -290,7 +290,7 @@ const CapsuleSettingsMenu = React.memo(
                               {option.iconUrl ? (
                                 <img src={option.iconUrl} alt="" className="h-4 w-4 rounded-sm" />
                               ) : (
-                                <Globe size={14} className="text-gray-400" />
+                                <EmojiDisplay emoji={'✨'} size="15" />
                               )}
                               {t(option.labelKey)}
                             </span>
@@ -324,7 +324,7 @@ const CapsuleSettingsMenu = React.memo(
                               {option.iconUrl ? (
                                 <img src={option.iconUrl} alt="" className="h-4 w-4 rounded-sm" />
                               ) : (
-                                <Globe size={14} className="text-gray-400" />
+                                <EmojiDisplay emoji={'✨'} size="15" />
                               )}
                               {t(option.labelKey)}
                             </span>
@@ -1257,7 +1257,9 @@ const ChatInputBar = React.memo(
                   )}
                 >
                   <Globe size={18} strokeWidth={2} />
-                  <span className="hidden md:inline-flex md:items-center">{resolvedSearchLabel}</span>
+                  <span className="hidden md:inline-flex md:items-center">
+                    {resolvedSearchLabel}
+                  </span>
                 </button>
                 {isSearchMenuOpen && (
                   <div

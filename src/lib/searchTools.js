@@ -54,12 +54,12 @@ export const TAVILY_TOOL_IDS = new Set([
 
 export const SEARCH_BACKEND_OPTIONS = [
   { id: 'auto', labelKey: 'searchBackends.auto', iconUrl: null },
-  { id: 'duckduckgo', labelKey: 'searchBackends.duckduckgo', iconUrl: DuckDuckGoIcon },
   { id: 'google', labelKey: 'searchBackends.google', iconUrl: GoogleIcon },
   { id: 'bing', labelKey: 'searchBackends.bing', iconUrl: BingIcon },
+  { id: 'duckduckgo', labelKey: 'searchBackends.duckduckgo', iconUrl: DuckDuckGoIcon },
   { id: 'brave', labelKey: 'searchBackends.brave', iconUrl: BraveIcon },
-  { id: 'yandex', labelKey: 'searchBackends.yandex', iconUrl: YandexIcon },
-  { id: 'yahoo', labelKey: 'searchBackends.yahoo', iconUrl: YahooIcon },
+  // { id: 'yandex', labelKey: 'searchBackends.yandex', iconUrl: YandexIcon },
+  // { id: 'yahoo', labelKey: 'searchBackends.yahoo', iconUrl: YahooIcon },
 ]
 
 export const ACADEMIC_SEARCH_TOOL_OPTIONS = [

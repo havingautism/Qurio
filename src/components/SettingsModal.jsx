@@ -133,6 +133,7 @@ CREATE TABLE IF NOT EXISTS public.agents (
   provider TEXT,
   default_model_source TEXT NOT NULL DEFAULT 'list',
   lite_model_source TEXT NOT NULL DEFAULT 'list',
+  use_global_model_settings BOOLEAN NOT NULL DEFAULT TRUE,
   lite_model TEXT,
   default_model TEXT,
   response_language TEXT,
@@ -151,6 +152,9 @@ CREATE TABLE IF NOT EXISTS public.agents (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE public.agents
+ADD COLUMN IF NOT EXISTS use_global_model_settings BOOLEAN NOT NULL DEFAULT TRUE;
 
 CREATE INDEX IF NOT EXISTS idx_agents_created_at ON public.agents(created_at DESC);
 
@@ -1700,7 +1704,6 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
               )}
             </div>
 
-            {hint && <p className="max-w-2xl text-xs text-gray-500 dark:text-gray-400">{hint}</p>}
             {testAction?.message && (
               <p
                 className={clsx(
@@ -1722,6 +1725,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
             {displayLabel}
           </span>
         </div>
+        {hint && <p className="max-w-2xl text-xs text-gray-500 dark:text-gray-400">{hint}</p>}
         <div className="rounded-lg border border-gray-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900">
           <div className="flex flex-col gap-3">
             {!hideProviderSelector && (

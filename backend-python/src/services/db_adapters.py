@@ -266,6 +266,13 @@ class SQLiteAdapter:
                     "ALTER TABLE conversation_messages "
                     "ADD COLUMN stream_schema_version INTEGER NOT NULL DEFAULT 1"
                 )
+            cursor.execute("PRAGMA table_info(agents)")
+            agent_columns = {str(row[1]) for row in cursor.fetchall()}
+            if "use_global_model_settings" not in agent_columns:
+                cursor.execute(
+                    "ALTER TABLE agents "
+                    "ADD COLUMN use_global_model_settings INTEGER NOT NULL DEFAULT 1"
+                )
             self._conn.commit()
 
     def _execute(self, sql: str, params: list[Any] | tuple[Any, ...] = ()) -> sqlite3.Cursor:

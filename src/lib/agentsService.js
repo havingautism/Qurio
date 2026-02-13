@@ -2,6 +2,12 @@ import { getSupabaseClient } from './supabase'
 
 const table = 'agents'
 
+const toBoolWithDefault = (value, fallback) => {
+  if (typeof value === 'boolean') return value
+  if (value === null || value === undefined) return fallback
+  return Boolean(value)
+}
+
 const mapAgent = agent => {
   if (!agent) return agent
   return {
@@ -17,6 +23,10 @@ const mapAgent = agent => {
     liteModelProvider: agent.lite_model_provider ?? agent.liteModelProvider ?? '',
     defaultModelSource: agent.default_model_source ?? agent.defaultModelSource ?? 'list',
     liteModelSource: agent.lite_model_source ?? agent.liteModelSource ?? 'list',
+    useGlobalModelSettings: toBoolWithDefault(
+      agent.use_global_model_settings ?? agent.useGlobalModelSettings,
+      true,
+    ),
     liteModel: agent.lite_model ?? agent.liteModel ?? '',
     defaultModel: agent.default_model ?? agent.defaultModel ?? '',
     responseLanguage: agent.response_language ?? agent.responseLanguage ?? '',
@@ -61,6 +71,7 @@ export const createAgent = async ({
   liteModelProvider = '',
   defaultModelSource = 'list',
   liteModelSource = 'list',
+  useGlobalModelSettings = true,
   liteModel = '',
   defaultModel = '',
   responseLanguage = '',
@@ -93,6 +104,7 @@ export const createAgent = async ({
     lite_model_provider: liteModelProvider,
     default_model_source: defaultModelSource,
     lite_model_source: liteModelSource,
+    use_global_model_settings: useGlobalModelSettings,
     lite_model: liteModel,
     default_model: defaultModel,
     response_language: responseLanguage,
@@ -135,6 +147,8 @@ export const updateAgent = async (id, payload) => {
     updatePayload.default_model_source = payload.defaultModelSource
   if (payload.liteModelSource !== undefined)
     updatePayload.lite_model_source = payload.liteModelSource
+  if (payload.useGlobalModelSettings !== undefined)
+    updatePayload.use_global_model_settings = payload.useGlobalModelSettings
   if (payload.liteModel !== undefined) updatePayload.lite_model = payload.liteModel
   if (payload.defaultModel !== undefined) updatePayload.default_model = payload.defaultModel
   if (payload.responseLanguage !== undefined)

@@ -119,6 +119,10 @@ const CapsuleSettingsMenu = React.memo(
     onSearchClear,
     searchMenuRef,
   }) => {
+    const selectedSearchBackendOption = React.useMemo(
+      () => (searchBackendOptions || []).find(item => item.id === searchBackend) || null,
+      [searchBackend, searchBackendOptions],
+    )
     const activeSearchLabel = React.useMemo(() => {
       if (!isSearchActive) return t('homeView.search')
       const academicCount = selectedSearchTools?.length || 0
@@ -247,10 +251,20 @@ const CapsuleSettingsMenu = React.memo(
                 aria-controls="capsule-search-options"
               >
                 <div className="flex items-center gap-2.5 text-gray-700 dark:text-gray-200">
-                  <Globe
-                    size={16}
-                    className={isSearchActive ? 'text-primary-500' : 'text-gray-400'}
-                  />
+                  {isSearchActive && searchBackend === 'auto' ? (
+                    <EmojiDisplay emoji={'✨'} size="1rem" />
+                  ) : isSearchActive && selectedSearchBackendOption?.iconUrl ? (
+                    <img
+                      src={selectedSearchBackendOption.iconUrl}
+                      alt={t(selectedSearchBackendOption.labelKey)}
+                      className="h-4 w-4 rounded-sm"
+                    />
+                  ) : (
+                    <Globe
+                      size={16}
+                      className={isSearchActive ? 'text-primary-500' : 'text-gray-400'}
+                    />
+                  )}
                   <span className="inline-flex items-center">{activeSearchLabel}</span>
                 </div>
                 <ChevronDown
@@ -463,6 +477,10 @@ const ChatInputBar = React.memo(
     const highlightRef = useRef(null)
     const searchMenuRef = useRef(null)
     const highlightedInputParts = useMemo(() => splitTextWithUrls(inputValue), [inputValue])
+    const selectedSearchBackendOption = useMemo(
+      () => (searchBackendOptions || []).find(item => item.id === searchBackend) || null,
+      [searchBackend, searchBackendOptions],
+    )
     const resolvedSearchLabel = useMemo(() => {
       if (!isSearchActive) return t('homeView.search')
       const academicCount = selectedSearchTools?.length || 0
@@ -1256,7 +1274,17 @@ const ChatInputBar = React.memo(
                       : 'text-gray-500 dark:text-gray-400',
                   )}
                 >
-                  <Globe size={18} strokeWidth={2} />
+                  {isSearchActive && searchBackend === 'auto' ? (
+                    <EmojiDisplay emoji={'✨'} size="1.1rem" />
+                  ) : isSearchActive && selectedSearchBackendOption?.iconUrl ? (
+                    <img
+                      src={selectedSearchBackendOption.iconUrl}
+                      alt={t(selectedSearchBackendOption.labelKey)}
+                      className="h-[18px] w-[18px] rounded-sm"
+                    />
+                  ) : (
+                    <Globe size={18} strokeWidth={2} />
+                  )}
                   <span className="hidden md:inline-flex md:items-center">
                     {resolvedSearchLabel}
                   </span>

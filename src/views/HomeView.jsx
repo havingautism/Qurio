@@ -831,6 +831,10 @@ const HomeView = () => {
   const homeResolvedModel = homeModelConfig?.model || ''
   const homeThinkingRule = resolveThinkingToggleRule('', homeResolvedModel)
   const isHomeThinkingLocked = homeThinkingRule.isLocked
+  const selectedHomeSearchBackendOption = useMemo(
+    () => SEARCH_BACKEND_OPTIONS.find(option => option.id === homeSearchBackend) || null,
+    [homeSearchBackend],
+  )
   const activeTheme = THEMES[settings.themeColor] || THEMES['violet']
   const homeWaveColors = useMemo(() => {
     const p400 = activeTheme.colors['--color-primary-400']
@@ -1271,7 +1275,17 @@ const HomeView = () => {
                           : 'text-gray-500 dark:text-gray-400'
                       }`}
                     >
-                      <Globe size={18} />
+                      {isHomeSearchActive && homeSearchBackend === 'auto' ? (
+                        <EmojiDisplay emoji={'✨'} size="1.1rem" />
+                      ) : isHomeSearchActive && selectedHomeSearchBackendOption?.iconUrl ? (
+                        <img
+                          src={selectedHomeSearchBackendOption.iconUrl}
+                          alt={t(selectedHomeSearchBackendOption.labelKey)}
+                          className="h-[18px] w-[18px] rounded-sm"
+                        />
+                      ) : (
+                        <Globe size={18} />
+                      )}
                       <span className="hidden md:inline">{t('homeView.search')}</span>
                     </button>
                     {isHomeSearchMenuOpen && !isHomeMobile && (
@@ -1307,7 +1321,7 @@ const HomeView = () => {
                                           className="h-4 w-4 rounded-sm"
                                         />
                                       ) : (
-                                        <Globe size={14} className="text-gray-400" />
+                                        <EmojiDisplay emoji={'✨'} size="1.1rem" />
                                       )}
                                       {t(option.labelKey)}
                                     </span>
@@ -1346,7 +1360,7 @@ const HomeView = () => {
                                           className="h-4 w-4 rounded-sm"
                                         />
                                       ) : (
-                                        <Globe size={14} className="text-gray-400" />
+                                        <EmojiDisplay emoji={'✨'} size="1.1rem" />
                                       )}
                                       {t(option.labelKey)}
                                     </span>

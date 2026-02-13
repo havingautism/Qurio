@@ -137,6 +137,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
   const [liteTestState, setLiteTestState] = useState({ status: 'idle', message: '' })
   const [globalDefaultModel, setGlobalDefaultModel] = useState('')
   const [globalLiteModel, setGlobalLiteModel] = useState('')
+  const [useGlobalModelSettings, setUseGlobalModelSettings] = useState(true)
 
   // Dynamic Models State
   // Structure: { [provider]: [ { value, label } ] }
@@ -363,6 +364,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
         setDefaultModel(nextDefaultModel)
         setDefaultModelSource(editingAgent?.defaultModelSource || 'list')
         setLiteModelSource(editingAgent?.liteModelSource || 'list')
+        setUseGlobalModelSettings(editingAgent?.useGlobalModelSettings ?? true)
         setDefaultCustomModel(editingAgent?.defaultModelSource === 'custom' ? nextDefaultModel : '')
         setLiteCustomModel(editingAgent?.liteModelSource === 'custom' ? nextLiteModel : '')
         setDefaultModelProvider(editingAgent?.defaultModelProvider || editingAgent?.provider || '')
@@ -406,6 +408,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
         setDefaultModel(nextDefaultModel)
         setDefaultModelProvider(defaultAgent?.defaultModelProvider || defaultAgent?.provider || '')
         setLiteModelProvider(defaultAgent?.liteModelProvider || defaultAgent?.provider || '')
+        setUseGlobalModelSettings(true)
         setDefaultModelSource('list')
         setLiteModelSource('list')
         setDefaultCustomModel('')
@@ -520,6 +523,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
         defaultModel,
         defaultModelSource,
         liteModelSource,
+        useGlobalModelSettings,
         responseLanguage,
         baseTone: resolvedBaseTone,
         traits: resolvedTraits,
@@ -540,37 +544,6 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
       setError(err.message || t('agents.errors.saveFailed'))
     } finally {
       setIsSaving(false)
-    }
-  }
-
-  const handleApplyGlobalModels = () => {
-    const settings = loadSettings()
-    if (!settings.defaultModel && !settings.liteModel) {
-      // Maybe some fallback toast here?
-      return
-    }
-
-    if (settings.defaultModel) {
-      setDefaultModel(settings.defaultModel)
-      setDefaultModelProvider(settings.defaultModelProvider || '')
-      setDefaultModelSource(settings.defaultModelSource || 'list')
-      if (settings.defaultModelSource === 'custom') {
-        setDefaultCustomModel(settings.defaultModel)
-      }
-    }
-
-    if (settings.liteModel) {
-      setLiteModel(settings.liteModel)
-      setLiteModelProvider(settings.liteModelProvider || '')
-      setLiteModelSource(settings.liteModelSource || 'list')
-      if (settings.liteModelSource === 'custom') {
-        setLiteCustomModel(settings.liteModel)
-      }
-    }
-
-    // Also update current provider if we have a default model provider
-    if (settings.defaultModelProvider) {
-      setProvider(settings.defaultModelProvider)
     }
   }
 
@@ -896,15 +869,18 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
     allowEmpty = false,
     hideProviderSelector = false,
     testAction,
+    disabled = false,
+    disabledDisplayValue = '',
   }) => {
     const providers = availableProviders.length > 0 ? availableProviders : PROVIDER_KEYS
     const activeModels = groupedModels[activeProvider] || []
     const selectedLabel = getModelLabel(value)
     const showList = modelSource === 'list'
     const displayLabel = showList ? selectedLabel : customValue || value || t('agents.model.custom')
+    const shownLabel = disabled && disabledDisplayValue ? disabledDisplayValue : displayLabel
 
     return (
-      <div className="space-y-3">
+      <div className={clsx('space-y-3', disabled && 'opacity-60')}>
         <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
           <div className="flex w-full flex-col gap-2 sm:w-auto">
             <div className="flex w-full flex-wrap items-center gap-3">
@@ -916,6 +892,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
               <div className="hidden rounded-lg border border-gray-200 bg-gray-100 p-0.5 sm:flex dark:border-zinc-700 dark:bg-zinc-800">
                 <button
                   type="button"
+                  disabled={disabled}
                   onClick={() => {
                     onModelSourceChange('list')
                     const existsInList = activeModels.some(m => m.value === value)
@@ -926,12 +903,14 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                     modelSource === 'list'
                       ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-gray-100'
                       : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300',
+                    disabled && 'cursor-not-allowed opacity-60',
                   )}
                 >
                   {t('agents.model.sourceList')}
                 </button>
                 <button
                   type="button"
+                  disabled={disabled}
                   onClick={() => {
                     onModelSourceChange('custom')
                     const nextValue = value || customValue || ''
@@ -943,6 +922,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                     modelSource === 'custom'
                       ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-gray-100'
                       : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300',
+                    disabled && 'cursor-not-allowed opacity-60',
                   )}
                 >
                   {t('agents.model.sourceCustom')}
@@ -953,7 +933,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                 <button
                   type="button"
                   onClick={testAction.onClick}
-                  disabled={testAction.status === 'loading'}
+                  disabled={disabled || testAction.status === 'loading'}
                   className="bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400 border-primary-200 dark:border-primary-800 hover:bg-primary-100 dark:hover:bg-primary-900/40 ml-auto flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-60 sm:ml-0"
                 >
                   {testAction.status === 'loading' && (
@@ -968,6 +948,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
             <div className="flex w-full rounded-lg border border-gray-200 bg-gray-100 p-1 sm:hidden dark:border-zinc-700 dark:bg-zinc-800">
               <button
                 type="button"
+                disabled={disabled}
                 onClick={() => {
                   onModelSourceChange('list')
                   const existsInList = activeModels.some(m => m.value === value)
@@ -978,12 +959,14 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                   modelSource === 'list'
                     ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-gray-100'
                     : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300',
+                  disabled && 'cursor-not-allowed opacity-60',
                 )}
               >
                 {t('agents.model.sourceList')}
               </button>
               <button
                 type="button"
+                disabled={disabled}
                 onClick={() => {
                   onModelSourceChange('custom')
                   const nextValue = value || customValue || ''
@@ -995,13 +978,13 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                   modelSource === 'custom'
                     ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-gray-100'
                     : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300',
+                  disabled && 'cursor-not-allowed opacity-60',
                 )}
               >
                 {t('agents.model.sourceCustom')}
               </button>
             </div>
 
-            {hint && <p className="max-w-2xl text-xs text-gray-500 dark:text-gray-400">{hint}</p>}
             {testAction?.message && (
               <p
                 className={clsx(
@@ -1019,11 +1002,20 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
               </p>
             )}
           </div>
-          <span className="mt-1 w-full truncate text-left text-xs text-gray-500 sm:mt-0 sm:w-auto sm:text-right dark:text-gray-400">
-            {displayLabel}
+          <span
+            title={shownLabel}
+            className="mt-1 w-full text-left text-xs break-all text-gray-500 sm:mt-0 sm:w-auto sm:max-w-[320px] sm:text-right dark:text-gray-400"
+          >
+            {shownLabel}
           </span>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900">
+        {hint && <p className="max-w-2xl text-xs text-gray-500 dark:text-gray-400">{hint}</p>}
+        <div
+          className={clsx(
+            'rounded-lg border border-gray-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900',
+            disabled && 'pointer-events-none bg-gray-50/70 dark:bg-zinc-900/70',
+          )}
+        >
           <div className="flex flex-col gap-3">
             {!hideProviderSelector && (
               <div className="relative flex flex-col gap-2">
@@ -1038,6 +1030,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                       onChange('')
                     }
                   }}
+                  disabled={disabled}
                 >
                   <SelectTrigger className="h-10 w-full">
                     <SelectValue>
@@ -1074,7 +1067,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                 <Select
                   value={value || (allowEmpty ? '__none__' : undefined)}
                   onValueChange={val => onChange(val === '__none__' ? '' : val)}
-                  disabled={!activeModels.length && !allowEmpty}
+                  disabled={disabled || (!activeModels.length && !allowEmpty)}
                 >
                   <SelectTrigger className="h-10 w-full">
                     <SelectValue placeholder={t('agents.model.notSelected')}>
@@ -1133,6 +1126,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
               ) : (
                 <input
                   value={customValue}
+                  disabled={disabled}
                   onChange={e => {
                     const nextValue = e.target.value
                     onCustomValueChange(nextValue)
@@ -1408,20 +1402,17 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                     <div className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50/50 p-3 dark:border-zinc-800 dark:bg-zinc-800/50">
                       <div className="flex flex-col gap-0.5">
                         <span className="text-sm font-medium text-gray-900 dark:text-white">
-                          {t('agents.model.syncGlobal')}
+                          {t('agents.model.useGlobal')}
                         </span>
                         <span className="text-xs text-gray-500 dark:text-gray-400">
-                          {t('agents.model.syncGlobalHint')}
+                          {t('agents.model.useGlobalHint')}
                         </span>
                       </div>
-                      <button
-                        type="button"
-                        onClick={handleApplyGlobalModels}
-                        className="flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
-                      >
-                        <Settings size={14} className="text-gray-400" />
-                        {t('agents.model.applyGlobalSettings')}
-                      </button>
+                      <Checkbox
+                        checked={useGlobalModelSettings}
+                        onCheckedChange={checked => setUseGlobalModelSettings(Boolean(checked))}
+                        className="h-5 w-5"
+                      />
                     </div>
 
                     {renderModelPicker({
@@ -1445,6 +1436,8 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                         status: defaultTestState.status,
                         message: defaultTestState.message,
                       },
+                      disabled: useGlobalModelSettings,
+                      disabledDisplayValue: globalDefaultModel || t('agents.model.notSelected'),
                     })}
 
                     {renderModelPicker({
@@ -1471,6 +1464,8 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                         status: liteTestState.status,
                         message: liteTestState.message,
                       },
+                      disabled: useGlobalModelSettings,
+                      disabledDisplayValue: globalLiteModel || t('agents.model.notSelected'),
                     })}
                   </>
                 )}

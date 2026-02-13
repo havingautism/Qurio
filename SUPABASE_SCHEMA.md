@@ -30,6 +30,7 @@ Stores reusable agent presets. These can be bound to multiple spaces later.
 | `lite_model_provider`    | text        | Provider for lite model (explicit)    |
 | `default_model_source`   | text        | `list` or `custom`                    |
 | `lite_model_source`      | text        | `list` or `custom`                    |
+| `use_global_model_settings` | boolean  | If true, use global default/lite model |
 | `lite_model`             | text        | Optional lightweight model override   |
 | `default_model`          | text        | Default model id                      |
 | `response_language`      | text        | LLM answer language preset            |

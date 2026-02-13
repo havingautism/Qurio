@@ -31,6 +31,7 @@ SCHEMA_STATEMENTS: list[str] = [
       lite_model_provider TEXT,
       default_model_source TEXT NOT NULL DEFAULT 'list',
       lite_model_source TEXT NOT NULL DEFAULT 'list',
+      use_global_model_settings INTEGER NOT NULL DEFAULT 1,
       lite_model TEXT,
       default_model TEXT,
       response_language TEXT,

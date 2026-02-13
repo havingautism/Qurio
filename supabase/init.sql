@@ -74,6 +74,7 @@ CREATE TABLE IF NOT EXISTS public.agents (
   lite_model_provider TEXT,
   default_model_source TEXT NOT NULL DEFAULT 'list',
   lite_model_source TEXT NOT NULL DEFAULT 'list',
+  use_global_model_settings BOOLEAN NOT NULL DEFAULT TRUE,
   lite_model TEXT,
   default_model TEXT,
   response_language TEXT,
@@ -94,6 +95,9 @@ CREATE TABLE IF NOT EXISTS public.agents (
 );
 
 CREATE INDEX IF NOT EXISTS idx_agents_created_at ON public.agents(created_at DESC);
+
+ALTER TABLE public.agents
+ADD COLUMN IF NOT EXISTS use_global_model_settings BOOLEAN NOT NULL DEFAULT TRUE;
 
 CREATE TRIGGER trg_agents_updated_at
 BEFORE UPDATE ON public.agents

@@ -147,6 +147,34 @@ def _strip_inline_tool_protocol(
     return cleaned, depth, tail, had_protocol
 
 
+def _squash_whitespace(text: Any) -> str:
+    return re.sub(r"\s+", "", str(text or ""))
+
+
+def _is_reasoning_duplicate_of_content(reasoning: str, content: str) -> bool:
+    """
+    Detect provider chunks where answer text is mirrored in reasoning_content.
+    This prevents answer paragraphs from being rendered as a second thought block.
+    """
+    reasoning_flat = _squash_whitespace(reasoning)
+    content_flat = _squash_whitespace(content)
+    if not reasoning_flat or not content_flat:
+        return False
+    if reasoning_flat == content_flat:
+        return True
+
+    shorter, longer = (
+        (reasoning_flat, content_flat)
+        if len(reasoning_flat) <= len(content_flat)
+        else (content_flat, reasoning_flat)
+    )
+    if len(shorter) < 12:
+        return False
+    if shorter in longer and len(shorter) >= int(len(longer) * 0.75):
+        return True
+    return False
+
+
 def _is_stream_trace_enabled() -> bool:
     value = str(os.getenv("QURIO_STREAM_TRACE", "")).strip().lower()
     return value in {"1", "true", "yes", "on", "debug"}
@@ -625,7 +653,7 @@ class StreamChatService:
                                     tail_len=len(inline_protocol_tail),
                                     cleaned_preview=_preview(raw_content_chunk),
                                 )
-                            reasoning = _extract_reasoning_chunk(run_event)
+                            raw_reasoning = _extract_reasoning_chunk(run_event)
                             content_segments, in_content_think_block = _split_content_by_think_tags(
                                 raw_content_chunk,
                                 in_content_think_block,
@@ -636,6 +664,18 @@ class StreamChatService:
                             inline_thought_chunk = "".join(
                                 seg_text for seg_type, seg_text in content_segments if seg_type == "thought"
                             )
+                            reasoning = raw_reasoning
+                            if reasoning and content_chunk and _is_reasoning_duplicate_of_content(
+                                str(reasoning),
+                                str(content_chunk),
+                            ):
+                                trace_stream(
+                                    "suppress_reasoning_overlap",
+                                    event="run_content",
+                                    reasoning_preview=_preview(reasoning),
+                                    content_preview=_preview(content_chunk),
+                                )
+                                reasoning = ""
                             has_content_chunk = bool(content_chunk)
                             has_inline_thought = bool(inline_thought_chunk)
                             trace_stream(
@@ -684,7 +724,7 @@ class StreamChatService:
                                     tail_len=len(inline_protocol_tail),
                                     cleaned_preview=_preview(raw_content_chunk),
                                 )
-                            reasoning = _extract_reasoning_chunk(run_event)
+                            raw_reasoning = _extract_reasoning_chunk(run_event)
                             content_segments, in_content_think_block = _split_content_by_think_tags(
                                 raw_content_chunk,
                                 in_content_think_block,
@@ -695,6 +735,18 @@ class StreamChatService:
                             inline_thought_chunk = "".join(
                                 seg_text for seg_type, seg_text in content_segments if seg_type == "thought"
                             )
+                            reasoning = raw_reasoning
+                            if reasoning and content_chunk and _is_reasoning_duplicate_of_content(
+                                str(reasoning),
+                                str(content_chunk),
+                            ):
+                                trace_stream(
+                                    "suppress_reasoning_overlap",
+                                    event="reasoning_content_delta",
+                                    reasoning_preview=_preview(reasoning),
+                                    content_preview=_preview(content_chunk),
+                                )
+                                reasoning = ""
                             has_content_chunk = bool(content_chunk)
                             has_inline_thought = bool(inline_thought_chunk)
                             trace_stream(
@@ -1181,7 +1233,7 @@ class StreamChatService:
                                         tail_len=len(inline_protocol_tail),
                                         cleaned_preview=_preview(raw_content_chunk),
                                     )
-                                reasoning = _extract_reasoning_chunk(run_event)
+                                raw_reasoning = _extract_reasoning_chunk(run_event)
                                 content_segments, in_content_think_block = _split_content_by_think_tags(
                                     raw_content_chunk,
                                     in_content_think_block,
@@ -1192,6 +1244,18 @@ class StreamChatService:
                                 inline_thought_chunk = "".join(
                                     seg_text for seg_type, seg_text in content_segments if seg_type == "thought"
                                 )
+                                reasoning = raw_reasoning
+                                if reasoning and content_chunk and _is_reasoning_duplicate_of_content(
+                                    str(reasoning),
+                                    str(content_chunk),
+                                ):
+                                    trace_stream(
+                                        "suppress_reasoning_overlap",
+                                        event="run_content",
+                                        reasoning_preview=_preview(reasoning),
+                                        content_preview=_preview(content_chunk),
+                                    )
+                                    reasoning = ""
                                 has_content_chunk = bool(content_chunk)
                                 has_inline_thought = bool(inline_thought_chunk)
                                 trace_stream(
@@ -1239,7 +1303,7 @@ class StreamChatService:
                                         tail_len=len(inline_protocol_tail),
                                         cleaned_preview=_preview(raw_content_chunk),
                                     )
-                                reasoning = _extract_reasoning_chunk(run_event)
+                                raw_reasoning = _extract_reasoning_chunk(run_event)
                                 content_segments, in_content_think_block = _split_content_by_think_tags(
                                     raw_content_chunk,
                                     in_content_think_block,
@@ -1250,6 +1314,18 @@ class StreamChatService:
                                 inline_thought_chunk = "".join(
                                     seg_text for seg_type, seg_text in content_segments if seg_type == "thought"
                                 )
+                                reasoning = raw_reasoning
+                                if reasoning and content_chunk and _is_reasoning_duplicate_of_content(
+                                    str(reasoning),
+                                    str(content_chunk),
+                                ):
+                                    trace_stream(
+                                        "suppress_reasoning_overlap",
+                                        event="reasoning_content_delta",
+                                        reasoning_preview=_preview(reasoning),
+                                        content_preview=_preview(content_chunk),
+                                    )
+                                    reasoning = ""
                                 has_content_chunk = bool(content_chunk)
                                 has_inline_thought = bool(inline_thought_chunk)
                                 trace_stream(

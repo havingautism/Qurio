@@ -1,6 +1,7 @@
 import { ArrowRight } from 'lucide-react'
 import { memo } from 'react'
 import { useTranslation } from 'react-i18next'
+import EmojiDisplay from './EmojiDisplay'
 
 const PARTICLES = [
   { id: 0, top: '15%', left: '10%', duration: '4s', delay: '0s' },
@@ -39,7 +40,7 @@ const DeepResearchCard = memo(({ onClick }) => {
             <div className="flex items-start justify-between">
               <div className="flex flex-col gap-1">
                 <div className="flex items-center gap-2">
-                  <span className="text-2xl">🔬</span>
+                  <EmojiDisplay emoji="🔬" size="1.6rem" className="drop-shadow-md" />
                   <h3 className="text-xl font-bold tracking-tight text-[#2d3a62] md:text-2xl dark:text-white dark:drop-shadow-md">
                     {t('homeView.deepResearchEntry')}
                   </h3>
@@ -48,7 +49,7 @@ const DeepResearchCard = memo(({ onClick }) => {
               </div>
 
               <div className="hidden rounded-full bg-white/35 p-2 backdrop-blur-sm transition-transform duration-500 group-hover:rotate-12 sm:block dark:bg-white/10">
-                <span className="text-lg">🛰️</span>
+                <EmojiDisplay emoji="🛰️" size="1.2rem" className="drop-shadow-md" />
               </div>
             </div>
 
@@ -71,4 +72,3 @@ const DeepResearchCard = memo(({ onClick }) => {
 DeepResearchCard.displayName = 'DeepResearchCard'
 
 export default DeepResearchCard
-

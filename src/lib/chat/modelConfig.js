@@ -18,6 +18,12 @@ export const getModelConfigForAgent = (
   const resolveFromAgent = candidate => {
     if (!candidate) return null
 
+    const useGlobalModelSettingsRaw =
+      candidate.use_global_model_settings ?? candidate.useGlobalModelSettings
+    const useGlobalModelSettings =
+      useGlobalModelSettingsRaw === undefined ? true : Boolean(useGlobalModelSettingsRaw)
+    if (useGlobalModelSettings) return null
+
     const defaultModel = candidate.default_model ?? candidate.defaultModel
     const liteModel = candidate.lite_model ?? candidate.liteModel
     const defaultModelProvider =

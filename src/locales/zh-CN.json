@@ -627,7 +627,9 @@
       "testFailed": "测试失败：{{message}}",
       "syncGlobal": "同步全局设置",
       "syncGlobalHint": "将全局对话模型配置应用到此智能体。",
-      "applyGlobalSettings": "应用全局设置"
+      "applyGlobalSettings": "应用全局设置",
+      "useGlobal": "使用全局设置",
+      "useGlobalHint": "开启后，此智能体将统一使用全局默认模型和轻量模型。"
     },
     "advanced": {
       "title": "高级设定",

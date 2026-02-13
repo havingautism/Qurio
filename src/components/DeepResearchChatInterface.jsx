@@ -168,6 +168,7 @@ const DeepResearchChatInterface = ({
   const [isSequentialResearchActive, setIsSequentialResearchActive] = useState(false) // Sequential research
   const [concurrencyLimit, setConcurrencyLimit] = useState(3)
   const togglePrefsHydratedRef = useRef(false)
+  const togglePrefsHydrationTimerRef = useRef(null)
 
   const isPlaceholderConversation = Boolean(activeConversation?._isPlaceholder)
 
@@ -509,6 +510,12 @@ const DeepResearchChatInterface = ({
   }, [isThinkingLocked, thinkingRule.isThinkingActive])
 
   useEffect(() => {
+    togglePrefsHydratedRef.current = false
+    if (togglePrefsHydrationTimerRef.current) {
+      clearTimeout(togglePrefsHydrationTimerRef.current)
+      togglePrefsHydrationTimerRef.current = null
+    }
+
     try {
       const { searchEnabled: storedSearchEnabled, thinkingEnabled: storedThinkingEnabled } =
         loadTogglePreferences()
@@ -522,7 +529,18 @@ const DeepResearchChatInterface = ({
     } catch (error) {
       console.error('Failed to load toggle preferences from localStorage:', error)
     } finally {
-      togglePrefsHydratedRef.current = true
+      // Let state setters flush first, then enable persistence.
+      togglePrefsHydrationTimerRef.current = setTimeout(() => {
+        togglePrefsHydratedRef.current = true
+        togglePrefsHydrationTimerRef.current = null
+      }, 0)
+    }
+
+    return () => {
+      if (togglePrefsHydrationTimerRef.current) {
+        clearTimeout(togglePrefsHydrationTimerRef.current)
+        togglePrefsHydrationTimerRef.current = null
+      }
     }
   }, [isThinkingLocked])
 

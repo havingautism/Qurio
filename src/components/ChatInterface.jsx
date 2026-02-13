@@ -260,6 +260,7 @@ const ChatInterface = ({
   const [selectedSearchTools, setSelectedSearchTools] = useState([])
   const [isSearchMenuOpen, setIsSearchMenuOpen] = useState(false)
   const togglePrefsHydratedRef = useRef(false)
+  const togglePrefsHydrationTimerRef = useRef(null)
 
   const handleSelectSearchTool = useCallback(toolId => {
     if (!toolId) {
@@ -747,6 +748,12 @@ const ChatInterface = ({
   }, [isThinkingLocked, thinkingRule.isThinkingActive])
 
   useEffect(() => {
+    togglePrefsHydratedRef.current = false
+    if (togglePrefsHydrationTimerRef.current) {
+      clearTimeout(togglePrefsHydrationTimerRef.current)
+      togglePrefsHydrationTimerRef.current = null
+    }
+
     try {
       const {
         searchEnabled: storedSearchEnabled,
@@ -767,7 +774,18 @@ const ChatInterface = ({
     } catch (error) {
       console.error('Failed to load toggle preferences from localStorage:', error)
     } finally {
-      togglePrefsHydratedRef.current = true
+      // Let state setters flush first, then enable persistence.
+      togglePrefsHydrationTimerRef.current = setTimeout(() => {
+        togglePrefsHydratedRef.current = true
+        togglePrefsHydrationTimerRef.current = null
+      }, 0)
+    }
+
+    return () => {
+      if (togglePrefsHydrationTimerRef.current) {
+        clearTimeout(togglePrefsHydrationTimerRef.current)
+        togglePrefsHydrationTimerRef.current = null
+      }
     }
   }, [isThinkingLocked])
 

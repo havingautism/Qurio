@@ -138,6 +138,7 @@ const sanitizeMarkdownUrl = (value, { allowDataImage = false } = {}) => {
       protocol === 'mailto:' ||
       protocol === 'tel:'
     ) {
+      if (protocol === 'https:' && parsed.hostname === 'citation.local') return href
       return href
     }
     if (allowDataImage && protocol === 'data:' && href.startsWith('data:image/')) {
@@ -1563,15 +1564,26 @@ const MessageBubble = ({
 
       a: ({ href, children, ...props }) => {
         const safeHref = sanitizeMarkdownUrl(href)
+        let citationIndices = null
+
         if (safeHref?.startsWith('citation:')) {
-          const indices = safeHref
+          citationIndices = safeHref
             .replace('citation:', '')
             .split(',')
             .map(Number)
             .filter(n => !isNaN(n))
+        } else if (safeHref?.startsWith('https://citation.local/')) {
+          const path = safeHref.replace('https://citation.local/', '')
+          citationIndices = path
+            .split(',')
+            .map(Number)
+            .filter(n => !isNaN(n))
+        }
+
+        if (citationIndices) {
           return (
             <CitationChip
-              indices={indices}
+              indices={citationIndices}
               sources={mergedMessage.sources}
               isMobile={isMobile}
               onMobileClick={sources =>

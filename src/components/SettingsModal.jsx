@@ -133,6 +133,7 @@ CREATE TABLE IF NOT EXISTS public.agents (
   provider TEXT,
   default_model_source TEXT NOT NULL DEFAULT 'list',
   lite_model_source TEXT NOT NULL DEFAULT 'list',
+  use_global_model_settings BOOLEAN NOT NULL DEFAULT TRUE,
   lite_model TEXT,
   default_model TEXT,
   response_language TEXT,
@@ -151,6 +152,9 @@ CREATE TABLE IF NOT EXISTS public.agents (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE public.agents
+ADD COLUMN IF NOT EXISTS use_global_model_settings BOOLEAN NOT NULL DEFAULT TRUE;
 
 CREATE INDEX IF NOT EXISTS idx_agents_created_at ON public.agents(created_at DESC);
 
@@ -1634,7 +1638,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
     hideProviderSelector = false,
     testAction,
   }) => {
-    const providers = PROVIDER_KEYS
+    const providers = Object.keys(chatGroupedModels).length > 0 ? Object.keys(chatGroupedModels) : PROVIDER_KEYS
     const activeModels = chatGroupedModels[activeProvider] || []
     const selectedLabel = getModelLabel(value)
     const showList = modelSource === 'list'
@@ -1649,7 +1653,8 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                 {label}
               </label>
 
-              <div className="flex rounded-lg border border-gray-200 bg-gray-100 p-0.5 dark:border-zinc-700 dark:bg-zinc-800">
+              {/* Desktop: Inline Segmented Control */}
+              <div className="hidden rounded-lg border border-gray-200 bg-gray-100 p-0.5 sm:flex dark:border-zinc-700 dark:bg-zinc-800">
                 <button
                   type="button"
                   onClick={() => {
@@ -1700,6 +1705,43 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
               )}
             </div>
 
+            {/* Mobile: Full Width Segmented Control */}
+            <div className="flex w-full rounded-lg border border-gray-200 bg-gray-100 p-1 sm:hidden dark:border-zinc-700 dark:bg-zinc-800">
+              <button
+                type="button"
+                onClick={() => {
+                  onModelSourceChange('list')
+                  const existsInList = activeModels.some(m => m.value === value)
+                  if (!existsInList) onChange('')
+                }}
+                className={clsx(
+                  'flex-1 rounded-md py-1.5 text-xs font-medium transition-all',
+                  modelSource === 'list'
+                    ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-gray-100'
+                    : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300',
+                )}
+              >
+                {t('agents.model.sourceList')}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onModelSourceChange('custom')
+                  const nextValue = value || customValue || ''
+                  onCustomValueChange(nextValue)
+                  onChange(nextValue)
+                }}
+                className={clsx(
+                  'flex-1 rounded-md py-1.5 text-xs font-medium transition-all',
+                  modelSource === 'custom'
+                    ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-700 dark:text-gray-100'
+                    : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300',
+                )}
+              >
+                {t('agents.model.sourceCustom')}
+              </button>
+            </div>
+
             {hint && <p className="max-w-2xl text-xs text-gray-500 dark:text-gray-400">{hint}</p>}
             {testAction?.message && (
               <p
@@ -1718,7 +1760,10 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
               </p>
             )}
           </div>
-          <span className="mt-1 w-full truncate text-left text-xs text-gray-500 sm:mt-0 sm:w-auto sm:text-right dark:text-gray-400">
+          <span
+            title={displayLabel}
+            className="mt-1 w-full text-left text-xs break-all text-gray-500 sm:mt-0 sm:w-auto sm:max-w-[320px] sm:text-right dark:text-gray-400"
+          >
             {displayLabel}
           </span>
         </div>
@@ -1857,6 +1902,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
     }
 
     const grouped = {}
+    const enabledProviders = []
     const promises = PROVIDER_KEYS.map(async key => {
       let credentials = {}
       if (key === 'gemini') credentials = { apiKey: keys.gemini }
@@ -1870,14 +1916,27 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
       else if (key === 'openai_compatibility')
         credentials = { apiKey: keys.openai_compatibility, baseUrl: keys.openai_compatibility_url }
 
-      if (!credentials.apiKey) return null
+      const hasApiKey =
+        credentials.apiKey ||
+        ENV_VARS[`${key}Key`] ||
+        ENV_VARS[`${key}ApiKey`] ||
+        (key === 'gemini' && ENV_VARS.googleApiKey) ||
+        (key === 'openai_compatibility' && ENV_VARS.openAIKey)
+
+      if (!hasApiKey && !credentials.apiKey) return null
 
       try {
         const models = await getModelsForProvider(key, credentials)
-        return { key, models: Array.isArray(models) ? models : [] }
+        enabledProviders.push(key)
+        const normalizedModels = Array.isArray(models) ? models : []
+        return {
+          key,
+          models: normalizedModels.length > 0 ? normalizedModels : FALLBACK_MODEL_OPTIONS[key] || [],
+        }
       } catch (err) {
         console.error(`Failed to fetch chat models for ${key}`, err)
-        return null
+        enabledProviders.push(key)
+        return { key, models: FALLBACK_MODEL_OPTIONS[key] || [] }
       }
     })
 
@@ -1889,6 +1948,15 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
     })
 
     setChatGroupedModels(grouped)
+    const uniqueProviders = Array.from(new Set(enabledProviders))
+    if (uniqueProviders.length > 0) {
+      if (!uniqueProviders.includes(defaultModelProvider)) {
+        setDefaultModelProvider(uniqueProviders[0])
+      }
+      if (!uniqueProviders.includes(liteModelProvider)) {
+        setLiteModelProvider(uniqueProviders[0])
+      }
+    }
     setIsChatModelsLoading(false)
   }
 

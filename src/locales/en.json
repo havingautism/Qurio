@@ -642,7 +642,9 @@
       "testFailed": "Test failed: {{message}}",
       "syncGlobal": "Sync Global Settings",
       "syncGlobalHint": "Apply the global chat model configuration to this agent.",
-      "applyGlobalSettings": "Apply Global Settings"
+      "applyGlobalSettings": "Apply Global Settings",
+      "useGlobal": "Use Global Settings",
+      "useGlobalHint": "When enabled, this agent uses global default/lite models."
     },
     "advanced": {
       "title": "Advanced",

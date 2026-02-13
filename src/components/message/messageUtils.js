@@ -28,10 +28,10 @@ export const formatContentWithSources = (content, sources = []) => {
     if (!primarySource) return match
 
     if (indices.length > 1) {
-      return ` [+${indices.length}](citation:${indices.join(',')}) `
+      return ` [+${indices.length}](https://citation.local/${indices.join(',')}) `
     }
 
-    return ` [${primaryIdx + 1}](citation:${primaryIdx}) `
+    return ` [${primaryIdx + 1}](https://citation.local/${primaryIdx}) `
   })
 }
 

@@ -251,20 +251,10 @@ const CapsuleSettingsMenu = React.memo(
                 aria-controls="capsule-search-options"
               >
                 <div className="flex items-center gap-2.5 text-gray-700 dark:text-gray-200">
-                  {isSearchActive && searchBackend === 'auto' ? (
-                    <EmojiDisplay emoji={'✨'} size="1rem" />
-                  ) : isSearchActive && selectedSearchBackendOption?.iconUrl ? (
-                    <img
-                      src={selectedSearchBackendOption.iconUrl}
-                      alt={t(selectedSearchBackendOption.labelKey)}
-                      className="h-4 w-4 rounded-sm"
-                    />
-                  ) : (
-                    <Globe
-                      size={16}
-                      className={isSearchActive ? 'text-primary-500' : 'text-gray-400'}
-                    />
-                  )}
+                  <Globe
+                    size={16}
+                    className={isSearchActive ? 'text-primary-500' : 'text-gray-400'}
+                  />
                   <span className="inline-flex items-center">{activeSearchLabel}</span>
                 </div>
                 <ChevronDown

@@ -16,7 +16,7 @@ const SpaceShortcutCard = memo(({ spaces = [], selectedSpaceId, onSpaceSelect, o
             {/* Header */}
             <div className="mb-1 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="text-xl drop-shadow-sm">🗂️</span>
+                <EmojiDisplay emoji="🗂️" size="1rem" className="mb-1 drop-shadow-sm" />
                 <h3 className="text-sm font-bold tracking-tight text-gray-900 uppercase opacity-90 dark:text-white">
                   {t('homeView.spacesShortcut')}
                 </h3>

@@ -30,7 +30,7 @@ const SpaceShortcutCard = memo(({ spaces = [], selectedSpaceId, onSpaceSelect, o
             </div>
 
             {/* Horizontal Scroller - App-like Grid */}
-            <div className="no-scrollbar -mx-5 flex touch-pan-x gap-3 overflow-x-auto px-5 pb-1 select-none active:cursor-grabbing">
+            <div className="no-scrollbar -mx-5 flex touch-auto gap-3 overflow-x-auto px-5 pb-1 select-none active:cursor-grabbing">
               {/* Spaces List */}
               {spaces.map(space => {
                 return (

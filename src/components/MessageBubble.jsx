@@ -1936,25 +1936,31 @@ const MessageBubble = ({
       )
       const sanitizedMainText = sanitizeDisplayText(contentWithCitations)
       const showStatusBeforeText = hasFormSubmissionStatus && idx === firstTextPartDisplayIndex
+      const isTextEmpty = !sanitizedMainText || !sanitizedMainText.trim()
+
+      if (isTextEmpty && !showStatusBeforeText) return null
+
       return (
         <React.Fragment key={part.key || `text-outside-${idx}`}>
           {showStatusBeforeText && <FormStatusBadge waiting={false} />}
-          <div
-            data-answer-scope="true"
-            className={clsx(
-              'mb-4 transition-all duration-300 ease-[cubic-bezier(0.2,0.6,0.2,1)]',
-              hasMainText ? 'translate-y-0 opacity-100' : 'translate-y-1 opacity-0',
-            )}
-          >
-            <Streamdown
-              mermaid={mermaidOptions}
-              remarkPlugins={[remarkGfm]}
-              components={markdownComponentsWithAnchors}
-              isAnimating={isStreaming}
+          {!isTextEmpty && (
+            <div
+              data-answer-scope="true"
+              className={clsx(
+                'mb-4 transition-all duration-300 ease-[cubic-bezier(0.2,0.6,0.2,1)]',
+                hasMainText ? 'translate-y-0 opacity-100' : 'translate-y-1 opacity-0',
+              )}
             >
-              {sanitizedMainText}
-            </Streamdown>
-          </div>
+              <Streamdown
+                mermaid={mermaidOptions}
+                remarkPlugins={[remarkGfm]}
+                components={markdownComponentsWithAnchors}
+                isAnimating={isStreaming}
+              >
+                {sanitizedMainText}
+              </Streamdown>
+            </div>
+          )}
         </React.Fragment>
       )
     }
@@ -2417,6 +2423,21 @@ const MessageBubble = ({
   const hasRelatedQuestions = resolvedRelatedQuestions.length > 0
   const isRelatedLoading = !!mergedMessage.relatedLoading
   const shouldShowRelated = !isDeepResearch && (hasRelatedQuestions || isRelatedLoading)
+  const workflowContainerRef = useRef(null)
+
+  // Auto-scroll effect for thinking process
+  useEffect(() => {
+    if (isStreaming && isWorkflowExpanded && workflowContainerRef.current) {
+      const container = workflowContainerRef.current
+      // Use requestAnimationFrame for smooth scrolling during rapid updates
+      requestAnimationFrame(() => {
+        if (container) {
+          container.scrollTop = container.scrollHeight
+        }
+      })
+    }
+  }, [isStreaming, isWorkflowExpanded, renderedWorkflowContent, workflowDurationMs])
+
   const workflowPanel = hasWorkflow ? (
     <details
       className={clsx('group', !isExpertMessage && 'mt-0 mb-4', isExpertMessage && 'mt-4 mb-4')}
@@ -2449,7 +2470,14 @@ const MessageBubble = ({
         </div>
         <ChevronDown size={15} className="opacity-60 transition-transform group-open:rotate-180" />
       </summary>
-      <div className={clsx('mt-1 border-l border-gray-300/80 pl-4 dark:border-zinc-700/80')}>
+      <div
+        ref={workflowContainerRef}
+        className={clsx(
+          'mt-1 border-l border-gray-300/80 pr-2 pl-4 dark:border-zinc-700/80',
+          'max-h-[200px] overflow-y-auto sm:max-h-[400px]',
+          'always-visible-scrollbar',
+        )}
+      >
         {renderedWorkflowContent}
       </div>
     </details>

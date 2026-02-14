@@ -15,6 +15,7 @@ from zoneinfo import ZoneInfo
 
 import httpx
 from agno.tools import Toolkit, tool
+from duckduckgo_search import DDGS
 
 from .academic_domains import ACADEMIC_DOMAINS
 
@@ -48,6 +49,137 @@ def interactive_form(id: str, title: str, fields: list[dict[str, Any]]) -> str:
     """
     # This tool is executed externally by the frontend
     return "Form displayed"
+
+
+class DuckDuckGoImageTools(Toolkit):
+    def __init__(self, include_tools: list[str] | None = None) -> None:
+        super().__init__(
+            name="DuckDuckGoImageTools",
+            tools=[self.duckduckgo_image_search],
+            include_tools=include_tools,
+        )
+
+    @tool
+    def duckduckgo_image_search(self, query: str, max_results: int = 5) -> str:
+        """
+        Search for images using DuckDuckGo. Returns a list of image results with titles and URLs.
+
+        Args:
+            query (str): The search query.
+            max_results (int): The maximum number of results to return (default 5).
+
+        Returns:
+            str: JSON string containing the image results.
+        """
+        try:
+            with DDGS() as ddgs:
+                results = ddgs.images(query, max_results=max_results)
+                output = [
+                    {
+                        "title": r.get("title"),
+                        "image": r.get("image"),
+                        "url": r.get("url"),
+                        "source": r.get("source"),
+                    }
+                    for r in results
+                ]
+                return json.dumps(output, ensure_ascii=False)
+        except Exception as e:
+            return f"Error searching DuckDuckGo images: {str(e)}"
+
+class SerpApiImageTools(Toolkit):
+    def __init__(self, api_key: str | None = None, include_tools: list[str] | None = None) -> None:
+        self._api_key = api_key
+        super().__init__(
+            name="SerpApiImageTools",
+            tools=[
+                self.google_image_search,
+                self.serpapi_image_search,
+                self.bing_image_search,
+            ],
+            include_tools=include_tools,
+        )
+
+    @tool
+    async def google_image_search(self, query: str, max_results: int = 5) -> str:
+        """
+        Search for images on Google using SerpApi. Returns a list of image results with titles and URLs.
+
+        Args:
+            query (str): The search query.
+            max_results (int): The maximum number of results to return (default 5).
+
+        Returns:
+            str: JSON string containing the image results.
+        """
+        return await self._serpapi_search(query, engine="google_images", max_results=max_results)
+
+    @tool
+    async def bing_image_search(self, query: str, max_results: int = 5) -> str:
+        """
+        Search for images on Bing using SerpApi.
+
+        Args:
+            query (str): The search query.
+            max_results (int): The maximum number of results to return.
+        """
+        return await self._serpapi_search(query, engine="bing_images", max_results=max_results)
+
+    @tool
+    async def serpapi_image_search(self, query: str, engine: str = "google_images", max_results: int = 5) -> str:
+        """
+        Search for images using various engines via SerpApi.
+        Supported engines include: google_images, bing_images, yahoo_images.
+
+        Args:
+            query (str): The search query.
+            engine (str): The search engine to use (default: google_images).
+            max_results (int): The maximum number of results to return (default 5).
+
+        Returns:
+            str: JSON string containing the image results.
+        """
+        return await self._serpapi_search(query, engine=engine, max_results=max_results)
+
+    async def _serpapi_search(self, query: str, engine: str, max_results: int) -> str:
+        """
+        Internal helper for SerpApi search logic.
+        """
+        api_key = self._api_key or os.getenv("SERPAPI_API_KEY")
+        if not api_key:
+            return "Error: SerpApi API key not configured."
+
+        url = "https://serpapi.com/search"
+        params = {
+            "engine": engine,
+            "q": query,
+            "api_key": api_key,
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.get(url, params=params)
+                response.raise_for_status()
+                data = response.json()
+
+                # Most SerpApi image engines use 'images_results'
+                results = data.get("images_results", [])
+                output = []
+                for r in results[:max_results]:
+                    # Harmonize different engine result structures if necessary
+                    # For google_images, it's 'original' or 'thumbnail'
+                    # For others, it's usually 'original' or 'thumbnail' as well
+                    img_url = r.get("original") or r.get("thumbnail") or r.get("image")
+                    output.append({
+                        "title": r.get("title"),
+                        "image": img_url,
+                        "url": r.get("link"),
+                        "source": r.get("source"),
+                    })
+                return json.dumps(output, ensure_ascii=False)
+        except Exception as e:
+            return f"Error searching {engine} via SerpApi: {str(e)}"
+
 
 
 

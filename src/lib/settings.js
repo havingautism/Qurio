@@ -139,6 +139,7 @@ const MEMORY_SETTINGS_KEYS = [
   'KimiKey',
   'googleApiKey',
   'tavilyApiKey',
+  'serpapiApiKey',
   'NvidiaKey',
   'MinimaxKey',
   'searchProvider',
@@ -367,6 +368,8 @@ export const loadSettings = (overrides = {}) => {
   if (!mergedSettings.googleApiKey)
     mergedSettings.googleApiKey = getPublicEnv('PUBLIC_GOOGLE_API_KEY') || ''
   if (!mergedSettings.tavilyApiKey) mergedSettings.tavilyApiKey = envTavilyApiKey || ''
+  if (!mergedSettings.serpapiApiKey)
+    mergedSettings.serpapiApiKey = getPublicEnv('PUBLIC_SERPAPI_API_KEY') || ''
   if (!mergedSettings.NvidiaKey) mergedSettings.NvidiaKey = ''
   if (!mergedSettings.MinimaxKey)
     mergedSettings.MinimaxKey = getPublicEnv('PUBLIC_MINIMAX_API_KEY') || ''
@@ -459,6 +462,12 @@ export const saveSettings = async settings => {
   }
   if (settings.backendUrl !== undefined) {
     localStorage.setItem('backendUrl', settings.backendUrl)
+  }
+  if (settings.tavilyApiKey !== undefined) {
+    localStorage.setItem('tavilyApiKey', settings.tavilyApiKey)
+  }
+  if (settings.serpapiApiKey !== undefined) {
+    localStorage.setItem('serpapiApiKey', settings.serpapiApiKey)
   }
   if (settings.llmAnswerLanguage !== undefined) {
     localStorage.setItem('llmAnswerLanguage', settings.llmAnswerLanguage)

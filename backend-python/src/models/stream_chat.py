@@ -69,6 +69,7 @@ class StreamChatRequest(BaseModel):
     tool_choice: Any = Field(default=None, alias="toolChoice")
     tool_ids: list[str] = Field(default_factory=list, alias="toolIds")
     user_tools: list[UserTool] = Field(default_factory=list, alias="userTools")
+    skip_default_tools: bool = Field(default=False, alias="skipDefaultTools")
 
     # Response format
     response_format: dict[str, Any] | None = Field(default=None, alias="responseFormat")
@@ -88,9 +89,10 @@ class StreamChatRequest(BaseModel):
     context_turn_limit: int | None = Field(default=None, alias="contextTurns")
 
     # Search configuration
-    search_provider: Literal["tavily"] | None = Field(default=None, alias="searchProvider")
+    search_provider: Literal["tavily", "serpapi"] | None = Field(default=None, alias="searchProvider")
     tavily_api_key: str | None = Field(default=None, alias="tavilyApiKey")
     search_backend: str | None = Field(default=None, alias="searchBackend")
+    serpapi_api_key: str | None = Field(default=None, alias="serpapiApiKey")
     concurrency_limit: int | None = Field(default=None, alias="concurrencyLimit")
     sequential_research: bool = Field(default=False, alias="sequentialResearch")
 

@@ -712,6 +712,7 @@ export const streamChatViaBackend = async params => {
     contextTurns,
     searchProvider,
     tavilyApiKey,
+    serpapiApiKey,
     searchBackend,
     userTools,
     enableLongTermMemory,
@@ -773,6 +774,7 @@ export const streamChatViaBackend = async params => {
           contextTurns,
           searchProvider,
           tavilyApiKey,
+          serpapiApiKey,
           searchBackend,
           userTools,
           userId,
@@ -908,6 +910,7 @@ export const streamDeepResearchViaBackend = async params => {
     sequentialExecution, // Enable sequential step execution
     searchProvider,
     tavilyApiKey,
+    serpapiApiKey,
     concurrencyLimit, // Pass concurrencyLimit
     onChunk,
     onFinish,
@@ -955,6 +958,7 @@ export const streamDeepResearchViaBackend = async params => {
           concurrencyLimit: concurrencyLimit, // Pass concurrencyLimit to backend
           searchProvider,
           tavilyApiKey,
+          serpapiApiKey,
         }),
         signal,
       },

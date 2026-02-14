@@ -92,7 +92,9 @@
     "memoryRetrieve": "Memory Retrieve",
     "memoryRetrieveInfo": "Retrieve relevant long-term memory summaries for the current question.",
     "memoryUpdate": "Memory Update",
-    "memoryUpdateInfo": "Automatically updates long-term memory with key information from the conversation."
+    "memoryUpdateInfo": "Automatically save important information from conversations into long-term memory.",
+    "imageSearch": "Image Search",
+    "imageSearchInfo": "Search for relevant images on the internet."
   },
   "searchBackends": {
     "auto": "Auto",
@@ -340,7 +342,8 @@
       "minimax": "MiniMax"
     },
     "toolsApiProviders": {
-      "tavily": "Tavily"
+      "tavily": "Tavily",
+      "serpapi": "SerpApi"
     },
     "toolsApiKey": "Tool API Key",
     "toolsApiKeyPlaceholder": "Enter your tool API key",
@@ -921,7 +924,10 @@
     "toolClose": "Close",
     "researchGoalLabel": "Goal",
     "researchScopeLabel": "Scope",
-    "researchRequirementsLabel": "Output Requirements"
+    "researchRequirementsLabel": "Output Requirements",
+    "imageLoadError": "Image failed to load",
+    "viewOriginalSource": "Try opening original link",
+    "source": "Source"
   },
   "interactiveForm": {
     "errors": {

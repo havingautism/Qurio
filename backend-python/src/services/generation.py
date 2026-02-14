@@ -138,6 +138,7 @@ async def generate_daily_tip(
         contextMessageLimit=context_message_limit,
         searchProvider=search_provider,
         tavilyApiKey=tavily_api_key,
+        skipDefaultTools=True,
         stream=True,
     )
     result = await run_agent_completion(request)
@@ -232,6 +233,7 @@ async def generate_title(
         contextMessageLimit=context_message_limit,
         searchProvider=search_provider,
         tavilyApiKey=tavily_api_key,
+        skipDefaultTools=True,
         stream=True,
     )
     result = await run_agent_completion(request)
@@ -344,6 +346,7 @@ async def generate_title_and_space(
         contextMessageLimit=context_message_limit,
         searchProvider=search_provider,
         tavilyApiKey=tavily_api_key,
+        skipDefaultTools=True,
         stream=True,
     )
     result = await run_agent_completion(request)
@@ -512,6 +515,7 @@ async def generate_title_space_and_agent(
         contextMessageLimit=context_message_limit,
         searchProvider=search_provider,
         tavilyApiKey=tavily_api_key,
+        skipDefaultTools=True,
         stream=True,
     )
     result = await run_agent_completion(request)
@@ -678,6 +682,7 @@ async def generate_space_and_agent(
         contextMessageLimit=context_message_limit,
         searchProvider=search_provider,
         tavilyApiKey=tavily_api_key,
+        skipDefaultTools=True,
         stream=True,
         output_schema=SpaceAgentResponse,
     )
@@ -796,6 +801,7 @@ async def generate_agent_for_auto(
         contextMessageLimit=context_message_limit,
         searchProvider=search_provider,
         tavilyApiKey=tavily_api_key,
+        skipDefaultTools=True,
         stream=True,
         output_schema=AgentNameResponse,
     )
@@ -918,6 +924,7 @@ async def generate_related_questions(
         contextMessageLimit=context_message_limit,
         searchProvider=search_provider,
         tavilyApiKey=tavily_api_key,
+        skipDefaultTools=True,
         stream=True,
     )
     result = await run_agent_completion(request)

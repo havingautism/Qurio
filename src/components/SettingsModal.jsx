@@ -57,6 +57,7 @@ const ENV_VARS = {
   modelscopeKey: getPublicEnv('PUBLIC_MODELSCOPE_API_KEY'),
   kimiKey: getPublicEnv('PUBLIC_KIMI_API_KEY'),
   tavilyApiKey: getPublicEnv('PUBLIC_TAVILY_API_KEY'),
+  serpapiApiKey: getPublicEnv('PUBLIC_SERPAPI_API_KEY'),
   backendUrl: getPublicEnv('PUBLIC_BACKEND_URL'),
 }
 
@@ -531,6 +532,9 @@ const getEnvManagedSettingKeys = () => {
   if (ENV_VARS.tavilyApiKey) {
     keys.push('tavilyApiKey')
   }
+  if (ENV_VARS.serpapiApiKey) {
+    keys.push('serpapiApiKey')
+  }
   if (ENV_VARS.backendUrl) {
     keys.push('backendUrl')
   }
@@ -560,7 +564,9 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
   const [apiProvider, setApiProvider] = useState('gemini')
   const [googleApiKey, setGoogleApiKey] = useState('')
   const [searchProvider, setSearchProvider] = useState('tavily')
+
   const [tavilyApiKey, setTavilyApiKey] = useState('')
+  const [serpapiApiKey, setSerpapiApiKey] = useState('')
   const [backendUrl, setBackendUrl] = useState(ENV_VARS.backendUrl || '')
   const [databaseProvider, setDatabaseProvider] = useState('')
   const [databaseProviderId, setDatabaseProviderId] = useState('')
@@ -830,6 +836,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
       if (settings.googleApiKey) setGoogleApiKey(settings.googleApiKey)
       if (settings.searchProvider) setSearchProvider(settings.searchProvider)
       if (settings.tavilyApiKey) setTavilyApiKey(settings.tavilyApiKey)
+      if (settings.serpapiApiKey) setSerpapiApiKey(settings.serpapiApiKey)
       if (settings.backendUrl && !ENV_VARS.backendUrl) setBackendUrl(settings.backendUrl)
       if (settings.contextTurns || settings.contextMessageLimit) {
         setContextTurns(Number(settings.contextTurns || settings.contextMessageLimit))
@@ -910,6 +917,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
             if (data.googleApiKey) setGoogleApiKey(data.googleApiKey)
             if (data.searchProvider) setSearchProvider(data.searchProvider)
             if (data.tavilyApiKey) setTavilyApiKey(data.tavilyApiKey)
+            if (data.serpapiApiKey) setSerpapiApiKey(data.serpapiApiKey)
             if (data.backendUrl && !ENV_VARS.backendUrl) setBackendUrl(data.backendUrl)
             if (data.embeddingProvider) setEmbeddingProvider(data.embeddingProvider)
             if (data.embeddingModelSource)
@@ -1638,7 +1646,8 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
     hideProviderSelector = false,
     testAction,
   }) => {
-    const providers = Object.keys(chatGroupedModels).length > 0 ? Object.keys(chatGroupedModels) : PROVIDER_KEYS
+    const providers =
+      Object.keys(chatGroupedModels).length > 0 ? Object.keys(chatGroupedModels) : PROVIDER_KEYS
     const activeModels = chatGroupedModels[activeProvider] || []
     const selectedLabel = getModelLabel(value)
     const showList = modelSource === 'list'
@@ -1931,7 +1940,8 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
         const normalizedModels = Array.isArray(models) ? models : []
         return {
           key,
-          models: normalizedModels.length > 0 ? normalizedModels : FALLBACK_MODEL_OPTIONS[key] || [],
+          models:
+            normalizedModels.length > 0 ? normalizedModels : FALLBACK_MODEL_OPTIONS[key] || [],
         }
       } catch (err) {
         console.error(`Failed to fetch chat models for ${key}`, err)
@@ -2116,6 +2126,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
         googleApiKey,
         searchProvider,
         tavilyApiKey,
+        serpapiApiKey,
         backendUrl,
         // API Keys
         OpenAICompatibilityKey,
@@ -2303,6 +2314,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
               'KimiKey',
               'googleApiKey',
               'tavilyApiKey',
+              'serpapiApiKey',
               'backendUrl',
               'NvidiaKey',
               'MinimaxKey',
@@ -2976,7 +2988,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                     {searchProvider === 'tavily' && (
                       <div className="animate-in fade-in slide-in-from-top-2 flex flex-col gap-2 duration-200">
                         <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                          {t('settings.toolsApiKey')}
+                          {t('settings.toolsApiKey')} (Tavily)
                         </label>
                         <div className="relative">
                           <div className="absolute top-1/2 left-3 -translate-y-1/2 text-gray-400">
@@ -3001,6 +3013,57 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                         )}
                       </div>
                     )}
+                  </div>
+                </div>
+
+                <div className="my-2 h-px bg-gray-100 dark:bg-zinc-800" />
+
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-sm font-medium text-gray-900 dark:text-white">
+                      {t('settings.serpApiTitle')}
+                    </label>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {t('settings.serpApiDescription')}
+                    </p>
+                  </div>
+
+                  <div className="animate-in fade-in slide-in-from-top-2 flex flex-col gap-2 duration-200">
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                        {t('settings.toolsApiKey')} (SerpApi)
+                      </label>
+                      <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+                        {t('settings.imageSearchNote')}
+                      </span>
+                    </div>
+                    <div className="relative">
+                      <div className="absolute top-1/2 left-3 -translate-y-1/2 text-gray-400">
+                        <Key size={16} />
+                      </div>
+                      <input
+                        type="password"
+                        value={serpapiApiKey}
+                        onChange={e => setSerpapiApiKey(e.target.value)}
+                        placeholder={t('settings.serpApiKeyPlaceholder')}
+                        disabled={Boolean(ENV_VARS.serpapiApiKey)}
+                        className={clsx(
+                          'focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border border-gray-200 bg-white py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100 dark:placeholder-zinc-600',
+                          ENV_VARS.serpapiApiKey && 'cursor-not-allowed opacity-70',
+                        )}
+                      />
+                    </div>
+                    {ENV_VARS.serpapiApiKey && (
+                      <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                        {t('settings.loadedFromEnvironment')}
+                      </p>
+                    )}
+                    <p className="mt-1 text-xs text-amber-600 italic dark:text-amber-400">
+                      *{' '}
+                      {t('settings.serpApiImageSearchNote', {
+                        defaultValue: 'Currently used for Image Search only.',
+                      })}
+                    </p>
                   </div>
                 </div>
               </div>

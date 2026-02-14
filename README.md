@@ -115,6 +115,13 @@ Out-of-the-box support for:
 - **NVIDIA NIM**
 - **OpenAI & Compatibles** (Any standard endpoint)
 
+### 🖼️ Automatic Image Search & Rendering
+
+- **Zero-Config Search**: Powered by DuckDuckGo, agents can search for images to illustrate concepts without any API keys or extra deployment steps.
+- **Premium Google Images**: Supports `SerpApi` for high-quality Google Image results; simply add `SERP_API_KEY` to your environment.
+- **Markdown Rendering**: AI automatically inserts `![caption](url)` images into its responses where appropriate (e.g., explaining species, logos, or diagrams).
+- **Default Enabled**: No buttons to toggle; the agent intelligently decides when a visual aid is helpful.
+
 ### 🧩 Production-Grade Features
 
 - **Question Timeline**: Interactive history cards grouped by time (Today, Yesterday, Past 7 Days) with instant search.

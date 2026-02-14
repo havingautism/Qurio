@@ -26,6 +26,8 @@ import {
   AlertTriangle,
   Brain,
   BrainCircuit,
+  Image as ImageIcon,
+  ChevronLeft,
 } from 'lucide-react'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
@@ -148,6 +150,65 @@ const sanitizeMarkdownUrl = (value, { allowDataImage = false } = {}) => {
   } catch {
     return null
   }
+}
+
+const MessageImage = ({ src, alt, openGallery, onImageError, isFailed, sourceUrl, sourceName }) => {
+  const { t } = useTranslation()
+  const [isLoaded, setIsLoaded] = useState(false)
+  const [hasError, setHasError] = useState(false)
+
+  // Effectively remove the img from DOM on error to prevent broken icon
+  if (isFailed || hasError) {
+    const displayHostname = sourceUrl ? getHostname(sourceUrl) : null
+
+    return (
+      <span className="my-2 flex flex-col items-center justify-center rounded-lg border border-dashed border-gray-300 bg-gray-50/50 p-4 dark:border-zinc-700 dark:bg-zinc-800/30">
+        <span className="mb-2 flex items-center gap-2 text-gray-400">
+          <AlertTriangle size={16} />
+          <span className="text-xs font-medium">
+            {t('messageBubble.imageLoadError', 'Image failed to load')}
+          </span>
+        </span>
+        <span className="mb-1 line-clamp-1 text-[10px] text-gray-500 opacity-70">
+          {typeof alt === 'string' ? alt : src}
+        </span>
+        {sourceUrl && (
+          <a
+            href={sourceUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 mt-1 flex items-center gap-1.25 text-[10px] font-medium transition-colors"
+            onClick={e => e.stopPropagation()}
+          >
+            <Globe size={11} className="opacity-70" />
+            {t('messageBubble.viewOriginalSource', 'Try opening original link')}
+            {displayHostname ? ` (${displayHostname})` : ''}
+          </a>
+        )}
+      </span>
+    )
+  }
+
+  return (
+    <span
+      className={clsx(
+        'group relative my-2 inline-block overflow-hidden rounded-lg shadow-sm transition-all duration-500 hover:shadow-lg active:shadow-md',
+        isLoaded ? 'opacity-100' : 'opacity-0',
+      )}
+    >
+      <img
+        src={src}
+        alt={typeof alt === 'string' ? alt : ''}
+        onLoad={() => setIsLoaded(true)}
+        onError={() => {
+          setHasError(true)
+          onImageError(src)
+        }}
+        onClick={() => openGallery(src)}
+        className="cursor-zoom-in transition-all duration-500 ease-out group-hover:scale-110 group-hover:brightness-105 active:scale-95"
+      />
+    </span>
+  )
 }
 
 const ToolEnter = ({ children, className }) => {
@@ -479,7 +540,19 @@ const MessageBubble = ({
   )
   const getSearchBackendForTool = useCallback(
     tool => {
-      if (!tool || (tool.name !== 'web_search' && tool.name !== 'search_news')) return null
+      if (!tool) return null
+      const isWebSearch = tool.name === 'web_search' || tool.name === 'search_news'
+      const isImageSearch =
+        tool.name === 'duckduckgo_image_search' || tool.name === 'google_image_search'
+
+      if (!isWebSearch && !isImageSearch) return null
+
+      if (isImageSearch) {
+        if (tool.name.includes('google')) return 'google'
+        if (tool.name.includes('bing')) return 'bing'
+        if (tool.name.includes('duckduckgo')) return 'duckduckgo'
+      }
+
       const args = tool.arguments
       if (args && typeof args === 'object') {
         if (typeof args.backend === 'string' && args.backend) return args.backend
@@ -635,11 +708,113 @@ const MessageBubble = ({
   // State to track copy success
   const [isCopied, setIsCopied] = useState(false)
   const [activeImageUrl, setActiveImageUrl] = useState(null)
+  const [isGalleryOpen, setIsGalleryOpen] = useState(false)
+  const [galleryIndex, setGalleryIndex] = useState(0)
+  const [failedImageUrls, setFailedImageUrls] = useState(new Set())
   const [isDocumentSourcesOpen, setIsDocumentSourcesOpen] = useState(false)
+
+  // Extract all image search results from toolCallHistory to get rich metadata (title, source)
+  const allImageResults = useMemo(() => {
+    const results = []
+    toolCallHistory.forEach(tc => {
+      // Handle both DDG and Google Image Search tool names
+      if (tc.name === 'duckduckgo_image_search' || tc.name === 'google_image_search') {
+        try {
+          const output = typeof tc.output === 'string' ? JSON.parse(tc.output) : tc.output
+          if (Array.isArray(output)) {
+            output.forEach(item => {
+              const imgUrl = item.image || item.url || item.thumbnailUrl || item.thumbnail
+              const sourceUrl = item.url || item.parentPage || ''
+              const hostname = sourceUrl ? getHostname(sourceUrl) : ''
+
+              if (imgUrl) {
+                results.push({
+                  src: imgUrl,
+                  title: item.title || '',
+                  source: hostname || item.source || '',
+                  sourceUrl: sourceUrl,
+                })
+              }
+            })
+          }
+        } catch (e) {
+          // ignore parse errors
+        }
+      }
+    })
+    return results
+  }, [toolCallHistory])
+
+  // Extract all images rendered in the mainContent markdown
+  const messageImages = useMemo(() => {
+    if (!mainContent) return []
+    // Regex to find ![alt](url)
+    const regex = /!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/g
+    const found = []
+    let match
+    while ((match = regex.exec(mainContent)) !== null) {
+      const alt = match[1]
+      const src = match[2]
+      // Match with allImageResults to find rich metadata
+      const metadata = allImageResults.find(r => r.src === src)
+      found.push({
+        src,
+        alt: alt || metadata?.title || '',
+        title: metadata?.title || alt || '',
+        source: metadata?.source || '',
+        sourceUrl: metadata?.sourceUrl || '',
+      })
+    }
+    // Do not filter out failed images to preserve index alignment with markdown rendering
+    return found
+  }, [mainContent, allImageResults, failedImageUrls])
+
+  const openGallery = useCallback(
+    imgSrc => {
+      const index = messageImages.findIndex(img => img.src === imgSrc)
+      if (index !== -1) {
+        setGalleryIndex(index)
+        setIsGalleryOpen(true)
+      } else {
+        // Fallback for images not in markdown but somehow rendered
+        setActiveImageUrl(imgSrc)
+      }
+    },
+    [messageImages],
+  )
 
   useEffect(() => {
     setIsDocumentSourcesOpen(false)
   }, [message?.id])
+
+  // Sync gallery index and close if empty
+  useEffect(() => {
+    if (isGalleryOpen) {
+      if (messageImages.length === 0) {
+        setIsGalleryOpen(false)
+      } else if (galleryIndex >= messageImages.length) {
+        setGalleryIndex(Math.max(0, messageImages.length - 1))
+      }
+    }
+  }, [messageImages.length, isGalleryOpen, galleryIndex])
+
+  // Handle gallery keyboard navigation
+  useEffect(() => {
+    if (!isGalleryOpen) return
+
+    const handleKeyDown = e => {
+      if (e.key === 'Escape') setIsGalleryOpen(false)
+      if (e.key === 'ArrowLeft') {
+        setGalleryIndex(prev => (prev - 1 + messageImages.length) % messageImages.length)
+      }
+      if (e.key === 'ArrowRight') {
+        setGalleryIndex(prev => (prev + 1) % messageImages.length)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isGalleryOpen, messageImages.length])
 
   // Utility function to copy text to clipboard
   const copyToClipboard = async text => {
@@ -1608,10 +1783,30 @@ const MessageBubble = ({
           </a>
         )
       },
-      img: ({ src, alt, ...props }) => {
+      img: ({ src, alt }) => {
         const safeSrc = sanitizeMarkdownUrl(src, { allowDataImage: true })
         if (!safeSrc) return null
-        return <img src={safeSrc} alt={typeof alt === 'string' ? alt : ''} {...props} />
+
+        // Find metadata from allImageResults
+        const metadata = allImageResults.find(r => r.src === safeSrc)
+
+        return (
+          <MessageImage
+            src={safeSrc}
+            alt={alt}
+            openGallery={openGallery}
+            isFailed={failedImageUrls.has(safeSrc)}
+            sourceUrl={metadata?.sourceUrl}
+            sourceName={metadata?.source}
+            onImageError={url => {
+              setFailedImageUrls(prev => {
+                const next = new Set(prev)
+                next.add(url)
+                return next
+              })
+            }}
+          />
+        )
       },
       hr: () => (
         <div className="relative my-4">
@@ -1622,7 +1817,17 @@ const MessageBubble = ({
         </div>
       ),
     }),
-    [isDark, mergedMessage.sources, isMobile, handleMobileSourceClick, CodeBlock, t], // Dependencies for markdownComponents
+    [
+      isDark,
+      mergedMessage.sources,
+      isMobile,
+      handleMobileSourceClick,
+      CodeBlock,
+      t,
+      openGallery,
+      failedImageUrls,
+      allImageResults,
+    ], // Dependencies for markdownComponents
   )
 
   const markdownComponentsWithAnchors = useMemo(() => {
@@ -1717,6 +1922,7 @@ const MessageBubble = ({
                     Globe,
                     Brain,
                     BrainCircuit,
+                    ImageIcon,
                   }[iconName]
                 : null
               return (
@@ -2928,6 +3134,7 @@ const MessageBubble = ({
                                         Globe,
                                         Brain,
                                         BrainCircuit,
+                                        ImageIcon,
                                       }[iconName]
                                     : null
                                   return (
@@ -3245,6 +3452,123 @@ const MessageBubble = ({
                   </div>
                 </div>
               </div>
+            </div>
+          </div>,
+          document.body,
+        )}
+
+      {/* Image Gallery Portal */}
+      {isGalleryOpen &&
+        messageImages.length > 0 &&
+        createPortal(
+          <div
+            className="animate-in fade-in fixed inset-0 z-[10001] flex flex-col items-center justify-center bg-black/95 backdrop-blur-xl duration-300"
+            onClick={() => setIsGalleryOpen(false)}
+          >
+            {/* Close Button */}
+            <button
+              className="absolute top-4 right-4 z-10 rounded-full bg-white/10 p-3 text-white backdrop-blur-md transition-colors hover:bg-white/20"
+              onClick={() => setIsGalleryOpen(false)}
+            >
+              <X size={24} />
+            </button>
+
+            {/* Image Counter */}
+            <div className="absolute top-6 left-6 z-10 rounded-full bg-white/10 px-4 py-1.5 text-sm font-medium text-white backdrop-blur-md">
+              {galleryIndex + 1} / {messageImages.length}
+            </div>
+
+            {/* Navigation Controls */}
+            {messageImages.length > 1 && (
+              <>
+                <button
+                  className="absolute top-1/2 left-4 z-10 -translate-y-1/2 rounded-full bg-white/5 p-4 text-white backdrop-blur-md transition-all hover:scale-110 hover:bg-white/15 active:scale-95"
+                  onClick={e => {
+                    e.stopPropagation()
+                    setGalleryIndex(
+                      prev => (prev - 1 + messageImages.length) % messageImages.length,
+                    )
+                  }}
+                >
+                  <ChevronLeft size={32} />
+                </button>
+                <button
+                  className="absolute top-1/2 right-4 z-10 -translate-y-1/2 rounded-full bg-white/5 p-4 text-white backdrop-blur-md transition-all hover:scale-110 hover:bg-white/15 active:scale-95"
+                  onClick={e => {
+                    e.stopPropagation()
+                    setGalleryIndex(prev => (prev + 1) % messageImages.length)
+                  }}
+                >
+                  <ChevronRight size={32} />
+                </button>
+              </>
+            )}
+
+            {/* Main Image Container */}
+            <div
+              className="relative flex max-h-[85vh] max-w-[95vw] items-center justify-center md:px-12"
+              onClick={e => e.stopPropagation()}
+            >
+              {messageImages[galleryIndex] &&
+              !failedImageUrls.has(messageImages[galleryIndex].src) ? (
+                <>
+                  <img
+                    key={messageImages[galleryIndex].src}
+                    src={messageImages[galleryIndex].src}
+                    alt={messageImages[galleryIndex].alt}
+                    className="animate-in zoom-in-95 max-h-[85vh] max-w-[95vw] rounded-lg object-contain shadow-2xl transition-all duration-300"
+                  />
+
+                  {/* Caption & Source Area */}
+                  {(messageImages[galleryIndex].title || messageImages[galleryIndex].source) && (
+                    <div className="absolute right-0 bottom-0 left-0 bg-linear-to-t from-black/90 via-black/40 to-transparent p-6 pt-12 text-white md:rounded-b-lg">
+                      {messageImages[galleryIndex].title && (
+                        <h3 className="mb-1 line-clamp-2 text-lg font-semibold">
+                          {messageImages[galleryIndex].title}
+                        </h3>
+                      )}
+                      {messageImages[galleryIndex].source && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm opacity-60">
+                            {t('messageBubble.source', 'Source')}:
+                          </span>
+                          <a
+                            href={messageImages[galleryIndex].sourceUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary-400 flex items-center gap-1.5 text-sm font-medium underline-offset-4 hover:underline"
+                            onClick={e => e.stopPropagation()}
+                          >
+                            <Globe size={14} className="opacity-70" />
+                            {messageImages[galleryIndex].source}
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="flex flex-col items-center justify-center gap-4 text-white/80">
+                  <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-white/20 bg-white/10 p-6 backdrop-blur-md">
+                    <AlertTriangle size={32} className="text-white/60" />
+                    <p className="font-medium">
+                      {t('messageBubble.imageLoadError', 'Image failed to load')}
+                    </p>
+                    {messageImages[galleryIndex].sourceUrl && (
+                      <a
+                        href={messageImages[galleryIndex].sourceUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary-300 hover:text-primary-200 mt-1 flex items-center gap-2 text-sm font-medium underline-offset-4 transition-colors hover:underline"
+                        onClick={e => e.stopPropagation()}
+                      >
+                        <Globe size={14} />
+                        {t('messageBubble.viewOriginalSource', 'Try opening original link')}
+                      </a>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>,
           document.body,

@@ -92,7 +92,9 @@
     "memoryRetrieve": "记忆检索",
     "memoryRetrieveInfo": "为当前问题检索相关的长期记忆摘要。",
     "memoryUpdate": "更新记忆",
-    "memoryUpdateInfo": "自动将对话中的重要信息存入长期记忆。"
+    "memoryUpdateInfo": "自动将对话中的重要信息存入长期记忆。",
+    "imageSearch": "图片搜索",
+    "imageSearchInfo": "在互联网上搜索相关图片。"
   },
   "searchBackends": {
     "auto": "自动",
@@ -324,7 +326,8 @@
       "minimax": "MiniMax"
     },
     "toolsApiProviders": {
-      "tavily": "Tavily"
+      "tavily": "Tavily",
+      "serpapi": "SerpApi"
     },
     "toolsApiKey": "工具 API 密钥",
     "toolsApiKeyPlaceholder": "输入工具 API 密钥",
@@ -913,7 +916,10 @@
     "toolClose": "关闭",
     "researchGoalLabel": "研究目标",
     "researchScopeLabel": "研究范围",
-    "researchRequirementsLabel": "输出要求"
+    "researchRequirementsLabel": "输出要求",
+    "imageLoadError": "图片加载出错了",
+    "viewOriginalSource": "尝试打开原图链接",
+    "source": "来源"
   },
   "interactiveForm": {
     "errors": {

@@ -608,6 +608,7 @@ export const callAIAPI = async (
 
     const searchProvider = settings.searchProvider || 'tavily'
     const tavilyApiKey = searchProvider === 'tavily' ? settings.tavilyApiKey : undefined
+    const serpapiApiKey = settings.serpapiApiKey
     const searchBackends = Array.isArray(toggles?.searchBackends)
       ? toggles.searchBackends.map(item => String(item)).filter(Boolean)
       : typeof toggles?.searchBackend === 'string'
@@ -650,6 +651,7 @@ export const callAIAPI = async (
       contextTurns: settings.contextTurns,
       searchProvider,
       tavilyApiKey,
+      serpapiApiKey,
       searchBackend,
       // Pass session summary model config (resolved internaly)
       summaryProvider: summaryModelConfig?.provider,

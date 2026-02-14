@@ -19,8 +19,8 @@ from agno.models.openai import OpenAILike
 from agno.utils.log import logger
 
 from ..config import get_settings
-from .custom_tools import QurioLocalTools
-from .tool_registry import AGNO_TOOLS, LOCAL_TOOLS, resolve_tool_name
+from .custom_tools import DuckDuckGoImageTools, QurioLocalTools, SerpApiImageTools
+from .tool_registry import AGNO_TOOLS, IMAGE_SEARCH_TOOLS, LOCAL_TOOLS, resolve_tool_name
 from .user_tools import build_user_tools_toolkit
 
 DEFAULT_MODELS: dict[str, str] = {
@@ -217,6 +217,12 @@ def _build_tools(request: Any) -> list[Any]:
 
     agno_tool_names = {tool["name"] for tool in AGNO_TOOLS}
     include_agno = sorted([name for name in enabled_names if name in agno_tool_names])
+
+    # Always include image search tools by default if they are not explicitly disabled
+    if not getattr(request, "skip_default_tools", False):
+        image_search_names = {tool["name"] for tool in IMAGE_SEARCH_TOOLS}
+        include_agno = sorted(list(set(include_agno) | image_search_names))
+
     if include_agno:
         tools.extend(_build_agno_toolkits(request, include_agno))
 
@@ -307,6 +313,31 @@ def _build_agno_toolkits(request: Any, include_agno: list[str]) -> list[Any]:
             selected = [name for name in include_agno if name in yfinance_tools]
             toolkits.append(YFinanceTools(include_tools=selected))
 
+    image_search_tools = {
+        "duckduckgo_image_search",
+        "google_image_search",
+        "serpapi_image_search",
+        "bing_image_search",
+    }
+    if include_set.intersection(image_search_tools):
+        # DuckDuckGo Image Search (Custom)
+        if "duckduckgo_image_search" in include_set:
+            toolkits.append(DuckDuckGoImageTools(include_tools=["duckduckgo_image_search"]))
+
+        # SerpApi Image Search (Custom)
+        serpapi_tools = {
+            "google_image_search",
+            "serpapi_image_search",
+            "bing_image_search",
+        }
+        serpapi_include = sorted([name for name in include_set if name in serpapi_tools])
+        if serpapi_include:
+            toolkits.append(
+                SerpApiImageTools(
+                    api_key=request.serpapi_api_key, include_tools=serpapi_include
+                )
+            )
+
     return toolkits
 
 
@@ -384,17 +415,31 @@ def build_agent(request: Any = None, **kwargs: Any) -> Agent:
     if tool_choice is None and tools:
         tool_choice = "auto"
 
-    # 1. Conditional instructions: Multi-form guidance
+    # 1. Conditional instructions: Multi-form guidance & Image rendering
     enabled_names = set(_collect_enabled_tool_names(request))
-    instructions = None
+    # Add image search tools to enabled_names set since they are forced
+    image_search_names = {tool["name"] for tool in IMAGE_SEARCH_TOOLS}
+    enabled_names.update(image_search_names)
+
+    instructions_list = []
     if "interactive_form" in enabled_names:
-        instructions = (
+        instructions_list.append(
             "When using the interactive_form tool to collect user information: "
             "If the user's initial responses lack critical details needed to fulfill their request, "
             "you MUST call interactive_form again to gather the missing specific information. "
             "Do not proceed with incomplete information. "
             "However, limit to 2-3 forms maximum per conversation to respect user time."
         )
+
+    if "duckduckgo_image_search" in enabled_names or "google_image_search" in enabled_names:
+        instructions_list.append(
+            "When explaining concepts that can benefit from visual aids (like Logo, diagrams, or photos), "
+            "you should use the image search tools to find relevant images. "
+            "ALWAYS render images in your response using markdown format: ![caption](url). "
+            "Place images appropriately within your explanation to enhance user understanding."
+        )
+
+    instructions = "\n\n".join(instructions_list) if instructions_list else None
 
     # 2. Agent Construction (Stateless / Manual Context)
     # We do NOT inject 'db' or 'memory' here.

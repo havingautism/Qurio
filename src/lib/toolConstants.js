@@ -29,6 +29,10 @@ export const TOOL_TRANSLATION_KEYS = {
   get_historical_stock_prices: 'tools.historicalPrices',
   memory_retrieve: 'tools.memoryRetrieve',
   memory_update: 'tools.memoryUpdate',
+  duckduckgo_image_search: 'tools.imageSearch',
+  google_image_search: 'tools.imageSearch',
+  bing_image_search: 'tools.imageSearch',
+  serpapi_image_search: 'tools.imageSearch',
 }
 
 // Tool icons mapping (using lucide-react icon names)
@@ -63,6 +67,10 @@ export const TOOL_ICONS = {
   get_historical_stock_prices: 'LineChart',
   memory_retrieve: 'Brain',
   memory_update: 'BrainCircuit',
+  duckduckgo_image_search: 'ImageIcon',
+  google_image_search: 'ImageIcon',
+  bing_image_search: 'ImageIcon',
+  serpapi_image_search: 'ImageIcon',
 }
 
 // Tool usage info keys for translations
@@ -97,4 +105,8 @@ export const TOOL_INFO_KEYS = {
   get_historical_stock_prices: 'tools.historicalPricesInfo',
   memory_retrieve: 'tools.memoryRetrieveInfo',
   memory_update: 'tools.memoryUpdateInfo',
+  duckduckgo_image_search: 'tools.imageSearchInfo',
+  google_image_search: 'tools.imageSearchInfo',
+  bing_image_search: 'tools.imageSearchInfo',
+  serpapi_image_search: 'tools.imageSearchInfo',
 }

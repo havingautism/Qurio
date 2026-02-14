@@ -556,6 +556,124 @@ AGNO_TOOLS: list[dict[str, Any]] = [
             },
         },
     },
+    {
+        "id": "duckduckgo_image_search",
+        "name": "duckduckgo_image_search",
+        "category": "agno",
+        "description": "Search for images using DuckDuckGo. Returns a list of image results with titles and URLs.",
+        "parameters": {
+            "type": "object",
+            "required": ["query"],
+            "properties": {
+                "query": {"type": "string", "description": "Search query."},
+                "max_results": {
+                    "type": "integer",
+                    "description": "Maximum number of results to return (default 5).",
+                },
+            },
+        },
+    },
+    {
+        "id": "google_image_search",
+        "name": "google_image_search",
+        "category": "agno",
+        "description": "Search for images on Google using SerpApi.",
+        "parameters": {
+            "type": "object",
+            "required": ["query"],
+            "properties": {
+                "query": {"type": "string", "description": "Search query."},
+            },
+        },
+    },
+    {
+        "id": "serpapi_image_search",
+        "name": "serpapi_image_search",
+        "category": "agno",
+        "description": "Search for images using various engines via SerpApi (Google, Bing, etc.).",
+        "parameters": {
+            "type": "object",
+            "required": ["query"],
+            "properties": {
+                "query": {"type": "string", "description": "Search query."},
+                "engine": {
+                    "type": "string",
+                    "description": "The search engine to use (e.g., google_images, bing_images). Default is google_images.",
+                },
+                "max_results": {
+                    "type": "integer",
+                    "description": "Maximum number of results to return (default 5).",
+                },
+            },
+        },
+    },
+]
+
+IMAGE_SEARCH_TOOLS: list[dict[str, Any]] = [
+    {
+        "id": "duckduckgo_image_search",
+        "name": "duckduckgo_image_search",
+        "category": "agno",
+        "description": "Search for images using DuckDuckGo. Returns a list of image results with titles and URLs.",
+        "parameters": {
+            "type": "object",
+            "required": ["query"],
+            "properties": {
+                "query": {"type": "string", "description": "Search query."},
+                "max_results": {
+                    "type": "integer",
+                    "description": "Maximum number of results to return (default 5).",
+                },
+            },
+        },
+    },
+    {
+        "id": "bing_image_search",
+        "name": "bing_image_search",
+        "category": "agno",
+        "description": "Search for images on Bing using SerpApi.",
+        "parameters": {
+            "type": "object",
+            "required": ["query"],
+            "properties": {
+                "query": {"type": "string", "description": "Search query."},
+            },
+        },
+    },
+    {
+        "id": "google_image_search",
+        "name": "google_image_search",
+        "category": "agno",
+        "description": "Search for images on Google using SerpApi.",
+        "parameters": {
+            "type": "object",
+            "required": ["query"],
+            "properties": {
+                "query": {"type": "string", "description": "Search query."},
+            },
+        },
+    },
+    {
+        "id": "serpapi_image_search",
+        "name": "serpapi_image_search",
+        "category": "agno",
+        "description": "Search for images using various engines via SerpApi (Google, Bing, etc.).",
+        "parameters": {
+            "type": "object",
+            "required": ["query"],
+            "properties": {
+                "query": {"type": "string", "description": "Search query."},
+                "engine": {
+                    "type": "string",
+                    "description": "The search engine to use (e.g., google_images, bing_images). Default is google_images.",
+                },
+                "max_results": {
+                    "type": "integer",
+                    "description": "Maximum number of results to return (default 5).",
+                },
+            },
+        },
+    },
 ]
 
 LOCAL_TOOLS: list[dict[str, Any]] = GLOBAL_TOOLS + AGENT_TOOLS

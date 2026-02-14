@@ -554,8 +554,11 @@ const MessageBubble = ({
         tool.name === 'google_image_search' ||
         tool.name === 'bing_image_search' ||
         tool.name === 'serpapi_image_search'
+      const isVideoSearch =
+        tool.name === 'duckduckgo_video_search' ||
+        tool.name === 'search_youtube'
 
-      if (!isWebSearch && !isImageSearch) return null
+      if (!isWebSearch && !isImageSearch && !isVideoSearch) return null
 
       if (isImageSearch) {
         if (tool.name.includes('google')) return 'google'
@@ -568,6 +571,11 @@ const MessageBubble = ({
           if (args.engine.includes('bing')) return 'bing'
           if (args.engine.includes('yahoo')) return 'yahoo'
         }
+      }
+
+      if (isVideoSearch) {
+        if (tool.name === 'search_youtube') return 'youtube'
+        if (tool.name.includes('duckduckgo')) return 'duckduckgo'
       }
 
       const args = tool.arguments
@@ -603,6 +611,14 @@ const MessageBubble = ({
   const renderSearchBackendVisual = useCallback(backend => {
     if (!backend) return null
     if (backend === 'auto') return <span className="text-xs leading-none">✨</span>
+    // Handle YouTube separately (not in SEARCH_BACKEND_OPTIONS)
+    if (backend === 'youtube') {
+      return (
+        <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+        </svg>
+      )
+    }
     const option = SEARCH_BACKEND_OPTIONS.find(item => item.id === backend)
     if (option?.iconUrl) {
       return <img src={option.iconUrl} alt="" className="h-3.5 w-3.5 rounded-sm object-contain" />
@@ -738,6 +754,8 @@ const MessageBubble = ({
 
   // Use ref to store image metadata to avoid triggering markdownComponents rebuild
   const imageMetadataRef = useRef([])
+  // Use ref to store video metadata to avoid triggering markdownComponents rebuild
+  const videoMetadataRef = useRef([])
 
   // Extract all image search results from toolCallHistory to get rich metadata (title, source)
   // Update ref without triggering re-renders of markdownComponents
@@ -779,6 +797,56 @@ const MessageBubble = ({
     imageMetadataRef.current = results
     return results
   }, [toolCallHistory])
+
+  // Extract all video search results from toolCallHistory to determine which links should be iframes
+  // Update ref without triggering re-renders of markdownComponents
+  const allVideoResults = useMemo(() => {
+    const results = []
+    const videoSearchTools = ['duckduckgo_video_search', 'search_youtube']
+    toolCallHistory.forEach(tc => {
+      if (videoSearchTools.includes(tc.name)) {
+        try {
+          const output = typeof tc.output === 'string' ? JSON.parse(tc.output) : tc.output
+          if (Array.isArray(output)) {
+            output.forEach(item => {
+              const videoUrl = item.url || item.content || ''
+              if (videoUrl) {
+                results.push({
+                  url: videoUrl,
+                  title: item.title || '',
+                  thumbnail: item.thumbnail || '',
+                  source: item.source || '',
+                  duration: item.duration || '',
+                })
+              }
+            })
+          }
+        } catch (e) {
+          // ignore parse errors
+        }
+      }
+    })
+    // Update ref for use in markdown a component without triggering deps
+    videoMetadataRef.current = results
+    return results
+  }, [toolCallHistory])
+
+  // Helper function to convert YouTube URL to embed URL
+  const getYouTubeEmbedUrl = useCallback(url => {
+    if (!url) return null
+    // Match various YouTube URL formats
+    const patterns = [
+      /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/)([a-zA-Z0-9_-]{11})/,
+      /youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/,
+    ]
+    for (const pattern of patterns) {
+      const match = url.match(pattern)
+      if (match && match[1]) {
+        return `https://www.youtube.com/embed/${match[1]}`
+      }
+    }
+    return null
+  }, [])
 
   // Extract all images rendered in the mainContent markdown
   const messageImages = useMemo(() => {
@@ -1817,6 +1885,27 @@ const MessageBubble = ({
         if (!safeHref) {
           return <span {...props}>{parseChildrenWithEmojis(children)}</span>
         }
+
+        // Check if this URL is from video search results and is a YouTube link
+        const videoResult = videoMetadataRef.current.find(v => v.url === safeHref)
+        if (videoResult) {
+          const embedUrl = getYouTubeEmbedUrl(safeHref)
+          if (embedUrl) {
+            // Use span instead of div to avoid HTML nesting error (<div> inside <p>)
+            return (
+              <span className="my-3 block aspect-video w-full max-w-md overflow-hidden rounded-lg">
+                <iframe
+                  src={embedUrl}
+                  title={videoResult.title || 'YouTube video'}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  className="h-full w-full border-0"
+                />
+              </span>
+            )
+          }
+        }
+
         return (
           <a
             href={safeHref}
@@ -1863,7 +1952,8 @@ const MessageBubble = ({
       openGallery,
       handleImageError,
       failedImageUrls,
-      // Note: imageMetadataRef is excluded as it's a stable ref that doesn't trigger re-renders
+      getYouTubeEmbedUrl,
+      // Note: imageMetadataRef and videoMetadataRef are excluded as they're stable refs that don't trigger re-renders
     ], // Dependencies for markdownComponents
   )
 

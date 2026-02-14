@@ -87,6 +87,47 @@ class DuckDuckGoImageTools(Toolkit):
         except Exception as e:
             return f"Error searching DuckDuckGo images: {str(e)}"
 
+class DuckDuckGoVideoTools(Toolkit):
+    """Video search using DuckDuckGo - zero config, always available."""
+
+    def __init__(self, include_tools: list[str] | None = None) -> None:
+        super().__init__(
+            name="DuckDuckGoVideoTools",
+            tools=[self.duckduckgo_video_search],
+            include_tools=include_tools,
+        )
+
+    @tool
+    def duckduckgo_video_search(self, query: str, max_results: int = 5) -> str:
+        """
+        Search for videos using DuckDuckGo. Returns a list of video results with titles, URLs, and thumbnails.
+
+        Args:
+            query (str): The search query.
+            max_results (int): The maximum number of results to return (default 5).
+
+        Returns:
+            str: JSON string containing the video results with title, url, thumbnail, source, duration.
+        """
+        try:
+            with DDGS() as ddgs:
+                results = ddgs.videos(query, max_results=max_results)
+                output = [
+                    {
+                        "title": r.get("title"),
+                        "url": r.get("content"),  # Video page URL
+                        "thumbnail": r.get("image"),  # Thumbnail image URL
+                        "source": r.get("author") or r.get("upstream") or "DuckDuckGo",
+                        "duration": r.get("duration"),
+                        "published": r.get("published"),
+                    }
+                    for r in results
+                ]
+                return json.dumps(output, ensure_ascii=False)
+        except Exception as e:
+            return f"Error searching DuckDuckGo videos: {str(e)}"
+
+
 class SerpApiImageTools(Toolkit):
     def __init__(self, api_key: str | None = None, include_tools: list[str] | None = None) -> None:
         self._api_key = api_key

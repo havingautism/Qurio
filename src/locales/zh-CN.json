@@ -94,7 +94,9 @@
     "memoryUpdate": "更新记忆",
     "memoryUpdateInfo": "自动将对话中的重要信息存入长期记忆。",
     "imageSearch": "图片搜索",
-    "imageSearchInfo": "在互联网上搜索相关图片。"
+    "imageSearchInfo": "在互联网上搜索相关图片。",
+    "videoSearch": "视频搜索",
+    "videoSearchInfo": "在互联网上搜索相关视频。"
   },
   "searchBackends": {
     "auto": "自动",

@@ -94,7 +94,9 @@
     "memoryUpdate": "Memory Update",
     "memoryUpdateInfo": "Automatically save important information from conversations into long-term memory.",
     "imageSearch": "Image Search",
-    "imageSearchInfo": "Search for relevant images on the internet."
+    "imageSearchInfo": "Search for relevant images on the internet.",
+    "videoSearch": "Video Search",
+    "videoSearchInfo": "Search for relevant videos on the internet."
   },
   "searchBackends": {
     "auto": "Auto",

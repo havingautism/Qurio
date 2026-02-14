@@ -19,8 +19,8 @@ from agno.models.openai import OpenAILike
 from agno.utils.log import logger
 
 from ..config import get_settings
-from .custom_tools import DuckDuckGoImageTools, QurioLocalTools, SerpApiImageTools
-from .tool_registry import AGNO_TOOLS, IMAGE_SEARCH_TOOLS, LOCAL_TOOLS, resolve_tool_name
+from .custom_tools import DuckDuckGoImageTools, DuckDuckGoVideoTools, QurioLocalTools, SerpApiImageTools
+from .tool_registry import AGNO_TOOLS, IMAGE_SEARCH_TOOLS, LOCAL_TOOLS, VIDEO_SEARCH_TOOLS, resolve_tool_name
 from .user_tools import build_user_tools_toolkit
 
 DEFAULT_MODELS: dict[str, str] = {
@@ -218,10 +218,22 @@ def _build_tools(request: Any) -> list[Any]:
     agno_tool_names = {tool["name"] for tool in AGNO_TOOLS}
     include_agno = sorted([name for name in enabled_names if name in agno_tool_names])
 
-    # Always include image search tools by default if they are not explicitly disabled
+    # Always include zero-config image/video search tools by default if not explicitly disabled
+    # SerpApi-based tools are only included if API key is configured
     if not getattr(request, "skip_default_tools", False):
-        image_search_names = {tool["name"] for tool in IMAGE_SEARCH_TOOLS}
-        include_agno = sorted(list(set(include_agno) | image_search_names))
+        # Zero-config tools (DuckDuckGo) - always include
+        default_image_tools = {"duckduckgo_image_search"}
+        default_video_tools = {"duckduckgo_video_search"}
+
+        # SerpApi-based tools - only include if API key is available
+        serpapi_image_tools = {"google_image_search", "serpapi_image_search", "bing_image_search"}
+        serpapi_video_tools = {"search_youtube"}
+
+        default_tools = default_image_tools | default_video_tools
+        if request.serpapi_api_key:
+            default_tools = default_tools | serpapi_image_tools | serpapi_video_tools
+
+        include_agno = sorted(list(set(include_agno) | default_tools))
 
     if include_agno:
         tools.extend(_build_agno_toolkits(request, include_agno))
@@ -339,6 +351,30 @@ def _build_agno_toolkits(request: Any, include_agno: list[str]) -> list[Any]:
                 )
             )
 
+    video_search_tools = {
+        "duckduckgo_video_search",
+        "search_youtube",
+    }
+    if include_set.intersection(video_search_tools):
+        # DuckDuckGo Video Search (Custom) - always available, no config needed
+        if "duckduckgo_video_search" in include_set:
+            toolkits.append(DuckDuckGoVideoTools(include_tools=["duckduckgo_video_search"]))
+
+        # YouTube Search via SerpApi - only add if API key is configured
+        if "search_youtube" in include_set and request.serpapi_api_key:
+            try:
+                from agno.tools.serpapi import SerpApiTools as AgnoSerpApiTools
+            except Exception:
+                AgnoSerpApiTools = None
+            if AgnoSerpApiTools:
+                toolkits.append(
+                    AgnoSerpApiTools(
+                        api_key=request.serpapi_api_key,
+                        enable_search_google=False,
+                        enable_search_youtube=True,
+                    )
+                )
+
     return toolkits
 
 
@@ -416,11 +452,13 @@ def build_agent(request: Any = None, **kwargs: Any) -> Agent:
     if tool_choice is None and tools:
         tool_choice = "auto"
 
-    # 1. Conditional instructions: Multi-form guidance & Image rendering
+    # 1. Conditional instructions: Multi-form guidance & Image/Video rendering
     enabled_names = set(_collect_enabled_tool_names(request))
-    # Add image search tools to enabled_names set since they are forced
+    # Add image and video search tools to enabled_names set since they are forced
     image_search_names = {tool["name"] for tool in IMAGE_SEARCH_TOOLS}
+    video_search_names = {tool["name"] for tool in VIDEO_SEARCH_TOOLS}
     enabled_names.update(image_search_names)
+    enabled_names.update(video_search_names)
 
     instructions_list = []
     if "interactive_form" in enabled_names:
@@ -438,6 +476,14 @@ def build_agent(request: Any = None, **kwargs: Any) -> Agent:
             "you should use the image search tools to find relevant images. "
             "ALWAYS render images in your response using markdown format: ![caption](url). "
             "Place images appropriately within your explanation to enhance user understanding."
+        )
+
+    if "duckduckgo_video_search" in enabled_names or "search_youtube" in enabled_names:
+        instructions_list.append(
+            "When users ask about tutorials, demonstrations, or topics that benefit from video content, "
+            "you should use the video search tools to find relevant videos. "
+            "ALWAYS include video links in your response using markdown format with descriptive text. "
+            "Provide context about why each video is relevant to the user's query."
         )
 
     instructions = "\n\n".join(instructions_list) if instructions_list else None

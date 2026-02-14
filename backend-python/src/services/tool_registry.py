@@ -556,57 +556,6 @@ AGNO_TOOLS: list[dict[str, Any]] = [
             },
         },
     },
-    {
-        "id": "duckduckgo_image_search",
-        "name": "duckduckgo_image_search",
-        "category": "agno",
-        "description": "Search for images using DuckDuckGo. Returns a list of image results with titles and URLs.",
-        "parameters": {
-            "type": "object",
-            "required": ["query"],
-            "properties": {
-                "query": {"type": "string", "description": "Search query."},
-                "max_results": {
-                    "type": "integer",
-                    "description": "Maximum number of results to return (default 5).",
-                },
-            },
-        },
-    },
-    {
-        "id": "google_image_search",
-        "name": "google_image_search",
-        "category": "agno",
-        "description": "Search for images on Google using SerpApi.",
-        "parameters": {
-            "type": "object",
-            "required": ["query"],
-            "properties": {
-                "query": {"type": "string", "description": "Search query."},
-            },
-        },
-    },
-    {
-        "id": "serpapi_image_search",
-        "name": "serpapi_image_search",
-        "category": "agno",
-        "description": "Search for images using various engines via SerpApi (Google, Bing, etc.).",
-        "parameters": {
-            "type": "object",
-            "required": ["query"],
-            "properties": {
-                "query": {"type": "string", "description": "Search query."},
-                "engine": {
-                    "type": "string",
-                    "description": "The search engine to use (e.g., google_images, bing_images). Default is google_images.",
-                },
-                "max_results": {
-                    "type": "integer",
-                    "description": "Maximum number of results to return (default 5).",
-                },
-            },
-        },
-    },
 ]
 
 IMAGE_SEARCH_TOOLS: list[dict[str, Any]] = [
@@ -671,6 +620,39 @@ IMAGE_SEARCH_TOOLS: list[dict[str, Any]] = [
                     "type": "integer",
                     "description": "Maximum number of results to return (default 5).",
                 },
+            },
+        },
+    },
+]
+
+VIDEO_SEARCH_TOOLS: list[dict[str, Any]] = [
+    {
+        "id": "duckduckgo_video_search",
+        "name": "duckduckgo_video_search",
+        "category": "agno",
+        "description": "Search for videos using DuckDuckGo. Returns a list of video results with titles, URLs, and thumbnails.",
+        "parameters": {
+            "type": "object",
+            "required": ["query"],
+            "properties": {
+                "query": {"type": "string", "description": "Search query."},
+                "max_results": {
+                    "type": "integer",
+                    "description": "Maximum number of results to return (default 5).",
+                },
+            },
+        },
+    },
+    {
+        "id": "search_youtube",
+        "name": "search_youtube",
+        "category": "agno",
+        "description": "Search for videos on YouTube using SerpApi.",
+        "parameters": {
+            "type": "object",
+            "required": ["query"],
+            "properties": {
+                "query": {"type": "string", "description": "Search query."},
             },
         },
     },

@@ -47,10 +47,10 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
         throw new Error(`${response.status} ${response.statusText}`.trim())
       }
       setHealthStatus('success')
-      setHealthMessage('Backend is reachable.')
+      setHealthMessage(t('settings.backendHealthCheckSuccess'))
     } catch (err) {
       setHealthStatus('error')
-      setHealthMessage(err.message || 'Backend not reachable.')
+      setHealthMessage(err.message || t('settings.backendHealthCheckFailed'))
     }
   }
 

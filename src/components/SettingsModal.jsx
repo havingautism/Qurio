@@ -549,7 +549,9 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
 
   const renderEnvHint = hasEnv =>
     hasEnv ? (
-      <p className="text-xs text-emerald-600 dark:text-emerald-400">Loaded from environment</p>
+      <p className="text-xs text-emerald-600 dark:text-emerald-400">
+        {t('settings.loadedFromEnvironment')}
+      </p>
     ) : null
 
   const [activeTab, setActiveTab] = useState('general')

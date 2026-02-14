@@ -527,7 +527,7 @@
     "nvidiaApiKeyPlaceholder": "请输入您的 NVIDIA API 密钥",
     "minimaxApiKey": "MiniMax API 密钥",
     "minimaxApiKeyPlaceholder": "请输入您的 MiniMax API 密钥",
-    "loadedFromEnvironment": "从环境变量加载",
+    "loadedFromEnvironment": "已从环境变量加载",
     "about": {
       "title": "关于",
       "beta": "测试版",

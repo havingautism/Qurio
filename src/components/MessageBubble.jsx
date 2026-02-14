@@ -807,20 +807,30 @@ const MessageBubble = ({
       if (videoSearchTools.includes(tc.name)) {
         try {
           const output = typeof tc.output === 'string' ? JSON.parse(tc.output) : tc.output
+
+          // Handle different output formats
+          let videoList = []
           if (Array.isArray(output)) {
-            output.forEach(item => {
-              const videoUrl = item.url || item.content || ''
-              if (videoUrl) {
-                results.push({
-                  url: videoUrl,
-                  title: item.title || '',
-                  thumbnail: item.thumbnail || '',
-                  source: item.source || '',
-                  duration: item.duration || '',
-                })
-              }
-            })
+            // DuckDuckGo format: direct array
+            videoList = output
+          } else if (output && typeof output === 'object') {
+            // SerpApi format: { video_results: [...] }
+            videoList = output.video_results || output.videos || []
           }
+
+          videoList.forEach(item => {
+            // SerpApi uses 'link' field, DuckDuckGo uses 'url' or 'content'
+            const videoUrl = item.link || item.url || item.content || ''
+            if (videoUrl) {
+              results.push({
+                url: videoUrl,
+                title: item.title || '',
+                thumbnail: item.thumbnail || item.thumbnail_static || '',
+                source: item.source || item.channel || '',
+                duration: item.duration || '',
+              })
+            }
+          })
         } catch (e) {
           // ignore parse errors
         }

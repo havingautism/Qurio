@@ -1,4 +1,4 @@
-﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+﻿import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { useShallow } from 'zustand/react/shallow'
@@ -152,10 +152,15 @@ const sanitizeMarkdownUrl = (value, { allowDataImage = false } = {}) => {
   }
 }
 
-const MessageImage = ({ src, alt, openGallery, onImageError, isFailed, sourceUrl, sourceName }) => {
+const MessageImage = memo(({ src, alt, openGallery, onImageError, isFailed, imageMetadataRef }) => {
   const { t } = useTranslation()
   const [isLoaded, setIsLoaded] = useState(false)
   const [hasError, setHasError] = useState(false)
+
+  // Get metadata from ref to avoid prop changes during streaming
+  const metadata = imageMetadataRef?.current?.find(r => r.src === src)
+  const sourceUrl = metadata?.sourceUrl
+  const sourceName = metadata?.source
 
   // Effectively remove the img from DOM on error to prevent broken icon
   if (isFailed || hasError) {
@@ -209,7 +214,9 @@ const MessageImage = ({ src, alt, openGallery, onImageError, isFailed, sourceUrl
       />
     </span>
   )
-}
+})
+
+MessageImage.displayName = 'MessageImage'
 
 const ToolEnter = ({ children, className }) => {
   const [entered, setEntered] = useState(false)
@@ -543,7 +550,10 @@ const MessageBubble = ({
       if (!tool) return null
       const isWebSearch = tool.name === 'web_search' || tool.name === 'search_news'
       const isImageSearch =
-        tool.name === 'duckduckgo_image_search' || tool.name === 'google_image_search'
+        tool.name === 'duckduckgo_image_search' ||
+        tool.name === 'google_image_search' ||
+        tool.name === 'bing_image_search' ||
+        tool.name === 'serpapi_image_search'
 
       if (!isWebSearch && !isImageSearch) return null
 
@@ -551,6 +561,13 @@ const MessageBubble = ({
         if (tool.name.includes('google')) return 'google'
         if (tool.name.includes('bing')) return 'bing'
         if (tool.name.includes('duckduckgo')) return 'duckduckgo'
+        // serpapi_image_search uses 'engine' parameter (e.g., 'google_images', 'bing_images')
+        const args = tool.arguments
+        if (args && typeof args === 'object' && typeof args.engine === 'string') {
+          if (args.engine.includes('google')) return 'google'
+          if (args.engine.includes('bing')) return 'bing'
+          if (args.engine.includes('yahoo')) return 'yahoo'
+        }
       }
 
       const args = tool.arguments
@@ -563,6 +580,12 @@ const MessageBubble = ({
         try {
           const parsed = JSON.parse(args)
           if (parsed && typeof parsed === 'object') {
+            // Handle 'engine' parameter for serpapi_image_search
+            if (typeof parsed.engine === 'string' && parsed.engine) {
+              if (parsed.engine.includes('google')) return 'google'
+              if (parsed.engine.includes('bing')) return 'bing'
+              if (parsed.engine.includes('yahoo')) return 'yahoo'
+            }
             if (typeof parsed.backend === 'string' && parsed.backend) return parsed.backend
             if (Array.isArray(parsed.backends) && parsed.backends.length > 0) {
               return String(parsed.backends[0])
@@ -713,12 +736,22 @@ const MessageBubble = ({
   const [failedImageUrls, setFailedImageUrls] = useState(new Set())
   const [isDocumentSourcesOpen, setIsDocumentSourcesOpen] = useState(false)
 
+  // Use ref to store image metadata to avoid triggering markdownComponents rebuild
+  const imageMetadataRef = useRef([])
+
   // Extract all image search results from toolCallHistory to get rich metadata (title, source)
+  // Update ref without triggering re-renders of markdownComponents
   const allImageResults = useMemo(() => {
     const results = []
+    const imageSearchTools = [
+      'duckduckgo_image_search',
+      'google_image_search',
+      'bing_image_search',
+      'serpapi_image_search',
+    ]
     toolCallHistory.forEach(tc => {
-      // Handle both DDG and Google Image Search tool names
-      if (tc.name === 'duckduckgo_image_search' || tc.name === 'google_image_search') {
+      // Handle all image search tool names
+      if (imageSearchTools.includes(tc.name)) {
         try {
           const output = typeof tc.output === 'string' ? JSON.parse(tc.output) : tc.output
           if (Array.isArray(output)) {
@@ -742,6 +775,8 @@ const MessageBubble = ({
         }
       }
     })
+    // Update ref for use in MessageImage without triggering deps
+    imageMetadataRef.current = results
     return results
   }, [toolCallHistory])
 
@@ -769,19 +804,30 @@ const MessageBubble = ({
     return found
   }, [mainContent, allImageResults, failedImageUrls])
 
-  const openGallery = useCallback(
-    imgSrc => {
-      const index = messageImages.findIndex(img => img.src === imgSrc)
-      if (index !== -1) {
-        setGalleryIndex(index)
-        setIsGalleryOpen(true)
-      } else {
-        // Fallback for images not in markdown but somehow rendered
-        setActiveImageUrl(imgSrc)
-      }
-    },
-    [messageImages],
-  )
+  // Use ref to store messageImages for stable openGallery callback
+  const messageImagesRef = useRef(messageImages)
+  messageImagesRef.current = messageImages
+
+  // Stable callback - uses ref to avoid dependency on messageImages
+  const openGallery = useCallback(imgSrc => {
+    const index = messageImagesRef.current.findIndex(img => img.src === imgSrc)
+    if (index !== -1) {
+      setGalleryIndex(index)
+      setIsGalleryOpen(true)
+    } else {
+      // Fallback for images not in markdown but somehow rendered
+      setActiveImageUrl(imgSrc)
+    }
+  }, [])
+
+  // Stable callback for image errors to prevent re-renders
+  const handleImageError = useCallback(url => {
+    setFailedImageUrls(prev => {
+      const next = new Set(prev)
+      next.add(url)
+      return next
+    })
+  }, [])
 
   useEffect(() => {
     setIsDocumentSourcesOpen(false)
@@ -1787,24 +1833,14 @@ const MessageBubble = ({
         const safeSrc = sanitizeMarkdownUrl(src, { allowDataImage: true })
         if (!safeSrc) return null
 
-        // Find metadata from allImageResults
-        const metadata = allImageResults.find(r => r.src === safeSrc)
-
         return (
           <MessageImage
             src={safeSrc}
             alt={alt}
             openGallery={openGallery}
             isFailed={failedImageUrls.has(safeSrc)}
-            sourceUrl={metadata?.sourceUrl}
-            sourceName={metadata?.source}
-            onImageError={url => {
-              setFailedImageUrls(prev => {
-                const next = new Set(prev)
-                next.add(url)
-                return next
-              })
-            }}
+            imageMetadataRef={imageMetadataRef}
+            onImageError={handleImageError}
           />
         )
       },
@@ -1825,8 +1861,9 @@ const MessageBubble = ({
       CodeBlock,
       t,
       openGallery,
+      handleImageError,
       failedImageUrls,
-      allImageResults,
+      // Note: imageMetadataRef is excluded as it's a stable ref that doesn't trigger re-renders
     ], // Dependencies for markdownComponents
   )
 

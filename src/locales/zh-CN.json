@@ -331,6 +331,11 @@
     },
     "toolsApiKey": "工具 API 密钥",
     "toolsApiKeyPlaceholder": "输入工具 API 密钥",
+    "imageSearchNote": "图片搜索",
+    "serpApiKeyPlaceholder": "输入 SerpApi 密钥",
+    "serpApiTitle": "SerpApi 配置",
+    "serpApiDescription": "配置 SerpApi 以使用 Google/Bing 图片搜索功能。",
+    "serpApiImageSearchNote": "目前仅用于图片搜索。",
     "databaseProviders": {
       "supabase": "Supabase"
     },

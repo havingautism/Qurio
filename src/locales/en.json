@@ -347,6 +347,11 @@
     },
     "toolsApiKey": "Tool API Key",
     "toolsApiKeyPlaceholder": "Enter your tool API key",
+    "imageSearchNote": "Image Search",
+    "serpApiKeyPlaceholder": "Enter your SerpApi key",
+    "serpApiTitle": "SerpApi Configuration",
+    "serpApiDescription": "Configure SerpApi for Google/Bing image search capabilities.",
+    "serpApiImageSearchNote": "Currently used for Image Search only.",
     "databaseProviders": {
       "supabase": "Supabase"
     },

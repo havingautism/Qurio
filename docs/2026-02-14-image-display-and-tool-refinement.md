@@ -66,9 +66,22 @@ SerpApi 需要 API Key 才能使用，配置方式：
 
 ### 1.3 Agent 集成逻辑
 
-- **工具注册**：在 `tool_registry.py` 中定义 `IMAGE_SEARCH_TOOLS` 元数据
-- **强制启用**：Agent 构建时默认包含图片搜索工具
-- **指令注入**：引导 AI 在解释复杂概念时主动调用图片搜索，并使用 Markdown 语法渲染
+**工具注册**：在 `tool_registry.py` 中定义 `IMAGE_SEARCH_TOOLS` 元数据
+
+**条件启用策略**：
+
+| 工具 | 启用条件 | 说明 |
+|------|----------|------|
+| `DuckDuckGoImageTools` | **始终可用** | 零配置，开箱即用 |
+| `SerpApiImageTools` | **需要 API Key** | 配置后才传递给 Agent |
+
+```python
+# agent_registry.py
+if serpapi_include and request.serpapi_api_key:  # 只有配置了 key 才添加
+    toolkits.append(SerpApiImageTools(api_key=request.serpapi_api_key, ...))
+```
+
+**指令注入**：引导 AI 在解释复杂概念时主动调用图片搜索，并使用 Markdown 语法渲染
 
 ## 2. 工具调用展示优化 (Tool Call Refinement)
 

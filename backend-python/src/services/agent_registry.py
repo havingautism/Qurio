@@ -320,18 +320,19 @@ def _build_agno_toolkits(request: Any, include_agno: list[str]) -> list[Any]:
         "bing_image_search",
     }
     if include_set.intersection(image_search_tools):
-        # DuckDuckGo Image Search (Custom)
+        # DuckDuckGo Image Search (Custom) - always available, no config needed
         if "duckduckgo_image_search" in include_set:
             toolkits.append(DuckDuckGoImageTools(include_tools=["duckduckgo_image_search"]))
 
-        # SerpApi Image Search (Custom)
+        # SerpApi Image Search (Custom) - only add if API key is configured
         serpapi_tools = {
             "google_image_search",
             "serpapi_image_search",
             "bing_image_search",
         }
         serpapi_include = sorted([name for name in include_set if name in serpapi_tools])
-        if serpapi_include:
+        # Only add SerpApi tools if API key is available
+        if serpapi_include and request.serpapi_api_key:
             toolkits.append(
                 SerpApiImageTools(
                     api_key=request.serpapi_api_key, include_tools=serpapi_include

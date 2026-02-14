@@ -212,7 +212,7 @@ const ChatHeader = ({
             {/* Title - Floating Pill Style */}
             <div
               ref={titleBubbleRef}
-              className="group relative z-10 flex h-12 min-w-0 items-center gap-1 rounded-full border border-gray-200/50 bg-white/90 py-1.5 pr-2 pl-4 shadow-sm backdrop-blur-xl transition-all hover:scale-105 hover:bg-white hover:shadow-md active:scale-95 dark:border-zinc-800/50 dark:bg-zinc-900/90 dark:hover:bg-zinc-900"
+              className="group relative z-10 flex h-12 min-w-0 items-center gap-1 rounded-full border border-gray-200/50 bg-white/90 py-1.5 pr-2 pl-4 shadow-sm backdrop-blur-xl transition-all hover:scale-105 hover:bg-white hover:shadow-md active:scale-95 md:max-w-[400px] dark:border-zinc-800/50 dark:bg-zinc-900/90 dark:hover:bg-zinc-900"
             >
               <h1 className="flex min-w-0 items-center gap-2 truncate font-medium text-gray-800 dark:text-gray-100">
                 {isTitleLoading || isMetaLoading ? (

@@ -47,10 +47,10 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
         throw new Error(`${response.status} ${response.statusText}`.trim())
       }
       setHealthStatus('success')
-      setHealthMessage('Backend is reachable.')
+      setHealthMessage(t('settings.backendHealthCheckSuccess'))
     } catch (err) {
       setHealthStatus('error')
-      setHealthMessage(err.message || 'Backend not reachable.')
+      setHealthMessage(err.message || t('settings.backendHealthCheckFailed'))
     }
   }
 
@@ -158,25 +158,6 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
               {healthMessage || 'Checking backend...'}
             </div>
           )}
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              {t('settings.databaseSetup.accessKey') || 'Access Key'}
-            </label>
-            <div className="relative">
-              <div className="absolute top-1/2 left-3 -translate-y-1/2 text-gray-400">
-                <Key size={16} />
-              </div>
-              <input
-                type="password"
-                value={dbAccessKey}
-                onChange={e => setDbAccessKey(e.target.value)}
-                placeholder={
-                  t('settings.databaseSetup.accessKeyPlaceholder') || 'Enter backend access key'
-                }
-                className="focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border border-gray-200 bg-gray-50 py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100"
-              />
-            </div>
-          </div>
 
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -206,6 +187,25 @@ export default function DatabaseSetupModal({ isOpen, onClose }) {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              {t('settings.databaseSetup.accessKey') || 'Access Key'}
+            </label>
+            <div className="relative">
+              <div className="absolute top-1/2 left-3 -translate-y-1/2 text-gray-400">
+                <Key size={16} />
+              </div>
+              <input
+                type="password"
+                value={dbAccessKey}
+                onChange={e => setDbAccessKey(e.target.value)}
+                placeholder={
+                  t('settings.databaseSetup.accessKeyPlaceholder') || 'Enter backend access key'
+                }
+                className="focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border border-gray-200 bg-gray-50 py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100"
+              />
             </div>
           </div>
         </div>

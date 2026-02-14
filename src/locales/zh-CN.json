@@ -92,7 +92,23 @@
     "memoryRetrieve": "记忆检索",
     "memoryRetrieveInfo": "为当前问题检索相关的长期记忆摘要。",
     "memoryUpdate": "更新记忆",
-    "memoryUpdateInfo": "自动将对话中的重要信息存入长期记忆。"
+    "memoryUpdateInfo": "自动将对话中的重要信息存入长期记忆。",
+    "imageSearch": "图片搜索",
+    "imageSearchInfo": "在互联网上搜索相关图片。",
+    "videoSearch": "视频搜索",
+    "videoSearchInfo": "在互联网上搜索相关视频。",
+    "imageSearchDuckDuckGo": "图片搜索（DuckDuckGo）",
+    "imageSearchDuckDuckGoInfo": "通过 DuckDuckGo 的图片索引搜索相关图片。",
+    "imageSearchGoogle": "图片搜索（Google/SerpApi）",
+    "imageSearchGoogleInfo": "通过 SerpApi 在 Google 图片中搜索。",
+    "imageSearchBing": "图片搜索（Bing/SerpApi）",
+    "imageSearchBingInfo": "通过 SerpApi 在 Bing 图片中搜索。",
+    "imageSearchSerpApi": "图片搜索（SerpApi 多引擎）",
+    "imageSearchSerpApiInfo": "通过 SerpApi 的多引擎能力进行图片搜索。",
+    "videoSearchDuckDuckGo": "视频搜索（DuckDuckGo）",
+    "videoSearchDuckDuckGoInfo": "通过 DuckDuckGo 的视频索引搜索相关视频。",
+    "videoSearchYouTube": "视频搜索（YouTube/SerpApi）",
+    "videoSearchYouTubeInfo": "通过 SerpApi 搜索 YouTube 视频。"
   },
   "searchBackends": {
     "auto": "自动",
@@ -324,10 +340,16 @@
       "minimax": "MiniMax"
     },
     "toolsApiProviders": {
-      "tavily": "Tavily"
+      "tavily": "Tavily",
+      "serpapi": "SerpApi"
     },
     "toolsApiKey": "工具 API 密钥",
     "toolsApiKeyPlaceholder": "输入工具 API 密钥",
+    "imageSearchNote": "图片搜索",
+    "serpApiKeyPlaceholder": "输入 SerpApi 密钥",
+    "serpApiTitle": "SerpApi 配置",
+    "serpApiDescription": "配置 SerpApi 以使用 Google/Bing 图片搜索功能。",
+    "serpApiImageSearchNote": "目前仅用于图片搜索。",
     "databaseProviders": {
       "supabase": "Supabase"
     },
@@ -517,7 +539,7 @@
     "nvidiaApiKeyPlaceholder": "请输入您的 NVIDIA API 密钥",
     "minimaxApiKey": "MiniMax API 密钥",
     "minimaxApiKeyPlaceholder": "请输入您的 MiniMax API 密钥",
-    "loadedFromEnvironment": "从环境变量加载",
+    "loadedFromEnvironment": "已从环境变量加载",
     "about": {
       "title": "关于",
       "beta": "测试版",
@@ -658,6 +680,7 @@
     "tools": {
       "title": "工具权限",
       "hint": "选择该智能体可调用的本地工具。",
+      "apiRequiredHint": "需先在设置中配置 {{provider}} API Key。",
       "loading": "正在加载工具...",
       "empty": "暂无可用工具。",
       "categories": {
@@ -913,7 +936,10 @@
     "toolClose": "关闭",
     "researchGoalLabel": "研究目标",
     "researchScopeLabel": "研究范围",
-    "researchRequirementsLabel": "输出要求"
+    "researchRequirementsLabel": "输出要求",
+    "imageLoadError": "图片加载出错了",
+    "viewOriginalSource": "尝试打开原图链接",
+    "source": "来源"
   },
   "interactiveForm": {
     "errors": {

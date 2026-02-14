@@ -30,6 +30,7 @@ import {
   persistThinkingPreference,
 } from '../lib/togglePreferences'
 import ChatHeader from './chat/ChatHeader'
+import { getLanguageInstruction, applyLanguageInstructionToText } from '../lib/chat/prompts'
 
 const getInitialThinkingPreference = () => {
   if (typeof window === 'undefined') return false
@@ -84,20 +85,6 @@ const DeepResearchChatInterface = ({
       }
     }
     return []
-  }
-
-  const getLanguageInstruction = agent => {
-    const trimmedLanguage =
-      typeof (agent?.response_language || agent?.responseLanguage) === 'string'
-        ? (agent.response_language || agent.responseLanguage).trim()
-        : ''
-    return trimmedLanguage ? `Reply in ${trimmedLanguage}.` : ''
-  }
-
-  const applyLanguageInstructionToText = (text, instruction) => {
-    if (!instruction) return text
-    const baseText = typeof text === 'string' ? text.trim() : ''
-    return baseText ? `${baseText}\n\n${instruction}` : instruction
   }
 
   const getDeepResearchResponseLanguageInstruction = language => {
@@ -1616,7 +1603,7 @@ const DeepResearchChatInterface = ({
       const provider = getProvider(modelConfig.provider)
       const credentials = provider.getCredentials(settings)
       const agentForTitle = selectedAgent || defaultAgent || null
-      const languageInstruction = getLanguageInstruction(agentForTitle)
+      const languageInstruction = getLanguageInstruction(agentForTitle, settings)
       const promptText = applyLanguageInstructionToText(contextText, languageInstruction)
       const titleResult = await provider.generateTitle(
         promptText,

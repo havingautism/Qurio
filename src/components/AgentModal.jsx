@@ -17,6 +17,8 @@ import {
   FormInput,
   Globe,
   LineChart,
+  Video,
+  Youtube,
   Settings,
   User,
   Box,
@@ -100,6 +102,20 @@ const ENV_VARS = {
   kimiKey: getPublicEnv('PUBLIC_KIMI_API_KEY'),
 }
 
+const TOOL_API_REQUIREMENTS = {
+  bing_image_search: { key: 'serpapiApiKey', providerLabel: 'SerpApi' },
+  google_image_search: { key: 'serpapiApiKey', providerLabel: 'SerpApi' },
+  serpapi_image_search: { key: 'serpapiApiKey', providerLabel: 'SerpApi' },
+  search_youtube: { key: 'serpapiApiKey', providerLabel: 'SerpApi' },
+}
+
+const HIDDEN_QUICK_SEARCH_TOOL_IDS = new Set([
+  'web_search',
+  'search_news',
+  'search_arxiv_and_return_articles',
+  'search_wikipedia',
+])
+
 const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) => {
   const { t } = useTranslation()
   const { defaultAgent, agents = [], showConfirmation } = useAppContext()
@@ -165,6 +181,17 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
   const [toolsLoading, setToolsLoading] = useState(false)
   const [selectedToolIds, setSelectedToolIds] = useState([])
   const searchToolIdSetRef = useRef(new Set())
+  const [apiAvailability, setApiAvailability] = useState({})
+
+  const refreshApiAvailability = () => {
+    const settings = loadSettings()
+    const next = {}
+    for (const [toolName, requirement] of Object.entries(TOOL_API_REQUIREMENTS)) {
+      const rawValue = settings?.[requirement.key]
+      next[toolName] = typeof rawValue === 'string' ? rawValue.trim().length > 0 : Boolean(rawValue)
+    }
+    setApiAvailability(next)
+  }
 
   // Dropdown states
   const [isResponseLanguageOpen, setIsResponseLanguageOpen] = useState(false)
@@ -229,6 +256,18 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
     })
   }, [availableTools])
 
+  const getToolApiRequirement = tool => TOOL_API_REQUIREMENTS[String(tool?.name || '')] || null
+  const isToolUnavailable = tool => {
+    const requirement = getToolApiRequirement(tool)
+    if (!requirement) return false
+    return !apiAvailability[String(tool?.name || '')]
+  }
+  const getToolUnavailableHint = tool => {
+    const requirement = getToolApiRequirement(tool)
+    if (!requirement) return ''
+    return t('agents.tools.apiRequiredHint', { provider: requirement.providerLabel })
+  }
+
   const loadToolsList = async () => {
     setToolsLoading(true)
     try {
@@ -246,9 +285,18 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
             }))
         : []
 
-      const searchTools = validSystemTools.filter(isQuickSearchTool)
-      searchToolIdSetRef.current = new Set(searchTools.map(tool => String(tool.id || tool.name)))
-      const filteredSystemTools = validSystemTools.filter(tool => !isQuickSearchTool(tool))
+      const hiddenQuickSearchTools = validSystemTools.filter(tool => {
+        if (!isQuickSearchTool(tool)) return false
+        const toolId = String(tool.id || tool.name)
+        return HIDDEN_QUICK_SEARCH_TOOL_IDS.has(toolId)
+      })
+      searchToolIdSetRef.current = new Set(
+        hiddenQuickSearchTools.map(tool => String(tool.id || tool.name)),
+      )
+      const filteredSystemTools = validSystemTools.filter(tool => {
+        const toolId = String(tool.id || tool.name)
+        return !searchToolIdSetRef.current.has(toolId)
+      })
 
       setAvailableTools([...filteredSystemTools, ...validUserTools])
       setSelectedToolIds(prev => prev.filter(id => !searchToolIdSetRef.current.has(String(id))))
@@ -444,6 +492,23 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
       loadKeysAndFetchModels()
     }
   }, [isOpen, editingAgent, t, defaultAgent])
+
+  useEffect(() => {
+    if (!isOpen) return
+    refreshApiAvailability()
+    const handleSettingsChanged = () => refreshApiAvailability()
+    window.addEventListener('settings-changed', handleSettingsChanged)
+    return () => window.removeEventListener('settings-changed', handleSettingsChanged)
+  }, [isOpen])
+
+  useEffect(() => {
+    if (!isOpen || availableTools.length === 0) return
+    const unavailableIds = new Set(
+      availableTools.filter(tool => isToolUnavailable(tool)).map(tool => String(tool.id)),
+    )
+    if (unavailableIds.size === 0) return
+    setSelectedToolIds(prev => prev.filter(id => !unavailableIds.has(String(id))))
+  }, [isOpen, availableTools, apiAvailability])
 
   const handleSaveWrapper = async () => {
     if (!editingAgent?.isDefault && !isDeepResearchAgent && !name.trim()) {
@@ -1758,6 +1823,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                                   {tools.map(tool => {
                                     const checked = selectedToolIds.includes(tool.id)
+                                    const disabled = isToolUnavailable(tool)
                                     const iconName = TOOL_ICONS[tool.name]
                                     const IconComponent = iconName
                                       ? {
@@ -1771,6 +1837,8 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                                           FormInput,
                                           Globe,
                                           LineChart,
+                                          Video,
+                                          Youtube,
                                         }[iconName]
                                       : Code
                                     const infoKey = TOOL_INFO_KEYS[tool.name]
@@ -1781,7 +1849,9 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                                       <label
                                         key={tool.id}
                                         className={clsx(
-                                          'group/tool flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors',
+                                          'group/tool flex items-start gap-3 rounded-lg border p-3 transition-colors',
+                                          disabled && 'cursor-not-allowed opacity-50',
+                                          !disabled && 'cursor-pointer',
                                           checked
                                             ? 'border-primary-400 bg-primary-50/40 dark:bg-primary-900/20'
                                             : 'border-gray-200 hover:bg-gray-50 dark:border-zinc-700 dark:hover:bg-zinc-800/40',
@@ -1789,7 +1859,9 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                                       >
                                         <Checkbox
                                           checked={checked}
+                                          disabled={disabled}
                                           onCheckedChange={() => {
+                                            if (disabled) return
                                             setSelectedToolIds(prev =>
                                               prev.includes(tool.id)
                                                 ? prev.filter(id => id !== tool.id)
@@ -1817,6 +1889,11 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                                               {infoKey ? t(infoKey) : tool.description}
                                             </div>
                                           )}
+                                          {disabled && (
+                                            <div className="text-xs text-amber-600 dark:text-amber-400">
+                                              {getToolUnavailableHint(tool)}
+                                            </div>
+                                          )}
                                         </div>
                                       </label>
                                     )
@@ -1830,6 +1907,7 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                             {groupData.tools.map(tool => {
                               const checked = selectedToolIds.includes(tool.id)
+                              const disabled = isToolUnavailable(tool)
                               const iconName = TOOL_ICONS[tool.name]
                               const IconComponent = iconName
                                 ? {
@@ -1843,6 +1921,8 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                                     FormInput,
                                     Globe,
                                     LineChart,
+                                    Video,
+                                    Youtube,
                                   }[iconName]
                                 : Code
                               const infoKey = TOOL_INFO_KEYS[tool.name]
@@ -1850,7 +1930,9 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                                 <label
                                   key={tool.id}
                                   className={clsx(
-                                    'flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors',
+                                    'flex items-start gap-3 rounded-lg border p-3 transition-colors',
+                                    disabled && 'cursor-not-allowed opacity-50',
+                                    !disabled && 'cursor-pointer',
                                     checked
                                       ? 'border-primary-400 bg-primary-50/40 dark:bg-primary-900/20'
                                       : 'border-gray-200 hover:bg-gray-50 dark:border-zinc-700 dark:hover:bg-zinc-800/40',
@@ -1858,7 +1940,9 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                                 >
                                   <Checkbox
                                     checked={checked}
+                                    disabled={disabled}
                                     onCheckedChange={() => {
+                                      if (disabled) return
                                       setSelectedToolIds(prev =>
                                         prev.includes(tool.id)
                                           ? prev.filter(id => id !== tool.id)
@@ -1884,6 +1968,11 @@ const AgentModal = ({ isOpen, onClose, editingAgent = null, onSave, onDelete }) 
                                     {(infoKey || tool.description) && (
                                       <div className="truncate-2-lines text-xs leading-relaxed text-gray-500 dark:text-gray-400">
                                         {infoKey ? t(infoKey) : tool.description}
+                                      </div>
+                                    )}
+                                    {disabled && (
+                                      <div className="text-xs text-amber-600 dark:text-amber-400">
+                                        {getToolUnavailableHint(tool)}
                                       </div>
                                     )}
                                   </div>

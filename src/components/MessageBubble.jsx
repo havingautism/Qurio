@@ -1,4 +1,4 @@
-﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+﻿import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { useShallow } from 'zustand/react/shallow'
@@ -26,6 +26,8 @@ import {
   AlertTriangle,
   Brain,
   BrainCircuit,
+  Image as ImageIcon,
+  ChevronLeft,
 } from 'lucide-react'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
@@ -150,6 +152,72 @@ const sanitizeMarkdownUrl = (value, { allowDataImage = false } = {}) => {
   }
 }
 
+const MessageImage = memo(({ src, alt, openGallery, onImageError, isFailed, imageMetadataRef }) => {
+  const { t } = useTranslation()
+  const [isLoaded, setIsLoaded] = useState(false)
+  const [hasError, setHasError] = useState(false)
+
+  // Get metadata from ref to avoid prop changes during streaming
+  const metadata = imageMetadataRef?.current?.find(r => r.src === src)
+  const sourceUrl = metadata?.sourceUrl
+  const sourceName = metadata?.source
+
+  // Effectively remove the img from DOM on error to prevent broken icon
+  if (isFailed || hasError) {
+    const displayHostname = sourceUrl ? getHostname(sourceUrl) : null
+
+    return (
+      <span className="my-2 flex flex-col items-center justify-center rounded-lg border border-dashed border-gray-300 bg-gray-50/50 p-4 dark:border-zinc-700 dark:bg-zinc-800/30">
+        <span className="mb-2 flex items-center gap-2 text-gray-400">
+          <AlertTriangle size={16} />
+          <span className="text-xs font-medium">
+            {t('messageBubble.imageLoadError', 'Image failed to load')}
+          </span>
+        </span>
+        <span className="mb-1 line-clamp-1 text-[10px] text-gray-500 opacity-70">
+          {typeof alt === 'string' ? alt : src}
+        </span>
+        {sourceUrl && (
+          <a
+            href={sourceUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 mt-1 flex items-center gap-1.25 text-[10px] font-medium transition-colors"
+            onClick={e => e.stopPropagation()}
+          >
+            <Globe size={11} className="opacity-70" />
+            {t('messageBubble.viewOriginalSource', 'Try opening original link')}
+            {displayHostname ? ` (${displayHostname})` : ''}
+          </a>
+        )}
+      </span>
+    )
+  }
+
+  return (
+    <span
+      className={clsx(
+        'group relative my-2 inline-block overflow-hidden rounded-lg shadow-sm transition-all duration-500 hover:shadow-lg active:shadow-md',
+        isLoaded ? 'opacity-100' : 'opacity-0',
+      )}
+    >
+      <img
+        src={src}
+        alt={typeof alt === 'string' ? alt : ''}
+        onLoad={() => setIsLoaded(true)}
+        onError={() => {
+          setHasError(true)
+          onImageError(src)
+        }}
+        onClick={() => openGallery(src)}
+        className="cursor-zoom-in transition-all duration-500 ease-out group-hover:scale-110 group-hover:brightness-105 active:scale-95"
+      />
+    </span>
+  )
+})
+
+MessageImage.displayName = 'MessageImage'
+
 const ToolEnter = ({ children, className }) => {
   const [entered, setEntered] = useState(false)
 
@@ -214,13 +282,9 @@ const MessageBubble = ({
     mergedMessage?.isStreaming ??
     (isLoading && mergedMessage?.role === 'ai' && messageIndex === messages.length - 1)
 
-  // Re-derive form status based on the latest tool call state
-  const toolCallHistory = Array.isArray(mergedMessage?.toolCallHistory)
+  const baseToolCallHistory = Array.isArray(mergedMessage?.toolCallHistory)
     ? mergedMessage.toolCallHistory
     : []
-
-  const formToolHistory = toolCallHistory.filter(item => item.name === 'interactive_form')
-  const hasInteractiveForm = formToolHistory.length > 0
 
   const isDeepResearch =
     !!mergedMessage?.deepResearch ||
@@ -232,7 +296,6 @@ const MessageBubble = ({
   const providerId = mergedMessage.provider || apiProvider
   const provider = getProvider(providerId)
   const parsed = provider.parseMessage(mergedMessage)
-  const thoughtContent = isDeepResearch ? null : parsed.thought
   const expertResponses = useMemo(() => {
     if (!Array.isArray(mergedMessage?.expertResponses)) return []
     return mergedMessage.expertResponses
@@ -245,6 +308,12 @@ const MessageBubble = ({
         status: String(item?.status || 'pending'),
         provider: item?.provider || null,
         model: item?.model || null,
+        thought: typeof item?.thought === 'string' ? item.thought : '',
+        thoughtHistory: Array.isArray(item?.thoughtHistory) ? item.thoughtHistory : [],
+        toolCallHistory: Array.isArray(item?.toolCallHistory) ? item.toolCallHistory : [],
+        streamBlocks: Array.isArray(item?.streamBlocks) ? item.streamBlocks : [],
+        searchBackend: typeof item?.searchBackend === 'string' ? item.searchBackend : null,
+        searchBackends: Array.isArray(item?.searchBackends) ? item.searchBackends : [],
       }))
       .filter(item => item.agentId)
   }, [mergedMessage?.expertResponses])
@@ -301,6 +370,17 @@ const MessageBubble = ({
     expertResponses.findIndex(item => item.agentId === activeExpertAgentId),
   )
   const activeExpertResponse = expertResponses[activeExpertIndex] || expertResponses[0] || null
+  const toolCallHistory =
+    isExpertMessage && Array.isArray(activeExpertResponse?.toolCallHistory)
+      ? activeExpertResponse.toolCallHistory
+      : baseToolCallHistory
+  const formToolHistory = toolCallHistory.filter(item => item.name === 'interactive_form')
+  const hasInteractiveForm = formToolHistory.length > 0
+  const thoughtContent = isDeepResearch
+    ? null
+    : isExpertMessage
+      ? activeExpertResponse?.thought || ''
+      : parsed.thought
   const mainContent = isExpertMessage ? activeExpertResponse?.content || '' : parsed.content
   const displayProviderId = isExpertMessage
     ? activeExpertResponse?.provider || providerId
@@ -309,8 +389,13 @@ const MessageBubble = ({
   const positionedThoughtBlocks = useMemo(() => {
     if (isDeepResearch) return []
 
-    const fromHistory = Array.isArray(mergedMessage?.thoughtHistory)
-      ? mergedMessage.thoughtHistory
+    const thoughtHistorySource =
+      isExpertMessage && Array.isArray(activeExpertResponse?.thoughtHistory)
+        ? activeExpertResponse.thoughtHistory
+        : mergedMessage?.thoughtHistory
+
+    const fromHistory = Array.isArray(thoughtHistorySource)
+      ? thoughtHistorySource
           .map((item, index) => ({
             id: item?.id || `${item?.blockId ?? 'block'}-${index}`,
             blockId: item?.blockId ?? index,
@@ -339,7 +424,13 @@ const MessageBubble = ({
         content,
         streamOrder: index,
       }))
-  }, [isDeepResearch, mergedMessage?.thoughtHistory, thoughtContent])
+  }, [
+    isDeepResearch,
+    isExpertMessage,
+    activeExpertResponse?.thoughtHistory,
+    mergedMessage?.thoughtHistory,
+    thoughtContent,
+  ])
 
   const formatThoughtContentForDisplay = useCallback(
     value => {
@@ -418,8 +509,12 @@ const MessageBubble = ({
     [formatThoughtContentForDisplay, positionedThoughtBlocks],
   )
   const normalizedStreamBlocks = useMemo(() => {
-    if (!Array.isArray(mergedMessage?.streamBlocks)) return []
-    return mergedMessage.streamBlocks
+    const streamSource =
+      isExpertMessage && Array.isArray(activeExpertResponse?.streamBlocks)
+        ? activeExpertResponse.streamBlocks
+        : mergedMessage?.streamBlocks
+    if (!Array.isArray(streamSource)) return []
+    return streamSource
       .map((item, index) => ({
         seq: Number.isFinite(item?.seq) ? Number(item.seq) : index + 1,
         type: String(item?.type || '').toLowerCase(),
@@ -433,14 +528,20 @@ const MessageBubble = ({
       }))
       .filter(item => item.type)
       .sort((a, b) => a.seq - b.seq)
-  }, [mergedMessage?.streamBlocks])
+  }, [isExpertMessage, activeExpertResponse?.streamBlocks, mergedMessage?.streamBlocks])
 
   const resolvedSearchBackends = useMemo(() => {
-    if (Array.isArray(mergedMessage?.searchBackends) && mergedMessage.searchBackends.length > 0) {
-      return mergedMessage.searchBackends.map(item => String(item)).filter(Boolean)
+    const explicitBackends = isExpertMessage
+      ? activeExpertResponse?.searchBackends
+      : mergedMessage?.searchBackends
+    if (Array.isArray(explicitBackends) && explicitBackends.length > 0) {
+      return explicitBackends.map(item => String(item)).filter(Boolean)
     }
-    if (typeof mergedMessage?.searchBackend === 'string' && mergedMessage.searchBackend) {
-      return [mergedMessage.searchBackend]
+    const explicitBackend = isExpertMessage
+      ? activeExpertResponse?.searchBackend
+      : mergedMessage?.searchBackend
+    if (typeof explicitBackend === 'string' && explicitBackend) {
+      return [explicitBackend]
     }
     for (const item of toolCallHistory) {
       if (!item || (item.name !== 'web_search' && item.name !== 'search_news')) continue
@@ -465,7 +566,14 @@ const MessageBubble = ({
       }
     }
     return []
-  }, [mergedMessage?.searchBackend, mergedMessage?.searchBackends, toolCallHistory])
+  }, [
+    isExpertMessage,
+    activeExpertResponse?.searchBackend,
+    activeExpertResponse?.searchBackends,
+    mergedMessage?.searchBackend,
+    mergedMessage?.searchBackends,
+    toolCallHistory,
+  ])
 
   const getToolDisplayName = useCallback(
     tool => {
@@ -479,7 +587,36 @@ const MessageBubble = ({
   )
   const getSearchBackendForTool = useCallback(
     tool => {
-      if (!tool || (tool.name !== 'web_search' && tool.name !== 'search_news')) return null
+      if (!tool) return null
+      const isWebSearch = tool.name === 'web_search' || tool.name === 'search_news'
+      const isImageSearch =
+        tool.name === 'duckduckgo_image_search' ||
+        tool.name === 'google_image_search' ||
+        tool.name === 'bing_image_search' ||
+        tool.name === 'serpapi_image_search'
+      const isVideoSearch =
+        tool.name === 'duckduckgo_video_search' || tool.name === 'search_youtube'
+
+      if (!isWebSearch && !isImageSearch && !isVideoSearch) return null
+
+      if (isImageSearch) {
+        if (tool.name.includes('google')) return 'google'
+        if (tool.name.includes('bing')) return 'bing'
+        if (tool.name.includes('duckduckgo')) return 'duckduckgo'
+        // serpapi_image_search uses 'engine' parameter (e.g., 'google_images', 'bing_images')
+        const args = tool.arguments
+        if (args && typeof args === 'object' && typeof args.engine === 'string') {
+          if (args.engine.includes('google')) return 'google'
+          if (args.engine.includes('bing')) return 'bing'
+          if (args.engine.includes('yahoo')) return 'yahoo'
+        }
+      }
+
+      if (isVideoSearch) {
+        if (tool.name === 'search_youtube') return 'youtube'
+        if (tool.name.includes('duckduckgo')) return 'duckduckgo'
+      }
+
       const args = tool.arguments
       if (args && typeof args === 'object') {
         if (typeof args.backend === 'string' && args.backend) return args.backend
@@ -490,6 +627,12 @@ const MessageBubble = ({
         try {
           const parsed = JSON.parse(args)
           if (parsed && typeof parsed === 'object') {
+            // Handle 'engine' parameter for serpapi_image_search
+            if (typeof parsed.engine === 'string' && parsed.engine) {
+              if (parsed.engine.includes('google')) return 'google'
+              if (parsed.engine.includes('bing')) return 'bing'
+              if (parsed.engine.includes('yahoo')) return 'yahoo'
+            }
             if (typeof parsed.backend === 'string' && parsed.backend) return parsed.backend
             if (Array.isArray(parsed.backends) && parsed.backends.length > 0) {
               return String(parsed.backends[0])
@@ -507,6 +650,14 @@ const MessageBubble = ({
   const renderSearchBackendVisual = useCallback(backend => {
     if (!backend) return null
     if (backend === 'auto') return <span className="text-xs leading-none">✨</span>
+    // Handle YouTube separately (not in SEARCH_BACKEND_OPTIONS)
+    if (backend === 'youtube') {
+      return (
+        <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
+        </svg>
+      )
+    }
     const option = SEARCH_BACKEND_OPTIONS.find(item => item.id === backend)
     if (option?.iconUrl) {
       return <img src={option.iconUrl} alt="" className="h-3.5 w-3.5 rounded-sm object-contain" />
@@ -635,11 +786,198 @@ const MessageBubble = ({
   // State to track copy success
   const [isCopied, setIsCopied] = useState(false)
   const [activeImageUrl, setActiveImageUrl] = useState(null)
+  const [isGalleryOpen, setIsGalleryOpen] = useState(false)
+  const [galleryIndex, setGalleryIndex] = useState(0)
+  const [failedImageUrls, setFailedImageUrls] = useState(new Set())
   const [isDocumentSourcesOpen, setIsDocumentSourcesOpen] = useState(false)
+
+  // Use ref to store image metadata to avoid triggering markdownComponents rebuild
+  const imageMetadataRef = useRef([])
+  // Use ref to store video metadata to avoid triggering markdownComponents rebuild
+  const videoMetadataRef = useRef([])
+
+  // Extract all image search results from toolCallHistory to get rich metadata (title, source)
+  // Update ref without triggering re-renders of markdownComponents
+  const allImageResults = useMemo(() => {
+    const results = []
+    const imageSearchTools = [
+      'duckduckgo_image_search',
+      'google_image_search',
+      'bing_image_search',
+      'serpapi_image_search',
+    ]
+    toolCallHistory.forEach(tc => {
+      // Handle all image search tool names
+      if (imageSearchTools.includes(tc.name)) {
+        try {
+          const output = typeof tc.output === 'string' ? JSON.parse(tc.output) : tc.output
+          if (Array.isArray(output)) {
+            output.forEach(item => {
+              const imgUrl = item.image || item.url || item.thumbnailUrl || item.thumbnail
+              const sourceUrl = item.url || item.parentPage || ''
+              const hostname = sourceUrl ? getHostname(sourceUrl) : ''
+
+              if (imgUrl) {
+                results.push({
+                  src: imgUrl,
+                  title: item.title || '',
+                  source: hostname || item.source || '',
+                  sourceUrl: sourceUrl,
+                })
+              }
+            })
+          }
+        } catch (e) {
+          // ignore parse errors
+        }
+      }
+    })
+    // Update ref for use in MessageImage without triggering deps
+    imageMetadataRef.current = results
+    return results
+  }, [toolCallHistory])
+
+  // Extract all video search results from toolCallHistory to determine which links should be iframes
+  // Update ref without triggering re-renders of markdownComponents
+  const allVideoResults = useMemo(() => {
+    const results = []
+    const videoSearchTools = ['duckduckgo_video_search', 'search_youtube']
+    toolCallHistory.forEach(tc => {
+      if (videoSearchTools.includes(tc.name)) {
+        try {
+          const output = typeof tc.output === 'string' ? JSON.parse(tc.output) : tc.output
+
+          // Handle different output formats
+          let videoList = []
+          if (Array.isArray(output)) {
+            // DuckDuckGo format: direct array
+            videoList = output
+          } else if (output && typeof output === 'object') {
+            // SerpApi format: { video_results: [...] }
+            videoList = output.video_results || output.videos || []
+          }
+
+          videoList.forEach(item => {
+            // SerpApi uses 'link' field, DuckDuckGo uses 'url' or 'content'
+            const videoUrl = item.link || item.url || item.content || ''
+            if (videoUrl) {
+              results.push({
+                url: videoUrl,
+                title: item.title || '',
+                thumbnail: item.thumbnail || item.thumbnail_static || '',
+                source: item.source || item.channel || '',
+                duration: item.duration || '',
+              })
+            }
+          })
+        } catch (e) {
+          // ignore parse errors
+        }
+      }
+    })
+    // Update ref for use in markdown a component without triggering deps
+    videoMetadataRef.current = results
+    return results
+  }, [toolCallHistory])
+
+  // Helper function to convert YouTube URL to embed URL
+  const getYouTubeEmbedUrl = useCallback(url => {
+    if (!url) return null
+    // Match various YouTube URL formats
+    const patterns = [
+      /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/)([a-zA-Z0-9_-]{11})/,
+      /youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/,
+    ]
+    for (const pattern of patterns) {
+      const match = url.match(pattern)
+      if (match && match[1]) {
+        return `https://www.youtube.com/embed/${match[1]}`
+      }
+    }
+    return null
+  }, [])
+
+  // Extract all images rendered in the mainContent markdown
+  const messageImages = useMemo(() => {
+    if (!mainContent) return []
+    // Regex to find ![alt](url)
+    const regex = /!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/g
+    const found = []
+    let match
+    while ((match = regex.exec(mainContent)) !== null) {
+      const alt = match[1]
+      const src = match[2]
+      // Match with allImageResults to find rich metadata
+      const metadata = allImageResults.find(r => r.src === src)
+      found.push({
+        src,
+        alt: alt || metadata?.title || '',
+        title: metadata?.title || alt || '',
+        source: metadata?.source || '',
+        sourceUrl: metadata?.sourceUrl || '',
+      })
+    }
+    // Do not filter out failed images to preserve index alignment with markdown rendering
+    return found
+  }, [mainContent, allImageResults, failedImageUrls])
+
+  // Use ref to store messageImages for stable openGallery callback
+  const messageImagesRef = useRef(messageImages)
+  messageImagesRef.current = messageImages
+
+  // Stable callback - uses ref to avoid dependency on messageImages
+  const openGallery = useCallback(imgSrc => {
+    const index = messageImagesRef.current.findIndex(img => img.src === imgSrc)
+    if (index !== -1) {
+      setGalleryIndex(index)
+      setIsGalleryOpen(true)
+    } else {
+      // Fallback for images not in markdown but somehow rendered
+      setActiveImageUrl(imgSrc)
+    }
+  }, [])
+
+  // Stable callback for image errors to prevent re-renders
+  const handleImageError = useCallback(url => {
+    setFailedImageUrls(prev => {
+      const next = new Set(prev)
+      next.add(url)
+      return next
+    })
+  }, [])
 
   useEffect(() => {
     setIsDocumentSourcesOpen(false)
   }, [message?.id])
+
+  // Sync gallery index and close if empty
+  useEffect(() => {
+    if (isGalleryOpen) {
+      if (messageImages.length === 0) {
+        setIsGalleryOpen(false)
+      } else if (galleryIndex >= messageImages.length) {
+        setGalleryIndex(Math.max(0, messageImages.length - 1))
+      }
+    }
+  }, [messageImages.length, isGalleryOpen, galleryIndex])
+
+  // Handle gallery keyboard navigation
+  useEffect(() => {
+    if (!isGalleryOpen) return
+
+    const handleKeyDown = e => {
+      if (e.key === 'Escape') setIsGalleryOpen(false)
+      if (e.key === 'ArrowLeft') {
+        setGalleryIndex(prev => (prev - 1 + messageImages.length) % messageImages.length)
+      }
+      if (e.key === 'ArrowRight') {
+        setGalleryIndex(prev => (prev + 1) % messageImages.length)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isGalleryOpen, messageImages.length])
 
   // Utility function to copy text to clipboard
   const copyToClipboard = async text => {
@@ -1596,6 +1934,27 @@ const MessageBubble = ({
         if (!safeHref) {
           return <span {...props}>{parseChildrenWithEmojis(children)}</span>
         }
+
+        // Check if this URL is from video search results and is a YouTube link
+        const videoResult = videoMetadataRef.current.find(v => v.url === safeHref)
+        if (videoResult) {
+          const embedUrl = getYouTubeEmbedUrl(safeHref)
+          if (embedUrl) {
+            // Use span instead of div to avoid HTML nesting error (<div> inside <p>)
+            return (
+              <span className="my-3 block aspect-video w-full max-w-md overflow-hidden rounded-lg">
+                <iframe
+                  src={embedUrl}
+                  title={videoResult.title || 'YouTube video'}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  className="h-full w-full border-0"
+                />
+              </span>
+            )
+          }
+        }
+
         return (
           <a
             href={safeHref}
@@ -1608,10 +1967,20 @@ const MessageBubble = ({
           </a>
         )
       },
-      img: ({ src, alt, ...props }) => {
+      img: ({ src, alt }) => {
         const safeSrc = sanitizeMarkdownUrl(src, { allowDataImage: true })
         if (!safeSrc) return null
-        return <img src={safeSrc} alt={typeof alt === 'string' ? alt : ''} {...props} />
+
+        return (
+          <MessageImage
+            src={safeSrc}
+            alt={alt}
+            openGallery={openGallery}
+            isFailed={failedImageUrls.has(safeSrc)}
+            imageMetadataRef={imageMetadataRef}
+            onImageError={handleImageError}
+          />
+        )
       },
       hr: () => (
         <div className="relative my-4">
@@ -1622,7 +1991,19 @@ const MessageBubble = ({
         </div>
       ),
     }),
-    [isDark, mergedMessage.sources, isMobile, handleMobileSourceClick, CodeBlock, t], // Dependencies for markdownComponents
+    [
+      isDark,
+      mergedMessage.sources,
+      isMobile,
+      handleMobileSourceClick,
+      CodeBlock,
+      t,
+      openGallery,
+      handleImageError,
+      failedImageUrls,
+      getYouTubeEmbedUrl,
+      // Note: imageMetadataRef and videoMetadataRef are excluded as they're stable refs that don't trigger re-renders
+    ], // Dependencies for markdownComponents
   )
 
   const markdownComponentsWithAnchors = useMemo(() => {
@@ -1717,13 +2098,14 @@ const MessageBubble = ({
                     Globe,
                     Brain,
                     BrainCircuit,
+                    ImageIcon,
                   }[iconName]
                 : null
               return (
                 <ToolEnter key={item.id || `${item.name}-${item.arguments}`}>
                   <div className="border-primary-200/35 dark:border-primary-700/20 rounded-lg border bg-white/65 px-2.5 py-2 dark:bg-zinc-800/40">
                     <div className="flex w-full items-center gap-1 text-xs text-gray-500 sm:gap-2 dark:text-gray-400">
-                      <span className="flex shrink-0 items-center gap-1.5 font-medium whitespace-nowrap text-gray-600 dark:text-gray-300">
+                      <span className="flex shrink-0 cursor-default items-center gap-1.5 font-medium whitespace-nowrap text-gray-600 dark:text-gray-300">
                         {item.status === 'error' ? (
                           <AlertTriangle size={14} className="text-red-500 dark:text-red-400" />
                         ) : (
@@ -1844,6 +2226,13 @@ const MessageBubble = ({
             {hasMultipleRounds && (
               <span className="font-medium text-gray-600 dark:text-gray-300">
                 {formatRoundLabel(idx + 1)}
+              </span>
+            )}
+            {typeof part.durationMs === 'number' && part.durationMs >= 0 && (
+              <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                {t('messageBubble.thinkingDuration', {
+                  duration: (part.durationMs / 1000).toFixed(2),
+                })}
               </span>
             )}
             {isThinking && <DotLoader />}
@@ -2452,7 +2841,7 @@ const MessageBubble = ({
         <div className="flex items-center gap-2">
           <BrainCircuit size={15} className="text-primary-500/80 dark:text-primary-300/75" />
           <span className="text-sm font-medium tracking-tight">{workflowHeaderLabel}</span>
-          {!isStreaming && workflowDurationMs > 0 && (
+          {workflowDurationMs > 0 && (
             <span className="text-sm text-gray-500 dark:text-gray-400">
               {t('messageBubble.thinkingDuration', {
                 duration: (workflowDurationMs / 1000).toFixed(0),
@@ -2928,6 +3317,7 @@ const MessageBubble = ({
                                         Globe,
                                         Brain,
                                         BrainCircuit,
+                                        ImageIcon,
                                       }[iconName]
                                     : null
                                   return (
@@ -3245,6 +3635,123 @@ const MessageBubble = ({
                   </div>
                 </div>
               </div>
+            </div>
+          </div>,
+          document.body,
+        )}
+
+      {/* Image Gallery Portal */}
+      {isGalleryOpen &&
+        messageImages.length > 0 &&
+        createPortal(
+          <div
+            className="animate-in fade-in fixed inset-0 z-[10001] flex flex-col items-center justify-center bg-black/95 backdrop-blur-xl duration-300"
+            onClick={() => setIsGalleryOpen(false)}
+          >
+            {/* Close Button */}
+            <button
+              className="absolute top-4 right-4 z-10 rounded-full bg-white/10 p-3 text-white backdrop-blur-md transition-colors hover:bg-white/20"
+              onClick={() => setIsGalleryOpen(false)}
+            >
+              <X size={24} />
+            </button>
+
+            {/* Image Counter */}
+            <div className="absolute top-6 left-6 z-10 rounded-full bg-white/10 px-4 py-1.5 text-sm font-medium text-white backdrop-blur-md">
+              {galleryIndex + 1} / {messageImages.length}
+            </div>
+
+            {/* Navigation Controls */}
+            {messageImages.length > 1 && (
+              <>
+                <button
+                  className="absolute top-1/2 left-4 z-10 -translate-y-1/2 rounded-full bg-white/5 p-4 text-white backdrop-blur-md transition-all hover:scale-110 hover:bg-white/15 active:scale-95"
+                  onClick={e => {
+                    e.stopPropagation()
+                    setGalleryIndex(
+                      prev => (prev - 1 + messageImages.length) % messageImages.length,
+                    )
+                  }}
+                >
+                  <ChevronLeft size={32} />
+                </button>
+                <button
+                  className="absolute top-1/2 right-4 z-10 -translate-y-1/2 rounded-full bg-white/5 p-4 text-white backdrop-blur-md transition-all hover:scale-110 hover:bg-white/15 active:scale-95"
+                  onClick={e => {
+                    e.stopPropagation()
+                    setGalleryIndex(prev => (prev + 1) % messageImages.length)
+                  }}
+                >
+                  <ChevronRight size={32} />
+                </button>
+              </>
+            )}
+
+            {/* Main Image Container */}
+            <div
+              className="relative flex max-h-[85vh] max-w-[95vw] items-center justify-center md:px-12"
+              onClick={e => e.stopPropagation()}
+            >
+              {messageImages[galleryIndex] &&
+              !failedImageUrls.has(messageImages[galleryIndex].src) ? (
+                <>
+                  <img
+                    key={messageImages[galleryIndex].src}
+                    src={messageImages[galleryIndex].src}
+                    alt={messageImages[galleryIndex].alt}
+                    className="animate-in zoom-in-95 max-h-[85vh] max-w-[95vw] rounded-lg object-contain shadow-2xl transition-all duration-300"
+                  />
+
+                  {/* Caption & Source Area */}
+                  {(messageImages[galleryIndex].title || messageImages[galleryIndex].source) && (
+                    <div className="absolute right-0 bottom-0 left-0 bg-linear-to-t from-black/90 via-black/40 to-transparent p-6 pt-12 text-white md:rounded-b-lg">
+                      {messageImages[galleryIndex].title && (
+                        <h3 className="mb-1 line-clamp-2 text-lg font-semibold">
+                          {messageImages[galleryIndex].title}
+                        </h3>
+                      )}
+                      {messageImages[galleryIndex].source && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm opacity-60">
+                            {t('messageBubble.source', 'Source')}:
+                          </span>
+                          <a
+                            href={messageImages[galleryIndex].sourceUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary-400 flex items-center gap-1.5 text-sm font-medium underline-offset-4 hover:underline"
+                            onClick={e => e.stopPropagation()}
+                          >
+                            <Globe size={14} className="opacity-70" />
+                            {messageImages[galleryIndex].source}
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="flex flex-col items-center justify-center gap-4 text-white/80">
+                  <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-white/20 bg-white/10 p-6 backdrop-blur-md">
+                    <AlertTriangle size={32} className="text-white/60" />
+                    <p className="font-medium">
+                      {t('messageBubble.imageLoadError', 'Image failed to load')}
+                    </p>
+                    {messageImages[galleryIndex].sourceUrl && (
+                      <a
+                        href={messageImages[galleryIndex].sourceUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary-300 hover:text-primary-200 mt-1 flex items-center gap-2 text-sm font-medium underline-offset-4 transition-colors hover:underline"
+                        onClick={e => e.stopPropagation()}
+                      >
+                        <Globe size={14} />
+                        {t('messageBubble.viewOriginalSource', 'Try opening original link')}
+                      </a>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>,
           document.body,

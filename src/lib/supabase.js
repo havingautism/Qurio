@@ -576,6 +576,7 @@ export const saveRemoteSettings = async settings => {
     'tavilyApiKey',
     'searchProvider',
     'backendUrl',
+    'serpapiApiKey',
     'NvidiaKey',
     'MinimaxKey',
     'embeddingProvider',

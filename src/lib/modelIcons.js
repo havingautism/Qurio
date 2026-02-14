@@ -11,6 +11,7 @@ import ChatGLMIcon from '../assets/chatglm-color.svg?url'
 import ZhipuIcon from '../assets/zhipu-color.svg?url'
 import ModelScopeIcon from '../assets/modelscope-color.svg?url'
 import TavilyIcon from '../assets/tavily-color.svg?url'
+import SerpApiIcon from '../assets/search-icons/serp.png?url'
 import NvidiaIcon from '../assets/nvidia-color.svg?url'
 import MinimaxIcon from '../assets/minimax-color.svg?url'
 import SupabaseIcon from '../assets/supabase.svg?url'
@@ -37,6 +38,7 @@ export const PROVIDER_ICON_META = {
     imgClassName: 'invert-0 dark:invert',
   },
   tavily: { src: TavilyIcon, alt: 'Tavily', bgClassName: DEFAULT_ICON_BG_CLASS },
+  serpapi: { src: SerpApiIcon, alt: 'SerpApi', bgClassName: DEFAULT_ICON_BG_CLASS },
   nvidia: {
     src: NvidiaIcon,
     alt: 'NVIDIA',

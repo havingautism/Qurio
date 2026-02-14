@@ -70,6 +70,7 @@ const buildStreamBlocks = ({ content = '', thoughtHistory = [], toolCallHistory 
           textIndex: Number.isFinite(item?.textIndex) ? Number(item.textIndex) : 0,
           order: Number.isFinite(item?.streamOrder) ? Number(item.streamOrder) : index,
           content: String(item?.content || ''),
+          duration_ms: Number.isFinite(item?.durationMs) ? Number(item.durationMs) : null,
         }))
         .filter(item => item.content.trim())
     : []
@@ -109,7 +110,12 @@ const buildStreamBlocks = ({ content = '', thoughtHistory = [], toolCallHistory 
       lastIndex = safeIndex
     }
     if (event.type === 'reasoning') {
-      blocks.push({ seq: seq++, type: 'reasoning', content: event.content })
+      blocks.push({
+        seq: seq++,
+        type: 'reasoning',
+        content: event.content,
+        duration_ms: event.duration_ms,
+      })
     } else {
       blocks.push({
         seq: seq++,
@@ -261,6 +267,8 @@ export const callAIAPI = async (
   let streamedThought = ''
   let pendingText = ''
   let pendingThoughtEntries = []
+  const thoughtStreamStartAtMs = Date.now()
+  let lastThoughtEventAtMs = null
   let thoughtBlockCounter = 0
   let streamEventOrder = 0
   let researchStepEventOrder = 0
@@ -356,12 +364,16 @@ export const callAIAPI = async (
             lastEntry.textIndex === entry.textIndex
           ) {
             lastEntry.content = `${lastEntry.content || ''}${entry.content}`
+            const lastDuration = Number.isFinite(lastEntry.durationMs) ? Number(lastEntry.durationMs) : 0
+            const nextDuration = Number.isFinite(entry.durationMs) ? Number(entry.durationMs) : 0
+            lastEntry.durationMs = Math.max(0, lastDuration + nextDuration)
           } else {
             thoughtHistory.push({
               blockId: entry.blockId,
               textIndex: entry.textIndex,
               content: entry.content,
               streamOrder: entry.streamOrder,
+              durationMs: Number.isFinite(entry.durationMs) ? Number(entry.durationMs) : null,
             })
           }
         }
@@ -608,6 +620,7 @@ export const callAIAPI = async (
 
     const searchProvider = settings.searchProvider || 'tavily'
     const tavilyApiKey = searchProvider === 'tavily' ? settings.tavilyApiKey : undefined
+    const serpapiApiKey = settings.serpapiApiKey
     const searchBackends = Array.isArray(toggles?.searchBackends)
       ? toggles.searchBackends.map(item => String(item)).filter(Boolean)
       : typeof toggles?.searchBackend === 'string'
@@ -650,6 +663,7 @@ export const callAIAPI = async (
       contextTurns: settings.contextTurns,
       searchProvider,
       tavilyApiKey,
+      serpapiApiKey,
       searchBackend,
       // Pass session summary model config (resolved internaly)
       summaryProvider: summaryModelConfig?.provider,
@@ -987,7 +1001,18 @@ export const callAIAPI = async (
             const lastStreamMsg = currentMessages[currentMessages.length - 1] || {}
             const fallbackIndex = (lastStreamMsg.content || '').length + (pendingText || '').length
             const thoughtIndex = normalizeStreamTextIndex(chunk.textIndex, fallbackIndex)
+            const now = Date.now()
+            const resolvedDurationMs =
+              Number.isFinite(chunk.duration_ms)
+                ? Number(chunk.duration_ms)
+                : Number.isFinite(lastThoughtEventAtMs)
+                  ? Math.max(0, now - lastThoughtEventAtMs)
+                  : Math.max(0, now - thoughtStreamStartAtMs)
+            lastThoughtEventAtMs = now
             const thoughtParts = rawThought.split(THOUGHT_BLOCK_BREAK_MARKER)
+            const validParts = thoughtParts.filter(part => part && part.trim())
+            const durationPerPart =
+              validParts.length > 0 ? resolvedDurationMs / validParts.length : resolvedDurationMs
 
             thoughtParts.forEach((part, partIndex) => {
               if (!part || !part.trim()) return
@@ -1003,6 +1028,7 @@ export const callAIAPI = async (
                 textIndex: thoughtIndex,
                 content: part,
                 streamOrder: ++streamEventOrder,
+                durationMs: durationPerPart,
               })
             })
           } else if (chunk.type === 'text') {

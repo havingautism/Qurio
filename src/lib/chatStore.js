@@ -66,14 +66,19 @@ const buildExpertPlanPrompt = ({ question, agents }) => {
   })
   return [
     'You are an orchestrator for multi-agent expert execution.',
-    'Split the user request into DIFFERENT sub-questions, one per agent.',
-    'Each agent must receive a distinct sub-question (no duplicates, no same wording).',
+    'Select ONLY the NECESSARY agents from the available list.',
+    'Do NOT force all agents to participate.',
+    'Split the user request into distinct sub-questions only for selected agents.',
+    'Order tasks by execution dependency and information flow (upstream -> downstream).',
     'Return STRICT JSON only with this schema:',
     '{"plan":"string","tasks":[{"agentId":"string","subQuestion":"string"}]}',
     'Rules:',
-    '- tasks must include ALL provided agent ids exactly once',
+    '- each task.agentId must come from Available agents',
+    '- tasks may include a subset of available agents',
+    '- each selected agent appears at most once',
     '- each subQuestion should be concise, actionable, and unique',
     '- do not write generic tasks like "answer from your perspective"',
+    '- return tasks in the exact execution order',
     '',
     'Available agents:',
     ...lines,
@@ -692,7 +697,7 @@ const useChatStore = create((set, get) => ({
 
         console.log('[Debug] Expert Agents count:', expertAgents.length)
 
-        if (expertAgents.length >= 2) {
+        if (expertAgents.length >= 1) {
           console.log('[Debug] Starting Expert Mode execution...')
           const expertMessageLocalId = `expert-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
           appendAIPlaceholder(resolvedAgent, resolvedToggles, [], set)
@@ -706,18 +711,8 @@ const useChatStore = create((set, get) => ({
                 expertMode: true,
                 expertPlanLoading: true,
                 expertPlan: '',
-                expertResponses: expertAgents.map(agent => ({
-                  agentId: agent.id,
-                  agentName: agent.name || '',
-                  agentEmoji: agent.emoji || '',
-                  task: '',
-                  provider: null,
-                  model: null,
-                  status: 'pending',
-                  content: '',
-                  error: null,
-                })),
-                expertActiveAgentId: String(expertAgents[0]?.id || ''),
+                expertResponses: [],
+                expertActiveAgentId: '',
               }
             }
             return { messages: updated }
@@ -783,26 +778,39 @@ const useChatStore = create((set, get) => ({
             console.error('Expert plan generation failed:', error)
           }
 
+          const expertAgentMap = new Map(expertAgents.map(agent => [String(agent.id), agent]))
+          const normalizedTasks = []
+          const seenAgentIds = new Set()
+          for (const task of plannedTasks) {
+            const agentId = String(task?.agentId || '')
+            const subTask = String(task?.task || '').trim()
+            if (!agentId || !subTask) continue
+            if (!expertAgentMap.has(agentId)) continue
+            if (seenAgentIds.has(agentId)) continue
+            seenAgentIds.add(agentId)
+            normalizedTasks.push({ agentId, task: subTask })
+          }
+          plannedTasks = normalizedTasks
+
           if (plannedTasks.length === 0) {
-            plannedTasks = expertAgents.map(agent => ({
-              agentId: String(agent.id),
-              task: `Focus only on the ${agent.name || 'assigned'} sub-problem and propose concrete steps.`,
-            }))
+            const fallbackExpert = expertAgents[0]
+            if (fallbackExpert) {
+              plannedTasks = [
+                {
+                  agentId: String(fallbackExpert.id),
+                  task: `Focus only on the highest-impact core of this request and provide an actionable answer.`,
+                },
+              ]
+            }
           }
 
-          const assignedSet = new Set(plannedTasks.map(item => String(item.agentId)))
-          for (const agent of expertAgents) {
-            const key = String(agent.id)
-            if (assignedSet.has(key)) continue
-            plannedTasks.push({
-              agentId: key,
-              task: `Only address the ${agent.name || 'assigned'} part of the overall request with actionable output.`,
-            })
-          }
+          const executionAgents = plannedTasks
+            .map(task => expertAgentMap.get(String(task.agentId)))
+            .filter(Boolean)
           if (!expertPlan) {
             expertPlan = plannedTasks
               .map(task => {
-                const agent = expertAgents.find(item => String(item.id) === String(task.agentId))
+                const agent = executionAgents.find(item => String(item.id) === String(task.agentId))
                 return `${agent?.name || task.agentId}: ${task.task}`
               })
               .join('\n')
@@ -812,14 +820,29 @@ const useChatStore = create((set, get) => ({
             ...current,
             expertPlanLoading: false,
             expertPlan,
-            expertResponses: (current.expertResponses || []).map(item => ({
-              ...item,
+            expertActiveAgentId: String(executionAgents[0]?.id || ''),
+            expertResponses: executionAgents.map(agent => ({
+              agentId: agent.id,
+              agentName: agent.name || '',
+              agentEmoji: agent.emoji || '',
               task:
-                plannedTasks.find(task => String(task.agentId) === String(item.agentId))?.task ||
-                '',
-              status: plannedTasks.some(task => String(task.agentId) === String(item.agentId))
-                ? 'running'
-                : 'pending',
+                plannedTasks.find(task => String(task.agentId) === String(agent.id))?.task || '',
+              provider: null,
+              model: null,
+              status: 'pending',
+              content: '',
+              thought: '',
+              thoughtHistory: [],
+              toolCallHistory: [],
+              streamBlocks: [],
+              searchBackend:
+                typeof resolvedToggles?.searchBackend === 'string'
+                  ? resolvedToggles.searchBackend
+                  : null,
+              searchBackends: Array.isArray(resolvedToggles?.searchBackends)
+                ? resolvedToggles.searchBackends
+                : [],
+              error: null,
             })),
           }))
 
@@ -838,6 +861,46 @@ const useChatStore = create((set, get) => ({
           set({ abortController: controller })
 
           const runAgentTask = async agent => {
+            const searchBackends = Array.isArray(resolvedToggles?.searchBackends)
+              ? resolvedToggles.searchBackends.map(item => String(item)).filter(Boolean)
+              : typeof resolvedToggles?.searchBackend === 'string' && resolvedToggles.searchBackend
+                ? [String(resolvedToggles.searchBackend)]
+                : []
+            const searchBackend = searchBackends[0] || null
+            let streamSeq = 0
+            let thoughtStreamOrder = 0
+            let toolStreamOrder = 0
+            const toolStartedAt = new Map()
+            let lastReasoningAtMs = null
+
+            const extractChunkText = chunk => {
+              if (typeof chunk === 'string') return chunk
+              if (!chunk || typeof chunk !== 'object') return ''
+              if (chunk.type === 'reasoning') return ''
+              if (chunk.type === 'tool_call' || chunk.type === 'tool_result') return ''
+              if (chunk.type === 'research_step' || chunk.type === 'form_request') return ''
+              if (chunk.type === 'text' && typeof chunk.content === 'string') return chunk.content
+              if (typeof chunk.content === 'string') return chunk.content
+              if (typeof chunk.text === 'string') return chunk.text
+              if (typeof chunk.delta === 'string') return chunk.delta
+              if (typeof chunk.delta?.content === 'string') return chunk.delta.content
+              if (typeof chunk.message?.content === 'string') return chunk.message.content
+              if (typeof chunk.choices?.[0]?.delta?.content === 'string') {
+                return chunk.choices[0].delta.content
+              }
+              return ''
+            }
+
+            const extractReasoningText = chunk => {
+              if (!chunk || typeof chunk !== 'object' || chunk.type !== 'reasoning') return ''
+              if (typeof chunk.content === 'string') return chunk.content
+              if (typeof chunk.text === 'string') return chunk.text
+              if (typeof chunk.reasoning === 'string') return chunk.reasoning
+              if (typeof chunk.delta === 'string') return chunk.delta
+              if (typeof chunk.delta?.content === 'string') return chunk.delta.content
+              return ''
+            }
+
             const assignedTask = plannedTasks.find(
               item => String(item.agentId) === String(agent.id),
             )?.task
@@ -864,6 +927,7 @@ const useChatStore = create((set, get) => ({
 
             updateExpertMessage(current => ({
               ...current,
+              expertActiveAgentId: String(agent.id),
               expertResponses: (current.expertResponses || []).map(item =>
                 String(item.agentId) === String(agent.id)
                   ? {
@@ -871,6 +935,8 @@ const useChatStore = create((set, get) => ({
                       provider: modelConfig.provider,
                       model: modelConfig.model,
                       status: 'running',
+                      searchBackend,
+                      searchBackends,
                     }
                   : item,
               ),
@@ -896,32 +962,242 @@ const useChatStore = create((set, get) => ({
                   ),
                   signal: controller.signal,
                   onChunk: chunk => {
-                    let chunkText = ''
-                    if (typeof chunk === 'string') {
-                      chunkText = chunk
-                    } else if (chunk && typeof chunk === 'object') {
-                      if (chunk.type === 'text' && typeof chunk.content === 'string') {
-                        chunkText = chunk.content
-                      } else if (typeof chunk.content === 'string') {
-                        chunkText = chunk.content
-                      } else if (typeof chunk.text === 'string') {
-                        chunkText = chunk.text
-                      } else if (typeof chunk.delta === 'string') {
-                        chunkText = chunk.delta
-                      } else if (typeof chunk.delta?.content === 'string') {
-                        chunkText = chunk.delta.content
-                      } else if (typeof chunk.message?.content === 'string') {
-                        chunkText = chunk.message.content
-                      } else if (typeof chunk.choices?.[0]?.delta?.content === 'string') {
-                        chunkText = chunk.choices[0].delta.content
-                      }
+                    const reasoningText = extractReasoningText(chunk)
+                    if (reasoningText) {
+                      const now = Date.now()
+                      const resolvedDurationMs =
+                        typeof chunk?.duration_ms === 'number'
+                          ? chunk.duration_ms
+                          : Number.isFinite(lastReasoningAtMs)
+                            ? Math.max(0, now - lastReasoningAtMs)
+                            : 0
+                      lastReasoningAtMs = now
+                      updateExpertMessage(current => ({
+                        ...current,
+                        expertActiveAgentId: String(agent.id),
+                        expertResponses: (current.expertResponses || []).map(item => {
+                          if (String(item.agentId) !== String(agent.id)) return item
+                          const contentLength = (item.content || '').length
+                          const thoughtHistory = Array.isArray(item.thoughtHistory)
+                            ? [...item.thoughtHistory]
+                            : []
+                          const blockId = chunk?.block_id || `thought-${thoughtHistory.length + 1}`
+                          const lastEntry = thoughtHistory[thoughtHistory.length - 1]
+                          if (
+                            lastEntry &&
+                            String(lastEntry.blockId) === String(blockId) &&
+                            Number(lastEntry.textIndex) === Number(contentLength)
+                          ) {
+                            lastEntry.content = `${lastEntry.content || ''}${reasoningText}`
+                            const lastDuration =
+                              typeof lastEntry.durationMs === 'number' ? lastEntry.durationMs : 0
+                            lastEntry.durationMs = Math.max(0, lastDuration + resolvedDurationMs)
+                          } else {
+                            thoughtHistory.push({
+                              id: `${blockId}-${Date.now()}-${thoughtHistory.length}`,
+                              blockId,
+                              textIndex: contentLength,
+                              content: reasoningText,
+                              streamOrder: ++thoughtStreamOrder,
+                              durationMs: resolvedDurationMs,
+                            })
+                          }
+                          const streamBlocks = Array.isArray(item.streamBlocks)
+                            ? [...item.streamBlocks]
+                            : []
+                          streamBlocks.push({
+                            seq: ++streamSeq,
+                            type: 'reasoning',
+                            content: reasoningText,
+                            durationMs:
+                              typeof chunk?.duration_ms === 'number' ? chunk.duration_ms : null,
+                          })
+                          return {
+                            ...item,
+                            thought: `${item.thought || ''}${reasoningText}`,
+                            thoughtHistory,
+                            streamBlocks,
+                          }
+                        }),
+                      }))
+                      return
                     }
+
+                    if (chunk && typeof chunk === 'object' && chunk.type === 'tool_call') {
+                      updateExpertMessage(current => ({
+                        ...current,
+                        expertActiveAgentId: String(agent.id),
+                        expertResponses: (current.expertResponses || []).map(item => {
+                          if (String(item.agentId) !== String(agent.id)) return item
+                          const nextToolId = chunk.id || `${chunk.name || 'tool'}-${Date.now()}`
+                          const toolCallHistory = Array.isArray(item.toolCallHistory)
+                            ? [...item.toolCallHistory]
+                            : []
+                          const toolName = chunk.name || 'tool'
+                          const injectedArguments = (() => {
+                            if (toolName !== 'web_search' && toolName !== 'search_news') {
+                              return chunk.arguments || ''
+                            }
+                            if (searchBackends.length === 0) return chunk.arguments || ''
+                            const primaryBackend = searchBackends[0]
+                            if (!chunk.arguments) {
+                              return JSON.stringify(
+                                searchBackends.length > 1
+                                  ? { backend: primaryBackend, backends: searchBackends }
+                                  : { backend: primaryBackend },
+                              )
+                            }
+                            if (typeof chunk.arguments === 'object') {
+                              if (chunk.arguments.backend || chunk.arguments.backends) {
+                                return chunk.arguments
+                              }
+                              return searchBackends.length > 1
+                                ? {
+                                    ...chunk.arguments,
+                                    backend: primaryBackend,
+                                    backends: searchBackends,
+                                  }
+                                : { ...chunk.arguments, backend: primaryBackend }
+                            }
+                            if (typeof chunk.arguments !== 'string') return chunk.arguments || ''
+                            try {
+                              const parsedArgs = JSON.parse(chunk.arguments)
+                              if (!parsedArgs || typeof parsedArgs !== 'object') {
+                                return chunk.arguments
+                              }
+                              if (parsedArgs.backend || parsedArgs.backends) return chunk.arguments
+                              return JSON.stringify(
+                                searchBackends.length > 1
+                                  ? {
+                                      ...parsedArgs,
+                                      backend: primaryBackend,
+                                      backends: searchBackends,
+                                    }
+                                  : { ...parsedArgs, backend: primaryBackend },
+                              )
+                            } catch {
+                              return chunk.arguments
+                            }
+                          })()
+                          toolCallHistory.push({
+                            id: nextToolId,
+                            name: toolName,
+                            arguments: injectedArguments,
+                            status: 'calling',
+                            durationMs: null,
+                            textIndex: (item.content || '').length,
+                            step: typeof chunk.step === 'number' ? chunk.step : undefined,
+                            total: typeof chunk.total === 'number' ? chunk.total : undefined,
+                            streamOrder: ++toolStreamOrder,
+                          })
+                          toolStartedAt.set(nextToolId, Date.now())
+                          const streamBlocks = Array.isArray(item.streamBlocks)
+                            ? [...item.streamBlocks]
+                            : []
+                          streamBlocks.push({
+                            seq: ++streamSeq,
+                            type: 'tool_call',
+                            toolCallId: nextToolId,
+                            name: toolName,
+                            arguments: injectedArguments,
+                            status: 'calling',
+                          })
+                          return { ...item, toolCallHistory, streamBlocks }
+                        }),
+                      }))
+                      return
+                    }
+
+                    if (chunk && typeof chunk === 'object' && chunk.type === 'tool_result') {
+                      updateExpertMessage(current => ({
+                        ...current,
+                        expertActiveAgentId: String(agent.id),
+                        expertResponses: (current.expertResponses || []).map(item => {
+                          if (String(item.agentId) !== String(agent.id)) return item
+                          const toolCallHistory = Array.isArray(item.toolCallHistory)
+                            ? [...item.toolCallHistory]
+                            : []
+                          const targetIndex = toolCallHistory.findIndex(entry =>
+                            chunk.id ? entry.id === chunk.id : entry.name === chunk.name,
+                          )
+                          const resolveDuration = (startedAt, incoming) => {
+                            if (typeof incoming === 'number') return incoming
+                            if (typeof startedAt === 'number') return Date.now() - startedAt
+                            return null
+                          }
+                          if (targetIndex >= 0) {
+                            const targetId = toolCallHistory[targetIndex].id
+                            const startedAt = toolStartedAt.get(targetId)
+                            if (targetId) toolStartedAt.delete(targetId)
+                            toolCallHistory[targetIndex] = {
+                              ...toolCallHistory[targetIndex],
+                              status: chunk.status || 'done',
+                              error: chunk.error || null,
+                              output:
+                                typeof chunk.output !== 'undefined'
+                                  ? chunk.output
+                                  : toolCallHistory[targetIndex].output,
+                              durationMs: resolveDuration(startedAt, chunk.duration_ms),
+                              step:
+                                typeof chunk.step === 'number'
+                                  ? chunk.step
+                                  : toolCallHistory[targetIndex].step,
+                              total:
+                                typeof chunk.total === 'number'
+                                  ? chunk.total
+                                  : toolCallHistory[targetIndex].total,
+                            }
+                          } else {
+                            const newToolId = chunk.id || `${chunk.name || 'tool'}-${Date.now()}`
+                            toolCallHistory.push({
+                              id: newToolId,
+                              name: chunk.name || 'tool',
+                              arguments: '',
+                              status: chunk.status || 'done',
+                              error: chunk.error || null,
+                              output: typeof chunk.output !== 'undefined' ? chunk.output : null,
+                              durationMs:
+                                typeof chunk.duration_ms === 'number' ? chunk.duration_ms : null,
+                              textIndex: (item.content || '').length,
+                              step: typeof chunk.step === 'number' ? chunk.step : undefined,
+                              total: typeof chunk.total === 'number' ? chunk.total : undefined,
+                              streamOrder: ++toolStreamOrder,
+                            })
+                          }
+                          const streamBlocks = Array.isArray(item.streamBlocks)
+                            ? [...item.streamBlocks]
+                            : []
+                          streamBlocks.push({
+                            seq: ++streamSeq,
+                            type: 'tool_result',
+                            toolCallId: chunk.id || null,
+                            name: chunk.name || 'tool',
+                            status: chunk.status || 'done',
+                            output: typeof chunk.output !== 'undefined' ? chunk.output : null,
+                            error: chunk.error || null,
+                            durationMs:
+                              typeof chunk.duration_ms === 'number' ? chunk.duration_ms : null,
+                          })
+                          return { ...item, toolCallHistory, streamBlocks }
+                        }),
+                      }))
+                      return
+                    }
+
+                    const chunkText = extractChunkText(chunk)
                     if (!chunkText) return
                     updateExpertMessage(current => ({
                       ...current,
+                      expertActiveAgentId: String(agent.id),
                       expertResponses: (current.expertResponses || []).map(item =>
                         String(item.agentId) === String(agent.id)
-                          ? { ...item, content: `${item.content || ''}${chunkText}` }
+                          ? {
+                              ...item,
+                              content: `${item.content || ''}${chunkText}`,
+                              streamBlocks: Array.isArray(item.streamBlocks)
+                                ? [...item.streamBlocks, { seq: ++streamSeq, type: 'text', content: chunkText }]
+                                : [{ seq: ++streamSeq, type: 'text', content: chunkText }],
+                            }
                           : item,
                       ),
                     }))
@@ -929,14 +1205,22 @@ const useChatStore = create((set, get) => ({
                   onFinish: result => {
                     const finalText =
                       typeof result?.content === 'string' ? result.content : undefined
+                    const finalThought =
+                      typeof result?.thought === 'string'
+                        ? result.thought
+                        : typeof result?.reasoning === 'string'
+                          ? result.reasoning
+                          : ''
                     updateExpertMessage(current => ({
                       ...current,
+                      expertActiveAgentId: String(agent.id),
                       expertResponses: (current.expertResponses || []).map(item =>
                         String(item.agentId) === String(agent.id)
                           ? {
                               ...item,
                               status: 'done',
                               content: finalText ?? item.content ?? '',
+                              thought: finalThought || item.thought || '',
                             }
                           : item,
                       ),
@@ -977,7 +1261,10 @@ const useChatStore = create((set, get) => ({
             })
           }
 
-          await Promise.all(expertAgents.map(runAgentTask))
+          for (const agent of executionAgents) {
+            // Execute in planner order to preserve task dependency flow.
+            await runAgentTask(agent)
+          }
 
           const finalMessage = (get().messages || []).find(
             msg => msg.role === 'ai' && msg.localId === expertMessageLocalId,
@@ -991,7 +1278,7 @@ const useChatStore = create((set, get) => ({
             null
           const fallbackText = preferredResponse?.content || 'All expert agents failed to respond.'
           const activeAgentId = String(
-            preferredResponse?.agentId || finalResponses[0]?.agentId || expertAgents[0]?.id || '',
+            preferredResponse?.agentId || finalResponses[0]?.agentId || executionAgents[0]?.id || '',
           )
 
           updateExpertMessage(current => ({
@@ -999,6 +1286,26 @@ const useChatStore = create((set, get) => ({
             content: fallbackText,
             expertPlanLoading: false,
             expertActiveAgentId: activeAgentId,
+            toolCallHistory:
+              preferredResponse && Array.isArray(preferredResponse.toolCallHistory)
+                ? preferredResponse.toolCallHistory
+                : [],
+            thoughtHistory:
+              preferredResponse && Array.isArray(preferredResponse.thoughtHistory)
+                ? preferredResponse.thoughtHistory
+                : [],
+            streamBlocks:
+              preferredResponse && Array.isArray(preferredResponse.streamBlocks)
+                ? preferredResponse.streamBlocks
+                : [],
+            searchBackend:
+              preferredResponse && typeof preferredResponse.searchBackend === 'string'
+                ? preferredResponse.searchBackend
+                : null,
+            searchBackends:
+              preferredResponse && Array.isArray(preferredResponse.searchBackends)
+                ? preferredResponse.searchBackends
+                : [],
           }))
 
           const expertThinkingPayload = JSON.stringify({
@@ -1022,7 +1329,11 @@ const useChatStore = create((set, get) => ({
             agent_is_default: !!resolvedAgent?.isDefault,
             content: sanitizeJson(fallbackText),
             thinking_process: expertThinkingPayload,
-            tool_call_history: sanitizeJson([]),
+            tool_call_history: sanitizeJson(
+              preferredResponse && Array.isArray(preferredResponse.toolCallHistory)
+                ? preferredResponse.toolCallHistory
+                : [],
+            ),
             document_sources: sanitizeJson(null),
             created_at: new Date().toISOString(),
           }

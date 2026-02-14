@@ -57,6 +57,7 @@ const ENV_VARS = {
   modelscopeKey: getPublicEnv('PUBLIC_MODELSCOPE_API_KEY'),
   kimiKey: getPublicEnv('PUBLIC_KIMI_API_KEY'),
   tavilyApiKey: getPublicEnv('PUBLIC_TAVILY_API_KEY'),
+  serpapiApiKey: getPublicEnv('PUBLIC_SERPAPI_API_KEY'),
   backendUrl: getPublicEnv('PUBLIC_BACKEND_URL'),
 }
 
@@ -355,7 +356,7 @@ FOR EACH ROW EXECUTE PROCEDURE public.set_updated_at();
 -- CREATE POLICY "Allow all actions for authenticated users" ON public.user_settings FOR ALL USING (auth.role() = 'authenticated');
 `
 
-const TOOLS_API_PROVIDER_KEYS = ['tavily']
+const TOOLS_API_PROVIDER_KEYS = ['tavily', 'serpapi']
 
 const INTERFACE_LANGUAGE_KEYS = ['en', 'zh-CN']
 const DOCUMENT_CHUNK_SIZE = 1200
@@ -531,6 +532,9 @@ const getEnvManagedSettingKeys = () => {
   if (ENV_VARS.tavilyApiKey) {
     keys.push('tavilyApiKey')
   }
+  if (ENV_VARS.serpapiApiKey) {
+    keys.push('serpapiApiKey')
+  }
   if (ENV_VARS.backendUrl) {
     keys.push('backendUrl')
   }
@@ -545,7 +549,9 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
 
   const renderEnvHint = hasEnv =>
     hasEnv ? (
-      <p className="text-xs text-emerald-600 dark:text-emerald-400">Loaded from environment</p>
+      <p className="text-xs text-emerald-600 dark:text-emerald-400">
+        {t('settings.loadedFromEnvironment')}
+      </p>
     ) : null
 
   const [activeTab, setActiveTab] = useState('general')
@@ -560,7 +566,9 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
   const [apiProvider, setApiProvider] = useState('gemini')
   const [googleApiKey, setGoogleApiKey] = useState('')
   const [searchProvider, setSearchProvider] = useState('tavily')
+
   const [tavilyApiKey, setTavilyApiKey] = useState('')
+  const [serpapiApiKey, setSerpapiApiKey] = useState('')
   const [backendUrl, setBackendUrl] = useState(ENV_VARS.backendUrl || '')
   const [databaseProvider, setDatabaseProvider] = useState('')
   const [databaseProviderId, setDatabaseProviderId] = useState('')
@@ -765,6 +773,13 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
       })),
     [t],
   )
+  const toolsApiProviderConfiguredMap = useMemo(
+    () => ({
+      tavily: Boolean((tavilyApiKey || '').trim() || ENV_VARS.tavilyApiKey),
+      serpapi: Boolean((serpapiApiKey || '').trim() || ENV_VARS.serpapiApiKey),
+    }),
+    [tavilyApiKey, serpapiApiKey],
+  )
 
   // Interface language options with translated labels
   const interfaceLanguageOptions = useMemo(
@@ -830,6 +845,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
       if (settings.googleApiKey) setGoogleApiKey(settings.googleApiKey)
       if (settings.searchProvider) setSearchProvider(settings.searchProvider)
       if (settings.tavilyApiKey) setTavilyApiKey(settings.tavilyApiKey)
+      if (settings.serpapiApiKey) setSerpapiApiKey(settings.serpapiApiKey)
       if (settings.backendUrl && !ENV_VARS.backendUrl) setBackendUrl(settings.backendUrl)
       if (settings.contextTurns || settings.contextMessageLimit) {
         setContextTurns(Number(settings.contextTurns || settings.contextMessageLimit))
@@ -910,6 +926,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
             if (data.googleApiKey) setGoogleApiKey(data.googleApiKey)
             if (data.searchProvider) setSearchProvider(data.searchProvider)
             if (data.tavilyApiKey) setTavilyApiKey(data.tavilyApiKey)
+            if (data.serpapiApiKey) setSerpapiApiKey(data.serpapiApiKey)
             if (data.backendUrl && !ENV_VARS.backendUrl) setBackendUrl(data.backendUrl)
             if (data.embeddingProvider) setEmbeddingProvider(data.embeddingProvider)
             if (data.embeddingModelSource)
@@ -1638,7 +1655,8 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
     hideProviderSelector = false,
     testAction,
   }) => {
-    const providers = Object.keys(chatGroupedModels).length > 0 ? Object.keys(chatGroupedModels) : PROVIDER_KEYS
+    const providers =
+      Object.keys(chatGroupedModels).length > 0 ? Object.keys(chatGroupedModels) : PROVIDER_KEYS
     const activeModels = chatGroupedModels[activeProvider] || []
     const selectedLabel = getModelLabel(value)
     const showList = modelSource === 'list'
@@ -1931,7 +1949,8 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
         const normalizedModels = Array.isArray(models) ? models : []
         return {
           key,
-          models: normalizedModels.length > 0 ? normalizedModels : FALLBACK_MODEL_OPTIONS[key] || [],
+          models:
+            normalizedModels.length > 0 ? normalizedModels : FALLBACK_MODEL_OPTIONS[key] || [],
         }
       } catch (err) {
         console.error(`Failed to fetch chat models for ${key}`, err)
@@ -2116,6 +2135,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
         googleApiKey,
         searchProvider,
         tavilyApiKey,
+        serpapiApiKey,
         backendUrl,
         // API Keys
         OpenAICompatibilityKey,
@@ -2303,6 +2323,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
               'KimiKey',
               'googleApiKey',
               'tavilyApiKey',
+              'serpapiApiKey',
               'backendUrl',
               'NvidiaKey',
               'MinimaxKey',
@@ -2827,18 +2848,20 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                         onClick={handleBackendHealthCheck}
                         disabled={backendHealthState.status === 'loading'}
                         className={clsx(
-                          'rounded-lg border px-3 py-2 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50',
-                          'text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 border-primary-200 dark:border-primary-900/40',
+                          'flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50',
+                          'border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-zinc-700 dark:text-gray-300 dark:hover:bg-zinc-800',
                         )}
                       >
-                        {backendHealthState.status === 'loading'
-                          ? t('settings.backendHealthChecking')
-                          : t('settings.backendHealthCheck')}
+                        {backendHealthState.status === 'loading' && (
+                          <RefreshCw size={12} className="animate-spin" />
+                        )}
+                        {t('settings.backendHealthCheck')}
                       </button>
-                      {backendHealthState.status !== 'idle' && backendHealthState.message && (
-                        <p
+
+                      {backendHealthState.status !== 'idle' && (
+                        <div
                           className={clsx(
-                            'text-sm font-medium',
+                            'flex items-center gap-1.5 text-xs font-medium',
                             backendHealthState.status === 'success' &&
                               'text-emerald-600 dark:text-emerald-400',
                             backendHealthState.status === 'error' &&
@@ -2847,8 +2870,10 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                               'text-gray-500 dark:text-gray-400',
                           )}
                         >
-                          {backendHealthState.message}
-                        </p>
+                          {backendHealthState.status === 'success' && <Check size={14} />}
+                          {backendHealthState.status === 'error' && <X size={14} />}
+                          <span>{backendHealthState.message}</span>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -2889,34 +2914,46 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                       </div>
                     </div>
 
-                    <div className="flex flex-col gap-2">
+                    <div className="flex flex-wrap items-center gap-3">
                       <button
                         onClick={onOpenDatabaseSetup}
                         className={clsx(
-                          'self-start rounded-lg border px-4 py-2 text-xs font-medium transition-colors',
-                          'text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 border-primary-200 dark:border-primary-900/40',
+                          'flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition-colors',
+                          'border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-zinc-700 dark:text-gray-300 dark:hover:bg-zinc-800',
                         )}
                       >
+                        <Settings size={12} />
                         {t('settings.configureDatabase') || 'Configure Database'}
                       </button>
-                    </div>
-                  </div>
 
-                  {databaseProviderId && (
-                    <div className="flex flex-col gap-3">
-                      <button
-                        onClick={handleTestConnection}
-                        className="text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 border-primary-200 dark:border-primary-900/40 self-start rounded-lg border px-4 py-2 text-xs font-medium transition-colors"
-                      >
-                        {t('settings.testDatabaseConnection') || 'Test database connection'}
-                      </button>
-                      {initModalResult && initModalResult.success && (
-                        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-900/20 dark:text-emerald-300">
-                          {t('settings.initModal.connectionOk') || 'Connection OK'}
-                        </div>
+                      {databaseProviderId && (
+                        <>
+                          <button
+                            onClick={handleTestConnection}
+                            disabled={retestingDb}
+                            className={clsx(
+                              'flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50',
+                              'border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-zinc-700 dark:text-gray-300 dark:hover:bg-zinc-800',
+                            )}
+                          >
+                            {retestingDb ? (
+                              <RefreshCw size={12} className="animate-spin" />
+                            ) : (
+                              <RefreshCw size={12} />
+                            )}
+                            {t('settings.testDatabaseConnection') || 'Test Connection'}
+                          </button>
+
+                          {initModalResult && initModalResult.success && (
+                            <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                              <Check size={14} />
+                              <span>{t('settings.initModal.connectionOk') || 'Connection OK'}</span>
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
-                  )}
+                  </div>
                 </div>
                 <div className="h-px bg-gray-100 dark:bg-zinc-800" />
 
@@ -2944,6 +2981,14 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                             </div>
                             <SelectValue>
                               <div className="flex items-center gap-3">
+                                <span
+                                  className={clsx(
+                                    'h-2.5 w-2.5 rounded-full',
+                                    toolsApiProviderConfiguredMap[searchProvider]
+                                      ? 'bg-emerald-500'
+                                      : 'bg-gray-400 dark:bg-zinc-600',
+                                  )}
+                                />
                                 {renderProviderIcon(searchProvider, {
                                   size: 16,
                                   alt: t(`settings.toolsApiProviders.${searchProvider}`),
@@ -2960,6 +3005,14 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                             {toolsApiProviderOptions.map(option => (
                               <SelectItem key={option.key} value={option.value}>
                                 <div className="flex items-center gap-3">
+                                  <span
+                                    className={clsx(
+                                      'h-2.5 w-2.5 rounded-full',
+                                      toolsApiProviderConfiguredMap[option.value]
+                                        ? 'bg-emerald-500'
+                                        : 'bg-gray-400 dark:bg-zinc-600',
+                                    )}
+                                  />
                                   {renderProviderIcon(option.value, {
                                     size: 16,
                                     alt: option.label,
@@ -2976,7 +3029,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                     {searchProvider === 'tavily' && (
                       <div className="animate-in fade-in slide-in-from-top-2 flex flex-col gap-2 duration-200">
                         <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                          {t('settings.toolsApiKey')}
+                          {t('settings.toolsApiKey')} (Tavily)
                         </label>
                         <div className="relative">
                           <div className="absolute top-1/2 left-3 -translate-y-1/2 text-gray-400">
@@ -2999,6 +3052,45 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
                             {t('settings.loadedFromEnvironment')}
                           </p>
                         )}
+                      </div>
+                    )}
+                    {searchProvider === 'serpapi' && (
+                      <div className="animate-in fade-in slide-in-from-top-2 flex flex-col gap-2 duration-200">
+                        <div className="flex items-center gap-2">
+                          <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                            {t('settings.toolsApiKey')} (SerpApi)
+                          </label>
+                          <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+                            {t('settings.imageSearchNote')}
+                          </span>
+                        </div>
+                        <div className="relative">
+                          <div className="absolute top-1/2 left-3 -translate-y-1/2 text-gray-400">
+                            <Key size={16} />
+                          </div>
+                          <input
+                            type="password"
+                            value={serpapiApiKey}
+                            onChange={e => setSerpapiApiKey(e.target.value)}
+                            placeholder={t('settings.serpApiKeyPlaceholder')}
+                            disabled={Boolean(ENV_VARS.serpapiApiKey)}
+                            className={clsx(
+                              'focus:ring-primary-500/20 focus:border-primary-500 w-full rounded-lg border border-gray-200 bg-white py-2.5 pr-4 pl-10 text-sm text-gray-900 placeholder-gray-400 transition-all focus:ring-2 focus:outline-none disabled:bg-gray-50/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100 dark:placeholder-zinc-600',
+                              ENV_VARS.serpapiApiKey && 'cursor-not-allowed opacity-70',
+                            )}
+                          />
+                        </div>
+                        {ENV_VARS.serpapiApiKey && (
+                          <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                            {t('settings.loadedFromEnvironment')}
+                          </p>
+                        )}
+                        <p className="mt-1 text-xs text-amber-600 italic dark:text-amber-400">
+                          *{' '}
+                          {t('settings.serpApiImageSearchNote', {
+                            defaultValue: 'Currently used for Image Search only.',
+                          })}
+                        </p>
                       </div>
                     )}
                   </div>

@@ -29,6 +29,12 @@ export const TOOL_TRANSLATION_KEYS = {
   get_historical_stock_prices: 'tools.historicalPrices',
   memory_retrieve: 'tools.memoryRetrieve',
   memory_update: 'tools.memoryUpdate',
+  duckduckgo_image_search: 'tools.imageSearchDuckDuckGo',
+  google_image_search: 'tools.imageSearchGoogle',
+  bing_image_search: 'tools.imageSearchBing',
+  serpapi_image_search: 'tools.imageSearchSerpApi',
+  duckduckgo_video_search: 'tools.videoSearchDuckDuckGo',
+  search_youtube: 'tools.videoSearchYouTube',
 }
 
 // Tool icons mapping (using lucide-react icon names)
@@ -63,6 +69,12 @@ export const TOOL_ICONS = {
   get_historical_stock_prices: 'LineChart',
   memory_retrieve: 'Brain',
   memory_update: 'BrainCircuit',
+  duckduckgo_image_search: 'ImageIcon',
+  google_image_search: 'ImageIcon',
+  bing_image_search: 'ImageIcon',
+  serpapi_image_search: 'ImageIcon',
+  duckduckgo_video_search: 'Video',
+  search_youtube: 'Youtube',
 }
 
 // Tool usage info keys for translations
@@ -97,4 +109,10 @@ export const TOOL_INFO_KEYS = {
   get_historical_stock_prices: 'tools.historicalPricesInfo',
   memory_retrieve: 'tools.memoryRetrieveInfo',
   memory_update: 'tools.memoryUpdateInfo',
+  duckduckgo_image_search: 'tools.imageSearchDuckDuckGoInfo',
+  google_image_search: 'tools.imageSearchGoogleInfo',
+  bing_image_search: 'tools.imageSearchBingInfo',
+  serpapi_image_search: 'tools.imageSearchSerpApiInfo',
+  duckduckgo_video_search: 'tools.videoSearchDuckDuckGoInfo',
+  search_youtube: 'tools.videoSearchYouTubeInfo',
 }

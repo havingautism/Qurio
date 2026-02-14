@@ -96,7 +96,19 @@
     "imageSearch": "Image Search",
     "imageSearchInfo": "Search for relevant images on the internet.",
     "videoSearch": "Video Search",
-    "videoSearchInfo": "Search for relevant videos on the internet."
+    "videoSearchInfo": "Search for relevant videos on the internet.",
+    "imageSearchDuckDuckGo": "Image Search (DuckDuckGo)",
+    "imageSearchDuckDuckGoInfo": "Search for images via DuckDuckGo image index.",
+    "imageSearchGoogle": "Image Search (Google/SerpApi)",
+    "imageSearchGoogleInfo": "Search for images on Google via SerpApi.",
+    "imageSearchBing": "Image Search (Bing/SerpApi)",
+    "imageSearchBingInfo": "Search for images on Bing via SerpApi.",
+    "imageSearchSerpApi": "Image Search (SerpApi Multi-Engine)",
+    "imageSearchSerpApiInfo": "Search images via SerpApi with selectable engines.",
+    "videoSearchDuckDuckGo": "Video Search (DuckDuckGo)",
+    "videoSearchDuckDuckGoInfo": "Search for videos via DuckDuckGo video index.",
+    "videoSearchYouTube": "Video Search (YouTube/SerpApi)",
+    "videoSearchYouTubeInfo": "Search YouTube videos via SerpApi."
   },
   "searchBackends": {
     "auto": "Auto",
@@ -683,6 +695,7 @@
     "tools": {
       "title": "Tool Access",
       "hint": "Select which local tools this agent can call.",
+      "apiRequiredHint": "Requires {{provider}} API key in Settings.",
       "loading": "Loading tools...",
       "empty": "No tools available.",
       "categories": {

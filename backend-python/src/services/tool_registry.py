@@ -562,7 +562,7 @@ IMAGE_SEARCH_TOOLS: list[dict[str, Any]] = [
     {
         "id": "duckduckgo_image_search",
         "name": "duckduckgo_image_search",
-        "category": "agno",
+        "category": "search",
         "description": "Search for images using DuckDuckGo. Returns a list of image results with titles and URLs.",
         "parameters": {
             "type": "object",
@@ -579,7 +579,7 @@ IMAGE_SEARCH_TOOLS: list[dict[str, Any]] = [
     {
         "id": "bing_image_search",
         "name": "bing_image_search",
-        "category": "agno",
+        "category": "search",
         "description": "Search for images on Bing using SerpApi.",
         "parameters": {
             "type": "object",
@@ -592,7 +592,7 @@ IMAGE_SEARCH_TOOLS: list[dict[str, Any]] = [
     {
         "id": "google_image_search",
         "name": "google_image_search",
-        "category": "agno",
+        "category": "search",
         "description": "Search for images on Google using SerpApi.",
         "parameters": {
             "type": "object",
@@ -605,7 +605,7 @@ IMAGE_SEARCH_TOOLS: list[dict[str, Any]] = [
     {
         "id": "serpapi_image_search",
         "name": "serpapi_image_search",
-        "category": "agno",
+        "category": "search",
         "description": "Search for images using various engines via SerpApi (Google, Bing, etc.).",
         "parameters": {
             "type": "object",
@@ -629,7 +629,7 @@ VIDEO_SEARCH_TOOLS: list[dict[str, Any]] = [
     {
         "id": "duckduckgo_video_search",
         "name": "duckduckgo_video_search",
-        "category": "agno",
+        "category": "search",
         "description": "Search for videos using DuckDuckGo. Returns a list of video results with titles, URLs, and thumbnails.",
         "parameters": {
             "type": "object",
@@ -646,7 +646,7 @@ VIDEO_SEARCH_TOOLS: list[dict[str, Any]] = [
     {
         "id": "search_youtube",
         "name": "search_youtube",
-        "category": "agno",
+        "category": "search",
         "description": "Search for videos on YouTube using SerpApi.",
         "parameters": {
             "type": "object",
@@ -659,7 +659,9 @@ VIDEO_SEARCH_TOOLS: list[dict[str, Any]] = [
 ]
 
 LOCAL_TOOLS: list[dict[str, Any]] = GLOBAL_TOOLS + AGENT_TOOLS
-ALL_TOOLS: list[dict[str, Any]] = LOCAL_TOOLS + AGNO_TOOLS
+ALL_TOOLS: list[dict[str, Any]] = (
+    LOCAL_TOOLS + AGNO_TOOLS + IMAGE_SEARCH_TOOLS + VIDEO_SEARCH_TOOLS
+)
 
 
 def resolve_tool_name(tool_name: str) -> str:

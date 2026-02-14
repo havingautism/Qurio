@@ -42,6 +42,7 @@ import {
   persistThinkingPreference,
 } from '../lib/togglePreferences'
 import { listToolsViaBackend } from '../lib/backendClient'
+import { getLanguageInstruction, applyLanguageInstructionToText } from '../lib/chat/prompts'
 
 const DOCUMENT_CONTEXT_MAX_TOTAL = 12000
 const DOCUMENT_CONTEXT_MAX_PER_DOC = 4000
@@ -144,20 +145,6 @@ const ChatInterface = ({
       }
     }
     return []
-  }
-
-  const getLanguageInstruction = agent => {
-    const trimmedLanguage =
-      typeof (agent?.response_language || agent?.responseLanguage) === 'string'
-        ? (agent.response_language || agent.responseLanguage).trim()
-        : ''
-    return trimmedLanguage ? `Reply in ${trimmedLanguage}.` : ''
-  }
-
-  const applyLanguageInstructionToText = (text, instruction) => {
-    if (!instruction) return text
-    const baseText = typeof text === 'string' ? text.trim() : ''
-    return baseText ? `${baseText}\n\n${instruction}` : instruction
   }
 
   // Lock body scroll when component mounts (defensive measure for iOS keyboard interactions)
@@ -2007,7 +1994,7 @@ const ChatInterface = ({
       const provider = getProvider(modelConfig.provider)
       const credentials = provider.getCredentials(settings)
       const agentForTitle = selectedAgent || defaultAgent || null
-      const languageInstruction = getLanguageInstruction(agentForTitle)
+      const languageInstruction = getLanguageInstruction(agentForTitle, settings)
       const promptText = applyLanguageInstructionToText(contextText, languageInstruction)
       const titleResult = await provider.generateTitle(
         promptText,

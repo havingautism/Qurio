@@ -282,13 +282,9 @@ const MessageBubble = ({
     mergedMessage?.isStreaming ??
     (isLoading && mergedMessage?.role === 'ai' && messageIndex === messages.length - 1)
 
-  // Re-derive form status based on the latest tool call state
-  const toolCallHistory = Array.isArray(mergedMessage?.toolCallHistory)
+  const baseToolCallHistory = Array.isArray(mergedMessage?.toolCallHistory)
     ? mergedMessage.toolCallHistory
     : []
-
-  const formToolHistory = toolCallHistory.filter(item => item.name === 'interactive_form')
-  const hasInteractiveForm = formToolHistory.length > 0
 
   const isDeepResearch =
     !!mergedMessage?.deepResearch ||
@@ -300,7 +296,6 @@ const MessageBubble = ({
   const providerId = mergedMessage.provider || apiProvider
   const provider = getProvider(providerId)
   const parsed = provider.parseMessage(mergedMessage)
-  const thoughtContent = isDeepResearch ? null : parsed.thought
   const expertResponses = useMemo(() => {
     if (!Array.isArray(mergedMessage?.expertResponses)) return []
     return mergedMessage.expertResponses
@@ -313,6 +308,12 @@ const MessageBubble = ({
         status: String(item?.status || 'pending'),
         provider: item?.provider || null,
         model: item?.model || null,
+        thought: typeof item?.thought === 'string' ? item.thought : '',
+        thoughtHistory: Array.isArray(item?.thoughtHistory) ? item.thoughtHistory : [],
+        toolCallHistory: Array.isArray(item?.toolCallHistory) ? item.toolCallHistory : [],
+        streamBlocks: Array.isArray(item?.streamBlocks) ? item.streamBlocks : [],
+        searchBackend: typeof item?.searchBackend === 'string' ? item.searchBackend : null,
+        searchBackends: Array.isArray(item?.searchBackends) ? item.searchBackends : [],
       }))
       .filter(item => item.agentId)
   }, [mergedMessage?.expertResponses])
@@ -369,6 +370,17 @@ const MessageBubble = ({
     expertResponses.findIndex(item => item.agentId === activeExpertAgentId),
   )
   const activeExpertResponse = expertResponses[activeExpertIndex] || expertResponses[0] || null
+  const toolCallHistory =
+    isExpertMessage && Array.isArray(activeExpertResponse?.toolCallHistory)
+      ? activeExpertResponse.toolCallHistory
+      : baseToolCallHistory
+  const formToolHistory = toolCallHistory.filter(item => item.name === 'interactive_form')
+  const hasInteractiveForm = formToolHistory.length > 0
+  const thoughtContent = isDeepResearch
+    ? null
+    : isExpertMessage
+      ? activeExpertResponse?.thought || ''
+      : parsed.thought
   const mainContent = isExpertMessage ? activeExpertResponse?.content || '' : parsed.content
   const displayProviderId = isExpertMessage
     ? activeExpertResponse?.provider || providerId
@@ -377,8 +389,13 @@ const MessageBubble = ({
   const positionedThoughtBlocks = useMemo(() => {
     if (isDeepResearch) return []
 
-    const fromHistory = Array.isArray(mergedMessage?.thoughtHistory)
-      ? mergedMessage.thoughtHistory
+    const thoughtHistorySource =
+      isExpertMessage && Array.isArray(activeExpertResponse?.thoughtHistory)
+        ? activeExpertResponse.thoughtHistory
+        : mergedMessage?.thoughtHistory
+
+    const fromHistory = Array.isArray(thoughtHistorySource)
+      ? thoughtHistorySource
           .map((item, index) => ({
             id: item?.id || `${item?.blockId ?? 'block'}-${index}`,
             blockId: item?.blockId ?? index,
@@ -407,7 +424,13 @@ const MessageBubble = ({
         content,
         streamOrder: index,
       }))
-  }, [isDeepResearch, mergedMessage?.thoughtHistory, thoughtContent])
+  }, [
+    isDeepResearch,
+    isExpertMessage,
+    activeExpertResponse?.thoughtHistory,
+    mergedMessage?.thoughtHistory,
+    thoughtContent,
+  ])
 
   const formatThoughtContentForDisplay = useCallback(
     value => {
@@ -486,8 +509,12 @@ const MessageBubble = ({
     [formatThoughtContentForDisplay, positionedThoughtBlocks],
   )
   const normalizedStreamBlocks = useMemo(() => {
-    if (!Array.isArray(mergedMessage?.streamBlocks)) return []
-    return mergedMessage.streamBlocks
+    const streamSource =
+      isExpertMessage && Array.isArray(activeExpertResponse?.streamBlocks)
+        ? activeExpertResponse.streamBlocks
+        : mergedMessage?.streamBlocks
+    if (!Array.isArray(streamSource)) return []
+    return streamSource
       .map((item, index) => ({
         seq: Number.isFinite(item?.seq) ? Number(item.seq) : index + 1,
         type: String(item?.type || '').toLowerCase(),
@@ -501,14 +528,20 @@ const MessageBubble = ({
       }))
       .filter(item => item.type)
       .sort((a, b) => a.seq - b.seq)
-  }, [mergedMessage?.streamBlocks])
+  }, [isExpertMessage, activeExpertResponse?.streamBlocks, mergedMessage?.streamBlocks])
 
   const resolvedSearchBackends = useMemo(() => {
-    if (Array.isArray(mergedMessage?.searchBackends) && mergedMessage.searchBackends.length > 0) {
-      return mergedMessage.searchBackends.map(item => String(item)).filter(Boolean)
+    const explicitBackends = isExpertMessage
+      ? activeExpertResponse?.searchBackends
+      : mergedMessage?.searchBackends
+    if (Array.isArray(explicitBackends) && explicitBackends.length > 0) {
+      return explicitBackends.map(item => String(item)).filter(Boolean)
     }
-    if (typeof mergedMessage?.searchBackend === 'string' && mergedMessage.searchBackend) {
-      return [mergedMessage.searchBackend]
+    const explicitBackend = isExpertMessage
+      ? activeExpertResponse?.searchBackend
+      : mergedMessage?.searchBackend
+    if (typeof explicitBackend === 'string' && explicitBackend) {
+      return [explicitBackend]
     }
     for (const item of toolCallHistory) {
       if (!item || (item.name !== 'web_search' && item.name !== 'search_news')) continue
@@ -533,7 +566,14 @@ const MessageBubble = ({
       }
     }
     return []
-  }, [mergedMessage?.searchBackend, mergedMessage?.searchBackends, toolCallHistory])
+  }, [
+    isExpertMessage,
+    activeExpertResponse?.searchBackend,
+    activeExpertResponse?.searchBackends,
+    mergedMessage?.searchBackend,
+    mergedMessage?.searchBackends,
+    toolCallHistory,
+  ])
 
   const getToolDisplayName = useCallback(
     tool => {
@@ -555,8 +595,7 @@ const MessageBubble = ({
         tool.name === 'bing_image_search' ||
         tool.name === 'serpapi_image_search'
       const isVideoSearch =
-        tool.name === 'duckduckgo_video_search' ||
-        tool.name === 'search_youtube'
+        tool.name === 'duckduckgo_video_search' || tool.name === 'search_youtube'
 
       if (!isWebSearch && !isImageSearch && !isVideoSearch) return null
 
@@ -615,7 +654,7 @@ const MessageBubble = ({
     if (backend === 'youtube') {
       return (
         <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+          <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
         </svg>
       )
     }
@@ -2066,7 +2105,7 @@ const MessageBubble = ({
                 <ToolEnter key={item.id || `${item.name}-${item.arguments}`}>
                   <div className="border-primary-200/35 dark:border-primary-700/20 rounded-lg border bg-white/65 px-2.5 py-2 dark:bg-zinc-800/40">
                     <div className="flex w-full items-center gap-1 text-xs text-gray-500 sm:gap-2 dark:text-gray-400">
-                      <span className="flex shrink-0 items-center gap-1.5 font-medium whitespace-nowrap text-gray-600 dark:text-gray-300">
+                      <span className="flex shrink-0 cursor-default items-center gap-1.5 font-medium whitespace-nowrap text-gray-600 dark:text-gray-300">
                         {item.status === 'error' ? (
                           <AlertTriangle size={14} className="text-red-500 dark:text-red-400" />
                         ) : (
@@ -2187,6 +2226,13 @@ const MessageBubble = ({
             {hasMultipleRounds && (
               <span className="font-medium text-gray-600 dark:text-gray-300">
                 {formatRoundLabel(idx + 1)}
+              </span>
+            )}
+            {typeof part.durationMs === 'number' && part.durationMs >= 0 && (
+              <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                {t('messageBubble.thinkingDuration', {
+                  duration: (part.durationMs / 1000).toFixed(2),
+                })}
               </span>
             )}
             {isThinking && <DotLoader />}
@@ -2795,7 +2841,7 @@ const MessageBubble = ({
         <div className="flex items-center gap-2">
           <BrainCircuit size={15} className="text-primary-500/80 dark:text-primary-300/75" />
           <span className="text-sm font-medium tracking-tight">{workflowHeaderLabel}</span>
-          {!isStreaming && workflowDurationMs > 0 && (
+          {workflowDurationMs > 0 && (
             <span className="text-sm text-gray-500 dark:text-gray-400">
               {t('messageBubble.thinkingDuration', {
                 duration: (workflowDurationMs / 1000).toFixed(0),

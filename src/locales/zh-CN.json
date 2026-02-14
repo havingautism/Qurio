@@ -96,7 +96,19 @@
     "imageSearch": "图片搜索",
     "imageSearchInfo": "在互联网上搜索相关图片。",
     "videoSearch": "视频搜索",
-    "videoSearchInfo": "在互联网上搜索相关视频。"
+    "videoSearchInfo": "在互联网上搜索相关视频。",
+    "imageSearchDuckDuckGo": "图片搜索（DuckDuckGo）",
+    "imageSearchDuckDuckGoInfo": "通过 DuckDuckGo 的图片索引搜索相关图片。",
+    "imageSearchGoogle": "图片搜索（Google/SerpApi）",
+    "imageSearchGoogleInfo": "通过 SerpApi 在 Google 图片中搜索。",
+    "imageSearchBing": "图片搜索（Bing/SerpApi）",
+    "imageSearchBingInfo": "通过 SerpApi 在 Bing 图片中搜索。",
+    "imageSearchSerpApi": "图片搜索（SerpApi 多引擎）",
+    "imageSearchSerpApiInfo": "通过 SerpApi 的多引擎能力进行图片搜索。",
+    "videoSearchDuckDuckGo": "视频搜索（DuckDuckGo）",
+    "videoSearchDuckDuckGoInfo": "通过 DuckDuckGo 的视频索引搜索相关视频。",
+    "videoSearchYouTube": "视频搜索（YouTube/SerpApi）",
+    "videoSearchYouTubeInfo": "通过 SerpApi 搜索 YouTube 视频。"
   },
   "searchBackends": {
     "auto": "自动",
@@ -668,6 +680,7 @@
     "tools": {
       "title": "工具权限",
       "hint": "选择该智能体可调用的本地工具。",
+      "apiRequiredHint": "需先在设置中配置 {{provider}} API Key。",
       "loading": "正在加载工具...",
       "empty": "暂无可用工具。",
       "categories": {

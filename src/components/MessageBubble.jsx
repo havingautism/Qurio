@@ -880,20 +880,28 @@ const MessageBubble = ({
     return results
   }, [toolCallHistory])
 
-  // Helper function to convert YouTube URL to embed URL
-  const getYouTubeEmbedUrl = useCallback(url => {
+  // Helper function to convert video URL to embed URL (YouTube + Bilibili)
+  const getVideoEmbedUrl = useCallback(url => {
     if (!url) return null
-    // Match various YouTube URL formats
-    const patterns = [
+
+    // YouTube: various formats
+    const ytPatterns = [
       /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/)([a-zA-Z0-9_-]{11})/,
       /youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/,
     ]
-    for (const pattern of patterns) {
+    for (const pattern of ytPatterns) {
       const match = url.match(pattern)
       if (match && match[1]) {
         return `https://www.youtube.com/embed/${match[1]}`
       }
     }
+
+    // Bilibili: BV or AV format
+    const biliMatch = url.match(/bilibili\.com\/video\/(BV[a-zA-Z0-9]+)/)
+    if (biliMatch && biliMatch[1]) {
+      return `https://player.bilibili.com/player.html?bvid=${biliMatch[1]}&high_quality=1`
+    }
+
     return null
   }, [])
 
@@ -1938,7 +1946,7 @@ const MessageBubble = ({
         // Check if this URL is from video search results and is a YouTube link
         const videoResult = videoMetadataRef.current.find(v => v.url === safeHref)
         if (videoResult) {
-          const embedUrl = getYouTubeEmbedUrl(safeHref)
+          const embedUrl = getVideoEmbedUrl(safeHref)
           if (embedUrl) {
             // Use span instead of div to avoid HTML nesting error (<div> inside <p>)
             return (
@@ -2001,7 +2009,7 @@ const MessageBubble = ({
       openGallery,
       handleImageError,
       failedImageUrls,
-      getYouTubeEmbedUrl,
+      getVideoEmbedUrl,
       // Note: imageMetadataRef and videoMetadataRef are excluded as they're stable refs that don't trigger re-renders
     ], // Dependencies for markdownComponents
   )

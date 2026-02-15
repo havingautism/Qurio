@@ -837,7 +837,7 @@ const MessageBubble = ({
     return results
   }, [toolCallHistory])
 
-  // Extract all video search results from toolCallHistory to determine which links should be iframes
+  // Extract video search results to get title for iframe accessibility
   // Update ref without triggering re-renders of markdownComponents
   const allVideoResults = useMemo(() => {
     const results = []
@@ -846,27 +846,18 @@ const MessageBubble = ({
       if (videoSearchTools.includes(tc.name)) {
         try {
           const output = typeof tc.output === 'string' ? JSON.parse(tc.output) : tc.output
-
-          // Handle different output formats
           let videoList = []
           if (Array.isArray(output)) {
-            // DuckDuckGo format: direct array
             videoList = output
           } else if (output && typeof output === 'object') {
-            // SerpApi format: { video_results: [...] }
             videoList = output.video_results || output.videos || []
           }
-
           videoList.forEach(item => {
-            // SerpApi uses 'link' field, DuckDuckGo uses 'url' or 'content'
             const videoUrl = item.link || item.url || item.content || ''
             if (videoUrl) {
               results.push({
                 url: videoUrl,
                 title: item.title || '',
-                thumbnail: item.thumbnail || item.thumbnail_static || '',
-                source: item.source || item.channel || '',
-                duration: item.duration || '',
               })
             }
           })
@@ -875,12 +866,11 @@ const MessageBubble = ({
         }
       }
     })
-    // Update ref for use in markdown a component without triggering deps
     videoMetadataRef.current = results
     return results
   }, [toolCallHistory])
 
-  // Helper function to convert video URL to embed URL (YouTube + Bilibili)
+  // Helper function to convert YouTube URL to embed URL
   const getVideoEmbedUrl = useCallback(url => {
     if (!url) return null
 
@@ -894,12 +884,6 @@ const MessageBubble = ({
       if (match && match[1]) {
         return `https://www.youtube.com/embed/${match[1]}`
       }
-    }
-
-    // Bilibili: BV or AV format
-    const biliMatch = url.match(/bilibili\.com\/video\/(BV[a-zA-Z0-9]+)/)
-    if (biliMatch && biliMatch[1]) {
-      return `https://player.bilibili.com/player.html?bvid=${biliMatch[1]}&high_quality=1`
     }
 
     return null
@@ -1943,24 +1927,22 @@ const MessageBubble = ({
           return <span {...props}>{parseChildrenWithEmojis(children)}</span>
         }
 
-        // Check if this URL is from video search results and is a YouTube link
-        const videoResult = videoMetadataRef.current.find(v => v.url === safeHref)
-        if (videoResult) {
-          const embedUrl = getVideoEmbedUrl(safeHref)
-          if (embedUrl) {
-            // Use span instead of div to avoid HTML nesting error (<div> inside <p>)
-            return (
-              <span className="my-3 block aspect-video w-full max-w-md overflow-hidden rounded-lg">
-                <iframe
-                  src={embedUrl}
-                  title={videoResult.title || 'YouTube video'}
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                  className="h-full w-full border-0"
-                />
-              </span>
-            )
-          }
+        // Render YouTube links as embedded video players
+        const embedUrl = getVideoEmbedUrl(safeHref)
+        if (embedUrl) {
+          // Try to get title from videoMetadataRef for better accessibility
+          const videoInfo = videoMetadataRef.current.find(v => v.url === safeHref)
+          return (
+            <span className="my-3 block aspect-video w-full max-w-md overflow-hidden rounded-lg">
+              <iframe
+                src={embedUrl}
+                title={videoInfo?.title || 'Video'}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                className="h-full w-full border-0"
+              />
+            </span>
+          )
         }
 
         return (

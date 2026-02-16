@@ -58,6 +58,8 @@ import { useMessageExport } from './message/useMessageExport'
 import MobileSourcesDrawer from './MobileSourcesDrawer'
 import DocumentSourcesPanel from './DocumentSourcesPanel'
 import ShareModal from './ShareModal'
+import YoutubeLogo from '../assets/youtube.svg?url'
+import BilibiliLogo from '../assets/bilibili.png?url'
 
 const PROVIDER_META = {
   gemini: {
@@ -97,6 +99,39 @@ const PROVIDER_META = {
   },
 }
 const THOUGHT_BLOCK_BREAK_MARKER = '<|thought_block_break|>'
+const InTableContext = React.createContext(false)
+
+const InlineVideoEmbed = memo(({ embedUrl, title = 'Video' }) => {
+  const iframeSrc = useMemo(() => {
+    if (!embedUrl) return null
+    try {
+      const parsed = new URL(embedUrl)
+      parsed.searchParams.set('autoplay', '0')
+      parsed.searchParams.set('auto_play', '0')
+      return parsed.toString()
+    } catch {
+      return embedUrl
+    }
+  }, [embedUrl])
+
+  if (!iframeSrc) return null
+
+  return (
+    <span className="my-3 block aspect-video w-full max-w-md overflow-hidden rounded-lg">
+      <iframe
+        src={iframeSrc}
+        title={title}
+        loading="lazy"
+        fetchPriority="low"
+        referrerPolicy="strict-origin-when-cross-origin"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        allowFullScreen
+        className="h-full w-full border-0"
+      />
+    </span>
+  )
+})
+InlineVideoEmbed.displayName = 'InlineVideoEmbed'
 
 const sanitizeDisplayText = value => {
   if (typeof value !== 'string') return ''
@@ -870,7 +905,7 @@ const MessageBubble = ({
     return results
   }, [toolCallHistory])
 
-  // Helper function to convert YouTube URL to embed URL
+  // Helper function to convert supported video URLs to embed URL
   const getVideoEmbedUrl = useCallback(url => {
     if (!url) return null
 
@@ -884,6 +919,76 @@ const MessageBubble = ({
       if (match && match[1]) {
         return `https://www.youtube.com/embed/${match[1]}`
       }
+    }
+
+    // Bilibili: normal video links and player links
+    try {
+      const normalizedUrl = url.startsWith('//') ? `https:${url}` : url
+      const parsed = new URL(normalizedUrl)
+      const hostname = parsed.hostname.toLowerCase()
+
+      const buildBilibiliEmbedUrl = ({ bvid, aid, cid, page }) => {
+        const params = new URLSearchParams()
+        params.set('isOutside', 'true')
+        if (aid) params.set('aid', aid)
+        if (bvid) params.set('bvid', bvid)
+        if (cid) params.set('cid', cid)
+        params.set('p', page || '1')
+        return `https://player.bilibili.com/player.html?${params.toString()}`
+      }
+
+      // Example: player.bilibili.com/player.html?...&bvid=...&cid=...&p=1
+      if (hostname.includes('player.bilibili.com') && parsed.pathname.includes('/player.html')) {
+        const bvid = parsed.searchParams.get('bvid')
+        const aid = parsed.searchParams.get('aid')
+        const cid = parsed.searchParams.get('cid')
+        const page = parsed.searchParams.get('p') || parsed.searchParams.get('page')
+        if (bvid || aid || cid) {
+          return buildBilibiliEmbedUrl({ bvid, aid, cid, page })
+        }
+      }
+
+      // Example: www.bilibili.com/video/BV... or www.bilibili.com/video/av...
+      if (hostname.includes('bilibili.com')) {
+        const bvidMatch = parsed.pathname.match(/\/video\/(BV[a-zA-Z0-9]+)/i)
+        const aidMatch = parsed.pathname.match(/\/video\/av(\d+)/i)
+        const page = parsed.searchParams.get('p') || parsed.searchParams.get('page')
+
+        if (bvidMatch?.[1]) {
+          return buildBilibiliEmbedUrl({ bvid: bvidMatch[1], page })
+        }
+        if (aidMatch?.[1]) {
+          return buildBilibiliEmbedUrl({ aid: aidMatch[1], page })
+        }
+      }
+    } catch {
+      // ignore URL parse errors
+    }
+
+    return null
+  }, [])
+
+  const getVideoPlatform = useCallback(url => {
+    if (!url) return null
+
+    try {
+      const normalizedUrl = url.startsWith('//') ? `https:${url}` : url
+      const parsed = new URL(normalizedUrl)
+      const hostname = parsed.hostname.toLowerCase()
+
+      if (
+        hostname.includes('youtube.com') ||
+        hostname.includes('youtu.be') ||
+        hostname.includes('youtube-nocookie.com')
+      ) {
+        return 'youtube'
+      }
+
+      if (hostname.includes('player.bilibili.com') || hostname.includes('bilibili.com')) {
+        return 'bilibili'
+      }
+    } catch {
+      // ignore parse errors
     }
 
     return null
@@ -1830,6 +1935,103 @@ const MessageBubble = ({
     [onFormSubmit],
   )
 
+  const MarkdownLinkRenderer = ({ href, children, ...props }) => {
+    const isInTable = React.useContext(InTableContext)
+    const safeHref = sanitizeMarkdownUrl(href)
+    let citationIndices = null
+
+    if (safeHref?.startsWith('citation:')) {
+      citationIndices = safeHref
+        .replace('citation:', '')
+        .split(',')
+        .map(Number)
+        .filter(n => !isNaN(n))
+    } else if (safeHref?.startsWith('https://citation.local/')) {
+      const path = safeHref.replace('https://citation.local/', '')
+      citationIndices = path
+        .split(',')
+        .map(Number)
+        .filter(n => !isNaN(n))
+    }
+
+    if (citationIndices) {
+      return (
+        <CitationChip
+          indices={citationIndices}
+          sources={mergedMessage.sources}
+          isMobile={isMobile}
+          onMobileClick={sources => handleMobileSourceClick(sources, t('sources.citationSources'))}
+          label={children}
+        />
+      )
+    }
+    if (!safeHref) {
+      return <span {...props}>{parseChildrenWithEmojis(children)}</span>
+    }
+
+    const embedUrl = getVideoEmbedUrl(safeHref)
+    if (embedUrl) {
+      const videoInfo = videoMetadataRef.current.find(v => v.url === safeHref)
+      if (isInTable) {
+        const platform = getVideoPlatform(safeHref)
+        const platformMeta =
+          platform === 'youtube'
+            ? {
+                label: 'YouTube',
+                logo: YoutubeLogo,
+                className: 'bg-red-600 text-white',
+              }
+            : platform === 'bilibili'
+              ? {
+                  label: 'Bilibili',
+                  logo: BilibiliLogo,
+                  className: 'bg-sky-500 text-white',
+                }
+              : {
+                  label: '视频',
+                  logo: null,
+                  className: 'bg-rose-500 text-white',
+                }
+
+        return (
+          <a
+            href={safeHref}
+            target="_blank"
+            rel="noreferrer"
+            className={clsx(
+              'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium',
+              platformMeta.className,
+            )}
+            title={videoInfo?.title || platformMeta.label}
+          >
+            {platformMeta.logo ? (
+              <img
+                src={platformMeta.logo}
+                alt={platformMeta.label}
+                className="h-3.5 w-3.5 shrink-0 rounded-sm bg-white/90 p-[1px]"
+                loading="lazy"
+              />
+            ) : null}
+            <span>{platformMeta.label}</span>
+          </a>
+        )
+      }
+      return <InlineVideoEmbed embedUrl={embedUrl} title={videoInfo?.title || 'Video'} />
+    }
+
+    return (
+      <a
+        href={safeHref}
+        {...props}
+        target="_blank"
+        rel="noreferrer"
+        className="hover:bg-primary-300/50 dark:hover:bg-primary-700/50 dark:bg-primary-900/50 bg-primary-200/50 text-primary-700 dark:text-primary-300 mx-0.5 rounded-lg px-1 py-0.5 text-[12px]"
+      >
+        {parseChildrenWithEmojis(children)}
+      </a>
+    )
+  }
+
   const markdownComponents = useMemo(
     () => ({
       code: ({ inline, className, children, ...props }) => {
@@ -1880,7 +2082,9 @@ const MessageBubble = ({
           className="px-4 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase dark:text-gray-400"
           {...props}
         >
-          {parseChildrenWithEmojis(children)}
+          <InTableContext.Provider value>
+            {parseChildrenWithEmojis(children)}
+          </InTableContext.Provider>
         </th>
       ),
       td: ({ children, ...props }) => (
@@ -1888,75 +2092,12 @@ const MessageBubble = ({
           className="px-4 py-3 text-sm whitespace-nowrap text-gray-700 dark:text-gray-300"
           {...props}
         >
-          {parseChildrenWithEmojis(children)}
+          <InTableContext.Provider value>
+            {parseChildrenWithEmojis(children)}
+          </InTableContext.Provider>
         </td>
       ),
-
-      a: ({ href, children, ...props }) => {
-        const safeHref = sanitizeMarkdownUrl(href)
-        let citationIndices = null
-
-        if (safeHref?.startsWith('citation:')) {
-          citationIndices = safeHref
-            .replace('citation:', '')
-            .split(',')
-            .map(Number)
-            .filter(n => !isNaN(n))
-        } else if (safeHref?.startsWith('https://citation.local/')) {
-          const path = safeHref.replace('https://citation.local/', '')
-          citationIndices = path
-            .split(',')
-            .map(Number)
-            .filter(n => !isNaN(n))
-        }
-
-        if (citationIndices) {
-          return (
-            <CitationChip
-              indices={citationIndices}
-              sources={mergedMessage.sources}
-              isMobile={isMobile}
-              onMobileClick={sources =>
-                handleMobileSourceClick(sources, t('sources.citationSources'))
-              }
-              label={children} // Children of the link is the label [Title + N]
-            />
-          )
-        }
-        if (!safeHref) {
-          return <span {...props}>{parseChildrenWithEmojis(children)}</span>
-        }
-
-        // Render YouTube links as embedded video players
-        const embedUrl = getVideoEmbedUrl(safeHref)
-        if (embedUrl) {
-          // Try to get title from videoMetadataRef for better accessibility
-          const videoInfo = videoMetadataRef.current.find(v => v.url === safeHref)
-          return (
-            <span className="my-3 block aspect-video w-full max-w-md overflow-hidden rounded-lg">
-              <iframe
-                src={embedUrl}
-                title={videoInfo?.title || 'Video'}
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-                className="h-full w-full border-0"
-              />
-            </span>
-          )
-        }
-
-        return (
-          <a
-            href={safeHref}
-            {...props}
-            target="_blank"
-            rel="noreferrer"
-            className="hover:bg-primary-300/50 dark:hover:bg-primary-700/50 dark:bg-primary-900/50 bg-primary-200/50 text-primary-700 dark:text-primary-300 mx-0.5 rounded-lg px-1 py-0.5 text-[12px]"
-          >
-            {parseChildrenWithEmojis(children)}
-          </a>
-        )
-      },
+      a: MarkdownLinkRenderer,
       img: ({ src, alt }) => {
         const safeSrc = sanitizeMarkdownUrl(src, { allowDataImage: true })
         if (!safeSrc) return null
@@ -1992,6 +2133,7 @@ const MessageBubble = ({
       handleImageError,
       failedImageUrls,
       getVideoEmbedUrl,
+      getVideoPlatform,
       // Note: imageMetadataRef and videoMetadataRef are excluded as they're stable refs that don't trigger re-renders
     ], // Dependencies for markdownComponents
   )
@@ -3679,24 +3821,24 @@ const MessageBubble = ({
 
             {/* Main Image Container */}
             <div
-              className="relative flex max-h-[85vh] max-w-[95vw] items-center justify-center md:px-12"
+              className="relative flex max-w-[95vw] items-center justify-center md:px-12"
               onClick={e => e.stopPropagation()}
             >
               {messageImages[galleryIndex] &&
               !failedImageUrls.has(messageImages[galleryIndex].src) ? (
-                <>
+                <div className="inline-flex max-w-full flex-col gap-3">
                   <img
                     key={messageImages[galleryIndex].src}
                     src={messageImages[galleryIndex].src}
                     alt={messageImages[galleryIndex].alt}
-                    className="animate-in zoom-in-95 max-h-[85vh] max-w-[95vw] rounded-lg object-contain shadow-2xl transition-all duration-300"
+                    className="animate-in zoom-in-95 max-h-[72vh] max-w-[95vw] rounded-lg object-contain shadow-2xl transition-all duration-300"
                   />
 
                   {/* Caption & Source Area */}
                   {(messageImages[galleryIndex].title || messageImages[galleryIndex].source) && (
-                    <div className="absolute right-0 bottom-0 left-0 bg-linear-to-t from-black/90 via-black/40 to-transparent p-6 pt-12 text-white md:rounded-b-lg">
+                    <div className="rounded-lg bg-black/70 p-4 text-white backdrop-blur-sm">
                       {messageImages[galleryIndex].title && (
-                        <h3 className="mb-1 line-clamp-2 text-lg font-semibold">
+                        <h3 className="mb-1 line-clamp-2 text-base font-semibold md:text-lg">
                           {messageImages[galleryIndex].title}
                         </h3>
                       )}
@@ -3709,7 +3851,7 @@ const MessageBubble = ({
                             href={messageImages[galleryIndex].sourceUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-primary-400 flex items-center gap-1.5 text-sm font-medium underline-offset-4 hover:underline"
+                            className="text-primary-300 flex items-center gap-1.5 text-sm font-medium underline-offset-4 hover:underline"
                             onClick={e => e.stopPropagation()}
                           >
                             <Globe size={14} className="opacity-70" />
@@ -3719,7 +3861,7 @@ const MessageBubble = ({
                       )}
                     </div>
                   )}
-                </>
+                </div>
               ) : (
                 <div className="flex flex-col items-center justify-center gap-4 text-white/80">
                   <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-white/20 bg-white/10 p-6 backdrop-blur-md">

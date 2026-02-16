@@ -103,7 +103,6 @@ const PROVIDER_META = {
     fallback: 'N',
   },
 }
-const THOUGHT_BLOCK_BREAK_MARKER = '<|thought_block_break|>'
 const InTableContext = React.createContext(false)
 
 const InlineVideoEmbed = memo(({ embedUrl, title = 'Video' }) => {
@@ -145,20 +144,6 @@ const sanitizeDisplayText = value => {
     .replace(/\uFEFF/g, '')
     .replace(/ï¿½+/g, '')
     .replace(/ï»¿/g, '')
-}
-
-const clampToUnicodeBoundary = (text, index) => {
-  if (typeof text !== 'string' || text.length === 0) return 0
-  let safeIndex = Math.max(0, Math.min(Number.isFinite(index) ? Number(index) : 0, text.length))
-  if (safeIndex <= 0 || safeIndex >= text.length) return safeIndex
-  const currentCode = text.charCodeAt(safeIndex)
-  const prevCode = text.charCodeAt(safeIndex - 1)
-  const isLowSurrogate = currentCode >= 0xdc00 && currentCode <= 0xdfff
-  const prevIsHighSurrogate = prevCode >= 0xd800 && prevCode <= 0xdbff
-  if (isLowSurrogate && prevIsHighSurrogate) {
-    safeIndex -= 1
-  }
-  return safeIndex
 }
 
 const isExplicitSchemeUrl = value => /^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(value)
@@ -419,86 +404,11 @@ const MessageBubble = ({
       : baseToolCallHistory
   const formToolHistory = toolCallHistory.filter(item => item.name === 'interactive_form')
   const hasInteractiveForm = formToolHistory.length > 0
-  const thoughtContent = isDeepResearch
-    ? null
-    : isExpertMessage
-      ? activeExpertResponse?.thought || ''
-      : parsed.thought
   const mainContent = isExpertMessage ? activeExpertResponse?.content || '' : parsed.content
   const displayProviderId = isExpertMessage
     ? activeExpertResponse?.provider || providerId
     : providerId
   const displayModel = isExpertMessage ? activeExpertResponse?.model || null : null
-  const positionedThoughtBlocks = useMemo(() => {
-    if (isDeepResearch) return []
-
-    const thoughtHistorySource =
-      isExpertMessage && Array.isArray(activeExpertResponse?.thoughtHistory)
-        ? activeExpertResponse.thoughtHistory
-        : mergedMessage?.thoughtHistory
-
-    const fromHistory = Array.isArray(thoughtHistorySource)
-      ? (() => {
-          const normalized = thoughtHistorySource
-            .map((item, index) => ({
-              id: item?.id || `${item?.blockId ?? 'block'}-${index}`,
-              blockId: item?.blockId ?? index,
-              textIndex: Number.isFinite(item?.textIndex) ? Number(item.textIndex) : 0,
-              content: String(item?.content || '').trim(),
-              streamOrder: Number.isFinite(item?.streamOrder) ? Number(item.streamOrder) : index,
-              durationMs: Number.isFinite(item?.durationMs) ? Number(item.durationMs) : null,
-            }))
-            .filter(item => item.content)
-            .sort((a, b) =>
-              a.textIndex === b.textIndex ? a.streamOrder - b.streamOrder : a.textIndex - b.textIndex,
-            )
-
-          // Backward compatibility: merge tokenized thought chunks split by textIndex
-          // into one block when they belong to the same logical thought block.
-          const merged = []
-          for (const item of normalized) {
-            const prev = merged[merged.length - 1]
-            if (prev && prev.blockId === item.blockId) {
-              prev.content = `${prev.content || ''}${item.content || ''}`
-              if (
-                Number.isFinite(item.textIndex) &&
-                (!Number.isFinite(prev.textIndex) || item.textIndex < prev.textIndex)
-              ) {
-                prev.textIndex = Number(item.textIndex)
-              }
-              if (Number.isFinite(item.durationMs)) {
-                const prevDuration = Number.isFinite(prev.durationMs) ? Number(prev.durationMs) : 0
-                prev.durationMs = prevDuration + Number(item.durationMs)
-              }
-            } else {
-              merged.push({ ...item })
-            }
-          }
-          return merged
-        })()
-      : []
-
-    if (fromHistory.length > 0) return fromHistory
-    if (!thoughtContent) return []
-
-    return String(thoughtContent)
-      .split(THOUGHT_BLOCK_BREAK_MARKER)
-      .map(part => part.trim())
-      .filter(Boolean)
-      .map((content, index) => ({
-        id: `legacy-thought-${index}`,
-        blockId: `legacy-${index}`,
-        textIndex: 0,
-        content,
-        streamOrder: index,
-      }))
-  }, [
-    isDeepResearch,
-    isExpertMessage,
-    activeExpertResponse?.thoughtHistory,
-    mergedMessage?.thoughtHistory,
-    thoughtContent,
-  ])
 
   const formatThoughtContentForDisplay = useCallback(value => {
     const raw = sanitizeDisplayText(String(value || '')).trim()
@@ -565,14 +475,6 @@ const MessageBubble = ({
     return raw
   }, [])
 
-  const thoughtExportContent = useMemo(
-    () =>
-      positionedThoughtBlocks
-        .map(item => formatThoughtContentForDisplay(item.content))
-        .filter(Boolean)
-        .join('\n\n'),
-    [formatThoughtContentForDisplay, positionedThoughtBlocks],
-  )
   const normalizedStreamBlocks = useMemo(() => {
     const streamSource =
       isExpertMessage && Array.isArray(activeExpertResponse?.streamBlocks)
@@ -594,6 +496,15 @@ const MessageBubble = ({
       .filter(item => item.type)
       .sort((a, b) => a.seq - b.seq)
   }, [isExpertMessage, activeExpertResponse?.streamBlocks, mergedMessage?.streamBlocks])
+  const thoughtExportContent = useMemo(
+    () =>
+      normalizedStreamBlocks
+        .filter(item => item.type === 'reasoning' || item.type === 'thought')
+        .map(item => formatThoughtContentForDisplay(item.content))
+        .filter(Boolean)
+        .join('\n\n'),
+    [formatThoughtContentForDisplay, normalizedStreamBlocks],
+  )
 
   const resolvedSearchBackends = useMemo(() => {
     const explicitBackends = isExpertMessage
@@ -1219,191 +1130,58 @@ const MessageBubble = ({
     )
   }
 
-  // Normalize tool index - formerly searched for newlines, but this caused clumping
-  // Now we trust the backend's relative positioning to ensure accurate interleaving.
-  const normalizeToolIndex = (content, index, toolName) => {
-    if (!content) return 0
-    const clamped = Math.max(0, index)
-
-    // Interactive forms should use the exact index where they were generated
-    if (toolName === 'interactive_form') return clamped
-
-    // Return exact clamped index to prevent "Adhesive Clumping" at paragraph boundaries
-    return clamped
-  }
-
   const interleavedContent = useMemo(() => {
     const rawContent = mainContent || ''
     const parts = []
-    const hasLiveRuntimeOrdering =
-      isStreamingMessage && (toolCallHistory.length > 0 || positionedThoughtBlocks.length > 0)
-    const canUsePersistedStreamBlocks =
-      normalizedStreamBlocks.length > 0 && !hasLiveRuntimeOrdering && !isExpertMessage
-
-    if (canUsePersistedStreamBlocks) {
-      // Virtual Injection: If expertPlan exists in message props but not in stream, inject it first
-      if (mergedMessage?.expertPlan) {
-        // Construct the JSON structure that normalizeThoughtContent expects
-        const planJson = JSON.stringify({
-          expertPlan: mergedMessage.expertPlan,
-          expertResponses: mergedMessage.expertResponses,
-        }) // No formatting needed, just raw JSON string
-
-        // Check for duplicates (robust check: scan all blocks for expertPlan content)
-        const isDuplicate = normalizedStreamBlocks.some(
-          block =>
-            (block.type === 'reasoning' || block.type === 'thought') &&
-            block.content &&
-            block.content.includes(mergedMessage.expertPlan),
-        )
-
-        if (!isDuplicate) {
-          parts.push({
-            type: 'thought',
-            key: 'virtual-expert-plan',
-            content: planJson,
-            durationMs: 0,
-            isVirtual: true,
-          })
-        }
-      }
-
-      for (const block of normalizedStreamBlocks) {
-        if (block.type === 'text') {
-          if (block.content) parts.push({ type: 'text', content: block.content })
-          continue
-        }
-        if (block.type === 'reasoning' || block.type === 'thought') {
-          if (!isDeepResearch && block.content) {
-            parts.push({
-              type: 'thought',
-              key: `stream-thought-${block.seq}`,
-              content: block.content,
-              durationMs: block.durationMs,
-            })
-          }
-          continue
-        }
-        if (block.type === 'tool' || block.type === 'tool_call' || block.type === 'tool_result') {
-          const matchedTool =
-            toolCallHistory.find(item => item?.id && item.id === block.toolCallId) || null
-          const toolItem =
-            matchedTool ||
-            (block.toolCallId
-              ? {
-                  id: block.toolCallId,
-                  name: block.name || 'tool',
-                  status: block.status || 'done',
-                  arguments: block.arguments,
-                  output: block.output,
-                  durationMs: block.durationMs,
-                }
-              : null)
-          if (toolItem) {
-            parts.push({
-              type: 'tools',
-              key: `stream-tool-${block.toolCallId || block.seq}`,
-              items: [toolItem],
-            })
-          }
-        }
-      }
-      return parts.length > 0 ? parts : [{ type: 'text', content: rawContent }]
-    }
-
-    const events = []
-
-    if (!isDeepResearch) {
-      toolCallHistory.forEach((tool, index) => {
-        const rawIndex =
-          tool.textIndex ?? (tool.name === 'interactive_form' ? rawContent.length : 0)
-        const normalizedIndex = normalizeToolIndex(rawContent, rawIndex, tool.name)
-        events.push({
-          type: 'tools',
-          index: Math.max(0, normalizedIndex),
-          order: Number.isFinite(tool?.streamOrder) ? Number(tool.streamOrder) : 100000 + index,
-          key: `tool-${tool.id || index}`,
-          tool,
-        })
-      })
-
-      positionedThoughtBlocks.forEach((block, index) => {
-        const rawIndex = Number(block.textIndex) || 0
-        const normalizedIndex = normalizeToolIndex(rawContent, rawIndex, 'thought')
-        events.push({
-          type: 'thought',
-          index: Math.max(0, normalizedIndex),
-          order: Number.isFinite(block.streamOrder) ? Number(block.streamOrder) : index,
-          key: `thought-${block.id || index}`,
-          thought: block.content,
-          durationMs: block.durationMs,
-        })
-      })
-
-      // Virtual Injection for Live Runtime: Inject expertPlan if not already present
-      if (mergedMessage?.expertPlan) {
-        const planJson = JSON.stringify({
-          expertPlan: mergedMessage.expertPlan,
-          expertResponses: mergedMessage.expertResponses,
-        })
-        const isDuplicate = positionedThoughtBlocks.some(block =>
-          block.content.includes(mergedMessage.expertPlan),
-        )
-
-        if (!isDuplicate) {
-          events.push({
-            type: 'thought',
-            index: 0,
-            order: -1, // Force to top
-            key: 'virtual-expert-plan-event',
-            thought: planJson,
-            durationMs: 0,
-          })
-        }
-      }
-    }
-
-    if (events.length === 0) {
+    if (normalizedStreamBlocks.length === 0) {
       return [{ type: 'text', content: rawContent }]
     }
 
-    events.sort((a, b) => (a.index === b.index ? a.order - b.order : a.index - b.index))
-
-    let lastIndex = 0
-    for (const event of events) {
-      // CRITICAL: Cap the safeIndex at rawContent.length to prevent "future" indices
-      // from swallowing text that hasn't officially arrived at that position yet.
-      const safeIndex = Number.isFinite(event.index) ? event.index : 0
-      const boundedIndex = Math.min(safeIndex, rawContent.length)
-      const displayIndex = clampToUnicodeBoundary(rawContent, boundedIndex)
-
-      if (displayIndex > lastIndex) {
-        parts.push({ type: 'text', content: rawContent.substring(lastIndex, displayIndex) })
-        lastIndex = displayIndex
+    for (const block of normalizedStreamBlocks) {
+      if (block.type === 'text') {
+        if (block.content) parts.push({ type: 'text', content: block.content })
+        continue
       }
-      if (event.type === 'tools') {
-        parts.push({ type: 'tools', key: event.key, items: [event.tool] })
-      } else if (event.type === 'thought') {
-        parts.push({
-          type: 'thought',
-          key: event.key,
-          content: event.thought,
-          durationMs: event.durationMs,
-        })
+      if (block.type === 'reasoning' || block.type === 'thought') {
+        if (!isDeepResearch && block.content) {
+          parts.push({
+            type: 'thought',
+            key: `stream-thought-${block.seq}`,
+            content: block.content,
+            durationMs: block.durationMs,
+          })
+        }
+        continue
+      }
+      if (block.type === 'tool' || block.type === 'tool_call' || block.type === 'tool_result') {
+        const matchedTool = toolCallHistory.find(item => item?.id && item.id === block.toolCallId) || null
+        const toolItem =
+          matchedTool ||
+          (block.toolCallId
+            ? {
+                id: block.toolCallId,
+                name: block.name || 'tool',
+                status: block.status || 'done',
+                arguments: block.arguments,
+                output: block.output,
+                durationMs: block.durationMs,
+              }
+            : null)
+        if (toolItem) {
+          parts.push({
+            type: 'tools',
+            key: `stream-tool-${block.toolCallId || block.seq}`,
+            items: [toolItem],
+          })
+        }
       }
     }
 
-    if (lastIndex < rawContent.length) {
-      parts.push({ type: 'text', content: rawContent.substring(lastIndex) })
-    }
-    return parts
+    return parts.length > 0 ? parts : [{ type: 'text', content: rawContent }]
   }, [
     mainContent,
     toolCallHistory,
-    positionedThoughtBlocks,
     isDeepResearch,
-    isExpertMessage,
-    isStreamingMessage,
     normalizedStreamBlocks,
   ])
 

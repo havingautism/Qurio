@@ -16,8 +16,6 @@ import { getLanguageInstruction, applyLanguageInstructionToText } from './prompt
 import { buildSpaceAgentOptions, resolveAgentForSpace } from './conversationSetup'
 import { sanitizeJson } from './utils'
 
-const THOUGHT_BLOCK_BREAK_MARKER = '<|thought_block_break|>'
-
 const sanitizeModelOutputText = value => {
   if (typeof value !== 'string') return ''
   // Remove replacement/BOM artifacts caused by broken upstream decoding.
@@ -33,9 +31,9 @@ const sanitizeInternalToolTraceChunk = value => {
   let cleaned = sanitizeModelOutputText(value)
 
   cleaned = cleaned.replace(/<\/?(?:think|thought)>/gi, '')
-  // Conservative cleanup: strip marker tokens only, avoid truncating normal text.
-  cleaned = cleaned.replace(/<\|tool_call_[^|]*\|>/gi, '')
-  cleaned = cleaned.replace(/<\|tool_calls_section_[^|]*\|>/gi, '')
+  cleaned = cleaned.replace(/<\|[^|>]*\|>/gi, '')
+  cleaned = cleaned.replace(/<\/?(?:session_memory|today_local_time)>/gi, '')
+  cleaned = cleaned.replace(/\[SYSTEM INJECTED CONTEXT\]/gi, '')
   return cleaned
 }
 
@@ -59,6 +57,16 @@ const clampToUnicodeBoundary = (text, index) => {
   return safeIndex
 }
 
+const findParagraphEndIndex = (content, index) => {
+  if (typeof content !== 'string' || content.length === 0) return 0
+  const safeIndex = Math.max(0, Math.min(Number.isFinite(index) ? Number(index) : 0, content.length))
+  const nextDoubleBreak = content.indexOf('\n\n', safeIndex)
+  if (nextDoubleBreak !== -1) return nextDoubleBreak
+  const nextSingleBreak = content.indexOf('\n', safeIndex)
+  if (nextSingleBreak !== -1) return nextSingleBreak
+  return content.length
+}
+
 const buildStreamBlocks = ({ content = '', thoughtHistory = [], toolCallHistory = [] } = {}) => {
   const rawContent = typeof content === 'string' ? content : String(content || '')
   const events = []
@@ -79,7 +87,12 @@ const buildStreamBlocks = ({ content = '', thoughtHistory = [], toolCallHistory 
     ? toolCallHistory
         .map((item, index) => ({
           type: 'tool',
-          textIndex: Number.isFinite(item?.textIndex) ? Number(item.textIndex) : 0,
+          textIndex: (() => {
+            const rawIndex = Number.isFinite(item?.textIndex) ? Number(item.textIndex) : 0
+            const safeIndex = Math.max(0, Math.min(rawIndex, rawContent.length))
+            if (item?.name === 'interactive_form') return safeIndex
+            return findParagraphEndIndex(rawContent, safeIndex)
+          })(),
           order: Number.isFinite(item?.streamOrder) ? Number(item.streamOrder) : 100000 + index,
           tool_call_id: item?.id || `tool-${index}`,
           name: item?.name || '',
@@ -418,6 +431,13 @@ export const callAIAPI = async (
           .join('\n\n')
         lastMsg.thought = streamedThought || undefined
       }
+
+      // Keep streamBlocks live during streaming so UI can render thought/tool blocks incrementally.
+      lastMsg.streamBlocks = buildStreamBlocks({
+        content: lastMsg.content || '',
+        thoughtHistory: Array.isArray(lastMsg.thoughtHistory) ? lastMsg.thoughtHistory : [],
+        toolCallHistory: Array.isArray(lastMsg.toolCallHistory) ? lastMsg.toolCallHistory : [],
+      })
 
       updated[lastMsgIndex] = lastMsg
       return { messages: updated }
@@ -865,6 +885,11 @@ export const callAIAPI = async (
                 streamOrder: ++streamEventOrder,
               })
               lastMsg.toolCallHistory = history
+              lastMsg.streamBlocks = buildStreamBlocks({
+                content: lastMsg.content || '',
+                thoughtHistory: Array.isArray(lastMsg.thoughtHistory) ? lastMsg.thoughtHistory : [],
+                toolCallHistory: history,
+              })
               updated[lastMsgIndex] = lastMsg
               return { messages: updated }
             })
@@ -938,6 +963,11 @@ export const callAIAPI = async (
                 })
               }
               lastMsg.toolCallHistory = history
+              lastMsg.streamBlocks = buildStreamBlocks({
+                content: lastMsg.content || '',
+                thoughtHistory: Array.isArray(lastMsg.thoughtHistory) ? lastMsg.thoughtHistory : [],
+                toolCallHistory: history,
+              })
               updated[lastMsgIndex] = lastMsg
               return { messages: updated }
             })
@@ -1020,6 +1050,11 @@ export const callAIAPI = async (
               }
 
               lastMsg.toolCallHistory = history
+              lastMsg.streamBlocks = buildStreamBlocks({
+                content: lastMsg.content || '',
+                thoughtHistory: Array.isArray(lastMsg.thoughtHistory) ? lastMsg.thoughtHistory : [],
+                toolCallHistory: history,
+              })
               updated[lastMsgIndex] = lastMsg
               return { messages: updated }
             })
@@ -1043,27 +1078,16 @@ export const callAIAPI = async (
                   ? Math.max(0, now - lastThoughtEventAtMs)
                   : Math.max(0, now - thoughtStreamStartAtMs)
             lastThoughtEventAtMs = now
-            const thoughtParts = rawThought.split(THOUGHT_BLOCK_BREAK_MARKER)
-            const validParts = thoughtParts.filter(part => part && part.trim())
-            const durationPerPart =
-              validParts.length > 0 ? resolvedDurationMs / validParts.length : resolvedDurationMs
-
-            thoughtParts.forEach((part, partIndex) => {
-              if (!part || !part.trim()) return
-              if (partIndex > 0) {
-                hasNonThoughtEvent = true
-              }
-              if (hasNonThoughtEvent) {
-                thoughtBlockCounter += 1
-              }
-              hasNonThoughtEvent = false
-              pendingThoughtEntries.push({
-                blockId: thoughtBlockCounter,
-                textIndex: thoughtIndex,
-                content: part,
-                streamOrder: ++streamEventOrder,
-                durationMs: durationPerPart,
-              })
+            if (hasNonThoughtEvent) {
+              thoughtBlockCounter += 1
+            }
+            hasNonThoughtEvent = false
+            pendingThoughtEntries.push({
+              blockId: thoughtBlockCounter,
+              textIndex: thoughtIndex,
+              content: rawThought,
+              streamOrder: ++streamEventOrder,
+              durationMs: resolvedDurationMs,
             })
           } else if (chunk.type === 'text') {
             const cleanText = sanitizeInternalToolTraceChunk(String(chunk.content || ''))

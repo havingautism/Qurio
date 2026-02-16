@@ -1,4 +1,4 @@
-"""
+﻿"""
 Stream chat service implemented with Agno SDK (Agent + tools + DB).
 """
 
@@ -44,7 +44,6 @@ TIME_KEYWORDS_REGEX = re.compile(
 
 MEMORY_OPTIMIZE_THRESHOLD = 50
 MEMORY_OPTIMIZE_INTERVAL_SECONDS = 60 * 60 * 12
-THOUGHT_BLOCK_BREAK_MARKER = "<|thought_block_break|>"
 THINK_TAG_REGEX = re.compile(r"</?(?:think|thought)>", re.IGNORECASE)
 PROTOCOL_TAG_REGEX = re.compile(
     r"(?:<[|｜](?P<tag>[a-zA-Z0-9_]+)[|｜]>)"
@@ -69,12 +68,12 @@ def _strip_internal_tool_trace(text: str) -> str:
         return ""
     cleaned = str(text)
     cleaned = re.sub(r"</?(?:think|thought)>", "", cleaned, flags=re.IGNORECASE)
-    # Keep this conservative: only strip marker tokens themselves.
-    cleaned = re.sub(r"<\|tool_call_[^|]*\|>", "", cleaned, flags=re.IGNORECASE)
-    cleaned = re.sub(r"<\|tool_calls_section_[^|]*\|>", "", cleaned, flags=re.IGNORECASE)
+    # Strip internal protocol markers/tags so stream_blocks never persist them.
+    cleaned = re.sub(r"<\|[^|>]*\|>", "", cleaned, flags=re.IGNORECASE)
     cleaned = re.sub(r"</?\s*[|｜]\s*DSML\s*[|｜]\s*[^>]*>", "", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"</?(?:session_memory|today_local_time)>", "", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\[SYSTEM INJECTED CONTEXT\]", "", cleaned, flags=re.IGNORECASE)
     return cleaned
-
 
 def _split_content_by_think_tags(text: str, in_think: bool) -> tuple[list[tuple[str, str]], bool]:
     """Split a content chunk into ordered thought/text segments by <think>/<thought> tags."""
@@ -328,11 +327,6 @@ class StreamChatService:
                 if not text or not text.strip():
                     return
 
-                if should_break_next_thought and not in_reasoning_phase and full_thought.strip():
-                    separator = f"\n\n{THOUGHT_BLOCK_BREAK_MARKER}\n\n"
-                    full_thought += separator
-                    current_text_index = len(full_content)
-                    yield ThoughtEvent(content=separator, text_index=current_text_index).model_dump(by_alias=True)
                 should_break_next_thought = False
                 in_reasoning_phase = True
                 full_thought += text
@@ -590,17 +584,16 @@ class StreamChatService:
             # 3. Inject Summary into System Prompt
             if session_summary_text:
                 summary_prompt = (
-                    "\n\n<session_memory>\n"
+                    "\n\nSession memory summary:\n"
                     "Here is a summary of the conversation so far. Use this to understand long-term context, "
                     "but prioritize the details in the recent messages below.\n"
                     f"{session_summary_text}\n"
-                    "</session_memory>"
                 )
                 # Inject into the LAST system message, or create a new one if none exist
                 if system_messages:
                     last_sys = system_messages[-1]
                     # Avoid appending if already present (defensive)
-                    if "<session_memory>" not in str(last_sys.get("content", "")):
+                    if "Session memory summary:" not in str(last_sys.get("content", "")):
                         new_content = str(last_sys.get("content", "")) + summary_prompt
                         # Update the dict (need to be careful not to mutate original request list in place if reused, but here it's fine)
                         last_sys["content"] = new_content
@@ -616,7 +609,10 @@ class StreamChatService:
                 stream_events=True,
                 user_id=request.user_id,
                 session_id=request.conversation_id,
-                output_schema=request.output_schema or request.response_format,
+                # Only pass explicit structured-output schema.
+                # Do not fallback to response_format, otherwise {"type":"json_object"}
+                # may be treated as grammar and trigger provider-side grammar cache errors.
+                output_schema=request.output_schema,
             )
 
             # ================================================================
@@ -1162,11 +1158,6 @@ class StreamChatService:
                 text = _strip_internal_tool_trace(str(part or ""))
                 if not text or not text.strip():
                     return
-                if should_break_next_thought and not in_reasoning_phase and full_thought.strip():
-                    separator = f"\n\n{THOUGHT_BLOCK_BREAK_MARKER}\n\n"
-                    full_thought += separator
-                    current_text_index = len(full_content)
-                    yield ThoughtEvent(content=separator, text_index=current_text_index).model_dump(by_alias=True)
                 should_break_next_thought = False
                 in_reasoning_phase = True
                 full_thought += text
@@ -1841,20 +1832,19 @@ class StreamChatService:
         locale = request.user_locale or "en-US"
         time_result = self._compute_local_time(timezone, locale)
         injected = (
-            "\n\n<today_local_time>\n"
+            "\n\nLocal time context:\n"
             f"##today local time: {time_result.get('formatted')} ({time_result.get('timezone')})\n"
             f"locale: {time_result.get('locale')}\n"
             f"iso: {time_result.get('iso')}\n"
-            "</today_local_time>"
         )
 
         updated = list(messages)
         system_index = next((i for i, m in enumerate(updated) if m.get("role") == "system"), -1)
         if system_index != -1:
             current_content = str(updated[system_index].get("content", ""))
-            if "<today_local_time>" in current_content and "</today_local_time>" in current_content:
+            if "Local time context:" in current_content:
                 current_content = re.sub(
-                    r"<today_local_time>[\s\S]*?</today_local_time>",
+                    r"Local time context:\n[\s\S]*?(?=\n\n\S|\Z)",
                     injected.strip(),
                     current_content,
                     count=1,

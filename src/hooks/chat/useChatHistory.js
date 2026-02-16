@@ -38,81 +38,15 @@ const normalizeStreamBlocks = raw => {
 }
 
 // Internal helper function
-const splitThoughtFromContent = rawContent => {
-  if (rawContent && typeof rawContent === 'object' && !Array.isArray(rawContent)) {
-    const contentValue = typeof rawContent.content !== 'undefined' ? rawContent.content : rawContent
-    const thoughtValue =
-      rawContent.thought ?? rawContent.thinking_process ?? rawContent.thinkingProcess ?? null
-
-    if (
-      Object.prototype.hasOwnProperty.call(rawContent, 'thought') ||
-      Object.prototype.hasOwnProperty.call(rawContent, 'thinking_process') ||
-      Object.prototype.hasOwnProperty.call(rawContent, 'thinkingProcess')
-    ) {
-      return {
-        content: contentValue,
-        thought: thoughtValue,
-      }
-    }
-  }
-
-  return { content: rawContent, thought: null }
-}
-
-// Internal helper function
 const mapMessageFromApi = (m, effectiveDefaultModel, activeConversation) => {
-  const streamBlocks = normalizeStreamBlocks(m.stream_blocks ?? m.streamBlocks)
-  const toolCallHistory = asArrayField(m.tool_call_history ?? m.toolCallHistory)
-  const researchStepHistory = asArrayField(m.research_step_history ?? m.researchStepHistory)
-  const relatedQuestions = asArrayField(m.related_questions ?? m.relatedQuestions)
+  const streamBlocks = normalizeStreamBlocks(m.stream_blocks)
+  const toolCallHistory = asArrayField(m.tool_call_history)
+  const researchStepHistory = asArrayField(m.research_step_history)
+  const relatedQuestions = asArrayField(m.related_questions)
   const sources = asArrayField(m.sources)
-  const groundingSupports = asArrayField(m.grounding_supports ?? m.groundingSupports)
-  const documentSources = asArrayField(m.document_sources ?? m.documentSources)
-  const { content: cleanedContent, thought: thoughtFromContent } = splitThoughtFromContent(
-    m.content,
-  )
-  const rawThought = m.thinking_process ?? m.thought ?? thoughtFromContent ?? undefined
-  let thought = rawThought
-  let researchPlan = null
-  let thoughtHistory = undefined
-  let expertMode = false
-  let expertPlan = ''
-  let expertResponses = undefined
-  let expertActiveAgentId = null
-  if (typeof rawThought === 'string') {
-    try {
-      const parsedThought = JSON.parse(rawThought)
-      if (parsedThought && typeof parsedThought === 'object') {
-        if (typeof parsedThought.thought === 'string') thought = parsedThought.thought
-        if (typeof parsedThought.plan === 'string') researchPlan = parsedThought.plan
-        if (parsedThought.expertMode === true) expertMode = true
-        if (typeof parsedThought.expertPlan === 'string') expertPlan = parsedThought.expertPlan
-        if (typeof parsedThought.expertActiveAgentId === 'string') {
-          expertActiveAgentId = parsedThought.expertActiveAgentId
-        }
-        if (Array.isArray(parsedThought.expertResponses)) {
-          expertResponses = parsedThought.expertResponses
-            .map(item => ({
-              ...item,
-              task: typeof item?.task === 'string' ? item.task : '',
-            }))
-            .filter(item => item)
-        }
-        const rawThoughtHistory = parsedThought.thoughtHistory || parsedThought.thought_history
-        if (Array.isArray(rawThoughtHistory)) {
-          thoughtHistory = rawThoughtHistory
-            .map((item, index) => ({
-              id: item?.id || `${item?.blockId ?? 'block'}-${index}`,
-              blockId: item?.blockId ?? index,
-              textIndex: Number.isFinite(item?.textIndex) ? Number(item.textIndex) : 0,
-              content: String(item?.content || ''),
-              streamOrder: Number.isFinite(item?.streamOrder) ? Number(item.streamOrder) : index,
-            }))
-            .filter(item => item.content.trim())
-        }
-      }
-    } catch {}
-  }
+  const groundingSupports = asArrayField(m.grounding_supports)
+  const documentSources = asArrayField(m.document_sources)
+  const cleanedContent = typeof m.content === 'string' ? m.content : ''
 
   const restoreHitlMetaFromToolHistory = toolHistory => {
     if (!Array.isArray(toolHistory)) {
@@ -164,17 +98,17 @@ const mapMessageFromApi = (m, effectiveDefaultModel, activeConversation) => {
     created_at: m.created_at,
     role: m.role === 'assistant' ? 'ai' : m.role,
     content: cleanedContent,
-    thought,
-    researchPlan: researchPlan || '',
-    deepResearch: !!researchPlan || hasResearchSteps,
+    thought: undefined,
+    researchPlan: '',
+    deepResearch: hasResearchSteps,
     related: relatedQuestions,
     tool_calls: m.tool_calls || undefined,
     toolCallHistory,
-    thoughtHistory,
-    expertMode,
-    expertPlan,
-    expertResponses,
-    expertActiveAgentId,
+    thoughtHistory: undefined,
+    expertMode: false,
+    expertPlan: '',
+    expertResponses: undefined,
+    expertActiveAgentId: null,
     hitlRunId: hitlMeta.hitlRunId,
     hitlFormId: hitlMeta.hitlFormId,
     hitlFormTitle: hitlMeta.hitlFormTitle,
@@ -185,15 +119,12 @@ const mapMessageFromApi = (m, effectiveDefaultModel, activeConversation) => {
     streamBlocks,
     provider: m.provider || activeConversation?.api_provider,
     model: m.model || effectiveDefaultModel,
-    agentId: m.agent_id ?? m.agentId ?? null,
-    agentName: m.agent_name ?? m.agentName ?? null,
-    agentEmoji: m.agent_emoji ?? m.agentEmoji ?? '',
-    agentIsDefault: m.agent_is_default ?? m.agentIsDefault ?? false,
+    agentId: m.agent_id ?? null,
+    agentName: m.agent_name ?? null,
+    agentEmoji: m.agent_emoji ?? '',
+    agentIsDefault: m.agent_is_default ?? false,
     documentSources,
-    thinkingEnabled:
-      m.is_thinking_enabled ??
-      m.generated_with_thinking ??
-      (thought || researchPlan ? true : undefined),
+    thinkingEnabled: m.is_thinking_enabled ?? m.generated_with_thinking ?? undefined,
   }
 }
 

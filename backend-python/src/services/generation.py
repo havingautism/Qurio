@@ -9,12 +9,8 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from ..models.generation import (
-    AgentNameResponse,
     DailyTipResponse,
-    RelatedQuestionsResponse,
-    SpaceAgentResponse,
     TitleResponse,
-    TitleSpaceAgentResponse,
     TitleSpaceResponse,
 )
 from ..models.stream_chat import StreamChatRequest
@@ -46,11 +42,10 @@ def _build_time_context(user_timezone: str | None, user_locale: str | None) -> s
         now = datetime.utcnow()
     formatted = now.strftime("%Y-%m-%d %H:%M:%S")
     return (
-        "\n\n<today_local_time>\n"
+        "\n\nLocal time context:\n"
         f"##today local time: {formatted} ({timezone})\n"
         f"locale: {locale}\n"
         f"iso: {now.isoformat()}\n"
-        "</today_local_time>"
     )
 
 
@@ -508,7 +503,9 @@ async def generate_title_space_and_agent(
         toolIds=tool_ids or [],
         userTools=user_tools or [],
         responseFormat=response_format,
-        output_schema=TitleSpaceAgentResponse,
+        # Avoid provider-side grammar cache collisions for lightweight JSON routes.
+        # We parse JSON content locally instead of forcing native structured output.
+        output_schema=None,
         thinking=thinking,
         temperature=temperature,
         top_k=top_k,
@@ -687,7 +684,9 @@ async def generate_space_and_agent(
         tavilyApiKey=tavily_api_key,
         skipDefaultTools=True,
         stream=True,
-        output_schema=SpaceAgentResponse,
+        # Avoid provider-side grammar cache collisions for lightweight JSON routes.
+        # We parse JSON content locally instead of forcing native structured output.
+        output_schema=None,
     )
     result = await run_agent_completion(request)
     content = result.get("content", "").strip()
@@ -919,7 +918,9 @@ async def generate_related_questions(
         toolIds=tool_ids or [],
         userTools=user_tools or [],
         responseFormat=response_format,
-        output_schema=RelatedQuestionsResponse,
+        # Avoid provider-side grammar cache collisions for this lightweight route.
+        # We parse JSON content locally instead of forcing native structured output.
+        output_schema=None,
         thinking=thinking,
         temperature=temperature,
         top_k=top_k,

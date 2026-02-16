@@ -45,8 +45,9 @@ const sanitizeExpertStreamChunk = value => {
   if (typeof value !== 'string') return ''
   let cleaned = value
   cleaned = cleaned.replace(/<\/?(?:think|thought)>/gi, '')
-  cleaned = cleaned.replace(/<\|tool_call_[^|]*\|>/gi, '')
-  cleaned = cleaned.replace(/<\|tool_calls_section_[^|]*\|>/gi, '')
+  cleaned = cleaned.replace(/<\|[^|>]*\|>/gi, '')
+  cleaned = cleaned.replace(/<\/?(?:session_memory|today_local_time)>/gi, '')
+  cleaned = cleaned.replace(/\[SYSTEM INJECTED CONTEXT\]/gi, '')
   return cleaned
 }
 

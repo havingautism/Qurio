@@ -7,6 +7,7 @@ Supports persistent DB-backed storage (Supabase/SQLite provider) with in-memory 
 from __future__ import annotations
 
 import logging
+import re
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
@@ -50,6 +51,16 @@ def _to_uuid_or_none(value: Any) -> str | None:
         return str(UUID(text))
     except Exception:
         return None
+
+
+def _extract_missing_column_from_error(error: Any) -> str | None:
+    text = str(error or "")
+    # Supabase/PostgREST PGRST204 example:
+    # "Could not find the 'agent_model' column of 'pending_form_runs' in the schema cache"
+    match = re.search(r"Could not find the '([^']+)' column", text, re.IGNORECASE)
+    if match:
+        return match.group(1)
+    return None
 
 
 class InMemoryHITLStorage:
@@ -194,21 +205,20 @@ class DbHITLStorage:
         )
         result = await execute_db_async(self.adapter, req)
         if result.error:
-            # 1. First retry: older schema might not have 'agent_model'
-            if "agent_model" in payload and _is_missing_pending_form_table_error(result.error):
-                payload.pop("agent_model", None)
-                req = DbQueryRequest(
-                    providerId=self.provider.id,
-                    action="upsert",
-                    table=self.TABLE_NAME,
-                    values=payload,
-                    onConflict=["run_id"],
-                )
-                result = await execute_db_async(self.adapter, req)
+            # Retry with progressively reduced payload for older schemas.
+            # Drop explicitly missing columns reported by provider error.
+            for _ in range(4):
+                if not result.error:
+                    break
+                missing_col = _extract_missing_column_from_error(result.error)
+                if missing_col and missing_col in payload:
+                    payload.pop(missing_col, None)
+                elif "messages" in payload:
+                    # Older deployments may still miss messages json column.
+                    payload.pop("messages", None)
+                else:
+                    break
 
-            # 2. Second retry: older schema might not have 'messages' (unlikely but safe)
-            if result.error and "messages" in payload:
-                payload.pop("messages", None)
                 req = DbQueryRequest(
                     providerId=self.provider.id,
                     action="upsert",
@@ -336,6 +346,19 @@ class DbHITLStorage:
             filters=[DbFilter(op="eq", column="run_id", value=run_id)],
         )
         result = await execute_db_async(self.adapter, req)
+        if result.error:
+            # Backward compatibility: some deployments do not have submitted_at.
+            missing_col = _extract_missing_column_from_error(result.error)
+            if missing_col == "submitted_at":
+                req = DbQueryRequest(
+                    providerId=self.provider.id,
+                    action="update",
+                    table=self.TABLE_NAME,
+                    payload={"status": "submitted"},
+                    filters=[DbFilter(op="eq", column="run_id", value=run_id)],
+                )
+                result = await execute_db_async(self.adapter, req)
+
         if result.error:
             if _is_missing_pending_form_table_error(result.error):
                 self._use_memory_fallback = True

@@ -244,6 +244,7 @@ const ChatInterface = ({
   const [isSearchActive, setIsSearchActive] = useState(false)
   const [isThinkingActive, setIsThinkingActive] = useState(getInitialThinkingPreference)
   const [isExpertMode, setIsExpertMode] = useState(false)
+  const previousExpertModeRef = useRef(false)
   const [searchBackend, setSearchBackend] = useState(null)
   const [selectedSearchTools, setSelectedSearchTools] = useState([])
   const [isSearchMenuOpen, setIsSearchMenuOpen] = useState(false)
@@ -720,6 +721,14 @@ const ChatInterface = ({
   const resolvedModelName = activeModelConfig?.model || effectiveDefaultModel || ''
   const thinkingRule = resolveThinkingToggleRule(effectiveProvider, resolvedModelName)
   const isThinkingLocked = thinkingRule.isLocked
+
+  useEffect(() => {
+    const wasExpertMode = previousExpertModeRef.current
+    if (!wasExpertMode && isExpertMode && !isThinkingLocked) {
+      setIsThinkingActive(true)
+    }
+    previousExpertModeRef.current = isExpertMode
+  }, [isExpertMode, isThinkingLocked])
 
   const resolvedSearchToolIds = useMemo(() => {
     const ids = new Set()

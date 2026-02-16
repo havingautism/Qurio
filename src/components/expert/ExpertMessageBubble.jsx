@@ -5,11 +5,7 @@ import useExpertAgentSelection from '../../hooks/expert/useExpertAgentSelection'
 import {
   isExpertAiMessage,
   normalizeExpertResponses,
-  resolveExpertPlanText,
 } from '../../lib/chat/expertViewAdapter'
-import ExpertAgentSwitcher from './ExpertAgentSwitcher'
-import ExpertPlanPanel from './ExpertPlanPanel'
-import ExpertTaskCard from './ExpertTaskCard'
 import MessageBubble from '../MessageBubble'
 
 const ExpertMessageBubble = props => {
@@ -25,37 +21,23 @@ const ExpertMessageBubble = props => {
     () => normalizeExpertResponses(message),
     [message?.expertResponses],
   )
-  const expertPlanText = useMemo(() => resolveExpertPlanText(message), [message])
   const isExpertMessage = isExpertAiMessage(message, expertResponses)
-  const { activeExpertAgentId, setActiveExpertAgentId, activeExpertResponse, syntheticMessage } =
-    useExpertAgentSelection({
-      message,
-      expertResponses,
-      isExpertMessage,
-    })
+  const { syntheticMessage } = useExpertAgentSelection({
+    message,
+    expertResponses,
+    isExpertMessage,
+  })
 
   if (!isExpertMessage) {
     return <MessageBubble {...props} />
   }
 
   return (
-    <div className="w-full">
-      <div className="mx-5 sm:mx-0">
-        <ExpertPlanPanel planText={expertPlanText} />
-      </div>
-
-      <ExpertAgentSwitcher
-        responses={expertResponses}
-        activeAgentId={activeExpertAgentId}
-        onSelectAgent={setActiveExpertAgentId}
-      />
-
-      <MessageBubble
-        {...props}
-        messageOverride={syntheticMessage}
-        headerExtraContent={<ExpertTaskCard task={activeExpertResponse?.task} />}
-      />
-    </div>
+    <MessageBubble
+      {...props}
+      messageOverride={syntheticMessage}
+      compactStreamingTextBlocks
+    />
   )
 }
 

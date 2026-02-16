@@ -279,6 +279,37 @@ export const callAIAPI = async (
   const toolStartedAtById = new Map()
   const toolStartedAtQueuesByName = new Map()
 
+  // HITL continuation appends to an existing AI message. Keep ordering monotonic
+  // so new tool/thought events never sort ahead of the old form/tool history.
+  if (hitlRunId) {
+    try {
+      const currentMessages = get().messages || []
+      const lastMsg = currentMessages[currentMessages.length - 1]
+      if (lastMsg?.role === 'ai') {
+        const existingTools = Array.isArray(lastMsg.toolCallHistory) ? lastMsg.toolCallHistory : []
+        const existingThoughts = Array.isArray(lastMsg.thoughtHistory) ? lastMsg.thoughtHistory : []
+        const maxToolOrder = existingTools.reduce(
+          (acc, item) =>
+            Number.isFinite(item?.streamOrder) ? Math.max(acc, Number(item.streamOrder)) : acc,
+          0,
+        )
+        const maxThoughtOrder = existingThoughts.reduce(
+          (acc, item) =>
+            Number.isFinite(item?.streamOrder) ? Math.max(acc, Number(item.streamOrder)) : acc,
+          0,
+        )
+        const maxBlockId = existingThoughts.reduce((acc, item) => {
+          const n = Number(item?.blockId)
+          return Number.isFinite(n) ? Math.max(acc, n) : acc
+        }, 0)
+        streamEventOrder = Math.max(maxToolOrder, maxThoughtOrder)
+        thoughtBlockCounter = Math.max(thoughtBlockCounter, maxBlockId)
+      }
+    } catch {
+      // Best effort only.
+    }
+  }
+
   const markToolStarted = (id, name, startedAt) => {
     if (id) toolStartedAtById.set(id, startedAt)
     if (!name) return
@@ -358,12 +389,15 @@ export const callAIAPI = async (
         for (const entry of pendingThoughtEntries) {
           if (!entry?.content) continue
           const lastEntry = thoughtHistory[thoughtHistory.length - 1]
-          if (
-            lastEntry &&
-            lastEntry.blockId === entry.blockId &&
-            lastEntry.textIndex === entry.textIndex
-          ) {
+          if (lastEntry && lastEntry.blockId === entry.blockId) {
             lastEntry.content = `${lastEntry.content || ''}${entry.content}`
+            // Keep the earliest anchor index for this thought block so interleaving stays stable.
+            if (
+              Number.isFinite(entry.textIndex) &&
+              (!Number.isFinite(lastEntry.textIndex) || entry.textIndex < lastEntry.textIndex)
+            ) {
+              lastEntry.textIndex = Number(entry.textIndex)
+            }
             const lastDuration = Number.isFinite(lastEntry.durationMs) ? Number(lastEntry.durationMs) : 0
             const nextDuration = Number.isFinite(entry.durationMs) ? Number(entry.durationMs) : 0
             lastEntry.durationMs = Math.max(0, lastDuration + nextDuration)
@@ -1059,8 +1093,9 @@ export const callAIAPI = async (
         flushPending()
         set({ isLoading: false })
         const currentStore = get()
+        const finalThought = hitlRunId ? streamedThought : result.thought ?? streamedThought
         await finalizeMessage(
-          { ...result, thought: result.thought ?? streamedThought },
+          { ...result, thought: finalThought },
           currentStore,
           settings,
           callbacks,
@@ -1232,7 +1267,9 @@ export const finalizeMessage = async (
         const hasFormInExisting = validToolCallHistory.some(tc => tc.name === 'interactive_form')
         const hasStreamedContent = typeof lastMsg.content === 'string' && lastMsg.content.length > 0
         // Keep streamed content as source-of-truth to preserve tool/thought textIndex alignment.
-        if (!hasFormInExisting && !hasStreamedContent) {
+        // In HITL continuation, the same message already contains interactive_form tool history.
+        // If streaming text extraction misses content, we must still fall back to final result content.
+        if (!hasStreamedContent || !hasFormInExisting) {
           lastMsg.content = normalizeContent(result.content)
         }
       }

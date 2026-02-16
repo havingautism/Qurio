@@ -15,7 +15,10 @@ from zoneinfo import ZoneInfo
 
 import httpx
 from agno.tools import Toolkit, tool
-from duckduckgo_search import DDGS
+try:
+    from ddgs import DDGS
+except Exception:  # pragma: no cover - backward compatibility only
+    from duckduckgo_search import DDGS
 
 from .academic_domains import ACADEMIC_DOMAINS
 
@@ -126,6 +129,67 @@ class DuckDuckGoVideoTools(Toolkit):
                 return json.dumps(output, ensure_ascii=False)
         except Exception as e:
             return f"Error searching DuckDuckGo videos: {str(e)}"
+
+
+class DuckDuckGoWebSearchTools(Toolkit):
+    """Web/news search using DuckDuckGo with safe no-result handling."""
+
+    def __init__(self, include_tools: list[str] | None = None, backend: str = "auto") -> None:
+        self._backend = backend or "auto"
+        super().__init__(
+            name="DuckDuckGoWebSearchTools",
+            tools=[self.web_search, self.search_news],
+            include_tools=include_tools,
+        )
+
+    @tool
+    def web_search(self, query: str, max_results: int = 5) -> str:
+        q = str(query or "").strip()
+        limit = max(1, min(int(max_results or 5), 20))
+        if not q:
+            return json.dumps({"query": q, "results": [], "error": "Missing query"}, ensure_ascii=False)
+        try:
+            with DDGS() as ddgs:
+                results = ddgs.text(query=q, max_results=limit, backend=self._backend)
+                normalized = [
+                    {
+                        "title": item.get("title"),
+                        "url": item.get("href") or item.get("url"),
+                        "content": item.get("body") or item.get("snippet") or "",
+                    }
+                    for item in (results or [])
+                ]
+                return json.dumps({"query": q, "results": normalized}, ensure_ascii=False)
+        except Exception as exc:
+            # ddgs raises on empty set in some versions; make it non-fatal.
+            if "No results found" in str(exc):
+                return json.dumps({"query": q, "results": []}, ensure_ascii=False)
+            return json.dumps({"query": q, "results": [], "error": str(exc)}, ensure_ascii=False)
+
+    @tool
+    def search_news(self, query: str, max_results: int = 5) -> str:
+        q = str(query or "").strip()
+        limit = max(1, min(int(max_results or 5), 20))
+        if not q:
+            return json.dumps({"query": q, "results": [], "error": "Missing query"}, ensure_ascii=False)
+        try:
+            with DDGS() as ddgs:
+                results = ddgs.news(keywords=q, max_results=limit)
+                normalized = [
+                    {
+                        "title": item.get("title"),
+                        "url": item.get("url"),
+                        "content": item.get("body") or item.get("excerpt") or "",
+                        "date": item.get("date"),
+                        "source": item.get("source"),
+                    }
+                    for item in (results or [])
+                ]
+                return json.dumps({"query": q, "results": normalized}, ensure_ascii=False)
+        except Exception as exc:
+            if "No results found" in str(exc):
+                return json.dumps({"query": q, "results": []}, ensure_ascii=False)
+            return json.dumps({"query": q, "results": [], "error": str(exc)}, ensure_ascii=False)
 
 
 class SerpApiImageTools(Toolkit):

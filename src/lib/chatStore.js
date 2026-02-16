@@ -41,6 +41,29 @@ import {
 } from './chat/prompts'
 import { normalizeExpertBrokenTokenLines } from './chat/expertTextUtils'
 
+const sanitizeExpertStreamChunk = value => {
+  if (typeof value !== 'string') return ''
+  let cleaned = value
+  cleaned = cleaned.replace(/<\/?(?:think|thought)>/gi, '')
+  cleaned = cleaned.replace(/<\|tool_call_[^|]*\|>/gi, '')
+  cleaned = cleaned.replace(/<\|tool_calls_section_[^|]*\|>/gi, '')
+  return cleaned
+}
+
+const readReasoningField = value => {
+  if (typeof value === 'string') return value
+  if (Array.isArray(value)) {
+    return value
+      .map(item => {
+        if (typeof item === 'string') return item
+        if (item?.text) return String(item.text)
+        return ''
+      })
+      .join('')
+  }
+  return ''
+}
+
 const parseJsonObjectFromText = raw => {
   if (!raw || typeof raw !== 'string') return null
   const trimmed = raw.trim()
@@ -637,6 +660,10 @@ const useChatStore = create((set, get) => ({
     // Ensure thinking toggle reflects the resolved agent (auto mode can resolve late).
     const resolvedToggles = (() => {
       const next = { ...toggles }
+      if (next.expertMode) {
+        // Expert mode defaults to reasoning-enabled execution per-agent.
+        next.thinking = true
+      }
       const fallbackAgent = agents?.find(agent => agent.isDefault)
       const modelConfig = getModelConfigForAgent(
         resolvedAgent || fallbackAgent,
@@ -734,6 +761,7 @@ const useChatStore = create((set, get) => ({
 
           let expertPlan = ''
           let plannedTasks = []
+          let expertPlanError = null
           try {
             const fallbackAgent = agents?.find(agent => agent.isDefault)
             const planModelConfig = getModelConfigForAgent(
@@ -777,6 +805,23 @@ const useChatStore = create((set, get) => ({
             }
           } catch (error) {
             console.error('Expert plan generation failed:', error)
+            expertPlanError = error
+          }
+
+          if (expertPlanError) {
+            const errorMessage =
+              expertPlanError?.message || 'Expert plan generation failed. Please retry.'
+            updateExpertMessage(current => ({
+              ...current,
+              expertPlanLoading: false,
+              expertPlan: errorMessage,
+              expertResponses: [],
+              expertActiveAgentId: '',
+              content: '',
+              isError: true,
+            }))
+            set({ abortController: null, isLoading: false })
+            return
           }
 
           const expertAgentMap = new Map(expertAgents.map(agent => [String(agent.id), agent]))
@@ -886,6 +931,8 @@ const useChatStore = create((set, get) => ({
               if (chunk.type && chunk.type !== 'text') return ''
               if (typeof chunk.text === 'string') return chunk.text
               if (typeof chunk.delta === 'string') return chunk.delta
+              if (typeof chunk.delta?.reasoning_content !== 'undefined') return ''
+              if (typeof chunk.reasoning_content !== 'undefined') return ''
               if (typeof chunk.delta?.content === 'string') return chunk.delta.content
               if (typeof chunk.message?.content === 'string') return chunk.message.content
               if (typeof chunk.choices?.[0]?.delta?.content === 'string') {
@@ -906,8 +953,17 @@ const useChatStore = create((set, get) => ({
               if (typeof chunk.content === 'string') return chunk.content
               if (typeof chunk.text === 'string') return chunk.text
               if (typeof chunk.reasoning === 'string') return chunk.reasoning
+              if (typeof chunk.reasoning_content !== 'undefined') {
+                return readReasoningField(chunk.reasoning_content)
+              }
               if (typeof chunk.delta === 'string') return chunk.delta
+              if (typeof chunk.delta?.reasoning_content !== 'undefined') {
+                return readReasoningField(chunk.delta.reasoning_content)
+              }
               if (typeof chunk.delta?.content === 'string') return chunk.delta.content
+              if (typeof chunk.choices?.[0]?.delta?.reasoning_content !== 'undefined') {
+                return readReasoningField(chunk.choices[0].delta.reasoning_content)
+              }
               return ''
             }
 
@@ -922,6 +978,10 @@ const useChatStore = create((set, get) => ({
             )
             const provider = getProvider(modelConfig.provider)
             const credentials = provider.getCredentials(settings)
+            const searchProvider = settings.searchProvider || 'tavily'
+            const tavilyApiKey =
+              searchProvider === 'tavily' ? settings.tavilyApiKey : undefined
+            const serpapiApiKey = settings.serpapiApiKey
             const languageInstruction = getLanguageInstruction(agent, settings)
             const taskPrompt = assignedTask
               ? `You are assigned this sub-question only:\n${assignedTask}\n\nConstraints:\n- Answer only this sub-question.\n- Do not cover other agents' topics.\n- Return practical, implementation-ready guidance.`
@@ -934,6 +994,23 @@ const useChatStore = create((set, get) => ({
               agent,
               settings,
             )
+
+            const resolvedToolIds = (() => {
+              if (Array.isArray(agent?.toolIds) && agent.toolIds.length > 0) return agent.toolIds
+              if (Array.isArray(agent?.tool_ids) && agent.tool_ids.length > 0) return agent.tool_ids
+              return []
+            })()
+            let activeUserTools = []
+            try {
+              const allUserTools = await getUserTools()
+              if (Array.isArray(allUserTools) && resolvedToolIds.length > 0) {
+                activeUserTools = allUserTools
+                  .filter(t => resolvedToolIds.includes(String(t.id)))
+                  .filter(t => !t.config?.disabled)
+              }
+            } catch (error) {
+              console.error('Failed to fetch user tools for expert mode:', error)
+            }
 
             updateExpertMessage(current => ({
               ...current,
@@ -964,8 +1041,20 @@ const useChatStore = create((set, get) => ({
                   tools: provider.getTools(
                     Boolean(resolvedToggles?.search),
                     searchToolForExpert,
-                    false,
+                    Boolean(settings.enableLongTermMemory),
                   ),
+                  toolIds: resolvedToolIds,
+                  userTools: activeUserTools,
+                  enableLongTermMemory: Boolean(settings.enableLongTermMemory),
+                  databaseProvider: settings.databaseProviderId || settings.databaseProvider || '',
+                  contextTurns: settings.contextTurns,
+                  searchProvider,
+                  tavilyApiKey,
+                  serpapiApiKey,
+                  memoryProvider: modelConfig.provider,
+                  memoryModel: modelConfig.model,
+                  memoryApiKey: credentials.apiKey,
+                  memoryBaseUrl: credentials.baseUrl,
                   thinking: provider.getThinking(
                     Boolean(resolvedToggles?.thinking),
                     modelConfig.model,
@@ -974,62 +1063,68 @@ const useChatStore = create((set, get) => ({
                   onChunk: chunk => {
                     const reasoningText = extractReasoningText(chunk)
                     if (reasoningText) {
-                      const now = Date.now()
-                      const resolvedDurationMs =
-                        typeof chunk?.duration_ms === 'number'
-                          ? chunk.duration_ms
-                          : Number.isFinite(lastReasoningAtMs)
-                            ? Math.max(0, now - lastReasoningAtMs)
-                            : 0
-                      lastReasoningAtMs = now
-                      updateExpertMessage(current => ({
-                        ...current,
-                        expertActiveAgentId: String(agent.id),
-                        expertResponses: (current.expertResponses || []).map(item => {
-                          if (String(item.agentId) !== String(agent.id)) return item
-                          const contentLength = (item.content || '').length
-                          const thoughtHistory = Array.isArray(item.thoughtHistory)
-                            ? [...item.thoughtHistory]
-                            : []
-                          const blockId = chunk?.block_id || 'reasoning-stream'
-                          const lastEntry = thoughtHistory[thoughtHistory.length - 1]
-                          if (lastEntry && String(lastEntry.blockId) === String(blockId)) {
-                            lastEntry.content = `${lastEntry.content || ''}${reasoningText}`
-                            const lastDuration =
-                              typeof lastEntry.durationMs === 'number' ? lastEntry.durationMs : 0
-                            lastEntry.durationMs = Math.max(0, lastDuration + resolvedDurationMs)
-                          } else {
-                            thoughtHistory.push({
-                              id: `${blockId}-${Date.now()}-${thoughtHistory.length}`,
-                              blockId,
-                              textIndex: contentLength,
-                              content: reasoningText,
-                              streamOrder: ++thoughtStreamOrder,
-                              durationMs: resolvedDurationMs,
+                      const cleanReasoning = sanitizeExpertStreamChunk(reasoningText)
+                      if (cleanReasoning) {
+                        const now = Date.now()
+                        const resolvedDurationMs =
+                          typeof chunk?.duration_ms === 'number'
+                            ? chunk.duration_ms
+                            : Number.isFinite(lastReasoningAtMs)
+                              ? Math.max(0, now - lastReasoningAtMs)
+                              : 0
+                        lastReasoningAtMs = now
+                        updateExpertMessage(current => ({
+                          ...current,
+                          expertActiveAgentId: String(agent.id),
+                          expertResponses: (current.expertResponses || []).map(item => {
+                            if (String(item.agentId) !== String(agent.id)) return item
+                            const contentLength = (item.content || '').length
+                            const thoughtHistory = Array.isArray(item.thoughtHistory)
+                              ? [...item.thoughtHistory]
+                              : []
+                            const blockId = chunk?.block_id || 'reasoning-stream'
+                            const lastEntry = thoughtHistory[thoughtHistory.length - 1]
+                            if (lastEntry && String(lastEntry.blockId) === String(blockId)) {
+                              lastEntry.content = `${lastEntry.content || ''}${cleanReasoning}`
+                              const lastDuration =
+                                typeof lastEntry.durationMs === 'number' ? lastEntry.durationMs : 0
+                              lastEntry.durationMs = Math.max(0, lastDuration + resolvedDurationMs)
+                            } else {
+                              thoughtHistory.push({
+                                id: `${blockId}-${Date.now()}-${thoughtHistory.length}`,
+                                blockId,
+                                textIndex: contentLength,
+                                content: cleanReasoning,
+                                streamOrder: ++thoughtStreamOrder,
+                                durationMs: resolvedDurationMs,
+                              })
+                            }
+                            const streamBlocks = Array.isArray(item.streamBlocks)
+                              ? [...item.streamBlocks]
+                              : []
+                            streamBlocks.push({
+                              seq: ++streamSeq,
+                              type: 'reasoning',
+                              content: cleanReasoning,
+                              durationMs:
+                                typeof chunk?.duration_ms === 'number' ? chunk.duration_ms : null,
                             })
-                          }
-                          const streamBlocks = Array.isArray(item.streamBlocks)
-                            ? [...item.streamBlocks]
-                            : []
-                          streamBlocks.push({
-                            seq: ++streamSeq,
-                            type: 'reasoning',
-                            content: reasoningText,
-                            durationMs:
-                              typeof chunk?.duration_ms === 'number' ? chunk.duration_ms : null,
-                          })
-                          return {
-                            ...item,
-                            thought: `${item.thought || ''}${reasoningText}`,
-                            thoughtHistory,
-                            streamBlocks,
-                          }
-                        }),
-                      }))
-                      return
+                            return {
+                              ...item,
+                              thought: `${item.thought || ''}${cleanReasoning}`,
+                              thoughtHistory,
+                              streamBlocks,
+                            }
+                          }),
+                        }))
+                      }
                     }
 
-                    if (chunk && typeof chunk === 'object' && chunk.type === 'tool_call') {
+                    if (
+                      chunk &&
+                      typeof chunk === 'object' &&
+                      (chunk.type === 'tool_call' || chunk.type === 'tool_call_started')
+                    ) {
                       updateExpertMessage(current => ({
                         ...current,
                         expertActiveAgentId: String(agent.id),
@@ -1114,7 +1209,11 @@ const useChatStore = create((set, get) => ({
                       return
                     }
 
-                    if (chunk && typeof chunk === 'object' && chunk.type === 'tool_result') {
+                    if (
+                      chunk &&
+                      typeof chunk === 'object' &&
+                      (chunk.type === 'tool_result' || chunk.type === 'tool_call_completed')
+                    ) {
                       updateExpertMessage(current => ({
                         ...current,
                         expertActiveAgentId: String(agent.id),
@@ -1192,6 +1291,8 @@ const useChatStore = create((set, get) => ({
 
                     const chunkText = extractChunkText(chunk)
                     if (!chunkText) return
+                    const cleanText = sanitizeExpertStreamChunk(chunkText)
+                    if (!cleanText) return
                     updateExpertMessage(current => ({
                       ...current,
                       expertActiveAgentId: String(agent.id),
@@ -1199,13 +1300,13 @@ const useChatStore = create((set, get) => ({
                         String(item.agentId) === String(agent.id)
                           ? {
                               ...item,
-                              content: `${item.content || ''}${chunkText}`,
+                              content: `${item.content || ''}${cleanText}`,
                               streamBlocks: Array.isArray(item.streamBlocks)
                                 ? [
                                     ...item.streamBlocks,
-                                    { seq: ++streamSeq, type: 'text', content: chunkText },
+                                    { seq: ++streamSeq, type: 'text', content: cleanText },
                                   ]
-                                : [{ seq: ++streamSeq, type: 'text', content: chunkText }],
+                                : [{ seq: ++streamSeq, type: 'text', content: cleanText }],
                             }
                           : item,
                       ),
@@ -1218,10 +1319,19 @@ const useChatStore = create((set, get) => ({
                         : undefined
                     const finalThought =
                       typeof result?.thought === 'string'
-                        ? normalizeExpertBrokenTokenLines(result.thought)
+                        ? normalizeExpertBrokenTokenLines(
+                            sanitizeExpertStreamChunk(result.thought),
+                          )
                         : typeof result?.reasoning === 'string'
-                          ? normalizeExpertBrokenTokenLines(result.reasoning)
+                          ? normalizeExpertBrokenTokenLines(
+                              sanitizeExpertStreamChunk(result.reasoning),
+                            )
                           : ''
+                    const finalToolCalls = Array.isArray(result?.toolCalls)
+                      ? result.toolCalls
+                      : Array.isArray(result?.tool_calls)
+                        ? result.tool_calls
+                        : []
                     updateExpertMessage(current => ({
                       ...current,
                       expertActiveAgentId: String(agent.id),
@@ -1232,6 +1342,41 @@ const useChatStore = create((set, get) => ({
                               status: 'done',
                               content: finalText ?? item.content ?? '',
                               thought: finalThought || item.thought || '',
+                              toolCallHistory: (() => {
+                                const existing = Array.isArray(item.toolCallHistory)
+                                  ? [...item.toolCallHistory]
+                                  : []
+                                if (finalToolCalls.length === 0) return existing
+
+                                const seen = new Set(
+                                  existing.map(tc => String(tc?.id || `${tc?.name}:${tc?.arguments || ''}`)),
+                                )
+                                const mapped = finalToolCalls
+                                  .map((tc, idx) => {
+                                    const id = tc?.id || `${tc?.name || tc?.function?.name || 'tool'}-finish-${idx}`
+                                    const name = tc?.name || tc?.function?.name || 'tool'
+                                    const argumentsPayload =
+                                      typeof tc?.arguments !== 'undefined'
+                                        ? tc.arguments
+                                        : tc?.function?.arguments || ''
+                                    const key = String(id || `${name}:${argumentsPayload || ''}`)
+                                    if (seen.has(key)) return null
+                                    seen.add(key)
+                                    return {
+                                      id,
+                                      name,
+                                      arguments: argumentsPayload,
+                                      status: 'done',
+                                      output: null,
+                                      durationMs: null,
+                                      textIndex: (finalText ?? item.content ?? '').length,
+                                      streamOrder: ++toolStreamOrder,
+                                    }
+                                  })
+                                  .filter(Boolean)
+
+                                return mapped.length > 0 ? [...existing, ...mapped] : existing
+                              })(),
                             }
                           : item,
                       ),
@@ -1391,7 +1536,23 @@ const useChatStore = create((set, get) => ({
           return
         }
       } catch (error) {
-        console.error('Expert mode execution failed, fallback to normal mode:', error)
+        console.error('Expert mode execution failed:', error)
+        const expertErrorMessage = error?.message || 'Expert mode execution failed.'
+        set(state => {
+          const updated = [...state.messages]
+          const lastMsgIndex = updated.length - 1
+          if (lastMsgIndex >= 0 && updated[lastMsgIndex].role === 'ai') {
+            updated[lastMsgIndex] = {
+              ...updated[lastMsgIndex],
+              expertPlanLoading: false,
+              expertPlan: expertErrorMessage,
+              isError: true,
+            }
+          }
+          return { messages: updated }
+        })
+        set({ abortController: null, isLoading: false })
+        return
       }
     }
 

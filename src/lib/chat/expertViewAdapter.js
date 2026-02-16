@@ -43,31 +43,12 @@ export const resolveActiveExpertResponse = (responses, activeAgentId) => {
 
 export const buildExpertSyntheticMessage = ({ message, activeResponse }) => {
   if (!message || !activeResponse) return message
-  const isActiveStreaming = activeResponse?.status === 'running'
   return {
     ...message,
-    expertMode: false,
-    expertResponses: [],
-    expertPlan: '',
-    expertPlanLoading: false,
-    expertActiveAgentId: null,
-    agentId: activeResponse?.agentId || message?.agentId,
-    agent_id: activeResponse?.agentId || message?.agent_id,
-    agentName: activeResponse?.agentName || message?.agentName,
-    agent_name: activeResponse?.agentName || message?.agent_name,
-    agentEmoji: activeResponse?.agentEmoji || message?.agentEmoji,
-    agent_emoji: activeResponse?.agentEmoji || message?.agent_emoji,
-    provider: activeResponse?.provider || message?.provider,
-    model: activeResponse?.model || message?.model,
-    content: activeResponse?.content || '',
-    thought: activeResponse?.thought || '',
-    thoughtHistory: activeResponse?.thoughtHistory || [],
-    toolCallHistory: activeResponse?.toolCallHistory || [],
-    // Avoid replaying persisted per-token reasoning blocks after completion.
-    streamBlocks: isActiveStreaming ? activeResponse?.streamBlocks || [] : [],
-    searchBackend: activeResponse?.searchBackend || null,
-    searchBackends: activeResponse?.searchBackends || [],
-    isStreaming: isActiveStreaming,
+    // Keep expert structure intact so MessageBubble uses the same rendering path
+    // (thought/tool/media handling) as normal chat, only switching active agent.
+    expertMode: true,
+    expertActiveAgentId: activeResponse?.agentId || message?.expertActiveAgentId || null,
   }
 }
 

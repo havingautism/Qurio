@@ -299,6 +299,7 @@ const MessageBubble = ({
   onFormSubmit,
   messageOverride = null,
   headerExtraContent = null,
+  compactStreamingTextBlocks = false,
 }) => {
   // Get message directly from chatStore using shallow selector
   const { messages, isLoading, conversationTitle } = useChatStore(
@@ -437,19 +438,44 @@ const MessageBubble = ({
         : mergedMessage?.thoughtHistory
 
     const fromHistory = Array.isArray(thoughtHistorySource)
-      ? thoughtHistorySource
-          .map((item, index) => ({
-            id: item?.id || `${item?.blockId ?? 'block'}-${index}`,
-            blockId: item?.blockId ?? index,
-            textIndex: Number.isFinite(item?.textIndex) ? Number(item.textIndex) : 0,
-            content: String(item?.content || '').trim(),
-            streamOrder: Number.isFinite(item?.streamOrder) ? Number(item.streamOrder) : index,
-            durationMs: Number.isFinite(item?.durationMs) ? Number(item.durationMs) : null,
-          }))
-          .filter(item => item.content)
-          .sort((a, b) =>
-            a.textIndex === b.textIndex ? a.streamOrder - b.streamOrder : a.textIndex - b.textIndex,
-          )
+      ? (() => {
+          const normalized = thoughtHistorySource
+            .map((item, index) => ({
+              id: item?.id || `${item?.blockId ?? 'block'}-${index}`,
+              blockId: item?.blockId ?? index,
+              textIndex: Number.isFinite(item?.textIndex) ? Number(item.textIndex) : 0,
+              content: String(item?.content || '').trim(),
+              streamOrder: Number.isFinite(item?.streamOrder) ? Number(item.streamOrder) : index,
+              durationMs: Number.isFinite(item?.durationMs) ? Number(item.durationMs) : null,
+            }))
+            .filter(item => item.content)
+            .sort((a, b) =>
+              a.textIndex === b.textIndex ? a.streamOrder - b.streamOrder : a.textIndex - b.textIndex,
+            )
+
+          // Backward compatibility: merge tokenized thought chunks split by textIndex
+          // into one block when they belong to the same logical thought block.
+          const merged = []
+          for (const item of normalized) {
+            const prev = merged[merged.length - 1]
+            if (prev && prev.blockId === item.blockId) {
+              prev.content = `${prev.content || ''}${item.content || ''}`
+              if (
+                Number.isFinite(item.textIndex) &&
+                (!Number.isFinite(prev.textIndex) || item.textIndex < prev.textIndex)
+              ) {
+                prev.textIndex = Number(item.textIndex)
+              }
+              if (Number.isFinite(item.durationMs)) {
+                const prevDuration = Number.isFinite(prev.durationMs) ? Number(prev.durationMs) : 0
+                prev.durationMs = prevDuration + Number(item.durationMs)
+              }
+            } else {
+              merged.push({ ...item })
+            }
+          }
+          return merged
+        })()
       : []
 
     if (fromHistory.length > 0) return fromHistory
@@ -1211,7 +1237,8 @@ const MessageBubble = ({
     const parts = []
     const hasLiveRuntimeOrdering =
       isStreamingMessage && (toolCallHistory.length > 0 || positionedThoughtBlocks.length > 0)
-    const canUsePersistedStreamBlocks = normalizedStreamBlocks.length > 0 && !hasLiveRuntimeOrdering
+    const canUsePersistedStreamBlocks =
+      normalizedStreamBlocks.length > 0 && !hasLiveRuntimeOrdering && !isExpertMessage
 
     if (canUsePersistedStreamBlocks) {
       // Virtual Injection: If expertPlan exists in message props but not in stream, inject it first
@@ -1375,6 +1402,7 @@ const MessageBubble = ({
     toolCallHistory,
     positionedThoughtBlocks,
     isDeepResearch,
+    isExpertMessage,
     isStreamingMessage,
     normalizedStreamBlocks,
   ])
@@ -2217,8 +2245,10 @@ const MessageBubble = ({
       return nextParts
     })
 
-    // Expert mode streams can produce many tiny adjacent text segments; merge them before rendering.
-    if (!isExpertMessage) return rawParts
+    // Some streaming paths (e.g. expert synthetic message) can produce many tiny
+    // adjacent text segments; merge them before rendering to avoid per-chunk line breaks.
+    const shouldMergeAdjacentText = isExpertMessage || compactStreamingTextBlocks
+    if (!shouldMergeAdjacentText) return rawParts
     const merged = []
     for (const part of rawParts) {
       const prev = merged[merged.length - 1]
@@ -2229,7 +2259,7 @@ const MessageBubble = ({
       merged.push({ ...part })
     }
     return merged
-  }, [interleavedContent])
+  }, [compactStreamingTextBlocks, interleavedContent, isExpertMessage])
   const hasWorkflow = !isDeepResearch && workflowPlanThoughtParts.length > 0
   const hasFormSubmissionStatus = useMemo(
     () => toolCallHistory.some(item => item?.name === 'form_submission_status'),

@@ -33,6 +33,75 @@ const extractResearchPlan = message => {
   }
 }
 
+const extractExpertState = message => {
+  const thinkingRaw = message?.thinking_process
+  if (typeof thinkingRaw !== 'string' || !thinkingRaw.trim()) {
+    return {
+      expertMode: false,
+      expertPlan: '',
+      expertResponses: undefined,
+      expertActiveAgentId: null,
+    }
+  }
+
+  try {
+    const parsed = JSON.parse(thinkingRaw)
+    if (!parsed || typeof parsed !== 'object' || parsed.expertMode !== true) {
+      return {
+        expertMode: false,
+        expertPlan: '',
+        expertResponses: undefined,
+        expertActiveAgentId: null,
+      }
+    }
+
+    const responses = Array.isArray(parsed.expertResponses)
+      ? parsed.expertResponses
+          .map(item => {
+            if (!item || typeof item !== 'object') return null
+            const normalizedStreamBlocks = Array.isArray(item.streamBlocks)
+              ? item.streamBlocks
+                  .map((block, index) => ({
+                    seq: Number.isFinite(block?.seq) ? Number(block.seq) : index + 1,
+                    type: String(block?.type || '').toLowerCase(),
+                    content: typeof block?.content === 'string' ? block.content : '',
+                    tool_call_id: block?.tool_call_id || block?.toolCallId || null,
+                    name: block?.name || null,
+                    status: block?.status || null,
+                    arguments: block?.arguments ?? null,
+                    output: block?.output ?? null,
+                    duration_ms: Number.isFinite(block?.duration_ms)
+                      ? Number(block.duration_ms)
+                      : null,
+                  }))
+                  .filter(block => block.type)
+                  .sort((a, b) => a.seq - b.seq)
+              : []
+            return {
+              ...item,
+              streamBlocks: normalizedStreamBlocks,
+            }
+          })
+          .filter(Boolean)
+      : []
+
+    return {
+      expertMode: responses.length > 0,
+      expertPlan: typeof parsed.expertPlan === 'string' ? parsed.expertPlan : '',
+      expertResponses: responses.length > 0 ? responses : undefined,
+      expertActiveAgentId:
+        typeof parsed.expertActiveAgentId === 'string' ? parsed.expertActiveAgentId : null,
+    }
+  } catch {
+    return {
+      expertMode: false,
+      expertPlan: '',
+      expertResponses: undefined,
+      expertActiveAgentId: null,
+    }
+  }
+}
+
 const normalizeStreamBlocks = raw => {
   if (!raw) return []
   const parsed = parseJsonIfString(raw)
@@ -64,6 +133,7 @@ const mapMessageFromApi = (m, effectiveDefaultModel, activeConversation) => {
   const documentSources = asArrayField(m.document_sources)
   const cleanedContent = typeof m.content === 'string' ? m.content : ''
   const researchPlan = extractResearchPlan(m)
+  const expertState = extractExpertState(m)
 
   const restoreHitlMetaFromToolHistory = toolHistory => {
     if (!Array.isArray(toolHistory)) {
@@ -123,10 +193,10 @@ const mapMessageFromApi = (m, effectiveDefaultModel, activeConversation) => {
     tool_calls: m.tool_calls || undefined,
     toolCallHistory,
     thoughtHistory: undefined,
-    expertMode: false,
-    expertPlan: '',
-    expertResponses: undefined,
-    expertActiveAgentId: null,
+    expertMode: expertState.expertMode,
+    expertPlan: expertState.expertPlan,
+    expertResponses: expertState.expertResponses,
+    expertActiveAgentId: expertState.expertActiveAgentId,
     hitlRunId: hitlMeta.hitlRunId,
     hitlFormId: hitlMeta.hitlFormId,
     hitlFormTitle: hitlMeta.hitlFormTitle,

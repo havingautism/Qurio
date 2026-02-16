@@ -1184,7 +1184,7 @@ const MessageBubble = ({
         if (toolItem) {
           parts.push({
             type: 'tools',
-            key: `stream-tool-${block.toolCallId || block.seq}`,
+            key: `stream-tool-${block.type || 'tool'}-${block.toolCallId || 'na'}-${block.seq}`,
             items: [toolItem],
           })
         }

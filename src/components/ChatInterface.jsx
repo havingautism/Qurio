@@ -123,6 +123,7 @@ const ChatInterface = ({
   onTitleAndSpaceGenerated,
   isSidebarPinned = false,
   isSpaceSelectionLocked = false,
+  MessageListComponent = MessageList,
 }) => {
   const normalizeTitleEmojis = value => {
     if (Array.isArray(value)) {
@@ -2082,7 +2083,7 @@ const ChatInterface = ({
                 <FancyLoader />
               </div>
             )}
-            <MessageList
+            <MessageListComponent
               apiProvider={effectiveProvider}
               defaultModel={effectiveDefaultModel}
               onRelatedClick={handleRelatedClick}

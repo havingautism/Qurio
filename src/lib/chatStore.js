@@ -39,6 +39,7 @@ import {
   getLanguageInstruction,
   applyLanguageInstructionToText,
 } from './chat/prompts'
+import { normalizeExpertBrokenTokenLines } from './chat/expertTextUtils'
 
 const parseJsonObjectFromText = raw => {
   if (!raw || typeof raw !== 'string') return null
@@ -877,10 +878,12 @@ const useChatStore = create((set, get) => ({
               if (typeof chunk === 'string') return chunk
               if (!chunk || typeof chunk !== 'object') return ''
               if (chunk.type === 'reasoning') return ''
+              if (chunk.type === 'thought') return ''
+              if (chunk.type === 'thinking') return ''
               if (chunk.type === 'tool_call' || chunk.type === 'tool_result') return ''
               if (chunk.type === 'research_step' || chunk.type === 'form_request') return ''
               if (chunk.type === 'text' && typeof chunk.content === 'string') return chunk.content
-              if (typeof chunk.content === 'string') return chunk.content
+              if (chunk.type && chunk.type !== 'text') return ''
               if (typeof chunk.text === 'string') return chunk.text
               if (typeof chunk.delta === 'string') return chunk.delta
               if (typeof chunk.delta?.content === 'string') return chunk.delta.content
@@ -892,7 +895,14 @@ const useChatStore = create((set, get) => ({
             }
 
             const extractReasoningText = chunk => {
-              if (!chunk || typeof chunk !== 'object' || chunk.type !== 'reasoning') return ''
+              if (!chunk || typeof chunk !== 'object') return ''
+              if (
+                chunk.type !== 'reasoning' &&
+                chunk.type !== 'thought' &&
+                chunk.type !== 'thinking'
+              ) {
+                return ''
+              }
               if (typeof chunk.content === 'string') return chunk.content
               if (typeof chunk.text === 'string') return chunk.text
               if (typeof chunk.reasoning === 'string') return chunk.reasoning
@@ -981,13 +991,9 @@ const useChatStore = create((set, get) => ({
                           const thoughtHistory = Array.isArray(item.thoughtHistory)
                             ? [...item.thoughtHistory]
                             : []
-                          const blockId = chunk?.block_id || `thought-${thoughtHistory.length + 1}`
+                          const blockId = chunk?.block_id || 'reasoning-stream'
                           const lastEntry = thoughtHistory[thoughtHistory.length - 1]
-                          if (
-                            lastEntry &&
-                            String(lastEntry.blockId) === String(blockId) &&
-                            Number(lastEntry.textIndex) === Number(contentLength)
-                          ) {
+                          if (lastEntry && String(lastEntry.blockId) === String(blockId)) {
                             lastEntry.content = `${lastEntry.content || ''}${reasoningText}`
                             const lastDuration =
                               typeof lastEntry.durationMs === 'number' ? lastEntry.durationMs : 0
@@ -1195,7 +1201,10 @@ const useChatStore = create((set, get) => ({
                               ...item,
                               content: `${item.content || ''}${chunkText}`,
                               streamBlocks: Array.isArray(item.streamBlocks)
-                                ? [...item.streamBlocks, { seq: ++streamSeq, type: 'text', content: chunkText }]
+                                ? [
+                                    ...item.streamBlocks,
+                                    { seq: ++streamSeq, type: 'text', content: chunkText },
+                                  ]
                                 : [{ seq: ++streamSeq, type: 'text', content: chunkText }],
                             }
                           : item,
@@ -1204,12 +1213,14 @@ const useChatStore = create((set, get) => ({
                   },
                   onFinish: result => {
                     const finalText =
-                      typeof result?.content === 'string' ? result.content : undefined
+                      typeof result?.content === 'string'
+                        ? normalizeExpertBrokenTokenLines(result.content)
+                        : undefined
                     const finalThought =
                       typeof result?.thought === 'string'
-                        ? result.thought
+                        ? normalizeExpertBrokenTokenLines(result.thought)
                         : typeof result?.reasoning === 'string'
-                          ? result.reasoning
+                          ? normalizeExpertBrokenTokenLines(result.reasoning)
                           : ''
                     updateExpertMessage(current => ({
                       ...current,
@@ -1261,24 +1272,38 @@ const useChatStore = create((set, get) => ({
             })
           }
 
-          for (const agent of executionAgents) {
-            // Execute in planner order to preserve task dependency flow.
-            await runAgentTask(agent)
-          }
+          // Execute all assigned expert agents in parallel for concurrent streaming.
+          await Promise.all(executionAgents.map(agent => runAgentTask(agent)))
 
           const finalMessage = (get().messages || []).find(
             msg => msg.role === 'ai' && msg.localId === expertMessageLocalId,
           )
-          const finalResponses = Array.isArray(finalMessage?.expertResponses)
+          const finalResponsesRaw = Array.isArray(finalMessage?.expertResponses)
             ? finalMessage.expertResponses
             : []
+          const finalResponses = finalResponsesRaw.map(item => ({
+            ...item,
+            content:
+              typeof item?.content === 'string'
+                ? normalizeExpertBrokenTokenLines(item.content)
+                : item?.content || '',
+            thought:
+              typeof item?.thought === 'string'
+                ? normalizeExpertBrokenTokenLines(item.thought)
+                : item?.thought || '',
+          }))
           const preferredResponse =
             finalResponses.find(item => item.status === 'done' && item.content?.trim()) ||
             finalResponses.find(item => item.content?.trim()) ||
             null
-          const fallbackText = preferredResponse?.content || 'All expert agents failed to respond.'
+          const fallbackText = normalizeExpertBrokenTokenLines(
+            preferredResponse?.content || 'All expert agents failed to respond.',
+          )
           const activeAgentId = String(
-            preferredResponse?.agentId || finalResponses[0]?.agentId || executionAgents[0]?.id || '',
+            preferredResponse?.agentId ||
+              finalResponses[0]?.agentId ||
+              executionAgents[0]?.id ||
+              '',
           )
 
           updateExpertMessage(current => ({
@@ -1298,6 +1323,7 @@ const useChatStore = create((set, get) => ({
               preferredResponse && Array.isArray(preferredResponse.streamBlocks)
                 ? preferredResponse.streamBlocks
                 : [],
+            expertResponses: finalResponses,
             searchBackend:
               preferredResponse && typeof preferredResponse.searchBackend === 'string'
                 ? preferredResponse.searchBackend

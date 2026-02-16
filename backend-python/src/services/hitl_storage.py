@@ -140,6 +140,18 @@ class DbHITLStorage:
         ttl_minutes: int = 30,
         messages: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any] | None:
+        # Global shadow copy: protects against provider-id mismatch between
+        # pause and submit when provider-backed storage fell back to memory.
+        await _ensure_global_memory_storage().save_pending_run(
+            run_id=run_id,
+            requirements=requirements,
+            conversation_id=conversation_id,
+            user_id=user_id,
+            agent_model=agent_model,
+            ttl_minutes=ttl_minutes,
+            messages=messages,
+        )
+
         if self._use_memory_fallback:
             return await self._memory_fallback.save_pending_run(
                 run_id=run_id,
@@ -236,7 +248,10 @@ class DbHITLStorage:
 
     async def get_pending_run(self, run_id: str) -> dict[str, Any] | None:
         if self._use_memory_fallback:
-            return await self._memory_fallback.get_pending_run(run_id)
+            local_pending = await self._memory_fallback.get_pending_run(run_id)
+            if local_pending:
+                return local_pending
+            return await _ensure_global_memory_storage().get_pending_run(run_id)
 
         req = DbQueryRequest(
             providerId=self.provider.id,
@@ -244,7 +259,7 @@ class DbHITLStorage:
             table=self.TABLE_NAME,
             filters=[DbFilter(op="eq", column="run_id", value=run_id)],
             limit=1,
-            single=True,
+            maybeSingle=True,
         )
         result = await execute_db_async(self.adapter, req)
         if result.error:
@@ -265,7 +280,7 @@ class DbHITLStorage:
         record = result.data if isinstance(result.data, dict) else None
         if not record:
             logger.warning("[HITL] Pending run %s not found in provider=%s", run_id, self.provider.id)
-            return None
+            return await _ensure_global_memory_storage().get_pending_run(run_id)
 
         requirements_data = record.get("requirements_data") or []
         requirements = deserialize_requirements(requirements_data)
@@ -276,8 +291,11 @@ class DbHITLStorage:
         }
 
     async def delete_pending_run(self, run_id: str) -> bool:
+        global_deleted = await _ensure_global_memory_storage().delete_pending_run(run_id)
+
         if self._use_memory_fallback:
-            return await self._memory_fallback.delete_pending_run(run_id)
+            local_deleted = await self._memory_fallback.delete_pending_run(run_id)
+            return local_deleted or global_deleted
 
         req = DbQueryRequest(
             providerId=self.provider.id,
@@ -293,17 +311,20 @@ class DbHITLStorage:
                     "[HITL] Table pending_form_runs missing in provider=%s; switched to in-memory fallback",
                     self.provider.id,
                 )
-                return await self._memory_fallback.delete_pending_run(run_id)
+                local_deleted = await self._memory_fallback.delete_pending_run(run_id)
+                return local_deleted or global_deleted
             logger.error(
                 "[HITL] Failed to delete pending run %s in provider=%s: %s",
                 run_id,
                 self.provider.id,
                 result.error,
             )
-            return False
+            return global_deleted
         return True
 
     async def mark_as_submitted(self, run_id: str) -> bool:
+        await _ensure_global_memory_storage().mark_as_submitted(run_id)
+
         if self._use_memory_fallback:
             return await self._memory_fallback.mark_as_submitted(run_id)
 
@@ -344,6 +365,13 @@ _memory_storage: InMemoryHITLStorage | None = None
 _provider_storages: dict[str, DbHITLStorage] = {}
 
 
+def _ensure_global_memory_storage() -> InMemoryHITLStorage:
+    global _memory_storage
+    if _memory_storage is None:
+        _memory_storage = InMemoryHITLStorage()
+    return _memory_storage
+
+
 def _resolve_provider(provider_id_or_type: str | None) -> ProviderConfig | None:
     registry = get_provider_registry()
     providers = registry.list()
@@ -381,14 +409,10 @@ def get_hitl_storage(provider_id_or_type: str | None = None) -> DbHITLStorage | 
     3) First available configured provider (supabase > sqlite)
     4) In-memory fallback
     """
-    global _memory_storage
-
     provider = _resolve_provider(provider_id_or_type)
     if provider is None:
-        if _memory_storage is None:
-            _memory_storage = InMemoryHITLStorage()
-            logger.warning("[HITL] No DB provider configured; using in-memory storage")
-        return _memory_storage
+        logger.warning("[HITL] No DB provider configured; using in-memory storage")
+        return _ensure_global_memory_storage()
 
     storage = _provider_storages.get(provider.id)
     if storage is None:
@@ -402,7 +426,5 @@ def get_hitl_storage(provider_id_or_type: str | None = None) -> DbHITLStorage | 
                 provider.id,
                 exc,
             )
-            if _memory_storage is None:
-                _memory_storage = InMemoryHITLStorage()
-            return _memory_storage
+            return _ensure_global_memory_storage()
     return storage

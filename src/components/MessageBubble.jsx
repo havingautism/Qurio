@@ -41,11 +41,16 @@ import { getProvider } from '../lib/providers'
 import { SEARCH_BACKEND_OPTIONS } from '../lib/searchTools'
 import { TOOL_TRANSLATION_KEYS, TOOL_ICONS } from '../lib/toolConstants'
 import { splitTextWithUrls } from '../lib/urlHighlight'
+import {
+  isLikelyExpertPlanPayload,
+  normalizeExpertBrokenTokenLines,
+} from '../lib/chat/expertTextUtils'
 import DesktopSourcesSection from './DesktopSourcesSection'
 import DotLoader from './DotLoader'
 import EmojiDisplay from './EmojiDisplay'
 import InteractiveForm from './InteractiveForm'
 import DeepResearchGoalCard from './message/DeepResearchGoalCard'
+import ExpertThinkingPanel from './message/ExpertThinkingPanel'
 import MessageActionBar from './message/MessageActionBar'
 import {
   applyGroundingSupports,
@@ -292,6 +297,8 @@ const MessageBubble = ({
   onRegenerateAnswer,
   onQuote,
   onFormSubmit,
+  messageOverride = null,
+  headerExtraContent = null,
 }) => {
   // Get message directly from chatStore using shallow selector
   const { messages, isLoading, conversationTitle } = useChatStore(
@@ -308,7 +315,7 @@ const MessageBubble = ({
   const isMobile = useIsMobile()
 
   // Extract message by index
-  const message = messages[messageIndex]
+  const message = messageOverride || messages[messageIndex]
 
   // Simple message reference (no more merging hacks!)
   const mergedMessage = message
@@ -467,73 +474,70 @@ const MessageBubble = ({
     thoughtContent,
   ])
 
-  const formatThoughtContentForDisplay = useCallback(
-    value => {
-      const raw = sanitizeDisplayText(String(value || '')).trim()
-      if (!raw) return ''
+  const formatThoughtContentForDisplay = useCallback(value => {
+    const raw = sanitizeDisplayText(String(value || '')).trim()
+    if (!raw) return ''
 
-      const decodeJsonString = input => {
-        if (typeof input !== 'string') return ''
-        try {
-          return JSON.parse(`"${input.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`)
-        } catch {
-          return input
-        }
-      }
-
-      const toStructuredMarkdown = parsed => {
-        if (!parsed || typeof parsed !== 'object') return ''
-        const lines = []
-        if (parsed.expertPlan) {
-          lines.push(String(parsed.expertPlan))
-        }
-        const responses = Array.isArray(parsed.expertResponses) ? parsed.expertResponses : []
-        if (responses.length > 0) {
-          lines.push(`\n**专家任务分解**`)
-          responses.forEach((item, idx) => {
-            const name = String(item?.agentName || item?.agent || `专家${idx + 1}`)
-            const emoji = String(item?.agentEmoji || '').trim()
-            const task = String(item?.task || '').trim()
-            if (task) {
-              lines.push(`- ${emoji ? `${emoji} ` : ''}${name}: ${task}`)
-            }
-          })
-        }
-        if (lines.length > 0) return lines.join('\n')
-        return ''
-      }
-
+    const decodeJsonString = input => {
+      if (typeof input !== 'string') return ''
       try {
-        const parsed = JSON.parse(raw)
-        const markdown = toStructuredMarkdown(parsed)
-        if (markdown) return markdown
+        return JSON.parse(`"${input.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`)
       } catch {
-        // Streaming partial JSON: extract key fields progressively for readability.
-        // Regex modified to capture values even if the closing quote hasn't arrived ensuring streaming support.
-        const planMatch = raw.match(/"expertPlan"\s*:\s*"((?:\\.|[^"\\])*)(?:"|$)/)
-        // For tasks, we use a global regex to capture all occurrences
-        const taskMatches = [...raw.matchAll(/"task"\s*:\s*"((?:\\.|[^"\\])*)(?:"|$)/g)]
-
-        const extracted = []
-        if (planMatch?.[1]) {
-          extracted.push(decodeJsonString(planMatch[1]))
-        }
-        if (taskMatches.length > 0) {
-          extracted.push(`\n**专家任务分解**`)
-          taskMatches.forEach((match, idx) => {
-            const task = decodeJsonString(match?.[1] || '')
-            // Optional: Try to capture the agent name if available near this task
-            // This is a best-effort heuristic for streaming
-            if (task) extracted.push(`- 专家${idx + 1}: ${task}`)
-          })
-        }
-        if (extracted.length > 0) return extracted.join('\n')
+        return input
       }
+    }
 
-      return raw
-    },
-    [t],
-  )
+    const toStructuredMarkdown = parsed => {
+      if (!parsed || typeof parsed !== 'object') return ''
+      const lines = []
+      if (parsed.expertPlan) {
+        lines.push(String(parsed.expertPlan))
+      }
+      const responses = Array.isArray(parsed.expertResponses) ? parsed.expertResponses : []
+      if (responses.length > 0) {
+        lines.push(`\n**专家任务分解**`)
+        responses.forEach((item, idx) => {
+          const name = String(item?.agentName || item?.agent || `专家${idx + 1}`)
+          const emoji = String(item?.agentEmoji || '').trim()
+          const task = String(item?.task || '').trim()
+          if (task) {
+            lines.push(`- ${emoji ? `${emoji} ` : ''}${name}: ${task}`)
+          }
+        })
+      }
+      if (lines.length > 0) return lines.join('\n')
+      return ''
+    }
+
+    try {
+      const parsed = JSON.parse(raw)
+      const markdown = toStructuredMarkdown(parsed)
+      if (markdown) return markdown
+    } catch {
+      // Streaming partial JSON: extract key fields progressively for readability.
+      // Regex modified to capture values even if the closing quote hasn't arrived ensuring streaming support.
+      const planMatch = raw.match(/"expertPlan"\s*:\s*"((?:\\.|[^"\\])*)(?:"|$)/)
+      // For tasks, we use a global regex to capture all occurrences
+      const taskMatches = [...raw.matchAll(/"task"\s*:\s*"((?:\\.|[^"\\])*)(?:"|$)/g)]
+
+      const extracted = []
+      if (planMatch?.[1]) {
+        extracted.push(decodeJsonString(planMatch[1]))
+      }
+      if (taskMatches.length > 0) {
+        extracted.push(`\n**专家任务分解**`)
+        taskMatches.forEach((match, idx) => {
+          const task = decodeJsonString(match?.[1] || '')
+          // Optional: Try to capture the agent name if available near this task
+          // This is a best-effort heuristic for streaming
+          if (task) extracted.push(`- 专家${idx + 1}: ${task}`)
+        })
+      }
+      if (extracted.length > 0) return extracted.join('\n')
+    }
+
+    return raw
+  }, [])
 
   const thoughtExportContent = useMemo(
     () =>
@@ -2166,41 +2170,67 @@ const MessageBubble = ({
 
   const workflowParts = useMemo(
     () => interleavedContent.filter(part => part.type === 'thought'),
-    [interleavedContent],
+    [interleavedContent, isExpertMessage],
   )
   const workflowThoughtParts = useMemo(
     () => workflowParts.map((part, index) => ({ ...part, round: index + 1 })),
     [workflowParts],
   )
-  const contentPartsOutsideWorkflow = useMemo(
+  const isExpertPlanThought = useCallback(content => isLikelyExpertPlanPayload(content), [])
+  const workflowPlanThoughtParts = useMemo(
     () =>
-      interleavedContent.flatMap((part, idx) => {
-        if (part.type === 'text') {
-          return [{ type: 'text', key: `text-${idx}`, content: part.content }]
-        }
-        if (part.type !== 'tools' || !Array.isArray(part.items)) return []
-        const formItems = part.items.filter(item => item?.name === 'interactive_form')
-        const regularTools = part.items.filter(item => item?.name !== 'interactive_form')
-        const nextParts = []
-        if (regularTools.length > 0) {
-          nextParts.push({
-            type: 'tools',
-            key: part.key || `tools-${idx}`,
-            items: regularTools,
-          })
-        }
-        if (formItems.length > 0) {
-          nextParts.push({
-            type: 'interactive_form',
-            key: `${part.key || `interactive-form-${idx}`}-form`,
-            items: formItems,
-          })
-        }
-        return nextParts
-      }),
-    [interleavedContent],
+      isExpertMessage
+        ? workflowThoughtParts.filter(part => isExpertPlanThought(part.content))
+        : workflowThoughtParts,
+    [isExpertMessage, isExpertPlanThought, workflowThoughtParts],
   )
-  const hasWorkflow = !isDeepResearch && workflowParts.length > 0
+  const expertReasoningThoughtParts = useMemo(
+    () =>
+      isExpertMessage
+        ? workflowThoughtParts.filter(part => !isExpertPlanThought(part.content))
+        : [],
+    [isExpertMessage, isExpertPlanThought, workflowThoughtParts],
+  )
+  const contentPartsOutsideWorkflow = useMemo(() => {
+    const rawParts = interleavedContent.flatMap((part, idx) => {
+      if (part.type === 'text') {
+        return [{ type: 'text', key: `text-${idx}`, content: part.content }]
+      }
+      if (part.type !== 'tools' || !Array.isArray(part.items)) return []
+      const formItems = part.items.filter(item => item?.name === 'interactive_form')
+      const regularTools = part.items.filter(item => item?.name !== 'interactive_form')
+      const nextParts = []
+      if (regularTools.length > 0) {
+        nextParts.push({
+          type: 'tools',
+          key: part.key || `tools-${idx}`,
+          items: regularTools,
+        })
+      }
+      if (formItems.length > 0) {
+        nextParts.push({
+          type: 'interactive_form',
+          key: `${part.key || `interactive-form-${idx}`}-form`,
+          items: formItems,
+        })
+      }
+      return nextParts
+    })
+
+    // Expert mode streams can produce many tiny adjacent text segments; merge them before rendering.
+    if (!isExpertMessage) return rawParts
+    const merged = []
+    for (const part of rawParts) {
+      const prev = merged[merged.length - 1]
+      if (part.type === 'text' && prev?.type === 'text') {
+        prev.content = `${prev.content || ''}${part.content || ''}`
+        continue
+      }
+      merged.push({ ...part })
+    }
+    return merged
+  }, [interleavedContent])
+  const hasWorkflow = !isDeepResearch && workflowPlanThoughtParts.length > 0
   const hasFormSubmissionStatus = useMemo(
     () => toolCallHistory.some(item => item?.name === 'form_submission_status'),
     [toolCallHistory],
@@ -2319,7 +2349,7 @@ const MessageBubble = ({
     },
     [i18n.language, i18n.resolvedLanguage, toZhRound],
   )
-  const renderedWorkflowContent = workflowThoughtParts.map((part, idx) => {
+  const renderedWorkflowContent = workflowPlanThoughtParts.map((part, idx) => {
     if (part.type === 'workflow_text') {
       const workflowTextWithSupports = applyGroundingSupports(
         part.content,
@@ -2348,9 +2378,9 @@ const MessageBubble = ({
     }
 
     if (part.type === 'thought') {
-      const isLast = idx === workflowThoughtParts.length - 1
+      const isLast = idx === workflowPlanThoughtParts.length - 1
       const isThinking = isStreaming && isLast && !hasMainText
-      const hasMultipleRounds = workflowThoughtParts.length > 1
+      const hasMultipleRounds = workflowPlanThoughtParts.length > 1
 
       return (
         <div key={part.key || `thought-inline-${idx}`} className="mb-3">
@@ -2455,7 +2485,10 @@ const MessageBubble = ({
         contentWithSupports,
         mergedMessage.sources,
       )
-      const sanitizedMainText = sanitizeDisplayText(contentWithCitations)
+      const sanitizedMainText =
+        isExpertMessage && typeof contentWithCitations === 'string'
+          ? normalizeExpertBrokenTokenLines(contentWithCitations)
+          : sanitizeDisplayText(contentWithCitations)
       const showStatusBeforeText = hasFormSubmissionStatus && idx === firstTextPartDisplayIndex
       const isTextEmpty = !sanitizedMainText || !sanitizedMainText.trim()
 
@@ -2508,19 +2541,19 @@ const MessageBubble = ({
     if (isExpertMessage) {
       return t('messageBubble.expertPlan')
     }
-    if (!isStreaming || workflowThoughtParts.length === 0 || hasMainText) {
+    if (!isStreaming || workflowPlanThoughtParts.length === 0 || hasMainText) {
       return t('messageBubble.deepThinking')
     }
     return t('messageBubble.thinking')
-  }, [hasMainText, isExpertMessage, isStreaming, t, workflowThoughtParts])
+  }, [hasMainText, isExpertMessage, isStreaming, t, workflowPlanThoughtParts])
   const workflowDurationMs = useMemo(
     () =>
-      workflowThoughtParts.reduce(
+      workflowPlanThoughtParts.reduce(
         (acc, part) =>
           acc + (typeof part.durationMs === 'number' && part.durationMs > 0 ? part.durationMs : 0),
         0,
       ),
-    [workflowThoughtParts],
+    [workflowPlanThoughtParts],
   )
 
   const targetAgentId = message.agentId || message.agent_id
@@ -2986,7 +3019,7 @@ const MessageBubble = ({
               'bg-gray-100/80 dark:bg-zinc-800/80',
             )}
           >
-            {workflowThoughtParts.length}
+            {workflowPlanThoughtParts.length}
           </span>
         </div>
         <ChevronDown size={15} className="opacity-60 transition-transform group-open:rotate-180" />
@@ -3002,6 +3035,16 @@ const MessageBubble = ({
         {renderedWorkflowContent}
       </div>
     </details>
+  ) : null
+
+  const expertThinkingPanel = isExpertMessage ? (
+    <ExpertThinkingPanel
+      t={t}
+      parts={expertReasoningThoughtParts}
+      isStreaming={isStreaming}
+      hasMainText={hasMainText}
+      formatRoundLabel={formatRoundLabel}
+    />
   ) : null
 
   // Debug logging for related questions
@@ -3191,6 +3234,7 @@ const MessageBubble = ({
           )}
         </div>
       </div>
+      {headerExtraContent}
 
       {/* Thinking Process Section */}
       {isDeepResearch ? (
@@ -3558,6 +3602,7 @@ const MessageBubble = ({
               </div>
             </div>
           )}
+          {isExpertMessage && expertThinkingPanel}
           {!isExpertMessage && workflowPanel}
           {renderedMainContent}
           {renderInitialSkeleton && (

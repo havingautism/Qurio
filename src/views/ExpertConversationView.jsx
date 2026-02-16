@@ -3,6 +3,7 @@ import { useLocation } from '@tanstack/react-router'
 import { useShallow } from 'zustand/react/shallow'
 import { useAppContext } from '../App'
 import ChatInterface from '../components/ChatInterface'
+import ExpertMessageList from '../components/ExpertMessageList'
 import useChatStore from '../lib/chatStore'
 import { getConversation } from '../lib/conversationsService'
 import { expertConversationRoute } from '../router'
@@ -133,6 +134,7 @@ const ExpertConversationView = () => {
       initialSpaceSelection={initialSpaceSelection}
       initialAgentSelection={initialAgentSelection}
       initialIsAgentAutoMode={initialIsAgentAutoMode}
+      MessageListComponent={ExpertMessageList}
     />
   )
 }

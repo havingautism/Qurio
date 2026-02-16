@@ -392,6 +392,22 @@ class StreamChatService:
                             if parts:
                                 trace_stream("reasoning_source", source="provider_data.delta.reasoning_content[]")
                                 return "".join(parts)
+                        raw_reasoning_alt = delta.get("reasoning")
+                        if isinstance(raw_reasoning_alt, str) and raw_reasoning_alt:
+                            trace_stream("reasoning_source", source="provider_data.delta.reasoning")
+                            return raw_reasoning_alt
+                        if isinstance(raw_reasoning_alt, list):
+                            parts = []
+                            for item in raw_reasoning_alt:
+                                if isinstance(item, dict):
+                                    text_part = item.get("text") or item.get("content")
+                                    if text_part:
+                                        parts.append(str(text_part))
+                                elif isinstance(item, str) and item:
+                                    parts.append(item)
+                            if parts:
+                                trace_stream("reasoning_source", source="provider_data.delta.reasoning[]")
+                                return "".join(parts)
                 return ""
 
             # Context management now handled by Agno's num_history_runs parameter
@@ -556,6 +572,10 @@ class StreamChatService:
 
                         # Save to Supabase
                         try:
+                            logger.info(
+                                f"[HITL] Saving pending run_id={run_event.run_id} "
+                                f"with database_provider={request.database_provider}"
+                            )
                             hitl_storage = get_hitl_storage(request.database_provider)
                             saved = await hitl_storage.save_pending_run(
                                 run_id=run_event.run_id,
@@ -945,7 +965,11 @@ class StreamChatService:
             run_id = request.run_id
             field_values = request.field_values or {}
 
-            logger.info(f"Continuing HITL run {run_id} with field_values: {list(field_values.keys())}")
+            logger.info(
+                f"[HITL] Continuing run_id={run_id!r} "
+                f"with database_provider={request.database_provider} "
+                f"and field_values={list(field_values.keys())}"
+            )
 
             # 1. Fetch Session Summary from DB
             session_summary_text = None
@@ -999,7 +1023,10 @@ class StreamChatService:
                 requirements = pending
 
             if not requirements:
-                logger.error(f"No pending run found for run_id: {run_id}")
+                logger.error(
+                    f"[HITL] No pending run found for run_id={run_id!r} "
+                    f"(database_provider={request.database_provider})"
+                )
                 yield ErrorEvent(error="Form session expired or not found").model_dump()
                 return
 
@@ -1035,6 +1062,7 @@ class StreamChatService:
             inline_protocol_tail = ""
             stream_trace = _is_stream_trace_enabled()
             paused_again = False  # Flag to prevent cleanup when multi-form chaining occurs
+            stream_had_error = False
 
             def trace_stream(stage: str, **kwargs: Any) -> None:
                 if not stream_trace:
@@ -1143,10 +1171,26 @@ class StreamChatService:
                             if parts:
                                 trace_stream("reasoning_source", source="provider_data.delta.reasoning_content[]")
                                 return "".join(parts)
+                        raw_reasoning_alt = delta.get("reasoning")
+                        if isinstance(raw_reasoning_alt, str) and raw_reasoning_alt:
+                            trace_stream("reasoning_source", source="provider_data.delta.reasoning")
+                            return raw_reasoning_alt
+                        if isinstance(raw_reasoning_alt, list):
+                            parts = []
+                            for item in raw_reasoning_alt:
+                                if isinstance(item, dict):
+                                    text_part = item.get("text") or item.get("content")
+                                    if text_part:
+                                        parts.append(str(text_part))
+                                elif isinstance(item, str) and item:
+                                    parts.append(item)
+                            if parts:
+                                trace_stream("reasoning_source", source="provider_data.delta.reasoning[]")
+                                return "".join(parts)
                 return ""
 
-            async def _stream_events(stream):
-                nonlocal full_content, full_thought, sources_map, tool_start_times, paused_again
+            async def _stream_events(stream, *, is_continuation_attempt: bool = False):
+                nonlocal full_content, full_thought, sources_map, tool_start_times, paused_again, stream_had_error
                 nonlocal in_reasoning_phase, should_break_next_thought, reasoning_closed_for_current_cycle
                 nonlocal in_content_think_block, inline_tool_trace_depth, inline_protocol_tail
                 async for run_event in stream:
@@ -1433,6 +1477,10 @@ class StreamChatService:
 
                             case RunEvent.run_error.value:
                                 error_msg = getattr(run_event, "content", None) or "Unknown error"
+                                stream_had_error = True
+                                if is_continuation_attempt:
+                                    # Force fallback to fresh run when continuation run_id is invalid/stale.
+                                    raise RuntimeError(str(error_msg))
                                 yield ErrorEvent(error=str(error_msg)).model_dump()
                                 return
                     else:
@@ -1472,20 +1520,46 @@ class StreamChatService:
                     })
                 return updated_messages
 
-            # Continue the run (streaming)
-            logger.info(f"Calling agent.acontinue_run for run_id: {run_id}, session_id: {request.conversation_id}")
-            try:
-                stream = agent.acontinue_run(
-                    run_id=run_id,
-                    session_id=request.conversation_id,
-                    requirements=requirements,
-                    stream=True,
-                    stream_events=True,  # Enable detailed events (tools, thoughts, etc.)
+            use_native_continue = str(os.getenv("HITL_USE_NATIVE_CONTINUE_RUN", "")).lower() in {
+                "1",
+                "true",
+                "yes",
+            }
+
+            if use_native_continue:
+                logger.info(
+                    f"Calling agent.acontinue_run for run_id: {run_id}, session_id: {request.conversation_id}"
                 )
-                async for event in _stream_events(stream):
-                    yield event
-            except Exception as exc:
-                logger.warning(f"HITL acontinue_run failed, falling back to fresh run: {exc}")
+                try:
+                    stream = agent.acontinue_run(
+                        run_id=run_id,
+                        session_id=request.conversation_id,
+                        requirements=requirements,
+                        stream=True,
+                        stream_events=True,  # Enable detailed events (tools, thoughts, etc.)
+                    )
+                    async for event in _stream_events(stream, is_continuation_attempt=True):
+                        yield event
+                except Exception as exc:
+                    logger.warning(f"HITL acontinue_run failed, falling back to fresh run: {exc}")
+                    stream_had_error = False
+                    fallback_messages = _build_fallback_messages()
+                    if not fallback_messages:
+                        yield ErrorEvent(error="Form session cannot be resumed (missing state)").model_dump()
+                        return
+                    stream = agent.arun(
+                        input=fallback_messages,
+                        stream=True,
+                        stream_events=True,
+                        user_id=request.user_id,
+                        session_id=request.conversation_id,
+                    )
+                    async for event in _stream_events(stream):
+                        yield event
+            else:
+                # Default path: use reconstructed messages for continuation.
+                # This avoids noisy "No runs found for run ID" errors when Agno run
+                # state is not persisted across requests/workers.
                 fallback_messages = _build_fallback_messages()
                 if not fallback_messages:
                     yield ErrorEvent(error="Form session cannot be resumed (missing state)").model_dump()
@@ -1499,6 +1573,10 @@ class StreamChatService:
                 )
                 async for event in _stream_events(stream):
                     yield event
+
+            if stream_had_error:
+                logger.warning(f"HITL run {run_id} ended with stream error; skipping done/cleanup")
+                return
 
             # Stream completed, send done event
             yield DoneEvent(

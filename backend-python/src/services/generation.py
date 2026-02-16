@@ -806,7 +806,9 @@ async def generate_agent_for_auto(
         tavilyApiKey=tavily_api_key,
         skipDefaultTools=True,
         stream=True,
-        output_schema=AgentNameResponse,
+        # Avoid provider-side grammar cache collisions for this lightweight route.
+        # We parse JSON content locally instead of forcing native structured output.
+        output_schema=None,
     )
     result = await run_agent_completion(request)
     output_obj = result.get("output")
@@ -975,4 +977,3 @@ async def generate_related_questions(
                     questions = [q.strip().strip('*').strip('"').strip("'") for q in numbered_matches_simple]
 
     return _normalize_related_questions(questions)
-

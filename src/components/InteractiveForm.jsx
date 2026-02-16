@@ -32,7 +32,7 @@ const CustomSelect = ({ value, onChange, options, placeholder, disabled, error }
       <div
         onClick={() => !disabled && setIsOpen(!isOpen)}
         className={clsx(
-          'w-full cursor-pointer rounded-2xl border border-gray-200 py-3.5 pr-10 pl-4 transition-all duration-300 dark:border-white/10',
+          'w-full cursor-pointer rounded-xl border border-gray-200 py-2.5 pr-10 pl-4 transition-all duration-300 dark:border-white/10',
           'flex items-center justify-between',
           'bg-gray-50/50 backdrop-blur-md hover:bg-white dark:bg-zinc-900/50 dark:hover:bg-zinc-800',
           isOpen
@@ -63,7 +63,7 @@ const CustomSelect = ({ value, onChange, options, placeholder, disabled, error }
       {/* Dropdown Menu */}
       <div
         className={clsx(
-          'absolute z-60 mt-2 w-full overflow-hidden rounded-2xl border border-gray-100 py-1.5 shadow-2xl dark:border-white/10',
+          'absolute z-60 mt-2 w-full overflow-hidden rounded-xl border border-gray-100 py-1.5 shadow-2xl dark:border-white/10',
           'origin-top bg-white transition-all duration-200 dark:bg-zinc-900',
           isOpen
             ? 'translate-y-0 scale-100 opacity-100'
@@ -76,7 +76,7 @@ const CustomSelect = ({ value, onChange, options, placeholder, disabled, error }
               key={opt}
               onClick={() => handleSelect(opt)}
               className={clsx(
-                'group my-0.5 flex cursor-pointer items-center justify-between rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all duration-200',
+                'group my-0.5 flex cursor-pointer items-center justify-between rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200',
                 value === opt
                   ? 'bg-primary-50 dark:bg-primary-500/10 text-primary-600 dark:text-primary-400'
                   : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-200',
@@ -246,8 +246,8 @@ const InteractiveForm = ({
   }
 
   return (
-    <div className="relative z-30 mx-auto mb-4 w-full max-w-2xl">
-      <div className="group relative mb-4 rounded-4xl border border-gray-200 bg-white/80 p-6 shadow-xl shadow-gray-200/50 backdrop-blur-xl transition-all duration-300 md:p-8 dark:border-white/10 dark:bg-black/40 dark:shadow-black/50">
+    <div className="relative z-30 mx-auto mb-3 w-full max-w-2xl">
+      <div className="group relative mb-3 rounded-3xl border border-gray-200 bg-white/80 p-4 shadow-xl shadow-gray-200/50 backdrop-blur-xl transition-all duration-300 md:p-6 dark:border-white/10 dark:bg-black/40 dark:shadow-black/50">
         {/* Decorative Background Gradients */}
         {/* <div className="absolute -top-20 -right-20 w-60 h-60 bg-primary-500/10 rounded-full blur-[80px] group-hover:bg-primary-500/15 transition-colors duration-700 pointer-events-none" />
         <div className="absolute -bottom-20 -left-20 w-60 h-60 bg-orange-500/10 rounded-full blur-[80px] group-hover:bg-orange-500/15 transition-colors duration-700 pointer-events-none" /> */}
@@ -276,7 +276,7 @@ const InteractiveForm = ({
             )}
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-4">
             {validFields.length === 0 && (
               <div className="rounded-3xl border-2 border-dashed border-gray-200 py-8 text-center dark:border-white/5">
                 <p className="text-sm font-medium text-gray-400">
@@ -314,14 +314,14 @@ const InteractiveForm = ({
                       Array.isArray(field.options) && field.options.length > 0
                     if (hasCheckboxOptions) {
                       return (
-                        <div className="flex flex-wrap gap-2.5">
+                        <div className="flex flex-wrap gap-2">
                           {field.options?.map(opt => {
                             const isChecked = (values[field.name] || []).includes(opt)
                             return (
                               <label
                                 key={opt}
                                 className={clsx(
-                                  'group/item relative cursor-pointer overflow-hidden rounded-xl border px-4 py-2.5 transition-all duration-300 select-none',
+                                  'group/item relative cursor-pointer overflow-hidden rounded-lg border px-3 py-2 transition-all duration-300 select-none',
                                   isChecked
                                     ? 'bg-primary-500 border-primary-500 shadow-primary-500/25 scale-[1.02] text-white shadow-lg'
                                     : 'border-transparent bg-gray-50 text-gray-600 hover:border-gray-200 hover:bg-white dark:bg-zinc-900/40 dark:text-gray-400 dark:hover:border-white/10 dark:hover:bg-zinc-800',
@@ -355,7 +355,7 @@ const InteractiveForm = ({
                           onClick={() => !isSubmitted && updateValue(field.name, true)}
                           disabled={isSubmitted}
                           className={clsx(
-                            'flex-1 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-300',
+                            'flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-300',
                             values[field.name] === true
                               ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-600 dark:text-white'
                               : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200',
@@ -369,7 +369,7 @@ const InteractiveForm = ({
                           onClick={() => !isSubmitted && updateValue(field.name, false)}
                           disabled={isSubmitted}
                           className={clsx(
-                            'flex-1 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-300',
+                            'flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-300',
                             values[field.name] === false
                               ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-600 dark:text-white'
                               : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200',
@@ -395,7 +395,7 @@ const InteractiveForm = ({
                       max={field.max}
                       step={field.step}
                       className={clsx(
-                        'w-full rounded-2xl border border-gray-200 px-4 py-3.5 font-medium transition-all duration-300 outline-none dark:border-white/10',
+                        'w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-medium transition-all duration-300 outline-none dark:border-white/10',
                         'border bg-gray-50/50 backdrop-blur-sm dark:bg-zinc-900/40',
                         isSubmitted
                           ? 'cursor-not-allowed opacity-60'
@@ -449,7 +449,7 @@ const InteractiveForm = ({
               type="submit"
               disabled={isSubmitted}
               className={clsx(
-                'group relative mt-4 w-full overflow-hidden rounded-2xl px-6 py-4 font-bold transition-all duration-300',
+                'group relative mt-4 w-full overflow-hidden rounded-xl px-6 py-3 font-bold transition-all duration-300',
                 isSubmitted
                   ? 'cursor-not-allowed bg-gray-100 text-gray-400 dark:bg-white/5'
                   : 'bg-linear-to-r from-gray-900 via-gray-800 to-gray-900 text-white shadow-xl shadow-gray-900/10 hover:shadow-2xl hover:shadow-gray-900/20 active:scale-[0.98] dark:from-white dark:via-gray-200 dark:to-white dark:text-black dark:shadow-white/5 dark:hover:shadow-white/10',

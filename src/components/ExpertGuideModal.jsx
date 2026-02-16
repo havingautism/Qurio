@@ -67,7 +67,10 @@ const ExpertGuideModal = ({ isOpen, onClose, spaces = [], onStart, loading = fal
             onChange={event => setQuestion(event.target.value)}
             placeholder={t('homeView.expertQuestionPlaceholder')}
             autoFocus={!isMobile}
-            className="focus:ring-primary-500/20 focus:border-primary-500 min-h-[120px] w-full resize-none rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm placeholder-gray-400 transition-all outline-none focus:ring-2 dark:border-zinc-700/50 dark:bg-zinc-800/50 dark:placeholder-gray-500"
+            className={clsx(
+              'focus:ring-primary-500/20 focus:border-primary-500 min-h-[120px] w-full resize-none rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 placeholder-gray-400 transition-all outline-none focus:ring-2 dark:border-zinc-700/50 dark:bg-zinc-800/50 dark:placeholder-gray-500',
+              isMobile ? 'text-base' : 'text-sm',
+            )}
           />
         </div>
 
@@ -78,7 +81,7 @@ const ExpertGuideModal = ({ isOpen, onClose, spaces = [], onStart, loading = fal
           <div
             className={clsx(
               'grid grid-cols-1 gap-3 sm:grid-cols-2',
-              isMobile ? '' : 'max-h-[320px] overflow-y-auto p-1',
+              isMobile ? 'max-h-[42vh] overflow-y-auto p-1' : 'max-h-[320px] overflow-y-auto p-1',
             )}
           >
             {availableSpaces.length === 0 && (
@@ -94,13 +97,13 @@ const ExpertGuideModal = ({ isOpen, onClose, spaces = [], onStart, loading = fal
                   type="button"
                   onClick={() => setSelectedSpaceId(String(space.id))}
                   className={clsx(
-                    'relative flex items-center gap-3 rounded-xl border p-4 text-left transition-all hover:shadow-md',
+                    'relative flex items-center gap-3 rounded-2xl border p-4 text-left transition-all',
                     isSelected
-                      ? 'border-primary-500 bg-primary-50/50 ring-primary-500 dark:border-primary-500 dark:bg-primary-900/20 ring-1'
+                      ? 'border-primary-500 bg-primary-50/60 dark:border-primary-500 dark:bg-primary-900/20'
                       : 'hover:border-primary-200 border-gray-200 bg-white hover:bg-gray-50 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-700 dark:hover:bg-zinc-800',
                   )}
                 >
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white shadow-sm ring-1 ring-gray-900/5 dark:bg-zinc-800 dark:ring-white/10">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white shadow-sm ring-1 ring-gray-900/5 dark:bg-zinc-800 dark:ring-white/10">
                     <EmojiDisplay emoji={space?.emoji} size="1.5rem" />
                   </div>
                   <div className="min-w-0 flex-1">
@@ -108,11 +111,16 @@ const ExpertGuideModal = ({ isOpen, onClose, spaces = [], onStart, loading = fal
                       {getSpaceDisplayLabel(space, t)}
                     </span>
                   </div>
-                  {isSelected && (
-                    <div className="bg-primary-500 absolute top-2 right-2 flex h-5 w-5 items-center justify-center rounded-full text-white">
-                      <Check size={12} strokeWidth={3} />
-                    </div>
-                  )}
+                  <div
+                    className={clsx(
+                      'flex h-6 w-6 shrink-0 items-center justify-center rounded-full border transition-all',
+                      isSelected
+                        ? 'bg-primary-500 border-primary-500 text-white'
+                        : 'border-gray-300 text-transparent dark:border-zinc-600',
+                    )}
+                  >
+                    <Check size={13} strokeWidth={3} />
+                  </div>
                 </button>
               )
             })}
@@ -161,7 +169,7 @@ const ExpertGuideModal = ({ isOpen, onClose, spaces = [], onStart, loading = fal
     return (
       <Drawer open={isOpen} onOpenChange={open => !open && onClose()}>
         <DrawerContent className="max-h-[85vh] rounded-t-3xl border-t border-gray-200 bg-white dark:border-zinc-800 dark:bg-[#1E1E1E]">
-          <div className="flex h-full flex-col p-5">
+          <div className="flex h-full flex-col px-4 pt-4 pb-5">
             {content}
             <div className="h-6 shrink-0" />
           </div>

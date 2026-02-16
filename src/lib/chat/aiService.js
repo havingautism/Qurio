@@ -1127,7 +1127,6 @@ export const callAIAPI = async (
         plan: planContent,
         question: firstUserText || lastMessage?.content || '',
         researchType,
-        sequentialExecution: toggles?.sequentialResearch || false,
         concurrencyLimit: toggles?.concurrencyLimit || 3,
       })
     } else {

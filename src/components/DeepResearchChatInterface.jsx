@@ -92,6 +92,11 @@ const DeepResearchChatInterface = ({
     if (language === 'en') return 'Please respond in English.'
     return ''
   }
+  const getDeepResearchResponseLanguageLabel = language => {
+    if (language === 'zh-CN') return 'Chinese (Simplified)'
+    if (language === 'en') return 'English'
+    return ''
+  }
 
   // Lock body scroll when component mounts (defensive measure for iOS keyboard interactions)
   // useEffect(() => {
@@ -152,7 +157,6 @@ const DeepResearchChatInterface = ({
   const [selectedSearchTools, setSelectedSearchTools] = useState([])
   const [isThinkingActive, setIsThinkingActive] = useState(getInitialThinkingPreference)
   const [isDeepResearchActive, setIsDeepResearchActive] = useState(false)
-  const [isSequentialResearchActive, setIsSequentialResearchActive] = useState(false) // Sequential research
   const [concurrencyLimit, setConcurrencyLimit] = useState(3)
   const togglePrefsHydratedRef = useRef(false)
   const togglePrefsHydrationTimerRef = useRef(null)
@@ -609,9 +613,6 @@ const DeepResearchChatInterface = ({
       if (initialToggles.deepResearch) {
         setIsDeepResearchActive(true)
         setIsThinkingActive(false)
-        if (initialToggles.concurrentResearch !== undefined) {
-          setIsSequentialResearchActive(!initialToggles.concurrentResearch)
-        }
         if (initialToggles.concurrencyLimit) {
           setConcurrencyLimit(initialToggles.concurrencyLimit)
         }
@@ -631,15 +632,7 @@ const DeepResearchChatInterface = ({
 
       // Trigger send immediately
       try {
-        const initialLanguageInstruction =
-          initialToggles?.deepResearch && responseLanguage
-            ? getDeepResearchResponseLanguageInstruction(responseLanguage)
-            : ''
-        const initialMessageWithLanguage = applyLanguageInstructionToText(
-          initialMessage,
-          initialLanguageInstruction,
-        )
-        await handleSendMessage(initialMessageWithLanguage, initialAttachments, initialToggles)
+        await handleSendMessage(initialMessage, initialAttachments, initialToggles)
         if (initialSendKey) {
           sessionStorage.setItem(initialSendKey, '1')
         }
@@ -1209,11 +1202,6 @@ const DeepResearchChatInterface = ({
       const deepResearchActive = togglesOverride
         ? togglesOverride.deepResearch
         : isDeepResearchConversation || isDeepResearchActive
-      const sequentialActive = togglesOverride
-        ? togglesOverride.concurrentResearch !== undefined
-          ? !togglesOverride.concurrentResearch
-          : isSequentialResearchActive
-        : isSequentialResearchActive
       const relatedActive = deepResearchActive
         ? false
         : togglesOverride
@@ -1223,6 +1211,10 @@ const DeepResearchChatInterface = ({
         ? togglesOverride.concurrencyLimit
         : concurrencyLimit
       const resolvedThinkingActive = deepResearchActive ? false : thinkingActive
+      const languageOverrideInstruction =
+        deepResearchActive && responseLanguage
+          ? getDeepResearchResponseLanguageInstruction(responseLanguage)
+          : ''
 
       const isEditing = Boolean(editingInfoOverride || editingIndex !== null)
       if (isDeepResearchFollowUpLocked && !isEditing) return
@@ -1270,23 +1262,47 @@ const DeepResearchChatInterface = ({
         (!isAgentAutoMode && initialAgentSelection) ||
         defaultAgent ||
         null
+      const languageOverrideLabel =
+        deepResearchActive && responseLanguage
+          ? getDeepResearchResponseLanguageLabel(responseLanguage)
+          : ''
+      const agentForSendWithLanguage =
+        languageOverrideLabel && agentForSend
+          ? {
+              ...agentForSend,
+              response_language: languageOverrideLabel,
+              responseLanguage: languageOverrideLabel,
+            }
+          : agentForSend
+      const settingsForSend =
+        deepResearchActive && responseLanguage
+          ? {
+              ...settings,
+              // Deep research modal language must take precedence over global
+              // "follow interface language" setting for this request.
+              followInterfaceLanguage: false,
+            }
+          : settings
       const agentAutoModeForSend = deepResearchActive ? false : isAgentAutoMode
 
       await sendMessage({
-        text: textToSend,
+        text:
+          languageOverrideInstruction && typeof textToSend === 'string'
+            ? applyLanguageInstructionToText(textToSend, languageOverrideInstruction)
+            : textToSend,
         attachments: attToSend,
         toggles: {
           search: searchActive,
           searchTool,
           thinking: resolvedThinkingActive,
           deepResearch: deepResearchActive,
-          sequentialResearch: deepResearchActive ? sequentialActive : false, // Only apply when deepResearch is active
           concurrencyLimit: deepResearchActive ? resolvedConcurrencyLimit : 3,
           related: relatedActive,
+          responseLanguage: deepResearchActive ? responseLanguage : null,
         },
-        settings,
+        settings: settingsForSend,
         spaceInfo: { selectedSpace: displaySpace || selectedSpace, isManualSpaceSelection },
-        selectedAgent: agentForSend,
+        selectedAgent: agentForSendWithLanguage,
         isAgentAutoMode: agentAutoModeForSend,
         agents: appAgents,
         editingInfo,
@@ -1323,6 +1339,7 @@ const DeepResearchChatInterface = ({
       isDeepResearchFollowUpLocked,
       isRelatedEnabled,
       isLoading,
+      responseLanguage,
       editingIndex,
       editingTargetId,
       editingPartnerId,

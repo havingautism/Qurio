@@ -17,6 +17,22 @@ const asArrayField = raw => {
   return Array.isArray(parsed) ? parsed : undefined
 }
 
+const extractResearchPlan = message => {
+  const direct = typeof message?.research_plan === 'string' ? message.research_plan.trim() : ''
+  if (direct) return direct
+
+  const thinkingRaw = message?.thinking_process
+  if (typeof thinkingRaw !== 'string' || !thinkingRaw.trim()) return ''
+  try {
+    const parsed = JSON.parse(thinkingRaw)
+    if (!parsed || typeof parsed !== 'object') return ''
+    const plan = typeof parsed.plan === 'string' ? parsed.plan.trim() : ''
+    return plan
+  } catch {
+    return ''
+  }
+}
+
 const normalizeStreamBlocks = raw => {
   if (!raw) return []
   const parsed = parseJsonIfString(raw)
@@ -47,6 +63,7 @@ const mapMessageFromApi = (m, effectiveDefaultModel, activeConversation) => {
   const groundingSupports = asArrayField(m.grounding_supports)
   const documentSources = asArrayField(m.document_sources)
   const cleanedContent = typeof m.content === 'string' ? m.content : ''
+  const researchPlan = extractResearchPlan(m)
 
   const restoreHitlMetaFromToolHistory = toolHistory => {
     if (!Array.isArray(toolHistory)) {
@@ -92,6 +109,7 @@ const mapMessageFromApi = (m, effectiveDefaultModel, activeConversation) => {
   const hitlMeta = restoreHitlMetaFromToolHistory(toolCallHistory)
 
   const hasResearchSteps = Array.isArray(researchStepHistory) && researchStepHistory.length > 0
+  const isDeepResearch = hasResearchSteps || Boolean(researchPlan)
 
   return {
     id: m.id,
@@ -99,8 +117,8 @@ const mapMessageFromApi = (m, effectiveDefaultModel, activeConversation) => {
     role: m.role === 'assistant' ? 'ai' : m.role,
     content: cleanedContent,
     thought: undefined,
-    researchPlan: '',
-    deepResearch: hasResearchSteps,
+    researchPlan,
+    deepResearch: isDeepResearch,
     related: relatedQuestions,
     tool_calls: m.tool_calls || undefined,
     toolCallHistory,

@@ -41,16 +41,12 @@ import { getProvider } from '../lib/providers'
 import { SEARCH_BACKEND_OPTIONS } from '../lib/searchTools'
 import { TOOL_TRANSLATION_KEYS, TOOL_ICONS } from '../lib/toolConstants'
 import { splitTextWithUrls } from '../lib/urlHighlight'
-import {
-  isLikelyExpertPlanPayload,
-  normalizeExpertBrokenTokenLines,
-} from '../lib/chat/expertTextUtils'
+import { normalizeExpertBrokenTokenLines } from '../lib/chat/expertTextUtils'
 import DesktopSourcesSection from './DesktopSourcesSection'
 import DotLoader from './DotLoader'
 import EmojiDisplay from './EmojiDisplay'
 import InteractiveForm from './InteractiveForm'
 import DeepResearchGoalCard from './message/DeepResearchGoalCard'
-import ExpertThinkingPanel from './message/ExpertThinkingPanel'
 import MessageActionBar from './message/MessageActionBar'
 import {
   applyGroundingSupports,
@@ -1144,11 +1140,29 @@ const MessageBubble = ({
       }
       if (block.type === 'reasoning' || block.type === 'thought') {
         if (!isDeepResearch && block.content) {
+          const lastPart = parts[parts.length - 1]
+          if (lastPart?.type === 'thought') {
+            lastPart.content = `${lastPart.content || ''}${block.content || ''}`
+            const prevDuration = Number.isFinite(lastPart.durationMs) ? Number(lastPart.durationMs) : 0
+            const nextDuration = Number.isFinite(block.durationMs) ? Number(block.durationMs) : 0
+            lastPart.durationMs = prevDuration + nextDuration
+          } else {
+            parts.push({
+              type: 'thought',
+              key: `stream-thought-${block.seq}`,
+              content: block.content,
+              durationMs: block.durationMs,
+            })
+          }
+        }
+        continue
+      }
+      if (block.type === 'workflow_text') {
+        if (!isDeepResearch && block.content) {
           parts.push({
-            type: 'thought',
-            key: `stream-thought-${block.seq}`,
+            type: 'workflow_text',
+            key: `stream-workflow-text-${block.seq}`,
             content: block.content,
-            durationMs: block.durationMs,
           })
         }
         continue
@@ -1974,28 +1988,13 @@ const MessageBubble = ({
     }
   }, [markdownComponents, messageIndex, parseChildrenWithEmojis])
 
-  const workflowParts = useMemo(
-    () => interleavedContent.filter(part => part.type === 'thought'),
-    [interleavedContent, isExpertMessage],
-  )
   const workflowThoughtParts = useMemo(
-    () => workflowParts.map((part, index) => ({ ...part, round: index + 1 })),
-    [workflowParts],
+    () => interleavedContent.filter(part => part.type === 'thought'),
+    [interleavedContent],
   )
-  const isExpertPlanThought = useCallback(content => isLikelyExpertPlanPayload(content), [])
-  const workflowPlanThoughtParts = useMemo(
-    () =>
-      isExpertMessage
-        ? workflowThoughtParts.filter(part => isExpertPlanThought(part.content))
-        : workflowThoughtParts,
-    [isExpertMessage, isExpertPlanThought, workflowThoughtParts],
-  )
-  const expertReasoningThoughtParts = useMemo(
-    () =>
-      isExpertMessage
-        ? workflowThoughtParts.filter(part => !isExpertPlanThought(part.content))
-        : [],
-    [isExpertMessage, isExpertPlanThought, workflowThoughtParts],
+  const workflowTextParts = useMemo(
+    () => interleavedContent.filter(part => part.type === 'workflow_text'),
+    [interleavedContent],
   )
   const contentPartsOutsideWorkflow = useMemo(() => {
     const rawParts = interleavedContent.flatMap((part, idx) => {
@@ -2038,7 +2037,7 @@ const MessageBubble = ({
     }
     return merged
   }, [compactStreamingTextBlocks, interleavedContent, isExpertMessage])
-  const hasWorkflow = !isDeepResearch && workflowPlanThoughtParts.length > 0
+  const hasWorkflow = !isDeepResearch && workflowThoughtParts.length > 0
   const hasFormSubmissionStatus = useMemo(
     () => toolCallHistory.some(item => item?.name === 'form_submission_status'),
     [toolCallHistory],
@@ -2157,71 +2156,46 @@ const MessageBubble = ({
     },
     [i18n.language, i18n.resolvedLanguage, toZhRound],
   )
-  const renderedWorkflowContent = workflowPlanThoughtParts.map((part, idx) => {
-    if (part.type === 'workflow_text') {
-      const workflowTextWithSupports = applyGroundingSupports(
-        part.content,
-        mergedMessage.groundingSupports,
-        mergedMessage.sources,
-      )
-      const workflowTextWithCitations = formatContentWithSources(
-        workflowTextWithSupports,
-        mergedMessage.sources,
-      )
-      const sanitizedWorkflowText = sanitizeDisplayText(workflowTextWithCitations)
-      return (
-        <div
-          key={part.key || `workflow-text-${idx}`}
-          className="border-primary-200/45 bg-primary-50/30 dark:border-primary-700/25 dark:bg-primary-900/12 mb-3 rounded-xl border px-3.5 py-3 text-sm leading-relaxed text-gray-700 dark:text-gray-300"
-        >
+  const workflowThoughtCount = workflowThoughtParts.length
+  const renderedWorkflowContent = workflowThoughtParts.map((part, idx) => {
+    const thoughtRound = idx + 1
+    const isLast = idx === workflowThoughtParts.length - 1
+    const isThinking = isStreaming && isLast && !hasMainText
+    const hasMultipleRounds = workflowThoughtCount > 1
+
+    return (
+      <div key={part.key || `thought-inline-${idx}`} className="mb-3">
+        <div className="mb-1 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+          {hasMultipleRounds && (
+            <span className="font-medium text-gray-600 dark:text-gray-300">
+              {formatRoundLabel(thoughtRound)}
+            </span>
+          )}
+          {typeof part.durationMs === 'number' && part.durationMs >= 0 && (
+            <span className="text-[11px] text-gray-500 dark:text-gray-400">
+              {t('messageBubble.thinkingDuration', {
+                duration: (part.durationMs / 1000).toFixed(2),
+              })}
+            </span>
+          )}
+          {isThinking && <DotLoader />}
+        </div>
+        <div className="text-sm text-gray-500 dark:text-gray-400">
           <Streamdown
             mermaid={mermaidOptions}
             remarkPlugins={[remarkGfm]}
             components={markdownComponents}
           >
-            {sanitizedWorkflowText}
+            {formatThoughtContentForDisplay(part.content)}
           </Streamdown>
         </div>
-      )
-    }
-
-    if (part.type === 'thought') {
-      const isLast = idx === workflowPlanThoughtParts.length - 1
-      const isThinking = isStreaming && isLast && !hasMainText
-      const hasMultipleRounds = workflowPlanThoughtParts.length > 1
-
-      return (
-        <div key={part.key || `thought-inline-${idx}`} className="mb-3">
-          <div className="mb-1 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-            {hasMultipleRounds && (
-              <span className="font-medium text-gray-600 dark:text-gray-300">
-                {formatRoundLabel(idx + 1)}
-              </span>
-            )}
-            {typeof part.durationMs === 'number' && part.durationMs >= 0 && (
-              <span className="text-[11px] text-gray-500 dark:text-gray-400">
-                {t('messageBubble.thinkingDuration', {
-                  duration: (part.durationMs / 1000).toFixed(2),
-                })}
-              </span>
-            )}
-            {isThinking && <DotLoader />}
-          </div>
-          <div className="text-sm text-gray-500 dark:text-gray-400">
-            <Streamdown
-              mermaid={mermaidOptions}
-              remarkPlugins={[remarkGfm]}
-              components={markdownComponents}
-            >
-              {formatThoughtContentForDisplay(part.content)}
-            </Streamdown>
-          </div>
-        </div>
-      )
-    }
-
-    return null
+      </div>
+    )
   })
+  const expertPlanBlock = useMemo(
+    () => workflowTextParts.find(part => typeof part?.content === 'string' && part.content.trim()),
+    [workflowTextParts],
+  )
 
   const renderInteractiveFormItem = (item, formKey) => {
     const formData = parseFormPayload(item.arguments) || parseFormPayload(item.output)
@@ -2346,22 +2320,19 @@ const MessageBubble = ({
   })
 
   const workflowHeaderLabel = useMemo(() => {
-    if (isExpertMessage) {
-      return t('messageBubble.expertPlan')
-    }
-    if (!isStreaming || workflowPlanThoughtParts.length === 0 || hasMainText) {
+    if (!isStreaming || workflowThoughtParts.length === 0 || hasMainText) {
       return t('messageBubble.deepThinking')
     }
     return t('messageBubble.thinking')
-  }, [hasMainText, isExpertMessage, isStreaming, t, workflowPlanThoughtParts])
+  }, [hasMainText, isStreaming, t, workflowThoughtParts])
   const workflowDurationMs = useMemo(
     () =>
-      workflowPlanThoughtParts.reduce(
+      workflowThoughtParts.reduce(
         (acc, part) =>
           acc + (typeof part.durationMs === 'number' && part.durationMs > 0 ? part.durationMs : 0),
         0,
       ),
-    [workflowPlanThoughtParts],
+    [workflowThoughtParts],
   )
 
   const targetAgentId = message.agentId || message.agent_id
@@ -2827,7 +2798,7 @@ const MessageBubble = ({
               'bg-gray-100/80 dark:bg-zinc-800/80',
             )}
           >
-            {workflowPlanThoughtParts.length}
+            {workflowThoughtParts.length}
           </span>
         </div>
         <ChevronDown size={15} className="opacity-60 transition-transform group-open:rotate-180" />
@@ -2844,16 +2815,33 @@ const MessageBubble = ({
       </div>
     </details>
   ) : null
-
-  const expertThinkingPanel = isExpertMessage ? (
-    <ExpertThinkingPanel
-      t={t}
-      parts={expertReasoningThoughtParts}
-      isStreaming={isStreaming}
-      hasMainText={hasMainText}
-      formatRoundLabel={formatRoundLabel}
-    />
-  ) : null
+  const expertPlanPanel =
+    isExpertMessage && expertPlanBlock ? (
+      <div className="mb-4">
+        <div className="mb-2 flex items-center gap-2 text-gray-600 dark:text-gray-300">
+          <BrainCircuit size={15} className="text-primary-500/80 dark:text-primary-300/75" />
+          <span className="text-sm font-medium tracking-tight">{t('messageBubble.expertPlan')}</span>
+        </div>
+        <div className="border-primary-200/45 bg-primary-50/30 dark:border-primary-700/25 dark:bg-primary-900/12 rounded-xl border px-3.5 py-3 text-sm leading-relaxed text-gray-700 dark:text-gray-300">
+          <Streamdown
+            mermaid={mermaidOptions}
+            remarkPlugins={[remarkGfm]}
+            components={markdownComponents}
+          >
+            {sanitizeDisplayText(
+              formatContentWithSources(
+                applyGroundingSupports(
+                  expertPlanBlock.content,
+                  mergedMessage.groundingSupports,
+                  mergedMessage.sources,
+                ),
+                mergedMessage.sources,
+              ),
+            )}
+          </Streamdown>
+        </div>
+      </div>
+    ) : null
 
   // Debug logging for related questions
   // if (mergedMessage._formSubmitted) {
@@ -2941,7 +2929,7 @@ const MessageBubble = ({
           document.body,
         )}
 
-      {isExpertMessage && workflowPanel}
+      {expertPlanPanel}
 
       {/* Provider/Model Header Container */}
       <div className="mb-4 flex flex-col gap-1">
@@ -3410,8 +3398,7 @@ const MessageBubble = ({
               </div>
             </div>
           )}
-          {isExpertMessage && expertThinkingPanel}
-          {!isExpertMessage && workflowPanel}
+          {workflowPanel}
           {renderedMainContent}
           {renderInitialSkeleton && (
             <div

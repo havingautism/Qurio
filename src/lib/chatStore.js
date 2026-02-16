@@ -881,7 +881,9 @@ const useChatStore = create((set, get) => ({
               thought: '',
               thoughtHistory: [],
               toolCallHistory: [],
-              streamBlocks: [],
+              streamBlocks: expertPlan
+                ? [{ seq: 1, type: 'workflow_text', content: expertPlan }]
+                : [],
               searchBackend:
                 typeof resolvedToggles?.searchBackend === 'string'
                   ? resolvedToggles.searchBackend
@@ -914,7 +916,24 @@ const useChatStore = create((set, get) => ({
                 ? [String(resolvedToggles.searchBackend)]
                 : []
             const searchBackend = searchBackends[0] || null
-            let streamSeq = 0
+            let streamSeq = (() => {
+              const currentMessages = get().messages || []
+              const currentExpertMessage = currentMessages.find(
+                msg => msg.role === 'ai' && msg.localId === expertMessageLocalId,
+              )
+              const currentResponse = Array.isArray(currentExpertMessage?.expertResponses)
+                ? currentExpertMessage.expertResponses.find(
+                    item => String(item?.agentId) === String(agent.id),
+                  )
+                : null
+              const currentBlocks = Array.isArray(currentResponse?.streamBlocks)
+                ? currentResponse.streamBlocks
+                : []
+              return currentBlocks.reduce((maxSeq, block, index) => {
+                const seq = Number.isFinite(block?.seq) ? Number(block.seq) : index + 1
+                return Math.max(maxSeq, seq)
+              }, 0)
+            })()
             let thoughtStreamOrder = 0
             let toolStreamOrder = 0
             const toolStartedAt = new Map()
@@ -1107,7 +1126,7 @@ const useChatStore = create((set, get) => ({
                               seq: ++streamSeq,
                               type: 'reasoning',
                               content: cleanReasoning,
-                              durationMs:
+                              duration_ms:
                                 typeof chunk?.duration_ms === 'number' ? chunk.duration_ms : null,
                             })
                             return {
@@ -1199,7 +1218,7 @@ const useChatStore = create((set, get) => ({
                           streamBlocks.push({
                             seq: ++streamSeq,
                             type: 'tool_call',
-                            toolCallId: nextToolId,
+                            tool_call_id: nextToolId,
                             name: toolName,
                             arguments: injectedArguments,
                             status: 'calling',
@@ -1276,12 +1295,12 @@ const useChatStore = create((set, get) => ({
                           streamBlocks.push({
                             seq: ++streamSeq,
                             type: 'tool_result',
-                            toolCallId: chunk.id || null,
+                            tool_call_id: chunk.id || null,
                             name: chunk.name || 'tool',
                             status: chunk.status || 'done',
                             output: typeof chunk.output !== 'undefined' ? chunk.output : null,
                             error: chunk.error || null,
-                            durationMs:
+                            duration_ms:
                               typeof chunk.duration_ms === 'number' ? chunk.duration_ms : null,
                           })
                           return { ...item, toolCallHistory, streamBlocks }
@@ -1442,6 +1461,32 @@ const useChatStore = create((set, get) => ({
             finalResponses.find(item => item.status === 'done' && item.content?.trim()) ||
             finalResponses.find(item => item.content?.trim()) ||
             null
+          const mergedPreferredStreamBlocks = (() => {
+            const planBlocks = expertPlan
+              ? [{ seq: 1, type: 'workflow_text', content: expertPlan }]
+              : []
+            const responseBlocks = Array.isArray(preferredResponse?.streamBlocks)
+              ? preferredResponse.streamBlocks
+              : []
+            if (responseBlocks.length === 0) return planBlocks
+
+            const normalizedResponseBlocks = responseBlocks.map((block, index) => ({
+              ...block,
+              seq: Number.isFinite(block?.seq) ? Number(block.seq) : index + 1,
+            }))
+            const hasWorkflowBlock = normalizedResponseBlocks.some(
+              block => String(block?.type || '').toLowerCase() === 'workflow_text',
+            )
+            if (hasWorkflowBlock || planBlocks.length === 0) return normalizedResponseBlocks
+
+            return [
+              ...planBlocks,
+              ...normalizedResponseBlocks.map(block => ({
+                ...block,
+                seq: Number(block.seq) + planBlocks.length,
+              })),
+            ]
+          })()
           const fallbackText = normalizeExpertBrokenTokenLines(
             preferredResponse?.content || 'All expert agents failed to respond.',
           )
@@ -1465,10 +1510,7 @@ const useChatStore = create((set, get) => ({
               preferredResponse && Array.isArray(preferredResponse.thoughtHistory)
                 ? preferredResponse.thoughtHistory
                 : [],
-            streamBlocks:
-              preferredResponse && Array.isArray(preferredResponse.streamBlocks)
-                ? preferredResponse.streamBlocks
-                : [],
+            streamBlocks: mergedPreferredStreamBlocks,
             expertResponses: finalResponses,
             searchBackend:
               preferredResponse && typeof preferredResponse.searchBackend === 'string'
@@ -1486,6 +1528,13 @@ const useChatStore = create((set, get) => ({
             expertResponses: finalResponses,
             expertActiveAgentId: activeAgentId,
           })
+          const databaseProviderKey = String(
+            settings?.databaseProviderId || settings?.databaseProvider || '',
+          ).toLowerCase()
+          const shouldPersistStreamBlocks =
+            databaseProviderKey.includes('sqlite') ||
+            databaseProviderKey.includes('supabase') ||
+            databaseProviderKey.includes('postgres')
           const aiPayload = {
             conversation_id: convId,
             role: 'assistant',
@@ -1506,6 +1555,10 @@ const useChatStore = create((set, get) => ({
                 ? preferredResponse.toolCallHistory
                 : [],
             ),
+            ...(shouldPersistStreamBlocks && {
+              stream_blocks: sanitizeJson(mergedPreferredStreamBlocks),
+              stream_schema_version: 1,
+            }),
             document_sources: sanitizeJson(null),
             created_at: new Date().toISOString(),
           }

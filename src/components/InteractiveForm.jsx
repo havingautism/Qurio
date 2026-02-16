@@ -246,8 +246,8 @@ const InteractiveForm = ({
   }
 
   return (
-    <div className="relative z-30 mx-auto mb-3 w-full max-w-2xl">
-      <div className="group relative mb-3 rounded-3xl border border-gray-200 bg-white/80 p-4 shadow-xl shadow-gray-200/50 backdrop-blur-xl transition-all duration-300 md:p-6 dark:border-white/10 dark:bg-black/40 dark:shadow-black/50">
+    <div className="relative z-30 mx-auto mb-4 w-full max-w-2xl">
+      <div className="group relative mb-4 rounded-3xl border border-gray-200 bg-white/80 p-4 shadow-xl shadow-gray-200/50 backdrop-blur-xl transition-all duration-300 md:p-6 dark:border-white/10 dark:bg-black/40 dark:shadow-black/50">
         {/* Decorative Background Gradients */}
         {/* <div className="absolute -top-20 -right-20 w-60 h-60 bg-primary-500/10 rounded-full blur-[80px] group-hover:bg-primary-500/15 transition-colors duration-700 pointer-events-none" />
         <div className="absolute -bottom-20 -left-20 w-60 h-60 bg-orange-500/10 rounded-full blur-[80px] group-hover:bg-orange-500/15 transition-colors duration-700 pointer-events-none" /> */}

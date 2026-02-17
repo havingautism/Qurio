@@ -4,6 +4,7 @@ Local tool execution helpers (legacy support for non-Agno adapters).
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import re
@@ -45,6 +46,17 @@ EXTERNAL_SEARCH_TOOL_NAMES = {
     "search_arxiv_and_return_articles",
     "search_wikipedia",
 }
+
+
+def _tool_timeout_seconds(default: float = 20.0) -> float:
+    raw = os.getenv("QURIO_TOOL_TIMEOUT_SECONDS", str(default))
+    try:
+        value = float(raw)
+        if value <= 0:
+            return default
+        return value
+    except (TypeError, ValueError):
+        return default
 
 
 def list_tools() -> list[dict[str, Any]]:
@@ -384,7 +396,26 @@ async def execute_tool_by_name(
 ) -> dict[str, Any]:
     resolved_name = resolve_tool_name(tool_name)
     if is_local_tool_name(resolved_name) or resolved_name in EXTERNAL_SEARCH_TOOL_NAMES:
-        return await execute_local_tool(resolved_name, args, tool_config)
+        timeout_sec = _tool_timeout_seconds()
+        try:
+            return await asyncio.wait_for(
+                execute_local_tool(resolved_name, args, tool_config),
+                timeout=timeout_sec,
+            )
+        except asyncio.TimeoutError:
+            return {
+                "error": f"Tool '{resolved_name}' timed out after {timeout_sec:.1f}s",
+                "timed_out": True,
+                "tool": resolved_name,
+                "args": args or {},
+            }
+        except Exception as exc:
+            return {
+                "error": str(exc),
+                "timed_out": False,
+                "tool": resolved_name,
+                "args": args or {},
+            }
     raise ValueError(f"Tool {resolved_name} not found")
 
 

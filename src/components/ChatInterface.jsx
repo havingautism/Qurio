@@ -541,6 +541,21 @@ const ChatInterface = ({
   const [showScrollButton, setShowScrollButton] = useState(false)
   const [isRegeneratingTitle, setIsRegeneratingTitle] = useState(false)
   const lastLoadedConversationIdRef = useRef(null)
+  const hasPendingHitlInput = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      const msg = messages[i]
+      if (msg?.role !== 'ai') continue
+      const toolCallHistory = Array.isArray(msg.toolCallHistory) ? msg.toolCallHistory : []
+      const hasPendingForm = toolCallHistory.some(
+        tool => tool?.name === 'interactive_form' && tool?.status !== 'done',
+      )
+      if (!hasPendingForm) continue
+      const nextMsg = messages[i + 1]
+      const isInterrupted = nextMsg && nextMsg.role === 'user' && !nextMsg.hitlRunId
+      if (!isInterrupted) return true
+    }
+    return false
+  }, [messages])
 
   // Track the last synced conversation ID to avoid redundant updates
   const lastSyncedConversationIdRef = useRef(null)
@@ -2168,6 +2183,7 @@ const ChatInterface = ({
             <ChatInputBar
               variant="capsule"
               isLoading={isLoading}
+              isConversationLocked={hasPendingHitlInput}
               onStop={stopGeneration}
               apiProvider={effectiveProvider}
               isSearchActive={isSearchActive}

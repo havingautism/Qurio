@@ -5,6 +5,7 @@ Custom local tools implemented as an Agno Toolkit.
 from __future__ import annotations
 
 import ast
+import concurrent.futures
 import json
 import operator
 import os
@@ -21,6 +22,47 @@ except Exception:  # pragma: no cover - backward compatibility only
     from duckduckgo_search import DDGS
 
 from .academic_domains import ACADEMIC_DOMAINS
+
+
+def _tool_timeout_seconds(default: float = 20.0) -> float:
+    raw = os.getenv("QURIO_TOOL_TIMEOUT_SECONDS", str(default))
+    try:
+        value = float(raw)
+        if value <= 0:
+            return default
+        return value
+    except (TypeError, ValueError):
+        return default
+
+
+def _run_blocking_with_timeout(fn: Any, timeout_sec: float | None = None) -> Any:
+    timeout = timeout_sec if timeout_sec and timeout_sec > 0 else _tool_timeout_seconds()
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(fn)
+        try:
+            return future.result(timeout=timeout)
+        except concurrent.futures.TimeoutError as exc:
+            raise TimeoutError(f"Tool execution timed out after {timeout:.1f}s") from exc
+
+
+def _create_ddgs_client() -> Any:
+    """
+    Create a DDGS client with safe defaults to avoid long blocking calls.
+
+    Notes:
+    - Force impersonate="random" to avoid warnings about missing specific presets
+      (e.g. firefox_109) in certain primp/ddgs combinations.
+    - Apply request timeout to reduce hanging risk during provider/network issues.
+    - Keep backward compatibility for older DDGS signatures.
+    """
+    timeout_sec = 12
+    try:
+        return DDGS(timeout=timeout_sec, impersonate="random")
+    except TypeError:
+        try:
+            return DDGS(timeout=timeout_sec)
+        except TypeError:
+            return DDGS()
 
 
 @tool(
@@ -75,18 +117,26 @@ class DuckDuckGoImageTools(Toolkit):
             str: JSON string containing the image results.
         """
         try:
-            with DDGS() as ddgs:
-                results = ddgs.images(query, max_results=max_results)
-                output = [
-                    {
-                        "title": r.get("title"),
-                        "image": r.get("image"),
-                        "url": r.get("url"),
-                        "source": r.get("source"),
-                    }
-                    for r in results
-                ]
-                return json.dumps(output, ensure_ascii=False)
+            def _search():
+                with _create_ddgs_client() as ddgs:
+                    results = ddgs.images(query, max_results=max_results)
+                    return [
+                        {
+                            "title": r.get("title"),
+                            "image": r.get("image"),
+                            "url": r.get("url"),
+                            "source": r.get("source"),
+                        }
+                        for r in results
+                    ]
+
+            output = _run_blocking_with_timeout(_search)
+            return json.dumps(output, ensure_ascii=False)
+        except TimeoutError as e:
+            return json.dumps(
+                {"query": query, "results": [], "error": str(e), "timed_out": True},
+                ensure_ascii=False,
+            )
         except Exception as e:
             return f"Error searching DuckDuckGo images: {str(e)}"
 
@@ -113,20 +163,28 @@ class DuckDuckGoVideoTools(Toolkit):
             str: JSON string containing the video results with title, url, thumbnail, source, duration.
         """
         try:
-            with DDGS() as ddgs:
-                results = ddgs.videos(query, max_results=max_results)
-                output = [
-                    {
-                        "title": r.get("title"),
-                        "url": r.get("content"),  # Video page URL
-                        "thumbnail": r.get("image"),  # Thumbnail image URL
-                        "source": r.get("author") or r.get("upstream") or "DuckDuckGo",
-                        "duration": r.get("duration"),
-                        "published": r.get("published"),
-                    }
-                    for r in results
-                ]
-                return json.dumps(output, ensure_ascii=False)
+            def _search():
+                with _create_ddgs_client() as ddgs:
+                    results = ddgs.videos(query, max_results=max_results)
+                    return [
+                        {
+                            "title": r.get("title"),
+                            "url": r.get("content"),  # Video page URL
+                            "thumbnail": r.get("image"),  # Thumbnail image URL
+                            "source": r.get("author") or r.get("upstream") or "DuckDuckGo",
+                            "duration": r.get("duration"),
+                            "published": r.get("published"),
+                        }
+                        for r in results
+                    ]
+
+            output = _run_blocking_with_timeout(_search)
+            return json.dumps(output, ensure_ascii=False)
+        except TimeoutError as e:
+            return json.dumps(
+                {"query": query, "results": [], "error": str(e), "timed_out": True},
+                ensure_ascii=False,
+            )
         except Exception as e:
             return f"Error searching DuckDuckGo videos: {str(e)}"
 
@@ -149,17 +207,25 @@ class DuckDuckGoWebSearchTools(Toolkit):
         if not q:
             return json.dumps({"query": q, "results": [], "error": "Missing query"}, ensure_ascii=False)
         try:
-            with DDGS() as ddgs:
-                results = ddgs.text(query=q, max_results=limit, backend=self._backend)
-                normalized = [
-                    {
-                        "title": item.get("title"),
-                        "url": item.get("href") or item.get("url"),
-                        "content": item.get("body") or item.get("snippet") or "",
-                    }
-                    for item in (results or [])
-                ]
-                return json.dumps({"query": q, "results": normalized}, ensure_ascii=False)
+            def _search():
+                with _create_ddgs_client() as ddgs:
+                    results = ddgs.text(query=q, max_results=limit, backend=self._backend)
+                    return [
+                        {
+                            "title": item.get("title"),
+                            "url": item.get("href") or item.get("url"),
+                            "content": item.get("body") or item.get("snippet") or "",
+                        }
+                        for item in (results or [])
+                    ]
+
+            normalized = _run_blocking_with_timeout(_search)
+            return json.dumps({"query": q, "results": normalized}, ensure_ascii=False)
+        except TimeoutError as exc:
+            return json.dumps(
+                {"query": q, "results": [], "error": str(exc), "timed_out": True},
+                ensure_ascii=False,
+            )
         except Exception as exc:
             # ddgs raises on empty set in some versions; make it non-fatal.
             if "No results found" in str(exc):
@@ -173,19 +239,27 @@ class DuckDuckGoWebSearchTools(Toolkit):
         if not q:
             return json.dumps({"query": q, "results": [], "error": "Missing query"}, ensure_ascii=False)
         try:
-            with DDGS() as ddgs:
-                results = ddgs.news(keywords=q, max_results=limit)
-                normalized = [
-                    {
-                        "title": item.get("title"),
-                        "url": item.get("url"),
-                        "content": item.get("body") or item.get("excerpt") or "",
-                        "date": item.get("date"),
-                        "source": item.get("source"),
-                    }
-                    for item in (results or [])
-                ]
-                return json.dumps({"query": q, "results": normalized}, ensure_ascii=False)
+            def _search():
+                with _create_ddgs_client() as ddgs:
+                    results = ddgs.news(keywords=q, max_results=limit)
+                    return [
+                        {
+                            "title": item.get("title"),
+                            "url": item.get("url"),
+                            "content": item.get("body") or item.get("excerpt") or "",
+                            "date": item.get("date"),
+                            "source": item.get("source"),
+                        }
+                        for item in (results or [])
+                    ]
+
+            normalized = _run_blocking_with_timeout(_search)
+            return json.dumps({"query": q, "results": normalized}, ensure_ascii=False)
+        except TimeoutError as exc:
+            return json.dumps(
+                {"query": q, "results": [], "error": str(exc), "timed_out": True},
+                ensure_ascii=False,
+            )
         except Exception as exc:
             if "No results found" in str(exc):
                 return json.dumps({"query": q, "results": []}, ensure_ascii=False)
@@ -282,6 +356,11 @@ class SerpApiImageTools(Toolkit):
                         "source": r.get("source"),
                     })
                 return json.dumps(output, ensure_ascii=False)
+        except httpx.TimeoutException:
+            return json.dumps(
+                {"query": query, "results": [], "error": "Tool request timed out", "timed_out": True},
+                ensure_ascii=False,
+            )
         except Exception as e:
             return f"Error searching {engine} via SerpApi: {str(e)}"
 
@@ -379,6 +458,13 @@ class QurioLocalTools(Toolkit):
                 response.raise_for_status()
                 content = response.text
             return {"url": normalized, "content": content, "source": "jina.ai"}
+        except httpx.TimeoutException:
+            return {
+                "url": normalized,
+                "error": "Webpage read timed out",
+                "source": "jina.ai",
+                "timed_out": True,
+            }
         except httpx.ReadTimeout:
             return {
                 "url": normalized,
@@ -406,9 +492,18 @@ class QurioLocalTools(Toolkit):
             "max_results": max_results,
         }
         async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post("https://api.tavily.com/search", json=payload)
-            response.raise_for_status()
-            data = response.json()
+            try:
+                response = await client.post("https://api.tavily.com/search", json=payload)
+                response.raise_for_status()
+                data = response.json()
+            except httpx.TimeoutException:
+                return {
+                    "query": query,
+                    "answer": "",
+                    "results": [],
+                    "error": "Tool request timed out",
+                    "timed_out": True,
+                }
         return {
             "answer": data.get("answer"),
             "results": [
@@ -438,9 +533,19 @@ class QurioLocalTools(Toolkit):
             "max_results": max_results,
         }
         async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post("https://api.tavily.com/search", json=payload)
-            response.raise_for_status()
-            data = response.json()
+            try:
+                response = await client.post("https://api.tavily.com/search", json=payload)
+                response.raise_for_status()
+                data = response.json()
+            except httpx.TimeoutException:
+                return {
+                    "query": query,
+                    "answer": "",
+                    "results": [],
+                    "query_type": "academic",
+                    "error": "Tool request timed out",
+                    "timed_out": True,
+                }
         return {
             "answer": data.get("answer"),
             "results": [

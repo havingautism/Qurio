@@ -35,13 +35,6 @@ from .hitl_storage import get_hitl_storage
 from .summary_service import update_session_summary
 from .tool_registry import resolve_tool_name
 
-TIME_KEYWORDS_REGEX = re.compile(
-    r"\u4eca\u5929|\u4eca\u5e74|\u73b0\u5728|\u672c\u5468|\u672c\u6708|\u6700\u8fd1|\u521a\u521a|"
-    r"\u660e\u5929|\u6628\u5929|\u4e0a\u5468|\u4e0a\u4e2a\u6708|\u53bb\u5e74|"
-    r"today|current|now|this week|this month|recently|tomorrow|yesterday|last week|last month|last year",
-    re.IGNORECASE,
-)
-
 MEMORY_OPTIMIZE_THRESHOLD = 50
 MEMORY_OPTIMIZE_INTERVAL_SECONDS = 60 * 60 * 12
 THINK_TAG_REGEX = re.compile(r"</?(?:think|thought)>", re.IGNORECASE)
@@ -1843,33 +1836,49 @@ class StreamChatService:
         timezone = request.user_timezone or "UTC"
         locale = request.user_locale or "en-US"
         time_result = self._compute_local_time(timezone, locale)
-        injected = (
-            "\n\nLocal time context:\n"
-            f"##today local time: {time_result.get('formatted')} ({time_result.get('timezone')})\n"
-            f"locale: {time_result.get('locale')}\n"
-            f"iso: {time_result.get('iso')}\n"
+        try:
+            local_date = datetime.fromisoformat(str(time_result.get("iso"))).strftime("%Y-%m-%d")
+        except Exception:
+            local_date = str(time_result.get("formatted", "")).split(" ")[0] or datetime.now().strftime(
+                "%Y-%m-%d"
+            )
+        tz_label = str(time_result.get("timezone") or timezone)
+        note = (
+            f"\n\n[Time note for this query]\n"
+            f"Note: local date is {local_date} ({tz_label}). "
+            "Interpret relative time terms using this date."
         )
 
-        updated = list(messages)
-        system_index = next((i for i, m in enumerate(updated) if m.get("role") == "system"), -1)
-        if system_index != -1:
-            current_content = str(updated[system_index].get("content", ""))
-            if "Local time context:" in current_content:
-                current_content = re.sub(
-                    r"Local time context:\n[\s\S]*?(?=\n\n\S|\Z)",
-                    injected.strip(),
-                    current_content,
-                    count=1,
-                    flags=re.IGNORECASE,
-                )
-                updated[system_index] = {**updated[system_index], "content": current_content}
-            else:
-                updated[system_index] = {
-                    **updated[system_index],
-                    "content": f"{current_content}{injected}",
-                }
-        else:
-            updated.insert(0, {"role": "system", "content": injected.strip()})
+        updated: list[dict[str, Any]] = []
+        for msg in messages:
+            if not isinstance(msg, dict) or msg.get("role") != "user":
+                updated.append(msg)
+                continue
+
+            content = msg.get("content")
+            if isinstance(content, str):
+                if "[Time note for this query]" in content:
+                    updated.append(msg)
+                else:
+                    updated.append({**msg, "content": f"{content}{note}"})
+                continue
+
+            if isinstance(content, list):
+                has_note = False
+                for part in content:
+                    if isinstance(part, dict):
+                        if "[Time note for this query]" in str(part.get("text", "")) or "[Time note for this query]" in str(part.get("content", "")):
+                            has_note = True
+                            break
+
+                if has_note:
+                    updated.append(msg)
+                else:
+                    updated.append({**msg, "content": [*content, {"type": "text", "text": note}]})
+                continue
+
+            updated.append(msg)
+
         return updated
 
     def _compute_local_time(self, timezone: str, locale: str) -> dict[str, Any]:
@@ -1883,6 +1892,7 @@ class StreamChatService:
             "locale": locale,
             "formatted": now.strftime("%Y-%m-%d %H:%M:%S"),
             "iso": now.isoformat(),
+            "now": now,
         }
 
     def _inject_tool_guidance(
@@ -1952,7 +1962,7 @@ class StreamChatService:
         if "local_time" in enabled_tools:
             local_time_guidance = (
                 "\n\n[TIME CONTEXT GUIDANCE]\n"
-                "Current local time context is already injected in system prompt.\n"
+                "A local-date note is already appended to each user query before model execution.\n"
                 "Do not call local_time again unless the user explicitly asks to refresh/recheck time."
             )
             updated = self._append_system_message(updated, local_time_guidance, system_index)

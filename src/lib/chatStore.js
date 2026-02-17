@@ -203,7 +203,6 @@ const useChatStore = create((set, get) => ({
    * @param {Object} params.selectedAgent - Current agent
    * @param {Array} params.agents - Available agents
    * @param {Object} params.spaceInfo - Space information
-   * @param {boolean} params.isAgentAutoMode - Agent auto mode flag
    */
   submitInteractiveForm: async ({
     formData,
@@ -212,7 +211,6 @@ const useChatStore = create((set, get) => ({
     selectedAgent,
     agents,
     spaceInfo,
-    isAgentAutoMode,
   }) => {
     const { conversationId, messages } = get()
     if (!conversationId) return
@@ -943,7 +941,7 @@ const useChatStore = create((set, get) => ({
 
     try {
       // Call AI API with run_id and field_values
-      // The backend will use agent.continue_run() to resume
+      // The backend rebuilds continuation messages and resumes with stream arun.
       await callAIAPI(
         [], // No context messages needed (continuation uses stored state)
         null, // No placeholder (we append to existing message)

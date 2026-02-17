@@ -223,6 +223,8 @@ const ChatInterface = ({
   const [quotedText, setQuotedText] = useState(null)
   const [quoteContext, setQuoteContext] = useState(null)
   const [editingSeed, setEditingSeed] = useState({ text: '', attachments: [] })
+  const sendInFlightRef = useRef(false)
+  const formSubmitInFlightRef = useRef(false)
   const quoteTextRef = useRef('')
   const quoteSourceRef = useRef('')
   const lastTitleConversationIdRef = useRef(null)
@@ -1502,6 +1504,7 @@ const ChatInterface = ({
 
       if (!textToSend.trim() && attToSend.length === 0) return
       if (isLoading) return
+      if (sendInFlightRef.current) return
       scrollToBottom('auto')
 
       const editingInfo =
@@ -1570,59 +1573,64 @@ const ChatInterface = ({
         }
       }
 
-      await sendMessage({
-        text: textToSend,
-        attachments: attToSend,
-        toggles: {
-          search: searchActive,
-          searchTool,
-          searchBackend: searchBackendValue || null,
-          thinking: thinkingActive,
-          expertMode: expertModeActive,
-          related: relatedActive,
-        },
-        settings,
-        spaceInfo: { selectedSpace: displaySpace || selectedSpace, isManualSpaceSelection },
-        selectedAgent: agentForSend,
-        isAgentAutoMode,
-        agents: appAgents,
-        documentSources: baseDocumentSources,
-        documentSelection: {
-          documents: selectedDocuments,
-          skipRetrieval: skipDocumentRetrieval,
-        },
-        editingInfo,
-        callbacks: {
-          onTitleAndSpaceGenerated,
-          onSpaceResolved: space => {
-            if (isSpaceSelectionLocked) return
-            setSelectedSpace(space)
-            setIsManualSpaceSelection(false)
+      sendInFlightRef.current = true
+      try {
+        await sendMessage({
+          text: textToSend,
+          attachments: attToSend,
+          toggles: {
+            search: searchActive,
+            searchTool,
+            searchBackend: searchBackendValue || null,
+            thinking: thinkingActive,
+            expertMode: expertModeActive,
+            related: relatedActive,
           },
-          onConversationReady: async conversation => {
-            const pendingIds = pendingDocumentIdsRef.current || []
-            if (!conversation?.id || pendingIds.length === 0) return
-            const { error } = await setConversationDocuments(conversation.id, pendingIds)
-            if (error) {
-              console.error('Failed to save conversation documents:', error)
-              toast.error(t('chatInterface.documentsSelectionSaveFailed'))
-            } else {
-              setPendingDocumentIds([])
-            }
+          settings,
+          spaceInfo: { selectedSpace: displaySpace || selectedSpace, isManualSpaceSelection },
+          selectedAgent: agentForSend,
+          isAgentAutoMode,
+          agents: appAgents,
+          documentSources: baseDocumentSources,
+          documentSelection: {
+            documents: selectedDocuments,
+            skipRetrieval: skipDocumentRetrieval,
           },
-          onAgentResolved: agent => {
-            // Only update selected agent if in auto mode
-            // In manual mode, respect user's explicit choice
-            if (isAgentAutoMode) {
-              const nextAgentId = agent?.id || null
-              setPendingAgentId(nextAgentId)
-              setSelectedAgentId(nextAgentId)
-            }
+          editingInfo,
+          callbacks: {
+            onTitleAndSpaceGenerated,
+            onSpaceResolved: space => {
+              if (isSpaceSelectionLocked) return
+              setSelectedSpace(space)
+              setIsManualSpaceSelection(false)
+            },
+            onConversationReady: async conversation => {
+              const pendingIds = pendingDocumentIdsRef.current || []
+              if (!conversation?.id || pendingIds.length === 0) return
+              const { error } = await setConversationDocuments(conversation.id, pendingIds)
+              if (error) {
+                console.error('Failed to save conversation documents:', error)
+                toast.error(t('chatInterface.documentsSelectionSaveFailed'))
+              } else {
+                setPendingDocumentIds([])
+              }
+            },
+            onAgentResolved: agent => {
+              // Only update selected agent if in auto mode
+              // In manual mode, respect user's explicit choice
+              if (isAgentAutoMode) {
+                const nextAgentId = agent?.id || null
+                setPendingAgentId(nextAgentId)
+                setSelectedAgentId(nextAgentId)
+              }
+            },
           },
-        },
-        spaces,
-        quoteContext: quoteContextForSend,
-      })
+          spaces,
+          quoteContext: quoteContextForSend,
+        })
+      } finally {
+        sendInFlightRef.current = false
+      }
     },
     [
       isSearchActive,
@@ -1666,29 +1674,35 @@ const ChatInterface = ({
 
   // Handle interactive form submission
   const handleFormSubmit = useCallback(
-    formSubmission => {
+    async formSubmission => {
+      if (isLoading || formSubmitInFlightRef.current) return
       const agentForSend =
         selectedAgent || (!isAgentAutoMode && initialAgentSelection) || defaultAgent || null
 
       // Use submitInteractiveForm to continue in the same message
-      submitInteractiveForm({
-        formData: formSubmission,
-        settings,
-        toggles: {
-          search: isSearchActive,
-          searchTool: resolvedSearchToolIds,
-          searchBackend,
-          thinking: isThinkingActive,
-          expertMode: isExpertMode,
-          related: isRelatedEnabled,
-        },
-        selectedAgent: agentForSend,
-        agents: appAgents,
-        spaceInfo: { selectedSpace, isManualSpaceSelection },
-        isAgentAutoMode,
-      })
+      formSubmitInFlightRef.current = true
+      try {
+        await submitInteractiveForm({
+          formData: formSubmission,
+          settings,
+          toggles: {
+            search: isSearchActive,
+            searchTool: resolvedSearchToolIds,
+            searchBackend,
+            thinking: isThinkingActive,
+            expertMode: isExpertMode,
+            related: isRelatedEnabled,
+          },
+          selectedAgent: agentForSend,
+          agents: appAgents,
+          spaceInfo: { selectedSpace, isManualSpaceSelection },
+        })
+      } finally {
+        formSubmitInFlightRef.current = false
+      }
     },
     [
+      isLoading,
       isSearchActive,
       resolvedSearchToolIds,
       searchBackend,

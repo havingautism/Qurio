@@ -1054,11 +1054,10 @@ class StreamChatService:
         Continue a paused HITL run after user submits form.
         
         This method:
-        1. Retrieves requirements from Supabase
-        2. Fills in user-submitted field values
-        3. Rebuilds continuation messages and runs agent.arun()
-        4. Streams the completion
-        5. Cleans up Supabase record
+        1. Retrieves requirements from storage
+        2. Rebuilds continuation messages with submitted form values
+        3. Runs agent.arun() and streams completion
+        4. Cleans up storage record
         """
         try:
             run_id = request.run_id
@@ -1128,22 +1127,6 @@ class StreamChatService:
                 )
                 yield ErrorEvent(error="Form session expired or not found").model_dump()
                 return
-
-            # Fill in user-submitted values
-            for req in requirements:
-                # Case 1: External execution (interactive_form)
-                if (hasattr(req, 'needs_external_execution') and req.needs_external_execution) or \
-                   (req.tool_execution and req.tool_execution.tool_name == "interactive_form"):
-                    import json
-                    req.set_external_execution_result(json.dumps(field_values))
-                    logger.debug(f"Set external execution result for {req.tool_execution.tool_name}")
-
-                # Case 2: Traditional user input (get_user_input)
-                elif req.needs_user_input and req.user_input_schema:
-                    for field in req.user_input_schema:
-                        if field.name in field_values:
-                            field.value = field_values[field.name]
-                            logger.debug(f"Filled field '{field.name}' with value: {field.value}")
 
             # Get agent (same provider as original request)
             agent = get_agent_for_provider(request)
@@ -1337,7 +1320,7 @@ class StreamChatService:
                         # Keep reasoning extraction strict to `reasoning_content` only.
                 return ""
 
-            async def _stream_events(stream, *, is_continuation_attempt: bool = False):
+            async def _stream_events(stream):
                 nonlocal full_content, full_thought, sources_map, tool_start_times, paused_again, stream_had_error
                 nonlocal in_reasoning_phase, should_break_next_thought, reasoning_closed_for_current_cycle
                 nonlocal in_content_think_block, inline_tool_trace_depth, inline_protocol_tail
@@ -1638,9 +1621,6 @@ class StreamChatService:
                             case RunEvent.run_error.value:
                                 error_msg = getattr(run_event, "content", None) or "Unknown error"
                                 stream_had_error = True
-                                if is_continuation_attempt:
-                                    # Force fallback to fresh run when continuation run_id is invalid/stale.
-                                    raise RuntimeError(str(error_msg))
                                 yield ErrorEvent(error=str(error_msg)).model_dump()
                                 return
                     else:

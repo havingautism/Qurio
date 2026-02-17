@@ -2542,7 +2542,9 @@ const MessageBubble = ({
                 <div className="flex items-center gap-1">
                   {canResendThisQuestion && (
                     <button
+                      disabled={isLoading}
                       onClick={() => {
+                        if (isLoading) return
                         showConfirmation({
                           title: t('confirmation.resendTitle'),
                           message: t('confirmation.resendMessage'),
@@ -2550,7 +2552,7 @@ const MessageBubble = ({
                           onConfirm: onUserRegenerate,
                         })
                       }}
-                      className="group/icon flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-gray-500 transition-all duration-200 hover:bg-gray-100 hover:text-gray-700 dark:text-white dark:hover:bg-zinc-800 dark:hover:text-gray-200"
+                      className="group/icon flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-gray-500 transition-all duration-200 hover:bg-gray-100 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-50 dark:text-white dark:hover:bg-zinc-800 dark:hover:text-gray-200"
                       title={t('messageBubble.regenerate')}
                     >
                       <RotateCcw size={14} />
@@ -2561,8 +2563,9 @@ const MessageBubble = ({
                   )}
                   {onEdit && (
                     <button
+                      disabled={isLoading}
                       onClick={() => onEdit()}
-                      className="group/icon flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-gray-500 transition-all duration-200 hover:bg-gray-100 hover:text-gray-700 dark:text-white dark:hover:bg-zinc-800 dark:hover:text-gray-200"
+                      className="group/icon flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-gray-500 transition-all duration-200 hover:bg-gray-100 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-50 dark:text-white dark:hover:bg-zinc-800 dark:hover:text-gray-200"
                       title={t('messageBubble.edit')}
                     >
                       <Pencil size={14} />
@@ -2596,7 +2599,9 @@ const MessageBubble = ({
                     )}
                   </button>
                   <button
+                    disabled={isLoading}
                     onClick={() => {
+                      if (isLoading) return
                       if (!onDelete) return
                       showConfirmation({
                         title: t('confirmation.deleteMessageTitle'),
@@ -2606,7 +2611,7 @@ const MessageBubble = ({
                         onConfirm: onDelete,
                       })
                     }}
-                    className="group/icon flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-gray-500 transition-all duration-200 hover:bg-red-50 hover:text-red-600 dark:text-white dark:hover:bg-red-900/20 dark:hover:text-red-400"
+                    className="group/icon flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-gray-500 transition-all duration-200 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50 dark:text-white dark:hover:bg-red-900/20 dark:hover:text-red-400"
                     title={t('common.delete')}
                   >
                     <Trash2 size={14} />

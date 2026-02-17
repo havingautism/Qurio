@@ -113,6 +113,7 @@ const InteractiveForm = ({
 }) => {
   const [values, setValues] = useState({})
   const [errors, setErrors] = useState({})
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const { t } = useTranslation()
 
   /**
@@ -219,10 +220,15 @@ const InteractiveForm = ({
 
   const handleSubmit = e => {
     e.preventDefault()
-    if (validate() && !isSubmitted) {
-      onSubmit({ formId: formData.id, values, messageId })
-    }
+    if (isSubmitted || isSubmitting) return
+    if (!validate()) return
+    setIsSubmitting(true)
+    Promise.resolve(onSubmit?.({ formId: formData.id, values, messageId })).finally(() => {
+      setIsSubmitting(false)
+    })
   }
+
+  const isFormDisabled = isSubmitted || isSubmitting
 
   const updateValue = (name, value) => {
     setValues(prev => ({ ...prev, [name]: value }))
@@ -302,7 +308,7 @@ const InteractiveForm = ({
                     onChange={val => updateValue(field.name, val)}
                     options={field.options}
                     placeholder={t('tools.interactiveFormStrings.selectPlaceholder')}
-                    disabled={isSubmitted}
+                    disabled={isFormDisabled}
                     error={errors[field.name]}
                   />
                 )}
@@ -325,7 +331,7 @@ const InteractiveForm = ({
                                   isChecked
                                     ? 'bg-primary-500 border-primary-500 shadow-primary-500/25 scale-[1.02] text-white shadow-lg'
                                     : 'border-primary-200/70 bg-primary-50/50 text-gray-600 hover:border-primary-300 hover:bg-white dark:border-primary-500/30 dark:bg-zinc-900/40 dark:text-gray-400 dark:hover:border-primary-400/40 dark:hover:bg-zinc-800',
-                                  isSubmitted &&
+                                  isFormDisabled &&
                                     'pointer-events-none cursor-not-allowed opacity-60',
                                 )}
                               >
@@ -333,8 +339,8 @@ const InteractiveForm = ({
                                   type="checkbox"
                                   className="hidden"
                                   checked={isChecked}
-                                  onChange={() => !isSubmitted && toggleCheckbox(field.name, opt)}
-                                  disabled={isSubmitted}
+                                  onChange={() => !isFormDisabled && toggleCheckbox(field.name, opt)}
+                                  disabled={isFormDisabled}
                                 />
                                 <span className="relative z-10 flex items-center gap-2 text-sm font-medium">
                                   {isChecked && <Check size={14} strokeWidth={3} />}
@@ -352,28 +358,28 @@ const InteractiveForm = ({
                       <div className="mt-1 flex w-full rounded-xl border border-primary-200/70 bg-primary-50/60 p-1.5 dark:border-primary-500/30 dark:bg-zinc-800/50">
                         <button
                           type="button"
-                          onClick={() => !isSubmitted && updateValue(field.name, true)}
-                          disabled={isSubmitted}
+                          onClick={() => !isFormDisabled && updateValue(field.name, true)}
+                          disabled={isFormDisabled}
                           className={clsx(
                             'flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-300',
                             values[field.name] === true
                               ? 'bg-primary-500 text-white shadow-sm dark:bg-primary-500 dark:text-white'
                               : 'text-gray-500 hover:text-primary-600 dark:text-gray-400 dark:hover:text-primary-300',
-                            isSubmitted && 'cursor-not-allowed opacity-60',
+                            isFormDisabled && 'cursor-not-allowed opacity-60',
                           )}
                         >
                           {t('common.yes')}
                         </button>
                         <button
                           type="button"
-                          onClick={() => !isSubmitted && updateValue(field.name, false)}
-                          disabled={isSubmitted}
+                          onClick={() => !isFormDisabled && updateValue(field.name, false)}
+                          disabled={isFormDisabled}
                           className={clsx(
                             'flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-300',
                             values[field.name] === false
                               ? 'bg-primary-500 text-white shadow-sm dark:bg-primary-500 dark:text-white'
                               : 'text-gray-500 hover:text-primary-600 dark:text-gray-400 dark:hover:text-primary-300',
-                            isSubmitted && 'cursor-not-allowed opacity-60',
+                            isFormDisabled && 'cursor-not-allowed opacity-60',
                           )}
                         >
                           {t('common.no')}
@@ -390,14 +396,14 @@ const InteractiveForm = ({
                       value={values[field.name] || ''}
                       onChange={e => updateValue(field.name, e.target.value)}
                       placeholder={field.placeholder}
-                      disabled={isSubmitted}
+                      disabled={isFormDisabled}
                       min={field.min}
                       max={field.max}
                       step={field.step}
                       className={clsx(
                         'w-full rounded-xl border border-primary-200/80 px-4 py-2.5 text-sm font-medium transition-all duration-300 outline-none dark:border-primary-500/30',
                         'border bg-primary-50/40 backdrop-blur-sm dark:bg-zinc-900/40',
-                        isSubmitted
+                        isFormDisabled
                           ? 'cursor-not-allowed opacity-60'
                           : 'focus:border-primary-500/60 focus:ring-primary-500/10 focus:shadow-primary-500/5 hover:border-primary-300 hover:bg-white focus:bg-white focus:shadow-lg focus:ring-4 dark:hover:border-primary-400/40 dark:hover:bg-zinc-800 dark:focus:bg-black',
                         errors[field.name] && 'border-red-500/50! bg-red-50/10! shadow-none!',
@@ -417,10 +423,10 @@ const InteractiveForm = ({
                         min={field.min || 0}
                         max={field.max || 100}
                         step={field.step || 1}
-                        disabled={isSubmitted}
+                        disabled={isFormDisabled}
                         className={clsx(
                           'accent-primary-500 h-2 w-full cursor-pointer appearance-none rounded-lg bg-gray-200 dark:bg-zinc-700',
-                          isSubmitted && 'cursor-not-allowed opacity-60',
+                          isFormDisabled && 'cursor-not-allowed opacity-60',
                         )}
                       />
                     </div>
@@ -447,10 +453,10 @@ const InteractiveForm = ({
 
             <button
               type="submit"
-              disabled={isSubmitted}
+              disabled={isFormDisabled}
               className={clsx(
                 'group relative mt-3 w-full overflow-hidden rounded-xl px-5 py-2.5 text-base font-bold transition-all duration-300',
-                isSubmitted
+                isFormDisabled
                   ? 'cursor-not-allowed border border-primary-200/70 bg-primary-50/60 text-gray-400 dark:border-primary-500/30 dark:bg-white/5'
                   : 'bg-linear-to-r from-primary-600 via-primary-500 to-primary-600 text-white shadow-lg shadow-primary-500/25 hover:shadow-xl hover:shadow-primary-500/30 active:scale-[0.98] dark:from-primary-500 dark:via-primary-400 dark:to-primary-500',
               )}
@@ -459,6 +465,11 @@ const InteractiveForm = ({
                 <span className="flex items-center justify-center gap-2">
                   <Check size={20} />
                   {t('common.commited')}
+                </span>
+              ) : isSubmitting ? (
+                <span className="flex items-center justify-center gap-2">
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                  {t('common.submitting', 'Submitting')}
                 </span>
               ) : (
                 <>

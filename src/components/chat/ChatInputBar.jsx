@@ -118,6 +118,7 @@ const CapsuleSettingsMenu = React.memo(
     onSearchBackendChange,
     onSearchClear,
     searchMenuRef,
+    isDisabled = false,
   }) => {
     const selectedSearchBackendOption = React.useMemo(
       () => (searchBackendOptions || []).find(item => item.id === searchBackend) || null,
@@ -160,6 +161,7 @@ const CapsuleSettingsMenu = React.memo(
           </div>
           <div className="no-scrollbar flex max-h-[300px] flex-col gap-1.5 overflow-y-auto">
             <button
+              disabled={isDisabled}
               onClick={() => {
                 onAgentAutoModeToggle()
               }}
@@ -182,6 +184,7 @@ const CapsuleSettingsMenu = React.memo(
               return (
                 <button
                   key={agent.id}
+                  disabled={isDisabled}
                   onClick={() => {
                     onAgentSelect(agent)
                   }}
@@ -217,7 +220,7 @@ const CapsuleSettingsMenu = React.memo(
           </div>
           <div className="space-y-0.5">
             <button
-              disabled={isThinkingLocked}
+              disabled={isDisabled || isThinkingLocked}
               onClick={onToggleThinking}
               className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-sm transition-colors hover:bg-gray-100 dark:hover:bg-zinc-700/50"
             >
@@ -244,7 +247,7 @@ const CapsuleSettingsMenu = React.memo(
             </button>
             <div className="relative">
               <button
-                disabled={!isSearchSupported}
+                disabled={isDisabled || !isSearchSupported}
                 onClick={onToggleSearch}
                 className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-sm transition-colors hover:bg-gray-100 disabled:opacity-50 dark:hover:bg-zinc-700/50"
                 aria-expanded={isSearchMenuOpen}
@@ -282,6 +285,7 @@ const CapsuleSettingsMenu = React.memo(
                           <button
                             key={option.id}
                             type="button"
+                            disabled={isDisabled}
                             onClick={() => onSearchBackendChange?.(option.id)}
                             className={clsx(
                               'flex w-full items-center justify-between rounded-lg px-4 py-2 text-left text-sm transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800',
@@ -316,6 +320,7 @@ const CapsuleSettingsMenu = React.memo(
                           <button
                             key={option.id}
                             type="button"
+                            disabled={isDisabled}
                             onClick={() => onSearchToolSelect?.(option.id)}
                             className={clsx(
                               'flex w-full items-center justify-between rounded-lg px-4 py-2 text-left text-sm transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800',
@@ -341,6 +346,7 @@ const CapsuleSettingsMenu = React.memo(
                   <div className="h-px bg-gray-200 dark:bg-zinc-700/70" />
                   <button
                     type="button"
+                    disabled={isDisabled}
                     onClick={() => onSearchClear?.()}
                     className="flex w-full items-center justify-between rounded-lg px-4 py-2 text-left text-sm text-gray-500 transition-colors hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-zinc-800"
                   >
@@ -363,6 +369,7 @@ CapsuleSettingsMenu.displayName = 'CapsuleSettingsMenu'
  *
  * @param {Object} props
  * @param {boolean} props.isLoading - Whether a message is currently being sent
+ * @param {boolean} props.isConversationLocked - Whether conversation is unfinished and input/options should be locked
  * @param {string} props.apiProvider - The API provider name
  * @param {boolean} props.isSearchActive - Whether search is enabled
  * @param {boolean} props.isThinkingActive - Whether thinking mode is enabled
@@ -405,6 +412,7 @@ CapsuleSettingsMenu.displayName = 'CapsuleSettingsMenu'
 const ChatInputBar = React.memo(
   ({
     isLoading,
+    isConversationLocked = false,
     apiProvider,
     isSearchActive,
     isThinkingActive,
@@ -467,6 +475,7 @@ const ChatInputBar = React.memo(
     const highlightRef = useRef(null)
     const searchMenuRef = useRef(null)
     const highlightedInputParts = useMemo(() => splitTextWithUrls(inputValue), [inputValue])
+    const isInteractionLocked = isLoading || isConversationLocked
     const selectedSearchBackendOption = useMemo(
       () => (searchBackendOptions || []).find(item => item.id === searchBackend) || null,
       [searchBackend, searchBackendOptions],
@@ -577,7 +586,16 @@ const ChatInputBar = React.memo(
       return () => document.removeEventListener('mousedown', handleClickOutside)
     }, [isSearchMenuOpen, onSearchMenuClose])
 
+    useEffect(() => {
+      if (!isInteractionLocked) return
+      setIsUploadMenuOpen(false)
+      setIsCapsuleMenuOpen(false)
+      setIsDocumentMenuOpen(false)
+      onSearchMenuClose?.()
+    }, [isInteractionLocked, onSearchMenuClose])
+
     const handleFileChange = async e => {
+      if (isInteractionLocked) return
       const files = Array.from(e.target.files)
       if (files.length === 0) return
 
@@ -632,12 +650,13 @@ const ChatInputBar = React.memo(
     }
 
     const handleUploadImage = useCallback(() => {
+      if (isInteractionLocked) return
       fileInputRef.current?.click()
       setIsUploadMenuOpen(false)
-    }, [])
+    }, [isInteractionLocked])
 
     const handleSend = () => {
-      if (isLoading) return
+      if (isInteractionLocked) return
       const text = inputValue
       const hasContent = text.trim() || attachments.length > 0
       if (!hasContent) return
@@ -649,6 +668,7 @@ const ChatInputBar = React.memo(
     }
 
     const handleKeyDown = e => {
+      if (isInteractionLocked) return
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault()
         handleSend()
@@ -656,16 +676,18 @@ const ChatInputBar = React.memo(
     }
 
     const handleCapsuleAgentAutoToggle = useCallback(() => {
+      if (isInteractionLocked) return
       onAgentAutoModeToggle()
       setIsCapsuleMenuOpen(false)
-    }, [onAgentAutoModeToggle])
+    }, [isInteractionLocked, onAgentAutoModeToggle])
 
     const handleCapsuleAgentSelect = useCallback(
       agent => {
+        if (isInteractionLocked) return
         onAgentSelect(agent)
         setIsCapsuleMenuOpen(false)
       },
-      [onAgentSelect],
+      [isInteractionLocked, onAgentSelect],
     )
 
     const hasDocuments = documents && documents.length > 0
@@ -725,6 +747,7 @@ const ChatInputBar = React.memo(
           onSearchBackendChange={onSearchBackendChange}
           onSearchClear={onSearchClear}
           searchMenuRef={searchMenuRef}
+          isDisabled={isInteractionLocked}
         />
       ),
       [
@@ -749,6 +772,7 @@ const ChatInputBar = React.memo(
         onSearchToolSelect,
         onSearchBackendChange,
         onSearchClear,
+        isInteractionLocked,
       ],
     )
 
@@ -776,6 +800,7 @@ const ChatInputBar = React.memo(
                   </div>
                   <button
                     onClick={onEditingClear}
+                    disabled={isInteractionLocked}
                     className="rounded-full p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-zinc-800 dark:hover:text-gray-200"
                   >
                     <X size={14} />
@@ -795,6 +820,7 @@ const ChatInputBar = React.memo(
                   </div>
                   <button
                     onClick={onQuoteClear}
+                    disabled={isInteractionLocked}
                     className="rounded-full p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-zinc-800 dark:hover:text-gray-200"
                   >
                     <X size={14} />
@@ -816,6 +842,7 @@ const ChatInputBar = React.memo(
                       />
                       <button
                         onClick={() => setAttachments(attachments.filter((_, i) => i !== idx))}
+                        disabled={isInteractionLocked}
                         className="absolute top-0.5 right-0.5 rounded-full bg-black/60 p-0.5 text-white opacity-100 transition-opacity sm:opacity-0 sm:group-hover/img:opacity-100 dark:bg-white/60 dark:text-black"
                       >
                         <X size={12} />
@@ -838,6 +865,7 @@ const ChatInputBar = React.memo(
                       </div>
                       <button
                         onClick={() => onToggleDocument?.(doc.id)}
+                        disabled={isInteractionLocked}
                         className="absolute top-1.5 right-3 rounded-full bg-black/60 p-0.5 text-white opacity-100 transition-opacity sm:opacity-0 sm:group-hover/doc:opacity-100 dark:bg-white/60 dark:text-black"
                       >
                         <X size={12} />
@@ -883,10 +911,12 @@ const ChatInputBar = React.memo(
                     onChange={handleFileChange}
                     accept="image/*"
                     multiple
+                    disabled={isInteractionLocked}
                     className="hidden"
                   />
                   <button
                     onClick={() => setIsUploadMenuOpen(!isUploadMenuOpen)}
+                    disabled={isInteractionLocked}
                     className="rounded-full p-1.5 text-gray-500 transition-colors hover:bg-gray-200 hover:text-gray-900 sm:p-2 dark:text-gray-400 dark:hover:bg-zinc-800 dark:hover:text-gray-100"
                     title={t('common.upload')}
                     aria-label={t('common.upload')}
@@ -908,6 +938,7 @@ const ChatInputBar = React.memo(
                         </div>
                         <button
                           onClick={handleUploadImage}
+                          disabled={isInteractionLocked}
                           className="flex w-full items-center gap-1.5 rounded-xl px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-zinc-800"
                         >
                           <div className="bg-primary-100 dark:bg-primary-900/30 rounded-lg p-1.5">
@@ -967,6 +998,7 @@ const ChatInputBar = React.memo(
                 <div className="relative" ref={capsuleMenuRef}>
                   <button
                     onClick={() => setIsCapsuleMenuOpen(!isCapsuleMenuOpen)}
+                    disabled={isInteractionLocked}
                     className={clsx(
                       'rounded-full p-1.5 transition-colors sm:p-2',
                       isThinkingActive || isSearchActive || isCapsuleMenuOpen
@@ -1042,6 +1074,7 @@ const ChatInputBar = React.memo(
                     }
                   }}
                   placeholder={t('chatInterface.askFollowUp')}
+                  disabled={isInteractionLocked}
                   rows={1}
                   className={clsx(
                     'relative z-10 max-h-[200px] min-h-[48px] w-full resize-none overflow-y-auto border-none bg-transparent px-1 py-3 text-[15px] leading-[1.6] text-transparent placeholder-gray-400 caret-gray-900 outline-none dark:placeholder-gray-500 dark:caret-gray-100',
@@ -1060,7 +1093,7 @@ const ChatInputBar = React.memo(
               >
                 <button
                   onClick={isLoading ? onStop : handleSend}
-                  disabled={!isLoading && !inputValue.trim() && attachments.length === 0}
+                  disabled={isConversationLocked || (!isLoading && !inputValue.trim() && attachments.length === 0)}
                   className={clsx(
                     'flex items-center justify-center rounded-full p-1.5 shadow-sm transition-all duration-300 sm:p-2',
                     isLoading
@@ -1102,6 +1135,7 @@ const ChatInputBar = React.memo(
               </div>
               <button
                 onClick={() => onEditingClear?.()}
+                disabled={isInteractionLocked}
                 className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-200 hover:text-gray-600 dark:hover:bg-zinc-600 dark:hover:text-gray-200"
               >
                 <X size={14} />
@@ -1123,6 +1157,7 @@ const ChatInputBar = React.memo(
               </div>
               <button
                 onClick={onQuoteClear}
+                disabled={isInteractionLocked}
                 className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-200 hover:text-gray-600 dark:hover:bg-zinc-600 dark:hover:text-gray-200"
               >
                 <X size={14} />
@@ -1143,6 +1178,7 @@ const ChatInputBar = React.memo(
                   </div>
                   <button
                     onClick={() => setAttachments(attachments.filter((_, i) => i !== idx))}
+                    disabled={isInteractionLocked}
                     className="absolute -top-1.5 -right-1.5 rounded-full bg-gray-900 p-1 text-white opacity-100 shadow-md transition-all duration-200 hover:bg-red-500 sm:opacity-0 sm:group-hover:opacity-100"
                   >
                     <X size={12} />
@@ -1179,6 +1215,7 @@ const ChatInputBar = React.memo(
               onChange={e => setInputValue(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder={t('chatInterface.askFollowUp')}
+              disabled={isInteractionLocked}
               className="relative z-10 max-h-[200px] min-h-[48px] w-full resize-none overflow-y-auto border-none bg-transparent py-3.5 text-[15px] leading-[1.6] text-transparent placeholder-gray-400 caret-gray-900 outline-none disabled:cursor-not-allowed dark:placeholder-gray-500 dark:caret-gray-100"
               rows={1}
             />
@@ -1192,11 +1229,13 @@ const ChatInputBar = React.memo(
                 onChange={handleFileChange}
                 accept="image/*"
                 multiple
+                disabled={isInteractionLocked}
                 className="hidden"
               />
               <div className="relative" ref={uploadMenuRef}>
                 <button
                   type="button"
+                  disabled={isInteractionLocked}
                   onClick={() => setIsUploadMenuOpen(prev => !prev)}
                   className={clsx(
                     'flex items-center gap-2 rounded-xl p-2.5 text-sm font-medium transition-all duration-200 hover:bg-gray-100 dark:hover:bg-zinc-700',
@@ -1215,6 +1254,7 @@ const ChatInputBar = React.memo(
                     <div className="flex flex-col gap-1 p-2">
                       <button
                         type="button"
+                        disabled={isInteractionLocked}
                         onClick={handleUploadImage}
                         className="flex w-full items-center gap-3 rounded-xl px-4 py-2.5 text-left text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-zinc-700/50"
                       >
@@ -1239,7 +1279,7 @@ const ChatInputBar = React.memo(
                 )}
               </div>
               <button
-                disabled={isThinkingLocked}
+                disabled={isInteractionLocked || isThinkingLocked}
                 onClick={onToggleThinking}
                 className={clsx(
                   'flex items-center gap-2 rounded-xl p-2.5 text-sm font-medium transition-all duration-200',
@@ -1255,7 +1295,7 @@ const ChatInputBar = React.memo(
               </button>
               <div className="relative">
                 <button
-                  disabled={!apiProvider || !providerSupportsSearch(apiProvider)}
+                  disabled={isInteractionLocked || !apiProvider || !providerSupportsSearch(apiProvider)}
                   onClick={onToggleSearch}
                   className={clsx(
                     'flex items-center gap-2 rounded-xl p-2.5 text-sm font-medium transition-all duration-200 hover:bg-gray-100 dark:hover:bg-zinc-700',
@@ -1299,6 +1339,7 @@ const ChatInputBar = React.memo(
                               <button
                                 key={option.id}
                                 type="button"
+                                disabled={isInteractionLocked}
                                 onClick={() => onSearchBackendChange?.(option.id)}
                                 className={clsx(
                                   'flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800',
@@ -1337,6 +1378,7 @@ const ChatInputBar = React.memo(
                               <button
                                 key={option.id}
                                 type="button"
+                                disabled={isInteractionLocked}
                                 onClick={() => onSearchToolSelect?.(option.id)}
                                 className={clsx(
                                   'flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm transition-colors hover:bg-gray-100 dark:hover:bg-zinc-800',
@@ -1366,6 +1408,7 @@ const ChatInputBar = React.memo(
                       <div className="h-px bg-gray-200 dark:bg-zinc-700/70" />
                       <button
                         type="button"
+                        disabled={isInteractionLocked}
                         onClick={() => onSearchClear?.()}
                         className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm text-gray-500 transition-colors hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-zinc-800"
                       >
@@ -1379,6 +1422,7 @@ const ChatInputBar = React.memo(
                 <button
                   type="button"
                   onClick={e => {
+                    if (isInteractionLocked) return
                     e.stopPropagation()
                     e.preventDefault()
                     onAgentSelectorToggle()
@@ -1389,7 +1433,7 @@ const ChatInputBar = React.memo(
                       ? 'text-primary-500 bg-primary-50 dark:bg-primary-900/20'
                       : 'text-gray-500 dark:text-gray-400',
                   )}
-                  disabled={agentsLoading}
+                  disabled={isInteractionLocked || agentsLoading}
                   aria-label={t('chatInterface.agentsLabel')}
                   aria-expanded={isAgentSelectorOpen}
                   aria-haspopup="menu"
@@ -1419,6 +1463,7 @@ const ChatInputBar = React.memo(
                       {/* Auto mode option */}
                       <button
                         type="button"
+                        disabled={isInteractionLocked}
                         onClick={() => onAgentAutoModeToggle()}
                         className={clsx(
                           'flex w-full items-center justify-between rounded-xl px-4 py-2.5 text-left transition-colors hover:bg-gray-100 dark:hover:bg-zinc-700/50',
@@ -1449,6 +1494,7 @@ const ChatInputBar = React.memo(
                             <button
                               key={agent.id}
                               type="button"
+                              disabled={isInteractionLocked}
                               onClick={() => onAgentSelect(agent)}
                               className="flex w-full items-center justify-between rounded-xl px-4 py-2.5 text-left transition-colors hover:bg-gray-100 dark:hover:bg-zinc-700/50"
                             >
@@ -1479,7 +1525,7 @@ const ChatInputBar = React.memo(
             <div className="flex gap-2">
               <button
                 onClick={isLoading ? onStop : handleSend}
-                disabled={!isLoading && !inputValue.trim() && attachments.length === 0}
+                disabled={isConversationLocked || (!isLoading && !inputValue.trim() && attachments.length === 0)}
                 className={clsx(
                   'flex items-center justify-center rounded-xl p-2.5 shadow-sm transition-all duration-300',
                   isLoading

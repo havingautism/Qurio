@@ -32,12 +32,12 @@ const CustomSelect = ({ value, onChange, options, placeholder, disabled, error }
       <div
         onClick={() => !disabled && setIsOpen(!isOpen)}
         className={clsx(
-          'w-full cursor-pointer rounded-xl border border-gray-200 py-2.5 pr-10 pl-4 transition-all duration-300 dark:border-white/10',
+          'w-full cursor-pointer rounded-xl border border-primary-200/80 py-2.5 pr-10 pl-4 transition-all duration-300 dark:border-primary-500/30',
           'flex items-center justify-between',
-          'bg-gray-50/50 backdrop-blur-md hover:bg-white dark:bg-zinc-900/50 dark:hover:bg-zinc-800',
+          'bg-primary-50/40 backdrop-blur-md hover:bg-white dark:bg-zinc-900/50 dark:hover:bg-zinc-800',
           isOpen
             ? 'ring-primary-500/20 border-primary-500/50 shadow-primary-500/5 shadow-lg ring-2'
-            : 'hover:border-gray-200 dark:hover:border-white/10',
+            : 'hover:border-primary-300/90 dark:hover:border-primary-400/40',
           disabled && 'cursor-not-allowed opacity-60',
           error && 'border-red-500/50! bg-red-50/10! shadow-none',
         )}
@@ -63,7 +63,7 @@ const CustomSelect = ({ value, onChange, options, placeholder, disabled, error }
       {/* Dropdown Menu */}
       <div
         className={clsx(
-          'absolute z-60 mt-2 w-full overflow-hidden rounded-xl border border-gray-100 py-1.5 shadow-2xl dark:border-white/10',
+          'absolute z-60 mt-2 w-full overflow-hidden rounded-xl border border-primary-100/90 py-1.5 shadow-2xl dark:border-primary-500/30',
           'origin-top bg-white transition-all duration-200 dark:bg-zinc-900',
           isOpen
             ? 'translate-y-0 scale-100 opacity-100'
@@ -247,7 +247,7 @@ const InteractiveForm = ({
 
   return (
     <div className="relative z-30 mx-auto mb-4 w-full max-w-2xl">
-      <div className="group relative mb-4 rounded-3xl border border-gray-200 bg-white/80 p-4 shadow-xl shadow-gray-200/50 backdrop-blur-xl transition-all duration-300 md:p-6 dark:border-white/10 dark:bg-black/40 dark:shadow-black/50">
+      <div className="group relative mb-4 rounded-3xl border border-primary-200/80 bg-white/80 p-4 shadow-xl shadow-gray-200/50 backdrop-blur-xl transition-all duration-300 md:p-6 dark:border-primary-500/25 dark:bg-black/40 dark:shadow-black/50">
         {/* Decorative Background Gradients */}
         {/* <div className="absolute -top-20 -right-20 w-60 h-60 bg-primary-500/10 rounded-full blur-[80px] group-hover:bg-primary-500/15 transition-colors duration-700 pointer-events-none" />
         <div className="absolute -bottom-20 -left-20 w-60 h-60 bg-orange-500/10 rounded-full blur-[80px] group-hover:bg-orange-500/15 transition-colors duration-700 pointer-events-none" /> */}
@@ -265,7 +265,7 @@ const InteractiveForm = ({
           {/* Header */}
           <div className="mb-8">
             {formData.title && (
-              <h4 className="mb-3 bg-linear-to-br from-gray-900 to-gray-600 bg-clip-text text-xl font-bold text-transparent md:text-2xl dark:from-white dark:to-gray-400">
+              <h4 className="mb-3 text-xl font-bold text-gray-900 md:text-2xl dark:text-gray-100">
                 {formData.title}
               </h4>
             )}
@@ -324,7 +324,7 @@ const InteractiveForm = ({
                                   'group/item relative cursor-pointer overflow-hidden rounded-lg border px-3 py-2 transition-all duration-300 select-none',
                                   isChecked
                                     ? 'bg-primary-500 border-primary-500 shadow-primary-500/25 scale-[1.02] text-white shadow-lg'
-                                    : 'border-transparent bg-gray-50 text-gray-600 hover:border-gray-200 hover:bg-white dark:bg-zinc-900/40 dark:text-gray-400 dark:hover:border-white/10 dark:hover:bg-zinc-800',
+                                    : 'border-primary-200/70 bg-primary-50/50 text-gray-600 hover:border-primary-300 hover:bg-white dark:border-primary-500/30 dark:bg-zinc-900/40 dark:text-gray-400 dark:hover:border-primary-400/40 dark:hover:bg-zinc-800',
                                   isSubmitted &&
                                     'pointer-events-none cursor-not-allowed opacity-60',
                                 )}
@@ -349,7 +349,7 @@ const InteractiveForm = ({
 
                     // const isChecked = values[field.name] === true
                     return (
-                      <div className="mt-1 flex w-full rounded-xl bg-gray-100 p-1.5 dark:bg-zinc-800/50">
+                      <div className="mt-1 flex w-full rounded-xl border border-primary-200/70 bg-primary-50/60 p-1.5 dark:border-primary-500/30 dark:bg-zinc-800/50">
                         <button
                           type="button"
                           onClick={() => !isSubmitted && updateValue(field.name, true)}
@@ -357,8 +357,8 @@ const InteractiveForm = ({
                           className={clsx(
                             'flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-300',
                             values[field.name] === true
-                              ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-600 dark:text-white'
-                              : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200',
+                              ? 'bg-primary-500 text-white shadow-sm dark:bg-primary-500 dark:text-white'
+                              : 'text-gray-500 hover:text-primary-600 dark:text-gray-400 dark:hover:text-primary-300',
                             isSubmitted && 'cursor-not-allowed opacity-60',
                           )}
                         >
@@ -371,8 +371,8 @@ const InteractiveForm = ({
                           className={clsx(
                             'flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-300',
                             values[field.name] === false
-                              ? 'bg-white text-gray-900 shadow-sm dark:bg-zinc-600 dark:text-white'
-                              : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200',
+                              ? 'bg-primary-500 text-white shadow-sm dark:bg-primary-500 dark:text-white'
+                              : 'text-gray-500 hover:text-primary-600 dark:text-gray-400 dark:hover:text-primary-300',
                             isSubmitted && 'cursor-not-allowed opacity-60',
                           )}
                         >
@@ -395,11 +395,11 @@ const InteractiveForm = ({
                       max={field.max}
                       step={field.step}
                       className={clsx(
-                        'w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-medium transition-all duration-300 outline-none dark:border-white/10',
-                        'border bg-gray-50/50 backdrop-blur-sm dark:bg-zinc-900/40',
+                        'w-full rounded-xl border border-primary-200/80 px-4 py-2.5 text-sm font-medium transition-all duration-300 outline-none dark:border-primary-500/30',
+                        'border bg-primary-50/40 backdrop-blur-sm dark:bg-zinc-900/40',
                         isSubmitted
                           ? 'cursor-not-allowed opacity-60'
-                          : 'focus:border-primary-500/50 focus:ring-primary-500/10 focus:shadow-primary-500/5 hover:border-gray-200 hover:bg-white focus:bg-white focus:shadow-lg focus:ring-4 dark:hover:border-white/10 dark:hover:bg-zinc-800 dark:focus:bg-black',
+                          : 'focus:border-primary-500/60 focus:ring-primary-500/10 focus:shadow-primary-500/5 hover:border-primary-300 hover:bg-white focus:bg-white focus:shadow-lg focus:ring-4 dark:hover:border-primary-400/40 dark:hover:bg-zinc-800 dark:focus:bg-black',
                         errors[field.name] && 'border-red-500/50! bg-red-50/10! shadow-none!',
                       )}
                     />
@@ -408,7 +408,7 @@ const InteractiveForm = ({
 
                 {/* Range Slider */}
                 {field.type === 'range' && (
-                  <div className="rounded-2xl border border-gray-200 bg-gray-50/50 px-1 py-4 transition-colors hover:border-gray-200 dark:border-white/10 dark:bg-zinc-900/40 dark:hover:border-white/10">
+                  <div className="rounded-2xl border border-primary-200/80 bg-primary-50/50 px-1 py-4 transition-colors hover:border-primary-300 dark:border-primary-500/30 dark:bg-zinc-900/40 dark:hover:border-primary-400/40">
                     <div className="px-4">
                       <input
                         type="range"
@@ -449,10 +449,10 @@ const InteractiveForm = ({
               type="submit"
               disabled={isSubmitted}
               className={clsx(
-                'group relative mt-4 w-full overflow-hidden rounded-xl px-6 py-3 font-bold transition-all duration-300',
+                'group relative mt-3 w-full overflow-hidden rounded-xl px-5 py-2.5 text-base font-bold transition-all duration-300',
                 isSubmitted
-                  ? 'cursor-not-allowed bg-gray-100 text-gray-400 dark:bg-white/5'
-                  : 'bg-linear-to-r from-gray-900 via-gray-800 to-gray-900 text-white shadow-xl shadow-gray-900/10 hover:shadow-2xl hover:shadow-gray-900/20 active:scale-[0.98] dark:from-white dark:via-gray-200 dark:to-white dark:text-black dark:shadow-white/5 dark:hover:shadow-white/10',
+                  ? 'cursor-not-allowed border border-primary-200/70 bg-primary-50/60 text-gray-400 dark:border-primary-500/30 dark:bg-white/5'
+                  : 'bg-linear-to-r from-primary-600 via-primary-500 to-primary-600 text-white shadow-lg shadow-primary-500/25 hover:shadow-xl hover:shadow-primary-500/30 active:scale-[0.98] dark:from-primary-500 dark:via-primary-400 dark:to-primary-500',
               )}
             >
               {isSubmitted ? (

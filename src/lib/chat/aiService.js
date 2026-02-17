@@ -60,10 +60,13 @@ const clampToUnicodeBoundary = (text, index) => {
 const findParagraphEndIndex = (content, index) => {
   if (typeof content !== 'string' || content.length === 0) return 0
   const safeIndex = Math.max(0, Math.min(Number.isFinite(index) ? Number(index) : 0, content.length))
+
   const nextDoubleBreak = content.indexOf('\n\n', safeIndex)
-  if (nextDoubleBreak !== -1) return nextDoubleBreak
+  if (nextDoubleBreak !== -1) return Math.min(content.length, nextDoubleBreak + 2)
+
   const nextSingleBreak = content.indexOf('\n', safeIndex)
-  if (nextSingleBreak !== -1) return nextSingleBreak
+  if (nextSingleBreak !== -1) return Math.min(content.length, nextSingleBreak + 1)
+
   return content.length
 }
 
@@ -87,11 +90,11 @@ const buildStreamBlocks = ({ content = '', thoughtHistory = [], toolCallHistory 
     ? toolCallHistory
         .map((item, index) => ({
           type: 'tool',
+          // Keep tool anchor stable at its original stream position.
+          // Do not "push to paragraph end", otherwise location can drift as text keeps growing.
           textIndex: (() => {
             const rawIndex = Number.isFinite(item?.textIndex) ? Number(item.textIndex) : 0
-            const safeIndex = Math.max(0, Math.min(rawIndex, rawContent.length))
-            if (item?.name === 'interactive_form') return safeIndex
-            return findParagraphEndIndex(rawContent, safeIndex)
+            return Math.max(0, Math.min(rawIndex, rawContent.length))
           })(),
           order: Number.isFinite(item?.streamOrder) ? Number(item.streamOrder) : 100000 + index,
           tool_call_id: item?.id || `tool-${index}`,
@@ -152,6 +155,42 @@ const buildStreamBlocks = ({ content = '', thoughtHistory = [], toolCallHistory 
     blocks.push({ seq: 1, type: 'text', content: rawContent })
   }
   return blocks
+}
+
+const deriveThoughtHistoryFromStreamBlocks = streamBlocks => {
+  if (!Array.isArray(streamBlocks) || streamBlocks.length === 0) return []
+  let textOffset = 0
+  let blockId = 0
+  return streamBlocks
+    .map((block, index) => {
+      const type = String(block?.type || '')
+      if (type === 'text') {
+        textOffset += String(block?.content || '').length
+        return null
+      }
+      if (type !== 'reasoning' && type !== 'thought') return null
+      const content = String(block?.content || '')
+      if (!content.trim()) return null
+      blockId += 1
+      return {
+        blockId,
+        textIndex: textOffset,
+        content,
+        streamOrder: Number.isFinite(block?.seq) ? Number(block.seq) : index + 1,
+        durationMs: Number.isFinite(block?.duration_ms)
+          ? Number(block.duration_ms)
+          : Number.isFinite(block?.durationMs)
+            ? Number(block.durationMs)
+            : null,
+      }
+    })
+    .filter(Boolean)
+}
+
+const getThoughtHistoryForRebuild = message => {
+  const direct = Array.isArray(message?.thoughtHistory) ? message.thoughtHistory : []
+  if (direct.length > 0) return direct
+  return deriveThoughtHistoryFromStreamBlocks(message?.streamBlocks)
 }
 
 /**
@@ -433,9 +472,10 @@ export const callAIAPI = async (
       }
 
       // Keep streamBlocks live during streaming so UI can render thought/tool blocks incrementally.
+      const thoughtHistoryForBlocks = getThoughtHistoryForRebuild(lastMsg)
       lastMsg.streamBlocks = buildStreamBlocks({
         content: lastMsg.content || '',
-        thoughtHistory: Array.isArray(lastMsg.thoughtHistory) ? lastMsg.thoughtHistory : [],
+        thoughtHistory: thoughtHistoryForBlocks,
         toolCallHistory: Array.isArray(lastMsg.toolCallHistory) ? lastMsg.toolCallHistory : [],
       })
 
@@ -487,6 +527,12 @@ export const callAIAPI = async (
 
     maxObservedEventTextIndex = Math.max(maxObservedEventTextIndex, absolute)
     return absolute
+  }
+
+  const resolveToolAnchorIndex = (content, index, toolName) => {
+    const safeIndex = Math.max(0, Math.min(Number.isFinite(index) ? Number(index) : 0, content.length))
+    if (toolName === 'interactive_form') return safeIndex
+    return findParagraphEndIndex(content, safeIndex)
   }
 
   const normalizeResearchStepNumber = value => {
@@ -870,6 +916,12 @@ export const callAIAPI = async (
               const pendingTextLength = (pendingText || '').length
               const baseIndex = (lastMsg.content || '').length + pendingTextLength
               const resolvedTextIndex = normalizeStreamTextIndex(chunk.textIndex, baseIndex)
+              const contentSnapshot = `${lastMsg.content || ''}${pendingText || ''}`
+              const anchoredTextIndex = resolveToolAnchorIndex(
+                contentSnapshot,
+                resolvedTextIndex,
+                toolName,
+              )
               const toolId = chunk.id || `${chunk.name || 'tool'}-${Date.now()}`
               const startedAt = Date.now()
               markToolStarted(toolId, toolName, startedAt)
@@ -881,13 +933,13 @@ export const callAIAPI = async (
                 durationMs: null,
                 step: typeof chunk.step === 'number' ? chunk.step : undefined,
                 total: typeof chunk.total === 'number' ? chunk.total : undefined,
-                textIndex: resolvedTextIndex,
+                textIndex: anchoredTextIndex,
                 streamOrder: ++streamEventOrder,
               })
               lastMsg.toolCallHistory = history
               lastMsg.streamBlocks = buildStreamBlocks({
                 content: lastMsg.content || '',
-                thoughtHistory: Array.isArray(lastMsg.thoughtHistory) ? lastMsg.thoughtHistory : [],
+                thoughtHistory: getThoughtHistoryForRebuild(lastMsg),
                 toolCallHistory: history,
               })
               updated[lastMsgIndex] = lastMsg
@@ -954,9 +1006,13 @@ export const callAIAPI = async (
                     startedAtMs: consumeToolStartedAt(chunk.id, chunk.name),
                     existingDurationMs: null,
                   }),
-                  textIndex: normalizeStreamTextIndex(
-                    chunk.textIndex,
-                    (lastMsg.content || '').length + (pendingText || '').length,
+                  textIndex: resolveToolAnchorIndex(
+                    `${lastMsg.content || ''}${pendingText || ''}`,
+                    normalizeStreamTextIndex(
+                      chunk.textIndex,
+                      (lastMsg.content || '').length + (pendingText || '').length,
+                    ),
+                    chunk.name || 'tool',
                   ),
                   step: typeof chunk.step === 'number' ? chunk.step : undefined,
                   total: typeof chunk.total === 'number' ? chunk.total : undefined,
@@ -965,7 +1021,7 @@ export const callAIAPI = async (
               lastMsg.toolCallHistory = history
               lastMsg.streamBlocks = buildStreamBlocks({
                 content: lastMsg.content || '',
-                thoughtHistory: Array.isArray(lastMsg.thoughtHistory) ? lastMsg.thoughtHistory : [],
+                thoughtHistory: getThoughtHistoryForRebuild(lastMsg),
                 toolCallHistory: history,
               })
               updated[lastMsgIndex] = lastMsg
@@ -1052,7 +1108,7 @@ export const callAIAPI = async (
               lastMsg.toolCallHistory = history
               lastMsg.streamBlocks = buildStreamBlocks({
                 content: lastMsg.content || '',
-                thoughtHistory: Array.isArray(lastMsg.thoughtHistory) ? lastMsg.thoughtHistory : [],
+                thoughtHistory: getThoughtHistoryForRebuild(lastMsg),
                 toolCallHistory: history,
               })
               updated[lastMsgIndex] = lastMsg
@@ -1628,7 +1684,10 @@ export const finalizeMessage = async (
       return Array.isArray(latestAi?.researchSteps) ? latestAi.researchSteps : null
     })()
     const thoughtHistoryForPersistence = (() => {
-      return Array.isArray(latestAi?.thoughtHistory) ? latestAi.thoughtHistory : null
+      const direct = Array.isArray(latestAi?.thoughtHistory) ? latestAi.thoughtHistory : null
+      if (direct && direct.length > 0) return direct
+      const derived = deriveThoughtHistoryFromStreamBlocks(latestAi?.streamBlocks)
+      return derived.length > 0 ? derived : null
     })()
     const thoughtForPersistence = (() => {
       const payload = {}
@@ -1952,3 +2011,4 @@ export const finalizeMessage = async (
     })()
   }
 }
+

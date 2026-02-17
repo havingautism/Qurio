@@ -313,7 +313,6 @@ class StreamChatService:
             inline_tool_trace_depth = 0
             inline_protocol_tail = ""
             stream_trace = _is_stream_trace_enabled()
-            is_nvidia_provider = str(getattr(request, "provider", "") or "").strip().lower() == "nvidia"
 
             def trace_stream(stage: str, **kwargs: Any) -> None:
                 if not stream_trace:
@@ -349,7 +348,7 @@ class StreamChatService:
             def _extract_text_chunk(run_event: Any) -> str:
                 """Extract assistant text only from explicit content fields."""
                 provider_data = getattr(run_event, "model_provider_data", None)
-                if is_nvidia_provider and isinstance(provider_data, dict):
+                if isinstance(provider_data, dict):
                     # NVIDIA dedicated split:
                     # text -> delta.content, reasoning -> delta.reasoning_content
                     choices = provider_data.get("choices") or []
@@ -422,7 +421,7 @@ class StreamChatService:
 
             def _extract_reasoning_chunk(run_event: Any) -> str:
                 provider_data = getattr(run_event, "model_provider_data", None)
-                if is_nvidia_provider and isinstance(provider_data, dict):
+                if isinstance(provider_data, dict):
                     choices = provider_data.get("choices") or []
                     if choices and isinstance(choices[0], dict):
                         delta = choices[0].get("delta") or {}
@@ -1016,9 +1015,31 @@ class StreamChatService:
                             return
                 else:
                     # Simple event Fallback (no detailed event type), just check for content
-                    content = getattr(run_event, 'content', None)
-                    if content:
-                        for e in process_text(str(content)):
+                    raw_content_chunk = _extract_text_chunk(run_event)
+                    raw_content_chunk, inline_tool_trace_depth, inline_protocol_tail, _ = _strip_inline_tool_protocol(
+                        raw_content_chunk,
+                        inline_tool_trace_depth,
+                        inline_protocol_tail,
+                    )
+                    raw_reasoning = _extract_reasoning_chunk(run_event)
+                    content_segments, in_content_think_block = _split_content_by_think_tags(
+                        raw_content_chunk,
+                        in_content_think_block,
+                    )
+                    content_chunk = "".join(
+                        seg_text for seg_type, seg_text in content_segments if seg_type == "text"
+                    )
+                    inline_thought_chunk = "".join(
+                        seg_text for seg_type, seg_text in content_segments if seg_type == "thought"
+                    )
+                    if raw_reasoning:
+                        for event in emit_thought_part(str(raw_reasoning)):
+                            yield event
+                    if inline_thought_chunk:
+                        for event in emit_thought_part(str(inline_thought_chunk)):
+                            yield event
+                    if content_chunk:
+                        for e in process_text(content_chunk):
                             yield e
 
         except Exception as exc:
@@ -1035,7 +1056,7 @@ class StreamChatService:
         This method:
         1. Retrieves requirements from Supabase
         2. Fills in user-submitted field values
-        3. Continues the agent run with agent.acontinue_run()
+        3. Rebuilds continuation messages and runs agent.arun()
         4. Streams the completion
         5. Cleans up Supabase record
         """
@@ -1142,10 +1163,6 @@ class StreamChatService:
             paused_again = False  # Flag to prevent cleanup when multi-form chaining occurs
             stream_had_error = False
             completed_content_fallback = ""
-            is_nvidia_provider = str(getattr(request, "provider", "") or "").strip().lower() == "nvidia"
-            # Continuation safety: enable reasoning stream only for providers with
-            # reliable split channels (NVIDIA: delta.reasoning_content vs delta.content).
-            allow_continuation_reasoning = is_nvidia_provider
 
             def trace_stream(stage: str, **kwargs: Any) -> None:
                 if not stream_trace:
@@ -1179,7 +1196,7 @@ class StreamChatService:
 
             def _extract_text_chunk(run_event: Any) -> str:
                 provider_data = getattr(run_event, "model_provider_data", None)
-                if is_nvidia_provider and isinstance(provider_data, dict):
+                if isinstance(provider_data, dict):
                     # NVIDIA-compatible stream split (per provider example):
                     # content -> delta.content, reasoning -> delta.reasoning_content
                     choices = provider_data.get("choices") or []
@@ -1248,28 +1265,15 @@ class StreamChatService:
                                         parts.append(str(text_part))
                             if parts:
                                 return "".join(parts)
-                        # Continuation compatibility for non-NVIDIA providers only:
-                        # Some providers stream answer tokens under `delta.reasoning`.
-                        if not allow_continuation_reasoning:
-                            raw_reasoning_as_text = delta.get("reasoning")
-                            if isinstance(raw_reasoning_as_text, str) and raw_reasoning_as_text:
-                                return raw_reasoning_as_text
-                            if isinstance(raw_reasoning_as_text, list):
-                                parts = []
-                                for item in raw_reasoning_as_text:
-                                    if isinstance(item, dict):
-                                        text_part = item.get("text") or item.get("content")
-                                        if text_part:
-                                            parts.append(str(text_part))
-                                    elif isinstance(item, str) and item:
-                                        parts.append(item)
-                                if parts:
-                                    return "".join(parts)
+                        # IMPORTANT:
+                        # Do not route `delta.reasoning` into assistant text during HITL continuation.
+                        # Some providers emit hidden chain-of-thought in this field, which must never
+                        # be rendered in normal answer paragraphs.
                 return ""
 
             def _extract_reasoning_chunk(run_event: Any) -> str:
                 provider_data = getattr(run_event, "model_provider_data", None)
-                if is_nvidia_provider and isinstance(provider_data, dict):
+                if isinstance(provider_data, dict):
                     choices = provider_data.get("choices") or []
                     if choices and isinstance(choices[0], dict):
                         delta = choices[0].get("delta") or {}
@@ -1427,11 +1431,13 @@ class StreamChatService:
                                     raw_content_chunk,
                                     in_content_think_block,
                                 )
-                                # Continuation-safe behavior: treat run_content text as answer text.
-                                # This avoids providers leaking answer tokens into inline <think> blocks.
-                                content_chunk = "".join(seg_text for _, seg_text in content_segments)
-                                inline_thought_chunk = ""
-                                reasoning = raw_reasoning if allow_continuation_reasoning else ""
+                                content_chunk = "".join(
+                                    seg_text for seg_type, seg_text in content_segments if seg_type == "text"
+                                )
+                                inline_thought_chunk = "".join(
+                                    seg_text for seg_type, seg_text in content_segments if seg_type == "thought"
+                                )
+                                reasoning = raw_reasoning
                                 if reasoning and content_chunk and _is_reasoning_duplicate_of_content(
                                     str(reasoning),
                                     str(content_chunk),
@@ -1495,11 +1501,13 @@ class StreamChatService:
                                     raw_content_chunk,
                                     in_content_think_block,
                                 )
-                                # Continuation-safe behavior: treat run_content text as answer text.
-                                # This avoids providers leaking answer tokens into inline <think> blocks.
-                                content_chunk = "".join(seg_text for _, seg_text in content_segments)
-                                inline_thought_chunk = ""
-                                reasoning = raw_reasoning if allow_continuation_reasoning else ""
+                                content_chunk = "".join(
+                                    seg_text for seg_type, seg_text in content_segments if seg_type == "text"
+                                )
+                                inline_thought_chunk = "".join(
+                                    seg_text for seg_type, seg_text in content_segments if seg_type == "thought"
+                                )
+                                reasoning = raw_reasoning
                                 if reasoning and content_chunk and _is_reasoning_duplicate_of_content(
                                     str(reasoning),
                                     str(content_chunk),
@@ -1637,9 +1645,31 @@ class StreamChatService:
                                 return
                     else:
                         # Simple event Fallback
-                        content = getattr(run_event, 'content', None)
-                        if content:
-                            for e in process_text(str(content)):
+                        raw_content_chunk = _extract_text_chunk(run_event)
+                        raw_content_chunk, inline_tool_trace_depth, inline_protocol_tail, _ = _strip_inline_tool_protocol(
+                            raw_content_chunk,
+                            inline_tool_trace_depth,
+                            inline_protocol_tail,
+                        )
+                        raw_reasoning = _extract_reasoning_chunk(run_event)
+                        content_segments, in_content_think_block = _split_content_by_think_tags(
+                            raw_content_chunk,
+                            in_content_think_block,
+                        )
+                        content_chunk = "".join(
+                            seg_text for seg_type, seg_text in content_segments if seg_type == "text"
+                        )
+                        inline_thought_chunk = "".join(
+                            seg_text for seg_type, seg_text in content_segments if seg_type == "thought"
+                        )
+                        if raw_reasoning:
+                            for event in emit_thought_part(str(raw_reasoning)):
+                                yield event
+                        if inline_thought_chunk:
+                            for event in emit_thought_part(str(inline_thought_chunk)):
+                                yield event
+                        if content_chunk:
+                            for e in process_text(content_chunk):
                                 yield e
 
             def _build_fallback_messages():
@@ -1672,59 +1702,61 @@ class StreamChatService:
                     })
                 return updated_messages
 
-            use_native_continue = str(os.getenv("HITL_USE_NATIVE_CONTINUE_RUN", "")).lower() in {
-                "1",
-                "true",
-                "yes",
-            }
+            def _build_continuation_agent_input(base_messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+                messages = self._inject_local_time_context(list(base_messages), request, [])
+                system_messages = [m for m in messages if m.get("role") == "system"]
+                chat_messages = [m for m in messages if m.get("role") != "system"]
 
-            if use_native_continue:
-                logger.info(
-                    f"Calling agent.acontinue_run for run_id: {run_id}, session_id: {request.conversation_id}"
+                raw_turn_limit = request.context_turn_limit
+                turn_limit = (
+                    max(1, min(50, int(raw_turn_limit)))
+                    if isinstance(raw_turn_limit, int) and raw_turn_limit > 0
+                    else 2
                 )
-                try:
-                    stream = agent.acontinue_run(
-                        run_id=run_id,
-                        session_id=request.conversation_id,
-                        requirements=requirements,
-                        stream=True,
-                        stream_events=True,  # Enable detailed events (tools, thoughts, etc.)
+                user_indices = [i for i, m in enumerate(chat_messages) if m.get("role") == "user"]
+                user_turn_count = len(user_indices)
+                if user_turn_count > turn_limit:
+                    cutoff_index = user_indices[-turn_limit]
+                    recent_history = chat_messages[cutoff_index:]
+                else:
+                    recent_history = chat_messages
+
+                should_inject_summary = bool(session_summary_text) and (user_turn_count > turn_limit)
+                if should_inject_summary:
+                    summary_prompt = (
+                        "\n\nSession memory summary:\n"
+                        "Here is a summary of the conversation so far. Use this to understand long-term context, "
+                        "but prioritize the details in the recent messages below.\n"
+                        f"{session_summary_text}\n"
                     )
-                    async for event in _stream_events(stream, is_continuation_attempt=True):
-                        yield event
-                except Exception as exc:
-                    logger.warning(f"HITL acontinue_run failed, falling back to fresh run: {exc}")
-                    stream_had_error = False
-                    fallback_messages = _build_fallback_messages()
-                    if not fallback_messages:
-                        yield ErrorEvent(error="Form session cannot be resumed (missing state)").model_dump()
-                        return
-                    stream = agent.arun(
-                        input=fallback_messages,
-                        stream=True,
-                        stream_events=True,
-                        user_id=request.user_id,
-                        session_id=request.conversation_id,
-                    )
-                    async for event in _stream_events(stream):
-                        yield event
-            else:
-                # Default path: use reconstructed messages for continuation.
-                # This avoids noisy "No runs found for run ID" errors when Agno run
-                # state is not persisted across requests/workers.
-                fallback_messages = _build_fallback_messages()
-                if not fallback_messages:
-                    yield ErrorEvent(error="Form session cannot be resumed (missing state)").model_dump()
-                    return
-                stream = agent.arun(
-                    input=fallback_messages,
-                    stream=True,
-                    stream_events=True,
-                    user_id=request.user_id,
-                    session_id=request.conversation_id,
-                )
-                async for event in _stream_events(stream):
-                    yield event
+                    if system_messages:
+                        last_sys = system_messages[-1]
+                        if "Session memory summary:" not in str(last_sys.get("content", "")):
+                            last_sys["content"] = str(last_sys.get("content", "")) + summary_prompt
+                    else:
+                        system_messages.append({"role": "system", "content": summary_prompt})
+
+                return system_messages + recent_history
+
+            fallback_messages = _build_fallback_messages()
+            if not fallback_messages:
+                yield ErrorEvent(error="Form session cannot be resumed (missing state)").model_dump()
+                return
+
+            agent_input = _build_continuation_agent_input(fallback_messages)
+            logger.info(
+                f"Running HITL continuation with rebuilt messages (run_id: {run_id}, session_id: {request.conversation_id})"
+            )
+            stream = agent.arun(
+                input=agent_input,
+                stream=True,
+                stream_events=True,
+                user_id=request.user_id,
+                session_id=request.conversation_id,
+                output_schema=request.output_schema,
+            )
+            async for event in _stream_events(stream):
+                yield event
 
             if stream_had_error:
                 logger.warning(f"HITL run {run_id} ended with stream error; skipping done/cleanup")

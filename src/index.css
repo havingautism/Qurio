@@ -805,6 +805,31 @@ h6 {
   animation: diagonal-shine 8s ease-in-out infinite;
 }
 
+@keyframes scroll-bottom-breathe {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 0 rgba(99, 102, 241, 0.08),
+      0 0 0 1px rgba(99, 102, 241, 0.2);
+  }
+  50% {
+    box-shadow:
+      0 0 0 6px rgba(99, 102, 241, 0.08),
+      0 0 0 1px rgba(99, 102, 241, 0.42),
+      0 10px 24px -14px rgba(99, 102, 241, 0.7);
+  }
+}
+
+.scroll-to-bottom-breathing {
+  animation: scroll-bottom-breathe 1.9s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scroll-to-bottom-breathing {
+    animation: none;
+  }
+}
+
 /* Premium Card Effects */
 .premium-card-bg {
   @apply border border-gray-200/50 bg-white/40 shadow-xs backdrop-blur-md dark:border-zinc-700/50 dark:bg-zinc-900/40;

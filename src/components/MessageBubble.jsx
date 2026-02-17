@@ -7,6 +7,7 @@ import useChatStore from '../lib/chatStore'
 import clsx from 'clsx'
 import {
   Check,
+  RotateCcw,
   ChevronDown,
   ChevronRight,
   Copy,
@@ -276,6 +277,7 @@ const MessageBubble = ({
   onEdit,
   onDelete,
   onRegenerateAnswer,
+  onUserRegenerate,
   onQuote,
   onFormSubmit,
   messageOverride = null,
@@ -1187,6 +1189,41 @@ const MessageBubble = ({
             key: `stream-tool-${block.type || 'tool'}-${block.toolCallId || 'na'}-${block.seq}`,
             items: [toolItem],
           })
+        }
+      }
+    }
+
+    if (!isDeepResearch && parts.length > 1) {
+      const firstNonThoughtIndex = parts.findIndex(part => part.type !== 'thought')
+      if (firstNonThoughtIndex > 0 && parts[firstNonThoughtIndex]?.type === 'text') {
+        const thoughtPrefix = parts
+          .slice(0, firstNonThoughtIndex)
+          .filter(part => part.type === 'thought')
+          .map(part => String(part.content || ''))
+          .join('')
+        const textPart = String(parts[firstNonThoughtIndex].content || '')
+        const compactThought = thoughtPrefix.replace(/\s+/g, '')
+        const compactText = textPart.replace(/\s+/g, '')
+        if (compactThought && compactText) {
+          const minLen = Math.min(compactThought.length, compactText.length)
+          if (minLen >= 24) {
+            let common = 0
+            while (common < minLen && compactThought[common] === compactText[common]) common += 1
+            const overlapRatio = common / minLen
+            if (overlapRatio >= 0.92) {
+              const trimmedText = textPart.trimStart()
+              if (trimmedText.startsWith(thoughtPrefix)) {
+                const deduped = trimmedText.slice(thoughtPrefix.length).trimStart()
+                if (deduped) {
+                  parts[firstNonThoughtIndex] = { ...parts[firstNonThoughtIndex], content: deduped }
+                } else {
+                  parts.splice(firstNonThoughtIndex, 1)
+                }
+              } else if (compactText.startsWith(compactThought)) {
+                parts.splice(firstNonThoughtIndex, 1)
+              }
+            }
+          }
         }
       }
     }
@@ -2371,6 +2408,13 @@ const MessageBubble = ({
     const isDeepResearchContext =
       nextMessage?.agentName === 'Deep Research Agent' ||
       nextMessage?.agent_name === 'Deep Research Agent'
+    const nextUserIndex = messages.findIndex((m, idx) => idx > messageIndex && m.role === 'user')
+    const replyScanEnd = nextUserIndex === -1 ? messages.length : nextUserIndex
+    const hasAssistantReplyForCurrentQuestion = messages
+      .slice(messageIndex + 1, replyScanEnd)
+      .some(m => m?.role === 'ai')
+    const canResendThisQuestion =
+      !!onUserRegenerate && !isDeepResearchContext && !hasAssistantReplyForCurrentQuestion
 
     return (
       <div
@@ -2496,6 +2540,25 @@ const MessageBubble = ({
             {!isDeepResearchContext && (
               <div className="flex items-center gap-1 px-1">
                 <div className="flex items-center gap-1">
+                  {canResendThisQuestion && (
+                    <button
+                      onClick={() => {
+                        showConfirmation({
+                          title: t('confirmation.resendTitle'),
+                          message: t('confirmation.resendMessage'),
+                          confirmText: t('common.confirm'),
+                          onConfirm: onUserRegenerate,
+                        })
+                      }}
+                      className="group/icon flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-gray-500 transition-all duration-200 hover:bg-gray-100 hover:text-gray-700 dark:text-white dark:hover:bg-zinc-800 dark:hover:text-gray-200"
+                      title={t('messageBubble.regenerate')}
+                    >
+                      <RotateCcw size={14} />
+                      <span className="hidden max-w-0 overflow-hidden text-xs font-medium whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover/icon:max-w-[70px] group-hover/icon:opacity-100 sm:block">
+                        {t('messageBubble.regenerate')}
+                      </span>
+                    </button>
+                  )}
                   {onEdit && (
                     <button
                       onClick={() => onEdit()}

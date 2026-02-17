@@ -322,7 +322,7 @@
     "backendConfiguration": "Backend Configuration",
     "backendConfigurationHint": "Configure the backend API used by the app.",
     "backendUrl": "Backend URL",
-    "backendUrlPlaceholder": "http://localhost:3001",
+    "backendUrlPlaceholder": "http://127.0.0.1:3002",
     "backendHealthCheck": "Test backend health",
     "backendHealthChecking": "Checking backend health…",
     "backendHealthCheckSuccess": "Backend is reachable",

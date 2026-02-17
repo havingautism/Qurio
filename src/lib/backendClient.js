@@ -9,7 +9,7 @@ import { getSupabaseClient } from './supabase'
 // Backend URL - env > user settings
 const getBackendUrl = () => {
   const settings = loadSettings()
-  return settings.backendUrl || 'http://localhost:3001'
+  return settings.backendUrl || 'http://127.0.0.1:3002'
 }
 
 const getBackendErrorMessage = (error, status) => {

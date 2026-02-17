@@ -19,7 +19,15 @@ export default defineConfig(({ env }) => {
   const assetPrefix = isDev ? '/' : process.env.PUBLIC_BASE_PATH || '/Qurio/'
 
   return {
-    plugins: [pluginReact(), pluginNodePolyfill()],
+    plugins: [
+      pluginReact({
+        reactRefreshOptions: {
+          // Auto-reload page for unrecoverable HMR runtime errors (e.g. module factory undefined).
+          reloadOnRuntimeErrors: true,
+        },
+      }),
+      pluginNodePolyfill(),
+    ],
     html: {
       template: './index.html',
     },
@@ -41,6 +49,11 @@ export default defineConfig(({ env }) => {
     },
     server: {
       host: '0.0.0.0',
+      client: {
+        overlay: {
+          runtime: false,
+        },
+      },
       proxy:
         openAIBaseUrl || glmBaseUrl || modelscopeBaseUrl || kimiBaseUrl
           ? {

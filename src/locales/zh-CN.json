@@ -306,7 +306,7 @@
     "backendConfiguration": "后端配置",
     "backendConfigurationHint": "用于配置应用连接的后端 API。",
     "backendUrl": "后端 URL",
-    "backendUrlPlaceholder": "http://localhost:3001",
+    "backendUrlPlaceholder": "http://127.0.0.1:3002",
     "backendHealthCheck": "检测后端健康",
     "backendHealthChecking": "正在检测后端…",
     "backendHealthCheckSuccess": "后端可访问",

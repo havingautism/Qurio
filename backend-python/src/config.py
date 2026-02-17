@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
     # Server Configuration
-    host: str = Field(default="198.18.0.1", alias="HOST")
+    host: str = Field(default="127.0.0.1", alias="HOST")
     port: int = Field(default=3002, alias="PORT")
 
     # CORS Configuration

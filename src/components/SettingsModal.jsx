@@ -63,7 +63,7 @@ const ENV_VARS = {
 
 const getBackendUrl = () => {
   const settings = loadSettings()
-  return settings.backendUrl || 'http://localhost:3001'
+  return settings.backendUrl || 'http://127.0.0.1:3002'
 }
 
 // Minimal copy of supabase/init.sql for quick remediation in-app
@@ -2094,7 +2094,7 @@ const SettingsModal = ({ isOpen, onClose, onOpenDatabaseSetup }) => {
 
   const resolveBackendUrlForHealthCheck = () => {
     const settings = loadSettings()
-    return ENV_VARS.backendUrl || backendUrl || settings.backendUrl || 'http://localhost:3001'
+    return ENV_VARS.backendUrl || backendUrl || settings.backendUrl || 'http://127.0.0.1:3002'
   }
 
   const handleBackendHealthCheck = async () => {

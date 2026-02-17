@@ -7,10 +7,58 @@ import data from '@emoji-mart/data'
 import { init } from 'emoji-mart'
 import { getNodeEnv, getPublicEnv } from './lib/publicEnv'
 
+const shouldRedirectHomeOnRuntimeError = message => {
+  const text = String(message || '')
+  return (
+    text.includes('RuntimeError: factory is undefined') && text.includes('longTermMemoryService.js')
+  )
+}
+
+const setupRuntimeErrorRecovery = () => {
+  if (typeof window === 'undefined' || getNodeEnv() !== 'development') return
+  if (window.__qurioRuntimeRecoveryBound) return
+  window.__qurioRuntimeRecoveryBound = true
+
+  let redirected = false
+  const redirectHomeOnce = () => {
+    if (redirected) return
+    redirected = true
+    const homePath = (getPublicEnv('PUBLIC_BASE_PATH') || '/').replace(/\/?$/, '/')
+    if (window.location.pathname !== homePath) {
+      window.location.replace(homePath)
+    }
+  }
+
+  window.addEventListener('error', event => {
+    const message = event?.error?.message || event?.message || ''
+    if (shouldRedirectHomeOnRuntimeError(message)) redirectHomeOnce()
+  })
+
+  window.addEventListener('unhandledrejection', event => {
+    const reason = event?.reason
+    let serializedReason = ''
+    if (typeof reason === 'object' && reason !== null) {
+      try {
+        serializedReason = JSON.stringify(reason)
+      } catch {
+        serializedReason = ''
+      }
+    }
+    const message =
+      (typeof reason === 'string' ? reason : reason?.message) ||
+      serializedReason
+    if (shouldRedirectHomeOnRuntimeError(message)) redirectHomeOnce()
+  })
+}
+
 // Initialize emoji-mart with reliable CDN for Twitter emojis
 // Using emoji-datasource-twitter explicitly as @emoji-mart/data might not serve images on all CDNs
 // Register Service Worker
-if ('serviceWorker' in navigator) {
+if (
+  'serviceWorker' in navigator &&
+  typeof window !== 'undefined' &&
+  (window.location.protocol === 'http:' || window.location.protocol === 'https:')
+) {
   if (getNodeEnv() === 'production') {
     window.addEventListener('load', () => {
       const basePath = (getPublicEnv('PUBLIC_BASE_PATH') || '/Qurio/').replace(/\/?$/, '/')
@@ -40,6 +88,8 @@ init({
     return `https://cdn.jsdelivr.net/npm/emoji-datasource-google@15.0.1/img/google/sheets/${sheetSize}.png`
   },
 })
+
+setupRuntimeErrorRecovery()
 
 // Load Maple Mono CN from CDN for code blocks.
 const mapleMonoStylesheetId = 'maple-mono-cn-stylesheet'
